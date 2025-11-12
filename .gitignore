@@ -1,0 +1,108 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Project specific
+*.dxf
+*.dwg
+*.step
+*.stp
+*.iges
+*.igs
+*.stl
+uploads/
+temp/
+cache/
+logs/
+*.log
+
+# Model files (keep structure but not actual models)
+models/*.pkl
+models/*.h5
+models/*.pth
+models/*.onnx
+!models/.gitkeep
+
+# Config files with secrets
+config/config.yaml
+config/production.yaml
+config/secrets.yaml
+.env
+.env.local
+.env.production
+
+# Docker
+docker-compose.override.yml
+
+# Data
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Test coverage
+coverage.xml
+*.cover
+.coverage.*
+
+# Documentation build
+docs/_build/
+docs/site/
+
+# Redis
+dump.rdb
+appendonly.aof
