@@ -1,0 +1,271 @@
+"""Vision endpoint tests - MVP happy path validation.
+
+Tests:
+1. /api/v1/vision/analyze with stub provider
+2. /api/v1/vision/health check
+3. Error handling for invalid inputs
+"""
+
+import pytest
+import base64
+from fastapi.testclient import TestClient
+
+
+# ========== Test Fixtures ==========
+
+
+@pytest.fixture
+def sample_image_bytes() -> bytes:
+    """Return sample image bytes (1x1 PNG)."""
+    # Minimal 1x1 PNG (black pixel)
+    png_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00\x00\x00\x00:~\x9bU\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
+    return png_bytes
+
+
+@pytest.fixture
+def sample_image_base64(sample_image_bytes) -> str:
+    """Return sample image as base64 string."""
+    return base64.b64encode(sample_image_bytes).decode('utf-8')
+
+
+# ========== Vision Endpoint Tests ==========
+
+
+def test_vision_analyze_with_base64_happy_path(sample_image_base64):
+    """
+    Test /api/v1/vision/analyze with valid base64 image.
+
+    Expected behavior:
+    - Returns success=True
+    - Description present from stub provider
+    - No OCR (manager not connected yet)
+    - Processing time > 0
+    """
+    from src.api.v1.vision import router
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1")
+    client = TestClient(app)
+
+    # Prepare request
+    request_data = {
+        "image_base64": sample_image_base64,
+        "include_description": True,
+        "include_ocr": False,  # OCR not yet connected
+        "ocr_provider": "auto"
+    }
+
+    # Make request
+    response = client.post("/api/v1/vision/analyze", json=request_data)
+
+    # Assertions
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["success"] is True
+    assert data["provider"] == "deepseek_stub"
+    assert data["description"] is not None
+    assert "cylindrical part" in data["description"]["summary"].lower()
+    assert len(data["description"]["details"]) > 0
+    assert 0.0 < data["description"]["confidence"] <= 1.0
+    assert data["ocr"] is None  # Not yet connected
+    assert data["processing_time_ms"] > 0
+
+
+def test_vision_analyze_missing_image_error():
+    """
+    Test /api/v1/vision/analyze with missing image data.
+
+    Expected behavior:
+    - Returns HTTP 400
+    - Error message indicates missing input
+    """
+    from src.api.v1.vision import router
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1")
+    client = TestClient(app)
+
+    # Request with no image
+    request_data = {
+        "include_description": True,
+        "include_ocr": False
+    }
+
+    response = client.post("/api/v1/vision/analyze", json=request_data)
+
+    # Should return 400 Bad Request
+    assert response.status_code == 400
+    assert "image" in response.json()["detail"].lower()
+
+
+def test_vision_analyze_invalid_base64_error():
+    """
+    Test /api/v1/vision/analyze with invalid base64 data.
+
+    Expected behavior:
+    - Returns HTTP 400
+    - Error message indicates invalid base64
+    """
+    from src.api.v1.vision import router
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1")
+    client = TestClient(app)
+
+    # Invalid base64
+    request_data = {
+        "image_base64": "this-is-not-valid-base64!!!",
+        "include_description": True
+    }
+
+    response = client.post("/api/v1/vision/analyze", json=request_data)
+
+    # Should return 400 Bad Request
+    assert response.status_code == 400
+    assert "base64" in response.json()["detail"].lower()
+
+
+def test_vision_health_check():
+    """
+    Test /api/v1/vision/health endpoint.
+
+    Expected behavior:
+    - Returns 200
+    - Status is healthy
+    - Provider name is deepseek_stub
+    - OCR enabled is true (OCRManager connected in Phase 2)
+    """
+    from src.api.v1.vision import router
+    from fastapi import FastAPI
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1")
+    client = TestClient(app)
+
+    response = client.get("/api/v1/vision/health")
+
+    assert response.status_code == 200
+
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert data["provider"] == "deepseek_stub"
+    assert data["ocr_enabled"] is True  # OCRManager connected in Phase 2
+
+
+# ========== Stub Provider Direct Tests ==========
+
+
+@pytest.mark.asyncio
+async def test_stub_provider_direct(sample_image_bytes):
+    """
+    Test DeepSeekStubProvider directly (unit test).
+
+    Validates:
+    - Fixed description generation
+    - Simulated latency
+    - Confidence score
+    """
+    from src.core.vision.providers import create_stub_provider
+
+    provider = create_stub_provider(simulate_latency_ms=10.0)
+
+    # Analyze image
+    result = await provider.analyze_image(
+        image_data=sample_image_bytes,
+        include_description=True
+    )
+
+    # Assertions
+    assert result.summary is not None
+    assert "cylindrical" in result.summary.lower() or "mechanical" in result.summary.lower()
+    assert len(result.details) > 0
+    assert 0.0 < result.confidence <= 1.0
+
+
+@pytest.mark.asyncio
+async def test_stub_provider_no_description(sample_image_bytes):
+    """
+    Test stub provider with include_description=False.
+
+    Expected:
+    - Minimal description
+    - Confidence still present
+    """
+    from src.core.vision.providers import create_stub_provider
+
+    provider = create_stub_provider(simulate_latency_ms=0)
+
+    result = await provider.analyze_image(
+        image_data=sample_image_bytes,
+        include_description=False
+    )
+
+    # Should return minimal description
+    assert result.summary is not None
+    assert len(result.details) == 0
+    assert result.confidence == 1.0
+
+
+@pytest.mark.asyncio
+async def test_stub_provider_empty_image_error():
+    """
+    Test stub provider with empty image data.
+
+    Expected:
+    - Raises ValueError
+    """
+    from src.core.vision.providers import create_stub_provider
+
+    provider = create_stub_provider()
+
+    with pytest.raises(ValueError, match="cannot be empty"):
+        await provider.analyze_image(
+            image_data=b"",  # Empty bytes
+            include_description=True
+        )
+
+
+# ========== Vision Manager Tests ==========
+
+
+@pytest.mark.asyncio
+async def test_vision_manager_without_ocr(sample_image_base64):
+    """
+    Test VisionManager end-to-end without OCR integration.
+
+    Validates:
+    - Request → Manager → Response flow
+    - Description present, OCR absent
+    - Processing time tracked
+    """
+    from src.core.vision import VisionManager, VisionAnalyzeRequest, create_stub_provider
+
+    # Create manager
+    provider = create_stub_provider(simulate_latency_ms=20)
+    manager = VisionManager(vision_provider=provider, ocr_manager=None)
+
+    # Create request
+    request = VisionAnalyzeRequest(
+        image_base64=sample_image_base64,
+        include_description=True,
+        include_ocr=False
+    )
+
+    # Analyze
+    response = await manager.analyze(request)
+
+    # Assertions
+    assert response.success is True
+    assert response.description is not None
+    assert response.ocr is None  # No OCR manager
+    assert response.provider == "deepseek_stub"
+    assert response.processing_time_ms > 0
+    assert response.error is None
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
