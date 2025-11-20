@@ -1,0 +1,19 @@
+{
+  "dimensions": [
+    {
+      "type": "diameter",
+      "value": 20,
+      "tolerance": 0.02,
+    },
+    {
+      "type": "radius",
+      "value": 5,
+    },
+  ],
+  "symbols": [
+    {
+      "type": "surface_roughness",
+      "value": "3.2",
+    },
+  ],
+}

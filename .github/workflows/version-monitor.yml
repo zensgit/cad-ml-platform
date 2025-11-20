@@ -1,0 +1,60 @@
+name: Version Monitoring
+
+on:
+  schedule:
+    # Run weekly on Monday at 3 AM UTC
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    inputs:
+      create_issue:
+        description: 'Create issue for major updates'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.11'
+  ENABLE_VERSION_MONITOR: ${{ vars.ENABLE_VERSION_MONITOR || '1' }}
+  # Optimize for CI
+  MPLCONFIGDIR: /tmp/matplotlib
+  XDG_CACHE_HOME: /tmp/cache
+
+jobs:
+  check-updates:
+    name: Check for dependency updates
+    runs-on: ubuntu-latest
+    if: ${{ env.ENABLE_VERSION_MONITOR == '1' }}
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install optional dependencies
+      run: |
+        python -m pip install --upgrade pip
+        # Install jsonschema for enhanced validation
+        pip install jsonschema==4.21.1
+
+    - name: Check Chart.js updates
+      id: chartjs
+      run: |
+        echo "Checking for Chart.js updates..."
+        python3 scripts/check_chartjs_updates.py \
+          ${{ github.event.inputs.create_issue == 'true' && '--create-issue' || '' }} \
+          || echo "Check skipped or failed (non-critical)"
+
+    - name: Create job summary
+      run: |
+        echo "# 📦 Dependency Version Check" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "## Chart.js" >> $GITHUB_STEP_SUMMARY
+        echo "- Current: $(jq -r '.chartjs.version' config/eval_frontend.json)" >> $GITHUB_STEP_SUMMARY
+        echo "- Check performed: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "*Note: This workflow only monitors versions. Updates must be performed manually.*" >> $GITHUB_STEP_SUMMARY

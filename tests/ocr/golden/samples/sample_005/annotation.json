@@ -1,0 +1,7 @@
+{
+  "dimensions": [
+    {"type": "diameter", "value": 20.0, "tol_pos": 0.02, "tol_neg": 0.01, "unit": "mm", "bbox": [60,90,60,22]},
+    {"type": "thread", "value": 10.0, "unit": "mm", "bbox": [130,120,80,26]}
+  ],
+  "symbols": []
+}

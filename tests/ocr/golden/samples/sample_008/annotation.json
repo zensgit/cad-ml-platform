@@ -1,0 +1,8 @@
+{
+  "dimensions": [
+    {"type": "radius", "value": 1.0, "tolerance": 0.02, "unit": "mm", "bbox": [40,60,36,16]},
+    {"type": "radius", "value": 1.5, "tolerance": 0.02, "unit": "mm", "bbox": [85,65,38,16]},
+    {"type": "radius", "value": 2.0, "tolerance": 0.02, "unit": "mm", "bbox": [130,70,40,16]}
+  ],
+  "symbols": []
+}

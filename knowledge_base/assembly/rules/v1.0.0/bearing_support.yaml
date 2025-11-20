@@ -1,0 +1,88 @@
+version: 1.0.0
+name: bearing_support_rules
+description: 轴承支撑规则库
+created: 2025-01-13
+author: CAD-ML-Platform Team
+
+rules:
+  - id: deep_groove_ball_bearing
+    name: 深沟球轴承支撑
+    conditions:
+      - type: shaft_diameter_matches_inner_race
+      - type: housing_bore_matches_outer_race
+      - type: proper_clearance
+    parameters:
+      bearing_type:
+        value: "6xxx_series"
+      clearance:
+        radial:
+          min: 0.01
+          max: 0.05
+          unit: mm
+        axial:
+          min: 0.05
+          max: 0.2
+          unit: mm
+    evidence_requirements:
+      - geometric: cylindrical_fit
+      - textual: bearing_designation
+    confidence_weight: 0.92
+
+  - id: angular_contact_bearing
+    name: 角接触轴承支撑
+    conditions:
+      - type: axial_load_present
+      - type: proper_preload
+    parameters:
+      contact_angle:
+        options: [15, 25, 40]
+        unit: degree
+      arrangement:
+        options: [back_to_back, face_to_face, tandem]
+    confidence_weight: 0.88
+
+  - id: tapered_roller_bearing
+    name: 圆锥滚子轴承支撑
+    conditions:
+      - type: combined_load_present
+      - type: proper_adjustment
+    parameters:
+      included_angle:
+        min: 10
+        max: 30
+        unit: degree
+    confidence_weight: 0.85
+
+mappings:
+  solidworks:
+    - mate_type: "Concentric"
+      with_conditions:
+        - part_contains_keyword: "bearing"
+      maps_to: bearing_fit
+      extract_params:
+        - clearance: from_tolerance_stack
+
+  fusion360:
+    - mate_type: "Revolute"
+      with_conditions:
+        - component_name_contains: ["6201", "6202", "bearing"]
+      maps_to: bearing_support
+
+  creo:
+    - constraint_type: "Insert"
+      with_conditions:
+        - has_bearing_geometry
+      maps_to: bearing_fit
+
+tolerance_recommendations:
+  shaft_tolerance:
+    - load_type: rotating_inner_ring
+      tolerance: k6
+    - load_type: stationary_inner_ring
+      tolerance: h6
+
+  housing_tolerance:
+    - load_type: rotating_outer_ring
+      tolerance: M7
+    - load_type: stationary_outer_ring
+      tolerance: H7

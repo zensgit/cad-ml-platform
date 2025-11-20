@@ -1,40 +1,36 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `src/` FastAPI app and core logic (`src/main.py`, `src/api/v1/…`).
-- `tests/` Python tests (create `unit/`, `integration/` subfolders as needed).
-- `deployments/docker/` Dockerfile and `docker-compose.yml`.
-- `clients/` Example SDKs (e.g., `clients/python/cad_ml_client.py`).
-- `docs/` Design plans and integration notes; `scripts/` helper scripts.
-- `config/`, `knowledge_base/` Configuration and domain data.
+- `src/main.py` FastAPI entry; Prometheus at `/metrics`, health at `/health`.
+- `src/api/v1/` API routers (`analyze`, `similarity`, `classify`); register in `src/api/__init__.py`.
+- `src/core/` Core logic (analyzers, adapters, models); `src/utils/` shared utils.
+- `deployments/docker/` Compose files and images; `docs/` design notes; `examples/` demos.
+- `tests/` Pytest suites (add `unit/`, `integration/` as needed).
 
 ## Build, Test, and Development Commands
-- Create env: `python -m venv .venv && source .venv/bin/activate`
-- Install deps: `pip install -r requirements.txt`
-- Run API (dev): `uvicorn src.main:app --reload`
-- Compose stack: `docker-compose -f deployments/docker/docker-compose.yml up -d`
-  - Exposes API, Redis, Prometheus; metrics at `/metrics`.
+- Setup env: `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`
+- Run API (dev): `uvicorn src.main:app --reload` (docs at `/docs`).
+- Make targets: `make run`, `make test`, `make format`, `make lint`, `make type-check`.
+- Docker compose: `docker-compose -f deployments/docker/docker-compose.yml up -d`.
 
 ## Coding Style & Naming Conventions
-- Python 3.10+, 4-space indent, add type hints in new/changed code.
-- Format/lint/type-check: `black src tests`, `flake8 src tests`, `mypy src`.
-- Names: `snake_case` (functions/files), `PascalCase` (classes), `UPPER_SNAKE` (constants).
-- FastAPI: place routes under `src/api/v1/` and register in `src/api/__init__.py`.
-- Use `src.utils.logging` for logs; avoid `print`.
+- Python 3.10+, 4-space indent, mandatory type hints for new code.
+- Format/lint/type: `black src tests`, `isort --profile black`, `flake8 --max-line-length=100`, `mypy src`.
+- Naming: `snake_case` functions/modules, `PascalCase` classes, `UPPER_SNAKE` constants.
+- FastAPI: place new routes under `src/api/v1/…` and register in `src/api/__init__.py`; prefer dependency injection and Pydantic models.
+- Logging via `src/utils/logging`; avoid `print` and global state.
 
 ## Testing Guidelines
-- Frameworks: `pytest`, `pytest-asyncio`, coverage via `pytest-cov`.
-- Naming: files `tests/test_*.py`; functions `test_*`.
-- Run tests: `pytest tests/`
-- Coverage: `pytest --cov=src --cov-report=term-missing`
-- Aim for ≥80% coverage on changed lines; cover async paths.
+- Use `pytest` (+ `pytest-asyncio` for async). Name files `tests/test_*.py` and functions `test_*`.
+- Run: `pytest tests -v --cov=src --cov-report=term-missing`.
+- Cover happy paths and failures (e.g., empty file, unsupported format). Mock Redis/external calls for determinism.
+- Target ≥80% coverage on changed lines; add golden cases for CAD parsing when possible.
 
 ## Commit & Pull Request Guidelines
-- Conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`.
-  - Example: `fix: handle Redis readiness failure in /ready`
-- PRs must include: description, linked issues, test plan, API changes (routes/models), and cURL examples for new endpoints.
-- CI must pass; no lint/type errors; code formatted.
+- Conventional commits (`feat:`, `fix:`, `docs:`, `refactor:`, `chore:`). Example: `feat: add /api/v1/ocr/extract endpoint`.
+- PR checklist: clear description, linked issue, test plan, API diffs (routes/models), sample cURL, and screenshots/logs if relevant.
+- CI must pass (lint/type/tests). Run `make pre-commit` locally before pushing.
 
 ## Security & Configuration Tips
-- Do not commit secrets; configure via env (e.g., `REDIS_URL`, provider API keys). Pass API key header `X-API-Key` to protected routes.
-- Update CORS/hosts in `src/core/config.py` carefully and document changes.
+- Never commit secrets. Configure via env (e.g., `REDIS_URL`, API keys); document new vars in `README.md`.
+- Review CORS/Trusted Hosts in settings before exposing services; prefer least privilege for service accounts.

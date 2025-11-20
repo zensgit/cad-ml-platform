@@ -1,0 +1,47 @@
+{
+  "timestamp": "2025-11-19T01:37:25.311328+00:00",
+  "duration": 2.71989107131958,
+  "pass_rate": 100.0,
+  "results": [
+    {
+      "step": "Integrity Check",
+      "passed": true,
+      "details": null
+    },
+    {
+      "step": "Combined Evaluation",
+      "passed": true,
+      "details": "0.821"
+    },
+    {
+      "step": "JSON Validation",
+      "passed": true,
+      "details": null
+    },
+    {
+      "step": "Basic Report",
+      "passed": true,
+      "details": null
+    },
+    {
+      "step": "Enhanced Report",
+      "passed": true,
+      "details": null
+    },
+    {
+      "step": "Retention Policy",
+      "passed": true,
+      "details": "Found 8 evaluation files"
+    },
+    {
+      "step": "Version Check",
+      "passed": true,
+      "details": null
+    },
+    {
+      "step": "Health Check",
+      "passed": true,
+      "details": null
+    }
+  ]
+}

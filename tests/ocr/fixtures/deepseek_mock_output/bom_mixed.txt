@@ -1,0 +1,34 @@
+Analysis complete.
+
+Drawing Information:
+图号: DWG-2025-001
+材料: 不锈钢 304
+
+Extracted dimensions:
+```json
+{
+  "dimensions": [
+    {
+      "type": "diameter",
+      "value": 25,
+      "tolerance": 0.03,
+      "unit": "mm"
+    },
+    {
+      "type": "thread",
+      "value": 8,
+      "pitch": 1.25,
+      "unit": "mm"
+    }
+  ],
+  "symbols": [
+    {
+      "type": "surface_roughness",
+      "value": "6.3"
+    }
+  ]
+}
+```
+
+Additional context: Part Name: 连接件
+Note: All tolerances are bilateral unless otherwise specified.

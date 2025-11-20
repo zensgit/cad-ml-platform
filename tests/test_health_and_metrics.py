@@ -1,0 +1,62 @@
+from fastapi.testclient import TestClient
+from src.main import app
+from src.core.errors import ErrorCode  # noqa: F401 (referenced if extending tests)
+
+client = TestClient(app)
+
+
+def test_health_contains_runtime_info():
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "runtime" in data
+    assert "python_version" in data["runtime"]
+    assert "metrics_enabled" in data["runtime"]
+    # error_rate_ema structure present
+    assert "error_rate_ema" in data["runtime"]
+    assert "ocr" in data["runtime"]["error_rate_ema"]
+    assert "vision" in data["runtime"]["error_rate_ema"]
+
+    # Touch endpoints to update EMA values
+    client.post("/api/v1/vision/analyze", json={"image_base64": "aGVsbG8=", "include_description": False})
+    files = {"file": ("fake.txt", b"not_an_image", "text/plain")}
+    client.post("/api/v1/ocr/extract", files=files)
+    data2 = client.get("/health").json()
+    assert "ocr" in data2["runtime"]["error_rate_ema"]
+    assert "vision" in data2["runtime"]["error_rate_ema"]
+
+
+def test_metrics_has_vision_and_ocr_counters():
+    payload = {"image_base64": "aGVsbG8=", "include_description": False, "include_ocr": False}
+    client.post("/api/v1/vision/analyze", json=payload)
+    # Trigger OCR validation failure to increment ocr_input_rejected_total
+    files = {"file": ("fake.txt", b"not_an_image", "text/plain")}
+    client.post("/api/v1/ocr/extract", files=files)
+    metrics_resp = client.get("/metrics")
+    if metrics_resp.status_code != 200:
+        return
+    text = metrics_resp.text
+    assert "vision_requests_total" in text
+    # Image size histogram should appear once we observed a payload
+    assert "vision_image_size_bytes" in text
+    # Expect at least one success or error line
+    lines = [l for l in text.splitlines() if l.startswith("vision_requests_total")]
+    assert any("status=\"success\"" in l or "status=\"error\"" in l for l in lines)
+    assert "ocr_input_rejected_total" in text
+    assert "validation_failed" in text
+
+
+def test_metrics_rejected_counter_for_large_base64():
+    import base64
+    raw = b"x" * (1024 * 1200)
+    payload = {
+        "image_base64": base64.b64encode(raw).decode(),
+        "include_description": False,
+        "include_ocr": False,
+    }
+    client.post("/api/v1/vision/analyze", json=payload)
+    metrics_resp = client.get("/metrics")
+    if metrics_resp.status_code != 200:
+        return
+    assert "vision_input_rejected_total" in metrics_resp.text
+    assert "base64_too_large" in metrics_resp.text

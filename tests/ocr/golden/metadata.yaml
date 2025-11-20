@@ -1,0 +1,22 @@
+dataset:
+  version: "v1.0"
+  categories:
+    easy: {count: 2, description: "清晰图纸"}
+    medium: {count: 2, description: "一般质量"}
+    hard: {count: 2, description: "模糊/倾斜"}
+    edge: {count: 2, description: "极端案例"}
+  annotation_schema:
+    dimensions: {type: str, value: float, tol_pos: float|None, tol_neg: float|None, unit: str, bbox: [int,int,int,int]}
+    symbols: {type: str, value: str, bbox: [int,int,int,int]}
+thresholds:
+  week1:
+    dimension_recall: 0.70
+    edge_f1: 0.60
+  week2:
+    dimension_recall: 0.80
+    edge_f1: 0.75
+    dual_tolerance_accuracy: 0.60
+  week3:
+    dimension_recall: 0.85
+    edge_f1: 0.78
+    dual_tolerance_accuracy: 0.70

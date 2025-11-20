@@ -1,0 +1,18 @@
+{
+  "id": "sample_002_medium",
+  "description": "Medium difficulty test with partial keyword match",
+  "difficulty": "medium",
+  "expected_category": "mechanical_part",
+  "expected_keywords": [
+    "cylindrical",
+    "threaded",
+    "precision",
+    "diameter",
+    "fastener"
+  ],
+  "expected_features": [
+    "external_thread",
+    "dimensional_tolerance"
+  ],
+  "notes": "Designed for 60% hit rate with stub provider - 3 out of 5 keywords present in stub response (cylindrical, threaded, diameter). Keywords 'precision' and 'fastener' are not in stub response."
+}

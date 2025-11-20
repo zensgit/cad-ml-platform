@@ -1,0 +1,7 @@
+{
+  "dimensions": [],
+  "symbols": [
+    {"type": "perpendicular", "value": "⊥", "bbox": [70,110,30,18]},
+    {"type": "parallel", "value": "∥", "bbox": [110,115,30,18]}
+  ]
+}

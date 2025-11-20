@@ -1,0 +1,10 @@
+{
+  "dimensions": [
+    {"type": "diameter", "value": 20.0, "tol_pos": 0.02, "tol_neg": 0.01, "unit": "mm", "bbox": [100,120,40,18]},
+    {"type": "radius", "value": 5.0, "unit": "mm", "bbox": [220,140,30,15]},
+    {"type": "thread", "value": 10.0, "pitch": 1.5, "unit": "mm", "bbox": [260,160,50,20]}
+  ],
+  "symbols": [
+    {"type": "surface_roughness", "value": "3.2", "bbox": [300,210,25,12]}
+  ]
+}

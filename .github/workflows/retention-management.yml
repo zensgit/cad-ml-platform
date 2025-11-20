@@ -1,0 +1,42 @@
+name: Weekly Retention Management
+
+on:
+  schedule:
+    # Every Sunday at 01:00 UTC
+    - cron: '0 1 * * 0'
+  workflow_dispatch:
+
+jobs:
+  retention:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install minimal dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt || true
+
+      - name: Apply retention policy (dry run)
+        run: |
+          python3 scripts/manage_eval_retention.py --dry-run --verbose | tee retention_dry_run.txt
+
+      - name: Apply retention policy (execute)
+        run: |
+          python3 scripts/manage_eval_retention.py --verbose | tee retention_apply.txt
+
+      - name: Upload retention logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: retention-logs-${{ github.run_id }}
+          path: |
+            retention_dry_run.txt
+            retention_apply.txt
+          retention-days: 14
+

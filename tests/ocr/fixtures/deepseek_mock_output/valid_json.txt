@@ -1,0 +1,38 @@
+{
+  "dimensions": [
+    {
+      "type": "diameter",
+      "value": 20,
+      "tolerance": 0.02,
+      "unit": "mm"
+    },
+    {
+      "type": "radius",
+      "value": 5,
+      "tolerance": 0.05,
+      "unit": "mm"
+    },
+    {
+      "type": "thread",
+      "value": 10,
+      "pitch": 1.5,
+      "unit": "mm"
+    }
+  ],
+  "symbols": [
+    {
+      "type": "surface_roughness",
+      "value": "3.2"
+    },
+    {
+      "type": "perpendicular",
+      "value": "⊥"
+    }
+  ],
+  "title_block": {
+    "drawing_number": "CAD-2025-001",
+    "material": "Aluminum 6061",
+    "part_name": "Support Bracket",
+    "scale": "1:1"
+  }
+}

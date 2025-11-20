@@ -1,0 +1,36 @@
+{
+  "chartjs": {
+    "version": "4.4.0",
+    "cdn_url": "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js",
+    "sha384": "vxfkwNn5NGXgAZEPcjDEwOXrc6Q3gSYPgfn8R6J0R6qKgNW2pV4s3u8V5Zg7Xk6S",
+    "local_path": "reports/eval_history/report/assets/chart.min.js",
+    "expected_size_bytes": 737280,
+    "integrity_check_enabled": true,
+    "warn_only": true
+  },
+  "schema_version": "1.0.0",
+  "validation": {
+    "strict_mode": false,
+    "allow_additional_fields": true,
+    "max_invalid_threshold": 0,
+    "migration_enabled": true
+  },
+  "retention_policy": {
+    "tiers": [
+      {"name": "full", "days": 7, "keep": "all"},
+      {"name": "daily", "days": 30, "keep": "daily"},
+      {"name": "weekly", "days": 90, "keep": "weekly"},
+      {"name": "monthly", "days": 365, "keep": "monthly"},
+      {"name": "quarterly", "days": -1, "keep": "quarterly"}
+    ],
+    "archive_before_delete": true
+  },
+  "version_monitoring": {
+    "enabled": true,
+    "check_interval_days": 7,
+    "npm_registry_url": "https://registry.npmjs.org/chart.js",
+    "timeout_seconds": 2,
+    "create_issue_on_major": false,
+    "suppressed_versions": []
+  }
+}

@@ -6,34 +6,37 @@
 import base64
 import io
 import logging
-from typing import Dict, Any, Optional, List, Union
-from PIL import Image
-import numpy as np
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, List, Optional, Union
+
+import numpy as np  # noqa: F401 (reserved for future numeric processing)
+from PIL import Image  # noqa: F401 (image loading)
 
 logger = logging.getLogger(__name__)
 
 
 class VisionProvider(Enum):
     """视觉服务提供商"""
-    OPENAI = "openai"          # GPT-4 Vision
-    ANTHROPIC = "anthropic"     # Claude Vision API
-    AZURE = "azure"             # Azure Computer Vision
-    GOOGLE = "google"           # Google Cloud Vision
-    LOCAL = "local"             # 本地模型
+
+    OPENAI = "openai"  # GPT-4 Vision
+    ANTHROPIC = "anthropic"  # Claude Vision API
+    AZURE = "azure"  # Azure Computer Vision
+    GOOGLE = "google"  # Google Cloud Vision
+    LOCAL = "local"  # 本地模型
 
 
 @dataclass
 class VisionResult:
     """视觉分析结果"""
-    description: str                    # 图像描述
-    objects: List[Dict[str, Any]]      # 检测到的对象
-    text: Optional[str]                 # OCR文本
-    drawings: Optional[Dict]            # CAD图纸元素
-    dimensions: Optional[Dict]          # 尺寸标注
-    confidence: float                   # 置信度
-    metadata: Dict[str, Any]           # 元数据
+
+    description: str  # 图像描述
+    objects: List[Dict[str, Any]]  # 检测到的对象
+    text: Optional[str]  # OCR文本
+    drawings: Optional[Dict]  # CAD图纸元素
+    dimensions: Optional[Dict]  # 尺寸标注
+    confidence: float  # 置信度
+    metadata: Dict[str, Any]  # 元数据
 
 
 class VisionAnalyzer:
@@ -53,7 +56,8 @@ class VisionAnalyzer:
         # OpenAI GPT-4 Vision
         try:
             from openai import OpenAI
-            clients['openai'] = OpenAI()
+
+            clients["openai"] = OpenAI()
             logger.info("OpenAI Vision client initialized")
         except ImportError:
             logger.warning("OpenAI client not available")
@@ -61,32 +65,38 @@ class VisionAnalyzer:
         # Anthropic Claude Vision
         try:
             import anthropic
-            clients['anthropic'] = anthropic.Anthropic()
+
+            clients["anthropic"] = anthropic.Anthropic()
             logger.info("Anthropic Vision client initialized")
         except ImportError:
             logger.warning("Anthropic client not available")
 
         # Azure Computer Vision
         try:
-            from azure.cognitiveservices.vision.computervision import ComputerVisionClient
-            from msrest.authentication import CognitiveServicesCredentials
+            from azure.cognitiveservices.vision.computervision import ComputerVisionClient  # noqa: F401
+            from msrest.authentication import CognitiveServicesCredentials  # noqa: F401
+
             # 需要配置Azure凭证
-            clients['azure'] = None  # ComputerVisionClient配置
+            clients["azure"] = None  # ComputerVisionClient配置
         except ImportError:
             logger.warning("Azure Vision client not available")
 
         # Google Cloud Vision
         try:
             from google.cloud import vision
-            clients['google'] = vision.ImageAnnotatorClient()
+
+            clients["google"] = vision.ImageAnnotatorClient()
         except ImportError:
             logger.warning("Google Vision client not available")
 
         # 本地模型
         try:
-            import transformers
+            import transformers  # noqa: F401
             from transformers import pipeline
-            clients['local'] = pipeline("image-to-text", model="Salesforce/blip-image-captioning-large")
+
+            clients["local"] = pipeline(
+                "image-to-text", model="Salesforce/blip-image-captioning-large"
+            )
         except ImportError:
             logger.warning("Local vision model not available")
 
@@ -94,9 +104,9 @@ class VisionAnalyzer:
 
     async def analyze_image(
         self,
-        image: Union[str, bytes, Image.Image],
+        image: Union[str, bytes, Image.Image],  # noqa: F401 (Image type retained for future processing)
         task: str = "general",
-        options: Optional[Dict] = None
+        options: Optional[Dict] = None,
     ) -> VisionResult:
         """
         分析图像
@@ -123,9 +133,7 @@ class VisionAnalyzer:
             return await self._general_analysis(image_data, options)
 
     async def _analyze_cad_drawing(
-        self,
-        image_data: bytes,
-        options: Optional[Dict] = None
+        self, image_data: bytes, options: Optional[Dict] = None
     ) -> VisionResult:
         """分析CAD图纸"""
 
@@ -137,18 +145,16 @@ class VisionAnalyzer:
             return await self._local_cad_analysis(image_data, options)
 
     async def _openai_cad_analysis(
-        self,
-        image_data: bytes,
-        options: Optional[Dict] = None
+        self, image_data: bytes, options: Optional[Dict] = None
     ) -> VisionResult:
         """使用OpenAI GPT-4 Vision分析CAD图纸"""
 
-        client = self.clients.get('openai')
+        client = self.clients.get("openai")
         if not client:
             raise ValueError("OpenAI client not initialized")
 
         # 编码图像
-        base64_image = base64.b64encode(image_data).decode('utf-8')
+        base64_image = base64.b64encode(image_data).decode("utf-8")
 
         # 构建提示词
         prompt = """
@@ -172,14 +178,12 @@ class VisionAnalyzer:
                         {"type": "text", "text": prompt},
                         {
                             "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{base64_image}"
-                            }
-                        }
-                    ]
+                            "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                        },
+                    ],
                 }
             ],
-            max_tokens=4096
+            max_tokens=4096,
         )
 
         # 解析响应
@@ -192,22 +196,20 @@ class VisionAnalyzer:
             drawings=self._extract_cad_elements(result_text),
             dimensions=self._extract_dimensions(result_text),
             confidence=0.95,
-            metadata={"provider": "openai", "model": "gpt-4-vision"}
+            metadata={"provider": "openai", "model": "gpt-4-vision"},
         )
 
     async def _anthropic_cad_analysis(
-        self,
-        image_data: bytes,
-        options: Optional[Dict] = None
+        self, image_data: bytes, options: Optional[Dict] = None
     ) -> VisionResult:
         """使用Claude Vision API分析CAD图纸"""
 
-        client = self.clients.get('anthropic')
+        client = self.clients.get("anthropic")
         if not client:
             raise ValueError("Anthropic client not initialized")
 
         # 编码图像
-        base64_image = base64.b64encode(image_data).decode('utf-8')
+        base64_image = base64.b64encode(image_data).decode("utf-8")
 
         message = client.messages.create(
             model="claude-3-opus-20240229",
@@ -221,16 +223,13 @@ class VisionAnalyzer:
                             "source": {
                                 "type": "base64",
                                 "media_type": "image/jpeg",
-                                "data": base64_image
-                            }
+                                "data": base64_image,
+                            },
                         },
-                        {
-                            "type": "text",
-                            "text": "分析这张CAD图纸，识别零件类型、尺寸、材料等信息。"
-                        }
-                    ]
+                        {"type": "text", "text": "分析这张CAD图纸，识别零件类型、尺寸、材料等信息。"},
+                    ],
                 }
-            ]
+            ],
         )
 
         result_text = message.content
@@ -242,13 +241,11 @@ class VisionAnalyzer:
             drawings=None,
             dimensions=None,
             confidence=0.95,
-            metadata={"provider": "anthropic", "model": "claude-3"}
+            metadata={"provider": "anthropic", "model": "claude-3"},
         )
 
     async def _local_cad_analysis(
-        self,
-        image_data: bytes,
-        options: Optional[Dict] = None
+        self, image_data: bytes, options: Optional[Dict] = None
     ) -> VisionResult:
         """使用本地模型分析（YOLO + OCR + 自定义模型）"""
 
@@ -271,20 +268,20 @@ class VisionAnalyzer:
             description=description,
             objects=objects,
             text=text,
-            drawings=features.get('drawings'),
-            dimensions=features.get('dimensions'),
+            drawings=features.get("drawings"),
+            dimensions=features.get("dimensions"),
             confidence=0.85,
-            metadata={"provider": "local", "models": ["yolo", "tesseract", "custom"]}
+            metadata={"provider": "local", "models": ["yolo", "tesseract", "custom"]},
         )
 
     async def _detect_objects(self, image: Image.Image) -> List[Dict]:
         """使用YOLO或其他模型检测对象"""
         try:
-            import cv2
+            import cv2  # noqa: F401
             from ultralytics import YOLO
 
             # 加载预训练的YOLO模型
-            model = YOLO('yolov8n.pt')
+            model = YOLO("yolov8n.pt")
 
             # 转换图像格式
             img_array = np.array(image)
@@ -295,11 +292,13 @@ class VisionAnalyzer:
             objects = []
             for r in results:
                 for box in r.boxes:
-                    objects.append({
-                        'class': r.names[int(box.cls)],
-                        'confidence': float(box.conf),
-                        'bbox': box.xyxy.tolist()[0]
-                    })
+                    objects.append(
+                        {
+                            "class": r.names[int(box.cls)],
+                            "confidence": float(box.conf),
+                            "bbox": box.xyxy.tolist()[0],
+                        }
+                    )
 
             return objects
 
@@ -310,10 +309,10 @@ class VisionAnalyzer:
     async def _extract_text_ocr(self, image: Image.Image) -> str:
         """使用OCR提取文字"""
         try:
-            import pytesseract
+            import pytesseract  # noqa: F401
 
             # 执行OCR
-            text = pytesseract.image_to_string(image, lang='eng+chi_sim')
+            text = pytesseract.image_to_string(image, lang="eng+chi_sim")
             return text
 
         except ImportError:
@@ -325,38 +324,26 @@ class VisionAnalyzer:
         # 这里需要训练专门的CAD特征提取模型
         # 示例结构
         features = {
-            'drawings': {
-                'lines': [],
-                'circles': [],
-                'arcs': [],
-                'dimensions': []
-            },
-            'dimensions': {
-                'overall_width': None,
-                'overall_height': None,
-                'tolerances': []
-            }
+            "drawings": {"lines": [], "circles": [], "arcs": [], "dimensions": []},
+            "dimensions": {"overall_width": None, "overall_height": None, "tolerances": []},
         }
 
         # TODO: 实现实际的特征提取
 
         return features
 
-    def _preprocess_image(
-        self,
-        image: Union[str, bytes, Image.Image]
-    ) -> bytes:
+    def _preprocess_image(self, image: Union[str, bytes, Image.Image]) -> bytes:
         """预处理图像为字节格式"""
         if isinstance(image, str):
             # 文件路径
-            with open(image, 'rb') as f:
+            with open(image, "rb") as f:
                 return f.read()
         elif isinstance(image, bytes):
             return image
         elif isinstance(image, Image.Image):
             # PIL图像
             buffer = io.BytesIO()
-            image.save(buffer, format='JPEG')
+            image.save(buffer, format="JPEG")
             return buffer.getvalue()
         else:
             raise ValueError(f"Unsupported image type: {type(image)}")
@@ -381,12 +368,7 @@ class VisionAnalyzer:
         # TODO: 实现尺寸提取
         return {}
 
-    def _generate_description(
-        self,
-        objects: List[Dict],
-        text: str,
-        features: Dict
-    ) -> str:
+    def _generate_description(self, objects: List[Dict], text: str, features: Dict) -> str:
         """生成综合描述"""
         description = "图像分析结果：\n"
 
@@ -432,7 +414,7 @@ class CADImageProcessor:
         import cv2
 
         # 转换为灰度图
-        gray = image.convert('L')
+        gray = image.convert("L")
 
         # 转换为numpy数组
         img_array = np.array(gray)
@@ -449,7 +431,7 @@ class CADImageProcessor:
         import cv2
 
         # 转换为numpy数组
-        img_array = np.array(image.convert('L'))
+        img_array = np.array(image.convert("L"))
 
         # Canny边缘检测
         edges = cv2.Canny(img_array, 50, 150)
@@ -465,11 +447,7 @@ async def main():
     analyzer = VisionAnalyzer(provider=VisionProvider.OPENAI)
 
     # 分析CAD图纸图像
-    result = await analyzer.analyze_image(
-        "cad_drawing.jpg",
-        task="cad",
-        options={"detail": "high"}
-    )
+    result = await analyzer.analyze_image("cad_drawing.jpg", task="cad", options={"detail": "high"})
 
     print(f"描述：{result.description}")
     print(f"检测到的对象：{result.objects}")
@@ -479,4 +457,5 @@ async def main():
 
 if __name__ == "__main__":
     import asyncio
+
     asyncio.run(main())

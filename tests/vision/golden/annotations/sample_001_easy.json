@@ -1,0 +1,18 @@
+{
+  "id": "sample_001_easy",
+  "description": "Simple 1x1 PNG test image for MVP validation",
+  "difficulty": "easy",
+  "expected_category": "mechanical_part",
+  "expected_keywords": [
+    "cylindrical",
+    "thread",
+    "diameter",
+    "mechanical",
+    "engineering"
+  ],
+  "expected_features": [
+    "center_hole",
+    "outer_thread"
+  ],
+  "notes": "This is a minimal test case using the existing sample_image_bytes fixture. The stub provider's fixed response includes these keywords."
+}

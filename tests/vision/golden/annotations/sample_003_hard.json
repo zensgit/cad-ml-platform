@@ -1,0 +1,18 @@
+{
+  "id": "sample_003_hard",
+  "description": "Hard difficulty test with low keyword match rate",
+  "difficulty": "hard",
+  "expected_category": "mechanical_part",
+  "expected_keywords": [
+    "mechanical",
+    "engineering",
+    "assembly",
+    "bearing",
+    "shaft"
+  ],
+  "expected_features": [
+    "rotational_component",
+    "load_bearing_surface"
+  ],
+  "notes": "Designed for 40% hit rate with stub provider - only 2 out of 5 keywords present in stub response (mechanical, engineering). Keywords 'assembly', 'bearing', and 'shaft' are not in stub response, simulating harder recognition scenarios."
+}

@@ -1,0 +1,28 @@
+{
+  "timestamp": "2025-11-19T03:40:24.684665+00:00",
+  "summary": {
+    "total_vulnerabilities": 1,
+    "by_severity": {
+      "critical": 1,
+      "high": 0,
+      "medium": 0,
+      "low": 0
+    },
+    "by_type": {
+      "exposed_secret": 1
+    }
+  },
+  "vulnerabilities": [
+    {
+      "type": "exposed_secret",
+      "tool": "git-secrets",
+      "findings": "git: 'secrets' is not a git command. See 'git --help'.\n",
+      "severity": "critical"
+    }
+  ],
+  "recommendations": [
+    "URGENT: Fix critical vulnerabilities immediately",
+    "CRITICAL: Rotate exposed secrets and remove from code"
+  ],
+  "status": "fail"
+}

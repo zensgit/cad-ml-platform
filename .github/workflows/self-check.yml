@@ -1,0 +1,42 @@
+name: Self-Check
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: {}
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+      - name: Launch app (background)
+        run: |
+          nohup uvicorn src.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+      - name: Run self-check script
+        run: |
+          python scripts/self_check.py
+      - name: Archive self-check result (only on success)
+        if: success()
+        run: |
+          echo "Captured at $(date -u)" > self_check_status.txt
+          python scripts/self_check.py >> self_check_status.txt
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: self-check-status
+          path: self_check_status.txt
