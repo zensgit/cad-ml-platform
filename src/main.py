@@ -100,13 +100,13 @@ async def root():
 async def health_check():
     """健康检查（附加运行时与指标状态）"""
     import sys
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     current_settings = get_settings()
 
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "services": {
             "api": "up",
             "ml": "up",
