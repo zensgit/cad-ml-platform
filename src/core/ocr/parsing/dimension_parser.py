@@ -21,7 +21,6 @@ from typing import List
 
 from src.core.ocr.base import DimensionInfo, DimensionType, SymbolInfo, SymbolType
 
-
 # Unit token without internal optional to avoid consuming long whitespace when unit absent
 _UNIT_RE = r"(mm|MM|cm|CM|μm|um)"
 _TOL_TOKEN = r"([±+＋\-]\s*\d+(?:\.\d+)?)"
@@ -127,7 +126,9 @@ def parse_dimensions_and_symbols(text: str) -> tuple[List[DimensionInfo], List[S
                     tol = abs(float(cleaned))
             except Exception:
                 pass
-        dim_obj = DimensionInfo(type=DimensionType.diameter, value=val, tolerance=tol, raw=m.group(0))
+        dim_obj = DimensionInfo(
+            type=DimensionType.diameter, value=val, tolerance=tol, raw=m.group(0)
+        )
         if tol_pos and not tol_neg:
             dim_obj.tol_pos = tol_pos
         if tol_neg and not tol_pos:
@@ -154,7 +155,13 @@ def parse_dimensions_and_symbols(text: str) -> tuple[List[DimensionInfo], List[S
             except Exception:
                 pass
         if tol_token:
-            cleaned = tol_token.replace("±", "").replace("＋", "+").replace("－", "-").replace(" ", "").lstrip("+")
+            cleaned = (
+                tol_token.replace("±", "")
+                .replace("＋", "+")
+                .replace("－", "-")
+                .replace(" ", "")
+                .lstrip("+")
+            )
             try:
                 if "±" in tol_token:
                     tol = abs(float(cleaned))
@@ -181,43 +188,132 @@ def parse_dimensions_and_symbols(text: str) -> tuple[List[DimensionInfo], List[S
         major = float(m.group(1))
         pitch = m.group(2)
         pitch_val = float(pitch) if pitch else None
-        dim_obj = DimensionInfo(type=DimensionType.thread, value=major, pitch=pitch_val, raw=m.group(0))
+        dim_obj = DimensionInfo(
+            type=DimensionType.thread, value=major, pitch=pitch_val, raw=m.group(0)
+        )
         dimensions.append(dim_obj)
         spans.append((m.start(), m.end(), dim_obj))
 
     # Surface roughness
     for m in ROUGHNESS_PATTERN.finditer(text):
         val = m.group(1)
-        symbols.append(SymbolInfo(type=SymbolType.surface_roughness, value=str(val), raw=m.group(0)))
+        symbols.append(
+            SymbolInfo(type=SymbolType.surface_roughness, value=str(val), raw=m.group(0))
+        )
 
     # Geometric symbols
     for m in PERP_PATTERN.finditer(text):
-        symbols.append(SymbolInfo(type=SymbolType.perpendicular, value="⊥", normalized_form="perpendicular", raw=m.group(0)))
+        symbols.append(
+            SymbolInfo(
+                type=SymbolType.perpendicular,
+                value="⊥",
+                normalized_form="perpendicular",
+                raw=m.group(0),
+            )
+        )
     for m in PARA_PATTERN.finditer(text):
-        symbols.append(SymbolInfo(type=SymbolType.parallel, value="∥", normalized_form="parallel", raw=m.group(0)))
+        symbols.append(
+            SymbolInfo(
+                type=SymbolType.parallel, value="∥", normalized_form="parallel", raw=m.group(0)
+            )
+        )
     # ASCII tokens (GD&T proxies)
     if FLATNESS_TOK.search(text):
-        symbols.append(SymbolInfo(type=SymbolType.flatness, value="flatness", normalized_form="flatness", raw="flatness"))
+        symbols.append(
+            SymbolInfo(
+                type=SymbolType.flatness,
+                value="flatness",
+                normalized_form="flatness",
+                raw="flatness",
+            )
+        )
     if STRAIGHTNESS_TOK.search(text):
-        symbols.append(SymbolInfo(type=SymbolType.straightness, value="straightness", normalized_form="straightness", raw="straightness"))
+        symbols.append(
+            SymbolInfo(
+                type=SymbolType.straightness,
+                value="straightness",
+                normalized_form="straightness",
+                raw="straightness",
+            )
+        )
     if CIRCULARITY_TOK.search(text):
-        symbols.append(SymbolInfo(type=SymbolType.circularity, value="circularity", normalized_form="circularity", raw="circularity"))
+        symbols.append(
+            SymbolInfo(
+                type=SymbolType.circularity,
+                value="circularity",
+                normalized_form="circularity",
+                raw="circularity",
+            )
+        )
     if CYLINDRICITY_TOK.search(text):
-        symbols.append(SymbolInfo(type=SymbolType.cylindricity, value="cylindricity", normalized_form="cylindricity", raw="cylindricity"))
+        symbols.append(
+            SymbolInfo(
+                type=SymbolType.cylindricity,
+                value="cylindricity",
+                normalized_form="cylindricity",
+                raw="cylindricity",
+            )
+        )
     if POSITION_TOK.search(text):
-        symbols.append(SymbolInfo(type=SymbolType.position, value="position", normalized_form="position", raw="position"))
+        symbols.append(
+            SymbolInfo(
+                type=SymbolType.position,
+                value="position",
+                normalized_form="position",
+                raw="position",
+            )
+        )
     if CONCENTRICITY_TOK.search(text):
-        symbols.append(SymbolInfo(type=SymbolType.concentricity, value="concentricity", normalized_form="concentricity", raw="concentricity"))
+        symbols.append(
+            SymbolInfo(
+                type=SymbolType.concentricity,
+                value="concentricity",
+                normalized_form="concentricity",
+                raw="concentricity",
+            )
+        )
     if SYMMETRY_TOK.search(text):
-        symbols.append(SymbolInfo(type=SymbolType.symmetry, value="symmetry", normalized_form="symmetry", raw="symmetry"))
+        symbols.append(
+            SymbolInfo(
+                type=SymbolType.symmetry,
+                value="symmetry",
+                normalized_form="symmetry",
+                raw="symmetry",
+            )
+        )
     if TOTAL_RUNOUT_TOK.search(text):
-        symbols.append(SymbolInfo(type=SymbolType.total_runout, value="total_runout", normalized_form="total_runout", raw="total runout"))
+        symbols.append(
+            SymbolInfo(
+                type=SymbolType.total_runout,
+                value="total_runout",
+                normalized_form="total_runout",
+                raw="total runout",
+            )
+        )
     elif RUNOUT_TOK.search(text):
-        symbols.append(SymbolInfo(type=SymbolType.runout, value="runout", normalized_form="runout", raw="runout"))
+        symbols.append(
+            SymbolInfo(
+                type=SymbolType.runout, value="runout", normalized_form="runout", raw="runout"
+            )
+        )
     if PROFILE_LINE_TOK.search(text):
-        symbols.append(SymbolInfo(type=SymbolType.profile_line, value="profile_of_a_line", normalized_form="profile_line", raw="profile of a line"))
+        symbols.append(
+            SymbolInfo(
+                type=SymbolType.profile_line,
+                value="profile_of_a_line",
+                normalized_form="profile_line",
+                raw="profile of a line",
+            )
+        )
     if PROFILE_SURF_TOK.search(text):
-        symbols.append(SymbolInfo(type=SymbolType.profile_surface, value="profile_of_a_surface", normalized_form="profile_surface", raw="profile of a surface"))
+        symbols.append(
+            SymbolInfo(
+                type=SymbolType.profile_surface,
+                value="profile_of_a_surface",
+                normalized_form="profile_surface",
+                raw="profile of a surface",
+            )
+        )
 
     # Dual tolerance assignment: attach first pair to last dimension without tolerance
     # Attach dual tolerance pairs to nearest preceding dimension within a small gap threshold

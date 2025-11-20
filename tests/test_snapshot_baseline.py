@@ -20,9 +20,7 @@ def test_snapshot_baseline_creates_snapshot_and_latest_symlink(tmp_path, monkeyp
     baseline = {
         "sample_count": 12,
         "updated_at": "2025-01-01T00:00:00Z",
-        "metrics": {
-            "combined": {"mean": 0.8, "stdev": 0.05, "history": [0.75, 0.8, 0.85]}
-        },
+        "metrics": {"combined": {"mean": 0.8, "stdev": 0.05, "history": [0.75, 0.8, 0.85]}},
     }
     with open(source_dir / "baseline.json", "w") as f:
         json.dump(baseline, f)
@@ -41,4 +39,3 @@ def test_snapshot_baseline_creates_snapshot_and_latest_symlink(tmp_path, monkeyp
     assert latest.is_symlink()
     # Symlink should point at one of the created snapshots by name
     assert latest.readlink().name == snapshots[0].name
-

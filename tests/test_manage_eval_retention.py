@@ -1,11 +1,13 @@
-from pathlib import Path
 import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 from scripts import manage_eval_retention as mer
 
 
-def _write_history(dirpath: Path, ts: datetime, kind: str = "combined", branch: str = "main") -> Path:
+def _write_history(
+    dirpath: Path, ts: datetime, kind: str = "combined", branch: str = "main"
+) -> Path:
     fname = ts.strftime("%Y%m%d_%H%M%S") + f"_{kind}.json"
     path = dirpath / fname
     data = {
@@ -34,14 +36,10 @@ def test_retention_keeps_latest_per_period(tmp_path, monkeypatch):
         _write_history(hist_dir, now - timedelta(days=d))
 
     # Load EvaluationFile list
-    files = [
-        mer.EvaluationFile(p)
-        for p in sorted(hist_dir.glob("*_combined.json"))
-    ]
+    files = [mer.EvaluationFile(p) for p in sorted(hist_dir.glob("*_combined.json"))]
 
     keep, delete = mer.apply_retention_policy(files, dry_run=True, verbose=False)
 
     # Should keep at least one per relevant periods (daily/weekly/monthly/quarterly)
     assert keep, "Expected some files to be kept"
     assert len(keep) + len(delete) == len(files)
-

@@ -5,11 +5,12 @@ Ensures cache key generation is deterministic and includes all required componen
 Critical path testing for cache hit/miss scenarios.
 """
 
-import pytest
 import hashlib
 import json
-from typing import Dict, Any
+from typing import Any, Dict
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestCacheKeyGeneration:
@@ -27,11 +28,7 @@ class TestCacheKeyGeneration:
             "provider": "deepseek_hf",
             "prompt_version": "v1",
             "dataset_version": "v1.0",
-            "crop_cfg": {
-                "max_crops": 4,
-                "overlap": 0.1,
-                "min_size": 100
-            }
+            "crop_cfg": {"max_crops": 4, "overlap": 0.1, "min_size": 100},
         }
 
     def generate_cache_key(
@@ -40,7 +37,7 @@ class TestCacheKeyGeneration:
         provider: str,
         prompt_version: str,
         crop_cfg: Dict[str, Any],
-        dataset_version: str = None
+        dataset_version: str = None,
     ) -> str:
         """
         Generate cache key matching production implementation
@@ -59,21 +56,19 @@ class TestCacheKeyGeneration:
 
         # Validate prompt_version format (must be vN or vN.N format)
         if not self._validate_version_format(prompt_version):
-            raise ValueError(f"Invalid prompt_version format: {prompt_version} (expected: v1 or v1.0)")
+            raise ValueError(
+                f"Invalid prompt_version format: {prompt_version} (expected: v1 or v1.0)"
+            )
 
         # Build key components
-        components = [
-            "ocr",
-            image_hash,
-            provider,
-            prompt_version,
-            crop_cfg_hash
-        ]
+        components = ["ocr", image_hash, provider, prompt_version, crop_cfg_hash]
 
         # Dataset version is optional (only for evaluation context)
         if dataset_version:
             if not self._validate_version_format(dataset_version, allow_patch=True):
-                raise ValueError(f"Invalid dataset_version format: {dataset_version} (expected: v1.0)")
+                raise ValueError(
+                    f"Invalid dataset_version format: {dataset_version} (expected: v1.0)"
+                )
             components.append(dataset_version)
 
         return ":".join(components)
@@ -81,12 +76,13 @@ class TestCacheKeyGeneration:
     def _validate_version_format(self, version: str, allow_patch: bool = False) -> bool:
         """Validate version format (v1, v2 for prompts; v1.0, v1.1 for datasets)"""
         import re
+
         if allow_patch:
             # Dataset version: v1.0, v2.1, etc.
-            return bool(re.match(r'^v\d+\.\d+$', version))
+            return bool(re.match(r"^v\d+\.\d+$", version))
         else:
             # Prompt version: v1, v2, etc. (can also accept v1.0 for compatibility)
-            return bool(re.match(r'^v\d+(\.\d+)?$', version))
+            return bool(re.match(r"^v\d+(\.\d+)?$", version))
 
     def test_cache_key_deterministic(self, sample_image_bytes, sample_config):
         """Test that same inputs always produce same cache key"""
@@ -95,7 +91,7 @@ class TestCacheKeyGeneration:
             sample_config["provider"],
             sample_config["prompt_version"],
             sample_config["crop_cfg"],
-            sample_config["dataset_version"]
+            sample_config["dataset_version"],
         )
 
         key2 = self.generate_cache_key(
@@ -103,7 +99,7 @@ class TestCacheKeyGeneration:
             sample_config["provider"],
             sample_config["prompt_version"],
             sample_config["crop_cfg"],
-            sample_config["dataset_version"]
+            sample_config["dataset_version"],
         )
 
         assert key1 == key2, "Cache keys should be identical for same inputs"
@@ -119,14 +115,14 @@ class TestCacheKeyGeneration:
             image1,
             sample_config["provider"],
             sample_config["prompt_version"],
-            sample_config["crop_cfg"]
+            sample_config["crop_cfg"],
         )
 
         key2 = self.generate_cache_key(
             image2,
             sample_config["provider"],
             sample_config["prompt_version"],
-            sample_config["crop_cfg"]
+            sample_config["crop_cfg"],
         )
 
         assert key1 != key2, "Different images should produce different cache keys"
@@ -134,17 +130,14 @@ class TestCacheKeyGeneration:
     def test_cache_key_changes_with_provider(self, sample_image_bytes, sample_config):
         """Test that different providers produce different keys"""
         key_paddle = self.generate_cache_key(
-            sample_image_bytes,
-            "paddle",
-            sample_config["prompt_version"],
-            sample_config["crop_cfg"]
+            sample_image_bytes, "paddle", sample_config["prompt_version"], sample_config["crop_cfg"]
         )
 
         key_deepseek = self.generate_cache_key(
             sample_image_bytes,
             "deepseek_hf",
             sample_config["prompt_version"],
-            sample_config["crop_cfg"]
+            sample_config["crop_cfg"],
         )
 
         assert key_paddle != key_deepseek, "Different providers should have different keys"
@@ -152,17 +145,11 @@ class TestCacheKeyGeneration:
     def test_cache_key_changes_with_prompt_version(self, sample_image_bytes, sample_config):
         """Test that prompt version changes invalidate cache"""
         key_v1 = self.generate_cache_key(
-            sample_image_bytes,
-            sample_config["provider"],
-            "v1",
-            sample_config["crop_cfg"]
+            sample_image_bytes, sample_config["provider"], "v1", sample_config["crop_cfg"]
         )
 
         key_v2 = self.generate_cache_key(
-            sample_image_bytes,
-            sample_config["provider"],
-            "v2",
-            sample_config["crop_cfg"]
+            sample_image_bytes, sample_config["provider"], "v2", sample_config["crop_cfg"]
         )
 
         assert key_v1 != key_v2, "Different prompt versions should invalidate cache"
@@ -176,14 +163,14 @@ class TestCacheKeyGeneration:
             sample_image_bytes,
             sample_config["provider"],
             sample_config["prompt_version"],
-            crop_cfg1
+            crop_cfg1,
         )
 
         key2 = self.generate_cache_key(
             sample_image_bytes,
             sample_config["provider"],
             sample_config["prompt_version"],
-            crop_cfg2
+            crop_cfg2,
         )
 
         assert key1 != key2, "Different crop configs should produce different keys"
@@ -195,7 +182,7 @@ class TestCacheKeyGeneration:
             sample_config["provider"],
             sample_config["prompt_version"],
             sample_config["crop_cfg"],
-            dataset_version=None
+            dataset_version=None,
         )
 
         key_with = self.generate_cache_key(
@@ -203,7 +190,7 @@ class TestCacheKeyGeneration:
             sample_config["provider"],
             sample_config["prompt_version"],
             sample_config["crop_cfg"],
-            dataset_version="v1.0"
+            dataset_version="v1.0",
         )
 
         assert len(key_without.split(":")) == 5, "Key without dataset should have 5 parts"
@@ -219,14 +206,14 @@ class TestCacheKeyGeneration:
             sample_image_bytes,
             sample_config["provider"],
             sample_config["prompt_version"],
-            crop_cfg1
+            crop_cfg1,
         )
 
         key2 = self.generate_cache_key(
             sample_image_bytes,
             sample_config["provider"],
             sample_config["prompt_version"],
-            crop_cfg2
+            crop_cfg2,
         )
 
         assert key1 == key2, "Crop config order should not affect cache key"
@@ -245,7 +232,7 @@ class TestCacheKeyGeneration:
             sample_image_bytes,
             sample_config["provider"],
             sample_config["prompt_version"],
-            sample_config["crop_cfg"]
+            sample_config["crop_cfg"],
         )
 
         # Simulate cache miss
@@ -269,7 +256,7 @@ class TestCacheKeyGeneration:
             sample_config["provider"],
             sample_config["prompt_version"],
             sample_config["crop_cfg"],
-            sample_config["dataset_version"]
+            sample_config["dataset_version"],
         )
 
         # Redis key length limit is 512MB, but we want reasonable keys
@@ -283,10 +270,7 @@ class TestCacheKeyGeneration:
 
         for version in valid_versions:
             key = self.generate_cache_key(
-                sample_image_bytes,
-                sample_config["provider"],
-                version,
-                sample_config["crop_cfg"]
+                sample_image_bytes, sample_config["provider"], version, sample_config["crop_cfg"]
             )
             assert ":" + version + ":" in key
 
@@ -299,14 +283,14 @@ class TestCacheKeyGeneration:
                     sample_image_bytes,
                     sample_config["provider"],
                     invalid_version,
-                    sample_config["crop_cfg"]
+                    sample_config["crop_cfg"],
                 )
 
     def test_large_file_no_cache_simulation(self, sample_config):
         """Test large files (>10MB) should not be cached"""
         # Simulate large file check
         large_image = b"x" * (11 * 1024 * 1024)  # 11MB
-        small_image = b"x" * (5 * 1024 * 1024)   # 5MB
+        small_image = b"x" * (5 * 1024 * 1024)  # 5MB
 
         def should_cache(image_bytes: bytes) -> bool:
             """Production logic: don't cache files > 10MB"""
@@ -326,7 +310,7 @@ class TestCacheInvalidation:
             "provider": "deepseek_hf",
             "prompt_version": "v1",
             "crop_cfg": {"max_crops": 4},
-            "dataset_version": "v1.0"
+            "dataset_version": "v1.0",
         }
 
         test_cases = [

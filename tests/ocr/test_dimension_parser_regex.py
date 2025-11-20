@@ -1,7 +1,7 @@
 """Tests for dimension_parser regex extraction."""
 
-from src.core.ocr.parsing.dimension_parser import parse_dimensions_and_symbols
 from src.core.ocr.base import DimensionType, SymbolType
+from src.core.ocr.parsing.dimension_parser import parse_dimensions_and_symbols
 
 
 def test_parse_basic_diameter_radius_thread():
@@ -46,7 +46,11 @@ def test_parse_geometric_symbols():
     kinds = {s.type for s in syms}
     assert SymbolType.perpendicular in kinds
     assert SymbolType.parallel in kinds
-    assert any(s.normalized_form in ("perpendicular", "parallel") for s in syms if s.type in (SymbolType.perpendicular, SymbolType.parallel))
+    assert any(
+        s.normalized_form in ("perpendicular", "parallel")
+        for s in syms
+        if s.type in (SymbolType.perpendicular, SymbolType.parallel)
+    )
     # GD&T proxies
     assert SymbolType.flatness in kinds
     assert SymbolType.position in kinds

@@ -67,9 +67,13 @@ lint-all: ## 运行全仓库代码检查（开发用，可能报较多告警）
 	@echo "$(YELLOW)Running linters (full repo)...$(NC)"
 	$(FLAKE8)
 
+# 注意：有一个测试文件包含非 UTF-8 内容，Black 无法处理。
+# 我们在格式化时排除该文件，避免开发流程中断。
+BLACK_EXCLUDES := tests/vision/test_vision_ocr_integration.py
+
 format: ## 格式化代码
 	@echo "$(GREEN)Formatting code...$(NC)"
-	$(BLACK) $(SRC_DIR) $(TEST_DIR) --line-length=100
+	$(BLACK) $(SRC_DIR) $(TEST_DIR) --line-length=100 --extend-exclude "$(BLACK_EXCLUDES)"
 	$(ISORT) $(SRC_DIR) $(TEST_DIR) --profile black --line-length=100
 	@echo "$(GREEN)Code formatted!$(NC)"
 
@@ -103,6 +107,14 @@ docs: ## 生成文档
 	@echo "$(GREEN)Generating documentation...$(NC)"
 	$(PYTHON) -m mkdocs build
 	@echo "$(GREEN)Documentation built in site/$(NC)"
+
+self-check: ## Run basic self-check
+	@echo "$(GREEN)Running self-check...$(NC)"
+	$(PYTHON) scripts/self_check.py
+
+self-check-enhanced: ## Run comprehensive self-check
+	@echo "$(GREEN)Running enhanced self-check...$(NC)"
+	$(PYTHON) scripts/self_check_enhanced.py
 
 docker-build: ## 构建Docker镜像
 	@echo "$(GREEN)Building Docker image...$(NC)"

@@ -3,9 +3,9 @@
 This does not gate on thresholds here; CI can run the script directly.
 """
 
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 
 def test_run_golden_evaluation_generates_report(tmp_path: Path):

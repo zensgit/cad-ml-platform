@@ -4,7 +4,7 @@ Initial lightweight definitions; expand as real providers are integrated.
 
 from __future__ import annotations
 
-from typing import Protocol, Any
+from typing import Any, Protocol
 
 from pydantic import BaseModel
 
@@ -17,9 +17,13 @@ class VisionDescription(BaseModel):  # minimal reuse if needed externally
 
 class VisionProviderProtocol(Protocol):
     @property
-    def provider_name(self) -> str: ...
+    def provider_name(self) -> str:
+        ...
 
-    async def analyze_image(self, image_data: bytes, include_description: bool = True) -> VisionDescription: ...
+    async def analyze_image(
+        self, image_data: bytes, include_description: bool = True
+    ) -> VisionDescription:
+        ...
 
 
 class OcrResult(BaseModel):  # minimal placeholder; actual full model resides elsewhere
@@ -31,6 +35,8 @@ class OcrResult(BaseModel):  # minimal placeholder; actual full model resides el
 
 class OcrProviderProtocol(Protocol):
     @property
-    def name(self) -> str: ...
+    def name(self) -> str:
+        ...
 
-    async def extract(self, image_bytes: bytes, trace_id: str | None = None) -> OcrResult: ...
+    async def extract(self, image_bytes: bytes, trace_id: str | None = None) -> OcrResult:
+        ...

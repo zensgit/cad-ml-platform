@@ -6,12 +6,12 @@ Later will load real annotated samples.
 
 from __future__ import annotations
 
+import math
+import subprocess
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import List
-import math
-import subprocess
 
 
 @dataclass
@@ -45,7 +45,7 @@ def brier_score(preds: List[PredDimension]) -> float:
     # Will refine once ground truth correctness integrated per pred.
     if not preds:
         return 0.0
-    return sum(( (p.confidence or 0.0) - 1.0 ) ** 2 for p in preds) / len(preds)
+    return sum(((p.confidence or 0.0) - 1.0) ** 2 for p in preds) / len(preds)
 
 
 def edge_f1_placeholder() -> float:
@@ -57,7 +57,7 @@ BASELINE = {
     "dimension_recall": 1.000,
     "brier_score": 0.025,
     "edge_f1": 0.000,
-    "tag": "ocr-week1-mvp"
+    "tag": "ocr-week1-mvp",
 }
 
 
@@ -68,14 +68,16 @@ def get_git_info() -> dict:
         "branch": "unknown",
         "commit": "unknown",
         "tag": None,
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 
     try:
         # Get current branch
         result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True, text=True, cwd=project_root
+            capture_output=True,
+            text=True,
+            cwd=project_root,
         )
         if result.returncode == 0:
             info["branch"] = result.stdout.strip()
@@ -83,7 +85,9 @@ def get_git_info() -> dict:
         # Get current commit short hash
         result = subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True, text=True, cwd=project_root
+            capture_output=True,
+            text=True,
+            cwd=project_root,
         )
         if result.returncode == 0:
             info["commit"] = result.stdout.strip()
@@ -91,7 +95,10 @@ def get_git_info() -> dict:
         # Get tag if HEAD is tagged
         result = subprocess.run(
             ["git", "describe", "--tags", "--exact-match", "HEAD"],
-            capture_output=True, text=True, cwd=project_root, stderr=subprocess.DEVNULL
+            capture_output=True,
+            text=True,
+            cwd=project_root,
+            stderr=subprocess.DEVNULL,
         )
         if result.returncode == 0:
             info["tag"] = result.stdout.strip()
@@ -99,7 +106,10 @@ def get_git_info() -> dict:
             # Get nearest tag
             result = subprocess.run(
                 ["git", "describe", "--tags", "--abbrev=0"],
-                capture_output=True, text=True, cwd=project_root, stderr=subprocess.DEVNULL
+                capture_output=True,
+                text=True,
+                cwd=project_root,
+                stderr=subprocess.DEVNULL,
             )
             if result.returncode == 0:
                 info["tag"] = result.stdout.strip() + " (nearest)"
@@ -148,7 +158,7 @@ def run():
     print(f"Timestamp: {git_info['timestamp']}")
     print(f"Git Branch: {git_info['branch']}")
     print(f"Git Commit: {git_info['commit']}")
-    if git_info['tag']:
+    if git_info["tag"]:
         print(f"Git Tag: {git_info['tag']}")
     print()
 
@@ -165,11 +175,7 @@ def run():
     print(f"edge_f1={edge_f1:.3f}")
 
     # Baseline comparison
-    current_metrics = {
-        "dimension_recall": rec,
-        "brier_score": brier,
-        "edge_f1": edge_f1
-    }
+    current_metrics = {"dimension_recall": rec, "brier_score": brier, "edge_f1": edge_f1}
     print_baseline_diff(current_metrics, BASELINE)
 
 

@@ -3,8 +3,9 @@
 Added because main.py imports get_settings; this scaffolds required fields.
 """
 
-from pydantic_settings import BaseSettings
 from typing import Optional
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):

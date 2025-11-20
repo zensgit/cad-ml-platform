@@ -1,12 +1,11 @@
 """Smoke test for /api/v1/ocr/extract endpoint using FastAPI TestClient."""
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI, File, UploadFile
 from fastapi.testclient import TestClient
-from fastapi import APIRouter, UploadFile, File
-from src.core.ocr.manager import OcrManager
-from src.core.ocr.providers.paddle import PaddleOcrProvider
-from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
 
+from src.core.ocr.manager import OcrManager
+from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
+from src.core.ocr.providers.paddle import PaddleOcrProvider
 
 app = FastAPI()
 
@@ -15,6 +14,7 @@ manager.register_provider("paddle", PaddleOcrProvider())
 manager.register_provider("deepseek_hf", DeepSeekHfProvider())
 
 router = APIRouter(prefix="/v1/ocr")
+
 
 @router.post("/extract")
 async def extract(file: UploadFile = File(...), provider: str = "auto"):
@@ -26,6 +26,7 @@ async def extract(file: UploadFile = File(...), provider: str = "auto"):
         "symbols": [s.model_dump() for s in result.symbols],
         "processing_time_ms": result.processing_time_ms,
     }
+
 
 app.include_router(router, prefix="/api")
 client = TestClient(app)

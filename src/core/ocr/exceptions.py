@@ -3,11 +3,18 @@
 from __future__ import annotations
 
 from typing import Optional
+
 from src.core.errors import ErrorCode
 
 
 class OcrError(Exception):
-    def __init__(self, code: ErrorCode | str, message: str, provider: Optional[str] = None, stage: Optional[str] = None):
+    def __init__(
+        self,
+        code: ErrorCode | str,
+        message: str,
+        provider: Optional[str] = None,
+        stage: Optional[str] = None,
+    ):
         super().__init__(message)
         self.code = code
         self.provider = provider
@@ -23,10 +30,12 @@ class OcrError(Exception):
         }
 
 
-# Common codes reserved (extend as needed during Week1):
+# Legacy OCR_ERRORS dict - DEPRECATED
+# Use ErrorCode enum directly from src.core.errors instead
+# Kept temporarily for backward compatibility
 OCR_ERRORS = {
-    "PARSE_FAIL": "OCR_001",
-    "TIMEOUT": "OCR_002",
-    "PROVIDER_DOWN": "OCR_003",
-    "INVALID_INPUT": "OCR_004",
+    "PARSE_FAIL": ErrorCode.PARSE_FAILED.value,
+    "TIMEOUT": ErrorCode.TIMEOUT.value,
+    "PROVIDER_DOWN": ErrorCode.PROVIDER_DOWN.value,
+    "INVALID_INPUT": ErrorCode.INPUT_ERROR.value,
 }

@@ -1,6 +1,6 @@
 """Tests for MultiEvidenceCalibrator v2 weighted logic."""
 
-from src.core.ocr.calibration import MultiEvidenceCalibrator, EvidenceWeights
+from src.core.ocr.calibration import EvidenceWeights, MultiEvidenceCalibrator
 
 
 def test_calibrate_all_evidence():
@@ -35,4 +35,3 @@ def test_adaptive_reweight():
     assert cal.weights.w_raw <= orig_raw  # raw weight decreases on poor Brier
     cal.adaptive_reweight(observed_brier=0.10)
     assert cal.weights.w_raw >= orig_raw - 0.05  # partially rebounds
-

@@ -4,18 +4,18 @@
 支持DS证据理论融合
 """
 
-import numpy as np
-from typing import List, Dict, Tuple
-from dataclasses import dataclass
-
 import pickle
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Dict, List, Tuple
 
+import numpy as np
 
 # Optional sklearn imports - gracefully degrade if not available
 try:
     from sklearn.isotonic import IsotonicRegression
     from sklearn.linear_model import LogisticRegression
+
     SKLEARN_AVAILABLE = True
 except ImportError:
     SKLEARN_AVAILABLE = False
@@ -33,6 +33,7 @@ except ImportError:
 @dataclass
 class CalibratedConfidence:
     """校准后的置信度"""
+
     raw_confidence: float
     calibrated_confidence: float
     per_source_weights: Dict[str, float]
@@ -74,7 +75,7 @@ class IsotonicCalibration:
     """保序回归校准"""
 
     def __init__(self):
-        self.calibrator = IsotonicRegression(out_of_bounds='clip')
+        self.calibrator = IsotonicRegression(out_of_bounds="clip")
         self.fitted = False
 
     def fit(self, confidence_scores: np.ndarray, true_labels: np.ndarray) -> None:
@@ -113,21 +114,17 @@ class DSEvidenceFusion:
                 "confidence": 0.0,
                 "uncertainty": 1.0,
                 "conflict": 0.0,
-                "per_source_weights": {}
+                "per_source_weights": {},
             }
 
         # 初始化质量函数
         masses = []
         for evidence in evidence_list:
-            conf = evidence['confidence']
-            unc = evidence.get('uncertainty', 1 - conf)
+            conf = evidence["confidence"]
+            unc = evidence.get("uncertainty", 1 - conf)
 
             # 基本概率分配
-            mass = {
-                'positive': conf,
-                'negative': 0.0,
-                'uncertain': unc
-            }
+            mass = {"positive": conf, "negative": 0.0, "uncertain": unc}
             masses.append(mass)
 
         # DS组合规则
@@ -141,9 +138,9 @@ class DSEvidenceFusion:
             # 计算组合质量
             for h1, m1 in combined.items():
                 for h2, m2 in mass.items():
-                    if h1 == 'uncertain' or h2 == 'uncertain':
+                    if h1 == "uncertain" or h2 == "uncertain":
                         # 不确定性传播
-                        key = h1 if h2 == 'uncertain' else h2
+                        key = h1 if h2 == "uncertain" else h2
                     elif h1 == h2:
                         key = h1
                     else:
@@ -158,7 +155,7 @@ class DSEvidenceFusion:
             # 归一化（处理冲突）
             if K < 0.999:  # 避免除零
                 for key in new_combined:
-                    new_combined[key] /= (1 - K)
+                    new_combined[key] /= 1 - K
             else:
                 # 冲突太大，保持原状
                 new_combined = combined
@@ -168,17 +165,17 @@ class DSEvidenceFusion:
 
         # 计算权重
         per_source_weights = {}
-        total_conf = sum(e['confidence'] for e in evidence_list)
+        total_conf = sum(e["confidence"] for e in evidence_list)
         if total_conf > 0:
             for i, evidence in enumerate(evidence_list):
-                weight = evidence['confidence'] / total_conf
-                per_source_weights[evidence['source']] = weight
+                weight = evidence["confidence"] / total_conf
+                per_source_weights[evidence["source"]] = weight
 
         return {
-            "confidence": combined.get('positive', 0.0),
-            "uncertainty": combined.get('uncertain', 0.0),
+            "confidence": combined.get("positive", 0.0),
+            "uncertainty": combined.get("uncertain", 0.0),
             "conflict": np.mean(conflicts) if conflicts else 0.0,
-            "per_source_weights": per_source_weights
+            "per_source_weights": per_source_weights,
         }
 
 
@@ -225,7 +222,7 @@ class LogOddsWeighting:
 class ConfidenceCalibrationSystem:
     """置信度校准与融合系统"""
 
-    def __init__(self, method: str = 'isotonic'):
+    def __init__(self, method: str = "isotonic"):
         """
         Args:
             method: 校准方法 'platt' 或 'isotonic'
@@ -235,7 +232,7 @@ class ConfidenceCalibrationSystem:
 
         # Only create calibrator if sklearn is available
         if SKLEARN_AVAILABLE:
-            if method == 'platt':
+            if method == "platt":
                 self.calibrator = PlattScaling()
             else:
                 self.calibrator = IsotonicCalibration()
@@ -264,8 +261,8 @@ class ConfidenceCalibrationSystem:
         true_labels = []
 
         for data in evaluation_data:
-            confidence_scores.append(data['predicted_confidence'])
-            true_labels.append(data['is_correct'])
+            confidence_scores.append(data["predicted_confidence"])
+            true_labels.append(data["is_correct"])
 
         confidence_scores = np.array(confidence_scores)
         true_labels = np.array(true_labels)
@@ -280,9 +277,7 @@ class ConfidenceCalibrationSystem:
         return self._calculate_calibration_metrics(confidence_scores, true_labels)
 
     def calibrate_and_fuse(
-        self,
-        evidence_list: List[Dict],
-        fusion_method: str = 'ds'
+        self, evidence_list: List[Dict], fusion_method: str = "ds"
     ) -> CalibratedConfidence:
         """
         校准并融合证据
@@ -300,60 +295,58 @@ class ConfidenceCalibrationSystem:
                 calibrated_confidence=0.0,
                 per_source_weights={},
                 calibration_method=self.method,
-                uncertainty=1.0
+                uncertainty=1.0,
             )
 
         # 校准各个证据的置信度
         calibrated_evidence = []
         for evidence in evidence_list:
-            raw_conf = evidence['confidence']
+            raw_conf = evidence["confidence"]
             # Use calibrator if available, otherwise use raw confidence
             if self.calibrator is not None:
                 cal_conf = self.calibrator.calibrate(raw_conf)
             else:
                 cal_conf = raw_conf  # No calibration when sklearn unavailable
 
-            calibrated_evidence.append({
-                'source': evidence.get('source', 'unknown'),
-                'confidence': cal_conf,
-                'uncertainty': 1 - cal_conf,
-                'raw_confidence': raw_conf
-            })
+            calibrated_evidence.append(
+                {
+                    "source": evidence.get("source", "unknown"),
+                    "confidence": cal_conf,
+                    "uncertainty": 1 - cal_conf,
+                    "raw_confidence": raw_conf,
+                }
+            )
 
         # 融合证据
-        if fusion_method == 'ds':
+        if fusion_method == "ds":
             fusion_result = self.ds_fusion.combine_evidence(calibrated_evidence)
-            final_confidence = fusion_result['confidence']
-            uncertainty = fusion_result['uncertainty']
-            per_source_weights = fusion_result['per_source_weights']
+            final_confidence = fusion_result["confidence"]
+            uncertainty = fusion_result["uncertainty"]
+            per_source_weights = fusion_result["per_source_weights"]
         else:
             # 对数几率加权
-            conf_weight_pairs = [
-                (e['confidence'], 1.0) for e in calibrated_evidence
-            ]
+            conf_weight_pairs = [(e["confidence"], 1.0) for e in calibrated_evidence]
             final_confidence = self.log_odds.combine_confidence(conf_weight_pairs)
             uncertainty = 1 - final_confidence
 
             # 计算权重
             per_source_weights = {}
             for e in calibrated_evidence:
-                per_source_weights[e['source']] = e['confidence'] / len(calibrated_evidence)
+                per_source_weights[e["source"]] = e["confidence"] / len(calibrated_evidence)
 
         # 计算原始置信度（未校准）
-        raw_confidence = np.mean([e['raw_confidence'] for e in calibrated_evidence])
+        raw_confidence = np.mean([e["raw_confidence"] for e in calibrated_evidence])
 
         return CalibratedConfidence(
             raw_confidence=raw_confidence,
             calibrated_confidence=final_confidence,
             per_source_weights=per_source_weights,
             calibration_method=f"{self.method}_{fusion_method}",
-            uncertainty=uncertainty
+            uncertainty=uncertainty,
         )
 
     def _calculate_calibration_metrics(
-        self,
-        confidence_scores: np.ndarray,
-        true_labels: np.ndarray
+        self, confidence_scores: np.ndarray, true_labels: np.ndarray
     ) -> Dict:
         """计算校准指标"""
 
@@ -366,8 +359,9 @@ class ConfidenceCalibrationSystem:
         ece = 0.0
 
         for i in range(n_bins):
-            bin_mask = (confidence_scores >= bin_boundaries[i]) & \
-                      (confidence_scores < bin_boundaries[i + 1])
+            bin_mask = (confidence_scores >= bin_boundaries[i]) & (
+                confidence_scores < bin_boundaries[i + 1]
+            )
 
             if np.sum(bin_mask) > 0:
                 bin_confidence = np.mean(confidence_scores[bin_mask])
@@ -378,9 +372,7 @@ class ConfidenceCalibrationSystem:
 
         # 校准后的指标
         if self.calibrator is not None:
-            calibrated_scores = np.array([
-                self.calibrator.calibrate(c) for c in confidence_scores
-            ])
+            calibrated_scores = np.array([self.calibrator.calibrate(c) for c in confidence_scores])
             calibrated_brier = np.mean((calibrated_scores - true_labels) ** 2)
         else:
             # No calibration available
@@ -390,20 +382,20 @@ class ConfidenceCalibrationSystem:
             "brier_score_before": float(brier_score),
             "brier_score_after": float(calibrated_brier),
             "expected_calibration_error": float(ece),
-            "improvement": float(brier_score - calibrated_brier)
+            "improvement": float(brier_score - calibrated_brier),
         }
 
     def save_calibrator(self) -> None:
         """保存校准模型"""
         model_file = self.model_path / f"{self.method}_calibrator.pkl"
-        with open(model_file, 'wb') as f:
+        with open(model_file, "wb") as f:
             pickle.dump(self.calibrator, f)
 
     def load_calibrator(self) -> bool:
         """加载校准模型"""
         model_file = self.model_path / f"{self.method}_calibrator.pkl"
         if model_file.exists():
-            with open(model_file, 'rb') as f:
+            with open(model_file, "rb") as f:
                 self.calibrator = pickle.load(f)
                 return True
         return False
@@ -412,7 +404,7 @@ class ConfidenceCalibrationSystem:
 # 使用示例
 if __name__ == "__main__":
     # 创建校准系统
-    calibration_system = ConfidenceCalibrationSystem(method='isotonic')
+    calibration_system = ConfidenceCalibrationSystem(method="isotonic")
 
     # 模拟评测数据
     evaluation_data = [
@@ -431,8 +423,8 @@ if __name__ == "__main__":
     evidence_list = [
         {"source": "geometric", "confidence": 0.9},
         {"source": "textual", "confidence": 0.7},
-        {"source": "rule_based", "confidence": 0.8}
+        {"source": "rule_based", "confidence": 0.8},
     ]
 
-    result = calibration_system.calibrate_and_fuse(evidence_list, fusion_method='ds')
+    result = calibration_system.calibrate_and_fuse(evidence_list, fusion_method="ds")
     print(f"校准融合结果: {result}")

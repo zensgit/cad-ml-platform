@@ -73,7 +73,9 @@ class VisionAnalyzer:
 
         # Azure Computer Vision
         try:
-            from azure.cognitiveservices.vision.computervision import ComputerVisionClient  # noqa: F401
+            from azure.cognitiveservices.vision.computervision import (  # noqa: F401
+                ComputerVisionClient,
+            )
             from msrest.authentication import CognitiveServicesCredentials  # noqa: F401
 
             # 需要配置Azure凭证
@@ -104,7 +106,9 @@ class VisionAnalyzer:
 
     async def analyze_image(
         self,
-        image: Union[str, bytes, Image.Image],  # noqa: F401 (Image type retained for future processing)
+        image: Union[
+            str, bytes, Image.Image
+        ],  # noqa: F401 (Image type retained for future processing)
         task: str = "general",
         options: Optional[Dict] = None,
     ) -> VisionResult:

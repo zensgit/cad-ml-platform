@@ -9,10 +9,11 @@ Validations:
 
 from __future__ import annotations
 
-from typing import Tuple
 import io
 import os
-from fastapi import UploadFile, HTTPException
+from typing import Tuple
+
+from fastapi import HTTPException, UploadFile
 
 MIME_WHITELIST = {"image/png", "image/jpeg", "application/pdf"}
 
@@ -34,6 +35,7 @@ def _ensure_mime(upload: UploadFile) -> None:
     if upload.content_type not in MIME_WHITELIST:
         try:
             from src.utils.metrics import ocr_input_rejected_total
+
             ocr_input_rejected_total.labels(reason="invalid_mime").inc()
         except Exception:
             pass
@@ -45,10 +47,13 @@ def _ensure_size(content: bytes) -> None:
     if size_mb > MAX_FILE_SIZE_MB:
         try:
             from src.utils.metrics import ocr_input_rejected_total
+
             ocr_input_rejected_total.labels(reason="file_too_large").inc()
         except Exception:
             pass
-        raise HTTPException(status_code=413, detail=f"File too large {size_mb:.1f}MB > {MAX_FILE_SIZE_MB}MB")
+        raise HTTPException(
+            status_code=413, detail=f"File too large {size_mb:.1f}MB > {MAX_FILE_SIZE_MB}MB"
+        )
 
 
 def _pdf_page_count(content: bytes) -> int:
@@ -58,6 +63,7 @@ def _pdf_page_count(content: bytes) -> int:
     """
     try:
         import pypdf  # type: ignore
+
         reader = pypdf.PdfReader(io.BytesIO(content))
         return len(reader.pages)
     except Exception:
@@ -69,6 +75,7 @@ def _pdf_security_scan(content: bytes) -> None:
     """Scan PDF for forbidden tokens. Falls back to raw byte search if parsing fails."""
     try:
         import pypdf  # type: ignore
+
         reader = pypdf.PdfReader(io.BytesIO(content))
         raw = str(reader.trailer)
     except Exception:
@@ -78,6 +85,7 @@ def _pdf_security_scan(content: bytes) -> None:
         if token in raw:
             try:
                 from src.utils.metrics import ocr_input_rejected_total
+
                 ocr_input_rejected_total.labels(reason="pdf_forbidden_token").inc()
             except Exception:
                 pass
@@ -88,8 +96,10 @@ def _ensure_pdf_limits(content: bytes) -> None:
     pages = _pdf_page_count(content)
     if pages > MAX_PDF_PAGES:
         from fastapi import HTTPException
+
         try:
             from src.utils.metrics import ocr_input_rejected_total
+
             ocr_input_rejected_total.labels(reason="pdf_pages_exceed").inc()
         except Exception:
             pass
@@ -102,6 +112,7 @@ def _ensure_pdf_limits(content: bytes) -> None:
 def _maybe_resize_image(content: bytes) -> bytes:
     try:
         from PIL import Image
+
         im = Image.open(io.BytesIO(content))
         w, h = im.size
         if max(w, h) <= MAX_RESOLUTION:

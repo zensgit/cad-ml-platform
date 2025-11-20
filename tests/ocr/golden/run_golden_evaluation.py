@@ -22,24 +22,25 @@ Exits non-zero based on Week1 thresholds (soft gate may override in CI).
 
 from __future__ import annotations
 
-import os
+import argparse
+import asyncio
 import json
 import math
+import os
 import sys
 from pathlib import Path
-from typing import List, Dict, Any
-import asyncio
-import argparse
+from typing import Any, Dict, List
 
 ROOT = Path(__file__).resolve().parents[3]
 import sys
-sys.path.append(str(ROOT))
-from src.core.ocr.manager import OcrManager  # type: ignore
-from src.core.ocr.providers.paddle import PaddleOcrProvider  # type: ignore
-from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider  # type: ignore
-from src.core.ocr.base import OcrResult  # type: ignore
 
- # ROOT already defined above
+sys.path.append(str(ROOT))
+from src.core.ocr.base import OcrResult  # type: ignore
+from src.core.ocr.manager import OcrManager  # type: ignore
+from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider  # type: ignore
+from src.core.ocr.providers.paddle import PaddleOcrProvider  # type: ignore
+
+# ROOT already defined above
 GOLDEN_DIR = Path(__file__).resolve().parent / "samples"
 METADATA = Path(__file__).resolve().parent / "metadata.yaml"
 REPORT_PATH = ROOT / "reports" / "ocr_evaluation.md"
@@ -96,7 +97,10 @@ async def run_sample(manager: OcrManager, annotation_path: Path) -> Dict[str, An
     matched_sym = 0
     for gs in gt_syms:
         for ps in pred_syms:
-            if gs.get("type") == ps.get("type") and str(gs.get("value")).strip().lower() == str(ps.get("value")).strip().lower():
+            if (
+                gs.get("type") == ps.get("type")
+                and str(gs.get("value")).strip().lower() == str(ps.get("value")).strip().lower()
+            ):
                 matched_sym += 1
                 break
     # Dual tolerance accuracy (仅对有 tol_pos & tol_neg 的尺寸)
@@ -106,7 +110,11 @@ async def run_sample(manager: OcrManager, annotation_path: Path) -> Dict[str, An
         if gd.get("tol_pos") is not None and gd.get("tol_neg") is not None:
             dual_total += 1
             for pd in pred_dims:
-                if tolerance_match(pd, gd) and pd.get("tol_pos") is not None and pd.get("tol_neg") is not None:
+                if (
+                    tolerance_match(pd, gd)
+                    and pd.get("tol_pos") is not None
+                    and pd.get("tol_neg") is not None
+                ):
                     dual_correct += 1
                     break
     confidences = []
@@ -156,22 +164,36 @@ def _calibration(confidences: List[float], outcomes: List[int]) -> Dict[str, Any
     total = len(confidences)
     for i in range(len(bins) - 1):
         lo, hi = bins[i], bins[i + 1]
-        vals = [(c, o) for c, o in zip(confidences, outcomes) if lo <= c < hi or (i == len(bins) - 2 and c == hi)]
+        vals = [
+            (c, o)
+            for c, o in zip(confidences, outcomes)
+            if lo <= c < hi or (i == len(bins) - 2 and c == hi)
+        ]
         if not vals:
-            bucket_data.append({"range": f"[{lo},{hi}]", "count": 0, "avg_conf": None, "empirical_acc": None, "brier": None})
+            bucket_data.append(
+                {
+                    "range": f"[{lo},{hi}]",
+                    "count": 0,
+                    "avg_conf": None,
+                    "empirical_acc": None,
+                    "brier": None,
+                }
+            )
             continue
         avg_conf = sum(c for c, _ in vals) / len(vals)
         empirical = sum(o for _, o in vals) / len(vals)
         brier_bucket = sum((c - o) ** 2 for c, o in vals) / len(vals)
         weight = len(vals) / total
         ece_acc += weight * abs(avg_conf - empirical)
-        bucket_data.append({
-            "range": f"[{lo},{hi}]",
-            "count": len(vals),
-            "avg_conf": avg_conf,
-            "empirical_acc": empirical,
-            "brier": brier_bucket,
-        })
+        bucket_data.append(
+            {
+                "range": f"[{lo},{hi}]",
+                "count": len(vals),
+                "avg_conf": avg_conf,
+                "empirical_acc": empirical,
+                "brier": brier_bucket,
+            }
+        )
     return {"ece": ece_acc, "buckets": bucket_data}
 
 
@@ -182,9 +204,20 @@ async def evaluate_all(manager: OcrManager) -> Dict[str, Any]:
     results = []
     for ann in samples:
         results.append(await run_sample(manager, ann))
+
     def avg(key: str) -> float:
         return sum(r[key] for r in results) / len(results) if results else 0.0
-    agg = {k: avg(k) for k in ["dimension_recall", "symbol_recall", "edge_f1", "brier_score", "dual_tolerance_accuracy"]}
+
+    agg = {
+        k: avg(k)
+        for k in [
+            "dimension_recall",
+            "symbol_recall",
+            "edge_f1",
+            "brier_score",
+            "dual_tolerance_accuracy",
+        ]
+    }
     # Flatten confidences/outcomes for calibration
     all_conf = []
     all_out = []
@@ -197,21 +230,29 @@ async def evaluate_all(manager: OcrManager) -> Dict[str, Any]:
 
 async def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--compare-preprocess", action="store_true", help="Run before/after preprocessing and report deltas")
+    parser.add_argument(
+        "--compare-preprocess",
+        action="store_true",
+        help="Run before/after preprocessing and report deltas",
+    )
     args = parser.parse_args()
 
     # Baseline (preprocess OFF)
-    mgr_off = OcrManager(providers={
-        "paddle": PaddleOcrProvider(enable_preprocess=False),
-        "deepseek_hf": DeepSeekHfProvider(),
-    })
+    mgr_off = OcrManager(
+        providers={
+            "paddle": PaddleOcrProvider(enable_preprocess=False),
+            "deepseek_hf": DeepSeekHfProvider(),
+        }
+    )
     off = await evaluate_all(mgr_off)
 
     # After (preprocess ON)
-    mgr_on = OcrManager(providers={
-        "paddle": PaddleOcrProvider(enable_preprocess=True),
-        "deepseek_hf": DeepSeekHfProvider(),
-    })
+    mgr_on = OcrManager(
+        providers={
+            "paddle": PaddleOcrProvider(enable_preprocess=True),
+            "deepseek_hf": DeepSeekHfProvider(),
+        }
+    )
     on = await evaluate_all(mgr_on)
 
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -241,12 +282,15 @@ async def main() -> int:
             if b["count"] == 0:
                 cf.write(f"{b['range']} | 0 | - | - | -\n")
             else:
-                cf.write(f"{b['range']} | {b['count']} | {b['avg_conf']:.3f} | {b['empirical_acc']:.3f} | {b['brier']:.3f}\n")
+                cf.write(
+                    f"{b['range']} | {b['count']} | {b['avg_conf']:.3f} | {b['empirical_acc']:.3f} | {b['brier']:.3f}\n"
+                )
 
     # Threshold gating use ON metrics
     agg = on["aggregate"]
     with open(METADATA, "r", encoding="utf-8") as mf:
         meta_yaml = mf.read()
+
     # naive parse thresholds from yaml (simple substring search to avoid yaml dependency)
     def parse_threshold(name: str, default: float) -> float:
         for line in meta_yaml.splitlines():
@@ -261,17 +305,23 @@ async def main() -> int:
                 except Exception:
                     return default
         return default
+
     dim_thr = 0.70
     edge_thr = 0.60
     exit_code = 0
     if agg["dimension_recall"] < dim_thr or agg["edge_f1"] < edge_thr:
         exit_code = 2
-    print(json.dumps({
-        "aggregate_off": off["aggregate"],
-        "aggregate_on": on["aggregate"],
-        "calibration": on["calibration"],
-        "exit_code": exit_code
-    }, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "aggregate_off": off["aggregate"],
+                "aggregate_on": on["aggregate"],
+                "calibration": on["calibration"],
+                "exit_code": exit_code,
+            },
+            ensure_ascii=False,
+        )
+    )
     return exit_code
 
 

@@ -10,8 +10,9 @@ from __future__ import annotations
 from src.core.config import get_settings
 
 try:
-    from prometheus_client import Counter, Histogram, Gauge  # type: ignore
+    from prometheus_client import Counter, Gauge, Histogram  # type: ignore
 except Exception:  # provide no-op dummies if prometheus not installed
+
     class _Dummy:
         def labels(self, **kwargs):  # type: ignore
             return self
@@ -34,8 +35,11 @@ except Exception:  # provide no-op dummies if prometheus not installed
     def Gauge(*a, **kw):  # type: ignore
         return _Dummy()
 
+
 ocr_requests_total = Counter(
-    "ocr_requests_total", "Number of OCR requests", ["provider", "status"],
+    "ocr_requests_total",
+    "Number of OCR requests",
+    ["provider", "status"],
 )
 ocr_processing_duration_seconds = Histogram(
     "ocr_processing_duration_seconds",
@@ -44,27 +48,37 @@ ocr_processing_duration_seconds = Histogram(
     buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0],
 )
 ocr_fallback_triggered = Counter(
-    "ocr_fallback_triggered", "Fallback triggered count", ["reason"],
+    "ocr_fallback_triggered",
+    "Fallback triggered count",
+    ["reason"],
 )
 ocr_model_loaded = Gauge(
-    "ocr_model_loaded", "Provider model loaded flag", ["provider"],
+    "ocr_model_loaded",
+    "Provider model loaded flag",
+    ["provider"],
 )
 
 ocr_errors_total = Counter(
-    "ocr_errors_total", "OCR errors", ["provider", "code", "stage"],
+    "ocr_errors_total",
+    "OCR errors",
+    ["provider", "code", "stage"],
 )
 
 # Input validation rejections (parity with vision_input_rejected_total)
 ocr_input_rejected_total = Counter(
-    "ocr_input_rejected_total", "OCR input validation rejections", ["reason"],
+    "ocr_input_rejected_total",
+    "OCR input validation rejections",
+    ["reason"],
 )
 
 # New metrics for confidence & completeness distributions
 try:
     from prometheus_client import Summary  # type: ignore
 except Exception:  # reuse dummy if not installed
+
     def Summary(*a, **kw):  # type: ignore
         return _Dummy()
+
 
 ocr_confidence_distribution = Histogram(
     "ocr_confidence_distribution",
@@ -111,7 +125,8 @@ ocr_confidence_ema = Gauge(
 
 # Distributed control metrics
 ocr_rate_limited_total = Counter(
-    "ocr_rate_limited_total", "Requests rejected by rate limiter",
+    "ocr_rate_limited_total",
+    "Requests rejected by rate limiter",
 )
 ocr_circuit_state = Gauge(
     "ocr_circuit_state",
@@ -121,7 +136,9 @@ ocr_circuit_state = Gauge(
 
 # ========== Vision Metrics ==========
 vision_requests_total = Counter(
-    "vision_requests_total", "Number of vision analysis requests", ["provider", "status"],
+    "vision_requests_total",
+    "Number of vision analysis requests",
+    ["provider", "status"],
 )
 vision_processing_duration_seconds = Histogram(
     "vision_processing_duration_seconds",
@@ -130,10 +147,14 @@ vision_processing_duration_seconds = Histogram(
     buckets=[0.01, 0.05, 0.1, 0.5, 1.0, 2.0, 5.0],
 )
 vision_errors_total = Counter(
-    "vision_errors_total", "Vision analysis errors", ["provider", "code"],
+    "vision_errors_total",
+    "Vision analysis errors",
+    ["provider", "code"],
 )
 vision_input_rejected_total = Counter(
-    "vision_input_rejected_total", "Vision input validation rejections", ["reason"],
+    "vision_input_rejected_total",
+    "Vision input validation rejections",
+    ["reason"],
 )
 
 # Input image size distribution (bytes)
@@ -141,9 +162,20 @@ vision_image_size_bytes = Histogram(
     "vision_image_size_bytes",
     "Size of input images in bytes for vision analysis",
     buckets=[
-        1_000, 5_000, 10_000, 25_000, 50_000, 100_000,
-        250_000, 500_000, 1_000_000, 2_000_000, 5_000_000,
-        10_000_000, 25_000_000, 50_000_000,
+        1_000,
+        5_000,
+        10_000,
+        25_000,
+        50_000,
+        100_000,
+        250_000,
+        500_000,
+        1_000_000,
+        2_000_000,
+        5_000_000,
+        10_000_000,
+        25_000_000,
+        50_000_000,
     ],
 )
 
@@ -152,9 +184,20 @@ ocr_image_size_bytes = Histogram(
     "ocr_image_size_bytes",
     "Size of input images in bytes for OCR extraction",
     buckets=[
-        1_000, 5_000, 10_000, 25_000, 50_000, 100_000,
-        250_000, 500_000, 1_000_000, 2_000_000, 5_000_000,
-        10_000_000, 25_000_000, 50_000_000,
+        1_000,
+        5_000,
+        10_000,
+        25_000,
+        50_000,
+        100_000,
+        250_000,
+        500_000,
+        1_000_000,
+        2_000_000,
+        5_000_000,
+        10_000_000,
+        25_000_000,
+        50_000_000,
     ],
 )
 

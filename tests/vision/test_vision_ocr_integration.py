@@ -136,7 +136,7 @@ async def test_vision_ocr_integration_success(sample_image_base64, mock_ocr_mana
     assert len(response.ocr.dimensions) == 2, "Should have 2 dimensions"
     assert len(response.ocr.symbols) == 1, "Should have 1 symbol"
 
-    # Check dimension conversion (DimensionInfo ’ Dict)
+    # Check dimension conversion (DimensionInfo -> Dict)
     dim1 = response.ocr.dimensions[0]
     assert dim1["type"] == "diameter"
     assert dim1["value"] == 20.0

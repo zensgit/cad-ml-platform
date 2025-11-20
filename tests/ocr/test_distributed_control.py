@@ -1,23 +1,28 @@
 """Tests for rate limiter and circuit breaker integrated via OcrManager."""
 
 import asyncio
+
 import pytest
 
-from src.core.ocr.manager import OcrManager
 from src.core.ocr.base import OcrResult
+from src.core.ocr.manager import OcrManager
 
 
 class _SlowFailProvider:
     name = "paddle"
+
     def __init__(self, fail_times=3):
         self.fail = fail_times
+
     async def warmup(self):
         return None
+
     async def extract(self, image_bytes: bytes, trace_id: str | None = None):
         if self.fail > 0:
             self.fail -= 1
             raise RuntimeError("simulated failure")
         return OcrResult(text="Φ10", confidence=0.9, dimensions=[], symbols=[])
+
     async def health_check(self) -> bool:
         return True
 

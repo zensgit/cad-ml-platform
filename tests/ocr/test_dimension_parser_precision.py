@@ -1,7 +1,7 @@
 """Precision tests for dual tolerance binding and thread pitch variants."""
 
-from src.core.ocr.parsing.dimension_parser import parse_dimensions_and_symbols
 from src.core.ocr.base import DimensionType
+from src.core.ocr.parsing.dimension_parser import parse_dimensions_and_symbols
 
 
 def test_dual_tolerance_binding_gap_limit():
@@ -48,4 +48,3 @@ def test_mixed_sequence_robustness():
     assert dia.tol_pos == 0.02 and dia.tol_neg == 0.01
     thr = next((x for x in dims if x.type == DimensionType.thread), None)
     assert thr is not None and abs(thr.pitch - 1.5) < 1e-6
-

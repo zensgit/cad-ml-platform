@@ -15,10 +15,10 @@ class AdapterFactory:
         class Dummy:
             async def convert(self, data: bytes) -> Dict[str, Any]:
                 return {
-                    'entity_count': 0,
-                    'layer_count': 0,
-                    'bounding_box': {},
-                    'complexity': 'low',
+                    "entity_count": 0,
+                    "layer_count": 0,
+                    "bounding_box": {},
+                    "complexity": "low",
                 }
 
         return Dummy()

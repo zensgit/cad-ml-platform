@@ -3,16 +3,17 @@ from __future__ import annotations
 
 import time
 from typing import Dict, Tuple
-from fastapi import Request, HTTPException
 
-RATE_LIMIT_QPS = float(int(__import__('os').getenv('RATE_LIMIT_QPS', '10')))
-BURST = int(__import__('os').getenv('RATE_LIMIT_BURST', '20'))
+from fastapi import HTTPException, Request
+
+RATE_LIMIT_QPS = float(int(__import__("os").getenv("RATE_LIMIT_QPS", "10")))
+BURST = int(__import__("os").getenv("RATE_LIMIT_BURST", "20"))
 
 _buckets: Dict[Tuple[str, str], Dict[str, float]] = {}
 
 
 def rate_limit(request: Request) -> None:
-    ip = request.client.host if request.client else 'unknown'
+    ip = request.client.host if request.client else "unknown"
     key = (ip, request.url.path)
     now = time.time()
     bucket = _buckets.get(key)

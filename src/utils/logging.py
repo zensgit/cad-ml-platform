@@ -1,7 +1,7 @@
 """Structured logging setup for OCR subsystem."""
 
-import logging
 import json
+import logging
 import sys
 
 

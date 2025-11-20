@@ -33,7 +33,9 @@ class DeepSeekStubProvider(VisionProvider):
         """
         self.simulate_latency_ms = simulate_latency_ms
 
-    async def analyze_image(self, image_data: bytes, include_description: bool = True) -> VisionDescription:
+    async def analyze_image(
+        self, image_data: bytes, include_description: bool = True
+    ) -> VisionDescription:
         """
         Return fixed vision description.
 

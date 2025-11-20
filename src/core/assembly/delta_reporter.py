@@ -3,16 +3,18 @@ Delta报告标准化
 基于RFC 6902 JSON Patch标准 + 自定义evidence diff
 """
 
-import json
 import hashlib
-from typing import Dict, List, Any, Optional, Tuple
+import json
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, List, Optional, Tuple
+
 import jsonpatch
 
 
 class ChangeType(str, Enum):
     """变更类型"""
+
     ADD = "add"
     REMOVE = "remove"
     REPLACE = "replace"
@@ -24,6 +26,7 @@ class ChangeType(str, Enum):
 @dataclass
 class EvidenceChange:
     """证据变更"""
+
     type: ChangeType
     path: str
     evidence_id: str
@@ -36,6 +39,7 @@ class EvidenceChange:
 @dataclass
 class DeltaReport:
     """Delta报告"""
+
     from_version: str
     to_version: str
     from_hash: str
@@ -62,10 +66,7 @@ class DeltaReporter:
         self.cache = {}  # 缓存历史版本用于比对
 
     def generate_delta(
-        self,
-        old_assembly: Dict,
-        new_assembly: Dict,
-        include_evidence: bool = True
+        self, old_assembly: Dict, new_assembly: Dict, include_evidence: bool = True
     ) -> DeltaReport:
         """
         生成Delta报告
@@ -107,7 +108,7 @@ class DeltaReporter:
             json_patch=json_patch,
             evidence_changes=evidence_changes,
             summary=summary,
-            human_readable=human_readable
+            human_readable=human_readable,
         )
 
     def _generate_json_patch(self, old: Dict, new: Dict) -> List[Dict]:
@@ -124,9 +125,7 @@ class DeltaReporter:
         return patch_list
 
     def _generate_evidence_diff(
-        self,
-        old_assembly: Dict,
-        new_assembly: Dict
+        self, old_assembly: Dict, new_assembly: Dict
     ) -> List[EvidenceChange]:
         """生成证据差异"""
 
@@ -139,35 +138,39 @@ class DeltaReporter:
         # 找出新增的证据
         for eid, evidence in new_evidence.items():
             if eid not in old_evidence:
-                changes.append(EvidenceChange(
-                    type=ChangeType.ADD,
-                    path=evidence['path'],
-                    evidence_id=eid,
-                    new_value=evidence['data'],
-                    confidence_delta=evidence['data'].get('confidence', 0),
-                    reason="新增证据"
-                ))
+                changes.append(
+                    EvidenceChange(
+                        type=ChangeType.ADD,
+                        path=evidence["path"],
+                        evidence_id=eid,
+                        new_value=evidence["data"],
+                        confidence_delta=evidence["data"].get("confidence", 0),
+                        reason="新增证据",
+                    )
+                )
 
         # 找出删除的证据
         for eid, evidence in old_evidence.items():
             if eid not in new_evidence:
-                changes.append(EvidenceChange(
-                    type=ChangeType.REMOVE,
-                    path=evidence['path'],
-                    evidence_id=eid,
-                    old_value=evidence['data'],
-                    confidence_delta=-evidence['data'].get('confidence', 0),
-                    reason="移除证据"
-                ))
+                changes.append(
+                    EvidenceChange(
+                        type=ChangeType.REMOVE,
+                        path=evidence["path"],
+                        evidence_id=eid,
+                        old_value=evidence["data"],
+                        confidence_delta=-evidence["data"].get("confidence", 0),
+                        reason="移除证据",
+                    )
+                )
 
         # 找出变更的证据
         for eid in old_evidence.keys() & new_evidence.keys():
             old_ev = old_evidence[eid]
             new_ev = new_evidence[eid]
 
-            if old_ev['data'] != new_ev['data']:
-                old_conf = old_ev['data'].get('confidence', 0)
-                new_conf = new_ev['data'].get('confidence', 0)
+            if old_ev["data"] != new_ev["data"]:
+                old_conf = old_ev["data"].get("confidence", 0)
+                new_conf = new_ev["data"].get("confidence", 0)
 
                 # 判断变更类型
                 if new_conf < old_conf:
@@ -177,15 +180,17 @@ class DeltaReporter:
                 else:
                     reason = "证据内容更新"
 
-                changes.append(EvidenceChange(
-                    type=ChangeType.REPLACE,
-                    path=new_ev['path'],
-                    evidence_id=eid,
-                    old_value=old_ev['data'],
-                    new_value=new_ev['data'],
-                    confidence_delta=new_conf - old_conf,
-                    reason=reason
-                ))
+                changes.append(
+                    EvidenceChange(
+                        type=ChangeType.REPLACE,
+                        path=new_ev["path"],
+                        evidence_id=eid,
+                        old_value=old_ev["data"],
+                        new_value=new_ev["data"],
+                        confidence_delta=new_conf - old_conf,
+                        reason=reason,
+                    )
+                )
 
         return changes
 
@@ -200,16 +205,14 @@ class DeltaReporter:
                 for i, evidence in enumerate(mate["evidence_chain"]):
                     eid = f"{mate['id']}_evidence_{i}"
                     evidence_map[eid] = {
-                        'path': f"/mates/{mate['id']}/evidence_chain/{i}",
-                        'data': evidence
+                        "path": f"/mates/{mate['id']}/evidence_chain/{i}",
+                        "data": evidence,
                     }
 
         return evidence_map
 
     def _generate_summary(
-        self,
-        json_patch: List[Dict],
-        evidence_changes: List[EvidenceChange]
+        self, json_patch: List[Dict], evidence_changes: List[EvidenceChange]
     ) -> Dict[str, Any]:
         """生成汇总统计"""
 
@@ -224,7 +227,7 @@ class DeltaReporter:
             "added": sum(1 for c in evidence_changes if c.type == ChangeType.ADD),
             "removed": sum(1 for c in evidence_changes if c.type == ChangeType.REMOVE),
             "modified": sum(1 for c in evidence_changes if c.type == ChangeType.REPLACE),
-            "total_confidence_delta": sum(c.confidence_delta or 0 for c in evidence_changes)
+            "total_confidence_delta": sum(c.confidence_delta or 0 for c in evidence_changes),
         }
 
         # 识别重要变更
@@ -244,13 +247,11 @@ class DeltaReporter:
             "patch_operations": patch_stats,
             "evidence_changes": evidence_stats,
             "critical_changes": critical_changes,
-            "total_changes": len(json_patch) + len(evidence_changes)
+            "total_changes": len(json_patch) + len(evidence_changes),
         }
 
     def _generate_human_readable(
-        self,
-        json_patch: List[Dict],
-        evidence_changes: List[EvidenceChange]
+        self, json_patch: List[Dict], evidence_changes: List[EvidenceChange]
     ) -> List[str]:
         """生成人类可读的变更描述"""
 
@@ -283,7 +284,9 @@ class DeltaReporter:
         # 描述证据变更
         for change in evidence_changes:
             if change.type == ChangeType.ADD:
-                descriptions.append(f"📎 新增{change.evidence_id}证据 (置信度: {change.new_value.get('confidence', 0):.2f})")
+                descriptions.append(
+                    f"📎 新增{change.evidence_id}证据 (置信度: {change.new_value.get('confidence', 0):.2f})"
+                )
             elif change.type == ChangeType.REMOVE:
                 descriptions.append(f"🗑️ 移除{change.evidence_id}证据")
             elif change.type == ChangeType.REPLACE and change.reason:
@@ -298,7 +301,7 @@ class DeltaReporter:
         key_features = {
             "parts": sorted([p.get("id", "") for p in assembly.get("parts", [])]),
             "mates": sorted([m.get("id", "") for m in assembly.get("mates", [])]),
-            "types": sorted([m.get("type", "") for m in assembly.get("mates", [])])
+            "types": sorted([m.get("type", "") for m in assembly.get("mates", [])]),
         }
 
         # 计算哈希
@@ -398,21 +401,16 @@ if __name__ == "__main__":
     # 模拟旧版本
     old_assembly = {
         "version": "1.0.0",
-        "parts": [
-            {"id": "gear1", "type": "gear"},
-            {"id": "shaft1", "type": "shaft"}
-        ],
+        "parts": [{"id": "gear1", "type": "gear"}, {"id": "shaft1", "type": "shaft"}],
         "mates": [
             {
                 "id": "m1",
                 "part1": "gear1",
                 "part2": "shaft1",
                 "type": "fixed",
-                "evidence_chain": [
-                    {"type": "geometric", "confidence": 0.8}
-                ]
+                "evidence_chain": [{"type": "geometric", "confidence": 0.8}],
             }
-        ]
+        ],
     }
 
     # 模拟新版本
@@ -421,7 +419,7 @@ if __name__ == "__main__":
         "parts": [
             {"id": "gear1", "type": "gear"},
             {"id": "shaft1", "type": "shaft"},
-            {"id": "bearing1", "type": "bearing"}  # 新增
+            {"id": "bearing1", "type": "bearing"},  # 新增
         ],
         "mates": [
             {
@@ -431,10 +429,10 @@ if __name__ == "__main__":
                 "type": "keyed",  # 类型变更
                 "evidence_chain": [
                     {"type": "geometric", "confidence": 0.9},  # 置信度提升
-                    {"type": "textual", "confidence": 0.7}  # 新增证据
-                ]
+                    {"type": "textual", "confidence": 0.7},  # 新增证据
+                ],
             }
-        ]
+        ],
     }
 
     # 生成Delta报告

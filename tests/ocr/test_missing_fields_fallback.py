@@ -1,28 +1,35 @@
 """Test missing-fields fallback trigger in OcrManager."""
 
 import pytest
-from src.core.ocr.manager import OcrManager
+
 from src.core.ocr.base import OcrResult
+from src.core.ocr.manager import OcrManager
 
 
 class StubProvider:
     name = "paddle"
+
     async def warmup(self):
         pass
+
     async def extract(self, image_bytes: bytes, trace_id: str | None = None) -> OcrResult:
         # raw text contains dimension tokens but returns empty parsed lists
         return OcrResult(text="Φ20 R5 M10 Ra3.2", confidence=0.9)
+
     async def health_check(self):
         return True
 
 
 class DeepSeekStub:
     name = "deepseek_hf"
+
     async def warmup(self):
         pass
+
     async def extract(self, image_bytes: bytes, trace_id: str | None = None) -> OcrResult:
         # simulate parsed extraction
         from src.core.ocr.base import DimensionInfo, DimensionType, SymbolInfo, SymbolType
+
         return OcrResult(
             text="Φ20 R5 M10 Ra3.2",
             confidence=0.95,
@@ -33,6 +40,7 @@ class DeepSeekStub:
             ],
             symbols=[SymbolInfo(type=SymbolType.surface_roughness, value="3.2")],
         )
+
     async def health_check(self):
         return True
 

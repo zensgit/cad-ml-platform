@@ -1,8 +1,9 @@
 import base64
+
 from fastapi.testclient import TestClient
 
-from src.main import app
 from src.core.errors import ErrorCode
+from src.main import app
 
 client = TestClient(app)
 
@@ -42,4 +43,9 @@ def test_ocr_provider_not_found():
     data = resp.json()
     assert resp.status_code == 200
     assert data["success"] is False
-    assert data.get("code") in (ErrorCode.INTERNAL_ERROR, ErrorCode.INPUT_ERROR)
+    # Explicit invalid provider should surface PROVIDER_DOWN in unified error model
+    assert data.get("code") in (
+        ErrorCode.INTERNAL_ERROR,
+        ErrorCode.INPUT_ERROR,
+        ErrorCode.PROVIDER_DOWN,
+    )

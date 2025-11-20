@@ -1,5 +1,5 @@
-from src.core.ocr.parsing.bbox_mapper import assign_bboxes
 from src.core.ocr.base import DimensionInfo, DimensionType, SymbolInfo, SymbolType
+from src.core.ocr.parsing.bbox_mapper import assign_bboxes
 
 
 def test_assign_bboxes_matches_raw_and_value():
@@ -7,7 +7,13 @@ def test_assign_bboxes_matches_raw_and_value():
         DimensionInfo(type=DimensionType.diameter, value=20.0, raw="Φ20±0.02"),
         DimensionInfo(type=DimensionType.radius, value=5.0, raw="R5"),
     ]
-    syms = [SymbolInfo(type=SymbolType.surface_roughness, value="3.2", normalized_form="surface_roughness",)]
+    syms = [
+        SymbolInfo(
+            type=SymbolType.surface_roughness,
+            value="3.2",
+            normalized_form="surface_roughness",
+        )
+    ]
     lines = [
         {"text": "Φ20±0.02", "bbox": [10, 10, 40, 10]},
         {"text": "R5", "bbox": [60, 10, 20, 10]},

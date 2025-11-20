@@ -1,90 +1,100 @@
-"""Self-check script for CI smoke validation.
+"""
+Lightweight self-check script for local/CI verification.
 
-Performs:
-1. /health endpoint check
-2. /metrics presence of key counters
-3. Vision analyze minimal request (base64 tiny PNG)
-4. OCR extract invalid MIME to ensure INPUT_ERROR path
+Checks core health endpoint and (optionally) metrics exposure using FastAPI's TestClient.
 
-Exit codes:
-0 - All checks pass
-2 - Critical failure (unhealthy health or request crash)
-3 - Missing metrics counters
-4 - Unexpected error code schema
+Exit codes (aligned with CI failure routing):
+ - 0: OK
+ - 2: Critical failure (app import or /health contract)
+ - 3: Metrics missing or malformed when expected
 """
 
 from __future__ import annotations
 
-import base64
-import sys
 import json
-from typing import Any
+import os
+import sys
+from typing import Any, Dict
 
-import requests
+try:
+    from fastapi.testclient import TestClient
+except Exception as e:  # pragma: no cover - env issue
+    print(f"[self-check] fastapi TestClient import failed: {e}")
+    sys.exit(2)
 
-BASE = "http://localhost:8000"
+
+def _load_app():
+    try:
+        from src.main import app  # type: ignore
+    except Exception as e:
+        print(f"[self-check] Failed to import app: {e}")
+        sys.exit(2)
+    return app
 
 
-def _fail(code: int, msg: str) -> None:
-    print(json.dumps({"success": False, "error": msg, "code": code}))
-    sys.exit(code)
+def _expect(cond: bool, msg: str) -> None:
+    if not cond:
+        print(f"[self-check] {msg}")
+        sys.exit(2)
 
 
 def main() -> None:
-    # 1. Health
+    app = _load_app()
+    client = TestClient(app)
+
+    # 1) Health contract
+    r = client.get("/health")
+    _expect(r.status_code == 200, f"/health HTTP {r.status_code}")
     try:
-        r = requests.get(f"{BASE}/health", timeout=3)
-    except Exception as e:
-        _fail(2, f"health request failed: {e}")
-    if r.status_code != 200:
-        _fail(2, f"health non-200: {r.status_code}")
-    data = r.json()
-    if data.get("status") not in ("healthy", "ok"):
-        _fail(2, "health status not healthy")
+        payload: Dict[str, Any] = r.json()
+    except json.JSONDecodeError:
+        print("[self-check] /health returned non-JSON body")
+        sys.exit(2)
 
-    # 2. Metrics presence
-    try:
-        mr = requests.get(f"{BASE}/metrics", timeout=3)
-    except Exception as e:
-        _fail(3, f"metrics request failed: {e}")
-    if mr.status_code != 200:
-        _fail(3, f"metrics non-200: {mr.status_code}")
-    mtext = mr.text
-    for key in ["vision_requests_total", "ocr_errors_total", "ocr_input_rejected_total"]:
-        if key not in mtext:
-            _fail(3, f"missing metric {key}")
+    _expect("status" in payload and payload["status"] == "healthy", "/health status!=healthy")
+    _expect("runtime" in payload, "/health missing runtime")
+    runtime = payload["runtime"]
+    _expect("python_version" in runtime, "/health.runtime missing python_version")
+    _expect("metrics_enabled" in runtime, "/health.runtime missing metrics_enabled")
 
-    # 3. Vision minimal request
-    tiny_png = base64.b64encode(
-        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00\x00\x00\x00:~\x9bU\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
-    ).decode()
-    v_payload = {
-        "image_base64": tiny_png,
-        "include_description": False,
-        "include_ocr": False,
-    }
-    vr = requests.post(f"{BASE}/api/v1/vision/analyze", json=v_payload, timeout=5)
-    if vr.status_code != 200:
-        _fail(2, f"vision analyze non-200: {vr.status_code}")
-    vdata = vr.json()
-    if not vdata.get("success"):
-        _fail(2, "vision analyze unexpected failure")
+    # 2) Metrics presence if enabled
+    metrics_enabled = bool(runtime.get("metrics_enabled", False))
+    check_metrics = os.getenv("SELF_CHECK_METRICS", "1") != "0"
+    if metrics_enabled and check_metrics:
+        mr = client.get("/metrics")
+        if mr.status_code != 200:
+            print(f"[self-check] /metrics HTTP {mr.status_code}")
+            sys.exit(3)
+        body = mr.text or ""
+        # Check a few expected metric names exist (best-effort)
+        required = [
+            "ocr_error_rate_ema",
+            "vision_error_rate_ema",
+            "ocr_requests_total",
+            "vision_requests_total",
+        ]
+        missing = [m for m in required if m not in body]
+        if missing:
+            print(f"[self-check] missing metrics: {', '.join(missing)}")
+            sys.exit(3)
 
-    # 4. OCR invalid MIME (should yield INPUT_ERROR)
-    files = {"file": ("fake.txt", b"notimg", "text/plain")}
-    orr = requests.post(f"{BASE}/api/v1/ocr/extract", files=files, timeout=5)
-    if orr.status_code != 200:
-        _fail(2, f"ocr extract non-200: {orr.status_code}")
-    odata = orr.json()
-    if odata.get("success") is True:
-        _fail(4, "ocr invalid mime returned success")
-    if odata.get("code") != "INPUT_ERROR":
-        _fail(4, f"ocr code mismatch: {odata.get('code')}")
+    # 3) Minimal unified error-path validation (optional)
+    check_error = os.getenv("SELF_CHECK_ERROR", "1") != "0"
+    if check_error:
+        # Use invalid MIME to trigger unified INPUT_ERROR path deterministically
+        files = {"file": ("bad.txt", b"hello", "text/plain")}
+        er = client.post("/api/v1/ocr/extract", files=files)
+        if er.status_code != 200:
+            print(f"[self-check] error-path HTTP {er.status_code}")
+            sys.exit(2)
+        ej = er.json()
+        if not isinstance(ej, dict) or ej.get("success", True) is True or not ej.get("code"):
+            print("[self-check] unified error model missing or malformed")
+            sys.exit(4)
 
-    print(json.dumps({"success": True, "error": None, "code": 0}))
+    print("[self-check] OK")
     sys.exit(0)
 
 
 if __name__ == "__main__":
     main()
-

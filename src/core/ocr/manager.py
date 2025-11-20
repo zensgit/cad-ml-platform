@@ -5,44 +5,48 @@ Simplified initial implementation; real provider logic added incrementally.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import time
-import asyncio
 from typing import Dict, Optional
 
-from .base import OcrClient, OcrResult, DimensionType, SymbolType
-from .exceptions import OcrError
 from src.utils.cache import get_cache, set_cache
+from src.utils.circuit_breaker import CircuitBreaker, CircuitConfig
 from src.utils.metrics import (
-    ocr_requests_total,
-    ocr_processing_duration_seconds,
-    ocr_fallback_triggered,
-    ocr_confidence_distribution,
     ocr_completeness_ratio,
-    ocr_confidence_fallback_threshold,
+    ocr_confidence_distribution,
     ocr_confidence_ema,
-    ocr_item_confidence_distribution,
+    ocr_confidence_fallback_threshold,
     ocr_errors_total,
-    update_ocr_error_ema,
+    ocr_fallback_triggered,
     ocr_image_size_bytes,
+    ocr_item_confidence_distribution,
+    ocr_processing_duration_seconds,
+    ocr_requests_total,
+    update_ocr_error_ema,
 )
 from src.utils.metrics_helpers import safe_inc, safe_observe, safe_set
-from .config import PROMPT_VERSION, DATASET_VERSION
 from src.utils.rate_limiter import RateLimiter
-from src.utils.circuit_breaker import CircuitBreaker, CircuitConfig
+
+from .base import DimensionType, OcrClient, OcrResult, SymbolType
 from .calibration import MultiEvidenceCalibrator
+from .config import DATASET_VERSION, PROMPT_VERSION
+from .exceptions import OcrError
 
 # Versions centralized in config.
 
 
 class OcrManager:
-    def __init__(self, providers: Optional[Dict[str, OcrClient]] = None, confidence_fallback: float = 0.85):
+    def __init__(
+        self, providers: Optional[Dict[str, OcrClient]] = None, confidence_fallback: float = 0.85
+    ):
         self.providers = providers or {}
         self.confidence_fallback = confidence_fallback
         # dynamic threshold state
         try:
             from .rolling_stats import RollingStats
+
             self._conf_stats = RollingStats(alpha=0.2)
         except Exception:
             self._conf_stats = None
@@ -50,13 +54,26 @@ class OcrManager:
 
     def register_provider(self, name: str, client: OcrClient):
         self.providers[name] = client
+        # Mark provider model loaded
+        try:
+            from src.utils.metrics import ocr_model_loaded
+
+            safe_set(ocr_model_loaded, 1, provider=name)
+        except Exception:
+            pass
 
     def _crop_cfg_hash(self, crop_cfg: Optional[Dict]) -> str:
         cfg = crop_cfg or {}
         cfg_str = json.dumps(cfg, sort_keys=True)
         return hashlib.sha256(cfg_str.encode()).hexdigest()[:8]
 
-    def build_cache_key(self, image_bytes: bytes, provider: str, crop_cfg: Optional[Dict] = None, include_dataset: bool = False) -> str:
+    def build_cache_key(
+        self,
+        image_bytes: bytes,
+        provider: str,
+        crop_cfg: Optional[Dict] = None,
+        include_dataset: bool = False,
+    ) -> str:
         image_hash = hashlib.sha256(image_bytes).hexdigest()[:16]
         parts = [
             "ocr",
@@ -69,34 +86,63 @@ class OcrManager:
             parts.append(DATASET_VERSION)
         return ":".join(parts)
 
-    async def extract(self, image_bytes: bytes, strategy: str = "auto", crop_cfg: Optional[Dict] = None, trace_id: str | None = None) -> OcrResult:
+    async def extract(
+        self,
+        image_bytes: bytes,
+        strategy: str = "auto",
+        crop_cfg: Optional[Dict] = None,
+        trace_id: str | None = None,
+    ) -> OcrResult:
         start = time.time()
         provider_name = self._select_provider(strategy)
         provider = self.providers.get(provider_name)
         if not provider:
-            ocr_errors_total.labels(provider=provider_name, code="provider_down", stage="infer").inc()
+            ocr_errors_total.labels(
+                provider=provider_name, code="provider_down", stage="infer"
+            ).inc()
             from src.core.errors import ErrorCode
-            raise OcrError(ErrorCode.PROVIDER_DOWN, f"Provider '{provider_name}' not available", provider=provider_name, stage="infer")
+
+            raise OcrError(
+                ErrorCode.PROVIDER_DOWN,
+                f"Provider '{provider_name}' not available",
+                provider=provider_name,
+                stage="infer",
+            )
         # Rate limiting (per provider)
         if not hasattr(self, "_rate_limiters"):
             self._rate_limiters = {}
-        rl = self._rate_limiters.setdefault(provider_name, RateLimiter(key=provider_name, qps=10.0, burst=10))
+        rl = self._rate_limiters.setdefault(
+            provider_name, RateLimiter(key=provider_name, qps=10.0, burst=10)
+        )
         allowed = await rl.allow()
         if not allowed:
             from src.utils.metrics import ocr_rate_limited_total
+
             ocr_rate_limited_total.inc()
-            ocr_errors_total.labels(provider=provider_name, code="rate_limit", stage="preprocess").inc()
+            ocr_errors_total.labels(
+                provider=provider_name, code="rate_limit", stage="preprocess"
+            ).inc()
             from src.core.errors import ErrorCode
-            raise OcrError(ErrorCode.RATE_LIMIT, "Rate limited", provider=provider_name, stage="preprocess")
+
+            raise OcrError(
+                ErrorCode.RATE_LIMIT, "Rate limited", provider=provider_name, stage="preprocess"
+            )
 
         # Circuit breaker per provider
         if not hasattr(self, "_circuits"):
             self._circuits = {}
-        cb = self._circuits.setdefault(provider_name, CircuitBreaker(provider_name, CircuitConfig()))
+        cb = self._circuits.setdefault(
+            provider_name, CircuitBreaker(provider_name, CircuitConfig())
+        )
         if not await cb.should_allow():
-            ocr_errors_total.labels(provider=provider_name, code="circuit_open", stage="infer").inc()
+            ocr_errors_total.labels(
+                provider=provider_name, code="circuit_open", stage="infer"
+            ).inc()
             from src.core.errors import ErrorCode
-            raise OcrError(ErrorCode.CIRCUIT_OPEN, "Circuit open", provider=provider_name, stage="infer")
+
+            raise OcrError(
+                ErrorCode.CIRCUIT_OPEN, "Circuit open", provider=provider_name, stage="infer"
+            )
         # Cache check (skip for deepseek for now to measure quality, enable later)
         cache_key = self.build_cache_key(image_bytes, provider_name, crop_cfg)
         cached = await get_cache(cache_key)
@@ -137,7 +183,9 @@ class OcrManager:
         result.completeness = self._compute_completeness(result)
         item_mean = None
         if result.dimensions or result.symbols:
-            vals = [d.confidence for d in result.dimensions if d.confidence is not None] + [s.confidence for s in result.symbols if s.confidence is not None]
+            vals = [d.confidence for d in result.dimensions if d.confidence is not None] + [
+                s.confidence for s in result.symbols if s.confidence is not None
+            ]
             if vals:
                 item_mean = sum(vals) / len(vals)
         # simplistic recent fallback ratio & parse error rate placeholders (future: track counters)
@@ -155,7 +203,11 @@ class OcrManager:
         if result.completeness is not None:
             safe_observe(ocr_completeness_ratio, result.completeness, provider=provider_name)
         # Update EMA and dynamic threshold (bounded)
-        calib = result.calibrated_confidence if result.calibrated_confidence is not None else result.confidence
+        calib = (
+            result.calibrated_confidence
+            if result.calibrated_confidence is not None
+            else result.confidence
+        )
         if calib is not None and self._conf_stats:
             ema = self._conf_stats.update(calib)
             safe_set(ocr_confidence_ema, ema)
@@ -177,22 +229,36 @@ class OcrManager:
                 ds_result.completeness = self._compute_completeness(ds_result)
                 item_mean_ds = None
                 if ds_result.dimensions or ds_result.symbols:
-                    vals_ds = [d.confidence for d in ds_result.dimensions if d.confidence is not None] + [s.confidence for s in ds_result.symbols if s.confidence is not None]
+                    vals_ds = [
+                        d.confidence for d in ds_result.dimensions if d.confidence is not None
+                    ] + [s.confidence for s in ds_result.symbols if s.confidence is not None]
                     if vals_ds:
                         item_mean_ds = sum(vals_ds) / len(vals_ds)
-                ds_result.calibrated_confidence = self._calibrator.calibrate(ds_result.confidence, ds_result.completeness, item_mean=item_mean_ds)
+                ds_result.calibrated_confidence = self._calibrator.calibrate(
+                    ds_result.confidence, ds_result.completeness, item_mean=item_mean_ds
+                )
                 if ds_result.confidence is not None:
-                    ocr_confidence_distribution.labels(provider=ds_result.provider).observe(ds_result.confidence)
+                    ocr_confidence_distribution.labels(provider=ds_result.provider).observe(
+                        ds_result.confidence
+                    )
                 if ds_result.completeness is not None:
-                    ocr_completeness_ratio.labels(provider=ds_result.provider).observe(ds_result.completeness)
-                ocr_processing_duration_seconds.labels(provider=ds_result.provider).observe(ds_result.processing_time_ms / 1000.0)
+                    ocr_completeness_ratio.labels(provider=ds_result.provider).observe(
+                        ds_result.completeness
+                    )
+                ocr_processing_duration_seconds.labels(provider=ds_result.provider).observe(
+                    ds_result.processing_time_ms / 1000.0
+                )
                 await set_cache(cache_key, ds_result.model_dump())
                 ocr_requests_total.labels(provider=ds_result.provider, status="success").inc()
                 return ds_result
 
         # Confidence fallback gate
         # use calibrated confidence if available
-        conf_cmp = result.calibrated_confidence if result.calibrated_confidence is not None else result.confidence
+        conf_cmp = (
+            result.calibrated_confidence
+            if result.calibrated_confidence is not None
+            else result.confidence
+        )
         if conf_cmp is not None and conf_cmp < self.confidence_fallback and strategy == "auto":
             deepseek = self.providers.get("deepseek_hf")
             if provider_name != "deepseek_hf" and deepseek:
@@ -205,15 +271,25 @@ class OcrManager:
                 ds_result.completeness = self._compute_completeness(ds_result)
                 item_mean_ds = None
                 if ds_result.dimensions or ds_result.symbols:
-                    vals_ds = [d.confidence for d in ds_result.dimensions if d.confidence is not None] + [s.confidence for s in ds_result.symbols if s.confidence is not None]
+                    vals_ds = [
+                        d.confidence for d in ds_result.dimensions if d.confidence is not None
+                    ] + [s.confidence for s in ds_result.symbols if s.confidence is not None]
                     if vals_ds:
                         item_mean_ds = sum(vals_ds) / len(vals_ds)
-                ds_result.calibrated_confidence = self._calibrator.calibrate(ds_result.confidence, ds_result.completeness, item_mean=item_mean_ds)
+                ds_result.calibrated_confidence = self._calibrator.calibrate(
+                    ds_result.confidence, ds_result.completeness, item_mean=item_mean_ds
+                )
                 if ds_result.confidence is not None:
-                    ocr_confidence_distribution.labels(provider=ds_result.provider).observe(ds_result.confidence)
+                    ocr_confidence_distribution.labels(provider=ds_result.provider).observe(
+                        ds_result.confidence
+                    )
                 if ds_result.completeness is not None:
-                    ocr_completeness_ratio.labels(provider=ds_result.provider).observe(ds_result.completeness)
-                ocr_processing_duration_seconds.labels(provider=ds_result.provider).observe(ds_result.processing_time_ms / 1000.0)
+                    ocr_completeness_ratio.labels(provider=ds_result.provider).observe(
+                        ds_result.completeness
+                    )
+                ocr_processing_duration_seconds.labels(provider=ds_result.provider).observe(
+                    ds_result.processing_time_ms / 1000.0
+                )
                 # pydantic v2
                 await set_cache(cache_key, ds_result.model_dump())
                 ocr_requests_total.labels(provider=ds_result.provider, status="success").inc()
@@ -222,6 +298,7 @@ class OcrManager:
         result.processing_time_ms = int((time.time() - start) * 1000)
         try:
             import logging
+
             logging.getLogger(__name__).info(
                 "ocr.manager.extract",
                 extra={
@@ -241,29 +318,42 @@ class OcrManager:
             )
         except Exception:
             pass
-        ocr_processing_duration_seconds.labels(provider=result.provider).observe(result.processing_time_ms / 1000.0)
+        ocr_processing_duration_seconds.labels(provider=result.provider).observe(
+            result.processing_time_ms / 1000.0
+        )
         # Per-item confidence metrics
         for d in result.dimensions:
             if d.confidence is not None:
-                ocr_item_confidence_distribution.labels(provider=result.provider, item_type="dimension").observe(d.confidence)
+                ocr_item_confidence_distribution.labels(
+                    provider=result.provider, item_type="dimension"
+                ).observe(d.confidence)
         for s in result.symbols:
             if s.confidence is not None:
-                ocr_item_confidence_distribution.labels(provider=result.provider, item_type="symbol").observe(s.confidence)
+                ocr_item_confidence_distribution.labels(
+                    provider=result.provider, item_type="symbol"
+                ).observe(s.confidence)
         await set_cache(cache_key, result.model_dump())
         ocr_requests_total.labels(provider=result.provider, status="success").inc()
         return result
 
     def _select_provider(self, strategy: str) -> str:
-        if strategy == "paddle":
-            return "paddle"
-        if strategy == "deepseek_hf":
-            return "deepseek_hf"
+        """Select provider based on strategy.
+
+        Rules:
+        - If strategy explicitly names a provider and it's not registered, return the same
+          name to trigger a PROVIDER_DOWN path upstream (no silent fallback).
+        - If strategy is 'auto' (or empty), prefer 'paddle' then 'deepseek_hf'; otherwise
+          fallback to any available provider, or 'unknown' if none.
+        """
+        if strategy and strategy != "auto":
+            # Respect explicit provider; do not silently fallback
+            return strategy
         # auto strategy preference order
         if "paddle" in self.providers:
             return "paddle"
         if "deepseek_hf" in self.providers:
             return "deepseek_hf"
-        # fallback to any available
+        # fallback to any available or unknown
         return next(iter(self.providers.keys())) if self.providers else "unknown"
 
     def _compute_completeness(self, result: OcrResult) -> float:
@@ -297,8 +387,12 @@ class OcrManager:
         if not text:
             return False
         hints = [
-            ("Φ", DimensionType.diameter), ("⌀", DimensionType.diameter), ("∅", DimensionType.diameter),
-            ("R", DimensionType.radius), ("M", DimensionType.thread), ("Ra", SymbolType.surface_roughness)
+            ("Φ", DimensionType.diameter),
+            ("⌀", DimensionType.diameter),
+            ("∅", DimensionType.diameter),
+            ("R", DimensionType.radius),
+            ("M", DimensionType.thread),
+            ("Ra", SymbolType.surface_roughness),
         ]
         dims = {d.type for d in result.dimensions}
         syms = {s.type for s in result.symbols}

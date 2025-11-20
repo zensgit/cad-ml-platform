@@ -12,6 +12,17 @@ from __future__ import annotations
 import time
 from typing import Optional
 
+import src.core.config as config
+from src.utils.metrics import (
+    update_vision_error_ema,
+    vision_errors_total,
+    vision_image_size_bytes,
+    vision_input_rejected_total,
+    vision_processing_duration_seconds,
+    vision_requests_total,
+)
+from src.utils.metrics_helpers import safe_inc, safe_observe
+
 from .base import (
     OcrResult,
     VisionAnalyzeRequest,
@@ -20,16 +31,6 @@ from .base import (
     VisionInputError,
     VisionProvider,
 )
-from src.core.config import get_settings
-from src.utils.metrics import (
-    vision_requests_total,
-    vision_processing_duration_seconds,
-    vision_errors_total,
-    vision_image_size_bytes,
-    vision_input_rejected_total,
-    update_vision_error_ema,
-)
-from src.utils.metrics_helpers import safe_inc, safe_observe
 
 
 class VisionManager:
@@ -89,7 +90,11 @@ class VisionManager:
             try:
                 processing_time_ms = (time.time() - start_time) * 1000
                 safe_inc(vision_requests_total, provider=provider_name, status="error")
-                safe_observe(vision_processing_duration_seconds, processing_time_ms / 1000.0, provider=provider_name)
+                safe_observe(
+                    vision_processing_duration_seconds,
+                    processing_time_ms / 1000.0,
+                    provider=provider_name,
+                )
                 safe_inc(vision_errors_total, provider=provider_name, code="internal")
                 update_vision_error_ema(True)
             except Exception:
@@ -116,7 +121,11 @@ class VisionManager:
                 )
             processing_time_ms = (time.time() - start_time) * 1000
             safe_inc(vision_requests_total, provider=provider_name, status="success")
-            safe_observe(vision_processing_duration_seconds, processing_time_ms / 1000.0, provider=provider_name)
+            safe_observe(
+                vision_processing_duration_seconds,
+                processing_time_ms / 1000.0,
+                provider=provider_name,
+            )
             update_vision_error_ema(False)
             return VisionAnalyzeResponse(
                 success=True,
@@ -130,7 +139,11 @@ class VisionManager:
             try:
                 processing_time_ms = (time.time() - start_time) * 1000
                 safe_inc(vision_requests_total, provider=provider_name, status="error")
-                safe_observe(vision_processing_duration_seconds, processing_time_ms / 1000.0, provider=provider_name)
+                safe_observe(
+                    vision_processing_duration_seconds,
+                    processing_time_ms / 1000.0,
+                    provider=provider_name,
+                )
                 safe_inc(vision_errors_total, provider=provider_name, code="internal")
                 update_vision_error_ema(True)
             except Exception:
@@ -150,7 +163,7 @@ class VisionManager:
         Raises:
             VisionInputError: If both image_url and image_base64 are missing
         """
-        settings = get_settings()
+        settings = config.get_settings()
         max_bytes = settings.VISION_MAX_BASE64_BYTES
         if request.image_base64:
             # Decode base64 image with strict validation
@@ -171,6 +184,9 @@ class VisionManager:
                     raise VisionInputError("Decoded image is empty (0 bytes)")
                 return decoded
             except Exception as e:
+                # If we intentionally raised VisionInputError above, re-raise without reclassification
+                if isinstance(e, VisionInputError):
+                    raise
                 # Try to classify base64 error subtype
                 msg = str(e).lower()
                 if "incorrect padding" in msg:
@@ -229,9 +245,7 @@ class VisionManager:
                     if content_length and int(content_length) > max_size_bytes:
                         size_mb = int(content_length) / 1024 / 1024
                         vision_input_rejected_total.labels(reason="url_too_large_header").inc()
-                        raise VisionInputError(
-                            f"Image too large ({size_mb:.1f}MB). Max 50MB."
-                        )
+                        raise VisionInputError(f"Image too large ({size_mb:.1f}MB). Max 50MB.")
 
                     # Read content and check actual size
                     image_data = response.content
@@ -311,6 +325,7 @@ class VisionManager:
             # Vision description will still be returned even if OCR fails
             # TODO: Add proper structured logging
             import logging
+
             logging.getLogger(__name__).warning(
                 "vision.ocr_extract_failed",
                 extra={"error": str(e)},

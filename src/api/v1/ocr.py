@@ -4,18 +4,19 @@ from __future__ import annotations
 
 import logging
 import uuid
+from typing import Optional
 
-from fastapi import APIRouter, File, Header, Request, UploadFile, HTTPException
+from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
-from src.core.errors import ErrorCode
 
 from src.core.assembly.confidence_calibrator import ConfidenceCalibrationSystem
+from src.core.errors import ErrorCode
+from src.core.ocr.exceptions import OcrError
 from src.core.ocr.manager import OcrManager
 from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
 from src.core.ocr.providers.paddle import PaddleOcrProvider
 from src.middleware.rate_limit import rate_limit
 from src.security.input_validator import validate_and_read
-from typing import Optional
 from src.utils.idempotency import check_idempotency, store_idempotency
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,8 @@ async def ocr_extract(
         try:
             image_bytes, mime = await validate_and_read(file)
         except HTTPException as ve:
-            from src.utils.metrics import ocr_input_rejected_total, ocr_errors_total
+            from src.utils.metrics import ocr_errors_total, ocr_input_rejected_total
+
             # Map HTTPException status to reason label when possible
             detail = str(ve.detail).lower()
             if "mime" in detail:
@@ -107,7 +109,8 @@ async def ocr_extract(
                 code=ErrorCode.INPUT_ERROR,
             )
         except Exception:
-            from src.utils.metrics import ocr_input_rejected_total, ocr_errors_total
+            from src.utils.metrics import ocr_errors_total, ocr_input_rejected_total
+
             ocr_input_rejected_total.labels(reason="validation_failed").inc()
             ocr_errors_total.labels(provider=provider, code="input_error", stage="validate").inc()
             return OcrResponse(
@@ -129,8 +132,22 @@ async def ocr_extract(
                 strategy=provider,
                 trace_id=trace_id,
             )
-        except Exception:  # provider or internal error
+        except OcrError as oe:  # provider down, rate limit, circuit, etc.
+            return OcrResponse(
+                success=False,
+                provider=provider,
+                confidence=None,
+                fallback_level=None,
+                processing_time_ms=0,
+                dimensions=[],
+                symbols=[],
+                title_block={},
+                error=str(oe),
+                code=oe.code if isinstance(oe.code, ErrorCode) else ErrorCode.INTERNAL_ERROR,
+            )
+        except Exception:  # unknown internal error
             from src.utils.metrics import ocr_errors_total
+
             ocr_errors_total.labels(provider=provider, code="internal", stage="manager").inc()
             return OcrResponse(
                 success=False,
@@ -156,9 +173,7 @@ async def ocr_extract(
                 "fallback_level": result.fallback_level,
                 "image_hash": result.image_hash,
                 "completeness": result.completeness,
-                "calibrated_confidence": (
-                    result.calibrated_confidence or result.confidence
-                ),
+                "calibrated_confidence": (result.calibrated_confidence or result.confidence),
                 "trace_id": trace_id,
                 "extraction_mode": result.extraction_mode,
                 "dimensions_count": len(result.dimensions),
@@ -169,9 +184,7 @@ async def ocr_extract(
         )
         response = OcrResponse(
             provider=result.provider or provider,
-            confidence=(
-                result.calibrated_confidence or result.confidence
-            ),
+            confidence=(result.calibrated_confidence or result.confidence),
             fallback_level=result.fallback_level,
             processing_time_ms=result.processing_time_ms,
             dimensions=[d.model_dump() for d in result.dimensions],
@@ -189,7 +202,8 @@ async def ocr_extract(
 
         return response
     except HTTPException as ve:
-        from src.utils.metrics import ocr_input_rejected_total, ocr_errors_total
+        from src.utils.metrics import ocr_errors_total, ocr_input_rejected_total
+
         ocr_input_rejected_total.labels(reason="validation_failed").inc()
         ocr_errors_total.labels(provider=provider, code="input_error", stage="endpoint").inc()
         return OcrResponse(
@@ -210,6 +224,7 @@ async def ocr_extract(
             extra={"trace_id": trace_id},
         )
         from src.utils.metrics import ocr_errors_total
+
         ocr_errors_total.labels(provider=provider, code="internal", stage="endpoint").inc()
         return OcrResponse(
             success=False,

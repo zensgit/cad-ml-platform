@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import asyncio
 import time
+import logging
+
 """DeepSeek HF OCR provider stub."""
 try:
     from transformers import AutoModelForCausalLM, AutoTokenizer  # type: ignore
@@ -14,23 +16,24 @@ except Exception:  # transformers not installed
     AutoModelForCausalLM = None  # type: ignore
     AutoTokenizer = None  # type: ignore
 
+from src.core.errors import ErrorCode
+from src.utils.metrics import ocr_cold_start_seconds, ocr_errors_total, ocr_stage_duration_seconds
+
 from ..base import (
+    DimensionInfo,
+    DimensionType,
     OcrClient,
     OcrResult,
-    DimensionInfo,
     SymbolInfo,
-    TitleBlock,
-    DimensionType,
     SymbolType,
+    TitleBlock,
 )
-from ..parsing.fallback_parser import FallbackParser
-from ..utils.prompt_templates import deepseek_ocr_json_prompt
-from ..parsing.dimension_parser import parse_dimensions_and_symbols
 from ..parsing.bbox_mapper import assign_bboxes, polygon_to_bbox
-from src.core.ocr.exceptions import OCR_ERRORS
-from src.utils.metrics import ocr_errors_total, ocr_cold_start_seconds, ocr_stage_duration_seconds
-from ..stage_timer import StageTimer
+from ..parsing.dimension_parser import parse_dimensions_and_symbols
+from ..parsing.fallback_parser import FallbackParser
 from ..preprocessing.image_enhancer import enhance_image_for_ocr
+from ..stage_timer import StageTimer
+from ..utils.prompt_templates import deepseek_ocr_json_prompt
 
 try:
     from paddleocr import PaddleOCR  # type: ignore
@@ -38,10 +41,18 @@ except Exception:
     PaddleOCR = None  # type: ignore
 
 
+logger = logging.getLogger(__name__)
+
+
 class DeepSeekHfProvider(OcrClient):
     name = "deepseek_hf"
 
-    def __init__(self, timeout_ms: int = 30000, model_name: str = "deepseek-ocr-mini", align_with_paddle: bool = True):
+    def __init__(
+        self,
+        timeout_ms: int = 30000,
+        model_name: str = "deepseek-ocr-mini",
+        align_with_paddle: bool = True,
+    ):
         self._model = None
         self._tokenizer = None
         self._lock = asyncio.Lock()
@@ -56,23 +67,39 @@ class DeepSeekHfProvider(OcrClient):
             await self._lazy_load()
         if self._align_with_paddle and PaddleOCR and self._paddle is None:
             try:
-                self._paddle = PaddleOCR(lang='ch', use_angle_cls=True, use_gpu=False)
+                self._paddle = PaddleOCR(lang="ch", use_angle_cls=True, use_gpu=False)
             except Exception:
                 self._paddle = None
 
     async def _lazy_load(self):
         async with self._lock:
-            if self._model is None and AutoModelForCausalLM and AutoTokenizer:
+            if self._model is None:
+                # If transformers are unavailable, record as a load error and fall back to stub.
+                if not (AutoModelForCausalLM and AutoTokenizer):
+                    ocr_errors_total.labels(
+                        provider=self.name, code=ErrorCode.MODEL_LOAD_ERROR.value, stage="load"
+                    ).inc()
+                    logger.warning("Transformers backend not available; using stub model")
+                    self._model = "stub"
+                    return
+
                 try:
                     start = time.time()
                     self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
                     self._model = AutoModelForCausalLM.from_pretrained(self.model_name)
                     ocr_cold_start_seconds.labels(provider=self.name).set(time.time() - start)
-                except Exception:
-                    ocr_errors_total.labels(provider=self.name, code=OCR_ERRORS["PROVIDER_DOWN"], stage="load").inc()
+                except MemoryError as e:
+                    ocr_errors_total.labels(
+                        provider=self.name, code=ErrorCode.RESOURCE_EXHAUSTED.value, stage="load"
+                    ).inc()
+                    logger.error(f"Resource exhausted during model load: {e}")
                     self._model = "stub"
-            elif self._model is None:
-                self._model = "stub"
+                except Exception as e:
+                    ocr_errors_total.labels(
+                        provider=self.name, code=ErrorCode.MODEL_LOAD_ERROR.value, stage="load"
+                    ).inc()
+                    logger.error(f"Failed to load model: {e}")
+                    self._model = "stub"
 
     async def extract(self, image_bytes: bytes, trace_id: str | None = None) -> OcrResult:
         start = time.time()
@@ -87,24 +114,43 @@ class DeepSeekHfProvider(OcrClient):
         async def _infer():
             # model generation or stub fallback
             if self._model == "stub":
-                return "```json\n{\"dimensions\": [{\"type\": \"diameter\", \"value\": 20, \"tolerance\": 0.02}], \"symbols\": []}\n```"
+                return '```json\n{"dimensions": [{"type": "diameter", "value": 20, "tolerance": 0.02}], "symbols": []}\n```'
             prompt = deepseek_ocr_json_prompt()
             try:
                 inputs = self._tokenizer(prompt, return_tensors="pt")
                 outputs = self._model.generate(**inputs, max_new_tokens=128)
                 return self._tokenizer.decode(outputs[0], skip_special_tokens=True)
-            except Exception:
-                ocr_errors_total.labels(provider=self.name, code=OCR_ERRORS["PROVIDER_DOWN"], stage="infer").inc()
+            except MemoryError as e:
+                ocr_errors_total.labels(
+                    provider=self.name, code=ErrorCode.RESOURCE_EXHAUSTED.value, stage="infer"
+                ).inc()
+                logger.error(f"Memory exhausted during inference: {e}")
+                return ""
+            except Exception as e:
+                ocr_errors_total.labels(
+                    provider=self.name, code=ErrorCode.INTERNAL_ERROR.value, stage="infer"
+                ).inc()
+                logger.error(f"Inference failed: {e}")
                 return ""
 
         try:
             raw_output = await asyncio.wait_for(_infer(), timeout=self.timeout_ms / 1000.0)
-        except asyncio.TimeoutError:
-            ocr_errors_total.labels(provider=self.name, code=OCR_ERRORS["TIMEOUT"], stage="infer").inc()
+        except (asyncio.TimeoutError, TimeoutError):
+            ocr_errors_total.labels(
+                provider=self.name, code=ErrorCode.PROVIDER_TIMEOUT.value, stage="infer"
+            ).inc()
+            logger.warning(f"Provider timeout after {self.timeout_ms}ms")
+            raw_output = ""
+        except Exception as e:
+            # Defensive: record unexpected outer errors as internal and continue gracefully.
+            ocr_errors_total.labels(
+                provider=self.name, code=ErrorCode.INTERNAL_ERROR.value, stage="infer"
+            ).inc()
+            logger.error(f"Unexpected error during inference: {e}")
             raw_output = ""
 
         if self._model == "stub":
-            raw_output = "```json\n{\"dimensions\": [{\"type\": \"diameter\", \"value\": 20, \"tolerance\": 0.02}], \"symbols\": []}\n```"
+            raw_output = '```json\n{"dimensions": [{"type": "diameter", "value": 20, "tolerance": 0.02}], "symbols": []}\n```'
         timer.end("infer")
         timer.start("parse")
         parsed = self._parser.parse(raw_output)
@@ -124,13 +170,19 @@ class DeepSeekHfProvider(OcrClient):
                         )
                     )
                 except Exception:
-                    ocr_errors_total.labels(provider=self.name, code=OCR_ERRORS["PARSE_FAIL"], stage="parse").inc()
+                    ocr_errors_total.labels(
+                        provider=self.name, code=ErrorCode.PARSE_FAILED.value, stage="parse"
+                    ).inc()
                     continue
             for s in parsed.data.get("symbols", []):
                 try:
-                    symbols.append(SymbolInfo(type=SymbolType(s.get("type")), value=str(s.get("value"))))
+                    symbols.append(
+                        SymbolInfo(type=SymbolType(s.get("type")), value=str(s.get("value")))
+                    )
                 except Exception:
-                    ocr_errors_total.labels(provider=self.name, code=OCR_ERRORS["PARSE_FAIL"], stage="parse").inc()
+                    ocr_errors_total.labels(
+                        provider=self.name, code=ErrorCode.PARSE_FAILED.value, stage="parse"
+                    ).inc()
                     continue
         extraction_mode = "json_only"
         if text:
@@ -152,7 +204,7 @@ class DeepSeekHfProvider(OcrClient):
         timer.start("align")
         if self._align_with_paddle and self._paddle is None and PaddleOCR:
             try:
-                self._paddle = PaddleOCR(lang='ch', use_angle_cls=True, use_gpu=False)
+                self._paddle = PaddleOCR(lang="ch", use_angle_cls=True, use_gpu=False)
             except Exception:
                 self._paddle = None
         if self._align_with_paddle and self._paddle is not None:
@@ -161,7 +213,13 @@ class DeepSeekHfProvider(OcrClient):
                 ocr_lines = []
                 for line in ocr_result:
                     for box, (txt, score) in line:
-                        ocr_lines.append({"text": txt, "bbox": polygon_to_bbox(box), "score": float(score) if score is not None else None})
+                        ocr_lines.append(
+                            {
+                                "text": txt,
+                                "bbox": polygon_to_bbox(box),
+                                "score": float(score) if score is not None else None,
+                            }
+                        )
                 if ocr_lines:
                     assign_bboxes(dimensions, symbols, ocr_lines)
             except Exception:
@@ -188,6 +246,7 @@ class DeepSeekHfProvider(OcrClient):
         # Structured provider log (best-effort)
         try:
             import logging
+
             logging.getLogger(__name__).info(
                 "ocr.provider.extract",
                 extra={

@@ -26,7 +26,9 @@ except Exception:
     np = None  # type: ignore
 
 
-def enhance_image_for_ocr(image_bytes: bytes, max_res: int = 2048) -> Tuple[bytes, Optional["np.ndarray"]]:
+def enhance_image_for_ocr(
+    image_bytes: bytes, max_res: int = 2048
+) -> Tuple[bytes, Optional["np.ndarray"]]:
     if Image is None:
         # No PIL — return original bytes, no ndarray
         return image_bytes, None

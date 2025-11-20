@@ -80,6 +80,12 @@ jobs:
           cache-dependency-path: |
             requirements.txt
             requirements-dev.txt
+      - name: Self-check (contract + metrics)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          python scripts/self_check.py || echo "Self-check non-blocking"
       - name: Enable mypy cache reuse
         run: echo "Using mypy cache"
       - name: Restore pytest cache (best-effort)

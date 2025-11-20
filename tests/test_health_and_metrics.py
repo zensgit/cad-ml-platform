@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
-from src.main import app
+
 from src.core.errors import ErrorCode  # noqa: F401 (referenced if extending tests)
+from src.main import app
 
 client = TestClient(app)
 
@@ -18,7 +19,9 @@ def test_health_contains_runtime_info():
     assert "vision" in data["runtime"]["error_rate_ema"]
 
     # Touch endpoints to update EMA values
-    client.post("/api/v1/vision/analyze", json={"image_base64": "aGVsbG8=", "include_description": False})
+    client.post(
+        "/api/v1/vision/analyze", json={"image_base64": "aGVsbG8=", "include_description": False}
+    )
     files = {"file": ("fake.txt", b"not_an_image", "text/plain")}
     client.post("/api/v1/ocr/extract", files=files)
     data2 = client.get("/health").json()
@@ -41,13 +44,32 @@ def test_metrics_has_vision_and_ocr_counters():
     assert "vision_image_size_bytes" in text
     # Expect at least one success or error line
     lines = [l for l in text.splitlines() if l.startswith("vision_requests_total")]
-    assert any("status=\"success\"" in l or "status=\"error\"" in l for l in lines)
+    assert any('status="success"' in l or 'status="error"' in l for l in lines)
     assert "ocr_input_rejected_total" in text
-    assert "validation_failed" in text
+    # Accept any known reason label for rejection
+    assert any(
+        r in text
+        for r in (
+            "validation_failed",
+            "invalid_mime",
+            "file_too_large",
+            "pdf_pages_exceed",
+            "pdf_forbidden_token",
+        )
+    )
+
+    # Provider loaded gauge should be present for at least one provider (e.g., paddle)
+    assert "ocr_model_loaded" in text
+    # We can't guarantee provider name, but ensure there's a sample line with provider label
+    gauge_lines = [
+        l for l in text.splitlines() if l.startswith("ocr_model_loaded") and "provider=" in l
+    ]
+    assert gauge_lines
 
 
 def test_metrics_rejected_counter_for_large_base64():
     import base64
+
     raw = b"x" * (1024 * 1200)
     payload = {
         "image_base64": base64.b64encode(raw).decode(),

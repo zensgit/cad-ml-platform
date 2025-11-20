@@ -7,18 +7,29 @@ Real integration will import PaddleOCR and run detection/recognition.
 from __future__ import annotations
 
 import time
-"""Paddle OCR provider stub."""
 import logging
+
 try:
     from paddleocr import PaddleOCR  # type: ignore
 except Exception:
     PaddleOCR = None  # type: ignore
-from ..base import OcrClient, OcrResult, DimensionInfo, SymbolInfo, TitleBlock, DimensionType, SymbolType
-from ..parsing.dimension_parser import parse_dimensions_and_symbols
+
+from src.core.errors import ErrorCode
+from src.utils.metrics import ocr_stage_duration_seconds, ocr_errors_total
+
+from ..base import (
+    DimensionInfo,
+    DimensionType,
+    OcrClient,
+    OcrResult,
+    SymbolInfo,
+    SymbolType,
+    TitleBlock,
+)
 from ..parsing.bbox_mapper import assign_bboxes, polygon_to_bbox
-from ..stage_timer import StageTimer
-from src.utils.metrics import ocr_stage_duration_seconds
+from ..parsing.dimension_parser import parse_dimensions_and_symbols
 from ..preprocessing.image_enhancer import enhance_image_for_ocr
+from ..stage_timer import StageTimer
 
 
 class PaddleOcrProvider(OcrClient):
@@ -29,6 +40,8 @@ class PaddleOcrProvider(OcrClient):
         self._enable_preprocess = enable_preprocess
         self._max_res = max_res
         self._paddle_kwargs = paddle_kwargs
+        # Underlying OCR client; may be set by warmup() or injected by tests
+        self._ocr = None
 
     async def warmup(self) -> None:
         if PaddleOCR and not self._initialized:
@@ -37,9 +50,19 @@ class PaddleOcrProvider(OcrClient):
             kwargs.update(self._paddle_kwargs or {})
             try:
                 self._ocr = PaddleOCR(**kwargs)
-            except Exception:
+            except MemoryError as e:
+                ocr_errors_total.labels(provider=self.name, code=ErrorCode.RESOURCE_EXHAUSTED.value, stage="init").inc()
+                logging.error(f"Resource exhausted during PaddleOCR init: {e}")
+                raise
+            except Exception as e:
                 # fallback to default minimal init
-                self._ocr = PaddleOCR(lang='ch', use_angle_cls=True, use_gpu=False)
+                logging.warning(f"Primary PaddleOCR init failed, falling back to defaults: {e}")
+                try:
+                    self._ocr = PaddleOCR(lang="ch", use_angle_cls=True, use_gpu=False)
+                except Exception as fallback_error:
+                    ocr_errors_total.labels(provider=self.name, code=ErrorCode.MODEL_LOAD_ERROR.value, stage="init").inc()
+                    logging.error(f"Failed to initialize PaddleOCR: {fallback_error}")
+                    raise
         self._initialized = True
 
     async def extract(self, image_bytes: bytes, trace_id: str | None = None) -> OcrResult:
@@ -58,9 +81,11 @@ class PaddleOcrProvider(OcrClient):
         symbols = []
         title_block = TitleBlock(drawing_number="PAD-001")
         ocr_lines = []
-        if PaddleOCR:
-            if not self._initialized:
-                await self.warmup()
+        # Prefer an already-initialized client (including test mocks). If absent, try warmup when PaddleOCR is available.
+        if self._ocr is None and PaddleOCR and not self._initialized:
+            await self.warmup()
+
+        if self._ocr is not None:
             try:
                 ocr_result = self._ocr.ocr(processed_bytes, cls=True)
                 texts = []
@@ -69,7 +94,7 @@ class PaddleOcrProvider(OcrClient):
                     for item in line:
                         try:
                             box, (txt, score) = item
-                        except Exception:
+                        except ValueError:
                             # some versions may return dict-like
                             if isinstance(item, dict):
                                 txt = item.get("text", "")
@@ -77,11 +102,31 @@ class PaddleOcrProvider(OcrClient):
                                 score = item.get("score", 1.0)
                             else:
                                 continue
+                        except Exception as parse_error:
+                            ocr_errors_total.labels(provider=self.name, code=ErrorCode.PARSE_FAILED.value, stage="parse").inc()
+                            logging.warning(f"Failed to parse OCR item: {parse_error}")
+                            continue
                         if txt:
                             texts.append(str(txt))
-                            ocr_lines.append({"text": str(txt), "bbox": polygon_to_bbox(box), "score": float(score) if score is not None else None})
+                            ocr_lines.append(
+                                {
+                                    "text": str(txt),
+                                    "bbox": polygon_to_bbox(box),
+                                    "score": float(score) if score is not None else None,
+                                }
+                            )
                 text = " ".join(texts)
-            except Exception:
+            except MemoryError as e:
+                ocr_errors_total.labels(provider=self.name, code=ErrorCode.RESOURCE_EXHAUSTED.value, stage="infer").inc()
+                logging.error(f"Memory exhausted during OCR: {e}")
+                text = ""
+            except TimeoutError as e:
+                ocr_errors_total.labels(provider=self.name, code=ErrorCode.PROVIDER_TIMEOUT.value, stage="infer").inc()
+                logging.error(f"OCR provider timeout: {e}")
+                text = ""
+            except Exception as e:
+                ocr_errors_total.labels(provider=self.name, code=ErrorCode.INTERNAL_ERROR.value, stage="infer").inc()
+                logging.error(f"Paddle OCR failed: {e}")
                 # Paddle path failed — keep empty to fall back to regex parsing below
                 text = ""
         else:

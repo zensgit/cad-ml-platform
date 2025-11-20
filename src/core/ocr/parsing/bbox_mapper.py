@@ -9,9 +9,9 @@ Strategy (heuristic):
 
 from __future__ import annotations
 
-from typing import List, Dict, Optional, Tuple
 import difflib
 import re
+from typing import Dict, List, Optional, Tuple
 
 from src.core.ocr.base import DimensionInfo, SymbolInfo
 

@@ -1,7 +1,7 @@
 [flake8]
 max-line-length = 100
 extend-ignore = E203,W503
-exclude = .venv,dist,build
+exclude = .venv,dist,build,.mypy_cache,.pytest_cache
 per-file-ignores = \
     src/core/ocr/providers/deepseek_hf.py:E501,E402, \
     src/core/vision/providers/deepseek_stub.py:E501, \
@@ -27,3 +27,20 @@ per-file-ignores = \
     scripts/evaluate_vision_ocr_combined.py:E501,F401,F841,F541, \
     scripts/eval_trend.py:E501, \
     scripts/export_eval_metrics.py:E501,F401
+    scripts/anomaly_baseline.py:E501, \
+    scripts/check_chartjs_updates.py:F401, \
+    scripts/generate_eval_report.py:E501, \
+    scripts/generate_eval_report_v2.py:E501,F401,F541,W292, \
+    scripts/list_tests.py:E501, \
+    scripts/manage_eval_retention.py:E128,E501,W292, \
+    scripts/notify_eval_results.py:E127,E131,E501,F541,W292, \
+    scripts/ocr/paddle_ab_tune.py:E501,W391, \
+    scripts/quick_health.py:E501,W391, \
+    scripts/run_baseline_evaluation.py:E402,F841,F541,W292, \
+    scripts/run_full_integration_test.py:E501,F401,F541,W292, \
+    scripts/security_audit.py:E501,F841,F541,E722,E128,W292, \
+    scripts/self_check.py:F401,E501,W391, \
+    scripts/snapshot_baseline.py:F401,F541,W292, \
+    scripts/test_eval_system.py:E501,F401,F841,F541,W292, \
+    scripts/validate_eval_history.py:E501,E722,F841,F541,W292, \
+    scripts/verify_environment.py:E302,E501,F401,E128,E131,E722,W292

@@ -3,79 +3,67 @@
 Prometheus指标导出和Grafana面板配置
 """
 
-from prometheus_client import Counter, Histogram, Gauge
-from typing import Dict, Optional, Tuple, List
 import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
 
+from prometheus_client import Counter, Gauge, Histogram
 
 # Prometheus指标定义
 assembly_requests_total = Counter(
-    'assembly_requests_total',
-    'Total number of assembly analysis requests',
-    ['engine', 'status']
+    "assembly_requests_total", "Total number of assembly analysis requests", ["engine", "status"]
 )
 
 assembly_edge_f1 = Gauge(
-    'assembly_edge_f1',
-    'Edge F1 score for assembly analysis',
-    ['model_version']
+    "assembly_edge_f1", "Edge F1 score for assembly analysis", ["model_version"]
 )
 
 assembly_evidence_coverage = Gauge(
-    'assembly_evidence_coverage',
-    'Evidence coverage ratio',
-    ['evidence_type']
+    "assembly_evidence_coverage", "Evidence coverage ratio", ["evidence_type"]
 )
 
 assembly_cache_hit_ratio = Gauge(
-    'assembly_cache_hit_ratio',
-    'Cache hit ratio for assembly analysis'
+    "assembly_cache_hit_ratio", "Cache hit ratio for assembly analysis"
 )
 
 assembly_latency = Histogram(
-    'assembly_latency_ms',
-    'Assembly analysis latency in milliseconds',
-    ['operation'],
-    buckets=[50, 100, 200, 500, 1000, 2000, 5000, 10000]
+    "assembly_latency_ms",
+    "Assembly analysis latency in milliseconds",
+    ["operation"],
+    buckets=[50, 100, 200, 500, 1000, 2000, 5000, 10000],
 )
 
 assembly_confidence_distribution = Histogram(
-    'assembly_confidence_distribution',
-    'Distribution of confidence scores',
-    ['calibrated'],
-    buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99]
+    "assembly_confidence_distribution",
+    "Distribution of confidence scores",
+    ["calibrated"],
+    buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99],
 )
 
 assembly_constraint_fallbacks = Counter(
-    'assembly_constraint_fallbacks_total',
-    'Total number of constraint fallbacks applied',
-    ['original_type', 'fallback_type', 'engine']
+    "assembly_constraint_fallbacks_total",
+    "Total number of constraint fallbacks applied",
+    ["original_type", "fallback_type", "engine"],
 )
 
 assembly_simulation_success_rate = Gauge(
-    'assembly_simulation_success_rate',
-    'Simulation success rate',
-    ['engine']
+    "assembly_simulation_success_rate", "Simulation success rate", ["engine"]
 )
 
 assembly_part_count = Histogram(
-    'assembly_part_count',
-    'Number of parts in assembly',
-    buckets=[1, 5, 10, 20, 50, 100, 200, 500]
+    "assembly_part_count", "Number of parts in assembly", buckets=[1, 5, 10, 20, 50, 100, 200, 500]
 )
 
 assembly_processing_errors = Counter(
-    'assembly_processing_errors_total',
-    'Total number of processing errors',
-    ['error_type', 'stage']
+    "assembly_processing_errors_total", "Total number of processing errors", ["error_type", "stage"]
 )
 
 
 @dataclass
 class SLOTarget:
     """SLO目标定义"""
+
     name: str
     target_value: float
     current_value: float
@@ -102,7 +90,7 @@ class AssemblyMetricsMonitor:
                 current_value=0.0,
                 time_window=timedelta(hours=1),
                 is_met=False,
-                severity="critical"
+                severity="critical",
             ),
             "latency_p95": SLOTarget(
                 name="95th Percentile Latency",
@@ -110,7 +98,7 @@ class AssemblyMetricsMonitor:
                 current_value=0.0,
                 time_window=timedelta(minutes=5),
                 is_met=True,
-                severity="warning"
+                severity="warning",
             ),
             "simulation_success": SLOTarget(
                 name="Simulation Success Rate",
@@ -118,7 +106,7 @@ class AssemblyMetricsMonitor:
                 current_value=0.0,
                 time_window=timedelta(hours=1),
                 is_met=False,
-                severity="warning"
+                severity="warning",
             ),
             "evidence_coverage": SLOTarget(
                 name="Evidence Coverage",
@@ -126,7 +114,7 @@ class AssemblyMetricsMonitor:
                 current_value=0.0,
                 time_window=timedelta(hours=1),
                 is_met=False,
-                severity="info"
+                severity="info",
             ),
             "cache_hit_ratio": SLOTarget(
                 name="Cache Hit Ratio",
@@ -134,38 +122,22 @@ class AssemblyMetricsMonitor:
                 current_value=0.0,
                 time_window=timedelta(hours=1),
                 is_met=False,
-                severity="info"
-            )
+                severity="info",
+            ),
         }
 
     def _init_alert_thresholds(self) -> Dict:
         """初始化告警阈值"""
 
         return {
-            "error_rate": {
-                "warning": 0.01,  # 1%
-                "critical": 0.05   # 5%
-            },
-            "latency_ms": {
-                "warning": 3000,
-                "critical": 10000
-            },
-            "memory_usage_mb": {
-                "warning": 1024,
-                "critical": 2048
-            },
-            "constraint_fallback_rate": {
-                "warning": 0.20,  # 20%
-                "critical": 0.50   # 50%
-            }
+            "error_rate": {"warning": 0.01, "critical": 0.05},  # 1%  # 5%
+            "latency_ms": {"warning": 3000, "critical": 10000},
+            "memory_usage_mb": {"warning": 1024, "critical": 2048},
+            "constraint_fallback_rate": {"warning": 0.20, "critical": 0.50},  # 20%  # 50%
         }
 
     def record_request(
-        self,
-        engine: str,
-        status: str,
-        latency_ms: float,
-        metadata: Optional[Dict] = None
+        self, engine: str, status: str, latency_ms: float, metadata: Optional[Dict] = None
     ):
         """记录请求指标"""
 
@@ -176,13 +148,15 @@ class AssemblyMetricsMonitor:
         assembly_latency.labels(operation="full_analysis").observe(latency_ms)
 
         # 缓存指标数据
-        self.metrics_buffer.append({
-            "timestamp": datetime.now(),
-            "engine": engine,
-            "status": status,
-            "latency_ms": latency_ms,
-            "metadata": metadata or {}
-        })
+        self.metrics_buffer.append(
+            {
+                "timestamp": datetime.now(),
+                "engine": engine,
+                "status": status,
+                "latency_ms": latency_ms,
+                "metadata": metadata or {},
+            }
+        )
 
         # 检查SLO
         self._check_slo_compliance()
@@ -192,7 +166,7 @@ class AssemblyMetricsMonitor:
         edge_f1: float,
         evidence_coverage: float,
         confidence_scores: list,
-        model_version: str = "v1.0.0"
+        model_version: str = "v1.0.0",
     ):
         """记录分析质量指标"""
 
@@ -217,18 +191,11 @@ class AssemblyMetricsMonitor:
             assembly_cache_hit_ratio.set(hit_ratio)
             self.slo_targets["cache_hit_ratio"].current_value = hit_ratio
 
-    def record_constraint_fallback(
-        self,
-        original_type: str,
-        fallback_type: str,
-        engine: str
-    ):
+    def record_constraint_fallback(self, original_type: str, fallback_type: str, engine: str):
         """记录约束降级"""
 
         assembly_constraint_fallbacks.labels(
-            original_type=original_type,
-            fallback_type=fallback_type,
-            engine=engine
+            original_type=original_type, fallback_type=fallback_type, engine=engine
         ).inc()
 
     def record_simulation_result(self, engine: str, success: bool):
@@ -250,10 +217,7 @@ class AssemblyMetricsMonitor:
     def record_error(self, error_type: str, stage: str):
         """记录错误"""
 
-        assembly_processing_errors.labels(
-            error_type=error_type,
-            stage=stage
-        ).inc()
+        assembly_processing_errors.labels(error_type=error_type, stage=stage).inc()
 
     def _check_slo_compliance(self):
         """检查SLO合规性"""
@@ -281,20 +245,22 @@ class AssemblyMetricsMonitor:
             "slo_summary": {
                 "total": len(self.slo_targets),
                 "met": sum(1 for s in self.slo_targets.values() if s.is_met),
-                "violated": sum(1 for s in self.slo_targets.values() if not s.is_met)
+                "violated": sum(1 for s in self.slo_targets.values() if not s.is_met),
             },
-            "details": []
+            "details": [],
         }
 
         for name, slo in self.slo_targets.items():
-            report["details"].append({
-                "name": slo.name,
-                "target": slo.target_value,
-                "current": slo.current_value,
-                "is_met": slo.is_met,
-                "severity": slo.severity,
-                "gap": abs(slo.current_value - slo.target_value)
-            })
+            report["details"].append(
+                {
+                    "name": slo.name,
+                    "target": slo.target_value,
+                    "current": slo.current_value,
+                    "is_met": slo.is_met,
+                    "severity": slo.severity,
+                    "gap": abs(slo.current_value - slo.target_value),
+                }
+            )
 
         # 计算总体健康度
         report["health_score"] = report["slo_summary"]["met"] / report["slo_summary"]["total"]
@@ -313,83 +279,67 @@ class AssemblyMetricsMonitor:
                         "type": "graph",
                         "targets": [
                             {
-                                "expr": 'rate(assembly_requests_total[5m])',
-                                "legendFormat": "{{engine}} - {{status}}"
+                                "expr": "rate(assembly_requests_total[5m])",
+                                "legendFormat": "{{engine}} - {{status}}",
                             }
-                        ]
+                        ],
                     },
                     {
                         "title": "Edge F1 Score",
                         "type": "gauge",
-                        "targets": [
-                            {
-                                "expr": 'assembly_edge_f1',
-                                "legendFormat": "F1 Score"
-                            }
-                        ],
-                        "thresholds": [0.5, 0.75, 0.9]
+                        "targets": [{"expr": "assembly_edge_f1", "legendFormat": "F1 Score"}],
+                        "thresholds": [0.5, 0.75, 0.9],
                     },
                     {
                         "title": "Latency Distribution",
                         "type": "heatmap",
                         "targets": [
                             {
-                                "expr": 'histogram_quantile(0.95, assembly_latency_ms_bucket)',
-                                "legendFormat": "p95"
+                                "expr": "histogram_quantile(0.95, assembly_latency_ms_bucket)",
+                                "legendFormat": "p95",
                             }
-                        ]
+                        ],
                     },
                     {
                         "title": "Evidence Coverage",
                         "type": "stat",
                         "targets": [
-                            {
-                                "expr": 'assembly_evidence_coverage',
-                                "legendFormat": "Coverage"
-                            }
-                        ]
+                            {"expr": "assembly_evidence_coverage", "legendFormat": "Coverage"}
+                        ],
                     },
                     {
                         "title": "Cache Hit Ratio",
                         "type": "gauge",
                         "targets": [
-                            {
-                                "expr": 'assembly_cache_hit_ratio',
-                                "legendFormat": "Hit Ratio"
-                            }
-                        ]
+                            {"expr": "assembly_cache_hit_ratio", "legendFormat": "Hit Ratio"}
+                        ],
                     },
                     {
                         "title": "Constraint Fallbacks",
                         "type": "graph",
                         "targets": [
                             {
-                                "expr": 'rate(assembly_constraint_fallbacks_total[5m])',
-                                "legendFormat": "{{original_type}} → {{fallback_type}}"
+                                "expr": "rate(assembly_constraint_fallbacks_total[5m])",
+                                "legendFormat": "{{original_type}} → {{fallback_type}}",
                             }
-                        ]
+                        ],
                     },
                     {
                         "title": "Error Rate",
                         "type": "graph",
                         "targets": [
                             {
-                                "expr": 'rate(assembly_processing_errors_total[5m])',
-                                "legendFormat": "{{error_type}} - {{stage}}"
+                                "expr": "rate(assembly_processing_errors_total[5m])",
+                                "legendFormat": "{{error_type}} - {{stage}}",
                             }
-                        ]
+                        ],
                     },
                     {
                         "title": "SLO Compliance",
                         "type": "table",
-                        "targets": [
-                            {
-                                "expr": 'assembly_slo_compliance',
-                                "format": "table"
-                            }
-                        ]
-                    }
-                ]
+                        "targets": [{"expr": "assembly_slo_compliance", "format": "table"}],
+                    },
+                ],
             }
         }
 
@@ -490,7 +440,7 @@ if __name__ == "__main__":
     # 测试装配体
     test_assembly = {
         "parts": [{"id": f"part_{i}"} for i in range(10)],
-        "mates": [{"part1": "part_0", "part2": f"part_{i}"} for i in range(1, 10)]
+        "mates": [{"part1": "part_0", "part2": f"part_{i}"} for i in range(1, 10)],
     }
 
     is_valid, message = validator.validate_assembly_limits(test_assembly)

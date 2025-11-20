@@ -17,6 +17,15 @@ class ErrorCode(str, Enum):
     CIRCUIT_OPEN = "CIRCUIT_OPEN"
     VALIDATION_FAILED = "VALIDATION_FAILED"
     TIMEOUT = "TIMEOUT"
+    # New detailed error codes for provider exceptions
+    NETWORK_ERROR = "NETWORK_ERROR"  # Network connectivity issues
+    PARSE_FAILED = "PARSE_FAILED"  # Response parsing failures
+    AUTH_FAILED = "AUTH_FAILED"  # Authentication/API key issues
+    QUOTA_EXCEEDED = "QUOTA_EXCEEDED"  # Service quota/limit exceeded
+    UNSUPPORTED_FORMAT = "UNSUPPORTED_FORMAT"  # Unsupported file/image format
+    PROVIDER_TIMEOUT = "PROVIDER_TIMEOUT"  # Provider-specific timeout
+    MODEL_LOAD_ERROR = "MODEL_LOAD_ERROR"  # Model initialization failure
+    RESOURCE_EXHAUSTED = "RESOURCE_EXHAUSTED"  # Memory/CPU resource limits
 
 
 __all__ = ["ErrorCode"]

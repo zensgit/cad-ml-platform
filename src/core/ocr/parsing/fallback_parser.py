@@ -14,7 +14,7 @@ import json
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
 class FallbackLevel(str, Enum):
@@ -82,7 +82,12 @@ class FallbackParser:
             tolerance = None
             if tol_primary and not tol_primary.startswith("+") and tol_primary.startswith("±"):
                 tolerance = float(tol_primary.replace("±", ""))
-            elif tol_primary and tol_primary.startswith("+") and tol_secondary and tol_secondary.startswith("-"):
+            elif (
+                tol_primary
+                and tol_primary.startswith("+")
+                and tol_secondary
+                and tol_secondary.startswith("-")
+            ):
                 # dual tolerance +a -b -> take max(abs(a), abs(b)) conservative
                 try:
                     tolerance = max(abs(float(tol_primary)), abs(float(tol_secondary)))
@@ -151,7 +156,12 @@ class FallbackParser:
                 data["title_block"][field] = m.group(1).strip()
 
         success = bool(data["dimensions"] or data["symbols"] or data["title_block"])
-        return ParseResult(success, data if success else None, FallbackLevel.TEXT_REGEX, None if success else "No structured data")
+        return ParseResult(
+            success,
+            data if success else None,
+            FallbackLevel.TEXT_REGEX,
+            None if success else "No structured data",
+        )
 
     def _validate_json_schema(self, data: Dict[str, Any]) -> bool:
         # Required keys
@@ -159,7 +169,9 @@ class FallbackParser:
             return False
         if "dimensions" not in data or "symbols" not in data:
             return False
-        if not isinstance(data.get("dimensions"), list) or not isinstance(data.get("symbols"), list):
+        if not isinstance(data.get("dimensions"), list) or not isinstance(
+            data.get("symbols"), list
+        ):
             return False
         # Element structure shallow validation
         for dim in data.get("dimensions", [])[:10]:  # sample first few

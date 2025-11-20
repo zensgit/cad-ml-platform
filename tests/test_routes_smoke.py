@@ -4,8 +4,8 @@ Validates that key endpoints are mounted under /api/v1 without duplication.
 """
 
 from fastapi.testclient import TestClient
-from src.main import app
 
+from src.main import app
 
 client = TestClient(app)
 

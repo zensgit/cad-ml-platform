@@ -6,9 +6,10 @@ Implementation keeps surface area small; providers will extend OcrClient.
 
 from __future__ import annotations
 
-from typing import List, Optional, Dict, Protocol
-from pydantic import BaseModel, Field
 from enum import Enum
+from typing import Dict, List, Optional, Protocol
+
+from pydantic import BaseModel, Field
 
 
 class DimensionType(str, Enum):
@@ -42,7 +43,9 @@ class DimensionInfo(BaseModel):
     unit: str = Field("mm", description="Normalized unit")
     tolerance: Optional[float] = None
     tol_pos: Optional[float] = Field(None, description="Positive tolerance if dual")
-    tol_neg: Optional[float] = Field(None, description="Negative tolerance if dual (absolute value)")
+    tol_neg: Optional[float] = Field(
+        None, description="Negative tolerance if dual (absolute value)"
+    )
     pitch: Optional[float] = Field(None, description="Thread pitch if thread")
     raw: Optional[str] = Field(None, description="Raw extracted text segment")
     bbox: Optional[list[int]] = Field(None, description="[x,y,w,h] normalized bbox")

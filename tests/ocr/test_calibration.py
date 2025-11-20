@@ -1,4 +1,4 @@
-from src.core.ocr.calibration import MultiEvidenceCalibrator, EvidenceWeights
+from src.core.ocr.calibration import EvidenceWeights, MultiEvidenceCalibrator
 
 
 def test_calibrator_balances_weights():
@@ -12,4 +12,3 @@ def test_calibrator_handles_missing_inputs():
     assert calib.calibrate(None, 0.7) == 0.7
     assert calib.calibrate(0.8, None) == 0.8
     assert calib.calibrate(None, None) is None
-

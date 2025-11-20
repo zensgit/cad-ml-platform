@@ -7,4 +7,3 @@ def test_enhancer_returns_bytes_even_without_pil():
     assert isinstance(out, (bytes, bytearray))
     # If PIL unavailable, enhancer returns original bytes
     # If PIL available, it returns PNG bytes; both are acceptable for this smoke test
-

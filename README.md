@@ -884,6 +884,9 @@ cp .env.example .env
 pre-commit install
 # 运行全量检查
 pre-commit run --all-files --show-diff-on-failure
+```
+
+提示：`tests/vision/test_vision_ocr_integration.py` 含非 UTF-8 内容，已在 pre-commit 与 Makefile 的格式化步骤中排除，不影响测试执行。
 
 ### 质量配置文件
 - Flake8: `.flake8` (max-line-length=100, 忽略 E203/W503)
@@ -912,6 +915,15 @@ Stages 说明:
 ```bash
 python scripts/self_check.py || echo "Self-check failed"
 ```
+可配置项：
+- `SELF_CHECK_METRICS=0` 可在 Prometheus 未启用或未挂载 `/metrics` 时跳过指标检查：
+  ```bash
+  SELF_CHECK_METRICS=0 python scripts/self_check.py
+  ```
+- `SELF_CHECK_ERROR=0` 可跳过最小错误路径契约检查（默认开启）。
+  ```bash
+  SELF_CHECK_ERROR=0 python scripts/self_check.py
+  ```
 退出码含义：
 - 0: 所有检查通过
 - 2: 关键端点不可用或严重错误

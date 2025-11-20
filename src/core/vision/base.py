@@ -12,7 +12,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
-from typing import Literal
+
+from src.core.errors import ErrorCode
 
 # ========== Request/Response Models ==========
 
@@ -79,7 +80,7 @@ class VisionAnalyzeResponse(BaseModel):
 
     # Error handling
     error: Optional[str] = Field(None, description="Error message if success=False")
-    code: Optional[Literal["INPUT_ERROR", "INTERNAL_ERROR"]] = Field(
+    code: Optional[ErrorCode] = Field(
         None, description="Machine-readable error code if success=False"
     )
 

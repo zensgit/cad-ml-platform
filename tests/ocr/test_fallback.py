@@ -4,9 +4,11 @@ Uses production parser from src.core.ocr.parsing.fallback_parser.
 Validates pitch extraction, bidirectional tolerance, fenced block variants.
 """
 
-import pytest
 import json
-from src.core.ocr.parsing.fallback_parser import FallbackParser, FallbackLevel
+
+import pytest
+
+from src.core.ocr.parsing.fallback_parser import FallbackLevel, FallbackParser
 
 
 class TestFallbackStrategy:
@@ -16,18 +18,13 @@ class TestFallbackStrategy:
 
     def test_valid_json_no_fallback(self, parser):
         """Test that valid JSON doesn't trigger fallback"""
-        valid_json = json.dumps({
-            "dimensions": [
-                {"type": "diameter", "value": 20, "tolerance": 0.02, "unit": "mm"}
-            ],
-            "symbols": [
-                {"type": "surface_roughness", "value": "3.2"}
-            ],
-            "title_block": {
-                "drawing_number": "CAD-001",
-                "material": "Steel"
+        valid_json = json.dumps(
+            {
+                "dimensions": [{"type": "diameter", "value": 20, "tolerance": 0.02, "unit": "mm"}],
+                "symbols": [{"type": "surface_roughness", "value": "3.2"}],
+                "title_block": {"drawing_number": "CAD-001", "material": "Steel"},
             }
-        })
+        )
 
         result = parser.parse(valid_json)
 
@@ -154,7 +151,10 @@ class TestFallbackStrategy:
             assert len(threads) >= 1, f"No thread found in: {text}"
 
             thread = threads[0]
-            assert thread.get("value") == expected_diameter or thread.get("major_diameter") == expected_diameter
+            assert (
+                thread.get("value") == expected_diameter
+                or thread.get("major_diameter") == expected_diameter
+            )
             # Check if pitch is present (enhanced parser should include it)
             # Note: Basic regex parser may not extract pitch, this tests enhancement
 
@@ -215,12 +215,7 @@ class TestFallbackStrategy:
     def test_schema_deep_validation(self, parser):
         """Test schema validation checks field types and required subfields"""
         # Valid structure
-        valid = {
-            "dimensions": [
-                {"type": "diameter", "value": 20, "unit": "mm"}
-            ],
-            "symbols": []
-        }
+        valid = {"dimensions": [{"type": "diameter", "value": 20, "unit": "mm"}], "symbols": []}
 
         assert parser._validate_json_schema(valid)
 
@@ -257,7 +252,9 @@ class TestFallbackStrategy:
         symbol_types = [s["type"] for s in symbols]
 
         # Should extract at least surface roughness
-        assert any("roughness" in t or "Ra" in str(s.get("value")) for t, s in zip(symbol_types, symbols))
+        assert any(
+            "roughness" in t or "Ra" in str(s.get("value")) for t, s in zip(symbol_types, symbols)
+        )
 
     def test_deepseek_output_with_bom_and_mixed_content(self, parser):
         """Test DeepSeek output with BOM, title block, and dimensions mixed"""
@@ -291,11 +288,12 @@ class TestFallbackStrategy:
 class TestFallbackMetricsSimulation:
     def test_fallback_counter_simulation(self):
         from collections import defaultdict
+
         counters = defaultdict(int)
         cases = [
             '{"dimensions": [], "symbols": []}',
             '```json\n{"dimensions": [], "symbols": []}\n```',
-            'Φ20 R5 Ra3.2',
+            "Φ20 R5 Ra3.2",
         ]
         parser = FallbackParser()
         for raw in cases:

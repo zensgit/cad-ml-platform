@@ -5,8 +5,8 @@ States: 0=closed, 1=half_open, 2=open
 
 from __future__ import annotations
 
-import time
 import asyncio
+import time
 from dataclasses import dataclass
 from typing import Optional  # noqa: F401 (future optional enhancements)
 

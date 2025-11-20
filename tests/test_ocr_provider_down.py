@@ -1,7 +1,8 @@
 from fastapi.testclient import TestClient
-from src.main import app
-from src.core.errors import ErrorCode
+
 from src.api.v1.ocr import get_manager
+from src.core.errors import ErrorCode
+from src.main import app
 
 client = TestClient(app)
 
@@ -16,8 +17,11 @@ def test_ocr_provider_down():
     data = resp.json()
     assert resp.status_code == 200
     assert data["success"] is False
-    assert data.get("code") in (ErrorCode.INTERNAL_ERROR, ErrorCode.INPUT_ERROR, ErrorCode.PROVIDER_DOWN)
+    # Expect PROVIDER_DOWN when provider missing
+    assert data.get("code") == ErrorCode.PROVIDER_DOWN
     metrics_resp = client.get("/metrics")
     if metrics_resp.status_code == 200:
         metrics = metrics_resp.text
-        assert "provider_down" in metrics or data.get("code") == ErrorCode.PROVIDER_DOWN
+        # Expect a labeled counter increment: ocr_errors_total{code="provider_down"}
+        assert "ocr_errors_total" in metrics
+        assert "provider_down" in metrics

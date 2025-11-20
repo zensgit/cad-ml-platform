@@ -101,7 +101,7 @@ def match_thread(
     pred_pitch: float | None,
     gt_diameter: float,
     gt_pitch: float | None,
-    tolerance_diameter: float | None = None
+    tolerance_diameter: float | None = None,
 ) -> bool:
     """
     Match thread dimensions (M10×1.5)
@@ -187,14 +187,10 @@ def calculate_dimension_recall(predictions: list, ground_truths: list) -> dict:
                     pred.get("pitch"),
                     gt_value_mm,
                     gt.get("pitch"),
-                    gt.get("tolerance")
+                    gt.get("tolerance"),
                 )
             else:
-                is_match = match_dimension(
-                    pred_value_mm,
-                    gt_value_mm,
-                    gt.get("tolerance")
-                )
+                is_match = match_dimension(pred_value_mm, gt_value_mm, gt.get("tolerance"))
 
             if is_match:
                 matched += 1
@@ -212,7 +208,7 @@ def calculate_dimension_recall(predictions: list, ground_truths: list) -> dict:
         "recall": recall,
         "matched_count": matched,
         "gt_count": len(ground_truths),
-        "unmatched_gt": unmatched_gt
+        "unmatched_gt": unmatched_gt,
     }
 
 

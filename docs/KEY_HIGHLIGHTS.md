@@ -242,6 +242,13 @@ make eval-phase6
 
 *Generated: 2025-11-19*
 *Next Update: After implementing planned items*
-### Vision Base64 Size Configuration Visibility
-- **Current**: Limit hard-coded via settings (1MB) not exposed in `/health`
-- **Action**: Add `vision_max_base64_bytes` to health response for ops clarity
+### Vision Base64 Size Configuration Visibility (✅ Implemented)
+- **Previous**: Limit hard-coded via settings (1MB) not exposed in `/health`
+- **Current**: Enhanced `/health` endpoint now exposes comprehensive configuration:
+  - Size limits (both bytes and MB)
+  - OCR timeout settings
+  - Provider configurations
+  - Monitoring settings
+  - Network configuration
+  - Debug settings
+- **Location**: [`src/main.py:99-150`](../src/main.py#L99)

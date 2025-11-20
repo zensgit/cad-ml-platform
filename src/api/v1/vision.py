@@ -8,6 +8,7 @@ from typing import Optional
 
 from fastapi import APIRouter
 
+from src.core.errors import ErrorCode
 from src.core.vision import (
     VisionAnalyzeRequest,
     VisionAnalyzeResponse,
@@ -15,7 +16,6 @@ from src.core.vision import (
     VisionManager,
     create_stub_provider,
 )
-from src.core.errors import ErrorCode
 
 router = APIRouter(tags=["vision"])
 

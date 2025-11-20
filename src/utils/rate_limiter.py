@@ -12,7 +12,6 @@ from typing import Optional  # noqa: F401 (placeholder for optional parameters)
 from src.utils.cache import get_client
 from src.utils.metrics import ocr_rate_limited_total
 
-
 _LUA_TOKEN_BUCKET = """
 local key = KEYS[1]
 local now = tonumber(ARGV[1])
