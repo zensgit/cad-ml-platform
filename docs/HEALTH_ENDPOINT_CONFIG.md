@@ -9,12 +9,14 @@ The `/health` endpoint has been enhanced to provide comprehensive configuration 
 **URL**: `GET /health`
 **Response**: JSON with system health and configuration
 
+Note: `timestamp` is an ISO 8601, timezone-aware UTC value (e.g., `2025-11-19T10:00:00+00:00`).
+
 ## Response Structure
 
 ```json
 {
   "status": "healthy",
-  "timestamp": "2025-11-19T10:00:00.000000",
+  "timestamp": "2025-11-19T10:00:00+00:00",
   "services": {
     "api": "up",
     "ml": "up",
