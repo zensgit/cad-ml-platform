@@ -6,10 +6,10 @@ Tests:
 3. Error handling for invalid inputs
 """
 
-import pytest
 import base64
-from fastapi.testclient import TestClient
 
+import pytest
+from fastapi.testclient import TestClient
 
 # ========== Test Fixtures ==========
 
@@ -18,14 +18,14 @@ from fastapi.testclient import TestClient
 def sample_image_bytes() -> bytes:
     """Return sample image bytes (1x1 PNG)."""
     # Minimal 1x1 PNG (black pixel)
-    png_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00\x00\x00\x00:~\x9bU\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
+    png_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00\x00\x00\x00:~\x9bU\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
     return png_bytes
 
 
 @pytest.fixture
 def sample_image_base64(sample_image_bytes) -> str:
     """Return sample image as base64 string."""
-    return base64.b64encode(sample_image_bytes).decode('utf-8')
+    return base64.b64encode(sample_image_bytes).decode("utf-8")
 
 
 # ========== Vision Endpoint Tests ==========
@@ -41,11 +41,12 @@ def test_vision_analyze_with_base64_happy_path(sample_image_base64):
     - No OCR (manager not connected yet)
     - Processing time > 0
     """
-    from src.api.v1.vision import router
     from fastapi import FastAPI
 
+    from src.api.v1.vision import router
+
     app = FastAPI()
-    app.include_router(router, prefix="/api/v1")
+    app.include_router(router, prefix="/api/v1/vision")
     client = TestClient(app)
 
     # Prepare request
@@ -53,7 +54,7 @@ def test_vision_analyze_with_base64_happy_path(sample_image_base64):
         "image_base64": sample_image_base64,
         "include_description": True,
         "include_ocr": False,  # OCR not yet connected
-        "ocr_provider": "auto"
+        "ocr_provider": "auto",
     }
 
     # Make request
@@ -81,24 +82,22 @@ def test_vision_analyze_missing_image_error():
     - Returns HTTP 400
     - Error message indicates missing input
     """
-    from src.api.v1.vision import router
     from fastapi import FastAPI
 
+    from src.api.v1.vision import router
+
     app = FastAPI()
-    app.include_router(router, prefix="/api/v1")
+    app.include_router(router, prefix="/api/v1/vision")
     client = TestClient(app)
 
     # Request with no image
-    request_data = {
-        "include_description": True,
-        "include_ocr": False
-    }
+    request_data = {"include_description": True, "include_ocr": False}
 
     response = client.post("/api/v1/vision/analyze", json=request_data)
-
-    # Should return 400 Bad Request
-    assert response.status_code == 400
-    assert "image" in response.json()["detail"].lower()
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is False
+    assert data.get("code") == "INPUT_ERROR"
 
 
 def test_vision_analyze_invalid_base64_error():
@@ -109,24 +108,22 @@ def test_vision_analyze_invalid_base64_error():
     - Returns HTTP 400
     - Error message indicates invalid base64
     """
-    from src.api.v1.vision import router
     from fastapi import FastAPI
 
+    from src.api.v1.vision import router
+
     app = FastAPI()
-    app.include_router(router, prefix="/api/v1")
+    app.include_router(router, prefix="/api/v1/vision")
     client = TestClient(app)
 
     # Invalid base64
-    request_data = {
-        "image_base64": "this-is-not-valid-base64!!!",
-        "include_description": True
-    }
+    request_data = {"image_base64": "this-is-not-valid-base64!!!", "include_description": True}
 
     response = client.post("/api/v1/vision/analyze", json=request_data)
-
-    # Should return 400 Bad Request
-    assert response.status_code == 400
-    assert "base64" in response.json()["detail"].lower()
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is False
+    assert data.get("code") == "INPUT_ERROR"
 
 
 def test_vision_health_check():
@@ -139,11 +136,12 @@ def test_vision_health_check():
     - Provider name is deepseek_stub
     - OCR enabled is true (OCRManager connected in Phase 2)
     """
-    from src.api.v1.vision import router
     from fastapi import FastAPI
 
+    from src.api.v1.vision import router
+
     app = FastAPI()
-    app.include_router(router, prefix="/api/v1")
+    app.include_router(router, prefix="/api/v1/vision")
     client = TestClient(app)
 
     response = client.get("/api/v1/vision/health")
@@ -174,10 +172,7 @@ async def test_stub_provider_direct(sample_image_bytes):
     provider = create_stub_provider(simulate_latency_ms=10.0)
 
     # Analyze image
-    result = await provider.analyze_image(
-        image_data=sample_image_bytes,
-        include_description=True
-    )
+    result = await provider.analyze_image(image_data=sample_image_bytes, include_description=True)
 
     # Assertions
     assert result.summary is not None
@@ -199,10 +194,7 @@ async def test_stub_provider_no_description(sample_image_bytes):
 
     provider = create_stub_provider(simulate_latency_ms=0)
 
-    result = await provider.analyze_image(
-        image_data=sample_image_bytes,
-        include_description=False
-    )
+    result = await provider.analyze_image(image_data=sample_image_bytes, include_description=False)
 
     # Should return minimal description
     assert result.summary is not None
@@ -223,10 +215,7 @@ async def test_stub_provider_empty_image_error():
     provider = create_stub_provider()
 
     with pytest.raises(ValueError, match="cannot be empty"):
-        await provider.analyze_image(
-            image_data=b"",  # Empty bytes
-            include_description=True
-        )
+        await provider.analyze_image(image_data=b"", include_description=True)  # Empty bytes
 
 
 # ========== Vision Manager Tests ==========
@@ -242,7 +231,7 @@ async def test_vision_manager_without_ocr(sample_image_base64):
     - Description present, OCR absent
     - Processing time tracked
     """
-    from src.core.vision import VisionManager, VisionAnalyzeRequest, create_stub_provider
+    from src.core.vision import VisionAnalyzeRequest, VisionManager, create_stub_provider
 
     # Create manager
     provider = create_stub_provider(simulate_latency_ms=20)
@@ -250,9 +239,7 @@ async def test_vision_manager_without_ocr(sample_image_base64):
 
     # Create request
     request = VisionAnalyzeRequest(
-        image_base64=sample_image_base64,
-        include_description=True,
-        include_ocr=False
+        image_base64=sample_image_base64, include_description=True, include_ocr=False
     )
 
     # Analyze

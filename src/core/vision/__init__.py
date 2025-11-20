@@ -4,14 +4,14 @@ Provides vision-based analysis of engineering drawings with OCR integration.
 """
 
 from .base import (
+    OcrResult,
     VisionAnalyzeRequest,
     VisionAnalyzeResponse,
     VisionDescription,
-    OcrResult,
-    VisionProvider,
     VisionError,
-    VisionProviderError,
     VisionInputError,
+    VisionProvider,
+    VisionProviderError,
 )
 from .manager import VisionManager
 from .providers import DeepSeekStubProvider, create_stub_provider

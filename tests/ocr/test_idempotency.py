@@ -1,12 +1,14 @@
 """Tests for Idempotency-Key support in OCR endpoint."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+
 from src.utils.idempotency import (
+    IDEMPOTENCY_TTL_SECONDS,
     build_idempotency_key,
     check_idempotency,
     store_idempotency,
-    IDEMPOTENCY_TTL_SECONDS
 )
 
 
@@ -47,7 +49,7 @@ class TestIdempotencyCheck:
             "processing_time_ms": 150,
             "dimensions": [],
             "symbols": [],
-            "title_block": {}
+            "title_block": {},
         }
         mock_get_cache.return_value = cached_data
 
@@ -90,15 +92,13 @@ class TestIdempotencyStore:
             "processing_time_ms": 200,
             "dimensions": [{"type": "diameter", "value": 20.0}],
             "symbols": [],
-            "title_block": {}
+            "title_block": {},
         }
 
         await store_idempotency("store-key", response_data, endpoint="ocr")
 
         mock_set_cache.assert_called_once_with(
-            "idempotency:ocr:store-key",
-            response_data,
-            IDEMPOTENCY_TTL_SECONDS
+            "idempotency:ocr:store-key", response_data, IDEMPOTENCY_TTL_SECONDS
         )
 
     @pytest.mark.asyncio
@@ -110,11 +110,7 @@ class TestIdempotencyStore:
 
         await store_idempotency("key", response_data, endpoint="ocr", ttl_seconds=custom_ttl)
 
-        mock_set_cache.assert_called_once_with(
-            "idempotency:ocr:key",
-            response_data,
-            custom_ttl
-        )
+        mock_set_cache.assert_called_once_with("idempotency:ocr:key", response_data, custom_ttl)
 
     @pytest.mark.asyncio
     @patch("src.utils.idempotency.set_cache")
@@ -142,7 +138,7 @@ class TestIdempotencyIntegration:
             "processing_time_ms": 120,
             "dimensions": [],
             "symbols": [],
-            "title_block": {}
+            "title_block": {},
         }
 
         # First request - cache miss

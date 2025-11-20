@@ -1,0 +1,18 @@
+Generating Evaluation Report...
+  History directory: /Users/huazhou/Insync/hua.chau@outlook.com/OneDrive/应用/GitHub/cad-ml-platform/reports/eval_history
+  Output directory: /Users/huazhou/Insync/hua.chau@outlook.com/OneDrive/应用/GitHub/cad-ml-platform/reports/eval_history/report
+  Loading combined history...
+    Found 7 combined evaluation records
+  Loading OCR history...
+    Found 1 OCR-only evaluation records
+  Generating HTML report...
+
+Report generated: /Users/huazhou/Insync/hua.chau@outlook.com/OneDrive/应用/GitHub/cad-ml-platform/reports/eval_history/report/index.html
+  Combined records: 7
+  OCR records: 1
+  Combined trend chart: embedded
+  OCR trend chart: embedded
+
+Open: file:///Users/huazhou/Insync/hua.chau@outlook.com/OneDrive/应用/GitHub/cad-ml-platform/reports/eval_history/report/index.html
+/Users/huazhou/Insync/hua.chau@outlook.com/OneDrive/应用/GitHub/cad-ml-platform/scripts/generate_eval_report.py:333: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  now = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")

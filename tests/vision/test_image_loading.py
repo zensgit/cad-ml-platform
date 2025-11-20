@@ -10,11 +10,17 @@ Tests the image_url downloading functionality:
 7. Empty image rejection
 """
 
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
-from src.core.vision import VisionManager, VisionAnalyzeRequest, create_stub_provider, VisionInputError
-import httpx
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
+import pytest
+
+from src.core.vision import (
+    VisionAnalyzeRequest,
+    VisionInputError,
+    VisionManager,
+    create_stub_provider,
+)
 
 # ========== Test Fixtures ==========
 
@@ -23,7 +29,7 @@ import httpx
 def sample_image_bytes() -> bytes:
     """Return sample image bytes (1x1 PNG)."""
     # Minimal 1x1 PNG (black pixel)
-    png_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00\x00\x00\x00:~\x9bU\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
+    png_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00\x00\x00\x00:~\x9bU\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
     return png_bytes
 
 
@@ -32,7 +38,7 @@ def mock_httpx_response_success(sample_image_bytes):
     """Mock successful httpx response."""
     response = MagicMock()
     response.status_code = 200
-    response.headers = {'content-length': str(len(sample_image_bytes))}
+    response.headers = {"content-length": str(len(sample_image_bytes))}
     response.content = sample_image_bytes
     return response
 
@@ -43,7 +49,7 @@ def mock_httpx_response_404():
     response = MagicMock()
     response.status_code = 404
     response.headers = {}
-    response.content = b''
+    response.content = b""
     return response
 
 
@@ -53,7 +59,7 @@ def mock_httpx_response_403():
     response = MagicMock()
     response.status_code = 403
     response.headers = {}
-    response.content = b''
+    response.content = b""
     return response
 
 
@@ -62,8 +68,8 @@ def mock_httpx_response_large_file():
     """Mock response with large content-length header."""
     response = MagicMock()
     response.status_code = 200
-    response.headers = {'content-length': str(60 * 1024 * 1024)}  # 60MB
-    response.content = b''
+    response.headers = {"content-length": str(60 * 1024 * 1024)}  # 60MB
+    response.content = b""
     return response
 
 
@@ -84,13 +90,11 @@ async def test_image_url_download_success(mock_httpx_response_success):
     manager = VisionManager(vision_provider=vision_provider, ocr_manager=None)
 
     request = VisionAnalyzeRequest(
-        image_url="https://example.com/test.png",
-        include_description=True,
-        include_ocr=False
+        image_url="https://example.com/test.png", include_description=True, include_ocr=False
     )
 
     # Mock httpx.AsyncClient
-    with patch('httpx.AsyncClient') as mock_client_class:
+    with patch("httpx.AsyncClient") as mock_client_class:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -107,8 +111,7 @@ async def test_image_url_download_success(mock_httpx_response_success):
 
         # Verify HTTP request was made
         mock_client.get.assert_called_once_with(
-            "https://example.com/test.png",
-            follow_redirects=True
+            "https://example.com/test.png", follow_redirects=True
         )
 
 
@@ -126,22 +129,18 @@ async def test_image_url_invalid_scheme():
 
     # Test file:// scheme
     request = VisionAnalyzeRequest(
-        image_url="file:///path/to/image.png",
-        include_description=True,
-        include_ocr=False
+        image_url="file:///path/to/image.png", include_description=True, include_ocr=False
     )
 
     with pytest.raises(VisionInputError) as exc_info:
         await manager.analyze(request)
 
     assert "Invalid URL scheme 'file'" in str(exc_info.value)
-    assert "Only http:// and https://" in str(exc_info.value)
+    assert "Only http/https supported" in str(exc_info.value)
 
     # Test ftp:// scheme
     request_ftp = VisionAnalyzeRequest(
-        image_url="ftp://example.com/image.png",
-        include_description=True,
-        include_ocr=False
+        image_url="ftp://example.com/image.png", include_description=True, include_ocr=False
     )
 
     with pytest.raises(VisionInputError) as exc_info:
@@ -163,12 +162,10 @@ async def test_image_url_404_error(mock_httpx_response_404):
     manager = VisionManager(vision_provider=vision_provider, ocr_manager=None)
 
     request = VisionAnalyzeRequest(
-        image_url="https://example.com/nonexistent.png",
-        include_description=True,
-        include_ocr=False
+        image_url="https://example.com/nonexistent.png", include_description=True, include_ocr=False
     )
 
-    with patch('httpx.AsyncClient') as mock_client_class:
+    with patch("httpx.AsyncClient") as mock_client_class:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -195,12 +192,10 @@ async def test_image_url_403_error(mock_httpx_response_403):
     manager = VisionManager(vision_provider=vision_provider, ocr_manager=None)
 
     request = VisionAnalyzeRequest(
-        image_url="https://example.com/forbidden.png",
-        include_description=True,
-        include_ocr=False
+        image_url="https://example.com/forbidden.png", include_description=True, include_ocr=False
     )
 
-    with patch('httpx.AsyncClient') as mock_client_class:
+    with patch("httpx.AsyncClient") as mock_client_class:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -227,12 +222,10 @@ async def test_image_url_timeout():
     manager = VisionManager(vision_provider=vision_provider, ocr_manager=None)
 
     request = VisionAnalyzeRequest(
-        image_url="https://example.com/slow.png",
-        include_description=True,
-        include_ocr=False
+        image_url="https://example.com/slow.png", include_description=True, include_ocr=False
     )
 
-    with patch('httpx.AsyncClient') as mock_client_class:
+    with patch("httpx.AsyncClient") as mock_client_class:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -259,12 +252,10 @@ async def test_image_url_large_file_rejection(mock_httpx_response_large_file):
     manager = VisionManager(vision_provider=vision_provider, ocr_manager=None)
 
     request = VisionAnalyzeRequest(
-        image_url="https://example.com/huge.png",
-        include_description=True,
-        include_ocr=False
+        image_url="https://example.com/huge.png", include_description=True, include_ocr=False
     )
 
-    with patch('httpx.AsyncClient') as mock_client_class:
+    with patch("httpx.AsyncClient") as mock_client_class:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -292,18 +283,16 @@ async def test_image_url_empty_image():
     manager = VisionManager(vision_provider=vision_provider, ocr_manager=None)
 
     request = VisionAnalyzeRequest(
-        image_url="https://example.com/empty.png",
-        include_description=True,
-        include_ocr=False
+        image_url="https://example.com/empty.png", include_description=True, include_ocr=False
     )
 
     # Mock response with 0 bytes
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.headers = {'content-length': '0'}
-    mock_response.content = b''
+    mock_response.headers = {"content-length": "0"}
+    mock_response.content = b""
 
-    with patch('httpx.AsyncClient') as mock_client_class:
+    with patch("httpx.AsyncClient") as mock_client_class:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -332,10 +321,10 @@ async def test_image_url_network_error():
     request = VisionAnalyzeRequest(
         image_url="https://nonexistent-domain-12345.com/image.png",
         include_description=True,
-        include_ocr=False
+        include_ocr=False,
     )
 
-    with patch('httpx.AsyncClient') as mock_client_class:
+    with patch("httpx.AsyncClient") as mock_client_class:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -363,16 +352,16 @@ async def test_image_url_follows_redirects(sample_image_bytes):
     request = VisionAnalyzeRequest(
         image_url="https://example.com/redirect-to-image",
         include_description=True,
-        include_ocr=False
+        include_ocr=False,
     )
 
     # Mock response (after redirect)
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.headers = {'content-length': str(len(sample_image_bytes))}
+    mock_response.headers = {"content-length": str(len(sample_image_bytes))}
     mock_response.content = sample_image_bytes
 
-    with patch('httpx.AsyncClient') as mock_client_class:
+    with patch("httpx.AsyncClient") as mock_client_class:
         mock_client = AsyncMock()
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=None)
@@ -386,4 +375,4 @@ async def test_image_url_follows_redirects(sample_image_bytes):
         # Verify follow_redirects=True was used
         mock_client.get.assert_called_once()
         call_kwargs = mock_client.get.call_args.kwargs
-        assert call_kwargs.get('follow_redirects') is True
+        assert call_kwargs.get("follow_redirects") is True

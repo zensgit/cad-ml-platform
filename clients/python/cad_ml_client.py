@@ -3,13 +3,14 @@ CAD ML Platform Python客户端SDK
 提供简单易用的Python接口访问CAD ML Platform服务
 """
 
-import os
+import asyncio
 import json
 import logging
-from typing import Dict, Any, Optional, List, Union, BinaryIO
-from pathlib import Path
+import os
 from dataclasses import dataclass
-import asyncio
+from pathlib import Path
+from typing import Any, BinaryIO, Dict, List, Optional, Union
+
 import aiohttp
 import requests
 from requests.adapters import HTTPAdapter
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class AnalysisResult:
     """分析结果数据类"""
+
     id: str
     timestamp: str
     file_name: str
@@ -32,22 +34,22 @@ class AnalysisResult:
     @property
     def part_type(self) -> Optional[str]:
         """获取零件类型"""
-        return self.results.get('classification', {}).get('part_type')
+        return self.results.get("classification", {}).get("part_type")
 
     @property
     def confidence(self) -> Optional[float]:
         """获取置信度"""
-        return self.results.get('classification', {}).get('confidence')
+        return self.results.get("classification", {}).get("confidence")
 
     @property
     def quality_score(self) -> Optional[float]:
         """获取质量分数"""
-        return self.results.get('quality', {}).get('score')
+        return self.results.get("quality", {}).get("score")
 
     @property
     def features(self) -> Optional[Dict]:
         """获取特征"""
-        return self.results.get('features')
+        return self.results.get("features")
 
 
 class CADMLClient:
@@ -59,7 +61,7 @@ class CADMLClient:
         api_key: Optional[str] = None,
         timeout: int = 30,
         max_retries: int = 3,
-        async_mode: bool = False
+        async_mode: bool = False,
     ):
         """
         初始化客户端
@@ -71,8 +73,8 @@ class CADMLClient:
             max_retries: 最大重试次数
             async_mode: 是否使用异步模式
         """
-        self.base_url = base_url.rstrip('/')
-        self.api_key = api_key or os.getenv('CADML_API_KEY')
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key or os.getenv("CADML_API_KEY")
         self.timeout = timeout
         self.max_retries = max_retries
         self.async_mode = async_mode
@@ -81,16 +83,14 @@ class CADMLClient:
         if not async_mode:
             self.session = requests.Session()
             retry = Retry(
-                total=max_retries,
-                backoff_factor=0.3,
-                status_forcelist=[500, 502, 503, 504]
+                total=max_retries, backoff_factor=0.3, status_forcelist=[500, 502, 503, 504]
             )
             adapter = HTTPAdapter(max_retries=retry)
-            self.session.mount('http://', adapter)
-            self.session.mount('https://', adapter)
+            self.session.mount("http://", adapter)
+            self.session.mount("https://", adapter)
 
             if self.api_key:
-                self.session.headers['X-API-Key'] = self.api_key
+                self.session.headers["X-API-Key"] = self.api_key
 
         # 异步模式的session将在运行时创建
         self._async_session = None
@@ -100,10 +100,9 @@ class CADMLClient:
         if self._async_session is None:
             headers = {}
             if self.api_key:
-                headers['X-API-Key'] = self.api_key
+                headers["X-API-Key"] = self.api_key
             self._async_session = aiohttp.ClientSession(
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=self.timeout)
+                headers=headers, timeout=aiohttp.ClientTimeout(total=self.timeout)
             )
         return self._async_session
 
@@ -115,7 +114,7 @@ class CADMLClient:
         quality_check: bool = True,
         process_recommendation: bool = False,
         calculate_similarity: bool = False,
-        reference_id: Optional[str] = None
+        reference_id: Optional[str] = None,
     ) -> AnalysisResult:
         """
         分析CAD文件(同步)
@@ -139,26 +138,26 @@ class CADMLClient:
         if isinstance(file, (str, Path)):
             file_path = Path(file)
             file_name = file_path.name
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 file_data = f.read()
         else:
-            file_name = getattr(file, 'name', 'unknown.dxf')
+            file_name = getattr(file, "name", "unknown.dxf")
             file_data = file.read()
 
         # 准备选项
         options = {
-            'extract_features': extract_features,
-            'classify_parts': classify_parts,
-            'quality_check': quality_check,
-            'process_recommendation': process_recommendation,
-            'calculate_similarity': calculate_similarity,
-            'reference_id': reference_id
+            "extract_features": extract_features,
+            "classify_parts": classify_parts,
+            "quality_check": quality_check,
+            "process_recommendation": process_recommendation,
+            "calculate_similarity": calculate_similarity,
+            "reference_id": reference_id,
         }
 
         # 发送请求
         url = f"{self.base_url}/api/v1/analyze"
-        files = {'file': (file_name, file_data)}
-        data = {'options': json.dumps(options)}
+        files = {"file": (file_name, file_data)}
+        data = {"options": json.dumps(options)}
 
         response = self.session.post(url, files=files, data=data)
         response.raise_for_status()
@@ -174,7 +173,7 @@ class CADMLClient:
         quality_check: bool = True,
         process_recommendation: bool = False,
         calculate_similarity: bool = False,
-        reference_id: Optional[str] = None
+        reference_id: Optional[str] = None,
     ) -> AnalysisResult:
         """
         分析CAD文件(异步)
@@ -183,20 +182,20 @@ class CADMLClient:
         if isinstance(file, (str, Path)):
             file_path = Path(file)
             file_name = file_path.name
-            with open(file_path, 'rb') as f:
+            with open(file_path, "rb") as f:
                 file_data = f.read()
         else:
-            file_name = getattr(file, 'name', 'unknown.dxf')
+            file_name = getattr(file, "name", "unknown.dxf")
             file_data = file.read()
 
         # 准备选项
         options = {
-            'extract_features': extract_features,
-            'classify_parts': classify_parts,
-            'quality_check': quality_check,
-            'process_recommendation': process_recommendation,
-            'calculate_similarity': calculate_similarity,
-            'reference_id': reference_id
+            "extract_features": extract_features,
+            "classify_parts": classify_parts,
+            "quality_check": quality_check,
+            "process_recommendation": process_recommendation,
+            "calculate_similarity": calculate_similarity,
+            "reference_id": reference_id,
         }
 
         # 发送请求
@@ -204,8 +203,8 @@ class CADMLClient:
         session = await self._get_async_session()
 
         data = aiohttp.FormData()
-        data.add_field('file', file_data, filename=file_name)
-        data.add_field('options', json.dumps(options))
+        data.add_field("file", file_data, filename=file_name)
+        data.add_field("options", json.dumps(options))
 
         async with session.post(url, data=data) as response:
             response.raise_for_status()
@@ -214,9 +213,7 @@ class CADMLClient:
         return AnalysisResult(**result_data)
 
     def batch_analyze(
-        self,
-        files: List[Union[str, Path, BinaryIO]],
-        options: Optional[Dict] = None
+        self, files: List[Union[str, Path, BinaryIO]], options: Optional[Dict] = None
     ) -> List[AnalysisResult]:
         """
         批量分析CAD文件
@@ -240,9 +237,7 @@ class CADMLClient:
         return results
 
     def calculate_similarity(
-        self,
-        file1: Union[str, Path, BinaryIO],
-        file2: Union[str, Path, BinaryIO]
+        self, file1: Union[str, Path, BinaryIO], file2: Union[str, Path, BinaryIO]
     ) -> float:
         """
         计算两个CAD文件的相似度
@@ -260,15 +255,12 @@ class CADMLClient:
 
         # 调用相似度API
         url = f"{self.base_url}/api/v1/similarity/calculate"
-        data = {
-            'features1': result1.features,
-            'features2': result2.features
-        }
+        data = {"features1": result1.features, "features2": result2.features}
 
         response = self.session.post(url, json=data)
         response.raise_for_status()
 
-        return response.json()['similarity']
+        return response.json()["similarity"]
 
     def classify(self, file: Union[str, Path, BinaryIO]) -> Dict[str, Any]:
         """
@@ -285,20 +277,17 @@ class CADMLClient:
             extract_features=False,
             classify_parts=True,
             quality_check=False,
-            process_recommendation=False
+            process_recommendation=False,
         )
 
         return {
-            'part_type': result.part_type,
-            'confidence': result.confidence,
-            'sub_type': result.results.get('classification', {}).get('sub_type'),
-            'characteristics': result.results.get('classification', {}).get('characteristics', [])
+            "part_type": result.part_type,
+            "confidence": result.confidence,
+            "sub_type": result.results.get("classification", {}).get("sub_type"),
+            "characteristics": result.results.get("classification", {}).get("characteristics", []),
         }
 
-    def extract_features(
-        self,
-        file: Union[str, Path, BinaryIO]
-    ) -> Dict[str, List[float]]:
+    def extract_features(self, file: Union[str, Path, BinaryIO]) -> Dict[str, List[float]]:
         """
         提取CAD文件特征
 
@@ -313,7 +302,7 @@ class CADMLClient:
             extract_features=True,
             classify_parts=False,
             quality_check=False,
-            process_recommendation=False
+            process_recommendation=False,
         )
 
         return result.features
@@ -333,10 +322,10 @@ class CADMLClient:
             extract_features=False,
             classify_parts=False,
             quality_check=True,
-            process_recommendation=False
+            process_recommendation=False,
         )
 
-        return result.results.get('quality', {})
+        return result.results.get("quality", {})
 
     def health_check(self) -> bool:
         """
@@ -348,14 +337,14 @@ class CADMLClient:
         try:
             response = self.session.get(f"{self.base_url}/health")
             response.raise_for_status()
-            return response.json()['status'] == 'healthy'
+            return response.json()["status"] == "healthy"
         except Exception as e:
             logger.error(f"Health check failed: {e}")
             return False
 
     def close(self):
         """关闭客户端连接"""
-        if not self.async_mode and hasattr(self, 'session'):
+        if not self.async_mode and hasattr(self, "session"):
             self.session.close()
 
     async def close_async(self):
@@ -410,16 +399,13 @@ def quick_classify(file_path: str, api_key: Optional[str] = None) -> str:
     """
     with CADMLClient(api_key=api_key) as client:
         result = client.classify(file_path)
-        return result['part_type']
+        return result["part_type"]
 
 
 # 示例用法
 if __name__ == "__main__":
     # 同步示例
-    client = CADMLClient(
-        base_url="http://localhost:8000",
-        api_key="your_api_key"
-    )
+    client = CADMLClient(base_url="http://localhost:8000", api_key="your_api_key")
 
     # 分析单个文件
     result = client.analyze("drawing.dxf")

@@ -4,18 +4,20 @@ Provides:
 - POST /api/v1/vision/analyze - End-to-end vision + OCR analysis
 """
 
-from fastapi import APIRouter, HTTPException, status
 from typing import Optional
+
+from fastapi import APIRouter
 
 from src.core.vision import (
     VisionAnalyzeRequest,
     VisionAnalyzeResponse,
+    VisionInputError,
     VisionManager,
     create_stub_provider,
-    VisionInputError,
 )
+from src.core.errors import ErrorCode
 
-router = APIRouter(prefix="/vision", tags=["vision"])
+router = APIRouter(tags=["vision"])
 
 
 # ========== Global Manager (Singleton Pattern) ==========
@@ -47,14 +49,11 @@ def get_vision_manager() -> VisionManager:
         # In Phase 3, we'll inject real providers (paddle, deepseek_hf)
         ocr_manager = OcrManager(
             providers={},  # Empty for now - OCR will gracefully return None if no providers
-            confidence_fallback=0.85
+            confidence_fallback=0.85,
         )
 
         # Create manager with both Vision and OCR
-        _vision_manager = VisionManager(
-            vision_provider=vision_provider,
-            ocr_manager=ocr_manager
-        )
+        _vision_manager = VisionManager(vision_provider=vision_provider, ocr_manager=ocr_manager)
 
     return _vision_manager
 
@@ -104,26 +103,36 @@ async def analyze_vision(request: VisionAnalyzeRequest) -> VisionAnalyzeResponse
     try:
         manager = get_vision_manager()
         response = await manager.analyze(request)
-
-        # If analysis failed, return appropriate HTTP error
-        if not response.success:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=response.error or "Vision analysis failed"
-            )
-
-        return response
-
-    except VisionInputError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+        if response.success:
+            return response
+        return VisionAnalyzeResponse(
+            success=False,
+            description=None,
+            ocr=None,
+            provider=response.provider,
+            processing_time_ms=response.processing_time_ms,
+            error=response.error or "Vision analysis failed",
+            code=response.code or ErrorCode.INTERNAL_ERROR,
         )
-
+    except VisionInputError as e:
+        return VisionAnalyzeResponse(
+            success=False,
+            description=None,
+            ocr=None,
+            provider="deepseek_stub",
+            processing_time_ms=0.0,
+            error=str(e),
+            code=ErrorCode.INPUT_ERROR,
+        )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Internal server error: {str(e)}"
+        return VisionAnalyzeResponse(
+            success=False,
+            description=None,
+            ocr=None,
+            provider="deepseek_stub",
+            processing_time_ms=0.0,
+            error=f"Internal server error: {str(e)}",
+            code=ErrorCode.INTERNAL_ERROR,
         )
 
 
@@ -140,5 +149,5 @@ async def health_check():
     return {
         "status": "healthy",
         "provider": manager.vision_provider.provider_name,
-        "ocr_enabled": manager.ocr_manager is not None
+        "ocr_enabled": manager.ocr_manager is not None,
     }

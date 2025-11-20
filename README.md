@@ -1,11 +1,23 @@
 # 🤖 CAD ML Platform - 智能CAD分析微服务平台
 
+## 目录
+- 项目概述
+- 系统架构
+- 快速开始
+- 评估与可观测性（健康检查、指标、PromQL）
+- CI & 安全工作流
+- API 文档
+- Runbooks & 告警规则
+- 配置速查表
+
 > 独立的、可扩展的CAD机器学习分析服务，为多个系统提供统一的智能分析能力
 
 [![Docker](https://img.shields.io/badge/docker-ready-blue)](https://www.docker.com/)
-[![Python](https://img.shields.io/badge/python-3.9+-green)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.10+-green)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-orange)](https://fastapi.tiangolo.com/)
 [![License](https://img.shields.io/badge/license-proprietary-red)](LICENSE)
+[![Evaluation](https://img.shields.io/badge/evaluation-passing-brightgreen)](docs/EVAL_SYSTEM_COMPLETE_GUIDE.md)
+[![Integrity](https://img.shields.io/badge/integrity-monitored-blue)](config/eval_frontend.json)
 
 ---
 
@@ -106,6 +118,7 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # 安装依赖
 pip install -r requirements.txt
+pip install -r requirements-dev.txt  # 开发工具（lint/type/type-test/预提交）
 ```
 
 #### 3. 配置文件
@@ -137,7 +150,137 @@ kubectl apply -f deployments/kubernetes/
 
 ---
 
+## 🔬 评估与可观测性
+
+### 完整评估系统
+
+我们构建了一个企业级的评估监控系统，提供全面的质量保证和可观测性：
+
+#### 核心功能
+- **联合评估**: Vision + OCR 加权评分系统
+- **数据完整性**: SHA-384 哈希验证，Schema v1.0.0 规范
+- **自动报告**: 静态/交互式 HTML 报告，Chart.js 可视化
+- **数据保留**: 5层保留策略（7天全量→30天每日→90天每周→365天每月→永久季度）
+- **版本监控**: 自动依赖更新检查，安全警报
+- **CI/CD集成**: GitHub Actions 自动化流水线
+
+#### 快速开始
+
+```bash
+# 运行评估
+make eval                    # 执行 Vision+OCR 联合评估
+
+# 生成报告
+make eval-report-v2          # 生成交互式报告（推荐）
+make eval-report            # 生成静态报告（备用）
+
+# 系统健康
+make health-check           # 完整系统健康检查
+make integrity-check        # 文件完整性验证
+
+# 数据管理
+make eval-history           # 查看历史趋势
+make eval-retention         # 应用保留策略
+```
+
+#### 评估公式
+```
+Combined Score = 0.5 × Vision + 0.5 × OCR_normalized
+OCR_normalized = OCR_Recall × (1 - Brier_Score)
+```
+
+#### 配置管理
+所有配置集中在 `config/eval_frontend.json`：
+- Chart.js 版本锁定 (4.4.0)
+- SHA-384 完整性校验
+- 5层数据保留策略
+- Schema 验证规则
+
+#### 测试套件
+
+```bash
+# 单元测试套件
+python3 scripts/test_eval_system.py --verbose
+
+# 完整集成测试
+python3 scripts/run_full_integration_test.py
+```
+
+详细文档：[评估系统完整指南](docs/EVALUATION_SYSTEM_COMPLETE.md)
+
+#### 健康检查与指标
+
+- 健康端点：`GET /health`
+  - `runtime.metrics_enabled`: Prometheus 导出是否启用
+  - `runtime.python_version`: 运行 Python 版本
+  - `runtime.vision_max_base64_bytes`: Vision Base64 输入大小上限（字节）
+  - `runtime.error_rate_ema.ocr|vision`: OCR/Vision 错误率的指数移动平均（0..1）
+  - `runtime.config.error_ema_alpha`: EMA 平滑系数，环境变量 `ERROR_EMA_ALPHA` 可配置
+
+- 关键指标（部分）：
+  - `vision_requests_total{provider,status}`、`vision_errors_total{provider,code}`
+  - `vision_processing_duration_seconds{provider}`
+  - `vision_input_rejected_total{reason}`、`vision_image_size_bytes`
+  - `ocr_requests_total{provider,status}`、`ocr_errors_total{provider,code,stage}`
+  - `ocr_input_rejected_total{reason}`、`ocr_image_size_bytes`
+    - 常见 OCR `reason`：`invalid_mime`、`file_too_large`、`pdf_pages_exceed`、`pdf_forbidden_token`
+  - `ocr_confidence_ema`、`ocr_confidence_fallback_threshold`
+
+统一错误模型：所有错误以 HTTP 200 返回 `{ success: false, code: ErrorCode, error: string }`。
+
+示例（输入过大）：
+```bash
+curl -s http://localhost:8000/api/v1/vision/analyze \
+  -H 'Content-Type: application/json' \
+  -d '{"image_base64": "<very_large>", "include_description": false}' | jq
+```
+
+### CI & 安全工作流
+
+```yaml
+关键工作流：
+- `.github/workflows/ci.yml` 分离 `lint-type` 与测试矩阵 (3.10/3.11)
+- `.github/workflows/security-check.yml` 每周安全审计（基于 `scripts/security_audit.py` 退出码）
+- `.github/workflows/badge-review.yml` 每月自动阈值分析与建议 Issue
+ - 新增非阻断 `lint-all-report`，上传全仓 flake8 报告工件
+```
+
+---
+
 ## 📚 API文档
+
+### 📈 PromQL 示例（可直接用于 Grafana）
+
+- Vision 输入拒绝占比（5分钟窗）：
+  - sum(rate(vision_input_rejected_total[5m])) / sum(rate(vision_requests_total[5m]))
+
+- Vision 图像大小 P99（5分钟窗）：
+  - histogram_quantile(0.99, rate(vision_image_size_bytes_bucket[5m]))
+
+- OCR Provider Down 速率（每提供商）：
+  - sum by (provider) (rate(ocr_errors_total{code="provider_down"}[5m]))
+
+- 错误率 EMA：
+  - vision_error_rate_ema
+  - ocr_error_rate_ema
+
+Grafana 面板示例：见 `docs/grafana/observability_dashboard.json`（导入到 Grafana 即可）。
+
+### 📟 Runbooks & Alerts
+
+- Prometheus 告警规则样例：`docs/ALERT_RULES.md`
+- 运行手册（排障指南）：
+  - 错误率 EMA 升高：`docs/runbooks/ocr_vision_error_rate_ema.md`
+  - 输入拒绝激增：`docs/runbooks/input_rejections_spike.md`
+  - Provider 宕机：`docs/runbooks/provider_down.md`
+  - 熔断器打开：`docs/runbooks/circuit_open.md`
+
+### ⚙️ 配置速查表（.env）
+
+- `VISION_MAX_BASE64_BYTES`：Vision Base64 输入大小上限（字节，默认 1048576）。
+- `ERROR_EMA_ALPHA`：错误率 EMA 平滑因子（0<alpha<=1，默认 0.2）。
+- `OCR_MAX_PDF_PAGES`：OCR PDF 最大页数（默认 20）。
+- `OCR_MAX_FILE_MB`：OCR 上传文件大小上限（MB，默认 50）。
 
 ### 基础端点
 
@@ -192,6 +335,37 @@ Content-Type: application/json
   "threshold": 0.75
 }
 ```
+
+### Vision 错误响应规范
+所有 Vision 分析请求无论成功或失败返回 HTTP 200：
+```json
+{
+  "success": false,
+  "provider": "deepseek_stub",
+  "processing_time_ms": 5.1,
+  "error": "Image too large (1.20MB) via base64. Max 1.00MB.",
+  "code": "INPUT_ERROR"
+}
+```
+`code` 可能取值：`INPUT_ERROR`（输入校验失败）、`INTERNAL_ERROR`（内部异常）。
+
+### OCR 错误响应规范
+OCR 提取端点统一 200 返回：
+```json
+{
+  "success": false,
+  "provider": "auto",
+  "confidence": null,
+  "fallback_level": null,
+  "processing_time_ms": 0,
+  "dimensions": [],
+  "symbols": [],
+  "title_block": {},
+  "error": "Unsupported MIME type image/txt",
+  "code": "INPUT_ERROR"
+}
+```
+前端只需依据 `success` 与 `code` 判断逻辑，不再依赖 HTTP 状态码。
 
 #### 3. 零件分类
 
@@ -543,6 +717,46 @@ scrape_configs:
 # 健康检查端点
 curl http://localhost:8000/health
 
+示例响应:
+```json
+{
+  "status": "healthy",
+  "services": {"api": "up", "ml": "up", "redis": "disabled"},
+  "runtime": {
+    "python_version": "3.11.2",
+    "metrics_enabled": true,
+    "vision_max_base64_bytes": 1048576
+  }
+}
+```
+
+Base64 图像大小限制：超过 1MB 或空内容将被拒绝，并计入指标 `vision_input_rejected_total{reason="base64_too_large"|"base64_empty"}`。
+
+触发超限示例:
+```bash
+python - <<'PY'
+import base64, requests
+raw = b'x' * (1024 * 1200)  # >1MB
+payload = {"image_base64": base64.b64encode(raw).decode(), "include_description": False, "include_ocr": False}
+r = requests.post('http://localhost:8000/api/v1/vision/analyze', json=payload)
+print(r.status_code, r.json())
+PY
+```
+
+成功与拒绝请求后的部分指标示例 (Vision + OCR 双系统):
+```
+vision_requests_total{provider="deepseek_stub",status="success"} 1
+vision_input_rejected_total{reason="base64_too_large"} 1
+ocr_input_rejected_total{reason="validation_failed"} 1
+ocr_errors_total{provider="auto",code="internal",stage="endpoint"} 1
+vision_processing_duration_seconds_bucket{provider="deepseek_stub",le="0.1"} ...
+```
+
+新增 OCR 输入与错误指标说明:
+- `ocr_input_rejected_total{reason}`: 上传文件验证失败（`validation_failed|mime_unsupported|too_large|pdf_forbidden` 等）。
+- `ocr_errors_total{provider,code,stage}`: 运行时错误分阶段统计（`code=internal|provider_down|rate_limit|circuit_open|input_error`）。
+- 统一错误响应：HTTP 200 + JSON `{"success": false, "error": "...", "code": "INPUT_ERROR|INTERNAL_ERROR"}`，便于前端与批处理流水线简化解析。
+
 # 就绪检查
 curl http://localhost:8000/ready
 
@@ -649,3 +863,60 @@ rate_limiting:
 ---
 
 **最后更新**: 2025年11月12日
+### 文档导航
+- 关键能力与实现地图: docs/KEY_HIGHLIGHTS.md
+- CI 失败路由与响应: docs/CI_FAILURE_ROUTING.md
+
+### 路由前缀规范
+- 子路由仅包含资源级路径（src/api/v1/*）
+- 聚合路由统一挂载至 /api/v1，避免重复前缀
+- 有效路径示例：
+  - GET /api/v1/vision/health
+  - POST /api/v1/vision/analyze
+  - POST /api/v1/ocr/extract
+  - POST /api/v1/vision/analyze (错误路径测试: tests/test_ocr_errors.py)
+# 可选：环境变量覆盖
+cp .env.example .env
+# 根据需要编辑 .env（CORS、ALLOWED_HOSTS、REDIS 等）
+#### 2.1 预提交钩子（可选但推荐）
+
+```bash
+pre-commit install
+# 运行全量检查
+pre-commit run --all-files --show-diff-on-failure
+
+### 质量配置文件
+- Flake8: `.flake8` (max-line-length=100, 忽略 E203/W503)
+- Mypy: `mypy.ini` (严格类型, metrics 模块宽松)
+- 新增 Vision 指标: `vision_requests_total`, `vision_processing_duration_seconds`, `vision_errors_total`
+```
+#### OCR 错误指标详细说明
+
+| Metric | Labels | Description | Example |
+|--------|--------|-------------|---------|
+| `ocr_errors_total` | `provider, code, stage` | 统计OCR各阶段错误次数 | `ocr_errors_total{provider="paddle",code="rate_limit",stage="preprocess"} 3` |
+| `ocr_input_rejected_total` | `reason` | 输入验证拒绝 | `ocr_input_rejected_total{reason="validation_failed"} 1` |
+
+Stages 说明:
+- `validate`: 上传文件读取与验证（MIME/大小/PDF安全）
+- `preprocess`: 预处理与速率限制
+- `infer`: Provider推理或回退逻辑
+- `parse`: 结构化解析阶段
+- `manager`: 管理器路由与回退判定
+- `endpoint`: 最外层端点包装/未知异常
+
+常见错误代码 (`code`): `internal`, `provider_down`, `rate_limit`, `circuit_open`, `input_error`。
+#### 自检脚本 (CI Smoke)
+
+运行快速自检以验证健康、核心指标与基础端点：
+```bash
+python scripts/self_check.py || echo "Self-check failed"
+```
+退出码含义：
+- 0: 所有检查通过
+- 2: 关键端点不可用或严重错误
+- 3: 指标缺失 (核心计数器未暴露)
+- 4: 错误响应契约异常
+### Prometheus告警规则示例
+
+参见 `docs/ALERT_RULES.md` 获取 OCR/Vision 错误突增、Provider Down、输入拒绝与速率记录规则示例。

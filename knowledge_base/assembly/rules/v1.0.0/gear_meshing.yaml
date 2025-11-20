@@ -1,0 +1,87 @@
+version: 1.0.0
+name: gear_meshing_rules
+description: 齿轮啮合规则库
+created: 2025-01-13
+author: CAD-ML-Platform Team
+
+rules:
+  - id: spur_gear_mesh
+    name: 直齿轮啮合
+    conditions:
+      - type: both_parts_are_gears
+      - type: parallel_axes
+      - type: center_distance_matches_pitch_circles
+    parameters:
+      module:
+        required: true
+        unit: mm
+      pressure_angle:
+        default: 20
+        unit: degree
+      backlash:
+        min: 0.05
+        max: 0.3
+        unit: mm
+    evidence_requirements:
+      - geometric: cylindrical_contact
+      - dimensional: matching_module
+    confidence_weight: 0.9
+
+  - id: helical_gear_mesh
+    name: 斜齿轮啮合
+    conditions:
+      - type: both_parts_are_gears
+      - type: parallel_or_crossing_axes
+      - type: helix_angle_matches
+    parameters:
+      helix_angle:
+        required: true
+        unit: degree
+      hand:
+        options: [left, right]
+    evidence_requirements:
+      - geometric: helical_contact_pattern
+    confidence_weight: 0.85
+
+  - id: bevel_gear_mesh
+    name: 锥齿轮啮合
+    conditions:
+      - type: both_parts_are_gears
+      - type: intersecting_axes
+      - type: cone_angles_sum_to_shaft_angle
+    parameters:
+      shaft_angle:
+        default: 90
+        unit: degree
+    confidence_weight: 0.8
+
+mappings:
+  # CAD软件mate类型到标准关节的映射
+  solidworks:
+    - mate_type: "Gear"
+      maps_to: gear_mesh
+      extract_params:
+        - ratio: from_property("GearRatio")
+        - module: from_dimension("Module")
+
+  fusion360:
+    - mate_type: "Motion:Rotation"
+      with_conditions:
+        - has_teeth_geometry
+      maps_to: gear_mesh
+      extract_params:
+        - ratio: calculate_from_teeth_count
+
+  creo:
+    - constraint_type: "Gear Pair"
+      maps_to: gear_mesh
+      extract_params:
+        - module: from_parameter("d10")
+
+  step_neutral:
+    - assembly_constraint: "KINEMATIC_PAIR"
+      subtype: "GEAR_PAIR"
+      maps_to: gear_mesh
+      extract_params:
+        - ratio: from_transformation_ratio
+        - module: from_geometric_analysis

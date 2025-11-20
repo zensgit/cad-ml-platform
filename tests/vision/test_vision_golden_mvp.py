@@ -4,14 +4,14 @@ Tests the core evaluation logic without running the full script.
 Reuses existing fixtures (sample_image_bytes) for efficiency.
 """
 
-import pytest
 import sys
 from pathlib import Path
+
+import pytest
 
 # Import evaluation functions from script
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 from evaluate_vision_golden import calculate_keyword_hits, evaluate_sample
-
 
 # ========== Test Fixtures ==========
 
@@ -20,7 +20,7 @@ from evaluate_vision_golden import calculate_keyword_hits, evaluate_sample
 def sample_image_bytes() -> bytes:
     """Return sample image bytes (1x1 PNG) - same as other vision tests."""
     # Minimal 1x1 PNG (black pixel)
-    png_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00\x00\x00\x00:~\x9bU\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
+    png_bytes = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00\x00\x00\x00:~\x9bU\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
     return png_bytes
 
 
@@ -103,7 +103,7 @@ async def test_evaluate_sample_with_stub_provider(sample_image_bytes, stub_expec
     result = await evaluate_sample(
         sample_id="test_sample",
         expected_keywords=stub_expected_keywords,
-        image_bytes=sample_image_bytes
+        image_bytes=sample_image_bytes,
     )
 
     # Check success
@@ -134,9 +134,7 @@ async def test_evaluate_sample_with_empty_image_fails():
     - Result contains success=False and error message
     """
     result = await evaluate_sample(
-        sample_id="empty_test",
-        expected_keywords=["test"],
-        image_bytes=b''  # Empty image
+        sample_id="empty_test", expected_keywords=["test"], image_bytes=b""  # Empty image
     )
 
     # Should fail gracefully
@@ -161,7 +159,7 @@ async def test_evaluate_sample_minimal_keywords(sample_image_bytes):
     result = await evaluate_sample(
         sample_id="minimal_test",
         expected_keywords=keywords_not_in_stub,
-        image_bytes=sample_image_bytes
+        image_bytes=sample_image_bytes,
     )
 
     assert result["success"] is True
@@ -187,7 +185,7 @@ def test_golden_annotation_structure():
 
     assert annotation_path.exists(), f"Golden annotation not found: {annotation_path}"
 
-    with open(annotation_path, 'r') as f:
+    with open(annotation_path, "r") as f:
         annotation = json.load(f)
 
     # Check required fields

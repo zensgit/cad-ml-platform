@@ -1,0 +1,10 @@
+{
+  "dimensions": [
+    {"type": "diameter", "value": 10.0, "tol_pos": 0.02, "tol_neg": 0.01, "unit": "mm", "bbox": [50, 80, 45, 18]},
+    {"type": "radius", "value": 2.5, "unit": "mm", "bbox": [90, 110, 30, 15]}
+  ],
+  "symbols": [
+    {"type": "perpendicular", "value": "⊥"},
+    {"type": "parallel", "value": "∥"}
+  ]
+}

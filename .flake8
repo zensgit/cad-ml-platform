@@ -1,0 +1,22 @@
+[flake8]
+max-line-length = 100
+extend-ignore = E203,W503
+exclude = .venv,dist,build
+per-file-ignores = \
+    src/core/ocr/providers/deepseek_hf.py:E501,E402, \
+    src/core/vision/providers/deepseek_stub.py:E501, \
+    scripts/snapshot_baseline.py:E501, \
+    src/core/ocr/manager.py:E501, \
+    src/core/ocr/parsing/dimension_parser.py:E501, \
+    src/core/assembly/constraint_fallback.py:E501, \
+    src/core/assembly/delta_reporter.py:E501, \
+    src/core/assembly/metrics_monitor.py:E501, \
+    src/core/ocr/base.py:E501, \
+    src/core/ocr/exceptions.py:E501, \
+    src/core/ocr/parsing/fallback_parser.py:E501, \
+    src/core/ocr/preprocessing/image_enhancer.py:E501, \
+    src/core/ocr/providers/paddle.py:E501,E402, \
+    src/core/ocr/utils/prompt_templates.py:E501, \
+    src/core/protocols.py:E501, \
+    src/core/vision_analyzer.py:E501, src/core/vision/manager.py:E501, \
+    src/security/input_validator.py:E501

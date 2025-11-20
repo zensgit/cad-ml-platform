@@ -1,0 +1,21 @@
+{
+  "timestamp": "2025-11-17T12:55:35Z",
+  "branch": "main",
+  "commit": "031a204",
+  "metrics": {
+    "dimension_recall": 1.0,
+    "brier_score": 0.025,
+    "edge_f1": 0.0
+  },
+  "schema_version": "1.0.0",
+  "type": "ocr",
+  "run_context": {
+    "runner": "unknown",
+    "machine": "unknown",
+    "os": "unknown",
+    "python": "unknown",
+    "start_time": "2025-11-17T12:55:35Z",
+    "ci_job_id": null,
+    "ci_workflow": null
+  }
+}

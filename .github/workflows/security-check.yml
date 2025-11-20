@@ -1,0 +1,46 @@
+name: Security Audit
+
+on:
+  schedule:
+    - cron: '0 3 * * 1'  # Weekly Monday 03:00 UTC
+  workflow_dispatch: {}
+  push:
+    paths:
+      - 'scripts/security_audit.py'
+      - '.github/workflows/security-check.yml'
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+      - name: Run security audit (medium severity)
+        run: |
+          python scripts/security_audit.py --severity medium --json > reports/security_audit.json || exit_code=$?; echo "EXIT_CODE=${exit_code}" >> $GITHUB_ENV
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-audit-report
+          path: reports/security_audit.json
+      - name: Fail on critical/high findings
+        run: |
+          if [ "${{ env.EXIT_CODE }}" = "2" ] || [ "${{ env.EXIT_CODE }}" = "3" ]; then
+            echo "Critical or secrets issue detected (exit code=${{ env.EXIT_CODE }})";
+            exit 1;
+          elif [ "${{ env.EXIT_CODE }}" = "4" ]; then
+            echo "High dependency vulnerabilities detected (exit code=${{ env.EXIT_CODE }})";
+            exit 1;
+          else
+            echo "No blocking security issues (exit code=${{ env.EXIT_CODE }})";
+          fi

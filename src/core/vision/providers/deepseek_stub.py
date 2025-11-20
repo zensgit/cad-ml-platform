@@ -12,9 +12,9 @@ Future replacement: Real DeepSeek-VL model with transformers/vLLM.
 from __future__ import annotations
 
 import asyncio
-from typing import Optional
+from typing import Optional  # noqa: F401 (kept for future optional params)
 
-from ..base import VisionProvider, VisionDescription
+from ..base import VisionDescription, VisionProvider
 
 
 class DeepSeekStubProvider(VisionProvider):
@@ -33,11 +33,7 @@ class DeepSeekStubProvider(VisionProvider):
         """
         self.simulate_latency_ms = simulate_latency_ms
 
-    async def analyze_image(
-        self,
-        image_data: bytes,
-        include_description: bool = True
-    ) -> VisionDescription:
+    async def analyze_image(self, image_data: bytes, include_description: bool = True) -> VisionDescription:
         """
         Return fixed vision description.
 
@@ -64,9 +60,7 @@ class DeepSeekStubProvider(VisionProvider):
         if not include_description:
             # Minimal description for OCR-only mode
             return VisionDescription(
-                summary="Image processed (OCR-only mode)",
-                details=[],
-                confidence=1.0
+                summary="Image processed (OCR-only mode)", details=[], confidence=1.0
             )
 
         # Full description (typical case)
@@ -77,9 +71,9 @@ class DeepSeekStubProvider(VisionProvider):
                 "External thread specification visible (M10×1.5 pitch)",
                 "Surface finish requirement indicated (Ra 3.2 or similar)",
                 "Title block present with drawing number and material specification",
-                "Standard orthographic projection with front and side views"
+                "Standard orthographic projection with front and side views",
             ],
-            confidence=0.92
+            confidence=0.92,
         )
 
     @property

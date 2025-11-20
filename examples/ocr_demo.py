@@ -24,10 +24,10 @@ def create_sample_image() -> bytes:
     """Create a simple 1x1 PNG image for testing."""
     # Minimal valid PNG (1x1 white pixel)
     return (
-        b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01'
-        b'\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde'
-        b'\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8O'
-        b'\x00\x00\x00\x00IEND\xaeB`\x82'
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+        b"\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"
+        b"\x00\x00\x00\x0cIDATx\x9cc\xf8\x0f\x00\x00\x01\x01\x00\x05\x18\xd8O"
+        b"\x00\x00\x00\x00IEND\xaeB`\x82"
     )
 
 
@@ -39,8 +39,8 @@ async def demo_ocr_extraction():
 
     # Import OCR components
     from src.core.ocr.manager import OcrManager
-    from src.core.ocr.providers.paddle import PaddleOcrProvider
     from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
+    from src.core.ocr.providers.paddle import PaddleOcrProvider
 
     # Initialize manager with providers
     print("\n1. Initializing OCR Manager...")
@@ -134,11 +134,12 @@ async def demo_golden_evaluation():
 
     # Import and run evaluation
     import subprocess
+
     result = subprocess.run(
         ["python3", "tests/ocr/run_golden_evaluation.py"],
         capture_output=True,
         text=True,
-        cwd=Path(__file__).parent.parent
+        cwd=Path(__file__).parent.parent,
     )
 
     print("\n2. Evaluation Results:")
@@ -152,11 +153,7 @@ async def demo_golden_evaluation():
     # Check thresholds
     print("\n3. Week 1 Threshold Comparison:")
     print("-" * 40)
-    thresholds = {
-        "dimension_recall": 0.70,
-        "brier_score": 0.20,
-        "edge_f1": 0.60
-    }
+    thresholds = {"dimension_recall": 0.70, "brier_score": 0.20, "edge_f1": 0.60}
 
     for line in result.stdout.strip().split("\n"):
         metric, value = line.split("=")
@@ -183,11 +180,7 @@ async def demo_idempotency():
     print("Idempotency Key Demo")
     print("=" * 60)
 
-    from src.utils.idempotency import (
-        build_idempotency_key,
-        check_idempotency,
-        store_idempotency
-    )
+    from src.utils.idempotency import build_idempotency_key, check_idempotency, store_idempotency
 
     print("\n1. Building idempotency key...")
     idem_key = build_idempotency_key("demo-request-123", endpoint="ocr")
@@ -205,7 +198,7 @@ async def demo_idempotency():
         "processing_time_ms": 150,
         "dimensions": [{"type": "diameter", "value": 20.0}],
         "symbols": [],
-        "title_block": {}
+        "title_block": {},
     }
     # Note: This would store in Redis if connected
     # await store_idempotency("demo-request-123", sample_response, endpoint="ocr")
@@ -213,7 +206,8 @@ async def demo_idempotency():
 
     print("\n4. API Usage Example:")
     print("-" * 40)
-    print("""
+    print(
+        """
     curl -X POST \\
       -H "Idempotency-Key: unique-request-123" \\
       -F "file=@drawing.png" \\
@@ -224,7 +218,8 @@ async def demo_idempotency():
       -H "Idempotency-Key: unique-request-123" \\
       -F "file=@drawing.png" \\
       "http://localhost:8000/api/v1/ocr/extract"
-    """)
+    """
+    )
 
     print("=" * 60)
     print("Idempotency Demo Complete!")

@@ -9,9 +9,10 @@ Provides:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field
+from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, Field
+from typing import Literal
 
 # ========== Request/Response Models ==========
 
@@ -35,7 +36,7 @@ class VisionAnalyzeRequest(BaseModel):
                 "image_url": "https://example.com/drawing.png",
                 "include_description": True,
                 "include_ocr": True,
-                "ocr_provider": "auto"
+                "ocr_provider": "auto",
             }
         }
     }
@@ -65,7 +66,9 @@ class VisionAnalyzeResponse(BaseModel):
     success: bool = Field(..., description="Whether analysis succeeded")
 
     # Vision outputs
-    description: Optional[VisionDescription] = Field(None, description="Natural language description")
+    description: Optional[VisionDescription] = Field(
+        None, description="Natural language description"
+    )
 
     # OCR outputs
     ocr: Optional[OcrResult] = Field(None, description="OCR extraction results")
@@ -76,6 +79,9 @@ class VisionAnalyzeResponse(BaseModel):
 
     # Error handling
     error: Optional[str] = Field(None, description="Error message if success=False")
+    code: Optional[Literal["INPUT_ERROR", "INTERNAL_ERROR"]] = Field(
+        None, description="Machine-readable error code if success=False"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -86,26 +92,21 @@ class VisionAnalyzeResponse(BaseModel):
                     "details": [
                         "Main diameter: 20mm with ±0.02mm tolerance",
                         "Thread specification: M10×1.5",
-                        "Surface roughness: Ra 3.2"
+                        "Surface roughness: Ra 3.2",
                     ],
-                    "confidence": 0.92
+                    "confidence": 0.92,
                 },
                 "ocr": {
                     "dimensions": [
                         {"type": "diameter", "value": 20, "tolerance": 0.02, "unit": "mm"}
                     ],
-                    "symbols": [
-                        {"type": "surface_roughness", "value": "3.2"}
-                    ],
-                    "title_block": {
-                        "drawing_number": "CAD-2025-001",
-                        "material": "Aluminum 6061"
-                    },
+                    "symbols": [{"type": "surface_roughness", "value": "3.2"}],
+                    "title_block": {"drawing_number": "CAD-2025-001", "material": "Aluminum 6061"},
                     "fallback_level": "json_strict",
-                    "confidence": 0.95
+                    "confidence": 0.95,
                 },
                 "provider": "deepseek_stub",
-                "processing_time_ms": 234.5
+                "processing_time_ms": 234.5,
             }
         }
     }
@@ -119,9 +120,7 @@ class VisionProvider(ABC):
 
     @abstractmethod
     async def analyze_image(
-        self,
-        image_data: bytes,
-        include_description: bool = True
+        self, image_data: bytes, include_description: bool = True
     ) -> VisionDescription:
         """
         Analyze image and return natural language description.
@@ -150,6 +149,7 @@ class VisionProvider(ABC):
 
 class VisionError(Exception):
     """Base exception for vision module."""
+
     pass
 
 
@@ -164,4 +164,5 @@ class VisionProviderError(VisionError):
 
 class VisionInputError(VisionError):
     """Exception for invalid input (missing image_url/image_base64, etc.)."""
+
     pass

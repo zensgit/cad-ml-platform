@@ -1,0 +1,31 @@
+Based on the engineering drawing analysis, here are the extracted dimensions and symbols:
+
+```json
+{
+  "dimensions": [
+    {
+      "type": "diameter",
+      "value": 30,
+      "tolerance": 0.05,
+      "unit": "mm"
+    },
+    {
+      "type": "radius",
+      "value": 10,
+      "unit": "mm"
+    }
+  ],
+  "symbols": [
+    {
+      "type": "surface_roughness",
+      "value": "1.6"
+    }
+  ],
+  "title_block": {
+    "drawing_number": "DWG-001",
+    "material": "Steel 45#"
+  }
+}
+```
+
+Note: All dimensions are in millimeters with specified tolerances where applicable.

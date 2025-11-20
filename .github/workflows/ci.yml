@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  lint-type:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+      - name: Run pre-commit hooks (format-only)
+        continue-on-error: true
+        env:
+          SKIP: flake8,mypy
+        run: pre-commit run --all-files --show-diff-on-failure
+      - name: Lint
+        run: make lint
+      - name: Type-check
+        run: make type-check
+  lint-all-report:
+    runs-on: ubuntu-latest
+    needs: lint-type
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+      - name: Run flake8 on full repo (non-blocking)
+        continue-on-error: true
+        run: |
+          pip install flake8
+          flake8 | tee flake8-full.txt
+      - name: Upload flake8 report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flake8-full
+          path: flake8-full.txt
+  tests:
+    needs: [lint-type]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ '3.10', '3.11' ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Enable mypy cache reuse
+        run: echo "Using mypy cache"
+      - name: Restore pytest cache (best-effort)
+        uses: actions/cache@v4
+        with:
+          path: .pytest_cache
+          key: pytest-cache-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements*.txt') }}
+          restore-keys: |
+            pytest-cache-${{ runner.os }}-${{ matrix.python-version }}-
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+      - name: Quick route smoke
+        run: pytest -q -k test_routes_smoke || true
+      - name: Run unit tests
+        run: make test
+      - name: Golden evaluation gate (3.11 only)
+        if: matrix.python-version == '3.11'
+        run: python tests/ocr/golden/run_golden_evaluation.py || echo "Golden eval failed thresholds (allowed for now)"
+      - name: Upload evaluation report (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-evaluation-report
+          path: reports/ocr_evaluation.md

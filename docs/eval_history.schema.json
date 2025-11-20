@@ -1,0 +1,296 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/cad-ml-platform/schemas/eval-history/v1.0.0",
+  "title": "CAD ML Platform Evaluation History Schema",
+  "description": "JSON Schema for evaluation history records",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "timestamp",
+    "branch",
+    "commit",
+    "type"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Schema version identifier",
+      "enum": ["1.0.0"],
+      "examples": ["1.0.0"]
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO 8601 timestamp in UTC",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+      "examples": ["2025-11-17T15:52:50Z"]
+    },
+    "branch": {
+      "type": "string",
+      "description": "Git branch name",
+      "minLength": 1,
+      "maxLength": 255,
+      "examples": ["main", "develop", "feature/ocr-improvement"]
+    },
+    "commit": {
+      "type": "string",
+      "description": "Git commit hash (short or full)",
+      "pattern": "^[a-f0-9]{6,40}$|^\\[redacted\\]$",
+      "examples": ["031a204", "031a204f5e6b", "[redacted]"]
+    },
+    "type": {
+      "type": "string",
+      "description": "Evaluation type",
+      "enum": ["combined", "ocr", "vision"],
+      "examples": ["combined"]
+    },
+    "run_context": {
+      "type": "object",
+      "description": "Execution environment metadata",
+      "required": [
+        "runner",
+        "machine",
+        "os",
+        "python",
+        "start_time"
+      ],
+      "properties": {
+        "runner": {
+          "type": "string",
+          "description": "Execution environment",
+          "enum": ["local", "ci", "unknown"],
+          "examples": ["local", "ci"]
+        },
+        "machine": {
+          "type": "string",
+          "description": "Machine hostname",
+          "examples": ["Mac.lan", "runner-xyz", "unknown"]
+        },
+        "os": {
+          "type": "string",
+          "description": "Operating system and version",
+          "examples": ["Darwin 25.1.0", "Linux 5.15.0", "Windows 10"]
+        },
+        "python": {
+          "type": "string",
+          "description": "Python version",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$|^unknown$",
+          "examples": ["3.13.7", "3.10.0"]
+        },
+        "start_time": {
+          "type": "string",
+          "description": "Execution start time in ISO 8601",
+          "format": "date-time",
+          "examples": ["2025-11-17T15:52:50Z"]
+        },
+        "ci_job_id": {
+          "type": ["string", "null"],
+          "description": "CI job identifier",
+          "examples": ["12345", null]
+        },
+        "ci_workflow": {
+          "type": ["string", "null"],
+          "description": "CI workflow name",
+          "examples": ["evaluation-report", null]
+        }
+      }
+    },
+    "vision_metrics": {
+      "type": "object",
+      "description": "Vision module evaluation metrics",
+      "required": [
+        "avg_hit_rate",
+        "min_hit_rate",
+        "max_hit_rate",
+        "num_samples"
+      ],
+      "properties": {
+        "avg_hit_rate": {
+          "type": "number",
+          "description": "Average hit rate across samples",
+          "minimum": 0,
+          "maximum": 1,
+          "examples": [0.667]
+        },
+        "min_hit_rate": {
+          "type": "number",
+          "description": "Minimum hit rate observed",
+          "minimum": 0,
+          "maximum": 1,
+          "examples": [0.4]
+        },
+        "max_hit_rate": {
+          "type": "number",
+          "description": "Maximum hit rate observed",
+          "minimum": 0,
+          "maximum": 1,
+          "examples": [1.0]
+        },
+        "num_samples": {
+          "type": "integer",
+          "description": "Number of samples evaluated",
+          "minimum": 0,
+          "examples": [3]
+        }
+      }
+    },
+    "ocr_metrics": {
+      "type": "object",
+      "description": "OCR module evaluation metrics",
+      "required": [
+        "dimension_recall",
+        "brier_score",
+        "edge_f1"
+      ],
+      "properties": {
+        "dimension_recall": {
+          "type": "number",
+          "description": "Dimension extraction recall rate",
+          "minimum": 0,
+          "maximum": 1,
+          "examples": [1.0]
+        },
+        "brier_score": {
+          "type": "number",
+          "description": "Brier score for confidence calibration",
+          "minimum": 0,
+          "maximum": 1,
+          "examples": [0.025]
+        },
+        "edge_f1": {
+          "type": "number",
+          "description": "Edge detection F1 score",
+          "minimum": 0,
+          "maximum": 1,
+          "examples": [0.0]
+        }
+      }
+    },
+    "combined": {
+      "type": "object",
+      "description": "Combined evaluation scores",
+      "required": [
+        "vision_score",
+        "ocr_score",
+        "combined_score",
+        "vision_weight",
+        "ocr_weight"
+      ],
+      "properties": {
+        "vision_score": {
+          "type": "number",
+          "description": "Normalized vision score",
+          "minimum": 0,
+          "maximum": 1,
+          "examples": [0.667]
+        },
+        "ocr_score": {
+          "type": "number",
+          "description": "Normalized OCR score",
+          "minimum": 0,
+          "maximum": 1,
+          "examples": [0.975]
+        },
+        "combined_score": {
+          "type": "number",
+          "description": "Weighted combined score",
+          "minimum": 0,
+          "maximum": 1,
+          "examples": [0.821]
+        },
+        "vision_weight": {
+          "type": "number",
+          "description": "Weight for vision score",
+          "minimum": 0,
+          "maximum": 1,
+          "examples": [0.5]
+        },
+        "ocr_weight": {
+          "type": "number",
+          "description": "Weight for OCR score",
+          "minimum": 0,
+          "maximum": 1,
+          "examples": [0.5]
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "description": "Generic metrics for OCR-only evaluations",
+      "properties": {
+        "dimension_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "brier_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "edge_f1": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "type": { "const": "combined" }
+      },
+      "required": ["vision_metrics", "ocr_metrics", "combined"]
+    },
+    {
+      "properties": {
+        "type": { "const": "ocr" }
+      },
+      "required": ["metrics"]
+    },
+    {
+      "properties": {
+        "type": { "const": "vision" }
+      },
+      "required": ["vision_metrics"]
+    }
+  ],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "schema_version": "1.0.0",
+      "timestamp": "2025-11-17T15:52:50Z",
+      "branch": "main",
+      "commit": "031a204",
+      "type": "combined",
+      "run_context": {
+        "runner": "local",
+        "machine": "Mac.lan",
+        "os": "Darwin 25.1.0",
+        "python": "3.13.7",
+        "start_time": "2025-11-17T15:52:50Z",
+        "ci_job_id": null,
+        "ci_workflow": null
+      },
+      "vision_metrics": {
+        "avg_hit_rate": 0.667,
+        "min_hit_rate": 0.4,
+        "max_hit_rate": 1.0,
+        "num_samples": 3
+      },
+      "ocr_metrics": {
+        "dimension_recall": 1.0,
+        "brier_score": 0.025,
+        "edge_f1": 0.0
+      },
+      "combined": {
+        "vision_score": 0.667,
+        "ocr_score": 0.975,
+        "combined_score": 0.821,
+        "vision_weight": 0.5,
+        "ocr_weight": 0.5
+      }
+    }
+  ]
+}

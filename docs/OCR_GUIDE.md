@@ -73,4 +73,3 @@ python -m tests.ocr.golden.run_golden_evaluation
 - DeepSeek GPU 不可用：自动退化到 CPU 与 Paddle。
 - 回退频率高：检查 `ocr_confidence_ema` / Prompt 模板与版本号。
 - 限流/熔断触发：查看 `ocr_rate_limited_total` 与 `ocr_circuit_state{key}`。
-

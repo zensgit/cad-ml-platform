@@ -1,0 +1,8 @@
+Loaded 7 combined and 1 OCR history entries
+
+Enhanced report generated: reports/eval_history/report/index.html
+  - Interactive charts: CDN
+  - Fallback images: 2 available
+  - Filtering: Branch and date range enabled
+
+Open: file:///Users/huazhou/Insync/hua.chau@outlook.com/OneDrive/应用/GitHub/cad-ml-platform/reports/eval_history/report/index.html

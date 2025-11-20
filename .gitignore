@@ -106,3 +106,8 @@ docs/site/
 # Redis
 dump.rdb
 appendonly.aof
+
+# Baseline snapshots (keep directory, ignore artifacts)
+reports/baselines/*.json
+reports/baselines/latest_snapshot.json
+!reports/baselines/.gitkeep

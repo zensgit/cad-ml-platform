@@ -3,20 +3,27 @@ CAD ML Platform - 主服务入口
 智能CAD分析微服务平台
 """
 
-import os
 import logging
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from prometheus_client import make_asgi_app
+
+try:
+    from prometheus_client import make_asgi_app  # type: ignore
+
+    _metrics_enabled = True
+except Exception:  # module missing
+    _metrics_enabled = False
 import uvicorn
 
 from src.api import api_router
 from src.core.config import get_settings
-from src.utils.logging import setup_logging
-from src.utils.cache import init_redis
 from src.models.loader import load_models
+from src.utils.cache import init_redis
+from src.utils.logging import setup_logging
+from src.utils.metrics import get_ocr_error_rate_ema, get_vision_error_rate_ema
 
 # 设置日志
 setup_logging()
@@ -54,7 +61,7 @@ app = FastAPI(
     title="CAD ML Platform",
     description="智能CAD分析微服务平台",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # 配置CORS
@@ -67,17 +74,14 @@ app.add_middleware(
 )
 
 # 配置信任主机
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=settings.ALLOWED_HOSTS
-)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.ALLOWED_HOSTS)
 
 # 注册路由
 app.include_router(api_router, prefix="/api")
 
-# Prometheus metrics endpoint
-metrics_app = make_asgi_app()
-app.mount("/metrics", metrics_app)
+if _metrics_enabled:
+    metrics_app = make_asgi_app()
+    app.mount("/metrics", metrics_app)
 
 
 @app.get("/")
@@ -88,20 +92,33 @@ async def root():
         "version": "1.0.0",
         "status": "running",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
     }
 
 
 @app.get("/health")
 async def health_check():
-    """健康检查"""
+    """健康检查（附加运行时与指标状态）"""
+    import sys
     return {
         "status": "healthy",
         "services": {
             "api": "up",
             "ml": "up",
-            "redis": "up" if settings.REDIS_ENABLED else "disabled"
-        }
+            "redis": "up" if settings.REDIS_ENABLED else "disabled",
+        },
+        "runtime": {
+            "python_version": sys.version.split(" ")[0],
+            "metrics_enabled": _metrics_enabled,
+            "vision_max_base64_bytes": get_settings().VISION_MAX_BASE64_BYTES,
+            "error_rate_ema": {
+                "ocr": get_ocr_error_rate_ema(),
+                "vision": get_vision_error_rate_ema(),
+            },
+            "config": {
+                "error_ema_alpha": get_settings().ERROR_EMA_ALPHA,
+            },
+        },
     }
 
 
@@ -112,12 +129,14 @@ async def readiness_check():
     try:
         # 检查模型是否加载
         from src.models.loader import models_loaded
+
         if not models_loaded():
             raise HTTPException(status_code=503, detail="Models not loaded")
 
         # 检查Redis连接
         if settings.REDIS_ENABLED:
             from src.utils.cache import redis_healthy
+
             if not await redis_healthy():
                 raise HTTPException(status_code=503, detail="Redis not ready")
 
@@ -134,5 +153,5 @@ if __name__ == "__main__":
         port=settings.PORT,
         reload=settings.DEBUG,
         workers=settings.WORKERS,
-        log_level=settings.LOG_LEVEL.lower()
+        log_level=settings.LOG_LEVEL.lower(),
     )

@@ -1,0 +1,257 @@
+name: Monthly Badge Review
+
+on:
+  schedule:
+    # First day of every month at 00:00 UTC
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
+    inputs:
+      review_type:
+        description: 'Type of review to perform'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+          - standard
+          - comprehensive
+          - threshold-update
+
+jobs:
+  review-badges:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy matplotlib
+
+      - name: Generate badge review report
+        id: badge-review
+        run: |
+          # Generate timestamp
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          MONTH=$(date +%B)
+          YEAR=$(date +%Y)
+
+          echo "📊 Badge Review for $MONTH $YEAR" > badge_review.md
+          echo "=================================" >> badge_review.md
+          echo "" >> badge_review.md
+
+          # Generate current badges
+          python3 scripts/generate_badge.py --format json > reports/badge_review_$TIMESTAMP.json
+
+          # Extract current scores
+          if [ -f "reports/eval_history/latest_combined.json" ]; then
+            COMBINED_SCORE=$(python3 -c "import json; d=json.load(open('reports/eval_history/latest_combined.json')); print(d.get('scores', d.get('combined', {})).get('combined', d.get('combined', {}).get('combined_score', 0)))")
+            echo "Current Combined Score: $COMBINED_SCORE" >> badge_review.md
+          fi
+
+          # Analyze historical trends for threshold recommendations
+          python3 -c "
+          import json
+          import glob
+          from pathlib import Path
+          import statistics
+
+          # Load historical data
+          history_files = sorted(glob.glob('reports/eval_history/*_combined.json'))[-30:]
+          scores = []
+
+          for f in history_files:
+              try:
+                  with open(f) as fp:
+                      data = json.load(fp)
+                      if 'scores' in data:
+                          scores.append(data['scores']['combined'])
+                      elif 'combined' in data:
+                          scores.append(data['combined'].get('combined_score', 0))
+              except:
+                  continue
+
+          if scores:
+              mean = statistics.mean(scores)
+              stdev = statistics.stdev(scores) if len(scores) > 1 else 0
+              percentiles = [0.9, 0.8, 0.7, 0.6]
+
+              print('\n## Statistical Analysis')
+              print(f'- Mean Score: {mean:.3f}')
+              print(f'- Std Dev: {stdev:.3f}')
+              print(f'- Samples: {len(scores)}')
+              print('\n## Current Thresholds vs Statistics')
+
+              # Load current thresholds
+              with open('config/eval_frontend.json') as f:
+                  config = json.load(f)
+
+              print('| Threshold | Current | Statistical (Mean-σ) | Recommendation |')
+              print('|-----------|---------|---------------------|----------------|')
+
+              # Compare and recommend
+              for i, (label, percentile) in enumerate([
+                  ('excellent', 0.9),
+                  ('good', 0.8),
+                  ('acceptable', 0.7),
+                  ('warning', 0.6)
+              ]):
+                  statistical = mean - (i * 0.5 * stdev)
+                  statistical = max(0, min(1, statistical))  # Clamp to [0,1]
+                  current = percentile  # Default thresholds
+
+                  if abs(statistical - current) > 0.05:
+                      rec = f'Consider {statistical:.2f}'
+                  else:
+                      rec = 'Keep current'
+
+                  print(f'| {label} | {current:.2f} | {statistical:.2f} | {rec} |')
+          " >> badge_review.md
+
+          # Check for anomalies in badge colors
+          echo "" >> badge_review.md
+          echo "## Badge Color Distribution (Last 30 days)" >> badge_review.md
+
+          python3 -c "
+          import json
+          import glob
+          from collections import Counter
+
+          files = sorted(glob.glob('reports/eval_history/*_combined.json'))[-30:]
+          colors = []
+
+          def get_color(score):
+              if score >= 0.9: return 'brightgreen'
+              elif score >= 0.8: return 'green'
+              elif score >= 0.7: return 'yellow'
+              elif score >= 0.6: return 'orange'
+              else: return 'red'
+
+          for f in files:
+              try:
+                  with open(f) as fp:
+                      data = json.load(fp)
+                      if 'scores' in data:
+                          score = data['scores']['combined']
+                      else:
+                          score = data.get('combined', {}).get('combined_score', 0)
+                      colors.append(get_color(score))
+              except:
+                  continue
+
+          if colors:
+              counter = Counter(colors)
+              print('| Color | Count | Percentage |')
+              print('|-------|-------|------------|')
+              for color in ['brightgreen', 'green', 'yellow', 'orange', 'red']:
+                  count = counter.get(color, 0)
+                  pct = (count / len(colors)) * 100
+                  print(f'| {color} | {count} | {pct:.1f}% |')
+          " >> badge_review.md
+
+          # Recommendations
+          echo "" >> badge_review.md
+          echo "## Recommendations" >> badge_review.md
+
+          python3 -c "
+          import json
+          import statistics
+
+          # Analyze if thresholds need adjustment
+          recommendations = []
+
+          # Check if we're consistently in one color band
+          # This might indicate thresholds are too loose or tight
+
+          recommendations.append('1. Review threshold adjustments based on statistical analysis above')
+          recommendations.append('2. Consider team feedback on badge perception')
+          recommendations.append('3. Validate that current colors align with risk levels')
+
+          for rec in recommendations:
+              print(f'- {rec}')
+          " >> badge_review.md
+
+          # Save report
+          cp badge_review.md reports/badge_review_${MONTH}_${YEAR}.md
+
+          echo "report_path=reports/badge_review_${MONTH}_${YEAR}.md" >> $GITHUB_OUTPUT
+          echo "month=$MONTH" >> $GITHUB_OUTPUT
+          echo "year=$YEAR" >> $GITHUB_OUTPUT
+
+      - name: Create review issue
+        if: github.event_name == 'schedule'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('badge_review.md', 'utf8');
+            const month = '${{ steps.badge-review.outputs.month }}';
+            const year = '${{ steps.badge-review.outputs.year }}';
+
+            // Check if issue already exists for this month
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'badge-review',
+              state: 'open'
+            });
+
+            const existingIssue = issues.data.find(issue =>
+              issue.title.includes(`${month} ${year}`)
+            );
+
+            if (!existingIssue) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `🎯 Monthly Badge Review - ${month} ${year}`,
+                body: report + '\n\n---\n' +
+                  '**Action Items:**\n' +
+                  '- [ ] Review threshold recommendations\n' +
+                  '- [ ] Update `config/eval_frontend.json` if needed\n' +
+                  '- [ ] Regenerate badges with new thresholds\n' +
+                  '- [ ] Update README with new badges\n' +
+                  '\n**Assignees:** @platform-team',
+                labels: ['badge-review', 'monthly-task'],
+              });
+
+              console.log(`Created badge review issue for ${month} ${year}`);
+            } else {
+              console.log(`Badge review issue already exists for ${month} ${year}`);
+            }
+
+      - name: Upload review report
+        uses: actions/upload-artifact@v3
+        with:
+          name: badge-review-${{ steps.badge-review.outputs.month }}-${{ steps.badge-review.outputs.year }}
+          path: ${{ steps.badge-review.outputs.report_path }}
+          retention-days: 90
+
+      - name: Update badges if requested
+        if: github.event.inputs.review_type == 'threshold-update'
+        run: |
+          # Generate new badges with current thresholds
+          make badges
+
+          # Create PR with updated badges
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          BRANCH="badge-update-$(date +%Y%m)"
+          git checkout -b $BRANCH
+
+          if git diff --quiet; then
+            echo "No badge changes needed"
+          else
+            git add README.md reports/badges.json
+            git commit -m "chore: Update badges for $(date +%B) $(date +%Y) review"
+            git push origin $BRANCH
+
+            echo "Created branch $BRANCH with badge updates"
+          fi

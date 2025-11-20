@@ -13,13 +13,23 @@ import time
 from typing import Optional
 
 from .base import (
+    OcrResult,
     VisionAnalyzeRequest,
     VisionAnalyzeResponse,
     VisionDescription,
-    OcrResult,
-    VisionProvider,
     VisionInputError,
+    VisionProvider,
 )
+from src.core.config import get_settings
+from src.utils.metrics import (
+    vision_requests_total,
+    vision_processing_duration_seconds,
+    vision_errors_total,
+    vision_image_size_bytes,
+    vision_input_rejected_total,
+    update_vision_error_ema,
+)
+from src.utils.metrics_helpers import safe_inc, safe_observe
 
 
 class VisionManager:
@@ -37,7 +47,7 @@ class VisionManager:
     def __init__(
         self,
         vision_provider: VisionProvider,
-        ocr_manager: Optional[object] = None  # Type: OcrManager from src.core.ocr.manager
+        ocr_manager: Optional[object] = None,  # Type: OcrManager from src.core.ocr.manager
     ):
         """
         Initialize VisionManager.
@@ -63,54 +73,69 @@ class VisionManager:
             VisionInputError: If both image_url and image_base64 are missing
         """
         start_time = time.time()
+        provider_name = self.vision_provider.provider_name
+        safe_inc(vision_requests_total, provider=provider_name, status="start")
 
+        # Load image first; propagate input errors to caller
         try:
-            # Step 1: Load image bytes
             image_bytes = await self._load_image(request)
+        except VisionInputError:
+            safe_inc(vision_requests_total, provider=provider_name, status="input_error")
+            safe_inc(vision_errors_total, provider=provider_name, code="input_error")
+            update_vision_error_ema(True)
+            raise
+        except Exception:
+            # Propagate unexpected errors; API layer will standardize response
+            try:
+                processing_time_ms = (time.time() - start_time) * 1000
+                safe_inc(vision_requests_total, provider=provider_name, status="error")
+                safe_observe(vision_processing_duration_seconds, processing_time_ms / 1000.0, provider=provider_name)
+                safe_inc(vision_errors_total, provider=provider_name, code="internal")
+                update_vision_error_ema(True)
+            except Exception:
+                pass
+            raise
 
-            # Step 2: Vision description (if requested)
+        # Record input size histogram
+        try:
+            vision_image_size_bytes.observe(len(image_bytes))
+        except Exception:
+            pass
+
+        # Process vision + optional OCR
+        try:
             description: Optional[VisionDescription] = None
             if request.include_description:
                 description = await self.vision_provider.analyze_image(
-                    image_data=image_bytes,
-                    include_description=True
+                    image_data=image_bytes, include_description=True
                 )
-
-            # Step 3: OCR extraction (if requested and manager available)
             ocr_result: Optional[OcrResult] = None
             if request.include_ocr and self.ocr_manager:
                 ocr_result = await self._extract_ocr(
-                    image_bytes=image_bytes,
-                    provider=request.ocr_provider
+                    image_bytes=image_bytes, provider=request.ocr_provider
                 )
-
-            # Step 4: Aggregate results
             processing_time_ms = (time.time() - start_time) * 1000
-
+            safe_inc(vision_requests_total, provider=provider_name, status="success")
+            safe_observe(vision_processing_duration_seconds, processing_time_ms / 1000.0, provider=provider_name)
+            update_vision_error_ema(False)
             return VisionAnalyzeResponse(
                 success=True,
                 description=description,
                 ocr=ocr_result,
-                provider=self.vision_provider.provider_name,
-                processing_time_ms=processing_time_ms
-            )
-
-        except VisionInputError:
-            # Re-raise input validation errors so they can be handled as 400 at API level
-            raise
-
-        except Exception as e:
-            # Other errors: return error response with success=False
-            processing_time_ms = (time.time() - start_time) * 1000
-
-            return VisionAnalyzeResponse(
-                success=False,
-                description=None,
-                ocr=None,
-                provider=self.vision_provider.provider_name,
+                provider=provider_name,
                 processing_time_ms=processing_time_ms,
-                error=str(e)
             )
+        except Exception:
+            # Propagate unexpected errors; API layer will standardize response
+            try:
+                processing_time_ms = (time.time() - start_time) * 1000
+                safe_inc(vision_requests_total, provider=provider_name, status="error")
+                safe_observe(vision_processing_duration_seconds, processing_time_ms / 1000.0, provider=provider_name)
+                safe_inc(vision_errors_total, provider=provider_name, code="internal")
+                update_vision_error_ema(True)
+            except Exception:
+                pass
+            raise
 
     async def _load_image(self, request: VisionAnalyzeRequest) -> bytes:
         """
@@ -125,28 +150,53 @@ class VisionManager:
         Raises:
             VisionInputError: If both image_url and image_base64 are missing
         """
+        settings = get_settings()
+        max_bytes = settings.VISION_MAX_BASE64_BYTES
         if request.image_base64:
             # Decode base64 image with strict validation
             import base64
+
             try:
                 # Use validate=True for stricter base64 validation
-                return base64.b64decode(request.image_base64, validate=True)
+                decoded = base64.b64decode(request.image_base64, validate=True)
+                if len(decoded) > max_bytes:
+                    size_mb = len(decoded) / 1024 / 1024
+                    limit_mb = max_bytes / 1024 / 1024
+                    vision_input_rejected_total.labels(reason="base64_too_large").inc()
+                    raise VisionInputError(
+                        f"Image too large ({size_mb:.2f}MB) via base64. Max {limit_mb:.2f}MB."
+                    )
+                if len(decoded) == 0:
+                    vision_input_rejected_total.labels(reason="base64_empty").inc()
+                    raise VisionInputError("Decoded image is empty (0 bytes)")
+                return decoded
             except Exception as e:
+                # Try to classify base64 error subtype
+                msg = str(e).lower()
+                if "incorrect padding" in msg:
+                    vision_input_rejected_total.labels(reason="base64_padding_error").inc()
+                elif "non-base64" in msg or "invalid" in msg:
+                    vision_input_rejected_total.labels(reason="base64_invalid_char").inc()
+                else:
+                    vision_input_rejected_total.labels(reason="base64_decode_error").inc()
                 raise VisionInputError(f"Invalid base64 image data: {e}")
 
         elif request.image_url:
             # Download from URL with validation and size limits
-            import httpx
             from urllib.parse import urlparse
+
+            import httpx
 
             # Validate URL scheme (only http/https)
             try:
                 parsed_url = urlparse(request.image_url)
-                if parsed_url.scheme not in ['http', 'https']:
+                if parsed_url.scheme not in ["http", "https"]:
+                    vision_input_rejected_total.labels(reason="url_invalid_scheme").inc()
                     raise VisionInputError(
-                        f"Invalid URL scheme '{parsed_url.scheme}'. Only http:// and https:// are supported."
+                        f"Invalid URL scheme '{parsed_url.scheme}'. Only http/https supported."
                     )
             except Exception as e:
+                vision_input_rejected_total.labels(reason="url_invalid_format").inc()
                 raise VisionInputError(f"Invalid URL format: {e}")
 
             # Download image with timeout and size limit
@@ -156,53 +206,67 @@ class VisionManager:
 
                     # Check HTTP status
                     if response.status_code == 404:
-                        raise VisionInputError(f"Image not found at URL (HTTP 404): {request.image_url}")
+                        vision_input_rejected_total.labels(reason="url_not_found").inc()
+                        raise VisionInputError(
+                            f"Image not found at URL (HTTP 404): {request.image_url}"
+                        )
                     elif response.status_code == 403:
-                        raise VisionInputError(f"Access forbidden to URL (HTTP 403): {request.image_url}")
+                        vision_input_rejected_total.labels(reason="url_forbidden").inc()
+                        raise VisionInputError(
+                            f"Access forbidden to URL (HTTP 403): {request.image_url}"
+                        )
                     elif response.status_code >= 400:
-                        raise VisionInputError(f"Failed to download image (HTTP {response.status_code}): {request.image_url}")
+                        code = response.status_code
+                        vision_input_rejected_total.labels(reason="url_http_error").inc()
+                        raise VisionInputError(
+                            f"Failed to download image (HTTP {code}): {request.image_url}"
+                        )
 
                     # Check content length (50MB limit)
-                    content_length = response.headers.get('content-length')
+                    content_length = response.headers.get("content-length")
                     max_size_bytes = 50 * 1024 * 1024  # 50MB
 
                     if content_length and int(content_length) > max_size_bytes:
+                        size_mb = int(content_length) / 1024 / 1024
+                        vision_input_rejected_total.labels(reason="url_too_large_header").inc()
                         raise VisionInputError(
-                            f"Image too large ({int(content_length) / 1024 / 1024:.1f}MB). Maximum size is 50MB."
+                            f"Image too large ({size_mb:.1f}MB). Max 50MB."
                         )
 
                     # Read content and check actual size
                     image_data = response.content
                     if len(image_data) > max_size_bytes:
+                        size_mb = len(image_data) / 1024 / 1024
+                        vision_input_rejected_total.labels(reason="url_too_large_download").inc()
                         raise VisionInputError(
-                            f"Downloaded image too large ({len(image_data) / 1024 / 1024:.1f}MB). Maximum size is 50MB."
+                            f"Downloaded image too large ({size_mb:.1f}MB). Max 50MB."
                         )
 
                     if len(image_data) == 0:
+                        vision_input_rejected_total.labels(reason="url_empty").inc()
                         raise VisionInputError("Downloaded image is empty (0 bytes)")
 
                     return image_data
 
             except httpx.TimeoutException:
-                raise VisionInputError(f"Timeout downloading image from URL (>5s): {request.image_url}")
+                vision_input_rejected_total.labels(reason="url_timeout").inc()
+                raise VisionInputError(
+                    f"Timeout downloading image from URL (>5s): {request.image_url}"
+                )
             except httpx.RequestError as e:
+                vision_input_rejected_total.labels(reason="url_network_error").inc()
                 raise VisionInputError(f"Network error downloading image: {e}")
             except VisionInputError:
                 # Re-raise VisionInputError as-is
                 raise
             except Exception as e:
+                vision_input_rejected_total.labels(reason="url_download_error").inc()
                 raise VisionInputError(f"Failed to download image from URL: {e}")
 
         else:
-            raise VisionInputError(
-                "Either image_url or image_base64 must be provided"
-            )
+            raise VisionInputError("Either image_url or image_base64 must be provided")
 
-    async def _extract_ocr(
-        self,
-        image_bytes: bytes,
-        provider: str = "auto"
-    ) -> Optional[OcrResult]:
+    async def _extract_ocr(self, image_bytes: bytes, provider: str = "auto") -> Optional[OcrResult]:
         """
         Extract OCR data using OCRManager.
 
@@ -224,8 +288,7 @@ class VisionManager:
             # Call OCRManager.extract() (from src.core.ocr.manager)
             # This returns src.core.ocr.base.OcrResult
             ocr_raw_result = await self.ocr_manager.extract(
-                image_bytes=image_bytes,
-                strategy=provider
+                image_bytes=image_bytes, strategy=provider
             )
 
             # Convert OCR module's OcrResult to Vision module's OcrResult
@@ -239,13 +302,17 @@ class VisionManager:
                 dimensions=dimensions_dict,
                 symbols=symbols_dict,
                 title_block=title_block_dict,
-                fallback_level=getattr(ocr_raw_result, 'fallback_level', None),
-                confidence=ocr_raw_result.calibrated_confidence or ocr_raw_result.confidence
+                fallback_level=getattr(ocr_raw_result, "fallback_level", None),
+                confidence=ocr_raw_result.calibrated_confidence or ocr_raw_result.confidence,
             )
 
         except Exception as e:
             # Log error but don't fail entire request (graceful degradation)
             # Vision description will still be returned even if OCR fails
             # TODO: Add proper structured logging
-            print(f"⚠️ OCR extraction failed (vision description will still be returned): {e}")
+            import logging
+            logging.getLogger(__name__).warning(
+                "vision.ocr_extract_failed",
+                extra={"error": str(e)},
+            )
             return None

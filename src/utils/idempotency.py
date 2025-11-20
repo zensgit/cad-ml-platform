@@ -7,7 +7,7 @@ return the same cached response without re-processing.
 from __future__ import annotations
 
 import logging
-from typing import Optional, Any, Dict
+from typing import Any, Dict, Optional
 
 from src.utils.cache import get_cache, set_cache
 
@@ -31,8 +31,7 @@ def build_idempotency_key(idempotency_key: str, endpoint: str = "ocr") -> str:
 
 
 async def check_idempotency(
-    idempotency_key: str,
-    endpoint: str = "ocr"
+    idempotency_key: str, endpoint: str = "ocr"
 ) -> Optional[Dict[str, Any]]:
     """Check if response exists for given idempotency key.
 
@@ -55,7 +54,7 @@ async def check_idempotency(
             extra={
                 "idempotency_key": idempotency_key,
                 "endpoint": endpoint,
-            }
+            },
         )
 
     return cached
@@ -65,7 +64,7 @@ async def store_idempotency(
     idempotency_key: str,
     response: Dict[str, Any],
     endpoint: str = "ocr",
-    ttl_seconds: int = IDEMPOTENCY_TTL_SECONDS
+    ttl_seconds: int = IDEMPOTENCY_TTL_SECONDS,
 ) -> None:
     """Store response for idempotency key.
 
@@ -87,5 +86,5 @@ async def store_idempotency(
             "idempotency_key": idempotency_key,
             "endpoint": endpoint,
             "ttl_seconds": ttl_seconds,
-        }
+        },
     )
