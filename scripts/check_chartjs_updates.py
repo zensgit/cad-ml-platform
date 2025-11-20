@@ -53,7 +53,7 @@ def parse_version(version_str: str) -> Tuple[int, int, int]:
         minor = int(parts[1]) if len(parts) > 1 else 0
         patch = int(parts[2].split("-")[0]) if len(parts) > 2 else 0
         return major, minor, patch
-    except:
+    except Exception:
         return 0, 0, 0
 
 

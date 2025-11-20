@@ -59,13 +59,13 @@ test-baseline: ## 运行基线评测
 	$(PYTHON) scripts/run_baseline_evaluation.py
 
 lint: ## 运行代码检查（仅 src/，使用 .flake8 配置）
-    @echo "$(GREEN)Running linters (src only)...$(NC)"
-    $(FLAKE8) $(SRC_DIR)
-    @echo "$(GREEN)Linting passed!$(NC)"
+	@echo "$(GREEN)Running linters (src only)...$(NC)"
+	$(FLAKE8) $(SRC_DIR)
+	@echo "$(GREEN)Linting passed!$(NC)"
 
 lint-all: ## 运行全仓库代码检查（开发用，可能报较多告警）
-    @echo "$(YELLOW)Running linters (full repo)...$(NC)"
-    $(FLAKE8)
+	@echo "$(YELLOW)Running linters (full repo)...$(NC)"
+	$(FLAKE8)
 
 format: ## 格式化代码
 	@echo "$(GREEN)Formatting code...$(NC)"
@@ -74,8 +74,8 @@ format: ## 格式化代码
 	@echo "$(GREEN)Code formatted!$(NC)"
 
 type-check: ## 类型检查（使用 mypy.ini 配置）
-    @echo "$(GREEN)Type checking...$(NC)"
-    $(MYPY) $(SRC_DIR)
+	@echo "$(GREEN)Type checking...$(NC)"
+	$(MYPY) $(SRC_DIR)
 
 clean: ## 清理临时文件
 	@echo "$(RED)Cleaning temporary files...$(NC)"
@@ -219,10 +219,6 @@ redis-stop: ## 停止Redis
 	redis-cli shutdown
 
 # 监控相关
-metrics-export: ## 导出Prometheus指标
-	@echo "$(GREEN)Exporting metrics...$(NC)"
-	$(PYTHON) scripts/export_metrics.py
-
 grafana-import: ## 导入Grafana仪表板
 	@echo "$(GREEN)Importing Grafana dashboard...$(NC)"
 	$(PYTHON) scripts/import_grafana_dashboard.py

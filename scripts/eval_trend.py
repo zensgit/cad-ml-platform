@@ -76,7 +76,7 @@ def plot_combined(combined: list[dict], outdir: Path) -> Path | None:
     plt.ylabel("Score (0-1)")
     # Annotate last point with weights
     if xs:
-        plt.annotate(f"w_v={vws[-1]:.2f}", (xs[-1], ys[-1]), textcoords="offset points", xytext=(8,8))
+        plt.annotate(f"w_v={vws[-1]:.2f}", (xs[-1], ys[-1]), textcoords="offset points", xytext=(8, 8))
 
     out = outdir / "combined_trend.png"
     outdir.mkdir(parents=True, exist_ok=True)

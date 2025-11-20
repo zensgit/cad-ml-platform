@@ -180,7 +180,7 @@ async def demo_idempotency():
     print("Idempotency Key Demo")
     print("=" * 60)
 
-    from src.utils.idempotency import build_idempotency_key, check_idempotency, store_idempotency
+    from src.utils.idempotency import build_idempotency_key, check_idempotency
 
     print("\n1. Building idempotency key...")
     idem_key = build_idempotency_key("demo-request-123", endpoint="ocr")
@@ -201,6 +201,7 @@ async def demo_idempotency():
         "title_block": {},
     }
     # Note: This would store in Redis if connected
+    # from src.utils.idempotency import store_idempotency
     # await store_idempotency("demo-request-123", sample_response, endpoint="ocr")
     print("   (Skipped - Redis not connected in demo)")
 

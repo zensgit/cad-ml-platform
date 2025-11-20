@@ -13,9 +13,7 @@ Usage:
 
 import argparse
 import json
-import os
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -328,7 +326,7 @@ class MetricsExporter:
                 """Enhanced cleanup on server close."""
                 try:
                     self.shutdown()
-                except:
+                except Exception:
                     pass
                 super().server_close()
 

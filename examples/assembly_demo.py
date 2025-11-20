@@ -65,7 +65,7 @@ def main():
             validation_result = rule_engine.validate_assembly(assembly_graph)
 
             if validation_result["is_valid"]:
-                print(f"  ✅ 验证通过")
+                print("  ✅ 验证通过")
             else:
                 print(f"  ⚠️  发现 {len(validation_result['errors'])} 个错误")
 
@@ -230,7 +230,7 @@ def run_test_demo():
     print("  1. 齿轮采用20CrMnTi材料，渗碳淬火处理")
     print("  2. 轴类零件采用45号钢，调质处理")
     print("  3. 齿轮箱采用油浴润滑，确保传动效率")
-    print(f"  4. 传动比为3:1，输出转速为输入的1/3")
+    print("  4. 传动比为3:1，输出转速为输入的1/3")
 
     print("\n" + "=" * 50)
     print("✨ 演示完成！这就是装配理解AI的基本功能。")
@@ -248,7 +248,7 @@ def visualize_assembly(assembly_graph):
     # 简单的ASCII图
     visualization = assembly_graph.get("visualization", {})
     nodes = visualization.get("nodes", [])
-    edges = visualization.get("edges", [])
+    _edges = visualization.get("edges", [])
 
     if not nodes:
         print("  [无可视化数据]")

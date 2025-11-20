@@ -3,7 +3,6 @@ CAD ML Platform Python客户端SDK
 提供简单易用的Python接口访问CAD ML Platform服务
 """
 
-import asyncio
 import json
 import logging
 import os

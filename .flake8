@@ -19,4 +19,11 @@ per-file-ignores = \
     src/core/ocr/utils/prompt_templates.py:E501, \
     src/core/protocols.py:E501, \
     src/core/vision_analyzer.py:E501, src/core/vision/manager.py:E501, \
-    src/security/input_validator.py:E501
+    src/security/input_validator.py:E501, \
+    examples/assembly_demo.py:E402,F541,F841, \
+    examples/ocr_demo.py:F841, \
+    scripts/analyze_eval_insights.py:E128, \
+    scripts/evaluate_vision_golden.py:E402,E501,F541, \
+    scripts/evaluate_vision_ocr_combined.py:E501,F401,F841,F541, \
+    scripts/eval_trend.py:E501, \
+    scripts/export_eval_metrics.py:E501,F401

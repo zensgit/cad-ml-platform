@@ -12,7 +12,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 
 def load_latest_evaluation(history_dir: str = "reports/eval_history") -> Optional[Dict]:
