@@ -1,0 +1,13 @@
+formats:
+  step:
+    required_tokens: ["ISO-10303-21", "HEADER"]
+    allow_missing: []
+  stl:
+    min_size: 84
+    ascii_prefix: "solid"
+  iges:
+    min_section_tokens: 2
+    tokens: ["S", "G", "D", "P"]
+  dxf:
+    required_tokens: ["SECTION"]
+exempt_projects: []  # list of project_ids to bypass strict mode

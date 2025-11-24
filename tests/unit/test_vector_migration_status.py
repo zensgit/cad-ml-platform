@@ -1,0 +1,29 @@
+from fastapi.testclient import TestClient
+from src.main import app
+from src.core.similarity import register_vector  # type: ignore
+
+client = TestClient(app)
+
+
+def test_vector_migration_status_flow(monkeypatch):
+    register_vector("mig_a", [0.1, 0.2, 0.3])
+    register_vector("mig_b", [0.2, 0.3, 0.4])
+    # initial status (no migration yet)
+    r0 = client.get("/api/v1/vectors/migrate/status", headers={"api-key": "test"})
+    assert r0.status_code == 200
+    data0 = r0.json()
+    assert data0.get("last_migration_id") is None
+    # perform dry-run migration
+    payload = {"ids": ["mig_a", "mig_b"], "to_version": "v2", "dry_run": True}
+    r1 = client.post("/api/v1/vectors/migrate", json=payload, headers={"api-key": "test"})
+    assert r1.status_code == 200
+    mig = r1.json()
+    assert mig.get("migration_id") is not None
+    # status should reflect migration batch
+    r2 = client.get("/api/v1/vectors/migrate/status", headers={"api-key": "test"})
+    assert r2.status_code == 200
+    data2 = r2.json()
+    assert data2.get("last_migration_id") == mig.get("migration_id")
+    assert data2.get("last_total") == 2
+    assert data2.get("last_skipped") >= 1  # dry-run counts as skipped
+

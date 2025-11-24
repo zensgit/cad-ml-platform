@@ -1,0 +1,306 @@
+name: Observability Checks
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run daily at 3 AM UTC
+    - cron: '0 3 * * *'
+
+jobs:
+  metrics-contract:
+    name: Validate Metrics Contract
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run metrics contract tests
+        run: |
+          python -m pytest tests/test_metrics_contract.py -v --tb=short
+
+      - name: Validate error mapping
+        run: |
+          python -m pytest tests/test_provider_error_mapping.py -v
+
+      - name: Run observability test suite
+        run: |
+          python -m pytest tests/test_observability_suite.py -v
+
+  promtool-validation:
+    name: Validate Prometheus Rules
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Validate recording rules (static)
+        id: static-validation
+        run: |
+          python scripts/validate_prom_rules.py --skip-promtool --json > validation.json
+          cat validation.json
+
+          # Check validation passed
+          if [ $(jq -r '.validation_passed' validation.json) != "true" ]; then
+            echo "::error::Static validation failed"
+            exit 1
+          fi
+
+      - name: Validate with promtool (Docker)
+        run: |
+          docker run --rm \
+            -v $PWD/docs/prometheus:/prometheus \
+            prom/prometheus:latest \
+            promtool check rules /prometheus/recording_rules.yml
+
+      - name: Upload validation results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: prometheus-validation
+          path: validation.json
+
+  self-check:
+    name: Platform Self-Check
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:6-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Start application
+        run: |
+          export REDIS_URL=redis://localhost:6379
+          python src/main.py &
+          APP_PID=$!
+          echo "APP_PID=$APP_PID" >> $GITHUB_ENV
+
+          # Wait for app to start
+          sleep 10
+
+      - name: Run basic self-check
+        run: |
+          python scripts/self_check.py --json > self-check-basic.json
+          cat self-check-basic.json
+
+          if [ $(jq -r '.success' self-check-basic.json) != "true" ]; then
+            echo "::error::Basic self-check failed"
+            exit $(jq -r '.exit_code' self-check-basic.json)
+          fi
+
+      - name: Run strict self-check
+        run: |
+          export SELF_CHECK_STRICT_METRICS=1
+          export SELF_CHECK_MIN_OCR_ERRORS=5
+          export SELF_CHECK_INCREMENT_COUNTERS=1
+
+          python scripts/self_check.py --json > self-check-strict.json
+          cat self-check-strict.json
+
+          exit_code=$(jq -r '.exit_code' self-check-strict.json)
+          if [ $exit_code -ne 0 ]; then
+            echo "::warning::Strict self-check failed with code $exit_code"
+            # Don't fail the job for strict mode in PR
+            if [ "${{ github.event_name }}" = "push" ]; then
+              exit $exit_code
+            fi
+          fi
+
+      - name: Stop application
+        if: always()
+        run: |
+          if [ ! -z "$APP_PID" ]; then
+            kill $APP_PID || true
+          fi
+
+      - name: Upload self-check results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: self-check-results
+          path: |
+            self-check-basic.json
+            self-check-strict.json
+
+  dashboard-validation:
+    name: Validate Grafana Dashboard
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Validate dashboard JSON
+        run: |
+          # Check JSON is valid
+          python -m json.tool docs/grafana/observability_dashboard.json > /dev/null
+
+          # Check dashboard structure
+          python -c "
+          import json
+          with open('docs/grafana/observability_dashboard.json') as f:
+              dashboard = json.load(f)
+
+          assert 'panels' in dashboard
+          assert len(dashboard['panels']) > 0
+          assert 'title' in dashboard
+
+          # Check for recording rule usage
+          dashboard_str = json.dumps(dashboard)
+          recording_rules = [
+              'ocr_error_ratio',
+              'provider_health_score',
+              'slo_availability'
+          ]
+
+          rules_found = sum(1 for rule in recording_rules if rule in dashboard_str)
+          assert rules_found > 0, 'Dashboard should use recording rules'
+
+          print(f'Dashboard validation passed. Found {rules_found} recording rules in use.')
+          "
+
+  documentation-check:
+    name: Validate Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Check runbooks
+        run: |
+          # Verify runbooks exist and have required sections
+          for runbook in provider_timeout model_load_error; do
+            file="docs/runbooks/${runbook}.md"
+            echo "Checking $file..."
+
+            if [ ! -f "$file" ]; then
+              echo "::error::Missing runbook: $file"
+              exit 1
+            fi
+
+            # Check for required sections
+            for section in "Overview" "Error Code" "Detection" "Response Steps"; do
+              if ! grep -q "## $section" "$file"; then
+                echo "::error::Runbook $file missing section: $section"
+                exit 1
+              fi
+            done
+          done
+
+      - name: Check README exit codes
+        run: |
+          # Verify exit codes table in README
+          if ! grep -q "Exit Code.*Meaning.*CI Action" README.md; then
+            echo "::error::README missing exit codes table"
+            exit 1
+          fi
+
+          # Check specific codes are documented
+          for code in 0 2 3 5 6; do
+            if ! grep -q "\`$code\`" README.md; then
+              echo "::error::README missing documentation for exit code $code"
+              exit 1
+            fi
+          done
+
+      - name: Verify Phase 2 roadmap
+        run: |
+          if [ ! -f "docs/ROADMAP_PHASE2.md" ]; then
+            echo "::error::Missing Phase 2 roadmap"
+            exit 1
+          fi
+
+          # Check roadmap has timeline
+          if ! grep -q "Week [1-4]" docs/ROADMAP_PHASE2.md; then
+            echo "::error::Roadmap missing weekly breakdown"
+            exit 1
+          fi
+
+  integration-test:
+    name: Full Integration Test
+    runs-on: ubuntu-latest
+    needs: [metrics-contract, promtool-validation]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run integration test suite
+        run: |
+          echo "Integration test would run here with:"
+          echo "- Live Prometheus instance"
+          echo "- Grafana with imported dashboard"
+          echo "- Full application stack"
+          echo "- Load testing with error injection"
+
+          # Placeholder for actual integration test
+          echo "::notice::Integration test placeholder - implement with docker-compose"
+
+  report-status:
+    name: Generate Observability Report
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [metrics-contract, promtool-validation, self-check, dashboard-validation, documentation-check]
+
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## Observability Checks Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Metrics Contract | ${{ needs.metrics-contract.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Prometheus Rules | ${{ needs.promtool-validation.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Self-Check | ${{ needs.self-check.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Dashboard | ${{ needs.dashboard-validation.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Documentation | ${{ needs.documentation-check.result }} |" >> $GITHUB_STEP_SUMMARY
+
+          # Overall status
+          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Observability checks failed**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **All observability checks passed**" >> $GITHUB_STEP_SUMMARY
+          fi

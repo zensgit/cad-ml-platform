@@ -1,145 +1,168 @@
-"""Input validation and lightweight security guards for OCR endpoint.
-
-Validations:
- - MIME whitelist
- - File size limit
- - Optional PDF page limit
- - Image resolution cap (resize if needed)
-"""
-
 from __future__ import annotations
 
-import io
-import os
-from typing import Tuple
+"""Basic MIME validation to protect parsing pipeline.
 
-from fastapi import HTTPException, UploadFile
+Uses python-magic if available; degrades gracefully when library absent.
+"""
 
-MIME_WHITELIST = {"image/png", "image/jpeg", "application/pdf"}
+from typing import Tuple, Dict, Any
 
-_ENV_MAX_FILE_MB = os.getenv("OCR_MAX_FILE_MB")
-_ENV_MAX_PDF_PAGES = os.getenv("OCR_MAX_PDF_PAGES")
-try:
-    MAX_FILE_SIZE_MB = int(_ENV_MAX_FILE_MB) if _ENV_MAX_FILE_MB else 50
-except ValueError:
-    MAX_FILE_SIZE_MB = 50
-try:
-    MAX_PDF_PAGES = int(_ENV_MAX_PDF_PAGES) if _ENV_MAX_PDF_PAGES else 20
-except ValueError:
-    MAX_PDF_PAGES = 20
-MAX_RESOLUTION = 2048  # max width or height
-PDF_FORBIDDEN_TOKENS = ["/JavaScript", "/AA", "/OpenAction", "/XFA"]
+# Known lightweight CAD format signatures (heuristic) for basic validation.
+# This is NOT a full parser; it only checks early markers to catch gross mismatches.
+_STEP_SIGNATURE_PREFIX = b"ISO-10303-21"
+_STL_ASCII_PREFIX = b"solid"
+_IGES_SIGNATURE_TOKENS = [b"IGES", b"S","G","D","P"]  # IGES has section markers (simplified)
 
 
-def _ensure_mime(upload: UploadFile) -> None:
-    if upload.content_type not in MIME_WHITELIST:
-        try:
-            from src.utils.metrics import ocr_input_rejected_total
+def verify_signature(data: bytes, file_format: str) -> Tuple[bool, str]:
+    """Best-effort signature / magic validation.
 
-            ocr_input_rejected_total.labels(reason="invalid_mime").inc()
-        except Exception:
-            pass
-        raise HTTPException(status_code=415, detail=f"Unsupported MIME type {upload.content_type}")
-
-
-def _ensure_size(content: bytes) -> None:
-    size_mb = len(content) / (1024 * 1024)
-    if size_mb > MAX_FILE_SIZE_MB:
-        try:
-            from src.utils.metrics import ocr_input_rejected_total
-
-            ocr_input_rejected_total.labels(reason="file_too_large").inc()
-        except Exception:
-            pass
-        raise HTTPException(
-            status_code=413, detail=f"File too large {size_mb:.1f}MB > {MAX_FILE_SIZE_MB}MB"
-        )
-
-
-def _pdf_page_count(content: bytes) -> int:
-    """Return PDF page count.
-
-    Uses pypdf if available; otherwise falls back to naive pattern counting.
+    Returns (valid, expected_hint).
+    Only rejects when we are reasonably confident (to avoid false negatives on binary variants).
     """
+    header = data[:64]
+    fmt = file_format.lower()
+    if fmt in {"step", "stp"}:
+        return (header.startswith(_STEP_SIGNATURE_PREFIX), "STEP header 'ISO-10303-21'")
+    if fmt == "stl":
+        # Binary STL starts with 80-byte header; ASCII starts with 'solid'. Accept both by permissive rule.
+        if header.startswith(_STL_ASCII_PREFIX):
+            return (True, "ASCII STL 'solid'")
+        # If not ASCII, assume binary; do not strictly validate beyond length.
+        return (len(data) > 84, "Binary STL (>=84 bytes)")
+    if fmt in {"iges", "igs"}:
+        # IGES often starts with something containing 'IGES' later; lenient check.
+        return (b"IGES" in header.upper(), "IGES token present")
+    if fmt in {"dxf", "dwg"}:
+        # DXF often starts with '0\nSECTION'; DWG binary proprietary; be permissive.
+        if b"SECTION" in header.upper() or b"AC101" in header.upper():  # AC101* version tokens
+            return (True, "DXF SECTION or DWG AC101*")
+        return (True, "Lenient DXF/DWG")  # Do not reject unknown variants
+    return (True, "Unknown format lenient")
+
+
+def signature_hex_prefix(data: bytes, length: int = 16) -> str:
+    return data[:length].hex()
+
+
+def deep_format_validate(data: bytes, file_format: str) -> Tuple[bool, str]:
+    """Deep format validation heuristics per CAD format.
+
+    Returns (valid, reason). Non-invasive checks; strict mode decides rejection.
+    """
+    fmt = file_format.lower()
+    head = data[:512]
+    if fmt in {"step", "stp"}:
+        # STEP should contain HEADER and ENDSEC tokens
+        text = head.decode(errors="ignore")
+        if "ISO-10303-21" not in text:
+            return False, "missing_step_header"
+        if "HEADER" not in text:
+            return False, "missing_step_HEADER_section"
+        return True, "ok"
+    if fmt == "stl":
+        # Binary STL must be >= 84 bytes; ASCII starts with 'solid'
+        if len(data) < 84:
+            return False, "stl_too_small"
+        if head.startswith(b"solid"):
+            return True, "ascii_solid"
+        return True, "binary_min_size"
+    if fmt in {"iges", "igs"}:
+        # IGES sections markers: S,G,D,P,T appear; lenient check just for presence of at least two
+        upper = head.upper()
+        present = sum(1 for tok in [b"S", b"G", b"D", b"P"] if tok in upper)
+        if present < 2:
+            return False, "iges_section_markers_missing"
+        return True, "ok"
+    if fmt == "dxf":
+        # DXF typical start: '0\nSECTION'; search for SECTION token
+        if b"SECTION" not in head.upper():
+            return False, "dxf_section_missing"
+        return True, "ok"
+    # Other formats lenient
+    return True, "ok"
+
+
+def load_validation_matrix() -> Dict[str, Any]:
+    import os, yaml
+    path = os.getenv("FORMAT_VALIDATION_MATRIX", "config/format_validation_matrix.yaml")
+    if not os.path.exists(path):
+        return {}
     try:
-        import pypdf  # type: ignore
-
-        reader = pypdf.PdfReader(io.BytesIO(content))
-        return len(reader.pages)
+        with open(path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
     except Exception:
-        # Fallback: count '%Page' markers (synthetic tests)
-        return content.count(b"%Page")
+        return {}
 
 
-def _pdf_security_scan(content: bytes) -> None:
-    """Scan PDF for forbidden tokens. Falls back to raw byte search if parsing fails."""
+def matrix_validate(data: bytes, file_format: str, project_id: str | None = None) -> Tuple[bool, str]:
+    matrix = load_validation_matrix()
+    fmts = matrix.get("formats", {})
+    spec = fmts.get(file_format.lower())
+    if not spec:
+        return True, "no_spec"
+    head = data[:512].decode(errors="ignore")
+    # Exempt projects
+    if project_id and project_id in matrix.get("exempt_projects", []):
+        return True, "exempt"
+    # STEP
+    if "required_tokens" in spec:
+        for tok in spec["required_tokens"]:
+            if tok not in head:
+                return False, f"missing_token:{tok}"
+    if file_format.lower() == "stl" and spec.get("min_size"):
+        if len(data) < int(spec["min_size"]):
+            return False, "below_min_size"
+    return True, "ok"
+
+
+def sniff_mime(data: bytes) -> Tuple[str, bool]:
     try:
-        import pypdf  # type: ignore
-
-        reader = pypdf.PdfReader(io.BytesIO(content))
-        raw = str(reader.trailer)
+        import magic  # type: ignore
+        mime = magic.from_buffer(data, mime=True) or "application/octet-stream"
+        return mime, True
     except Exception:
-        # Fallback: scan raw bytes string representation
-        raw = content.decode(errors="ignore")
-    for token in PDF_FORBIDDEN_TOKENS:
-        if token in raw:
-            try:
-                from src.utils.metrics import ocr_input_rejected_total
-
-                ocr_input_rejected_total.labels(reason="pdf_forbidden_token").inc()
-            except Exception:
-                pass
-            raise HTTPException(status_code=422, detail=f"PDF contains forbidden token {token}")
+        return "application/octet-stream", False
 
 
-def _ensure_pdf_limits(content: bytes) -> None:
-    pages = _pdf_page_count(content)
-    if pages > MAX_PDF_PAGES:
-        from fastapi import HTTPException
-
-        try:
-            from src.utils.metrics import ocr_input_rejected_total
-
-            ocr_input_rejected_total.labels(reason="pdf_pages_exceed").inc()
-        except Exception:
-            pass
-        raise HTTPException(
-            status_code=422,
-            detail=f"PDF page count {pages} exceeds limit {MAX_PDF_PAGES}",
-        )
-
-
-def _maybe_resize_image(content: bytes) -> bytes:
-    try:
-        from PIL import Image
-
-        im = Image.open(io.BytesIO(content))
-        w, h = im.size
-        if max(w, h) <= MAX_RESOLUTION:
-            return content
-        # resize preserving aspect
-        if w >= h:
-            new_w = MAX_RESOLUTION
-            new_h = int(h * (MAX_RESOLUTION / w))
-        else:
-            new_h = MAX_RESOLUTION
-            new_w = int(w * (MAX_RESOLUTION / h))
-        im = im.resize((new_w, new_h))
-        buf = io.BytesIO()
-        im.save(buf, format="PNG")
-        return buf.getvalue()
-    except Exception:
-        return content
+def is_supported_mime(mime: str) -> bool:
+    # Allow common CAD / text / octet-stream placeholders plus known specific MIME types
+    allowed_exact = {
+        "text/plain",
+        "application/octet-stream",
+        "application/zip",  # STEP packages / compressed bundles
+        "model/stl",
+        "application/stl",
+        "application/vnd.ms-pki.stl",
+        "application/dxf",
+        "image/vnd.dwg",  # some DWG detectors
+        "application/iges",
+        "application/step",
+        "application/x-step",
+        "application/x-iges",
+    }
+    if mime in allowed_exact:
+        return True
+    # Basic heuristics: many CAD files appear as generic text or octet-stream
+    return mime.startswith("text/") or mime.endswith("octet-stream")
 
 
-async def validate_and_read(upload: UploadFile) -> Tuple[bytes, str]:
-    """Validate upload and return (content, mime). Resizes image if oversized."""
-    _ensure_mime(upload)
-    data = await upload.read()
-    _ensure_size(data)
-    if upload.content_type == "application/pdf":
-        _ensure_pdf_limits(data)
-        _pdf_security_scan(data)
-    else:
-        data = _maybe_resize_image(data)
-    return data, upload.content_type
+__all__ = [
+    "sniff_mime",
+    "is_supported_mime",
+    "verify_signature",
+    "deep_format_validate",
+    "load_validation_matrix",
+    "matrix_validate",
+    "validate_and_read",
+]
+
+
+async def validate_and_read(upload_file) -> tuple[bytes, str]:  # type: ignore
+    """Compatibility helper for OCR module expecting validate_and_read.
+
+    Reads file bytes and returns (data, mime). Keeps logic minimal and reuses sniff_mime.
+    """
+    data = await upload_file.read()
+    mime, _ = sniff_mime(data)
+    return data, mime

@@ -1,0 +1,234 @@
+groups:
+  - name: cad_ml_aggregations
+    interval: 30s
+    rules:
+      # 固定解析目标 (可根据部署变更阈值) 0.25s
+      - record: cad_ml:analysis_parse_latency_target_seconds
+        expr: 0.25
+        labels:
+          target: "p95"
+      # API 性能聚合
+      - record: cad_ml:api_request_rate_5m
+        expr: rate(http_requests_total[5m])
+        labels:
+          aggregation: "5m_rate"
+
+      - record: cad_ml:api_error_rate_5m
+        expr: rate(http_requests_total{status=~"5.."}[5m])
+        labels:
+          aggregation: "5m_error_rate"
+
+      - record: cad_ml:api_p95_latency_5m
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+        labels:
+          aggregation: "p95_5m"
+
+      # 分析缓存命中率 - 30m & 6h 窗口 (用于趋势与SLO跟踪)
+      - record: cad_ml:analysis_cache_hit_ratio_30m
+        expr: |
+          sum(rate(analysis_cache_hits_total[30m]))
+          /
+          (sum(rate(analysis_cache_hits_total[30m])) + sum(rate(analysis_cache_miss_total[30m])))
+        labels:
+          window: "30m"
+          metric: "cache_hit_ratio"
+
+      - record: cad_ml:analysis_cache_hit_ratio_6h
+        expr: |
+          sum(rate(analysis_cache_hits_total[6h]))
+          /
+          (sum(rate(analysis_cache_hits_total[6h])) + sum(rate(analysis_cache_miss_total[6h])))
+        labels:
+          window: "6h"
+          metric: "cache_hit_ratio"
+
+      # CAD 解析阶段 p95 延迟 (分析管线 parse 阶段)
+      - record: cad_ml:analysis_parse_p95_5m
+        expr: histogram_quantile(0.95, rate(analysis_stage_duration_seconds_bucket{stage="parse"}[5m]))
+        labels:
+          aggregation: "parse_p95_5m"
+      # 新增: 格式级解析 p95 (细分慢格式定位)
+      - record: cad_ml:parse_format_p95_5m
+        expr: |
+          histogram_quantile(0.95, sum by (le, format) (rate(parse_stage_latency_seconds_bucket[5m])))
+        labels:
+          aggregation: "parse_format_p95_5m"
+      - record: cad_ml:vector_store_total
+        expr: |
+          sum(analysis_vector_count)  # counts registrations; approximate current total
+        labels:
+          metric: "vector_store_total"
+
+      # CAD 分类阶段 p95 延迟
+      - record: cad_ml:classification_p95_5m
+        expr: histogram_quantile(0.95, rate(classification_latency_seconds_bucket[5m]))
+        labels:
+          aggregation: "classification_p95_5m"
+
+      # CAD 工艺推荐阶段 p95 延迟
+      - record: cad_ml:process_recommend_p95_5m
+        expr: histogram_quantile(0.95, rate(process_recommend_latency_seconds_bucket[5m]))
+        labels:
+          aggregation: "process_recommend_p95_5m"
+
+      # OCR 处理性能
+      - record: cad_ml:ocr_success_rate_1h
+        expr: |
+          sum(rate(ocr_provider_requests_total{status="success"}[1h])) by (provider)
+          /
+          sum(rate(ocr_provider_requests_total[1h])) by (provider)
+        labels:
+          aggregation: "1h_success_rate"
+
+      - record: cad_ml:ocr_avg_processing_time_5m
+        expr: |
+          rate(ocr_processing_duration_seconds_sum[5m])
+          /
+          rate(ocr_processing_duration_seconds_count[5m])
+        labels:
+          aggregation: "5m_avg_duration"
+
+      - record: cad_ml:ocr_confidence_distribution
+        expr: |
+          histogram_quantile(0.5, rate(ocr_confidence_score_bucket[5m]))
+        labels:
+          quantile: "p50"
+
+  - name: cad_ml_resource_usage
+    interval: 1m
+    rules:
+      # 资源使用率
+      - record: cad_ml:cpu_usage_percent
+        expr: |
+          100 * (1 - (avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))))
+        labels:
+          resource: "cpu"
+
+      - record: cad_ml:memory_usage_percent
+        expr: |
+          100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))
+        labels:
+          resource: "memory"
+
+      - record: cad_ml:disk_usage_percent
+        expr: |
+          100 * (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}))
+        labels:
+          resource: "disk"
+
+  - name: cad_ml_business_metrics
+    interval: 5m
+    rules:
+      # 业务指标
+      - record: cad_ml:daily_active_users
+        expr: |
+          count(count by (user_id) (http_requests_total[24h]))
+        labels:
+          metric_type: "dau"
+
+      - record: cad_ml:provider_cost_rate
+        expr: |
+          sum(rate(ocr_provider_token_usage[1h]) * ocr_provider_token_cost) by (provider)
+        labels:
+          metric_type: "cost_per_hour"
+
+      - record: cad_ml:error_budget_remaining
+        expr: |
+          1 - (
+            sum(rate(http_requests_total{status=~"5.."}[30d]))
+            /
+            sum(rate(http_requests_total[30d]))
+          ) / 0.001
+        labels:
+          sla: "99.9%"
+
+  - name: cad_ml_alerts
+    interval: 1m
+    rules:
+      # 告警规则
+      - alert: HighErrorRate
+        expr: cad_ml:api_error_rate_5m > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High API error rate detected"
+          description: "API error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+          runbook: "README.md#📟-runbooks-&-alerts"
+
+      - alert: LowOCRSuccessRate
+        expr: cad_ml:ocr_success_rate_1h < 0.95
+        for: 10m
+        labels:
+          severity: warning
+          component: ocr
+        annotations:
+          summary: "OCR success rate below threshold"
+          description: "Provider {{ $labels.provider }} success rate is {{ $value | humanizePercentage }}"
+          runbook: "README.md#📟-runbooks-&-alerts"
+
+      - alert: HighResourceUsage
+        expr: |
+          cad_ml:cpu_usage_percent > 80 or
+          cad_ml:memory_usage_percent > 85 or
+          cad_ml:disk_usage_percent > 90
+        for: 15m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High resource usage detected"
+          description: "{{ $labels.resource }} usage is {{ $value | humanize }}%"
+          runbook: "README.md#📟-runbooks-&-alerts"
+
+      - alert: ParseLatencyBudgetExceeded
+        expr: cad_ml:analysis_parse_p95_5m > cad_ml:analysis_parse_latency_target_seconds
+        for: 10m
+        labels:
+          severity: warning
+          component: analysis
+        annotations:
+          summary: "Parse stage p95 latency exceeds target"
+          description: "Parse p95 {{ $value }}s > target {{ with query \"cad_ml:analysis_parse_latency_target_seconds\" }}{{ . | first | value }}s{{ end }}"
+          runbook: "README.md#📟-runbooks-&-alerts"
+      - alert: ParseFormatLatencyHigh
+        expr: cad_ml:parse_format_p95_5m > cad_ml:analysis_parse_latency_target_seconds * 1.5
+        for: 15m
+        labels:
+          severity: warning
+          component: analysis
+        annotations:
+          summary: "Specific format parse p95 high"
+          description: "Format {{ $labels.format }} parse p95 {{ $value }}s exceeds 1.5x budget"
+          runbook: "README.md#📟-runbooks-&-alerts"
+      - alert: MaterialDriftHigh
+        expr: avg_over_time(material_distribution_drift_score_bucket{le="+Inf"}[15m]) > 0.3
+        for: 15m
+        labels:
+          severity: warning
+          component: drift
+        annotations:
+          summary: "Material distribution drift score high"
+          description: "Material drift score >0.3 sustained 15m (avg)."
+          runbook: "docs/runbooks/drift_monitoring.md"
+      - alert: ClassificationDriftHigh
+        expr: avg_over_time(classification_prediction_drift_score_bucket{le="+Inf"}[15m]) > 0.3
+        for: 15m
+        labels:
+          severity: warning
+          component: drift
+        annotations:
+          summary: "Classification prediction drift score high"
+          description: "Classification drift score >0.3 sustained 15m (avg)."
+          runbook: "docs/runbooks/drift_monitoring.md"
+      - alert: OrphanVectorSpike
+        expr: increase(vector_orphan_total[5m]) > (cad_ml:vector_store_total * 0.1)
+        for: 5m
+        labels:
+          severity: warning
+          component: vectors
+        annotations:
+          summary: "Orphan vector spike detected"
+          description: "Orphan vectors increased >10% of total in 5m window"
+          runbook: "docs/runbooks/orphan_vectors.md"

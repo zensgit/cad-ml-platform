@@ -1,0 +1,232 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2025-11-21",
+  "description": "Metrics Label Whitelist Policy - 控制标签基数和组合爆炸",
+
+  "global_settings": {
+    "max_unique_label_values": 100,
+    "max_label_combinations": 1000,
+    "enforcement_mode": "warn",
+    "cardinality_check_interval": "1h",
+    "auto_quarantine_threshold": 10000
+  },
+
+  "label_whitelist": {
+    "http_requests_total": {
+      "allowed_labels": ["method", "status", "endpoint", "service"],
+      "max_cardinality": {
+        "method": 10,
+        "status": 20,
+        "endpoint": 100,
+        "service": 10
+      },
+      "forbidden_combinations": [
+        ["user_id", "session_id"],
+        ["trace_id", "span_id"]
+      ],
+      "required_labels": ["method", "status"],
+      "enforcement": "strict"
+    },
+
+    "ocr_processing_duration": {
+      "allowed_labels": ["provider", "model", "status", "extraction_mode"],
+      "max_cardinality": {
+        "provider": 5,
+        "model": 10,
+        "status": 5,
+        "extraction_mode": 3
+      },
+      "forbidden_combinations": [
+        ["image_id", "user_id"],
+        ["session_id", "request_id"]
+      ],
+      "required_labels": ["provider", "status"],
+      "enforcement": "warn"
+    },
+
+    "vision_analysis_requests": {
+      "allowed_labels": ["provider", "model", "analysis_type", "status"],
+      "max_cardinality": {
+        "provider": 5,
+        "model": 15,
+        "analysis_type": 10,
+        "status": 5
+      },
+      "forbidden_combinations": [
+        ["file_path", "user_id"]
+      ],
+      "required_labels": ["provider", "analysis_type"],
+      "enforcement": "warn"
+    },
+
+    "resilience_circuit_state": {
+      "allowed_labels": ["service", "endpoint"],
+      "max_cardinality": {
+        "service": 20,
+        "endpoint": 100
+      },
+      "forbidden_combinations": [],
+      "required_labels": ["service"],
+      "enforcement": "strict"
+    },
+
+    "resilience_rate_limit_tokens": {
+      "allowed_labels": ["service", "endpoint", "algorithm"],
+      "max_cardinality": {
+        "service": 20,
+        "endpoint": 100,
+        "algorithm": 3
+      },
+      "forbidden_combinations": [],
+      "required_labels": ["service"],
+      "enforcement": "strict"
+    },
+
+    "error_code_occurrences": {
+      "allowed_labels": ["code", "severity", "source", "category"],
+      "max_cardinality": {
+        "code": 100,
+        "severity": 5,
+        "source": 20,
+        "category": 15
+      },
+      "forbidden_combinations": [
+        ["stack_trace", "error_message"]
+      ],
+      "required_labels": ["code", "severity"],
+      "enforcement": "strict"
+    },
+
+    "database_queries": {
+      "allowed_labels": ["operation", "table", "status"],
+      "max_cardinality": {
+        "operation": 10,
+        "table": 50,
+        "status": 5
+      },
+      "forbidden_combinations": [
+        ["query_text", "parameters"],
+        ["user_id", "row_id"]
+      ],
+      "required_labels": ["operation"],
+      "enforcement": "warn"
+    },
+
+    "cache_operations": {
+      "allowed_labels": ["operation", "cache_type", "hit"],
+      "max_cardinality": {
+        "operation": 5,
+        "cache_type": 10,
+        "hit": 2
+      },
+      "forbidden_combinations": [
+        ["key", "value"],
+        ["user_id", "session_id"]
+      ],
+      "required_labels": ["operation", "hit"],
+      "enforcement": "strict"
+    }
+  },
+
+  "label_categories": {
+    "infrastructure": {
+      "labels": ["host", "region", "zone", "cluster"],
+      "max_total_cardinality": 100,
+      "description": "Infrastructure-level labels"
+    },
+
+    "application": {
+      "labels": ["service", "version", "endpoint", "method"],
+      "max_total_cardinality": 500,
+      "description": "Application-level labels"
+    },
+
+    "business": {
+      "labels": ["customer_type", "plan", "feature"],
+      "max_total_cardinality": 50,
+      "description": "Business-level labels"
+    },
+
+    "forbidden": {
+      "labels": ["user_id", "session_id", "request_id", "trace_id", "span_id",
+                 "email", "ip_address", "api_key", "password", "token",
+                 "file_path", "stack_trace", "error_message", "query_text"],
+      "description": "Labels that should never be used due to cardinality or privacy"
+    }
+  },
+
+  "exemptions": {
+    "temporary": [
+      {
+        "metric": "migration_progress",
+        "reason": "Temporary metric for Q4 2025 migration",
+        "expires": "2026-01-31",
+        "allowed_labels": ["phase", "component", "status"]
+      }
+    ],
+
+    "permanent": [
+      {
+        "metric": "system_info",
+        "reason": "System diagnostics require detailed labels",
+        "approved_by": "platform-team",
+        "allowed_labels": ["*"]
+      }
+    ]
+  },
+
+  "enforcement_rules": {
+    "violation_actions": {
+      "warn": {
+        "log_level": "WARNING",
+        "alert": false,
+        "block": false
+      },
+      "strict": {
+        "log_level": "ERROR",
+        "alert": true,
+        "block": true
+      },
+      "quarantine": {
+        "log_level": "ERROR",
+        "alert": true,
+        "block": true,
+        "auto_remediate": true
+      }
+    },
+
+    "escalation_thresholds": {
+      "cardinality_explosion": {
+        "threshold": 10000,
+        "action": "quarantine",
+        "notification": ["platform-team", "on-call"]
+      },
+      "forbidden_label_use": {
+        "threshold": 1,
+        "action": "strict",
+        "notification": ["security-team"]
+      },
+      "growth_rate_violation": {
+        "threshold": "20%",
+        "window": "1h",
+        "action": "warn",
+        "notification": ["platform-team"]
+      }
+    }
+  },
+
+  "reporting": {
+    "weekly_report": {
+      "enabled": true,
+      "recipients": ["platform-team@company.com"],
+      "include_violations": true,
+      "include_trends": true
+    },
+
+    "realtime_alerts": {
+      "enabled": true,
+      "channels": ["#platform-alerts", "pagerduty"],
+      "severity_threshold": "strict"
+    }
+  }
+}

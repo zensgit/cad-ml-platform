@@ -1,0 +1,289 @@
+name: Recording Rules Management
+
+on:
+  push:
+    paths:
+      - 'prometheus/rules/*.yml'
+      - 'prometheus/rules/*.yaml'
+      - '.github/workflows/rules-management.yml'
+    branches:
+      - main
+      - develop
+  pull_request:
+    paths:
+      - 'prometheus/rules/*.yml'
+      - 'prometheus/rules/*.yaml'
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'validate'
+        type: choice
+        options:
+          - validate
+          - version
+          - rollback
+          - deploy
+      version_id:
+        description: 'Version ID for rollback (if applicable)'
+        required: false
+        type: string
+
+jobs:
+  validate-rules:
+    name: Validate Recording Rules
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml
+
+      - name: Install promtool
+        run: |
+          wget https://github.com/prometheus/prometheus/releases/download/v2.45.0/prometheus-2.45.0.linux-amd64.tar.gz
+          tar xvf prometheus-2.45.0.linux-amd64.tar.gz
+          sudo mv prometheus-2.45.0.linux-amd64/promtool /usr/local/bin/
+          rm -rf prometheus-2.45.0.linux-amd64*
+
+      - name: Validate rule syntax
+        run: |
+          for file in prometheus/rules/*.yml prometheus/rules/*.yaml; do
+            if [ -f "$file" ]; then
+              echo "Validating $file..."
+              promtool check rules "$file"
+            fi
+          done
+
+      - name: Check for breaking changes
+        if: github.event_name == 'pull_request'
+        run: |
+          # 初始化版本管理
+          python scripts/recording_rules_versioning.py init
+
+          # 检查基线分支
+          git checkout ${{ github.base_ref }}
+          python scripts/recording_rules_versioning.py commit -m "Base version" -a "CI"
+          BASE_VERSION=$(python -c "import json; print(json.load(open('.rules-versions/metadata.json'))['current_version'])")
+
+          # 检查 PR 分支
+          git checkout ${{ github.head_ref }}
+          python scripts/recording_rules_versioning.py commit -m "PR version" -a "CI"
+
+          # 生成差异报告
+          python scripts/recording_rules_versioning.py diff "$BASE_VERSION" > rules_diff.txt
+
+          # 显示差异
+          echo "### 📝 Recording Rules Changes" >> $GITHUB_STEP_SUMMARY
+          echo '```diff' >> $GITHUB_STEP_SUMMARY
+          cat rules_diff.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  version-rules:
+    name: Version Recording Rules
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: validate-rules
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install pyyaml
+
+      - name: Create version
+        run: |
+          # 获取提交信息
+          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          COMMIT_AUTHOR="${{ github.event.head_commit.author.name }}"
+          COMMIT_SHA="${{ github.sha }}"
+
+          # 创建版本
+          python scripts/recording_rules_versioning.py init
+          python scripts/recording_rules_versioning.py commit \
+            -m "Auto-version: $COMMIT_MSG (SHA: ${COMMIT_SHA:0:7})" \
+            -a "$COMMIT_AUTHOR"
+
+          # 生成报告
+          python scripts/recording_rules_versioning.py report --format markdown > rules_report.md
+
+          # 添加到摘要
+          echo "## 📋 Recording Rules Version Report" >> $GITHUB_STEP_SUMMARY
+          cat rules_report.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload version artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: rules-version-${{ github.sha }}
+          path: |
+            .rules-versions/
+            rules_report.md
+          retention-days: 90
+
+  deploy-rules:
+    name: Deploy Recording Rules
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'deploy'
+    needs: validate-rules
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+
+      - name: Configure kubectl
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBE_CONFIG" | base64 -d > ~/.kube/config
+
+      - name: Deploy ConfigMap
+        run: |
+          # Create ConfigMap from rules files
+          kubectl create configmap prometheus-rules \
+            --from-file=prometheus/rules/ \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Reload Prometheus
+          kubectl rollout restart deployment/prometheus -n monitoring
+
+          echo "✅ Rules deployed successfully" >> $GITHUB_STEP_SUMMARY
+
+  rollback-rules:
+    name: Rollback Recording Rules
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'rollback'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Download version artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: rules-version-${{ github.event.inputs.version_id }}
+          path: .rules-versions/
+
+      - name: Perform rollback
+        run: |
+          VERSION_ID="${{ github.event.inputs.version_id }}"
+
+          if [ -z "$VERSION_ID" ]; then
+            echo "❌ Version ID is required for rollback"
+            exit 1
+          fi
+
+          # 执行回滚
+          python scripts/recording_rules_versioning.py rollback "$VERSION_ID"
+
+          # 创建 PR
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git checkout -b rollback/$VERSION_ID
+          git add prometheus/rules/
+          git commit -m "Rollback rules to version $VERSION_ID"
+          git push origin rollback/$VERSION_ID
+
+          echo "✅ Rollback branch created: rollback/$VERSION_ID" >> $GITHUB_STEP_SUMMARY
+          echo "📝 Please review and merge the rollback PR" >> $GITHUB_STEP_SUMMARY
+
+  scheduled-backup:
+    name: Scheduled Rules Backup
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'backup')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Create backup
+        run: |
+          # 创建备份版本
+          python scripts/recording_rules_versioning.py init
+          python scripts/recording_rules_versioning.py commit \
+            -m "Scheduled backup $(date +'%Y-%m-%d %H:%M:%S')" \
+            -a "GitHub Actions Scheduler"
+
+          # 导出版本
+          VERSION_ID=$(python -c "import json; print(json.load(open('.rules-versions/metadata.json'))['current_version'])")
+          python scripts/recording_rules_versioning.py export "$VERSION_ID" -o backup/
+
+          # 创建 tar 存档
+          tar czf rules_backup_$(date +'%Y%m%d_%H%M%S').tar.gz backup/
+
+          echo "✅ Backup created successfully" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload backup
+        uses: actions/upload-artifact@v3
+        with:
+          name: rules-backup-$(date +'%Y%m%d')
+          path: rules_backup_*.tar.gz
+          retention-days: 30
+
+  notify-changes:
+    name: Notify Rule Changes
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [validate-rules, version-rules]
+
+    steps:
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST $SLACK_WEBHOOK_URL \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "📝 Recording Rules Updated",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Recording Rules Updated*\n• Repository: ${{ github.repository }}\n• Branch: ${{ github.ref_name }}\n• Commit: `${{ github.sha }}`\n• Author: ${{ github.actor }}"
+                  }
+                }
+              ]
+            }'
+
+# Schedule daily backups
+schedule:
+  - cron: '0 2 * * *'  # 2 AM UTC daily

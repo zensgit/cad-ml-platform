@@ -1,0 +1,229 @@
+name: Security Audit
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      severity:
+        description: 'Minimum severity to report'
+        required: false
+        default: 'low'
+        type: choice
+        options:
+          - critical
+          - high
+          - medium
+          - low
+
+jobs:
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11']
+      fail-fast: false
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          pip install pip-audit safety bandit semgrep
+
+      - name: Run pip-audit
+        id: pip-audit
+        continue-on-error: true
+        run: |
+          echo "Running pip-audit for dependency vulnerabilities..."
+          pip-audit --format json --output audit-report.json || true
+
+          # Parse results and determine severity
+          if [ -f audit-report.json ]; then
+            CRITICAL_COUNT=$(jq '[.vulnerabilities[] | select(.fix_versions != null and .aliases[] | contains("critical"))] | length' audit-report.json 2>/dev/null || echo "0")
+            HIGH_COUNT=$(jq '[.vulnerabilities[] | select(.fix_versions != null and .aliases[] | contains("high"))] | length' audit-report.json 2>/dev/null || echo "0")
+
+            echo "critical_count=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
+            echo "high_count=$HIGH_COUNT" >> $GITHUB_OUTPUT
+
+            # Exit code based on severity
+            if [ "$CRITICAL_COUNT" -gt "0" ]; then
+              echo "::error::Found $CRITICAL_COUNT critical vulnerabilities"
+              exit 3
+            elif [ "$HIGH_COUNT" -gt "0" ]; then
+              echo "::warning::Found $HIGH_COUNT high severity vulnerabilities"
+              exit 4
+            fi
+          fi
+
+      - name: Run safety check
+        id: safety
+        continue-on-error: true
+        run: |
+          echo "Running safety check for known security issues..."
+          safety check --json --output safety-report.json || true
+
+      - name: Run bandit security scan
+        id: bandit
+        continue-on-error: true
+        run: |
+          echo "Running bandit for code security issues..."
+          bandit -r src/ -f json -o bandit-report.json || true
+
+          # Check for high severity issues
+          if [ -f bandit-report.json ]; then
+            HIGH_ISSUES=$(jq '.results | map(select(.issue_severity == "HIGH")) | length' bandit-report.json)
+            if [ "$HIGH_ISSUES" -gt "0" ]; then
+              echo "::warning::Found $HIGH_ISSUES high severity code issues"
+              echo "high_code_issues=$HIGH_ISSUES" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Run semgrep scan
+        id: semgrep
+        continue-on-error: true
+        run: |
+          echo "Running semgrep for pattern-based security issues..."
+          semgrep --config=auto --json --output=semgrep-report.json src/ || true
+
+      - name: Check for secrets
+        id: secrets
+        continue-on-error: true
+        run: |
+          echo "Checking for exposed secrets..."
+          # Simple pattern check for common secrets
+          PATTERNS="password|secret|token|api_key|private_key"
+
+          if grep -r -i -E "($PATTERNS)\s*=\s*['\"][^'\"]{10,}" --include="*.py" --include="*.json" --include="*.yaml" --exclude-dir=.venv --exclude-dir=tests src/; then
+            echo "::error::Potential secrets found in code"
+            exit 3
+          fi
+
+      - name: Generate summary report
+        if: always()
+        run: |
+          echo "# Security Audit Summary" > security-summary.md
+          echo "" >> security-summary.md
+          echo "**Python Version**: ${{ matrix.python-version }}" >> security-summary.md
+          echo "**Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> security-summary.md
+          echo "" >> security-summary.md
+
+          echo "## Results" >> security-summary.md
+          echo "" >> security-summary.md
+
+          # pip-audit results
+          if [ -f audit-report.json ]; then
+            VULN_COUNT=$(jq '.vulnerabilities | length' audit-report.json)
+            echo "### Dependency Vulnerabilities (pip-audit)" >> security-summary.md
+            echo "- Total vulnerabilities: $VULN_COUNT" >> security-summary.md
+            echo "- Critical: ${{ steps.pip-audit.outputs.critical_count || 0 }}" >> security-summary.md
+            echo "- High: ${{ steps.pip-audit.outputs.high_count || 0 }}" >> security-summary.md
+            echo "" >> security-summary.md
+          fi
+
+          # Bandit results
+          if [ -f bandit-report.json ]; then
+            echo "### Code Security Issues (bandit)" >> security-summary.md
+            TOTAL_ISSUES=$(jq '.results | length' bandit-report.json)
+            echo "- Total issues: $TOTAL_ISSUES" >> security-summary.md
+            echo "- High severity: ${{ steps.bandit.outputs.high_code_issues || 0 }}" >> security-summary.md
+            echo "" >> security-summary.md
+          fi
+
+          # Safety results
+          if [ -f safety-report.json ]; then
+            echo "### Known Vulnerabilities (safety)" >> security-summary.md
+            SAFETY_ISSUES=$(jq '. | length' safety-report.json 2>/dev/null || echo "0")
+            echo "- Issues found: $SAFETY_ISSUES" >> security-summary.md
+            echo "" >> security-summary.md
+          fi
+
+          cat security-summary.md
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-reports-${{ matrix.python-version }}
+          path: |
+            *-report.json
+            security-summary.md
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v6
+        continue-on-error: true
+        with:
+          script: |
+            const fs = require('fs');
+            let summary = 'No security summary available';
+
+            try {
+              summary = fs.readFileSync('security-summary.md', 'utf8');
+            } catch (e) {
+              console.log('Could not read summary:', e);
+            }
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+
+      - name: Determine final status
+        if: always()
+        run: |
+          # Exit codes:
+          # 0 - No issues
+          # 2 - General issues
+          # 3 - Critical vulnerabilities or exposed secrets
+          # 4 - High severity dependencies
+          # 5 - Docker/container issues (not applicable here)
+          # 6 - Code security issues
+
+          if [ "${{ steps.pip-audit.outputs.critical_count }}" -gt "0" ]; then
+            echo "::error::Critical vulnerabilities found"
+            exit 3
+          fi
+
+          if [ "${{ steps.secrets.outcome }}" == "failure" ]; then
+            echo "::error::Exposed secrets detected"
+            exit 3
+          fi
+
+          if [ "${{ steps.pip-audit.outputs.high_count }}" -gt "0" ]; then
+            echo "::warning::High severity dependencies found"
+            exit 4
+          fi
+
+          if [ "${{ steps.bandit.outputs.high_code_issues }}" -gt "0" ]; then
+            echo "::warning::Code security issues found"
+            exit 6
+          fi
+
+          echo "::notice::Security audit passed"
+          exit 0

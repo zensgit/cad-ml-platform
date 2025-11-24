@@ -1,0 +1,157 @@
+global:
+  resolve_timeout: 5m
+  smtp_from: 'alertmanager@example.com'
+  smtp_smarthost: 'smtp.example.com:587'
+  smtp_auth_username: 'alertmanager@example.com'
+  smtp_auth_password: 'password'
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+
+# Templates for alert messages
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route tree
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default'
+
+  routes:
+    # Critical alerts go to PagerDuty and Slack
+    - match:
+        severity: critical
+      receiver: 'critical'
+      continue: true
+      routes:
+        - match:
+            component: platform
+          receiver: 'platform-critical'
+
+    # Warning alerts go to Slack
+    - match:
+        severity: warning
+      receiver: 'warning'
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+
+    # Info alerts go to email
+    - match:
+        severity: info
+      receiver: 'info'
+      group_wait: 1m
+      group_interval: 10m
+      repeat_interval: 24h
+
+    # SLO alerts have special handling
+    - match_re:
+        alertname: ^(SLOViolation|ErrorBudgetCritical)$
+      receiver: 'slo-team'
+
+    # Model/ML alerts
+    - match:
+        component: model
+      receiver: 'ml-team'
+
+# Receivers
+receivers:
+  - name: 'default'
+    slack_configs:
+      - channel: '#cad-ml-alerts'
+        title: 'Alert: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+  - name: 'critical'
+    pagerduty_configs:
+      - service_key: 'YOUR-PAGERDUTY-SERVICE-KEY'
+        description: '{{ .GroupLabels.alertname }}: {{ .CommonAnnotations.summary }}'
+    slack_configs:
+      - channel: '#cad-ml-critical'
+        title: '🔴 CRITICAL: {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+        send_resolved: true
+    email_configs:
+      - to: 'oncall@example.com'
+        headers:
+          Subject: 'CRITICAL: {{ .GroupLabels.alertname }}'
+
+  - name: 'platform-critical'
+    pagerduty_configs:
+      - service_key: 'PLATFORM-PAGERDUTY-KEY'
+        severity: 'critical'
+    slack_configs:
+      - channel: '#platform-oncall'
+        username: 'AlertManager'
+        icon_emoji: ':rotating_light:'
+        title: '🚨 PLATFORM CRITICAL'
+        text: |
+          *Alert*: {{ .GroupLabels.alertname }}
+          *Description*: {{ .CommonAnnotations.description }}
+          *Runbook*: {{ .CommonAnnotations.runbook_url }}
+          *Dashboard*: https://grafana.example.com/d/observability
+
+  - name: 'warning'
+    slack_configs:
+      - channel: '#cad-ml-warnings'
+        title: '⚠️ Warning: {{ .GroupLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
+        send_resolved: true
+
+  - name: 'info'
+    email_configs:
+      - to: 'platform-team@example.com'
+        send_resolved: false
+        headers:
+          Subject: 'INFO: {{ .GroupLabels.alertname }}'
+        html: |
+          <h2>{{ .GroupLabels.alertname }}</h2>
+          <p>{{ .CommonAnnotations.description }}</p>
+          <ul>
+          {{ range .Alerts }}
+            <li>{{ .Labels.instance }}: {{ .Annotations.summary }}</li>
+          {{ end }}
+          </ul>
+
+  - name: 'slo-team'
+    slack_configs:
+      - channel: '#slo-alerts'
+        title: '📊 SLO Alert: {{ .GroupLabels.alertname }}'
+        text: |
+          *Impact*: {{ .CommonAnnotations.description }}
+          *Action*: {{ .CommonAnnotations.action }}
+          *Dashboard*: {{ .CommonAnnotations.dashboard }}
+    email_configs:
+      - to: 'slo-team@example.com'
+
+  - name: 'ml-team'
+    slack_configs:
+      - channel: '#ml-team'
+        title: '🤖 ML Alert: {{ .GroupLabels.alertname }}'
+        text: '{{ .CommonAnnotations.description }}'
+    email_configs:
+      - to: 'ml-team@example.com'
+
+# Inhibition rules
+inhibit_rules:
+  # Inhibit warning alerts if critical alert is firing for same component
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'component']
+
+  # Inhibit info alerts if warning or critical is firing
+  - source_match_re:
+      severity: 'critical|warning'
+    target_match:
+      severity: 'info'
+    equal: ['alertname']
+
+  # Don't alert on individual provider issues if platform is down
+  - source_match:
+      alertname: 'PlatformDown'
+    target_match_re:
+      alertname: '^Provider.*'
+    equal: ['cluster']

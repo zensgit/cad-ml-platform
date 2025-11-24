@@ -1,0 +1,466 @@
+name: Metrics Budget Check
+
+on:
+  pull_request:
+    paths:
+      - 'src/**/*.py'
+      - 'prometheus/**/*.yml'
+      - 'grafana/**/*.json'
+      - '**/metrics.py'
+
+  workflow_dispatch:
+    inputs:
+      prometheus_url:
+        description: 'Prometheus server URL'
+        required: false
+        default: 'http://prometheus:9090'
+        type: string
+      budget_threshold:
+        description: 'Budget usage threshold (%)'
+        required: false
+        default: '90'
+        type: number
+
+env:
+  PYTHON_VERSION: '3.9'
+  PROMETHEUS_URL: ${{ github.event.inputs.prometheus_url || 'http://prometheus:9090' }}
+  BUDGET_THRESHOLD: ${{ github.event.inputs.budget_threshold || 90 }}
+
+jobs:
+  analyze-metrics-changes:
+    name: Analyze Metrics Changes
+    runs-on: ubuntu-latest
+    outputs:
+      has_metrics_changes: ${{ steps.detect.outputs.has_changes }}
+      metrics_added: ${{ steps.analyze.outputs.metrics_added }}
+      labels_added: ${{ steps.analyze.outputs.labels_added }}
+      estimated_cardinality: ${{ steps.analyze.outputs.estimated_cardinality }}
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pyyaml requests
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Detect metrics changes
+        id: detect
+        run: |
+          # 检测是否有指标相关变更
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+
+          HAS_CHANGES=false
+          for file in $CHANGED_FILES; do
+            if [[ "$file" == *"metrics"* ]] || [[ "$file" == *"prometheus"* ]]; then
+              HAS_CHANGES=true
+              break
+            fi
+          done
+
+          echo "has_changes=${HAS_CHANGES}" >> $GITHUB_OUTPUT
+
+          if [ "$HAS_CHANGES" = "true" ]; then
+            echo "✅ 检测到指标相关变更"
+          else
+            echo "ℹ️ 未检测到指标相关变更"
+          fi
+
+      - name: Analyze metrics impact
+        id: analyze
+        if: steps.detect.outputs.has_changes == 'true'
+        run: |
+          # 分析新增的指标和标签
+          cat > analyze_metrics.py << 'EOF'
+          import re
+          import sys
+          import subprocess
+          import json
+
+          def extract_metrics_from_diff():
+              """从git diff中提取新增的指标"""
+              try:
+                  result = subprocess.run(
+                      ["git", "diff", "origin/${{ github.base_ref }}...HEAD", "--unified=0"],
+                      capture_output=True, text=True
+                  )
+
+                  metrics_added = set()
+                  labels_added = set()
+
+                  # 查找Prometheus指标定义
+                  metric_pattern = re.compile(r'\+.*(?:Counter|Gauge|Histogram|Summary)\(["\']([^"\']+)')
+                  label_pattern = re.compile(r'labels?\s*=\s*\[([^\]]+)\]')
+
+                  for line in result.stdout.split('\n'):
+                      if line.startswith('+'):
+                          # 查找指标
+                          metric_match = metric_pattern.search(line)
+                          if metric_match:
+                              metrics_added.add(metric_match.group(1))
+
+                          # 查找标签
+                          label_match = label_pattern.search(line)
+                          if label_match:
+                              labels = label_match.group(1).replace('"', '').replace("'", '')
+                              for label in labels.split(','):
+                                  labels_added.add(label.strip())
+
+                  return list(metrics_added), list(labels_added)
+              except Exception as e:
+                  print(f"Error: {e}")
+                  return [], []
+
+          def estimate_cardinality(metrics, labels):
+              """估算基数增长"""
+              # 简单估算：每个指标 * 每个标签的可能值
+              base_cardinality = len(metrics) * 100  # 假设每个指标100个序列
+              label_multiplier = 1
+
+              for label in labels:
+                  if 'id' in label.lower() or 'uuid' in label.lower():
+                      label_multiplier *= 1000  # ID类标签
+                  elif 'user' in label.lower():
+                      label_multiplier *= 100   # 用户标签
+                  elif 'path' in label.lower() or 'url' in label.lower():
+                      label_multiplier *= 50    # 路径标签
+                  else:
+                      label_multiplier *= 10    # 普通标签
+
+              return min(base_cardinality * label_multiplier, 1000000)
+
+          # 执行分析
+          metrics, labels = extract_metrics_from_diff()
+          cardinality = estimate_cardinality(metrics, labels)
+
+          print(f"新增指标: {len(metrics)}")
+          print(f"新增标签: {len(labels)}")
+          print(f"预估基数: {cardinality}")
+
+          # 输出到GitHub环境
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f"metrics_added={len(metrics)}\n")
+              f.write(f"labels_added={len(labels)}\n")
+              f.write(f"estimated_cardinality={cardinality}\n")
+
+          # 保存详细信息
+          with open('metrics_analysis.json', 'w') as f:
+              json.dump({
+                  'metrics': metrics,
+                  'labels': labels,
+                  'estimated_cardinality': cardinality
+              }, f, indent=2)
+          EOF
+
+          python analyze_metrics.py
+
+      - name: Upload analysis results
+        if: steps.detect.outputs.has_changes == 'true'
+        uses: actions/upload-artifact@v3
+        with:
+          name: metrics-analysis
+          path: metrics_analysis.json
+
+  check-cardinality-budget:
+    name: Check Cardinality Budget
+    needs: analyze-metrics-changes
+    if: needs.analyze-metrics-changes.outputs.has_metrics_changes == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      budget_status: ${{ steps.budget.outputs.status }}
+      budget_usage: ${{ steps.budget.outputs.usage_percentage }}
+      budget_exceeded: ${{ steps.budget.outputs.exceeded }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pyyaml requests
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Check current budget usage
+        id: budget
+        run: |
+          # 运行预算检查
+          python scripts/metrics_budget_controller.py \
+            --status \
+            --output budget_status.json || true
+
+          # 解析结果
+          if [ -f budget_status.json ]; then
+            USAGE=$(jq -r '.global_usage_percentage' budget_status.json)
+            STATUS=$(jq -r '.global_status' budget_status.json)
+
+            # 加上预估的新增基数
+            NEW_CARDINALITY=${{ needs.analyze-metrics-changes.outputs.estimated_cardinality }}
+            TOTAL_BUDGET=1000000  # 默认总预算
+            ADDITIONAL_USAGE=$((NEW_CARDINALITY * 100 / TOTAL_BUDGET))
+            PROJECTED_USAGE=$((USAGE + ADDITIONAL_USAGE))
+
+            echo "当前使用: ${USAGE}%"
+            echo "预计新增: ${ADDITIONAL_USAGE}%"
+            echo "预计总计: ${PROJECTED_USAGE}%"
+
+            EXCEEDED=false
+            if [ $PROJECTED_USAGE -gt $BUDGET_THRESHOLD ]; then
+              EXCEEDED=true
+              echo "⚠️ 预算即将超限！"
+            fi
+
+            echo "status=${STATUS}" >> $GITHUB_OUTPUT
+            echo "usage_percentage=${PROJECTED_USAGE}" >> $GITHUB_OUTPUT
+            echo "exceeded=${EXCEEDED}" >> $GITHUB_OUTPUT
+          else
+            # 如果无法获取当前状态，使用保守估计
+            echo "status=unknown" >> $GITHUB_OUTPUT
+            echo "usage_percentage=0" >> $GITHUB_OUTPUT
+            echo "exceeded=false" >> $GITHUB_OUTPUT
+          fi
+
+  calculate-cost-impact:
+    name: Calculate Cost Impact
+    needs: analyze-metrics-changes
+    if: needs.analyze-metrics-changes.outputs.has_metrics_changes == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      monthly_cost_increase: ${{ steps.cost.outputs.monthly_increase }}
+      yearly_cost_increase: ${{ steps.cost.outputs.yearly_increase }}
+
+    steps:
+      - name: Calculate costs
+        id: cost
+        run: |
+          # 计算成本影响
+          CARDINALITY=${{ needs.analyze-metrics-changes.outputs.estimated_cardinality }}
+          COST_PER_SERIES=0.001  # $0.001 per series per month
+
+          MONTHLY=$(echo "$CARDINALITY * $COST_PER_SERIES" | bc -l)
+          YEARLY=$(echo "$MONTHLY * 12" | bc -l)
+
+          # 格式化为2位小数
+          MONTHLY_FMT=$(printf "%.2f" $MONTHLY)
+          YEARLY_FMT=$(printf "%.2f" $YEARLY)
+
+          echo "monthly_increase=${MONTHLY_FMT}" >> $GITHUB_OUTPUT
+          echo "yearly_increase=${YEARLY_FMT}" >> $GITHUB_OUTPUT
+
+          echo "💰 预计成本增加:"
+          echo "   月度: \$${MONTHLY_FMT}"
+          echo "   年度: \$${YEARLY_FMT}"
+
+  generate-optimization-suggestions:
+    name: Generate Optimization Suggestions
+    needs: [analyze-metrics-changes, check-cardinality-budget]
+    if: needs.analyze-metrics-changes.outputs.has_metrics_changes == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Download analysis
+        uses: actions/download-artifact@v3
+        with:
+          name: metrics-analysis
+
+      - name: Generate suggestions
+        run: |
+          # 生成优化建议
+          cat > generate_suggestions.py << 'EOF'
+          import json
+
+          with open('metrics_analysis.json', 'r') as f:
+              data = json.load(f)
+
+          suggestions = []
+
+          # 分析标签
+          for label in data.get('labels', []):
+              if 'id' in label.lower() or 'uuid' in label.lower():
+                  suggestions.append(f"⚠️ 考虑删除高基数标签 '{label}'")
+              elif 'user' in label.lower():
+                  suggestions.append(f"💡 考虑对 '{label}' 使用采样或聚合")
+              elif 'path' in label.lower() or 'url' in label.lower():
+                  suggestions.append(f"🔧 考虑规范化 '{label}' 为路径模式")
+
+          # 基于基数的建议
+          cardinality = data.get('estimated_cardinality', 0)
+          if cardinality > 10000:
+              suggestions.append("📊 考虑使用 Recording Rules 预聚合")
+          if cardinality > 5000:
+              suggestions.append("📉 考虑应用降采样策略")
+
+          if suggestions:
+              print("## 🎯 优化建议\n")
+              for s in suggestions:
+                  print(f"- {s}")
+          else:
+              print("✅ 指标设计合理，无需优化")
+          EOF
+
+          python generate_suggestions.py > suggestions.md
+
+      - name: Save suggestions
+        uses: actions/upload-artifact@v3
+        with:
+          name: optimization-suggestions
+          path: suggestions.md
+
+  post-pr-comment:
+    name: Post PR Comment
+    needs: [analyze-metrics-changes, check-cardinality-budget, calculate-cost-impact, generate-optimization-suggestions]
+    if: needs.analyze-metrics-changes.outputs.has_metrics_changes == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Create comment
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+
+            // 读取建议
+            let suggestions = '';
+            try {
+              suggestions = fs.readFileSync('optimization-suggestions/suggestions.md', 'utf8');
+            } catch (e) {
+              suggestions = '✅ 无优化建议';
+            }
+
+            // 构建评论
+            const metricsAdded = '${{ needs.analyze-metrics-changes.outputs.metrics_added }}';
+            const labelsAdded = '${{ needs.analyze-metrics-changes.outputs.labels_added }}';
+            const cardinality = '${{ needs.analyze-metrics-changes.outputs.estimated_cardinality }}';
+            const budgetStatus = '${{ needs.check-cardinality-budget.outputs.budget_status }}';
+            const budgetUsage = '${{ needs.check-cardinality-budget.outputs.budget_usage }}';
+            const monthlyIncrease = '${{ needs.calculate-cost-impact.outputs.monthly_cost_increase }}';
+            const yearlyIncrease = '${{ needs.calculate-cost-impact.outputs.yearly_cost_increase }}';
+
+            const statusEmoji = {
+              'healthy': '✅',
+              'warning': '⚠️',
+              'critical': '🔴',
+              'exceeded': '🚨'
+            }[budgetStatus] || '❓';
+
+            const comment = `## 📊 Metrics Budget Impact Analysis
+
+            ### 📈 Changes Detected
+            - **New Metrics**: ${metricsAdded || 0}
+            - **New Labels**: ${labelsAdded || 0}
+            - **Estimated New Time Series**: ${parseInt(cardinality).toLocaleString()}
+
+            ### 💰 Cost Impact
+            - **Monthly Cost Increase**: \$${monthlyIncrease}
+            - **Yearly Cost Increase**: \$${yearlyIncrease}
+
+            ### 🎯 Budget Status
+            - **Status**: ${statusEmoji} ${budgetStatus}
+            - **Projected Usage**: ${budgetUsage}%
+            ${budgetUsage > 90 ? '- **⚠️ Warning**: Budget usage will exceed 90%' : ''}
+
+            ${suggestions}
+
+            ### 📋 Checklist
+            - [ ] Review high-cardinality labels
+            - [ ] Consider using recording rules for aggregations
+            - [ ] Validate that new metrics are necessary
+            - [ ] Update dashboards and alerts if needed
+
+            ---
+            *🤖 Generated by Metrics Budget Check*`;
+
+            // 发布评论
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: comment
+            });
+
+  block-if-over-budget:
+    name: Block if Over Budget
+    needs: check-cardinality-budget
+    if: needs.check-cardinality-budget.outputs.budget_exceeded == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Block PR
+        run: |
+          echo "🚨 PR被阻止：指标预算超限！"
+          echo ""
+          echo "预计使用率: ${{ needs.check-cardinality-budget.outputs.budget_usage }}%"
+          echo "阈值: ${{ env.BUDGET_THRESHOLD }}%"
+          echo ""
+          echo "请优化指标设计或申请预算增加。"
+          exit 1
+
+  summary:
+    name: Generate Summary
+    needs: [analyze-metrics-changes, check-cardinality-budget, calculate-cost-impact]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Generate job summary
+        run: |
+          echo "# 📊 Metrics Budget Check Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.analyze-metrics-changes.outputs.has_metrics_changes }}" = "true" ]; then
+            echo "## 📈 Metrics Changes" >> $GITHUB_STEP_SUMMARY
+            echo "- New Metrics: ${{ needs.analyze-metrics-changes.outputs.metrics_added }}" >> $GITHUB_STEP_SUMMARY
+            echo "- New Labels: ${{ needs.analyze-metrics-changes.outputs.labels_added }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Estimated Cardinality: ${{ needs.analyze-metrics-changes.outputs.estimated_cardinality }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "## 💰 Cost Impact" >> $GITHUB_STEP_SUMMARY
+            echo "- Monthly: \$${{ needs.calculate-cost-impact.outputs.monthly_cost_increase }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Yearly: \$${{ needs.calculate-cost-impact.outputs.yearly_cost_increase }}" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "## 🎯 Budget Status" >> $GITHUB_STEP_SUMMARY
+            echo "- Status: ${{ needs.check-cardinality-budget.outputs.budget_status }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Usage: ${{ needs.check-cardinality-budget.outputs.budget_usage }}%" >> $GITHUB_STEP_SUMMARY
+
+            if [ "${{ needs.check-cardinality-budget.outputs.budget_exceeded }}" = "true" ]; then
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "⚠️ **Warning: Budget threshold exceeded!**" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "✅ No metrics changes detected" >> $GITHUB_STEP_SUMMARY
+          fi

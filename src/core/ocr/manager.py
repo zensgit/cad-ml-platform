@@ -33,6 +33,7 @@ from .base import DimensionType, OcrClient, OcrResult, SymbolType
 from .calibration import MultiEvidenceCalibrator
 from .config import DATASET_VERSION, PROMPT_VERSION
 from .exceptions import OcrError
+from src.core.resilience.adaptive_decorator import adaptive_rate_limit
 
 # Versions centralized in config.
 
@@ -86,6 +87,7 @@ class OcrManager:
             parts.append(DATASET_VERSION)
         return ":".join(parts)
 
+    @adaptive_rate_limit(service="ocr", endpoint="extract")
     async def extract(
         self,
         image_bytes: bytes,

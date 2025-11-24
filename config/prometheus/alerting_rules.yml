@@ -1,0 +1,365 @@
+groups:
+  - name: cad_ml_platform_alerts
+    interval: 30s
+    rules:
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: platform_error_ratio > 5
+        for: 5m
+        labels:
+          severity: critical
+          component: platform
+        annotations:
+          summary: "High error rate detected ({{ $value | humanizePercentage }})"
+          description: "Platform error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+          runbook_url: "https://docs.example.com/runbooks/high-error-rate"
+
+      # Provider Down Alert
+      - alert: ProviderDown
+        expr: provider_health_score < 50
+        for: 10m
+        labels:
+          severity: warning
+          component: ocr
+          provider: "{{ $labels.provider }}"
+        annotations:
+          summary: "Provider {{ $labels.provider }} health degraded"
+          description: "Provider {{ $labels.provider }} health score is {{ $value }}%"
+          runbook_url: "https://docs.example.com/runbooks/provider_down"
+
+      # Provider Timeout Alert
+      - alert: ProviderTimeout
+        expr: rate(ocr_errors_total{code="PROVIDER_TIMEOUT"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: ocr
+          provider: "{{ $labels.provider }}"
+        annotations:
+          summary: "Provider {{ $labels.provider }} experiencing timeouts"
+          description: "Provider {{ $labels.provider }} timeout rate is {{ $value }} per second"
+          runbook_url: "https://docs.example.com/runbooks/provider_timeout.md"
+
+      # Model Load Error Alert
+      - alert: ModelLoadError
+        expr: sum(rate(ocr_errors_total{code="MODEL_LOAD_ERROR"}[5m])) > 0
+        for: 2m
+        labels:
+          severity: critical
+          component: model
+        annotations:
+          summary: "Model loading failures detected"
+          description: "{{ $value }} model load errors per second"
+          runbook_url: "https://docs.example.com/runbooks/model_load_error.md"
+
+      # Resource Exhaustion Alert
+      - alert: ResourceExhaustion
+        expr: rate(ocr_errors_total{code="RESOURCE_EXHAUSTED"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: resources
+        annotations:
+          summary: "Resource exhaustion detected"
+          description: "Resource exhaustion errors at {{ $value }} per second"
+          action: "Scale up pods or increase resource limits"
+
+      # SLO Violation Alert
+      - alert: SLOViolation
+        expr: slo_availability < 99.5
+        for: 10m
+        labels:
+          severity: warning
+          component: slo
+        annotations:
+          summary: "SLO availability below target"
+          description: "Current availability is {{ $value }}%, target is 99.5%"
+          dashboard: "https://grafana.example.com/d/observability"
+
+      # Error Budget Exhaustion Alert
+      - alert: ErrorBudgetCritical
+        expr: error_budget_remaining < 20
+        for: 5m
+        labels:
+          severity: critical
+          component: slo
+        annotations:
+          summary: "Error budget critically low"
+          description: "Only {{ $value }}% of error budget remaining"
+          action: "Freeze deployments and investigate issues"
+
+      # High Latency Alert
+      - alert: HighLatency
+        expr: ocr_p95_latency_seconds > 2
+        for: 10m
+        labels:
+          severity: warning
+          component: performance
+        annotations:
+          summary: "High latency detected"
+          description: "P95 latency is {{ $value }}s (threshold: 2s)"
+          dashboard: "https://grafana.example.com/d/performance"
+
+      # Input Rejection Spike Alert
+      - alert: InputRejectionSpike
+        expr: rate(ocr_input_rejected_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: info
+          component: validation
+        annotations:
+          summary: "High input rejection rate"
+          description: "Input rejection rate is {{ $value }} per second for reason: {{ $labels.reason }}"
+
+      # Cache Hit Rate Drop Alert
+      - alert: CacheHitRateLow
+        expr: |
+          (
+            sum(rate(analysis_cache_hits_total[5m])) / (sum(rate(analysis_cache_hits_total[5m])) + sum(rate(analysis_cache_miss_total[5m])))
+          ) < 0.3
+        for: 10m
+        labels:
+          severity: warning
+          component: cache
+        annotations:
+          summary: "Analysis cache hit rate low (<30%)"
+          description: "Hit rate is {{ $value | humanizePercentage }} over last 5m"
+          runbook_url: "https://docs.example.com/runbooks/cache_hit_rate_low"
+          feature_version: "${FEATURE_VERSION}"  # annotate current feature version for correlation
+
+      # Feature Cache Sliding Hour Hit Rate Drop Alert
+      - alert: FeatureCacheHitRateLowSlidingHour
+        expr: |
+          (
+            feature_cache_hits_last_hour / (feature_cache_hits_last_hour + feature_cache_miss_last_hour)
+          ) < 0.3 and (feature_cache_hits_last_hour + feature_cache_miss_last_hour) > 25
+        for: 15m
+        labels:
+          severity: warning
+          component: feature_cache
+        annotations:
+          summary: "Feature cache sliding hour hit rate low (<30%)"
+          description: "Hit rate below 30% in last hour window (hits={{ $value }})"
+          runbook_url: "docs/runbooks/cache_hit_rate_low.md"
+
+      # Drift Baseline Stale Alert
+      - alert: DriftBaselineStale
+        expr: |
+          max(baseline_material_age_seconds) > bool max_over_time(baseline_material_age_seconds[1m]) * on() DRIFT_BASELINE_MAX_AGE_SECONDS OR max(baseline_prediction_age_seconds) > bool max_over_time(baseline_prediction_age_seconds[1m]) * on() DRIFT_BASELINE_MAX_AGE_SECONDS
+        for: 30m
+        labels:
+          severity: warning
+          component: drift
+        annotations:
+          summary: "Drift baseline stale (age exceeds max)"
+          description: "Material or prediction baseline age exceeded max age setting"
+          runbook_url: "https://docs.example.com/runbooks/drift_baseline_stale"
+      - alert: FaissIndexStale
+        expr: faiss_index_age_seconds > 3600
+        for: 10m
+        labels:
+          severity: warning
+          component: cad_analysis
+        annotations:
+          summary: "Faiss index stale (>1h without refresh)"
+          description: "Faiss index age {{ $value }}s (>3600s)"
+          action: "Trigger manual export/import or rebuild"
+          runbook_url: "docs/runbooks/faiss_index_stale.md"
+
+      # Material Distribution Drift Alert
+      - alert: MaterialDistributionDrift
+        expr: |
+          max_over_time(material_drift_ratio[30m]) > 0.85
+        for: 15m
+        labels:
+          severity: warning
+          component: cad-analysis
+        annotations:
+          summary: "Material distribution drift (dominant >85%)"
+          description: "Dominant material ratio {{ $value }} over last 30m indicates potential data imbalance"
+          runbook_url: "https://docs.example.com/runbooks/material_distribution_drift"
+
+      - alert: ClassificationPredictionDrift
+        expr: |
+          (
+            sum(rate(classification_prediction_distribution[30m])) by (label)
+            / ignoring(label)
+            sum(rate(classification_prediction_distribution[30m]))
+          ) > 0.85
+        for: 15m
+        labels:
+          severity: warning
+          component: classification
+        annotations:
+          summary: "Classification prediction drift (single label >85%)"
+          description: "Label {{ $labels.label }} accounts for >85% of predictions over 30m"
+          runbook_url: "https://docs.example.com/runbooks/classification_prediction_drift"
+
+      # No Data Alert
+      - alert: NoMetricsData
+        expr: up{job="cad-ml-platform"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          component: monitoring
+        annotations:
+          summary: "No metrics data from CAD ML Platform"
+          description: "Prometheus cannot scrape metrics from the application"
+          action: "Check application health and network connectivity"
+
+  - name: infrastructure_alerts
+    interval: 30s
+    rules:
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: |
+          (
+            100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+          ) > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High CPU usage on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value }}% on instance {{ $labels.instance }}"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)
+          ) * 100 > 85
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value }}% on instance {{ $labels.instance }}"
+
+      # Disk Space Alert
+      - alert: DiskSpaceLow
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}
+          ) * 100 < 20
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "Low disk space on {{ $labels.instance }}"
+          description: "Only {{ $value }}% disk space remaining on {{ $labels.instance }}"
+
+      # Pod Restart Alert
+      - alert: PodRestartingTooOften
+        expr: rate(kube_pod_container_status_restarts_total[15m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: kubernetes
+        annotations:
+          summary: "Pod {{ $labels.pod }} restarting frequently"
+          description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in 15 minutes"
+
+  - name: business_alerts
+    interval: 1m
+    rules:
+      # Low Confidence Score Alert
+      - alert: LowConfidenceScore
+        expr: ocr_avg_confidence < 0.7
+        for: 15m
+        labels:
+          severity: info
+          component: quality
+        annotations:
+          summary: "OCR confidence score below threshold"
+          description: "Average OCR confidence is {{ $value }} (threshold: 0.7)"
+          impact: "Results may be unreliable"
+
+      # Circuit Breaker Open
+      - alert: CircuitBreakerOpen
+        expr: circuit_breaker_open_ratio > 0.5
+        for: 5m
+        labels:
+          severity: critical
+          component: resilience
+        annotations:
+          summary: "Multiple circuit breakers open"
+          description: "{{ $value | humanizePercentage }} of circuit breakers are open"
+          action: "Investigate provider failures immediately"
+
+      # Throughput Drop
+      - alert: ThroughputDrop
+        expr: |
+          (
+            rate(ocr_requests_total[5m]) <
+            (avg_over_time(rate(ocr_requests_total[5m])[1h:5m]) * 0.5)
+          )
+        for: 10m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "Significant throughput drop detected"
+          description: "Current throughput is 50% below hourly average"
+      - alert: CadAnalysisLowSuccessRate
+        expr: (sum(rate(analysis_requests_total{status="success"}[5m])) / sum(rate(analysis_requests_total[5m]))) * 100 < 90
+        for: 5m
+        labels:
+          severity: warning
+          component: cad_analysis
+        annotations:
+          summary: "CAD analysis success rate below 90%"
+          description: "Success rate is {{ $value }}% (<90%) over last 5m"
+          action: "Check recent error codes and service logs"
+          runbook: "docs/runbooks/cad_analysis_low_success_rate.md"
+
+      - alert: CadAnalysisHighInternalErrors
+        expr: rate(analysis_error_code_total{code="INTERNAL_ERROR"}[5m]) > 0.2
+        for: 5m
+        labels:
+          severity: critical
+          component: cad_analysis
+        annotations:
+          summary: "Spike in INTERNAL_ERROR codes"
+          description: "INTERNAL_ERROR rate {{ $value }} per second (>0.2)"
+          action: "Inspect stack traces and recent deployments"
+          runbook: "docs/runbooks/cad_analysis_internal_errors.md"
+
+      - alert: CadAnalysisStageLatencyParseP95High
+        expr: histogram_quantile(0.95, sum by (le) (rate(analysis_stage_duration_seconds_bucket{stage="parse"}[5m]))) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: cad_analysis
+        annotations:
+          summary: "Parse stage p95 latency >500ms"
+          description: "Parse p95 {{ $value }}s (>0.5s)"
+          action: "Check adapter performance and input sizes"
+          runbook: "docs/runbooks/cad_analysis_parse_latency.md"
+
+      - alert: CadAnalysisEntityRejectionSpike
+        expr: increase(analysis_rejections_total{reason="entity_count_exceeded"}[10m]) > 50
+        for: 10m
+        labels:
+          severity: info
+          component: cad_analysis
+        annotations:
+          summary: "Entity rejection spike"
+          description: "{{ $value }} rejections in last 10m (reason: entity_count_exceeded)"
+          action: "Review ANALYSIS_MAX_ENTITIES and incoming traffic pattern"
+          runbook: "docs/runbooks/cad_analysis_rejection_spike.md"
+
+      - alert: CadAnalysisMaterialImbalance
+        expr: |
+          stddev_over_time(sum by (material) (rate(analysis_material_usage_total[5m]))[30m]) > 5
+        for: 30m
+        labels:
+          severity: info
+          component: cad_analysis
+        annotations:
+          summary: "Material usage distribution shifting"
+          description: "High stddev in material usage over last 30m"
+          action: "Validate input tagging and potential skew"

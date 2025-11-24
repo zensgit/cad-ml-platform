@@ -1,0 +1,326 @@
+{
+  "version": "1.0.0",
+  "description": "Federation Metrics Schema - 联邦指标标准化模式",
+  "last_updated": "2025-11-21",
+
+  "namespaces": {
+    "cad_ml": {
+      "description": "CAD ML Platform core metrics",
+      "prefix": "cad_ml_",
+      "owner": "platform-team",
+      "retention": "90d"
+    },
+    "ocr": {
+      "description": "OCR service metrics",
+      "prefix": "ocr_",
+      "owner": "vision-team",
+      "retention": "30d"
+    },
+    "vision": {
+      "description": "Vision analysis metrics",
+      "prefix": "vision_",
+      "owner": "vision-team",
+      "retention": "30d"
+    },
+    "resilience": {
+      "description": "Resilience layer metrics",
+      "prefix": "resilience_",
+      "owner": "platform-team",
+      "retention": "60d"
+    }
+  },
+
+  "standard_labels": {
+    "required": {
+      "service": {
+        "type": "string",
+        "description": "Service name",
+        "examples": ["cad-ml-platform", "ocr-service", "vision-service"],
+        "validation": "^[a-z][a-z0-9-]*$"
+      },
+      "environment": {
+        "type": "enum",
+        "description": "Deployment environment",
+        "values": ["production", "staging", "development", "testing"],
+        "default": "production"
+      }
+    },
+
+    "recommended": {
+      "version": {
+        "type": "string",
+        "description": "Service version",
+        "validation": "^v?[0-9]+\\.[0-9]+\\.[0-9]+$"
+      },
+      "region": {
+        "type": "string",
+        "description": "Deployment region",
+        "examples": ["us-east-1", "eu-west-1", "ap-southeast-1"]
+      },
+      "cluster": {
+        "type": "string",
+        "description": "Kubernetes cluster name",
+        "validation": "^[a-z][a-z0-9-]*$"
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Kubernetes namespace",
+        "default": "default"
+      }
+    },
+
+    "optional": {
+      "team": {
+        "type": "string",
+        "description": "Owning team"
+      },
+      "component": {
+        "type": "string",
+        "description": "Component within service"
+      },
+      "customer": {
+        "type": "string",
+        "description": "Customer identifier (hashed)",
+        "validation": "^[a-f0-9]{32}$"
+      }
+    }
+  },
+
+  "metric_types": {
+    "counter": {
+      "suffix": "_total",
+      "unit_required": false,
+      "description": "Monotonically increasing value"
+    },
+    "gauge": {
+      "suffix": "",
+      "unit_required": true,
+      "description": "Value that can go up or down"
+    },
+    "histogram": {
+      "suffix": "",
+      "unit_required": true,
+      "description": "Distribution of values",
+      "buckets": {
+        "latency": [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+        "size": [100, 1000, 10000, 100000, 1000000, 10000000],
+        "percentage": [0, 0.25, 0.5, 0.75, 0.9, 0.95, 0.99, 1]
+      }
+    },
+    "summary": {
+      "suffix": "",
+      "unit_required": true,
+      "description": "Similar to histogram but with quantiles",
+      "quantiles": [0.5, 0.9, 0.95, 0.99]
+    }
+  },
+
+  "units": {
+    "time": {
+      "base": "seconds",
+      "allowed": ["seconds", "milliseconds", "microseconds"],
+      "suffix_map": {
+        "seconds": "_seconds",
+        "milliseconds": "_ms",
+        "microseconds": "_us"
+      }
+    },
+    "size": {
+      "base": "bytes",
+      "allowed": ["bytes", "kilobytes", "megabytes", "gigabytes"],
+      "suffix_map": {
+        "bytes": "_bytes",
+        "kilobytes": "_kb",
+        "megabytes": "_mb",
+        "gigabytes": "_gb"
+      }
+    },
+    "percentage": {
+      "base": "ratio",
+      "allowed": ["ratio", "percentage"],
+      "suffix_map": {
+        "ratio": "_ratio",
+        "percentage": "_percentage"
+      }
+    },
+    "rate": {
+      "base": "per_second",
+      "allowed": ["per_second", "per_minute", "per_hour"],
+      "suffix_map": {
+        "per_second": "_per_second",
+        "per_minute": "_per_minute",
+        "per_hour": "_per_hour"
+      }
+    }
+  },
+
+  "federation_rules": {
+    "export": {
+      "whitelist": [
+        "cad_ml_requests_total",
+        "cad_ml_request_duration_seconds",
+        "cad_ml_errors_total",
+        "ocr_processing_duration_seconds",
+        "vision_analysis_duration_seconds",
+        "resilience_circuit_state",
+        "resilience_rate_limit_tokens_current"
+      ],
+      "aggregation_rules": [
+        {
+          "pattern": "*_total",
+          "aggregation": "sum",
+          "by_labels": ["service", "environment"]
+        },
+        {
+          "pattern": "*_duration_seconds",
+          "aggregation": "histogram_quantile",
+          "quantiles": [0.5, 0.9, 0.95, 0.99],
+          "by_labels": ["service", "environment", "endpoint"]
+        },
+        {
+          "pattern": "*_gauge",
+          "aggregation": "avg",
+          "by_labels": ["service", "environment"]
+        }
+      ]
+    },
+
+    "import": {
+      "allowed_sources": [
+        "prometheus-federation.example.com",
+        "thanos-query.example.com"
+      ],
+      "label_mapping": {
+        "job": "imported_job",
+        "instance": "imported_instance"
+      },
+      "prefix": "external_",
+      "rate_limit": "100 series/second"
+    }
+  },
+
+  "recording_rules_template": {
+    "naming_pattern": "<aggregation>:<metric>:<interval>",
+    "examples": [
+      "job:cad_ml_requests:rate5m",
+      "service:ocr_processing_duration:p95_5m",
+      "cluster:resilience_circuit_open:sum"
+    ],
+    "intervals": ["1m", "5m", "15m", "1h"],
+    "aggregations": ["sum", "avg", "max", "min", "stddev", "count"]
+  },
+
+  "alert_rules_template": {
+    "naming_pattern": "<Severity><Component><Condition>",
+    "examples": [
+      "CriticalOCRHighErrorRate",
+      "WarningVisionSlowProcessing",
+      "InfoResilienceCircuitOpen"
+    ],
+    "required_labels": ["severity", "service", "team"],
+    "required_annotations": ["summary", "description", "runbook_url"]
+  },
+
+  "cardinality_limits": {
+    "global_max_series": 1000000,
+    "per_metric_max_series": 10000,
+    "per_job_max_series": 100000,
+    "label_value_limits": {
+      "endpoint": 1000,
+      "error_code": 200,
+      "status": 20,
+      "method": 10
+    }
+  },
+
+  "security": {
+    "sensitive_labels": [
+      "password",
+      "token",
+      "api_key",
+      "secret",
+      "credit_card",
+      "ssn",
+      "email",
+      "ip_address"
+    ],
+    "pii_handling": {
+      "strategy": "hash",
+      "algorithm": "sha256",
+      "salt_rotation": "monthly"
+    },
+    "access_control": {
+      "read_permissions": {
+        "global_metrics": ["prometheus-reader", "grafana-reader"],
+        "sensitive_metrics": ["admin", "security-team"]
+      },
+      "write_permissions": {
+        "push_gateway": ["service-account-*"],
+        "remote_write": ["prometheus-writer"]
+      }
+    }
+  },
+
+  "validation_rules": {
+    "metric_name": {
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+      "max_length": 100,
+      "reserved_prefixes": ["__", "prometheus_", "node_", "up"]
+    },
+    "label_name": {
+      "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$",
+      "max_length": 50,
+      "reserved_names": ["__name__", "__scheme__", "__metrics_path__"]
+    },
+    "label_value": {
+      "max_length": 200,
+      "forbidden_chars": ["\\n", "\\r", "\\x00"]
+    }
+  },
+
+  "migration_guide": {
+    "from_v0_to_v1": {
+      "renamed_metrics": {
+        "http_requests": "cad_ml_requests_total",
+        "processing_time": "cad_ml_request_duration_seconds",
+        "error_count": "cad_ml_errors_total"
+      },
+      "deprecated_labels": {
+        "dc": "region",
+        "env": "environment",
+        "svc": "service"
+      },
+      "breaking_changes": [
+        "All metrics must have namespace prefix",
+        "Histogram buckets standardized",
+        "Counter suffix '_total' is mandatory"
+      ]
+    }
+  },
+
+  "compliance": {
+    "standards": ["OpenMetrics", "Prometheus 2.0"],
+    "certifications": ["GDPR", "SOC2"],
+    "audit_requirements": {
+      "retention": "7 years",
+      "access_logging": true,
+      "encryption_at_rest": true,
+      "encryption_in_transit": true
+    }
+  },
+
+  "tools": {
+    "validation": {
+      "script": "scripts/validate_metrics_schema.py",
+      "ci_integration": ".github/workflows/metrics-validation.yml"
+    },
+    "generation": {
+      "script": "scripts/generate_metrics_client.py",
+      "templates": "templates/metrics/"
+    },
+    "migration": {
+      "script": "scripts/migrate_metrics_schema.py",
+      "dry_run": true
+    }
+  }
+}

@@ -7,6 +7,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
@@ -24,6 +25,10 @@ from src.models.loader import load_models
 from src.utils.cache import init_redis
 from src.utils.logging import setup_logging
 from src.utils.metrics import get_ocr_error_rate_ema, get_vision_error_rate_ema
+from src.api.health_resilience import get_resilience_health
+from src.core.similarity import background_prune_task
+from src.core.similarity import FaissVectorStore, _FAISS_IMPORTED  # type: ignore
+from src.tasks.orphan_scan import orphan_scan_loop
 
 # 设置日志
 setup_logging()
@@ -48,12 +53,118 @@ async def lifespan(app: FastAPI):
     await load_models()
     logger.info("ML models loaded")
 
+    # 启动向量 TTL 定期清理任务
+    import asyncio
+    prune_interval = float(__import__("os").getenv("VECTOR_PRUNE_INTERVAL_SECONDS", "30"))
+    _prune_handle = asyncio.create_task(background_prune_task(prune_interval))
+
+    # Faiss periodic export task
+    faiss_path = __import__("os").getenv("FAISS_INDEX_PATH", "data/faiss_index.bin")
+    faiss_interval = float(__import__("os").getenv("FAISS_EXPORT_INTERVAL_SECONDS", "300"))
+    # Auto import existing Faiss index at startup (best effort)
+    try:
+        if __import__("os").getenv("VECTOR_STORE_BACKEND", "memory") == "faiss":
+            store = FaissVectorStore()
+            imported = store.import_index(faiss_path)
+            if imported:
+                from src.core.similarity import _FAISS_INDEX  # type: ignore
+                dim = getattr(_FAISS_INDEX, 'd', None) if _FAISS_INDEX is not None else None  # type: ignore
+                size = getattr(_FAISS_INDEX, 'ntotal', None) if _FAISS_INDEX is not None else None  # type: ignore
+                env_dim = int(__import__('os').getenv('FEATURE_VECTOR_EXPECTED_DIM', '0') or 0)
+                if env_dim and dim and dim != env_dim:
+                    from src.utils.analysis_metrics import faiss_index_dim_mismatch_total
+                    faiss_index_dim_mismatch_total.inc()
+                    logger.warning("Faiss index dim mismatch (imported=%s, expected=%s) - falling back to memory store", dim, env_dim)
+                else:
+                    logger.info("Faiss index auto-imported from %s (dim=%s, size=%s)", faiss_path, dim, size)
+    except Exception:
+        logger.warning("Faiss index auto-import failed")
+    async def _faiss_export_loop():
+        while True:
+            try:
+                if __import__("os").getenv("VECTOR_STORE_BACKEND", "memory") == "faiss":
+                    store = FaissVectorStore()
+                    store.export(faiss_path)
+                    # update index age gauge (reset to 0 after export)
+                    try:
+                        from src.utils.analysis_metrics import faiss_index_age_seconds
+                        faiss_index_age_seconds.set(0)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            await asyncio.sleep(faiss_interval)
+    _faiss_export_handle = asyncio.create_task(_faiss_export_loop())
+
+    # Faiss age increment loop (ticks every 60s) to show staleness when exports disabled or failing
+    async def _faiss_age_loop():
+        import asyncio, os
+        while True:
+            try:
+                if os.getenv("VECTOR_STORE_BACKEND", "memory") == "faiss":
+                    from src.utils.analysis_metrics import faiss_index_age_seconds
+                    # increment age by 60s up to a cap for visibility; if export loop resets to 0 this shows freshness
+                    current = getattr(faiss_index_age_seconds, "_value", 0) or 0
+                    faiss_index_age_seconds.set(current + 60)
+            except Exception:
+                pass
+            await asyncio.sleep(60)
+    _faiss_age_handle = __import__("asyncio").create_task(_faiss_age_loop())
+
+    # Load drift baselines from Redis if present
+    try:
+        from src.utils.cache import get_client
+        client = get_client()
+        if client is not None:
+            import json
+            from src.api.v1 import analyze as _an
+            raw_m = await client.get("baseline:material")  # type: ignore[attr-defined]
+            raw_c = await client.get("baseline:class")  # type: ignore[attr-defined]
+            ts_m = await client.get("baseline:material:ts")  # type: ignore[attr-defined]
+            ts_c = await client.get("baseline:class:ts")  # type: ignore[attr-defined]
+            if raw_m:
+                _an._DRIFT_STATE["baseline_materials"] = json.loads(raw_m)
+            if ts_m:
+                try:
+                    _an._DRIFT_STATE["baseline_materials_ts"] = int(ts_m)
+                except Exception:
+                    pass
+            if raw_c:
+                _an._DRIFT_STATE["baseline_predictions"] = json.loads(raw_c)
+            if ts_c:
+                try:
+                    _an._DRIFT_STATE["baseline_predictions_ts"] = int(ts_c)
+                except Exception:
+                    pass
+            if raw_m or raw_c:
+                logger.info("Drift baselines loaded from Redis")
+    except Exception:
+        pass
+
+    # Orphan scan task
+    orphan_handle = asyncio.create_task(orphan_scan_loop())
+
     yield
 
     # 关闭时
     logger.info("Shutting down CAD ML Platform...")
     # 清理资源
-    pass
+    try:
+        _prune_handle.cancel()
+    except Exception:
+        pass
+    try:
+        _faiss_export_handle.cancel()
+    except Exception:
+        pass
+    try:
+        _faiss_age_handle.cancel()
+    except Exception:
+        pass
+    try:
+        orphan_handle.cancel()
+    except Exception:
+        pass
 
 
 # 创建FastAPI应用
@@ -82,6 +193,20 @@ app.include_router(api_router, prefix="/api")
 if _metrics_enabled:
     metrics_app = make_asgi_app()
     app.mount("/metrics", metrics_app)
+else:
+    @app.get("/metrics")
+    async def metrics_fallback() -> PlainTextResponse:  # type: ignore
+        """Fallback metrics endpoint when prometheus_client is unavailable.
+
+        Provides a minimal textual exposition so monitoring contracts expecting
+        a 200 response do not fail in reduced environments.
+        """
+        body = (
+            "# HELP app_metrics_disabled Metrics client disabled\n"
+            "# TYPE app_metrics_disabled gauge\n"
+            "app_metrics_disabled 1\n"
+        )
+        return PlainTextResponse(body, media_type="text/plain; version=0.0.4")
 
 
 @app.get("/")
@@ -104,7 +229,7 @@ async def health_check():
 
     current_settings = get_settings()
 
-    return {
+    base = {
         "status": "healthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "services": {
@@ -150,6 +275,46 @@ async def health_check():
                 "log_level": current_settings.LOG_LEVEL,
             },
         },
+    }
+
+    # Merge resilience health block
+    try:
+        base.update(get_resilience_health())
+    except Exception:
+        # Keep /health resilient if resilience module is unavailable
+        pass
+
+    return base
+
+
+@app.get("/health/extended")
+async def extended_health():
+    """扩展健康检查: 包含向量与特征版本分布、Faiss索引状态、缓存命中情况等。"""
+    from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
+    from src.core.similarity import _FAISS_IMPORTED, _FAISS_LAST_EXPORT_SIZE, _FAISS_LAST_EXPORT_TS  # type: ignore
+    import os, time
+    vector_total = len(_VECTOR_STORE)
+    versions: dict[str, int] = {}
+    for meta in _VECTOR_META.values():
+        ver = meta.get("feature_version", os.getenv("FEATURE_VERSION", "v1"))
+        versions[ver] = versions.get(ver, 0) + 1
+    faiss_enabled = os.getenv("VECTOR_STORE_BACKEND", "memory") == "faiss"
+    last_export_age = None
+    if _FAISS_LAST_EXPORT_TS:
+        last_export_age = round(time.time() - _FAISS_LAST_EXPORT_TS, 2)
+    return {
+        "status": "healthy",
+        "vector_store": {
+            "total": vector_total,
+            "versions": versions,
+        },
+        "faiss": {
+            "enabled": faiss_enabled,
+            "imported": _FAISS_IMPORTED if faiss_enabled else False,
+            "last_export_size": _FAISS_LAST_EXPORT_SIZE if faiss_enabled else 0,
+            "last_export_age_seconds": last_export_age,
+        },
+        "feature_version_env": os.getenv("FEATURE_VERSION", "v1"),
     }
 
 

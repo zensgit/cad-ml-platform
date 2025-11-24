@@ -1,6 +1,44 @@
 # Quality Baseline (Metrics & Lint)
 
-Date: 2025-11-20
+Date: 2025-11-20 (Updated)
+
+## Metrics Contract Implementation
+### Core Metrics (Required)
+- `ocr_errors_total{provider,code,stage}` - Unified error tracking with ErrorCode enum
+- `ocr_input_rejected_total{reason}` - Input validation rejections
+- `vision_input_rejected_total{reason}` - Vision-specific rejections
+- `ocr_processing_duration_seconds` - Request latency histogram
+- `vision_processing_duration_seconds` - Vision latency histogram
+
+### ErrorCode Label Values (Standardized)
+- `RESOURCE_EXHAUSTED` - Memory/resource issues
+- `PROVIDER_TIMEOUT` - Provider response timeout
+- `NETWORK_ERROR` - Connection/network failures
+- `PARSE_FAILED` - Response parsing errors
+- `AUTH_FAILED` - Authentication/permission issues
+- `MODEL_LOAD_ERROR` - Model initialization failures
+- `QUOTA_EXCEEDED` - Rate limit/quota violations
+- `INPUT_ERROR` - Invalid input data
+- `INTERNAL_ERROR` - Generic/unknown errors
+
+### Recording Rules Added
+- Error rates: `ocr_error_ratio`, `vision_error_ratio`, `platform_error_ratio`
+- Provider health: `provider_health_score`, `provider_timeout_rate`
+- Performance: `ocr_p95_latency_seconds`, `ocr_avg_stage_duration_ms`
+- SLO tracking: `slo_latency_compliance`, `slo_availability`, `error_budget_remaining`
+
+## Operational Tooling Enhancements
+### Self-Check Script (v2.0)
+- **Strict Mode**: `SELF_CHECK_STRICT_METRICS=true`
+- **Remote Checking**: `SELF_CHECK_BASE_URL=https://staging.example.com`
+- **Exit Codes**: 0 (pass), 2 (API fail), 3 (health fail), 5 (metrics contract), 6 (provider mapping)
+- **Counter Validation**: Verifies metrics increment on errors
+
+### Security Audit Workflow
+- **Tools**: pip-audit, safety, bandit, semgrep
+- **Matrix Testing**: Python 3.10/3.11
+- **Exit Code Mapping**: 3 (critical), 4 (high deps), 6 (code security)
+- **CI Integration**: GitHub Actions with PR commenting
 
 ## Metrics Parity Added
 - `ocr_input_rejected_total{reason}`

@@ -1,0 +1,487 @@
+name: Adaptive Rate Limit Monitor
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/api/**'
+      - 'scripts/adaptive_rate_limiter.py'
+      - 'scripts/rate_limit_analyzer.py'
+      - 'scripts/auto_calibrator.py'
+      - 'scripts/performance_monitor.py'
+      - '.github/workflows/adaptive-rate-limit-monitor.yml'
+
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/api/**'
+      - 'scripts/adaptive_rate_limiter.py'
+      - 'scripts/rate_limit_analyzer.py'
+
+  schedule:
+    # 每小时运行一次性能分析
+    - cron: '0 * * * *'
+
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'analyze'
+        type: choice
+        options:
+          - analyze
+          - calibrate
+          - load-test
+          - rollback
+
+jobs:
+  analyze-traffic-patterns:
+    name: Analyze Traffic Patterns
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install numpy scipy
+
+      - name: Analyze recent traffic
+        id: traffic_analysis
+        run: |
+          python3 scripts/rate_limit_analyzer.py --export > traffic_analysis.json
+
+          # 提取关键指标
+          pattern=$(jq -r '.pattern' traffic_analysis.json)
+          confidence=$(jq -r '.confidence' traffic_analysis.json)
+          anomaly_score=$(jq -r '.anomaly_score' traffic_analysis.json)
+
+          echo "pattern=$pattern" >> $GITHUB_OUTPUT
+          echo "confidence=$confidence" >> $GITHUB_OUTPUT
+          echo "anomaly_score=$anomaly_score" >> $GITHUB_OUTPUT
+
+      - name: Check for anomalies
+        if: steps.traffic_analysis.outputs.anomaly_score > 0.7
+        run: |
+          echo "⚠️ 检测到流量异常！"
+          echo "异常评分: ${{ steps.traffic_analysis.outputs.anomaly_score }}"
+          echo "流量模式: ${{ steps.traffic_analysis.outputs.pattern }}"
+
+      - name: Upload traffic analysis
+        uses: actions/upload-artifact@v3
+        with:
+          name: traffic-analysis
+          path: traffic_analysis.json
+
+  check-performance-impact:
+    name: Check Performance Impact
+    runs-on: ubuntu-latest
+    needs: analyze-traffic-patterns
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install numpy scipy
+
+      - name: Monitor performance impact
+        id: performance
+        run: |
+          python3 scripts/performance_monitor.py --check-sla > sla_check.json
+
+          # 提取SLA状态
+          compliance=$(jq -r '.compliance_status' sla_check.json || echo "unknown")
+          violations=$(jq -r '.violations | length' sla_check.json || echo "0")
+
+          echo "compliance=$compliance" >> $GITHUB_OUTPUT
+          echo "violations=$violations" >> $GITHUB_OUTPUT
+
+      - name: Check SLA compliance
+        run: |
+          if [ "${{ steps.performance.outputs.compliance }}" = "violation" ]; then
+            echo "❌ SLA违规检测！"
+            exit 1
+          elif [ "${{ steps.performance.outputs.compliance }}" = "at_risk" ]; then
+            echo "⚠️ SLA接近违规阈值"
+          else
+            echo "✅ SLA合规"
+          fi
+
+      - name: Generate performance report
+        run: |
+          python3 scripts/performance_monitor.py --export markdown > performance_report.md
+
+          # 添加到PR评论（如果是PR）
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "## 📊 性能影响报告" >> comment.md
+            cat performance_report.md >> comment.md
+          fi
+
+      - name: Upload performance report
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-report
+          path: |
+            sla_check.json
+            performance_report.md
+
+  calibrate-parameters:
+    name: Auto-Calibrate Parameters
+    runs-on: ubuntu-latest
+    needs: [analyze-traffic-patterns, check-performance-impact]
+    if: |
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'calibrate')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install numpy scipy
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: traffic-analysis
+
+      - name: Run parameter calibration
+        id: calibrate
+        run: |
+          # 根据流量分析选择优化目标
+          pattern=$(jq -r '.pattern' traffic_analysis.json)
+
+          if [ "$pattern" = "spike" ]; then
+            goal="throughput"
+          elif [ "$pattern" = "ddos" ]; then
+            goal="error_rate"
+          else
+            goal="balance"
+          fi
+
+          echo "优化目标: $goal"
+          python3 scripts/auto_calibrator.py --goal $goal --export > calibration_result.json
+
+          # 提取改进百分比
+          improvement=$(jq -r '.summary.improvement_percentage // 0' calibration_result.json)
+          echo "improvement=$improvement" >> $GITHUB_OUTPUT
+
+      - name: Create PR if improved
+        if: steps.calibrate.outputs.improvement > 5
+        run: |
+          # 创建新分支
+          git checkout -b auto-calibration-$(date +%Y%m%d-%H%M%S)
+
+          # 应用新配置
+          cp calibration_result.json config/rate_limit_config.json
+
+          # 提交更改
+          git add config/rate_limit_config.json
+          git commit -m "feat: 自动校准限流参数 (改进${improvement}%)
+
+          - 基于流量模式自动优化
+          - 性能提升: ${improvement}%
+          - 优化目标: $goal
+
+          🤖 Generated by Adaptive Rate Limit Monitor"
+
+          # 创建PR
+          gh pr create \
+            --title "自动校准限流参数 (改进${improvement}%)" \
+            --body "## 📊 参数校准结果
+
+            - **改进**: ${improvement}%
+            - **优化目标**: $goal
+            - **流量模式**: $pattern
+
+            详见附件报告" \
+            --label "auto-calibration"
+
+  load-test-validation:
+    name: Load Test Validation
+    runs-on: ubuntu-latest
+    needs: calibrate-parameters
+    if: |
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.action == 'load-test'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install numpy scipy locust
+
+      - name: Run A/B test
+        run: |
+          # 运行A/B测试比较新旧配置
+          python3 scripts/auto_calibrator.py --test > ab_test_result.json
+
+          # 分析结果
+          winner=$(jq -r '.winner' ab_test_result.json)
+          improvement=$(jq -r '.improvement' ab_test_result.json)
+          p_value=$(jq -r '.p_value' ab_test_result.json)
+
+          echo "## A/B测试结果" > test_report.md
+          echo "- 获胜者: $winner" >> test_report.md
+          echo "- 改进: ${improvement}%" >> test_report.md
+          echo "- P值: $p_value" >> test_report.md
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: ab-test-results
+          path: |
+            ab_test_result.json
+            test_report.md
+
+  monitor-dashboard:
+    name: Update Monitoring Dashboard
+    runs-on: ubuntu-latest
+    needs: [analyze-traffic-patterns, check-performance-impact]
+    if: github.event_name == 'schedule'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Generate dashboard data
+        run: |
+          # 合并所有报告数据
+          python3 << 'EOF'
+          import json
+          import os
+          from datetime import datetime
+
+          dashboard = {
+              "timestamp": datetime.now().isoformat(),
+              "traffic": {},
+              "performance": {},
+              "alerts": []
+          }
+
+          # 加载流量分析
+          if os.path.exists("traffic-analysis/traffic_analysis.json"):
+              with open("traffic-analysis/traffic_analysis.json") as f:
+                  dashboard["traffic"] = json.load(f)
+
+          # 加载性能数据
+          if os.path.exists("performance-report/sla_check.json"):
+              with open("performance-report/sla_check.json") as f:
+                  dashboard["performance"] = json.load(f)
+
+          # 保存仪表板数据
+          with open("dashboard.json", "w") as f:
+              json.dump(dashboard, f, indent=2)
+
+          print("Dashboard data generated")
+          EOF
+
+      - name: Update metrics in README
+        run: |
+          # 更新README中的监控指标徽章
+          python3 << 'EOF'
+          import json
+
+          with open("dashboard.json") as f:
+              data = json.load(f)
+
+          # 生成徽章URL
+          sla_status = data.get("performance", {}).get("compliance_status", "unknown")
+          color = "green" if sla_status == "compliant" else "red"
+
+          badge = f"![SLA Status](https://img.shields.io/badge/SLA-{sla_status}-{color})"
+
+          print(f"SLA Badge: {badge}")
+          EOF
+
+  rollback-on-failure:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [check-performance-impact]
+    if: |
+      failure() ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'rollback')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Rollback to previous config
+        run: |
+          echo "⚠️ 检测到性能问题，回滚配置..."
+
+          # 回滚到上一个稳定配置
+          python3 scripts/auto_calibrator.py --rollback > rollback_result.json
+
+          if [ $? -eq 0 ]; then
+            echo "✅ 配置已回滚"
+
+            # 复制回滚的配置
+            cp rollback_result.json config/rate_limit_config.json
+
+            # 创建回滚PR
+            git checkout -b emergency-rollback-$(date +%Y%m%d-%H%M%S)
+            git add config/rate_limit_config.json
+            git commit -m "fix: 紧急回滚限流配置
+
+            检测到性能退化，自动回滚到上一个稳定配置
+
+            ⚠️ Emergency rollback by monitoring system"
+
+            gh pr create \
+              --title "紧急: 回滚限流配置" \
+              --body "检测到严重性能问题，自动回滚配置" \
+              --label "emergency,rollback"
+          else
+            echo "❌ 回滚失败，请手动干预"
+            exit 1
+          fi
+
+  post-pr-comment:
+    name: Post PR Comment
+    runs-on: ubuntu-latest
+    needs: [analyze-traffic-patterns, check-performance-impact]
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+
+      - name: Generate PR comment
+        run: |
+          echo "## 🚦 自适应限流分析" > pr_comment.md
+          echo "" >> pr_comment.md
+
+          # 流量分析
+          if [ -f "traffic-analysis/traffic_analysis.json" ]; then
+            pattern=$(jq -r '.pattern' traffic-analysis/traffic_analysis.json)
+            confidence=$(jq -r '.confidence' traffic-analysis/traffic_analysis.json)
+            echo "### 📊 流量模式" >> pr_comment.md
+            echo "- **模式**: $pattern" >> pr_comment.md
+            echo "- **置信度**: $confidence" >> pr_comment.md
+            echo "" >> pr_comment.md
+          fi
+
+          # 性能影响
+          if [ -f "performance-report/sla_check.json" ]; then
+            compliance=$(jq -r '.compliance_status' performance-report/sla_check.json)
+            echo "### 📈 SLA合规性" >> pr_comment.md
+            echo "- **状态**: $compliance" >> pr_comment.md
+
+            if [ "$compliance" != "compliant" ]; then
+              echo "⚠️ **警告**: 此更改可能影响SLA合规性" >> pr_comment.md
+            fi
+            echo "" >> pr_comment.md
+          fi
+
+          # 建议
+          echo "### 💡 建议" >> pr_comment.md
+          echo "- 监控部署后的性能指标" >> pr_comment.md
+          echo "- 准备好回滚方案" >> pr_comment.md
+          echo "- 考虑在低峰期部署" >> pr_comment.md
+
+      - name: Comment on PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const comment = fs.readFileSync('pr_comment.md', 'utf8');
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  notify-alerts:
+    name: Send Alert Notifications
+    runs-on: ubuntu-latest
+    needs: [check-performance-impact]
+    if: failure()
+
+    steps:
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST $SLACK_WEBHOOK_URL \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "text": "⚠️ 限流系统告警",
+              "attachments": [{
+                "color": "danger",
+                "title": "检测到性能问题",
+                "text": "SLA合规性检查失败，请立即查看",
+                "fields": [
+                  {"title": "仓库", "value": "${{ github.repository }}"},
+                  {"title": "分支", "value": "${{ github.ref }}"},
+                  {"title": "工作流", "value": "${{ github.workflow }}"}
+                ]
+              }]
+            }'
+
+      - name: Create GitHub issue
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const title = '🚨 限流系统性能告警';
+            const body = `
+            ## 问题描述
+            自动监控检测到限流系统性能问题
+
+            ## 详细信息
+            - **时间**: ${new Date().toISOString()}
+            - **工作流运行**: [查看](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+
+            ## 建议操作
+            1. 查看性能报告
+            2. 考虑回滚配置
+            3. 调整限流参数
+
+            @${context.repo.owner} 请及时处理
+            `;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['alert', 'performance', 'rate-limiting']
+            });

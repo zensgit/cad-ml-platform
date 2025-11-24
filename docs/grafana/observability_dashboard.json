@@ -2,43 +2,176 @@
   "annotations": {"list": []},
   "panels": [
     {
+      "id": 1,
       "type": "timeseries",
-      "title": "Vision Error Rate EMA",
-      "targets": [{"expr": "vision_error_rate_ema"}],
+      "title": "Platform Error Rates (Recording Rules)",
+      "targets": [
+        {"expr": "ocr_error_ratio", "legendFormat": "OCR Error %"},
+        {"expr": "vision_error_ratio", "legendFormat": "Vision Error %"},
+        {"expr": "platform_error_ratio", "legendFormat": "Platform Total %"}
+      ],
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
     },
     {
-      "type": "timeseries",
-      "title": "OCR Error Rate EMA",
-      "targets": [{"expr": "ocr_error_rate_ema"}],
+      "id": 2,
+      "type": "bargraph",
+      "title": "Provider Error Code Breakdown",
+      "targets": [
+        {"expr": "sum by(provider, code) (rate(ocr_errors_total[5m]))", "legendFormat": "{{provider}} - {{code}}"}
+      ],
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
     },
     {
+      "id": 3,
       "type": "timeseries",
-      "title": "Vision Input Rejection Ratio",
+      "title": "Input Rejection Rates",
       "targets": [
-        {"expr": "sum(rate(vision_input_rejected_total[5m])) / sum(rate(vision_requests_total[5m]))"}
+        {"expr": "vision_base64_rejection_rate", "legendFormat": "Vision Base64/min"},
+        {"expr": "ocr_file_rejection_rate", "legendFormat": "OCR File/min"}
       ],
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8}
     },
     {
-      "type": "timeseries",
-      "title": "Vision Image Size P99",
+      "id": 4,
+      "type": "heatmap",
+      "title": "Provider Health Score (0-100)",
       "targets": [
-        {"expr": "histogram_quantile(0.99, rate(vision_image_size_bytes_bucket[5m]))"}
+        {"expr": "provider_health_score", "legendFormat": "{{provider}}"}
       ],
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
     },
     {
-      "type": "bargauge",
-      "title": "OCR Provider Down (rate)",
+      "id": 5,
+      "type": "timeseries",
+      "title": "Resource Exhaustion Monitoring",
       "targets": [
-        {"expr": "sum by (provider) (rate(ocr_errors_total{code=\"provider_down\"}[5m]))"}
+        {"expr": "memory_exhaustion_rate", "legendFormat": "Total Memory Exhaustion/min"},
+        {"expr": "provider_resource_exhaustion", "legendFormat": "{{provider}} Exhaustion/min"}
       ],
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16}
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16}
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Processing Latency P95",
+      "targets": [
+        {"expr": "ocr_p95_latency_seconds", "legendFormat": "OCR {{provider}} P95"},
+        {"expr": "vision_p95_latency_seconds", "legendFormat": "Vision {{provider}} P95"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+    },
+    {
+      "id": 7,
+      "type": "bargraph",
+      "title": "OCR Pipeline Stage Duration (ms)",
+      "targets": [
+        {"expr": "ocr_avg_stage_duration_ms", "legendFormat": "{{stage}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24}
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "OCR Confidence Metrics",
+      "targets": [
+        {"expr": "ocr_avg_confidence", "legendFormat": "Average Confidence"},
+        {"expr": "ocr_low_confidence_ratio * 100", "legendFormat": "Low Confidence %"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24}
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Throughput & Success Rates",
+      "targets": [
+        {"expr": "platform_requests_per_second", "legendFormat": "Total RPS"},
+        {"expr": "provider_success_rate", "legendFormat": "{{provider}} Success %"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32}
+    },
+    {
+      "id": 10,
+      "type": "stat",
+      "title": "SLO Compliance",
+      "targets": [
+        {"expr": "slo_latency_compliance", "legendFormat": "Latency SLO %"},
+        {"expr": "slo_availability", "legendFormat": "Availability %"}
+      ],
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 32}
+    },
+    {
+      "id": 11,
+      "type": "gauge",
+      "title": "Error Budget Remaining",
+      "targets": [
+        {"expr": "error_budget_remaining", "legendFormat": "Budget %"}
+      ],
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 32},
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          {"value": 0, "color": "red"},
+          {"value": 50, "color": "yellow"},
+          {"value": 80, "color": "green"}
+        ]
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "Circuit Breaker Status",
+      "targets": [
+        {"expr": "circuit_breaker_open_ratio * 100", "legendFormat": "Circuits Open %"}
+      ],
+      "gridPos": {"h": 4, "w": 12, "x": 12, "y": 36},
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          {"value": 0, "color": "green"},
+          {"value": 10, "color": "yellow"},
+          {"value": 50, "color": "red"}
+        ]
+      }
+    },
+    {
+      "id": 13,
+      "type": "table",
+      "title": "Top Rejection Reasons",
+      "targets": [
+        {"expr": "top_rejection_reason_rate", "format": "table", "instant": true}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40}
+    },
+    {
+      "id": 14,
+      "type": "bargraph",
+      "title": "Provider Timeout Rates",
+      "targets": [
+        {"expr": "provider_timeout_rate", "legendFormat": "{{provider}}"}
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40}
     }
   ],
   "schemaVersion": 36,
-  "title": "CAD ML Platform - Observability",
-  "version": 1
+  "title": "CAD ML Platform - Observability (Enhanced)",
+  "version": 2,
+  "refresh": "5s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "provider",
+        "type": "query",
+        "query": "label_values(ocr_requests_total, provider)",
+        "multi": true,
+        "includeAll": true
+      }
+    ]
+  }
 }

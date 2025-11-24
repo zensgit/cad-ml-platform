@@ -1,0 +1,19 @@
+{
+  "current_usage": {
+    "platform": {
+      "integration_test": 15000
+    }
+  },
+  "alerts": [],
+  "decisions": [
+    {
+      "timestamp": "2025-11-22T16:14:21.125142",
+      "metric": "new_metric",
+      "team": "test_team",
+      "service": "test_service",
+      "decision": "allow",
+      "reason": "\u9884\u7b97\u5145\u8db3\uff0c\u53d8\u66f4\u5f71\u54cd\u53ef\u63a7"
+    }
+  ],
+  "timestamp": "2025-11-22T16:14:21.154447"
+}

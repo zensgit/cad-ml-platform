@@ -1,7 +1,9 @@
 # CAD ML Platform - Makefile
 # 统一的开发工作流
 
-.PHONY: help install dev test lint format type-check clean run docs docker eval-history health-check eval-trend
+.PHONY: help install dev test lint format type-check clean run docs docker eval-history health-check eval-trend \
+	observability-up observability-down observability-status self-check metrics-validate prom-validate \
+	dashboard-import security-audit metrics-audit cardinality-check
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -145,6 +147,128 @@ eval-all-golden: ## 运行所有 Golden 评估
 	@echo ""
 	@echo "$(YELLOW)=== OCR Golden Evaluation ===$(NC)"
 	$(MAKE) eval-ocr-golden
+
+# ==================== OBSERVABILITY TARGETS ====================
+
+observability-up: ## 启动完整的可观测性栈
+	@echo "$(GREEN)Starting observability stack...$(NC)"
+	docker-compose -f docker-compose.observability.yml up -d
+	@echo "$(GREEN)Waiting for services to be ready...$(NC)"
+	@sleep 10
+	@echo "$(GREEN)Observability stack is running!$(NC)"
+	@echo "  - Application: http://localhost:8000"
+	@echo "  - Prometheus: http://localhost:9090"
+	@echo "  - Grafana: http://localhost:3000 (admin/admin)"
+	@echo "  - Metrics: http://localhost:8000/metrics"
+
+observability-down: ## 停止可观测性栈
+	@echo "$(RED)Stopping observability stack...$(NC)"
+	docker-compose -f docker-compose.observability.yml down
+	@echo "$(GREEN)Observability stack stopped$(NC)"
+
+observability-status: ## 检查可观测性栈状态
+	@echo "$(GREEN)Checking observability stack status...$(NC)"
+	@docker-compose -f docker-compose.observability.yml ps
+	@echo ""
+	@echo "$(YELLOW)Service Health:$(NC)"
+	@curl -s localhost:8000/health | jq '.status' 2>/dev/null || echo "App: Not running"
+	@curl -s localhost:9090/-/ready 2>/dev/null && echo "Prometheus: Ready" || echo "Prometheus: Not ready"
+	@curl -s localhost:3000/api/health 2>/dev/null && echo "Grafana: Ready" || echo "Grafana: Not ready"
+
+self-check-strict: ## 运行严格模式自检
+	@echo "$(GREEN)Running strict self-check...$(NC)"
+	SELF_CHECK_STRICT_METRICS=1 \
+	SELF_CHECK_MIN_OCR_ERRORS=5 \
+	SELF_CHECK_INCREMENT_COUNTERS=1 \
+	$(PYTHON) scripts/self_check.py
+
+self-check-json: ## 运行自检并输出JSON
+	@echo "$(GREEN)Running self-check with JSON output...$(NC)"
+	@$(PYTHON) scripts/self_check.py --json | $(PYTHON) -m json.tool
+
+metrics-validate: ## 验证指标合约
+	@echo "$(GREEN)Validating metrics contract...$(NC)"
+	$(PYTEST) tests/test_metrics_contract.py -v
+	$(PYTEST) tests/test_provider_error_mapping.py -v
+
+prom-validate: ## 验证Prometheus录制规则
+	@echo "$(GREEN)Validating Prometheus recording rules...$(NC)"
+	$(PYTHON) scripts/validate_prom_rules.py --skip-promtool
+	@echo ""
+	@echo "$(YELLOW)Validating with promtool (Docker)...$(NC)"
+	@docker run --rm -v $(PWD)/docs/prometheus:/rules:ro \
+		prom/prometheus:latest \
+		promtool check rules /rules/recording_rules.yml || echo "$(YELLOW)Promtool not available$(NC)"
+
+promtool-validate-all: ## 使用 promtool 验证所有规则文件
+	@echo "$(GREEN)Validating all Prometheus rules with promtool...$(NC)"
+	bash scripts/validate_prometheus.sh
+
+dashboard-import: ## 导入Grafana仪表板
+	@echo "$(GREEN)Importing Grafana dashboard...$(NC)"
+	@echo "Please ensure Grafana is running on http://localhost:3000"
+	@echo "Login with admin/admin and import the dashboard from:"
+	@echo "  docs/grafana/observability_dashboard.json"
+	@open http://localhost:3000/dashboard/import || echo "Open http://localhost:3000/dashboard/import manually"
+
+security-audit: ## 运行安全审计
+	@echo "$(GREEN)Running security audit...$(NC)"
+	@echo "$(YELLOW)Checking dependencies with pip-audit...$(NC)"
+	-pip-audit
+	@echo ""
+	@echo "$(YELLOW)Checking with safety...$(NC)"
+	-safety check
+	@echo ""
+	@echo "$(YELLOW)Running bandit security scan...$(NC)"
+	-bandit -r $(SRC_DIR) -f json -o security-report.json
+
+observability-test: ## 运行可观测性测试套件
+	@echo "$(GREEN)Running observability test suite...$(NC)"
+	$(PYTEST) tests/test_observability_suite.py -v
+
+observability-logs: ## 查看可观测性栈日志
+	@echo "$(GREEN)Showing observability stack logs...$(NC)"
+	docker-compose -f docker-compose.observability.yml logs -f
+
+observability-restart: ## 重启可观测性栈
+	@echo "$(YELLOW)Restarting observability stack...$(NC)"
+	$(MAKE) observability-down
+	$(MAKE) observability-up
+
+observability-clean: ## 清理可观测性数据
+	@echo "$(RED)Cleaning observability data...$(NC)"
+	docker-compose -f docker-compose.observability.yml down -v
+	@echo "$(GREEN)All observability data cleaned$(NC)"
+
+# ==================== METRICS AUDIT TARGETS ====================
+
+metrics-audit: ## 运行指标基数审计
+	@echo "$(GREEN)Running metrics cardinality audit...$(NC)"
+	$(PYTHON) scripts/cardinality_audit.py --format markdown
+	@echo "$(GREEN)Audit complete!$(NC)"
+
+cardinality-check: ## 检查指标基数并生成报告
+	@echo "$(GREEN)Checking metrics cardinality...$(NC)"
+	$(PYTHON) scripts/cardinality_audit.py \
+		--prometheus-url http://localhost:9090 \
+		--warning-threshold 100 \
+		--critical-threshold 1000 \
+		--format json \
+		--output reports/cardinality_report.json
+	@echo "$(GREEN)Report saved to reports/cardinality_report.json$(NC)"
+
+metrics-audit-watch: ## 持续监控指标基数
+	@echo "$(GREEN)Starting continuous cardinality monitoring...$(NC)"
+	@while true; do \
+		clear; \
+		$(PYTHON) scripts/cardinality_audit.py --format markdown; \
+		sleep 60; \
+	done
+
+# 快速命令别名
+obs-up: observability-up
+obs-down: observability-down
+obs-status: observability-status
 	@echo "$(GREEN)All golden evaluations complete!$(NC)"
 
 eval-combined: ## 运行 Vision+OCR 联合评估（计算 combined score）
@@ -451,3 +575,49 @@ baseline-list: ## 列出所有基线快照
 baseline-compare: ## 比较两个基线快照 (用法: make baseline-compare SNAP1=2025_Q1 SNAP2=2025_Q2)
 	@echo "📊 Comparing baseline snapshots..."
 	@python3 scripts/snapshot_baseline.py --compare baseline_$(SNAP1).json baseline_$(SNAP2).json
+
+# ========================================
+# 录制规则版本管理
+# ========================================
+
+.PHONY: rules-init rules-commit rules-list rules-diff rules-rollback rules-validate rules-deploy
+
+rules-init: ## 初始化录制规则版本管理
+	@echo "Initializing recording rules versioning..."
+	$(PYTHON) scripts/recording_rules_versioning.py init
+
+rules-commit: ## 提交录制规则版本
+	@echo "Creating new rules version..."
+	$(PYTHON) scripts/recording_rules_versioning.py commit -m "$(MSG)" -a "$(USER)"
+
+rules-list: ## 列出所有规则版本
+	@echo "Listing rule versions..."
+	$(PYTHON) scripts/recording_rules_versioning.py list -n 20
+
+rules-diff: ## 比较规则版本差异
+	@echo "Comparing rule versions..."
+	$(PYTHON) scripts/recording_rules_versioning.py diff $(V1) $(V2)
+
+rules-rollback: ## 回滚到指定版本
+	@echo "Rolling back to version $(VERSION)..."
+	$(PYTHON) scripts/recording_rules_versioning.py rollback $(VERSION)
+
+rules-validate: ## 验证录制规则
+	@echo "Validating recording rules..."
+	@bash scripts/rules_ci_integration.sh validate
+
+rules-deploy: ## 部署规则到 Prometheus
+	@echo "Deploying rules to Prometheus..."
+	@bash scripts/rules_ci_integration.sh deploy $(PROMETHEUS_URL)
+
+rules-ci: ## 运行规则 CI 流程
+	@echo "Running rules CI pipeline..."
+	@bash scripts/rules_ci_integration.sh ci
+
+rules-cd: ## 运行规则 CD 流程
+	@echo "Running rules CD pipeline..."
+	@bash scripts/rules_ci_integration.sh cd $(PROMETHEUS_URL)
+
+rules-report: ## 生成规则版本报告
+	@echo "Generating rules version report..."
+	$(PYTHON) scripts/recording_rules_versioning.py report --format markdown

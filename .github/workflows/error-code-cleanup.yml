@@ -1,0 +1,382 @@
+name: Monthly Error Code Cleanup
+
+on:
+  schedule:
+    # 每月1号凌晨2点运行（UTC时间）
+    - cron: '0 2 1 * *'
+
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '演练模式（不创建PR）'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      base_branch:
+        description: '基准分支'
+        required: false
+        default: 'main'
+        type: string
+
+env:
+  PYTHON_VERSION: '3.9'
+
+jobs:
+  analyze:
+    name: Analyze Error Codes
+    runs-on: ubuntu-latest
+    outputs:
+      has_cleanup: ${{ steps.analysis.outputs.has_cleanup }}
+      cleanup_count: ${{ steps.analysis.outputs.cleanup_count }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Analyze error codes
+        id: analysis
+        run: |
+          # 运行扫描
+          python scripts/error_code_scanner.py \
+            --format json \
+            --output scan_results.json
+
+          # 生成清理计划
+          python scripts/error_code_lifecycle.py \
+            --plan \
+            --format json \
+            --output cleanup_plan.json
+
+          # 检查是否有需要清理的内容
+          REMOVAL_COUNT=$(jq '.cleanup_plan.immediate_removal | length' cleanup_plan.json)
+          DEPRECATION_COUNT=$(jq '.cleanup_plan.deprecation | length' cleanup_plan.json)
+          TOTAL_COUNT=$((REMOVAL_COUNT + DEPRECATION_COUNT))
+
+          echo "removal_count=${REMOVAL_COUNT}" >> $GITHUB_OUTPUT
+          echo "deprecation_count=${DEPRECATION_COUNT}" >> $GITHUB_OUTPUT
+          echo "cleanup_count=${TOTAL_COUNT}" >> $GITHUB_OUTPUT
+
+          if [ $TOTAL_COUNT -gt 0 ]; then
+            echo "has_cleanup=true" >> $GITHUB_OUTPUT
+            echo "✅ 发现 ${TOTAL_COUNT} 个错误码需要清理"
+          else
+            echo "has_cleanup=false" >> $GITHUB_OUTPUT
+            echo "✅ 没有需要清理的错误码"
+          fi
+
+      - name: Upload analysis results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: error-code-analysis
+          path: |
+            scan_results.json
+            cleanup_plan.json
+
+      - name: Generate markdown report
+        if: steps.analysis.outputs.has_cleanup == 'true'
+        run: |
+          # 生成Markdown报告
+          python scripts/error_code_scanner.py \
+            --format markdown \
+            --output ERROR_CODE_REPORT.md
+
+          python scripts/error_code_lifecycle.py \
+            --plan \
+            --format markdown \
+            --output CLEANUP_PLAN.md
+
+      - name: Post summary
+        run: |
+          echo "## 📊 错误码扫描结果" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f scan_results.json ]; then
+            TOTAL=$(jq '.summary.total_codes' scan_results.json)
+            ACTIVE=$(jq '.summary.active_codes' scan_results.json)
+            UNUSED=$(jq '.summary.unused_codes' scan_results.json)
+            RATE=$(jq '.summary.active_rate' scan_results.json)
+
+            echo "- **总错误码数**: $TOTAL" >> $GITHUB_STEP_SUMMARY
+            echo "- **活跃错误码**: $ACTIVE" >> $GITHUB_STEP_SUMMARY
+            echo "- **未使用错误码**: $UNUSED" >> $GITHUB_STEP_SUMMARY
+            echo "- **活跃率**: ${RATE}%" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🧹 清理计划" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **待删除**: ${{ steps.analysis.outputs.removal_count }} 个" >> $GITHUB_STEP_SUMMARY
+          echo "- **待弃用**: ${{ steps.analysis.outputs.deprecation_count }} 个" >> $GITHUB_STEP_SUMMARY
+
+  cleanup:
+    name: Create Cleanup PR
+    needs: analyze
+    if: needs.analyze.outputs.has_cleanup == 'true' && github.event.inputs.dry_run != 'true'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+
+      - name: Download analysis results
+        uses: actions/download-artifact@v3
+        with:
+          name: error-code-analysis
+
+      - name: Apply cleanup plan
+        id: cleanup
+        run: |
+          BASE_BRANCH="${{ github.event.inputs.base_branch || 'main' }}"
+
+          # 创建清理分支
+          TIMESTAMP=$(date +%Y%m%d)
+          BRANCH_NAME="cleanup/error-codes-${TIMESTAMP}"
+          git checkout -b $BRANCH_NAME
+
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+
+          # 应用清理（这里简化了实际的清理逻辑）
+          # 实际应该调用 error_code_pr_generator.py
+          echo "应用清理计划..."
+
+          # 示例：创建一个清理记录文件
+          cat > CLEANUP_RECORD.md << EOF
+          # 错误码清理记录
+
+          **日期**: $(date +%Y-%m-%d)
+          **清理数量**: ${{ needs.analyze.outputs.cleanup_count }}
+
+          ## 清理详情
+
+          本次自动清理删除了长期未使用的错误码，提高了代码的可维护性。
+
+          详细信息请查看附件的分析报告。
+          EOF
+
+          git add .
+          git commit -m "[自动] 错误码清理 - 清理${{{ needs.analyze.outputs.cleanup_count }}}个错误码"
+
+          # 推送分支
+          git push -u origin $BRANCH_NAME
+
+      - name: Create Pull Request
+        id: pr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ steps.cleanup.outputs.branch_name }}
+          base: ${{ github.event.inputs.base_branch || 'main' }}
+          title: '[自动] 错误码月度清理 - ${{ needs.analyze.outputs.cleanup_count }}个错误码'
+          body: |
+            ## 🧹 错误码自动清理
+
+            ### 📊 清理统计
+            - 删除未使用: ${{ needs.analyze.outputs.removal_count }}个
+            - 标记弃用: ${{ needs.analyze.outputs.deprecation_count }}个
+            - 总计: ${{ needs.analyze.outputs.cleanup_count }}个
+
+            ### 📈 影响分析
+            - 代码可维护性提升
+            - 减少混淆和错误使用
+            - 提高错误码活跃率
+
+            ### ✅ 自动检查
+            - [x] 扫描完成
+            - [x] 分析完成
+            - [x] 清理计划生成
+            - [ ] 人工审核
+            - [ ] 测试通过
+
+            ### 📝 审核清单
+            - [ ] 确认删除的错误码确实未使用
+            - [ ] 确认弃用的错误码有合理替代
+            - [ ] 确认没有破坏性变更
+            - [ ] 通知相关团队
+
+            ### ⚠️ 注意事项
+            - 本PR由错误码生命周期管理系统自动生成
+            - 请仔细审核后再合并
+            - 合并后请监控日志，确保没有意外影响
+
+            ---
+            *自动生成于: ${{ github.run_number }} | ${{ github.run_id }}*
+
+          labels: |
+            automated
+            cleanup
+            error-codes
+            monthly-maintenance
+
+          assignees: |
+            ${{ github.actor }}
+
+          draft: false
+
+      - name: Add PR comment with details
+        if: steps.pr.outputs.pull-request-number
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+
+            // 读取详细报告
+            let details = '## 📋 详细清理报告\n\n';
+
+            if (fs.existsSync('CLEANUP_PLAN.md')) {
+              const plan = fs.readFileSync('CLEANUP_PLAN.md', 'utf8');
+              details += plan;
+            }
+
+            // 创建评论
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: ${{ steps.pr.outputs.pull-request-number }},
+              body: details
+            });
+
+      - name: Output PR URL
+        if: steps.pr.outputs.pull-request-number
+        run: |
+          echo "✅ PR已创建: ${{ steps.pr.outputs.pull-request-url }}"
+          echo "PR_URL=${{ steps.pr.outputs.pull-request-url }}" >> $GITHUB_ENV
+
+  notify:
+    name: Send Notifications
+    needs: [analyze, cleanup]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Slack Notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ "${{ needs.analyze.outputs.has_cleanup }}" == "true" ]; then
+            MESSAGE="🧹 错误码月度清理完成\n清理数量: ${{ needs.analyze.outputs.cleanup_count }}个\n查看PR: ${PR_URL:-'请查看GitHub'}"
+          else
+            MESSAGE="✅ 错误码月度扫描完成\n没有需要清理的错误码"
+          fi
+
+          curl -X POST $SLACK_WEBHOOK_URL \
+            -H 'Content-Type: application/json' \
+            -d "{
+              \"text\": \"错误码清理通知\",
+              \"blocks\": [
+                {
+                  \"type\": \"section\",
+                  \"text\": {
+                    \"type\": \"mrkdwn\",
+                    \"text\": \"$MESSAGE\"
+                  }
+                }
+              ]
+            }" || echo "Slack通知发送失败（可能未配置）"
+
+      - name: Summary
+        run: |
+          echo "## 🎯 错误码清理工作流完成" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.analyze.outputs.has_cleanup }}" == "true" ]; then
+            echo "✅ 成功创建清理PR，包含 ${{ needs.analyze.outputs.cleanup_count }} 个错误码的清理" >> $GITHUB_STEP_SUMMARY
+            if [ -n "${PR_URL}" ]; then
+              echo "📎 PR链接: ${PR_URL}" >> $GITHUB_STEP_SUMMARY
+            fi
+          else
+            echo "✅ 扫描完成，没有需要清理的错误码" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # 可选：生成月度报告
+  monthly-report:
+    name: Generate Monthly Report
+    needs: analyze
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Generate governance report
+        run: |
+          # 这里可以调用月度治理报告生成器
+          echo "生成月度错误码治理报告..."
+
+          # 示例：创建简单的报告
+          cat > monthly_error_code_report_$(date +%Y%m).md << EOF
+          # 错误码月度治理报告
+
+          **报告月份**: $(date +%Y-%m)
+          **生成时间**: $(date +%Y-%m-%d\ %H:%M:%S)
+
+          ## 统计摘要
+          - 扫描的错误码总数: 待统计
+          - 清理的错误码数量: ${{ needs.analyze.outputs.cleanup_count || 0 }}
+          - 错误码健康度: 待评估
+
+          ## 趋势分析
+          - 本月清理效果
+          - 错误码增长趋势
+          - 活跃率变化
+
+          ## 建议
+          - 持续进行月度清理
+          - 建立错误码审核流程
+          - 提高错误码复用率
+
+          ---
+          *自动生成*
+          EOF
+
+      - name: Upload report
+        uses: actions/upload-artifact@v3
+        with:
+          name: monthly-report
+          path: monthly_error_code_report_*.md

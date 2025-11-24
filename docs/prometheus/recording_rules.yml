@@ -1,0 +1,235 @@
+# Prometheus Recording Rules for CAD ML Platform
+#
+# These rules pre-calculate frequently used metrics to improve query performance
+# and provide higher-level business metrics.
+#
+# Installation:
+# 1. Add to prometheus.yml:
+#    rule_files:
+#      - 'recording_rules.yml'
+# 2. Reload Prometheus configuration
+
+groups:
+  - name: cad_ml_error_rates
+    interval: 30s
+    rules:
+      # OCR error ratio (percentage of failed requests)
+      - record: ocr_error_ratio
+        expr: |
+          (
+            sum(rate(ocr_errors_total[5m]))
+            /
+            sum(rate(ocr_requests_total[5m]))
+          ) * 100
+
+      # Vision error ratio (percentage of failed requests)
+      - record: vision_error_ratio
+        expr: |
+          (
+            sum(rate(vision_errors_total[5m]))
+            /
+            sum(rate(vision_requests_total[5m]))
+          ) * 100
+
+      # Combined platform error ratio
+      - record: platform_error_ratio
+        expr: |
+          (
+            (sum(rate(ocr_errors_total[5m])) + sum(rate(vision_errors_total[5m])))
+            /
+            (sum(rate(ocr_requests_total[5m])) + sum(rate(vision_requests_total[5m])))
+          ) * 100
+
+  - name: cad_ml_rejection_rates
+    interval: 30s
+    rules:
+      # Vision base64 rejection rate (spikes indicate client issues)
+      - record: vision_base64_rejection_rate
+        expr: |
+          sum(rate(vision_input_rejected_total{reason=~"base64.*"}[1m])) * 60
+
+      # OCR file rejection rate
+      - record: ocr_file_rejection_rate
+        expr: |
+          sum(rate(ocr_input_rejected_total[1m])) * 60
+
+      # Top rejection reasons (aggregated)
+      - record: top_rejection_reason_rate
+        expr: |
+          topk(5,
+            sum by(reason) (
+              rate(vision_input_rejected_total[5m]) +
+              rate(ocr_input_rejected_total[5m])
+            )
+          )
+
+  - name: cad_ml_provider_health
+    interval: 30s
+    rules:
+      # OCR provider down count (providers not responding)
+      - record: ocr_provider_down_count
+        expr: |
+          count(
+            sum by(provider) (
+              rate(ocr_errors_total{code="PROVIDER_DOWN"}[5m])
+            ) > 0
+          )
+
+      # Provider timeout rate by provider
+      - record: provider_timeout_rate
+        expr: |
+          sum by(provider) (
+            rate(ocr_errors_total{code="PROVIDER_TIMEOUT"}[5m])
+          ) * 60
+
+      # Model load failures
+      - record: model_load_failure_rate
+        expr: |
+          sum by(provider) (
+            rate(ocr_errors_total{code="MODEL_LOAD_ERROR"}[5m])
+          ) * 60
+
+      # Provider health score (0-100, higher is better)
+      - record: provider_health_score
+        expr: |
+          (1 -
+            (
+              sum by(provider) (rate(ocr_errors_total[5m]))
+              /
+              sum by(provider) (rate(ocr_requests_total[5m]))
+            )
+          ) * 100
+
+  - name: cad_ml_resource_exhaustion
+    interval: 30s
+    rules:
+      # Memory exhaustion rate
+      - record: memory_exhaustion_rate
+        expr: |
+          sum(rate(ocr_errors_total{code="RESOURCE_EXHAUSTED"}[5m])) * 60
+
+      # Resource exhaustion by provider
+      - record: provider_resource_exhaustion
+        expr: |
+          sum by(provider) (
+            rate(ocr_errors_total{code="RESOURCE_EXHAUSTED"}[5m])
+          ) * 60
+
+      # Circuit breaker open ratio
+      - record: circuit_breaker_open_ratio
+        expr: |
+          sum(circuit_breaker_state > 0) / count(circuit_breaker_state)
+
+  - name: cad_ml_performance
+    interval: 30s
+    rules:
+      # 95th percentile processing time by provider
+      - record: ocr_p95_latency_seconds
+        expr: |
+          histogram_quantile(0.95,
+            sum by(provider, le) (
+              rate(ocr_processing_duration_seconds_bucket[5m])
+            )
+          )
+
+      # 95th percentile vision processing time
+      - record: vision_p95_latency_seconds
+        expr: |
+          histogram_quantile(0.95,
+            sum by(provider, le) (
+              rate(vision_processing_duration_seconds_bucket[5m])
+            )
+          )
+
+      # Average stage duration for OCR pipeline
+      - record: ocr_avg_stage_duration_ms
+        expr: |
+          sum by(stage) (
+            rate(ocr_stage_duration_seconds_sum[5m])
+          ) / sum by(stage) (
+            rate(ocr_stage_duration_seconds_count[5m])
+          ) * 1000
+
+      # Slowest OCR stage (bottleneck detection)
+      - record: ocr_slowest_stage
+        expr: |
+          topk(1,
+            sum by(stage) (
+              rate(ocr_stage_duration_seconds_sum[5m])
+            ) / sum by(stage) (
+              rate(ocr_stage_duration_seconds_count[5m])
+            )
+          )
+
+  - name: cad_ml_confidence
+    interval: 30s
+    rules:
+      # Average OCR confidence score
+      - record: ocr_avg_confidence
+        expr: |
+          sum(rate(ocr_confidence_distribution_sum[5m]))
+          /
+          sum(rate(ocr_confidence_distribution_count[5m]))
+
+      # Low confidence ratio (below 0.7)
+      - record: ocr_low_confidence_ratio
+        expr: |
+          sum(rate(ocr_confidence_distribution_bucket{le="0.7"}[5m]))
+          /
+          sum(rate(ocr_confidence_distribution_count[5m]))
+
+  - name: cad_ml_throughput
+    interval: 30s
+    rules:
+      # Total requests per second
+      - record: platform_requests_per_second
+        expr: |
+          sum(rate(ocr_requests_total[1m])) +
+          sum(rate(vision_requests_total[1m]))
+
+      # Success rate by provider
+      - record: provider_success_rate
+        expr: |
+          sum by(provider) (
+            rate(ocr_requests_total{status="success"}[5m])
+          ) / sum by(provider) (
+            rate(ocr_requests_total[5m])
+          ) * 100
+
+      # Cache hit ratio
+      - record: ocr_cache_hit_ratio
+        expr: |
+          sum(rate(ocr_requests_total{status="cache_hit"}[5m]))
+          /
+          sum(rate(ocr_requests_total[5m]))
+          * 100
+
+  - name: cad_ml_slo
+    interval: 1m
+    rules:
+      # SLO: 99% of requests should complete within 2 seconds
+      - record: slo_latency_compliance
+        expr: |
+          (
+            sum(rate(ocr_processing_duration_seconds_bucket{le="2"}[5m]))
+            /
+            sum(rate(ocr_processing_duration_seconds_count[5m]))
+          ) * 100
+
+      # SLO: 99.5% availability
+      - record: slo_availability
+        expr: |
+          (1 -
+            (
+              sum(rate(ocr_errors_total[5m])) + sum(rate(vision_errors_total[5m]))
+            ) / (
+              sum(rate(ocr_requests_total[5m])) + sum(rate(vision_requests_total[5m]))
+            )
+          ) * 100
+
+      # Error budget remaining (based on 99.5% SLO)
+      - record: error_budget_remaining
+        expr: |
+          100 - (
+            (0.5 - (100 - slo_availability)) / 0.5 * 100
+          )

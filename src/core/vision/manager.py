@@ -31,6 +31,7 @@ from .base import (
     VisionInputError,
     VisionProvider,
 )
+from src.core.resilience.adaptive_decorator import adaptive_rate_limit
 
 
 class VisionManager:
@@ -60,6 +61,7 @@ class VisionManager:
         self.vision_provider = vision_provider
         self.ocr_manager = ocr_manager
 
+    @adaptive_rate_limit(service="vision", endpoint="analyze")
     async def analyze(self, request: VisionAnalyzeRequest) -> VisionAnalyzeResponse:
         """
         Perform end-to-end vision analysis.

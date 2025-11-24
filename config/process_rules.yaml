@@ -1,0 +1,32 @@
+steel:
+  low:
+    - max_volume: 10000
+      primary: cnc_machining
+      alternatives: [sheet_metal]
+    - max_volume: 500000
+      primary: cnc_machining
+      alternatives: [casting, additive]
+  medium:
+    - max_volume: 1000000
+      primary: casting
+      alternatives: [cnc_finish, additive]
+  high:
+    - max_volume: 999999999
+      primary: casting
+      alternatives: [additive, cnc_finish]
+aluminum:
+  low:
+    - max_volume: 50000
+      primary: cnc_machining
+      alternatives: [die_casting]
+    - max_volume: 200000
+      primary: die_casting
+      alternatives: [cnc_finish, additive]
+  medium:
+    - max_volume: 1000000
+      primary: die_casting
+      alternatives: [cnc_finish]
+  high:
+    - max_volume: 999999999
+      primary: die_casting
+      alternatives: [cnc_finish]

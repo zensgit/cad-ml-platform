@@ -1,0 +1,97 @@
+{
+  "title": "CAD Analysis Service Metrics",
+  "uid": "cad-analysis-metrics",
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Analysis Requests Success Rate",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "sum(analysis_requests_total{status='success'}) / sum(analysis_requests_total) * 100", "refId": "A"}
+      ],
+      "options": {"colorMode": "value", "graphMode": "none", "justifyMode": "center"},
+      "fieldConfig": {"defaults": {"unit": "percent", "decimals": 2}, "overrides": []},
+      "gridPos": {"x": 0, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Avg Parse Stage (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "(sum(rate(analysis_stage_duration_seconds_sum{stage='parse'}[5m])) / sum(rate(analysis_stage_duration_seconds_count{stage='parse'}[5m]))) * 1000", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms", "decimals": 1}, "overrides": []},
+      "gridPos": {"x": 6, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Avg Feature Extract (ms)",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "(sum(rate(analysis_stage_duration_seconds_sum{stage='features'}[5m])) / sum(rate(analysis_stage_duration_seconds_count{stage='features'}[5m]))) * 1000", "refId": "A"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms", "decimals": 1}, "overrides": []},
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "stat",
+      "title": "Rejections (Entity Limit)",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "sum(analysis_rejections_total{reason='entity_count_exceeded'})", "refId": "A"}
+      ],
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 4}
+    },
+    {
+      "type": "graph",
+      "title": "Stage Duration Trend (p95)",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum by (le, stage) (rate(analysis_stage_duration_seconds_bucket[5m])))", "refId": "A"}
+      ],
+      "gridPos": {"x": 0, "y": 4, "w": 12, "h": 8},
+      "lines": true,
+      "linewidth": 1,
+      "legend": {"show": true}
+    },
+    {
+      "type": "graph",
+      "title": "Feature Vector Dimension Distribution",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "sum by (le) (rate(analysis_feature_vector_dimension_bucket[5m]))", "refId": "A"}
+      ],
+      "gridPos": {"x": 12, "y": 4, "w": 12, "h": 8},
+      "lines": true,
+      "legend": {"show": true}
+    },
+    {
+      "type": "table",
+      "title": "Error Codes (Top 10 /5m)",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "topk(10, rate(analysis_error_code_total[5m]))", "refId": "A"}
+      ],
+      "gridPos": {"x": 0, "y": 12, "w": 12, "h": 8},
+      "transformations": [],
+      "options": {"showHeader": true}
+    },
+    {
+      "type": "graph",
+      "title": "Material Usage Rate",
+      "datasource": "Prometheus",
+      "targets": [
+        {"expr": "sum by (material) (rate(analysis_material_usage_total[5m]))", "refId": "A"}
+      ],
+      "gridPos": {"x": 12, "y": 12, "w": 12, "h": 8},
+      "lines": true,
+      "legend": {"show": true}
+    }
+  ],
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {"list": []}
+}
