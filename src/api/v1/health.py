@@ -128,7 +128,8 @@ class ModelHealthResponse(BaseModel):
     loaded_at: float | None = None
     uptime_seconds: float | None = None
     last_error: str | None = None
-    rollback_level: str | None = None
+    rollback_level: int = 0
+    rollback_reason: str | None = None
 
 
 @router.get("/health/model", response_model=ModelHealthResponse)
@@ -137,14 +138,25 @@ async def model_health(api_key: str = Depends(get_api_key)):
     from src.utils.analysis_metrics import model_health_checks_total
     import time
     info = get_model_info()
-    status = "ok" if info.get("loaded") else "absent"
+
+    # Determine status based on loaded state and rollback level
+    rollback_level = info.get("rollback_level", 0)
+    if not info.get("loaded"):
+        status = "absent"
+    elif rollback_level > 0:
+        status = "rollback"
+    else:
+        status = "ok"
+
     model_health_checks_total.labels(status=status).inc()
+
     uptime = None
     if info.get("loaded_at"):
         try:
             uptime = time.time() - float(info.get("loaded_at"))
         except Exception:
             uptime = None
+
     return ModelHealthResponse(
         status=status,
         version=info.get("version"),
@@ -153,8 +165,9 @@ async def model_health(api_key: str = Depends(get_api_key)):
         loaded=bool(info.get("loaded")),
         loaded_at=info.get("loaded_at"),
         uptime_seconds=uptime,
-        last_error=None,
-        rollback_level=None,
+        last_error=info.get("last_error"),
+        rollback_level=rollback_level,
+        rollback_reason=info.get("rollback_reason"),
     )
 
 

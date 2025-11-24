@@ -228,14 +228,32 @@ def get_model_info() -> Dict[str, Any]:
     """Get current model information.
 
     Returns:
-        Dictionary with model version, hash, path, and loaded status
+        Dictionary with model version, hash, path, loaded status, and rollback info
     """
+    # Determine rollback level
+    rollback_level = 0
+    last_error = None
+    rollback_reason = None
+
+    # Check if current model is from rollback
+    if _MODEL_PREV is not None and _MODEL == _MODEL_PREV:
+        rollback_level = 1
+        rollback_reason = "Rolled back to previous model after reload failure"
+    elif _MODEL_PREV2 is not None and _MODEL == _MODEL_PREV2:
+        rollback_level = 2
+        rollback_reason = "Rolled back to level 2 snapshot after consecutive failures"
+
     return {
         "version": _MODEL_VERSION,
         "hash": _MODEL_HASH,
         "path": str(_MODEL_PATH) if _MODEL_PATH else None,
         "loaded_at": _MODEL_LOADED_AT,
-        "loaded": _MODEL is not None
+        "loaded": _MODEL is not None,
+        "rollback_level": rollback_level,
+        "last_error": last_error,
+        "rollback_reason": rollback_reason if rollback_level > 0 else None,
+        "has_prev": _MODEL_PREV is not None,
+        "has_prev2": _MODEL_PREV2 is not None,
     }
 
 
