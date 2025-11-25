@@ -8,6 +8,7 @@ Model expected to implement `.predict` taking List[List[float]].
 
 import os
 import pickle
+import threading
 from typing import List, Dict, Any
 from pathlib import Path
 
@@ -16,6 +17,8 @@ _MODEL_LOADED_AT: float | None = None
 _MODEL_VERSION = os.getenv("CLASSIFICATION_MODEL_VERSION", "none")
 _MODEL_PATH = Path(os.getenv("CLASSIFICATION_MODEL_PATH", "models/classifier_v1.pkl"))
 _MODEL_HASH: str | None = None
+_MODEL_LAST_ERROR: str | None = None
+_MODEL_LOAD_SEQ: int = 0  # Monotonic sequence to disambiguate reloads
 # Previous model snapshot for rollback
 _MODEL_PREV: Dict[str, Any] | None = None
 _MODEL_PREV_HASH: str | None = None
@@ -26,6 +29,8 @@ _MODEL_PREV2: Dict[str, Any] | None = None
 _MODEL_PREV2_HASH: str | None = None
 _MODEL_PREV2_VERSION: str | None = None
 _MODEL_PREV2_PATH: Path | None = None
+# Thread safety for reload operations
+_MODEL_LOCK = threading.Lock()
 
 
 def load_model() -> None:
@@ -91,8 +96,8 @@ def reload_model(path: str, expected_version: str | None = None, force: bool = F
     from src.utils.analysis_metrics import model_reload_total, model_security_fail_total
     import os
 
-    # Declare all globals at the beginning
-    global _MODEL, _MODEL_VERSION, _MODEL_PATH, _MODEL_HASH, _MODEL_LOADED_AT
+    # Declare all globals at the beginning (TODO: Add _MODEL_LOCK for thread safety)
+    global _MODEL, _MODEL_VERSION, _MODEL_PATH, _MODEL_HASH, _MODEL_LOADED_AT, _MODEL_LAST_ERROR, _MODEL_LOAD_SEQ
     global _MODEL_PREV, _MODEL_PREV_HASH, _MODEL_PREV_VERSION, _MODEL_PREV_PATH
     global _MODEL_PREV2, _MODEL_PREV2_HASH, _MODEL_PREV2_VERSION, _MODEL_PREV2_PATH
 
@@ -119,6 +124,7 @@ def reload_model(path: str, expected_version: str | None = None, force: bool = F
             if magic not in valid_pickle_magics and not magic.startswith(b'('):  # Protocol 0
                 model_security_fail_total.labels(reason="magic_number_invalid").inc()
                 model_reload_total.labels(status="magic_invalid", version=str(expected_version or "unknown")).inc()
+                _MODEL_LAST_ERROR = f"Invalid pickle magic number: {magic.hex()}"
                 return {
                     "status": "magic_invalid",
                     "message": "File does not appear to be a valid pickle file",
@@ -137,6 +143,7 @@ def reload_model(path: str, expected_version: str | None = None, force: bool = F
         size_mb = p.stat().st_size / (1024 * 1024)
         if size_mb > max_mb:
             model_reload_total.labels(status="size_exceeded", version=str(expected_version or _MODEL_VERSION)).inc()
+            _MODEL_LAST_ERROR = f"Model size {size_mb:.1f}MB exceeds limit {max_mb}MB"
             return {"status": "size_exceeded", "size_mb": round(size_mb, 3), "max_mb": max_mb}
     except Exception:
         pass
@@ -191,6 +198,8 @@ def reload_model(path: str, expected_version: str | None = None, force: bool = F
         _MODEL_HASH = candidate_hash
         import time as _t
         _MODEL_LOADED_AT = _t.time()
+        _MODEL_LOAD_SEQ += 1  # Increment sequence on successful load
+        _MODEL_LAST_ERROR = None  # Clear error on success
         # Whitelist check after computing hash
         if allowed_hashes and _MODEL_HASH not in allowed_hashes:
             # Restore previous immediately, treat as security mismatch
@@ -205,6 +214,7 @@ def reload_model(path: str, expected_version: str | None = None, force: bool = F
         return {"status": "success", "model_version": _MODEL_VERSION, "hash": _MODEL_HASH}
     except Exception as e:
         # Rollback
+        _MODEL_LAST_ERROR = str(e)
         if _MODEL_PREV is not None:
             _MODEL = _MODEL_PREV
             _MODEL_HASH = _MODEL_PREV_HASH
@@ -232,7 +242,6 @@ def get_model_info() -> Dict[str, Any]:
     """
     # Determine rollback level
     rollback_level = 0
-    last_error = None
     rollback_reason = None
 
     # Check if current model is from rollback
@@ -250,10 +259,11 @@ def get_model_info() -> Dict[str, Any]:
         "loaded_at": _MODEL_LOADED_AT,
         "loaded": _MODEL is not None,
         "rollback_level": rollback_level,
-        "last_error": last_error,
+        "last_error": _MODEL_LAST_ERROR,  # Now tracking actual errors
         "rollback_reason": rollback_reason if rollback_level > 0 else None,
         "has_prev": _MODEL_PREV is not None,
         "has_prev2": _MODEL_PREV2 is not None,
+        "load_seq": _MODEL_LOAD_SEQ,  # Monotonic sequence for disambiguation
     }
 
 

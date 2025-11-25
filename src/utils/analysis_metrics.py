@@ -380,7 +380,7 @@ vector_store_reload_total = Counter(
 model_health_checks_total = Counter(
     "model_health_checks_total",
     "Model health endpoint requests",
-    ["status"],  # ok|absent|error
+    ["status"],  # ok|absent|rollback|error
 )
 
 __all__ = [
