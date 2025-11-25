@@ -561,20 +561,65 @@ histogram_quantile(0.95, sum by (le, batch_size_range)(rate(vector_query_batch_l
 
 ### 模型健康端点
 
-`GET /api/v1/health/model` 提供当前模型加载状态与元数据。
+`GET /api/v1/health/model` 提供当前模型加载状态与元数据，包括回滚状态和错误追踪。
 
-示例响应：
+**响应字段说明:**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `status` | string | 健康状态: `ok` (正常), `absent` (未加载), `rollback` (已回滚), `error` (错误) |
+| `version` | string | 模型版本号 |
+| `hash` | string | 模型文件 SHA256 哈希值 (前16位) |
+| `path` | string | 模型文件路径 |
+| `loaded` | boolean | 是否已加载 |
+| `loaded_at` | float | 加载时间戳 (Unix时间) |
+| `uptime_seconds` | float | 模型运行时长（秒） |
+| `rollback_level` | int | 回滚级别: `0` (无回滚), `1` (一级回滚), `2` (二级回滚) |
+| `rollback_reason` | string\|null | 回滚原因描述 |
+| `last_error` | string\|null | 最近一次加载错误信息 |
+| `load_seq` | int | 单调递增的加载序列号（用于区分不同加载实例） |
+
+**示例响应 - 正常状态:**
 ```json
 {
-  "status": "ok",            
-  "version": "v2",          
+  "status": "ok",
+  "version": "v2.1.0",
   "hash": "abcd1234ef567890",
-  "path": "models/classifier.pkl",
+  "path": "models/classifier_v2.1.pkl",
   "loaded": true,
-  "loaded_at": 1732464000.123
+  "loaded_at": 1732464000.123,
+  "uptime_seconds": 3600.5,
+  "rollback_level": 0,
+  "rollback_reason": null,
+  "last_error": null,
+  "load_seq": 5
 }
 ```
-指标：`model_health_checks_total{status="ok|absent"}`
+
+**示例响应 - 回滚状态:**
+```json
+{
+  "status": "rollback",
+  "version": "v2.0.0",
+  "hash": "def567890abc1234",
+  "path": "models/classifier_v2.0.pkl",
+  "loaded": true,
+  "loaded_at": 1732464100.456,
+  "uptime_seconds": 300.2,
+  "rollback_level": 1,
+  "rollback_reason": "Rolled back to previous model after reload failure",
+  "last_error": "Security validation failed: disallowed pickle opcode REDUCE detected",
+  "load_seq": 4
+}
+```
+
+**回滚机制:**
+- 系统维护3个模型快照：当前、前一版本(_PREV)、前两版本(_PREV2)
+- 当模型重载失败时，自动回滚到前一可用版本
+- 连续失败可回滚到二级快照（rollback_level=2）
+- 回滚后 `status` 变为 `"rollback"`，`last_error` 保留失败信息
+
+**指标:** `model_health_checks_total{status="ok|absent|rollback|error"}`
 
 ### 批量相似度查询限制
 
@@ -757,6 +802,63 @@ Content-Type: application/json
 - `INTERNAL_ERROR`: 未捕获的内部异常
 
 完整枚举参考 `src/core/errors_extended.py`。
+
+### 结构化错误响应格式 (build_error)
+
+所有后端 API 错误遵循统一的结构化格式（通过 `build_error()` 生成），嵌套在 HTTPException 的 `detail` 字段中：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `code` | string | 错误代码 (SCREAMING_SNAKE_CASE，如 `INTERNAL_ERROR`, `VALIDATION_FAILED`) |
+| `stage` | string | 错误发生阶段 (如 `backend_reload`, `model_validation`, `similarity`) |
+| `message` | string | 人类可读的错误描述 |
+| `severity` | string | 严重程度: `error` (错误), `warning` (警告), `info` (信息) |
+| `context` | object | 上下文信息（可选，包含具体错误细节如建议、参数等） |
+| `suggestion` | string | 建议的修复措施（可选，通常在 context 中） |
+
+**示例 1 - 模型重载失败 (500 错误):**
+```json
+{
+  "detail": {
+    "code": "INTERNAL_ERROR",
+    "stage": "backend_reload",
+    "message": "Vector store backend reload failed",
+    "severity": "error",
+    "context": {
+      "backend": "faiss",
+      "suggestion": "Check backend configuration and logs"
+    }
+  }
+}
+```
+
+**示例 2 - 后端授权失败 (403 错误):**
+```json
+{
+  "detail": {
+    "code": "FORBIDDEN",
+    "stage": "backend_reload_auth",
+    "message": "Admin token required for backend reload",
+    "severity": "error",
+    "context": {
+      "required_header": "X-Admin-Token",
+      "suggestion": "Provide valid admin token in X-Admin-Token header"
+    }
+  }
+}
+```
+
+**示例 3 - 模型加载回滚 (200 响应，但含错误信息):**
+```json
+{
+  "status": "rollback",
+  "error": "Security validation failed: disallowed pickle opcode REDUCE detected",
+  "previous_version": "v2.0.0",
+  "previous_hash": "abc123def456"
+}
+```
+
+此格式确保所有错误响应包含足够的诊断信息，便于客户端处理和日志分析。
 
 ### 相似度错误结构示例
 

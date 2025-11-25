@@ -9,8 +9,11 @@ Model expected to implement `.predict` taking List[List[float]].
 import os
 import pickle
 import threading
+import logging
 from typing import List, Dict, Any
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 _MODEL = None
 _MODEL_LOADED_AT: float | None = None
@@ -115,6 +118,18 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
     global _MODEL_PREV, _MODEL_PREV_HASH, _MODEL_PREV_VERSION, _MODEL_PREV_PATH
     global _MODEL_PREV2, _MODEL_PREV2_HASH, _MODEL_PREV2_VERSION, _MODEL_PREV2_PATH
 
+    # Log reload start with context
+    logger.info(
+        "Model reload started",
+        extra={
+            "path": path,
+            "expected_version": expected_version,
+            "current_version": _MODEL_VERSION,
+            "current_load_seq": _MODEL_LOAD_SEQ,
+            "force": force,
+        }
+    )
+
     p = Path(path)
     if not p.exists():
         model_reload_total.labels(status="not_found", version=str(expected_version or "unknown")).inc()
@@ -214,6 +229,19 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
         _MODEL_LOADED_AT = _t.time()
         _MODEL_LOAD_SEQ += 1  # Increment sequence on successful load
         _MODEL_LAST_ERROR = None  # Clear error on success
+
+        # Log successful reload
+        logger.info(
+            "Model reload successful",
+            extra={
+                "status": "success",
+                "version": _MODEL_VERSION,
+                "hash": _MODEL_HASH,
+                "load_seq": _MODEL_LOAD_SEQ,
+                "path": str(_MODEL_PATH),
+            }
+        )
+
         # Whitelist check after computing hash
         if allowed_hashes and _MODEL_HASH not in allowed_hashes:
             # Restore previous immediately, treat as security mismatch
@@ -234,6 +262,21 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
             _MODEL_HASH = _MODEL_PREV_HASH
             _MODEL_VERSION = _MODEL_PREV_VERSION or _MODEL_VERSION
             _MODEL_PATH = _MODEL_PREV_PATH or _MODEL_PATH
+
+            # Log level 1 rollback
+            logger.warning(
+                "Model reload failed - rolled back to previous version",
+                extra={
+                    "status": "rollback",
+                    "rollback_level": 1,
+                    "rollback_reason": "Reload failure triggered automatic rollback",
+                    "error": str(e),
+                    "recovered_version": _MODEL_VERSION,
+                    "recovered_hash": _MODEL_HASH,
+                    "load_seq": _MODEL_LOAD_SEQ,  # Preserved from previous load
+                }
+            )
+
             model_reload_total.labels(status="rollback", version=str(expected_version or _MODEL_VERSION)).inc()
             return {"status": "rollback", "error": str(e), "previous_version": _MODEL_VERSION, "previous_hash": _MODEL_HASH}
         # If no previous, attempt second-level rollback (unlikely path)
@@ -242,8 +285,34 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
             _MODEL_HASH = _MODEL_PREV2_HASH
             _MODEL_VERSION = _MODEL_PREV2_VERSION or _MODEL_VERSION
             _MODEL_PATH = _MODEL_PREV2_PATH or _MODEL_PATH
+
+            # Log level 2 rollback
+            logger.error(
+                "Model reload failed - rolled back to level 2 snapshot",
+                extra={
+                    "status": "rollback",
+                    "rollback_level": 2,
+                    "rollback_reason": "Consecutive failures - rolled back to level 2",
+                    "error": str(e),
+                    "recovered_version": _MODEL_VERSION,
+                    "recovered_hash": _MODEL_HASH,
+                    "load_seq": _MODEL_LOAD_SEQ,
+                }
+            )
+
             model_reload_total.labels(status="rollback_level2", version=str(expected_version or _MODEL_VERSION)).inc()
             return {"status": "rollback_level2", "error": str(e), "previous_version": _MODEL_VERSION, "previous_hash": _MODEL_HASH}
+
+        # No rollback target available
+        logger.error(
+            "Model reload failed - no rollback target available",
+            extra={
+                "status": "error",
+                "error": str(e),
+                "load_seq": _MODEL_LOAD_SEQ,
+            }
+        )
+
         model_reload_total.labels(status="error", version=str(expected_version or _MODEL_VERSION)).inc()
         return {"status": "error", "error": str(e)}
 
