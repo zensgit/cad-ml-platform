@@ -36,6 +36,8 @@ class FaissHealthResponse(BaseModel):
     degraded: bool = False  # True if Faiss fell back to memory
     degraded_reason: str | None = None
     degraded_duration_seconds: float | None = None
+    degradation_history_count: int = 0  # Number of degradation events
+    degradation_history: list | None = None  # Recent degradation events (last 10)
 
 
 @router.get("/features/cache", response_model=FeatureCacheStatsResponse)
@@ -135,6 +137,8 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
         degraded=degraded_info["degraded"],
         degraded_reason=degraded_info["reason"],
         degraded_duration_seconds=degraded_info["degraded_duration_seconds"],
+        degradation_history_count=degraded_info["history_count"],
+        degradation_history=degraded_info["history"] if degraded_info["history"] else None,
     )
 
 

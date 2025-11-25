@@ -37,6 +37,10 @@ _VECTOR_DEGRADED: bool = False
 _VECTOR_DEGRADED_REASON: str | None = None
 _VECTOR_DEGRADED_AT: float | None = None
 
+# Degradation history (limited to last 10 events)
+_DEGRADATION_HISTORY: list[Dict[str, any]] = []
+_MAX_DEGRADATION_HISTORY = 10
+
 
 def register_vector(doc_id: str, vector: List[float], meta: Dict[str, str] | None = None) -> bool:
     """Register a vector.
@@ -586,12 +590,23 @@ def get_vector_store(backend: str | None = None) -> VectorStoreProtocol:
         try:
             store = FaissVectorStore()
             if not store._available:  # type: ignore
-                # Set degraded mode flags
-                global _VECTOR_DEGRADED, _VECTOR_DEGRADED_REASON, _VECTOR_DEGRADED_AT
+                # Set degraded mode flags and record history
+                global _VECTOR_DEGRADED, _VECTOR_DEGRADED_REASON, _VECTOR_DEGRADED_AT, _DEGRADATION_HISTORY
                 _VECTOR_DEGRADED = True
                 _VECTOR_DEGRADED_REASON = "Faiss library unavailable"
                 import time
                 _VECTOR_DEGRADED_AT = time.time()
+
+                # Record degradation event
+                _DEGRADATION_HISTORY.append({
+                    "timestamp": _VECTOR_DEGRADED_AT,
+                    "reason": _VECTOR_DEGRADED_REASON,
+                    "backend_requested": "faiss",
+                    "backend_actual": "memory",
+                })
+                # Keep only last N events
+                if len(_DEGRADATION_HISTORY) > _MAX_DEGRADATION_HISTORY:
+                    _DEGRADATION_HISTORY = _DEGRADATION_HISTORY[-_MAX_DEGRADATION_HISTORY:]
 
                 import logging
                 logging.getLogger(__name__).warning(
@@ -605,11 +620,22 @@ def get_vector_store(backend: str | None = None) -> VectorStoreProtocol:
                 )
                 store = InMemoryVectorStore()
         except Exception as e:
-            # Set degraded mode flags
+            # Set degraded mode flags and record history
             _VECTOR_DEGRADED = True
             _VECTOR_DEGRADED_REASON = f"Faiss initialization failed: {str(e)}"
             import time
             _VECTOR_DEGRADED_AT = time.time()
+
+            # Record degradation event
+            _DEGRADATION_HISTORY.append({
+                "timestamp": _VECTOR_DEGRADED_AT,
+                "reason": _VECTOR_DEGRADED_REASON,
+                "backend_requested": "faiss",
+                "backend_actual": "memory",
+                "error": str(e),
+            })
+            if len(_DEGRADATION_HISTORY) > _MAX_DEGRADATION_HISTORY:
+                _DEGRADATION_HISTORY = _DEGRADATION_HISTORY[-_MAX_DEGRADATION_HISTORY:]
 
             import logging
             logging.getLogger(__name__).warning(
@@ -641,19 +667,20 @@ def _matches_backend(store: VectorStoreProtocol, backend: str) -> bool:
 
 def reset_default_store() -> None:
     """Reset the cached default store (useful for testing)."""
-    global _DEFAULT_STORE, _VECTOR_DEGRADED, _VECTOR_DEGRADED_REASON, _VECTOR_DEGRADED_AT
+    global _DEFAULT_STORE, _VECTOR_DEGRADED, _VECTOR_DEGRADED_REASON, _VECTOR_DEGRADED_AT, _DEGRADATION_HISTORY
     _DEFAULT_STORE = None
-    # Reset degraded mode flags on store reset
+    # Reset degraded mode flags and history on store reset
     _VECTOR_DEGRADED = False
     _VECTOR_DEGRADED_REASON = None
     _VECTOR_DEGRADED_AT = None
+    _DEGRADATION_HISTORY = []
 
 
 def get_degraded_mode_info() -> Dict[str, any]:
-    """Get current degraded mode information.
+    """Get current degraded mode information including history.
 
     Returns:
-        Dictionary with degraded status, reason, and timestamp
+        Dictionary with degraded status, reason, timestamp, and history
     """
     return {
         "degraded": _VECTOR_DEGRADED,
@@ -663,4 +690,6 @@ def get_degraded_mode_info() -> Dict[str, any]:
             None if not _VECTOR_DEGRADED_AT
             else round(__import__("time").time() - _VECTOR_DEGRADED_AT, 2)
         ),
+        "history": _DEGRADATION_HISTORY.copy(),  # Return copy to prevent external modification
+        "history_count": len(_DEGRADATION_HISTORY),
     }

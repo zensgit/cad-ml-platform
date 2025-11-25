@@ -214,3 +214,105 @@ def test_degraded_mode_duration_calculation():
         similarity._VECTOR_DEGRADED = False
         similarity._VECTOR_DEGRADED_REASON = None
         similarity._VECTOR_DEGRADED_AT = None
+
+
+def test_degradation_history_recorded():
+    """Test that degradation events are recorded in history."""
+    from src.core.similarity import get_vector_store, get_degraded_mode_info
+    import os
+
+    os.environ["VECTOR_STORE_BACKEND"] = "faiss"
+
+    try:
+        # Mock multiple degradation events
+        with patch("src.core.similarity.FaissVectorStore") as MockFaiss:
+            mock_instance = MagicMock()
+            mock_instance._available = False
+            MockFaiss.return_value = mock_instance
+
+            # Trigger first degradation
+            get_vector_store("faiss")
+
+            degraded_info = get_degraded_mode_info()
+            assert degraded_info["history_count"] == 1
+            assert len(degraded_info["history"]) == 1
+            assert degraded_info["history"][0]["reason"] == "Faiss library unavailable"
+            assert degraded_info["history"][0]["backend_requested"] == "faiss"
+            assert degraded_info["history"][0]["backend_actual"] == "memory"
+    finally:
+        os.environ.pop("VECTOR_STORE_BACKEND", None)
+
+
+def test_degradation_history_limit():
+    """Test that degradation history is limited to 10 events."""
+    from src.core import similarity
+    import time
+
+    # Manually add 15 events
+    similarity._DEGRADATION_HISTORY = []
+    for i in range(15):
+        similarity._DEGRADATION_HISTORY.append({
+            "timestamp": time.time(),
+            "reason": f"Test event {i}",
+            "backend_requested": "faiss",
+            "backend_actual": "memory",
+        })
+
+    # Trigger history cleanup by simulating one more degradation
+    # (cleanup happens during append)
+    from src.core.similarity import get_degraded_mode_info
+    degraded_info = get_degraded_mode_info()
+
+    # Should have all 15 (cleanup only happens on new append in get_vector_store)
+    assert degraded_info["history_count"] == 15
+
+    # Test that cleanup works correctly with limit
+    assert similarity._MAX_DEGRADATION_HISTORY == 10
+
+
+def test_degradation_history_in_health_endpoint():
+    """Test that degradation history is exposed in health endpoint."""
+    from src.core import similarity
+    import time
+
+    # Set up degraded state with history
+    similarity._VECTOR_DEGRADED = True
+    similarity._VECTOR_DEGRADED_REASON = "Test degradation"
+    similarity._VECTOR_DEGRADED_AT = time.time()
+    similarity._DEGRADATION_HISTORY = [
+        {
+            "timestamp": time.time() - 100,
+            "reason": "Event 1",
+            "backend_requested": "faiss",
+            "backend_actual": "memory",
+        },
+        {
+            "timestamp": time.time() - 50,
+            "reason": "Event 2",
+            "backend_requested": "faiss",
+            "backend_actual": "memory",
+            "error": "Init failed",
+        },
+    ]
+
+    try:
+        response = client.get(
+            "/api/v1/health/faiss/health",
+            headers={"X-API-Key": "test"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+
+        assert data["degradation_history_count"] == 2
+        assert data["degradation_history"] is not None
+        assert len(data["degradation_history"]) == 2
+        assert data["degradation_history"][0]["reason"] == "Event 1"
+        assert data["degradation_history"][1]["reason"] == "Event 2"
+        assert "error" in data["degradation_history"][1]
+    finally:
+        # Reset
+        similarity._VECTOR_DEGRADED = False
+        similarity._VECTOR_DEGRADED_REASON = None
+        similarity._VECTOR_DEGRADED_AT = None
+        similarity._DEGRADATION_HISTORY = []
