@@ -353,7 +353,6 @@ def test_model_load_seq_increments():
         response1 = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
         assert response1.status_code == 200
         data1 = response1.json()
-        # Note: Health endpoint doesn't expose load_seq yet, but get_model_info returns it
 
         # Second load: seq = 1 (after successful reload)
         mock_info.return_value = {
@@ -386,3 +385,8 @@ def test_model_load_seq_increments():
         assert data1["version"] == "v1.0.0"
         assert data2["version"] == "v1.1.0"
         assert data3["version"] == "v1.2.0"
+
+        # Verify load_seq increments are exposed in API response
+        assert data1["load_seq"] == 0
+        assert data2["load_seq"] == 1
+        assert data3["load_seq"] == 2

@@ -98,17 +98,14 @@ def reload_model(path: str, expected_version: str | None = None, force: bool = F
     from src.utils.analysis_metrics import model_reload_total, model_security_fail_total
     import os
 
-    # Thread safety: acquire lock before any model state access
-    _MODEL_LOCK.acquire()
-    try:
+    # Thread safety: use context manager for automatic lock release
+    with _MODEL_LOCK:
         # Declare all globals at the beginning
         global _MODEL, _MODEL_VERSION, _MODEL_PATH, _MODEL_HASH, _MODEL_LOADED_AT, _MODEL_LAST_ERROR, _MODEL_LOAD_SEQ
         global _MODEL_PREV, _MODEL_PREV_HASH, _MODEL_PREV_VERSION, _MODEL_PREV_PATH
         global _MODEL_PREV2, _MODEL_PREV2_HASH, _MODEL_PREV2_VERSION, _MODEL_PREV2_PATH
 
         return _reload_model_impl(path, expected_version, force, model_reload_total, model_security_fail_total, os)
-    finally:
-        _MODEL_LOCK.release()
 
 
 def _reload_model_impl(path: str, expected_version: str | None, force: bool,

@@ -130,6 +130,7 @@ class ModelHealthResponse(BaseModel):
     last_error: str | None = None
     rollback_level: int = 0
     rollback_reason: str | None = None
+    load_seq: int = 0  # Monotonic load sequence for disambiguation
 
 
 @router.get("/health/model", response_model=ModelHealthResponse)
@@ -168,6 +169,7 @@ async def model_health(api_key: str = Depends(get_api_key)):
         last_error=info.get("last_error"),
         rollback_level=rollback_level,
         rollback_reason=info.get("rollback_reason"),
+        load_seq=info.get("load_seq", 0),
     )
 
 
