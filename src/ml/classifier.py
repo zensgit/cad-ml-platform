@@ -37,26 +37,63 @@ _MODEL_LOCK = threading.Lock()
 
 
 def load_model() -> None:
-    global _MODEL
+    """Thread-safe initial model load.
+
+    Uses double-checked locking pattern: check without lock first (fast path),
+    then acquire lock and check again to prevent race conditions.
+    """
+    global _MODEL, _MODEL_HASH, _MODEL_LOADED_AT, _MODEL_LOAD_SEQ
+
+    # Fast path: model already loaded (no lock needed)
     if _MODEL is not None:
         return
-    from src.utils.analysis_metrics import classification_model_load_total, classification_model_version_total
-    if not _MODEL_PATH.exists():
-        classification_model_load_total.labels(status="absent", version=_MODEL_VERSION).inc()
-        return
-    try:
-        with _MODEL_PATH.open("rb") as f:
-            _MODEL = pickle.load(f)
-        classification_model_load_total.labels(status="success", version=_MODEL_VERSION).inc()
-        classification_model_version_total.labels(version=_MODEL_VERSION).inc()
+
+    # Slow path: acquire lock for initial load
+    with _MODEL_LOCK:
+        # Double-check: another thread may have loaded while we waited for lock
+        if _MODEL is not None:
+            return
+
+        from src.utils.analysis_metrics import classification_model_load_total, classification_model_version_total
+        if not _MODEL_PATH.exists():
+            classification_model_load_total.labels(status="absent", version=_MODEL_VERSION).inc()
+            return
         try:
-            import hashlib
-            _MODEL_HASH = hashlib.sha256(_MODEL_PATH.read_bytes()).hexdigest()[:16]
-        except Exception:
-            _MODEL_HASH = None
-    except Exception:
-        _MODEL = None
-        classification_model_load_total.labels(status="error", version=_MODEL_VERSION).inc()
+            with _MODEL_PATH.open("rb") as f:
+                _MODEL = pickle.load(f)
+
+            import time as _t
+            _MODEL_LOADED_AT = _t.time()
+            _MODEL_LOAD_SEQ = 0  # Initial load is sequence 0
+
+            classification_model_load_total.labels(status="success", version=_MODEL_VERSION).inc()
+            classification_model_version_total.labels(version=_MODEL_VERSION).inc()
+
+            try:
+                import hashlib
+                _MODEL_HASH = hashlib.sha256(_MODEL_PATH.read_bytes()).hexdigest()[:16]
+            except Exception:
+                _MODEL_HASH = None
+
+            logger.info(
+                "Model initial load successful",
+                extra={
+                    "status": "initial_load",
+                    "version": _MODEL_VERSION,
+                    "hash": _MODEL_HASH,
+                    "load_seq": _MODEL_LOAD_SEQ,
+                }
+            )
+        except Exception as e:
+            _MODEL = None
+            classification_model_load_total.labels(status="error", version=_MODEL_VERSION).inc()
+            logger.error(
+                "Model initial load failed",
+                extra={
+                    "status": "initial_load_error",
+                    "error": str(e),
+                }
+            )
 
 
 def predict(vector: List[float]) -> Dict[str, Any]:
@@ -145,6 +182,7 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
             magic = f.read(2)
             # Pickle protocol 0-5 magic numbers
             valid_pickle_magics = [
+                b'\x80\x01',  # Protocol 1
                 b'\x80\x02',  # Protocol 2
                 b'\x80\x03',  # Protocol 3
                 b'\x80\x04',  # Protocol 4
@@ -154,6 +192,16 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
                 model_security_fail_total.labels(reason="magic_number_invalid").inc()
                 model_reload_total.labels(status="magic_invalid", version=str(expected_version or "unknown")).inc()
                 _MODEL_LAST_ERROR = f"Invalid pickle magic number: {magic.hex()}"
+
+                logger.warning(
+                    "Model reload rejected - invalid pickle magic number",
+                    extra={
+                        "status": "magic_invalid",
+                        "magic_bytes": magic.hex(),
+                        "error": f"Invalid pickle magic number: {magic.hex()}",
+                    }
+                )
+
                 return {
                     "status": "magic_invalid",
                     "message": "File does not appear to be a valid pickle file",
@@ -201,6 +249,20 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
             try:
                 for op, arg, pos in pickletools.genops(data):  # type: ignore
                     if op.name in blocked:
+                        # Record security error
+                        error_msg = f"Disallowed pickle opcode {op.name} at position {pos}"
+                        _MODEL_LAST_ERROR = error_msg
+
+                        logger.warning(
+                            "Model reload blocked by security scan",
+                            extra={
+                                "status": "security_blocked",
+                                "opcode": op.name,
+                                "position": pos,
+                                "error": error_msg,
+                            }
+                        )
+
                         model_security_fail_total.labels(reason="opcode_blocked").inc()
                         model_reload_total.labels(status="opcode_blocked", version=str(expected_version or _MODEL_VERSION)).inc()
                         return {
@@ -220,17 +282,41 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
         if not hasattr(obj, "predict"):
             raise ValueError("Model missing predict method")
         new_version = expected_version or _MODEL_VERSION
-        # Assign only after all validations pass
+
+        # Whitelist check BEFORE committing the model (check candidate_hash before assignment)
+        if allowed_hashes and candidate_hash not in allowed_hashes:
+            # Record error (model not yet modified)
+            error_msg = f"Hash {candidate_hash} not in whitelist {list(allowed_hashes)[:3]}"
+            _MODEL_LAST_ERROR = error_msg
+
+            # Log hash mismatch (no rollback needed - model unchanged)
+            logger.warning(
+                "Model reload hash mismatch - rejected before commit",
+                extra={
+                    "status": "hash_mismatch",
+                    "error": error_msg,
+                    "found_hash": candidate_hash,
+                    "expected_hashes": list(allowed_hashes)[:3],
+                    "current_version": _MODEL_VERSION,
+                    "load_seq": _MODEL_LOAD_SEQ,  # Unchanged
+                }
+            )
+
+            model_security_fail_total.labels(reason="hash_mismatch").inc()
+            model_reload_total.labels(status="hash_mismatch", version=str(expected_version or _MODEL_VERSION)).inc()
+            return {"status": "hash_mismatch", "expected_hashes": list(allowed_hashes), "found_hash": candidate_hash}
+
+        # All validations passed - commit the model
         _MODEL = obj
         _MODEL_PATH = p
         _MODEL_VERSION = new_version
         _MODEL_HASH = candidate_hash
         import time as _t
         _MODEL_LOADED_AT = _t.time()
-        _MODEL_LOAD_SEQ += 1  # Increment sequence on successful load
         _MODEL_LAST_ERROR = None  # Clear error on success
+        _MODEL_LOAD_SEQ += 1  # Increment ONLY after all validations pass
 
-        # Log successful reload
+        # Log successful reload (after increment)
         logger.info(
             "Model reload successful",
             extra={
@@ -241,17 +327,6 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
                 "path": str(_MODEL_PATH),
             }
         )
-
-        # Whitelist check after computing hash
-        if allowed_hashes and _MODEL_HASH not in allowed_hashes:
-            # Restore previous immediately, treat as security mismatch
-            _MODEL = _MODEL_PREV
-            _MODEL_HASH = _MODEL_PREV_HASH
-            _MODEL_VERSION = _MODEL_PREV_VERSION or _MODEL_VERSION
-            _MODEL_PATH = _MODEL_PREV_PATH or _MODEL_PATH
-            model_security_fail_total.labels(reason="hash_mismatch").inc()
-            model_reload_total.labels(status="hash_mismatch", version=str(expected_version or _MODEL_VERSION)).inc()
-            return {"status": "hash_mismatch", "expected_hashes": list(allowed_hashes), "found_hash": _MODEL_HASH}
         model_reload_total.labels(status="success", version=_MODEL_VERSION).inc()
         return {"status": "success", "model_version": _MODEL_VERSION, "hash": _MODEL_HASH}
     except Exception as e:
