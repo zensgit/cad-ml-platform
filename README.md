@@ -613,11 +613,29 @@ histogram_quantile(0.95, sum by (le, batch_size_range)(rate(vector_query_batch_l
 }
 ```
 
+**示例响应 - 二级回滚状态:**
+```json
+{
+  "status": "rollback",
+  "version": "v1.9.0",
+  "hash": "ghi789012def3456",
+  "path": "models/classifier_v1.9.pkl",
+  "loaded": true,
+  "loaded_at": 1732463800.789,
+  "uptime_seconds": 600.8,
+  "rollback_level": 2,
+  "rollback_reason": "Rolled back to level 2 snapshot after consecutive failures",
+  "last_error": "Model missing predict method",
+  "load_seq": 3
+}
+```
+
 **回滚机制:**
 - 系统维护3个模型快照：当前、前一版本(_PREV)、前两版本(_PREV2)
 - 当模型重载失败时，自动回滚到前一可用版本
 - 连续失败可回滚到二级快照（rollback_level=2）
 - 回滚后 `status` 变为 `"rollback"`，`last_error` 保留失败信息
+- `load_seq` 在回滚时保持不变（保留成功加载时的序列号）
 
 **指标:** `model_health_checks_total{status="ok|absent|rollback|error"}`
 
@@ -1928,11 +1946,12 @@ expr: sum(rate(feature_cache_hits_total[5m])) / (sum(rate(feature_cache_hits_tot
 当孤儿数量 >= threshold 或使用 `force=true` 时执行清理；`dry_run=true` 仅统计不删除。
 返回: `{"status":"cleaned|skipped|dry_run","cleaned":<数量>,"total_orphans_detected":<总数>}`。
 指标: `vector_cold_pruned_total{reason="orphan_cleanup"}`。
-### Faiss 健康检查
+### Faiss 健康检查与降级模式
 
-新增端点 `GET /api/v1/faiss/health` 返回:
+新增端点 `GET /api/v1/health/faiss/health` 返回 Faiss 索引状态和降级信息:
 
-```
+**正常状态示例:**
+```json
 {
   "available": true,
   "index_size": 120,
@@ -1941,11 +1960,57 @@ expr: sum(rate(feature_cache_hits_total[5m])) / (sum(rate(feature_cache_hits_tot
   "pending_delete": 3,
   "max_pending_delete": 100,
   "normalize": true,
-  "status": "ok"
+  "status": "ok",
+  "degraded": false,
+  "degraded_reason": null,
+  "degraded_duration_seconds": null,
+  "degradation_history_count": 0,
+  "degradation_history": null
 }
 ```
 
-用于运维查看索引向量规模、维度、距离上次导入/导出时间、待删除向量数量阈值情况。
+**降级状态示例 (Faiss 不可用，降级到内存):**
+```json
+{
+  "available": false,
+  "index_size": null,
+  "dim": null,
+  "age_seconds": null,
+  "pending_delete": null,
+  "max_pending_delete": null,
+  "normalize": null,
+  "status": "degraded",
+  "degraded": true,
+  "degraded_reason": "Faiss library unavailable",
+  "degraded_duration_seconds": 3600.5,
+  "degradation_history_count": 2,
+  "degradation_history": [
+    {
+      "timestamp": 1732460400.123,
+      "reason": "Faiss library unavailable",
+      "backend_requested": "faiss",
+      "backend_actual": "memory"
+    },
+    {
+      "timestamp": 1732464000.456,
+      "reason": "Faiss initialization failed: ModuleNotFoundError",
+      "backend_requested": "faiss",
+      "backend_actual": "memory",
+      "error": "ModuleNotFoundError: No module named 'faiss'"
+    }
+  ]
+}
+```
+
+**降级模式说明:**
+- 当 `VECTOR_STORE_BACKEND=faiss` 但 Faiss 库不可用或初始化失败时，系统自动降级到内存向量存储
+- `degraded=true` 标志表示当前处于降级模式
+- `degraded_reason` 说明降级原因（库不可用 / 初始化失败）
+- `degraded_duration_seconds` 显示降级持续时间
+- `degradation_history` 记录最近10次降级事件，包含时间戳、原因、请求/实际后端、错误信息
+- `status` 优先级: `degraded` > `unavailable` > `ok`
+
+用于运维查看索引向量规模、维度、距离上次导入/导出时间、待删除向量数量阈值情况以及降级状态监控。
 
 ### Feature Cache 统计
 
