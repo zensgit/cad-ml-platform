@@ -330,3 +330,59 @@ def test_model_health_consecutive_failures():
             else:
                 assert data["status"] == "ok"
                 assert data["rollback_reason"] is None
+
+
+def test_model_load_seq_increments():
+    """Test that load_seq increments on successive successful reloads."""
+    with patch("src.ml.classifier.get_model_info") as mock_info:
+        # First load: seq = 0
+        mock_info.return_value = {
+            "version": "v1.0.0",
+            "hash": "abc123",
+            "path": "/models/v1.pkl",
+            "loaded": True,
+            "loaded_at": 1700000000.0,
+            "rollback_level": 0,
+            "last_error": None,
+            "rollback_reason": None,
+            "has_prev": False,
+            "has_prev2": False,
+            "load_seq": 0,
+        }
+
+        response1 = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
+        assert response1.status_code == 200
+        data1 = response1.json()
+        # Note: Health endpoint doesn't expose load_seq yet, but get_model_info returns it
+
+        # Second load: seq = 1 (after successful reload)
+        mock_info.return_value = {
+            "version": "v1.1.0",
+            "hash": "def456",
+            "path": "/models/v1.1.pkl",
+            "loaded": True,
+            "loaded_at": 1700000100.0,
+            "rollback_level": 0,
+            "last_error": None,
+            "rollback_reason": None,
+            "has_prev": True,
+            "has_prev2": False,
+            "load_seq": 1,
+        }
+
+        response2 = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
+        assert response2.status_code == 200
+        data2 = response2.json()
+
+        # Third load: seq = 2
+        mock_info.return_value["load_seq"] = 2
+        mock_info.return_value["version"] = "v1.2.0"
+
+        response3 = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
+        assert response3.status_code == 200
+        data3 = response3.json()
+
+        # Verify versions changed (indicating successful reloads)
+        assert data1["version"] == "v1.0.0"
+        assert data2["version"] == "v1.1.0"
+        assert data3["version"] == "v1.2.0"

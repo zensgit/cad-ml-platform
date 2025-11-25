@@ -91,12 +91,29 @@ def reload_model(path: str, expected_version: str | None = None, force: bool = F
     3. Size limit validation
     4. Interface validation (has predict method)
 
+    Thread-safe: Uses _MODEL_LOCK to prevent concurrent modifications.
+
     Returns structured status dict.
     """
     from src.utils.analysis_metrics import model_reload_total, model_security_fail_total
     import os
 
-    # Declare all globals at the beginning (TODO: Add _MODEL_LOCK for thread safety)
+    # Thread safety: acquire lock before any model state access
+    _MODEL_LOCK.acquire()
+    try:
+        # Declare all globals at the beginning
+        global _MODEL, _MODEL_VERSION, _MODEL_PATH, _MODEL_HASH, _MODEL_LOADED_AT, _MODEL_LAST_ERROR, _MODEL_LOAD_SEQ
+        global _MODEL_PREV, _MODEL_PREV_HASH, _MODEL_PREV_VERSION, _MODEL_PREV_PATH
+        global _MODEL_PREV2, _MODEL_PREV2_HASH, _MODEL_PREV2_VERSION, _MODEL_PREV2_PATH
+
+        return _reload_model_impl(path, expected_version, force, model_reload_total, model_security_fail_total, os)
+    finally:
+        _MODEL_LOCK.release()
+
+
+def _reload_model_impl(path: str, expected_version: str | None, force: bool,
+                       model_reload_total, model_security_fail_total, os) -> Dict[str, Any]:
+    """Internal implementation of reload_model (assumes lock is held)."""
     global _MODEL, _MODEL_VERSION, _MODEL_PATH, _MODEL_HASH, _MODEL_LOADED_AT, _MODEL_LAST_ERROR, _MODEL_LOAD_SEQ
     global _MODEL_PREV, _MODEL_PREV_HASH, _MODEL_PREV_VERSION, _MODEL_PREV_PATH
     global _MODEL_PREV2, _MODEL_PREV2_HASH, _MODEL_PREV2_VERSION, _MODEL_PREV2_PATH
