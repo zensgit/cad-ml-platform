@@ -32,6 +32,11 @@ _TTL_SECONDS = int(os.getenv("VECTOR_TTL_SECONDS", "0"))  # 0 = disabled
 _VECTOR_TS: Dict[str, float] = {}
 _VECTOR_LAST_ACCESS: Dict[str, float] = {}
 
+# Degraded mode flag: set when Faiss falls back to memory
+_VECTOR_DEGRADED: bool = False
+_VECTOR_DEGRADED_REASON: str | None = None
+_VECTOR_DEGRADED_AT: float | None = None
+
 
 def register_vector(doc_id: str, vector: List[float], meta: Dict[str, str] | None = None) -> bool:
     """Register a vector.
@@ -266,6 +271,7 @@ __all__ = [
     "last_vector_error",
     "get_vector_store",
     "reset_default_store",
+    "get_degraded_mode_info",
 ]
 
 
@@ -580,12 +586,42 @@ def get_vector_store(backend: str | None = None) -> VectorStoreProtocol:
         try:
             store = FaissVectorStore()
             if not store._available:  # type: ignore
+                # Set degraded mode flags
+                global _VECTOR_DEGRADED, _VECTOR_DEGRADED_REASON, _VECTOR_DEGRADED_AT
+                _VECTOR_DEGRADED = True
+                _VECTOR_DEGRADED_REASON = "Faiss library unavailable"
+                import time
+                _VECTOR_DEGRADED_AT = time.time()
+
                 import logging
-                logging.getLogger(__name__).warning("Faiss unavailable, falling back to memory store")
+                logging.getLogger(__name__).warning(
+                    "Faiss unavailable, falling back to memory store",
+                    extra={
+                        "degraded": True,
+                        "reason": _VECTOR_DEGRADED_REASON,
+                        "backend_requested": "faiss",
+                        "backend_actual": "memory",
+                    }
+                )
                 store = InMemoryVectorStore()
-        except Exception:
+        except Exception as e:
+            # Set degraded mode flags
+            _VECTOR_DEGRADED = True
+            _VECTOR_DEGRADED_REASON = f"Faiss initialization failed: {str(e)}"
+            import time
+            _VECTOR_DEGRADED_AT = time.time()
+
             import logging
-            logging.getLogger(__name__).warning("Faiss initialization failed, falling back to memory store")
+            logging.getLogger(__name__).warning(
+                "Faiss initialization failed, falling back to memory store",
+                extra={
+                    "degraded": True,
+                    "reason": _VECTOR_DEGRADED_REASON,
+                    "backend_requested": "faiss",
+                    "backend_actual": "memory",
+                    "error": str(e),
+                }
+            )
             store = InMemoryVectorStore()
     else:
         store = InMemoryVectorStore()
@@ -605,5 +641,26 @@ def _matches_backend(store: VectorStoreProtocol, backend: str) -> bool:
 
 def reset_default_store() -> None:
     """Reset the cached default store (useful for testing)."""
-    global _DEFAULT_STORE
+    global _DEFAULT_STORE, _VECTOR_DEGRADED, _VECTOR_DEGRADED_REASON, _VECTOR_DEGRADED_AT
     _DEFAULT_STORE = None
+    # Reset degraded mode flags on store reset
+    _VECTOR_DEGRADED = False
+    _VECTOR_DEGRADED_REASON = None
+    _VECTOR_DEGRADED_AT = None
+
+
+def get_degraded_mode_info() -> Dict[str, any]:
+    """Get current degraded mode information.
+
+    Returns:
+        Dictionary with degraded status, reason, and timestamp
+    """
+    return {
+        "degraded": _VECTOR_DEGRADED,
+        "reason": _VECTOR_DEGRADED_REASON,
+        "degraded_at": _VECTOR_DEGRADED_AT,
+        "degraded_duration_seconds": (
+            None if not _VECTOR_DEGRADED_AT
+            else round(__import__("time").time() - _VECTOR_DEGRADED_AT, 2)
+        ),
+    }

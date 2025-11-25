@@ -33,6 +33,9 @@ class FaissHealthResponse(BaseModel):
     status: str
     last_rebuild_status: str | None = None
     last_error: str | None = None
+    degraded: bool = False  # True if Faiss fell back to memory
+    degraded_reason: str | None = None
+    degraded_duration_seconds: float | None = None
 
 
 @router.get("/features/cache", response_model=FeatureCacheStatsResponse)
@@ -82,6 +85,7 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
         FaissVectorStore,
         _FAISS_LAST_EXPORT_TS,
         _FAISS_LAST_IMPORT,
+        get_degraded_mode_info,
     )
     import time
 
@@ -102,9 +106,21 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
     pending = len(_FAISS_PENDING_DELETE) if available else None
     store = FaissVectorStore()
     normalize = store._normalize if available else None  # type: ignore[attr-defined]
-    status = "ok" if available else "unavailable"
+
+    # Get degraded mode information
+    degraded_info = get_degraded_mode_info()
+
+    # Determine status: degraded > unavailable > ok
+    if degraded_info["degraded"]:
+        status = "degraded"
+    elif not available:
+        status = "unavailable"
+    else:
+        status = "ok"
+
     last_rebuild_status = globals().get("_FAISS_LAST_REBUILD_STATUS")
     last_error = globals().get("_FAISS_LAST_ERROR")
+
     return FaissHealthResponse(
         available=available,
         index_size=size,
@@ -116,6 +132,9 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
         status=status,
         last_rebuild_status=str(last_rebuild_status) if last_rebuild_status else None,
         last_error=str(last_error) if last_error else None,
+        degraded=degraded_info["degraded"],
+        degraded_reason=degraded_info["reason"],
+        degraded_duration_seconds=degraded_info["degraded_duration_seconds"],
     )
 
 
