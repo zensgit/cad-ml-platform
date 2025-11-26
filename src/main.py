@@ -27,7 +27,7 @@ from src.utils.logging import setup_logging
 from src.utils.metrics import get_ocr_error_rate_ema, get_vision_error_rate_ema
 from src.api.health_resilience import get_resilience_health
 from src.core.similarity import background_prune_task
-from src.core.similarity import FaissVectorStore, _FAISS_IMPORTED, load_recovery_state  # type: ignore
+from src.core.similarity import FaissVectorStore, load_recovery_state  # type: ignore
 from src.tasks.orphan_scan import orphan_scan_loop
 
 # 设置日志

@@ -5,7 +5,7 @@ All functions degrade gracefully without raising; used by analysis pipeline and 
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, Tuple
+from typing import Dict, Iterable
 import math
 
 EPS = 1e-9

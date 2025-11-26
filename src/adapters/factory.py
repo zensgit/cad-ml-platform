@@ -148,7 +148,6 @@ class StepIgesAdapter(_BaseAdapter):
         bbox = BoundingBox()
         metadata: Dict[str, Any] = {"parser": "stub"}
         try:
-            from io import BytesIO
             from OCC.Core.STEPControl import STEPControl_Reader  # type: ignore
             from OCC.Core.IFSelect import IFSelect_RetDone  # type: ignore
             from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox  # type: ignore

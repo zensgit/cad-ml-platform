@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import os
 import time
-from typing import Dict
 
 from src.utils.analysis_metrics import vector_orphan_total, vector_orphan_scan_last_seconds
 from src.utils.cache import get_client

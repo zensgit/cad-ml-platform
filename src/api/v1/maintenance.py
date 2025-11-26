@@ -4,7 +4,7 @@ Maintenance API endpoints
 """
 
 import logging
-from typing import List, Optional
+from typing import List
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
 

@@ -8,7 +8,6 @@ from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass, field
 from datetime import datetime
 import logging
-import json
 
 from .circuit_breaker import CircuitBreaker, CircuitState
 from .rate_limiter import RateLimiter

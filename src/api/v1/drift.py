@@ -12,7 +12,6 @@ router = APIRouter()
 
 # Drift state will be imported from analyze module to reuse existing structure
 from src.api.v1 import analyze as analyze_module  # type: ignore
-from src.utils.analysis_metrics import drift_baseline_refresh_total
 
 
 class DriftStatusResponse(BaseModel):

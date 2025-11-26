@@ -398,8 +398,7 @@ async def preview_migration(
 async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(get_api_key)):
     from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
     from src.core.feature_extractor import FeatureExtractor
-    from src.utils.cache import get_cached_result
-    import uuid, time, os
+    import uuid
     # Validate target version early
     allowed_versions = {"v1", "v2", "v3", "v4"}
     if payload.to_version not in allowed_versions:

@@ -8,7 +8,7 @@ import threading
 from enum import Enum
 from typing import Callable, Optional, Any, Dict
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,7 +23,6 @@ class CircuitState(Enum):
 
 class CircuitBreakerError(Exception):
     """熔断器异常"""
-    pass
 
 
 @dataclass

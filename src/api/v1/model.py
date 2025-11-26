@@ -6,11 +6,10 @@ Model management API endpoints
 from __future__ import annotations
 import logging
 from typing import Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key, get_admin_token
-from src.core.errors_extended import ErrorCode, create_extended_error
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -79,7 +78,7 @@ async def model_reload(
         )
         # When audit mode is active, include audit snapshot
         from src.ml.classifier import get_opcode_audit_snapshot  # type: ignore
-        audit = get_opcode_audit_snapshot()
+        get_opcode_audit_snapshot()
         return ModelReloadResponse(
             status="success",
             model_version=result.get("model_version"),

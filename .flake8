@@ -3,6 +3,12 @@ max-line-length = 100
 extend-ignore = E203,W503
 exclude = .venv,dist,build,.mypy_cache,.pytest_cache
 per-file-ignores = \
+    src/api/v1/analyze.py:E501, \
+    src/api/v1/health.py:E501, \
+    src/api/v1/model.py:E501, \
+    src/core/similarity.py:E501,E741, \
+    src/core/feature_cache.py:E501, \
+    src/core/feature_extractor.py:E501, \
     src/core/ocr/providers/deepseek_hf.py:E501,E402, \
     src/core/vision/providers/deepseek_stub.py:E501, \
     scripts/snapshot_baseline.py:E501, \

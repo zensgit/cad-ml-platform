@@ -6,7 +6,7 @@ Enhanced Resilience Decorators
 import functools
 import asyncio
 import time
-from typing import Callable, Any, Optional, Dict, TypeVar, Union
+from typing import Callable, Any, Optional, Dict, TypeVar
 from dataclasses import dataclass
 from prometheus_client import Counter, Histogram, Gauge
 import logging

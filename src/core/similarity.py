@@ -7,7 +7,7 @@ Later phases can replace with persistent / ANN index (Faiss, Milvus etc.).
 from __future__ import annotations
 
 from math import sqrt
-from typing import Dict, List, Protocol, Iterable
+from typing import Dict, List, Protocol
 import os
 from src.utils.cache import get_client
 from src.utils.analysis_metrics import (
@@ -17,10 +17,9 @@ from src.utils.analysis_metrics import (
     vector_store_material_total,
     faiss_index_size,
     faiss_init_errors_total,
+    faiss_index_age_seconds,
     vector_query_backend_total,
     similarity_degraded_total,
-    faiss_recovery_attempts_total,
-    faiss_degraded_duration_seconds,
     faiss_recovery_state_backend,
     faiss_recovery_suppression_remaining_seconds,
 )
@@ -285,7 +284,6 @@ class InMemoryVectorStore(VectorStoreProtocol):
     def query(self, vector: List[float], top_k: int = 5) -> List[tuple[str, float]]:
         results: List[tuple[str, float]] = []
         self._prune()
-        keys: Iterable[str]
         if _BACKEND == "redis":
             client = get_client()
             if client is not None:
@@ -504,7 +502,6 @@ class FaissVectorStore(VectorStoreProtocol):
                         faiss_rebuild_backoff_seconds.set(_FAISS_REBUILD_BACKOFF)
                         globals()["_FAISS_LAST_REBUILD_STATUS"] = "error"
                         globals()["_FAISS_LAST_ERROR"] = str(e)
-                        pass
 
     def rebuild(self) -> bool:
         global _FAISS_INDEX, _FAISS_ID_MAP, _FAISS_REVERSE_MAP, _FAISS_PENDING_DELETE, _FAISS_DIM
@@ -571,8 +568,7 @@ class FaissVectorStore(VectorStoreProtocol):
             norm = np.linalg.norm(arr)
             if norm > 0:
                 arr = arr / norm
-        import faiss  # type: ignore
-        D, I = _FAISS_INDEX.search(arr.reshape(1, _FAISS_DIM), top_k)  # type: ignore
+        D, I = _FAISS_INDEX.search(arr.reshape(1, _FAISS_DIM), top_k)  # type: ignore  # noqa: E741
         results: List[tuple[str, float]] = []
         for dist, idx in zip(D[0], I[0]):
             if idx == -1:
@@ -600,7 +596,7 @@ class FaissVectorStore(VectorStoreProtocol):
             global _FAISS_LAST_EXPORT_SIZE
             import time
             _FAISS_LAST_EXPORT_SIZE = _FAISS_INDEX.ntotal  # type: ignore
-            _FAISS_LAST_EXPORT_TS = time.time()
+            time.time()
             return True
         except Exception:
             faiss_export_total.labels(status="error").inc()
@@ -871,7 +867,6 @@ def attempt_faiss_recovery(now: float | None = None) -> bool:
             else:
                 # still degraded; schedule next attempt
                 faiss_recovery_attempts_total.labels(result="error").inc()
-                import math
                 backoff = min(max(_FAISS_RECOVERY_INTERVAL_SECONDS, 60.0) * _FAISS_RECOVERY_BACKOFF_MULTIPLIER, _FAISS_RECOVERY_MAX_BACKOFF)
                 _FAISS_NEXT_RECOVERY_TS = n + backoff
                 _persist_recovery_state()

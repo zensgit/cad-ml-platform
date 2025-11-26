@@ -5,7 +5,7 @@ Bulkhead Pattern Implementation
 
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, Future, TimeoutError as FutureTimeoutError
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Callable, Optional, Any, Dict
 from dataclasses import dataclass
 from datetime import datetime
@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 class BulkheadError(Exception):
     """隔板异常"""
-    pass
 
 
 @dataclass
@@ -40,12 +39,10 @@ class BulkheadStrategy(ABC):
     @abstractmethod
     def execute(self, func: Callable, *args, **kwargs) -> Any:
         """执行函数调用"""
-        pass
 
     @abstractmethod
     def get_stats(self) -> Dict[str, Any]:
         """获取统计信息"""
-        pass
 
 
 class ThreadPoolBulkhead(BulkheadStrategy):
@@ -295,7 +292,7 @@ class Bulkhead:
                 self._emit_metrics("rejected", time.time() - start_time)
             raise
 
-        except Exception as e:
+        except Exception:
             self._emit_metrics("failure", time.time() - start_time)
             raise
 

@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -21,7 +23,12 @@ from src.core.ocr.manager import OcrManager
 from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
 from src.core.ocr.providers.paddle import PaddleOcrProvider
 from src.utils.cache import cache_result, get_cached_result, set_cache
-from src.core.similarity import register_vector, compute_similarity, has_vector, FaissVectorStore, InMemoryVectorStore
+from src.core.similarity import (
+    register_vector,
+    compute_similarity,
+    has_vector,
+    FaissVectorStore,
+)
 from src.models.cad_document import CadDocument
 from src.utils.analysis_metrics import (
     analysis_requests_total,
@@ -32,7 +39,6 @@ from src.utils.analysis_metrics import (
     analysis_rejections_total,
     analysis_error_code_total,
     analysis_parse_latency_budget_ratio,
-    vector_stats_requests_total,
     process_rule_version_total,
     classification_latency_seconds,
     process_recommend_latency_seconds,
@@ -42,9 +48,6 @@ from src.utils.analysis_metrics import (
     material_distribution_drift_score,
 )
 from src.core.errors_extended import (
-    ErrorCode,
-    create_extended_error,
-    build_error,
     create_migration_error,
 )
 
@@ -452,7 +455,7 @@ async def analyze_cad_file(
             if not ok_deep:
                 format_validation_fail_total.labels(format=file_format, reason=reason_deep).inc()
                 analysis_rejections_total.labels(reason="deep_format_invalid").inc()
-                from src.core.errors_extended import create_extended_error, ErrorCode
+                from src.core.errors_extended import ErrorCode
                 from src.core.errors_extended import build_error, ErrorCode
                 err = build_error(
                     ErrorCode.INPUT_FORMAT_INVALID,
@@ -468,7 +471,7 @@ async def analyze_cad_file(
             if not ok_matrix:
                 format_validation_fail_total.labels(format=file_format, reason=reason_matrix).inc()
                 analysis_rejections_total.labels(reason="matrix_format_invalid").inc()
-                from src.core.errors_extended import create_extended_error, ErrorCode
+                from src.core.errors_extended import ErrorCode
                 from src.core.errors_extended import build_error, ErrorCode
                 err = build_error(
                     ErrorCode.INPUT_FORMAT_INVALID,

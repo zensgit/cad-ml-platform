@@ -3,13 +3,11 @@ Resilience Metrics Collection
 弹性指标收集和监控
 """
 
-import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from collections import defaultdict, deque
 import threading
-import json
 
 
 @dataclass

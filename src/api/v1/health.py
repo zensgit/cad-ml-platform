@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Optional, List, Dict
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key, get_admin_token
-from fastapi import HTTPException
 
 router = APIRouter()
 
@@ -374,7 +372,7 @@ async def faiss_health_alias(api_key: str = Depends(get_api_key)):
 @router.post("/faiss/recover")
 async def faiss_manual_recover(api_key: str = Depends(get_api_key)):
     """Manually trigger a Faiss recovery attempt (respects backoff)."""
-    from src.core.similarity import attempt_faiss_recovery, _FAISS_MANUAL_RECOVERY_IN_PROGRESS
+    from src.core.similarity import attempt_faiss_recovery
     # Mark manual recovery in progress to coordinate with background loop
     try:
         globals()["_FAISS_MANUAL_RECOVERY_IN_PROGRESS"] = True

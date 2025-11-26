@@ -34,16 +34,26 @@ def load_exports() -> set[str]:
     names = {a or b for a, b in items}
     return names
 
-def parse_yaml_metrics(path: Path) -> set[str]:
-    """Extract metric names from Prometheus rule expressions.
-    Heuristic: capture tokens immediately preceding '{' or '(' which denote a metric.
+def _extract_metrics(expr: str) -> set[str]:
+    """Extract metric names by matching identifiers immediately before '{' or '('.
+    This avoids capturing label keys/values inside braces.
     """
+    candidates = set(re.findall(r"([a-zA-Z_][a-zA-Z0-9_]*)\s*(?=\{|\()", expr))
+    ignore = {
+        # functions
+        "rate", "sum", "increase", "histogram_quantile", "avg", "max", "min", "count",
+        "irate", "avg_over_time", "sum_over_time", "stddev_over_time", "stdvar_over_time",
+        "time", "scalar", "changes", "delta", "idelta",
+    }
+    return {m for m in candidates if m not in ignore}
+
+
+def parse_yaml_metrics(path: Path) -> set[str]:
     names: set[str] = set()
     for line in path.read_text(encoding="utf-8").splitlines():
         if "expr:" in line:
-            for metric in re.findall(r"([a-zA-Z_][a-zA-Z0-9_]*)\s*(?=\{|\()", line):
-                if metric not in {"rate", "sum", "increase", "histogram_quantile"}:
-                    names.add(metric)
+            expr = line.split("expr:", 1)[1]
+            names |= _extract_metrics(expr)
     return names
 
 def parse_json_metrics(path: Path) -> set[str]:
@@ -52,9 +62,8 @@ def parse_json_metrics(path: Path) -> set[str]:
     for panel in data.get("panels", []):
         for tgt in panel.get("targets", []):
             expr = tgt.get("expr", "")
-            for metric in re.findall(r"([a-zA-Z_][a-zA-Z0-9_]*)\s*(?=\{|\()", expr):
-                if metric not in {"rate", "sum", "increase", "histogram_quantile"}:
-                    names.add(metric)
+            if expr:
+                names |= _extract_metrics(expr)
     return names
 
 def main() -> None:
