@@ -375,7 +375,7 @@ drift_baseline_created_total = Counter(
 drift_baseline_refresh_total = Counter(
     "drift_baseline_refresh_total",
     "Total times drift baseline refreshed (manual or auto)",
-    ["type", "trigger"],  # type: material|prediction, trigger: manual|auto|stale
+    ["type", "trigger"],  # labels - type: material|prediction, trigger: manual|auto|stale
 )
 model_security_fail_total = Counter(
     "model_security_fail_total",
