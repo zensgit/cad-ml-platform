@@ -1,0 +1,49 @@
+{
+  "title": "CAD ML - Recovery ETA & Suppression",
+  "schemaVersion": 36,
+  "version": 1,
+  "time": { "from": "now-6h", "to": "now" },
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Next Recovery ETA (seconds)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        { "expr": "faiss_next_recovery_eta_seconds", "legendFormat": "ETA" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["last"] } }
+    },
+    {
+      "type": "graph",
+      "title": "Recovery Suppressed Count",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        { "expr": "increase(faiss_recovery_suppressed_total[1h])", "legendFormat": "suppressed" }
+      ],
+      "lines": true,
+      "linewidth": 2
+    },
+    {
+      "type": "stat",
+      "title": "Recovery State Backend",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        { "expr": "faiss_recovery_state_backend", "legendFormat": "backend" }
+      ],
+      "options": { "reduceOptions": { "calcs": ["last"] }, "orientation": "horizontal" },
+      "fieldConfig": {
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "backend" },
+            "properties": [
+              { "id": "custom.displayMode", "value": "gradient" }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "templating": { "list": [] },
+  "annotations": { "list": [] }
+}
