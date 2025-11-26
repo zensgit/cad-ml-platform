@@ -465,7 +465,7 @@
 #### 任务 5.1: 迁移工具preview端点
 - [ ] 扩展 `src/api/v1/vectors.py` 或新建 `src/api/v1/migrate.py`
   ```python
-  @router.post("/vectors/migrate/preview")
+  @router.get("/migrate/preview")  # 已更新: 预览迁移改为GET并挂载在 /api/v1/vectors/migrate/preview
   async def migrate_preview(
       from_version: str,
       to_version: str,

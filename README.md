@@ -1,4 +1,5 @@
 # 🤖 CAD ML Platform - 智能CAD分析微服务平台
+![Stress & Metrics Validation](https://github.com/OWNER/REPO/actions/workflows/stress-tests.yml/badge.svg)
 
 ## 目录
 - 项目概述
@@ -196,6 +197,101 @@ kubectl apply -f deployments/kubernetes/
 ```bash
 # 运行评估
 make eval                    # 执行 Vision+OCR 联合评估
+
+---
+
+## 🔥 压力测试脚本 (Stress Test Scripts)
+
+- `scripts/stress_concurrency_reload.py`：并发触发模型重载，验证 `_MODEL_LOCK` 串行化与 `load_seq` 单调性。
+- `scripts/stress_memory_gc_check.py`：在合成负载下检查内存与 GC 稳定性。
+- `scripts/stress_degradation_flapping.py`：降级/恢复抖动观测；验证历史记录上限（≤10）与降级持续时间指标。
+
+## CI：压力与可观测性工作流
+
+- GitHub Actions 工作流 `/.github/workflows/stress-tests.yml` 会执行：
+  - 指标导出校验：`scripts/verify_metrics_export.py`，确保 `src/utils/analysis_metrics.py::__all__` 包含必需指标。
+  - Prometheus 规则验证：使用 `promtool` 检查 `prometheus/rules/cad_ml_phase5_alerts.yaml`。
+  - Grafana 仪表盘 JSON 语法校验：`grafana/dashboards/observability.json`。
+  - 目标测试集：v4 延迟指标、降级健康响应、迁移预览统计。
+
+## 恢复持久化与健康字段
+
+- 健康端点 (`GET /api/v1/health/faiss/health`) 暴露：
+  - `degraded`：是否处于降级状态
+  - `degradation_history_count`：历史事件数量（上限 10）
+  - `next_recovery_eta`：下一次自动恢复尝试的时间戳（epoch 秒）
+  - `manual_recovery_in_progress`：手动恢复协调标志
+- 恢复状态持久化支持文件与可选 Redis 后端：
+  - `FAISS_RECOVERY_STATE_BACKEND`：`file` 或 `redis`
+  - `FAISS_RECOVERY_STATE_PATH`：当为 `file` 时的持久化路径
+
+---
+
+## 📎 开发计划与报告
+
+参阅以下文档以获取分阶段路线图、变更日志与验收标准：
+- `docs/DETAILED_DEVELOPMENT_PLAN.md`
+- `docs/DEVELOPMENT_REPORT_FINAL.md`
+- `docs/DEVELOPMENT_SUMMARY_FINAL.md`
+
+## 🔥 压力测试脚本 (Stress Test Scripts)
+
+- `scripts/stress_concurrency_reload.py`: 并发触发 `/api/v1/model/reload` 验证 `_MODEL_LOCK` 串行化与 `load_seq` 单调性。
+- `scripts/stress_memory_gc_check.py`: 内存/GC 压力检测，输出 RSS 与 GC 时延概览。
+- `scripts/stress_degradation_flapping.py`: 降级状态翻转观测，检查历史上限（≤10）与降级持续时间指标。
+- 集成测试：`tests/integration/test_stress_stability.py` 提供端到端压力场景覆盖。
+
+## 📈 可观测性资产
+
+- Prometheus 告警规则：`prometheus/rules/cad_ml_phase5_alerts.yaml`（降级/恢复、安全、缓存、特征、压力、迁移）。
+- Grafana 仪表盘：`grafana/dashboards/observability.json`（向量存储健康、特征提取、缓存性能、模型安全、迁移面板）。
+- 指标一致性校验：`scripts/verify_metrics_export.py` 校验关键指标是否在 `src/utils/analysis_metrics.py::__all__` 中导出。
+
+## 🛠 恢复持久化与健康 ETA
+
+- 恢复状态后端：`FAISS_RECOVERY_STATE_BACKEND` 可选 `file`|`redis`，默认 `file`。
+- 文件落盘路径：`FAISS_RECOVERY_STATE_PATH` 持久化回退/ETA 状态。
+- 健康端点暴露 `next_recovery_eta` 与 `manual_recovery_in_progress`。
+- 抖动抑制参数：`FAISS_RECOVERY_FLAP_THRESHOLD`、`FAISS_RECOVERY_FLAP_WINDOW_SECONDS`、`FAISS_RECOVERY_SUPPRESSION_SECONDS`。
+
+### 恢复抑制 (Flapping Protection)
+
+当在 `FAISS_RECOVERY_FLAP_WINDOW_SECONDS` 时间窗口内降级事件次数 ≥ `FAISS_RECOVERY_FLAP_THRESHOLD`，系统进入抑制窗口（持续 `FAISS_RECOVERY_SUPPRESSION_SECONDS` 秒），跳过自动恢复以避免频繁重建与资源抖动。
+
+环境变量 (默认值)：
+
+| 变量 | 默认 | 说明 |
+|------|------|------|
+| `FAISS_RECOVERY_FLAP_THRESHOLD` | 3 | 在窗口内触发抑制的降级事件阈值 |
+| `FAISS_RECOVERY_FLAP_WINDOW_SECONDS` | 900 | 统计降级事件的滚动窗口 (秒) |
+| `FAISS_RECOVERY_SUPPRESSION_SECONDS` | 300 | 抑制窗口持续时间 |
+| `FAISS_RECOVERY_INTERVAL_SECONDS` | 300 | 正常恢复基础间隔 |
+| `FAISS_RECOVERY_MAX_BACKOFF` | 3600 | 恢复最大退避上限 |
+| `FAISS_RECOVERY_BACKOFF_MULTIPLIER` | 2 | 失败退避乘数 |
+| `FAISS_RECOVERY_STATE_BACKEND` | file | 状态持久化后端 (file 或 redis) |
+| `FAISS_RECOVERY_STATE_PATH` | data/faiss_recovery_state.json | file 后端存储路径 |
+
+关键指标：
+
+| 指标 | 类型 | 描述 |
+|------|------|------|
+| `faiss_recovery_suppressed_total{reason="flapping"}` | Counter | 因抖动被抑制的恢复尝试次数 |
+| `faiss_recovery_attempts_total{result="suppressed"}` | Counter | 被抑制跳过的恢复尝试（细分自 skipped） |
+| `faiss_next_recovery_eta_seconds` | Gauge | 下次计划自动恢复时间戳 (成功恢复或未调度时为 0) |
+| `faiss_degraded_duration_seconds` | Gauge | 当前降级持续秒数 (健康为 0) |
+
+Runbook: 详见 `docs/RUNBOOK_FLAPPING.md`（快速诊断、阈值调整、手动恢复、持久化校验）。
+
+### Redis 恢复后端配置
+
+将恢复状态持久化到 Redis 以在多副本之间共享：
+
+```bash
+export FAISS_RECOVERY_STATE_BACKEND=redis
+export REDIS_URL=redis://127.0.0.1:6379/0
+```
+
+当 Redis 不可用时自动回退到 `file` 后端（`FAISS_RECOVERY_STATE_PATH`）。
 
 # 生成报告
 make eval-report-v2          # 生成交互式报告（推荐）
@@ -2052,6 +2148,10 @@ expr: sum(rate(feature_cache_hits_total[5m])) / (sum(rate(feature_cache_hits_tot
   - `similarity_degraded_total{event="degraded|restored"}`：降级/恢复事件计数。
   - `faiss_recovery_attempts_total{result="success|skipped|error"}`：自动/手动恢复尝试结果。
   - `faiss_degraded_duration_seconds`：当前降级持续时间（健康时为 0）。
+  - `faiss_next_recovery_eta_seconds`：下次自动恢复计划时间戳（成功恢复或未计划时为 0）。
+  - `faiss_recovery_suppressed_total{reason="flapping"}`：由于抖动被抑制的恢复次数。
+  - `faiss_recovery_state_backend{backend}`：当前恢复状态持久化后端（`file` 或 `redis`）。
+  - `process_start_time_seconds`：进程启动时间（用于告警静默窗口条件）。
 
 - 建议 Prometheus 规则（示例）：
 
@@ -2154,7 +2254,7 @@ export STRESS_API_KEY=your-api-key
 
 降级状态翻转观测脚本，监控 Faiss 可用性切换时的指标一致性。
 
-> **数据源说明**: 脚本优先使用健康端点 (`/api/v1/health/vectors`) 的 `degradation_history_count` 字段（权威来源，限制 ≤10），Prometheus `/metrics` 用于获取 `similarity_degraded_total` 计数器和 `faiss_degraded_duration_seconds` 时长指标。
+> **数据源说明**: 脚本优先使用健康端点 (`/api/v1/health/faiss/health`) 的 `degradation_history_count` 字段（权威来源，限制 ≤10），Prometheus `/metrics` 用于获取 `similarity_degraded_total` 计数器、`faiss_degraded_duration_seconds` 时长指标，以及 `faiss_next_recovery_eta_seconds` ETA（成功恢复后应重置为 0）。
 
 ```bash
 # 基本用法
@@ -2172,7 +2272,7 @@ python scripts/stress_degradation_flapping.py --url http://staging:8000 --cycles
 - `similarity_degraded_total{event="degraded|restored"}` 计数器递增
 - `faiss_degraded_duration_seconds` 指标行为
 - 降级历史 (`degradation_history_count`) 限制在 ≤10 条
-- 健康端点 (`/api/v1/health/vectors`) 一致性
+- 健康端点 (`/api/v1/health/faiss/health`) 一致性与 `manual_recovery_in_progress` 标志
 
 输出示例：
 ```
@@ -2183,6 +2283,8 @@ Restored events observed: 0 -> 4
 Max history count observed: 9
 VERDICT: PASS - Degradation metrics consistent
 ```
+
+更多调优与故障排除步骤参见运行手册：`docs/RUNBOOK_FLAPPING.md`。
 
 ### 集成测试
 
@@ -2197,3 +2299,78 @@ VERDICT: PASS - Degradation metrics consistent
 ```bash
 pytest tests/integration/test_stress_stability.py -v
 ```
+
+## 📘 开发计划与报告
+
+- 详细开发计划（阶段目标、验收标准、指标清单、CI/CD 与部署步骤）：`docs/DETAILED_DEVELOPMENT_PLAN.md:1`
+- 最终开发报告与版本总结：`docs/DEVELOPMENT_REPORT_FINAL.md:1`
+- 摘要与文件清单：`docs/DEVELOPMENT_SUMMARY_FINAL.md:1`
+# 观测资产 (Observability Assets)
+
+- Prometheus 告警规则: `prometheus/rules/cad_ml_phase5_alerts.yaml`
+- Grafana 仪表盘: `grafana/dashboards/observability.json`
+- 指标导出验证脚本: `scripts/verify_metrics_export.py`
+# SLO & 监控策略
+
+| SLO | Target | Current (example) | Metric | Window |
+|-----|--------|-------------------|--------|--------|
+| Similarity p95 | < 50ms | (collect on staging) | `vector_query_latency_seconds` | 1h |
+| v4 Extraction p95 | < 2x v3 p95 | (baseline <4x) | `feature_extraction_latency_seconds` | 1h |
+| Degraded total duration | < 5m/day | (baseline TBD) | `faiss_degraded_duration_seconds` | 24h |
+| Reload success rate | > 99% | (collect) | `model_reload_total{status="success"}` | 7d |
+
+Follow-up metrics added for recovery ETA and suppression:
+- `faiss_next_recovery_eta_seconds`
+- `faiss_recovery_suppressed_total{reason="flapping"}`
+- `process_start_time_seconds` (alert quiet period support)
+  - alert: DegradationFlapping
+    expr: increase(similarity_degraded_total{event="degraded"}[15m]) > 3 and time() - process_start_time_seconds > 600
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Degraded/restored flapping detected"
+      description: "Multiple degraded events in short window (flapping)."
+
+#### Recovery Suppression Observability
+
+新增指标与告警用于观察抑制窗口：
+- `faiss_recovery_suppression_remaining_seconds` 当前抑制窗口剩余秒数 (>0 表示激活, 0 表示无抑制)
+- `faiss_recovery_suppressed_total{reason="flapping"}` 累积被抑制的自动恢复次数
+- `faiss_next_recovery_eta_seconds` 下一次计划恢复尝试的 epoch 时间戳 (成功恢复后归 0)
+
+告警规则补充：
+- `RecoverySuppressionWindowStuck` 抑制剩余秒数不下降（可能线程阻塞或时间源异常）
+- `RecoverySuppressionSpike` / `RecoverySuppressedAttempts` 抑制事件频繁，需要调参或排查根因
+
+调优环境变量：
+| Env | 默认值 | 作用 |
+|-----|--------|------|
+| FAISS_RECOVERY_FLAP_THRESHOLD | 3 | 抖动检测阈值 (窗口内降级次数) |
+| FAISS_RECOVERY_FLAP_WINDOW_SECONDS | 900 | 抖动检测时间窗口 (秒) |
+| FAISS_RECOVERY_SUPPRESSION_SECONDS | 300 | 抑制窗口长度 (秒) |
+| FAISS_RECOVERY_STATE_BACKEND | file | 状态持久化后端 (file 或 redis) |
+| FAISS_RECOVERY_STATE_PATH | data/faiss_recovery_state.json | 文件持久化路径 |
+
+FAQ:
+1. 剩余秒数不下降：检查后台恢复循环线程是否运行、系统时钟是否被修改、`RecoverySuppressionWindowStuck` 告警是否触发。
+2. 抑制次数激增：提高 `FLAP_THRESHOLD` 或延长 `SUPPRESSION_SECONDS`，同时调查频繁降级原因（Faiss 初始化失败/内存不足等）。
+3. 需要立即恢复：确保底层问题已缓解后调用 `POST /api/v1/faiss/recover`（需要双认证）。
+
+#### Unified Model Reload Error Examples
+所有模型重载错误采用统一结构 `{code, stage, message, context, timestamp}`：
+```json
+{"code":"MODEL_HASH_MISMATCH","stage":"model_reload","message":"Hash whitelist validation failed","context":{"found_hash":"deadbeef","expected_hashes":["cafebabe","baddcafe"]}}
+{"code":"MODEL_MAGIC_INVALID","stage":"model_reload","message":"Unsupported magic number","context":{"found":1234,"expected":[309,310]}}
+{"code":"MODEL_OPCODE_BLOCKED","stage":"model_reload","message":"Blocked opcode detected","context":{"opcode":"GLOBAL"}}
+{"code":"MODEL_OPCODE_SCAN_ERROR","stage":"model_reload","message":"Opcode scanning failed","context":{"reason":"truncated_stream"}}
+{"code":"MODEL_ROLLBACK_APPLIED","stage":"model_reload","message":"Rolled back to previous model after failed reload","context":{"previous_hash":"cafebabe","failed_hash":"deadbeef"}}
+```
+
+#### 抖动与恢复退避持久化 (Flapping & Persistence)
+
+为避免频繁降级/恢复抖动：
+- 环境变量：`FAISS_RECOVERY_FLAP_THRESHOLD` (默认 3), `FAISS_RECOVERY_FLAP_WINDOW_SECONDS` (默认 900), `FAISS_RECOVERY_SUPPRESSION_SECONDS` (默认 300), `FAISS_RECOVERY_STATE_BACKEND` (默认 `file`, 可选 `redis`), `FAISS_RECOVERY_STATE_PATH` (文件持久化路径)
+- 达到阈值后进入抑制窗口，自动恢复跳过并计入 `faiss_recovery_suppressed_total{reason="flapping"}`
+- 状态持久化路径：`FAISS_RECOVERY_STATE_PATH` (默认 `data/faiss_recovery_state.json`)，重启后继续沿用 backoff/抑制
+- 指标：`faiss_next_recovery_eta_seconds` 提供下一次恢复时间；建议告警加静默条件：`time() - process_start_time_seconds > 600`

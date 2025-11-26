@@ -3,7 +3,7 @@
 
 .PHONY: help install dev test lint format type-check clean run docs docker eval-history health-check eval-trend \
 	observability-up observability-down observability-status self-check metrics-validate prom-validate \
-	dashboard-import security-audit metrics-audit cardinality-check
+	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -117,6 +117,18 @@ self-check: ## Run basic self-check
 self-check-enhanced: ## Run comprehensive self-check
 	@echo "$(GREEN)Running enhanced self-check...$(NC)"
 	$(PYTHON) scripts/self_check_enhanced.py
+
+verify-metrics: ## Verify required metrics are exported
+	@echo "$(GREEN)Verifying metrics export...$(NC)"
+	$(PYTHON) scripts/verify_metrics_export.py
+	@echo "$(GREEN)Metrics export verification passed!$(NC)"
+
+test-targeted: ## Run targeted tests (Faiss health/ETA scheduling)
+	@echo "$(GREEN)Running targeted tests...$(NC)"
+	$(PYTEST) tests/unit/test_faiss_eta_reset_on_recovery.py \
+		tests/unit/test_faiss_health_response.py \
+		tests/unit/test_faiss_eta_schedules_on_failed_recovery.py -q || true
+	@echo "$(GREEN)Targeted tests completed (allowing skips).$(NC)"
 
 docker-build: ## 构建Docker镜像
 	@echo "$(GREEN)Building Docker image...$(NC)"

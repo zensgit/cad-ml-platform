@@ -339,7 +339,7 @@ Modified: 15 files (uncommitted)
 
 #### AM Session - 迁移工具与Dashboard完善
 - [ ] **任务5.1**: 迁移预览端点
-  - 端点: `POST /vectors/migrate/preview`
+  - 端点: `GET /api/v1/vectors/migrate/preview` (改为 GET 语义; 旧的 POST 文档已废弃)
   - 返回: dimension_change, affected_vectors, top_dimension_changes, estimated_time
   - 特性: 预览不修改数据
 

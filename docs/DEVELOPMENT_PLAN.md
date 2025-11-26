@@ -567,7 +567,7 @@ def compute_shape_entropy(type_counts: dict[str, int]) -> float:
 
 | 端点 | 方法 | Phase | 变更说明 |
 |------|------|-------|---------|
-| `/api/v1/vectors/migrate/preview` | GET | 1B | 新增 avg_delta, median_delta, warnings 字段 |
+| `/api/v1/vectors/migrate/preview` | GET | 1B | 已新增 avg_delta, median_delta, warnings 字段 (完成) |
 | `/api/v1/model/reload` | POST | 1B | 错误响应结构化统一 |
 | `/api/v1/health/faiss/health` | GET | 3 | 新增 recovery_status, last_recovery_attempt 字段 |
 

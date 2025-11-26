@@ -215,7 +215,7 @@ which docker || echo "Docker needed for observability stack"
 | 端点 | 方法 | 请求模型 | 响应模型 | 错误处理 |
 |------|------|---------|---------|---------|
 | `/features/cache/tuning` | GET | CacheTuningRequest | CacheTuningResponse | ✅ build_error |
-| `/vectors/migrate/preview` | POST | MigratePreviewRequest | MigratePreviewResponse | ✅ build_error |
+| `/api/v1/vectors/migrate/preview` | GET | (query: to_version, limit) | VectorMigrationPreviewResponse | ✅ build_error |
 | `/vectors/migrate/trends` | GET | - | MigrateTrendsResponse | ✅ build_error |
 | `/health/model` (扩展) | GET | - | ModelHealthResponse | ✅ build_error |
 

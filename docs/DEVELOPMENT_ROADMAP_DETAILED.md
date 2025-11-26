@@ -939,7 +939,7 @@ class MigrateTrendsResponse(BaseModel):
 | vectors | /api/v1/vectors | GET | ✅ Active | - | - |
 | vectors | /api/v1/vectors/update | POST | ✅ Active | - | - |
 | vectors | /api/v1/vectors/migrate | POST | ✅ Active | - | - |
-| vectors | /api/v1/vectors/migrate/preview | GET | 🆕 New | - | - |
+| vectors | /api/v1/vectors/migrate/preview | GET | ✅ Implemented | avg_delta, median_delta, warnings | - |
 | vectors | /api/v1/vectors/similarity/batch | POST | ✅ Active | - | - |
 | analyze | /api/v1/analyze/vectors/distribution | GET | ⛔ Deprecated | 2024-11-24 | /api/v1/vectors_stats/distribution |
 | ... | ... | ... | ... | ... | ... |
