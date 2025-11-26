@@ -3,7 +3,71 @@
 from __future__ import annotations
 
 try:
-    from prometheus_client import Counter, Histogram, Gauge  # type: ignore
+    from prometheus_client import Counter as _Counter, Histogram as _Histogram, Gauge as _Gauge, REGISTRY  # type: ignore
+
+    # Cache for already-registered metrics (avoids registry lookup overhead)
+    _METRIC_CACHE = {}
+
+    def _safe_counter(name, *args, **kwargs):
+        """Create a Counter, returning existing if already registered."""
+        if name in _METRIC_CACHE:
+            return _METRIC_CACHE[name]
+        try:
+            m = _Counter(name, *args, **kwargs)
+            _METRIC_CACHE[name] = m
+            return m
+        except ValueError:
+            # Already registered - find in registry by checking collectors
+            for collector in list(REGISTRY._names_to_collectors.values()):
+                if hasattr(collector, '_name') and collector._name == name:
+                    _METRIC_CACHE[name] = collector
+                    return collector
+            # Fallback: return dummy if not found (should not happen)
+            class _FallbackDummy:
+                def labels(self, *a, **kw): return self
+                def inc(self, *a, **kw): pass
+            return _FallbackDummy()
+
+    def _safe_histogram(name, *args, **kwargs):
+        """Create a Histogram, returning existing if already registered."""
+        if name in _METRIC_CACHE:
+            return _METRIC_CACHE[name]
+        try:
+            m = _Histogram(name, *args, **kwargs)
+            _METRIC_CACHE[name] = m
+            return m
+        except ValueError:
+            for collector in list(REGISTRY._names_to_collectors.values()):
+                if hasattr(collector, '_name') and collector._name == name:
+                    _METRIC_CACHE[name] = collector
+                    return collector
+            class _FallbackDummy:
+                def labels(self, *a, **kw): return self
+                def observe(self, *a, **kw): pass
+            return _FallbackDummy()
+
+    def _safe_gauge(name, *args, **kwargs):
+        """Create a Gauge, returning existing if already registered."""
+        if name in _METRIC_CACHE:
+            return _METRIC_CACHE[name]
+        try:
+            m = _Gauge(name, *args, **kwargs)
+            _METRIC_CACHE[name] = m
+            return m
+        except ValueError:
+            for collector in list(REGISTRY._names_to_collectors.values()):
+                if hasattr(collector, '_name') and collector._name == name:
+                    _METRIC_CACHE[name] = collector
+                    return collector
+            class _FallbackDummy:
+                def labels(self, *a, **kw): return self
+                def set(self, *a, **kw): pass
+            return _FallbackDummy()
+
+    Counter = _safe_counter
+    Histogram = _safe_histogram
+    Gauge = _safe_gauge
+
 except Exception:  # pragma: no cover - fallback dummy
     class _Dummy:
         def labels(self, *a, **kw):
