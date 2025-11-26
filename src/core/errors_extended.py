@@ -45,6 +45,7 @@ class ErrorCode(str, Enum):
 
     # ========== 认证授权错误 ==========
     AUTH_FAILED = "AUTH_FAILED"                          # 通用认证失败
+    AUTHORIZATION_FAILED = "AUTHORIZATION_FAILED"        # 授权失败（admin token无效）
     API_KEY_INVALID = "API_KEY_INVALID"                  # API密钥无效
     API_KEY_EXPIRED = "API_KEY_EXPIRED"                  # API密钥过期
     PERMISSION_DENIED = "PERMISSION_DENIED"              # 权限被拒绝
