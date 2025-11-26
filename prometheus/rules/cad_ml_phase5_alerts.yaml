@@ -1,0 +1,232 @@
+# Phase 5 Alert Rules - CAD ML Platform
+# These rules correspond to DEVELOPMENT_PLAN.md Section 23
+# Version: 2.1
+
+groups:
+  - name: cad_ml_degradation_alerts
+    interval: 30s
+    rules:
+      # Vector store degradation alert
+      - alert: VectorStoreDegraded
+        expr: faiss_degraded_duration_seconds > 300
+        for: 1m
+        labels:
+          severity: warning
+          component: vector_store
+          phase: "3"
+        annotations:
+          summary: "Vector store degraded for > 5min"
+          description: "Faiss unavailable, using memory fallback. Duration: {{ $value }}s"
+          runbook: "docs/runbooks/faiss_degradation.md"
+
+      # Faiss recovery failing repeatedly
+      - alert: FaissRecoveryFailing
+        expr: increase(faiss_recovery_attempts_total{result="failure"}[30m]) > 5
+        for: 0m
+        labels:
+          severity: warning
+          component: vector_store
+          phase: "3"
+        annotations:
+          summary: "Faiss recovery failing repeatedly"
+          description: "{{ $value }} failures in last 30 minutes"
+          runbook: "docs/runbooks/faiss_degradation.md"
+
+      # Degradation flapping (too many transitions)
+      - alert: DegradationFlapping
+        expr: |
+          increase(similarity_degraded_total{event="degraded"}[1h]) +
+          increase(similarity_degraded_total{event="restored"}[1h]) > 10
+        for: 5m
+        labels:
+          severity: critical
+          component: vector_store
+          phase: "3"
+        annotations:
+          summary: "Faiss degradation flapping detected"
+          description: "More than 10 degraded/restored transitions in 1 hour"
+          runbook: "docs/runbooks/faiss_degradation.md"
+
+  - name: cad_ml_security_alerts
+    interval: 30s
+    rules:
+      # Model reload failure spike
+      - alert: ModelReloadFailureSpike
+        expr: rate(model_security_fail_total[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+          component: model
+          phase: "2"
+        annotations:
+          summary: "High rate of model reload failures"
+          description: "Security validation failures: {{ $value }}/s"
+          runbook: "docs/runbooks/model_security.md"
+
+      # Opcode whitelist violation
+      - alert: OpcodeWhitelistViolation
+        expr: increase(model_security_fail_total{reason="opcode_whitelist_violation"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: model
+          phase: "2"
+        annotations:
+          summary: "Opcode whitelist violation detected"
+          description: "Unauthorized opcode in model file"
+          runbook: "docs/runbooks/model_security.md"
+
+      # Hash mismatch (potential tampering)
+      - alert: ModelHashMismatch
+        expr: increase(model_security_fail_total{reason="hash_mismatch"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          component: model
+          phase: "1B"
+        annotations:
+          summary: "Model hash mismatch detected"
+          description: "Model file hash does not match expected value"
+          runbook: "docs/runbooks/model_security.md"
+
+  - name: cad_ml_cache_alerts
+    interval: 30s
+    rules:
+      # Low cache hit ratio
+      - alert: LowCacheHitRatio
+        expr: |
+          (
+            sum(feature_cache_hits_total) /
+            (sum(feature_cache_hits_total) + sum(feature_cache_miss_total))
+          ) < 0.5
+        for: 10m
+        labels:
+          severity: warning
+          component: cache
+          phase: "4"
+        annotations:
+          summary: "Feature cache hit ratio below 50%"
+          description: "Consider adjusting cache capacity or TTL"
+          runbook: "docs/runbooks/cache_tuning.md"
+
+      # High eviction rate
+      - alert: HighCacheEvictionRate
+        expr: rate(feature_cache_evictions_total[5m]) > 10
+        for: 5m
+        labels:
+          severity: warning
+          component: cache
+          phase: "4"
+        annotations:
+          summary: "High cache eviction rate"
+          description: "Cache evictions: {{ $value }}/s - consider increasing capacity"
+          runbook: "docs/runbooks/cache_tuning.md"
+
+      # Prewarm failures
+      - alert: CachePrewarmFailing
+        expr: increase(feature_cache_prewarm_total{result="error"}[5m]) > 5
+        for: 0m
+        labels:
+          severity: warning
+          component: cache
+          phase: "4"
+        annotations:
+          summary: "Cache prewarm experiencing errors"
+          description: "{{ $value }} prewarm errors in last 5 minutes"
+          runbook: "docs/runbooks/cache_tuning.md"
+
+  - name: cad_ml_feature_alerts
+    interval: 30s
+    rules:
+      # v4 feature extraction slow
+      - alert: V4FeatureExtractionSlow
+        expr: |
+          histogram_quantile(0.95, rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          component: features
+          phase: "1A"
+        annotations:
+          summary: "v4 feature extraction p95 latency > 500ms"
+          description: "Current p95: {{ $value }}s"
+          runbook: "docs/runbooks/feature_extraction.md"
+
+      # v4 much slower than v3 (relative performance)
+      - alert: V4FeaturePerformanceDegradation
+        expr: |
+          histogram_quantile(0.95, rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m]))
+          >
+          histogram_quantile(0.95, rate(feature_extraction_latency_seconds_bucket{version="v3"}[5m])) * 2
+        for: 10m
+        labels:
+          severity: warning
+          component: features
+          phase: "1A"
+        annotations:
+          summary: "v4 feature extraction >2x slower than v3"
+          description: "v4 p95 significantly exceeds v3 p95"
+          runbook: "docs/runbooks/feature_extraction.md"
+
+  - name: cad_ml_stress_alerts
+    interval: 1m
+    rules:
+      # Memory growth during stress test
+      - alert: HighMemoryGrowth
+        expr: stress_memory_growth_ratio > 1.5
+        for: 1m
+        labels:
+          severity: critical
+          component: stress_test
+          phase: "6"
+        annotations:
+          summary: "Memory growth exceeded 50% during stress test"
+          description: "Growth ratio: {{ $value }}"
+          runbook: "docs/runbooks/stress_testing.md"
+
+      # Model load sequence out of order (concurrency issue)
+      - alert: ModelLoadSeqAnomaly
+        expr: |
+          changes(model_load_seq[1m]) > 0 and
+          delta(model_load_seq[1m]) < 0
+        for: 0m
+        labels:
+          severity: critical
+          component: model
+          phase: "6"
+        annotations:
+          summary: "Model load sequence anomaly detected"
+          description: "load_seq decreased - possible concurrency issue"
+          runbook: "docs/runbooks/model_concurrency.md"
+
+  - name: cad_ml_migration_alerts
+    interval: 30s
+    rules:
+      # Large negative dimension skew in migration
+      - alert: MigrationNegativeDimensionSkew
+        expr: |
+          histogram_quantile(0.5, rate(vector_migrate_dimension_delta_bucket[5m])) < -5
+        for: 5m
+        labels:
+          severity: warning
+          component: migration
+          phase: "1B"
+        annotations:
+          summary: "Migration showing large negative dimension changes"
+          description: "Median dimension delta: {{ $value }}"
+          runbook: "docs/runbooks/vector_migration.md"
+
+      # Migration dry-run error rate
+      - alert: MigrationHighErrorRate
+        expr: |
+          rate(vector_migrate_total{dry_run="true", status="error"}[5m]) /
+          rate(vector_migrate_total{dry_run="true"}[5m]) > 0.02
+        for: 5m
+        labels:
+          severity: warning
+          component: migration
+          phase: "1B"
+        annotations:
+          summary: "Migration dry-run error rate > 2%"
+          description: "Error rate: {{ $value | humanizePercentage }}"
+          runbook: "docs/runbooks/vector_migration.md"

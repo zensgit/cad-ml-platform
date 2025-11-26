@@ -189,6 +189,13 @@ vector_migrate_total = Counter(
     ["status"],  # migrated|skipped|dry_run|error|not_found|downgraded
 )
 
+# Vector dimension change during migration
+vector_migrate_dimension_delta = Histogram(
+    "vector_migrate_dimension_delta",
+    "Dimension delta (new_dim - old_dim) during vector migration",
+    buckets=(-20, -10, -5, -2, -1, 0, 1, 2, 5, 10, 20, 50, 100),  # Dimension differences
+)
+
 # Process rules audit endpoint requests
 process_rules_audit_requests_total = Counter(
     "process_rules_audit_requests_total",
@@ -339,6 +346,11 @@ feature_cache_lookup_seconds = Histogram(
     "Latency of feature cache lookup",
     buckets=[0.0001, 0.0005, 0.001, 0.005, 0.01],
 )
+feature_cache_prewarm_total = Counter(
+    "feature_cache_prewarm_total",
+    "Feature cache prewarm attempts",
+    ["result"],  # ok|error
+)
 faiss_index_age_seconds = Gauge(
     "faiss_index_age_seconds",
     "Seconds since last Faiss index export/import",
@@ -383,6 +395,36 @@ model_health_checks_total = Counter(
     ["status"],  # ok|absent|rollback|error
 )
 
+# Similarity degraded / restored events (Faiss fallback lifecycle)
+similarity_degraded_total = Counter(
+    "similarity_degraded_total",
+    "Vector similarity degraded mode events",
+    ["event"],  # degraded|restored
+)
+
+# Faiss auto-recovery metrics
+faiss_recovery_attempts_total = Counter(
+    "faiss_recovery_attempts_total",
+    "Faiss recovery attempts",
+    ["result"],  # success|skipped|error
+)
+faiss_degraded_duration_seconds = Gauge(
+    "faiss_degraded_duration_seconds",
+    "Current degraded duration in seconds (0 when healthy)",
+)
+
+# Opcode security / audit metrics
+model_opcode_audit_total = Counter(
+    "model_opcode_audit_total",
+    "Observed pickle opcodes during model reload scans",
+    ["opcode"],
+)
+model_opcode_whitelist_violations_total = Counter(
+    "model_opcode_whitelist_violations_total",
+    "Whitelist violations (disallowed opcodes) during model reload",
+    ["opcode"],
+)
+
 __all__ = [
     "analysis_requests_total",
     "analysis_errors_total",
@@ -413,6 +455,7 @@ __all__ = [
     "vector_query_batch_latency_seconds",
     "feature_migration_total",
     "vector_migrate_total",
+    "vector_migrate_dimension_delta",
     "process_rules_audit_requests_total",
     "faiss_rebuild_total",
     "faiss_rebuild_duration_seconds",
@@ -444,6 +487,7 @@ __all__ = [
     "feature_cache_evictions_total",
     "feature_cache_size",
     "feature_cache_lookup_seconds",
+    "feature_cache_prewarm_total",
     "feature_cache_hits_last_hour",
     "feature_cache_miss_last_hour",
     "faiss_index_age_seconds",
@@ -454,4 +498,9 @@ __all__ = [
     "model_security_fail_total",
     "model_health_checks_total",
     "vector_store_reload_total",
+    "similarity_degraded_total",
+    "faiss_recovery_attempts_total",
+    "faiss_degraded_duration_seconds",
+    "model_opcode_audit_total",
+    "model_opcode_whitelist_violations_total",
 ]

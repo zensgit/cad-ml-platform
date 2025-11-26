@@ -1,0 +1,285 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "CAD ML Platform Phase 5 Observability Dashboard",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "id": 100,
+      "panels": [],
+      "title": "Vector Store Health",
+      "type": "row"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [
+            {"options": {"0": {"color": "green", "index": 0, "text": "OK"}}, "type": "value"},
+            {"options": {"match": "null", "result": {"color": "green", "index": 1, "text": "OK"}}, "type": "special"},
+            {"options": {"from": 1, "result": {"color": "red", "index": 2, "text": "DEGRADED"}, "to": 999999}, "type": "range"}
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 1},
+      "id": 1,
+      "options": {"colorMode": "background", "graphMode": "none", "justifyMode": "center", "orientation": "horizontal", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "pluginVersion": "9.0.0",
+      "targets": [{"expr": "degraded_duration_seconds", "legendFormat": "Duration", "refId": "A"}],
+      "title": "Degraded Status",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 1},
+      "id": 2,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {"expr": "sum(faiss_recovery_attempts_total{result=\"success\"})", "legendFormat": "Success", "refId": "A"},
+        {"expr": "sum(faiss_recovery_attempts_total{result=\"failure\"})", "legendFormat": "Failure", "refId": "B"}
+      ],
+      "title": "Recovery Attempts",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 1},
+      "id": 3,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {"expr": "sum(similarity_degraded_total{event=\"degraded\"})", "legendFormat": "Degraded Events", "refId": "A"},
+        {"expr": "sum(similarity_degraded_total{event=\"restored\"})", "legendFormat": "Restored Events", "refId": "B"}
+      ],
+      "title": "Degradation Events",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 1},
+      "id": 4,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "pluginVersion": "9.0.0",
+      "targets": [{"expr": "degradation_history_count", "legendFormat": "History Count", "refId": "A"}],
+      "title": "Degradation History Count",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+      "id": 101,
+      "panels": [],
+      "title": "Feature Extraction",
+      "type": "row"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "s"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "id": 10,
+      "options": {"legend": {"calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {"expr": "histogram_quantile(0.95, rate(feature_extraction_latency_seconds_bucket{version=\"v3\"}[5m]))", "legendFormat": "v3 p95", "refId": "A"},
+        {"expr": "histogram_quantile(0.95, rate(feature_extraction_latency_seconds_bucket{version=\"v4\"}[5m]))", "legendFormat": "v4 p95", "refId": "B"},
+        {"expr": "histogram_quantile(0.50, rate(feature_extraction_latency_seconds_bucket{version=\"v4\"}[5m]))", "legendFormat": "v4 p50", "refId": "C"}
+      ],
+      "title": "Feature Extraction Latency (p95/p50)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "id": 11,
+      "options": {"legend": {"calcs": ["sum"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {"expr": "rate(feature_extraction_latency_seconds_count{version=\"v3\"}[5m])", "legendFormat": "v3 rate", "refId": "A"},
+        {"expr": "rate(feature_extraction_latency_seconds_count{version=\"v4\"}[5m])", "legendFormat": "v4 rate", "refId": "B"}
+      ],
+      "title": "Feature Extraction Rate by Version",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
+      "id": 102,
+      "panels": [],
+      "title": "Cache Performance",
+      "type": "row"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {"defaults": {"color": {"mode": "thresholds"}, "max": 1, "min": 0, "thresholds": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 0.5}, {"color": "green", "value": 0.7}]}, "unit": "percentunit"}},
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 15},
+      "id": 20,
+      "options": {"orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "showThresholdLabels": false, "showThresholdMarkers": true},
+      "pluginVersion": "9.0.0",
+      "targets": [{"expr": "sum(feature_cache_hits_total) / (sum(feature_cache_hits_total) + sum(feature_cache_miss_total))", "legendFormat": "Hit Ratio", "refId": "A"}],
+      "title": "Cache Hit Ratio",
+      "type": "gauge"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 15},
+      "id": 21,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {"expr": "feature_cache_size", "legendFormat": "Size", "refId": "A"},
+        {"expr": "feature_cache_capacity", "legendFormat": "Capacity", "refId": "B"}
+      ],
+      "title": "Cache Size / Capacity",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 15},
+      "id": 22,
+      "options": {"legend": {"calcs": ["sum"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {"expr": "rate(feature_cache_hits_total[5m])", "legendFormat": "Hits/s", "refId": "A"},
+        {"expr": "rate(feature_cache_miss_total[5m])", "legendFormat": "Misses/s", "refId": "B"},
+        {"expr": "rate(feature_cache_evictions_total[5m])", "legendFormat": "Evictions/s", "refId": "C"}
+      ],
+      "title": "Cache Operations Rate",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 21},
+      "id": 103,
+      "panels": [],
+      "title": "Model Security",
+      "type": "row"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 22},
+      "id": 30,
+      "options": {"legend": {"calcs": ["sum"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {"expr": "sum by (reason) (model_security_fail_total)", "legendFormat": "{{reason}}", "refId": "A"}
+      ],
+      "title": "Security Failures by Reason",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 22},
+      "id": 31,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false}, "textMode": "auto"},
+      "pluginVersion": "9.0.0",
+      "targets": [{"expr": "model_load_seq", "legendFormat": "Load Seq", "refId": "A"}],
+      "title": "Model Load Sequence",
+      "type": "stat"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 22},
+      "id": 32,
+      "options": {"colorMode": "value", "graphMode": "area", "justifyMode": "auto", "orientation": "auto", "reduceOptions": {"calcs": ["sum"], "fields": "", "values": false}, "textMode": "auto"},
+      "pluginVersion": "9.0.0",
+      "targets": [{"expr": "sum(model_health_checks_total)", "legendFormat": "Health Checks", "refId": "A"}],
+      "title": "Model Health Checks",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 28},
+      "id": 104,
+      "panels": [],
+      "title": "Migration & Dimension Changes",
+      "type": "row"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+      "gridPos": {"h": 6, "w": 12, "x": 0, "y": 29},
+      "id": 40,
+      "options": {"bucketOffset": 0, "legend": {"calcs": [], "displayMode": "list", "placement": "bottom"}},
+      "pluginVersion": "9.0.0",
+      "targets": [{"expr": "histogram_quantile(0.5, rate(vector_migrate_dimension_delta_bucket[5m]))", "legendFormat": "p50 delta", "refId": "A"}, {"expr": "histogram_quantile(0.95, rate(vector_migrate_dimension_delta_bucket[5m]))", "legendFormat": "p95 delta", "refId": "B"}],
+      "title": "Dimension Delta Distribution",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${DS_PROMETHEUS}",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+      "gridPos": {"h": 6, "w": 12, "x": 12, "y": 29},
+      "id": 41,
+      "options": {"legend": {"calcs": ["sum"], "displayMode": "table", "placement": "bottom"}, "tooltip": {"mode": "multi"}},
+      "pluginVersion": "9.0.0",
+      "targets": [
+        {"expr": "sum by (status) (rate(vector_migrate_total[5m]))", "legendFormat": "{{status}}", "refId": "A"}
+      ],
+      "title": "Migration Operations by Status",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 36,
+  "style": "dark",
+  "tags": ["cad-ml", "phase5", "observability"],
+  "templating": {
+    "list": [
+      {
+        "current": {"selected": false, "text": "Prometheus", "value": "Prometheus"},
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "DS_PROMETHEUS",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "CAD ML Platform - Phase 5 Observability",
+  "uid": "cad-ml-phase5-observability",
+  "version": 1
+}
