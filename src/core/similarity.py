@@ -18,6 +18,7 @@ from src.utils.analysis_metrics import (
     faiss_index_size,
     faiss_init_errors_total,
     vector_query_backend_total,
+    similarity_degraded_total,
 )
 from src.core.errors_extended import ErrorCode
 from src.utils.analysis_metrics import analysis_error_code_total
@@ -40,6 +41,12 @@ _VECTOR_DEGRADED_AT: float | None = None
 # Degradation history (limited to last 10 events)
 _DEGRADATION_HISTORY: list[Dict[str, any]] = []
 _MAX_DEGRADATION_HISTORY = 10
+_FAISS_RECOVERY_LOCK = __import__("threading").Lock()
+_FAISS_MANUAL_RECOVERY_IN_PROGRESS = False
+_FAISS_RECOVERY_INTERVAL_SECONDS = float(os.getenv("FAISS_RECOVERY_INTERVAL_SECONDS", "300"))
+_FAISS_RECOVERY_MAX_BACKOFF = float(os.getenv("FAISS_RECOVERY_MAX_BACKOFF", "3600"))
+_FAISS_RECOVERY_BACKOFF_MULTIPLIER = float(os.getenv("FAISS_RECOVERY_BACKOFF_MULTIPLIER", "2"))
+_FAISS_NEXT_RECOVERY_TS: float | None = None
 
 
 def register_vector(doc_id: str, vector: List[float], meta: Dict[str, str] | None = None) -> bool:
@@ -590,24 +597,21 @@ def get_vector_store(backend: str | None = None) -> VectorStoreProtocol:
         try:
             store = FaissVectorStore()
             if not store._available:  # type: ignore
-                # Set degraded mode flags and record history
+                # Degraded path: Faiss library present but unavailable
                 global _VECTOR_DEGRADED, _VECTOR_DEGRADED_REASON, _VECTOR_DEGRADED_AT, _DEGRADATION_HISTORY
                 _VECTOR_DEGRADED = True
                 _VECTOR_DEGRADED_REASON = "Faiss library unavailable"
                 import time
                 _VECTOR_DEGRADED_AT = time.time()
-
-                # Record degradation event
+                similarity_degraded_total.labels(event="degraded").inc()
                 _DEGRADATION_HISTORY.append({
                     "timestamp": _VECTOR_DEGRADED_AT,
                     "reason": _VECTOR_DEGRADED_REASON,
                     "backend_requested": "faiss",
                     "backend_actual": "memory",
                 })
-                # Keep only last N events
                 if len(_DEGRADATION_HISTORY) > _MAX_DEGRADATION_HISTORY:
                     _DEGRADATION_HISTORY = _DEGRADATION_HISTORY[-_MAX_DEGRADATION_HISTORY:]
-
                 import logging
                 logging.getLogger(__name__).warning(
                     "Faiss unavailable, falling back to memory store",
@@ -619,14 +623,32 @@ def get_vector_store(backend: str | None = None) -> VectorStoreProtocol:
                     }
                 )
                 store = InMemoryVectorStore()
+            else:
+                # Faiss available: if we were previously degraded, record restore event
+                if _VECTOR_DEGRADED:
+                    import time
+                    similarity_degraded_total.labels(event="restored").inc()
+                    import logging
+                    logging.getLogger(__name__).info(
+                        "Faiss restored",
+                        extra={
+                            "degraded": False,
+                            "duration_seconds": (
+                                None if not _VECTOR_DEGRADED_AT else round(time.time() - _VECTOR_DEGRADED_AT, 2)
+                            ),
+                            "previous_reason": _VECTOR_DEGRADED_REASON,
+                        }
+                    )
+                    # Reset degraded flags (keep history for audit)
+                    _VECTOR_DEGRADED = False
+                    _VECTOR_DEGRADED_REASON = None
+                    _VECTOR_DEGRADED_AT = None
         except Exception as e:
-            # Set degraded mode flags and record history
             _VECTOR_DEGRADED = True
             _VECTOR_DEGRADED_REASON = f"Faiss initialization failed: {str(e)}"
             import time
             _VECTOR_DEGRADED_AT = time.time()
-
-            # Record degradation event
+            similarity_degraded_total.labels(event="degraded").inc()
             _DEGRADATION_HISTORY.append({
                 "timestamp": _VECTOR_DEGRADED_AT,
                 "reason": _VECTOR_DEGRADED_REASON,
@@ -636,7 +658,6 @@ def get_vector_store(backend: str | None = None) -> VectorStoreProtocol:
             })
             if len(_DEGRADATION_HISTORY) > _MAX_DEGRADATION_HISTORY:
                 _DEGRADATION_HISTORY = _DEGRADATION_HISTORY[-_MAX_DEGRADATION_HISTORY:]
-
             import logging
             logging.getLogger(__name__).warning(
                 "Faiss initialization failed, falling back to memory store",
@@ -693,3 +714,68 @@ def get_degraded_mode_info() -> Dict[str, any]:
         "history": _DEGRADATION_HISTORY.copy(),  # Return copy to prevent external modification
         "history_count": len(_DEGRADATION_HISTORY),
     }
+
+
+def attempt_faiss_recovery(now: float | None = None) -> bool:
+    """Try to recover from degraded mode by reinitializing Faiss backend.
+
+    Returns True if recovery succeeded (and flags were cleared), False otherwise.
+    """
+    from src.utils.analysis_metrics import faiss_recovery_attempts_total, faiss_degraded_duration_seconds
+    n = __import__("time").time() if now is None else now
+    # Only attempt when degraded and time threshold passed
+    if not _VECTOR_DEGRADED:
+        faiss_recovery_attempts_total.labels(result="skipped").inc()
+        return False
+    global _FAISS_NEXT_RECOVERY_TS
+    if _FAISS_NEXT_RECOVERY_TS and n < _FAISS_NEXT_RECOVERY_TS:
+        faiss_recovery_attempts_total.labels(result="skipped").inc()
+        return False
+    with _FAISS_RECOVERY_LOCK:
+        try:
+            # Reset store and try to get faiss
+            reset_default_store()
+            store = get_vector_store("faiss")
+            if isinstance(store, FaissVectorStore) and getattr(store, "_available", False):
+                # recovered
+                faiss_recovery_attempts_total.labels(result="success").inc()
+                faiss_degraded_duration_seconds.set(0)
+                # clear degraded flags (preserve history)
+                if _VECTOR_DEGRADED:
+                    try:
+                        similarity_degraded_total.labels(event="restored").inc()
+                    except Exception:
+                        pass
+                # mutate globals with lock
+                with _VECTOR_LOCK:
+                    globals()["_VECTOR_DEGRADED"] = False
+                    globals()["_VECTOR_DEGRADED_REASON"] = None
+                    globals()["_VECTOR_DEGRADED_AT"] = None
+                return True
+            else:
+                # still degraded; schedule next attempt
+                faiss_recovery_attempts_total.labels(result="error").inc()
+                import math
+                backoff = min(max(_FAISS_RECOVERY_INTERVAL_SECONDS, 60.0) * _FAISS_RECOVERY_BACKOFF_MULTIPLIER, _FAISS_RECOVERY_MAX_BACKOFF)
+                _FAISS_NEXT_RECOVERY_TS = n + backoff
+                try:
+                    from src.utils.analysis_metrics import faiss_rebuild_backoff_seconds
+                    faiss_rebuild_backoff_seconds.set(backoff)
+                except Exception:
+                    pass
+                if _VECTOR_DEGRADED_AT:
+                    faiss_degraded_duration_seconds.set(max(0, n - _VECTOR_DEGRADED_AT))
+                return False
+        except Exception:
+            faiss_recovery_attempts_total.labels(result="error").inc()
+            return False
+
+
+async def faiss_recovery_loop() -> None:  # pragma: no cover (background loop)
+    import asyncio, time
+    while True:
+        try:
+            attempt_faiss_recovery()
+        except Exception:
+            pass
+        await asyncio.sleep(max(_FAISS_RECOVERY_INTERVAL_SECONDS, 60.0))

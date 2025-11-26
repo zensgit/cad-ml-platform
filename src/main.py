@@ -111,6 +111,13 @@ async def lifespan(app: FastAPI):
             await asyncio.sleep(60)
     _faiss_age_handle = __import__("asyncio").create_task(_faiss_age_loop())
 
+    # Faiss auto recovery loop
+    try:
+        from src.core.similarity import faiss_recovery_loop
+        _faiss_recovery_handle = asyncio.create_task(faiss_recovery_loop())
+    except Exception:
+        _faiss_recovery_handle = None
+
     # Load drift baselines from Redis if present
     try:
         from src.utils.cache import get_client
@@ -159,6 +166,11 @@ async def lifespan(app: FastAPI):
         pass
     try:
         _faiss_age_handle.cancel()
+    except Exception:
+        pass
+    try:
+        if _faiss_recovery_handle:
+            _faiss_recovery_handle.cancel()
     except Exception:
         pass
     try:

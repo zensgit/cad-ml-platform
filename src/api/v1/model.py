@@ -8,7 +8,7 @@ from typing import Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from src.api.dependencies import get_api_key
+from src.api.dependencies import get_api_key, get_admin_token
 from src.core.errors_extended import ErrorCode, create_extended_error
 
 logger = logging.getLogger(__name__)
@@ -24,16 +24,24 @@ class ModelReloadRequest(BaseModel):
 
 class ModelReloadResponse(BaseModel):
     """模型重载响应"""
-    status: str = Field(..., description="状态: success/not_found/version_mismatch/size_exceeded/rollback")
+    status: str = Field(
+        ...,
+        description=(
+            "状态: success/not_found/version_mismatch/size_exceeded/rollback/"
+            "magic_invalid/hash_mismatch/opcode_blocked/opcode_scan_error/error"
+        ),
+    )
     model_version: str | None = Field(None, description="加载的模型版本")
     hash: str | None = Field(None, description="模型文件哈希")
     error: Dict[str, Any] | None = Field(None, description="错误信息")
+    opcode_audit: Dict[str, Any] | None = Field(None, description="Opcode 审计信息 (仅当 audit 模式返回)")
 
 
 @router.post("/reload", response_model=ModelReloadResponse)
 async def model_reload(
     payload: ModelReloadRequest,
-    api_key: str = Depends(get_api_key)
+    api_key: str = Depends(get_api_key),
+    admin_token: str = Depends(get_admin_token)
 ):
     """
     重载机器学习模型
@@ -68,6 +76,9 @@ async def model_reload(
             f"Model reloaded successfully: version={result.get('model_version')}, "
             f"hash={result.get('hash')}"
         )
+        # When audit mode is active, include audit snapshot
+        from src.ml.classifier import get_opcode_audit_snapshot  # type: ignore
+        audit = get_opcode_audit_snapshot()
         return ModelReloadResponse(
             status="success",
             model_version=result.get("model_version"),
@@ -75,87 +86,44 @@ async def model_reload(
         )
 
     if status == "not_found":
-        ext = create_extended_error(
-            ErrorCode.DATA_NOT_FOUND,
-            "Model file not found",
-            stage="model_reload",
-            context={"path": payload.path}
-        )
         logger.error(f"Model file not found: {payload.path}")
-        return ModelReloadResponse(
-            status="not_found",
-            error=ext.to_dict()
-        )
+        return ModelReloadResponse(status="not_found", error=result.get("error"))
 
     if status == "version_mismatch":
-        ext = create_extended_error(
-            ErrorCode.VALIDATION_FAILED,
-            "Version mismatch",
-            stage="model_reload",
-            context={
-                "expected": payload.expected_version,
-                "actual": result.get("actual_version")
-            }
-        )
         logger.warning(
-            f"Model version mismatch: expected={payload.expected_version}, "
-            f"actual={result.get('actual_version')}"
+            f"Model version mismatch: expected={payload.expected_version}, actual={result.get('actual_version')}"
         )
-        return ModelReloadResponse(
-            status="version_mismatch",
-            error=ext.to_dict()
-        )
+        return ModelReloadResponse(status="version_mismatch", error=result.get("error"))
 
     if status == "size_exceeded":
-        ext = create_extended_error(
-            ErrorCode.MODEL_SIZE_EXCEEDED,
-            "Model file size exceeded limit",
-            stage="model_reload",
-            context={
-                "size_mb": result.get("size_mb"),
-                "max_mb": result.get("max_mb")
-            }
-        )
         logger.error(
-            f"Model size exceeded: {result.get('size_mb')}MB > "
-            f"{result.get('max_mb')}MB"
+            f"Model size exceeded: {result.get('error', {}).get('context', {}).get('size_mb')}MB > {result.get('error', {}).get('context', {}).get('max_mb')}MB"
         )
-        return ModelReloadResponse(
-            status="size_exceeded",
-            error=ext.to_dict()
+        return ModelReloadResponse(status="size_exceeded", error=result.get("error"))
+
+    # Pass-through structured security/validation errors
+    if status in {"magic_invalid", "hash_mismatch", "opcode_blocked", "opcode_scan_error"}:
+        logger.warning(
+            "Model reload failed",
+            extra={
+                "status": status,
+                "error": result.get("error"),
+            },
         )
+        return ModelReloadResponse(status=status, error=result.get("error"))
 
     if status == "rollback":
-        ext = create_extended_error(
-            ErrorCode.MODEL_ROLLBACK,
-            "Model loading failed, rolled back to previous version",
-            stage="model_reload",
-            context={
-                "rollback_version": result.get("rollback_version"),
-                "rollback_hash": result.get("rollback_hash")
-            }
-        )
-        logger.warning(
-            f"Model rolled back to version {result.get('rollback_version')}"
-        )
+        logger.warning(f"Model rolled back to version {result.get('rollback_version')}")
         return ModelReloadResponse(
             status="rollback",
             model_version=result.get("rollback_version"),
             hash=result.get("rollback_hash"),
-            error=ext.to_dict()
+            error=result.get("error")
         )
 
     # Unknown status
-    ext = create_extended_error(
-        ErrorCode.INTERNAL_ERROR,
-        f"Unknown status: {status}",
-        stage="model_reload"
-    )
     logger.error(f"Unknown model reload status: {status}")
-    return ModelReloadResponse(
-        status="error",
-        error=ext.to_dict()
-    )
+    return ModelReloadResponse(status="error", error=result.get("error"))
 
 
 @router.get("/version")
@@ -175,3 +143,10 @@ async def get_model_version(api_key: str = Depends(get_api_key)):
         "loaded_at": info.get("loaded_at"),
         "path": info.get("path")
     }
+
+
+@router.get("/opcode-audit")
+async def get_opcode_audit(api_key: str = Depends(get_api_key), admin_token: str = Depends(get_admin_token)):
+    """获取已审计的 pickle opcode 使用情况 (仅当启用扫描时)."""
+    from src.ml.classifier import get_opcode_audit_snapshot
+    return get_opcode_audit_snapshot()

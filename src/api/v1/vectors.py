@@ -230,6 +230,170 @@ class VectorMigrationSummaryResponse(BaseModel):
     statuses: list[str]
 
 
+class VectorMigrationPreviewResponse(BaseModel):
+    """迁移预览响应 - 不执行实际写入"""
+    total_vectors: int = Field(description="总向量数量")
+    by_version: Dict[str, int] = Field(description="各版本向量数量统计")
+    preview_items: list[VectorMigrateItem] = Field(description="预览前N个向量的迁移结果")
+    estimated_dimension_changes: Dict[str, int] = Field(description="预计维度变化统计 (positive/negative/zero)")
+    migration_feasible: bool = Field(description="迁移是否可行")
+    warnings: list[str] = Field(default_factory=list, description="潜在问题警告")
+    avg_delta: float | None = Field(default=None, description="采样维度变化平均值")
+    median_delta: float | None = Field(default=None, description="采样维度变化中位数")
+
+
+@router.get("/vectors/migrate/preview", response_model=VectorMigrationPreviewResponse)
+async def preview_migration(
+    to_version: str,
+    limit: int = 10,
+    api_key: str = Depends(get_api_key)
+):
+    """
+    预览向量特征迁移 - 不执行写入操作
+
+    Args:
+        to_version: 目标特征版本 (v1/v2/v3/v4)
+        limit: 预览样本数量 (默认10, 最大100)
+        api_key: API密钥
+
+    Returns:
+        迁移预览信息，包含版本分布、样本预览、维度变化预估等
+    """
+    from src.core.similarity import _VECTOR_STORE, _VECTOR_META
+    from src.core.feature_extractor import FeatureExtractor
+
+    # Validate target version
+    allowed_versions = {"v1", "v2", "v3", "v4"}
+    if to_version not in allowed_versions:
+        err = build_error(
+            ErrorCode.INPUT_VALIDATION_FAILED,
+            stage="migration_preview",
+            message="Unsupported target feature version",
+            to_version=to_version,
+            allowed=list(allowed_versions)
+        )
+        from src.utils.analysis_metrics import analysis_error_code_total
+        analysis_error_code_total.labels(code=ErrorCode.INPUT_VALIDATION_FAILED.value).inc()
+        raise HTTPException(status_code=422, detail=err)
+
+    # Enforce limit cap
+    limit = min(limit, 100)
+
+    # Get extractor
+    extractor = FeatureExtractor()
+
+    # Collect version distribution
+    by_version: Dict[str, int] = {}
+    total_vectors = len(_VECTOR_STORE)
+
+    for vid in _VECTOR_STORE.keys():
+        meta = _VECTOR_META.get(vid, {})
+        current_version = meta.get("feature_version", "v1")
+        by_version[current_version] = by_version.get(current_version, 0) + 1
+
+    # Preview sample vectors
+    preview_items: list[VectorMigrateItem] = []
+    dimension_changes = {"positive": 0, "negative": 0, "zero": 0}
+    deltas: list[int] = []
+    warnings: list[str] = []
+    sampled = 0
+
+    for vid in list(_VECTOR_STORE.keys())[:limit]:
+        meta = _VECTOR_META.get(vid, {})
+        from_version = meta.get("feature_version", "v1")
+        vec = _VECTOR_STORE[vid]
+        dimension_before = len(vec)
+
+        if from_version == to_version:
+            preview_items.append(VectorMigrateItem(
+                id=vid,
+                status="skipped",
+                from_version=from_version,
+                to_version=to_version,
+                dimension_before=dimension_before,
+                dimension_after=dimension_before
+            ))
+            dimension_changes["zero"] += 1
+            sampled += 1
+            continue
+
+        try:
+            new_features = extractor.upgrade_vector(vec)
+            dimension_after = len(new_features)
+            dimension_delta = dimension_after - dimension_before
+            deltas.append(dimension_delta)
+
+            if dimension_delta > 0:
+                dimension_changes["positive"] += 1
+            elif dimension_delta < 0:
+                dimension_changes["negative"] += 1
+            else:
+                dimension_changes["zero"] += 1
+
+            # Detect downgrade
+            is_downgrade = (from_version, to_version) in {
+                ("v4", "v3"), ("v4", "v2"), ("v4", "v1"),
+                ("v3", "v2"), ("v3", "v1"),
+                ("v2", "v1")
+            }
+
+            preview_items.append(VectorMigrateItem(
+                id=vid,
+                status="downgrade_preview" if is_downgrade else "upgrade_preview",
+                from_version=from_version,
+                to_version=to_version,
+                dimension_before=dimension_before,
+                dimension_after=dimension_after
+            ))
+            sampled += 1
+
+        except Exception as e:
+            preview_items.append(VectorMigrateItem(
+                id=vid,
+                status="error_preview",
+                error=str(e)
+            ))
+            warnings.append(f"Vector {vid} migration would fail: {str(e)}")
+            sampled += 1
+
+    # Check migration feasibility
+    migration_feasible = True
+    total_sampled = max(sampled, 1)
+    if dimension_changes["negative"] > total_sampled * 0.5:
+        migration_feasible = False
+        warnings.append("More than 50% of sampled vectors would lose dimensions")
+
+    # Compute stats
+    avg_delta: float | None = None
+    median_delta: float | None = None
+    if deltas:
+        avg_delta = float(sum(deltas) / len(deltas))
+        try:
+            import statistics
+            median_delta = float(statistics.median(deltas))
+        except Exception:
+            median_delta = float(deltas[len(deltas)//2])
+    # Warning heuristics
+    if median_delta is not None and median_delta < -5:
+        warnings.append("large_negative_skew")
+    if avg_delta is not None and abs(avg_delta) > 10:
+        warnings.append("growth_spike")
+
+    if len(warnings) > limit * 0.3:
+        warnings.append(f"High error rate in preview: {len(warnings)}/{limit}")
+
+    return VectorMigrationPreviewResponse(
+        total_vectors=total_vectors,
+        by_version=by_version,
+        preview_items=preview_items,
+        estimated_dimension_changes=dimension_changes,
+        migration_feasible=migration_feasible,
+        warnings=warnings,
+        avg_delta=avg_delta,
+        median_delta=median_delta,
+    )
+
+
 @router.post("/vectors/migrate", response_model=VectorMigrateResponse)
 async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(get_api_key)):
     from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
@@ -258,7 +422,7 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
     dry_run_total = 0
     # FeatureExtractor expects 'feature_version' parameter; pass target_version explicitly.
     extractor = FeatureExtractor(feature_version=target_version)
-    from src.utils.analysis_metrics import vector_migrate_total
+    from src.utils.analysis_metrics import vector_migrate_total, vector_migrate_dimension_delta
     for vid in payload.ids:
         if vid not in _VECTOR_STORE:
             items.append(VectorMigrateItem(id=vid, status="not_found", error="not_found"))
@@ -277,6 +441,9 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
         try:
             new_features = extractor.upgrade_vector(vec)
             dimension_after = len(new_features)
+            dimension_delta = dimension_after - dimension_before
+            # Record dimension delta for observability
+            vector_migrate_dimension_delta.observe(dimension_delta)
             if payload.dry_run:
                 items.append(VectorMigrateItem(id=vid, status="dry_run", from_version=from_version, to_version=target_version, dimension_before=dimension_before, dimension_after=dimension_after))
                 dry_run_total += 1
@@ -402,6 +569,7 @@ class BatchSimilarityResponse(BaseModel):
     batch_id: str | None = None
     duration_ms: float | None = None
     fallback: bool | None = Field(default=None, description="是否使用了内存降级 (Faiss不可用时)")
+    degraded: bool = Field(default=False, description="向量存储是否处于降级模式")
 
 
 @router.post("/vectors/similarity/batch", response_model=BatchSimilarityResponse)
@@ -423,7 +591,7 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
     """
     import time
     import uuid
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META, get_vector_store
+    from src.core.similarity import _VECTOR_STORE, _VECTOR_META, get_vector_store, get_degraded_mode_info
     from src.utils.analysis_metrics import vector_query_batch_latency_seconds, vector_query_backend_total
 
     batch_id = str(uuid.uuid4())
@@ -553,6 +721,9 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
         except Exception:
             pass
 
+    # Get degraded mode status
+    degraded_info = get_degraded_mode_info()
+
     return BatchSimilarityResponse(
         total=len(payload.ids),
         successful=successful,
@@ -560,5 +731,6 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
         items=items,
         batch_id=batch_id,
         duration_ms=round(duration * 1000, 2),
-        fallback=is_fallback if is_fallback else None
+        fallback=is_fallback if is_fallback else None,
+        degraded=degraded_info["degraded"]
     )

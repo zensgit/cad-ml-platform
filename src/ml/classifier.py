@@ -34,6 +34,8 @@ _MODEL_PREV2_VERSION: str | None = None
 _MODEL_PREV2_PATH: Path | None = None
 # Thread safety for reload operations
 _MODEL_LOCK = threading.Lock()
+_OPCODE_AUDIT_SET: set[str] = set()
+_OPCODE_AUDIT_COUNT: dict[str, int] = {}
 
 
 def load_model() -> None:
@@ -122,6 +124,15 @@ def predict(vector: List[float]) -> Dict[str, Any]:
         return {"status": "inference_error"}
 
 
+def get_opcode_audit_snapshot() -> Dict[str, Any]:
+    """Return snapshot of audited opcodes (audit or whitelist/blacklist scans)."""
+    return {
+        "opcodes": sorted(list(_OPCODE_AUDIT_SET)),
+        "counts": dict(sorted(_OPCODE_AUDIT_COUNT.items(), key=lambda kv: kv[1], reverse=True)),
+        "total_samples": sum(_OPCODE_AUDIT_COUNT.values()),
+    }
+
+
 def reload_model(path: str, expected_version: str | None = None, force: bool = False) -> Dict[str, Any]:
     """Hot reload classification model with security validation.
 
@@ -167,10 +178,17 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
         }
     )
 
+    from src.core.errors_extended import ErrorCode, create_extended_error
     p = Path(path)
     if not p.exists():
         model_reload_total.labels(status="not_found", version=str(expected_version or "unknown")).inc()
-        return {"status": "not_found"}
+        err = create_extended_error(
+            ErrorCode.MODEL_NOT_FOUND,
+            "Model file not found",
+            stage="model_reload",
+            context={"path": str(p)}
+        )
+        return {"status": "not_found", "error": err.to_dict()}
     if expected_version and expected_version != os.getenv("CLASSIFICATION_MODEL_VERSION", expected_version):
         if not force:
             model_reload_total.labels(status="mismatch", version=str(expected_version)).inc()
@@ -202,14 +220,22 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
                     }
                 )
 
-                return {
-                    "status": "magic_invalid",
-                    "message": "File does not appear to be a valid pickle file",
-                    "magic_bytes": magic.hex()
-                }
+                err = create_extended_error(
+                    ErrorCode.INPUT_FORMAT_INVALID,
+                    "File does not appear to be a valid pickle file",
+                    stage="model_reload",
+                    context={"magic_bytes": magic.hex(), "path": str(p)}
+                )
+                return {"status": "magic_invalid", "error": err.to_dict()}
     except Exception as e:
         model_security_fail_total.labels(reason="forged_file").inc()
-        return {"status": "error", "error": f"Magic number check failed: {str(e)}"}
+        err = create_extended_error(
+            ErrorCode.MODEL_LOAD_ERROR,
+            f"Magic number check failed: {str(e)}",
+            stage="model_reload",
+            context={"path": str(p)}
+        )
+        return {"status": "error", "error": err.to_dict()}
 
     # Hash whitelist validation (optional)
     allowed_hashes_env = os.getenv("ALLOWED_MODEL_HASHES", "").strip()
@@ -221,7 +247,13 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
         if size_mb > max_mb:
             model_reload_total.labels(status="size_exceeded", version=str(expected_version or _MODEL_VERSION)).inc()
             _MODEL_LAST_ERROR = f"Model size {size_mb:.1f}MB exceeds limit {max_mb}MB"
-            return {"status": "size_exceeded", "size_mb": round(size_mb, 3), "max_mb": max_mb}
+            err = create_extended_error(
+                ErrorCode.MODEL_SIZE_EXCEEDED,
+                "Model file size exceeded limit",
+                stage="model_reload",
+                context={"size_mb": round(size_mb, 3), "max_mb": max_mb, "path": str(p)}
+            )
+            return {"status": "size_exceeded", "error": err.to_dict()}
     except Exception:
         pass
     # Snapshot current model for rollback
@@ -241,14 +273,40 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
         import hashlib
         candidate_hash = hashlib.sha256(data).hexdigest()[:16]
         # Optional opcode security scan before full load (lightweight heuristic)
-        if os.getenv("MODEL_OPCODE_SCAN", "1") == "1":
+        opcode_mode = os.getenv("MODEL_OPCODE_MODE", "blacklist")  # blacklist|audit|whitelist
+        scan_enabled = os.getenv("MODEL_OPCODE_SCAN", "1") == "1"
+        audit_set = set()
+        audit_count = {}
+        if scan_enabled and opcode_mode in {"blacklist", "audit", "whitelist"}:
             from src.utils.analysis_metrics import model_security_fail_total
             import pickletools
             # Expanded block list (potential remote code / object construction vectors)
             blocked = {"GLOBAL", "STACK_GLOBAL", "REDUCE", "INST", "OBJ", "NEWOBJ_EX"}
             try:
+                from src.utils.analysis_metrics import model_opcode_audit_total, model_opcode_whitelist_violations_total
                 for op, arg, pos in pickletools.genops(data):  # type: ignore
-                    if op.name in blocked:
+                    # Audit collection (all modes when scan enabled)
+                    audit_set.add(op.name)
+                    audit_count[op.name] = audit_count.get(op.name, 0) + 1
+                    model_opcode_audit_total.labels(opcode=op.name).inc()
+                    # Whitelist mode: allow only safe minimal set
+                    if opcode_mode == "whitelist":
+                        allowed = {"NONE", "INT", "BININT", "BININT1", "BININT2", "LONG", "BINUNICODE", "SHORT_BINUNICODE", "UNICODE", "EMPTY_LIST", "APPEND", "LIST", "EMPTY_TUPLE", "TUPLE", "EMPTY_DICT", "DICT", "NEWTRUE", "NEWFALSE", "BINPUT", "BINPERSID"}
+                        if op.name not in allowed:
+                            error_msg = f"Disallowed opcode (whitelist) {op.name} at position {pos}"
+                            _MODEL_LAST_ERROR = error_msg
+                            model_opcode_whitelist_violations_total.labels(opcode=op.name).inc()
+                            model_security_fail_total.labels(reason="opcode_whitelist_violation").inc()
+                            model_reload_total.labels(status="opcode_whitelist_violation", version=str(expected_version or _MODEL_VERSION)).inc()
+                            err = create_extended_error(
+                                ErrorCode.INPUT_FORMAT_INVALID,
+                                "Disallowed pickle opcode (whitelist mode)",
+                                stage="model_reload",
+                                context={"opcode": op.name, "position": pos, "path": str(p), "mode": opcode_mode}
+                            )
+                            return {"status": "opcode_blocked", "error": err.to_dict()}
+                    # Blacklist blocking logic
+                    if opcode_mode == "blacklist" and op.name in blocked:
                         # Record security error
                         error_msg = f"Disallowed pickle opcode {op.name} at position {pos}"
                         _MODEL_LAST_ERROR = error_msg
@@ -265,19 +323,36 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
 
                         model_security_fail_total.labels(reason="opcode_blocked").inc()
                         model_reload_total.labels(status="opcode_blocked", version=str(expected_version or _MODEL_VERSION)).inc()
-                        return {
-                            "status": "security_blocked",
-                            "message": "Disallowed pickle opcode detected",
-                            "opcode": op.name,
-                            "position": pos,
-                            "blocked_set": sorted(list(blocked))[:10],
-                        }
+                        err = create_extended_error(
+                            ErrorCode.INPUT_FORMAT_INVALID,
+                            "Disallowed pickle opcode detected",
+                            stage="model_reload",
+                            context={"opcode": op.name, "position": pos, "path": str(p)}
+                        )
+                        return {"status": "opcode_blocked", "error": err.to_dict()}
+                # Persist audit info globally for query endpoint (simple assignment; lock still held)
+                global _OPCODE_AUDIT_SET, _OPCODE_AUDIT_COUNT
+                try:
+                    _OPCODE_AUDIT_SET.update(audit_set)
+                    for k, v in audit_count.items():
+                        _OPCODE_AUDIT_COUNT[k] = _OPCODE_AUDIT_COUNT.get(k, 0) + v
+                except NameError:
+                    # Initialize if first time
+                    _OPCODE_AUDIT_SET = audit_set
+                    _OPCODE_AUDIT_COUNT = audit_count
+                # In audit mode we never block; in whitelist/blacklist we may have returned earlier.
             except Exception as scan_err:
                 # Non-fatal scan error; proceed unless strict mode requested
                 if os.getenv("MODEL_OPCODE_STRICT", "0") == "1":
                     model_security_fail_total.labels(reason="opcode_scan_error").inc()
                     model_reload_total.labels(status="opcode_scan_error", version=str(expected_version or _MODEL_VERSION)).inc()
-                    return {"status": "security_scan_error", "error": str(scan_err)}
+                    err = create_extended_error(
+                        ErrorCode.MODEL_LOAD_ERROR,
+                        "Opcode scan error",
+                        stage="model_reload",
+                        context={"error": str(scan_err), "path": str(p)}
+                    )
+                    return {"status": "opcode_scan_error", "error": err.to_dict()}
         obj = pickle.loads(data)
         if not hasattr(obj, "predict"):
             raise ValueError("Model missing predict method")
@@ -285,26 +360,32 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
 
         # Whitelist check BEFORE committing the model (check candidate_hash before assignment)
         if allowed_hashes and candidate_hash not in allowed_hashes:
-            # Record error (model not yet modified)
-            error_msg = f"Hash {candidate_hash} not in whitelist {list(allowed_hashes)[:3]}"
+            error_msg = f"Hash {candidate_hash} not in whitelist"
             _MODEL_LAST_ERROR = error_msg
-
-            # Log hash mismatch (no rollback needed - model unchanged)
             logger.warning(
                 "Model reload hash mismatch - rejected before commit",
                 extra={
                     "status": "hash_mismatch",
                     "error": error_msg,
                     "found_hash": candidate_hash,
-                    "expected_hashes": list(allowed_hashes)[:3],
+                    "expected_hashes_count": len(allowed_hashes),
                     "current_version": _MODEL_VERSION,
-                    "load_seq": _MODEL_LOAD_SEQ,  # Unchanged
+                    "load_seq": _MODEL_LOAD_SEQ,
                 }
             )
-
             model_security_fail_total.labels(reason="hash_mismatch").inc()
             model_reload_total.labels(status="hash_mismatch", version=str(expected_version or _MODEL_VERSION)).inc()
-            return {"status": "hash_mismatch", "expected_hashes": list(allowed_hashes), "found_hash": candidate_hash}
+            err = create_extended_error(
+                ErrorCode.INPUT_VALIDATION_FAILED,
+                "Hash whitelist validation failed",
+                stage="model_reload",
+                context={
+                    "expected_hashes": list(allowed_hashes),
+                    "found_hash": candidate_hash,
+                    "path": str(p),
+                }
+            )
+            return {"status": "hash_mismatch", "error": err.to_dict()}
 
         # All validations passed - commit the model
         _MODEL = obj
@@ -353,7 +434,17 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
             )
 
             model_reload_total.labels(status="rollback", version=str(expected_version or _MODEL_VERSION)).inc()
-            return {"status": "rollback", "error": str(e), "previous_version": _MODEL_VERSION, "previous_hash": _MODEL_HASH}
+            err = create_extended_error(
+                ErrorCode.MODEL_ROLLBACK,
+                "Model loading failed, rolled back to previous version",
+                stage="model_reload",
+                context={
+                    "rollback_version": _MODEL_VERSION,
+                    "rollback_hash": _MODEL_HASH,
+                    "error": str(e),
+                }
+            )
+            return {"status": "rollback", "error": err.to_dict(), "rollback_version": _MODEL_VERSION, "rollback_hash": _MODEL_HASH}
         # If no previous, attempt second-level rollback (unlikely path)
         if _MODEL_PREV2 is not None:
             _MODEL = _MODEL_PREV2
@@ -376,7 +467,17 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
             )
 
             model_reload_total.labels(status="rollback_level2", version=str(expected_version or _MODEL_VERSION)).inc()
-            return {"status": "rollback_level2", "error": str(e), "previous_version": _MODEL_VERSION, "previous_hash": _MODEL_HASH}
+            err = create_extended_error(
+                ErrorCode.MODEL_ROLLBACK,
+                "Rolled back to level 2 snapshot after consecutive failures",
+                stage="model_reload",
+                context={
+                    "rollback_version": _MODEL_VERSION,
+                    "rollback_hash": _MODEL_HASH,
+                    "error": str(e),
+                }
+            )
+            return {"status": "rollback_level2", "error": err.to_dict(), "rollback_version": _MODEL_VERSION, "rollback_hash": _MODEL_HASH}
 
         # No rollback target available
         logger.error(
@@ -389,7 +490,13 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
         )
 
         model_reload_total.labels(status="error", version=str(expected_version or _MODEL_VERSION)).inc()
-        return {"status": "error", "error": str(e)}
+        err = create_extended_error(
+            ErrorCode.MODEL_LOAD_ERROR,
+            "Model reload error",
+            stage="model_reload",
+            context={"error": str(e), "path": str(p)}
+        )
+        return {"status": "error", "error": err.to_dict()}
 
 
 def get_model_info() -> Dict[str, Any]:
