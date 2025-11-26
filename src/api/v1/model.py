@@ -3,6 +3,7 @@ Model management API endpoints
 模型管理相关的API端点 - 包含模型重载、版本管理等功能
 """
 
+from __future__ import annotations
 import logging
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException
@@ -17,8 +18,8 @@ router = APIRouter()
 
 class ModelReloadRequest(BaseModel):
     """模型重载请求"""
-    path: str | None = Field(None, description="模型文件路径")
-    expected_version: str | None = Field(None, description="期望的模型版本")
+    path: Optional[str] = Field(None, description="模型文件路径")
+    expected_version: Optional[str] = Field(None, description="期望的模型版本")
     force: bool = Field(False, description="强制重载即使版本不匹配")
 
 
@@ -31,10 +32,10 @@ class ModelReloadResponse(BaseModel):
             "magic_invalid/hash_mismatch/opcode_blocked/opcode_scan_error/error"
         ),
     )
-    model_version: str | None = Field(None, description="加载的模型版本")
-    hash: str | None = Field(None, description="模型文件哈希")
-    error: Dict[str, Any] | None = Field(None, description="错误信息")
-    opcode_audit: Dict[str, Any] | None = Field(None, description="Opcode 审计信息 (仅当 audit 模式返回)")
+    model_version: Optional[str] = Field(None, description="加载的模型版本")
+    hash: Optional[str] = Field(None, description="模型文件哈希")
+    error: Optional[Dict[str, Any]] = Field(None, description="错误信息")
+    opcode_audit: Optional[Dict[str, Any]] = Field(None, description="Opcode 审计信息 (仅当 audit 模式返回)")
 
 
 @router.post("/reload", response_model=ModelReloadResponse)

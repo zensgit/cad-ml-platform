@@ -19,7 +19,7 @@ class VectorStatsResponse(BaseModel):
     by_material: Dict[str, int]
     by_complexity: Dict[str, int]
     by_format: Dict[str, int]
-    versions: Dict[str, int] | None = None
+    versions: Optional[Dict[str, int]] = None
 
 
 class VectorDistributionResponse(BaseModel):
@@ -29,8 +29,8 @@ class VectorDistributionResponse(BaseModel):
     by_format: Dict[str, int]
     dominant_ratio: float
     feature_version: str
-    average_dimension: float | None = None
-    versions: Dict[str, int] | None = None
+    average_dimension: Optional[float] = None
+    versions: Optional[Dict[str, int]] = None
 
 
 @router.get("/vectors/stats", response_model=VectorStatsResponse)
@@ -99,4 +99,3 @@ async def vector_distribution(api_key: str = Depends(get_api_key)):
 
 
 __all__ = ["router"]
-

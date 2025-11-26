@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from typing import Optional, List, Dict
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
@@ -17,10 +18,10 @@ class FeatureCacheStatsResponse(BaseModel):
     size: int
     capacity: int
     ttl_seconds: int
-    hit_ratio: float | None = None
-    hits: int | None = None
-    misses: int | None = None
-    evictions: int | None = None
+    hit_ratio: Optional[float] = None
+    hits: Optional[int] = None
+    misses: Optional[int] = None
+    evictions: Optional[int] = None
 
 
 class CacheTuningRecommendation(BaseModel):
@@ -36,39 +37,41 @@ class CacheTuningRecommendation(BaseModel):
 
 
 class CacheApplyRequest(BaseModel):
-    capacity: int | None = Field(None, description="新的缓存容量")
-    ttl_seconds: int | None = Field(None, description="新的TTL（秒）")
+    capacity: Optional[int] = Field(None, description="新的缓存容量")
+    ttl_seconds: Optional[int] = Field(None, description="新的TTL（秒）")
 
 
 class CacheApplyResponse(BaseModel):
     status: str
-    applied: dict | None = None
-    snapshot: dict | None = None
-    error: dict | None = None
+    applied: Optional[dict] = None
+    snapshot: Optional[dict] = None
+    error: Optional[dict] = None
 
 
 class CacheRollbackResponse(BaseModel):
     status: str
-    restored: dict | None = None
-    error: dict | None = None
+    restored: Optional[dict] = None
+    error: Optional[dict] = None
 
 
 class FaissHealthResponse(BaseModel):
     available: bool
-    index_size: int | None
-    dim: int | None
-    age_seconds: int | None
-    pending_delete: int | None
-    max_pending_delete: int | None
-    normalize: bool | None
+    index_size: Optional[int]
+    dim: Optional[int]
+    age_seconds: Optional[int]
+    pending_delete: Optional[int]
+    max_pending_delete: Optional[int]
+    normalize: Optional[bool]
     status: str
-    last_rebuild_status: str | None = None
-    last_error: str | None = None
+    last_rebuild_status: Optional[str] = None
+    last_error: Optional[str] = None
     degraded: bool = False  # True if Faiss fell back to memory
-    degraded_reason: str | None = None
-    degraded_duration_seconds: float | None = None
+    degraded_reason: Optional[str] = None
+    degraded_duration_seconds: Optional[float] = None
     degradation_history_count: int = 0  # Number of degradation events
-    degradation_history: list | None = None  # Recent degradation events (last 10)
+    degradation_history: Optional[List[Dict]] = None  # Recent degradation events (last 10)
+    next_recovery_eta: Optional[int] = None
+    manual_recovery_in_progress: bool = False
 
 
 @router.get("/features/cache", response_model=FeatureCacheStatsResponse)
@@ -211,6 +214,25 @@ async def cache_apply(
     )
 
 
+@router.get("/health/features/cache", response_model=FeatureCacheStatsResponse)
+async def feature_cache_stats_health_alias(api_key: str = Depends(get_api_key)):
+    return await feature_cache_stats(api_key)  # type: ignore
+
+
+@router.get("/health/features/cache/tuning", response_model=CacheTuningRecommendation)
+async def cache_tuning_recommendation_health_alias(api_key: str = Depends(get_api_key)):
+    return await cache_tuning_recommendation(api_key)  # type: ignore
+
+
+@router.post("/health/features/cache/apply", response_model=CacheApplyResponse)
+async def cache_apply_health_alias(
+    req: CacheApplyRequest,
+    api_key: str = Depends(get_api_key),
+    admin_token: str = Depends(get_admin_token),
+):
+    return await cache_apply(req, api_key, admin_token)  # type: ignore
+
+
 @router.post("/features/cache/rollback", response_model=CacheRollbackResponse)
 async def cache_rollback(
     api_key: str = Depends(get_api_key),
@@ -225,6 +247,14 @@ async def cache_rollback(
     )
 
 
+@router.post("/health/features/cache/rollback", response_model=CacheRollbackResponse)
+async def cache_rollback_health_alias(
+    api_key: str = Depends(get_api_key),
+    admin_token: str = Depends(get_admin_token),
+):
+    return await cache_rollback(api_key, admin_token)  # type: ignore
+
+
 @router.post("/features/cache/prewarm")
 async def cache_prewarm(
     strategy: str = "auto",
@@ -235,6 +265,16 @@ async def cache_prewarm(
     from src.core.feature_cache import prewarm_cache
     result = prewarm_cache(strategy=strategy, limit=limit)
     return result
+
+
+@router.post("/health/features/cache/prewarm")
+async def cache_prewarm_health_alias(
+    strategy: str = "auto",
+    limit: int = 0,
+    api_key: str = Depends(get_api_key),
+    admin_token: str = Depends(get_admin_token),
+):
+    return await cache_prewarm(strategy, limit, api_key, admin_token)  # type: ignore
 
 
 @router.get("/faiss/health", response_model=FaissHealthResponse)
@@ -249,6 +289,8 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
         _FAISS_LAST_EXPORT_TS,
         _FAISS_LAST_IMPORT,
         get_degraded_mode_info,
+        _FAISS_NEXT_RECOVERY_TS,
+        _FAISS_MANUAL_RECOVERY_IN_PROGRESS,
     )
     import time
 
@@ -284,6 +326,25 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
     last_rebuild_status = globals().get("_FAISS_LAST_REBUILD_STATUS")
     last_error = globals().get("_FAISS_LAST_ERROR")
 
+    # Compute next recovery ETA if scheduled
+    next_recovery_eta = None
+    try:
+        if _FAISS_NEXT_RECOVERY_TS:
+            next_recovery_eta = int(_FAISS_NEXT_RECOVERY_TS)
+            try:
+                from src.utils.analysis_metrics import faiss_next_recovery_eta_seconds
+                faiss_next_recovery_eta_seconds.set(next_recovery_eta)
+            except Exception:
+                pass
+        else:
+            try:
+                from src.utils.analysis_metrics import faiss_next_recovery_eta_seconds
+                faiss_next_recovery_eta_seconds.set(0)
+            except Exception:
+                pass
+    except Exception:
+        next_recovery_eta = None
+
     return FaissHealthResponse(
         available=available,
         index_size=size,
@@ -300,14 +361,31 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
         degraded_duration_seconds=degraded_info["degraded_duration_seconds"],
         degradation_history_count=degraded_info["history_count"],
         degradation_history=degraded_info["history"] if degraded_info["history"] else None,
+        next_recovery_eta=next_recovery_eta,
+        manual_recovery_in_progress=bool(_FAISS_MANUAL_RECOVERY_IN_PROGRESS),
     )
+
+
+@router.get("/health/faiss/health", response_model=FaissHealthResponse)
+async def faiss_health_alias(api_key: str = Depends(get_api_key)):
+    return await faiss_health(api_key)  # type: ignore
 
 
 @router.post("/faiss/recover")
 async def faiss_manual_recover(api_key: str = Depends(get_api_key)):
     """Manually trigger a Faiss recovery attempt (respects backoff)."""
-    from src.core.similarity import attempt_faiss_recovery
+    from src.core.similarity import attempt_faiss_recovery, _FAISS_MANUAL_RECOVERY_IN_PROGRESS
+    # Mark manual recovery in progress to coordinate with background loop
+    try:
+        globals()["_FAISS_MANUAL_RECOVERY_IN_PROGRESS"] = True
+    except Exception:
+        pass
     ok = attempt_faiss_recovery()
+    # Clear the manual flag regardless of outcome
+    try:
+        globals()["_FAISS_MANUAL_RECOVERY_IN_PROGRESS"] = False
+    except Exception:
+        pass
     if not ok:
         return {"status": "skipped_or_failed"}
     return {"status": "success"}
@@ -315,15 +393,15 @@ async def faiss_manual_recover(api_key: str = Depends(get_api_key)):
 
 class ModelHealthResponse(BaseModel):
     status: str
-    version: str | None
-    hash: str | None
-    path: str | None
+    version: Optional[str]
+    hash: Optional[str]
+    path: Optional[str]
     loaded: bool
-    loaded_at: float | None = None
-    uptime_seconds: float | None = None
-    last_error: str | None = None
+    loaded_at: Optional[float] = None
+    uptime_seconds: Optional[float] = None
+    last_error: Optional[str] = None
     rollback_level: int = 0
-    rollback_reason: str | None = None
+    rollback_reason: Optional[str] = None
     load_seq: int = 0  # Monotonic load sequence for disambiguation
 
 

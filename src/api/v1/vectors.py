@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict
+from typing import Any, Dict, Optional, List
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -21,15 +21,15 @@ class VectorDeleteRequest(BaseModel):
 class VectorDeleteResponse(BaseModel):
     id: str
     status: str
-    error: Dict[str, Any] | None = None
+    error: Optional[Dict[str, Any]] = None
 
 
 class VectorListItem(BaseModel):
     id: str
     dimension: int
-    material: str | None = None
-    complexity: str | None = None
-    format: str | None = None
+    material: Optional[str] = None
+    complexity: Optional[str] = None
+    format: Optional[str] = None
 
 
 class VectorListResponse(BaseModel):
@@ -98,19 +98,19 @@ async def list_vectors(api_key: str = Depends(get_api_key)):
 __all__ = ["router"]
 class VectorUpdateRequest(BaseModel):
     id: str = Field(description="要更新的向量分析ID")
-    replace: list[float] | None = Field(default=None, description="新的向量 (维度需与原向量一致)")
-    append: list[float] | None = Field(default=None, description="追加的向量片段 (若提供 replace 则忽略)")
-    material: str | None = Field(default=None, description="更新材料元数据")
-    complexity: str | None = Field(default=None, description="更新复杂度元数据")
-    format: str | None = Field(default=None, description="更新格式元数据")
+    replace: Optional[list[float]] = Field(default=None, description="新的向量 (维度需与原向量一致)")
+    append: Optional[list[float]] = Field(default=None, description="追加的向量片段 (若提供 replace 则忽略)")
+    material: Optional[str] = Field(default=None, description="更新材料元数据")
+    complexity: Optional[str] = Field(default=None, description="更新复杂度元数据")
+    format: Optional[str] = Field(default=None, description="更新格式元数据")
 
 
 class VectorUpdateResponse(BaseModel):
     id: str
     status: str
-    dimension: int | None = None
-    error: Dict[str, Any] | None = None
-    feature_version: str | None = None
+    dimension: Optional[int] = None
+    error: Optional[Dict[str, Any]] = None
+    feature_version: Optional[str] = None
 
 
 @router.post("/vectors/update", response_model=VectorUpdateResponse)
@@ -187,11 +187,11 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
 class VectorMigrateItem(BaseModel):
     id: str
     status: str
-    from_version: str | None = None
-    to_version: str | None = None
-    dimension_before: int | None = None
-    dimension_after: int | None = None
-    error: str | None = None
+    from_version: Optional[str] = None
+    to_version: Optional[str] = None
+    dimension_before: Optional[int] = None
+    dimension_after: Optional[int] = None
+    error: Optional[str] = None
 
 
 class VectorMigrateRequest(BaseModel):
@@ -204,45 +204,45 @@ class VectorMigrateResponse(BaseModel):
     total: int
     migrated: int
     skipped: int
-    items: list[VectorMigrateItem]
-    migration_id: str | None = Field(default=None, description="迁移批次ID")
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
-    dry_run_total: int | None = None
+    items: List[VectorMigrateItem]
+    migration_id: Optional[str] = Field(default=None, description="迁移批次ID")
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    dry_run_total: Optional[int] = None
 
 
 class VectorMigrationStatusResponse(BaseModel):
-    last_migration_id: str | None = None
-    last_started_at: datetime | None = None
-    last_finished_at: datetime | None = None
-    last_total: int | None = None
-    last_migrated: int | None = None
-    last_skipped: int | None = None
-    pending_vectors: int | None = None
-    feature_versions: Dict[str, int] | None = None
-    history: list[Dict[str, Any]] | None = None
+    last_migration_id: Optional[str] = None
+    last_started_at: Optional[datetime] = None
+    last_finished_at: Optional[datetime] = None
+    last_total: Optional[int] = None
+    last_migrated: Optional[int] = None
+    last_skipped: Optional[int] = None
+    pending_vectors: Optional[int] = None
+    feature_versions: Optional[Dict[str, int]] = None
+    history: Optional[List[Dict[str, Any]]] = None
 
 
 class VectorMigrationSummaryResponse(BaseModel):
     counts: Dict[str, int]
     total_migrations: int
     history_size: int
-    statuses: list[str]
+    statuses: List[str]
 
 
 class VectorMigrationPreviewResponse(BaseModel):
     """迁移预览响应 - 不执行实际写入"""
     total_vectors: int = Field(description="总向量数量")
     by_version: Dict[str, int] = Field(description="各版本向量数量统计")
-    preview_items: list[VectorMigrateItem] = Field(description="预览前N个向量的迁移结果")
+    preview_items: List[VectorMigrateItem] = Field(description="预览前N个向量的迁移结果")
     estimated_dimension_changes: Dict[str, int] = Field(description="预计维度变化统计 (positive/negative/zero)")
     migration_feasible: bool = Field(description="迁移是否可行")
-    warnings: list[str] = Field(default_factory=list, description="潜在问题警告")
-    avg_delta: float | None = Field(default=None, description="采样维度变化平均值")
-    median_delta: float | None = Field(default=None, description="采样维度变化中位数")
+    warnings: List[str] = Field(default_factory=list, description="潜在问题警告")
+    avg_delta: Optional[float] = Field(default=None, description="采样维度变化平均值")
+    median_delta: Optional[float] = Field(default=None, description="采样维度变化中位数")
 
 
-@router.get("/vectors/migrate/preview", response_model=VectorMigrationPreviewResponse)
+@router.get("/migrate/preview", response_model=VectorMigrationPreviewResponse)
 async def preview_migration(
     to_version: str,
     limit: int = 10,
@@ -364,8 +364,8 @@ async def preview_migration(
         warnings.append("More than 50% of sampled vectors would lose dimensions")
 
     # Compute stats
-    avg_delta: float | None = None
-    median_delta: float | None = None
+    avg_delta: Optional[float] = None
+    median_delta: Optional[float] = None
     if deltas:
         avg_delta = float(sum(deltas) / len(deltas))
         try:
@@ -394,7 +394,7 @@ async def preview_migration(
     )
 
 
-@router.post("/vectors/migrate", response_model=VectorMigrateResponse)
+@router.post("/migrate", response_model=VectorMigrateResponse)
 async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(get_api_key)):
     from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
     from src.core.feature_extractor import FeatureExtractor
@@ -416,7 +416,7 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
     migration_id = str(uuid.uuid4())
     started_at = datetime.utcnow()
     target_version = payload.to_version
-    items: list[VectorMigrateItem] = []
+    items: List[VectorMigrateItem] = []
     migrated = 0
     skipped = 0
     dry_run_total = 0
@@ -546,10 +546,10 @@ class BatchSimilarityRequest(BaseModel):
     """批量相似度查询请求"""
     ids: list[str] = Field(description="需要查询的向量ID列表")
     top_k: int = Field(default=5, ge=1, le=50, description="每个向量返回的最相似结果数量")
-    material: str | None = Field(default=None, description="过滤材料类型")
-    complexity: str | None = Field(default=None, description="过滤复杂度")
-    format: str | None = Field(default=None, description="过滤CAD格式")
-    min_score: float | None = Field(default=None, ge=0.0, le=1.0, description="最小相似度分数阈值")
+    material: Optional[str] = Field(default=None, description="过滤材料类型")
+    complexity: Optional[str] = Field(default=None, description="过滤复杂度")
+    format: Optional[str] = Field(default=None, description="过滤CAD格式")
+    min_score: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="最小相似度分数阈值")
 
 
 class BatchSimilarityItem(BaseModel):
@@ -557,7 +557,7 @@ class BatchSimilarityItem(BaseModel):
     id: str
     status: str  # success|not_found|error
     similar: list[Dict[str, Any]] = Field(default_factory=list)
-    error: Dict[str, Any] | None = None
+    error: Optional[Dict[str, Any]] = None
 
 
 class BatchSimilarityResponse(BaseModel):
@@ -566,9 +566,9 @@ class BatchSimilarityResponse(BaseModel):
     successful: int
     failed: int
     items: list[BatchSimilarityItem]
-    batch_id: str | None = None
-    duration_ms: float | None = None
-    fallback: bool | None = Field(default=None, description="是否使用了内存降级 (Faiss不可用时)")
+    batch_id: Optional[str] = None
+    duration_ms: Optional[float] = None
+    fallback: Optional[bool] = Field(default=None, description="是否使用了内存降级 (Faiss不可用时)")
     degraded: bool = Field(default=False, description="向量存储是否处于降级模式")
 
 

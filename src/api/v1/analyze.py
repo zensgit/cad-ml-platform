@@ -2,6 +2,8 @@
 CAD文件分析API端点
 """
 
+from __future__ import annotations
+
 import json
 import logging
 import uuid
@@ -84,7 +86,7 @@ class AnalysisResult(BaseModel):
     results: Dict[str, Any] = Field(description="分析结果")
     processing_time: float = Field(description="处理时间(秒)")
     cache_hit: bool = Field(default=False, description="是否缓存命中")
-    cad_document: Dict[str, Any] | None = Field(
+    cad_document: Optional[Dict[str, Any]] = Field(
         default=None,
         description="统一的CAD文档结构 (序列化) 包含实体/图层/边界框/复杂度等, 便于下游直接使用。",
     )
@@ -102,8 +104,8 @@ class SimilarityResult(BaseModel):
     score: float
     method: str
     dimension: int
-    status: str | None = None
-    error: Dict[str, Any] | None = None
+    status: Optional[str] = None
+    error: Optional[Dict[str, Any]] = None
 
 
 class SimilarityTopKQuery(BaseModel):
@@ -111,24 +113,24 @@ class SimilarityTopKQuery(BaseModel):
     k: int = Field(default=5, description="返回的最大数量 (包含自身)")
     exclude_self: bool = Field(default=False, description="是否排除自身向量")
     offset: int = Field(default=0, description="结果偏移用于分页")
-    material_filter: str | None = Field(default=None, description="按材料过滤")
-    complexity_filter: str | None = Field(default=None, description="按复杂度过滤")
+    material_filter: Optional[str] = Field(default=None, description="按材料过滤")
+    complexity_filter: Optional[str] = Field(default=None, description="按复杂度过滤")
 
 
 class SimilarityTopKItem(BaseModel):
     id: str
     score: float
-    material: str | None = None
-    complexity: str | None = None
-    format: str | None = None
+    material: Optional[str] = None
+    complexity: Optional[str] = None
+    format: Optional[str] = None
 
 
 class SimilarityTopKResponse(BaseModel):
     target_id: str
     k: int
     results: list[SimilarityTopKItem]
-    status: str | None = None
-    error: Dict[str, Any] | None = None
+    status: Optional[str] = None
+    error: Optional[Dict[str, Any]] = None
 
 
 class VectorDeleteRequest(BaseModel):  # deprecated moved to vectors.py
@@ -143,9 +145,9 @@ class VectorDeleteResponse(BaseModel):  # deprecated moved to vectors.py
 class VectorListItem(BaseModel):  # deprecated moved to vectors.py
     id: str
     dimension: int
-    material: str | None = None
-    complexity: str | None = None
-    format: str | None = None
+    material: Optional[str] = None
+    complexity: Optional[str] = None
+    format: Optional[str] = None
 
 
 class VectorListResponse(BaseModel):  # deprecated moved to vectors.py
@@ -155,23 +157,23 @@ class VectorListResponse(BaseModel):  # deprecated moved to vectors.py
 
 class VectorUpdateRequest(BaseModel):
     id: str = Field(description="要更新的向量分析ID")
-    replace: list[float] | None = Field(
+    replace: Optional[list[float]] = Field(
         default=None, description="新的向量 (维度需与原向量一致)"
     )
-    append: list[float] | None = Field(
+    append: Optional[list[float]] = Field(
         default=None, description="追加的向量片段 (若提供 replace 则忽略)"
     )
-    material: str | None = Field(default=None, description="更新材料元数据")
-    complexity: str | None = Field(default=None, description="更新复杂度元数据")
-    format: str | None = Field(default=None, description="更新格式元数据")
+    material: Optional[str] = Field(default=None, description="更新材料元数据")
+    complexity: Optional[str] = Field(default=None, description="更新复杂度元数据")
+    format: Optional[str] = Field(default=None, description="更新格式元数据")
 
 
 class VectorUpdateResponse(BaseModel):
     id: str
     status: str
-    dimension: int | None = None
-    error: Dict[str, Any] | None = None
-    feature_version: str | None = None
+    dimension: Optional[int] = None
+    error: Optional[Dict[str, Any]] = None
+    feature_version: Optional[str] = None
 
 
 class VectorStatsResponse(BaseModel):  # deprecated moved to vectors_stats.py
@@ -180,7 +182,7 @@ class VectorStatsResponse(BaseModel):  # deprecated moved to vectors_stats.py
     by_material: Dict[str, int]
     by_complexity: Dict[str, int]
     by_format: Dict[str, int]
-    versions: Dict[str, int] | None = None
+    versions: Optional[Dict[str, int]] = None
 
 
 class VectorDistributionResponse(BaseModel):  # deprecated moved to vectors_stats.py
@@ -190,18 +192,18 @@ class VectorDistributionResponse(BaseModel):  # deprecated moved to vectors_stat
     by_format: Dict[str, int]
     dominant_ratio: float
     feature_version: str
-    average_dimension: float | None = None
-    versions: Dict[str, int] | None = None
+    average_dimension: Optional[float] = None
+    versions: Optional[Dict[str, int]] = None
 
 
 class VectorMigrateItem(BaseModel):
     id: str
     status: str
-    from_version: str | None = None
-    to_version: str | None = None
-    dimension_before: int | None = None
-    dimension_after: int | None = None
-    error: str | None = None
+    from_version: Optional[str] = None
+    to_version: Optional[str] = None
+    dimension_before: Optional[int] = None
+    dimension_after: Optional[int] = None
+    error: Optional[str] = None
 
 
 class VectorMigrateRequest(BaseModel):
@@ -215,28 +217,28 @@ class VectorMigrateResponse(BaseModel):
     migrated: int
     skipped: int
     items: list[VectorMigrateItem]
-    migration_id: str | None = Field(default=None, description="迁移批次ID")
-    started_at: datetime | None = None
-    finished_at: datetime | None = None
-    dry_run_total: int | None = None
+    migration_id: Optional[str] = Field(default=None, description="迁移批次ID")
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    dry_run_total: Optional[int] = None
 
 
 class VectorMigrationStatusResponse(BaseModel):
-    last_migration_id: str | None = None
-    last_started_at: datetime | None = None
-    last_finished_at: datetime | None = None
-    last_total: int | None = None
-    last_migrated: int | None = None
-    last_skipped: int | None = None
-    pending_vectors: int | None = None
-    feature_versions: Dict[str, int] | None = None
-    history: list[Dict[str, Any]] | None = None
+    last_migration_id: Optional[str] = None
+    last_started_at: Optional[datetime] = None
+    last_finished_at: Optional[datetime] = None
+    last_total: Optional[int] = None
+    last_migrated: Optional[int] = None
+    last_skipped: Optional[int] = None
+    pending_vectors: Optional[int] = None
+    feature_versions: Optional[Dict[str, int]] = None
+    history: Optional[list[Dict[str, Any]]] = None
 
 
 class ProcessRulesAuditResponse(BaseModel):
     version: str
     source: str
-    hash: str | None = None
+    hash: Optional[str] = None
     materials: list[str]
     complexities: Dict[str, list[str]]
     raw: Dict[str, Any]
@@ -246,8 +248,8 @@ class ProcessRulesAuditResponse(BaseModel):
 async def analyze_cad_file(
     file: UploadFile = File(..., description="CAD文件"),
     options: str = Form(default='{"extract_features": true, "classify_parts": true}'),
-    material: str | None = Form(default=None, description="材料标注"),
-    project_id: str | None = Form(default=None, description="项目ID"),
+    material: Optional[str] = Form(default=None, description="材料标注"),
+    project_id: Optional[str] = Form(default=None, description="项目ID"),
     api_key: str = Depends(get_api_key),
 ):
     """
@@ -1089,7 +1091,7 @@ async def process_rules_audit(raw: bool = True, api_key: str = Depends(get_api_k
         cm = rules.get(m, {})
         if isinstance(cm, dict):
             complexities[m] = sorted([c for c in cm.keys() if isinstance(cm.get(c), list)])
-    file_hash: str | None = None
+    file_hash: Optional[str] = None
     try:
         if os.path.exists(path):
             with open(path, "rb") as f:
@@ -1308,7 +1310,7 @@ async def vector_migration_status(api_key: str = Depends(get_api_key)):
         ver = meta.get("feature_version", "unknown")
         versions[ver] = versions.get(ver, 0) + 1
     st = getattr(_sim, "_MIGRATION_STATUS", {})
-    def _dt(val: str | None):
+    def _dt(val: Optional[str]):
         if not val:
             return None
         try:
@@ -1329,10 +1331,10 @@ async def vector_migration_status(api_key: str = Depends(get_api_key)):
 class FeaturesDiffResponse(BaseModel):
     id_a: str
     id_b: str
-    dimension: int | None = None
+    dimension: Optional[int] = None
     diffs: list[Dict[str, Any]]
     status: str
-    error: Dict[str, Any] | None = None
+    error: Optional[Dict[str, Any]] = None
 @router.get("/features/diff", response_model=FeaturesDiffResponse, deprecated=True)
 async def features_diff_deprecated(id_a: str, id_b: str, api_key: str = Depends(get_api_key)):
     """Deprecated: moved to /api/v1/features/diff"""
@@ -1348,15 +1350,15 @@ async def features_diff_deprecated(id_a: str, id_b: str, api_key: str = Depends(
 
 class ModelReloadRequest(BaseModel):
     path: str = Field(description="模型文件路径")
-    expected_version: str | None = Field(default=None, description="期望模型版本")
+    expected_version: Optional[str] = Field(default=None, description="期望模型版本")
     force: bool = Field(default=False, description="强制重载忽略版本校验")
 
 
 class ModelReloadResponse(BaseModel):
     status: str
-    model_version: str | None = None
-    hash: str | None = None
-    error: Dict[str, Any] | None = None
+    model_version: Optional[str] = None
+    hash: Optional[str] = None
+    error: Optional[Dict[str, Any]] = None
 
 
 @router.post("/model/reload", response_model=ModelReloadResponse, deprecated=True)
@@ -1375,8 +1377,8 @@ async def model_reload_deprecated(payload: ModelReloadRequest, api_key: str = De
 class OrphanCleanupResponse(BaseModel):
     status: str
     cleaned: int
-    total_orphans_detected: int | None = None
-    error: Dict[str, Any] | None = None
+    total_orphans_detected: Optional[int] = None
+    error: Optional[Dict[str, Any]] = None
 
 
 @router.delete("/vectors/orphans", response_model=OrphanCleanupResponse, deprecated=True)
@@ -1400,20 +1402,20 @@ async def cleanup_orphan_vectors_deprecated(
 
 class DriftStatusResponse(BaseModel):
     material_current: Dict[str, int]
-    material_baseline: Dict[str, int] | None = None
-    material_drift_score: float | None = None
+    material_baseline: Optional[Dict[str, int]] = None
+    material_drift_score: Optional[float] = None
     prediction_current: Dict[str, int]
-    prediction_baseline: Dict[str, int] | None = None
-    prediction_drift_score: float | None = None
+    prediction_baseline: Optional[Dict[str, int]] = None
+    prediction_drift_score: Optional[float] = None
     baseline_min_count: int
     materials_total: int
     predictions_total: int
     status: str
-    baseline_material_age: int | None = None
-    baseline_prediction_age: int | None = None
-    baseline_material_created_at: datetime | None = None
-    baseline_prediction_created_at: datetime | None = None
-    stale: bool | None = None
+    baseline_material_age: Optional[int] = None
+    baseline_prediction_age: Optional[int] = None
+    baseline_material_created_at: Optional[datetime] = None
+    baseline_prediction_created_at: Optional[datetime] = None
+    stale: Optional[bool] = None
 
 class DriftResetResponse(BaseModel):
     status: str
@@ -1535,11 +1537,11 @@ async def drift_reset(api_key: str = Depends(get_api_key)):
 
 class DriftBaselineStatusResponse(BaseModel):
     status: str
-    material_age: int | None = None
-    prediction_age: int | None = None
-    material_created_at: datetime | None = None
-    prediction_created_at: datetime | None = None
-    stale: bool | None = None
+    material_age: Optional[int] = None
+    prediction_age: Optional[int] = None
+    material_created_at: Optional[datetime] = None
+    prediction_created_at: Optional[datetime] = None
+    stale: Optional[bool] = None
     max_age_seconds: int
 
 
@@ -1549,21 +1551,21 @@ class FeatureCacheStatsResponse(BaseModel):
     size: int
     capacity: int
     ttl_seconds: int
-    hit_ratio: float | None = None
-    hits: int | None = None
-    misses: int | None = None
-    evictions: int | None = None
+    hit_ratio: Optional[float] = None
+    hits: Optional[int] = None
+    misses: Optional[int] = None
+    evictions: Optional[int] = None
 
 
 class FaissHealthResponse(BaseModel):
     """(Deprecated location) Moved to health.py"""
     available: bool
-    index_size: int | None
-    dim: int | None
-    age_seconds: int | None
-    pending_delete: int | None
-    max_pending_delete: int | None
-    normalize: bool | None
+    index_size: Optional[int]
+    dim: Optional[int]
+    age_seconds: Optional[int]
+    pending_delete: Optional[int]
+    max_pending_delete: Optional[int]
+    normalize: Optional[bool]
     status: str
 
 

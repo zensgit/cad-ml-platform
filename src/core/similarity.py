@@ -19,6 +19,10 @@ from src.utils.analysis_metrics import (
     faiss_init_errors_total,
     vector_query_backend_total,
     similarity_degraded_total,
+    faiss_recovery_attempts_total,
+    faiss_degraded_duration_seconds,
+    faiss_recovery_state_backend,
+    faiss_recovery_suppression_remaining_seconds,
 )
 from src.core.errors_extended import ErrorCode
 from src.utils.analysis_metrics import analysis_error_code_total
@@ -47,6 +51,86 @@ _FAISS_RECOVERY_INTERVAL_SECONDS = float(os.getenv("FAISS_RECOVERY_INTERVAL_SECO
 _FAISS_RECOVERY_MAX_BACKOFF = float(os.getenv("FAISS_RECOVERY_MAX_BACKOFF", "3600"))
 _FAISS_RECOVERY_BACKOFF_MULTIPLIER = float(os.getenv("FAISS_RECOVERY_BACKOFF_MULTIPLIER", "2"))
 _FAISS_NEXT_RECOVERY_TS: float | None = None
+_FAISS_SUPPRESS_UNTIL_TS: float | None = None  # flapping suppression window
+_FAISS_RECOVERY_FLAP_THRESHOLD = int(os.getenv("FAISS_RECOVERY_FLAP_THRESHOLD", "3"))
+_FAISS_RECOVERY_FLAP_WINDOW_SECONDS = int(os.getenv("FAISS_RECOVERY_FLAP_WINDOW_SECONDS", "900"))  # 15m
+_FAISS_RECOVERY_SUPPRESSION_SECONDS = int(os.getenv("FAISS_RECOVERY_SUPPRESSION_SECONDS", "300"))  # 5m
+_FAISS_RECOVERY_STATE_BACKEND = os.getenv("FAISS_RECOVERY_STATE_BACKEND", "file").lower()
+try:
+    faiss_recovery_state_backend.labels(backend=_FAISS_RECOVERY_STATE_BACKEND).set(1)
+except Exception:
+    pass
+
+# Persistence for recovery backoff / suppression state
+def _get_recovery_state_path() -> str:
+    return os.getenv("FAISS_RECOVERY_STATE_PATH", "data/faiss_recovery_state.json")
+
+def _store_recovery_state(payload: dict) -> None:
+    """Store recovery state using configured backend (file|redis)."""
+    try:
+        if _FAISS_RECOVERY_STATE_BACKEND == "redis":
+            client = get_client()
+            if client is not None:
+                client.set("faiss:recovery_state", __import__("json").dumps(payload))
+                return
+    except Exception:
+        pass
+    # Fallback to file
+    try:
+        import json, os
+        path = _get_recovery_state_path()
+        dirn = os.path.dirname(path)
+        if dirn:
+            os.makedirs(dirn, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f)
+    except Exception:
+        pass
+
+def _persist_recovery_state():  # pragma: no cover (IO side effects)
+    try:
+        import time
+        payload = {
+            "next_recovery_ts": _FAISS_NEXT_RECOVERY_TS,
+            "suppress_until_ts": _FAISS_SUPPRESS_UNTIL_TS,
+            "degraded": _VECTOR_DEGRADED,
+            "degraded_reason": _VECTOR_DEGRADED_REASON,
+            "degraded_at": _VECTOR_DEGRADED_AT,
+            "persisted_at": time.time(),
+        }
+        _store_recovery_state(payload)
+    except Exception:
+        pass
+
+def load_recovery_state():  # pragma: no cover (invoked at startup)
+    """Load persisted recovery state into globals (best-effort)."""
+    global _FAISS_NEXT_RECOVERY_TS, _FAISS_SUPPRESS_UNTIL_TS, _VECTOR_DEGRADED, _VECTOR_DEGRADED_REASON, _VECTOR_DEGRADED_AT
+    try:
+        import json, os, time
+        data = None
+        if _FAISS_RECOVERY_STATE_BACKEND == "redis":
+            client = get_client()
+            if client is not None:
+                val = client.get("faiss:recovery_state")
+                if val:
+                    data = json.loads(val)
+        if data is None:
+            path = _get_recovery_state_path()
+            if not os.path.exists(path):
+                return False
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        _FAISS_NEXT_RECOVERY_TS = data.get("next_recovery_ts")
+        _FAISS_SUPPRESS_UNTIL_TS = data.get("suppress_until_ts")
+        # Only restore degraded flags if still relevant (timestamp within last 24h)
+        ts = data.get("degraded_at")
+        if ts and time.time() - ts < 86400 and data.get("degraded"):
+            _VECTOR_DEGRADED = True
+            _VECTOR_DEGRADED_REASON = data.get("degraded_reason")
+            _VECTOR_DEGRADED_AT = ts
+        return True
+    except Exception:
+        return False
 
 
 def register_vector(doc_id: str, vector: List[float], meta: Dict[str, str] | None = None) -> bool:
@@ -323,6 +407,7 @@ _FAISS_AVAILABLE: bool | None = None
 _FAISS_PENDING_DELETE: set[str] = set()
 _FAISS_LAST_EXPORT_SIZE: int = 0
 _FAISS_LAST_EXPORT_TS: float | None = None
+_FAISS_LAST_IMPORT: float | None = None
 _FAISS_IMPORTED: bool = False
 _FAISS_MAX_PENDING_DELETE = int(os.getenv("FAISS_MAX_PENDING_DELETE", "100"))
 _FAISS_REBUILD_BACKOFF = float(os.getenv("FAISS_REBUILD_BACKOFF_INITIAL", "5"))  # seconds
@@ -721,13 +806,31 @@ def attempt_faiss_recovery(now: float | None = None) -> bool:
 
     Returns True if recovery succeeded (and flags were cleared), False otherwise.
     """
-    from src.utils.analysis_metrics import faiss_recovery_attempts_total, faiss_degraded_duration_seconds
+    from src.utils.analysis_metrics import (
+        faiss_recovery_attempts_total,
+        faiss_degraded_duration_seconds,
+        faiss_next_recovery_eta_seconds,
+    )
     n = __import__("time").time() if now is None else now
     # Only attempt when degraded and time threshold passed
     if not _VECTOR_DEGRADED:
         faiss_recovery_attempts_total.labels(result="skipped").inc()
         return False
     global _FAISS_NEXT_RECOVERY_TS
+    # Suppression window active (flapping protection)
+    if _FAISS_SUPPRESS_UNTIL_TS and n < _FAISS_SUPPRESS_UNTIL_TS:
+        try:
+            from src.utils.analysis_metrics import faiss_recovery_suppressed_total
+            faiss_recovery_suppressed_total.labels(reason="flapping").inc()
+            # update remaining suppression seconds gauge
+            try:
+                faiss_recovery_suppression_remaining_seconds.set(_FAISS_SUPPRESS_UNTIL_TS - n)
+            except Exception:
+                pass
+        except Exception:
+            pass
+        faiss_recovery_attempts_total.labels(result="suppressed").inc()
+        return False
     if _FAISS_NEXT_RECOVERY_TS and n < _FAISS_NEXT_RECOVERY_TS:
         faiss_recovery_attempts_total.labels(result="skipped").inc()
         return False
@@ -740,6 +843,11 @@ def attempt_faiss_recovery(now: float | None = None) -> bool:
                 # recovered
                 faiss_recovery_attempts_total.labels(result="success").inc()
                 faiss_degraded_duration_seconds.set(0)
+                # Clear ETA gauge immediately on successful recovery
+                try:
+                    faiss_next_recovery_eta_seconds.set(0)
+                except Exception:
+                    pass
                 # clear degraded flags (preserve history)
                 if _VECTOR_DEGRADED:
                     try:
@@ -751,6 +859,14 @@ def attempt_faiss_recovery(now: float | None = None) -> bool:
                     globals()["_VECTOR_DEGRADED"] = False
                     globals()["_VECTOR_DEGRADED_REASON"] = None
                     globals()["_VECTOR_DEGRADED_AT"] = None
+                # Clear suppression window once recovered
+                globals()["_FAISS_SUPPRESS_UNTIL_TS"] = None
+                globals()["_FAISS_NEXT_RECOVERY_TS"] = None
+                try:
+                    faiss_recovery_suppression_remaining_seconds.set(0)
+                except Exception:
+                    pass
+                _persist_recovery_state()
                 return True
             else:
                 # still degraded; schedule next attempt
@@ -758,9 +874,21 @@ def attempt_faiss_recovery(now: float | None = None) -> bool:
                 import math
                 backoff = min(max(_FAISS_RECOVERY_INTERVAL_SECONDS, 60.0) * _FAISS_RECOVERY_BACKOFF_MULTIPLIER, _FAISS_RECOVERY_MAX_BACKOFF)
                 _FAISS_NEXT_RECOVERY_TS = n + backoff
+                _persist_recovery_state()
                 try:
                     from src.utils.analysis_metrics import faiss_rebuild_backoff_seconds
                     faiss_rebuild_backoff_seconds.set(backoff)
+                    # Reflect scheduled ETA in gauge for observability
+                    try:
+                        faiss_next_recovery_eta_seconds.set(_FAISS_NEXT_RECOVERY_TS)
+                    except Exception:
+                        pass
+                    # If suppression ended but we are scheduling next attempt, ensure remaining seconds gauge reflects 0
+                    if not _FAISS_SUPPRESS_UNTIL_TS or n >= (_FAISS_SUPPRESS_UNTIL_TS or 0):
+                        try:
+                            faiss_recovery_suppression_remaining_seconds.set(0)
+                        except Exception:
+                            pass
                 except Exception:
                     pass
                 if _VECTOR_DEGRADED_AT:
@@ -775,7 +903,38 @@ async def faiss_recovery_loop() -> None:  # pragma: no cover (background loop)
     import asyncio, time
     while True:
         try:
-            attempt_faiss_recovery()
+            # If a manual recovery is underway, skip this iteration
+            if _FAISS_MANUAL_RECOVERY_IN_PROGRESS:
+                await asyncio.sleep(1.0)
+            else:
+                # Flapping detection: count degraded history entries in window
+                if _VECTOR_DEGRADED and _DEGRADATION_HISTORY:
+                    now = time.time()
+                    recent = [h for h in _DEGRADATION_HISTORY if now - h.get("timestamp", 0) <= _FAISS_RECOVERY_FLAP_WINDOW_SECONDS]
+                    if len(recent) >= _FAISS_RECOVERY_FLAP_THRESHOLD and (_FAISS_SUPPRESS_UNTIL_TS is None or now >= _FAISS_SUPPRESS_UNTIL_TS):
+                        globals()["_FAISS_SUPPRESS_UNTIL_TS"] = now + _FAISS_RECOVERY_SUPPRESSION_SECONDS
+                attempt_faiss_recovery()
         except Exception:
             pass
         await asyncio.sleep(max(_FAISS_RECOVERY_INTERVAL_SECONDS, 60.0))
+
+
+def _detect_flapping_and_set_suppression(now: float | None = None) -> bool:  # pragma: no cover - tested via unit
+    """Internal helper to detect flapping degraded events and set suppression window.
+
+    Returns True if suppression window was set during this call, False otherwise.
+    """
+    import time
+    n = time.time() if now is None else now
+    if not _VECTOR_DEGRADED or not _DEGRADATION_HISTORY:
+        return False
+    recent = [h for h in _DEGRADATION_HISTORY if n - h.get("timestamp", 0) <= _FAISS_RECOVERY_FLAP_WINDOW_SECONDS]
+    if len(recent) >= _FAISS_RECOVERY_FLAP_THRESHOLD and (_FAISS_SUPPRESS_UNTIL_TS is None or n >= _FAISS_SUPPRESS_UNTIL_TS):
+        globals()["_FAISS_SUPPRESS_UNTIL_TS"] = n + _FAISS_RECOVERY_SUPPRESSION_SECONDS
+        _persist_recovery_state()
+        try:
+            faiss_recovery_suppression_remaining_seconds.set(_FAISS_SUPPRESS_UNTIL_TS - n)
+        except Exception:
+            pass
+        return True
+    return False

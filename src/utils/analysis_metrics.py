@@ -406,12 +406,44 @@ similarity_degraded_total = Counter(
 faiss_recovery_attempts_total = Counter(
     "faiss_recovery_attempts_total",
     "Faiss recovery attempts",
-    ["result"],  # success|skipped|error
+    ["result"],  # success|skipped|error|suppressed
 )
 faiss_degraded_duration_seconds = Gauge(
     "faiss_degraded_duration_seconds",
     "Current degraded duration in seconds (0 when healthy)",
 )
+
+# Next scheduled recovery attempt epoch seconds (0 = none scheduled / healthy)
+faiss_next_recovery_eta_seconds = Gauge(
+    "faiss_next_recovery_eta_seconds",
+    "Epoch timestamp for next automatic Faiss recovery attempt (0 if not scheduled)",
+)
+
+# Compatibility alias (singular) to avoid confusion in dashboards/rules
+
+# Recovery suppression events (e.g. flapping protection)
+faiss_recovery_suppressed_total = Counter(
+    "faiss_recovery_suppressed_total",
+    "Faiss recovery attempts suppressed due to flapping or manual override",
+    ["reason"],  # flapping
+)
+
+# Seconds remaining in current suppression window (0 = none active)
+faiss_recovery_suppression_remaining_seconds = Gauge(
+    "faiss_recovery_suppression_remaining_seconds",
+    "Seconds remaining in current recovery suppression window (0 if none)",
+)
+
+# Process start time (used for alert quiet periods)
+process_start_time_seconds = Gauge(
+    "process_start_time_seconds",
+    "Process start time epoch seconds",
+)
+try:
+    import time as _t
+    process_start_time_seconds.set(_t.time())
+except Exception:
+    pass
 
 # Opcode security / audit metrics
 model_opcode_audit_total = Counter(
@@ -423,6 +455,13 @@ model_opcode_whitelist_violations_total = Counter(
     "model_opcode_whitelist_violations_total",
     "Whitelist violations (disallowed opcodes) during model reload",
     ["opcode"],
+)
+
+# Recovery state backend label for observability (file|redis)
+faiss_recovery_state_backend = Gauge(
+    "faiss_recovery_state_backend",
+    "Active recovery state backend",
+    ["backend"],
 )
 
 __all__ = [
@@ -501,6 +540,11 @@ __all__ = [
     "similarity_degraded_total",
     "faiss_recovery_attempts_total",
     "faiss_degraded_duration_seconds",
+    "faiss_next_recovery_eta_seconds",
+    "faiss_recovery_suppressed_total",
+    "faiss_recovery_suppression_remaining_seconds",
+    "process_start_time_seconds",
     "model_opcode_audit_total",
     "model_opcode_whitelist_violations_total",
+    "faiss_recovery_state_backend",
 ]

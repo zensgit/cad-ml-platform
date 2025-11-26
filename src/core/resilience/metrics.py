@@ -256,7 +256,12 @@ class ResilienceMetrics:
         """获取计数器摘要"""
         summary = {}
         for (metric_name, labels), count in self.counters.items():
-            key = f"{metric_name}{{{','.join(f'{k}=\"{v}\"' for k, v in labels)}}}"
+            # Build label string safely without nested f-strings (Python 3.10+ compatible)
+            try:
+                label_str = ",".join([f"{k}=\"{v}\"" for k, v in labels])
+            except Exception:
+                label_str = ""
+            key = f"{metric_name}{{{label_str}}}"
             summary[key] = count
         return summary
 
