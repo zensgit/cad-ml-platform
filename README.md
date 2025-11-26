@@ -336,6 +336,8 @@ python3 scripts/run_full_integration_test.py
 | model_health_checks_total{status} | Counter | 模型健康端点访问统计 |
 | vector_store_reload_total{status} | Counter | 向量后端重载结果 |
 | drift_baseline_refresh_total{type,trigger} | Counter | Drift 基线刷新事件 |
+| vector_migrate_dimension_delta | Histogram | 迁移维度差 (新维度-旧维度) 分布监控 |
+| similarity_degraded_total{event} | Counter | Faiss 降级与恢复事件 (degraded|restored) |
 
 PromQL 示例：
 ```promql
@@ -492,11 +494,11 @@ curl -s http://localhost:8000/api/v1/vision/analyze \
 | v1 | 基础7槽位 | 实体计数 + bbox尺寸/体积 + 图层/复杂度标志 |
 | v2 | 5槽位 | 归一化宽高深 + 宽高比 + 宽深比 |
 | v3 | 11槽位 | 几何增强 (solids/facets/比率/平均体积) + Top5实体类型频率 |
-| v4 (实验) | 2槽位 | surface_count(=solids+facets 近似) + shape_entropy(实体种类归一化熵) |
+| v4 | 2槽位 | surface_count（真实几何面数估计）+ shape_entropy（拉普拉斯平滑并归一化至[0,1]） |
 
 迁移端点：`POST /api/v1/vectors/migrate`
 
-> v4 当前为实验特征：占位启发式实现，不建议生产默认启用。设置 `FEATURE_VERSION=v4` 或迁移到 `to_version="v4"` 将追加这两个槽位；后续真实几何面片与熵算法可透明替换。
+> v4 现已实现真实特征：`surface_count` 与 `shape_entropy`（拉普拉斯平滑并归一化）。仍建议在充分评估后再设为默认；设置 `FEATURE_VERSION=v4` 或迁移到 `to_version="v4"` 将追加这两个槽位。
 
 请求示例（干运行 dry_run）：
 ```bash
@@ -530,7 +532,7 @@ curl -X POST /api/v1/vectors/migrate \
 | v1 | 7 |
 | v2 | 12 |
 | v3 | 23 |
-| v4 | 25 |
+| v4 | 24 |
 
 降级与迁移状态说明：
 - `migrated`: 版本提升或同向调整
@@ -2018,6 +2020,80 @@ expr: sum(rate(feature_cache_hits_total[5m])) / (sum(rate(feature_cache_hits_tot
 ### 漂移基线状态 / 过期
 
 新增端点 `GET /api/v1/drift/baseline/status` 返回基线年龄、创建时间以及是否过期 (`stale=true/false`)。当达到 `DRIFT_BASELINE_MAX_AGE_SECONDS` 配置阈值会触发告警 `DriftBaselineStale`，参考运行手册 `docs/runbooks/drift_baseline_stale.md`。
+
+### 模型安全模式与 Opcode 审计
+
+- 环境变量 `MODEL_OPCODE_MODE` 控制模型重载的安全扫描模式：
+  - `blacklist`（默认）：阻止已知危险 opcode（如 GLOBAL/STACK_GLOBAL/REDUCE）。
+  - `audit`：仅记录观测到的 opcode，不阻止；用于生产审计期。
+  - `whitelist`：只允许白名单 opcode；任何未知 opcode 将被阻止。
+
+- 审计查询端点：`GET /api/v1/model/opcode-audit`（需要 `X-API-Key` 与 `X-Admin-Token`）
+
+  示例响应：
+
+  {
+    "opcodes": ["GLOBAL", "BINUNICODE", "TUPLE"],
+    "counts": {"GLOBAL": 3, "BINUNICODE": 12, "TUPLE": 12},
+    "sample_count": 15
+  }
+
+- 相关指标：
+  - `model_opcode_audit_total{opcode}`：观测到的 opcode 计数（审计/白名单/黑名单模式均采集）。
+  - `model_opcode_whitelist_violations_total{opcode}`：白名单拒绝次数。
+
+### Faiss 自动恢复与降级指标
+
+- 端点：
+  - `GET /api/v1/health/faiss/health`：包含 `degraded`、`degraded_reason`、`degraded_duration_seconds`、`degradation_history`。
+  - `POST /api/v1/faiss/recover`：手动触发恢复尝试（遵循退避）。
+
+- 指标：
+  - `similarity_degraded_total{event="degraded|restored"}`：降级/恢复事件计数。
+  - `faiss_recovery_attempts_total{result="success|skipped|error"}`：自动/手动恢复尝试结果。
+  - `faiss_degraded_duration_seconds`：当前降级持续时间（健康时为 0）。
+
+- 建议 Prometheus 规则（示例）：
+
+  - alert: VectorStoreDegraded
+    expr: faiss_degraded_duration_seconds > 300
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Vector store degraded for > 5min"
+
+  - alert: OpcodeWhitelistViolations
+    expr: increase(model_opcode_whitelist_violations_total[10m]) > 0
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Model reload whitelist violations detected"
+
+### Feature Cache 运行时调优与预热
+
+- 统计端点: `GET /api/v1/features/cache` 返回缓存大小、容量、TTL、命中/未命中/驱逐等指标以及命中率。
+- 调优建议: `GET /api/v1/features/cache/tuning` 提供容量与TTL建议和原因。
+- 应用新配置: `POST /api/v1/features/cache/apply` 需要 `X-Admin-Token`，支持 5 分钟回滚窗口，返回快照信息：
+
+  示例响应:
+
+  {
+    "status": "applied",
+    "applied": {"capacity": 1024, "ttl_seconds": 3600, "evicted": 0},
+    "snapshot": {
+      "previous_capacity": 256,
+      "previous_ttl": 0,
+      "applied_at": "2025-11-25T10:30:45.123Z",
+      "can_rollback_until": "2025-11-25T10:35:45.123Z"
+    }
+  }
+
+- 回滚旧配置: `POST /api/v1/features/cache/rollback` 需要 `X-Admin-Token`，在窗口内恢复之前的容量/TTL。
+- 预热缓存: `POST /api/v1/features/cache/prewarm?strategy=auto&limit=50` 需要 `X-Admin-Token`，以 LRU 触碰方式预热，返回触碰条目数量。
+
+安全: 以上三个写端点均要求双重认证（`X-API-Key` + `X-Admin-Token`）。
 #### 后端重载
 
 强制重新选择向量存储后端（例如切换为 Faiss 后需要热重载）:
@@ -2029,3 +2105,95 @@ curl -X POST http://localhost:8000/api/v1/maintenance/vectors/backend/reload -H 
 {"status":"ok","backend":"memory"}
 ```
 指标: `vector_store_reload_total{status="success|error"}`
+
+---
+
+## 🔥 压力测试脚本 (Stress Test Scripts)
+
+位于 `scripts/` 目录的压力测试脚本用于验证系统在高并发和故障场景下的稳定性。
+
+### stress_concurrency_reload.py
+
+并发模型重载压力测试，验证 `_MODEL_LOCK` 有效性和 `load_seq` 单调递增。
+
+```bash
+# 基本用法
+python scripts/stress_concurrency_reload.py --threads 10 --iterations 10
+
+# 环境变量配置
+export STRESS_API_URL=http://localhost:8000
+export STRESS_API_KEY=your-api-key
+export STRESS_ADMIN_TOKEN=your-admin-token
+
+# 严格模式（任何异常即失败）
+python scripts/stress_concurrency_reload.py --strict
+```
+
+输出示例：
+```
+STRESS TEST RESULTS
+Total time: 15.2s | Throughput: 6.6 req/s
+Load sequence monotonicity: monotonic (1 -> 100)
+VERDICT: PASS - No concurrency issues detected
+```
+
+### stress_memory_gc_check.py
+
+内存泄漏检测脚本，监控 RSS 内存增长和 GC 回收效率。
+
+```bash
+# 基本用法
+python scripts/stress_memory_gc_check.py --iterations 50 --allocation-mb 10
+
+# 环境变量配置
+export STRESS_API_URL=http://localhost:8000
+export STRESS_API_KEY=your-api-key
+```
+
+### stress_degradation_flapping.py
+
+降级状态翻转观测脚本，监控 Faiss 可用性切换时的指标一致性。
+
+> **数据源说明**: 脚本优先使用健康端点 (`/api/v1/health/vectors`) 的 `degradation_history_count` 字段（权威来源，限制 ≤10），Prometheus `/metrics` 用于获取 `similarity_degraded_total` 计数器和 `faiss_degraded_duration_seconds` 时长指标。
+
+```bash
+# 基本用法
+python scripts/stress_degradation_flapping.py --cycles 20 --interval 1.0
+
+# 环境变量配置
+export STRESS_API_URL=http://localhost:8000
+export STRESS_API_KEY=your-api-key
+
+# 自定义参数
+python scripts/stress_degradation_flapping.py --url http://staging:8000 --cycles 50 --interval 0.5
+```
+
+**验证内容：**
+- `similarity_degraded_total{event="degraded|restored"}` 计数器递增
+- `faiss_degraded_duration_seconds` 指标行为
+- 降级历史 (`degradation_history_count`) 限制在 ≤10 条
+- 健康端点 (`/api/v1/health/vectors`) 一致性
+
+输出示例：
+```
+FLAPPING TEST RESULTS
+Total cycles: 20 | Successful: 20 | Errors: 0
+Degraded events observed: 0 -> 5
+Restored events observed: 0 -> 4
+Max history count observed: 9
+VERDICT: PASS - Degradation metrics consistent
+```
+
+### 集成测试
+
+配套的集成测试位于 `tests/integration/test_stress_stability.py`，包含：
+- `TestConcurrentReload`: 并发重载锁有效性、load_seq 单调性、死锁检测
+- `TestMemoryStability`: GC 回收、模型重载内存稳定性
+- `TestDegradationState`: 降级状态变量、历史限制、get_degraded_mode_info
+- `TestFeatureExtractionStress`: 并发特征提取线程安全
+- `TestCacheStress`: 缓存并发访问、驱逐策略
+
+运行集成测试：
+```bash
+pytest tests/integration/test_stress_stability.py -v
+```
