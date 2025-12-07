@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAD Part Labeling - Active Learning</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        header {
+            background: #333;
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 1.3em;
+        }
+
+        .stats-bar {
+            display: flex;
+            gap: 20px;
+            font-size: 0.9em;
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #4caf50;
+        }
+
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .sidebar h2 {
+            font-size: 1em;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .sample-list {
+            list-style: none;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .sample-item {
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sample-item:hover {
+            background: #f9f9f9;
+            border-color: #ddd;
+        }
+
+        .sample-item.active {
+            background: #e3f2fd;
+            border-color: #2196f3;
+        }
+
+        .sample-item.labeled {
+            opacity: 0.6;
+            border-left: 3px solid #4caf50;
+        }
+
+        .sample-prediction {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .sample-confidence {
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .sample-reason {
+            font-size: 0.75em;
+            color: #999;
+            margin-top: 4px;
+        }
+
+        .main-content {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
+
+        .sample-detail h2 {
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sample-id {
+            font-size: 0.8em;
+            color: #999;
+            font-weight: normal;
+        }
+
+        .detail-section {
+            margin-bottom: 25px;
+        }
+
+        .detail-section h3 {
+            font-size: 0.95em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .prediction-card {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .prediction-type {
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .confidence-badge {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 500;
+        }
+
+        .confidence-low {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .confidence-medium {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .confidence-high {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .alternatives-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .alternative {
+            padding: 8px 15px;
+            background: #f5f5f5;
+            border-radius: 4px;
+            font-size: 0.9em;
+        }
+
+        .alternative-score {
+            color: #666;
+            margin-left: 5px;
+        }
+
+        .score-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+        }
+
+        .score-item {
+            padding: 8px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .score-label {
+            font-size: 0.75em;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .score-value {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .labeling-section {
+            background: #f9f9f9;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .labeling-section h3 {
+            margin-bottom: 15px;
+        }
+
+        .part-type-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .part-type-btn {
+            padding: 12px 10px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .part-type-btn:hover {
+            border-color: #2196f3;
+            background: #e3f2fd;
+        }
+
+        .part-type-btn.selected {
+            border-color: #4caf50;
+            background: #e8f5e9;
+        }
+
+        .part-type-btn.predicted {
+            border-color: #ff9800;
+            background: #fff3e0;
+        }
+
+        .part-type-name {
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
+        .part-type-label {
+            font-size: 0.7em;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .notes-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.95em;
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1em;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #43a047;
+        }
+
+        .btn-primary:disabled {
+            background: #bdbdbd;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+
+        .btn-secondary:hover {
+            background: #eee;
+        }
+
+        .btn-skip {
+            background: #ff9800;
+            color: white;
+        }
+
+        .btn-skip:hover {
+            background: #f57c00;
+        }
+
+        .progress-indicator {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 6px;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #bbdefb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #2196f3;
+            transition: width 0.3s;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background: #333;
+            color: white;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .toast.success {
+            background: #4caf50;
+        }
+
+        .toast.error {
+            background: #f44336;
+        }
+
+        /* Actions bar */
+        .actions-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: #f9f9f9;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .refresh-btn {
+            padding: 8px 16px;
+            background: #2196f3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .refresh-btn:hover {
+            background: #1976d2;
+        }
+
+        .export-btn {
+            padding: 8px 16px;
+            background: #9c27b0;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+
+        .export-btn:hover {
+            background: #7b1fa2;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🏭 CAD Part Labeling</h1>
+        <div class="stats-bar">
+            <div class="stat">
+                <span>Pending:</span>
+                <span class="stat-value" id="pending-count">0</span>
+            </div>
+            <div class="stat">
+                <span>Labeled:</span>
+                <span class="stat-value" id="labeled-count">0</span>
+            </div>
+            <div class="stat">
+                <span>Correction Rate:</span>
+                <span class="stat-value" id="correction-rate">0%</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <h2>Pending Samples</h2>
+            <div class="actions-bar">
+                <button class="refresh-btn" onclick="loadSamples()">⟳ Refresh</button>
+                <button class="export-btn" onclick="exportData()">📤 Export</button>
+            </div>
+            <ul class="sample-list" id="sample-list">
+                <!-- Samples will be loaded here -->
+            </ul>
+        </aside>
+
+        <main class="main-content">
+            <div id="empty-state" class="empty-state">
+                <h3>📋 No Sample Selected</h3>
+                <p>Select a sample from the list to start labeling</p>
+            </div>
+
+            <div id="sample-detail" class="sample-detail" style="display: none;">
+                <h2>
+                    <span>Sample Review</span>
+                    <span class="sample-id" id="detail-id"></span>
+                </h2>
+
+                <div class="detail-section">
+                    <h3>Predicted Classification</h3>
+                    <div class="prediction-card">
+                        <span class="prediction-type" id="detail-prediction"></span>
+                        <span class="confidence-badge" id="detail-confidence"></span>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Uncertainty Reason</h3>
+                    <p id="detail-reason"></p>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Alternatives</h3>
+                    <div class="alternatives-list" id="detail-alternatives"></div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Score Breakdown</h3>
+                    <div class="score-breakdown" id="detail-scores"></div>
+                </div>
+
+                <div class="labeling-section">
+                    <h3>Select Correct Part Type</h3>
+                    <div class="part-type-grid" id="part-type-grid">
+                        <!-- Part types will be loaded here -->
+                    </div>
+
+                    <label for="notes">Notes (optional):</label>
+                    <textarea id="notes" class="notes-input" placeholder="Add any notes about this classification..."></textarea>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" id="submit-btn" disabled onclick="submitFeedback()">
+                            ✓ Submit Label
+                        </button>
+                        <button class="btn btn-skip" onclick="skipSample()">
+                            → Skip
+                        </button>
+                        <button class="btn btn-secondary" onclick="clearSelection()">
+                            ✕ Clear
+                        </button>
+                    </div>
+                </div>
+
+                <div class="progress-indicator">
+                    <span>Progress to Retraining: <strong id="progress-text">0/100</strong></span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <script>
+        // Configuration
+        const API_BASE = '/api/v1/active-learning';
+        const API_KEY = 'dev-key'; // Replace with actual key
+
+        // State
+        let samples = [];
+        let currentSample = null;
+        let selectedPartType = null;
+        let partTypes = {};
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadPartTypes();
+            await loadSamples();
+        });
+
+        async function apiCall(endpoint, options = {}) {
+            const headers = {
+                'Content-Type': 'application/json',
+                'X-API-Key': API_KEY,
+                ...options.headers,
+            };
+
+            const response = await fetch(`${API_BASE}${endpoint}`, {
+                ...options,
+                headers,
+            });
+
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+            }
+
+            return response.json();
+        }
+
+        async function loadPartTypes() {
+            try {
+                const data = await apiCall('/part-types');
+                partTypes = data.display_names;
+                renderPartTypeGrid();
+            } catch (err) {
+                console.error('Failed to load part types:', err);
+                showToast('Failed to load part types', 'error');
+            }
+        }
+
+        async function loadSamples() {
+            try {
+                const data = await apiCall('/pending?limit=50');
+                samples = data.samples;
+                updateStats(data.stats);
+                renderSampleList();
+            } catch (err) {
+                console.error('Failed to load samples:', err);
+                showToast('Failed to load samples', 'error');
+            }
+        }
+
+        function updateStats(stats) {
+            document.getElementById('pending-count').textContent = stats.pending_samples;
+            document.getElementById('labeled-count').textContent = stats.labeled_samples;
+            document.getElementById('correction-rate').textContent =
+                `${(stats.correction_rate * 100).toFixed(1)}%`;
+
+            // Update progress
+            const progress = (stats.labeled_samples / stats.retrain_threshold) * 100;
+            document.getElementById('progress-text').textContent =
+                `${stats.labeled_samples}/${stats.retrain_threshold}`;
+            document.getElementById('progress-fill').style.width = `${Math.min(100, progress)}%`;
+        }
+
+        function renderSampleList() {
+            const list = document.getElementById('sample-list');
+
+            if (samples.length === 0) {
+                list.innerHTML = '<li class="sample-item">No pending samples</li>';
+                return;
+            }
+
+            list.innerHTML = samples.map(sample => `
+                <li class="sample-item ${sample.status === 'labeled' ? 'labeled' : ''} ${currentSample?.id === sample.id ? 'active' : ''}"
+                    onclick="selectSample('${sample.id}')">
+                    <div class="sample-prediction">${partTypes[sample.predicted_type] || sample.predicted_type}</div>
+                    <div class="sample-confidence">Confidence: ${(sample.confidence * 100).toFixed(1)}%</div>
+                    <div class="sample-reason">${sample.uncertainty_reason}</div>
+                </li>
+            `).join('');
+        }
+
+        function renderPartTypeGrid() {
+            const grid = document.getElementById('part-type-grid');
+
+            grid.innerHTML = Object.entries(partTypes).map(([key, name]) => `
+                <button class="part-type-btn ${selectedPartType === key ? 'selected' : ''} ${currentSample?.predicted_type === key ? 'predicted' : ''}"
+                        onclick="selectPartType('${key}')">
+                    <div class="part-type-name">${name}</div>
+                    <div class="part-type-label">${key}</div>
+                </button>
+            `).join('');
+        }
+
+        function selectSample(sampleId) {
+            currentSample = samples.find(s => s.id === sampleId);
+            if (!currentSample) return;
+
+            selectedPartType = null;
+            document.getElementById('notes').value = '';
+
+            // Show detail view
+            document.getElementById('empty-state').style.display = 'none';
+            document.getElementById('sample-detail').style.display = 'block';
+
+            // Populate details
+            document.getElementById('detail-id').textContent = currentSample.id;
+            document.getElementById('detail-prediction').textContent =
+                partTypes[currentSample.predicted_type] || currentSample.predicted_type;
+
+            const confEl = document.getElementById('detail-confidence');
+            const conf = currentSample.confidence;
+            confEl.textContent = `${(conf * 100).toFixed(1)}%`;
+            confEl.className = 'confidence-badge ' +
+                (conf < 0.4 ? 'confidence-low' : conf < 0.7 ? 'confidence-medium' : 'confidence-high');
+
+            document.getElementById('detail-reason').textContent = currentSample.uncertainty_reason;
+
+            // Alternatives
+            const altsHtml = currentSample.alternatives.map(alt => `
+                <div class="alternative">
+                    ${partTypes[alt.part_type] || alt.part_type}
+                    <span class="alternative-score">${(alt.confidence * 100).toFixed(1)}%</span>
+                </div>
+            `).join('');
+            document.getElementById('detail-alternatives').innerHTML = altsHtml || '<span>No alternatives</span>';
+
+            // Score breakdown
+            const scoresHtml = Object.entries(currentSample.score_breakdown[currentSample.predicted_type] || {})
+                .map(([module, score]) => `
+                    <div class="score-item">
+                        <div class="score-label">${module}</div>
+                        <div class="score-value">${(score * 100).toFixed(1)}%</div>
+                    </div>
+                `).join('');
+            document.getElementById('detail-scores').innerHTML = scoresHtml || '<span>No breakdown available</span>';
+
+            renderPartTypeGrid();
+            renderSampleList();
+            updateSubmitButton();
+        }
+
+        function selectPartType(partType) {
+            selectedPartType = partType;
+            renderPartTypeGrid();
+            updateSubmitButton();
+        }
+
+        function updateSubmitButton() {
+            const btn = document.getElementById('submit-btn');
+            btn.disabled = !selectedPartType;
+        }
+
+        async function submitFeedback() {
+            if (!currentSample || !selectedPartType) return;
+
+            try {
+                const result = await apiCall('/feedback', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sample_id: currentSample.id,
+                        true_type: selectedPartType,
+                        notes: document.getElementById('notes').value || null,
+                    }),
+                });
+
+                showToast(
+                    result.is_correction
+                        ? `Correction recorded: ${selectedPartType}`
+                        : `Label confirmed: ${selectedPartType}`,
+                    'success'
+                );
+
+                // Remove from list and load next
+                samples = samples.filter(s => s.id !== currentSample.id);
+                updateStats(result.stats);
+
+                if (samples.length > 0) {
+                    selectSample(samples[0].id);
+                } else {
+                    currentSample = null;
+                    document.getElementById('empty-state').style.display = 'block';
+                    document.getElementById('sample-detail').style.display = 'none';
+                }
+
+                renderSampleList();
+
+            } catch (err) {
+                console.error('Failed to submit feedback:', err);
+                showToast('Failed to submit feedback', 'error');
+            }
+        }
+
+        async function skipSample() {
+            if (!currentSample) return;
+
+            try {
+                await apiCall('/skip', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        sample_id: currentSample.id,
+                    }),
+                });
+
+                showToast('Sample skipped', 'success');
+
+                // Remove from list and load next
+                samples = samples.filter(s => s.id !== currentSample.id);
+
+                if (samples.length > 0) {
+                    selectSample(samples[0].id);
+                } else {
+                    currentSample = null;
+                    document.getElementById('empty-state').style.display = 'block';
+                    document.getElementById('sample-detail').style.display = 'none';
+                }
+
+                renderSampleList();
+
+            } catch (err) {
+                console.error('Failed to skip sample:', err);
+                showToast('Failed to skip sample', 'error');
+            }
+        }
+
+        function clearSelection() {
+            selectedPartType = null;
+            document.getElementById('notes').value = '';
+            renderPartTypeGrid();
+            updateSubmitButton();
+        }
+
+        async function exportData() {
+            try {
+                const result = await apiCall('/export', {
+                    method: 'POST',
+                    body: JSON.stringify({ format: 'jsonl' }),
+                });
+
+                showToast(`Exported ${result.count} samples to ${result.file}`, 'success');
+                await loadSamples(); // Refresh list
+
+            } catch (err) {
+                console.error('Failed to export data:', err);
+                showToast('Failed to export data', 'error');
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = `toast show ${type}`;
+
+            setTimeout(() => {
+                toast.className = 'toast';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

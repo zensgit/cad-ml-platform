@@ -1,0 +1,185 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Analysis Requests Overview",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(analysis_requests_total[5m])",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Batch Similarity Latency",
+      "type": "heatmap",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(vector_query_batch_latency_seconds_bucket[5m])",
+          "format": "heatmap",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Feature Cache Hit Rate",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(rate(feature_cache_hits_total[5m])) / (sum(rate(feature_cache_hits_total[5m])) + sum(rate(feature_cache_miss_total[5m])))",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Model Health Status",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "targets": [
+        {
+          "expr": "model_health_checks_total",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Vector Store Statistics",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "targets": [
+        {
+          "expr": "sum(feature_version_counts)",
+          "legendFormat": "Total Vectors",
+          "refId": "A"
+        },
+        {
+          "expr": "faiss_index_size",
+          "legendFormat": "Faiss Index Size",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "title": "Error Distribution by Stage",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "expr": "sum by (stage) (rate(analysis_errors_total[1h]))",
+          "legendFormat": "{{stage}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Feature Extraction Latency (v3 vs v4)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "targets": [
+        {
+          "expr": "rate(feature_extraction_latency_seconds_sum[5m]) / rate(feature_extraction_latency_seconds_count[5m])",
+          "legendFormat": "{{version}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Migration Dimension Delta",
+      "type": "heatmap",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "targets": [
+        {
+          "expr": "rate(vector_migrate_dimension_delta_bucket[1h])",
+          "format": "heatmap",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Model Security Failures",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 32 },
+      "targets": [
+        {
+          "expr": "sum by (reason) (model_security_fail_total)",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Cache Tuning Requests",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 32 },
+      "targets": [
+        {
+          "expr": "sum(rate(feature_cache_tuning_requests_total[1h]))",
+          "legendFormat": "Requests/hr",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Opcode Audit Mode",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 32 },
+      "targets": [
+        {
+          "expr": "model_opcode_mode",
+          "legendFormat": "Mode (0=Audit, 1=Block)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Drift Refresh Triggers",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+      "targets": [
+        {
+          "expr": "sum by (reason) (drift_refresh_total)",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": ["cad-ml"],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "CAD ML Platform Main",
+  "uid": "cad-ml-main",
+  "version": 1
+}

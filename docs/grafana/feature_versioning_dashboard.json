@@ -1,0 +1,300 @@
+{
+  "annotations": {"list": []},
+  "panels": [
+    {
+      "id": 1,
+      "type": "piechart",
+      "title": "Feature Version Distribution",
+      "description": "Real-time distribution of feature vectors by version",
+      "targets": [
+        {
+          "expr": "feature_version_counts",
+          "legendFormat": "{{version}}"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 0},
+      "options": {
+        "legend": {"displayMode": "table", "placement": "right"},
+        "pieType": "pie",
+        "displayLabels": ["name", "percent"]
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "v5 Adoption Rate",
+      "description": "Percentage of vectors using v5 features",
+      "targets": [
+        {
+          "expr": "sum(feature_version_counts{version=\"v5\"}) / sum(feature_version_counts) * 100",
+          "legendFormat": "v5 %"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 0},
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          {"value": 0, "color": "red"},
+          {"value": 25, "color": "yellow"},
+          {"value": 75, "color": "green"}
+        ]
+      },
+      "options": {
+        "unit": "percent",
+        "colorMode": "background"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Total Vectors",
+      "description": "Total number of registered feature vectors",
+      "targets": [
+        {
+          "expr": "sum(feature_version_counts)",
+          "legendFormat": "Total"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 0},
+      "options": {
+        "unit": "short",
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 4,
+      "type": "gauge",
+      "title": "Upgrade Failures Total",
+      "description": "Aggregate of all version-related failures",
+      "targets": [
+        {
+          "expr": "sum(feature_upgrade_attempt_failed_total) + sum(feature_upgrade_length_mismatch_total) + sum(feature_register_length_mismatch_total)",
+          "legendFormat": "Failures"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          {"value": 0, "color": "green"},
+          {"value": 10, "color": "yellow"},
+          {"value": 100, "color": "red"}
+        ]
+      },
+      "options": {
+        "max": 500,
+        "min": 0,
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "v5 Upgrade Failures (Detail)",
+      "description": "Failed attempts to upgrade to v5 from various versions",
+      "targets": [
+        {
+          "expr": "rate(feature_upgrade_attempt_failed_total[5m])",
+          "legendFormat": "{{from_version}} → {{to_version}}"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 8, "y": 4},
+      "yaxes": [
+        {"label": "Failures/sec", "format": "short"}
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Length Mismatch Warnings",
+      "description": "Non-blocking length validation warnings",
+      "targets": [
+        {
+          "expr": "rate(feature_upgrade_length_mismatch_total[5m])",
+          "legendFormat": "Upgrade: {{from_version}} (expected={{expected}}, actual={{actual}})"
+        },
+        {
+          "expr": "rate(feature_register_length_mismatch_total[5m])",
+          "legendFormat": "Register: {{feature_version}} (expected={{expected}}, actual={{actual}})"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 16, "y": 4},
+      "yaxes": [
+        {"label": "Warnings/sec", "format": "short"}
+      ],
+      "alert": {
+        "name": "Length Mismatch Spike",
+        "conditions": [
+          {
+            "evaluator": {"type": "gt", "params": [5]},
+            "query": {"model": "A", "datasourceId": 1},
+            "reducer": {"type": "avg"}
+          }
+        ],
+        "frequency": "1m",
+        "handler": 1,
+        "message": "Feature version length mismatch rate is abnormally high"
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Feature Extraction Latency (v4 vs v5)",
+      "description": "Performance comparison between v4 and v5 extraction",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(feature_extraction_latency_seconds_bucket{version=\"v4\"}[5m]))",
+          "legendFormat": "v4 P95"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(feature_extraction_latency_seconds_bucket{version=\"v5\"}[5m]))",
+          "legendFormat": "v5 P95"
+        },
+        {
+          "expr": "histogram_quantile(0.50, rate(feature_extraction_latency_seconds_bucket{version=\"v4\"}[5m]))",
+          "legendFormat": "v4 P50"
+        },
+        {
+          "expr": "histogram_quantile(0.50, rate(feature_extraction_latency_seconds_bucket{version=\"v5\"}[5m]))",
+          "legendFormat": "v5 P50"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "yaxes": [
+        {"label": "Latency (seconds)", "format": "s", "logBase": 10}
+      ]
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Version Health Summary",
+      "description": "Current state of all feature versions",
+      "targets": [
+        {
+          "expr": "feature_version_counts",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {"Time": true, "__name__": true},
+            "indexByName": {"version": 0, "Value": 1},
+            "renameByName": {"version": "Version", "Value": "Vector Count"}
+          }
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "heatmap",
+      "title": "Extraction Latency Heatmap",
+      "description": "Distribution of extraction times across all versions",
+      "targets": [
+        {
+          "expr": "sum(rate(feature_extraction_latency_seconds_bucket[5m])) by (le, version)",
+          "format": "heatmap",
+          "legendFormat": "{{version}}"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "yaxis": {"format": "s", "logBase": 2}
+    },
+    {
+      "id": 10,
+      "type": "bargraph",
+      "title": "Failure Breakdown by Type",
+      "description": "Categorized view of all version-related issues",
+      "targets": [
+        {
+          "expr": "sum(feature_upgrade_attempt_failed_total)",
+          "legendFormat": "v5 Upgrade Blocked"
+        },
+        {
+          "expr": "sum(feature_upgrade_length_mismatch_total)",
+          "legendFormat": "Upgrade Length Mismatch"
+        },
+        {
+          "expr": "sum(feature_register_length_mismatch_total)",
+          "legendFormat": "Register Length Mismatch"
+        }
+      ],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16}
+    },
+    {
+      "id": 11,
+      "type": "stat",
+      "title": "Legacy Vectors (v1-v3)",
+      "description": "Vectors pending migration to modern versions",
+      "targets": [
+        {
+          "expr": "sum(feature_version_counts{version=~\"v[1-3]\"})",
+          "legendFormat": "Legacy Count"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 24},
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          {"value": 0, "color": "green"},
+          {"value": 100, "color": "yellow"},
+          {"value": 1000, "color": "red"}
+        ]
+      },
+      "options": {
+        "colorMode": "background"
+      }
+    },
+    {
+      "id": 12,
+      "type": "stat",
+      "title": "v4 Vectors (Deprecated)",
+      "description": "Vectors with volume dominance issue",
+      "targets": [
+        {
+          "expr": "sum(feature_version_counts{version=\"v4\"})",
+          "legendFormat": "v4 Count"
+        }
+      ],
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 24},
+      "thresholds": {
+        "mode": "absolute",
+        "steps": [
+          {"value": 0, "color": "green"},
+          {"value": 50, "color": "yellow"},
+          {"value": 500, "color": "orange"}
+        ]
+      },
+      "options": {
+        "colorMode": "background"
+      }
+    }
+  ],
+  "schemaVersion": 36,
+  "title": "CAD ML Platform - Feature Versioning",
+  "version": 1,
+  "refresh": "5s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m"]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "threshold",
+        "type": "interval",
+        "query": "1,5,10,50,100",
+        "auto": false,
+        "current": {"text": "10", "value": "10"}
+      }
+    ]
+  },
+  "tags": ["feature-versioning", "v5", "migration"]
+}

@@ -1,0 +1,25 @@
+# CAD File Mapping for v5 Migration
+# Format: doc_id,file_path
+# Lines starting with # are comments
+
+# Example entries (replace with your actual data)
+# part_12345,/data/cad/drawings/part_12345.dxf
+# assembly_67890,/data/cad/assemblies/asm_67890.step
+# plate_001,/data/cad/plates/plate_001.dxf
+
+# How to generate this file:
+# 
+# 1. From database:
+#    SELECT CONCAT(doc_id, ',', file_path) FROM cad_documents WHERE feature_version < 'v5';
+#
+# 2. From filesystem scan:
+#    find /data/cad -type f \( -name "*.dxf" -o -name "*.step" -o -name "*.iges" \) | \
+#      while read path; do
+#        doc_id=$(basename "$path" | sed 's/\.[^.]*$//')
+#        echo "$doc_id,$path"
+#      done
+#
+# 3. Manual entry:
+#    - One line per file
+#    - Doc ID must match existing vector store entry
+#    - File path must be absolute and accessible

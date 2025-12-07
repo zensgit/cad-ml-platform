@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAD Collaboration Demo</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .container { display: flex; gap: 20px; }
+        .panel { border: 1px solid #ccc; padding: 10px; width: 45%; }
+        .log { height: 300px; overflow-y: scroll; background: #f0f0f0; border: 1px solid #999; font-family: monospace; padding: 5px; }
+        .controls { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+        button { padding: 5px; cursor: pointer; }
+        input { padding: 5px; }
+    </style>
+</head>
+<body>
+    <h1>CAD Collaboration Demo</h1>
+    <div class="container">
+        <!-- User A Panel -->
+        <div class="panel" id="panel-A">
+            <h2>User A</h2>
+            <div>Status: <span id="status-A">Disconnected</span></div>
+            <div class="controls">
+                <button onclick="connect('A')">Connect</button>
+                <button onclick="disconnect('A')">Disconnect</button>
+                <hr>
+                <input type="text" id="entity-A" placeholder="Entity ID (e.g. line1)">
+                <button onclick="acquireLock('A')">Acquire Lock</button>
+                <button onclick="releaseLock('A')">Release Lock</button>
+                <button onclick="addEntity('A')">Add Entity (Operation)</button>
+            </div>
+            <h3>Log</h3>
+            <div class="log" id="log-A"></div>
+        </div>
+
+        <!-- User B Panel -->
+        <div class="panel" id="panel-B">
+            <h2>User B</h2>
+            <div>Status: <span id="status-B">Disconnected</span></div>
+            <div class="controls">
+                <button onclick="connect('B')">Connect</button>
+                <button onclick="disconnect('B')">Disconnect</button>
+                <hr>
+                <input type="text" id="entity-B" placeholder="Entity ID (e.g. line1)">
+                <button onclick="acquireLock('B')">Acquire Lock</button>
+                <button onclick="releaseLock('B')">Release Lock</button>
+                <button onclick="addEntity('B')">Add Entity (Operation)</button>
+            </div>
+            <h3>Log</h3>
+            <div class="log" id="log-B"></div>
+        </div>
+    </div>
+
+    <script>
+        const DOC_ID = "demo_doc_1";
+        const sockets = {};
+
+        function log(user, message) {
+            const el = document.getElementById(`log-${user}`);
+            const line = document.createElement("div");
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            el.appendChild(line);
+            el.scrollTop = el.scrollHeight;
+        }
+
+        function updateStatus(user, status) {
+            document.getElementById(`status-${user}`).textContent = status;
+        }
+
+        function connect(user) {
+            if (sockets[user]) return;
+            
+            const userId = `user_${user}`;
+            const url = `ws://localhost:8000/api/v1/collaboration/ws/${DOC_ID}?user_id=${userId}`;
+            
+            log(user, `Connecting to ${url}...`);
+            const ws = new WebSocket(url);
+            
+            ws.onopen = () => {
+                log(user, "Connected!");
+                updateStatus(user, "Connected");
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                log(user, `RX: ${JSON.stringify(data)}`);
+            };
+            
+            ws.onclose = () => {
+                log(user, "Disconnected");
+                updateStatus(user, "Disconnected");
+                delete sockets[user];
+            };
+            
+            ws.onerror = (err) => {
+                log(user, "Error: " + err);
+            };
+            
+            sockets[user] = ws;
+        }
+
+        function disconnect(user) {
+            if (sockets[user]) {
+                sockets[user].close();
+            }
+        }
+
+        function send(user, msg) {
+            if (sockets[user] && sockets[user].readyState === WebSocket.OPEN) {
+                sockets[user].send(JSON.stringify(msg));
+                log(user, `TX: ${JSON.stringify(msg)}`);
+            } else {
+                log(user, "Not connected");
+            }
+        }
+
+        function acquireLock(user) {
+            const entityId = document.getElementById(`entity-${user}`).value;
+            if (!entityId) return alert("Enter Entity ID");
+            send(user, { type: "acquire_lock", entity_id: entityId });
+        }
+
+        function releaseLock(user) {
+            const entityId = document.getElementById(`entity-${user}`).value;
+            if (!entityId) return alert("Enter Entity ID");
+            send(user, { type: "release_lock", entity_id: entityId });
+        }
+
+        function addEntity(user) {
+            const entityId = document.getElementById(`entity-${user}`).value || `line_${Date.now()}`;
+            send(user, {
+                type: "apply_operation",
+                op: {
+                    type: "add",
+                    entity_id: entityId,
+                    data: { type: "LINE", start: [0,0], end: [10,10] }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

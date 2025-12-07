@@ -1,0 +1,259 @@
+# CAD ML Platform Helm Chart Values
+# Production-ready configuration with HPA and resource tuning
+
+replicaCount: 2
+
+image:
+  repository: cad-ml-platform
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+# Pod configuration
+podAnnotations: {}
+podLabels: {}
+
+# Security context
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8000
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "300"
+    nginx.ingress.kubernetes.io/websocket-services: "cad-ml-platform"
+  hosts:
+    - host: cad-ml.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: cad-ml-tls
+      hosts:
+        - cad-ml.example.com
+
+# Resource limits and requests (tuned for ML workloads)
+resources:
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  # Scale up quickly, scale down slowly
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 4
+          periodSeconds: 15
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+      selectPolicy: Min
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations for node taints
+tolerations: []
+
+# Pod anti-affinity for high availability
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: cad-ml-platform
+          topologyKey: kubernetes.io/hostname
+
+# Topology spread constraints
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: cad-ml-platform
+
+# Health probes
+livenessProbe:
+  httpGet:
+    path: /api/v1/health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+
+readinessProbe:
+  httpGet:
+    path: /api/v1/health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+startupProbe:
+  httpGet:
+    path: /api/v1/health
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 30
+
+# Environment variables
+env:
+  # Vector Store
+  VECTOR_STORE_BACKEND: "faiss"
+
+  # Redis
+  REDIS_ENABLED: "true"
+  REDIS_URL: "redis://redis:6379"
+
+  # Cache Configuration
+  CACHE_L1_ENABLED: "true"
+  CACHE_L1_MAX_SIZE: "2000"
+  CACHE_L1_TTL: "300"
+  CACHE_L2_ENABLED: "true"
+  CACHE_TTL_SECONDS: "3600"
+
+  # Feature Extraction
+  FEATURE_VERSION: "v9"
+  FEATURE_CACHE_VERSION: "v9"
+
+  # Model Configuration
+  MODEL_PATH: "/models"
+  MODEL_OPCODE_MODE: "blocklist"
+
+  # Active Learning
+  ACTIVE_LEARNING_ENABLED: "true"
+  UNCERTAINTY_LOW: "0.4"
+  UNCERTAINTY_HIGH: "0.7"
+
+  # Clustering
+  CLUSTERING_ENABLED: "true"
+  CLUSTERING_MIN_SIZE: "5"
+
+  # Logging
+  LOG_LEVEL: "INFO"
+  LOG_FORMAT: "json"
+
+# ConfigMap for additional configuration
+configMap:
+  enabled: false
+  data: {}
+
+# Secret for sensitive values
+secret:
+  enabled: false
+  data: {}
+
+# Service Account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Redis configuration (if using subchart)
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: false
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+# Prometheus metrics
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Network policies
+networkPolicy:
+  enabled: false
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - port: 8000
+          protocol: TCP
+
+# Volumes for model storage
+volumes:
+  - name: models
+    emptyDir: {}
+  - name: tmp
+    emptyDir: {}
+
+volumeMounts:
+  - name: models
+    mountPath: /models
+  - name: tmp
+    mountPath: /tmp
+
+# Init containers
+initContainers: []
+
+# Extra containers (sidecars)
+extraContainers: []

@@ -1,0 +1,29 @@
+# Phase 8 Handover: Generative Design & Digital Twin
+
+**Status**: In Progress (Core Logic Implemented)
+**Date**: 2025-11-30
+
+## 1. Delivered Components
+
+### 🎨 Generative Design
+- **Parametric Library** (`src/core/generative/parametric.py`): Implemented `ParametricShapes` for Gears and Brackets.
+- **Generative Engine** (`src/core/generative/generator.py`): Implemented `GenerativeEngine` to orchestrate LLM parameter extraction and shape creation.
+- **API Endpoint** (`src/api/v1/generative.py`): Exposed `/generate` and `/download` endpoints.
+- **Tests**: `tests/unit/test_generative.py` and `tests/unit/test_api_phase8.py` passing.
+
+### 🔄 Digital Twin
+- **State Sync** (`src/core/twin/sync.py`): Implemented `DigitalTwinSync` for managing real-time asset state.
+- **API Endpoint** (`src/api/v1/twin.py`): Exposed WebSocket `/ws/{id}` and HTTP `/telemetry` endpoints.
+- **Tests**: `tests/unit/test_twin.py` and `tests/unit/test_api_phase8.py` passing.
+
+### 📱 Edge AI
+- **Quantization Script** (`scripts/quantize_models.py`): Script to convert PyTorch models to quantized ONNX format.
+- **Edge Client** (`clients/edge_inference.py`): Lightweight inference client using ONNX Runtime.
+
+## 2. Next Steps
+1.  **Model Training**: Fine-tune the LLM on a larger dataset of parametric descriptions.
+2.  **Frontend**: Build a UI to visualize the Digital Twin state and Generative Design outputs.
+
+## 3. Known Issues
+- **Mock Models**: The quantization script uses a mock PointNet model. Real weights need to be trained.
+- **LLM Dependency**: Generative engine relies on a mocked LLM response in tests. Real integration requires a deployed model.

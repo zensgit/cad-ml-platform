@@ -1,0 +1,6 @@
+apiVersion: v2
+name: cad-ml-platform
+description: A Helm chart for CAD ML Platform
+type: application
+version: 0.1.0
+appVersion: "1.6.0"

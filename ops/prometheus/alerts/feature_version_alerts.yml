@@ -1,0 +1,186 @@
+# Prometheus Alert Rules for Feature Version Management
+# 
+# These rules monitor the health of feature extraction, version control,
+# and upgrade operations to detect anomalies early.
+
+groups:
+  - name: feature_version_health
+    interval: 30s
+    rules:
+      # Critical: High rate of v5 upgrade failures
+      - alert: HighV5UpgradeFailureRate
+        expr: rate(feature_upgrade_attempt_failed_total{to_version="v5"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: feature_extraction
+        annotations:
+          summary: "High rate of v5 upgrade failures detected"
+          description: |
+            V5 upgrade failures are occurring at {{ $value | humanize }} per second.
+            This indicates clients are attempting to upgrade vectors to v5 without re-extraction.
+            Action: Review migration documentation and client upgrade procedures.
+
+      # Warning: Length mismatch during registration
+      - alert: FeatureRegistrationLengthMismatch
+        expr: rate(feature_register_length_mismatch_total[10m]) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          component: feature_extraction
+        annotations:
+          summary: "Vectors being registered with incorrect lengths"
+          description: |
+            Registration length mismatches are occurring at {{ $value | humanize }} per second.
+            This suggests clients are providing incorrect feature_version metadata.
+            Check /health/extended for affected versions.
+
+      # Warning: Length mismatch during upgrade
+      - alert: FeatureUpgradeLengthMismatch
+        expr: rate(feature_upgrade_length_mismatch_total[10m]) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          component: feature_extraction
+        annotations:
+          summary: "Upgrade operations with length mismatches"
+          description: |
+            Upgrade length mismatches at {{ $value | humanize }} per second.
+            Explicit from_version declarations don't match actual vector lengths.
+            Review client upgrade logic.
+
+      # Info: Version distribution skew
+      - alert: FeatureVersionSkewDetected
+        expr: |
+          (
+            max(feature_version_counts) - min(feature_version_counts)
+          ) / sum(feature_version_counts) > 0.8
+        for: 1h
+        labels:
+          severity: info
+          component: feature_extraction
+        annotations:
+          summary: "Feature version distribution is highly skewed"
+          description: |
+            One version dominates {{ $value | humanizePercentage }} of all vectors.
+            This is normal during migrations but sustained skew may indicate:
+            - Incomplete migration
+            - Client version pinning issues
+            Query /health/extended for current version distribution.
+
+      # Critical: Total upgrade failures accumulating
+      - alert: UpgradeFailuresAccumulating
+        expr: |
+          sum(
+            rate(feature_upgrade_attempt_failed_total[15m])
+            + rate(feature_upgrade_length_mismatch_total[15m])
+            + rate(feature_register_length_mismatch_total[15m])
+          ) > 1.0
+        for: 15m
+        labels:
+          severity: critical
+          component: feature_extraction
+        annotations:
+          summary: "High aggregate upgrade/registration failure rate"
+          description: |
+            Combined failure rate: {{ $value | humanize }} errors/second.
+            This indicates systemic issues with version management.
+            Check /health/extended endpoint field: feature_upgrade_failures_total
+
+      # Warning: Feature version counts gauge desync (sanity check)
+      - alert: FeatureVersionCountsDesync
+        expr: |
+          abs(
+            sum(feature_version_counts) - 
+            count(up{job="vector_store"})
+          ) > 100
+        for: 30m
+        labels:
+          severity: warning
+          component: monitoring
+        annotations:
+          summary: "Feature version counts gauge may be desynced"
+          description: |
+            Gauge total: {{ $value }} differs from expected count.
+            This could indicate:
+            - Metric reset without vector store reset
+            - Bug in increment/decrement logic
+            Recommendation: Review _remove_vector implementation.
+
+  - name: feature_extraction_performance
+    interval: 30s
+    rules:
+      # Warning: Feature extraction latency spike
+      - alert: FeatureExtractionLatencySpike
+        expr: |
+          histogram_quantile(0.95, 
+            rate(feature_extraction_latency_seconds_bucket[5m])
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          component: feature_extraction
+        annotations:
+          summary: "Feature extraction p95 latency exceeds 2 seconds"
+          description: |
+            P95 latency: {{ $value | humanizeDuration }}.
+            Check for:
+            - Complex geometry (degenerates)
+            - v5 convex hull calculation overhead
+            - Resource contention
+
+      # Info: v5 adoption rate
+      - alert: V5AdoptionStalled
+        expr: |
+          (
+            feature_version_counts{version="v5"} / 
+            sum(feature_version_counts)
+          ) < 0.1
+        for: 7d
+        labels:
+          severity: info
+          component: feature_extraction
+        annotations:
+          summary: "v5 feature adoption remains low after 7 days"
+          description: |
+            V5 vectors: {{ $value | humanizePercentage }} of total.
+            Consider:
+            - Communicating v5 benefits to clients
+            - Providing migration tooling
+            - Reviewing upgrade barriers
+
+  - name: data_quality
+    interval: 1m
+    rules:
+      # Critical: Dimension rejections spiking
+      - alert: VectorDimensionRejectionsHigh
+        expr: rate(vector_dimension_rejections_total[10m]) > 0.5
+        for: 10m
+        labels:
+          severity: critical
+          component: data_quality
+        annotations:
+          summary: "High rate of dimension mismatch rejections"
+          description: |
+            Rejection rate: {{ $value | humanize }} /sec.
+            Vectors are being rejected due to ANALYSIS_VECTOR_DIM_CHECK enforcement.
+            Review client feature extraction versions and vector store state.
+
+      # Warning: Degenerate geometry detected frequently
+      - alert: DegenerateGeometryFrequent
+        expr: |
+          rate(feature_extraction_latency_seconds_count{version="v5"}[10m]) > 10
+          and
+          histogram_quantile(0.50,
+            rate(feature_extraction_latency_seconds_bucket{version="v5"}[10m])
+          ) < 0.001
+        for: 10m
+        labels:
+          severity: warning
+          component: data_quality
+        annotations:
+          summary: "Many files extracting in <1ms (likely degenerates)"
+          description: |
+            Median v5 extraction time suspiciously low.
+            High volume of zero-volume or trivial geometry detected.
+            Review input data quality pipelines.

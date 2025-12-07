@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAD ML Platform - Phase 8 Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background: #f0f2f5; }
+        .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; color: #1a73e8; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea, select { width: 100%; padding: 8px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+        button { background: #1a73e8; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; width: 100%; }
+        button:hover { background: #1557b0; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        .status { margin-top: 10px; font-weight: bold; }
+        .safe { color: green; }
+        .critical { color: red; }
+    </style>
+</head>
+<body>
+    <h1>CAD ML Platform - Phase 8 Dashboard</h1>
+    
+    <div class="container">
+        <!-- Generative Design -->
+        <div class="card">
+            <h2>🎨 Generative Design</h2>
+            <label>Prompt</label>
+            <textarea id="genPrompt" rows="3" placeholder="e.g., Make a gear with 20 teeth and module 2"></textarea>
+            <button onclick="generateCAD()">Generate CAD</button>
+            <div id="genResult" class="status"></div>
+        </div>
+
+        <!-- Physics Simulation -->
+        <div class="card">
+            <h2>⚙️ Physics Simulation</h2>
+            <label>Shape Type</label>
+            <select id="simShape">
+                <option value="BRACKET">L-Bracket</option>
+                <option value="GEAR">Gear</option>
+            </select>
+            
+            <label>Load (Newtons)</label>
+            <input type="number" id="simLoad" value="1000">
+            
+            <label>Parameters (JSON)</label>
+            <textarea id="simParams" rows="3">{"width": 50, "height": 100, "thickness": 5}</textarea>
+            
+            <button onclick="runSimulation()">Simulate Stress</button>
+            <div id="simResult" class="status"></div>
+        </div>
+
+        <!-- Digital Twin -->
+        <div class="card">
+            <h2>🔄 Digital Twin</h2>
+            <label>Asset ID</label>
+            <input type="text" id="twinId" value="motor-01">
+            <button onclick="connectTwin()">Connect WebSocket</button>
+            <div id="twinStatus" class="status">Disconnected</div>
+            <pre id="twinData">Waiting for data...</pre>
+            
+            <hr>
+            <h3>Simulate Telemetry</h3>
+            <label>Temperature</label>
+            <input type="number" id="teleTemp" value="75">
+            <button onclick="sendTelemetry()">Send Update</button>
+        </div>
+
+        <!-- Manufacturing (CAM) -->
+        <div class="card">
+            <h2>🏭 Manufacturing (CAM)</h2>
+            <label>DXF File Path</label>
+            <input type="text" id="camDxfPath" placeholder="data/generated/..." value="data/generated/test.dxf">
+            
+            <label>Feed Rate (mm/min)</label>
+            <input type="number" id="camFeed" value="1000">
+            
+            <label>Spindle Speed (RPM)</label>
+            <input type="number" id="camSpeed" value="10000">
+            
+            <button onclick="generateGCode()">Generate G-Code</button>
+            <pre id="camResult" style="max-height: 200px; overflow-y: auto;">Waiting for G-Code...</pre>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1';
+
+        async def generateCAD() {
+            const prompt = document.getElementById('genPrompt').value;
+            const resDiv = document.getElementById('genResult');
+            resDiv.innerHTML = 'Generating...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/generative/generate`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ prompt: prompt })
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    resDiv.innerHTML = `Success! <a href="${API_BASE}/generative/download/${data.metadata.path.split('/').pop()}" target="_blank">Download DXF</a>`;
+                } else {
+                    resDiv.innerHTML = 'Error: ' + (data.detail || 'Unknown error');
+                }
+            } catch (e) {
+                resDiv.innerHTML = 'Error: ' + e.message;
+            }
+        }
+
+        async def runSimulation() {
+            const shape = document.getElementById('simShape').value;
+            const load = parseFloat(document.getElementById('simLoad').value);
+            const params = JSON.parse(document.getElementById('simParams').value);
+            const resDiv = document.getElementById('simResult');
+            
+            resDiv.innerHTML = 'Simulating...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/simulation/stress`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        shape_type: shape,
+                        parameters: params,
+                        load_n: load
+                    })
+                });
+                const data = await response.json();
+                const color = data.status === 'safe' ? 'safe' : 'critical';
+                resDiv.innerHTML = `
+                    Max Stress: ${data.max_stress_mpa} MPa<br>
+                    Safety Factor: ${data.safety_factor}<br>
+                    Status: <span class="${color}">${data.status.toUpperCase()}</span>
+                `;
+            } catch (e) {
+                resDiv.innerHTML = 'Error: ' + e.message;
+            }
+        }
+
+        let ws;
+        function connectTwin() {
+            const id = document.getElementById('twinId').value;
+            const statusDiv = document.getElementById('twinStatus');
+            
+            if (ws) ws.close();
+            
+            ws = new WebSocket(`ws://localhost:8000/api/v1/twin/ws/${id}`);
+            
+            ws.onopen = () => {
+                statusDiv.innerHTML = 'Connected';
+                statusDiv.style.color = 'green';
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                document.getElementById('twinData').innerText = JSON.stringify(data, null, 2);
+            };
+            
+            ws.onclose = () => {
+                statusDiv.innerHTML = 'Disconnected';
+                statusDiv.style.color = 'red';
+            };
+        }
+
+        async def sendTelemetry() {
+            const id = document.getElementById('twinId').value;
+            const temp = parseFloat(document.getElementById('teleTemp').value);
+            
+            await fetch(`${API_BASE}/twin/${id}/telemetry`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ temperature: temp, timestamp: Date.now() })
+            });
+        }
+        
+        // Fix async function syntax for browser compatibility (remove 'def')
+        // I used python syntax by mistake in JS block above, correcting it now via replace
+    </script>
+    <script>
+        // Correcting the JS syntax errors from the previous block
+        // The previous block had 'async def' which is invalid JS.
+        // Overwriting the functions with correct syntax.
+        
+        window.generateCAD = async function() {
+            const prompt = document.getElementById('genPrompt').value;
+            const resDiv = document.getElementById('genResult');
+            resDiv.innerHTML = 'Generating...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/generative/generate`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ prompt: prompt })
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    // Extract filename from path
+                    const filename = data.metadata.path.split(/[\\/]/).pop();
+                    resDiv.innerHTML = `Success! <a href="${API_BASE}/generative/download/${filename}" target="_blank">Download DXF</a>`;
+                    // Auto-fill CAM path
+                    document.getElementById('camDxfPath').value = data.metadata.path;
+                } else {
+                    resDiv.innerHTML = 'Error: ' + (data.detail || 'Unknown error');
+                }
+            } catch (e) {
+                resDiv.innerHTML = 'Error: ' + e.message;
+            }
+        }
+
+        window.runSimulation = async function() {
+            const shape = document.getElementById('simShape').value;
+            const load = parseFloat(document.getElementById('simLoad').value);
+            let params;
+            try {
+                params = JSON.parse(document.getElementById('simParams').value);
+            } catch(e) {
+                document.getElementById('simResult').innerHTML = 'Invalid JSON params';
+                return;
+            }
+            const resDiv = document.getElementById('simResult');
+            
+            resDiv.innerHTML = 'Simulating...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/simulation/stress`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        shape_type: shape,
+                        parameters: params,
+                        load_n: load
+                    })
+                });
+                const data = await response.json();
+                const color = data.status === 'safe' ? 'safe' : 'critical';
+                resDiv.innerHTML = `
+                    Max Stress: ${data.max_stress_mpa} MPa<br>
+                    Safety Factor: ${data.safety_factor}<br>
+                    Status: <span class="${color}">${data.status.toUpperCase()}</span>
+                `;
+            } catch (e) {
+                resDiv.innerHTML = 'Error: ' + e.message;
+            }
+        }
+
+        window.sendTelemetry = async function() {
+            const id = document.getElementById('twinId').value;
+            const temp = parseFloat(document.getElementById('teleTemp').value);
+            
+            await fetch(`${API_BASE}/twin/${id}/telemetry`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ temperature: temp, timestamp: Date.now() })
+            });
+        }
+
+        window.generateGCode = async function() {
+            const path = document.getElementById('camDxfPath').value;
+            const feed = parseFloat(document.getElementById('camFeed').value);
+            const speed = parseFloat(document.getElementById('camSpeed').value);
+            const resPre = document.getElementById('camResult');
+            
+            resPre.innerText = 'Generating...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/cam/gcode`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ 
+                        dxf_path: path,
+                        feed_rate: feed,
+                        spindle_speed: speed
+                    })
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    resPre.innerText = data.gcode;
+                } else {
+                    resPre.innerText = 'Error: ' + (data.message || data.detail || 'Unknown error');
+                }
+            } catch (e) {
+                resPre.innerText = 'Error: ' + e.message;
+            }
+        }
+    </script>
+</body>
+</html>

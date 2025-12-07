@@ -1,0 +1,71 @@
+# Prometheus Configuration for CAD ML Platform
+# This is a reference configuration for scraping feature versioning metrics
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'cad-ml-platform'
+    env: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+
+# Load rules
+rule_files:
+  - 'alerts/feature_version_alerts.yml'
+  - 'recording_rules.yml'
+
+# Scrape configurations
+scrape_configs:
+  # CAD ML Platform main service
+  - job_name: 'cad-ml-platform'
+    static_configs:
+      - targets: ['localhost:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 5s  # More frequent for feature versioning metrics
+    
+    # Relabeling for better metric organization
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'cad-ml-platform-${1}'
+    
+    # Feature versioning specific metrics
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'feature_(version_counts|upgrade_.*|register_.*|extraction_latency_.*)'
+        action: keep
+      - source_labels: [version]
+        regex: '(v[1-5])'
+        action: keep
+        
+  # Health endpoint scraping (optional)
+  - job_name: 'cad-ml-health'
+    static_configs:
+      - targets: ['localhost:8000']
+    metrics_path: '/api/v1/health/extended'
+    scrape_interval: 30s
+    
+  # Redis exporter (if using Redis backend)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 10s
+
+# Remote write configuration (optional, for long-term storage)
+# remote_write:
+#   - url: 'http://victoriametrics:8428/api/v1/write'
+#     queue_config:
+#       max_samples_per_send: 10000
+#       batch_send_deadline: 5s
+
+# Storage configuration
+storage:
+  tsdb:
+    retention.time: 30d
+    retention.size: 10GB

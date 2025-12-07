@@ -111,3 +111,8 @@ appendonly.aof
 reports/baselines/*.json
 reports/baselines/latest_snapshot.json
 !reports/baselines/.gitkeep
+
+# Virtual environments
+.venv/
+.venv311/
+.venv_run/

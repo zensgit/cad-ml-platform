@@ -1,0 +1,57 @@
+{
+  "method": "temperature",
+  "fitted": true,
+  "n_bins": 10,
+  "sklearn_available": false,
+  "fitted_at": "2025-12-02T13:33:45.465921+00:00",
+  "sample_count": 50,
+  "training_metrics": {
+    "brier_score": 0.410972,
+    "ece": 0.634562,
+    "mce": 0.808855,
+    "num_samples": 50,
+    "accuracy": 0.0,
+    "mean_confidence": 0.6346,
+    "ece_improvement": 0.043808,
+    "brier_improvement": 0.062299,
+    "reliability_diagram": {
+      "bin_confidences": [
+        0.05,
+        0.15,
+        0.25,
+        0.35,
+        0.45,
+        0.5494,
+        0.6535,
+        0.7438,
+        0.8089,
+        0.95
+      ],
+      "bin_accuracies": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0
+      ],
+      "bin_counts": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        22,
+        16,
+        8,
+        4,
+        0
+      ]
+    }
+  },
+  "temperature": 1.4047
+}
