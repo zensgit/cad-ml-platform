@@ -59,7 +59,8 @@ class RateLimiter:
         if client is None:  # fallback local
             async with self._lock:
                 elapsed = max(0.0, now - self._local_ts)
-                self._local_tokens = min(self.burst, self._local_tokens + elapsed * self.qps)
+                refilled = self._local_tokens + elapsed * self.qps
+                self._local_tokens = min(self.burst, refilled)
                 self._local_ts = now
                 if self._local_tokens >= cost:
                     self._local_tokens -= cost
