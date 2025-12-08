@@ -122,7 +122,7 @@ groups:
       # 业务指标
       - record: cad_ml:daily_active_users
         expr: |
-          count(count by (user_id) (http_requests_total[24h]))
+          count(count by (user_id) (increase(http_requests_total[24h])))
         labels:
           metric_type: "dau"
 
