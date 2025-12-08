@@ -24,12 +24,34 @@ def load_exported_metrics() -> set[str]:
     return exported
 
 def extract_metric_names_from_expr(expr: str) -> set[str]:
-    # crude parse: tokenise by non-metric chars, filter out functions/keywords
-    tokens = re.findall(r'[a-zA-Z_:][a-zA-Z0-9_:]*', expr)
-    functions = {
-        'sum','rate','histogram_quantile','increase','topk','max_over_time','min_over_time','changes'
+    """Extract metric names from PromQL expressions.
+    Handles metrics with label selectors, recording rules, and bare metrics.
+    """
+    # First, remove label selector blocks {} to avoid capturing label names
+    expr_clean = re.sub(r"\{[^}]*\}", "", expr)
+    # Remove aggregation clause labels: by (label1, label2) and without (...)
+    expr_clean = re.sub(r"\b(by|without)\s*\([^)]*\)", "", expr_clean)
+    # Remove grouping modifiers: on (label) and ignoring (label)
+    expr_clean = re.sub(r"\b(on|ignoring)\s*\([^)]*\)", "", expr_clean)
+
+    # Match metrics before '(' (function calls) or '[' (range vectors)
+    with_suffix = set(re.findall(r"([a-zA-Z_:][a-zA-Z0-9_:]*)\s*(?=\(|\[)", expr_clean))
+    # Match standalone metrics at word boundaries
+    standalone = set(re.findall(r"(?<![a-zA-Z0-9_:])([a-zA-Z_:][a-zA-Z0-9_:]*)\b", expr_clean))
+    candidates = with_suffix | standalone
+    ignore = {
+        # PromQL functions
+        "rate", "sum", "increase", "histogram_quantile", "avg", "max", "min", "count",
+        "irate", "avg_over_time", "sum_over_time", "stddev_over_time", "stdvar_over_time",
+        "time", "scalar", "changes", "delta", "idelta", "topk", "bottomk", "absent",
+        "clamp", "clamp_max", "clamp_min", "ceil", "floor", "round", "exp", "ln", "log2",
+        "log10", "sqrt", "abs", "sgn", "sort", "sort_desc", "label_join", "label_replace",
+        "vector", "group_left", "group_right", "on", "ignoring", "offset",
+        "max_over_time", "min_over_time",
+        # Common PromQL keywords
+        "by", "without", "and", "or", "unless", "bool",
     }
-    return {t for t in tokens if t not in functions}
+    return {m for m in candidates if m not in ignore}
 
 def collect_dashboard_metrics() -> set[str]:
     names: set[str] = set()
@@ -46,10 +68,23 @@ def collect_dashboard_metrics() -> set[str]:
                 names.update(extract_metric_names_from_expr(expr))
     return names
 
+def is_metric_exported(metric: str, exported: set[str]) -> bool:
+    """Check if metric or its base name (for histograms) is exported."""
+    if metric in exported:
+        return True
+    # For histogram variants, check if base metric is exported
+    histogram_suffixes = ["_bucket", "_sum", "_count"]
+    for suffix in histogram_suffixes:
+        if metric.endswith(suffix):
+            base = metric[:-len(suffix)]
+            if base in exported:
+                return True
+    return False
+
 def main() -> int:
     exported = load_exported_metrics()
     dash = collect_dashboard_metrics()
-    missing = sorted(n for n in dash if n and n not in exported)
+    missing = sorted(n for n in dash if n and not is_metric_exported(n, exported))
     if missing:
         print("Dashboard references metrics not exported:")
         for n in missing:

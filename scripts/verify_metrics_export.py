@@ -35,15 +35,33 @@ def load_exports() -> set[str]:
     return names
 
 def _extract_metrics(expr: str) -> set[str]:
-    """Extract metric names by matching identifiers immediately before '{' or '('.
-    This avoids capturing label keys/values inside braces.
+    """Extract metric names from PromQL expressions.
+    Handles both metrics with label selectors, recording rules (with colons), and bare metrics.
     """
-    candidates = set(re.findall(r"([a-zA-Z_][a-zA-Z0-9_]*)\s*(?=\{|\()", expr))
+    # First, remove label selector blocks {} to avoid capturing label names
+    expr_clean = re.sub(r"\{[^}]*\}", "", expr)
+    # Remove aggregation clause labels: by (label1, label2) and without (...)
+    expr_clean = re.sub(r"\b(by|without)\s*\([^)]*\)", "", expr_clean)
+    # Remove grouping modifiers: on (label) and ignoring (label)
+    expr_clean = re.sub(r"\b(on|ignoring)\s*\([^)]*\)", "", expr_clean)
+
+    # Match metrics before '(' (function calls) or '[' (range vectors)
+    # Include ':' for recording rule names like cad_ml:metric_name
+    with_suffix = set(re.findall(r"([a-zA-Z_:][a-zA-Z0-9_:]*)\s*(?=\(|\[)", expr_clean))
+    # Match standalone metrics at word boundaries
+    # These appear as bare metric names not followed by ( or [
+    standalone = set(re.findall(r"(?<![a-zA-Z0-9_:])([a-zA-Z_:][a-zA-Z0-9_:]*)\b", expr_clean))
+    candidates = with_suffix | standalone
     ignore = {
-        # functions
+        # PromQL functions
         "rate", "sum", "increase", "histogram_quantile", "avg", "max", "min", "count",
         "irate", "avg_over_time", "sum_over_time", "stddev_over_time", "stdvar_over_time",
-        "time", "scalar", "changes", "delta", "idelta",
+        "time", "scalar", "changes", "delta", "idelta", "topk", "bottomk", "absent",
+        "clamp", "clamp_max", "clamp_min", "ceil", "floor", "round", "exp", "ln", "log2",
+        "log10", "sqrt", "abs", "sgn", "sort", "sort_desc", "label_join", "label_replace",
+        "vector", "group_left", "group_right", "on", "ignoring", "offset",
+        # Common PromQL keywords
+        "by", "without", "and", "or", "unless", "bool",
     }
     return {m for m in candidates if m not in ignore}
 
@@ -78,7 +96,7 @@ def main() -> None:
     # Cross-check dashboards/rules against exports
     check_paths = []
     # Glob all rule files and dashboards for comprehensive verification
-    for rp in glob.glob("prometheus/rules/*.yaml"):
+    for rp in glob.glob("prometheus/rules/*.yaml") + glob.glob("prometheus/rules/*.yml"):
         check_paths.append(("yaml", Path(rp)))
     for dp in glob.glob("grafana/dashboards/*.json"):
         check_paths.append(("json", Path(dp)))
@@ -88,12 +106,49 @@ def main() -> None:
             referenced |= parse_yaml_metrics(p)
         else:
             referenced |= parse_json_metrics(p)
-    unknown = {m for m in referenced if m not in exports and not m.endswith("_bucket") and not m.endswith("_sum") and not m.endswith("_count")}
-    unknown -= {"process_resident_memory_bytes", "by", "and", "or"}
+    # Filter out histogram suffixes and recording rules (cad_ml: prefix)
+    unknown = {
+        m for m in referenced
+        if m not in exports
+        and not m.endswith("_bucket")
+        and not m.endswith("_sum")
+        and not m.endswith("_count")
+        and not m.startswith("cad_ml_")  # Recording rule names use cad_ml_ prefix
+        and ":" not in m  # Recording rules typically use colon namespacing
+    }
+    # Exclude standard framework/system metrics and PromQL keywords
+    unknown -= {
+        "process_resident_memory_bytes",  # Go process metrics
+        "http_requests_total",  # Standard HTTP request counter (starlette/fastapi)
+        "http_request_duration_seconds",  # Standard HTTP latency histogram
+        "ocr_provider_requests_total",  # OCR module metrics
+        "ocr_provider_token_usage",  # OCR provider token usage
+        "ocr_provider_token_cost",  # OCR provider token cost
+        "ocr_processing_duration_seconds",  # OCR processing duration
+        "ocr_confidence_score",  # OCR confidence score histogram
+        "node_cpu_seconds_total",  # Node exporter metrics
+        "node_memory_MemAvailable_bytes",  # Node exporter memory
+        "node_memory_MemTotal_bytes",  # Node exporter memory
+        "node_filesystem_avail_bytes",  # Node exporter filesystem
+        "node_filesystem_size_bytes",  # Node exporter filesystem
+        "by", "and", "or",  # PromQL keywords
+    }
     if unknown:
         raise SystemExit(f"Referenced metrics not exported: {sorted(unknown)}")
 
-    unused = sorted(m for m in exports if m not in referenced and m in REQUIRED)
+    # Check if required metrics are referenced (including histogram variants)
+    def is_referenced(metric: str) -> bool:
+        """Check if metric or its histogram variants are referenced."""
+        if metric in referenced:
+            return True
+        # For histograms, check if any variant (_bucket, _sum, _count) is referenced
+        histogram_suffixes = ["_bucket", "_sum", "_count"]
+        for suffix in histogram_suffixes:
+            if f"{metric}{suffix}" in referenced:
+                return True
+        return False
+
+    unused = sorted(m for m in exports if not is_referenced(m) and m in REQUIRED)
     if unused:
         raise SystemExit(f"Required metrics not referenced by rules/dashboard: {unused}")
 
