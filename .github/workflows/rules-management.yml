@@ -42,7 +42,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -104,7 +104,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -186,7 +186,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -229,7 +229,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -284,6 +284,7 @@ jobs:
               ]
             }'
 
-# Schedule daily backups
-schedule:
-  - cron: '0 2 * * *'  # 2 AM UTC daily
+# Note: Daily backups are triggered by schedule in the 'on' section
+# To add scheduled backups, uncomment and move to the 'on' section:
+# schedule:
+#   - cron: '0 2 * * *'  # 2 AM UTC daily
