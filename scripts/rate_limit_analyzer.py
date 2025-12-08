@@ -7,6 +7,7 @@ Rate Limit Analyzer
 import json
 import logging
 import statistics
+import time
 import numpy as np
 from collections import defaultdict, Counter
 from dataclasses import dataclass, field, asdict
@@ -665,7 +666,7 @@ class RateLimitAnalyzer:
         # 基于模式的建议
         pattern_recommendations = {
             PatternType.SPIKE: "启用令牌桶算法处理突发流量",
-            PatternType.SUSTAINED: "使用漏桶算法平滑流量",
+            PatternType.GRADUAL_INCREASE: "使用漏桶算法平滑流量",
             PatternType.CRAWLER: "对疑似爬虫IP进行额外限流",
             PatternType.DDOS: "启用DDoS防护模式，考虑使用CDN",
             PatternType.BRUTE_FORCE: "对认证API增加额外保护，如验证码"
@@ -857,6 +858,7 @@ def main():
     parser.add_argument('--analyze', help='Analyze request log file')
     parser.add_argument('--output', help='Output analysis results')
     parser.add_argument('--simulate', action='store_true', help='Simulate and analyze traffic')
+    parser.add_argument('--export', action='store_true', help='Export analysis as JSON to stdout')
 
     args = parser.parse_args()
 
@@ -925,6 +927,61 @@ def main():
         if args.output:
             analyzer.export_analysis(analysis, args.output)
             print(f"\n✅ Analysis exported to {args.output}")
+
+    elif args.export:
+        # Export mode: generate simulated analysis and output as JSON
+        import random
+
+        # Generate simulated requests for analysis
+        requests = []
+        start_time = time.time()
+
+        for i in range(100):
+            request = Request(
+                id=f"req_{i}",
+                user_id=f"user_{random.randint(1, 10)}",
+                api_path=random.choice([
+                    "/api/v1/users",
+                    "/api/v1/products",
+                    "/api/v1/orders"
+                ]),
+                method=random.choice(["GET", "POST"]),
+                source_ip=f"192.168.1.{random.randint(1, 20)}",
+                timestamp=start_time + i * random.uniform(0.1, 0.5)
+            )
+            requests.append(request)
+
+        # Analyze traffic
+        end_time = start_time + 60
+        time_window = TimeWindow(start=start_time, end=end_time)
+        analysis = analyzer.analyze_traffic(requests, time_window)
+
+        # Calculate anomaly score (0-1 based on anomalies found)
+        anomaly_score = len(analysis.anomalies) / 10.0 if analysis.anomalies else 0.0
+        anomaly_score = min(1.0, anomaly_score)
+
+        # Output JSON
+        result = {
+            "timestamp": datetime.now().isoformat(),
+            "pattern": analysis.pattern_type.value,
+            "confidence": analysis.confidence,
+            "anomaly_score": anomaly_score,
+            "metrics": {
+                "request_count": analysis.metrics.request_count,
+                "unique_users": analysis.metrics.unique_users,
+                "avg_request_rate": analysis.metrics.avg_request_rate
+            },
+            "anomalies": [
+                {
+                    "type": a.type.value,
+                    "severity": a.severity,
+                    "description": a.description
+                }
+                for a in analysis.anomalies
+            ],
+            "recommendations": analysis.recommendations
+        }
+        print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
