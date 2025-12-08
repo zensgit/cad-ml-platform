@@ -2,9 +2,9 @@
   "chartjs": {
     "version": "4.4.0",
     "cdn_url": "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js",
-    "sha384": "vxfkwNn5NGXgAZEPcjDEwOXrc6Q3gSYPgfn8R6J0R6qKgNW2pV4s3u8V5Zg7Xk6S",
+    "sha384": "e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g",
     "local_path": "reports/eval_history/report/assets/chart.min.js",
-    "expected_size_bytes": 737280,
+    "expected_size_bytes": 205222,
     "integrity_check_enabled": true,
     "warn_only": true
   },

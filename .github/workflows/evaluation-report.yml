@@ -98,6 +98,13 @@ jobs:
         python3 scripts/generate_eval_report.py \
           --out ${{ env.REPORT_PATH }}
 
+    - name: Download Chart.js for integrity check
+      run: |
+        # Download Chart.js from CDN to local path for integrity verification
+        mkdir -p reports/eval_history/report/assets
+        curl -sL "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" \
+          -o reports/eval_history/report/assets/chart.min.js
+
     - name: Check file integrity (strict mode)
       run: |
         echo "Checking Chart.js integrity..."
