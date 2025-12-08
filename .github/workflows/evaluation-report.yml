@@ -305,6 +305,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: evaluate
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Pages deployment is optional - don't fail workflow if Pages not enabled
+    continue-on-error: true
 
     permissions:
       pages: write
@@ -323,6 +325,7 @@ jobs:
 
     - name: Setup Pages
       uses: actions/configure-pages@v4
+      continue-on-error: true
 
     - name: Upload to Pages
       uses: actions/upload-pages-artifact@v3
