@@ -210,27 +210,37 @@ class MetricsExporter:
         if not latest:
             return {}
 
+        # Handle both legacy "scores" format and new "combined" format
+        combined = latest.get("combined", latest.get("scores", {}))
+        vision_metrics = latest.get("vision_metrics", {})
+        ocr_metrics = latest.get("ocr_metrics", {})
+
+        # Support both key naming conventions
+        combined_score = combined.get("combined_score", combined.get("combined", 0))
+        vision_score = combined.get("vision_score", 0)
+        ocr_score = combined.get("ocr_score", combined.get("ocr", {}).get("normalized", 0))
+
         return {
             "timestamp": latest["timestamp"],
             "metrics": {
-                "combined_score": latest["scores"]["combined"],
-                "vision_score": latest["scores"]["vision"]["score"],
-                "ocr_score": latest["scores"]["ocr"]["normalized"],
+                "combined_score": combined_score,
+                "vision_score": vision_score,
+                "ocr_score": ocr_score,
                 "vision": {
-                    "avg_hit_rate": latest["scores"]["vision"]["metrics"]["AVG_HIT_RATE"],
-                    "min_hit_rate": latest["scores"]["vision"]["metrics"]["MIN_HIT_RATE"],
-                    "max_hit_rate": latest["scores"]["vision"]["metrics"]["MAX_HIT_RATE"],
-                    "num_samples": latest["scores"]["vision"]["metrics"]["NUM_SAMPLES"]
+                    "avg_hit_rate": vision_metrics.get("avg_hit_rate", vision_metrics.get("AVG_HIT_RATE", 0)),
+                    "min_hit_rate": vision_metrics.get("min_hit_rate", vision_metrics.get("MIN_HIT_RATE", 0)),
+                    "max_hit_rate": vision_metrics.get("max_hit_rate", vision_metrics.get("MAX_HIT_RATE", 0)),
+                    "num_samples": vision_metrics.get("num_samples", vision_metrics.get("NUM_SAMPLES", 0))
                 },
                 "ocr": {
-                    "dimension_recall": latest["scores"]["ocr"]["metrics"]["dimension_recall"],
-                    "brier_score": latest["scores"]["ocr"]["metrics"]["brier_score"],
-                    "edge_f1": latest["scores"]["ocr"]["metrics"].get("edge_f1", 0)
+                    "dimension_recall": ocr_metrics.get("dimension_recall", 0),
+                    "brier_score": ocr_metrics.get("brier_score", 0),
+                    "edge_f1": ocr_metrics.get("edge_f1", 0)
                 }
             },
             "metadata": {
-                "git_branch": latest.get("git_info", {}).get("branch", "unknown"),
-                "git_commit": latest.get("git_info", {}).get("commit", "unknown"),
+                "git_branch": latest.get("branch", latest.get("git_info", {}).get("branch", "unknown")),
+                "git_commit": latest.get("commit", latest.get("git_info", {}).get("commit", "unknown")),
                 "schema_version": latest.get("schema_version", "1.0.0")
             }
         }
