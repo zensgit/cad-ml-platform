@@ -56,28 +56,34 @@ class DynamicKnowledgeBase:
     def _get_static_material_kb(self) -> Any:
         """Lazy load static material knowledge."""
         if self._static_material_kb is None:
-            from src.core.knowledge.material_knowledge import MaterialKnowledgeBase  # type: ignore[import-not-found]
+            from src.core.knowledge.material_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
+                MaterialKnowledgeBase,
+            )
             self._static_material_kb = MaterialKnowledgeBase()
         return self._static_material_kb
 
     def _get_static_precision_kb(self) -> Any:
         """Lazy load static precision knowledge."""
         if self._static_precision_kb is None:
-            from src.core.knowledge.precision_knowledge import PrecisionKnowledgeBase  # type: ignore[import-not-found]
+            from src.core.knowledge.precision_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
+                PrecisionKnowledgeBase,
+            )
             self._static_precision_kb = PrecisionKnowledgeBase()
         return self._static_precision_kb
 
     def _get_static_standards_kb(self) -> Any:
         """Lazy load static standards knowledge."""
         if self._static_standards_kb is None:
-            from src.core.knowledge.standards_knowledge import StandardsKnowledgeBase  # type: ignore[import-not-found]
+            from src.core.knowledge.standards_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
+                StandardsKnowledgeBase,
+            )
             self._static_standards_kb = StandardsKnowledgeBase()
         return self._static_standards_kb
 
     def _get_static_functional_kb(self) -> Any:
         """Lazy load static functional knowledge."""
         if self._static_functional_kb is None:
-            from src.core.knowledge.functional_knowledge import (  # type: ignore[import-not-found]
+            from src.core.knowledge.functional_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
                 FunctionalKnowledgeBase,
             )
             self._static_functional_kb = FunctionalKnowledgeBase()
@@ -86,14 +92,16 @@ class DynamicKnowledgeBase:
     def _get_static_assembly_kb(self) -> Any:
         """Lazy load static assembly knowledge."""
         if self._static_assembly_kb is None:
-            from src.core.knowledge.assembly_knowledge import AssemblyKnowledgeBase  # type: ignore[import-not-found]
+            from src.core.knowledge.assembly_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
+                AssemblyKnowledgeBase,
+            )
             self._static_assembly_kb = AssemblyKnowledgeBase()
         return self._static_assembly_kb
 
     def _get_static_manufacturing_kb(self) -> Any:
         """Lazy load static manufacturing knowledge."""
         if self._static_manufacturing_kb is None:
-            from src.core.knowledge.manufacturing_knowledge import (  # type: ignore[import-not-found]
+            from src.core.knowledge.manufacturing_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
                 ManufacturingKnowledgeBase,
             )
             self._static_manufacturing_kb = ManufacturingKnowledgeBase()
@@ -203,7 +211,9 @@ class DynamicKnowledgeBase:
         # Fall back to static knowledge
         if self._use_static_fallback:
             kb = self._get_static_material_kb()
-            result: Dict[str, float] = kb.get_material_hints(ocr_data, geometric_features, entity_counts)
+            result: Dict[str, float] = kb.get_material_hints(
+                ocr_data, geometric_features, entity_counts
+            )
             return result
 
         return {}
@@ -227,7 +237,9 @@ class DynamicKnowledgeBase:
 
         if self._use_static_fallback:
             kb = self._get_static_precision_kb()
-            result: Dict[str, float] = kb.get_precision_hints(ocr_data, geometric_features, entity_counts)
+            result: Dict[str, float] = kb.get_precision_hints(
+                ocr_data, geometric_features, entity_counts
+            )
             return result
 
         return {}
@@ -251,7 +263,9 @@ class DynamicKnowledgeBase:
 
         if self._use_static_fallback:
             kb = self._get_static_standards_kb()
-            result: Dict[str, float] = kb.get_standard_hints(ocr_data, geometric_features, entity_counts)
+            result: Dict[str, float] = kb.get_standard_hints(
+                ocr_data, geometric_features, entity_counts
+            )
             return result
 
         return {}
@@ -275,7 +289,9 @@ class DynamicKnowledgeBase:
 
         if self._use_static_fallback:
             kb = self._get_static_functional_kb()
-            result: Dict[str, float] = kb.get_feature_hints(ocr_data, geometric_features, entity_counts)
+            result: Dict[str, float] = kb.get_feature_hints(
+                ocr_data, geometric_features, entity_counts
+            )
             return result
 
         return {}
@@ -299,7 +315,9 @@ class DynamicKnowledgeBase:
 
         if self._use_static_fallback:
             kb = self._get_static_assembly_kb()
-            result: Dict[str, float] = kb.get_assembly_hints(ocr_data, geometric_features, entity_counts)
+            result: Dict[str, float] = kb.get_assembly_hints(
+                ocr_data, geometric_features, entity_counts
+            )
             return result
 
         return {}
@@ -323,7 +341,9 @@ class DynamicKnowledgeBase:
 
         if self._use_static_fallback:
             kb = self._get_static_manufacturing_kb()
-            result: Dict[str, float] = kb.get_manufacturing_hints(ocr_data, geometric_features, entity_counts)
+            result: Dict[str, float] = kb.get_manufacturing_hints(
+                ocr_data, geometric_features, entity_counts
+            )
             return result
 
         return {}
