@@ -262,7 +262,7 @@ jobs:
 
           ---
           *Updated: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC*
-          *Commit: ${{ github.sha.substring(0, 7) }}*`;
+          *Commit: ${context.sha.substring(0, 7)}*`;
 
           // Find existing comment
           const { data: comments } = await github.rest.issues.listComments({
