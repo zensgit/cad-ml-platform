@@ -21,14 +21,14 @@ from pydantic import BaseModel, Field, field_validator
 logger = logging.getLogger(__name__)
 
 try:
-    import msgpack  # type: ignore[import-untyped]
+    import msgpack  # type: ignore[import-untyped,import-not-found]
 
     _msgpack_available = True
 except Exception:
     _msgpack_available = False
 
 try:
-    import aiomqtt
+    import aiomqtt  # type: ignore[import-not-found]
 
     _aiomqtt_available = True
 except Exception:
@@ -126,7 +126,7 @@ class MqttTelemetryClient:
         }
         # Filter out None values to avoid unexpected keyword errors
         client_kwargs = {k: v for k, v in client_kwargs.items() if v is not None}
-        self._client = aiomqtt.Client(**client_kwargs)  # type: ignore[arg-type]
+        self._client = aiomqtt.Client(**client_kwargs)  # type: ignore[arg-type,name-defined]
 
         async def _runner() -> None:
             assert self._client is not None
