@@ -47,17 +47,19 @@ api_router = APIRouter()
 v1_router = APIRouter(prefix="/v1")
 
 # 核心分析模块
-if analyze is not None:
-    v1_router.include_router(analyze.router, prefix="/analyze", tags=["分析"])  # type: ignore
+# IMPORTANT: drift router must be registered BEFORE analyze router
+# because analyze has a catch-all /{analysis_id} route that would match /drift
 if drift is not None:
     v1_router.include_router(drift.router, prefix="/analyze", tags=["漂移"])  # type: ignore
+if analyze is not None:
+    v1_router.include_router(analyze.router, prefix="/analyze", tags=["分析"])  # type: ignore
 
 # 向量相关模块
 if vectors is not None:
     # Vector routes under /vectors (resource semantics)
     v1_router.include_router(vectors.router, prefix="/vectors", tags=["向量"])  # type: ignore
 if vectors_stats is not None:
-    v1_router.include_router(vectors_stats.router, prefix="/analyze", tags=["向量统计"])  # type: ignore
+    v1_router.include_router(vectors_stats.router, prefix="/vectors_stats", tags=["向量统计"])  # type: ignore
 
 # 工艺和特征模块
 if process is not None:

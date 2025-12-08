@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Optional
+from typing import List, Dict, Optional
 
 from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
@@ -24,7 +24,7 @@ router = APIRouter(tags=["ocr"])
 
 
 # Initialize manager (simple singleton for now)
-_manager: OcrManager | None = None
+_manager: Optional[OcrManager] = None
 _calibrator = ConfidenceCalibrationSystem(method="isotonic")
 
 
@@ -40,14 +40,14 @@ def get_manager() -> OcrManager:
 class OcrResponse(BaseModel):
     success: bool = Field(True, description="Whether OCR succeeded")
     provider: str
-    confidence: float | None
-    fallback_level: str | None
-    processing_time_ms: int | None
-    dimensions: list
-    symbols: list
-    title_block: dict
-    error: str | None = None
-    code: ErrorCode | None = None
+    confidence: Optional[float] = None
+    fallback_level: Optional[str] = None
+    processing_time_ms: Optional[int] = None
+    dimensions: List
+    symbols: List
+    title_block: Dict
+    error: Optional[str] = None
+    code: Optional[ErrorCode] = None
 
 
 @router.post("/extract", response_model=OcrResponse)

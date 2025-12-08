@@ -3,9 +3,11 @@ Features API endpoints
 特征相关的API端点 - 包含特征差异比较等功能
 """
 
+from __future__ import annotations
+
 import os
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -24,17 +26,17 @@ class FeatureSlotDiff(BaseModel):
     value_a: float = Field(..., description="向量A的值")
     value_b: float = Field(..., description="向量B的值")
     abs_diff: float = Field(..., description="绝对差值")
-    rel_diff: float | None = Field(None, description="相对差值百分比")
+    rel_diff: Optional[float] = Field(None, description="相对差值百分比")
 
 
 class FeaturesDiffResponse(BaseModel):
     """特征差异响应"""
     id_a: str = Field(..., description="向量A的ID")
     id_b: str = Field(..., description="向量B的ID")
-    dimension: int | None = Field(None, description="向量维度")
+    dimension: Optional[int] = Field(None, description="向量维度")
     diffs: List[FeatureSlotDiff] = Field(default_factory=list, description="差异列表")
     status: str = Field(..., description="状态: ok/not_found/dimension_mismatch")
-    error: Dict[str, Any] | None = Field(None, description="错误信息")
+    error: Optional[Dict[str, Any]] = Field(None, description="错误信息")
 
 
 @router.get("/diff", response_model=FeaturesDiffResponse)
@@ -146,9 +148,9 @@ async def features_diff(
 
 class FeatureSlotsResponse(BaseModel):
     version: str
-    slots: list[dict[str, str]]
+    slots: List[Dict[str, str]]
     status: str
-    error: Dict[str, Any] | None = None
+    error: Optional[Dict[str, Any]] = None
 
 
 @router.get("/slots", response_model=FeatureSlotsResponse)

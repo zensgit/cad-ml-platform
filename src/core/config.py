@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Error EMA smoothing factor (0..1], higher = more reactive
     ERROR_EMA_ALPHA: float = 0.2
 
+    # Telemetry store backend (memory|redis|none)
+    TELEMETRY_STORE_BACKEND: str = "memory"
+
     model_config = {
         "env_file": ".env.dev",
         "case_sensitive": False,

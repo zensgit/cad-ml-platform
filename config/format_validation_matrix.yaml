@@ -1,4 +1,4 @@
 formats:
-  step:
-    required_tokens: ['ISO-10303-21','HEADER']
+  dxf:
+    required_tokens: ['SECTION','HEADER']
 exempt_projects: ['proj_exempt']

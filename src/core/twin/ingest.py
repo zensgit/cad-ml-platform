@@ -22,15 +22,29 @@ logger = logging.getLogger(__name__)
 class TelemetryIngestor:
     def __init__(self, store: TimeSeriesStore, max_queue: int = 1000) -> None:
         self.store = store
-        self.queue: asyncio.Queue[TelemetryFrame] = asyncio.Queue(maxsize=max_queue)
+        self._max_queue = max_queue
+        self._queue: Optional[asyncio.Queue[TelemetryFrame]] = None
         self.drop_count = 0
         self._worker: Optional[asyncio.Task] = None
         self._started = False
-        self._start_lock = asyncio.Lock()
+        self._start_lock: Optional[asyncio.Lock] = None
+
+    @property
+    def queue(self) -> asyncio.Queue[TelemetryFrame]:
+        """Lazily create queue to avoid issues with missing event loop."""
+        if self._queue is None:
+            self._queue = asyncio.Queue(maxsize=self._max_queue)
+        return self._queue
+
+    def _get_start_lock(self) -> asyncio.Lock:
+        """Lazily create lock to avoid issues with missing event loop."""
+        if self._start_lock is None:
+            self._start_lock = asyncio.Lock()
+        return self._start_lock
 
     async def ensure_started(self) -> None:
         """Start background worker if not already running."""
-        async with self._start_lock:
+        async with self._get_start_lock():
             if self._started:
                 return
             self._started = True

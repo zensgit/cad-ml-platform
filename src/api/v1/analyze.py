@@ -49,6 +49,9 @@ from src.utils.analysis_metrics import (
 )
 from src.core.errors_extended import (
     create_migration_error,
+    build_error,
+    ErrorCode,
+    create_extended_error,
 )
 
 logger = logging.getLogger(__name__)
@@ -280,8 +283,8 @@ async def analyze_cad_file(
         content_peek = await file.read()  # read for hash then reset below
         file.file.seek(0)
         content_hash = hashlib.sha256(content_peek).hexdigest()[:16]
-        cache_key = f"analysis:{file.filename}:{content_hash}:{options}"
-        cached = await get_cached_result(cache_key)
+        analysis_cache_key = f"analysis:{file.filename}:{content_hash}:{options}"
+        cached = await get_cached_result(analysis_cache_key)
         if cached:
             logger.info(f"Cache hit for {file.filename}")
             from src.utils.analysis_metrics import analysis_cache_hits_total
@@ -335,7 +338,7 @@ async def analyze_cad_file(
         mime, reliable = sniff_mime(content[:4096])  # peek first 4KB
         if reliable and not is_supported_mime(mime):
             analysis_rejections_total.labels(reason="mime_mismatch").inc()
-            from src.core.errors_extended import build_error, ErrorCode
+            # ErrorCode and build_error imported at module level
             err = build_error(
                 ErrorCode.INPUT_FORMAT_INVALID,
                 stage="input",
@@ -349,7 +352,7 @@ async def analyze_cad_file(
         if size_mb > max_mb:
             analysis_requests_total.labels(status="error").inc()
             analysis_errors_total.labels(stage="input", code="file_too_large").inc()
-            from src.core.errors_extended import build_error, ErrorCode
+            # ErrorCode and build_error imported at module level
             err = build_error(
                 ErrorCode.INPUT_SIZE_EXCEEDED,
                 stage="input",
@@ -359,7 +362,7 @@ async def analyze_cad_file(
             )
             raise HTTPException(status_code=413, detail=err)
         if not content:
-            from src.core.errors_extended import build_error, ErrorCode
+            # ErrorCode and build_error imported at module level
             err = build_error(
                 ErrorCode.INPUT_ERROR,
                 stage="input",
@@ -372,7 +375,7 @@ async def analyze_cad_file(
         if file_format not in ["dxf", "dwg", "step", "stp", "iges", "igs", "stl"]:
             analysis_requests_total.labels(status="error").inc()
             analysis_errors_total.labels(stage="input", code="unsupported_format").inc()
-            from src.core.errors_extended import build_error, ErrorCode
+            # ErrorCode and build_error imported at module level
             err = build_error(
                 ErrorCode.UNSUPPORTED_FORMAT,
                 stage="input",
@@ -408,10 +411,10 @@ async def analyze_cad_file(
                 doc.metadata.update({"legacy": True})
             unified_data = doc.to_unified_dict()
         except asyncio.TimeoutError:
-            from src.utils.analysis_metrics import parse_timeout_total, analysis_errors_total
+            from src.utils.analysis_metrics import parse_timeout_total
             parse_timeout_total.inc()
             analysis_errors_total.labels(stage="parse", code="timeout").inc()
-            from src.core.errors_extended import build_error, ErrorCode
+            # ErrorCode and build_error imported at module level
             err = build_error(
                 ErrorCode.TIMEOUT,
                 stage="parse",
@@ -434,7 +437,7 @@ async def analyze_cad_file(
             from src.utils.analysis_metrics import signature_validation_fail_total
             signature_validation_fail_total.labels(format=file_format).inc()
             analysis_rejections_total.labels(reason="signature_mismatch").inc()
-            from src.core.errors_extended import build_error, ErrorCode
+            # ErrorCode and build_error imported at module level
             from src.security.input_validator import signature_hex_prefix
             err = build_error(
                 ErrorCode.INPUT_FORMAT_INVALID,
@@ -455,8 +458,8 @@ async def analyze_cad_file(
             if not ok_deep:
                 format_validation_fail_total.labels(format=file_format, reason=reason_deep).inc()
                 analysis_rejections_total.labels(reason="deep_format_invalid").inc()
-                from src.core.errors_extended import ErrorCode
-                from src.core.errors_extended import build_error, ErrorCode
+                # ErrorCode imported at module level
+                # ErrorCode and build_error imported at module level
                 err = build_error(
                     ErrorCode.INPUT_FORMAT_INVALID,
                     stage="input",
@@ -471,8 +474,8 @@ async def analyze_cad_file(
             if not ok_matrix:
                 format_validation_fail_total.labels(format=file_format, reason=reason_matrix).inc()
                 analysis_rejections_total.labels(reason="matrix_format_invalid").inc()
-                from src.core.errors_extended import ErrorCode
-                from src.core.errors_extended import build_error, ErrorCode
+                # ErrorCode imported at module level
+                # ErrorCode and build_error imported at module level
                 err = build_error(
                     ErrorCode.INPUT_FORMAT_INVALID,
                     stage="input",
@@ -502,7 +505,7 @@ async def analyze_cad_file(
         max_entities = int(__import__("os").getenv("ANALYSIS_MAX_ENTITIES", "50000"))
         if doc.entity_count() > max_entities:
             analysis_rejections_total.labels(reason="entity_count_exceeded").inc()
-            from src.core.errors_extended import build_error, ErrorCode
+            # ErrorCode and build_error imported at module level
             err = build_error(
                 ErrorCode.VALIDATION_FAILED,
                 stage="input",
@@ -668,7 +671,6 @@ async def analyze_cad_file(
                     try:
                         client = __import__("src.utils.cache", fromlist=["get_client"]).get_client()
                         if client is not None:
-                            import json
                             client.set("baseline:material", json.dumps(st["baseline_materials"]))  # type: ignore[attr-defined]
                             client.set("baseline:material:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
                     except Exception:
@@ -678,7 +680,6 @@ async def analyze_cad_file(
                     try:
                         client = __import__("src.utils.cache", fromlist=["get_client"]).get_client()
                         if client is not None:
-                            import json
                             client.set("baseline:class", json.dumps(st["baseline_predictions"]))  # type: ignore[attr-defined]
                             client.set("baseline:class:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
                     except Exception:
@@ -776,8 +777,8 @@ async def analyze_cad_file(
             "stages": stage_times,
         }
 
-        # 缓存结果
-        await cache_result(cache_key, results, ttl=3600)
+        # 缓存结果 (使用 analysis_cache_key 而非被覆盖的 cache_key)
+        await cache_result(analysis_cache_key, results, ttl=3600)
         # Persist full result by analysis id for retrieval endpoint
         await set_cache(f"analysis_result:{analysis_id}", results, ttl_seconds=3600)
 
@@ -825,7 +826,7 @@ async def analyze_cad_file(
         analysis_requests_total.labels(status="error").inc()
         analysis_errors_total.labels(stage="options", code="json_decode").inc()
         analysis_error_code_total.labels(code=ErrorCode.JSON_PARSE_ERROR.value).inc()
-        from src.core.errors_extended import build_error, ErrorCode
+        # ErrorCode and build_error imported at module level
         err = build_error(ErrorCode.JSON_PARSE_ERROR, stage="options", message="Invalid options JSON format")
         raise HTTPException(status_code=400, detail=err)
     except HTTPException as he:
@@ -844,7 +845,7 @@ async def analyze_cad_file(
         if isinstance(he.detail, dict):  # already structured
             raise
         analysis_error_code_total.labels(code=code.value).inc()
-        from src.core.errors_extended import build_error
+        # build_error imported at module level
         err = build_error(code, stage="analysis", message=str(he.detail))
         raise HTTPException(status_code=he.status_code, detail=err)
     except Exception as e:
@@ -852,7 +853,7 @@ async def analyze_cad_file(
         analysis_errors_total.labels(stage="general", code="internal").inc()
         analysis_error_code_total.labels(code=ErrorCode.INTERNAL_ERROR.value).inc()
         logger.error(f"Analysis failed for {file.filename}: {str(e)}")
-        from src.core.errors_extended import build_error, ErrorCode
+        # ErrorCode and build_error imported at module level
         err = build_error(ErrorCode.INTERNAL_ERROR, stage="analysis", message=f"Analysis failed: {str(e)}")
         raise HTTPException(status_code=500, detail=err)
 
@@ -881,26 +882,13 @@ async def batch_analyze(
     }
 
 
-@router.get("/{analysis_id}")
-async def get_analysis_result(analysis_id: str, api_key: str = Depends(get_api_key)):
-    """获取分析结果"""
-    # TODO: 从数据库或缓存获取历史分析结果
-    cache_key = f"analysis_result:{analysis_id}"
-    result = await get_cached_result(cache_key)
-
-    if not result:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-
-    return result
-
-
 @router.post("/similarity", response_model=SimilarityResult)
 async def similarity_query(payload: SimilarityQuery, api_key: str = Depends(get_api_key)):
     """在已存在的向量之间计算相似度。"""
     from src.core.similarity import _VECTOR_STORE  # type: ignore
 
     if payload.reference_id not in _VECTOR_STORE:
-        from src.core.errors_extended import build_error, ErrorCode
+        # ErrorCode and build_error imported at module level
         err = build_error(
             ErrorCode.DATA_NOT_FOUND,
             stage="similarity",
@@ -918,7 +906,7 @@ async def similarity_query(payload: SimilarityQuery, api_key: str = Depends(get_
             error=err,
         )
     if payload.target_id not in _VECTOR_STORE:
-        from src.core.errors_extended import build_error, ErrorCode
+        # ErrorCode and build_error imported at module level
         err = build_error(
             ErrorCode.DATA_NOT_FOUND,
             stage="similarity",
@@ -938,7 +926,7 @@ async def similarity_query(payload: SimilarityQuery, api_key: str = Depends(get_
     ref = _VECTOR_STORE[payload.reference_id]
     tgt = _VECTOR_STORE[payload.target_id]
     if len(ref) != len(tgt):
-        from src.core.errors_extended import build_error, ErrorCode
+        # ErrorCode and build_error imported at module level
         err = build_error(
             ErrorCode.VALIDATION_FAILED,
             stage="similarity",
@@ -974,7 +962,7 @@ async def similarity_topk(payload: SimilarityTopKQuery, api_key: str = Depends(g
     from src.core.similarity import InMemoryVectorStore  # type: ignore
     store = InMemoryVectorStore()
     if not store.exists(payload.target_id):
-        from src.core.errors_extended import create_extended_error, ErrorCode
+        # create_extended_error and ErrorCode imported at module level
         ext = create_extended_error(ErrorCode.DATA_NOT_FOUND, "Target vector not found", stage="similarity")
         analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
         return SimilarityTopKResponse(
@@ -1125,7 +1113,7 @@ async def faiss_rebuild(api_key: str = Depends(get_api_key)):
 @router.post("/vectors/update", response_model=VectorUpdateResponse)
 async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get_api_key)):
     from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
-    from src.core.errors_extended import create_extended_error, ErrorCode
+    # create_extended_error and ErrorCode imported at module level
     from src.utils.analysis_metrics import analysis_error_code_total
     if payload.id not in _VECTOR_STORE:
         ext = create_extended_error(ErrorCode.DATA_NOT_FOUND, "Vector not found", stage="vector_update", id=payload.id)
@@ -1139,7 +1127,7 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
         if payload.replace is not None:
             if len(payload.replace) != original_dim:
                 if enforce:
-                    from src.core.errors_extended import build_error
+                    # build_error imported at module level
                     err = build_error(
                         ErrorCode.DIMENSION_MISMATCH,
                         stage="vector_update",
@@ -1163,7 +1151,7 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
             if enforce and original_dim != 0:
                 new_dim = original_dim + len(payload.append)
                 if new_dim != original_dim:
-                    from src.core.errors_extended import build_error
+                    # build_error imported at module level
                     err = build_error(
                         ErrorCode.DIMENSION_MISMATCH,
                         stage="vector_update",
@@ -1428,6 +1416,7 @@ class DriftResetResponse(BaseModel):
 
 @router.get("/drift", response_model=DriftStatusResponse)
 async def drift_status(api_key: str = Depends(get_api_key)):
+    import time
     from collections import Counter
     import os
     min_count = int(os.getenv("DRIFT_BASELINE_MIN_COUNT", "100"))
@@ -1464,7 +1453,6 @@ async def drift_status(api_key: str = Depends(get_api_key)):
             except Exception:
                 pass
     status = "baseline_pending" if (len(mats) < min_count or len(preds) < min_count) else "ok"
-    import time
     baseline_material_age = None
     baseline_prediction_age = None
     # Use first timestamp index to approximate age (list length as proxy)
@@ -1631,3 +1619,18 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
             method="GET"
         )
     )
+
+
+# IMPORTANT: This catch-all route MUST be at the end of the file
+# to prevent it from matching specific paths like /drift, /vectors, etc.
+@router.get("/{analysis_id}")
+async def get_analysis_result(analysis_id: str, api_key: str = Depends(get_api_key)):
+    """获取分析结果"""
+    # TODO: 从数据库或缓存获取历史分析结果
+    cache_key = f"analysis_result:{analysis_id}"
+    result = await get_cached_result(cache_key)
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+
+    return result

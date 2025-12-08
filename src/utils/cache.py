@@ -1,11 +1,12 @@
-"""Redis cache utilities (async wrapper)."""
+"""Redis cache utilities (async wrapper) with in-memory fallback."""
 
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
-from typing import Optional
+import time
+from typing import Any, Dict, Optional, Tuple
 
 try:
     import redis.asyncio as redis  # type: ignore
@@ -17,6 +18,9 @@ logger = logging.getLogger(__name__)
 
 _redis_client: Optional[redis.Redis] = None
 _init_lock = asyncio.Lock()
+
+# In-memory cache fallback when Redis is unavailable
+_local_cache: Dict[str, Tuple[Any, float]] = {}  # key -> (value, expire_time)
 
 
 async def init_redis() -> None:
@@ -51,25 +55,34 @@ async def redis_healthy() -> bool:
 
 
 async def get_cache(key: str) -> Optional[dict]:
-    if not _redis_client or redis is None:
-        return None
-    try:
-        raw = await _redis_client.get(key)
-        if raw is None:
-            return None
-        return json.loads(raw)
-    except Exception as e:
-        logger.debug(f"Redis get failed {key}: {e}")
-        return None
+    # Try Redis first
+    if _redis_client and redis is not None:
+        try:
+            raw = await _redis_client.get(key)
+            if raw is not None:
+                return json.loads(raw)
+        except Exception as e:
+            logger.debug(f"Redis get failed {key}: {e}")
+    # Fall back to in-memory cache
+    if key in _local_cache:
+        value, expire_time = _local_cache[key]
+        if time.time() < expire_time:
+            return value
+        else:
+            del _local_cache[key]
+    return None
 
 
 async def set_cache(key: str, value: dict, ttl_seconds: int = 3600) -> None:
-    if not _redis_client or redis is None:
-        return
-    try:
-        await _redis_client.setex(key, ttl_seconds, json.dumps(value))
-    except Exception as e:
-        logger.debug(f"Redis set failed {key}: {e}")
+    # Try Redis first
+    if _redis_client and redis is not None:
+        try:
+            await _redis_client.setex(key, ttl_seconds, json.dumps(value))
+            return  # Redis set succeeded
+        except Exception as e:
+            logger.debug(f"Redis set failed {key}: {e}")
+    # Fall back to in-memory cache
+    _local_cache[key] = (value, time.time() + ttl_seconds)
 
 
 # Compatibility wrappers for existing analysis module naming

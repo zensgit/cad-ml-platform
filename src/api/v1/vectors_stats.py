@@ -33,7 +33,7 @@ class VectorDistributionResponse(BaseModel):
     versions: Optional[Dict[str, int]] = None
 
 
-@router.get("/vectors/stats", response_model=VectorStatsResponse)
+@router.get("/stats", response_model=VectorStatsResponse)
 async def vector_stats(api_key: str = Depends(get_api_key)):
     from src.core.similarity import _VECTOR_STORE, _VECTOR_META, _BACKEND  # type: ignore
 
@@ -61,7 +61,7 @@ async def vector_stats(api_key: str = Depends(get_api_key)):
     )
 
 
-@router.get("/vectors/distribution", response_model=VectorDistributionResponse)
+@router.get("/distribution", response_model=VectorDistributionResponse)
 async def vector_distribution(api_key: str = Depends(get_api_key)):
     from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
 

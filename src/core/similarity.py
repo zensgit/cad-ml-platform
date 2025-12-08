@@ -7,7 +7,7 @@ Later phases can replace with persistent / ANN index (Faiss, Milvus etc.).
 from __future__ import annotations
 
 from math import sqrt
-from typing import Dict, List, Protocol
+from typing import Dict, List, Protocol, runtime_checkable
 import os
 from src.utils.cache import get_client
 from src.utils.analysis_metrics import (
@@ -236,6 +236,7 @@ def compute_similarity(reference_id: str, candidate_vector: List[float]) -> Dict
     }
 
 
+@runtime_checkable
 class VectorStoreProtocol(Protocol):
     """Protocol defining the interface for vector storage backends."""
     def add(self, key: str, vector: List[float]) -> None: ...  # noqa: D401
@@ -762,6 +763,9 @@ def get_vector_store(backend: str | None = None) -> VectorStoreProtocol:
 def _matches_backend(store: VectorStoreProtocol, backend: str) -> bool:
     """Check if a store instance matches the requested backend type."""
     if backend == "faiss":
+        # FaissVectorStore may be None if faiss not installed, or may be mocked in tests
+        if FaissVectorStore is None or not isinstance(FaissVectorStore, type):
+            return False
         return isinstance(store, FaissVectorStore)
     else:
         return isinstance(store, InMemoryVectorStore)
@@ -835,7 +839,7 @@ def attempt_faiss_recovery(now: float | None = None) -> bool:
             # Reset store and try to get faiss
             reset_default_store()
             store = get_vector_store("faiss")
-            if isinstance(store, FaissVectorStore) and getattr(store, "_available", False):
+            if FaissVectorStore is not None and isinstance(FaissVectorStore, type) and isinstance(store, FaissVectorStore) and getattr(store, "_available", False):
                 # recovered
                 faiss_recovery_attempts_total.labels(result="success").inc()
                 faiss_degraded_duration_seconds.set(0)

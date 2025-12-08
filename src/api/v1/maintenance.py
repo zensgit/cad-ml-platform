@@ -3,8 +3,10 @@ Maintenance API endpoints
 系统维护相关的API端点 - 包含孤儿向量清理、缓存管理等功能
 """
 
+from __future__ import annotations
+
 import logging
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
 
@@ -20,7 +22,7 @@ class OrphanCleanupResponse(BaseModel):
     """孤儿向量清理响应"""
     orphan_count: int = Field(..., description="孤儿向量数量")
     deleted_count: int = Field(..., description="已删除数量")
-    sample_ids: List[str] | None = Field(None, description="孤儿ID样例（verbose模式）")
+    sample_ids: Optional[List[str]] = Field(None, description="孤儿ID样例（verbose模式）")
     status: str = Field(..., description="状态: ok/skipped/dry_run")
     message: str = Field(..., description="操作消息")
 
@@ -286,7 +288,7 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
     return stats
 class VectorStoreReloadResponse(BaseModel):
     status: str
-    backend: str | None = None
+    backend: Optional[str] = None
 
 @router.post("/vectors/backend/reload", response_model=VectorStoreReloadResponse)
 async def reload_vector_backend(api_key: str = Depends(get_api_key)):

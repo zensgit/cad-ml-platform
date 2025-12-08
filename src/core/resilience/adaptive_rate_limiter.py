@@ -590,6 +590,12 @@ class AdaptiveRateLimiter:
             self.state.cooldown_until = 0.0
             self.tokens = self.state.base_rate
 
+            # 重置时间戳以确保令牌桶正确补充
+            now = time.time()
+            self.last_refill = now
+            self.state.last_adjust_ts = now
+            self.state.max_observed_error = 0.0
+
             # 清空历史
             self.state.adjust_history.clear()
             self.latency_samples.clear()

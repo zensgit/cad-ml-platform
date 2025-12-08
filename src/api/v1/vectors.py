@@ -37,7 +37,7 @@ class VectorListResponse(BaseModel):
     vectors: list[VectorListItem]
 
 
-@router.post("/vectors/delete", response_model=VectorDeleteResponse)
+@router.post("/delete", response_model=VectorDeleteResponse)
 async def delete_vector(payload: VectorDeleteRequest, api_key: str = Depends(get_api_key)):
     from src.core.similarity import _VECTOR_STORE, _VECTOR_META, _BACKEND, FaissVectorStore  # type: ignore
     from src.utils.cache import get_client
@@ -77,7 +77,7 @@ async def delete_vector(payload: VectorDeleteRequest, api_key: str = Depends(get
         raise HTTPException(status_code=500, detail=err)
 
 
-@router.get("/vectors", response_model=VectorListResponse)
+@router.get("/", response_model=VectorListResponse)
 async def list_vectors(api_key: str = Depends(get_api_key)):
     from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
     items: list[VectorListItem] = []
@@ -113,7 +113,7 @@ class VectorUpdateResponse(BaseModel):
     feature_version: Optional[str] = None
 
 
-@router.post("/vectors/update", response_model=VectorUpdateResponse)
+@router.post("/update", response_model=VectorUpdateResponse)
 async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get_api_key)):
     from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
     from src.utils.analysis_metrics import analysis_error_code_total
@@ -499,7 +499,7 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
     )
 
 
-@router.get("/vectors/migrate/status", response_model=VectorMigrationStatusResponse)
+@router.get("/migrate/status", response_model=VectorMigrationStatusResponse)
 async def migrate_status(api_key: str = Depends(get_api_key)):
     from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
     versions: Dict[str, int] = {}
@@ -523,7 +523,7 @@ async def migrate_status(api_key: str = Depends(get_api_key)):
     )
 
 
-@router.get("/vectors/migrate/summary", response_model=VectorMigrationSummaryResponse)
+@router.get("/migrate/summary", response_model=VectorMigrationSummaryResponse)
 async def migrate_summary(api_key: str = Depends(get_api_key)):
     history = globals().get("_VECTOR_MIGRATION_HISTORY", [])
     aggregate: Dict[str, int] = {}
@@ -571,7 +571,7 @@ class BatchSimilarityResponse(BaseModel):
     degraded: bool = Field(default=False, description="向量存储是否处于降级模式")
 
 
-@router.post("/vectors/similarity/batch", response_model=BatchSimilarityResponse)
+@router.post("/similarity/batch", response_model=BatchSimilarityResponse)
 async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depends(get_api_key)):
     """批量相似度查询 - 支持多个向量ID并行查询相似向量
 
