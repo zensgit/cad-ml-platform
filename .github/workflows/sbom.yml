@@ -36,7 +36,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -44,24 +44,22 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install cyclonedx-bom[json,xml,csv] pip-licenses
+          pip install cyclonedx-bom pip-licenses
 
       - name: Generate CycloneDX SBOM (JSON)
         run: |
           pip install -r requirements.txt
-          cyclonedx-py -r -i requirements.txt \
-            --format json \
-            --output sbom-cyclonedx.json \
-            --project-name "CAD ML Platform" \
-            --project-version "${GITHUB_SHA:0:7}"
+          cyclonedx-py requirements \
+            --input-file requirements.txt \
+            --output-format json \
+            --outfile sbom-cyclonedx.json
 
       - name: Generate CycloneDX SBOM (XML)
         run: |
-          cyclonedx-py -r -i requirements.txt \
-            --format xml \
-            --output sbom-cyclonedx.xml \
-            --project-name "CAD ML Platform" \
-            --project-version "${GITHUB_SHA:0:7}"
+          cyclonedx-py requirements \
+            --input-file requirements.txt \
+            --output-format xml \
+            --outfile sbom-cyclonedx.xml
 
       - name: Generate SPDX SBOM
         run: |
@@ -253,7 +251,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -265,11 +263,12 @@ jobs:
       - name: Generate base branch SBOM
         run: |
           git checkout ${{ github.base_ref }}
-          pip install cyclonedx-bom[json]
+          pip install cyclonedx-bom
           pip install -r requirements.txt
-          cyclonedx-py -r -i requirements.txt \
-            --format json \
-            --output sbom-base.json
+          cyclonedx-py requirements \
+            --input-file requirements.txt \
+            --output-format json \
+            --outfile sbom-base.json
 
       - name: Compare SBOMs
         run: |
