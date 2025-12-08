@@ -28,6 +28,7 @@ jobs:
     permissions:
       contents: write
       security-events: write
+      id-token: write  # Required for keyless signing with Sigstore
 
     steps:
       - name: Checkout repository
@@ -89,16 +90,16 @@ jobs:
 
       - name: Sign SBOM with Cosign
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
-          COSIGN_EXPERIMENTAL: 1
         run: |
           # Install cosign
           curl -Lo cosign https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64
           chmod +x cosign
 
-          # Sign SBOM files with keyless signing (requires bundle output)
-          ./cosign sign-blob --yes --bundle sbom-cyclonedx.json.bundle sbom-cyclonedx.json
-          ./cosign sign-blob --yes --bundle sbom-cyclonedx.xml.bundle sbom-cyclonedx.xml
+          # Sign SBOM files with keyless signing using GitHub OIDC
+          ./cosign sign-blob --yes --oidc-issuer https://token.actions.githubusercontent.com \
+            --bundle sbom-cyclonedx.json.bundle sbom-cyclonedx.json
+          ./cosign sign-blob --yes --oidc-issuer https://token.actions.githubusercontent.com \
+            --bundle sbom-cyclonedx.xml.bundle sbom-cyclonedx.xml
 
       - name: Check for high-risk dependencies
         run: |
