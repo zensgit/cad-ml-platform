@@ -16,10 +16,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
@@ -47,10 +47,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
@@ -72,9 +72,10 @@ jobs:
       - name: Validate with promtool (Docker)
         run: |
           docker run --rm \
+            --entrypoint promtool \
             -v $PWD/docs/prometheus:/prometheus \
             prom/prometheus:latest \
-            promtool check rules /prometheus/recording_rules.yml
+            check rules /prometheus/recording_rules.yml
 
       - name: Upload validation results
         if: always()
@@ -94,10 +95,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
@@ -109,7 +110,8 @@ jobs:
       - name: Start application
         run: |
           export REDIS_URL=redis://localhost:6379
-          python src/main.py &
+          export PYTHONPATH=$GITHUB_WORKSPACE
+          python -m uvicorn src.main:app --host 0.0.0.0 --port 8000 &
           APP_PID=$!
           echo "APP_PID=$APP_PID" >> $GITHUB_ENV
 
@@ -118,6 +120,7 @@ jobs:
 
       - name: Run basic self-check
         run: |
+          export PYTHONPATH=$GITHUB_WORKSPACE
           python scripts/self_check.py --json > self-check-basic.json
           cat self-check-basic.json
 
@@ -128,6 +131,7 @@ jobs:
 
       - name: Run strict self-check
         run: |
+          export PYTHONPATH=$GITHUB_WORKSPACE
           export SELF_CHECK_STRICT_METRICS=1
           export SELF_CHECK_MIN_OCR_ERRORS=5
           export SELF_CHECK_INCREMENT_COUNTERS=1
@@ -166,7 +170,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Validate dashboard JSON
         run: |
@@ -203,7 +207,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Check runbooks
         run: |
@@ -262,7 +266,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run integration test suite
         run: |

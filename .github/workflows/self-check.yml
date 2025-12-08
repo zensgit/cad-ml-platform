@@ -25,14 +25,17 @@ jobs:
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
       - name: Launch app (background)
         run: |
+          export PYTHONPATH=$GITHUB_WORKSPACE
           nohup uvicorn src.main:app --host 0.0.0.0 --port 8000 &
           sleep 5
       - name: Run self-check script
         run: |
+          export PYTHONPATH=$GITHUB_WORKSPACE
           python scripts/self_check.py
       - name: Archive self-check result (only on success)
         if: success()
         run: |
+          export PYTHONPATH=$GITHUB_WORKSPACE
           echo "Captured at $(date -u)" > self_check_status.txt
           python scripts/self_check.py >> self_check_status.txt
       - uses: actions/upload-artifact@v4
