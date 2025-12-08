@@ -227,7 +227,7 @@ jobs:
             }
 
       - name: Upload review report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: badge-review-${{ steps.badge-review.outputs.month }}-${{ steps.badge-review.outputs.year }}
           path: ${{ steps.badge-review.outputs.report_path }}

@@ -39,7 +39,7 @@ jobs:
         run: python3 scripts/generate_sbom.py --output sbom.json
 
       - name: Upload SBOM
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sbom
           path: sbom.json

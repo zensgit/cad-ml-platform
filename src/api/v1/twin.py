@@ -3,8 +3,10 @@ Digital Twin API
 Phase 8: Real-time Sync
 """
 import logging
-from typing import Dict, Any
+from typing import Any, Dict
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
+
 from src.core.twin.sync import twin_sync
 from src.core.twin.ingest import get_ingestor, get_store
 from src.core.twin.connectivity import TelemetryFrame
@@ -13,15 +15,16 @@ from src.api.dependencies import get_api_key
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+
 @router.websocket("/ws/{asset_id}")
-async def websocket_endpoint(websocket: WebSocket, asset_id: str):
+async def websocket_endpoint(websocket: WebSocket, asset_id: str) -> None:
     """
     WebSocket endpoint for real-time digital twin updates.
     """
     await websocket.accept()
 
     # Callback to push updates to this websocket
-    async def push_update(event: Dict[str, Any]):
+    async def push_update(event: Dict[str, Any]) -> None:
         if event["asset_id"] == asset_id:
             try:
                 await websocket.send_json(event)
@@ -57,7 +60,7 @@ async def websocket_endpoint(websocket: WebSocket, asset_id: str):
         logger.info(f"Client disconnected from twin {asset_id}")
 
 @router.post("/{asset_id}/telemetry")
-async def ingest_telemetry(asset_id: str, telemetry: Dict[str, Any]):
+async def ingest_telemetry(asset_id: str, telemetry: Dict[str, Any]) -> Dict[str, Any]:
     """
     Ingest telemetry data (HTTP fallback for MQTT).
     """
@@ -77,7 +80,7 @@ async def ingest_telemetry(asset_id: str, telemetry: Dict[str, Any]):
     return {"status": "accepted", "ingest": result}
 
 @router.get("/{asset_id}/state")
-async def get_twin_state(asset_id: str):
+async def get_twin_state(asset_id: str) -> Dict[str, Any]:
     """
     Get current state snapshot.
     """
@@ -89,7 +92,7 @@ async def get_history(
     device_id: str = Query(..., description="Device/asset id to fetch history for"),
     limit: int = Query(default=50, ge=1, le=500, description="Max frames to return"),
     api_key: str = Depends(get_api_key),
-):
+) -> Dict[str, Any]:
     """
     Fetch recent telemetry history from the time-series store.
     """

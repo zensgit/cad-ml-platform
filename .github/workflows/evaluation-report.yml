@@ -147,14 +147,14 @@ jobs:
         fi
 
     - name: Upload evaluation report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: evaluation-report-${{ github.run_number }}
         path: ${{ env.REPORT_PATH }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
     - name: Upload evaluation history
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: evaluation-history-${{ github.run_number }}
         path: reports/eval_history/*.json
@@ -304,7 +304,7 @@ jobs:
 
     steps:
     - name: Download report artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: evaluation-report-${{ github.run_number }}
         path: ./public

@@ -75,7 +75,7 @@ jobs:
           echo "流量模式: ${{ steps.traffic_analysis.outputs.pattern }}"
 
       - name: Upload traffic analysis
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: traffic-analysis
           path: traffic_analysis.json
@@ -132,7 +132,7 @@ jobs:
           fi
 
       - name: Upload performance report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: performance-report
           path: |
@@ -161,7 +161,7 @@ jobs:
           pip install numpy scipy
 
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: traffic-analysis
 
@@ -254,7 +254,7 @@ jobs:
           echo "- P值: $p_value" >> test_report.md
 
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ab-test-results
           path: |
@@ -272,7 +272,7 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Generate dashboard data
         run: |
@@ -380,7 +380,7 @@ jobs:
 
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Generate PR comment
         run: |

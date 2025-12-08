@@ -133,7 +133,7 @@ jobs:
           cat rules_report.md >> $GITHUB_STEP_SUMMARY
 
       - name: Upload version artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: rules-version-${{ github.sha }}
           path: |
@@ -191,7 +191,7 @@ jobs:
           python-version: '3.11'
 
       - name: Download version artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: rules-version-${{ github.event.inputs.version_id }}
           path: .rules-versions/
@@ -251,7 +251,7 @@ jobs:
           echo "✅ Backup created successfully" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload backup
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: rules-backup-$(date +'%Y%m%d')
           path: rules_backup_*.tar.gz

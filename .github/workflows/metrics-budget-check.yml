@@ -165,7 +165,7 @@ jobs:
 
       - name: Upload analysis results
         if: steps.detect.outputs.has_changes == 'true'
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: metrics-analysis
           path: metrics_analysis.json
@@ -286,7 +286,7 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Download analysis
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: metrics-analysis
 
@@ -328,7 +328,7 @@ jobs:
           python generate_suggestions.py > suggestions.md
 
       - name: Save suggestions
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: optimization-suggestions
           path: suggestions.md
@@ -344,7 +344,7 @@ jobs:
 
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Create comment
         uses: actions/github-script@v6

@@ -40,7 +40,7 @@ class KnowledgeManager:
     _instance: Optional["KnowledgeManager"] = None
     _lock = threading.Lock()
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any) -> "KnowledgeManager":
         """Singleton pattern."""
         if cls._instance is None:
             with cls._lock:
@@ -60,7 +60,7 @@ class KnowledgeManager:
             auto_reload_interval: Auto-reload interval in seconds (0 to disable)
         """
         # Prevent re-initialization
-        if hasattr(self, "_initialized") and self._initialized:
+        if hasattr(self, "_initialized") and self._initialized:  # type: ignore[has-type]
             return
 
         self._store = store or JSONKnowledgeStore()
@@ -136,7 +136,7 @@ class KnowledgeManager:
 
     def _start_auto_reload(self) -> None:
         """Start the auto-reload background thread."""
-        def reload_loop():
+        def reload_loop() -> None:
             while not self._stop_reload.is_set():
                 time.sleep(self._auto_reload_interval)
                 if self._stop_reload.is_set():
@@ -301,8 +301,8 @@ class KnowledgeManager:
             geo_features = geometric_features or {}
             ent_counts = entity_counts or {}
             geometry_matches = self.match_geometry(geo_features, ent_counts)
-            for pattern in geometry_matches:
-                for part, score in pattern.part_hints.items():
+            for geo_pattern in geometry_matches:
+                for part, score in geo_pattern.part_hints.items():
                     hints[part] = hints.get(part, 0) + score
 
         # Normalize to max 1.0
@@ -403,7 +403,7 @@ class KnowledgeManager:
     def get_stats(self) -> Dict[str, Any]:
         """Get knowledge base statistics."""
         if hasattr(self._store, "get_stats"):
-            stats = self._store.get_stats()
+            stats: Dict[str, Any] = self._store.get_stats()
         else:
             stats = {
                 "total_rules": len(self._store.get_all()),

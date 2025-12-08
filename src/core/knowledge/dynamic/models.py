@@ -488,4 +488,5 @@ def create_rule_from_dict(data: Dict[str, Any]) -> KnowledgeEntry:
         category = KnowledgeCategory(category)
 
     rule_class = RULE_TYPE_MAP.get(category, KnowledgeEntry)
-    return rule_class.from_dict(data)
+    result: KnowledgeEntry = rule_class.from_dict(data)  # type: ignore[attr-defined]
+    return result

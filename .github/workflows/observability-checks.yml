@@ -78,7 +78,7 @@ jobs:
 
       - name: Upload validation results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: prometheus-validation
           path: validation.json
@@ -153,7 +153,7 @@ jobs:
 
       - name: Upload self-check results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: self-check-results
           path: |

@@ -329,7 +329,7 @@ class JSONKnowledgeStore(KnowledgeStore):
                     1 for r in self._rules.values()
                     if r.category == category and r.enabled
                 )
-                stats["categories"][category.value] = {
+                stats["categories"][category.value] = {  # type: ignore[index]
                     "total": count,
                     "enabled": enabled,
                 }
@@ -340,7 +340,7 @@ class JSONKnowledgeStore(KnowledgeStore):
 class InMemoryKnowledgeStore(KnowledgeStore):
     """In-memory knowledge storage (for testing)."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._rules: Dict[str, KnowledgeEntry] = {}
         self._version = datetime.now().isoformat()
         self._lock = threading.RLock()

@@ -21,14 +21,14 @@ from pydantic import BaseModel, Field, field_validator
 logger = logging.getLogger(__name__)
 
 try:
-    import msgpack  # type: ignore
+    import msgpack  # type: ignore[import-untyped]
 
     _msgpack_available = True
 except Exception:
     _msgpack_available = False
 
 try:
-    import aiomqtt  # type: ignore
+    import aiomqtt
 
     _aiomqtt_available = True
 except Exception:
@@ -58,7 +58,8 @@ class TelemetryFrame(BaseModel):
         payload = self.model_dump()
         if _msgpack_available:
             try:
-                return msgpack.packb(payload, use_bin_type=True)
+                result: bytes = msgpack.packb(payload, use_bin_type=True)
+                return result
             except Exception:
                 logger.debug("MsgPack serialization failed; falling back to JSON", exc_info=True)
         return json.dumps(payload, ensure_ascii=True).encode("utf-8")
@@ -95,7 +96,7 @@ class MqttTelemetryClient:
     def __init__(self, config: Optional[MqttConfig] = None) -> None:
         self.config = config or MqttConfig()
         self._client: Optional[Any] = None
-        self._task: Optional[asyncio.Task] = None
+        self._task: Optional[asyncio.Task[None]] = None
         self._stopped = asyncio.Event()
         self._subscribed = asyncio.Event()
 
@@ -125,9 +126,9 @@ class MqttTelemetryClient:
         }
         # Filter out None values to avoid unexpected keyword errors
         client_kwargs = {k: v for k, v in client_kwargs.items() if v is not None}
-        self._client = aiomqtt.Client(**client_kwargs)
+        self._client = aiomqtt.Client(**client_kwargs)  # type: ignore[arg-type]
 
-        async def _runner():
+        async def _runner() -> None:
             assert self._client is not None
             async with self._client:
                 for topic in topics:

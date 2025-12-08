@@ -25,7 +25,7 @@ class TelemetryIngestor:
         self._max_queue = max_queue
         self._queue: Optional[asyncio.Queue[TelemetryFrame]] = None
         self.drop_count = 0
-        self._worker: Optional[asyncio.Task] = None
+        self._worker: Optional[asyncio.Task[None]] = None
         self._started = False
         self._start_lock: Optional[asyncio.Lock] = None
 
@@ -99,8 +99,8 @@ class TelemetryIngestor:
 
 
 # Shared in-memory store and ingestor for routers/tests
-_store = None
-_ingestor = None
+_store: Optional[TimeSeriesStore] = None
+_ingestor: Optional[TelemetryIngestor] = None
 
 
 def get_ingestor() -> TelemetryIngestor:
