@@ -15,7 +15,6 @@ from src.core.knowledge.dynamic.manager import KnowledgeManager, get_knowledge_m
 from src.core.knowledge.dynamic.models import (
     KnowledgeCategory,
     KnowledgeEntry,
-    GeometryPattern,
 )
 
 logger = logging.getLogger(__name__)
@@ -423,7 +422,8 @@ class DynamicKnowledgeBase:
             dim_ratio_21 = features.get("dim_ratio_21", 1.0)
             dim_ratio_32 = features.get("dim_ratio_32", 1.0)
             if dim_ratio_21 > 0 and dim_ratio_32 > 0:
-                features["elongation"] = 1.0 / (dim_ratio_21 * dim_ratio_32) if dim_ratio_21 * dim_ratio_32 > 0 else 1.0
+                product = dim_ratio_21 * dim_ratio_32
+                features["elongation"] = 1.0 / product if product > 0 else 1.0
             else:
                 features["elongation"] = 1.0
 
@@ -494,7 +494,9 @@ class DynamicKnowledgeBase:
             "standard": self.get_standard_hints(ocr_data, geometric_features, entity_counts),
             "functional": self.get_functional_hints(ocr_data, geometric_features, entity_counts),
             "assembly": self.get_assembly_hints(ocr_data, geometric_features, entity_counts),
-            "manufacturing": self.get_manufacturing_hints(ocr_data, geometric_features, entity_counts),
+            "manufacturing": self.get_manufacturing_hints(
+                ocr_data, geometric_features, entity_counts
+            ),
             "geometry": self.get_geometry_hints(geometric_features, entity_counts),
         }
 

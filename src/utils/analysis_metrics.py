@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 try:
-    from prometheus_client import Counter as _Counter, Histogram as _Histogram, Gauge as _Gauge, REGISTRY  # type: ignore
+    from prometheus_client import (  # type: ignore
+        Counter as _Counter, Histogram as _Histogram, Gauge as _Gauge, REGISTRY
+    )
 
     # Cache for already-registered metrics (avoids registry lookup overhead)
     _METRIC_CACHE = {}

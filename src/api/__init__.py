@@ -59,7 +59,9 @@ if vectors is not None:
     # Vector routes under /vectors (resource semantics)
     v1_router.include_router(vectors.router, prefix="/vectors", tags=["向量"])  # type: ignore
 if vectors_stats is not None:
-    v1_router.include_router(vectors_stats.router, prefix="/vectors_stats", tags=["向量统计"])  # type: ignore
+    v1_router.include_router(
+        vectors_stats.router, prefix="/vectors_stats", tags=["向量统计"]
+    )  # type: ignore
 
 # 工艺和特征模块
 if process is not None:

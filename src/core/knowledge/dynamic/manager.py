@@ -14,8 +14,7 @@ import logging
 import re
 import threading
 import time
-from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional
 
 from src.core.knowledge.dynamic.models import (
     KnowledgeCategory,

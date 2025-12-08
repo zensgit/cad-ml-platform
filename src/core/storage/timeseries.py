@@ -59,7 +59,9 @@ class NullTimeSeriesStore:
     async def append(self, frame: TelemetryFrame) -> None:  # pragma: no cover - trivial
         return
 
-    async def history(self, device_id: str, limit: int = 100) -> List[TelemetryFrame]:  # pragma: no cover - trivial
+    async def history(  # pragma: no cover - trivial
+        self, device_id: str, limit: int = 100
+    ) -> List[TelemetryFrame]:
         return []
 
 

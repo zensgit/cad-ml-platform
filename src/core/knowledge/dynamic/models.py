@@ -174,7 +174,10 @@ class PrecisionRule(KnowledgeEntry):
             updated_at=base.updated_at,
             metadata=base.metadata,
             tolerance_grade=data.get("tolerance_grade", ""),
-            surface_roughness_range=tuple(data["surface_roughness_range"]) if data.get("surface_roughness_range") else None,
+            surface_roughness_range=(
+                tuple(data["surface_roughness_range"])
+                if data.get("surface_roughness_range") else None
+            ),
             gdt_symbols=data.get("gdt_symbols", []),
             fit_types=data.get("fit_types", []),
         )
@@ -355,7 +358,10 @@ class ManufacturingRule(KnowledgeEntry):
             metadata=base.metadata,
             process_type=data.get("process_type", ""),
             process_name=data.get("process_name", ""),
-            surface_finish_range=tuple(data["surface_finish_range"]) if data.get("surface_finish_range") else None,
+            surface_finish_range=(
+                tuple(data["surface_finish_range"])
+                if data.get("surface_finish_range") else None
+            ),
             tolerance_capability=data.get("tolerance_capability", ""),
         )
 
@@ -432,7 +438,8 @@ class GeometryPattern(KnowledgeEntry):
                 if prefix.lower() in self.ENTITY_RATIO_TYPES:
                     # Entity type ratio: compute from entity_counts
                     entity_type = prefix.upper()
-                    value = entity_counts.get(entity_type, 0) / total_entities if total_entities > 0 else 0
+                    count = entity_counts.get(entity_type, 0)
+                    value = count / total_entities if total_entities > 0 else 0
                 else:
                     # Derived ratio (curved_ratio, straight_ratio, etc.): read from features
                     value = geometric_features.get(feature, 0.0)

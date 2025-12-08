@@ -41,7 +41,9 @@ class TelemetryFrame(BaseModel):
     timestamp: float = Field(..., description="Unix timestamp seconds")
     device_id: str = Field(..., description="Source device / asset identifier")
     sensors: Dict[str, float] = Field(default_factory=dict, description="Raw sensor readings")
-    metrics: Dict[str, float] = Field(default_factory=dict, description="Derived metrics/health signals")
+    metrics: Dict[str, float] = Field(
+        default_factory=dict, description="Derived metrics/health signals"
+    )
     status: Dict[str, Any] = Field(default_factory=dict, description="Additional status/labels")
 
     @field_validator("timestamp")
