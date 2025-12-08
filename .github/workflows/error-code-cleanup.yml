@@ -193,7 +193,7 @@ jobs:
           EOF
 
           git add .
-          git commit -m "[自动] 错误码清理 - 清理${{{ needs.analyze.outputs.cleanup_count }}}个错误码"
+          git commit -m "[自动] 错误码清理 - 清理${{ needs.analyze.outputs.cleanup_count }}个错误码"
 
           # 推送分支
           git push -u origin $BRANCH_NAME

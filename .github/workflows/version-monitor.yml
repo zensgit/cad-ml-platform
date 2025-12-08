@@ -14,7 +14,6 @@ on:
 
 env:
   PYTHON_VERSION: '3.11'
-  ENABLE_VERSION_MONITOR: ${{ vars.ENABLE_VERSION_MONITOR || '1' }}
   # Optimize for CI
   MPLCONFIGDIR: /tmp/matplotlib
   XDG_CACHE_HOME: /tmp/cache
@@ -23,7 +22,7 @@ jobs:
   check-updates:
     name: Check for dependency updates
     runs-on: ubuntu-latest
-    if: ${{ env.ENABLE_VERSION_MONITOR == '1' }}
+    if: ${{ vars.ENABLE_VERSION_MONITOR != '0' }}
 
     steps:
     - name: Checkout repository

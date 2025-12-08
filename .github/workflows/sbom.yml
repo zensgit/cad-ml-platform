@@ -49,17 +49,11 @@ jobs:
       - name: Generate CycloneDX SBOM (JSON)
         run: |
           pip install -r requirements.txt
-          cyclonedx-py requirements \
-            --input-file requirements.txt \
-            --output-format json \
-            --outfile sbom-cyclonedx.json
+          cyclonedx-py requirements requirements.txt -o sbom-cyclonedx.json --of JSON
 
       - name: Generate CycloneDX SBOM (XML)
         run: |
-          cyclonedx-py requirements \
-            --input-file requirements.txt \
-            --output-format xml \
-            --outfile sbom-cyclonedx.xml
+          cyclonedx-py requirements requirements.txt -o sbom-cyclonedx.xml --of XML
 
       - name: Generate SPDX SBOM
         run: |
