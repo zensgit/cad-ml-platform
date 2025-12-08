@@ -4,6 +4,8 @@ Formula: abs(pred - gt) <= max(0.05 * gt, tolerance_gt)
 Edge cases: zero tolerance, very small gt, missing tolerance.
 """
 
+from __future__ import annotations
+
 import pytest
 
 

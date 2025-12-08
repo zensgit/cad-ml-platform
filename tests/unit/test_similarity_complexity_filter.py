@@ -5,13 +5,14 @@ import uuid
 client = TestClient(app)
 
 
-def _analyze_stub(name: str, entity_count: int, material: str):
-    # Craft minimal DXF-like content; current parser may fallback to stub.
-    fake_bytes = b"0" * 10  # small content
+def _analyze_stub(name: str, entity_count: int, material: str, unique_suffix: str = ""):
+    """Create an analysis with unique content to avoid cache pollution."""
+    # Use unique content based on name and suffix to ensure unique cache keys
+    unique_content = f"DATA_{name}_{unique_suffix}_{uuid.uuid4().hex[:4]}".encode()
     options = '{"extract_features": true, "classify_parts": false}'
     resp = client.post(
         "/api/v1/analyze",
-        files={"file": (name, fake_bytes, "application/octet-stream")},
+        files={"file": (name, unique_content, "application/octet-stream")},
         data={"options": options, "material": material},
         headers={"X-API-Key": "test"},
     )
@@ -20,12 +21,21 @@ def _analyze_stub(name: str, entity_count: int, material: str):
 
 
 def test_similarity_topk_complexity_filter():
+    """Test similarity top-k with complexity filter using unique IDs per run."""
+    # Use unique suffix for this test run to isolate from other tests
+    test_run_id = uuid.uuid4().hex[:8]
+
     # Create several analyses with different synthetic complexity via entity counts.
     # For stub documents entity_count may be 0; we simulate diversity by reusing returned vectors.
     ids = []
     materials = ["steel", "steel", "aluminum"]
     for i, m in enumerate(materials):
-        aid, geom = _analyze_stub(f"part_{i}.dxf", entity_count=i * 30 + 5, material=m)
+        aid, geom = _analyze_stub(
+            f"part_{test_run_id}_{i}.dxf",
+            entity_count=i * 30 + 5,
+            material=m,
+            unique_suffix=test_run_id
+        )
         ids.append(aid)
 
     target_id = ids[0]

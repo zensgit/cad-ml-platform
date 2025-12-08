@@ -1,3 +1,4 @@
+import os
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -6,6 +7,8 @@ from src.core.feature_cache import reset_feature_cache_for_tests
 
 def setup_function():
     reset_feature_cache_for_tests()
+    # Reset ADMIN_TOKEN to default "test" for tests
+    os.environ["ADMIN_TOKEN"] = "test"
 
 
 def test_cache_apply_rejects_during_active_rollback_window():

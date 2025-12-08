@@ -21,8 +21,9 @@ def test_batch_similarity_cap_exceeded(monkeypatch):
     detail = r.json()["detail"] if "detail" in r.json() else r.json()
     assert detail["code"] == "INPUT_VALIDATION_FAILED"
     assert detail["stage"] == "batch_similarity"
-    assert detail["batch_size"] == 3
-    assert detail["max_batch"] == 2
+    # batch_size and max_batch are in context sub-object
+    assert detail["context"]["batch_size"] == 3
+    assert detail["context"]["max_batch"] == 2
 
 
 def test_batch_similarity_empty_results(monkeypatch):

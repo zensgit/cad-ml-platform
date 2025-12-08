@@ -15,6 +15,12 @@ def setup_module(module):
     os.environ["VECTOR_STORE_BACKEND"] = "faiss"
 
 
+def teardown_module(module):
+    """Cleanup environment variables set by setup_module."""
+    os.environ.pop("X_API_KEY", None)
+    os.environ.pop("VECTOR_STORE_BACKEND", None)
+
+
 def teardown_function(func):
     # Reset global store and degraded flags after each test
     sim.reset_default_store()

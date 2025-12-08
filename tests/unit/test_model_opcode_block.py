@@ -19,6 +19,6 @@ def test_model_reload_opcode_block(tmp_path, monkeypatch):
     test_file = tmp_path / "malicious.pkl"
     test_file.write_bytes(forge_pickle_with_global())
     resp = reload_model(str(test_file), expected_version="vX", force=True)
-    assert resp["status"] in {"opcode_block", "opcode_scan_error"}
+    assert resp["status"] in {"opcode_block", "opcode_blocked", "opcode_scan_error"}
     if resp["status"] == "opcode_block":
         assert resp.get("opcode") in {"GLOBAL", "STACK_GLOBAL"}

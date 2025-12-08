@@ -13,6 +13,15 @@ def setup_module(module):
     os.environ["ADMIN_TOKEN"] = "secret"
 
 
+def teardown_module(module):
+    """Cleanup environment variables set by setup_module."""
+    os.environ.pop("X_API_KEY", None)
+    os.environ.pop("ADMIN_TOKEN", None)
+    os.environ.pop("MODEL_MAX_MB", None)
+    os.environ.pop("ALLOWED_MODEL_HASHES", None)
+    os.environ.pop("MODEL_OPCODE_SCAN", None)
+
+
 def test_model_reload_magic_invalid(tmp_path):
     bad = tmp_path / "bad.pkl"
     bad.write_bytes(b"XX")

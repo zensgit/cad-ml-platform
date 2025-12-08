@@ -6,13 +6,15 @@ import os
 from src.ml.classifier import reload_model
 
 
+# Module-level class so it can be pickled
+class _DummyModel:
+    def predict(self, X):  # minimal interface
+        return ["ok"]
+
+
 def create_pickle_with_global(tmp_path: Path):
     # Craft object whose pickle contains GLOBAL opcode via custom class reference
-    class Dummy:
-        def predict(self, X):  # minimal interface
-            return ["ok"]
-
-    obj = Dummy()
+    obj = _DummyModel()
     p = tmp_path / "model_global.pkl"
     with p.open("wb") as f:
         pickle.dump(obj, f, protocol=2)
@@ -33,7 +35,7 @@ def test_opcode_block_detection(tmp_path, monkeypatch, strict):
     path = create_pickle_with_global(Path(tmp_path))
     res = reload_model(str(path))
     # In some environments protocol may not emit blocked opcode; allow success fallback
-    assert res["status"] in {"success", "security_blocked", "rollback", "rollback_level2"}
+    assert res["status"] in {"success", "security_blocked", "opcode_blocked", "rollback", "rollback_level2"}
     if res["status"] == "security_blocked":
         assert "opcode" in res and "blocked_set" in res
 

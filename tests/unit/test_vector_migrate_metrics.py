@@ -85,5 +85,6 @@ def test_vector_migrate_invalid_version():
     r = client.post("/api/v1/vectors/migrate", json=payload, headers={"x-api-key": "test"})
     assert r.status_code == 422
     data = r.json()
-    assert data["code"] == "INPUT_VALIDATION_FAILED"
-    assert data["stage"] == "vector_migrate"
+    detail = data["detail"]
+    assert detail["code"] == "INPUT_VALIDATION_FAILED"
+    assert detail["stage"] == "vector_migrate"

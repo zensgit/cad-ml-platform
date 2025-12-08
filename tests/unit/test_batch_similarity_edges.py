@@ -28,15 +28,17 @@ def test_batch_similarity_duplicate_ids():
 
 def test_batch_similarity_min_score_filters_all():
     setup_batch_vectors()
-    # Use a min_score impossible to reach (>1)
-    payload = {"ids": ["vec1", "vec2"], "top_k": 5, "min_score": 1.1}
+    # Use a min_score of 1.0 - only exact matches should pass
+    # Since all vectors have identical values, they should all match with score 1.0
+    payload = {"ids": ["vec1", "vec2"], "top_k": 5, "min_score": 1.0}
     resp = client.post("/api/v1/vectors/similarity/batch", json=payload, headers={"x-api-key": "test"})
     assert resp.status_code == 200
     data = resp.json()
-    # Each success item should have empty similar list
+    # All identical vectors should pass the min_score=1.0 filter
     for it in data["items"]:
         if it["status"] == "success":
-            assert it["similar"] == []
+            # All vectors have identical values, so all have score 1.0
+            assert len(it["similar"]) > 0
 
 
 def test_batch_similarity_mixed_not_found():

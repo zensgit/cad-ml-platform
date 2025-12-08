@@ -14,7 +14,16 @@ def test_parse_timeout(monkeypatch):
     # set very small timeout
     os.environ["PARSE_TIMEOUT_SECONDS"] = "0.05"
     from src.adapters import factory
-    monkeypatch.setattr(factory, "AdapterFactory", type("AF", (), {"get_adapter": lambda fmt: SlowAdapter()}))
+
+    # Create a proper mock class with both get_adapter and _mapping attributes
+    class MockAdapterFactory:
+        _mapping = {"step": SlowAdapter}
+
+        @staticmethod
+        def get_adapter(fmt):
+            return SlowAdapter()
+
+    monkeypatch.setattr(factory, "AdapterFactory", MockAdapterFactory)
     client = TestClient(app)
     files = {"file": ("test.step", b"STEP DATA")}
     r = client.post("/api/v1/analyze/", files=files, data={"options": "{}"}, headers={"api-key": "test"})

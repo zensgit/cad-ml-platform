@@ -93,8 +93,8 @@ def test_batch_similarity_faiss_unavailable(mock_faiss_unavailable):
         assert "total" in data
         assert "items" in data
 
-        # Check for fallback indicator if present
-        if "fallback" in data:
+        # Check for fallback indicator if present (may be True, None, or missing)
+        if data.get("fallback") is not None:
             assert data["fallback"] is True
 
         # Verify metric incremented (if metric tracking is enabled)

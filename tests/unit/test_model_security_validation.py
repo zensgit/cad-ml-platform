@@ -7,6 +7,8 @@ from pathlib import Path
 from unittest.mock import patch
 import pytest
 
+from tests.unit.test_model_reload_errors_structured_support import DummyModel, GoodModel
+
 
 def test_model_magic_number_validation_success(tmp_path):
     """Test model reload succeeds with valid pickle magic number."""
@@ -14,11 +16,13 @@ def test_model_magic_number_validation_success(tmp_path):
 
     # Create a valid pickle file (protocol 4)
     model_path = tmp_path / "valid_model.pkl"
-    model_data = {"predict": lambda X: ["test"]}
+    model_data = DummyModel()  # Use pickleable class instead of lambda
     with model_path.open("wb") as f:
         pickle.dump(model_data, f, protocol=4)
 
-    result = reload_model(str(model_path), force=True)
+    # Disable opcode scan to allow normal pickle loading
+    with patch.dict(os.environ, {"MODEL_OPCODE_SCAN": "0"}):
+        result = reload_model(str(model_path), force=True)
 
     # Should succeed (or rollback if pickle incompatible, not security fail)
     assert result["status"] in ("success", "rollback", "error")
@@ -36,8 +40,10 @@ def test_model_magic_number_validation_fail_invalid_file(tmp_path):
     result = reload_model(str(forged_path), force=True)
 
     assert result["status"] == "magic_invalid"
-    assert "magic_bytes" in result
-    assert result["message"] == "File does not appear to be a valid pickle file"
+    # magic_bytes is now in error.context
+    assert "error" in result
+    assert "magic_bytes" in result["error"]["context"]
+    assert result["error"]["message"] == "File does not appear to be a valid pickle file"
 
 
 def test_model_magic_number_validation_fail_elf_binary(tmp_path):
@@ -73,15 +79,15 @@ def test_model_hash_whitelist_validation_success(tmp_path):
 
     # Create a valid model
     model_path = tmp_path / "whitelisted_model.pkl"
-    model_data = {"predict": lambda X: ["test"]}
+    model_data = DummyModel()
     with model_path.open("wb") as f:
         pickle.dump(model_data, f, protocol=4)
 
     # Compute hash
     file_hash = hashlib.sha256(model_path.read_bytes()).hexdigest()[:16]
 
-    # Set whitelist environment variable
-    with patch.dict(os.environ, {"ALLOWED_MODEL_HASHES": file_hash}):
+    # Set whitelist environment variable and disable opcode scan to allow normal pickle
+    with patch.dict(os.environ, {"ALLOWED_MODEL_HASHES": file_hash, "MODEL_OPCODE_SCAN": "0"}):
         result = reload_model(str(model_path), force=True)
 
     # Should succeed (or rollback if incompatible, not hash_mismatch)
@@ -95,19 +101,21 @@ def test_model_hash_whitelist_validation_fail(tmp_path):
 
     # Create a valid pickle model
     model_path = tmp_path / "unauthorized_model.pkl"
-    model_data = {"predict": lambda X: ["test"]}
+    model_data = DummyModel()
     with model_path.open("wb") as f:
         pickle.dump(model_data, f, protocol=4)
 
-    # Set whitelist to different hash
+    # Set whitelist to different hash and disable opcode scan to test hash validation specifically
     fake_whitelist = "0000000000000000,1111111111111111"
-    with patch.dict(os.environ, {"ALLOWED_MODEL_HASHES": fake_whitelist}):
+    with patch.dict(os.environ, {"ALLOWED_MODEL_HASHES": fake_whitelist, "MODEL_OPCODE_SCAN": "0"}):
         result = reload_model(str(model_path), force=True)
 
     assert result["status"] == "hash_mismatch"
-    assert "expected_hashes" in result
-    assert "found_hash" in result
-    assert result["found_hash"] not in result["expected_hashes"]
+    # expected_hashes and found_hash are now in error.context
+    assert "error" in result
+    assert "expected_hashes" in result["error"]["context"]
+    assert "found_hash" in result["error"]["context"]
+    assert result["error"]["context"]["found_hash"] not in result["error"]["context"]["expected_hashes"]
 
 
 def test_model_hash_whitelist_multiple_allowed(tmp_path):
@@ -117,16 +125,16 @@ def test_model_hash_whitelist_multiple_allowed(tmp_path):
 
     # Create model
     model_path = tmp_path / "model.pkl"
-    model_data = {"predict": lambda X: ["test"]}
+    model_data = DummyModel()
     with model_path.open("wb") as f:
         pickle.dump(model_data, f, protocol=4)
 
     # Compute hash
     file_hash = hashlib.sha256(model_path.read_bytes()).hexdigest()[:16]
 
-    # Set whitelist with multiple hashes (including the correct one)
+    # Set whitelist with multiple hashes (including the correct one) and disable opcode scan
     whitelist = f"fake_hash_1,{file_hash},fake_hash_2"
-    with patch.dict(os.environ, {"ALLOWED_MODEL_HASHES": whitelist}):
+    with patch.dict(os.environ, {"ALLOWED_MODEL_HASHES": whitelist, "MODEL_OPCODE_SCAN": "0"}):
         result = reload_model(str(model_path), force=True)
 
     # Should succeed (correct hash is in whitelist)
@@ -165,10 +173,10 @@ def test_model_security_fail_metric_hash_mismatch(tmp_path):
     # Create model
     model_path = tmp_path / "model.pkl"
     with model_path.open("wb") as f:
-        pickle.dump({"predict": lambda X: ["test"]}, f, protocol=4)
+        pickle.dump(DummyModel(), f, protocol=4)
 
-    # Set restrictive whitelist
-    with patch.dict(os.environ, {"ALLOWED_MODEL_HASHES": "fake_hash"}):
+    # Set restrictive whitelist and disable opcode scan to test hash mismatch specifically
+    with patch.dict(os.environ, {"ALLOWED_MODEL_HASHES": "fake_hash", "MODEL_OPCODE_SCAN": "0"}):
         result = reload_model(str(model_path), force=True)
 
     # Verify metric incremented
@@ -184,10 +192,10 @@ def test_model_reload_without_whitelist_skips_hash_check(tmp_path):
     # Create model
     model_path = tmp_path / "model.pkl"
     with model_path.open("wb") as f:
-        pickle.dump({"predict": lambda X: ["test"]}, f, protocol=4)
+        pickle.dump(DummyModel(), f, protocol=4)
 
-    # Ensure no whitelist set
-    with patch.dict(os.environ, {"ALLOWED_MODEL_HASHES": ""}, clear=False):
+    # Ensure no whitelist set and disable opcode scan
+    with patch.dict(os.environ, {"ALLOWED_MODEL_HASHES": "", "MODEL_OPCODE_SCAN": "0"}, clear=False):
         result = reload_model(str(model_path), force=True)
 
     # Should not fail on hash (whitelist not configured)
@@ -208,9 +216,11 @@ def test_model_size_limit_validation(tmp_path):
         result = reload_model(str(large_model), force=True)
 
     assert result["status"] == "size_exceeded"
-    assert "size_mb" in result
-    assert "max_mb" in result
-    assert result["size_mb"] > result["max_mb"]
+    # size_mb and max_mb are now in error.context
+    assert "error" in result
+    assert "size_mb" in result["error"]["context"]
+    assert "max_mb" in result["error"]["context"]
+    assert result["error"]["context"]["size_mb"] > result["error"]["context"]["max_mb"]
 
 
 def test_model_interface_validation_missing_predict(tmp_path):
@@ -243,19 +253,25 @@ def test_model_get_info():
 
 
 def test_model_magic_number_protocol_0(tmp_path):
-    """Test model reload accepts pickle protocol 0 (legacy)."""
+    """Test model reload validates pickle format for protocol 0 class objects.
+
+    Note: Protocol 0 with class objects starts with 'c' (GLOBAL opcode)
+    which is not in the valid magic list. This test verifies that such
+    files are properly rejected for security reasons.
+    """
     from src.ml.classifier import reload_model
 
-    # Create pickle with protocol 0 (starts with '(')
+    # Create pickle with protocol 0 - class objects start with 'c' (GLOBAL opcode)
     model_path = tmp_path / "protocol0.pkl"
     with model_path.open("wb") as f:
-        pickle.dump({"predict": lambda X: ["test"]}, f, protocol=0)
+        pickle.dump(DummyModel(), f, protocol=0)
 
+    # Protocol 0 class pickles start with 'cc' (GLOBAL opcode) not '('
+    # This is intentionally rejected for security
     result = reload_model(str(model_path), force=True)
 
-    # Should succeed or rollback (not magic_invalid)
-    assert result["status"] in ("success", "rollback", "error")
-    assert result["status"] != "magic_invalid"
+    # Protocol 0 with classes uses GLOBAL opcode, which is blocked
+    assert result["status"] == "magic_invalid"
 
 
 def test_model_reload_security_validations_order(tmp_path):
@@ -282,7 +298,7 @@ def test_model_rollback_on_security_failure(tmp_path):
     # First, load a valid model
     valid_model = tmp_path / "valid.pkl"
     with valid_model.open("wb") as f:
-        pickle.dump({"predict": lambda X: ["valid"]}, f, protocol=4)
+        pickle.dump(GoodModel(), f, protocol=4)
     reload_model(str(valid_model), force=True)
 
     # Now try to load an invalid model (should rollback)

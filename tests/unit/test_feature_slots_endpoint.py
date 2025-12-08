@@ -27,5 +27,6 @@ def test_feature_slots_invalid_version():
     r = client.get("/api/v1/features/slots?version=unknown", headers={"x-api-key": "test"})
     assert r.status_code == 422
     data = r.json()
-    assert data["code"] == "INPUT_VALIDATION_FAILED"
-    assert data["stage"] == "feature_slots"
+    detail = data["detail"]
+    assert detail["code"] == "INPUT_VALIDATION_FAILED"
+    assert detail["stage"] == "feature_slots"

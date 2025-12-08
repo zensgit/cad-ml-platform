@@ -3,6 +3,12 @@ from src.core import similarity
 
 
 def test_faiss_suppression_remaining_gauge(monkeypatch):
+    # Reset faiss state from prior tests
+    similarity._FAISS_INDEX = None
+    similarity._FAISS_DIM = None
+    similarity._FAISS_ID_MAP = {}
+    similarity._FAISS_REVERSE_MAP = {}
+
     # Prepare degraded history to trigger suppression
     similarity._VECTOR_DEGRADED = True  # type: ignore
     now = time.time()

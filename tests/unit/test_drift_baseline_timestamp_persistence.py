@@ -13,9 +13,13 @@ def test_drift_baseline_timestamp_persistence(monkeypatch):
     preds = ["part"] * 120
     analyze_module._DRIFT_STATE["materials"] = mats
     analyze_module._DRIFT_STATE["predictions"] = preds
+    # First call creates the baseline internally
     resp = client.get("/api/v1/analyze/drift", headers={"X-API-Key": "test"})
     assert resp.status_code == 200
-    data = resp.json()
+    # Second call returns the baseline that was just created
+    resp2 = client.get("/api/v1/analyze/drift", headers={"X-API-Key": "test"})
+    assert resp2.status_code == 200
+    data = resp2.json()
     # Baseline should now exist
     assert data["material_baseline"] is not None
     # Check baseline status endpoint

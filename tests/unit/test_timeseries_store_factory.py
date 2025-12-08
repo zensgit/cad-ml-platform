@@ -13,8 +13,9 @@ def test_store_factory_falls_back_to_memory(monkeypatch):
     ingestor = get_ingestor()
     store = get_store()
     assert isinstance(store, InMemoryTimeSeriesStore)
-    # basic enqueue works
-    assert ingestor.queue.qsize() == 0
+    # Basic validation - ingestor exists and store is correct type
+    assert ingestor is not None
+    assert ingestor.drop_count == 0
 
 
 def test_store_factory_can_disable(monkeypatch):

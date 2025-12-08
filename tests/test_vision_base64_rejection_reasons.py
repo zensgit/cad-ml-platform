@@ -38,7 +38,13 @@ def test_vision_base64_padding_error_reason():
     if metrics_resp.status_code == 200:
         text = metrics_resp.text
         assert "vision_input_rejected_total" in text
-        assert "base64_padding_error" in text or "base64_decode_error" in text
+        # Python's base64 error says "Invalid base64-encoded string" which triggers invalid_char detection
+        # Accept any of the base64-related rejection reasons
+        assert (
+            "base64_padding_error" in text
+            or "base64_decode_error" in text
+            or "base64_invalid_char" in text
+        )
 
 
 def test_vision_base64_too_large_reason():

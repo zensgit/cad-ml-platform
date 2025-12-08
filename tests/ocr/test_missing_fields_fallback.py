@@ -1,5 +1,7 @@
 """Test missing-fields fallback trigger in OcrManager."""
 
+from __future__ import annotations
+
 import pytest
 
 from src.core.ocr.base import OcrResult
@@ -47,10 +49,13 @@ class DeepSeekStub:
 
 @pytest.mark.asyncio
 async def test_missing_fields_triggers_fallback(monkeypatch):
+    import uuid
+    # Use unique image bytes to avoid cache hits
+    unique_img = f"missing_fields_test_{uuid.uuid4()}".encode()
     mgr = OcrManager(confidence_fallback=0.85)
     mgr.register_provider("paddle", StubProvider())
     mgr.register_provider("deepseek_hf", DeepSeekStub())
-    result = await mgr.extract(b"img", strategy="auto")
+    result = await mgr.extract(unique_img, strategy="auto")
     # Because paddle returned no parsed dimensions/symbols -> fallback to deepseek expected
     assert result.provider == "deepseek_hf"
     assert result.fallback_level == "missing_fields"

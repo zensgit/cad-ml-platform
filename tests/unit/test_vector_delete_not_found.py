@@ -8,7 +8,7 @@ client = TestClient(app)
 def test_vector_delete_not_found():
     missing_id = str(uuid.uuid4())
     r = client.post(
-        "/api/v1/analyze/vectors/delete",
+        "/api/v1/vectors/delete",
         json={"id": missing_id},
         headers={"X-API-Key": "test"},
     )

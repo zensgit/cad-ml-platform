@@ -306,20 +306,26 @@ class TestMetricsLabelContract:
 
     def test_stage_values_consistency(self):
         """Verify stage values are consistent across providers."""
+        import os
         expected_stages = {"init", "load", "preprocess", "infer", "parse", "align", "postprocess"}
 
         # These are the stages we've seen in the code
         used_stages = set()
 
+        # Get project root directory
+        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
         # Check PaddleOcrProvider stages
-        with open("/Users/huazhou/Insync/hua.chau@outlook.com/OneDrive/应用/GitHub/cad-ml-platform/src/core/ocr/providers/paddle.py") as f:
+        paddle_path = os.path.join(project_root, "src/core/ocr/providers/paddle.py")
+        with open(paddle_path) as f:
             content = f.read()
             for stage in expected_stages:
                 if f'stage="{stage}"' in content:
                     used_stages.add(stage)
 
         # Check DeepSeekHfProvider stages
-        with open("/Users/huazhou/Insync/hua.chau@outlook.com/OneDrive/应用/GitHub/cad-ml-platform/src/core/ocr/providers/deepseek_hf.py") as f:
+        deepseek_path = os.path.join(project_root, "src/core/ocr/providers/deepseek_hf.py")
+        with open(deepseek_path) as f:
             content = f.read()
             for stage in expected_stages:
                 if f'stage="{stage}"' in content:

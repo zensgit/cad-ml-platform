@@ -26,7 +26,7 @@ def test_faiss_rebuild_backoff_metric(monkeypatch):
     from src.core.similarity import _VECTOR_STORE
     vid = list(_VECTOR_STORE.keys())[0]
     del_resp = client.post(
-        "/api/v1/analyze/vectors/delete",
+        "/api/v1/vectors/delete",
         json={"id": vid},
         headers={"X-API-Key": "test"},
     )

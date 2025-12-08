@@ -32,6 +32,8 @@ def temp_model_file():
 def test_model_reload_hash_mismatch_sets_last_error(temp_model_file, monkeypatch):
     from src.ml import classifier
     from src.ml.classifier import reload_model, get_model_info
+    # Disable opcode scan for this test
+    monkeypatch.setenv("MODEL_OPCODE_SCAN", "0")
     classifier._MODEL = None  # type: ignore
     classifier._MODEL_HASH = None  # type: ignore
     classifier._MODEL_LAST_ERROR = None  # type: ignore
@@ -42,7 +44,9 @@ def test_model_reload_hash_mismatch_sets_last_error(temp_model_file, monkeypatch
     monkeypatch.setenv("ALLOWED_MODEL_HASHES", "deadbeefcafefeed")
     result2 = reload_model(str(temp_model_file), expected_version="vB")
     assert result2["status"] == "hash_mismatch"
-    assert "Hash whitelist validation failed" in result2.get("message", "")
+    # Message may be in result2["message"] or result2["error"]["message"]
+    message = result2.get("message", "") or result2.get("error", {}).get("message", "")
+    assert "Hash whitelist validation failed" in message
     info2 = get_model_info()
     assert info2["last_error"] is not None
     assert "whitelist" in info2["last_error"].lower()

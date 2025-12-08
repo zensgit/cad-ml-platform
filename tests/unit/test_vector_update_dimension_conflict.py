@@ -17,7 +17,7 @@ def test_vector_update_dimension_conflict_replace():
 
     # Enforce dimension mismatch (replace with wrong size) expecting 409 when enforcement active
     r_up = client.post(
-        "/api/v1/analyze/vectors/update",
+        "/api/v1/vectors/update",
         json={"id": vid, "replace": [0.1, 0.2]},  # dim 2 vs original 7
         headers={"X-API-Key": "test"},
     )
@@ -39,7 +39,7 @@ def test_vector_update_dimension_conflict_append():
     vid = r.json()["id"]
     # Append changes dimension -> conflict under enforcement
     r_up = client.post(
-        "/api/v1/analyze/vectors/update",
+        "/api/v1/vectors/update",
         json={"id": vid, "append": [0.9, 0.8]},  # increasing dimension
         headers={"X-API-Key": "test"},
     )

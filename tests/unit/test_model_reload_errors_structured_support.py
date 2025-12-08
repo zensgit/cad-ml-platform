@@ -16,3 +16,11 @@ class GoodModel:
     def predict(self, xs):  # pragma: no cover - trivial
         return [0] * len(xs)
 
+
+class VersionedModel:
+    """A model with version metadata for version mismatch tests."""
+    __version__ = "v2.0"
+
+    def predict(self, xs):  # pragma: no cover - trivial
+        return ["test"] * len(xs)
+

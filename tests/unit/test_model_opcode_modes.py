@@ -13,6 +13,14 @@ def setup_module(module):
     os.environ["ADMIN_TOKEN"] = "secret"
 
 
+def teardown_module(module):
+    """Cleanup environment variables set by setup_module."""
+    os.environ.pop("X_API_KEY", None)
+    os.environ.pop("ADMIN_TOKEN", None)
+    os.environ.pop("MODEL_OPCODE_MODE", None)
+    os.environ.pop("MODEL_OPCODE_SCAN", None)
+
+
 def _write_model(path: Path, obj) -> None:
     path.write_bytes(pickle.dumps(obj, protocol=2))  # protocol 2 to include GLOBAL for function
 

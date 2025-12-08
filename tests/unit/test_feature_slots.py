@@ -9,10 +9,10 @@ def test_feature_slots_presence(monkeypatch):
     content = b"0\nSECTION\n" + b"A" * 120
     files = {"file": ("fs_test.dxf", content, "application/octet-stream")}
     r = client.post(
-        "/api/v1/",
+        "/api/v1/analyze",
         data={"options": '{"extract_features": true, "classify_parts": false, "process_recommendation": false}'},
         files=files,
-        headers={"api-key": "test"},
+        headers={"x-api-key": "test"},
     )
     assert r.status_code == 200
     body = r.json()

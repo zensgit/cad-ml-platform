@@ -16,7 +16,7 @@ def test_vector_list_and_delete():
     analysis_id = r.json()["id"]
 
     # List vectors
-    r_list = client.get("/api/v1/analyze/vectors", headers={"X-API-Key": "test"})
+    r_list = client.get("/api/v1/vectors", headers={"X-API-Key": "test"})
     assert r_list.status_code == 200
     data_list = r_list.json()
     assert data_list["total"] >= 1
@@ -24,7 +24,7 @@ def test_vector_list_and_delete():
 
     # Delete vector
     r_del = client.post(
-        "/api/v1/analyze/vectors/delete",
+        "/api/v1/vectors/delete",
         json={"id": analysis_id},
         headers={"X-API-Key": "test"},
     )
@@ -39,7 +39,7 @@ def test_vector_list_and_delete():
         assert body["detail"]["code"] == "DATA_NOT_FOUND"
 
     # Confirm deletion (best-effort; if not_found earlier skip)
-    r_list2 = client.get("/api/v1/analyze/vectors", headers={"X-API-Key": "test"})
+    r_list2 = client.get("/api/v1/vectors", headers={"X-API-Key": "test"})
     assert r_list2.status_code == 200
     data_list2 = r_list2.json()
     # If deleted, id should not appear again

@@ -1,6 +1,7 @@
 import time
 from fastapi.testclient import TestClient
 from src.main import app
+from src.ml import classifier
 from src.ml.classifier import get_model_info
 
 
@@ -8,6 +9,12 @@ client = TestClient(app)
 
 
 def test_model_health_uptime_absent():
+    # Reset model state to ensure no model is loaded from prior tests
+    classifier._MODEL = None
+    classifier._MODEL_HASH = None
+    classifier._MODEL_LOADED_AT = None
+    classifier._MODEL_LAST_ERROR = None
+
     r = client.get("/api/v1/health/model", headers={"x-api-key": "test"})
     assert r.status_code == 200
     data = r.json()
