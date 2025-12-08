@@ -1,8 +1,14 @@
 import pytest
 import os
-import psutil
 import gc
 import asyncio
+
+try:
+    import psutil
+    HAS_PSUTIL = True
+except ImportError:
+    HAS_PSUTIL = False
+
 from src.core.feature_extractor import FeatureExtractor
 from src.adapters.factory import AdapterFactory
 from src.models.cad_document import CadDocument
@@ -14,6 +20,8 @@ async def test_memory_leak():
     """
     Simple memory leak detection by running extraction in a loop.
     """
+    if not HAS_PSUTIL:
+        pytest.skip("psutil not installed")
     if not os.path.exists(SAMPLE_FILE):
         pytest.skip(f"Sample file {SAMPLE_FILE} not found")
 
