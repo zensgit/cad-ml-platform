@@ -30,10 +30,6 @@ env:
   # Optimize Matplotlib in CI
   MPLCONFIGDIR: /tmp/matplotlib
   XDG_CACHE_HOME: /tmp/cache
-  # Default threshold values (can be overridden by workflow_dispatch inputs)
-  MIN_COMBINED: '0.8'
-  MIN_VISION: '0.65'
-  MIN_OCR: '0.9'
 
 jobs:
   evaluate:
@@ -65,22 +61,23 @@ jobs:
 
     - name: Run combined evaluation
       id: evaluation
-      env:
-        EVAL_MIN_COMBINED: ${{ github.event.inputs.min_combined || env.MIN_COMBINED }}
-        EVAL_MIN_VISION: ${{ github.event.inputs.min_vision || env.MIN_VISION }}
-        EVAL_MIN_OCR: ${{ github.event.inputs.min_ocr || env.MIN_OCR }}
       run: |
+        # Use workflow inputs if provided, otherwise use defaults
+        MIN_COMBINED="${{ github.event.inputs.min_combined || '0.8' }}"
+        MIN_VISION="${{ github.event.inputs.min_vision || '0.65' }}"
+        MIN_OCR="${{ github.event.inputs.min_ocr || '0.9' }}"
+
         echo "Running evaluation with thresholds:"
-        echo "  Combined: $EVAL_MIN_COMBINED"
-        echo "  Vision: $EVAL_MIN_VISION"
-        echo "  OCR: $EVAL_MIN_OCR"
+        echo "  Combined: $MIN_COMBINED"
+        echo "  Vision: $MIN_VISION"
+        echo "  OCR: $MIN_OCR"
 
         # Run evaluation and save history
         python3 scripts/evaluate_vision_ocr_combined.py \
           --save-history \
-          --min-combined $EVAL_MIN_COMBINED \
-          --min-vision $EVAL_MIN_VISION \
-          --min-ocr $EVAL_MIN_OCR | tee eval_output.txt
+          --min-combined $MIN_COMBINED \
+          --min-vision $MIN_VISION \
+          --min-ocr $MIN_OCR | tee eval_output.txt
 
         # Extract scores for job summary
         echo "combined_score=$(grep -oP 'Combined Score: \K[0-9.]+' eval_output.txt || echo '0')" >> $GITHUB_OUTPUT
@@ -191,6 +188,10 @@ jobs:
 
     - name: Create job summary
       run: |
+        MIN_COMBINED="${{ github.event.inputs.min_combined || '0.8' }}"
+        MIN_VISION="${{ github.event.inputs.min_vision || '0.65' }}"
+        MIN_OCR="${{ github.event.inputs.min_ocr || '0.9' }}"
+
         echo "# 📊 Evaluation Report" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## Scores" >> $GITHUB_STEP_SUMMARY
@@ -199,9 +200,9 @@ jobs:
         echo "- **OCR Score**: ${{ steps.evaluation.outputs.ocr_score }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## Thresholds" >> $GITHUB_STEP_SUMMARY
-        echo "- Combined: ${{ env.MIN_COMBINED }}" >> $GITHUB_STEP_SUMMARY
-        echo "- Vision: ${{ env.MIN_VISION }}" >> $GITHUB_STEP_SUMMARY
-        echo "- OCR: ${{ env.MIN_OCR }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Combined: $MIN_COMBINED" >> $GITHUB_STEP_SUMMARY
+        echo "- Vision: $MIN_VISION" >> $GITHUB_STEP_SUMMARY
+        echo "- OCR: $MIN_OCR" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## Artifacts" >> $GITHUB_STEP_SUMMARY
         echo "- [Download Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
@@ -219,9 +220,9 @@ jobs:
           const vision = parseFloat('${{ steps.evaluation.outputs.vision_score }}' || '0');
           const ocr = parseFloat('${{ steps.evaluation.outputs.ocr_score }}' || '0');
 
-          const minCombined = parseFloat('${{ env.MIN_COMBINED }}' || '0.8');
-          const minVision = parseFloat('${{ env.MIN_VISION }}' || '0.65');
-          const minOcr = parseFloat('${{ env.MIN_OCR }}' || '0.9');
+          const minCombined = parseFloat('${{ github.event.inputs.min_combined || '0.8' }}');
+          const minVision = parseFloat('${{ github.event.inputs.min_vision || '0.65' }}');
+          const minOcr = parseFloat('${{ github.event.inputs.min_ocr || '0.9' }}');
 
           const combinedStatus = combined >= minCombined ? '✅ Pass' : '❌ Fail';
           const visionStatus = vision >= minVision ? '✅ Pass' : '❌ Fail';

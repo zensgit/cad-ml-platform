@@ -96,9 +96,9 @@ jobs:
           curl -Lo cosign https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64
           chmod +x cosign
 
-          # Sign SBOM files
-          ./cosign sign-blob --yes sbom-cyclonedx.json > sbom-cyclonedx.json.sig
-          ./cosign sign-blob --yes sbom-cyclonedx.xml > sbom-cyclonedx.xml.sig
+          # Sign SBOM files with keyless signing (requires bundle output)
+          ./cosign sign-blob --yes --bundle sbom-cyclonedx.json.bundle sbom-cyclonedx.json
+          ./cosign sign-blob --yes --bundle sbom-cyclonedx.xml.bundle sbom-cyclonedx.xml
 
       - name: Check for high-risk dependencies
         run: |
@@ -147,8 +147,7 @@ jobs:
           path: |
             sbom-*.json
             sbom-*.xml
-            sbom-*.json.sig
-            sbom-*.xml.sig
+            sbom-*.bundle
             licenses.json
             licenses.md
             risk-report.json
