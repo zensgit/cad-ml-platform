@@ -741,3 +741,15 @@ def create_api_key_manager() -> APIKeyManager:
 def create_access_control_provider() -> AccessControlVisionProvider:
     """Create an access control vision provider."""
     return AccessControlVisionProvider()
+
+
+# Aliases for backward compatibility and test compatibility
+AccessControlManager = AccessController
+Resource = ACLResource
+ResourceType = ACLResourceType
+Policy = ACLResource  # Policy-like structure
+PolicyEffect = AccessDecision  # Similar purpose
+PolicyEngine = AccessController  # Access evaluation
+create_access_manager = create_access_controller
+create_acl_provider = create_access_control_provider
+create_policy_engine = create_access_controller
