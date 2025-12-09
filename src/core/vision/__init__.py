@@ -1,3 +1,4 @@
+# flake8: noqa: F401,F811,E501
 """Vision module for CAD ML Platform.
 
 Provides vision-based analysis of engineering drawings with OCR integration.

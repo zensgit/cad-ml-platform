@@ -7,7 +7,7 @@ Later phases can replace with persistent / ANN index (Faiss, Milvus etc.).
 from __future__ import annotations
 
 from math import sqrt
-from typing import Dict, List, Protocol, runtime_checkable
+from typing import Any, Dict, List, Protocol, runtime_checkable
 import os
 from src.utils.cache import get_client
 from src.utils.analysis_metrics import (
@@ -42,7 +42,7 @@ _VECTOR_DEGRADED_REASON: str | None = None
 _VECTOR_DEGRADED_AT: float | None = None
 
 # Degradation history (limited to last 10 events)
-_DEGRADATION_HISTORY: list[Dict[str, any]] = []
+_DEGRADATION_HISTORY: list[Dict[str, Any]] = []
 _MAX_DEGRADATION_HISTORY = 10
 _FAISS_RECOVERY_LOCK = __import__("threading").Lock()
 _FAISS_MANUAL_RECOVERY_IN_PROGRESS = False
@@ -435,7 +435,7 @@ class FaissVectorStore(VectorStoreProtocol):
         """Create a new Faiss index based on configuration."""
         import faiss  # type: ignore
         index_type = os.getenv("FAISS_INDEX_TYPE", "flat").lower()
-        
+
         if index_type == "hnsw":
             m = int(os.getenv("FAISS_HNSW_M", "32"))
             # METRIC_INNER_PRODUCT = 2
@@ -526,7 +526,7 @@ class FaissVectorStore(VectorStoreProtocol):
         import time
         start = time.time()
         import numpy as np  # type: ignore
-        import faiss  # type: ignore
+        import faiss  # type: ignore  # noqa: F401
         # Collect remaining vectors (excluding pending delete)
         remaining: List[tuple[str, List[float]]] = []
         for vid, vec in _VECTOR_STORE.items():
@@ -583,11 +583,11 @@ class FaissVectorStore(VectorStoreProtocol):
             norm = np.linalg.norm(arr)
             if norm > 0:
                 arr = arr / norm
-        
+
         # Configure search parameters for HNSW if applicable
         if hasattr(_FAISS_INDEX, "hnsw"):
             _FAISS_INDEX.hnsw.efSearch = int(os.getenv("FAISS_HNSW_EF_SEARCH", "16"))
-            
+
         D, I = _FAISS_INDEX.search(arr.reshape(1, _FAISS_DIM), top_k)  # type: ignore  # noqa: E741
         results: List[tuple[str, float]] = []
         for dist, idx in zip(D[0], I[0]):

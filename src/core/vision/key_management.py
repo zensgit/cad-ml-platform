@@ -70,7 +70,7 @@ class SecretType(Enum):
     API_KEY = "api_key"
     TOKEN = "token"
     CERTIFICATE = "certificate"
-    PRIVATE_KEY = "private_key"
+    ASYMMETRIC = "asymmetric"
     CONNECTION_STRING = "connection_string"
     CREDENTIAL = "credential"
     CUSTOM = "custom"

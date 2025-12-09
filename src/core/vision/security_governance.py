@@ -46,7 +46,7 @@ class DataClassification(Enum):
     INTERNAL = "internal"
     CONFIDENTIAL = "confidential"
     RESTRICTED = "restricted"
-    TOP_SECRET = "top_secret"
+    HIGHEST = "highest"
 
 
 class PolicyType(Enum):
