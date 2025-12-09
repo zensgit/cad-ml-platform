@@ -2,11 +2,15 @@
 
 Provides:
 - POST /api/v1/vision/analyze - End-to-end vision + OCR analysis
+- GET /api/v1/vision/health - Service health check
+- GET /api/v1/vision/providers - List available providers
+- GET /api/v1/vision/metrics - Provider performance metrics
 """
 
-from typing import Optional
+import os
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from src.core.errors import ErrorCode
 from src.core.vision import (
@@ -14,66 +18,101 @@ from src.core.vision import (
     VisionAnalyzeResponse,
     VisionInputError,
     VisionManager,
-    create_stub_provider,
+    VisionProviderError,
+    create_vision_provider,
+    get_available_providers,
+    ResilientVisionProvider,
 )
 
 router = APIRouter(tags=["vision"])
 
 
 # ========== Global Manager (Singleton Pattern) ==========
-# TODO: Move to dependency injection for production
 
 _vision_manager: Optional[VisionManager] = None
+_current_provider_type: Optional[str] = None
 
 
-def get_vision_manager() -> VisionManager:
+def get_vision_manager(provider_type: Optional[str] = None) -> VisionManager:
     """
     Get or create VisionManager singleton.
 
+    Args:
+        provider_type: Optional provider override (deepseek, openai, anthropic, stub)
+
     Returns:
-        VisionManager instance with stub provider and OCR integration
+        VisionManager instance with configured provider and OCR integration
 
     Note:
-        In production, this should be dependency injection with proper lifecycle management.
-        For MVP, we use a simple singleton.
+        The provider is determined by:
+        1. Explicit provider_type parameter
+        2. VISION_PROVIDER environment variable
+        3. Auto-detection based on available API keys
+        4. Fallback to stub provider
     """
-    global _vision_manager
+    global _vision_manager, _current_provider_type
 
-    if _vision_manager is None:
+    # Determine effective provider type
+    effective_provider = provider_type or os.getenv("VISION_PROVIDER", "auto")
+
+    # Recreate manager if provider type changed
+    if _vision_manager is None or _current_provider_type != effective_provider:
         from src.core.ocr.manager import OcrManager
 
-        # Create stub provider for vision description
-        vision_provider = create_stub_provider(simulate_latency_ms=50.0)
+        # Create vision provider using factory
+        vision_provider = create_vision_provider(
+            provider_type=effective_provider,
+            fallback_to_stub=True,
+        )
 
-        # Create OCRManager (simplified for Phase 2 - no providers yet, will fail gracefully)
-        # In Phase 3, we'll inject real providers (paddle, deepseek_hf)
+        # Create OCRManager (simplified for Phase 2)
         ocr_manager = OcrManager(
-            providers={},  # Empty for now - OCR will gracefully return None if no providers
+            providers={},
             confidence_fallback=0.85,
         )
 
         # Create manager with both Vision and OCR
-        _vision_manager = VisionManager(vision_provider=vision_provider, ocr_manager=ocr_manager)
+        _vision_manager = VisionManager(
+            vision_provider=vision_provider,
+            ocr_manager=ocr_manager,
+        )
+        _current_provider_type = effective_provider
 
     return _vision_manager
+
+
+def reset_vision_manager() -> None:
+    """Reset the vision manager singleton (useful for testing)."""
+    global _vision_manager, _current_provider_type
+    _vision_manager = None
+    _current_provider_type = None
 
 
 # ========== Endpoints ==========
 
 
 @router.post("/analyze", response_model=VisionAnalyzeResponse)
-async def analyze_vision(request: VisionAnalyzeRequest) -> VisionAnalyzeResponse:
+async def analyze_vision(
+    request: VisionAnalyzeRequest,
+    provider: Optional[str] = Query(
+        None,
+        description="Vision provider override: deepseek, openai, anthropic, stub",
+    ),
+) -> VisionAnalyzeResponse:
     """
     Analyze engineering drawing with vision + OCR.
+
+    **Supported Providers:**
+    - `deepseek` - DeepSeek VL API (requires DEEPSEEK_API_KEY)
+    - `openai` - OpenAI GPT-4o (requires OPENAI_API_KEY)
+    - `anthropic` - Claude 3 (requires ANTHROPIC_API_KEY)
+    - `stub` - Testing stub (no API key required)
+    - `auto` - Auto-detect based on available API keys
 
     **Workflow:**
     1. Vision description (natural language summary)
     2. OCR extraction (dimensions, symbols, title block)
     3. Aggregated response
-
-    **MVP Status:**
-    - ✅ Vision description (stub provider with fixed response)
-    - ⚠️ OCR integration (not yet connected, returns None)
 
     **Example Request:**
     ```json
@@ -95,16 +134,18 @@ async def analyze_vision(request: VisionAnalyzeRequest) -> VisionAnalyzeResponse
             "confidence": 0.92
         },
         "ocr": null,
-        "provider": "deepseek_stub",
-        "processing_time_ms": 52.3
+        "provider": "openai",
+        "processing_time_ms": 1234.5
     }
     ```
     """
     try:
-        manager = get_vision_manager()
+        manager = get_vision_manager(provider_type=provider)
         response = await manager.analyze(request)
+
         if response.success:
             return response
+
         return VisionAnalyzeResponse(
             success=False,
             description=None,
@@ -114,22 +155,35 @@ async def analyze_vision(request: VisionAnalyzeRequest) -> VisionAnalyzeResponse
             error=response.error or "Vision analysis failed",
             code=response.code or ErrorCode.INTERNAL_ERROR,
         )
+
     except VisionInputError as e:
         return VisionAnalyzeResponse(
             success=False,
             description=None,
             ocr=None,
-            provider="deepseek_stub",
+            provider="unknown",
             processing_time_ms=0.0,
             error=str(e),
             code=ErrorCode.INPUT_ERROR,
         )
+
+    except VisionProviderError as e:
+        return VisionAnalyzeResponse(
+            success=False,
+            description=None,
+            ocr=None,
+            provider=e.provider,
+            processing_time_ms=0.0,
+            error=e.message,
+            code=ErrorCode.EXTERNAL_SERVICE_ERROR,
+        )
+
     except Exception as e:
         return VisionAnalyzeResponse(
             success=False,
             description=None,
             ocr=None,
-            provider="deepseek_stub",
+            provider="unknown",
             processing_time_ms=0.0,
             error=f"Internal server error: {str(e)}",
             code=ErrorCode.INTERNAL_ERROR,
@@ -137,17 +191,122 @@ async def analyze_vision(request: VisionAnalyzeRequest) -> VisionAnalyzeResponse
 
 
 @router.get("/health")
-async def health_check():
+async def health_check() -> Dict[str, Any]:
     """
     Health check endpoint for vision service.
 
     Returns:
         Service status and provider information
     """
-    manager = get_vision_manager()
+    try:
+        manager = get_vision_manager()
+        return {
+            "status": "healthy",
+            "provider": manager.vision_provider.provider_name,
+            "ocr_enabled": manager.ocr_manager is not None,
+        }
+    except Exception as e:
+        return {
+            "status": "degraded",
+            "error": str(e),
+        }
+
+
+@router.get("/providers")
+async def list_providers() -> Dict[str, Any]:
+    """
+    List available vision providers and their status.
+
+    Returns:
+        Dictionary of providers with availability information
+
+    **Example Response:**
+    ```json
+    {
+        "current_provider": "openai",
+        "providers": {
+            "stub": {"available": true, "requires_key": false},
+            "deepseek": {"available": true, "requires_key": true, "key_set": true},
+            "openai": {"available": true, "requires_key": true, "key_set": true},
+            "anthropic": {"available": true, "requires_key": true, "key_set": false}
+        }
+    }
+    ```
+    """
+    try:
+        manager = get_vision_manager()
+        current = manager.vision_provider.provider_name
+    except Exception:
+        current = "unknown"
 
     return {
-        "status": "healthy",
-        "provider": manager.vision_provider.provider_name,
-        "ocr_enabled": manager.ocr_manager is not None,
+        "current_provider": current,
+        "providers": get_available_providers(),
     }
+
+
+@router.get("/metrics")
+async def get_metrics() -> Dict[str, Any]:
+    """
+    Get performance metrics for vision providers.
+
+    Returns metrics including:
+    - Total requests
+    - Success/failure counts
+    - Average latency
+    - Circuit breaker state (if resilient provider is used)
+
+    **Example Response:**
+    ```json
+    {
+        "provider": "openai",
+        "metrics": {
+            "total_requests": 100,
+            "successful_requests": 95,
+            "failed_requests": 5,
+            "success_rate": 0.95,
+            "average_latency_ms": 1234.5,
+            "last_error": "Timeout after 60s",
+            "circuit_state": "closed",
+            "circuit_opens": 1
+        }
+    }
+    ```
+    """
+    try:
+        manager = get_vision_manager()
+        provider = manager.vision_provider
+        provider_name = provider.provider_name
+
+        # Check if provider is resilient (has metrics)
+        if isinstance(provider, ResilientVisionProvider):
+            metrics = provider.metrics
+            return {
+                "provider": provider_name,
+                "resilient": True,
+                "metrics": {
+                    "total_requests": metrics.total_requests,
+                    "successful_requests": metrics.successful_requests,
+                    "failed_requests": metrics.failed_requests,
+                    "success_rate": round(metrics.success_rate, 4),
+                    "average_latency_ms": round(metrics.average_latency_ms, 2),
+                    "last_error": metrics.last_error,
+                    "last_error_time": metrics.last_error_time,
+                    "circuit_state": provider.circuit_state.value,
+                    "circuit_opens": metrics.circuit_opens,
+                },
+            }
+        else:
+            return {
+                "provider": provider_name,
+                "resilient": False,
+                "metrics": {
+                    "message": "Metrics available with ResilientVisionProvider",
+                    "hint": "Use create_resilient_provider() to enable metrics",
+                },
+            }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "metrics": None,
+        }

@@ -431,6 +431,21 @@ class FaissVectorStore(VectorStoreProtocol):
         self._available = _FAISS_AVAILABLE
         self._normalize = normalize if normalize is not None else os.getenv("FEATURE_COSINE_NORMALIZE", "1") == "1"
 
+    def _create_index(self, dim: int) -> Any:
+        """Create a new Faiss index based on configuration."""
+        import faiss  # type: ignore
+        index_type = os.getenv("FAISS_INDEX_TYPE", "flat").lower()
+        
+        if index_type == "hnsw":
+            m = int(os.getenv("FAISS_HNSW_M", "32"))
+            # METRIC_INNER_PRODUCT = 2
+            index = faiss.IndexHNSWFlat(dim, m, faiss.METRIC_INNER_PRODUCT)
+            index.hnsw.efConstruction = int(os.getenv("FAISS_HNSW_EF_CONSTRUCTION", "40"))
+            return index
+        else:
+            # Default to FlatIP (Brute force)
+            return faiss.IndexFlatIP(dim)
+
     def add(self, key: str, vector: List[float]) -> None:
         if not self._available:
             raise RuntimeError("Faiss backend not available")
@@ -440,8 +455,7 @@ class FaissVectorStore(VectorStoreProtocol):
         if _FAISS_DIM is None:
             _FAISS_DIM = dim
             try:
-                import faiss  # type: ignore
-                _FAISS_INDEX = faiss.IndexFlatIP(dim)
+                _FAISS_INDEX = self._create_index(dim)
             except Exception:
                 faiss_init_errors_total.inc()
                 raise RuntimeError("Faiss initialization failed")
@@ -524,7 +538,7 @@ class FaissVectorStore(VectorStoreProtocol):
             faiss_rebuild_total.labels(status="skipped").inc()
             return False
         try:
-            new_index = faiss.IndexFlatIP(_FAISS_DIM)
+            new_index = self._create_index(_FAISS_DIM)
             id_map_local: Dict[int, str] = {}
             reverse_local: Dict[str, int] = {}
             for vid, vec in remaining:
@@ -569,6 +583,11 @@ class FaissVectorStore(VectorStoreProtocol):
             norm = np.linalg.norm(arr)
             if norm > 0:
                 arr = arr / norm
+        
+        # Configure search parameters for HNSW if applicable
+        if hasattr(_FAISS_INDEX, "hnsw"):
+            _FAISS_INDEX.hnsw.efSearch = int(os.getenv("FAISS_HNSW_EF_SEARCH", "16"))
+            
         D, I = _FAISS_INDEX.search(arr.reshape(1, _FAISS_DIM), top_k)  # type: ignore  # noqa: E741
         results: List[tuple[str, float]] = []
         for dist, idx in zip(D[0], I[0]):
