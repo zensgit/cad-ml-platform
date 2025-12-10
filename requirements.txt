@@ -32,6 +32,12 @@ aioredis==2.0.1
 # sqlalchemy==2.0.23  # Optional, for database support
 # asyncpg==0.29.0  # Optional, for PostgreSQL
 
+# Vector Store (Phase 1 Architecture Improvement)
+qdrant-client>=1.7.0  # Production vector database, replaces custom FAISS+Redis
+
+# Resilience & Retry (Phase 1 Architecture Improvement)
+tenacity>=8.2.0  # Declarative retry logic, replaces manual retry loops
+
 # Monitoring & Logging
 prometheus-client==0.19.0
 python-json-logger==2.0.7
