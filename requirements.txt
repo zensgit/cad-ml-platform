@@ -38,6 +38,18 @@ qdrant-client>=1.7.0  # Production vector database, replaces custom FAISS+Redis
 # Resilience & Retry (Phase 1 Architecture Improvement)
 tenacity>=8.2.0  # Declarative retry logic, replaces manual retry loops
 
+# Task Queue (Phase 2 Architecture Improvement)
+arq>=0.25.0  # Redis-backed async task queue, replaces InMemoryMessageStore
+
+# Observability (Phase 2 Architecture Improvement)
+opentelemetry-api>=1.20.0  # OpenTelemetry tracing API
+opentelemetry-sdk>=1.20.0  # OpenTelemetry SDK
+# opentelemetry-exporter-otlp>=1.20.0  # Optional OTLP exporter
+# opentelemetry-instrumentation-fastapi>=0.41b0  # Optional auto-instrumentation
+
+# Geometry Features (Phase 2 Architecture Improvement)
+# open3d>=0.17.0  # Optional, for advanced FPFH features (large dependency)
+
 # Monitoring & Logging
 prometheus-client==0.19.0
 python-json-logger==2.0.7
