@@ -2,6 +2,21 @@
 
 > 本文档基于对现有代码库的深度分析，提出用工业级开源组件替代自研基础设施的改进方案。
 
+## 实施状态
+
+| Phase | 模块 | 状态 | 实现位置 |
+|-------|------|------|----------|
+| Phase 1 | Qdrant 向量存储 | ✅ 已完成 | `src/core/vector_stores/` |
+| Phase 1 | Tenacity 重试逻辑 | ✅ 已完成 | `src/core/resilience/retry.py` |
+| Phase 2 | Arq 任务队列 | ✅ 已完成 | `src/core/tasks/` |
+| Phase 2 | OpenTelemetry 可观测性 | ✅ 已完成 | `src/core/observability/` |
+| Phase 2 | Open3D 几何特征 | ✅ 已完成 | `src/core/geometry/` |
+| Phase 3 | Temporal 工作流 | ⏸️ 按需 | 保留现有 `workflow_engine.py` |
+
+*最后更新: 2024-12*
+
+---
+
 ## 目录
 
 - [现状分析](#现状分析)
