@@ -307,42 +307,42 @@ def audit_pickle_directory(
     path = Path(directory)
     files = list(path.glob(pattern))
 
-    results = {
-        "directory": str(path),
-        "pattern": pattern,
-        "files_scanned": len(files),
-        "files_safe": 0,
-        "files_unsafe": 0,
-        "all_opcodes": {},
-        "dangerous_found": set(),
-        "file_results": [],
-    }
+    files_safe: int = 0
+    files_unsafe: int = 0
+    all_opcodes: Dict[str, int] = {}
+    dangerous_found: Set[str] = set()
+    file_results: List[Dict[str, Any]] = []
 
     for file_path in files:
         scan = scan_pickle_opcodes(file_path, mode=OpcodeMode.BLOCKLIST)
 
         if scan["safe"]:
-            results["files_safe"] += 1
+            files_safe += 1
         else:
-            results["files_unsafe"] += 1
-            results["dangerous_found"].update(scan["dangerous"])
+            files_unsafe += 1
+            dangerous_found.update(scan["dangerous"])
 
         # Aggregate opcode counts
         for opcode, count in scan["opcode_counts"].items():
-            results["all_opcodes"][opcode] = (
-                results["all_opcodes"].get(opcode, 0) + count
-            )
+            all_opcodes[opcode] = all_opcodes.get(opcode, 0) + count
 
-        results["file_results"].append({
+        file_results.append({
             "file": str(file_path.name),
             "safe": scan["safe"],
             "opcode_count": len(scan["opcodes"]),
             "dangerous": scan["dangerous"],
         })
 
-    results["dangerous_found"] = sorted(results["dangerous_found"])
-
-    return results
+    return {
+        "directory": str(path),
+        "pattern": pattern,
+        "files_scanned": len(files),
+        "files_safe": files_safe,
+        "files_unsafe": files_unsafe,
+        "all_opcodes": all_opcodes,
+        "dangerous_found": sorted(dangerous_found),
+        "file_results": file_results,
+    }
 
 
 __all__ = [
