@@ -167,7 +167,10 @@ def setup_telemetry(
     global _tracer, _meter
 
     if not OTEL_AVAILABLE:
-        logger.warning("OpenTelemetry not available. Install with: pip install opentelemetry-api opentelemetry-sdk")
+        logger.warning(
+            "OpenTelemetry not available. "
+            "Install with: pip install opentelemetry-api opentelemetry-sdk"
+        )
         return _get_noop_tracer()
 
     config = config or TelemetryConfig.from_env()
