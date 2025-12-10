@@ -32,6 +32,11 @@ _MODEL_PREV2: Dict[str, Any] | None = None
 _MODEL_PREV2_HASH: str | None = None
 _MODEL_PREV2_VERSION: str | None = None
 _MODEL_PREV2_PATH: Path | None = None
+# Third level rollback snapshot (deepest recovery point)
+_MODEL_PREV3: Dict[str, Any] | None = None
+_MODEL_PREV3_HASH: str | None = None
+_MODEL_PREV3_VERSION: str | None = None
+_MODEL_PREV3_PATH: Path | None = None
 # Thread safety for reload operations
 _MODEL_LOCK = threading.Lock()
 _OPCODE_AUDIT_SET: set[str] = set()
@@ -155,6 +160,7 @@ def reload_model(path: str, expected_version: str | None = None, force: bool = F
         global _MODEL, _MODEL_VERSION, _MODEL_PATH, _MODEL_HASH, _MODEL_LOADED_AT, _MODEL_LAST_ERROR, _MODEL_LOAD_SEQ
         global _MODEL_PREV, _MODEL_PREV_HASH, _MODEL_PREV_VERSION, _MODEL_PREV_PATH
         global _MODEL_PREV2, _MODEL_PREV2_HASH, _MODEL_PREV2_VERSION, _MODEL_PREV2_PATH
+        global _MODEL_PREV3, _MODEL_PREV3_HASH, _MODEL_PREV3_VERSION, _MODEL_PREV3_PATH
 
         return _reload_model_impl(path, expected_version, force, model_reload_total, model_security_fail_total, os)
 
@@ -165,6 +171,7 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
     global _MODEL, _MODEL_VERSION, _MODEL_PATH, _MODEL_HASH, _MODEL_LOADED_AT, _MODEL_LAST_ERROR, _MODEL_LOAD_SEQ
     global _MODEL_PREV, _MODEL_PREV_HASH, _MODEL_PREV_VERSION, _MODEL_PREV_PATH
     global _MODEL_PREV2, _MODEL_PREV2_HASH, _MODEL_PREV2_VERSION, _MODEL_PREV2_PATH
+    global _MODEL_PREV3, _MODEL_PREV3_HASH, _MODEL_PREV3_VERSION, _MODEL_PREV3_PATH
 
     # Log reload start with context
     logger.info(
@@ -257,7 +264,11 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
     except Exception:
         pass
     # Snapshot current model for rollback
-    # Shift previous snapshots down one level
+    # Shift previous snapshots down one level (PREV2 -> PREV3, PREV -> PREV2, current -> PREV)
+    _MODEL_PREV3 = _MODEL_PREV2
+    _MODEL_PREV3_HASH = _MODEL_PREV2_HASH
+    _MODEL_PREV3_VERSION = _MODEL_PREV2_VERSION
+    _MODEL_PREV3_PATH = _MODEL_PREV2_PATH
     _MODEL_PREV2 = _MODEL_PREV
     _MODEL_PREV2_HASH = _MODEL_PREV_HASH
     _MODEL_PREV2_VERSION = _MODEL_PREV_VERSION
@@ -479,6 +490,40 @@ def _reload_model_impl(path: str, expected_version: str | None, force: bool,
             )
             return {"status": "rollback_level2", "error": err.to_dict(), "rollback_version": _MODEL_VERSION, "rollback_hash": _MODEL_HASH}
 
+        # Attempt third-level rollback (deepest recovery)
+        if _MODEL_PREV3 is not None:
+            _MODEL = _MODEL_PREV3
+            _MODEL_HASH = _MODEL_PREV3_HASH
+            _MODEL_VERSION = _MODEL_PREV3_VERSION or _MODEL_VERSION
+            _MODEL_PATH = _MODEL_PREV3_PATH or _MODEL_PATH
+
+            # Log level 3 rollback
+            logger.error(
+                "Model reload failed - rolled back to level 3 snapshot (deepest recovery)",
+                extra={
+                    "status": "rollback",
+                    "rollback_level": 3,
+                    "rollback_reason": "Multiple consecutive failures - rolled back to level 3",
+                    "error": str(e),
+                    "recovered_version": _MODEL_VERSION,
+                    "recovered_hash": _MODEL_HASH,
+                    "load_seq": _MODEL_LOAD_SEQ,
+                }
+            )
+
+            model_reload_total.labels(status="rollback_level3", version=str(expected_version or _MODEL_VERSION)).inc()
+            err = create_extended_error(
+                ErrorCode.MODEL_ROLLBACK,
+                "Rolled back to level 3 snapshot (deepest recovery) after multiple failures",
+                stage="model_reload",
+                context={
+                    "rollback_version": _MODEL_VERSION,
+                    "rollback_hash": _MODEL_HASH,
+                    "error": str(e),
+                }
+            )
+            return {"status": "rollback_level3", "error": err.to_dict(), "rollback_version": _MODEL_VERSION, "rollback_hash": _MODEL_HASH}
+
         # No rollback target available
         logger.error(
             "Model reload failed - no rollback target available",
@@ -516,6 +561,9 @@ def get_model_info() -> Dict[str, Any]:
     elif _MODEL_PREV2 is not None and _MODEL == _MODEL_PREV2:
         rollback_level = 2
         rollback_reason = "Rolled back to level 2 snapshot after consecutive failures"
+    elif _MODEL_PREV3 is not None and _MODEL == _MODEL_PREV3:
+        rollback_level = 3
+        rollback_reason = "Rolled back to level 3 snapshot after multiple consecutive failures"
 
     return {
         "version": _MODEL_VERSION,
@@ -528,6 +576,7 @@ def get_model_info() -> Dict[str, Any]:
         "rollback_reason": rollback_reason if rollback_level > 0 else None,
         "has_prev": _MODEL_PREV is not None,
         "has_prev2": _MODEL_PREV2 is not None,
+        "has_prev3": _MODEL_PREV3 is not None,
         "load_seq": _MODEL_LOAD_SEQ,  # Monotonic sequence for disambiguation
     }
 

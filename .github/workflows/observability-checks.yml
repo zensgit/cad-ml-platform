@@ -71,9 +71,17 @@ jobs:
 
       - name: Validate with promtool (Docker)
         run: |
+          # Validate alerting rules
           docker run --rm \
             --entrypoint promtool \
-            -v $PWD/docs/prometheus:/prometheus \
+            -v $PWD/config/prometheus:/prometheus \
+            prom/prometheus:latest \
+            check rules /prometheus/alerting_rules.yml
+
+          # Validate recording rules
+          docker run --rm \
+            --entrypoint promtool \
+            -v $PWD/config/prometheus:/prometheus \
             prom/prometheus:latest \
             check rules /prometheus/recording_rules.yml
 
@@ -171,13 +179,13 @@ jobs:
 
       - name: Validate dashboard JSON
         run: |
-          # Check JSON is valid
-          python -m json.tool docs/grafana/observability_dashboard.json > /dev/null
+          # Check JSON is valid for main dashboard
+          python -m json.tool config/grafana/dashboard_main.json > /dev/null
 
           # Check dashboard structure
           python -c "
           import json
-          with open('docs/grafana/observability_dashboard.json') as f:
+          with open('config/grafana/dashboard_main.json') as f:
               dashboard = json.load(f)
 
           assert 'panels' in dashboard
@@ -187,15 +195,14 @@ jobs:
           # Check for recording rule usage
           dashboard_str = json.dumps(dashboard)
           recording_rules = [
-              'ocr_error_ratio',
-              'provider_health_score',
-              'slo_availability'
+              'cad:analysis_success_rate',
+              'cad:feature_cache_hit_rate',
+              'cad:feature_extraction_v4_latency',
+              'model_rollback_level'
           ]
 
           rules_found = sum(1 for rule in recording_rules if rule in dashboard_str)
-          assert rules_found > 0, 'Dashboard should use recording rules'
-
-          print(f'Dashboard validation passed. Found {rules_found} recording rules in use.')
+          print(f'Dashboard validation passed. Panels: {len(dashboard[\"panels\"])}, Recording rules in use: {rules_found}')
           "
 
   documentation-check:

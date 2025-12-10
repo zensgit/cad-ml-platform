@@ -1,0 +1,318 @@
+groups:
+  - name: cad_analysis_recording_rules
+    interval: 30s
+    rules:
+      # Analysis success rate (5m window)
+      - record: cad:analysis_success_rate:5m
+        expr: |
+          sum(rate(analysis_requests_total{status="success"}[5m]))
+          /
+          sum(rate(analysis_requests_total[5m]))
+
+      # Analysis success rate (1h window for SLO)
+      - record: cad:analysis_success_rate:1h
+        expr: |
+          sum(rate(analysis_requests_total{status="success"}[1h]))
+          /
+          sum(rate(analysis_requests_total[1h]))
+
+      # Feature cache hit rate (5m window)
+      - record: cad:feature_cache_hit_rate:5m
+        expr: |
+          sum(rate(feature_cache_hits_total[5m]))
+          /
+          (sum(rate(feature_cache_hits_total[5m])) + sum(rate(feature_cache_miss_total[5m])))
+
+      # Feature cache hit rate (1h window)
+      - record: cad:feature_cache_hit_rate:1h
+        expr: |
+          sum(rate(feature_cache_hits_total[1h]))
+          /
+          (sum(rate(feature_cache_hits_total[1h])) + sum(rate(feature_cache_miss_total[1h])))
+
+      # Model health rate
+      - record: cad:model_health_ok_rate:5m
+        expr: |
+          sum(rate(model_health_checks_total{status="ok"}[5m]))
+          /
+          sum(rate(model_health_checks_total[5m]))
+
+      # Batch similarity latency p95 by size
+      - record: cad:batch_similarity_latency_p95:5m
+        labels:
+          quantile: "0.95"
+        expr: |
+          histogram_quantile(0.95, sum by (le, batch_size_range) (rate(vector_query_batch_latency_seconds_bucket[5m])))
+
+      # Batch similarity latency p99 by size
+      - record: cad:batch_similarity_latency_p99:5m
+        labels:
+          quantile: "0.99"
+        expr: |
+          histogram_quantile(0.99, sum by (le, batch_size_range) (rate(vector_query_batch_latency_seconds_bucket[5m])))
+
+      # Parse stage latency p95
+      - record: cad:parse_stage_latency_p95:5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(analysis_stage_duration_seconds_bucket{stage="parse"}[5m])))
+
+      # Feature extraction latency p95 by version
+      - record: cad:feature_extraction_latency_p95:5m
+        expr: |
+          histogram_quantile(0.95, sum by (le, version) (rate(feature_extraction_latency_seconds_bucket[5m])))
+
+      # Classification latency p95
+      - record: cad:classification_latency_p95:5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(classification_latency_seconds_bucket[5m])))
+
+      # Error rate by stage
+      - record: cad:error_rate_by_stage:5m
+        expr: |
+          sum by (stage) (rate(analysis_errors_total[5m]))
+
+      # Total QPS
+      - record: cad:analysis_qps:5m
+        expr: |
+          sum(rate(analysis_requests_total[5m]))
+
+      # Faiss backend usage ratio
+      - record: cad:faiss_backend_usage_ratio:5m
+        expr: |
+          sum(rate(vector_query_backend_total{backend="faiss"}[5m]))
+          /
+          sum(rate(vector_query_backend_total[5m]))
+
+      # Memory fallback ratio (degraded mode indicator)
+      - record: cad:memory_fallback_ratio:5m
+        expr: |
+          sum(rate(vector_query_backend_total{backend="memory_fallback"}[5m]))
+          /
+          sum(rate(vector_query_backend_total[5m]))
+
+      # Vector migration success rate
+      - record: cad:vector_migration_success_rate:5m
+        expr: |
+          (sum(rate(vector_migrate_total{status="migrated"}[5m])) + sum(rate(vector_migrate_total{status="downgraded"}[5m])))
+          /
+          sum(rate(vector_migrate_total[5m]))
+
+      # Security validation failure rate
+      - record: cad:model_security_fail_rate:5m
+        expr: |
+          sum(rate(model_security_fail_total[5m]))
+
+      # Rejection rate by reason
+      - record: cad:rejection_rate:5m
+        expr: |
+          sum by (reason) (rate(analysis_rejections_total[5m]))
+
+  - name: cad_drift_recording_rules
+    interval: 1m
+    rules:
+      # Material drift score (max over 30m)
+      - record: cad:material_drift_score_max:30m
+        expr: |
+          max_over_time(material_drift_ratio[30m])
+
+      # Classification prediction drift score
+      - record: cad:classification_drift_score_max:30m
+        expr: |
+          max_over_time(classification_prediction_drift_score[30m])
+
+      # Drift baseline age (material)
+      - record: cad:drift_baseline_material_age:current
+        expr: |
+          baseline_material_age_seconds
+
+      # Drift baseline age (prediction)
+      - record: cad:drift_baseline_prediction_age:current
+        expr: |
+          baseline_prediction_age_seconds
+
+  - name: cad_faiss_recording_rules
+    interval: 30s
+    rules:
+      # Faiss index age
+      - record: cad:faiss_index_age:current
+        expr: |
+          faiss_index_age_seconds
+
+      # Faiss degraded duration
+      - record: cad:faiss_degraded_duration:current
+        expr: |
+          faiss_degraded_duration_seconds
+
+      # Faiss rebuild success rate
+      - record: cad:faiss_rebuild_success_rate:1h
+        expr: |
+          sum(rate(faiss_rebuild_total{status="success"}[1h]))
+          /
+          sum(rate(faiss_rebuild_total[1h]))
+
+      # Faiss recovery attempts rate
+      - record: cad:faiss_recovery_attempts:5m
+        expr: |
+          sum by (result) (rate(faiss_recovery_attempts_total[5m]))
+
+  - name: cad_slo_recording_rules
+    interval: 1m
+    rules:
+      # SLO: Analysis availability (target: 99.5%)
+      - record: cad:slo_analysis_availability:7d
+        expr: |
+          1 - (
+            sum(increase(analysis_requests_total{status!="success"}[7d]))
+            /
+            sum(increase(analysis_requests_total[7d]))
+          )
+
+      # SLO: Parse latency budget compliance (target: p95 < 500ms)
+      - record: cad:slo_parse_latency_compliance:1h
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(analysis_stage_duration_seconds_bucket{stage="parse"}[1h]))) < 0.5
+
+      # Error budget remaining (based on 99.5% SLO)
+      - record: cad:error_budget_remaining:30d
+        expr: |
+          (
+            0.005 - (
+              sum(increase(analysis_requests_total{status!="success"}[30d]))
+              /
+              sum(increase(analysis_requests_total[30d]))
+            )
+          ) / 0.005 * 100
+
+      # Burn rate (how fast error budget is being consumed)
+      - record: cad:error_budget_burn_rate:1h
+        expr: |
+          (
+            sum(rate(analysis_requests_total{status!="success"}[1h]))
+            /
+            sum(rate(analysis_requests_total[1h]))
+          ) / 0.005
+
+  # ==================== Day 3-4 Recording Rules ====================
+  - name: cad_v4_feature_recording_rules
+    interval: 30s
+    rules:
+      # V4 feature extraction p95 latency
+      - record: cad:feature_extraction_v4_latency_p95:5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m])))
+
+      # V3 feature extraction p95 latency (for comparison)
+      - record: cad:feature_extraction_v3_latency_p95:5m
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(feature_extraction_latency_seconds_bucket{version="v3"}[5m])))
+
+      # V4 vs V3 latency ratio
+      - record: cad:feature_extraction_v4_v3_ratio:5m
+        expr: |
+          cad:feature_extraction_v4_latency_p95:5m / cad:feature_extraction_v3_latency_p95:5m
+
+      # V4 adoption rate (migrations)
+      - record: cad:v4_adoption_rate:1h
+        expr: |
+          sum(rate(vector_migrate_total{to_version="v4"}[1h]))
+          /
+          sum(rate(vector_migrate_total[1h]))
+
+      # Shape entropy computation rate
+      - record: cad:shape_entropy_computation_rate:5m
+        expr: |
+          sum(rate(feature_extraction_latency_seconds_count{version="v4"}[5m]))
+
+  - name: cad_model_security_recording_rules
+    interval: 30s
+    rules:
+      # Model security failure rate
+      - record: cad:model_security_fail_rate:5m
+        expr: |
+          sum(rate(model_security_fail_total[5m]))
+
+      # Opcode blocked rate
+      - record: cad:model_opcode_blocked_rate:5m
+        expr: |
+          sum(rate(model_security_fail_total{reason="opcode_blocked"}[5m]))
+
+      # Interface validation failure rate
+      - record: cad:model_interface_validation_fail_rate:5m
+        expr: |
+          sum(rate(model_interface_validation_failures_total[5m]))
+
+      # Pickle scanner high risk rate
+      - record: cad:pickle_scanner_high_risk_rate:5m
+        expr: |
+          sum(rate(pickle_scanner_high_risk_total[5m]))
+
+  - name: cad_rollback_recording_rules
+    interval: 30s
+    rules:
+      # Current rollback level
+      - record: cad:model_rollback_level:current
+        expr: |
+          model_rollback_level
+
+      # Rollback event rate
+      - record: cad:model_rollback_event_rate:5m
+        expr: |
+          sum(rate(model_rollback_events_total[5m]))
+
+      # Available snapshots count
+      - record: cad:model_available_snapshots:current
+        expr: |
+          model_available_snapshots
+
+  - name: cad_migration_recording_rules
+    interval: 30s
+    rules:
+      # Migration success rate
+      - record: cad:vector_migration_success_rate:30m
+        expr: |
+          sum(rate(vector_migrate_total{status="migrated"}[30m]))
+          /
+          sum(rate(vector_migrate_total[30m]))
+
+      # Downgrade rate
+      - record: cad:vector_downgrade_rate:30m
+        expr: |
+          sum(rate(vector_migrate_total{status="downgraded"}[30m]))
+          /
+          sum(rate(vector_migrate_total[30m]))
+
+      # Migration error rate
+      - record: cad:vector_migration_error_rate:30m
+        expr: |
+          sum(rate(vector_migrate_total{status="error"}[30m]))
+          /
+          sum(rate(vector_migrate_total[30m]))
+
+      # Migration velocity (per hour)
+      - record: cad:vector_migration_velocity:1h
+        expr: |
+          sum(increase(vector_migrate_total[1h]))
+
+      # Version distribution
+      - record: cad:vector_version_distribution
+        labels:
+          version: "v4"
+        expr: |
+          sum(vector_store_vectors_by_version{version="v4"})
+          /
+          sum(vector_store_vectors_total)
+
+  - name: cad_cache_tuning_recording_rules
+    interval: 1m
+    rules:
+      # Cache effectiveness score (combined hit rate and latency)
+      - record: cad:cache_effectiveness_score:1h
+        expr: |
+          cad:feature_cache_hit_rate:1h * 0.7 + (1 - clamp_max(avg(rate(feature_cache_latency_seconds_sum[1h])) / avg(rate(feature_cache_latency_seconds_count[1h])) / 0.1, 1)) * 0.3
+
+      # Memory fallback ratio
+      - record: cad:memory_fallback_ratio:5m
+        expr: |
+          sum(rate(vector_query_backend_total{backend="memory_fallback"}[5m]))
+          /
+          sum(rate(vector_query_backend_total[5m]))

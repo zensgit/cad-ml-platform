@@ -236,3 +236,169 @@ def test_backend_reload_structured_error_format():
         assert "message" in detail
         assert isinstance(detail["message"], str)
         assert len(detail["message"]) > 0
+
+
+# ============================================================================
+# Day 2 Additional Tests: Concurrent reload, config missing, permission issues
+# ============================================================================
+
+
+def test_backend_reload_concurrent_conflict():
+    """Test concurrent reload requests are handled safely.
+
+    Simulates two concurrent reload requests to ensure proper handling
+    without race conditions or data corruption.
+    """
+    import threading
+    import time
+
+    results = []
+    errors = []
+
+    def do_reload(idx: int):
+        try:
+            with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
+                # Simulate slow reload that takes time
+                def slow_reload():
+                    time.sleep(0.1)
+                    return True
+                mock_reload.side_effect = slow_reload
+
+                with patch("os.getenv") as mock_getenv:
+                    mock_getenv.return_value = "memory"
+
+                    response = client.post(
+                        "/api/v1/maintenance/vectors/backend/reload",
+                        headers={"X-API-Key": "test"}
+                    )
+                    results.append((idx, response.status_code))
+        except Exception as e:
+            errors.append((idx, str(e)))
+
+    # Start two concurrent reload requests
+    t1 = threading.Thread(target=do_reload, args=(1,))
+    t2 = threading.Thread(target=do_reload, args=(2,))
+
+    t1.start()
+    t2.start()
+
+    t1.join(timeout=5)
+    t2.join(timeout=5)
+
+    # Both should complete without crashing
+    assert len(errors) == 0, f"Concurrent reloads caused errors: {errors}"
+    # At least one should succeed (the other may succeed or get conflict)
+    assert any(status == 200 for _, status in results), f"No successful reload: {results}"
+
+
+def test_backend_reload_config_file_missing():
+    """Test reload when config file is missing or unreadable."""
+    with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
+        # Simulate config file not found error
+        mock_reload.side_effect = FileNotFoundError("Configuration file not found")
+
+        response = client.post(
+            "/api/v1/maintenance/vectors/backend/reload",
+            headers={"X-API-Key": "test"}
+        )
+
+        # Should return 500 with structured error
+        assert response.status_code == 500
+
+        data = response.json()
+        assert "detail" in data
+        detail = data["detail"]
+        assert "code" in detail
+        # Could be INTERNAL_ERROR or more specific code
+        assert detail["code"] in ("INTERNAL_ERROR", "CONFIG_ERROR", "FILE_NOT_FOUND")
+        assert "stage" in detail
+        assert detail["stage"] == "backend_reload"
+
+
+def test_backend_reload_permission_denied():
+    """Test reload when permission is denied on resources."""
+    with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
+        # Simulate permission denied error
+        mock_reload.side_effect = PermissionError("Permission denied: cannot write to index file")
+
+        response = client.post(
+            "/api/v1/maintenance/vectors/backend/reload",
+            headers={"X-API-Key": "test"}
+        )
+
+        # Should return 500 with structured error
+        assert response.status_code == 500
+
+        data = response.json()
+        assert "detail" in data
+        detail = data["detail"]
+        assert "code" in detail
+        assert "stage" in detail
+        assert detail["stage"] == "backend_reload"
+        # Message should indicate permission issue
+        assert "message" in detail
+
+
+def test_backend_reload_timeout():
+    """Test reload when operation times out."""
+    with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
+        # Simulate timeout error
+        mock_reload.side_effect = TimeoutError("Backend reload timed out after 30s")
+
+        response = client.post(
+            "/api/v1/maintenance/vectors/backend/reload",
+            headers={"X-API-Key": "test"}
+        )
+
+        # Should return 500 with structured error
+        assert response.status_code == 500
+
+        data = response.json()
+        assert "detail" in data
+        detail = data["detail"]
+        assert "code" in detail
+        assert "stage" in detail
+        assert detail["stage"] == "backend_reload"
+
+
+def test_backend_reload_memory_error():
+    """Test reload when out of memory."""
+    with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
+        # Simulate memory error
+        mock_reload.side_effect = MemoryError("Not enough memory to load index")
+
+        response = client.post(
+            "/api/v1/maintenance/vectors/backend/reload",
+            headers={"X-API-Key": "test"}
+        )
+
+        # Should return 500 with structured error
+        assert response.status_code == 500
+
+        data = response.json()
+        assert "detail" in data
+        detail = data["detail"]
+        assert "code" in detail
+        assert "stage" in detail
+
+
+def test_backend_reload_partial_failure():
+    """Test reload when partial failure occurs (some indices loaded, others failed)."""
+    with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
+        # Simulate partial failure - returns False but doesn't raise
+        mock_reload.return_value = False
+
+        with patch("os.getenv") as mock_getenv:
+            mock_getenv.return_value = "faiss"
+
+            response = client.post(
+                "/api/v1/maintenance/vectors/backend/reload",
+                headers={"X-API-Key": "test"}
+            )
+
+            # Should return 500 indicating partial/full failure
+            assert response.status_code == 500
+
+            data = response.json()
+            # Error should indicate reload failed
+            assert "detail" in data

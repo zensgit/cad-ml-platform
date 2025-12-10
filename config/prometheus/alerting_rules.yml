@@ -363,3 +363,304 @@ groups:
           summary: "Material usage distribution shifting"
           description: "High stddev in material usage over last 30m"
           action: "Validate input tagging and potential skew"
+
+  # ==================== Day 3-4 Feature Alerts ====================
+  - name: v4_feature_alerts
+    interval: 30s
+    rules:
+      # V4 Feature Extraction Slowdown Alert
+      - alert: FeatureExtractionV4SlowDown
+        expr: |
+          (
+            histogram_quantile(0.95, sum by (le) (rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m])))
+            >
+            histogram_quantile(0.95, sum by (le) (rate(feature_extraction_latency_seconds_bucket{version="v3"}[5m]))) * 1.5
+          )
+          and
+          histogram_quantile(0.95, sum by (le) (rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m]))) > 0
+        for: 10m
+        labels:
+          severity: warning
+          component: feature_extraction
+        annotations:
+          summary: "V4 feature extraction p95 latency exceeds V3 by >50%"
+          description: "V4 p95 latency is more than 1.5x V3 p95 over last 10 minutes"
+          action: "Review V4 shape_entropy and surface_count computation overhead"
+          runbook_url: "docs/runbooks/v4_feature_slowdown.md"
+
+      # V4 Absolute Latency High
+      - alert: FeatureExtractionV4LatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m]))) > 0.010
+        for: 5m
+        labels:
+          severity: warning
+          component: feature_extraction
+        annotations:
+          summary: "V4 feature extraction p95 latency >10ms"
+          description: "V4 p95 latency is {{ $value }}s (>10ms threshold)"
+          action: "Check entity count in documents and optimize compute functions"
+          runbook_url: "docs/runbooks/v4_feature_latency.md"
+
+      # Shape Entropy Computation Anomaly
+      - alert: ShapeEntropyComputationAnomaly
+        expr: |
+          rate(feature_extraction_errors_total{step="shape_entropy"}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: feature_extraction
+        annotations:
+          summary: "Shape entropy computation errors detected"
+          description: "{{ $value }} shape entropy errors per second"
+          action: "Check entity type distributions and log edge cases"
+
+  - name: model_security_alerts
+    interval: 30s
+    rules:
+      # Model Opcode Blocked Alert (Day 4 Security)
+      - alert: ModelOpcodeBlocked
+        expr: |
+          increase(model_security_fail_total{reason="opcode_blocked"}[5m]) > 0
+        labels:
+          severity: critical
+          component: model_security
+        annotations:
+          summary: "Model security: Dangerous opcode detected and blocked"
+          description: "{{ $value }} opcode violations in last 5 minutes"
+          action: "Investigate model source and quarantine suspicious files"
+          runbook_url: "docs/runbooks/model_opcode_blocked.md"
+
+      # Model Security Validation Failures
+      - alert: ModelSecurityValidationFailure
+        expr: |
+          rate(model_security_fail_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: model_security
+        annotations:
+          summary: "Model security validation failures detected"
+          description: "{{ $value }} security validation failures per second"
+          action: "Review model sources and validation logs"
+          runbook_url: "docs/runbooks/model_security_validation.md"
+
+      # Interface Validation Failure Spike
+      - alert: ModelInterfaceValidationFailure
+        expr: |
+          increase(model_interface_validation_failures_total[10m]) > 5
+        for: 5m
+        labels:
+          severity: warning
+          component: model_interface
+        annotations:
+          summary: "Model interface validation failures detected"
+          description: "{{ $value }} interface validation failures in last 10 minutes"
+          action: "Check model compatibility and version alignment"
+          runbook_url: "docs/runbooks/model_interface_validation.md"
+
+      # Pickle Scanner High Risk Detection
+      - alert: PickleScannerHighRisk
+        expr: |
+          increase(pickle_scanner_high_risk_total[5m]) > 0
+        labels:
+          severity: critical
+          component: model_security
+        annotations:
+          summary: "High-risk pickle content detected"
+          description: "Scanner detected {{ $value }} high-risk pickle operations"
+          action: "IMMEDIATE: Quarantine model and investigate source"
+          runbook_url: "docs/runbooks/pickle_scanner_high_risk.md"
+
+  - name: rollback_alerts
+    interval: 30s
+    rules:
+      # Model Rollback Triggered
+      - alert: ModelRollbackTriggered
+        expr: |
+          increase(model_rollback_events_total[5m]) > 0
+        labels:
+          severity: warning
+          component: model_rollback
+        annotations:
+          summary: "Model rollback event triggered"
+          description: "{{ $value }} rollback events in last 5 minutes"
+          action: "Review rollback reason and model performance metrics"
+          runbook_url: "docs/runbooks/model_rollback.md"
+
+      # Rollback Level Critical (Level 3)
+      - alert: RollbackLevelCritical
+        expr: |
+          model_rollback_level >= 3
+        for: 5m
+        labels:
+          severity: critical
+          component: model_rollback
+        annotations:
+          summary: "Model rollback at critical level (Level 3)"
+          description: "System has rolled back to fallback model (level {{ $value }})"
+          action: "URGENT: Investigate model failures and restore primary model"
+          runbook_url: "docs/runbooks/rollback_level_critical.md"
+
+      # No Snapshots Available
+      - alert: NoRollbackSnapshotsAvailable
+        expr: |
+          model_available_snapshots < 1
+        for: 10m
+        labels:
+          severity: warning
+          component: model_rollback
+        annotations:
+          summary: "No rollback snapshots available"
+          description: "No model snapshots available for rollback"
+          action: "Create model snapshots to enable rollback capability"
+          runbook_url: "docs/runbooks/no_rollback_snapshots.md"
+
+  - name: drift_detection_alerts
+    interval: 1m
+    rules:
+      # Drift Refresh Triggered
+      - alert: DriftRefreshTriggered
+        expr: |
+          increase(drift_refresh_triggers_total[30m]) > 3
+        for: 15m
+        labels:
+          severity: info
+          component: drift_detection
+        annotations:
+          summary: "Multiple drift refresh triggers detected"
+          description: "{{ $value }} drift refreshes in last 30 minutes"
+          action: "Review data distribution changes and baseline settings"
+
+      # Drift Score High
+      - alert: DriftScoreHigh
+        expr: |
+          drift_score > 0.3
+        for: 30m
+        labels:
+          severity: warning
+          component: drift_detection
+        annotations:
+          summary: "High drift score detected"
+          description: "Drift score is {{ $value }} (>0.3 threshold)"
+          action: "Consider baseline refresh or model retraining"
+          runbook_url: "docs/runbooks/drift_score_high.md"
+
+      # Baseline Age Critical
+      - alert: BaselineAgeCritical
+        expr: |
+          max(baseline_material_age_seconds, baseline_prediction_age_seconds) > 604800
+        for: 1h
+        labels:
+          severity: warning
+          component: drift_detection
+        annotations:
+          summary: "Drift baseline is older than 7 days"
+          description: "Baseline age is {{ $value }}s (>7 days)"
+          action: "Schedule baseline refresh to maintain drift detection accuracy"
+
+  - name: cache_tuning_alerts
+    interval: 1m
+    rules:
+      # Cache Hit Rate Low (Using Recording Rule)
+      - alert: FeatureCacheHitRateLowRecorded
+        expr: |
+          cad:feature_cache_hit_rate:1h < 0.35
+        for: 30m
+        labels:
+          severity: warning
+          component: cache_tuning
+        annotations:
+          summary: "Feature cache hit rate below 35% (1h window)"
+          description: "Hit rate is {{ $value | humanizePercentage }} over last hour"
+          action: "Review cache TTL settings and access patterns"
+          runbook_url: "docs/runbooks/cache_hit_rate_low.md"
+
+      # Cache Tuning Recommendation Generated
+      - alert: CacheTuningRecommendationPending
+        expr: |
+          cache_tuning_recommendations_pending > 0
+        for: 1h
+        labels:
+          severity: info
+          component: cache_tuning
+        annotations:
+          summary: "Cache tuning recommendations available"
+          description: "{{ $value }} cache tuning recommendations pending review"
+          action: "Review and apply recommended cache settings"
+
+      # Memory Fallback Active
+      - alert: MemoryFallbackActive
+        expr: |
+          cad:memory_fallback_ratio:5m > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          component: vector_store
+        annotations:
+          summary: "Memory fallback mode active (>10% of queries)"
+          description: "{{ $value | humanizePercentage }} of queries using memory fallback"
+          action: "Check Faiss index health and consider rebuild"
+          runbook_url: "docs/runbooks/memory_fallback_active.md"
+
+  - name: vector_migration_alerts
+    interval: 30s
+    rules:
+      # V4 Adoption Rate Low
+      - alert: V4AdoptionRateLow
+        expr: |
+          (
+            sum(rate(vector_migrate_total{to_version="v4"}[1h]))
+            /
+            sum(rate(vector_migrate_total[1h]))
+          ) < 0.5
+          and
+          sum(rate(vector_migrate_total[1h])) > 10
+        for: 1h
+        labels:
+          severity: info
+          component: vector_migration
+        annotations:
+          summary: "V4 adoption rate below 50%"
+          description: "Only {{ $value | humanizePercentage }} of migrations going to V4"
+          action: "Review migration strategy and V4 benefits communication"
+
+      # High Downgrade Rate
+      - alert: VectorDowngradeRateHigh
+        expr: |
+          (
+            sum(rate(vector_migrate_total{status="downgraded"}[1h]))
+            /
+            sum(rate(vector_migrate_total[1h]))
+          ) > 0.1
+          and
+          sum(rate(vector_migrate_total[1h])) > 5
+        for: 30m
+        labels:
+          severity: warning
+          component: vector_migration
+        annotations:
+          summary: "Vector downgrade rate above 10%"
+          description: "{{ $value | humanizePercentage }} of migrations are downgrades"
+          action: "Investigate compatibility issues and client version distribution"
+          runbook_url: "docs/runbooks/vector_downgrade_high.md"
+
+      # Migration Error Rate High
+      - alert: VectorMigrationErrorRateHigh
+        expr: |
+          (
+            sum(rate(vector_migrate_total{status="error"}[30m]))
+            /
+            sum(rate(vector_migrate_total[30m]))
+          ) > 0.05
+          and
+          sum(rate(vector_migrate_total[30m])) > 5
+        for: 15m
+        labels:
+          severity: warning
+          component: vector_migration
+        annotations:
+          summary: "Vector migration error rate above 5%"
+          description: "{{ $value | humanizePercentage }} of migrations failing"
+          action: "Check migration logs and vector compatibility"
+          runbook_url: "docs/runbooks/vector_migration_errors.md"
