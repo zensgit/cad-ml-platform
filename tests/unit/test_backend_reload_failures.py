@@ -6,6 +6,7 @@ invalid backend names, initialization failures, and proper metric recording.
 
 from __future__ import annotations
 
+import os
 import pytest
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
@@ -13,6 +14,18 @@ from fastapi.testclient import TestClient
 from src.main import app
 
 client = TestClient(app)
+
+# Store original os.getenv for use in mock side_effects
+_original_getenv = os.getenv
+
+
+def make_getenv_side_effect(backend_value: str):
+    """Create a getenv side_effect that only overrides VECTOR_STORE_BACKEND."""
+    def getenv_side_effect(key, default=None):
+        if key == "VECTOR_STORE_BACKEND":
+            return backend_value
+        return _original_getenv(key, default)
+    return getenv_side_effect
 
 
 def test_backend_reload_invalid_backend():
@@ -130,7 +143,7 @@ def test_backend_reload_metric_recording():
         mock_reload.return_value = True
 
         with patch("os.getenv") as mock_getenv:
-            mock_getenv.return_value = "memory"
+            mock_getenv.side_effect = make_getenv_side_effect("memory")
 
             response = client.post(
                 "/api/v1/maintenance/vectors/backend/reload",
@@ -185,7 +198,7 @@ def test_backend_reload_error_has_suggestion():
         mock_reload.return_value = False
 
         with patch("os.getenv") as mock_getenv:
-            mock_getenv.return_value = "faiss"
+            mock_getenv.side_effect = make_getenv_side_effect("faiss")
 
             response = client.post(
                 "/api/v1/maintenance/vectors/backend/reload",
@@ -265,7 +278,7 @@ def test_backend_reload_concurrent_conflict():
                 mock_reload.side_effect = slow_reload
 
                 with patch("os.getenv") as mock_getenv:
-                    mock_getenv.return_value = "memory"
+                    mock_getenv.side_effect = make_getenv_side_effect("memory")
 
                     response = client.post(
                         "/api/v1/maintenance/vectors/backend/reload",
@@ -389,7 +402,7 @@ def test_backend_reload_partial_failure():
         mock_reload.return_value = False
 
         with patch("os.getenv") as mock_getenv:
-            mock_getenv.return_value = "faiss"
+            mock_getenv.side_effect = make_getenv_side_effect("faiss")
 
             response = client.post(
                 "/api/v1/maintenance/vectors/backend/reload",
