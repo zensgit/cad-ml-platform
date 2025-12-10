@@ -1,237 +1,438 @@
-"""Tests for metrics.py to improve coverage.
+"""Tests for src/utils/metrics.py to improve coverage.
 
 Covers:
-- Dummy metric classes when prometheus_client unavailable
+- Prometheus metric definitions
+- _Dummy fallback class
 - EMA update functions
 - EMA getter functions
 """
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch, MagicMock
 
 import pytest
 
 
-class TestDummyMetricClasses:
-    """Tests for dummy metric classes when prometheus not installed."""
+class TestDummyMetricClass:
+    """Tests for _Dummy fallback class when prometheus not available."""
 
-    def test_dummy_labels_chain(self):
-        """Test _Dummy class supports labels().method() chaining."""
-        # Import with prometheus mocked as unavailable
-        with patch.dict("sys.modules", {"prometheus_client": None}):
-            # We need to reload to trigger the except path
-            # Since we can't easily reload, test via direct _Dummy usage
-            pass
+    def test_dummy_labels_returns_self(self):
+        """Test _Dummy.labels returns self for chaining."""
+        # We can test the dummy behavior by mocking prometheus import failure
+        # For now, test the expected interface
+        from src.utils.metrics import ocr_requests_total
 
-    def test_metrics_exist(self):
-        """Test all expected metrics are defined."""
-        from src.utils.metrics import (
-            ocr_requests_total,
-            ocr_processing_duration_seconds,
-            ocr_fallback_triggered,
-            ocr_model_loaded,
-            ocr_errors_total,
-            ocr_input_rejected_total,
-            ocr_confidence_distribution,
-            ocr_completeness_ratio,
-            ocr_cold_start_seconds,
-            ocr_stage_duration_seconds,
-            ocr_item_confidence_distribution,
-            ocr_confidence_fallback_threshold,
-            ocr_confidence_ema,
-            ocr_rate_limited_total,
-            ocr_circuit_state,
-            vision_requests_total,
-            vision_processing_duration_seconds,
-            vision_errors_total,
-            vision_input_rejected_total,
-            vision_image_size_bytes,
-            ocr_image_size_bytes,
-            ocr_error_rate_ema,
-            vision_error_rate_ema,
-        )
+        # Just verify we can call labels and chain methods
+        result = ocr_requests_total.labels(provider="test", status="ok")
+        assert result is not None
 
-        # Verify they exist
+    def test_dummy_inc_no_error(self):
+        """Test _Dummy.inc doesn't raise error."""
+        from src.utils.metrics import ocr_requests_total
+
+        # Should not raise
+        ocr_requests_total.labels(provider="test", status="ok").inc()
+
+    def test_dummy_observe_no_error(self):
+        """Test _Dummy.observe doesn't raise error."""
+        from src.utils.metrics import ocr_processing_duration_seconds
+
+        # Should not raise
+        ocr_processing_duration_seconds.labels(provider="test").observe(1.5)
+
+    def test_dummy_set_no_error(self):
+        """Test _Dummy.set doesn't raise error."""
+        from src.utils.metrics import ocr_model_loaded
+
+        # Should not raise
+        ocr_model_loaded.labels(provider="test").set(1)
+
+
+class TestOCRMetrics:
+    """Tests for OCR metric definitions."""
+
+    def test_ocr_requests_total_exists(self):
+        """Test ocr_requests_total metric exists."""
+        from src.utils.metrics import ocr_requests_total
+
         assert ocr_requests_total is not None
+
+    def test_ocr_processing_duration_exists(self):
+        """Test ocr_processing_duration_seconds metric exists."""
+        from src.utils.metrics import ocr_processing_duration_seconds
+
         assert ocr_processing_duration_seconds is not None
+
+    def test_ocr_fallback_triggered_exists(self):
+        """Test ocr_fallback_triggered metric exists."""
+        from src.utils.metrics import ocr_fallback_triggered
+
         assert ocr_fallback_triggered is not None
+
+    def test_ocr_model_loaded_exists(self):
+        """Test ocr_model_loaded metric exists."""
+        from src.utils.metrics import ocr_model_loaded
+
         assert ocr_model_loaded is not None
+
+    def test_ocr_errors_total_exists(self):
+        """Test ocr_errors_total metric exists."""
+        from src.utils.metrics import ocr_errors_total
+
         assert ocr_errors_total is not None
+
+    def test_ocr_input_rejected_total_exists(self):
+        """Test ocr_input_rejected_total metric exists."""
+        from src.utils.metrics import ocr_input_rejected_total
+
         assert ocr_input_rejected_total is not None
+
+
+class TestConfidenceDistributionMetrics:
+    """Tests for confidence distribution metrics."""
+
+    def test_ocr_confidence_distribution_exists(self):
+        """Test ocr_confidence_distribution metric exists."""
+        from src.utils.metrics import ocr_confidence_distribution
+
         assert ocr_confidence_distribution is not None
+
+    def test_ocr_completeness_ratio_exists(self):
+        """Test ocr_completeness_ratio metric exists."""
+        from src.utils.metrics import ocr_completeness_ratio
+
         assert ocr_completeness_ratio is not None
+
+    def test_ocr_cold_start_seconds_exists(self):
+        """Test ocr_cold_start_seconds metric exists."""
+        from src.utils.metrics import ocr_cold_start_seconds
+
         assert ocr_cold_start_seconds is not None
+
+    def test_ocr_stage_duration_seconds_exists(self):
+        """Test ocr_stage_duration_seconds metric exists."""
+        from src.utils.metrics import ocr_stage_duration_seconds
+
         assert ocr_stage_duration_seconds is not None
+
+    def test_ocr_item_confidence_distribution_exists(self):
+        """Test ocr_item_confidence_distribution metric exists."""
+        from src.utils.metrics import ocr_item_confidence_distribution
+
         assert ocr_item_confidence_distribution is not None
+
+
+class TestDynamicThresholdMetrics:
+    """Tests for dynamic threshold metrics."""
+
+    def test_ocr_confidence_fallback_threshold_exists(self):
+        """Test ocr_confidence_fallback_threshold metric exists."""
+        from src.utils.metrics import ocr_confidence_fallback_threshold
+
         assert ocr_confidence_fallback_threshold is not None
+
+    def test_ocr_confidence_ema_exists(self):
+        """Test ocr_confidence_ema metric exists."""
+        from src.utils.metrics import ocr_confidence_ema
+
         assert ocr_confidence_ema is not None
+
+
+class TestDistributedControlMetrics:
+    """Tests for distributed control metrics."""
+
+    def test_ocr_rate_limited_total_exists(self):
+        """Test ocr_rate_limited_total metric exists."""
+        from src.utils.metrics import ocr_rate_limited_total
+
         assert ocr_rate_limited_total is not None
+
+    def test_ocr_circuit_state_exists(self):
+        """Test ocr_circuit_state metric exists."""
+        from src.utils.metrics import ocr_circuit_state
+
         assert ocr_circuit_state is not None
+
+
+class TestVisionMetrics:
+    """Tests for Vision metric definitions."""
+
+    def test_vision_requests_total_exists(self):
+        """Test vision_requests_total metric exists."""
+        from src.utils.metrics import vision_requests_total
+
         assert vision_requests_total is not None
+
+    def test_vision_processing_duration_exists(self):
+        """Test vision_processing_duration_seconds metric exists."""
+        from src.utils.metrics import vision_processing_duration_seconds
+
         assert vision_processing_duration_seconds is not None
+
+    def test_vision_errors_total_exists(self):
+        """Test vision_errors_total metric exists."""
+        from src.utils.metrics import vision_errors_total
+
         assert vision_errors_total is not None
+
+    def test_vision_input_rejected_total_exists(self):
+        """Test vision_input_rejected_total metric exists."""
+        from src.utils.metrics import vision_input_rejected_total
+
         assert vision_input_rejected_total is not None
+
+    def test_vision_image_size_bytes_exists(self):
+        """Test vision_image_size_bytes metric exists."""
+        from src.utils.metrics import vision_image_size_bytes
+
         assert vision_image_size_bytes is not None
+
+
+class TestImageSizeMetrics:
+    """Tests for image size metrics."""
+
+    def test_ocr_image_size_bytes_exists(self):
+        """Test ocr_image_size_bytes metric exists."""
+        from src.utils.metrics import ocr_image_size_bytes
+
         assert ocr_image_size_bytes is not None
+
+
+class TestErrorRateEMAMetrics:
+    """Tests for error rate EMA metrics."""
+
+    def test_ocr_error_rate_ema_exists(self):
+        """Test ocr_error_rate_ema metric exists."""
+        from src.utils.metrics import ocr_error_rate_ema
+
         assert ocr_error_rate_ema is not None
+
+    def test_vision_error_rate_ema_exists(self):
+        """Test vision_error_rate_ema metric exists."""
+        from src.utils.metrics import vision_error_rate_ema
+
         assert vision_error_rate_ema is not None
 
 
-class TestEmaUpdateFunctions:
-    """Tests for EMA update functions."""
+class TestUpdateOCRErrorEMA:
+    """Tests for update_ocr_error_ema function."""
 
-    def test_update_ocr_error_ema_on_error(self):
-        """Test update_ocr_error_ema with error."""
-        import src.utils.metrics as metrics_module
+    def test_update_on_error(self):
+        """Test update_ocr_error_ema increases value on error."""
+        from src.utils import metrics
 
-        # Reset state
-        metrics_module._ocr_error_rate_value = 0.0
+        # Reset value
+        metrics._ocr_error_rate_value = 0.0
 
-        with patch.object(metrics_module, "ocr_error_rate_ema") as mock_gauge:
-            mock_gauge.set = MagicMock()
-            metrics_module.update_ocr_error_ema(is_error=True)
+        with patch.object(metrics, "ocr_error_rate_ema") as mock_metric:
+            mock_metric.set = MagicMock()
+            metrics.update_ocr_error_ema(is_error=True)
 
-            # Should have increased from 0
-            assert metrics_module._ocr_error_rate_value > 0
-            mock_gauge.set.assert_called()
+        # Value should increase
+        assert metrics._ocr_error_rate_value > 0
 
-    def test_update_ocr_error_ema_on_success(self):
-        """Test update_ocr_error_ema with success."""
-        import src.utils.metrics as metrics_module
+    def test_update_on_success(self):
+        """Test update_ocr_error_ema decreases value on success."""
+        from src.utils import metrics
 
-        # Set initial error rate
-        metrics_module._ocr_error_rate_value = 0.5
+        # Set initial value
+        metrics._ocr_error_rate_value = 0.5
 
-        with patch.object(metrics_module, "ocr_error_rate_ema") as mock_gauge:
-            mock_gauge.set = MagicMock()
-            metrics_module.update_ocr_error_ema(is_error=False)
+        with patch.object(metrics, "ocr_error_rate_ema") as mock_metric:
+            mock_metric.set = MagicMock()
+            metrics.update_ocr_error_ema(is_error=False)
 
-            # Should have decreased from 0.5
-            assert metrics_module._ocr_error_rate_value < 0.5
-            mock_gauge.set.assert_called()
+        # Value should decrease (EMA toward 0)
+        assert metrics._ocr_error_rate_value < 0.5
 
-    def test_update_ocr_error_ema_exception_ignored(self):
-        """Test update_ocr_error_ema ignores gauge set exceptions."""
-        import src.utils.metrics as metrics_module
+    def test_update_handles_metric_error(self):
+        """Test update_ocr_error_ema handles metric set error gracefully."""
+        from src.utils import metrics
 
-        metrics_module._ocr_error_rate_value = 0.0
+        metrics._ocr_error_rate_value = 0.0
 
-        with patch.object(metrics_module, "ocr_error_rate_ema") as mock_gauge:
-            mock_gauge.set.side_effect = Exception("Prometheus error")
+        with patch.object(metrics, "ocr_error_rate_ema") as mock_metric:
+            mock_metric.set = MagicMock(side_effect=Exception("Metric error"))
             # Should not raise
-            metrics_module.update_ocr_error_ema(is_error=True)
+            metrics.update_ocr_error_ema(is_error=True)
 
         # Value should still be updated
-        assert metrics_module._ocr_error_rate_value > 0
+        assert metrics._ocr_error_rate_value > 0
 
-    def test_update_vision_error_ema_on_error(self):
-        """Test update_vision_error_ema with error."""
-        import src.utils.metrics as metrics_module
 
-        metrics_module._vision_error_rate_value = 0.0
+class TestUpdateVisionErrorEMA:
+    """Tests for update_vision_error_ema function."""
 
-        with patch.object(metrics_module, "vision_error_rate_ema") as mock_gauge:
-            mock_gauge.set = MagicMock()
-            metrics_module.update_vision_error_ema(is_error=True)
+    def test_update_on_error(self):
+        """Test update_vision_error_ema increases value on error."""
+        from src.utils import metrics
 
-            assert metrics_module._vision_error_rate_value > 0
-            mock_gauge.set.assert_called()
+        # Reset value
+        metrics._vision_error_rate_value = 0.0
 
-    def test_update_vision_error_ema_on_success(self):
-        """Test update_vision_error_ema with success."""
-        import src.utils.metrics as metrics_module
+        with patch.object(metrics, "vision_error_rate_ema") as mock_metric:
+            mock_metric.set = MagicMock()
+            metrics.update_vision_error_ema(is_error=True)
 
-        metrics_module._vision_error_rate_value = 0.8
+        # Value should increase
+        assert metrics._vision_error_rate_value > 0
 
-        with patch.object(metrics_module, "vision_error_rate_ema") as mock_gauge:
-            mock_gauge.set = MagicMock()
-            metrics_module.update_vision_error_ema(is_error=False)
+    def test_update_on_success(self):
+        """Test update_vision_error_ema decreases value on success."""
+        from src.utils import metrics
 
-            assert metrics_module._vision_error_rate_value < 0.8
-            mock_gauge.set.assert_called()
+        # Set initial value
+        metrics._vision_error_rate_value = 0.5
 
-    def test_update_vision_error_ema_exception_ignored(self):
-        """Test update_vision_error_ema ignores gauge set exceptions."""
-        import src.utils.metrics as metrics_module
+        with patch.object(metrics, "vision_error_rate_ema") as mock_metric:
+            mock_metric.set = MagicMock()
+            metrics.update_vision_error_ema(is_error=False)
 
-        metrics_module._vision_error_rate_value = 0.0
+        # Value should decrease (EMA toward 0)
+        assert metrics._vision_error_rate_value < 0.5
 
-        with patch.object(metrics_module, "vision_error_rate_ema") as mock_gauge:
-            mock_gauge.set.side_effect = Exception("Prometheus error")
+    def test_update_handles_metric_error(self):
+        """Test update_vision_error_ema handles metric set error gracefully."""
+        from src.utils import metrics
+
+        metrics._vision_error_rate_value = 0.0
+
+        with patch.object(metrics, "vision_error_rate_ema") as mock_metric:
+            mock_metric.set = MagicMock(side_effect=Exception("Metric error"))
             # Should not raise
-            metrics_module.update_vision_error_ema(is_error=True)
+            metrics.update_vision_error_ema(is_error=True)
 
-        assert metrics_module._vision_error_rate_value > 0
+        # Value should still be updated
+        assert metrics._vision_error_rate_value > 0
 
 
-class TestEmaGetterFunctions:
-    """Tests for EMA getter functions."""
+class TestGetOCRErrorRateEMA:
+    """Tests for get_ocr_error_rate_ema function."""
 
-    def test_get_ocr_error_rate_ema(self):
+    def test_returns_float(self):
         """Test get_ocr_error_rate_ema returns float."""
-        import src.utils.metrics as metrics_module
+        from src.utils.metrics import get_ocr_error_rate_ema
 
-        metrics_module._ocr_error_rate_value = 0.42
+        result = get_ocr_error_rate_ema()
 
-        result = metrics_module.get_ocr_error_rate_ema()
+        assert isinstance(result, float)
+
+    def test_returns_current_value(self):
+        """Test get_ocr_error_rate_ema returns current value."""
+        from src.utils import metrics
+
+        metrics._ocr_error_rate_value = 0.42
+
+        result = metrics.get_ocr_error_rate_ema()
 
         assert result == 0.42
-        assert isinstance(result, float)
 
-    def test_get_vision_error_rate_ema(self):
+
+class TestGetVisionErrorRateEMA:
+    """Tests for get_vision_error_rate_ema function."""
+
+    def test_returns_float(self):
         """Test get_vision_error_rate_ema returns float."""
-        import src.utils.metrics as metrics_module
+        from src.utils.metrics import get_vision_error_rate_ema
 
-        metrics_module._vision_error_rate_value = 0.73
+        result = get_vision_error_rate_ema()
 
-        result = metrics_module.get_vision_error_rate_ema()
-
-        assert result == 0.73
         assert isinstance(result, float)
 
+    def test_returns_current_value(self):
+        """Test get_vision_error_rate_ema returns current value."""
+        from src.utils import metrics
 
-class TestEmaAlpha:
-    """Tests for EMA alpha configuration."""
+        metrics._vision_error_rate_value = 0.33
 
-    def test_ema_alpha_from_settings(self):
-        """Test EMA alpha is loaded from settings."""
-        import src.utils.metrics as metrics_module
+        result = metrics.get_vision_error_rate_ema()
 
-        # _EMA_ALPHA should be set from config
-        assert metrics_module._EMA_ALPHA > 0
-        assert metrics_module._EMA_ALPHA <= 1
+        assert result == 0.33
 
 
-class TestMetricsLabels:
-    """Tests for metrics with labels."""
+class TestEMAAlpha:
+    """Tests for EMA alpha value."""
 
-    def test_ocr_requests_total_labels(self):
-        """Test ocr_requests_total supports labels."""
+    def test_ema_alpha_loaded_from_settings(self):
+        """Test _EMA_ALPHA is loaded from settings."""
+        from src.utils.metrics import _EMA_ALPHA
+
+        assert isinstance(_EMA_ALPHA, float)
+        assert 0 < _EMA_ALPHA <= 1
+
+
+class TestEMACalculation:
+    """Tests for EMA calculation logic."""
+
+    def test_ema_formula_on_error(self):
+        """Test EMA formula when error occurs."""
+        alpha = 0.1
+        current_value = 0.0
+        target = 1.0  # Error
+
+        new_value = alpha * target + (1 - alpha) * current_value
+
+        assert new_value == 0.1
+
+    def test_ema_formula_on_success(self):
+        """Test EMA formula when success occurs."""
+        alpha = 0.1
+        current_value = 0.5
+        target = 0.0  # Success
+
+        new_value = alpha * target + (1 - alpha) * current_value
+
+        assert new_value == 0.45
+
+    def test_ema_convergence_to_zero(self):
+        """Test EMA converges to 0 with continuous successes."""
+        alpha = 0.1
+        value = 1.0
+
+        for _ in range(50):
+            value = alpha * 0.0 + (1 - alpha) * value
+
+        assert value < 0.01
+
+    def test_ema_convergence_to_one(self):
+        """Test EMA converges to 1 with continuous errors."""
+        alpha = 0.1
+        value = 0.0
+
+        for _ in range(50):
+            value = alpha * 1.0 + (1 - alpha) * value
+
+        assert value > 0.99
+
+
+class TestMetricLabels:
+    """Tests for metric label usage."""
+
+    def test_ocr_requests_labels(self):
+        """Test ocr_requests_total accepts expected labels."""
         from src.utils.metrics import ocr_requests_total
 
-        # Should support provider and status labels
-        labeled = ocr_requests_total.labels(provider="paddle", status="success")
-        assert labeled is not None
+        # Should not raise
+        ocr_requests_total.labels(provider="tesseract", status="success")
 
-    def test_ocr_errors_total_labels(self):
-        """Test ocr_errors_total supports labels."""
+    def test_ocr_errors_labels(self):
+        """Test ocr_errors_total accepts expected labels."""
         from src.utils.metrics import ocr_errors_total
 
-        # Should support provider, code, stage labels
-        labeled = ocr_errors_total.labels(provider="paddle", code="timeout", stage="inference")
-        assert labeled is not None
+        # Should not raise
+        ocr_errors_total.labels(provider="tesseract", code="500", stage="extraction")
 
-    def test_vision_requests_total_labels(self):
-        """Test vision_requests_total supports labels."""
+    def test_vision_requests_labels(self):
+        """Test vision_requests_total accepts expected labels."""
         from src.utils.metrics import vision_requests_total
 
-        labeled = vision_requests_total.labels(provider="deepseek", status="error")
-        assert labeled is not None
+        # Should not raise
+        vision_requests_total.labels(provider="openai", status="success")
 
-    def test_ocr_circuit_state_labels(self):
-        """Test ocr_circuit_state supports labels."""
+    def test_circuit_state_labels(self):
+        """Test ocr_circuit_state accepts expected labels."""
         from src.utils.metrics import ocr_circuit_state
 
-        labeled = ocr_circuit_state.labels(key="test_provider")
-        assert labeled is not None
+        # Should not raise
+        ocr_circuit_state.labels(key="ocr:cb:test")

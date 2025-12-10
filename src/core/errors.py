@@ -26,6 +26,7 @@ class ErrorCode(str, Enum):
     PROVIDER_TIMEOUT = "PROVIDER_TIMEOUT"  # Provider-specific timeout
     MODEL_LOAD_ERROR = "MODEL_LOAD_ERROR"  # Model initialization failure
     RESOURCE_EXHAUSTED = "RESOURCE_EXHAUSTED"  # Memory/CPU resource limits
+    EXTERNAL_SERVICE_ERROR = "EXTERNAL_SERVICE_ERROR"  # External service/provider errors
 
 
 __all__ = ["ErrorCode"]

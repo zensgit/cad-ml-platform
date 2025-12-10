@@ -1,410 +1,478 @@
 """Tests for src/api/v1/twin.py to improve coverage.
 
 Covers:
-- websocket_endpoint logic
-- ingest_telemetry endpoint logic
-- get_twin_state endpoint logic
-- get_history endpoint logic
-- TelemetryFrame creation
+- WebSocket endpoint logic
+- ingest_telemetry endpoint
+- get_twin_state endpoint
+- get_history endpoint
+- TelemetryFrame handling
+- Error handling paths
 """
 
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Any, Dict
+from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
 
-class TestWebSocketEndpointLogic:
-    """Tests for websocket endpoint logic."""
+class TestWebSocketEndpoint:
+    """Tests for websocket_endpoint function."""
 
-    def test_push_update_filter_by_asset_id(self):
-        """Test push_update filters events by asset_id."""
+    @pytest.mark.asyncio
+    async def test_websocket_accept(self):
+        """Test websocket is accepted."""
+        mock_websocket = MagicMock()
+        mock_websocket.accept = AsyncMock()
+        mock_websocket.receive_text = AsyncMock(side_effect=Exception("disconnect"))
+
+        from src.api.v1.twin import websocket_endpoint
+
+        # Mock twin_sync
+        with patch("src.api.v1.twin.twin_sync") as mock_sync:
+            mock_sync.get_state.return_value = {}
+            try:
+                await websocket_endpoint(mock_websocket, "asset123")
+            except Exception:
+                pass
+
+        mock_websocket.accept.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_websocket_disconnect_handling(self):
+        """Test WebSocketDisconnect is handled gracefully."""
+        from fastapi import WebSocketDisconnect
+
+        mock_websocket = MagicMock()
+        mock_websocket.accept = AsyncMock()
+        mock_websocket.receive_text = AsyncMock(side_effect=WebSocketDisconnect())
+
+        from src.api.v1.twin import websocket_endpoint
+
+        with patch("src.api.v1.twin.twin_sync") as mock_sync:
+            mock_sync.get_state.return_value = {}
+            # Should not raise, just log and exit
+            await websocket_endpoint(mock_websocket, "asset123")
+
+    @pytest.mark.asyncio
+    async def test_websocket_sends_state_snapshot(self):
+        """Test websocket sends state snapshot on message."""
+        mock_websocket = MagicMock()
+        mock_websocket.accept = AsyncMock()
+        # First receive returns text, second raises disconnect
+        mock_websocket.receive_text = AsyncMock(
+            side_effect=["hello", Exception("done")]
+        )
+        mock_websocket.send_json = AsyncMock()
+
+        from src.api.v1.twin import websocket_endpoint
+
+        with patch("src.api.v1.twin.twin_sync") as mock_sync:
+            mock_sync.get_state.return_value = {"temp": 25.0}
+            try:
+                await websocket_endpoint(mock_websocket, "asset123")
+            except Exception:
+                pass
+
+        # Verify state snapshot was sent
+        mock_websocket.send_json.assert_called()
+
+
+class TestPushUpdateCallback:
+    """Tests for push_update callback logic."""
+
+    @pytest.mark.asyncio
+    async def test_push_update_matching_asset(self):
+        """Test push_update sends event when asset_id matches."""
+        mock_websocket = MagicMock()
+        mock_websocket.send_json = AsyncMock()
+
         asset_id = "asset123"
+        event = {"asset_id": "asset123", "data": "test"}
 
-        events = [
-            {"asset_id": "asset123", "data": "relevant"},
-            {"asset_id": "asset456", "data": "irrelevant"},
-            {"asset_id": "asset123", "data": "also relevant"},
-        ]
+        # Simulate the callback logic
+        async def push_update(event: Dict[str, Any]) -> None:
+            if event["asset_id"] == asset_id:
+                try:
+                    await mock_websocket.send_json(event)
+                except Exception:
+                    pass
 
-        matching_events = [e for e in events if e["asset_id"] == asset_id]
+        await push_update(event)
+        mock_websocket.send_json.assert_called_once_with(event)
 
-        assert len(matching_events) == 2
-        assert all(e["asset_id"] == asset_id for e in matching_events)
+    @pytest.mark.asyncio
+    async def test_push_update_non_matching_asset(self):
+        """Test push_update skips event when asset_id doesn't match."""
+        mock_websocket = MagicMock()
+        mock_websocket.send_json = AsyncMock()
 
-    def test_state_snapshot_response_structure(self):
-        """Test state snapshot response structure."""
         asset_id = "asset123"
-        state = {"temperature": 25.5, "status": "running"}
+        event = {"asset_id": "other_asset", "data": "test"}
 
-        response = {
-            "type": "state_snapshot",
-            "asset_id": asset_id,
-            "state": state
+        async def push_update(event: Dict[str, Any]) -> None:
+            if event["asset_id"] == asset_id:
+                try:
+                    await mock_websocket.send_json(event)
+                except Exception:
+                    pass
+
+        await push_update(event)
+        mock_websocket.send_json.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_push_update_handles_send_error(self):
+        """Test push_update handles send error gracefully."""
+        mock_websocket = MagicMock()
+        mock_websocket.send_json = AsyncMock(side_effect=Exception("Connection closed"))
+
+        asset_id = "asset123"
+        event = {"asset_id": "asset123", "data": "test"}
+
+        async def push_update(event: Dict[str, Any]) -> None:
+            if event["asset_id"] == asset_id:
+                try:
+                    await mock_websocket.send_json(event)
+                except Exception:
+                    pass
+
+        # Should not raise
+        await push_update(event)
+
+
+class TestIngestTelemetry:
+    """Tests for ingest_telemetry endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_ingest_telemetry_basic(self):
+        """Test basic telemetry ingestion."""
+        from src.api.v1.twin import ingest_telemetry
+
+        telemetry = {
+            "timestamp": time.time(),
+            "sensors": {"temp": 25.0},
+            "metrics": {"power": 100},
+            "status": {"online": True},
         }
 
-        assert response["type"] == "state_snapshot"
-        assert response["asset_id"] == "asset123"
-        assert response["state"]["temperature"] == 25.5
+        with patch("src.api.v1.twin.twin_sync") as mock_sync:
+            mock_sync.update_state = AsyncMock()
+            with patch("src.api.v1.twin.get_ingestor") as mock_get_ingestor:
+                mock_ingestor = MagicMock()
+                mock_ingestor.ensure_started = AsyncMock()
+                mock_ingestor.handle_payload = AsyncMock(return_value={"ok": True})
+                mock_get_ingestor.return_value = mock_ingestor
+
+                result = await ingest_telemetry("asset123", telemetry)
+
+        assert result["status"] == "accepted"
+        assert "ingest" in result
+
+    @pytest.mark.asyncio
+    async def test_ingest_telemetry_without_timestamp(self):
+        """Test telemetry ingestion without explicit timestamp."""
+        from src.api.v1.twin import ingest_telemetry
+
+        telemetry = {
+            "sensors": {"temp": 30.0},
+        }
+
+        with patch("src.api.v1.twin.twin_sync") as mock_sync:
+            mock_sync.update_state = AsyncMock()
+            with patch("src.api.v1.twin.get_ingestor") as mock_get_ingestor:
+                mock_ingestor = MagicMock()
+                mock_ingestor.ensure_started = AsyncMock()
+                mock_ingestor.handle_payload = AsyncMock(return_value={"ok": True})
+                mock_get_ingestor.return_value = mock_ingestor
+
+                result = await ingest_telemetry("asset456", telemetry)
+
+        assert result["status"] == "accepted"
+
+    @pytest.mark.asyncio
+    async def test_ingest_telemetry_updates_twin_sync(self):
+        """Test telemetry updates twin_sync state."""
+        from src.api.v1.twin import ingest_telemetry
+
+        telemetry = {"sensors": {"voltage": 12.5}}
+
+        with patch("src.api.v1.twin.twin_sync") as mock_sync:
+            mock_sync.update_state = AsyncMock()
+            with patch("src.api.v1.twin.get_ingestor") as mock_get_ingestor:
+                mock_ingestor = MagicMock()
+                mock_ingestor.ensure_started = AsyncMock()
+                mock_ingestor.handle_payload = AsyncMock(return_value={})
+                mock_get_ingestor.return_value = mock_ingestor
+
+                await ingest_telemetry("asset789", telemetry)
+
+        mock_sync.update_state.assert_called_once_with("asset789", telemetry)
 
 
-class TestIngestTelemetryLogic:
-    """Tests for ingest_telemetry endpoint logic."""
+class TestGetTwinState:
+    """Tests for get_twin_state endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_state_returns_dict(self):
+        """Test get_twin_state returns state dict."""
+        from src.api.v1.twin import get_twin_state
+
+        with patch("src.api.v1.twin.twin_sync") as mock_sync:
+            mock_sync.get_state.return_value = {"temp": 25.0, "status": "active"}
+
+            result = await get_twin_state("asset123")
+
+        assert result == {"temp": 25.0, "status": "active"}
+        mock_sync.get_state.assert_called_once_with("asset123")
+
+    @pytest.mark.asyncio
+    async def test_get_state_empty(self):
+        """Test get_twin_state returns empty dict for unknown asset."""
+        from src.api.v1.twin import get_twin_state
+
+        with patch("src.api.v1.twin.twin_sync") as mock_sync:
+            mock_sync.get_state.return_value = {}
+
+            result = await get_twin_state("unknown_asset")
+
+        assert result == {}
+
+
+class TestGetHistory:
+    """Tests for get_history endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_get_history_basic(self):
+        """Test basic history retrieval."""
+        from src.api.v1.twin import get_history
+
+        mock_frame = MagicMock()
+        mock_frame.model_dump.return_value = {
+            "timestamp": 1234567890.0,
+            "device_id": "device1",
+            "sensors": {},
+        }
+
+        with patch("src.api.v1.twin.get_store") as mock_get_store:
+            mock_store = MagicMock()
+            mock_store.history = AsyncMock(return_value=[mock_frame])
+            mock_get_store.return_value = mock_store
+
+            with patch("src.api.v1.twin.get_ingestor") as mock_get_ingestor:
+                mock_ingestor = MagicMock()
+                mock_ingestor.ensure_started = AsyncMock()
+                mock_get_ingestor.return_value = mock_ingestor
+
+                result = await get_history(
+                    device_id="device1",
+                    limit=50,
+                    api_key="test_key"
+                )
+
+        assert result["device_id"] == "device1"
+        assert result["count"] == 1
+        assert len(result["frames"]) == 1
+
+    @pytest.mark.asyncio
+    async def test_get_history_empty(self):
+        """Test history retrieval returns empty list."""
+        from src.api.v1.twin import get_history
+
+        with patch("src.api.v1.twin.get_store") as mock_get_store:
+            mock_store = MagicMock()
+            mock_store.history = AsyncMock(return_value=[])
+            mock_get_store.return_value = mock_store
+
+            with patch("src.api.v1.twin.get_ingestor") as mock_get_ingestor:
+                mock_ingestor = MagicMock()
+                mock_ingestor.ensure_started = AsyncMock()
+                mock_get_ingestor.return_value = mock_ingestor
+
+                result = await get_history(
+                    device_id="unknown",
+                    limit=50,
+                    api_key="test_key"
+                )
+
+        assert result["count"] == 0
+        assert result["frames"] == []
+
+    @pytest.mark.asyncio
+    async def test_get_history_with_limit(self):
+        """Test history retrieval respects limit."""
+        from src.api.v1.twin import get_history
+
+        mock_frames = [MagicMock() for _ in range(10)]
+        for i, frame in enumerate(mock_frames):
+            frame.model_dump.return_value = {"timestamp": float(i)}
+
+        with patch("src.api.v1.twin.get_store") as mock_get_store:
+            mock_store = MagicMock()
+            mock_store.history = AsyncMock(return_value=mock_frames)
+            mock_get_store.return_value = mock_store
+
+            with patch("src.api.v1.twin.get_ingestor") as mock_get_ingestor:
+                mock_ingestor = MagicMock()
+                mock_ingestor.ensure_started = AsyncMock()
+                mock_get_ingestor.return_value = mock_ingestor
+
+                result = await get_history(
+                    device_id="device1",
+                    limit=100,
+                    api_key="test_key"
+                )
+
+        assert result["count"] == 10
+
+
+class TestTelemetryFrame:
+    """Tests for TelemetryFrame model."""
 
     def test_telemetry_frame_creation(self):
-        """Test TelemetryFrame creation from telemetry data."""
-        asset_id = "device001"
-        telemetry = {
-            "timestamp": 1234567890.5,
-            "sensors": {"temp": 25.0, "humidity": 60},
-            "metrics": {"cpu": 50.5, "memory": 70.2},
-            "status": {"online": True, "error": None}
-        }
+        """Test TelemetryFrame can be created."""
+        from src.core.twin.connectivity import TelemetryFrame
 
-        # Simulate TelemetryFrame creation
-        frame = {
-            "timestamp": float(telemetry.get("timestamp", time.time())),
-            "device_id": asset_id,
-            "sensors": telemetry.get("sensors", {}),
-            "metrics": telemetry.get("metrics", {}),
-            "status": telemetry.get("status", {})
-        }
+        frame = TelemetryFrame(
+            timestamp=time.time(),
+            device_id="device123",
+            sensors={"temp": 25.0},
+            metrics={"power": 100},
+            status={"online": True},
+        )
 
-        assert frame["timestamp"] == 1234567890.5
-        assert frame["device_id"] == "device001"
-        assert frame["sensors"]["temp"] == 25.0
-        assert frame["metrics"]["cpu"] == 50.5
+        assert frame.device_id == "device123"
+        assert frame.sensors == {"temp": 25.0}
 
-    def test_telemetry_default_timestamp(self):
-        """Test telemetry uses current time when timestamp not provided."""
-        telemetry = {
-            "sensors": {"temp": 25.0},
-        }
+    def test_telemetry_frame_defaults(self):
+        """Test TelemetryFrame default values."""
+        from src.core.twin.connectivity import TelemetryFrame
 
-        current_time = time.time()
-        timestamp = float(telemetry.get("timestamp", current_time))
+        frame = TelemetryFrame(
+            timestamp=time.time(),
+            device_id="device1",
+        )
 
-        assert abs(timestamp - current_time) < 1.0  # Within 1 second
-
-    def test_telemetry_default_empty_fields(self):
-        """Test telemetry defaults for missing fields."""
-        telemetry = {}
-
-        sensors = telemetry.get("sensors", {})
-        metrics = telemetry.get("metrics", {})
-        status = telemetry.get("status", {})
-
-        assert sensors == {}
-        assert metrics == {}
-        assert status == {}
-
-    def test_ingest_response_structure(self):
-        """Test ingest response structure."""
-        ingest_result = {"processed": True, "queue_size": 5}
-
-        response = {
-            "status": "accepted",
-            "ingest": ingest_result
-        }
-
-        assert response["status"] == "accepted"
-        assert response["ingest"]["processed"] is True
+        assert frame.device_id == "device1"
+        assert frame.sensors == {}
+        assert frame.metrics == {}
+        assert frame.status == {}
 
 
-class TestGetTwinStateLogic:
-    """Tests for get_twin_state endpoint logic."""
+class TestRouterConfiguration:
+    """Tests for router configuration."""
 
-    def test_state_retrieval(self):
-        """Test state retrieval returns dict."""
-        # Simulate state storage
-        states = {
-            "asset123": {"temperature": 25.5, "status": "running"},
-            "asset456": {"temperature": 30.0, "status": "stopped"}
-        }
+    def test_router_exists(self):
+        """Test router is exported."""
+        from src.api.v1.twin import router
 
-        asset_id = "asset123"
-        state = states.get(asset_id, {})
+        assert router is not None
 
-        assert state["temperature"] == 25.5
-        assert state["status"] == "running"
+    def test_router_has_websocket_route(self):
+        """Test router has websocket route."""
+        from src.api.v1.twin import router
 
-    def test_state_empty_for_unknown_asset(self):
-        """Test state returns empty dict for unknown asset."""
-        states = {
-            "asset123": {"temperature": 25.5}
-        }
+        # Check routes
+        routes = [r.path for r in router.routes]
+        assert "/ws/{asset_id}" in routes
 
-        asset_id = "unknown_asset"
-        state = states.get(asset_id, {})
+    def test_router_has_telemetry_route(self):
+        """Test router has telemetry route."""
+        from src.api.v1.twin import router
 
-        assert state == {}
+        routes = [r.path for r in router.routes]
+        assert "/{asset_id}/telemetry" in routes
 
+    def test_router_has_state_route(self):
+        """Test router has state route."""
+        from src.api.v1.twin import router
 
-class TestGetHistoryLogic:
-    """Tests for get_history endpoint logic."""
+        routes = [r.path for r in router.routes]
+        assert "/{asset_id}/state" in routes
 
-    def test_history_response_structure(self):
-        """Test history response structure."""
-        device_id = "device001"
-        frames = [
-            {"timestamp": 1234567890, "device_id": "device001", "sensors": {}},
-            {"timestamp": 1234567900, "device_id": "device001", "sensors": {}},
-        ]
+    def test_router_has_history_route(self):
+        """Test router has history route."""
+        from src.api.v1.twin import router
 
-        response = {
-            "device_id": device_id,
-            "count": len(frames),
-            "frames": frames
-        }
-
-        assert response["device_id"] == "device001"
-        assert response["count"] == 2
-        assert len(response["frames"]) == 2
-
-    def test_history_limit_parameter(self):
-        """Test history respects limit parameter."""
-        all_frames = [{"id": i} for i in range(100)]
-        limit = 50
-
-        limited_frames = all_frames[:limit]
-
-        assert len(limited_frames) == 50
-
-    def test_history_limit_bounds(self):
-        """Test history limit bounds validation."""
-        # Valid limits: ge=1, le=500
-        min_limit = 1
-        max_limit = 500
-
-        # Valid values
-        assert 1 <= 50 <= 500
-        assert 1 <= 1 <= 500
-        assert 1 <= 500 <= 500
-
-        # Invalid values would fail validation
-        invalid_low = 0
-        invalid_high = 501
-
-        assert invalid_low < min_limit
-        assert invalid_high > max_limit
-
-
-class TestTelemetryFrameModel:
-    """Tests for TelemetryFrame model structure."""
-
-    def test_telemetry_frame_fields(self):
-        """Test TelemetryFrame has expected fields."""
-        frame = {
-            "timestamp": 1234567890.5,
-            "device_id": "device001",
-            "sensors": {"temp": 25.0},
-            "metrics": {"cpu": 50.0},
-            "status": {"online": True}
-        }
-
-        assert "timestamp" in frame
-        assert "device_id" in frame
-        assert "sensors" in frame
-        assert "metrics" in frame
-        assert "status" in frame
-
-    def test_telemetry_frame_model_dump(self):
-        """Test TelemetryFrame model_dump behavior."""
-        frames = [
-            {"timestamp": 1234567890, "device_id": "d1", "sensors": {}},
-            {"timestamp": 1234567900, "device_id": "d2", "sensors": {}},
-        ]
-
-        # Simulate model_dump() call
-        dumped_frames = [f for f in frames]
-
-        assert len(dumped_frames) == 2
-        assert dumped_frames[0]["device_id"] == "d1"
+        routes = [r.path for r in router.routes]
+        assert "/history" in routes
 
 
 class TestTwinSyncIntegration:
     """Tests for twin_sync integration."""
 
-    def test_update_state_called_with_telemetry(self):
-        """Test update_state is called with correct parameters."""
-        asset_id = "asset123"
-        telemetry = {"temperature": 25.5}
+    @pytest.mark.asyncio
+    async def test_twin_sync_get_state(self):
+        """Test twin_sync.get_state is called correctly."""
+        from src.api.v1.twin import get_twin_state
 
-        # Simulate the call pattern
-        update_params = {
-            "asset_id": asset_id,
-            "data": telemetry
-        }
+        with patch("src.api.v1.twin.twin_sync") as mock_sync:
+            mock_sync.get_state.return_value = {"key": "value"}
 
-        assert update_params["asset_id"] == "asset123"
-        assert update_params["data"]["temperature"] == 25.5
+            await get_twin_state("test_asset")
 
-    def test_get_state_returns_dict(self):
-        """Test get_state returns dictionary."""
-        # Mock state retrieval
-        state = {"temperature": 25.5, "status": "running", "last_updated": time.time()}
+            mock_sync.get_state.assert_called_once_with("test_asset")
 
-        assert isinstance(state, dict)
-        assert "temperature" in state
+    @pytest.mark.asyncio
+    async def test_twin_sync_update_state(self):
+        """Test twin_sync.update_state is called correctly."""
+        from src.api.v1.twin import ingest_telemetry
+
+        telemetry = {"sensors": {"temp": 20.0}}
+
+        with patch("src.api.v1.twin.twin_sync") as mock_sync:
+            mock_sync.update_state = AsyncMock()
+            with patch("src.api.v1.twin.get_ingestor") as mock_get_ingestor:
+                mock_ingestor = MagicMock()
+                mock_ingestor.ensure_started = AsyncMock()
+                mock_ingestor.handle_payload = AsyncMock(return_value={})
+                mock_get_ingestor.return_value = mock_ingestor
+
+                await ingest_telemetry("test_asset", telemetry)
+
+            mock_sync.update_state.assert_called_once_with("test_asset", telemetry)
 
 
 class TestIngestorIntegration:
-    """Tests for telemetry ingestor integration."""
+    """Tests for ingestor integration."""
 
-    def test_ingestor_ensure_started_called(self):
-        """Test ensure_started is called before handling payload."""
-        ingestor_started = False
+    @pytest.mark.asyncio
+    async def test_ingestor_ensure_started(self):
+        """Test ingestor.ensure_started is called."""
+        from src.api.v1.twin import ingest_telemetry
 
-        def ensure_started():
-            nonlocal ingestor_started
-            ingestor_started = True
+        telemetry = {"sensors": {}}
 
-        ensure_started()
-        assert ingestor_started is True
+        with patch("src.api.v1.twin.twin_sync") as mock_sync:
+            mock_sync.update_state = AsyncMock()
+            with patch("src.api.v1.twin.get_ingestor") as mock_get_ingestor:
+                mock_ingestor = MagicMock()
+                mock_ingestor.ensure_started = AsyncMock()
+                mock_ingestor.handle_payload = AsyncMock(return_value={})
+                mock_get_ingestor.return_value = mock_ingestor
 
-    def test_handle_payload_with_topic(self):
-        """Test handle_payload receives correct topic."""
-        asset_id = "device001"
-        expected_topic = f"http/{asset_id}"
+                await ingest_telemetry("asset1", telemetry)
 
-        assert expected_topic == "http/device001"
+                mock_ingestor.ensure_started.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_ingestor_handle_payload_topic(self):
+        """Test ingestor.handle_payload uses correct topic."""
+        from src.api.v1.twin import ingest_telemetry
 
-class TestStoreIntegration:
-    """Tests for telemetry store integration."""
+        telemetry = {"timestamp": 1234567890.0, "sensors": {}}
 
-    def test_store_history_params(self):
-        """Test store history called with correct params."""
-        device_id = "device001"
-        limit = 50
+        with patch("src.api.v1.twin.twin_sync") as mock_sync:
+            mock_sync.update_state = AsyncMock()
+            with patch("src.api.v1.twin.get_ingestor") as mock_get_ingestor:
+                mock_ingestor = MagicMock()
+                mock_ingestor.ensure_started = AsyncMock()
+                mock_ingestor.handle_payload = AsyncMock(return_value={})
+                mock_get_ingestor.return_value = mock_ingestor
 
-        params = {
-            "device_id": device_id,
-            "limit": limit
-        }
+                await ingest_telemetry("my_asset", telemetry)
 
-        assert params["device_id"] == "device001"
-        assert params["limit"] == 50
-
-
-class TestWebSocketDisconnectHandling:
-    """Tests for WebSocket disconnect handling."""
-
-    def test_disconnect_logging(self):
-        """Test disconnect is logged properly."""
-        import logging
-
-        asset_id = "asset123"
-        message = f"Client disconnected from twin {asset_id}"
-
-        assert "disconnected" in message
-        assert asset_id in message
-
-
-class TestErrorHandlingLogic:
-    """Tests for error handling in twin endpoints."""
-
-    def test_websocket_send_exception_handling(self):
-        """Test websocket send exception is caught silently."""
-        # When websocket.send_json fails, exception should be caught
-        # and pass (connection likely closed)
-        exception_caught = False
-
-        try:
-            raise Exception("Connection closed")
-        except Exception:
-            exception_caught = True
-            pass
-
-        assert exception_caught is True
-
-
-class TestTwinModuleImports:
-    """Tests for twin module imports."""
-
-    def test_twin_sync_import(self):
-        """Test twin_sync can be imported."""
-        from src.core.twin.sync import twin_sync
-
-        assert twin_sync is not None
-
-    def test_ingestor_import(self):
-        """Test ingestor functions can be imported."""
-        from src.core.twin.ingest import get_ingestor, get_store
-
-        assert callable(get_ingestor)
-        assert callable(get_store)
-
-    def test_telemetry_frame_import(self):
-        """Test TelemetryFrame can be imported."""
-        from src.core.twin.connectivity import TelemetryFrame
-
-        assert TelemetryFrame is not None
-
-
-class TestQueryParameterValidation:
-    """Tests for query parameter validation."""
-
-    def test_device_id_required(self):
-        """Test device_id is a required parameter."""
-        # device_id: str = Query(..., description="...")
-        # The ... means required
-        is_required = True
-        assert is_required is True
-
-    def test_limit_default_value(self):
-        """Test limit has default value of 50."""
-        default_limit = 50
-        assert default_limit == 50
-
-    def test_limit_min_constraint(self):
-        """Test limit minimum constraint (ge=1)."""
-        min_allowed = 1
-
-        valid_values = [1, 10, 50, 100, 500]
-        invalid_values = [0, -1, -100]
-
-        for v in valid_values:
-            assert v >= min_allowed
-
-        for v in invalid_values:
-            assert v < min_allowed
-
-    def test_limit_max_constraint(self):
-        """Test limit maximum constraint (le=500)."""
-        max_allowed = 500
-
-        valid_values = [1, 100, 500]
-        invalid_values = [501, 1000]
-
-        for v in valid_values:
-            assert v <= max_allowed
-
-        for v in invalid_values:
-            assert v > max_allowed
-
-
-class TestApiKeyDependency:
-    """Tests for API key dependency in endpoints."""
-
-    def test_history_endpoint_requires_api_key(self):
-        """Test /history endpoint has api_key dependency."""
-        # The endpoint signature includes: api_key: str = Depends(get_api_key)
-        requires_api_key = True
-        assert requires_api_key is True
-
-    def test_other_endpoints_no_api_key(self):
-        """Test other endpoints may not require API key."""
-        # /ws/{asset_id} - WebSocket, no api_key
-        # /{asset_id}/telemetry - POST, no api_key
-        # /{asset_id}/state - GET, no api_key
-        websocket_requires_key = False
-        telemetry_requires_key = False
-        state_requires_key = False
-
-        assert websocket_requires_key is False
-        assert telemetry_requires_key is False
-        assert state_requires_key is False
+                # Verify topic format
+                call_kwargs = mock_ingestor.handle_payload.call_args
+                assert call_kwargs.kwargs["topic"] == "http/my_asset"

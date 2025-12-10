@@ -1,469 +1,425 @@
 """Tests for src/api/v1/vision.py to improve coverage.
 
 Covers:
-- get_vision_manager singleton logic
+- get_vision_manager function
 - reset_vision_manager function
-- analyze_vision endpoint logic and error handling
-- health_check endpoint logic
-- list_providers endpoint logic
-- get_metrics endpoint logic
-- VisionAnalyzeResponse structure
+- analyze_vision endpoint
+- health_check endpoint
+- list_providers endpoint
+- get_metrics endpoint
 """
 
 from __future__ import annotations
 
-import os
-from typing import Any, Dict, Optional
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 
-class TestGetVisionManagerLogic:
-    """Tests for get_vision_manager singleton logic."""
+class TestGetVisionManager:
+    """Tests for get_vision_manager function."""
 
-    def test_provider_type_from_parameter(self):
-        """Test provider type from explicit parameter."""
-        provider_type = "openai"
-        effective_provider = provider_type or os.getenv("VISION_PROVIDER", "auto")
+    def test_creates_manager_first_time(self):
+        """Test get_vision_manager creates manager on first call."""
+        from src.api.v1 import vision
 
-        assert effective_provider == "openai"
+        # Reset singleton
+        vision._vision_manager = None
+        vision._current_provider_type = None
 
-    def test_provider_type_from_env_var(self):
-        """Test provider type from environment variable."""
-        provider_type = None
+        with patch("src.api.v1.vision.create_vision_provider") as mock_create:
+            with patch("src.core.ocr.manager.OcrManager"):
+                mock_provider = MagicMock()
+                mock_create.return_value = mock_provider
 
-        with patch.dict("os.environ", {"VISION_PROVIDER": "anthropic"}):
-            effective_provider = provider_type or os.getenv("VISION_PROVIDER", "auto")
+                manager = vision.get_vision_manager()
 
-        assert effective_provider == "anthropic"
+                assert manager is not None
+                mock_create.assert_called_once()
 
-    def test_provider_type_default_auto(self):
-        """Test provider type defaults to auto."""
-        provider_type = None
+    def test_returns_existing_manager(self):
+        """Test get_vision_manager returns existing manager."""
+        from src.api.v1 import vision
 
-        with patch.dict("os.environ", {}, clear=True):
-            effective_provider = provider_type or os.getenv("VISION_PROVIDER", "auto")
+        # Reset and create manager
+        vision._vision_manager = None
+        vision._current_provider_type = None
 
-        assert effective_provider == "auto"
+        with patch("src.api.v1.vision.create_vision_provider") as mock_create:
+            with patch("src.core.ocr.manager.OcrManager"):
+                mock_provider = MagicMock()
+                mock_create.return_value = mock_provider
 
-    def test_manager_recreated_on_provider_change(self):
-        """Test manager is recreated when provider type changes."""
-        current_provider_type = "openai"
-        new_provider_type = "anthropic"
+                manager1 = vision.get_vision_manager()
+                manager2 = vision.get_vision_manager()
 
-        should_recreate = current_provider_type != new_provider_type
-        assert should_recreate is True
+                # Same provider type should return same manager
+                assert manager1 is manager2
+                # Should only create provider once
+                assert mock_create.call_count == 1
 
-    def test_manager_reused_same_provider(self):
-        """Test manager is reused when provider type unchanged."""
-        current_provider_type = "openai"
-        new_provider_type = "openai"
+    def test_recreates_manager_on_provider_change(self):
+        """Test get_vision_manager recreates manager when provider changes."""
+        from src.api.v1 import vision
 
-        should_recreate = current_provider_type != new_provider_type
-        assert should_recreate is False
+        # Reset singleton
+        vision._vision_manager = None
+        vision._current_provider_type = None
+
+        with patch("src.api.v1.vision.create_vision_provider") as mock_create:
+            with patch("src.core.ocr.manager.OcrManager"):
+                mock_provider = MagicMock()
+                mock_create.return_value = mock_provider
+
+                manager1 = vision.get_vision_manager(provider_type="stub")
+                manager2 = vision.get_vision_manager(provider_type="deepseek")
+
+                # Different provider types should create new managers
+                assert mock_create.call_count == 2
+
+    def test_uses_env_var_for_provider(self):
+        """Test get_vision_manager uses VISION_PROVIDER env var."""
+        from src.api.v1 import vision
+
+        vision._vision_manager = None
+        vision._current_provider_type = None
+
+        with patch("src.api.v1.vision.create_vision_provider") as mock_create:
+            with patch("src.core.ocr.manager.OcrManager"):
+                with patch.dict("os.environ", {"VISION_PROVIDER": "openai"}):
+                    mock_provider = MagicMock()
+                    mock_create.return_value = mock_provider
+
+                    vision.get_vision_manager()
+
+                    mock_create.assert_called_once()
+                    call_kwargs = mock_create.call_args[1]
+                    assert call_kwargs["provider_type"] == "openai"
 
 
 class TestResetVisionManager:
     """Tests for reset_vision_manager function."""
 
-    def test_reset_clears_manager(self):
-        """Test reset clears the manager singleton."""
-        _vision_manager = MagicMock()
-        _current_provider_type = "openai"
-
-        # Simulate reset
-        _vision_manager = None
-        _current_provider_type = None
-
-        assert _vision_manager is None
-        assert _current_provider_type is None
-
-
-class TestAnalyzeVisionLogic:
-    """Tests for analyze_vision endpoint logic."""
-
-    def test_success_response_returned_as_is(self):
-        """Test successful response is returned directly."""
-        response = {
-            "success": True,
-            "description": {"summary": "Test", "details": [], "confidence": 0.9},
-            "ocr": None,
-            "provider": "openai",
-            "processing_time_ms": 1000.0
-        }
-
-        if response["success"]:
-            result = response
-
-        assert result == response
-
-    def test_failure_response_structure(self):
-        """Test failure response structure."""
-        response = {
-            "success": False,
-            "error": "Vision analysis failed",
-            "code": "INTERNAL_ERROR"
-        }
-
-        failure_response = {
-            "success": False,
-            "description": None,
-            "ocr": None,
-            "provider": response.get("provider", "unknown"),
-            "processing_time_ms": response.get("processing_time_ms", 0.0),
-            "error": response.get("error") or "Vision analysis failed",
-            "code": response.get("code") or "INTERNAL_ERROR"
-        }
-
-        assert failure_response["success"] is False
-        assert failure_response["description"] is None
-        assert "error" in failure_response
-
-
-class TestAnalyzeVisionErrorHandling:
-    """Tests for analyze_vision error handling."""
-
-    def test_vision_input_error_response(self):
-        """Test VisionInputError response structure."""
-        error_message = "Invalid image format"
-
-        response = {
-            "success": False,
-            "description": None,
-            "ocr": None,
-            "provider": "unknown",
-            "processing_time_ms": 0.0,
-            "error": error_message,
-            "code": "INPUT_ERROR"
-        }
-
-        assert response["code"] == "INPUT_ERROR"
-        assert response["provider"] == "unknown"
-
-    def test_vision_provider_error_response(self):
-        """Test VisionProviderError response structure."""
-        provider = "openai"
-        error_message = "API rate limit exceeded"
-
-        response = {
-            "success": False,
-            "description": None,
-            "ocr": None,
-            "provider": provider,
-            "processing_time_ms": 0.0,
-            "error": error_message,
-            "code": "EXTERNAL_SERVICE_ERROR"
-        }
-
-        assert response["code"] == "EXTERNAL_SERVICE_ERROR"
-        assert response["provider"] == "openai"
-
-    def test_generic_exception_response(self):
-        """Test generic exception response structure."""
-        error = Exception("Unexpected error")
-
-        response = {
-            "success": False,
-            "description": None,
-            "ocr": None,
-            "provider": "unknown",
-            "processing_time_ms": 0.0,
-            "error": f"Internal server error: {str(error)}",
-            "code": "INTERNAL_ERROR"
-        }
-
-        assert "Internal server error" in response["error"]
-        assert response["code"] == "INTERNAL_ERROR"
-
-
-class TestHealthCheckLogic:
-    """Tests for health_check endpoint logic."""
-
-    def test_healthy_status_response(self):
-        """Test healthy status response structure."""
-        provider_name = "openai"
-        ocr_manager_present = True
-
-        response = {
-            "status": "healthy",
-            "provider": provider_name,
-            "ocr_enabled": ocr_manager_present
-        }
-
-        assert response["status"] == "healthy"
-        assert response["provider"] == "openai"
-        assert response["ocr_enabled"] is True
-
-    def test_degraded_status_on_exception(self):
-        """Test degraded status when exception occurs."""
-        error = Exception("Provider initialization failed")
-
-        response = {
-            "status": "degraded",
-            "error": str(error)
-        }
-
-        assert response["status"] == "degraded"
-        assert "error" in response
-
-
-class TestListProvidersLogic:
-    """Tests for list_providers endpoint logic."""
-
-    def test_providers_response_structure(self):
-        """Test providers response structure."""
-        current_provider = "openai"
-        available_providers = {
-            "stub": {"available": True, "requires_key": False},
-            "deepseek": {"available": True, "requires_key": True, "key_set": True},
-            "openai": {"available": True, "requires_key": True, "key_set": True},
-            "anthropic": {"available": True, "requires_key": True, "key_set": False}
-        }
-
-        response = {
-            "current_provider": current_provider,
-            "providers": available_providers
-        }
-
-        assert response["current_provider"] == "openai"
-        assert "stub" in response["providers"]
-        assert response["providers"]["stub"]["requires_key"] is False
-
-    def test_unknown_provider_on_exception(self):
-        """Test current provider is unknown on exception."""
-        try:
-            raise Exception("Manager init failed")
-            current = "openai"
-        except Exception:
-            current = "unknown"
-
-        assert current == "unknown"
-
-
-class TestGetMetricsLogic:
-    """Tests for get_metrics endpoint logic."""
-
-    def test_resilient_provider_metrics_structure(self):
-        """Test metrics response for resilient provider."""
-        provider_name = "openai"
-        metrics = {
-            "total_requests": 100,
-            "successful_requests": 95,
-            "failed_requests": 5,
-            "success_rate": 0.95,
-            "average_latency_ms": 1234.5,
-            "last_error": "Timeout",
-            "last_error_time": "2024-01-01T00:00:00",
-            "circuit_state": "closed",
-            "circuit_opens": 1
-        }
-
-        response = {
-            "provider": provider_name,
-            "resilient": True,
-            "metrics": metrics
-        }
-
-        assert response["resilient"] is True
-        assert response["metrics"]["success_rate"] == 0.95
-
-    def test_non_resilient_provider_metrics(self):
-        """Test metrics response for non-resilient provider."""
-        provider_name = "stub"
-
-        response = {
-            "provider": provider_name,
-            "resilient": False,
-            "metrics": {
-                "message": "Metrics available with ResilientVisionProvider",
-                "hint": "Use create_resilient_provider() to enable metrics"
-            }
-        }
-
-        assert response["resilient"] is False
-        assert "message" in response["metrics"]
-
-    def test_metrics_error_response(self):
-        """Test metrics error response structure."""
-        error = Exception("Failed to get metrics")
-
-        response = {
-            "error": str(error),
-            "metrics": None
-        }
-
-        assert "error" in response
-        assert response["metrics"] is None
-
-
-class TestVisionAnalyzeResponseModel:
-    """Tests for VisionAnalyzeResponse model structure."""
-
-    def test_success_response_fields(self):
-        """Test success response has all required fields."""
-        response = {
-            "success": True,
-            "description": {
-                "summary": "Mechanical part with cylindrical features",
-                "details": ["Main diameter: 20mm", "Thread: M10×1.5"],
-                "confidence": 0.92
-            },
-            "ocr": None,
-            "provider": "openai",
-            "processing_time_ms": 1234.5
-        }
-
-        assert "success" in response
-        assert "description" in response
-        assert "ocr" in response
-        assert "provider" in response
-        assert "processing_time_ms" in response
-
-    def test_description_fields(self):
-        """Test description object has expected fields."""
-        description = {
-            "summary": "Test summary",
-            "details": ["Detail 1", "Detail 2"],
-            "confidence": 0.85
-        }
-
-        assert "summary" in description
-        assert "details" in description
-        assert "confidence" in description
-        assert 0 <= description["confidence"] <= 1
-
-
-class TestProviderSelection:
-    """Tests for provider selection logic."""
-
-    def test_deepseek_provider(self):
-        """Test deepseek provider selection."""
-        provider = "deepseek"
-        valid_providers = ["deepseek", "openai", "anthropic", "stub", "auto"]
-
-        assert provider in valid_providers
-
-    def test_openai_provider(self):
-        """Test openai provider selection."""
-        provider = "openai"
-        valid_providers = ["deepseek", "openai", "anthropic", "stub", "auto"]
-
-        assert provider in valid_providers
-
-    def test_anthropic_provider(self):
-        """Test anthropic provider selection."""
-        provider = "anthropic"
-        valid_providers = ["deepseek", "openai", "anthropic", "stub", "auto"]
-
-        assert provider in valid_providers
-
-    def test_stub_provider(self):
-        """Test stub provider selection."""
-        provider = "stub"
-        valid_providers = ["deepseek", "openai", "anthropic", "stub", "auto"]
-
-        assert provider in valid_providers
-
-
-class TestOcrManagerIntegration:
-    """Tests for OCR manager integration."""
-
-    def test_ocr_manager_created(self):
-        """Test OCR manager is created with vision manager."""
-        confidence_fallback = 0.85
-        providers = {}
-
-        ocr_config = {
-            "providers": providers,
-            "confidence_fallback": confidence_fallback
-        }
-
-        assert ocr_config["confidence_fallback"] == 0.85
-
-
-class TestVisionModuleImports:
-    """Tests for vision module imports."""
-
-    def test_vision_manager_import(self):
-        """Test VisionManager can be imported."""
-        from src.core.vision import VisionManager
-
-        assert VisionManager is not None
-
-    def test_vision_analyze_request_import(self):
-        """Test VisionAnalyzeRequest can be imported."""
+    def test_resets_singleton(self):
+        """Test reset_vision_manager clears singleton."""
+        from src.api.v1 import vision
+
+        # Set some values
+        vision._vision_manager = MagicMock()
+        vision._current_provider_type = "test"
+
+        vision.reset_vision_manager()
+
+        assert vision._vision_manager is None
+        assert vision._current_provider_type is None
+
+
+class TestAnalyzeVisionEndpoint:
+    """Tests for analyze_vision endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_successful_analysis(self):
+        """Test analyze_vision returns successful response."""
+        from src.api.v1.vision import analyze_vision
+        from src.core.vision import VisionAnalyzeRequest, VisionAnalyzeResponse
+
+        request = VisionAnalyzeRequest(
+            image_base64="dGVzdGltYWdl",  # base64 "testimage"
+            include_description=True,
+            include_ocr=False,
+        )
+
+        mock_response = VisionAnalyzeResponse(
+            success=True,
+            description={"summary": "Test image", "details": [], "confidence": 0.9},
+            ocr=None,
+            provider="stub",
+            processing_time_ms=100.0,
+        )
+
+        with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+            mock_manager = MagicMock()
+            mock_manager.analyze = AsyncMock(return_value=mock_response)
+            mock_get_manager.return_value = mock_manager
+
+            result = await analyze_vision(request, provider=None)
+
+            assert result.success is True
+            assert result.provider == "stub"
+
+    @pytest.mark.asyncio
+    async def test_failed_analysis_returns_error_response(self):
+        """Test analyze_vision returns error response on failure."""
+        from src.api.v1.vision import analyze_vision
+        from src.core.vision import VisionAnalyzeRequest, VisionAnalyzeResponse
+        from src.core.errors import ErrorCode
+
+        request = VisionAnalyzeRequest(
+            image_base64="dGVzdGltYWdl",
+            include_description=True,
+        )
+
+        mock_response = VisionAnalyzeResponse(
+            success=False,
+            description=None,
+            ocr=None,
+            provider="stub",
+            processing_time_ms=50.0,
+            error="Analysis failed",
+            code=ErrorCode.INTERNAL_ERROR,
+        )
+
+        with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+            mock_manager = MagicMock()
+            mock_manager.analyze = AsyncMock(return_value=mock_response)
+            mock_get_manager.return_value = mock_manager
+
+            result = await analyze_vision(request, provider=None)
+
+            assert result.success is False
+            assert "failed" in (result.error or "").lower() or result.error is not None
+
+    @pytest.mark.asyncio
+    async def test_vision_input_error(self):
+        """Test analyze_vision handles VisionInputError."""
+        from src.api.v1.vision import analyze_vision
+        from src.core.vision import VisionAnalyzeRequest, VisionInputError
+        from src.core.errors import ErrorCode
+
+        request = VisionAnalyzeRequest(
+            image_base64="invalid",
+            include_description=True,
+        )
+
+        with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+            mock_manager = MagicMock()
+            mock_manager.analyze = AsyncMock(side_effect=VisionInputError("Invalid image"))
+            mock_get_manager.return_value = mock_manager
+
+            result = await analyze_vision(request, provider=None)
+
+            assert result.success is False
+            assert result.code == ErrorCode.INPUT_ERROR
+            assert "Invalid image" in (result.error or "")
+
+    @pytest.mark.asyncio
+    async def test_vision_provider_error(self):
+        """Test analyze_vision handles VisionProviderError."""
+        from src.api.v1.vision import analyze_vision
         from src.core.vision import VisionAnalyzeRequest
+        from src.core.errors import ErrorCode
 
-        assert VisionAnalyzeRequest is not None
+        # Create a custom exception class that matches VisionProviderError interface
+        class MockVisionProviderError(Exception):
+            def __init__(self, message, provider):
+                self.message = message
+                self.provider = provider
+                super().__init__(message)
 
-    def test_vision_analyze_response_import(self):
-        """Test VisionAnalyzeResponse can be imported."""
-        from src.core.vision import VisionAnalyzeResponse
+        request = VisionAnalyzeRequest(
+            image_base64="dGVzdGltYWdl",
+            include_description=True,
+        )
 
-        assert VisionAnalyzeResponse is not None
+        # Patch VisionProviderError to be our mock class
+        with patch("src.api.v1.vision.VisionProviderError", MockVisionProviderError):
+            with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+                mock_manager = MagicMock()
+                error = MockVisionProviderError(
+                    message="Provider timeout",
+                    provider="openai"
+                )
+                mock_manager.analyze = AsyncMock(side_effect=error)
+                mock_get_manager.return_value = mock_manager
 
-    def test_vision_errors_import(self):
-        """Test vision error classes can be imported."""
-        from src.core.vision import VisionInputError, VisionProviderError
+                result = await analyze_vision(request, provider=None)
 
-        assert VisionInputError is not None
-        assert VisionProviderError is not None
+                assert result.success is False
+                assert result.code == ErrorCode.EXTERNAL_SERVICE_ERROR
+                assert result.provider == "openai"
 
-    def test_create_vision_provider_import(self):
-        """Test create_vision_provider can be imported."""
-        from src.core.vision import create_vision_provider
+    @pytest.mark.asyncio
+    async def test_generic_exception(self):
+        """Test analyze_vision handles generic exceptions."""
+        from src.api.v1.vision import analyze_vision
+        from src.core.vision import VisionAnalyzeRequest
+        from src.core.errors import ErrorCode
 
-        assert callable(create_vision_provider)
+        request = VisionAnalyzeRequest(
+            image_base64="dGVzdGltYWdl",
+            include_description=True,
+        )
 
-    def test_get_available_providers_import(self):
-        """Test get_available_providers can be imported."""
-        from src.core.vision import get_available_providers
+        with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+            mock_manager = MagicMock()
+            mock_manager.analyze = AsyncMock(side_effect=Exception("Unexpected error"))
+            mock_get_manager.return_value = mock_manager
 
-        assert callable(get_available_providers)
+            result = await analyze_vision(request, provider=None)
 
-    def test_resilient_vision_provider_import(self):
-        """Test ResilientVisionProvider can be imported."""
+            assert result.success is False
+            assert result.code == ErrorCode.INTERNAL_ERROR
+            assert "Unexpected error" in (result.error or "")
+
+
+class TestHealthCheckEndpoint:
+    """Tests for health_check endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_healthy_status(self):
+        """Test health_check returns healthy status."""
+        from src.api.v1.vision import health_check
+
+        with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+            mock_manager = MagicMock()
+            mock_manager.vision_provider.provider_name = "stub"
+            mock_manager.ocr_manager = MagicMock()
+            mock_get_manager.return_value = mock_manager
+
+            result = await health_check()
+
+            assert result["status"] == "healthy"
+            assert result["provider"] == "stub"
+            assert result["ocr_enabled"] is True
+
+    @pytest.mark.asyncio
+    async def test_degraded_status_on_error(self):
+        """Test health_check returns degraded status on error."""
+        from src.api.v1.vision import health_check
+
+        with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+            mock_get_manager.side_effect = Exception("Manager initialization failed")
+
+            result = await health_check()
+
+            assert result["status"] == "degraded"
+            assert "error" in result
+
+
+class TestListProvidersEndpoint:
+    """Tests for list_providers endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_list_providers_success(self):
+        """Test list_providers returns provider information."""
+        from src.api.v1.vision import list_providers
+
+        with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+            with patch("src.api.v1.vision.get_available_providers") as mock_get_providers:
+                mock_manager = MagicMock()
+                mock_manager.vision_provider.provider_name = "openai"
+                mock_get_manager.return_value = mock_manager
+                mock_get_providers.return_value = {
+                    "stub": {"available": True},
+                    "openai": {"available": True},
+                }
+
+                result = await list_providers()
+
+                assert result["current_provider"] == "openai"
+                assert "providers" in result
+                assert "stub" in result["providers"]
+
+    @pytest.mark.asyncio
+    async def test_list_providers_manager_error(self):
+        """Test list_providers handles manager error gracefully."""
+        from src.api.v1.vision import list_providers
+
+        with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+            with patch("src.api.v1.vision.get_available_providers") as mock_get_providers:
+                mock_get_manager.side_effect = Exception("Manager error")
+                mock_get_providers.return_value = {}
+
+                result = await list_providers()
+
+                assert result["current_provider"] == "unknown"
+
+
+class TestGetMetricsEndpoint:
+    """Tests for get_metrics endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_metrics_with_resilient_provider(self):
+        """Test get_metrics returns detailed metrics for resilient provider."""
+        from src.api.v1.vision import get_metrics
         from src.core.vision import ResilientVisionProvider
 
-        assert ResilientVisionProvider is not None
+        with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+            mock_provider = MagicMock(spec=ResilientVisionProvider)
+            mock_provider.provider_name = "openai"
+            mock_provider.circuit_state.value = "closed"
+            mock_provider.metrics.total_requests = 100
+            mock_provider.metrics.successful_requests = 95
+            mock_provider.metrics.failed_requests = 5
+            mock_provider.metrics.success_rate = 0.95
+            mock_provider.metrics.average_latency_ms = 500.0
+            mock_provider.metrics.last_error = None
+            mock_provider.metrics.last_error_time = None
+            mock_provider.metrics.circuit_opens = 1
+
+            mock_manager = MagicMock()
+            mock_manager.vision_provider = mock_provider
+            mock_get_manager.return_value = mock_manager
+
+            result = await get_metrics()
+
+            assert result["provider"] == "openai"
+            assert result["resilient"] is True
+            assert result["metrics"]["total_requests"] == 100
+            assert result["metrics"]["success_rate"] == 0.95
+
+    @pytest.mark.asyncio
+    async def test_metrics_without_resilient_provider(self):
+        """Test get_metrics returns limited metrics for non-resilient provider."""
+        from src.api.v1.vision import get_metrics
+
+        with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+            mock_provider = MagicMock()
+            mock_provider.provider_name = "stub"
+            # Not a ResilientVisionProvider instance
+
+            mock_manager = MagicMock()
+            mock_manager.vision_provider = mock_provider
+            mock_get_manager.return_value = mock_manager
+
+            result = await get_metrics()
+
+            assert result["provider"] == "stub"
+            assert result["resilient"] is False
+            assert "message" in result["metrics"]
+
+    @pytest.mark.asyncio
+    async def test_metrics_error(self):
+        """Test get_metrics handles errors gracefully."""
+        from src.api.v1.vision import get_metrics
+
+        with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+            mock_get_manager.side_effect = Exception("Metrics error")
+
+            result = await get_metrics()
+
+            assert "error" in result
+            assert result["metrics"] is None
 
 
-class TestErrorCodeMapping:
-    """Tests for error code mapping."""
+class TestVisionManagerWithOcr:
+    """Tests for vision manager OCR integration."""
 
-    def test_input_error_code(self):
-        """Test INPUT_ERROR code is used for input errors."""
-        from src.core.errors import ErrorCode
+    def test_manager_created_with_ocr_manager(self):
+        """Test vision manager is created with OCR manager."""
+        from src.api.v1 import vision
 
-        assert hasattr(ErrorCode, "INPUT_ERROR")
+        vision._vision_manager = None
+        vision._current_provider_type = None
 
-    def test_provider_down_error_code(self):
-        """Test PROVIDER_DOWN code exists for provider errors."""
-        from src.core.errors import ErrorCode
+        with patch("src.api.v1.vision.create_vision_provider") as mock_create:
+            with patch("src.core.ocr.manager.OcrManager") as mock_ocr_class:
+                mock_provider = MagicMock()
+                mock_create.return_value = mock_provider
+                mock_ocr = MagicMock()
+                mock_ocr_class.return_value = mock_ocr
 
-        assert hasattr(ErrorCode, "PROVIDER_DOWN")
+                manager = vision.get_vision_manager()
 
-    def test_internal_error_code(self):
-        """Test INTERNAL_ERROR code is used for general exceptions."""
-        from src.core.errors import ErrorCode
-
-        assert hasattr(ErrorCode, "INTERNAL_ERROR")
-
-
-class TestQueryParameterLogic:
-    """Tests for query parameter handling."""
-
-    def test_provider_query_param_optional(self):
-        """Test provider query parameter is optional."""
-        provider = None  # Default when not provided
-
-        # Should use None as default, then get_vision_manager handles it
-        assert provider is None
-
-    def test_provider_query_param_override(self):
-        """Test provider query parameter can override default."""
-        provider = "stub"
-
-        assert provider is not None
-        assert provider == "stub"
+                mock_ocr_class.assert_called_once()
+                assert manager.ocr_manager is mock_ocr
