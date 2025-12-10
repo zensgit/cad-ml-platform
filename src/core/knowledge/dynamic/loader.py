@@ -56,7 +56,7 @@ class DynamicKnowledgeBase:
     def _get_static_material_kb(self) -> Any:
         """Lazy load static material knowledge."""
         if self._static_material_kb is None:
-            from src.core.knowledge.material_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
+            from src.core.knowledge.material_knowledge import (
                 MaterialKnowledgeBase,
             )
             self._static_material_kb = MaterialKnowledgeBase()
@@ -65,7 +65,7 @@ class DynamicKnowledgeBase:
     def _get_static_precision_kb(self) -> Any:
         """Lazy load static precision knowledge."""
         if self._static_precision_kb is None:
-            from src.core.knowledge.precision_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
+            from src.core.knowledge.precision_knowledge import (
                 PrecisionKnowledgeBase,
             )
             self._static_precision_kb = PrecisionKnowledgeBase()
@@ -74,7 +74,7 @@ class DynamicKnowledgeBase:
     def _get_static_standards_kb(self) -> Any:
         """Lazy load static standards knowledge."""
         if self._static_standards_kb is None:
-            from src.core.knowledge.standards_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
+            from src.core.knowledge.standards_knowledge import (
                 StandardsKnowledgeBase,
             )
             self._static_standards_kb = StandardsKnowledgeBase()
@@ -83,7 +83,7 @@ class DynamicKnowledgeBase:
     def _get_static_functional_kb(self) -> Any:
         """Lazy load static functional knowledge."""
         if self._static_functional_kb is None:
-            from src.core.knowledge.functional_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
+            from src.core.knowledge.functional_knowledge import (
                 FunctionalKnowledgeBase,
             )
             self._static_functional_kb = FunctionalKnowledgeBase()
@@ -92,7 +92,7 @@ class DynamicKnowledgeBase:
     def _get_static_assembly_kb(self) -> Any:
         """Lazy load static assembly knowledge."""
         if self._static_assembly_kb is None:
-            from src.core.knowledge.assembly_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
+            from src.core.knowledge.assembly_knowledge import (
                 AssemblyKnowledgeBase,
             )
             self._static_assembly_kb = AssemblyKnowledgeBase()
@@ -101,7 +101,7 @@ class DynamicKnowledgeBase:
     def _get_static_manufacturing_kb(self) -> Any:
         """Lazy load static manufacturing knowledge."""
         if self._static_manufacturing_kb is None:
-            from src.core.knowledge.manufacturing_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
+            from src.core.knowledge.manufacturing_knowledge import (
                 ManufacturingKnowledgeBase,
             )
             self._static_manufacturing_kb = ManufacturingKnowledgeBase()
