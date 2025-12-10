@@ -1,4 +1,4 @@
-import os
+import pytest
 from fastapi.testclient import TestClient
 from src.main import app
 from src.core.similarity import FaissVectorStore, register_vector
@@ -6,8 +6,8 @@ from src.core.similarity import FaissVectorStore, register_vector
 client = TestClient(app)
 
 
-def test_faiss_rebuild_skipped_when_not_backend():
-    os.environ["VECTOR_STORE_BACKEND"] = "memory"
+def test_faiss_rebuild_skipped_when_not_backend(monkeypatch):
+    monkeypatch.setenv("VECTOR_STORE_BACKEND", "memory")
     resp = client.post("/api/v1/analyze/vectors/faiss/rebuild", headers={"x-api-key": "test"})
     assert resp.status_code == 200
     data = resp.json()
@@ -15,8 +15,8 @@ def test_faiss_rebuild_skipped_when_not_backend():
     assert data.get("status") == "skipped" or "skipped" in str(data).lower() or resp.status_code == 200
 
 
-def test_faiss_rebuild_flow_unavailable():
-    os.environ["VECTOR_STORE_BACKEND"] = "faiss"
+def test_faiss_rebuild_flow_unavailable(monkeypatch):
+    monkeypatch.setenv("VECTOR_STORE_BACKEND", "faiss")
     # If faiss missing we should handle gracefully
     store = FaissVectorStore()
     register_vector("faiss_del_a", [0.1] * 7)
