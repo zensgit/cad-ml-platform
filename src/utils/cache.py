@@ -85,6 +85,17 @@ async def set_cache(key: str, value: dict, ttl_seconds: int = 3600) -> None:
     _local_cache[key] = (value, time.time() + ttl_seconds)
 
 
+async def delete_cache(key: str) -> None:
+    # Try Redis first
+    if _redis_client and redis is not None:
+        try:
+            await _redis_client.delete(key)
+        except Exception as e:
+            logger.debug(f"Redis delete failed {key}: {e}")
+    # Always remove from local cache
+    _local_cache.pop(key, None)
+
+
 # Compatibility wrappers for existing analysis module naming
 async def cache_result(key: str, value: dict, ttl: int = 3600) -> None:
     await set_cache(key, value, ttl)

@@ -40,6 +40,10 @@ try:
     from src.api.v1 import maintenance  # type: ignore
 except Exception:
     maintenance = None  # type: ignore
+try:
+    from src.api.v1 import dedup  # type: ignore
+except Exception:
+    dedup = None  # type: ignore
 
 api_router = APIRouter()
 
@@ -83,6 +87,8 @@ if vision is not None:
     v1_router.include_router(vision.router, prefix="/vision", tags=["视觉"])  # type: ignore
 if ocr is not None:
     v1_router.include_router(ocr.router, prefix="/ocr", tags=["OCR"])  # type: ignore
+if dedup is not None:
+    v1_router.include_router(dedup.router, prefix="/dedup", tags=["查重"])  # type: ignore
 
 api_router.include_router(v1_router)
 
