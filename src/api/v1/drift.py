@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -16,20 +16,20 @@ from src.api.v1 import analyze as analyze_module  # type: ignore
 
 class DriftStatusResponse(BaseModel):
     material_current: Dict[str, int]
-    material_baseline: Dict[str, int] | None = None
-    material_drift_score: float | None = None
+    material_baseline: Optional[Dict[str, int]] = None
+    material_drift_score: Optional[float] = None
     prediction_current: Dict[str, int]
-    prediction_baseline: Dict[str, int] | None = None
-    prediction_drift_score: float | None = None
+    prediction_baseline: Optional[Dict[str, int]] = None
+    prediction_drift_score: Optional[float] = None
     baseline_min_count: int
     materials_total: int
     predictions_total: int
     status: str
-    baseline_material_age: int | None = None
-    baseline_prediction_age: int | None = None
-    baseline_material_created_at: datetime | None = None
-    baseline_prediction_created_at: datetime | None = None
-    stale: bool | None = None
+    baseline_material_age: Optional[int] = None
+    baseline_prediction_age: Optional[int] = None
+    baseline_material_created_at: Optional[datetime] = None
+    baseline_prediction_created_at: Optional[datetime] = None
+    stale: Optional[bool] = None
 
 
 class DriftResetResponse(BaseModel):
@@ -40,11 +40,11 @@ class DriftResetResponse(BaseModel):
 
 class DriftBaselineStatusResponse(BaseModel):
     status: str
-    material_age: int | None = None
-    prediction_age: int | None = None
-    material_created_at: datetime | None = None
-    prediction_created_at: datetime | None = None
-    stale: bool | None = None
+    material_age: Optional[int] = None
+    prediction_age: Optional[int] = None
+    material_created_at: Optional[datetime] = None
+    prediction_created_at: Optional[datetime] = None
+    stale: Optional[bool] = None
     max_age_seconds: int
 
 

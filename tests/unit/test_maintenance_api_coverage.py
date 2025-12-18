@@ -286,7 +286,7 @@ class TestVectorBackendReloadLogic:
         import os
 
         with patch.dict("os.environ", {}, clear=True):
-            backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
+            backend = os.environ.get("VECTOR_STORE_BACKEND", "memory")
             assert backend == "memory"
 
     def test_backend_env_var_override(self):
@@ -294,7 +294,7 @@ class TestVectorBackendReloadLogic:
         import os
 
         with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "faiss"}):
-            backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
+            backend = os.environ.get("VECTOR_STORE_BACKEND", "memory")
             assert backend == "faiss"
 
 

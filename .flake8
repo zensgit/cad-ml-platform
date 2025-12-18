@@ -23,6 +23,8 @@ per-file-ignores = \
     src/tasks/orphan_scan.py:E501, \
     src/core/ocr/providers/deepseek_hf.py:E501,E402, \
     src/core/vision/providers/deepseek_stub.py:E501, \
+    src/core/dedupcad_precision/vendor/*.py:E501, \
+    src/core/dedupcad_precision/vendor/*/*.py:E501, \
     scripts/snapshot_baseline.py:E501, \
     src/core/ocr/manager.py:E501, \
     src/core/ocr/parsing/dimension_parser.py:E501, \

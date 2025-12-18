@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-from typing import Any, Dict
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -18,9 +18,9 @@ router = APIRouter()
 class ProcessRulesAuditResponse(BaseModel):
     version: str = Field(description="规则版本")
     source: str = Field(description="规则文件来源")
-    hash: str | None = Field(default=None, description="文件内容哈希前16位")
-    materials: list[str]
-    complexities: Dict[str, list[str]]
+    hash: Optional[str] = Field(default=None, description="文件内容哈希前16位")
+    materials: List[str]
+    complexities: Dict[str, List[str]]
     raw: Dict[str, Any]
 
 

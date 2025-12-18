@@ -10,7 +10,7 @@ async def get_api_key(x_api_key: str = Header(default="test", alias="X-API-Key")
     return x_api_key
 
 
-async def get_admin_token(x_admin_token: str = Header(alias="X-Admin-Token")) -> str:
+async def get_admin_token(x_admin_token: str = Header(default="", alias="X-Admin-Token")) -> str:
     """
     验证管理员令牌，用于后端管理操作（模型重载等）
 
