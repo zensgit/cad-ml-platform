@@ -310,11 +310,11 @@ async def extended_health():
     vector_total = len(_VECTOR_STORE)
     versions: dict[str, int] = {}
     for meta in _VECTOR_META.values():
-        ver = meta.get("feature_version", os.getenv("FEATURE_VERSION", "v1"))
+        ver = meta.get("feature_version", os.environ.get("FEATURE_VERSION", "v1"))
         versions[ver] = versions.get(ver, 0) + 1
-    faiss_enabled = os.getenv("VECTOR_STORE_BACKEND", "memory") == "faiss"
+    faiss_enabled = os.environ.get("VECTOR_STORE_BACKEND", "memory") == "faiss"
     last_export_age = None
-    if _FAISS_LAST_EXPORT_TS:
+    if _FAISS_LAST_EXPORT_TS is not None:
         last_export_age = round(time.time() - _FAISS_LAST_EXPORT_TS, 2)
     return {
         "status": "healthy",
@@ -328,7 +328,7 @@ async def extended_health():
             "last_export_size": _FAISS_LAST_EXPORT_SIZE if faiss_enabled else 0,
             "last_export_age_seconds": last_export_age,
         },
-        "feature_version_env": os.getenv("FEATURE_VERSION", "v1"),
+        "feature_version_env": os.environ.get("FEATURE_VERSION", "v1"),
     }
 
 

@@ -13,6 +13,34 @@ from fastapi.testclient import TestClient
 
 # ========== Test Fixtures ==========
 
+@pytest.fixture(autouse=True)
+def _force_stub_provider(monkeypatch):
+    """Force stub provider for deterministic tests.
+
+    Other test modules may set external provider API keys (e.g. OPENAI_API_KEY),
+    which would make the vision router auto-select a real provider and attempt
+    network calls.
+    """
+    monkeypatch.setenv("VISION_PROVIDER", "deepseek_stub")
+    for key in (
+        "OPENAI_API_KEY",
+        "ANTHROPIC_API_KEY",
+        "DEEPSEEK_API_KEY",
+        "DASHSCOPE_API_KEY",
+        "QWEN_API_KEY",
+        "ZHIPUAI_API_KEY",
+        "GLM_API_KEY",
+        "ARK_API_KEY",
+        "VOLCENGINE_API_KEY",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+    from src.api.v1.vision import reset_vision_manager
+
+    reset_vision_manager()
+    yield
+    reset_vision_manager()
+
 
 @pytest.fixture
 def sample_image_bytes() -> bytes:
