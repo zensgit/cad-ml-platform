@@ -25,14 +25,17 @@ from src.core.dedupcad_precision.vendor.json_diff import compare_json
 from src.core.dedupcad_tenant_config import TenantDedup2DConfigStore
 from src.core.dedupcad_vision import DedupCadVisionClient
 from src.core.dedupcad_2d_jobs import (
+    Dedup2DJob,
     Dedup2DJobStatus,
     JobForbiddenError,
     JobNotFoundError,
     JobQueueFullError,
     get_dedup2d_job_store,
+    set_dedup2d_job_metrics_callback,
 )
 from src.utils.analysis_metrics import (
     dedup2d_cancel_total,
+    dedup2d_job_duration_seconds,
     dedup2d_job_queue_depth,
     dedup2d_jobs_total,
     dedup2d_queue_full_total,
@@ -43,6 +46,39 @@ from src.utils.analysis_metrics import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# =============================================================================
+# Phase 1: Metrics Callback for Job Completion/Failure
+# =============================================================================
+
+
+class _Dedup2DJobMetricsCallback:
+    """Callback to update Prometheus metrics when jobs complete/fail."""
+
+    def on_job_completed(self, job: Dedup2DJob, duration_seconds: float) -> None:
+        dedup2d_jobs_total.labels(status="completed").inc()
+        dedup2d_job_duration_seconds.observe(duration_seconds)
+
+    def on_job_failed(self, job: Dedup2DJob, duration_seconds: float) -> None:
+        dedup2d_jobs_total.labels(status="failed").inc()
+        dedup2d_job_duration_seconds.observe(duration_seconds)
+
+    def on_job_canceled(self, job: Dedup2DJob) -> None:
+        dedup2d_jobs_total.labels(status="canceled").inc()
+
+    def on_queue_depth_changed(self, depth: int) -> None:
+        dedup2d_job_queue_depth.set(depth)
+
+
+def register_dedup2d_job_metrics() -> None:
+    """Register metrics callback for job completion/failure events.
+
+    Call this once during application startup to enable accurate metrics
+    for job duration histograms and completion counters.
+    """
+    set_dedup2d_job_metrics_callback(_Dedup2DJobMetricsCallback())
+    logger.info("dedup2d_job_metrics_registered")
 
 
 _SEARCH_PRESETS: Dict[str, Dict[str, Any]] = {
@@ -921,13 +957,14 @@ async def dedup_2d_search(
             except JobQueueFullError as e:
                 dedup2d_queue_full_total.inc()
                 raise HTTPException(
-                    status_code=503,
+                    status_code=429,
                     detail={
                         "error": "JOB_QUEUE_FULL",
                         "message": str(e),
                         "max_jobs": e.max_jobs,
                         "current_jobs": e.current_jobs,
                     },
+                    headers={"Retry-After": "5"},  # Suggest retry in 5 seconds
                 ) from e
 
             return Dedup2DSearchAsyncResponse(

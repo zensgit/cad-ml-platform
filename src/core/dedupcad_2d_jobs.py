@@ -34,9 +34,29 @@ import uuid
 import warnings
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Protocol
 
 logger = logging.getLogger(__name__)
+
+
+class JobMetricsCallback(Protocol):
+    """Protocol for job metrics callback (dependency injection for observability)."""
+
+    def on_job_completed(self, job: "Dedup2DJob", duration_seconds: float) -> None:
+        """Called when a job completes successfully."""
+        ...
+
+    def on_job_failed(self, job: "Dedup2DJob", duration_seconds: float) -> None:
+        """Called when a job fails."""
+        ...
+
+    def on_job_canceled(self, job: "Dedup2DJob") -> None:
+        """Called when a job is canceled."""
+        ...
+
+    def on_queue_depth_changed(self, depth: int) -> None:
+        """Called when the queue depth changes."""
+        ...
 
 
 class JobQueueFullError(Exception):
@@ -107,10 +127,12 @@ class Dedup2DJobStore:
         max_concurrency: int = 2,
         max_jobs: int = 200,
         ttl_seconds: int = 3600,
+        metrics_callback: Optional[JobMetricsCallback] = None,
     ) -> None:
         self._max_concurrency = max(1, int(max_concurrency))
         self._max_jobs = max(1, int(max_jobs))
         self._ttl_seconds = max(60, int(ttl_seconds))
+        self._metrics_callback = metrics_callback
 
         self._lock = threading.Lock()
         self._jobs: Dict[str, Dedup2DJob] = {}
@@ -356,6 +378,16 @@ class Dedup2DJobStore:
                 job.status = Dedup2DJobStatus.COMPLETED
                 job.result = result
                 job.finished_at = self._now()
+                duration = (job.finished_at - (job.started_at or job.created_at))
+                queue_depth = self.get_queue_depth()
+
+            # Call metrics callback outside the lock
+            if self._metrics_callback is not None:
+                try:
+                    self._metrics_callback.on_job_completed(job, duration)
+                    self._metrics_callback.on_queue_depth_changed(queue_depth)
+                except Exception:
+                    logger.warning("dedup2d_metrics_callback_error", exc_info=True)
 
         except asyncio.CancelledError:
             with self._lock:
@@ -363,6 +395,15 @@ class Dedup2DJobStore:
                 if job is not None:
                     job.status = Dedup2DJobStatus.CANCELED
                     job.finished_at = self._now()
+                    queue_depth = self.get_queue_depth()
+
+            # Call metrics callback outside the lock
+            if self._metrics_callback is not None and job is not None:
+                try:
+                    self._metrics_callback.on_job_canceled(job)
+                    self._metrics_callback.on_queue_depth_changed(queue_depth)
+                except Exception:
+                    logger.warning("dedup2d_metrics_callback_error", exc_info=True)
             raise
         except Exception as e:
             logger.exception("dedup_2d_async_job_failed", extra={"job_id": job_id, "error": str(e)})
@@ -375,6 +416,16 @@ class Dedup2DJobStore:
                 job.status = Dedup2DJobStatus.FAILED
                 job.error = str(e)
                 job.finished_at = self._now()
+                duration = (job.finished_at - (job.started_at or job.created_at))
+                queue_depth = self.get_queue_depth()
+
+            # Call metrics callback outside the lock
+            if self._metrics_callback is not None:
+                try:
+                    self._metrics_callback.on_job_failed(job, duration)
+                    self._metrics_callback.on_queue_depth_changed(queue_depth)
+                except Exception:
+                    logger.warning("dedup2d_metrics_callback_error", exc_info=True)
         finally:
             with self._lock:
                 self._futures.pop(job_id, None)
@@ -441,13 +492,45 @@ def reset_dedup2d_job_store() -> None:
     store.reset()
 
 
+def set_dedup2d_job_metrics_callback(callback: JobMetricsCallback) -> None:
+    """Set the metrics callback on the global job store.
+
+    Call this at application startup to enable metrics reporting for job
+    completion/failure events.
+
+    Example:
+        from src.core.dedupcad_2d_jobs import set_dedup2d_job_metrics_callback
+
+        class Dedup2DJobMetrics:
+            def on_job_completed(self, job, duration_seconds):
+                dedup2d_jobs_total.labels(status="completed").inc()
+                dedup2d_job_duration_seconds.observe(duration_seconds)
+
+            def on_job_failed(self, job, duration_seconds):
+                dedup2d_jobs_total.labels(status="failed").inc()
+                dedup2d_job_duration_seconds.observe(duration_seconds)
+
+            def on_job_canceled(self, job):
+                dedup2d_jobs_total.labels(status="canceled").inc()
+
+            def on_queue_depth_changed(self, depth):
+                dedup2d_job_queue_depth.set(depth)
+
+        set_dedup2d_job_metrics_callback(Dedup2DJobMetrics())
+    """
+    store = get_dedup2d_job_store()
+    store._metrics_callback = callback
+
+
 __all__ = [
     "Dedup2DJob",
     "Dedup2DJobStatus",
     "Dedup2DJobStore",
     "JobForbiddenError",
+    "JobMetricsCallback",
     "JobNotFoundError",
     "JobQueueFullError",
     "get_dedup2d_job_store",
     "reset_dedup2d_job_store",
+    "set_dedup2d_job_metrics_callback",
 ]

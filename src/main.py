@@ -44,6 +44,10 @@ async def lifespan(app: FastAPI):
     # 启动时
     logger.info("Starting CAD ML Platform...")
 
+    # Phase 1: Register dedup2d job metrics callback
+    from src.api.v1.dedup import register_dedup2d_job_metrics
+    register_dedup2d_job_metrics()
+
     # 初始化Redis连接
     if settings.REDIS_ENABLED:
         await init_redis()
