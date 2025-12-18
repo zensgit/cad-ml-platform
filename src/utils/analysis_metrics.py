@@ -530,6 +530,57 @@ faiss_recovery_state_backend = Gauge(
     ["backend"],
 )
 
+# ============================================================================
+# Phase 1: 2D Dedup Job Metrics (no tenant_id label to avoid high cardinality)
+# ============================================================================
+
+dedup2d_jobs_total = Counter(
+    "dedup2d_jobs_total",
+    "Total 2D dedup async jobs created",
+    ["status"],  # pending|in_progress|completed|failed|canceled
+)
+
+dedup2d_job_duration_seconds = Histogram(
+    "dedup2d_job_duration_seconds",
+    "Duration of 2D dedup async jobs (seconds)",
+    ["status"],  # completed|failed|canceled
+    buckets=[0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0],
+)
+
+dedup2d_job_queue_depth = Gauge(
+    "dedup2d_job_queue_depth",
+    "Current number of pending/running 2D dedup jobs",
+)
+
+dedup2d_cancel_total = Counter(
+    "dedup2d_cancel_total",
+    "Total 2D dedup job cancellation requests",
+    ["result"],  # success|not_found|forbidden
+)
+
+dedup2d_queue_full_total = Counter(
+    "dedup2d_queue_full_total",
+    "Total 2D dedup job submissions rejected due to queue full",
+)
+
+dedup2d_tenant_access_denied_total = Counter(
+    "dedup2d_tenant_access_denied_total",
+    "Total cross-tenant job access attempts blocked",
+    ["operation"],  # get|cancel
+)
+
+dedup2d_search_mode_total = Counter(
+    "dedup2d_search_mode_total",
+    "2D dedup search requests by mode",
+    ["mode"],  # fast|balanced|precise
+)
+
+dedup2d_async_backend = Gauge(
+    "dedup2d_async_backend",
+    "Active async backend (1=inprocess, 2=redis)",
+    ["backend"],  # inprocess|redis
+)
+
 __all__ = [
     "analysis_requests_total",
     "analysis_errors_total",
@@ -613,4 +664,13 @@ __all__ = [
     "model_opcode_audit_total",
     "model_opcode_whitelist_violations_total",
     "faiss_recovery_state_backend",
+    # Phase 1: 2D Dedup Job Metrics
+    "dedup2d_jobs_total",
+    "dedup2d_job_duration_seconds",
+    "dedup2d_job_queue_depth",
+    "dedup2d_cancel_total",
+    "dedup2d_queue_full_total",
+    "dedup2d_tenant_access_denied_total",
+    "dedup2d_search_mode_total",
+    "dedup2d_async_backend",
 ]

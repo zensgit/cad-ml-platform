@@ -24,7 +24,21 @@ from src.core.dedupcad_precision import GeomJsonStore, PrecisionVerifier
 from src.core.dedupcad_precision.vendor.json_diff import compare_json
 from src.core.dedupcad_tenant_config import TenantDedup2DConfigStore
 from src.core.dedupcad_vision import DedupCadVisionClient
-from src.core.dedupcad_2d_jobs import Dedup2DJobStatus, get_dedup2d_job_store
+from src.core.dedupcad_2d_jobs import (
+    Dedup2DJobStatus,
+    JobForbiddenError,
+    JobNotFoundError,
+    JobQueueFullError,
+    get_dedup2d_job_store,
+)
+from src.utils.analysis_metrics import (
+    dedup2d_cancel_total,
+    dedup2d_job_queue_depth,
+    dedup2d_jobs_total,
+    dedup2d_queue_full_total,
+    dedup2d_search_mode_total,
+    dedup2d_tenant_access_denied_total,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -538,10 +552,12 @@ class Dedup2DSearchAsyncResponse(BaseModel):
     job_id: str
     status: Dedup2DJobStatus
     poll_url: str
+    forced_async_reason: Optional[str] = None  # Phase 1: explain why async was forced
 
 
 class Dedup2DSearchJobResponse(BaseModel):
     job_id: str
+    tenant_id: str  # Phase 1: tenant isolation
     status: Dedup2DJobStatus
     created_at: float
     started_at: Optional[float] = None
@@ -552,6 +568,7 @@ class Dedup2DSearchJobResponse(BaseModel):
 
 class Dedup2DJobCancelResponse(BaseModel):
     job_id: str
+    tenant_id: str  # Phase 1: tenant isolation
     canceled: bool
 
 
@@ -856,6 +873,7 @@ async def dedup_2d_search(
 
         if async_request:
             store = get_dedup2d_job_store()
+            tenant_id = tenant_store.tenant_id(api_key)
 
             async def _runner() -> Dict[str, Any]:
                 return await _run_dedup_2d_pipeline(
@@ -884,20 +902,39 @@ async def dedup_2d_search(
                     similar_threshold=similar_threshold,
                 )
 
-            job = await store.submit(
-                _runner,
-                meta={
-                    "mode": mode,
-                    "max_results": max_results,
-                    "enable_ml": enable_ml,
-                    "enable_geometric": enable_geometric,
-                    "enable_precision": enable_precision,
-                },
-            )
+            try:
+                job = await store.submit(
+                    _runner,
+                    tenant_id=tenant_id,
+                    meta={
+                        "mode": mode,
+                        "max_results": max_results,
+                        "enable_ml": enable_ml,
+                        "enable_geometric": enable_geometric,
+                        "enable_precision": enable_precision,
+                    },
+                )
+                # Phase 1: Record metrics
+                dedup2d_jobs_total.labels(status="pending").inc()
+                dedup2d_search_mode_total.labels(mode=mode).inc()
+                dedup2d_job_queue_depth.set(store.get_queue_depth())
+            except JobQueueFullError as e:
+                dedup2d_queue_full_total.inc()
+                raise HTTPException(
+                    status_code=503,
+                    detail={
+                        "error": "JOB_QUEUE_FULL",
+                        "message": str(e),
+                        "max_jobs": e.max_jobs,
+                        "current_jobs": e.current_jobs,
+                    },
+                ) from e
+
             return Dedup2DSearchAsyncResponse(
                 job_id=job.job_id,
                 status=job.status,
                 poll_url=f"/api/v1/dedup/2d/jobs/{job.job_id}",
+                forced_async_reason=None,  # User explicitly requested async
             )
 
         try:
@@ -944,12 +981,28 @@ async def dedup_2d_search(
 async def dedup_2d_job_status(
     job_id: str,
     api_key: str = Depends(get_api_key),
+    tenant_store: TenantDedup2DConfigStore = Depends(get_tenant_config_store),
 ):
-    """Get async 2D dedup job status and (when ready) the final result."""
+    """Get async 2D dedup job status and (when ready) the final result.
+
+    Phase 1: Tenant isolation - only the tenant who created the job can view it.
+    """
     store = get_dedup2d_job_store()
-    job = await store.get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found") from None
+    tenant_id = tenant_store.tenant_id(api_key)
+
+    try:
+        job = await store.get_for_tenant(job_id, tenant_id)
+    except JobNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "JOB_NOT_FOUND", "job_id": job_id},
+        ) from None
+    except JobForbiddenError:
+        dedup2d_tenant_access_denied_total.labels(operation="get").inc()
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "JOB_FORBIDDEN", "job_id": job_id},
+        ) from None
 
     result_model: Optional[Dedup2DSearchResponse] = None
     if job.result is not None:
@@ -957,6 +1010,7 @@ async def dedup_2d_job_status(
 
     return Dedup2DSearchJobResponse(
         job_id=job.job_id,
+        tenant_id=job.tenant_id,
         status=job.status,
         created_at=job.created_at,
         started_at=job.started_at,
@@ -970,13 +1024,34 @@ async def dedup_2d_job_status(
 async def dedup_2d_job_cancel(
     job_id: str,
     api_key: str = Depends(get_api_key),
+    tenant_store: TenantDedup2DConfigStore = Depends(get_tenant_config_store),
 ):
-    """Cancel an async 2D dedup job (best-effort)."""
+    """Cancel an async 2D dedup job (best-effort).
+
+    Phase 1: Tenant isolation - only the tenant who created the job can cancel it.
+    """
     store = get_dedup2d_job_store()
-    canceled = await store.cancel(job_id)
-    if not canceled:
-        raise HTTPException(status_code=404, detail="Job not found") from None
-    return Dedup2DJobCancelResponse(job_id=job_id, canceled=True)
+    tenant_id = tenant_store.tenant_id(api_key)
+
+    try:
+        await store.cancel_for_tenant(job_id, tenant_id)
+        dedup2d_cancel_total.labels(result="success").inc()
+        dedup2d_job_queue_depth.set(store.get_queue_depth())
+    except JobNotFoundError:
+        dedup2d_cancel_total.labels(result="not_found").inc()
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "JOB_NOT_FOUND", "job_id": job_id},
+        ) from None
+    except JobForbiddenError:
+        dedup2d_cancel_total.labels(result="forbidden").inc()
+        dedup2d_tenant_access_denied_total.labels(operation="cancel").inc()
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "JOB_FORBIDDEN", "job_id": job_id},
+        ) from None
+
+    return Dedup2DJobCancelResponse(job_id=job_id, tenant_id=tenant_id, canceled=True)
 
 
 @router.post("/2d/index/add", response_model=Dedup2DIndexAddResponse)

@@ -15,6 +15,11 @@ Implementation notes:
   running beyond the lifecycle of a single request coroutine (important for
   uvicorn + for tests using FastAPI TestClient).
 - Jobs are stored in-memory with TTL + max size caps.
+
+Phase 1 Enhancements:
+- Tenant isolation: jobs are scoped by tenant_id
+- Queue capacity protection: JOB_QUEUE_FULL error when max_jobs exceeded
+- Multi-worker detection: startup warning for uvicorn --workers > 1
 """
 
 from __future__ import annotations
@@ -26,11 +31,38 @@ import os
 import threading
 import time
 import uuid
+import warnings
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+
+class JobQueueFullError(Exception):
+    """Raised when the job queue is at capacity and cannot accept new jobs."""
+
+    def __init__(self, max_jobs: int, current_jobs: int):
+        self.max_jobs = max_jobs
+        self.current_jobs = current_jobs
+        super().__init__(f"Job queue full: {current_jobs}/{max_jobs} jobs")
+
+
+class JobNotFoundError(Exception):
+    """Raised when a job is not found."""
+
+    def __init__(self, job_id: str):
+        self.job_id = job_id
+        super().__init__(f"Job not found: {job_id}")
+
+
+class JobForbiddenError(Exception):
+    """Raised when a tenant tries to access another tenant's job."""
+
+    def __init__(self, job_id: str, tenant_id: str):
+        self.job_id = job_id
+        self.tenant_id = tenant_id
+        super().__init__(f"Access denied to job {job_id} for tenant {tenant_id}")
 
 
 class Dedup2DJobStatus(str, Enum):
@@ -46,6 +78,7 @@ class Dedup2DJobStatus(str, Enum):
 @dataclass
 class Dedup2DJob:
     job_id: str
+    tenant_id: str  # Phase 1: tenant isolation
     status: Dedup2DJobStatus = Dedup2DJobStatus.PENDING
     created_at: float = field(default_factory=time.time)
     started_at: Optional[float] = None
@@ -138,18 +171,41 @@ class Dedup2DJobStore:
         self,
         runner: JobRunner,
         *,
+        tenant_id: str,
         meta: Optional[Dict[str, Any]] = None,
     ) -> Dedup2DJob:
+        """Submit a new async job.
+
+        Args:
+            runner: Async function to execute
+            tenant_id: Tenant identifier for job isolation
+            meta: Optional metadata dict
+
+        Returns:
+            The created Dedup2DJob
+
+        Raises:
+            JobQueueFullError: When queue is at capacity
+            RuntimeError: When worker loop is not initialized
+        """
         job_id = str(uuid.uuid4())
-        job = Dedup2DJob(job_id=job_id, meta=dict(meta or {}))
+        job = Dedup2DJob(job_id=job_id, tenant_id=tenant_id, meta=dict(meta or {}))
 
         loop = self._loop
         if loop is None:
             raise RuntimeError("Dedup2D job worker loop not initialized")
 
         with self._lock:
-            self._jobs[job_id] = job
             self._cleanup_locked()
+
+            # Phase 1: Check queue capacity before accepting new job
+            pending_or_running = sum(
+                1 for j in self._jobs.values() if not j.is_finished()
+            )
+            if pending_or_running >= self._max_jobs:
+                raise JobQueueFullError(self._max_jobs, pending_or_running)
+
+            self._jobs[job_id] = job
 
             fut = asyncio.run_coroutine_threadsafe(self._execute(job_id, runner), loop)
             self._futures[job_id] = fut
@@ -157,11 +213,36 @@ class Dedup2DJobStore:
         return job
 
     async def get(self, job_id: str) -> Optional[Dedup2DJob]:
+        """Get a job by ID (no tenant check - use get_for_tenant for isolation)."""
         with self._lock:
             self._cleanup_locked()
             return self._jobs.get(job_id)
 
+    async def get_for_tenant(self, job_id: str, tenant_id: str) -> Dedup2DJob:
+        """Get a job by ID with tenant isolation.
+
+        Args:
+            job_id: Job identifier
+            tenant_id: Tenant identifier for access control
+
+        Returns:
+            The Dedup2DJob
+
+        Raises:
+            JobNotFoundError: When job does not exist
+            JobForbiddenError: When tenant does not own the job
+        """
+        with self._lock:
+            self._cleanup_locked()
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise JobNotFoundError(job_id)
+            if job.tenant_id != tenant_id:
+                raise JobForbiddenError(job_id, tenant_id)
+            return job
+
     async def cancel(self, job_id: str) -> bool:
+        """Cancel a job by ID (no tenant check - use cancel_for_tenant for isolation)."""
         with self._lock:
             job = self._jobs.get(job_id)
             if job is None:
@@ -176,6 +257,63 @@ class Dedup2DJobStore:
             if fut is not None and not fut.done():
                 fut.cancel()
             return True
+
+    async def cancel_for_tenant(self, job_id: str, tenant_id: str) -> bool:
+        """Cancel a job by ID with tenant isolation.
+
+        Args:
+            job_id: Job identifier
+            tenant_id: Tenant identifier for access control
+
+        Returns:
+            True if job was canceled or already finished
+
+        Raises:
+            JobNotFoundError: When job does not exist
+            JobForbiddenError: When tenant does not own the job
+        """
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                raise JobNotFoundError(job_id)
+            if job.tenant_id != tenant_id:
+                raise JobForbiddenError(job_id, tenant_id)
+            if job.is_finished():
+                return True
+
+            job.status = Dedup2DJobStatus.CANCELED
+            job.finished_at = self._now()
+
+            fut = self._futures.get(job_id)
+            if fut is not None and not fut.done():
+                fut.cancel()
+            return True
+
+    async def list_for_tenant(
+        self, tenant_id: str, status: Optional[Dedup2DJobStatus] = None, limit: int = 100
+    ) -> List[Dedup2DJob]:
+        """List jobs for a specific tenant.
+
+        Args:
+            tenant_id: Tenant identifier
+            status: Optional status filter
+            limit: Maximum number of jobs to return
+
+        Returns:
+            List of jobs belonging to the tenant
+        """
+        with self._lock:
+            self._cleanup_locked()
+            jobs = [j for j in self._jobs.values() if j.tenant_id == tenant_id]
+            if status is not None:
+                jobs = [j for j in jobs if j.status == status]
+            jobs.sort(key=lambda j: j.created_at, reverse=True)
+            return jobs[:limit]
+
+    def get_queue_depth(self) -> int:
+        """Get the current number of pending/running jobs."""
+        with self._lock:
+            return sum(1 for j in self._jobs.values() if not j.is_finished())
 
     def reset(self) -> None:
         """Best-effort reset for tests: cancel all running jobs and clear state."""
@@ -245,6 +383,32 @@ class Dedup2DJobStore:
 
 _JOB_STORE: Dedup2DJobStore | None = None
 _JOB_STORE_LOCK = threading.Lock()
+_MULTI_WORKER_WARNING_ISSUED = False
+
+
+def _check_multi_worker_warning() -> None:
+    """Issue a warning if running with multiple workers (in-process store limitation)."""
+    global _MULTI_WORKER_WARNING_ISSUED
+    if _MULTI_WORKER_WARNING_ISSUED:
+        return
+    _MULTI_WORKER_WARNING_ISSUED = True
+
+    # Check common multi-worker environment variables
+    workers = os.getenv("WEB_CONCURRENCY", "1")
+    uvicorn_workers = os.getenv("UVICORN_WORKERS", "1")
+
+    try:
+        if int(workers) > 1 or int(uvicorn_workers) > 1:
+            msg = (
+                "⚠️ Multi-worker mode detected (WEB_CONCURRENCY=%s, UVICORN_WORKERS=%s). "
+                "In-process job store cannot share state across workers. "
+                "Jobs submitted to one worker will not be visible to others. "
+                "For production, set DEDUP2D_ASYNC_BACKEND=redis to enable distributed job storage."
+            ) % (workers, uvicorn_workers)
+            logger.warning(msg)
+            warnings.warn(msg, RuntimeWarning, stacklevel=3)
+    except (ValueError, TypeError):
+        pass
 
 
 def get_dedup2d_job_store() -> Dedup2DJobStore:
@@ -254,10 +418,15 @@ def get_dedup2d_job_store() -> Dedup2DJobStore:
       - DEDUP2D_ASYNC_MAX_CONCURRENCY (default 2)
       - DEDUP2D_ASYNC_MAX_JOBS (default 200)
       - DEDUP2D_ASYNC_TTL_SECONDS (default 3600)
+
+    Note:
+      In-process store does not share state across workers. For multi-worker
+      deployments, set DEDUP2D_ASYNC_BACKEND=redis.
     """
     global _JOB_STORE
     with _JOB_STORE_LOCK:
         if _JOB_STORE is None:
+            _check_multi_worker_warning()
             _JOB_STORE = Dedup2DJobStore(
                 max_concurrency=int(os.getenv("DEDUP2D_ASYNC_MAX_CONCURRENCY", "2")),
                 max_jobs=int(os.getenv("DEDUP2D_ASYNC_MAX_JOBS", "200")),
@@ -270,3 +439,15 @@ def reset_dedup2d_job_store() -> None:
     """Reset the job store (testing helper)."""
     store = get_dedup2d_job_store()
     store.reset()
+
+
+__all__ = [
+    "Dedup2DJob",
+    "Dedup2DJobStatus",
+    "Dedup2DJobStore",
+    "JobForbiddenError",
+    "JobNotFoundError",
+    "JobQueueFullError",
+    "get_dedup2d_job_store",
+    "reset_dedup2d_job_store",
+]

@@ -574,3 +574,186 @@ def test_dedup_2d_search_async_cancel():
         assert status.json()["status"] in {"canceled", "completed"}
     finally:
         app.dependency_overrides.clear()
+
+
+# =============================================================================
+# Phase 1: Tenant Isolation Tests
+# =============================================================================
+
+
+class _TenantAwareTenantConfigStore:
+    """Tenant config store that produces distinct tenant IDs per API key."""
+
+    def __init__(self):
+        self.cfg: Dict[str, Dict[str, Any]] = {}
+
+    @staticmethod
+    def tenant_id(api_key: str) -> str:
+        # Produces different tenant IDs for different API keys
+        return f"tenant:{api_key}"
+
+    async def get(self, api_key: str) -> Dict[str, Any] | None:
+        return self.cfg.get(api_key)
+
+    async def set(self, api_key: str, config_obj: Dict[str, Any]) -> None:
+        self.cfg[api_key] = dict(config_obj)
+
+    async def delete(self, api_key: str) -> None:
+        self.cfg.pop(api_key, None)
+
+
+def test_dedup_2d_tenant_isolation_job_access_forbidden():
+    """Job created by tenant A should NOT be accessible by tenant B (403 Forbidden)."""
+    reset_dedup2d_job_store()
+    tenant_store = _TenantAwareTenantConfigStore()
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
+    app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+
+        # Tenant A (api_key=tenant_a) creates a job
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true",
+            files=files,
+            headers={"X-API-Key": "tenant_a"},
+        )
+        assert resp.status_code == 200
+        job_id = resp.json()["job_id"]
+
+        # Tenant B (api_key=tenant_b) tries to access tenant A's job → 403
+        status_resp = client.get(
+            f"/api/v1/dedup/2d/jobs/{job_id}",
+            headers={"X-API-Key": "tenant_b"},
+        )
+        assert status_resp.status_code == 403
+        assert status_resp.json()["detail"]["error"] == "JOB_FORBIDDEN"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_tenant_isolation_job_cancel_forbidden():
+    """Job created by tenant A should NOT be cancellable by tenant B (403 Forbidden)."""
+    reset_dedup2d_job_store()
+    tenant_store = _TenantAwareTenantConfigStore()
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _SlowDedupClient()
+    app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+
+        # Tenant A creates a job
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true",
+            files=files,
+            headers={"X-API-Key": "tenant_a"},
+        )
+        assert resp.status_code == 200
+        job_id = resp.json()["job_id"]
+
+        # Tenant B tries to cancel tenant A's job → 403
+        cancel_resp = client.post(
+            f"/api/v1/dedup/2d/jobs/{job_id}/cancel",
+            headers={"X-API-Key": "tenant_b"},
+        )
+        assert cancel_resp.status_code == 403
+        assert cancel_resp.json()["detail"]["error"] == "JOB_FORBIDDEN"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_tenant_isolation_same_tenant_access_ok():
+    """Job created by tenant A should be accessible by tenant A (200 OK)."""
+    reset_dedup2d_job_store()
+    tenant_store = _TenantAwareTenantConfigStore()
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
+    app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+
+        # Tenant A creates a job
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true",
+            files=files,
+            headers={"X-API-Key": "tenant_a"},
+        )
+        assert resp.status_code == 200
+        job_id = resp.json()["job_id"]
+
+        # Same tenant A accesses the job → 200 OK
+        for _ in range(50):
+            status_resp = client.get(
+                f"/api/v1/dedup/2d/jobs/{job_id}",
+                headers={"X-API-Key": "tenant_a"},
+            )
+            assert status_resp.status_code == 200
+            data = status_resp.json()
+            # Verify tenant_id is in response
+            assert data["tenant_id"] == "tenant:tenant_a"
+            if data["status"] == "completed":
+                break
+            time.sleep(0.01)
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_tenant_isolation_cancel_response_includes_tenant_id():
+    """Cancel response should include tenant_id field."""
+    reset_dedup2d_job_store()
+    tenant_store = _TenantAwareTenantConfigStore()
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _SlowDedupClient()
+    app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+
+        # Create a job
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true",
+            files=files,
+            headers={"X-API-Key": "tenant_x"},
+        )
+        assert resp.status_code == 200
+        job_id = resp.json()["job_id"]
+
+        # Cancel by same tenant
+        cancel_resp = client.post(
+            f"/api/v1/dedup/2d/jobs/{job_id}/cancel",
+            headers={"X-API-Key": "tenant_x"},
+        )
+        assert cancel_resp.status_code == 200
+        data = cancel_resp.json()
+        assert data["job_id"] == job_id
+        assert data["tenant_id"] == "tenant:tenant_x"
+        assert data["canceled"] is True
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_job_not_found_returns_404():
+    """Accessing a non-existent job should return 404."""
+    reset_dedup2d_job_store()
+    tenant_store = _TenantAwareTenantConfigStore()
+    app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
+    try:
+        client = TestClient(app)
+        fake_job_id = "00000000-0000-0000-0000-000000000000"
+
+        # Get non-existent job
+        status_resp = client.get(
+            f"/api/v1/dedup/2d/jobs/{fake_job_id}",
+            headers={"X-API-Key": "any_tenant"},
+        )
+        assert status_resp.status_code == 404
+        assert status_resp.json()["detail"]["error"] == "JOB_NOT_FOUND"
+
+        # Cancel non-existent job
+        cancel_resp = client.post(
+            f"/api/v1/dedup/2d/jobs/{fake_job_id}/cancel",
+            headers={"X-API-Key": "any_tenant"},
+        )
+        assert cancel_resp.status_code == 404
+        assert cancel_resp.json()["detail"]["error"] == "JOB_NOT_FOUND"
+    finally:
+        app.dependency_overrides.clear()
