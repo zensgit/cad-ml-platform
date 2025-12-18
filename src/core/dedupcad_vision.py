@@ -20,9 +20,15 @@ class DedupCadVisionConfig:
 
     @classmethod
     def from_env(cls) -> "DedupCadVisionConfig":
+        timeout_seconds = float(
+            os.getenv(
+                "DEDUPCAD_VISION_TIMEOUT_SECONDS",
+                str(cls.timeout_seconds),
+            )
+        )
         return cls(
             base_url=os.getenv("DEDUPCAD_VISION_URL", cls.base_url).rstrip("/"),
-            timeout_seconds=float(os.getenv("DEDUPCAD_VISION_TIMEOUT_SECONDS", str(cls.timeout_seconds))),
+            timeout_seconds=timeout_seconds,
         )
 
 

@@ -157,8 +157,12 @@ class PrecisionVerifier:
         # only one side contains LEADER entities.
         if profile == "version":
             try:
-                left_has_leader = any(e.get("type") == "LEADER" for e in (left.get("entities") or []))
-                right_has_leader = any(e.get("type") == "LEADER" for e in (right.get("entities") or []))
+                left_has_leader = any(
+                    e.get("type") == "LEADER" for e in (left.get("entities") or [])
+                )
+                right_has_leader = any(
+                    e.get("type") == "LEADER" for e in (right.get("entities") or [])
+                )
                 if left_has_leader != right_has_leader:
                     cfg.enable_entity_leader = False
             except Exception:

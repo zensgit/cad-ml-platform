@@ -134,7 +134,12 @@ class Dedup2DJobStore:
             self._jobs.pop(job.job_id, None)
             self._futures.pop(job.job_id, None)
 
-    async def submit(self, runner: JobRunner, *, meta: Optional[Dict[str, Any]] = None) -> Dedup2DJob:
+    async def submit(
+        self,
+        runner: JobRunner,
+        *,
+        meta: Optional[Dict[str, Any]] = None,
+    ) -> Dedup2DJob:
         job_id = str(uuid.uuid4())
         job = Dedup2DJob(job_id=job_id, meta=dict(meta or {}))
 
@@ -265,4 +270,3 @@ def reset_dedup2d_job_store() -> None:
     """Reset the job store (testing helper)."""
     store = get_dedup2d_job_store()
     store.reset()
-

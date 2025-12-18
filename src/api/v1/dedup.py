@@ -69,7 +69,11 @@ _SEARCH_PRESETS: Dict[str, Dict[str, Any]] = {
 }
 
 
-def _apply_preset_defaults(request: Request, preset: Optional[str], values: Dict[str, Any]) -> Dict[str, Any]:
+def _apply_preset_defaults(
+    request: Request,
+    preset: Optional[str],
+    values: Dict[str, Any],
+) -> Dict[str, Any]:
     if preset is None:
         return values
     key = str(preset).strip().lower()
@@ -159,7 +163,11 @@ def _extract_file_stem_key(file_name: Optional[str]) -> Optional[str]:
     return base if base else None
 
 
-def _apply_tenant_defaults(request: Request, tenant_cfg: Dict[str, Any], values: Dict[str, Any]) -> Dict[str, Any]:
+def _apply_tenant_defaults(
+    request: Request,
+    tenant_cfg: Dict[str, Any],
+    values: Dict[str, Any],
+) -> Dict[str, Any]:
     if not tenant_cfg:
         return values
     merged = dict(values)
@@ -198,7 +206,10 @@ def _apply_precision_l4(
     if precision_top_n <= 0:
         precision_top_n = 1
 
-    visual_w, geom_w = _normalize_weights(float(precision_visual_weight), float(precision_geom_weight))
+    visual_w, geom_w = _normalize_weights(
+        float(precision_visual_weight),
+        float(precision_geom_weight),
+    )
 
     matches: List[Dict[str, Any]] = list(response.get("duplicates") or []) + list(
         response.get("similar") or []
@@ -237,7 +248,9 @@ def _apply_precision_l4(
     duplicate_threshold = float(duplicate_threshold)
     similar_threshold = float(similar_threshold)
     if not (0.0 <= similar_threshold <= duplicate_threshold <= 1.0):
-        raise ValueError("invalid thresholds: require 0 <= similar_threshold <= duplicate_threshold <= 1")
+        raise ValueError(
+            "invalid thresholds: require 0 <= similar_threshold <= duplicate_threshold <= 1"
+        )
 
     # Select Top-N by current similarity (visual) for precision verification
     matches_sorted = sorted(
@@ -303,7 +316,11 @@ def _apply_precision_l4(
                 gated_out += 1
                 continue
 
-        precision = precision_verifier.score_pair(query_geom, candidate_geom, profile=precision_profile)
+        precision = precision_verifier.score_pair(
+            query_geom,
+            candidate_geom,
+            profile=precision_profile,
+        )
         visual_sim = float(match.get("similarity") or 0.0)
         final_sim = (visual_w * visual_sim) + (geom_w * precision.score)
 
@@ -387,9 +404,10 @@ def _apply_precision_l4(
     response["duplicates"] = new_duplicates[:max_results]
     response["similar"] = new_similar[:max_results]
     response["total_matches"] = len(response["duplicates"]) + len(response["similar"])
-    response["final_level"] = max(int(response.get("final_level") or 0), 4) if verified else response.get(
-        "final_level"
-    )
+    if verified:
+        response["final_level"] = max(int(response.get("final_level") or 0), 4)
+    else:
+        response["final_level"] = response.get("final_level")
 
     warnings = response.setdefault("warnings", [])
     if missing_geom:
@@ -642,17 +660,28 @@ async def dedup_2d_presets(
     return Dedup2DPresetsResponse(presets=_SEARCH_PRESETS)
 
 
-@router.get("/2d/config", response_model=Dedup2DTenantConfigResponse, response_model_exclude_none=True)
+@router.get(
+    "/2d/config",
+    response_model=Dedup2DTenantConfigResponse,
+    response_model_exclude_none=True,
+)
 async def dedup_2d_get_tenant_config(
     api_key: str = Depends(get_api_key),
     store: TenantDedup2DConfigStore = Depends(get_tenant_config_store),
 ):
     cfg = await store.get(api_key)
     model = Dedup2DTenantConfig(**(cfg or {}))
-    return Dedup2DTenantConfigResponse(tenant_id=store.tenant_id(api_key), config=model)
+    return Dedup2DTenantConfigResponse(
+        tenant_id=store.tenant_id(api_key),
+        config=model,
+    )
 
 
-@router.put("/2d/config", response_model=Dedup2DTenantConfigResponse, response_model_exclude_none=True)
+@router.put(
+    "/2d/config",
+    response_model=Dedup2DTenantConfigResponse,
+    response_model_exclude_none=True,
+)
 async def dedup_2d_set_tenant_config(
     payload: Dedup2DTenantConfig,
     api_key: str = Depends(get_api_key),
@@ -676,17 +705,27 @@ async def dedup_2d_set_tenant_config(
         ) from None
 
     await store.set(api_key, cfg)
-    return Dedup2DTenantConfigResponse(tenant_id=store.tenant_id(api_key), config=Dedup2DTenantConfig(**cfg))
+    return Dedup2DTenantConfigResponse(
+        tenant_id=store.tenant_id(api_key),
+        config=Dedup2DTenantConfig(**cfg),
+    )
 
 
-@router.delete("/2d/config", response_model=Dedup2DTenantConfigResponse, response_model_exclude_none=True)
+@router.delete(
+    "/2d/config",
+    response_model=Dedup2DTenantConfigResponse,
+    response_model_exclude_none=True,
+)
 async def dedup_2d_delete_tenant_config(
     api_key: str = Depends(get_api_key),
     admin_token: str = Depends(get_admin_token),
     store: TenantDedup2DConfigStore = Depends(get_tenant_config_store),
 ):
     await store.delete(api_key)
-    return Dedup2DTenantConfigResponse(tenant_id=store.tenant_id(api_key), config=Dedup2DTenantConfig())
+    return Dedup2DTenantConfigResponse(
+        tenant_id=store.tenant_id(api_key),
+        config=Dedup2DTenantConfig(),
+    )
 
 
 @router.post("/2d/precision/compare", response_model=Dedup2DPrecisionCompareResponse)
@@ -944,7 +983,8 @@ async def dedup_2d_job_cancel(
 async def dedup_2d_index_add(
     file: UploadFile = File(..., description="2D drawing image/PDF (PNG/JPG/PDF)"),
     geom_json: Optional[UploadFile] = File(
-        default=None, description="v2 geometry JSON from CAD plugin (stored for later precision checks)"
+        default=None,
+        description="v2 geometry JSON from CAD plugin (stored for later precision checks)",
     ),
     user_name: str = "cad-ml-platform",
     upload_to_s3: bool = True,
@@ -979,7 +1019,10 @@ async def dedup_2d_index_add(
 
         file_hash = str(response.get("file_hash") or "")
         if not file_hash:
-            raise HTTPException(status_code=502, detail="dedupcad-vision response missing file_hash")
+            raise HTTPException(
+                status_code=502,
+                detail="dedupcad-vision response missing file_hash",
+            )
         await anyio.to_thread.run_sync(geom_store.save, file_hash, geom_obj)
         try:
             response["message"] = f"{response.get('message')}; geom_json stored"

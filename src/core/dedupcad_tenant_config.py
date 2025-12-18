@@ -82,7 +82,11 @@ class TenantDedup2DConfigStore:
         tmp = path.with_suffix(path.suffix + ".tmp")
         tmp.write_text(json.dumps(config_obj, ensure_ascii=False, indent=2), encoding="utf-8")
         os.replace(tmp, path)
-        await set_cache(self._cache_key(api_key), config_obj, ttl_seconds=int(self.config.cache_ttl_seconds))
+        await set_cache(
+            self._cache_key(api_key),
+            config_obj,
+            ttl_seconds=int(self.config.cache_ttl_seconds),
+        )
 
     async def delete(self, api_key: str) -> None:
         if not api_key:
@@ -93,4 +97,3 @@ class TenantDedup2DConfigStore:
                 path.unlink()
         finally:
             await delete_cache(self._cache_key(api_key))
-
