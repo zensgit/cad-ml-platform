@@ -107,6 +107,81 @@ def _safe_float(v: Any) -> float:
         return 0.0
 
 
+def _dedup_2d_search_api(
+    *,
+    base_url: str,
+    api_key: str,
+    params: Dict[str, str],
+    files: Dict[str, Tuple[str, object, str]],
+    timeout_seconds: float,
+    async_search: bool,
+    async_poll_interval_seconds: float,
+) -> Dict[str, Any]:
+    search_endpoint = base_url.rstrip("/") + "/api/v1/dedup/2d/search"
+    headers = {"X-API-Key": api_key}
+
+    if not async_search:
+        resp = requests.post(search_endpoint, headers=headers, params=params, files=files, timeout=timeout_seconds)
+        if resp.status_code // 100 != 2:
+            try:
+                detail = resp.json()
+            except Exception:
+                detail = resp.text
+            raise RuntimeError(f"search failed: {resp.status_code}: {detail}")
+        return resp.json()
+
+    params_async = dict(params)
+    params_async["async"] = "true"
+    resp = requests.post(search_endpoint, headers=headers, params=params_async, files=files, timeout=timeout_seconds)
+    if resp.status_code // 100 != 2:
+        try:
+            detail = resp.json()
+        except Exception:
+            detail = resp.text
+        raise RuntimeError(f"async search submit failed: {resp.status_code}: {detail}")
+    submit = resp.json()
+    poll_url = str(submit.get("poll_url") or "")
+    job_id = str(submit.get("job_id") or "")
+    if not poll_url:
+        poll_url = f"/api/v1/dedup/2d/jobs/{job_id}"
+
+    poll_endpoint = poll_url if poll_url.startswith("http") else base_url.rstrip("/") + poll_url
+    deadline = time.time() + float(timeout_seconds)
+    poll_timeout = min(30.0, float(timeout_seconds))
+
+    while time.time() < deadline:
+        job_resp = requests.get(poll_endpoint, headers=headers, timeout=poll_timeout)
+        if job_resp.status_code // 100 != 2:
+            try:
+                detail = job_resp.json()
+            except Exception:
+                detail = job_resp.text
+            raise RuntimeError(f"async search poll failed: {job_resp.status_code}: {detail}")
+
+        job = job_resp.json()
+        status = str(job.get("status") or "")
+        if status == "completed":
+            result = job.get("result")
+            if not isinstance(result, dict):
+                raise RuntimeError("async search completed but result is missing/invalid")
+            return result
+        if status in {"failed", "canceled"}:
+            raise RuntimeError(f"async search ended with status={status}: {job.get('error')}")
+        time.sleep(max(0.05, float(async_poll_interval_seconds)))
+
+    # best-effort cancel
+    if job_id:
+        try:
+            requests.post(
+                base_url.rstrip("/") + f"/api/v1/dedup/2d/jobs/{job_id}/cancel",
+                headers=headers,
+                timeout=poll_timeout,
+            )
+        except Exception:
+            pass
+    raise TimeoutError(f"async search timed out after {timeout_seconds}s (job_id={job_id})")
+
+
 def index_dataset(
     items: Sequence[DatasetItem],
     *,
@@ -300,6 +375,23 @@ def main() -> int:
 
     parser.add_argument("--mode", default="balanced", help="Search mode (fast|balanced|precise)")
     parser.add_argument("--max-results", type=int, default=50, help="Search max_results (default: %(default)s)")
+    parser.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=300.0,
+        help="HTTP request timeout for search/polling (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--async-search",
+        action="store_true",
+        help="Use cad-ml-platform async mode (adds async=true and polls job endpoint)",
+    )
+    parser.add_argument(
+        "--async-poll-interval-seconds",
+        type=float,
+        default=0.25,
+        help="Polling interval when --async-search is enabled (default: %(default)s)",
+    )
     parser.add_argument(
         "--compute-diff",
         action=argparse.BooleanOptionalAction,
@@ -520,9 +612,6 @@ def main() -> int:
             rebuild_index=bool(args.rebuild_index),
         )
 
-    search_endpoint = args.base_url.rstrip("/") + "/api/v1/dedup/2d/search"
-    headers = {"X-API-Key": args.api_key}
-
     edges: Set[Tuple[str, str]] = set()
     queries_ok = 0
     queries_failed = 0
@@ -640,12 +729,22 @@ def main() -> int:
                     if args.version_gate is not None:
                         params["version_gate"] = str(args.version_gate)
 
+                    data: Optional[Dict[str, Any]] = None
+                    error: Optional[str] = None
                     try:
                         t0 = time.perf_counter()
-                        resp = requests.post(
-                            search_endpoint, headers=headers, params=params, files=files, timeout=300
+                        data = _dedup_2d_search_api(
+                            base_url=args.base_url,
+                            api_key=args.api_key,
+                            params=params,
+                            files=files,
+                            timeout_seconds=float(args.timeout_seconds),
+                            async_search=bool(args.async_search),
+                            async_poll_interval_seconds=float(args.async_poll_interval_seconds),
                         )
                         _ = time.perf_counter() - t0
+                    except Exception as e:
+                        error = str(e)
                     finally:
                         for _, fh, _ct in files.values():
                             try:
@@ -653,16 +752,11 @@ def main() -> int:
                             except Exception:
                                 pass
 
-                    if resp.status_code // 100 != 2:
+                    if data is None:
                         queries_failed += 1
-                        try:
-                            detail = resp.json()
-                        except Exception:
-                            detail = resp.text
-                        print(f"[fail] search {it.image_path} -> {resp.status_code}: {detail}")
+                        print(f"[fail] search {it.image_path} -> {error or 'unknown error'}")
                         continue
 
-                    data = resp.json()
                     queries_ok += 1
 
                     if resp_f is not None:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+import time
 import httpx
 from fastapi.testclient import TestClient
 
@@ -12,6 +13,7 @@ from src.api.v1.dedup import (
     get_precision_verifier,
     get_tenant_config_store,
 )
+from src.core.dedupcad_2d_jobs import reset_dedup2d_job_store
 from src.core.dedupcad_precision.verifier import PrecisionScore
 
 
@@ -512,5 +514,63 @@ def test_dedup_2d_search_version_gate_file_name_filters_cross_drawing_candidates
         assert len(data["duplicates"]) == 1
         assert data["duplicates"][0]["file_hash"] == "same"
         assert any("precision_version_gate_filtered:1" == w for w in data.get("warnings", []))
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_search_async_returns_job_and_completes():
+    reset_dedup2d_job_store()
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+        resp = client.post("/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true", files=files)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["job_id"]
+        poll_url = data["poll_url"]
+
+        for _ in range(50):
+            job_resp = client.get(poll_url)
+            assert job_resp.status_code == 200
+            job = job_resp.json()
+            if job["status"] == "completed":
+                assert job["result"]["success"] is True
+                assert job["result"]["total_matches"] == 1
+                assert job["result"]["duplicates"][0]["verdict"] == "duplicate"
+                break
+            time.sleep(0.01)
+        else:
+            raise AssertionError("async job did not complete in time")
+    finally:
+        app.dependency_overrides.clear()
+
+
+class _SlowDedupClient(_FakeDedupClient):
+    async def search_2d(self, **kwargs) -> Dict[str, Any]:
+        import anyio
+
+        await anyio.sleep(0.2)
+        return await super().search_2d(**kwargs)
+
+
+def test_dedup_2d_search_async_cancel():
+    reset_dedup2d_job_store()
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _SlowDedupClient()
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+        resp = client.post("/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true", files=files)
+        assert resp.status_code == 200
+        job_id = resp.json()["job_id"]
+
+        cancel = client.post(f"/api/v1/dedup/2d/jobs/{job_id}/cancel")
+        assert cancel.status_code == 200
+        assert cancel.json()["canceled"] is True
+
+        # Ensure the job is canceled or already completed (race if very fast).
+        status = client.get(f"/api/v1/dedup/2d/jobs/{job_id}")
+        assert status.status_code == 200
+        assert status.json()["status"] in {"canceled", "completed"}
     finally:
         app.dependency_overrides.clear()

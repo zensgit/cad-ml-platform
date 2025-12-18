@@ -129,6 +129,80 @@ def _ranked_matches(response: Dict[str, object]) -> List[Tuple[str, float]]:
     return out
 
 
+def _dedup_2d_search_api(
+    *,
+    base_url: str,
+    api_key: str,
+    params: Dict[str, str],
+    files: Dict[str, Tuple[str, object, str]],
+    timeout_seconds: float,
+    async_search: bool,
+    async_poll_interval_seconds: float,
+) -> Dict[str, object]:
+    search_endpoint = base_url.rstrip("/") + "/api/v1/dedup/2d/search"
+    headers = {"X-API-Key": api_key}
+
+    if not async_search:
+        resp = requests.post(search_endpoint, headers=headers, params=params, files=files, timeout=timeout_seconds)
+        if resp.status_code // 100 != 2:
+            try:
+                detail = resp.json()
+            except Exception:
+                detail = resp.text
+            raise RuntimeError(f"search failed: {resp.status_code}: {detail}")
+        return resp.json()
+
+    params_async = dict(params)
+    params_async["async"] = "true"
+    resp = requests.post(search_endpoint, headers=headers, params=params_async, files=files, timeout=timeout_seconds)
+    if resp.status_code // 100 != 2:
+        try:
+            detail = resp.json()
+        except Exception:
+            detail = resp.text
+        raise RuntimeError(f"async search submit failed: {resp.status_code}: {detail}")
+    submit = resp.json()
+    poll_url = str(submit.get("poll_url") or "")
+    job_id = str(submit.get("job_id") or "")
+    if not poll_url:
+        poll_url = f"/api/v1/dedup/2d/jobs/{job_id}"
+
+    poll_endpoint = poll_url if poll_url.startswith("http") else base_url.rstrip("/") + poll_url
+    deadline = time.time() + float(timeout_seconds)
+    poll_timeout = min(30.0, float(timeout_seconds))
+
+    while time.time() < deadline:
+        job_resp = requests.get(poll_endpoint, headers=headers, timeout=poll_timeout)
+        if job_resp.status_code // 100 != 2:
+            try:
+                detail = job_resp.json()
+            except Exception:
+                detail = job_resp.text
+            raise RuntimeError(f"async search poll failed: {job_resp.status_code}: {detail}")
+
+        job = job_resp.json()
+        status = str(job.get("status") or "")
+        if status == "completed":
+            result = job.get("result")
+            if not isinstance(result, dict):
+                raise RuntimeError("async search completed but result is missing/invalid")
+            return result
+        if status in {"failed", "canceled"}:
+            raise RuntimeError(f"async search ended with status={status}: {job.get('error')}")
+        time.sleep(max(0.05, float(async_poll_interval_seconds)))
+
+    if job_id:
+        try:
+            requests.post(
+                base_url.rstrip("/") + f"/api/v1/dedup/2d/jobs/{job_id}/cancel",
+                headers=headers,
+                timeout=poll_timeout,
+            )
+        except Exception:
+            pass
+    raise TimeoutError(f"async search timed out after {timeout_seconds}s (job_id={job_id})")
+
+
 def index_dataset(
     items: Sequence[DatasetItem],
     *,
@@ -180,10 +254,10 @@ def eval_queries(
     precision_top_n: int,
     precision_visual_weight: float,
     precision_geom_weight: float,
+    timeout_seconds: float,
+    async_search: bool,
+    async_poll_interval_seconds: float,
 ) -> List[QueryMetrics]:
-    search_endpoint = base_url.rstrip("/") + "/api/v1/dedup/2d/search"
-    headers = {"X-API-Key": api_key}
-
     group_to_hashes: Dict[str, List[str]] = {}
     for it in items:
         group_to_hashes.setdefault(it.group_id, []).append(it.file_hash)
@@ -213,7 +287,15 @@ def eval_queries(
 
         try:
             t0 = time.perf_counter()
-            resp = requests.post(search_endpoint, headers=headers, params=params, files=files, timeout=300)
+            data = _dedup_2d_search_api(
+                base_url=base_url,
+                api_key=api_key,
+                params=params,
+                files=files,
+                timeout_seconds=float(timeout_seconds),
+                async_search=bool(async_search),
+                async_poll_interval_seconds=float(async_poll_interval_seconds),
+            )
             _ = time.perf_counter() - t0
         finally:
             for _, f, _ in files.values():
@@ -222,14 +304,8 @@ def eval_queries(
                 except Exception:
                     pass
 
-        if resp.status_code // 100 != 2:
-            try:
-                detail = resp.json()
-            except Exception:
-                detail = resp.text
-            raise SystemExit(f"search failed: {it.image_path} -> {resp.status_code}: {detail}")
-
-        data = resp.json()
+        if not isinstance(data, dict):
+            raise SystemExit(f"search failed: {it.image_path} -> invalid response")
         ranked = _ranked_matches(data)
 
         # Remove self if present and truncate to top_k
@@ -307,6 +383,23 @@ def main() -> int:
         default="balanced",
         help="Search mode for evaluation (fast|balanced|precise) (default: %(default)s)",
     )
+    parser.add_argument(
+        "--timeout-seconds",
+        type=float,
+        default=300.0,
+        help="HTTP request timeout for search/polling (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--async-search",
+        action="store_true",
+        help="Use cad-ml-platform async mode (adds async=true and polls job endpoint)",
+    )
+    parser.add_argument(
+        "--async-poll-interval-seconds",
+        type=float,
+        default=0.25,
+        help="Polling interval when --async-search is enabled (default: %(default)s)",
+    )
     parser.add_argument("--top-k", type=int, default=10, help="Top-K for metrics (default: %(default)s)")
     parser.add_argument(
         "--enable-precision",
@@ -350,6 +443,9 @@ def main() -> int:
         precision_top_n=int(args.precision_top_n),
         precision_visual_weight=float(args.precision_visual_weight),
         precision_geom_weight=float(args.precision_geom_weight),
+        timeout_seconds=float(args.timeout_seconds),
+        async_search=bool(args.async_search),
+        async_poll_interval_seconds=float(args.async_poll_interval_seconds),
     )
 
     with_pos = [m for m in metrics if m.positives > 0]
@@ -382,4 +478,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

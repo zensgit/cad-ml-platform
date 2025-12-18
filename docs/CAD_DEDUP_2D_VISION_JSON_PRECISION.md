@@ -96,6 +96,7 @@ cad-ml-platform 本地落盘默认路径：
   - query params：
     - `mode`: `fast|balanced|precise`
     - `max_results`: 召回数量上限（默认 50）
+    - `async`（可选）：是否异步执行（默认 false；true 时立即返回 `job_id`，由调用方轮询结果）
     - `enable_precision`: 是否启用 L4（默认 true；当 query 有 geom_json 时生效）
     - `preset`（可选）：`strict|version|loose`（只在调用方未显式传入相关参数时，自动填充 `mode/precision_top_n/阈值/权重` 的默认值）
     - `precision_profile`（可选）：`strict|version`（L4 几何精查 profile；不传时由 `preset` 或租户默认配置决定）
@@ -115,6 +116,25 @@ cad-ml-platform 本地落盘默认路径：
   - `precision_score`（0~1）
   - `precision_breakdown`（可选 breakdown）
   - `visual_similarity`（可选，融合前视觉分数）
+
+#### 4.2.1 异步搜索（Async Search）
+
+当 `precision_compute_diff=true` 或 Top-N 精查/对比耗时较长时，建议使用异步模式避免客户端/网关超时：
+
+- 请求：`POST /api/v1/dedup/2d/search?...&async=true`
+- 响应（立即返回）：
+  - `job_id`
+  - `status`: `pending|in_progress|completed|failed|canceled`
+  - `poll_url`: `GET /api/v1/dedup/2d/jobs/{job_id}`
+- 轮询：
+  - `GET /api/v1/dedup/2d/jobs/{job_id}`：返回状态与（完成后）`result`
+  - `POST /api/v1/dedup/2d/jobs/{job_id}/cancel`：取消任务（best-effort）
+
+服务端保留策略（可配置）：
+
+- `DEDUP2D_ASYNC_MAX_CONCURRENCY`（默认 2）
+- `DEDUP2D_ASYNC_MAX_JOBS`（默认 200）
+- `DEDUP2D_ASYNC_TTL_SECONDS`（默认 3600；仅对已完成/失败/取消的 job 生效）
 
 ### 4.3 调试接口（可选）
 

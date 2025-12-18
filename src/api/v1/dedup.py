@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 
 import anyio
 import httpx
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field, model_validator
 
 from src.api.dependencies import get_admin_token, get_api_key
@@ -24,6 +24,7 @@ from src.core.dedupcad_precision import GeomJsonStore, PrecisionVerifier
 from src.core.dedupcad_precision.vendor.json_diff import compare_json
 from src.core.dedupcad_tenant_config import TenantDedup2DConfigStore
 from src.core.dedupcad_vision import DedupCadVisionClient
+from src.core.dedupcad_2d_jobs import Dedup2DJobStatus, get_dedup2d_job_store
 
 logger = logging.getLogger(__name__)
 
@@ -401,6 +402,83 @@ def _apply_precision_l4(
     return response
 
 
+async def _run_dedup_2d_pipeline(
+    *,
+    client: DedupCadVisionClient,
+    geom_store: GeomJsonStore,
+    precision_verifier: PrecisionVerifier,
+    file_name: str,
+    file_bytes: bytes,
+    content_type: str,
+    query_geom: Optional[Dict[str, Any]],
+    mode: str,
+    max_results: int,
+    compute_diff: bool,
+    enable_ml: bool,
+    enable_geometric: bool,
+    enable_precision: bool,
+    precision_profile: Optional[str],
+    version_gate: Optional[str],
+    precision_top_n: int,
+    precision_visual_weight: float,
+    precision_geom_weight: float,
+    precision_compute_diff: bool,
+    precision_diff_top_n: int,
+    precision_diff_max_paths: int,
+    duplicate_threshold: float,
+    similar_threshold: float,
+) -> Dict[str, Any]:
+    response = await client.search_2d(
+        file_name=file_name or "unknown",
+        file_bytes=file_bytes,
+        content_type=content_type or "application/octet-stream",
+        mode=mode,
+        max_results=max_results,
+        compute_diff=compute_diff,
+        enable_ml=enable_ml,
+        enable_geometric=enable_geometric,
+    )
+
+    should_run_precision = query_geom is not None and (
+        enable_precision or enable_geometric or mode == "precise"
+    )
+    if not should_run_precision:
+        return response
+
+    precision_start = time.perf_counter()
+    response = await anyio.to_thread.run_sync(
+        _apply_precision_l4,
+        response,
+        query_geom,
+        file_name,
+        geom_store,
+        precision_verifier,
+        max_results,
+        precision_profile,
+        version_gate,
+        precision_top_n,
+        precision_visual_weight,
+        precision_geom_weight,
+        duplicate_threshold,
+        similar_threshold,
+        precision_compute_diff,
+        precision_diff_top_n,
+        precision_diff_max_paths,
+    )
+    precision_ms = (time.perf_counter() - precision_start) * 1000
+    timing = response.setdefault("timing", {})
+    timing["precision_ms"] = precision_ms
+    try:
+        timing["l4_ms"] = float(timing.get("l4_ms") or 0.0) + precision_ms
+    except Exception:
+        timing["l4_ms"] = precision_ms
+    try:
+        timing["total_ms"] = float(timing.get("total_ms") or 0.0) + precision_ms
+    except Exception:
+        timing["total_ms"] = precision_ms
+    return response
+
+
 class Dedup2DHealthResponse(BaseModel):
     status: str
     service: Optional[str] = None
@@ -436,6 +514,27 @@ class Dedup2DSearchResponse(BaseModel):
     level_stats: Dict[str, Any] = Field(default_factory=dict)
     warnings: List[str] = Field(default_factory=list)
     error: Optional[str] = None
+
+
+class Dedup2DSearchAsyncResponse(BaseModel):
+    job_id: str
+    status: Dedup2DJobStatus
+    poll_url: str
+
+
+class Dedup2DSearchJobResponse(BaseModel):
+    job_id: str
+    status: Dedup2DJobStatus
+    created_at: float
+    started_at: Optional[float] = None
+    finished_at: Optional[float] = None
+    result: Optional[Dedup2DSearchResponse] = None
+    error: Optional[str] = None
+
+
+class Dedup2DJobCancelResponse(BaseModel):
+    job_id: str
+    canceled: bool
 
 
 class Dedup2DIndexAddResponse(BaseModel):
@@ -631,12 +730,17 @@ async def dedup_2d_geom_exists(
     return Dedup2DGeomExistsResponse(file_hash=file_hash, exists=exists)
 
 
-@router.post("/2d/search", response_model=Dedup2DSearchResponse)
+@router.post("/2d/search", response_model=Dedup2DSearchResponse | Dedup2DSearchAsyncResponse)
 async def dedup_2d_search(
     request: Request,
     file: UploadFile = File(..., description="2D drawing image/PDF (PNG/JPG/PDF)"),
     geom_json: Optional[UploadFile] = File(
         default=None, description="v2 geometry JSON from CAD plugin (for precision verification)"
+    ),
+    async_request: bool = Query(
+        default=False,
+        alias="async",
+        description="Return job_id immediately and poll /api/v1/dedup/2d/jobs/{job_id} for results",
     ),
     mode: str = "balanced",
     max_results: int = 50,
@@ -711,54 +815,80 @@ async def dedup_2d_search(
         duplicate_threshold = float(effective["duplicate_threshold"])
         similar_threshold = float(effective["similar_threshold"])
 
-        response = await client.search_2d(
-            file_name=file.filename or "unknown",
-            file_bytes=content,
-            content_type=content_type,
-            mode=mode,
-            max_results=max_results,
-            compute_diff=compute_diff,
-            enable_ml=enable_ml,
-            enable_geometric=enable_geometric,
-        )
-        should_run_precision = query_geom is not None and (enable_precision or enable_geometric or mode == "precise")
-        if not should_run_precision:
-            return response
-        precision_start = time.perf_counter()
+        if async_request:
+            store = get_dedup2d_job_store()
+
+            async def _runner() -> Dict[str, Any]:
+                return await _run_dedup_2d_pipeline(
+                    client=client,
+                    geom_store=geom_store,
+                    precision_verifier=precision_verifier,
+                    file_name=file.filename or "unknown",
+                    file_bytes=content,
+                    content_type=content_type,
+                    query_geom=query_geom,
+                    mode=mode,
+                    max_results=max_results,
+                    compute_diff=compute_diff,
+                    enable_ml=enable_ml,
+                    enable_geometric=enable_geometric,
+                    enable_precision=enable_precision,
+                    precision_profile=precision_profile,
+                    version_gate=version_gate,
+                    precision_top_n=precision_top_n,
+                    precision_visual_weight=precision_visual_weight,
+                    precision_geom_weight=precision_geom_weight,
+                    precision_compute_diff=precision_compute_diff,
+                    precision_diff_top_n=precision_diff_top_n,
+                    precision_diff_max_paths=precision_diff_max_paths,
+                    duplicate_threshold=duplicate_threshold,
+                    similar_threshold=similar_threshold,
+                )
+
+            job = await store.submit(
+                _runner,
+                meta={
+                    "mode": mode,
+                    "max_results": max_results,
+                    "enable_ml": enable_ml,
+                    "enable_geometric": enable_geometric,
+                    "enable_precision": enable_precision,
+                },
+            )
+            return Dedup2DSearchAsyncResponse(
+                job_id=job.job_id,
+                status=job.status,
+                poll_url=f"/api/v1/dedup/2d/jobs/{job.job_id}",
+            )
+
         try:
-            response = await anyio.to_thread.run_sync(
-                _apply_precision_l4,
-                response,
-                query_geom,
-                file.filename,
-                geom_store,
-                precision_verifier,
-                max_results,
-                precision_profile,
-                version_gate,
-                precision_top_n,
-                precision_visual_weight,
-                precision_geom_weight,
-                duplicate_threshold,
-                similar_threshold,
-                precision_compute_diff,
-                precision_diff_top_n,
-                precision_diff_max_paths,
+            return await _run_dedup_2d_pipeline(
+                client=client,
+                geom_store=geom_store,
+                precision_verifier=precision_verifier,
+                file_name=file.filename or "unknown",
+                file_bytes=content,
+                content_type=content_type,
+                query_geom=query_geom,
+                mode=mode,
+                max_results=max_results,
+                compute_diff=compute_diff,
+                enable_ml=enable_ml,
+                enable_geometric=enable_geometric,
+                enable_precision=enable_precision,
+                precision_profile=precision_profile,
+                version_gate=version_gate,
+                precision_top_n=precision_top_n,
+                precision_visual_weight=precision_visual_weight,
+                precision_geom_weight=precision_geom_weight,
+                precision_compute_diff=precision_compute_diff,
+                precision_diff_top_n=precision_diff_top_n,
+                precision_diff_max_paths=precision_diff_max_paths,
+                duplicate_threshold=duplicate_threshold,
+                similar_threshold=similar_threshold,
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
-        precision_ms = (time.perf_counter() - precision_start) * 1000
-        timing = response.setdefault("timing", {})
-        timing["precision_ms"] = precision_ms
-        try:
-            timing["l4_ms"] = float(timing.get("l4_ms") or 0.0) + precision_ms
-        except Exception:
-            timing["l4_ms"] = precision_ms
-        try:
-            timing["total_ms"] = float(timing.get("total_ms") or 0.0) + precision_ms
-        except Exception:
-            timing["total_ms"] = precision_ms
-        return response
     except httpx.RequestError as e:
         logger.warning("dedupcad_vision_unavailable", extra={"error": str(e), "mode": mode})
         raise HTTPException(status_code=503, detail="dedupcad-vision unavailable") from e
@@ -769,6 +899,45 @@ async def dedup_2d_search(
         except Exception:
             detail = e.response.text
         raise HTTPException(status_code=e.response.status_code, detail=detail) from e
+
+
+@router.get("/2d/jobs/{job_id}", response_model=Dedup2DSearchJobResponse)
+async def dedup_2d_job_status(
+    job_id: str,
+    api_key: str = Depends(get_api_key),
+):
+    """Get async 2D dedup job status and (when ready) the final result."""
+    store = get_dedup2d_job_store()
+    job = await store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found") from None
+
+    result_model: Optional[Dedup2DSearchResponse] = None
+    if job.result is not None:
+        result_model = Dedup2DSearchResponse(**job.result)
+
+    return Dedup2DSearchJobResponse(
+        job_id=job.job_id,
+        status=job.status,
+        created_at=job.created_at,
+        started_at=job.started_at,
+        finished_at=job.finished_at,
+        result=result_model,
+        error=job.error,
+    )
+
+
+@router.post("/2d/jobs/{job_id}/cancel", response_model=Dedup2DJobCancelResponse)
+async def dedup_2d_job_cancel(
+    job_id: str,
+    api_key: str = Depends(get_api_key),
+):
+    """Cancel an async 2D dedup job (best-effort)."""
+    store = get_dedup2d_job_store()
+    canceled = await store.cancel(job_id)
+    if not canceled:
+        raise HTTPException(status_code=404, detail="Job not found") from None
+    return Dedup2DJobCancelResponse(job_id=job_id, canceled=True)
 
 
 @router.post("/2d/index/add", response_model=Dedup2DIndexAddResponse)
