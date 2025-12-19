@@ -40,3 +40,10 @@ Date: 2025-12-19
  docker run --rm -v /Users/huazhou/Downloads/Github/dedupcad-vision:/work -w /work alpine/helm:3.13.2 lint deploy/helm/caddedup-vision -f deploy/helm/caddedup-vision/values.yaml -f deploy/helm/caddedup-vision/values-prod.yaml
  docker run --rm --entrypoint /bin/sh -v /Users/huazhou/Downloads/Github/dedupcad-vision:/work -w /work alpine/helm:3.13.2 -c "helm template caddedup-vision deploy/helm/caddedup-vision -f deploy/helm/caddedup-vision/values.yaml -f deploy/helm/caddedup-vision/values-prod.yaml | wc -l"
 ```
+## Update: 2025-12-19 (Post-icon)
+
+### dedupcad-vision
+- `helm lint`: PASS
+  - Note: requires `helm dependency build` for redis subchart before full render.
+- `helm template`: PASS (2112 lines)
+- Change: added chart `icon` to remove previous lint recommendation.
