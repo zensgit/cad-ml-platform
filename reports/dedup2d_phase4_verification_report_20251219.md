@@ -26,9 +26,9 @@
 
 仓库：`cad-ml-platform`
 
-- 分支：`feat/dedup2d-phase1-tenant-isolation`
-- HEAD：`d51ac92`
-- Phase 4 相关变更均在工作区（未提交），建议在合并/交付前统一 commit（便于追溯与 CI 复现）。
+- 分支：`feat/dedup2d-phase4-production-ready`
+- HEAD：`564cc39`
+- 工作区：除本机样例数据 `handoff/`（未跟踪）外干净；Phase 4 变更已整理为可追溯 commit 栈（含 docker-compose 运行态修复）。
 
 ## 关键验收项对照
 
@@ -112,6 +112,42 @@
 
 结果：✅ 三种渲染均成功（`helm template OK`）
 
+### 7) docker-compose 运行态校验（Prometheus/Grafana + MinIO）
+
+背景：本机已有其他服务占用 `8000/6379/9000/9001/9091` 等端口，且 Docker 网络可能存在网段重叠。
+
+为保证可复用性，本次验收额外补齐：
+
+- `deployments/docker/docker-compose.yml`：端口可配置（`CAD_ML_API_PORT` / `CAD_ML_REDIS_PORT` / `CAD_ML_PROMETHEUS_PORT` / `CAD_ML_GRAFANA_PORT` 等）
+- `deployments/docker/docker-compose.minio.yml`：MinIO 端口可配置（`CAD_ML_MINIO_PORT` / `CAD_ML_MINIO_CONSOLE_PORT`）
+- `deployments/docker/docker-compose.yml`：移除硬编码 subnet（避免 Docker network overlap）
+
+启动命令（示例）：
+
+```bash
+CAD_ML_API_PORT=18000 \
+CAD_ML_API_METRICS_PORT=19090 \
+CAD_ML_REDIS_PORT=16379 \
+CAD_ML_PROMETHEUS_PORT=19091 \
+CAD_ML_MINIO_PORT=19000 \
+CAD_ML_MINIO_CONSOLE_PORT=19001 \
+docker compose -p cad-ml-platform-phase4 \
+  -f deployments/docker/docker-compose.yml \
+  -f deployments/docker/docker-compose.minio.yml \
+  up -d --build
+```
+
+校验点：
+
+- ✅ `GET http://localhost:18000/health` 返回 `healthy`
+- ✅ `GET http://localhost:18000/metrics` 可见 `dedup2d_*` 指标（无 job 时 queue depth=0 属正常）
+- ✅ Prometheus `http://localhost:19091/api/v1/targets` 中 `cad-ml-api` target 为 `up`
+- ✅ Grafana `http://localhost:3001/api/search?query=Dedup2D` 可检索到 `Dedup2D Dashboard`
+
+补充：使用 docker-compose 栈跑通一次 async job（vision 用本机 fake 服务模拟）：
+
+- ✅ job 状态从 `pending` → `completed`，结果结构符合 Vision 契约（包含 `duplicates/similar/final_level/timing`）
+
 ## 验收中发现的问题与修复
 
 ### 问题：forced-async 触发导致 proxy 测试返回结构变化
@@ -138,4 +174,3 @@
 
 - 建议把当前工作区变更整理为一组可追溯 commits（Phase 4 含 chart/alerts/dashboard/scripts/tests），便于 CI 与回滚。
 - `claudedocs/phase4_dedup2d_summary.md` 中个别环境变量/脚本命名与代码存在出入（例如 GC 脚本实际为 `scripts/dedup2d_uploads_gc.py`），建议在交付前对齐文档与真实实现。
-
