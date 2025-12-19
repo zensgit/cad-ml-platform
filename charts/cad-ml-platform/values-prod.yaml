@@ -76,14 +76,26 @@ env:
 dedup2d:
   worker:
     enabled: true
-    replicaCount: 2
+    replicaCount: 1
     autoscaling:
-      enabled: true
-      minReplicas: 2
-      maxReplicas: 8
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 4
       targetCPUUtilizationPercentage: 70
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 16Gi
+      requests:
+        cpu: 500m
+        memory: 8Gi
     extraEnv:
-      DEDUP2D_WORKER_MAX_JOBS: "10"
+      DEDUP2D_WORKER_MAX_JOBS: "1"
+      DEDUPCAD2_RENDER_PREWARM_FONTS: "1"
+      DEDUPCAD2_RENDER_TEXT: "1"
+      DEDUPCAD2_RENDER_HATCH: "1"
+      MPLCONFIGDIR: "/tmp/mplconfig"
+      XDG_CACHE_HOME: "/var/cache"
       # DEDUP2D_CALLBACK_HMAC_SECRET: "__SET_ME__"
 
   storage:

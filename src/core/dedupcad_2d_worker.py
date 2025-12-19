@@ -43,6 +43,13 @@ from src.core.dedup2d_webhook import send_dedup2d_webhook
 logger = logging.getLogger(__name__)
 
 
+def _env_flag(name: str, *, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in {"0", "false", "no", "off", ""}
+
+
 def _to_str(value: Any) -> str:
     if value is None:
         return ""
@@ -365,3 +372,22 @@ class WorkerSettings:
     queue_name = os.getenv("DEDUP2D_ARQ_QUEUE_NAME") or "dedup2d:queue"
     max_jobs = int(os.getenv("DEDUP2D_WORKER_MAX_JOBS", "10"))
     job_timeout = timedelta(seconds=int(os.getenv("DEDUP2D_ASYNC_JOB_TIMEOUT_SECONDS", "300")))
+
+    @staticmethod
+    async def on_startup(ctx: dict[str, Any]) -> None:
+        if not _env_flag("DEDUPCAD2_RENDER_PREWARM_FONTS", default=False):
+            return
+        start = time.time()
+        try:
+            from ezdxf.fonts import fonts
+
+            fonts.build_system_font_cache()
+            logger.info(
+                "dedup2d_font_cache_warmed",
+                extra={"duration_seconds": round(time.time() - start, 3)},
+            )
+        except Exception as e:
+            logger.warning(
+                "dedup2d_font_cache_warm_failed",
+                extra={"error": str(e)},
+            )

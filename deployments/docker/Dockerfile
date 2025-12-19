@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y \
     g++ \
     libgeos-dev \
     libspatialindex-dev \
+    fontconfig \
+    fonts-dejavu-core \
+    fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制依赖文件
