@@ -28,12 +28,11 @@ import json
 import math
 import os
 import sys
+import tempfile
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TextIO, Tuple
 
 ROOT = Path(__file__).resolve().parents[3]
-import sys
-
 sys.path.append(str(ROOT))
 from src.core.ocr.base import OcrResult  # type: ignore
 from src.core.ocr.manager import OcrManager  # type: ignore
@@ -43,8 +42,39 @@ from src.core.ocr.providers.paddle import PaddleOcrProvider  # type: ignore
 # ROOT already defined above
 GOLDEN_DIR = Path(__file__).resolve().parent / "samples"
 METADATA = Path(__file__).resolve().parent / "metadata.yaml"
-REPORT_PATH = ROOT / "reports" / "ocr_evaluation.md"
-CALIBRATION_REPORT_PATH = ROOT / "reports" / "ocr_calibration.md"
+
+
+def _path_from_env(var_name: str, default: Path) -> Path:
+    raw = os.getenv(var_name)
+    if raw is None:
+        return default
+    value = raw.strip()
+    if not value:
+        return default
+    return Path(value)
+
+
+REPORT_PATH = _path_from_env(
+    "OCR_GOLDEN_EVALUATION_REPORT_PATH", ROOT / "reports" / "ocr_evaluation.md"
+)
+CALIBRATION_REPORT_PATH = _path_from_env(
+    "OCR_GOLDEN_CALIBRATION_REPORT_PATH", ROOT / "reports" / "ocr_calibration.md"
+)
+
+
+def _open_report(path: Path) -> Tuple[Path, TextIO]:
+    """Open a report path for writing, falling back to a temp directory on permission errors."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path, open(path, "w", encoding="utf-8")
+    except PermissionError:
+        fallback = Path(tempfile.gettempdir()) / path.name
+        fallback.parent.mkdir(parents=True, exist_ok=True)
+        print(
+            f"WARNING: cannot write report to {path} (permission denied); using {fallback}",
+            file=sys.stderr,
+        )
+        return fallback, open(fallback, "w", encoding="utf-8")
 
 
 def iou(b1: List[int], b2: List[int]) -> float:
@@ -255,8 +285,8 @@ async def main() -> int:
     )
     on = await evaluate_all(mgr_on)
 
-    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(REPORT_PATH, "w", encoding="utf-8") as f:
+    _, f = _open_report(REPORT_PATH)
+    with f:
         f.write("# OCR Evaluation Report (Golden v1.0)\n\n")
         f.write("## Aggregate (Preprocess OFF)\n")
         for k, v in off["aggregate"].items():
@@ -270,8 +300,8 @@ async def main() -> int:
             f.write(f"- {k}_delta: {dv:+.4f}\n")
 
     # Calibration report (uses ON metrics for current configuration)
-    CALIBRATION_REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(CALIBRATION_REPORT_PATH, "w", encoding="utf-8") as cf:
+    _, cf = _open_report(CALIBRATION_REPORT_PATH)
+    with cf:
         cf.write("# OCR Calibration Report\n\n")
         cf.write(f"Overall Brier Score: {on['aggregate']['brier_score']:.4f}\n")
         cf.write(f"ECE: {on['calibration']['ece']:.4f}\n\n")
