@@ -135,6 +135,13 @@ def _active_set_key(cfg: Dedup2DRedisJobConfig) -> str:
     return f"{cfg.key_prefix}:active"
 
 
+def _tenant_jobs_key(cfg: Dedup2DRedisJobConfig, tenant_id: str) -> str:
+    tenant_id = str(tenant_id or "").strip()
+    if not tenant_id:
+        raise ValueError("tenant_id is empty")
+    return f"{cfg.key_prefix}:tenant:{tenant_id}:jobs"
+
+
 _POOL: ArqRedis | None = None
 _POOL_LOCK = asyncio.Lock()
 
@@ -251,6 +258,7 @@ async def submit_dedup2d_job(
     job_id = str(uuid.uuid4())
     job_key = _job_key(effective_cfg, job_id)
     payload_key = _payload_key(effective_cfg, job_id)
+    tenant_jobs_key = _tenant_jobs_key(effective_cfg, tenant_id)
 
     storage = create_dedup2d_file_storage()
     file_ref = await storage.save_bytes(
@@ -303,6 +311,9 @@ async def submit_dedup2d_job(
 
         await pool.setex(payload_key, effective_cfg.ttl_seconds, json.dumps(payload))
         await pool.sadd(active_key, job_id)
+        # Keep a per-tenant index so the API can list recently finished jobs within TTL.
+        await pool.zadd(tenant_jobs_key, {job_id: float(created_at)})
+        await pool.expire(tenant_jobs_key, effective_cfg.ttl_seconds)
 
         job = await pool.enqueue_job(
             "dedup2d_run_job",
@@ -320,6 +331,7 @@ async def submit_dedup2d_job(
             await pool.delete(job_key)
             await pool.delete(payload_key)
             await pool.srem(active_key, job_id)
+            await pool.zrem(tenant_jobs_key, job_id)
         except Exception:
             logger.debug("dedup2d_redis_enqueue_cleanup_failed", exc_info=True)
         try:
@@ -534,7 +546,7 @@ async def list_dedup2d_jobs_for_tenant(
     limit: int = 100,
     cfg: Optional[Dedup2DRedisJobConfig] = None,
 ) -> list[Dedup2DJob]:
-    """List jobs for a specific tenant from the active set.
+    """List recent jobs for a tenant (including finished ones within TTL).
 
     Args:
         tenant_id: Tenant identifier
@@ -543,70 +555,89 @@ async def list_dedup2d_jobs_for_tenant(
 
     Returns:
         List of jobs belonging to the tenant, sorted by created_at descending.
+
+    Notes:
+        - Uses a per-tenant Redis ZSET (created_at as score) to include recently finished jobs
+          within the same TTL window as the job hash.
+        - Missing/expired job hashes are pruned lazily.
     """
     effective_cfg = cfg or Dedup2DRedisJobConfig.from_env()
     pool = await get_dedup2d_redis_pool(effective_cfg)
 
-    active_key = _active_set_key(effective_cfg)
-    members = await pool.smembers(active_key)
-    if not members:
-        return []
-
     jobs: list[Dedup2DJob] = []
-    for raw_job_id in members:
-        job_id = _to_str(raw_job_id).strip()
-        if not job_id:
-            continue
+    tenant_jobs_key = _tenant_jobs_key(effective_cfg, tenant_id)
 
-        job_key = _job_key(effective_cfg, job_id)
-        raw_data = await pool.hgetall(job_key)
-        if not raw_data:
-            continue
-
-        data = _hgetall_str(raw_data)
-        stored_tenant_id = data.get("tenant_id") or ""
-        if stored_tenant_id != tenant_id:
-            continue
-
-        status_raw = data.get("status") or Dedup2DJobStatus.PENDING.value
+    def _maybe_float(value: Any) -> Optional[float]:
+        if value is None:
+            return None
+        s = str(value).strip()
+        if not s:
+            return None
         try:
-            job_status = Dedup2DJobStatus(status_raw)
+            return float(s)
         except Exception:
-            job_status = Dedup2DJobStatus.PENDING
+            return None
 
-        if status is not None and job_status != status:
-            continue
-
-        def _maybe_float(value: Any) -> Optional[float]:
-            if value is None:
-                return None
-            s = str(value).strip()
-            if not s:
-                return None
-            try:
-                return float(s)
-            except Exception:
-                return None
-
-        job = Dedup2DJob(
-            job_id=data.get("job_id") or job_id,
-            tenant_id=stored_tenant_id,
-            status=job_status,
-            created_at=_maybe_float(data.get("created_at")) or time.time(),
-            started_at=_maybe_float(data.get("started_at")),
-            finished_at=_maybe_float(data.get("finished_at")),
-            error=(data.get("error") or "") or None,
-            meta={
-                "cancel_requested": str(data.get("cancel_requested") or "0"),
-                "callback_status": str(data.get("callback_status") or ""),
-                "callback_attempts": str(data.get("callback_attempts") or ""),
-            },
-        )
-        jobs.append(job)
-
-        if len(jobs) >= limit:
+    # We may need to scan more than `limit` when applying status filters.
+    # Use a small batch loop to stay efficient while ensuring enough matches.
+    batch_size = max(50, int(limit) * 3)
+    start = 0
+    while len(jobs) < limit:
+        ids = await pool.zrevrange(tenant_jobs_key, start, start + batch_size - 1)
+        if not ids:
             break
+        start += batch_size
 
-    # Sort by created_at descending (newest first)
-    jobs.sort(key=lambda j: j.created_at, reverse=True)
-    return jobs[:limit]
+        for raw_job_id in ids:
+            job_id = _to_str(raw_job_id).strip()
+            if not job_id:
+                continue
+
+            job_key = _job_key(effective_cfg, job_id)
+            raw_data = await pool.hgetall(job_key)
+            if not raw_data:
+                # Job metadata expired; prune index entry.
+                try:
+                    await pool.zrem(tenant_jobs_key, job_id)
+                except Exception:
+                    pass
+                continue
+
+            data = _hgetall_str(raw_data)
+            stored_tenant_id = data.get("tenant_id") or ""
+            if stored_tenant_id != tenant_id:
+                # Should not happen, but keep index clean.
+                try:
+                    await pool.zrem(tenant_jobs_key, job_id)
+                except Exception:
+                    pass
+                continue
+
+            status_raw = data.get("status") or Dedup2DJobStatus.PENDING.value
+            try:
+                job_status = Dedup2DJobStatus(status_raw)
+            except Exception:
+                job_status = Dedup2DJobStatus.PENDING
+
+            if status is not None and job_status != status:
+                continue
+
+            job = Dedup2DJob(
+                job_id=data.get("job_id") or job_id,
+                tenant_id=stored_tenant_id,
+                status=job_status,
+                created_at=_maybe_float(data.get("created_at")) or time.time(),
+                started_at=_maybe_float(data.get("started_at")),
+                finished_at=_maybe_float(data.get("finished_at")),
+                error=(data.get("error") or "") or None,
+                meta={
+                    "cancel_requested": str(data.get("cancel_requested") or "0"),
+                    "callback_status": str(data.get("callback_status") or ""),
+                    "callback_attempts": str(data.get("callback_attempts") or ""),
+                },
+            )
+            jobs.append(job)
+            if len(jobs) >= limit:
+                break
+
+    return jobs
