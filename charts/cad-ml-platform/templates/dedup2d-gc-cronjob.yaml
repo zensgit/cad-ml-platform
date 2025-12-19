@@ -1,0 +1,69 @@
+{{- if and .Values.dedup2d.worker.enabled .Values.dedup2dGc.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "cad-ml-platform.fullname" . }}-dedup2d-gc
+  labels:
+    {{- include "cad-ml-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dedup2d-gc
+spec:
+  schedule: {{ .Values.dedup2dGc.schedule | quote }}
+  successfulJobsHistoryLimit: {{ .Values.dedup2dGc.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.dedup2dGc.failedJobsHistoryLimit }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "cad-ml-platform.selectorLabels" . | nindent 12 }}
+            app.kubernetes.io/component: dedup2d-gc
+        spec:
+          {{- with .Values.podSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          restartPolicy: OnFailure
+          containers:
+            - name: gc
+              image: "{{ .Values.dedup2d.worker.image.repository | default .Values.image.repository }}:{{ .Values.dedup2d.worker.image.tag | default .Values.image.tag | default .Chart.AppVersion }}"
+              imagePullPolicy: {{ .Values.dedup2d.worker.image.pullPolicy | default .Values.image.pullPolicy }}
+              command:
+                - python
+                - scripts/dedup2d_uploads_gc.py
+                - --execute
+                - --retention-seconds
+                - {{ .Values.dedup2dGc.retentionSeconds | quote }}
+              envFrom:
+                - configMapRef:
+                    name: {{ include "cad-ml-platform.fullname" . }}-dedup2d-config
+              {{- if and (eq .Values.dedup2d.storage.mode "s3") (or .Values.dedup2d.storage.s3.existingSecret (and .Values.dedup2d.storage.s3.accessKeyId .Values.dedup2d.storage.s3.secretAccessKey)) }}
+                - secretRef:
+                    name: {{ .Values.dedup2d.storage.s3.existingSecret | default (printf "%s-dedup2d-s3" (include "cad-ml-platform.fullname" .)) }}
+              {{- end }}
+              {{- with .Values.securityContext }}
+              securityContext:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              resources:
+                {{- toYaml .Values.dedup2dGc.resources | nindent 16 }}
+              {{- if eq .Values.dedup2d.storage.mode "local" }}
+              volumeMounts:
+                - name: dedup2d-uploads
+                  mountPath: /app/{{ .Values.dedup2d.storage.local.path }}
+              {{- end }}
+          {{- if eq .Values.dedup2d.storage.mode "local" }}
+          volumes:
+            - name: dedup2d-uploads
+              persistentVolumeClaim:
+                claimName: {{ include "cad-ml-platform.fullname" . }}-dedup2d-pvc
+          {{- end }}
+          {{- with .Values.dedup2d.worker.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.dedup2d.worker.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+{{- end }}
