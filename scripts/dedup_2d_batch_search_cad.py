@@ -209,6 +209,12 @@ def main() -> int:
         help="Filter out self matches by file_hash (default: %(default)s)",
     )
     parser.add_argument("--max-files", type=int, default=0, help="Process at most N files (0 = no limit)")
+    parser.add_argument(
+        "--start-index",
+        type=int,
+        default=0,
+        help="Start index within the discovered file list (default: %(default)s)",
+    )
     parser.add_argument("--overwrite", action="store_true", help="Regenerate artifacts if present")
     parser.add_argument(
         "--work-dir",
@@ -306,6 +312,8 @@ def main() -> int:
 
     results: List[Dict[str, Any]] = []
     cad_files = list(_iter_cad_files(input_path))
+    if args.start_index > 0:
+        cad_files = cad_files[args.start_index :]
     if args.max_files > 0:
         cad_files = cad_files[: args.max_files]
 
