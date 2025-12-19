@@ -505,6 +505,84 @@ def pytest_addoption(parser):
         pass
 
 
+class TestDedup2DMetricsContract:
+    """Tests for dedup2d metrics contract."""
+
+    def test_dedup2d_metrics_module_exists(self) -> None:
+        """Verify dedup2d metrics module can be imported."""
+        from pathlib import Path
+        metrics_path = Path(__file__).parent.parent / "src" / "core" / "dedup2d_metrics.py"
+        assert metrics_path.exists(), f"Metrics module not found at {metrics_path}"
+
+        # Check that the module contains expected metric names
+        content = metrics_path.read_text()
+        expected_metrics = [
+            "dedup2d_jobs_submitted_total",
+            "dedup2d_jobs_completed_total",
+            "dedup2d_job_duration_seconds",
+            "dedup2d_jobs_queued",
+            "dedup2d_jobs_active",
+            "dedup2d_file_uploads_total",
+            "dedup2d_file_downloads_total",
+            "dedup2d_callbacks_total",
+            "dedup2d_gc_runs_total",
+            "dedup2d_error_rate_ema",
+        ]
+        for metric in expected_metrics:
+            assert metric in content, f"Missing metric {metric} in dedup2d_metrics.py"
+
+    def test_dedup2d_metrics_exports(self) -> None:
+        """Verify dedup2d metrics module has proper __all__ exports."""
+        from pathlib import Path
+        metrics_path = Path(__file__).parent.parent / "src" / "core" / "dedup2d_metrics.py"
+        content = metrics_path.read_text()
+
+        # Check __all__ is defined
+        assert "__all__" in content, "Metrics module should define __all__"
+
+        # Check key exports are in __all__
+        assert "dedup2d_jobs_submitted_total" in content
+        assert "update_dedup2d_error_ema" in content
+        assert "get_dedup2d_error_rate_ema" in content
+
+    def test_grafana_dashboard_exists(self) -> None:
+        """Verify dedup2d Grafana dashboard exists."""
+        from pathlib import Path
+        dashboard_path = Path(__file__).parent.parent / "grafana" / "dashboards" / "dedup2d.json"
+        assert dashboard_path.exists(), f"Dashboard not found at {dashboard_path}"
+
+    def test_prometheus_alerts_exist(self) -> None:
+        """Verify dedup2d Prometheus alerts exist."""
+        from pathlib import Path
+        alerts_path = Path(__file__).parent.parent / "prometheus" / "alerts" / "dedup2d.yml"
+        assert alerts_path.exists(), f"Alerts not found at {alerts_path}"
+
+    def test_grafana_dashboard_valid_json(self) -> None:
+        """Verify dedup2d Grafana dashboard is valid JSON."""
+        from pathlib import Path
+        dashboard_path = Path(__file__).parent.parent / "grafana" / "dashboards" / "dedup2d.json"
+        if dashboard_path.exists():
+            content = dashboard_path.read_text()
+            dashboard = json.loads(content)
+            assert "panels" in dashboard
+            assert "title" in dashboard
+            assert dashboard["title"] == "Dedup2D Dashboard"
+
+    def test_prometheus_alerts_valid_yaml(self) -> None:
+        """Verify dedup2d Prometheus alerts is valid YAML."""
+        from pathlib import Path
+        import yaml
+        alerts_path = Path(__file__).parent.parent / "prometheus" / "alerts" / "dedup2d.yml"
+        if alerts_path.exists():
+            content = alerts_path.read_text()
+            alerts = yaml.safe_load(content)
+            assert "groups" in alerts
+            assert len(alerts["groups"]) > 0
+            # Check first group has rules
+            assert "rules" in alerts["groups"][0]
+            assert len(alerts["groups"][0]["rules"]) > 0
+
+
 if __name__ == "__main__":
     # Quick validation
     test = TestMetricsContract()

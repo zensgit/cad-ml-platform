@@ -1,0 +1,95 @@
+# docker-compose.minio.yml
+# MinIO S3-compatible storage for dedup2d file uploads
+#
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.minio.yml up -d
+#
+# This override file:
+#   1. Adds MinIO service (S3-compatible storage)
+#   2. Configures API & Worker to use S3 backend instead of local filesystem
+#   3. Provides console access at http://localhost:9001
+#
+# Default credentials: minioadmin / minioadmin (change in production!)
+
+version: '3.8'
+
+services:
+  # MinIO S3-compatible storage
+  minio:
+    image: minio/minio:latest
+    container_name: cad-ml-minio
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # MinIO Console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - cad-ml-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # MinIO client - creates default bucket on startup
+  minio-init:
+    image: minio/mc:latest
+    container_name: cad-ml-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing myminio/dedup2d-uploads;
+      mc anonymous set download myminio/dedup2d-uploads;
+      echo 'Bucket dedup2d-uploads created successfully';
+      exit 0;
+      "
+    networks:
+      - cad-ml-network
+
+  # Override API to use S3 backend
+  cad-ml-api:
+    environment:
+      # S3/MinIO file storage (overrides local)
+      - DEDUP2D_FILE_STORAGE=s3
+      - DEDUP2D_S3_BUCKET=dedup2d-uploads
+      - DEDUP2D_S3_PREFIX=uploads
+      - DEDUP2D_S3_ENDPOINT=http://minio:9000
+      - DEDUP2D_S3_REGION=us-east-1
+      # AWS credentials for MinIO
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      # Cleanup after job completion (optional)
+      - DEDUP2D_FILE_STORAGE_CLEANUP_ON_FINISH=1
+    depends_on:
+      minio:
+        condition: service_healthy
+
+  # Override Worker to use S3 backend
+  dedup2d-worker:
+    environment:
+      # S3/MinIO file storage (must match API)
+      - DEDUP2D_FILE_STORAGE=s3
+      - DEDUP2D_S3_BUCKET=dedup2d-uploads
+      - DEDUP2D_S3_PREFIX=uploads
+      - DEDUP2D_S3_ENDPOINT=http://minio:9000
+      - DEDUP2D_S3_REGION=us-east-1
+      # AWS credentials for MinIO
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - DEDUP2D_FILE_STORAGE_CLEANUP_ON_FINISH=1
+    depends_on:
+      minio:
+        condition: service_healthy
+
+# Additional volume for MinIO data
+volumes:
+  minio-data:
+    driver: local
