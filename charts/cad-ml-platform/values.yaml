@@ -186,6 +186,9 @@ env:
   LOG_LEVEL: "INFO"
   LOG_FORMAT: "json"
 
+  # Optional: route CAD (DXF/DWG) jobs to render queue
+  DEDUP2D_RENDER_QUEUE_NAME: ""
+
 # ConfigMap for additional configuration
 configMap:
   enabled: false

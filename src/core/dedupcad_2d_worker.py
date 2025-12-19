@@ -23,6 +23,7 @@ import logging
 import os
 import tempfile
 import time
+from contextlib import contextmanager
 from datetime import timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
@@ -61,6 +62,22 @@ def _env_flag(name: str, *, default: bool = False) -> bool:
     return raw.strip().lower() not in {"0", "false", "no", "off", ""}
 
 
+@contextmanager
+def _temporary_env(updates: Dict[str, str]) -> Any:
+    original: Dict[str, Optional[str]] = {}
+    try:
+        for key, value in updates.items():
+            original[key] = os.environ.get(key)
+            os.environ[key] = value
+        yield
+    finally:
+        for key, previous in original.items():
+            if previous is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = previous
+
+
 def _to_str(value: Any) -> str:
     if value is None:
         return ""
@@ -77,6 +94,13 @@ def _decode_bytes_b64(data_b64: str) -> bytes:
 def _render_config_from_env() -> DxfRenderConfig:
     size_px = int(os.getenv("DEDUPCAD2_RENDER_SIZE_PX", "1024") or "1024")
     dpi = int(os.getenv("DEDUPCAD2_RENDER_DPI", "200") or "200")
+    margin_ratio = float(os.getenv("DEDUPCAD2_RENDER_MARGIN_RATIO", "0.05") or "0.05")
+    return DxfRenderConfig(size_px=size_px, dpi=dpi, margin_ratio=margin_ratio)
+
+
+def _render_fallback_config_from_env() -> DxfRenderConfig:
+    size_px = int(os.getenv("DEDUPCAD2_RENDER_FALLBACK_SIZE_PX", "512") or "512")
+    dpi = int(os.getenv("DEDUPCAD2_RENDER_FALLBACK_DPI", "100") or "100")
     margin_ratio = float(os.getenv("DEDUPCAD2_RENDER_MARGIN_RATIO", "0.05") or "0.05")
     return DxfRenderConfig(size_px=size_px, dpi=dpi, margin_ratio=margin_ratio)
 
@@ -138,7 +162,27 @@ def _render_cad_to_png(
             _convert_dwg_to_dxf(input_path, dxf_path)
 
         output_path = tmp_root / "render.png"
-        render_dxf_to_png(dxf_path, output_path, config=render_cfg)
+        try:
+            render_dxf_to_png(dxf_path, output_path, config=render_cfg)
+        except Exception as exc:
+            if not _env_flag("DEDUPCAD2_RENDER_FALLBACK", default=True):
+                raise
+            fallback_cfg = _render_fallback_config_from_env()
+            with _temporary_env(
+                {
+                    "DEDUPCAD2_RENDER_TEXT": "0",
+                    "DEDUPCAD2_RENDER_HATCH": "0",
+                }
+            ):
+                render_dxf_to_png(dxf_path, output_path, config=fallback_cfg)
+            logger.warning(
+                "dedup2d_render_fallback_used",
+                extra={
+                    "error": str(exc),
+                    "fallback_size_px": fallback_cfg.size_px,
+                    "fallback_dpi": fallback_cfg.dpi,
+                },
+            )
         png_bytes = output_path.read_bytes()
 
     stem = Path(str(file_name or "drawing")).stem or "drawing"

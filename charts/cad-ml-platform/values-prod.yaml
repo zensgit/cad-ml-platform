@@ -116,6 +116,9 @@ dedup2d:
       DEDUPCAD2_RENDER_HATCH: "1"
       MPLCONFIGDIR: "/tmp/mplconfig"
       XDG_CACHE_HOME: "/var/cache"
+      DEDUPCAD2_RENDER_FALLBACK: "1"
+      DEDUPCAD2_RENDER_FALLBACK_SIZE_PX: "512"
+      DEDUPCAD2_RENDER_FALLBACK_DPI: "100"
 
   storage:
     mode: "s3"
