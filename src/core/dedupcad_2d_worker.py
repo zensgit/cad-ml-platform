@@ -516,7 +516,6 @@ class WorkerSettings:
     max_jobs = int(os.getenv("DEDUP2D_WORKER_MAX_JOBS", "10"))
     job_timeout = timedelta(seconds=int(os.getenv("DEDUP2D_ASYNC_JOB_TIMEOUT_SECONDS", "300")))
 
-    @staticmethod
     async def on_startup(ctx: dict[str, Any]) -> None:
         if not _env_flag("DEDUPCAD2_RENDER_PREWARM_FONTS", default=False):
             return
