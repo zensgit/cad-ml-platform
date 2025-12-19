@@ -113,6 +113,8 @@ def render_dxf_to_png(
     excluded_types = {"ACAD_PROXY_ENTITY", "PROXY_ENTITY"}
     if not render_text:
         excluded_types = excluded_types | text_types
+    if not render_hatch:
+        excluded_types.add("HATCH")
     entities_for_bbox = [e for e in msp if e.dxftype() not in excluded_types]
     try:
         ext = bbox.extents(entities_for_bbox or msp)
