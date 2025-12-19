@@ -21,13 +21,14 @@
 - ✅ MinIO(S3) 文件存储 E2E 通过（同上 + S3 对象清理）
 - ✅ Helm chart 在 3 种配置下均可 `helm template` 成功渲染
 - ✅ 发现 1 处“forced-async 导致旧 proxy 测试期望同步返回”引起的测试失败，已修复（见下文）
+- ✅ 发现 1 处 Redis backend `GET /api/v1/dedup/2d/jobs` 仅返回 active job（完成后列表为空），已修复并补回归单测（见下文）
 
 ## 仓库状态（验收时）
 
 仓库：`cad-ml-platform`
 
 - 分支：`feat/dedup2d-phase4-production-ready`
-- HEAD：`564cc39`
+- HEAD：`bfd749b`
 - 工作区：除本机样例数据 `handoff/`（未跟踪）外干净；Phase 4 变更已整理为可追溯 commit 栈（含 docker-compose 运行态修复）。
 
 ## 关键验收项对照
@@ -39,7 +40,7 @@
 | 3 | 上传文件保留/GC | `tests/unit/test_dedup2d_gc.py` + `scripts/dedup2d_uploads_gc.py` | ✅ |
 | 4 | Helm/K8s 部署模板 | `helm template`（默认 / local / s3+secret） | ✅ |
 | 5 | 可观测性（metrics/alerts/dashboard） | `tests/test_metrics_contract.py` | ✅ |
-| 6 | API 易用性（forced-async + GET /2d/jobs） | `tests/unit/test_dedup2d_api_usability.py` + proxy 集成覆盖 | ✅ |
+| 6 | API 易用性（forced-async + GET /2d/jobs） | `tests/unit/test_dedup2d_api_usability.py` + `tests/unit/test_dedup2d_job_list_redis.py` + proxy 集成覆盖 | ✅ |
 | 7 | E2E + 周报 | `scripts/e2e_dedup2d_webhook.py` + `scripts/e2e_dedup2d_webhook_minio.py` + `claudedocs/phase4_dedup2d_summary.md` | ✅ |
 
 ## 执行的校验命令与结果
@@ -169,6 +170,24 @@ docker compose -p cad-ml-platform-phase4 \
    - 增加 `autouse` fixture，默认关闭 forced-async（proxy 测试专注验证同步输出；forced-async 行为由 `tests/unit/test_dedup2d_api_usability.py` 覆盖）
 
 修复后：✅ 相关测试通过，且 forced-async 单测仍通过。
+
+### 问题：Redis backend 的 jobs 列表在 job 完成后为空
+
+现象：
+
+- 提交异步 job 完成后，`GET /api/v1/dedup/2d/jobs` 返回空列表，导致排查/运维体验较差。
+
+根因：
+
+- Redis backend 的列表实现仅从 `{prefix}:active` 集合取 job_id；而 job 完成后会从 active set 移除。
+
+修复：
+
+- 新增 per-tenant ZSET 索引：`{prefix}:tenant:{tenant_id}:jobs`（score=created_at）
+- submit 时写入 ZSET；list 时从 ZSET 读取并对过期 job 懒清理
+- 新增单测：`tests/unit/test_dedup2d_job_list_redis.py`
+
+修复后：✅ 在 Redis backend 下可列出 TTL 内的 `completed/failed/canceled` job。
 
 ## 备注 / 后续建议
 
