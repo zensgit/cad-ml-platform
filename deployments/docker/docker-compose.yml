@@ -9,8 +9,8 @@ services:
     image: cad-ml-platform:latest
     container_name: cad-ml-api
     ports:
-      - "8000:8000"  # API端口
-      - "9090:9090"  # Prometheus metrics端口
+      - "${CAD_ML_API_PORT:-8000}:8000"  # API端口
+      - "${CAD_ML_API_METRICS_PORT:-9090}:9090"  # Prometheus metrics端口
     environment:
       - LOG_LEVEL=INFO
       - REDIS_URL=redis://redis:6379/0
@@ -71,7 +71,7 @@ services:
     image: redis:7-alpine
     container_name: cad-ml-redis
     ports:
-      - "6379:6379"
+      - "${CAD_ML_REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
@@ -84,7 +84,7 @@ services:
     image: prom/prometheus:latest
     container_name: cad-ml-prometheus
     ports:
-      - "9091:9090"
+      - "${CAD_ML_PROMETHEUS_PORT:-9091}:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ../../prometheus/rules:/etc/prometheus/rules:ro
@@ -102,7 +102,7 @@ services:
     image: grafana/grafana:latest
     container_name: cad-ml-grafana
     ports:
-      - "3001:3000"
+      - "${CAD_ML_GRAFANA_PORT:-3001}:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_INSTALL_PLUGINS=redis-datasource
