@@ -16,7 +16,7 @@ import httpx
 @dataclass(frozen=True)
 class DedupCadVisionConfig:
     base_url: str = "http://localhost:58001"
-    timeout_seconds: float = 30.0
+    timeout_seconds: float = 60.0
 
     @classmethod
     def from_env(cls) -> "DedupCadVisionConfig":

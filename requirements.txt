@@ -32,6 +32,10 @@ aioredis==2.0.1
 # sqlalchemy==2.0.23  # Optional, for database support
 # asyncpg==0.29.0  # Optional, for PostgreSQL
 
+# Cloud Storage (Phase 4 Dedup2D File Storage)
+boto3>=1.34.0  # AWS S3 / MinIO compatible storage
+botocore>=1.34.0  # Required by boto3, also used for Stubber in tests
+
 # Vector Store (Phase 1 Architecture Improvement)
 qdrant-client>=1.7.0  # Production vector database, replaces custom FAISS+Redis
 

@@ -4,6 +4,7 @@ from typing import Any, Dict
 
 import time
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -15,6 +16,17 @@ from src.api.v1.dedup import (
 )
 from src.core.dedupcad_2d_jobs import reset_dedup2d_job_store
 from src.core.dedupcad_precision.verifier import PrecisionScore
+
+
+@pytest.fixture(autouse=True)
+def _disable_forced_async(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep proxy tests focused on sync pipeline behavior.
+
+    Forced-async behavior is covered in dedicated unit tests.
+    """
+    monkeypatch.setenv("DEDUP2D_FORCED_ASYNC_FILE_SIZE_BYTES", "0")
+    monkeypatch.setenv("DEDUP2D_FORCED_ASYNC_ON_PRECISION", "0")
+    monkeypatch.setenv("DEDUP2D_FORCED_ASYNC_ON_MODE_PRECISE", "0")
 
 
 class _FakeDedupClient:
@@ -576,6 +588,52 @@ def test_dedup_2d_search_async_cancel():
         app.dependency_overrides.clear()
 
 
+def test_dedup_2d_search_async_callback_url_requires_redis_backend():
+    reset_dedup2d_job_store()
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true&callback_url=https%3A%2F%2Fexample.com%2Fhook",
+            files=files,
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"]["error"] == "CALLBACK_UNSUPPORTED"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_search_async_invalid_callback_url_returns_400(monkeypatch):
+    """When the Redis backend rejects callback_url, the API should return 400 (not 500)."""
+    from src.api.v1 import dedup as dedup_module
+
+    async def _fake_submit(**_kwargs):  # noqa: ANN001
+        raise ValueError("callback_url scheme not allowed: http")
+
+    async def _fake_depth():  # noqa: ANN001
+        return 0
+
+    monkeypatch.setenv("DEDUP2D_ASYNC_BACKEND", "redis")
+    monkeypatch.setattr(dedup_module, "submit_dedup2d_job_redis", _fake_submit)
+    monkeypatch.setattr(dedup_module, "get_dedup2d_queue_depth_redis", _fake_depth)
+
+    app.dependency_overrides[get_tenant_config_store] = lambda: _FakeTenantConfigStore()
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true&callback_url=http%3A%2F%2Fexample.com%2Fhook",
+            files=files,
+        )
+        assert resp.status_code == 400
+        detail = resp.json()["detail"]
+        assert detail["error"] == "CALLBACK_URL_INVALID"
+        assert "scheme not allowed" in detail["message"]
+    finally:
+        app.dependency_overrides.clear()
+
+
 # =============================================================================
 # Phase 1: Tenant Isolation Tests
 # =============================================================================
@@ -755,5 +813,82 @@ def test_dedup_2d_job_not_found_returns_404():
         )
         assert cancel_resp.status_code == 404
         assert cancel_resp.json()["detail"]["error"] == "JOB_NOT_FOUND"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_async_backend_redis_can_submit_and_poll(monkeypatch):
+    """When DEDUP2D_ASYNC_BACKEND=redis, endpoints should use the Redis backend hooks."""
+    from src.api.v1 import dedup as dedup_module
+    from src.core.dedupcad_2d_jobs import Dedup2DJob, Dedup2DJobStatus
+
+    class _FakePool:
+        async def hsetnx(self, key, field, value):  # noqa: ANN001
+            return True
+
+    async def _fake_get_pool(cfg):  # noqa: ANN001
+        return _FakePool()
+
+    async def _fake_submit(**kwargs):  # noqa: ANN001
+        assert kwargs.get("callback_url") == "https://example.com/hook"
+        return Dedup2DJob(job_id="job_redis_1", tenant_id="tenant:test", status=Dedup2DJobStatus.PENDING)
+
+    async def _fake_depth():  # noqa: ANN001
+        return 0
+
+    async def _fake_get(job_id: str, tenant_id: str, **kwargs):  # noqa: ANN001
+        now = time.time()
+        return Dedup2DJob(
+            job_id=job_id,
+            tenant_id=tenant_id,
+            status=Dedup2DJobStatus.COMPLETED,
+            created_at=now - 1.0,
+            started_at=now - 0.9,
+            finished_at=now - 0.1,
+            result={
+                "success": True,
+                "total_matches": 0,
+                "duplicates": [],
+                "similar": [],
+                "final_level": 2,
+                "timing": {"total_ms": 1.0},
+                "level_stats": {},
+                "warnings": [],
+                "error": None,
+            },
+        )
+
+    async def _fake_cancel(job_id: str, tenant_id: str, **kwargs):  # noqa: ANN001
+        assert job_id
+        assert tenant_id
+        return True
+
+    monkeypatch.setenv("DEDUP2D_ASYNC_BACKEND", "redis")
+    monkeypatch.setattr(dedup_module, "get_dedup2d_redis_pool", _fake_get_pool)
+    monkeypatch.setattr(dedup_module, "submit_dedup2d_job_redis", _fake_submit)
+    monkeypatch.setattr(dedup_module, "get_dedup2d_queue_depth_redis", _fake_depth)
+    monkeypatch.setattr(dedup_module, "get_dedup2d_job_for_tenant_redis", _fake_get)
+    monkeypatch.setattr(dedup_module, "cancel_dedup2d_job_for_tenant_redis", _fake_cancel)
+
+    app.dependency_overrides[get_tenant_config_store] = lambda: _FakeTenantConfigStore()
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true&callback_url=https%3A%2F%2Fexample.com%2Fhook",
+            files=files,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["job_id"] == "job_redis_1"
+
+        status_resp = client.get("/api/v1/dedup/2d/jobs/job_redis_1")
+        assert status_resp.status_code == 200
+        assert status_resp.json()["status"] == "completed"
+        assert status_resp.json()["result"]["success"] is True
+
+        cancel_resp = client.post("/api/v1/dedup/2d/jobs/job_redis_1/cancel")
+        assert cancel_resp.status_code == 200
+        assert cancel_resp.json()["canceled"] is True
     finally:
         app.dependency_overrides.clear()

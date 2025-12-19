@@ -379,7 +379,8 @@ class Dedup2DJobStore:
                 job.result = result
                 job.finished_at = self._now()
                 duration = (job.finished_at - (job.started_at or job.created_at))
-                queue_depth = self.get_queue_depth()
+                # Avoid re-acquiring the same lock (threading.Lock is not re-entrant).
+                queue_depth = sum(1 for j in self._jobs.values() if not j.is_finished())
 
             # Call metrics callback outside the lock
             if self._metrics_callback is not None:
@@ -395,7 +396,7 @@ class Dedup2DJobStore:
                 if job is not None:
                     job.status = Dedup2DJobStatus.CANCELED
                     job.finished_at = self._now()
-                    queue_depth = self.get_queue_depth()
+                    queue_depth = sum(1 for j in self._jobs.values() if not j.is_finished())
 
             # Call metrics callback outside the lock
             if self._metrics_callback is not None and job is not None:
@@ -417,7 +418,7 @@ class Dedup2DJobStore:
                 job.error = str(e)
                 job.finished_at = self._now()
                 duration = (job.finished_at - (job.started_at or job.created_at))
-                queue_depth = self.get_queue_depth()
+                queue_depth = sum(1 for j in self._jobs.values() if not j.is_finished())
 
             # Call metrics callback outside the lock
             if self._metrics_callback is not None:
@@ -435,6 +436,7 @@ class Dedup2DJobStore:
 _JOB_STORE: Dedup2DJobStore | None = None
 _JOB_STORE_LOCK = threading.Lock()
 _MULTI_WORKER_WARNING_ISSUED = False
+_GLOBAL_METRICS_CALLBACK: JobMetricsCallback | None = None
 
 
 def _check_multi_worker_warning() -> None:
@@ -482,6 +484,7 @@ def get_dedup2d_job_store() -> Dedup2DJobStore:
                 max_concurrency=int(os.getenv("DEDUP2D_ASYNC_MAX_CONCURRENCY", "2")),
                 max_jobs=int(os.getenv("DEDUP2D_ASYNC_MAX_JOBS", "200")),
                 ttl_seconds=int(os.getenv("DEDUP2D_ASYNC_TTL_SECONDS", "3600")),
+                metrics_callback=_GLOBAL_METRICS_CALLBACK,
             )
         return _JOB_STORE
 
@@ -518,8 +521,13 @@ def set_dedup2d_job_metrics_callback(callback: JobMetricsCallback) -> None:
 
         set_dedup2d_job_metrics_callback(Dedup2DJobMetrics())
     """
-    store = get_dedup2d_job_store()
-    store._metrics_callback = callback
+    global _GLOBAL_METRICS_CALLBACK
+    _GLOBAL_METRICS_CALLBACK = callback
+    if _JOB_STORE is None:
+        return
+    with _JOB_STORE_LOCK:
+        if _JOB_STORE is not None:
+            _JOB_STORE._metrics_callback = callback
 
 
 __all__ = [

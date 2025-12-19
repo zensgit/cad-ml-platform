@@ -5,12 +5,24 @@ This package vendors the core geometric/semantic JSON similarity logic from the
 `dedupcad-vision` returns visual candidates.
 """
 
-from .store import GeomJsonStore, GeomJsonStoreConfig
+from .store import (
+    GeomJsonStore,
+    GeomJsonStoreConfig,
+    GeomJsonStoreProtocol,
+    HybridGeomJsonStore,
+    RedisGeomJsonStore,
+    RedisGeomJsonStoreConfig,
+    create_geom_store,
+)
 from .verifier import PrecisionVerifier
 
 __all__ = [
     "GeomJsonStore",
     "GeomJsonStoreConfig",
+    "GeomJsonStoreProtocol",
+    "HybridGeomJsonStore",
     "PrecisionVerifier",
+    "RedisGeomJsonStore",
+    "RedisGeomJsonStoreConfig",
+    "create_geom_store",
 ]
-
