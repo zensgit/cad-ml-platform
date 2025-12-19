@@ -203,6 +203,16 @@ def main() -> int:
         help="Index all files before searching (default: %(default)s)",
     )
     parser.add_argument(
+        "--skip-index",
+        action="store_true",
+        help="Skip indexing step (assumes files already indexed)",
+    )
+    parser.add_argument(
+        "--skip-search",
+        action="store_true",
+        help="Skip search step (useful for indexing-only runs)",
+    )
+    parser.add_argument(
         "--exclude-self",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -359,7 +369,7 @@ def main() -> int:
             results.append(item)
             continue
 
-        if args.index_first:
+        if args.index_first and not args.skip_index:
             try:
                 with open(item["png_path"], "rb") as f_img:
                     files = {"file": (Path(item["png_path"]).name, f_img, "image/png")}
@@ -395,7 +405,7 @@ def main() -> int:
 
         results.append(item)
 
-    if args.index_first and args.rebuild_index and indexed:
+    if args.index_first and args.rebuild_index and indexed and not args.skip_index:
         try:
             resp = requests.post(
                 f"{base_url}/api/v1/dedup/2d/index/rebuild",
@@ -406,27 +416,36 @@ def main() -> int:
         except Exception:
             pass
 
-    for item in results:
-        if "png_path" not in item:
-            continue
-        try:
-            with open(item["png_path"], "rb") as f_img:
-                files = {"file": (Path(item["png_path"]).name, f_img, "image/png")}
-                geom_path = item.get("geom_json_path")
-                params = {
-                    "async": "true",
-                    "mode": args.mode,
-                    "max_results": args.max_results,
-                    "compute_diff": str(args.compute_diff).lower(),
-                    "enable_precision": str(args.enable_precision).lower(),
-                }
-                if geom_path:
-                    with open(geom_path, "rb") as f_json:
-                        files["geom_json"] = (
-                            Path(geom_path).name,
-                            f_json,
-                            "application/json",
-                        )
+    if not args.skip_search:
+        for item in results:
+            if "png_path" not in item:
+                continue
+            try:
+                with open(item["png_path"], "rb") as f_img:
+                    files = {"file": (Path(item["png_path"]).name, f_img, "image/png")}
+                    geom_path = item.get("geom_json_path")
+                    params = {
+                        "async": "true",
+                        "mode": args.mode,
+                        "max_results": args.max_results,
+                        "compute_diff": str(args.compute_diff).lower(),
+                        "enable_precision": str(args.enable_precision).lower(),
+                    }
+                    if geom_path:
+                        with open(geom_path, "rb") as f_json:
+                            files["geom_json"] = (
+                                Path(geom_path).name,
+                                f_json,
+                                "application/json",
+                            )
+                            submit = _post(
+                                url=search_url,
+                                headers=headers,
+                                params=params,
+                                files=files,
+                                timeout=args.request_timeout,
+                            )
+                    else:
                         submit = _post(
                             url=search_url,
                             headers=headers,
@@ -434,37 +453,29 @@ def main() -> int:
                             files=files,
                             timeout=args.request_timeout,
                         )
-                else:
-                    submit = _post(
-                        url=search_url,
+                    item["search_submit"] = submit
+                    job_id = submit.get("job_id")
+                    if not job_id:
+                        item["search"] = {"status": "failed", "error": "missing job_id"}
+                        continue
+                    job = _poll_job(
+                        base_url=base_url,
+                        job_id=job_id,
                         headers=headers,
-                        params=params,
-                        files=files,
-                        timeout=args.request_timeout,
+                        poll_interval=args.poll_interval,
+                        poll_timeout=args.poll_timeout,
                     )
-                item["search_submit"] = submit
-                job_id = submit.get("job_id")
-                if not job_id:
-                    item["search"] = {"status": "failed", "error": "missing job_id"}
-                    continue
-                job = _poll_job(
-                    base_url=base_url,
-                    job_id=job_id,
-                    headers=headers,
-                    poll_interval=args.poll_interval,
-                    poll_timeout=args.poll_timeout,
-                )
-                if args.exclude_self:
-                    file_hash = ""
-                    if isinstance(item.get("index"), dict):
-                        file_hash = str(item["index"].get("file_hash") or "")
-                    if file_hash and isinstance(job.get("result"), dict):
-                        job["result"] = _filter_self_matches(job["result"], file_hash=file_hash)
-                item["search"] = job
-                if isinstance(job.get("result"), dict):
-                    item["summary"] = _summarize_result(job["result"])
-        except Exception as e:
-            item["search"] = {"status": "failed", "error": str(e)}
+                    if args.exclude_self:
+                        file_hash = ""
+                        if isinstance(item.get("index"), dict):
+                            file_hash = str(item["index"].get("file_hash") or "")
+                        if file_hash and isinstance(job.get("result"), dict):
+                            job["result"] = _filter_self_matches(job["result"], file_hash=file_hash)
+                    item["search"] = job
+                    if isinstance(job.get("result"), dict):
+                        item["summary"] = _summarize_result(job["result"])
+            except Exception as e:
+                item["search"] = {"status": "failed", "error": str(e)}
 
     output_json = args.output_json
     _ensure_dir(output_json.parent)
