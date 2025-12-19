@@ -1,0 +1,99 @@
+# Dedup2D Staging Runbook
+
+Scope: bring up cad-ml-platform + dedup2d-worker + Redis + S3/MinIO and validate end-to-end
+against a real dedupcad-vision instance.
+
+## Prerequisites
+
+- dedupcad-vision reachable at DEDUPCAD_VISION_URL
+- Redis reachable
+- S3/MinIO reachable (bucket + credentials)
+- staging API key for cad-ml-platform (X-API-Key)
+
+## 1) Deploy order (recommended)
+
+1. Deploy Redis + S3/MinIO
+2. Deploy dedupcad-vision and confirm /health
+3. Deploy cad-ml-platform API (DEDUP2D_ASYNC_BACKEND=redis)
+4. Deploy dedup2d-worker (ARQ)
+5. Enable Prometheus scrape + Grafana dashboard
+
+## 2) Config checklist (staging)
+
+- DEDUP2D_ASYNC_BACKEND=redis
+- DEDUP2D_REDIS_URL=redis://<redis-host>:6379/0
+- DEDUP2D_REDIS_KEY_PREFIX=dedup2d
+- DEDUP2D_ARQ_QUEUE_NAME=dedup2d:queue
+- DEDUP2D_FILE_STORAGE=s3
+- DEDUP2D_S3_ENDPOINT, DEDUP2D_S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+- DEDUPCAD_VISION_URL=http://<vision-host>:58001
+- DEDUPCAD_VISION_TIMEOUT_SECONDS=60
+- DEDUP2D_ASYNC_MAX_JOBS, DEDUP2D_ASYNC_TTL_SECONDS, DEDUP2D_ASYNC_JOB_TIMEOUT_SECONDS
+
+## 3) Smoke tests (API)
+
+### Health
+
+- GET /health (expect status=healthy)
+- GET /metrics (expect dedup2d_* metrics present)
+
+### Submit async job
+
+```bash
+curl -sSf -X POST \
+  "http://<api-host>/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true" \
+  -H "X-API-Key: <api-key>" \
+  -F "file=@<png-or-jpg-file>;type=image/png"
+```
+
+Expect:
+
+```json
+{"job_id":"...","status":"pending","poll_url":"/api/v1/dedup/2d/jobs/<job_id>"}
+```
+
+### Poll job
+
+```bash
+curl -sSf -H "X-API-Key: <api-key>" \
+  "http://<api-host>/api/v1/dedup/2d/jobs/<job_id>"
+```
+
+Expect `status=completed` and `result` with Vision payload.
+
+### List jobs
+
+```bash
+curl -sSf -H "X-API-Key: <api-key>" \
+  "http://<api-host>/api/v1/dedup/2d/jobs?limit=5"
+```
+
+Expect completed job to appear within TTL.
+
+## 4) Worker validation
+
+- Confirm ARQ worker logs show job execution and no uncaught exceptions
+- Confirm Redis keys exist:
+  - dedup2d:job:<job_id>
+  - dedup2d:result:<job_id>
+  - dedup2d:tenant:<tenant_id>:jobs
+
+## 5) Monitoring validation
+
+- Prometheus target for cad-ml-platform is UP
+- Grafana dashboard "Dedup2D Dashboard" exists and shows non-zero samples
+- No new alert rules firing unexpectedly
+
+## 6) Failure handling
+
+If job fails:
+
+- Check worker logs for Vision HTTP errors or timeouts
+- Confirm DEDUPCAD_VISION_URL is reachable from worker Pod
+- Confirm S3 bucket permissions; verify cleanup_on_finish if enabled
+
+## 7) Exit criteria
+
+- At least one async job completes successfully with a real Vision response
+- Job appears in GET /api/v1/dedup/2d/jobs
+- Metrics are scraped; dashboard shows data
