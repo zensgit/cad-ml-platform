@@ -138,9 +138,7 @@ services:
 networks:
   cad-ml-network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/24
+    # Avoid hard-coded subnets: can overlap with existing Docker networks.
 
 # 数据卷
 volumes:
