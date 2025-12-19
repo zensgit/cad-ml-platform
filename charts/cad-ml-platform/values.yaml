@@ -299,6 +299,40 @@ dedup2d:
     # Extra environment variables
     extraEnv: {}
 
+  # Optional render worker for CAD (DXF/DWG) high-fidelity rendering.
+  renderWorker:
+    enabled: false
+    replicaCount: 1
+
+    image:
+      repository: ""  # defaults to main image
+      tag: ""         # defaults to main tag
+      pullPolicy: IfNotPresent
+
+    command:
+      - arq
+      - src.core.dedupcad_2d_worker.WorkerSettings
+
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 8Gi
+      requests:
+        cpu: 500m
+        memory: 4Gi
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+    extraEnv: {}
+
   # File storage configuration
   # Mode: "local" (requires shared PVC) or "s3" (requires S3 credentials)
   storage:
@@ -336,6 +370,7 @@ dedup2d:
     url: "redis://redis:6379/0"
     keyPrefix: "dedup2d"
     queueName: "dedup2d:queue"
+    renderQueueName: ""
 
   # Job configuration
   job:

@@ -31,6 +31,7 @@ import os
 import time
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 try:
@@ -64,6 +65,7 @@ class Dedup2DRedisJobConfig:
     redis_url: str
     key_prefix: str
     queue_name: str
+    render_queue_name: Optional[str]
     ttl_seconds: int
     max_jobs: int
     job_timeout_seconds: int
@@ -74,6 +76,8 @@ class Dedup2DRedisJobConfig:
         queue_name = os.getenv("DEDUP2D_ARQ_QUEUE_NAME")
         if queue_name is None or not queue_name.strip():
             queue_name = f"{key_prefix}:queue"
+        render_queue_raw = os.getenv("DEDUP2D_RENDER_QUEUE_NAME", "").strip()
+        render_queue_name = render_queue_raw or None
         redis_url = (
             os.getenv("DEDUP2D_REDIS_URL")
             or os.getenv("REDIS_URL")
@@ -86,6 +90,7 @@ class Dedup2DRedisJobConfig:
             redis_url=redis_url,
             key_prefix=key_prefix,
             queue_name=queue_name,
+            render_queue_name=render_queue_name,
             ttl_seconds=max(60, ttl_seconds),
             max_jobs=max(1, max_jobs),
             job_timeout_seconds=max(1, job_timeout_seconds),
@@ -117,6 +122,22 @@ class Dedup2DPayloadConfig:
 def _encode_bytes_b64(data: bytes) -> str:
     """Encode bytes to base64 string."""
     return base64.b64encode(data).decode("ascii")
+
+
+_CAD_EXTENSIONS = {".dxf", ".dwg"}
+_CAD_MIME_HINTS = {"application/dxf", "application/x-dxf", "image/vnd.dwg", "application/acad"}
+
+
+def is_cad_file(file_name: str, content_type: str) -> bool:
+    ext = Path(str(file_name or "")).suffix.lower()
+    if ext in _CAD_EXTENSIONS:
+        return True
+    content_type = str(content_type or "").lower()
+    if content_type in _CAD_MIME_HINTS:
+        return True
+    if "dxf" in content_type or "dwg" in content_type:
+        return True
+    return False
 
 
 def _job_key(cfg: Dedup2DRedisJobConfig, job_id: str) -> str:
@@ -268,6 +289,7 @@ async def submit_dedup2d_job(
         data=file_bytes,
     )
 
+    render_required = is_cad_file(file_name, content_type)
     payload: Dict[str, Any] = {
         "tenant_id": tenant_id,
         "file_name": file_name or "unknown",
@@ -276,6 +298,7 @@ async def submit_dedup2d_job(
         "query_geom": query_geom,
         "request_params": dict(request_params),
         "callback_url": normalized_callback_url,
+        "render_required": render_required,
     }
 
     # Phase 4: Optionally include file_bytes_b64 for backward compatibility during rolling upgrade
@@ -315,11 +338,15 @@ async def submit_dedup2d_job(
         await pool.zadd(tenant_jobs_key, {job_id: float(created_at)})
         await pool.expire(tenant_jobs_key, effective_cfg.ttl_seconds)
 
+        queue_name = effective_cfg.queue_name
+        if render_required and effective_cfg.render_queue_name:
+            queue_name = effective_cfg.render_queue_name
+
         job = await pool.enqueue_job(
             "dedup2d_run_job",
             job_id,
             _job_id=job_id,
-            _queue_name=effective_cfg.queue_name,
+            _queue_name=queue_name,
             _expires=effective_cfg.ttl_seconds,
         )
         if job is None:

@@ -21,8 +21,10 @@ import base64
 import json
 import logging
 import os
+import tempfile
 import time
 from datetime import timedelta
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 from arq.connections import RedisSettings
@@ -32,9 +34,18 @@ from src.core.dedupcad_2d_jobs_redis import (
     Dedup2DRedisJobConfig,
     _payload_key,
     get_dedup2d_redis_pool,
+    is_cad_file,
     mark_dedup2d_job_result,
 )
 from src.core.dedupcad_2d_pipeline import run_dedup_2d_pipeline
+from src.core.dedupcad_precision.cad_pipeline import (
+    DxfRenderConfig,
+    OdaConverterConfig,
+    convert_dwg_to_dxf_cmd,
+    convert_dwg_to_dxf_oda,
+    render_dxf_to_png,
+    resolve_oda_exe_from_env,
+)
 from src.core.dedup2d_file_storage import Dedup2DFileRef
 from src.core.dedupcad_precision import PrecisionVerifier, create_geom_store
 from src.core.dedupcad_vision import DedupCadVisionClient
@@ -61,6 +72,77 @@ def _to_str(value: Any) -> str:
 def _decode_bytes_b64(data_b64: str) -> bytes:
     """Decode base64-encoded file bytes (legacy payload format)."""
     return base64.b64decode(data_b64.encode("ascii"))
+
+
+def _render_config_from_env() -> DxfRenderConfig:
+    size_px = int(os.getenv("DEDUPCAD2_RENDER_SIZE_PX", "1024") or "1024")
+    dpi = int(os.getenv("DEDUPCAD2_RENDER_DPI", "200") or "200")
+    margin_ratio = float(os.getenv("DEDUPCAD2_RENDER_MARGIN_RATIO", "0.05") or "0.05")
+    return DxfRenderConfig(size_px=size_px, dpi=dpi, margin_ratio=margin_ratio)
+
+
+def _resolve_cad_suffix(file_name: str, content_type: str) -> str:
+    suffix = Path(str(file_name or "")).suffix.lower()
+    if suffix in {".dxf", ".dwg"}:
+        return suffix
+    content_type = str(content_type or "").lower()
+    if "dwg" in content_type:
+        return ".dwg"
+    if "dxf" in content_type:
+        return ".dxf"
+    return suffix
+
+
+def _convert_dwg_to_dxf(in_path: Path, out_path: Path) -> None:
+    oda_exe = resolve_oda_exe_from_env()
+    if oda_exe is not None:
+        convert_dwg_to_dxf_oda(
+            in_path,
+            out_path,
+            cfg=OdaConverterConfig(
+                exe_path=oda_exe,
+                output_version=os.getenv("ODA_OUTPUT_VERSION", "ACAD2018"),
+            ),
+        )
+        return
+
+    cmd_template = os.getenv("DWG_TO_DXF_CMD", "").strip()
+    if cmd_template:
+        convert_dwg_to_dxf_cmd(in_path, out_path, cmd_template=cmd_template)
+        return
+
+    raise RuntimeError(
+        "DWG conversion unavailable: set ODA_FILE_CONVERTER_EXE or DWG_TO_DXF_CMD"
+    )
+
+
+def _render_cad_to_png(
+    *,
+    file_name: str,
+    file_bytes: bytes,
+    content_type: str,
+) -> tuple[str, bytes, str]:
+    suffix = _resolve_cad_suffix(file_name, content_type)
+    if suffix not in {".dxf", ".dwg"}:
+        raise RuntimeError(f"Unsupported CAD format for rendering: {suffix or 'unknown'}")
+
+    render_cfg = _render_config_from_env()
+    with tempfile.TemporaryDirectory(prefix="dedup2d_render_") as tmp_dir:
+        tmp_root = Path(tmp_dir)
+        input_path = tmp_root / f"input{suffix}"
+        input_path.write_bytes(file_bytes)
+
+        dxf_path = input_path
+        if suffix == ".dwg":
+            dxf_path = tmp_root / "input.dxf"
+            _convert_dwg_to_dxf(input_path, dxf_path)
+
+        output_path = tmp_root / "render.png"
+        render_dxf_to_png(dxf_path, output_path, config=render_cfg)
+        png_bytes = output_path.read_bytes()
+
+    stem = Path(str(file_name or "drawing")).stem or "drawing"
+    return f"{stem}.png", png_bytes, "image/png"
 
 
 async def _load_file_bytes_from_payload(
@@ -163,6 +245,23 @@ async def dedup2d_run_job(ctx: dict[str, Any], job_id: str) -> dict[str, Any]:
 
         # Phase 4: Support both new (file_ref) and legacy (file_bytes_b64) formats
         file_bytes, file_ref, storage = await _load_file_bytes_from_payload(payload)
+
+        render_required = bool(payload.get("render_required"))
+        if render_required or is_cad_file(file_name, content_type):
+            render_start = time.time()
+            file_name, file_bytes, content_type = _render_cad_to_png(
+                file_name=file_name,
+                file_bytes=file_bytes,
+                content_type=content_type,
+            )
+            logger.info(
+                "dedup2d_render_completed",
+                extra={
+                    "job_id": job_id,
+                    "duration_seconds": round(time.time() - render_start, 3),
+                    "output_bytes": len(file_bytes),
+                },
+            )
 
         query_geom = payload.get("query_geom")
         request_params = payload.get("request_params") or {}

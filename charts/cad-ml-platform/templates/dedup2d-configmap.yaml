@@ -18,6 +18,7 @@ data:
   DEDUP2D_REDIS_URL: {{ .Values.dedup2d.redis.url | quote }}
   DEDUP2D_REDIS_KEY_PREFIX: {{ .Values.dedup2d.redis.keyPrefix | quote }}
   DEDUP2D_ARQ_QUEUE_NAME: {{ .Values.dedup2d.redis.queueName | quote }}
+  DEDUP2D_RENDER_QUEUE_NAME: {{ .Values.dedup2d.redis.renderQueueName | quote }}
 
   # File storage mode
   DEDUP2D_FILE_STORAGE: {{ .Values.dedup2d.storage.mode | quote }}

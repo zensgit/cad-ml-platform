@@ -53,6 +53,7 @@ env:
   DEDUP2D_REDIS_URL: "redis://shared-redis.redis.svc.cluster.local:6379/1"
   DEDUP2D_REDIS_KEY_PREFIX: "dedup2d"
   DEDUP2D_ARQ_QUEUE_NAME: "dedup2d:queue"
+  DEDUP2D_RENDER_QUEUE_NAME: "dedup2d:render"
   DEDUP2D_FILE_STORAGE: "s3"
   DEDUP2D_S3_BUCKET: "dedup2d-uploads-prod"
   DEDUP2D_S3_PREFIX: "uploads"
@@ -76,18 +77,37 @@ env:
 dedup2d:
   worker:
     enabled: true
-    replicaCount: 1
+    replicaCount: 2
     autoscaling:
-      enabled: false
-      minReplicas: 1
-      maxReplicas: 4
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
       targetCPUUtilizationPercentage: 70
     resources:
       limits:
         cpu: 2000m
-        memory: 16Gi
+        memory: 4Gi
       requests:
         cpu: 500m
+        memory: 1Gi
+    extraEnv:
+      DEDUP2D_WORKER_MAX_JOBS: "10"
+      # DEDUP2D_CALLBACK_HMAC_SECRET: "__SET_ME__"
+
+  renderWorker:
+    enabled: true
+    replicaCount: 1
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 2
+      targetCPUUtilizationPercentage: 70
+    resources:
+      limits:
+        cpu: 4000m
+        memory: 16Gi
+      requests:
+        cpu: 1000m
         memory: 8Gi
     extraEnv:
       DEDUP2D_WORKER_MAX_JOBS: "1"
@@ -96,7 +116,6 @@ dedup2d:
       DEDUPCAD2_RENDER_HATCH: "1"
       MPLCONFIGDIR: "/tmp/mplconfig"
       XDG_CACHE_HOME: "/var/cache"
-      # DEDUP2D_CALLBACK_HMAC_SECRET: "__SET_ME__"
 
   storage:
     mode: "s3"
@@ -113,6 +132,7 @@ dedup2d:
     url: "redis://shared-redis.redis.svc.cluster.local:6379/1"
     keyPrefix: "dedup2d"
     queueName: "dedup2d:queue"
+    renderQueueName: "dedup2d:render"
 
   job:
     maxConcurrency: 4
