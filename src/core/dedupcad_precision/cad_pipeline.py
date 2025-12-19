@@ -130,12 +130,15 @@ def render_dxf_to_png(
     ax.set_ylim(float(ymin) - margin, float(ymax) + margin)
     ax.axis("off")
 
+    render_text = os.getenv("DEDUPCAD2_RENDER_TEXT", "1").strip().lower() not in {"0", "false", "no"}
     base_render_cfg = Configuration(
         color_policy=ColorPolicy.MONOCHROME,
         background_policy=BackgroundPolicy.WHITE,
     ).with_changes(
         # Avoid hard failures on invalid proxy-graphics (common in DWG->DXF flows).
         proxy_graphic_policy=ProxyGraphicPolicy.IGNORE,
+        # Optionally skip text rendering to avoid font issues in minimal containers.
+        text_policy=TextPolicy.IGNORE if not render_text else TextPolicy.ACCURATE,
     )
     ctx = RenderContext(doc, export_mode=True)
     ctx.set_current_layout(msp)
