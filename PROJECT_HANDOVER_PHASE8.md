@@ -27,3 +27,9 @@
 ## 3. Known Issues
 - **Mock Models**: The quantization script uses a mock PointNet model. Real weights need to be trained.
 - **LLM Dependency**: Generative engine relies on a mocked LLM response in tests. Real integration requires a deployed model.
+
+## 4. Post-Completion Operational Update (2025-12-22)
+- CAD render service autostarted via LaunchAgent (macOS TCC-safe runtime path).
+- Token rotation validated with Athena end-to-end smoke test.
+- One-command update + auto-rollback: `scripts/update_cad_render_runtime.sh`.
+- Reports: `reports/CAD_RENDER_AUTOSTART_TOKEN_ROTATION.md` and `FINAL_VERIFICATION_LOG.md`.

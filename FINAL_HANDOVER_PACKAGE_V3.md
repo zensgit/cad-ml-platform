@@ -72,5 +72,11 @@ curl http://localhost:8000/health/cluster
 - **Environment**: Dynamic test execution (`posix_spawnp`) is restricted in some environments. Use static verification or Docker for testing.
 - **Mock Data**: The fine-tuning script currently uses mock data if the feature cache is unreachable.
 
+## 🔄 Recent Operational Updates (2025-12-22)
+- CAD render service autostarted via LaunchAgent (macOS TCC-safe runtime path).
+- Token rotation validated with Athena end-to-end smoke test.
+- One-command update + auto-rollback: `scripts/update_cad_render_runtime.sh`.
+- Reports: `reports/CAD_RENDER_AUTOSTART_TOKEN_ROTATION.md` and `FINAL_VERIFICATION_LOG.md`.
+
 ## 📞 Support
 For operational issues, refer to `docs/OPERATIONS_MANUAL_V2.md` (updated for v3).
