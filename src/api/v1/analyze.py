@@ -542,10 +542,12 @@ async def analyze_cad_file(
             except Exception:
                 pass
             extractor = FeatureExtractor()
+            combined_vec: list[float] | None = None
             if cached_vector is not None:
                 feature_cache_hits_total.inc()
                 # rehydrate cached vector into geometric/semantic split
                 features = extractor.rehydrate(cached_vector, version=feature_version)
+                combined_vec = cached_vector
             else:
                 feature_cache_miss_total.inc()
                 features = await extractor.extract(doc)
@@ -555,10 +557,16 @@ async def analyze_cad_file(
                     feature_cache_size.set(feature_cache.size())
                 except Exception:
                     pass
+            if combined_vec is None:
+                try:
+                    combined_vec = extractor.flatten(features)
+                except Exception:
+                    combined_vec = []
             feature_slots = extractor.slots(feature_version)
             results["features"] = {
                 "geometric": [float(x) for x in features["geometric"]],
                 "semantic": [float(x) for x in features["semantic"]],
+                "combined": [float(x) for x in combined_vec],
                 "dimension": len(features["geometric"]) + len(features["semantic"]),
                 "feature_version": feature_version,
                 "feature_slots": feature_slots,
@@ -913,21 +921,36 @@ async def analyze_cad_file(
 
         # Register vector for later similarity queries (use geometric+semantic concatenation + L3 embedding)
         try:
+            from src.core.vector_layouts import VECTOR_LAYOUT_BASE, VECTOR_LAYOUT_L3
+            feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
             feature_vector: list[float] = FeatureExtractor().flatten(features)
-            
+            vector_layout = VECTOR_LAYOUT_BASE
+            l3_dim: int | None = None
+
             # L3 Integration: Append 3D embedding if available
             if "features_3d" in locals() and "embedding_vector" in features_3d:
-                 feature_vector.extend([float(x) for x in features_3d["embedding_vector"]])
+                l3_dim = len(features_3d["embedding_vector"])
+                feature_vector.extend([float(x) for x in features_3d["embedding_vector"]])
+                vector_layout = VECTOR_LAYOUT_L3
 
             m_used = material or "unknown"
+            meta = {
+                "material": m_used,
+                "complexity": doc.complexity_bucket(),
+                "format": doc.format,
+                "feature_version": feature_version,
+                "vector_layout": vector_layout,
+                "geometric_dim": str(len(features.get("geometric", []))),
+                "semantic_dim": str(len(features.get("semantic", []))),
+                "total_dim": str(len(feature_vector)),
+            }
+            if l3_dim is not None:
+                meta["l3_3d_dim"] = str(l3_dim)
+
             accepted = register_vector(
                 analysis_id,
                 feature_vector,
-                meta={
-                    "material": m_used,
-                    "complexity": doc.complexity_bucket(),
-                    "format": doc.format,
-                },
+                meta=meta,
             )
             if accepted:
                 vector_store_material_total.labels(material=m_used).inc()
@@ -942,18 +965,7 @@ async def analyze_cad_file(
                 # enrich meta with dimension breakdown for future migrations
                 try:
                     _VECTOR_META = __import__("src.core.similarity", fromlist=["_VECTOR_META"])._VECTOR_META  # type: ignore
-                    
-                    meta_update = {
-                        "geometric_dim": str(len(features.get("geometric", []))),
-                        "semantic_dim": str(len(features.get("semantic", []))),
-                        "feature_version": feature_version,
-                        "vector_layout": "base_sem_ext_v1",
-                    }
-                    if "features_3d" in locals() and "embedding_vector" in features_3d:
-                         meta_update["l3_3d_dim"] = str(len(features_3d["embedding_vector"]))
-                    
-                    meta_update["total_dim"] = str(len(feature_vector))
-                    _VECTOR_META[analysis_id].update(meta_update)
+                    _VECTOR_META[analysis_id].update(meta)
                 except Exception:
                     pass
         except Exception:
@@ -1461,13 +1473,16 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
                 skipped += 1
                 dry_run_total += 1
             else:
+                from src.core.vector_layouts import VECTOR_LAYOUT_BASE
                 _VECTOR_STORE[vid] = [float(x) for x in new_vector]
                 meta.update({
                     "feature_version": payload.to_version,
                     "geometric_dim": str(len(new_features.get("geometric", []))),
                     "semantic_dim": str(len(new_features.get("semantic", []))),
                     "total_dim": str(len(new_vector)),
+                    "vector_layout": VECTOR_LAYOUT_BASE,
                 })
+                meta.pop("l3_3d_dim", None)
                 items.append(VectorMigrateItem(id=vid, status="migrated", from_version=from_version, to_version=payload.to_version, dimension_before=original_dim, dimension_after=len(new_vector)))
                 migrated += 1
         except Exception as e:

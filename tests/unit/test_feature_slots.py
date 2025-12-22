@@ -19,6 +19,9 @@ def test_feature_slots_presence(monkeypatch):
     features = body.get("results", {}).get("features", {})
     slots = features.get("feature_slots")
     assert isinstance(slots, list)
+    combined = features.get("combined")
+    assert isinstance(combined, list)
+    assert len(combined) == features.get("dimension")
     # Basic expectations: at least base v1 slots present
     names = {s.get("name") for s in slots}
     for required in [
@@ -30,4 +33,3 @@ def test_feature_slots_presence(monkeypatch):
         "layer_count",
     ]:
         assert required in names
-

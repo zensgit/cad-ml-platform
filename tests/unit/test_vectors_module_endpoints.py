@@ -99,3 +99,65 @@ def test_vectors_list_redis_source():
     assert len(data["vectors"]) == 1
     assert data["vectors"][0]["id"] == "vec2"
     assert data["vectors"][0]["dimension"] == 2
+
+
+def test_vectors_register_and_search():
+    client = TestClient(app)
+    payload = {
+        "id": "vec1",
+        "vector": [0.1] * 7,
+        "meta": {"material": "steel", "complexity": "low"},
+    }
+    resp = client.post(
+        "/api/v1/vectors/register",
+        json=payload,
+        headers={"X-API-Key": "test"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "accepted"
+
+    search = client.post(
+        "/api/v1/vectors/search",
+        json={"vector": [0.1] * 7, "k": 5},
+        headers={"X-API-Key": "test"},
+    )
+    assert search.status_code == 200
+    results = search.json()["results"]
+    assert any(item["id"] == "vec1" for item in results)
+
+
+def test_vectors_search_with_filters():
+    client = TestClient(app)
+    client.post(
+        "/api/v1/vectors/register",
+        json={
+            "id": "steel_vec",
+            "vector": [0.2] * 7,
+            "meta": {"material": "steel"},
+        },
+        headers={"X-API-Key": "test"},
+    )
+    client.post(
+        "/api/v1/vectors/register",
+        json={
+            "id": "alu_vec",
+            "vector": [0.2] * 7,
+            "meta": {"material": "aluminum"},
+        },
+        headers={"X-API-Key": "test"},
+    )
+
+    search = client.post(
+        "/api/v1/vectors/search",
+        json={
+            "vector": [0.2] * 7,
+            "k": 5,
+            "material_filter": "steel",
+        },
+        headers={"X-API-Key": "test"},
+    )
+    assert search.status_code == 200
+    results = search.json()["results"]
+    assert results
+    assert all(item["material"] == "steel" for item in results)

@@ -5,16 +5,20 @@ from __future__ import annotations
 from datetime import datetime
 import json
 import os
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional, List, TYPE_CHECKING
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key, get_admin_token
 from src.core.errors_extended import build_error, ErrorCode
+from src.core.vector_layouts import VECTOR_LAYOUT_BASE, VECTOR_LAYOUT_LEGACY, VECTOR_LAYOUT_L3, layout_has_l3
 from src.utils.cache import get_client
 
 router = APIRouter()
+
+if TYPE_CHECKING:
+    from src.core.feature_extractor import FeatureExtractor
 
 
 class VectorDeleteRequest(BaseModel):
@@ -44,6 +48,31 @@ class VectorBackendReloadResponse(BaseModel):
     status: str
     backend: Optional[str] = None
     error: Optional[Dict[str, Any]] = None
+
+
+class VectorRegisterRequest(BaseModel):
+    id: str = Field(description="向量 ID")
+    vector: list[float] = Field(description="向量数据")
+    meta: Optional[Dict[str, str]] = Field(default=None, description="向量元数据")
+
+
+class VectorRegisterResponse(BaseModel):
+    id: str
+    status: str
+    dimension: Optional[int] = None
+    error: Optional[Dict[str, Any]] = None
+
+
+class VectorSearchRequest(BaseModel):
+    vector: list[float] = Field(description="查询向量")
+    k: int = Field(default=10, ge=1, le=100, description="返回数量")
+    material_filter: Optional[str] = Field(default=None, description="材料过滤")
+    complexity_filter: Optional[str] = Field(default=None, description="复杂度过滤")
+
+
+class VectorSearchResponse(BaseModel):
+    results: list[Dict[str, Any]]
+    total: int
 
 
 @router.post("/delete", response_model=VectorDeleteResponse)
@@ -118,6 +147,83 @@ async def list_vectors(
         if client is not None:
             return await _list_vectors_redis(client, offset, limit, scan_limit)
     return _list_vectors_memory(_VECTOR_STORE, _VECTOR_META, offset, limit)
+
+
+@router.post("/register", response_model=VectorRegisterResponse)
+async def register_vector_endpoint(
+    payload: VectorRegisterRequest,
+    api_key: str = Depends(get_api_key),
+):
+    from src.core.similarity import register_vector, last_vector_error, FaissVectorStore
+
+    meta = dict(payload.meta or {})
+    meta.setdefault("total_dim", str(len(payload.vector)))
+    accepted = register_vector(payload.id, payload.vector, meta=meta)
+    if accepted:
+        if os.getenv("VECTOR_STORE_BACKEND", "memory") == "faiss":
+            try:
+                fstore = FaissVectorStore()
+                fstore.add(payload.id, payload.vector)
+            except Exception:
+                pass
+        return VectorRegisterResponse(
+            id=payload.id,
+            status="accepted",
+            dimension=len(payload.vector),
+        )
+
+    err = last_vector_error()
+    if err is None:
+        err = build_error(
+            ErrorCode.DIMENSION_MISMATCH,
+            stage="vector_register",
+            message="Vector rejected",
+            id=payload.id,
+        )
+    return VectorRegisterResponse(
+        id=payload.id,
+        status="rejected",
+        error=err,
+    )
+
+
+@router.post("/search", response_model=VectorSearchResponse)
+async def search_vectors(
+    payload: VectorSearchRequest,
+    api_key: str = Depends(get_api_key),
+):
+    from src.core.similarity import _VECTOR_META, _VECTOR_STORE, get_vector_store
+
+    store = get_vector_store()
+    query_k = payload.k
+    if payload.material_filter or payload.complexity_filter:
+        query_k = min(payload.k * 5, payload.k + 100)
+    results = store.query(payload.vector, top_k=query_k)
+    seen: set[str] = set()
+    items: list[Dict[str, Any]] = []
+    for vid, score in results:
+        if vid in seen:
+            continue
+        seen.add(vid)
+        meta = _VECTOR_META.get(vid) or store.meta(vid) or {}
+        if payload.material_filter and meta.get("material") != payload.material_filter:
+            continue
+        if payload.complexity_filter and meta.get("complexity") != payload.complexity_filter:
+            continue
+        items.append(
+            {
+                "id": vid,
+                "score": round(float(score), 4),
+                "material": meta.get("material"),
+                "complexity": meta.get("complexity"),
+                "format": meta.get("format"),
+                "dimension": len(_VECTOR_STORE.get(vid, [])),
+            }
+        )
+        if len(items) >= payload.k:
+            break
+
+    return VectorSearchResponse(results=items, total=len(items))
 
 
 def _resolve_list_source(source: str, backend: str) -> str:
@@ -198,6 +304,41 @@ async def _list_vectors_redis(
         if cursor == 0:
             break
     return VectorListResponse(total=total, vectors=items)
+
+
+def _coerce_int(value: Optional[str]) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _prepare_vector_for_upgrade(
+    extractor: "FeatureExtractor",
+    vector: list[float],
+    meta: Dict[str, Any],
+    from_version: str,
+) -> tuple[list[float], list[float], str]:
+    layout = meta.get("vector_layout") or VECTOR_LAYOUT_BASE
+    expected_len = extractor.expected_dim(from_version)
+    l3_tail: list[float] = []
+    base_vector = vector
+
+    if layout_has_l3(layout):
+        l3_dim = _coerce_int(meta.get("l3_3d_dim"))
+        if l3_dim is None and len(vector) > expected_len:
+            l3_dim = len(vector) - expected_len
+        if not l3_dim or len(vector) < expected_len + l3_dim:
+            raise ValueError("L3 layout length mismatch")
+        base_vector = vector[: len(vector) - l3_dim]
+        l3_tail = vector[-l3_dim:]
+
+    if layout == VECTOR_LAYOUT_LEGACY:
+        base_vector = extractor.reorder_legacy_vector(base_vector, from_version)
+
+    return base_vector, l3_tail, layout
 
 
 __all__ = ["router"]
@@ -384,8 +525,8 @@ async def preview_migration(
     # Enforce limit cap
     limit = min(limit, 100)
 
-    # Get extractor
-    extractor = FeatureExtractor()
+    # Get extractor for target version
+    extractor = FeatureExtractor(feature_version=to_version)
 
     # Collect version distribution
     by_version: Dict[str, int] = {}
@@ -423,7 +564,15 @@ async def preview_migration(
             continue
 
         try:
-            new_features = extractor.upgrade_vector(vec, current_version=from_version)
+            base_vector, l3_tail, _ = _prepare_vector_for_upgrade(
+                extractor,
+                vec,
+                meta,
+                from_version,
+            )
+            new_features = extractor.upgrade_vector(base_vector, current_version=from_version)
+            if l3_tail:
+                new_features = new_features + l3_tail
             dimension_after = len(new_features)
             dimension_delta = dimension_after - dimension_before
             deltas.append(dimension_delta)
@@ -543,7 +692,15 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
         vec = _VECTOR_STORE[vid]
         dimension_before = len(vec)
         try:
-            new_features = extractor.upgrade_vector(vec, current_version=from_version)
+            base_vector, l3_tail, _ = _prepare_vector_for_upgrade(
+                extractor,
+                vec,
+                meta,
+                from_version,
+            )
+            new_features = extractor.upgrade_vector(base_vector, current_version=from_version)
+            if l3_tail:
+                new_features = new_features + l3_tail
             dimension_after = len(new_features)
             dimension_delta = dimension_after - dimension_before
             # Record dimension delta for observability
@@ -555,6 +712,15 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
             else:
                 _VECTOR_STORE[vid] = new_features
                 meta["feature_version"] = target_version
+                expected_2d_dim = extractor.expected_dim(target_version)
+                meta["geometric_dim"] = str(expected_2d_dim - 2)
+                meta["semantic_dim"] = "2"
+                meta["total_dim"] = str(len(new_features))
+                meta["vector_layout"] = VECTOR_LAYOUT_L3 if l3_tail else VECTOR_LAYOUT_BASE
+                if l3_tail:
+                    meta["l3_3d_dim"] = str(len(l3_tail))
+                else:
+                    meta.pop("l3_3d_dim", None)
                 _VECTOR_META[vid] = meta
                 # Track downgrade separately if target lower than source
                 if (from_version, target_version) in {("v4", "v3"), ("v4", "v2"), ("v4", "v1"), ("v3", "v2"), ("v3", "v1"), ("v2", "v1")}:

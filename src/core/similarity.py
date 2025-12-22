@@ -10,6 +10,7 @@ from math import sqrt
 from typing import Any, Dict, List, Protocol, runtime_checkable
 import os
 from src.utils.cache import get_sync_client
+from src.core.vector_layouts import VECTOR_LAYOUT_BASE
 from src.utils.analysis_metrics import (
     analysis_vector_count,
     vector_dimension_rejections_total,
@@ -171,7 +172,7 @@ def register_vector(doc_id: str, vector: List[float], meta: Dict[str, str] | Non
         meta = {}
     if meta is not None:
         meta.setdefault("feature_version", os.getenv("FEATURE_VERSION", "v1"))
-        meta.setdefault("vector_layout", "base_sem_ext_v1")
+        meta.setdefault("vector_layout", VECTOR_LAYOUT_BASE)
     if meta:
         with _VECTOR_LOCK:
             _VECTOR_META[doc_id] = meta
