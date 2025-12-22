@@ -65,10 +65,10 @@ class Dedup2DRedisJobConfig:
     redis_url: str
     key_prefix: str
     queue_name: str
-    render_queue_name: Optional[str] = None
     ttl_seconds: int
     max_jobs: int
     job_timeout_seconds: int
+    render_queue_name: Optional[str] = None
 
     @classmethod
     def from_env(cls) -> "Dedup2DRedisJobConfig":
