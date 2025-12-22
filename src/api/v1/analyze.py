@@ -529,7 +529,7 @@ async def analyze_cad_file(
             feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
             # Use full content bytes for cache key
             content_hash_full = _hl.sha256(content).hexdigest()
-            cache_key = f"{content_hash_full}:{feature_version}"
+            cache_key = f"{content_hash_full}:{feature_version}:layout_v2"
             from src.utils.analysis_metrics import feature_cache_hits_total, feature_cache_miss_total, feature_cache_size
             feature_cache = get_feature_cache()
             # Measure lookup latency
@@ -550,10 +550,7 @@ async def analyze_cad_file(
                 feature_cache_miss_total.inc()
                 features = await extractor.extract(doc)
                 try:
-                    combined_vec = [
-                        *[float(x) for x in features.get("geometric", [])],
-                        *[float(x) for x in features.get("semantic", [])],
-                    ]
+                    combined_vec = extractor.flatten(features)
                     feature_cache.set(cache_key, combined_vec)
                     feature_cache_size.set(feature_cache.size())
                 except Exception:
@@ -674,10 +671,7 @@ async def analyze_cad_file(
                 # Attempt ML classification overlay
                 try:
                     from src.ml.classifier import predict
-                    vec_for_model = [
-                        *[float(x) for x in features.get("geometric", [])],
-                        *[float(x) for x in features.get("semantic", [])],
-                    ]
+                    vec_for_model = FeatureExtractor().flatten(features)
                     ml_result = predict(vec_for_model)
                     if ml_result.get("predicted_type"):
                         cls_payload["ml_predicted_type"] = ml_result["predicted_type"]
@@ -894,8 +888,8 @@ async def analyze_cad_file(
                     try:
                         client = __import__("src.utils.cache", fromlist=["get_client"]).get_client()
                         if client is not None:
-                            client.set("baseline:material", json.dumps(st["baseline_materials"]))  # type: ignore[attr-defined]
-                            client.set("baseline:material:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
+                            await client.set("baseline:material", json.dumps(st["baseline_materials"]))  # type: ignore[attr-defined]
+                            await client.set("baseline:material:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
                     except Exception:
                         pass
                 if len(st["baseline_predictions"]) == 0 and len(st["predictions"]) >= min_count:
@@ -903,8 +897,8 @@ async def analyze_cad_file(
                     try:
                         client = __import__("src.utils.cache", fromlist=["get_client"]).get_client()
                         if client is not None:
-                            client.set("baseline:class", json.dumps(st["baseline_predictions"]))  # type: ignore[attr-defined]
-                            client.set("baseline:class:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
+                            await client.set("baseline:class", json.dumps(st["baseline_predictions"]))  # type: ignore[attr-defined]
+                            await client.set("baseline:class:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
                     except Exception:
                         pass
                 if st["baseline_materials"]:
@@ -919,10 +913,7 @@ async def analyze_cad_file(
 
         # Register vector for later similarity queries (use geometric+semantic concatenation + L3 embedding)
         try:
-            feature_vector: list[float] = [
-                *[float(x) for x in features.get("geometric", [])],
-                *[float(x) for x in features.get("semantic", [])],
-            ]
+            feature_vector: list[float] = FeatureExtractor().flatten(features)
             
             # L3 Integration: Append 3D embedding if available
             if "features_3d" in locals() and "embedding_vector" in features_3d:
@@ -956,6 +947,7 @@ async def analyze_cad_file(
                         "geometric_dim": str(len(features.get("geometric", []))),
                         "semantic_dim": str(len(features.get("semantic", []))),
                         "feature_version": feature_version,
+                        "vector_layout": "base_sem_ext_v1",
                     }
                     if "features_3d" in locals() and "embedding_vector" in features_3d:
                          meta_update["l3_3d_dim"] = str(len(features_3d["embedding_vector"]))
@@ -1463,7 +1455,7 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
         extractor = FeatureExtractor(feature_version=payload.to_version)
         try:
             new_features = await extractor.extract(doc)
-            new_vector = [*new_features.get("geometric", []), *new_features.get("semantic", [])]
+            new_vector = extractor.flatten(new_features)
             if payload.dry_run:
                 items.append(VectorMigrateItem(id=vid, status="dry_run", from_version=from_version, to_version=payload.to_version, dimension_before=original_dim, dimension_after=len(new_vector)))
                 skipped += 1
@@ -1754,8 +1746,8 @@ async def drift_reset(api_key: str = Depends(get_api_key)):
     try:
         client = __import__("src.utils.cache", fromlist=["get_client"]).get_client()
         if client is not None:
-            client.delete("baseline:material")  # type: ignore[attr-defined]
-            client.delete("baseline:class")  # type: ignore[attr-defined]
+            await client.delete("baseline:material")  # type: ignore[attr-defined]
+            await client.delete("baseline:class")  # type: ignore[attr-defined]
     except Exception:
         pass
     return DriftResetResponse(status="ok", reset_material=reset_material, reset_predictions=reset_predictions)

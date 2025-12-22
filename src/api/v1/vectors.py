@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional, List
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from src.api.dependencies import get_api_key
+from src.api.dependencies import get_api_key, get_admin_token
 from src.core.errors_extended import build_error, ErrorCode
 
 router = APIRouter()
@@ -37,6 +37,12 @@ class VectorListResponse(BaseModel):
     vectors: list[VectorListItem]
 
 
+class VectorBackendReloadResponse(BaseModel):
+    status: str
+    backend: Optional[str] = None
+    error: Optional[Dict[str, Any]] = None
+
+
 @router.post("/delete", response_model=VectorDeleteResponse)
 async def delete_vector(payload: VectorDeleteRequest, api_key: str = Depends(get_api_key)):
     from src.core.similarity import _VECTOR_STORE, _VECTOR_META, _BACKEND, FaissVectorStore  # type: ignore
@@ -62,7 +68,7 @@ async def delete_vector(payload: VectorDeleteRequest, api_key: str = Depends(get
             client = get_client()
             if client is not None:
                 try:
-                    client.delete(f"vector:{payload.id}")
+                    await client.delete(f"vector:{payload.id}")
                 except Exception:
                     pass
         return VectorDeleteResponse(id=payload.id, status="deleted")
@@ -318,7 +324,7 @@ async def preview_migration(
             continue
 
         try:
-            new_features = extractor.upgrade_vector(vec)
+            new_features = extractor.upgrade_vector(vec, current_version=from_version)
             dimension_after = len(new_features)
             dimension_delta = dimension_after - dimension_before
             deltas.append(dimension_delta)
@@ -438,7 +444,7 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
         vec = _VECTOR_STORE[vid]
         dimension_before = len(vec)
         try:
-            new_features = extractor.upgrade_vector(vec)
+            new_features = extractor.upgrade_vector(vec, current_version=from_version)
             dimension_after = len(new_features)
             dimension_delta = dimension_after - dimension_before
             # Record dimension delta for observability
@@ -842,3 +848,43 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
         fallback=is_fallback if is_fallback else None,
         degraded=degraded_info["degraded"]
     )
+
+
+@router.post("/backend/reload", response_model=VectorBackendReloadResponse)
+async def reload_vector_backend(
+    backend: Optional[str] = None,
+    api_key: str = Depends(get_api_key),
+    admin_token: str = Depends(get_admin_token),
+):
+    """Reload vector store backend (admin token required)."""
+    from src.core.similarity import reload_vector_store_backend
+    from src.utils.analysis_metrics import vector_store_reload_total
+    import os
+
+    allowed = {"memory", "faiss", "redis"}
+    if backend is not None:
+        backend = backend.strip().lower()
+        if backend not in allowed:
+            vector_store_reload_total.labels(status="error").inc()
+            err = build_error(
+                ErrorCode.INPUT_VALIDATION_FAILED,
+                stage="backend_reload",
+                message="Unsupported vector backend",
+                backend=backend,
+                supported=sorted(allowed),
+            )
+            raise HTTPException(status_code=400, detail=err)
+        os.environ["VECTOR_STORE_BACKEND"] = backend
+
+    effective_backend = backend or os.getenv("VECTOR_STORE_BACKEND", "memory")
+    ok = reload_vector_store_backend()
+    vector_store_reload_total.labels(status="success" if ok else "error").inc()
+    if not ok:
+        err = build_error(
+            ErrorCode.INTERNAL_ERROR,
+            stage="backend_reload",
+            message="Vector store backend reload failed",
+            backend=effective_backend,
+        )
+        raise HTTPException(status_code=500, detail=err)
+    return VectorBackendReloadResponse(status="ok", backend=effective_backend)

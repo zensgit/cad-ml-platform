@@ -9,7 +9,7 @@ from __future__ import annotations
 from math import sqrt
 from typing import Any, Dict, List, Protocol, runtime_checkable
 import os
-from src.utils.cache import get_client
+from src.utils.cache import get_sync_client
 from src.utils.analysis_metrics import (
     analysis_vector_count,
     vector_dimension_rejections_total,
@@ -68,7 +68,7 @@ def _store_recovery_state(payload: dict) -> None:
     """Store recovery state using configured backend (file|redis)."""
     try:
         if _FAISS_RECOVERY_STATE_BACKEND == "redis":
-            client = get_client()
+            client = get_sync_client()
             if client is not None:
                 client.set("faiss:recovery_state", __import__("json").dumps(payload))
                 return
@@ -108,7 +108,7 @@ def load_recovery_state():  # pragma: no cover (invoked at startup)
         import json, os, time
         data = None
         if _FAISS_RECOVERY_STATE_BACKEND == "redis":
-            client = get_client()
+            client = get_sync_client()
             if client is not None:
                 val = client.get("faiss:recovery_state")
                 if val:
@@ -167,6 +167,11 @@ def register_vector(doc_id: str, vector: List[float], meta: Dict[str, str] | Non
     import time
     _VECTOR_TS[doc_id] = time.time()
     _VECTOR_LAST_ACCESS[doc_id] = _VECTOR_TS[doc_id]
+    if meta is None:
+        meta = {}
+    if meta is not None:
+        meta.setdefault("feature_version", os.getenv("FEATURE_VERSION", "v1"))
+        meta.setdefault("vector_layout", "base_sem_ext_v1")
     if meta:
         with _VECTOR_LOCK:
             _VECTOR_META[doc_id] = meta
@@ -184,7 +189,7 @@ def register_vector(doc_id: str, vector: List[float], meta: Dict[str, str] | Non
     except Exception:
         pass
     if _BACKEND == "redis":
-        client = get_client()
+        client = get_sync_client()
         if client is not None:
             try:
                 # store vector as comma-separated floats and meta as JSON
@@ -257,7 +262,7 @@ class InMemoryVectorStore(VectorStoreProtocol):
         if key in self._store:
             return self._store.get(key)
         if _BACKEND == "redis":
-            client = get_client()
+            client = get_sync_client()
             if client is not None:
                 try:
                     data = client.hgetall(f"vector:{key}")
@@ -274,7 +279,7 @@ class InMemoryVectorStore(VectorStoreProtocol):
         if key in self._store:
             return True
         if _BACKEND == "redis":
-            client = get_client()
+            client = get_sync_client()
             if client is not None:
                 try:
                     return client.exists(f"vector:{key}") == 1
@@ -286,7 +291,7 @@ class InMemoryVectorStore(VectorStoreProtocol):
         results: List[tuple[str, float]] = []
         self._prune()
         if _BACKEND == "redis":
-            client = get_client()
+            client = get_sync_client()
             if client is not None:
                 try:
                     # scan redis keys pattern vector:*
@@ -317,7 +322,7 @@ class InMemoryVectorStore(VectorStoreProtocol):
         if key in _VECTOR_META:
             return _VECTOR_META.get(key)
         if _BACKEND == "redis":
-            client = get_client()
+            client = get_sync_client()
             if client is not None:
                 try:
                     data = client.hgetall(f"vector:{key}")
@@ -345,7 +350,7 @@ class InMemoryVectorStore(VectorStoreProtocol):
                 _VECTOR_TS.pop(vid, None)
                 _VECTOR_LAST_ACCESS.pop(vid, None)
         if _BACKEND == "redis":
-            client = get_client()
+            client = get_sync_client()
             if client is not None:
                 try:
                     for vid in expired:

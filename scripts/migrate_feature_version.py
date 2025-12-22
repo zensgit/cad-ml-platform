@@ -54,7 +54,7 @@ async def migrate(ids: List[str], from_version: str, to_version: str, dry_run: b
         # Set target feature version via env override for extractor
         os.environ["FEATURE_VERSION"] = to_version
         new_features = await extractor.extract(doc)
-        new_vector = [*new_features.get("geometric", []), *new_features.get("semantic", [])]
+        new_vector = extractor.flatten(new_features)
         if dry_run:
             feature_migration_total.labels(status="skipped").inc()
         else:
@@ -91,4 +91,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -134,8 +134,8 @@ class FeatureExtractor:
             feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
         self.feature_version = feature_version
 
-    def upgrade_vector(self, existing: List[float]) -> List[float]:
-        """Upgrade an existing geometric+semantic combined vector to target version.
+    def upgrade_vector(self, existing: List[float], current_version: str | None = None) -> List[float]:
+        """Upgrade an existing combined vector to target version.
 
         This is a best-effort transformation when original document context is
         unavailable. Strategy:
@@ -154,17 +154,29 @@ class FeatureExtractor:
         expected_v2 = base_len + v2_len
         expected_v3 = base_len + v2_len + v3_len
         expected_v4 = base_len + v2_len + v3_len + v4_len
-        current_version = "v1"
+        inferred_version = "v1"
         if cur_len >= expected_v4:
-            current_version = "v4"
+            inferred_version = "v4"
         elif cur_len >= expected_v3:
-            current_version = "v3"
+            inferred_version = "v3"
         elif cur_len >= expected_v2:
-            current_version = "v2"
-        # Validate length (must be one of expected set); if not, raise to allow caller to mark error
-        if cur_len not in {expected_v1, expected_v2, expected_v3, expected_v4}:
+            inferred_version = "v2"
+
+        if current_version not in {"v1", "v2", "v3", "v4"}:
+            current_version = inferred_version
+
+        expected_map = {
+            "v1": expected_v1,
+            "v2": expected_v2,
+            "v3": expected_v3,
+            "v4": expected_v4,
+        }
+        expected_len = expected_map.get(current_version, expected_v1)
+
+        # Validate length (must match expected); if not, raise to allow caller to mark error
+        if cur_len != expected_len:
             raise ValueError(
-                f"Unsupported existing vector length {cur_len}; expected one of {expected_v1},{expected_v2},{expected_v3},{expected_v4}"
+                f"Unsupported existing vector length {cur_len}; expected {expected_len} for {current_version}"
             )
         # Downgrade
         if version == "v1":
@@ -204,71 +216,144 @@ class FeatureExtractor:
         import time
         from src.utils.analysis_metrics import feature_extraction_latency_seconds
         start = time.time()
-        
-        # 1. Geometric Features
-        # For now, we use simple heuristics based on bounding box and entity counts.
-        # In L3/L4, this delegates to GeometryEngine for 3D.
-        
-        geo_features = []
-        
-        # Dimension 0: Aspect Ratio (0-1)
-        w, h, d = doc.bounding_box.width, doc.bounding_box.height, doc.bounding_box.depth
-        dims = sorted([w, h, d])
-        if dims[-1] > 0:
-            aspect = dims[0] / dims[-1] # Min / Max
-            geo_features.append(aspect)
-        else:
-            geo_features.append(0.0)
-            
-        # Dimension 1: Complexity (Entity Count normalized)
-        # Log scale: log10(count) / 5 (assuming max 100k entities)
-        import math
-        cnt = doc.entity_count()
-        if cnt > 0:
-            complexity = math.log10(cnt) / 5.0
-        else:
-            complexity = 0.0
-        geo_features.append(min(1.0, complexity))
-        
-        # Dimension 2-11: Entity Type Histogram (One-hot-ish)
-        # [Line, Circle, Arc, Polyline, Text, Dimension, Solid, Spline, Insert, Hatch]
-        types = ["LINE", "CIRCLE", "ARC", "LWPOLYLINE", "TEXT", "DIMENSION", "SOLID", "SPLINE", "INSERT", "HATCH"]
-        total = max(1, cnt)
-        
-        # Count entities by kind
-        counts = {}
-        for e in doc.entities:
-            k = e.kind.upper()
-            counts[k] = counts.get(k, 0) + 1
-            
-        for t in types:
-            ratio = counts.get(t, 0) / total
-            geo_features.append(ratio)
-            
-        # Ensure we have a fixed dimension vector (e.g. 12 dim)
-        while len(geo_features) < 12:
-            geo_features.append(0.0)
-            
-        # 2. Semantic Features (from Metadata/Text)
-        # Placeholder
-        sem_features = [0.0] * 12
-        
+        entity_count = doc.entity_count()
+        bbox = doc.bounding_box
+        width = bbox.width
+        height = bbox.height
+        depth = bbox.depth
+        volume = bbox.volume_estimate
+
+        # Count entities by kind for downstream features
+        counts: Dict[str, int] = {}
+        for entity in doc.entities:
+            kind = str(entity.kind).upper()
+            counts[kind] = counts.get(kind, 0) + 1
+
+        # Base v1 geometric features
+        geometric: List[float] = [
+            float(entity_count),
+            float(width),
+            float(height),
+            float(depth),
+            float(volume),
+        ]
+
+        # Base v1 semantic features
+        layers = doc.layers
+        try:
+            layer_count = len(layers) if layers is not None else 0
+        except TypeError:
+            layer_count = len(list(layers))
+        complexity_flag = 1.0 if doc.complexity_bucket() == "high" else 0.0
+        semantic: List[float] = [float(layer_count), float(complexity_flag)]
+
+        if self.feature_version in {"v2", "v3", "v4"}:
+            max_dim = max(width, height, depth, 0.0)
+            if max_dim > 0:
+                norm_width = width / max_dim
+                norm_height = height / max_dim
+                norm_depth = depth / max_dim
+            else:
+                norm_width = norm_height = norm_depth = 0.0
+            width_height_ratio = width / height if height > 0 else 0.0
+            width_depth_ratio = width / depth if depth > 0 else 0.0
+            geometric.extend(
+                [
+                    float(norm_width),
+                    float(norm_height),
+                    float(norm_depth),
+                    float(width_height_ratio),
+                    float(width_depth_ratio),
+                ]
+            )
+
+        if self.feature_version in {"v3", "v4"}:
+            solids = int(doc.metadata.get("solids") or 0)
+            facets = int(doc.metadata.get("facets") or 0)
+            avg_volume_per_entity = volume / entity_count if entity_count > 0 else 0.0
+            solids_ratio = solids / entity_count if entity_count > 0 else 0.0
+            facets_ratio = facets / entity_count if entity_count > 0 else 0.0
+
+            total = entity_count if entity_count > 0 else 1
+            top_counts = sorted(counts.values(), reverse=True)
+            top_freqs = [count / total for count in top_counts[:5]]
+            while len(top_freqs) < 5:
+                top_freqs.append(0.0)
+
+            geometric.extend(
+                [
+                    float(solids),
+                    float(facets),
+                    float(avg_volume_per_entity),
+                    float(solids_ratio),
+                    float(facets_ratio),
+                ]
+                + [float(freq) for freq in top_freqs]
+            )
+
+        if self.feature_version == "v4":
+            surface_count = compute_surface_count(doc)
+            shape_entropy = compute_shape_entropy(counts)
+            geometric.extend([float(surface_count), float(shape_entropy)])
+
         try:
             dur = time.time() - start
             feature_extraction_latency_seconds.labels(version=self.feature_version).observe(dur)
         except Exception:
             pass
-            
+
         return {
-            "geometric": geo_features,
-            "semantic": sem_features,
-            "entity_counts": counts # Return raw counts for rule matching
+            "geometric": geometric,
+            "semantic": semantic,
+            "entity_counts": counts,
         }
+
+    def flatten(self, features: Dict[str, Any]) -> List[float]:
+        """Flatten features into canonical vector order.
+
+        Order: base geometric (5) + semantic (2) + geometric extensions (v2/v3/v4).
+        """
+        geometric = [float(x) for x in features.get("geometric", [])]
+        semantic = [float(x) for x in features.get("semantic", [])]
+        base_geometric_len = 5
+        base_geom = geometric[:base_geometric_len]
+        ext_geom = geometric[base_geometric_len:]
+        return base_geom + semantic + ext_geom
+
+    def expected_dim(self, version: str) -> int:
+        """Return expected vector length for a given feature version."""
+        total = len(SLOTS_V1)
+        if version in {"v2", "v3", "v4"}:
+            total += len(SLOTS_V2)
+        if version in {"v3", "v4"}:
+            total += len(SLOTS_V3)
+        if version == "v4":
+            total += len(SLOTS_V4)
+        return total
+
+    def reorder_legacy_vector(self, combined: List[float], version: str) -> List[float]:
+        """Convert legacy layout (geom_all + semantic) into canonical layout.
+
+        Canonical order: base geometric (5) + semantic (2) + geometric extensions.
+        """
+        expected_len = self.expected_dim(version)
+        if len(combined) != expected_len:
+            raise ValueError(
+                f"Unsupported existing vector length {len(combined)}; expected {expected_len} for {version}"
+            )
+        base_geometric_len = 5
+        semantic_len = 2
+        geom_len = expected_len - semantic_len
+        geom_all = combined[:geom_len]
+        semantic = combined[geom_len:]
+        base_geom = geom_all[:base_geometric_len]
+        ext_geom = geom_all[base_geometric_len:]
+        return base_geom + semantic + ext_geom
 
     def rehydrate(self, combined: List[float], version: str) -> Dict[str, List[Any]]:
         """Rehydrate combined cached vector back into geometric/semantic components.
 
-        Assumes ordering identical to extract(): first base geometric slots, then semantic slots, then version extensions.
+        Assumes combined order: base geometric slots, semantic slots, then version extensions.
         """
         # Base lengths
         base_geometric_len = 5
