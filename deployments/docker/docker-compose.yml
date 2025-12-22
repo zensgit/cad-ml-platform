@@ -14,6 +14,7 @@ services:
     environment:
       - LOG_LEVEL=INFO
       - REDIS_URL=redis://redis:6379/0
+      - VECTOR_STORE_BACKEND=redis
       # 2D dedup async backend (required when WORKERS>1)
       - DEDUP2D_ASYNC_BACKEND=redis
       - DEDUP2D_REDIS_URL=redis://redis:6379/0
@@ -26,7 +27,7 @@ services:
       # Point to dedupcad-vision (run it separately, or change this to your service DNS)
       - DEDUPCAD_VISION_URL=http://host.docker.internal:58001
       - DEDUPCAD_VISION_TIMEOUT_SECONDS=60
-      - WORKERS=4
+      - WORKERS=1
       - HOST=0.0.0.0
       - PORT=8000
       - CORS_ORIGINS=["http://localhost:3000", "http://localhost:8080"]
@@ -71,7 +72,7 @@ services:
     image: redis:7-alpine
     container_name: cad-ml-redis
     ports:
-      - "${CAD_ML_REDIS_PORT:-6379}:6379"
+      - "${CAD_ML_REDIS_PORT:-16379}:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru

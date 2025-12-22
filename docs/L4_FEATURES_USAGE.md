@@ -88,3 +88,13 @@ dfm_thresholds:
   }
 }
 ```
+
+## 4. Feature Vector Order (v1-v4)
+
+When features are flattened for similarity storage, the canonical order is:
+
+1) Base geometric: entity_count, bbox_width, bbox_height, bbox_depth, bbox_volume_estimate
+2) Semantic: layer_count, complexity_high_flag
+3) Geometric extensions: v2 then v3 then v4
+
+This matches `FeatureExtractor.flatten()` and `FeatureExtractor.rehydrate()`.
