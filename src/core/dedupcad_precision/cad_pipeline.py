@@ -268,9 +268,81 @@ def convert_dwg_to_dxf_cmd(dwg_path: Path, out_dxf_path: Path, *, cmd_template: 
         raise RuntimeError("DWG->DXF command finished but output missing")
 
 
+def _default_oda_candidates() -> list[Path]:
+    candidates = [
+        Path("/Applications/ODAFileConverter.app/Contents/MacOS/ODAFileConverter"),
+        Path("/opt/ODAFileConverter/ODAFileConverter"),
+    ]
+    program_files = os.getenv("ProgramFiles")
+    if program_files:
+        candidates.append(
+            Path(program_files) / "ODA" / "ODAFileConverter" / "ODAFileConverter.exe"
+        )
+    program_files_x86 = os.getenv("ProgramFiles(x86)")
+    if program_files_x86:
+        candidates.append(
+            Path(program_files_x86) / "ODA" / "ODAFileConverter" / "ODAFileConverter.exe"
+        )
+    return candidates
+
+
 def resolve_oda_exe_from_env() -> Optional[Path]:
-    v = os.getenv("ODA_FILE_CONVERTER_EXE")
-    if not v:
-        return None
-    p = Path(v)
-    return p if p.exists() else None
+    v = os.getenv("ODA_FILE_CONVERTER_EXE", "").strip()
+    if v:
+        p = Path(v)
+        return p if p.exists() else None
+    for candidate in _default_oda_candidates():
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def resolve_dwg_converter() -> str:
+    return (os.getenv("DWG_CONVERTER", "auto") or "auto").strip().lower()
+
+
+def resolve_dwg_cmd_template(converter: str) -> str:
+    env_map = {
+        "cmd": "DWG_TO_DXF_CMD",
+        "autocad": "DWG_AUTOCAD_CMD",
+        "bricscad": "DWG_BRICSCAD_CMD",
+        "draftsight": "DWG_DRAFTSIGHT_CMD",
+    }
+    if converter == "auto":
+        for key in env_map.values():
+            value = os.getenv(key, "").strip()
+            if value:
+                return value
+        return ""
+    env_key = env_map.get(converter, "DWG_TO_DXF_CMD")
+    return os.getenv(env_key, "").strip()
+
+
+def convert_dwg_to_dxf(dwg_path: Path, out_dxf_path: Path) -> None:
+    converter = resolve_dwg_converter()
+    if converter in {"auto", "oda"}:
+        oda_exe = resolve_oda_exe_from_env()
+        if oda_exe is not None:
+            convert_dwg_to_dxf_oda(
+                dwg_path,
+                out_dxf_path,
+                cfg=OdaConverterConfig(
+                    exe_path=oda_exe,
+                    output_version=os.getenv("ODA_OUTPUT_VERSION", "ACAD2018"),
+                ),
+            )
+            return
+        if converter == "oda":
+            raise RuntimeError("ODA converter not found: set ODA_FILE_CONVERTER_EXE")
+
+    cmd_template = resolve_dwg_cmd_template(converter)
+    if cmd_template:
+        convert_dwg_to_dxf_cmd(dwg_path, out_dxf_path, cmd_template=cmd_template)
+        return
+
+    if converter == "auto":
+        raise RuntimeError(
+            "DWG conversion unavailable: set ODA_FILE_CONVERTER_EXE, DWG_TO_DXF_CMD, "
+            "DWG_AUTOCAD_CMD, DWG_BRICSCAD_CMD, or DWG_DRAFTSIGHT_CMD"
+        )
+    raise RuntimeError(f"DWG conversion unavailable for converter '{converter}'")
