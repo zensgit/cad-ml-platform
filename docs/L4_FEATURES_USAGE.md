@@ -98,3 +98,14 @@ When features are flattened for similarity storage, the canonical order is:
 3) Geometric extensions: v2 then v3 then v4
 
 This matches `FeatureExtractor.flatten()` and `FeatureExtractor.rehydrate()`.
+
+### Vector Layout Metadata
+
+Vectors carry a `vector_layout` tag in metadata to disambiguate storage order:
+
+- `base_sem_ext_v1`: canonical 2D layout (base + semantic + extensions).
+- `base_sem_ext_v1+l3`: canonical 2D layout with an appended L3 embedding tail.
+  - The tail size is stored in `l3_3d_dim`.
+- `geom_all_sem_v1`: legacy layout (geometric-all + semantic) that is reordered on migration.
+
+When L3 embedding is present, migration updates only the 2D portion and preserves the L3 tail.

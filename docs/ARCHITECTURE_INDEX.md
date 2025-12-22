@@ -202,6 +202,9 @@ METRIC_MODEL_PATH=models/metric_learning/best_model.pth
 ```
 VECTOR_STORE_BACKEND=memory|faiss|redis
 VECTOR_TTL_SECONDS=0                   # 0=disabled
+VECTOR_LIST_LIMIT=200                  # max list size for /api/v1/vectors
+VECTOR_LIST_SCAN_LIMIT=5000            # Redis scan cap for list (0=unlimited)
+VECTOR_STATS_SCAN_LIMIT=5000           # Redis scan cap for stats (0=unlimited)
 FAISS_INDEX_PATH=data/faiss_index.bin
 FAISS_RECOVERY_INTERVAL_SECONDS=300
 ```
@@ -365,4 +368,3 @@ ANALYSIS_FAILED              # End-to-end analysis error
 - [ ] Integrate: `/v1/feedback/*` endpoints
 - [ ] Test: Feedback storage, uncertainty sampling, retraining
 - [ ] Deploy: Gradual with validation gates
-

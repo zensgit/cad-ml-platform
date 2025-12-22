@@ -1837,6 +1837,9 @@ export ANALYSIS_VECTOR_DIM_CHECK=1       # 开启向量维度一致性检查 (�
 export CLASSIFICATION_RULE_VERSION=v1    # 分类规则版本标记 (观测变更影响)
 export VECTOR_STORE_BACKEND=memory       # 向量存储后端 memory|redis
 export VECTOR_TTL_SECONDS=0              # 向量TTL(秒) 0表示禁用
+export VECTOR_LIST_LIMIT=200             # 向量列表接口最大返回数量
+export VECTOR_LIST_SCAN_LIMIT=5000       # 列表 Redis 扫描上限 (0=无限制)
+export VECTOR_STATS_SCAN_LIMIT=5000      # 统计 Redis 扫描上限 (0=无限制)
 export VECTOR_PRUNE_INTERVAL_SECONDS=30  # 后台清理间隔(秒)
 export PROCESS_RULE_VERSION=v1           # 工艺规则版本 (Prometheus计数 + 响应暴露)
 export ENABLE_PROCESS_AUDIT_ENDPOINT=1   # 开启 /api/v1/analyze/process/rules/audit 审计端点 (默认开启)

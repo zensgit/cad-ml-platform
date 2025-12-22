@@ -143,3 +143,6 @@
 - 生产保持 `ML_PLATFORM_ENABLED=false`（避免循环依赖 + 避免格式不兼容）
 - 若必须启用：需要新增/对齐“图像特征/语义分析”端点或让 vision 侧以 CAD 原文件作为 L3 输入（而非 PNG）
 
+补充：`/api/v1/analyze` 的 `results.features` 现在包含 `combined` 字段（与 `flatten()` 同序），供 dedupcad-vision 融合语义特征使用。
+
+补充：`/api/v1/vectors/register` 与 `/api/v1/vectors/search` 已提供用于 dedupcad-vision 的向量注册与相似检索。

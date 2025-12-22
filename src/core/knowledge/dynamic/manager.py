@@ -124,7 +124,7 @@ class KnowledgeManager:
                     self._pattern_cache[pattern].append(rule)
 
                 # Geometry patterns
-                if isinstance(rule, GeometryPattern):
+                if isinstance(rule, GeometryPattern) and rule.conditions:
                     self._geometry_patterns.append(rule)
 
             logger.debug(
