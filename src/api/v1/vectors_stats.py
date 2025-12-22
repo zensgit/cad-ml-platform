@@ -126,9 +126,15 @@ async def _summarize_vectors_redis(
     by_format: Dict[str, int] = {}
     versions: Dict[str, int] = {}
     cursor = 0
+    scanned = 0
+    scan_limit = int(os.getenv("VECTOR_STATS_SCAN_LIMIT", "5000"))
     while True:
         cursor, batch = await client.scan(cursor=cursor, match="vector:*", count=500)  # type: ignore[attr-defined]
         for key in batch:
+            scanned += 1
+            if scan_limit > 0 and scanned > scan_limit:
+                cursor = 0
+                break
             data = await client.hgetall(key)  # type: ignore[attr-defined]
             raw_vec = data.get("v") or data.get(b"v")
             if not raw_vec:

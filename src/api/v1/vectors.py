@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from datetime import datetime
+import json
+import os
 from typing import Any, Dict, Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key, get_admin_token
 from src.core.errors_extended import build_error, ErrorCode
+from src.utils.cache import get_client
 
 router = APIRouter()
 
@@ -84,11 +87,55 @@ async def delete_vector(payload: VectorDeleteRequest, api_key: str = Depends(get
 
 
 @router.get("/", response_model=VectorListResponse)
-async def list_vectors(api_key: str = Depends(get_api_key)):
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
+async def list_vectors(
+    source: str = Query(
+        default="auto",
+        description="Vector source: auto|memory|redis",
+    ),
+    offset: int = Query(default=0, ge=0, description="结果偏移用于分页"),
+    limit: int = Query(default=50, ge=1, description="返回数量上限"),
+    api_key: str = Depends(get_api_key),
+):
+    from src.core.similarity import _VECTOR_STORE, _VECTOR_META, _BACKEND  # type: ignore
+
+    allowed_sources = {"auto", "memory", "redis"}
+    if source not in allowed_sources:
+        err = build_error(
+            ErrorCode.INPUT_VALIDATION_FAILED,
+            stage="vector_list",
+            message="Invalid source",
+            source=source,
+            allowed=list(sorted(allowed_sources)),
+        )
+        raise HTTPException(status_code=400, detail=err)
+
+    max_limit = int(os.getenv("VECTOR_LIST_LIMIT", "200"))
+    limit = min(limit, max_limit)
+    scan_limit = int(os.getenv("VECTOR_LIST_SCAN_LIMIT", "5000"))
+    resolved = _resolve_list_source(source, _BACKEND)
+    if resolved == "redis":
+        client = get_client()
+        if client is not None:
+            return await _list_vectors_redis(client, offset, limit, scan_limit)
+    return _list_vectors_memory(_VECTOR_STORE, _VECTOR_META, offset, limit)
+
+
+def _resolve_list_source(source: str, backend: str) -> str:
+    if source == "auto":
+        return "redis" if backend == "redis" else "memory"
+    return source
+
+
+def _list_vectors_memory(
+    vector_store: Dict[str, list[float]],
+    vector_meta: Dict[str, Dict[str, str]],
+    offset: int,
+    limit: int,
+) -> VectorListResponse:
     items: list[VectorListItem] = []
-    for vid, vec in _VECTOR_STORE.items():
-        meta = _VECTOR_META.get(vid, {})
+    entries = list(vector_store.items())
+    for vid, vec in entries[offset : offset + limit]:
+        meta = vector_meta.get(vid, {})
         items.append(
             VectorListItem(
                 id=vid,
@@ -98,7 +145,59 @@ async def list_vectors(api_key: str = Depends(get_api_key)):
                 format=meta.get("format"),
             )
         )
-    return VectorListResponse(total=len(items), vectors=items)
+    return VectorListResponse(total=len(vector_store), vectors=items)
+
+
+async def _list_vectors_redis(
+    client,
+    offset: int,
+    limit: int,
+    scan_limit: int,
+) -> VectorListResponse:
+    items: list[VectorListItem] = []
+    total = 0
+    scanned = 0
+    cursor = 0
+    while True:
+        cursor, batch = await client.scan(cursor=cursor, match="vector:*", count=500)  # type: ignore[attr-defined]
+        for key in batch:
+            scanned += 1
+            if scan_limit > 0 and scanned > scan_limit:
+                cursor = 0
+                break
+            data = await client.hgetall(key)  # type: ignore[attr-defined]
+            raw_vec = data.get("v") or data.get(b"v")
+            if not raw_vec:
+                continue
+            total += 1
+            if total <= offset:
+                continue
+            raw_meta = data.get("m") or data.get(b"m")
+            meta: Dict[str, Any] = {}
+            if raw_meta:
+                try:
+                    meta = json.loads(raw_meta)
+                except Exception:
+                    meta = {}
+            vec_dim = len([p for p in str(raw_vec).split(",") if p])
+            key_str = key.decode() if isinstance(key, (bytes, bytearray)) else str(key)
+            vid = key_str.split("vector:", 1)[1] if "vector:" in key_str else key_str
+            items.append(
+                VectorListItem(
+                    id=vid,
+                    dimension=vec_dim,
+                    material=meta.get("material"),
+                    complexity=meta.get("complexity"),
+                    format=meta.get("format"),
+                )
+            )
+            if len(items) >= limit:
+                break
+        if len(items) >= limit:
+            break
+        if cursor == 0:
+            break
+    return VectorListResponse(total=total, vectors=items)
 
 
 __all__ = ["router"]
