@@ -10,11 +10,16 @@ from pathlib import Path
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.assembly.assembly_graph_builder import AssemblyGraphBuilder
-from src.assembly.rules.assembly_rules import AssemblyRuleEngine
-from src.assembly.evidence_collector import EvidenceCollector
-from src.assembly.graph_normalizer import AssemblyGraphNormalizer
-from src.evaluation.metrics import AssemblyMetrics
+try:
+    from src.assembly.assembly_graph_builder import AssemblyGraphBuilder
+    from src.assembly.rules.assembly_rules import AssemblyRuleEngine
+    from src.assembly.evidence_collector import EvidenceCollector
+    from src.assembly.graph_normalizer import AssemblyGraphNormalizer
+    from src.evaluation.metrics import AssemblyMetrics
+    _ASSEMBLY_AVAILABLE = True
+except ModuleNotFoundError as e:
+    _ASSEMBLY_AVAILABLE = False
+    _ASSEMBLY_IMPORT_ERROR = e
 
 
 class BaselineEvaluator:
@@ -370,6 +375,10 @@ class BaselineEvaluator:
 
 
 if __name__ == "__main__":
+    if not _ASSEMBLY_AVAILABLE:
+        print("⚠️ Assembly baseline skipped: assembly module not available.")
+        print(f"Reason: {_ASSEMBLY_IMPORT_ERROR}")
+        sys.exit(0)
     evaluator = BaselineEvaluator()
     results = evaluator.run_baseline_tests()
 

@@ -179,9 +179,21 @@ classification_latency_seconds = Histogram(
     buckets=[0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
 )
 
+dfm_analysis_latency_seconds = Histogram(
+    "dfm_analysis_latency_seconds",
+    "Latency of DFM analysis stage (wall clock seconds)",
+    buckets=[0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
+)
+
 process_recommend_latency_seconds = Histogram(
     "process_recommend_latency_seconds",
     "Latency of process recommendation stage (wall clock seconds)",
+    buckets=[0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
+)
+
+cost_estimation_latency_seconds = Histogram(
+    "cost_estimation_latency_seconds",
+    "Latency of cost estimation stage (wall clock seconds)",
     buckets=[0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
 )
 
@@ -595,7 +607,9 @@ __all__ = [
     "vector_stats_requests_total",
     "process_rule_version_total",
     "classification_latency_seconds",
+    "dfm_analysis_latency_seconds",
     "process_recommend_latency_seconds",
+    "cost_estimation_latency_seconds",
     "vector_store_material_total",
     "vector_dimension_rejections_total",
     "analysis_parallel_enabled",

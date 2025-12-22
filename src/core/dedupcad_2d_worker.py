@@ -41,11 +41,8 @@ from src.core.dedupcad_2d_jobs_redis import (
 from src.core.dedupcad_2d_pipeline import run_dedup_2d_pipeline
 from src.core.dedupcad_precision.cad_pipeline import (
     DxfRenderConfig,
-    OdaConverterConfig,
-    convert_dwg_to_dxf_cmd,
-    convert_dwg_to_dxf_oda,
+    convert_dwg_to_dxf,
     render_dxf_to_png,
-    resolve_oda_exe_from_env,
 )
 from src.core.dedup2d_file_storage import Dedup2DFileRef
 from src.core.dedupcad_precision import PrecisionVerifier, create_geom_store
@@ -118,26 +115,7 @@ def _resolve_cad_suffix(file_name: str, content_type: str) -> str:
 
 
 def _convert_dwg_to_dxf(in_path: Path, out_path: Path) -> None:
-    oda_exe = resolve_oda_exe_from_env()
-    if oda_exe is not None:
-        convert_dwg_to_dxf_oda(
-            in_path,
-            out_path,
-            cfg=OdaConverterConfig(
-                exe_path=oda_exe,
-                output_version=os.getenv("ODA_OUTPUT_VERSION", "ACAD2018"),
-            ),
-        )
-        return
-
-    cmd_template = os.getenv("DWG_TO_DXF_CMD", "").strip()
-    if cmd_template:
-        convert_dwg_to_dxf_cmd(in_path, out_path, cmd_template=cmd_template)
-        return
-
-    raise RuntimeError(
-        "DWG conversion unavailable: set ODA_FILE_CONVERTER_EXE or DWG_TO_DXF_CMD"
-    )
+    convert_dwg_to_dxf(in_path, out_path)
 
 
 def _render_cad_to_png(

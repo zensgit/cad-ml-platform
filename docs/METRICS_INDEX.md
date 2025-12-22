@@ -11,6 +11,10 @@ This document lists all Prometheus metrics exposed by the CAD ML Platform at the
 | `analysis_stage_duration_seconds` | Histogram | Duration of each analysis stage | `stage` |
 | `analysis_feature_vector_dimension` | Histogram | Distribution of feature vector dimensions | - |
 | `feature_extraction_latency_seconds` | Histogram | Latency of feature extraction by version | `version` |
+| `classification_latency_seconds` | Histogram | Classification stage latency | - |
+| `dfm_analysis_latency_seconds` | Histogram | DFM analysis latency | - |
+| `process_recommend_latency_seconds` | Histogram | Process recommendation latency | - |
+| `cost_estimation_latency_seconds` | Histogram | Cost estimation latency | - |
 | `feature_version_usage_total` | Counter | Feature extraction operations per version | `version` |
 | `feature_cache_hits_total` | Counter | Feature cache hits | - |
 | `feature_cache_miss_total` | Counter | Feature cache misses | - |

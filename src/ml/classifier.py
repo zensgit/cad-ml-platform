@@ -49,14 +49,23 @@ def load_model() -> None:
     Uses double-checked locking pattern: check without lock first (fast path),
     then acquire lock and check again to prevent race conditions.
     """
-    global _MODEL, _MODEL_HASH, _MODEL_LOADED_AT, _MODEL_LOAD_SEQ
+    global _MODEL, _MODEL_HASH, _MODEL_LOADED_AT, _MODEL_LOAD_SEQ, _MODEL_VERSION, _MODEL_PATH
 
-    # Fast path: model already loaded (no lock needed)
-    if _MODEL is not None:
+    # Refresh model settings from environment; if changed, reset loaded model.
+    new_version = os.getenv("CLASSIFICATION_MODEL_VERSION", "none")
+    new_path = Path(os.getenv("CLASSIFICATION_MODEL_PATH", "models/classifier_v1.pkl"))
+    if _MODEL is not None and new_version == _MODEL_VERSION and new_path == _MODEL_PATH:
         return
 
-    # Slow path: acquire lock for initial load
+    # Slow path: acquire lock for settings refresh and initial load
     with _MODEL_LOCK:
+        if new_version != _MODEL_VERSION or new_path != _MODEL_PATH:
+            _MODEL_VERSION = new_version
+            _MODEL_PATH = new_path
+            _MODEL = None
+            _MODEL_HASH = None
+            _MODEL_LOADED_AT = None
+            _MODEL_LOAD_SEQ = 0
         # Double-check: another thread may have loaded while we waited for lock
         if _MODEL is not None:
             return

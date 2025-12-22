@@ -166,13 +166,12 @@ class TestDeepSeekHfProviderMetrics:
         provider = DeepSeekHfProvider(timeout_ms=100)
         provider._model = "stub"  # Use stub mode
 
-        # Patch the inner _infer function to simulate slow response
-        async def slow_infer():
-            await asyncio.sleep(1)  # Longer than timeout
-            return ""
+        async def fake_wait_for(coro, timeout):
+            coro.close()
+            raise asyncio.TimeoutError
 
         # Need to patch at module level where it's defined
-        with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
+        with patch("asyncio.wait_for", new=fake_wait_for):
             with patch("src.utils.metrics.ocr_errors_total.labels") as mock_metrics:
                 mock_counter = Mock()
                 mock_metrics.return_value = mock_counter
@@ -295,13 +294,13 @@ class TestMetricsLabelContract:
             from src.utils.metrics import vision_errors_total
             vision_errors_total.labels(
                 provider="deepseek_stub",
-                code="input_error"
+                code=ErrorCode.INPUT_ERROR.value
             ).inc()
 
             # Verify label names are correct
             mock_labels.assert_called_with(
                 provider="deepseek_stub",
-                code="input_error"
+                code=ErrorCode.INPUT_ERROR.value
             )
 
     def test_stage_values_consistency(self):

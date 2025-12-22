@@ -197,78 +197,73 @@ class FeatureExtractor:
         # Unknown target version -> return as-is
         return existing
 
-    async def extract(self, doc: CadDocument) -> Dict[str, List[Any]]:  # legacy shape
+    async def extract(self, doc: CadDocument) -> Dict[str, Any]:
+        """
+        Extract features from CAD document.
+        """
         import time
         from src.utils.analysis_metrics import feature_extraction_latency_seconds
         start = time.time()
-        bbox = doc.bounding_box
-        geometric: List[float] = [
-            doc.entity_count(),
-            bbox.width,
-            bbox.height,
-            bbox.depth,
-            bbox.volume_estimate,
-        ]
-        semantic: List[float] = [len(doc.layers), 1 if doc.complexity_bucket() == "high" else 0]
-        version = self.feature_version
-
-        # v2 & above normalized dims + aspect ratios
-        if version in {"v2", "v3", "v4"}:
-            max_edge = max(bbox.width or 1.0, bbox.height or 1.0, bbox.depth or 1.0)
-            norm_width = (bbox.width / max_edge) if max_edge else 0.0
-            norm_height = (bbox.height / max_edge) if max_edge else 0.0
-            norm_depth = (bbox.depth / max_edge) if max_edge else 0.0
-            geometric.extend([
-                round(norm_width, 5),
-                round(norm_height, 5),
-                round(norm_depth, 5),
-                round((bbox.width / (bbox.height or 1.0)), 5),
-                round((bbox.width / (bbox.depth or 1.0)), 5),
-            ])
-
-        # v3 & above geometry enrichment + entity kind frequencies
-        if version in {"v3", "v4"}:
-            solids = doc.metadata.get("solids") or 0
-            facets = doc.metadata.get("facets") or 0
-            entity_count = doc.entity_count() or 1
-            volume = bbox.volume_estimate or 0.0
-            geometric.extend([
-                float(solids),
-                float(facets),
-                round(volume / entity_count, 5),
-                round((solids / entity_count) if entity_count else 0.0, 5),
-                round((facets / entity_count) if entity_count else 0.0, 5),
-            ])
-            kind_counts: Dict[str, int] = {}
-            for e in doc.entities:
-                kind_counts[e.kind] = kind_counts.get(e.kind, 0) + 1
-            top_k = sorted(kind_counts.items(), key=lambda x: (-x[1], x[0]))[:5]
-            total_entities = doc.entity_count() or 1
-            for _, cnt in top_k:
-                geometric.append(round(cnt / total_entities, 5))
-            if len(top_k) < 5:
-                geometric.extend([0.0] * (5 - len(top_k)))
-
-        # v4 real features: surface_count and shape_entropy (Phase 1A)
-        if version == "v4":
-            # Surface count: from entities or metadata
-            surface_count = float(compute_surface_count(doc))
-
-            # Shape entropy: entity type distribution with Laplace smoothing
-            kind_counts: Dict[str, int] = {}
-            for e in doc.entities:
-                kind_counts[e.kind] = kind_counts.get(e.kind, 0) + 1
-            shape_entropy = compute_shape_entropy(kind_counts)
-
-            geometric.extend([surface_count, round(shape_entropy, 5)])
-
-        out = {"geometric": geometric, "semantic": semantic}
+        
+        # 1. Geometric Features
+        # For now, we use simple heuristics based on bounding box and entity counts.
+        # In L3/L4, this delegates to GeometryEngine for 3D.
+        
+        geo_features = []
+        
+        # Dimension 0: Aspect Ratio (0-1)
+        w, h, d = doc.bounding_box.width, doc.bounding_box.height, doc.bounding_box.depth
+        dims = sorted([w, h, d])
+        if dims[-1] > 0:
+            aspect = dims[0] / dims[-1] # Min / Max
+            geo_features.append(aspect)
+        else:
+            geo_features.append(0.0)
+            
+        # Dimension 1: Complexity (Entity Count normalized)
+        # Log scale: log10(count) / 5 (assuming max 100k entities)
+        import math
+        cnt = doc.entity_count()
+        if cnt > 0:
+            complexity = math.log10(cnt) / 5.0
+        else:
+            complexity = 0.0
+        geo_features.append(min(1.0, complexity))
+        
+        # Dimension 2-11: Entity Type Histogram (One-hot-ish)
+        # [Line, Circle, Arc, Polyline, Text, Dimension, Solid, Spline, Insert, Hatch]
+        types = ["LINE", "CIRCLE", "ARC", "LWPOLYLINE", "TEXT", "DIMENSION", "SOLID", "SPLINE", "INSERT", "HATCH"]
+        total = max(1, cnt)
+        
+        # Count entities by kind
+        counts = {}
+        for e in doc.entities:
+            k = e.kind.upper()
+            counts[k] = counts.get(k, 0) + 1
+            
+        for t in types:
+            ratio = counts.get(t, 0) / total
+            geo_features.append(ratio)
+            
+        # Ensure we have a fixed dimension vector (e.g. 12 dim)
+        while len(geo_features) < 12:
+            geo_features.append(0.0)
+            
+        # 2. Semantic Features (from Metadata/Text)
+        # Placeholder
+        sem_features = [0.0] * 12
+        
         try:
             dur = time.time() - start
-            feature_extraction_latency_seconds.labels(version=version).observe(dur)
+            feature_extraction_latency_seconds.labels(version=self.feature_version).observe(dur)
         except Exception:
             pass
-        return out
+            
+        return {
+            "geometric": geo_features,
+            "semantic": sem_features,
+            "entity_counts": counts # Return raw counts for rule matching
+        }
 
     def rehydrate(self, combined: List[float], version: str) -> Dict[str, List[Any]]:
         """Rehydrate combined cached vector back into geometric/semantic components.

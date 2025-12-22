@@ -152,6 +152,17 @@ python src/main.py
 kubectl apply -f deployments/kubernetes/
 ```
 
+### 相关文档
+
+- 2D 标准库: `docs/STANDARDS_LIBRARY.md`
+- 基线评测: `docs/BASELINE_EVALUATION.md`
+- 知识库运维: `docs/KNOWLEDGE_RULES_OPERATIONS.md`
+- 主动学习: `docs/ACTIVE_LEARNING_OPERATIONS.md`
+- 3D 训练: `docs/TRAINING_3D_PIPELINE.md`
+- 发布流程: `docs/RELEASE_PLAYBOOK.md`
+- 制造决策输出: `docs/MANUFACTURING_DECISION_OUTPUT.md`
+- 回放验证: `docs/REPLAY_VALIDATION.md`
+
 ---
 
 ## 🔬 评估与可观测性

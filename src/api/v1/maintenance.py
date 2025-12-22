@@ -6,7 +6,7 @@ Maintenance API endpoints
 from __future__ import annotations
 
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, Query, HTTPException
 from pydantic import BaseModel, Field
 
@@ -25,6 +25,76 @@ class OrphanCleanupResponse(BaseModel):
     sample_ids: Optional[List[str]] = Field(None, description="孤儿ID样例（verbose模式）")
     status: str = Field(..., description="状态: ok/skipped/dry_run")
     message: str = Field(..., description="操作消息")
+
+
+class KnowledgeReloadResponse(BaseModel):
+    """知识库热加载响应"""
+    status: str = Field(..., description="状态: ok/error")
+    previous_version: str = Field(..., description="重载前版本")
+    current_version: str = Field(..., description="重载后版本")
+    changed: bool = Field(..., description="版本是否发生变化")
+
+
+class KnowledgeStatusResponse(BaseModel):
+    """知识库状态响应"""
+    version: str = Field(..., description="当前版本")
+    total_rules: int = Field(..., description="规则总数")
+    by_category: Dict[str, int] = Field(..., description="按类别统计")
+
+
+@router.post("/knowledge/reload", response_model=KnowledgeReloadResponse)
+async def reload_knowledge(api_key: str = Depends(get_api_key)):
+    """手动触发知识库热加载"""
+    try:
+        from src.core.knowledge.dynamic.manager import get_knowledge_manager
+        km = get_knowledge_manager()
+        prev = km.get_version()
+        km.reload()
+        curr = km.get_version()
+        return KnowledgeReloadResponse(
+            status="ok",
+            previous_version=prev,
+            current_version=curr,
+            changed=prev != curr,
+        )
+    except Exception as e:
+        err = build_error(
+            ErrorCode.INTERNAL_ERROR,
+            stage="knowledge_reload",
+            message="Knowledge reload failed",
+            detail=str(e),
+        )
+        raise HTTPException(status_code=500, detail=err)
+
+
+@router.get("/knowledge/status", response_model=KnowledgeStatusResponse)
+async def knowledge_status(api_key: str = Depends(get_api_key)):
+    """获取知识库版本与规则统计"""
+    try:
+        from src.core.knowledge.dynamic.manager import get_knowledge_manager
+        from src.core.knowledge.dynamic.models import KnowledgeCategory
+
+        km = get_knowledge_manager()
+        by_category: Dict[str, int] = {}
+        total = 0
+        for cat in KnowledgeCategory:
+            count = len(km.get_rules_by_category(cat))
+            by_category[cat.value] = count
+            total += count
+
+        return KnowledgeStatusResponse(
+            version=km.get_version(),
+            total_rules=total,
+            by_category=by_category,
+        )
+    except Exception as e:
+        err = build_error(
+            ErrorCode.INTERNAL_ERROR,
+            stage="knowledge_status",
+            message="Knowledge status query failed",
+            detail=str(e),
+        )
+        raise HTTPException(status_code=500, detail=err)
 
 
 @router.delete("/orphans", response_model=OrphanCleanupResponse)

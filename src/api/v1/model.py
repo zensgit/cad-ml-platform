@@ -7,7 +7,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from src.api.dependencies import get_api_key, get_admin_token
 
@@ -35,6 +35,8 @@ class ModelReloadResponse(BaseModel):
     hash: Optional[str] = Field(None, description="模型文件哈希")
     error: Optional[Dict[str, Any]] = Field(None, description="错误信息")
     opcode_audit: Optional[Dict[str, Any]] = Field(None, description="Opcode 审计信息 (仅当 audit 模式返回)")
+
+    model_config = ConfigDict(protected_namespaces=())
 
 
 @router.post("/reload", response_model=ModelReloadResponse)

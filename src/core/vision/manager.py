@@ -22,6 +22,7 @@ from src.utils.metrics import (
     vision_requests_total,
 )
 from src.utils.metrics_helpers import safe_inc, safe_observe
+from src.core.errors import ErrorCode
 
 from .base import (
     OcrResult,
@@ -29,6 +30,7 @@ from .base import (
     VisionAnalyzeResponse,
     VisionDescription,
     VisionInputError,
+    VisionProviderError,
     VisionProvider,
 )
 from src.core.resilience.adaptive_decorator import adaptive_rate_limit
@@ -84,7 +86,11 @@ class VisionManager:
             image_bytes = await self._load_image(request)
         except VisionInputError:
             safe_inc(vision_requests_total, provider=provider_name, status="input_error")
-            safe_inc(vision_errors_total, provider=provider_name, code="input_error")
+            safe_inc(
+                vision_errors_total,
+                provider=provider_name,
+                code=ErrorCode.INPUT_ERROR.value,
+            )
             update_vision_error_ema(True)
             raise
         except Exception:
@@ -97,7 +103,11 @@ class VisionManager:
                     processing_time_ms / 1000.0,
                     provider=provider_name,
                 )
-                safe_inc(vision_errors_total, provider=provider_name, code="internal")
+                safe_inc(
+                    vision_errors_total,
+                    provider=provider_name,
+                    code=ErrorCode.INTERNAL_ERROR.value,
+                )
                 update_vision_error_ema(True)
             except Exception:
                 pass
@@ -136,6 +146,24 @@ class VisionManager:
                 provider=provider_name,
                 processing_time_ms=processing_time_ms,
             )
+        except VisionProviderError:
+            try:
+                processing_time_ms = (time.time() - start_time) * 1000
+                safe_inc(vision_requests_total, provider=provider_name, status="error")
+                safe_observe(
+                    vision_processing_duration_seconds,
+                    processing_time_ms / 1000.0,
+                    provider=provider_name,
+                )
+                safe_inc(
+                    vision_errors_total,
+                    provider=provider_name,
+                    code=ErrorCode.EXTERNAL_SERVICE_ERROR.value,
+                )
+                update_vision_error_ema(True)
+            except Exception:
+                pass
+            raise
         except Exception:
             # Propagate unexpected errors; API layer will standardize response
             try:
@@ -146,7 +174,11 @@ class VisionManager:
                     processing_time_ms / 1000.0,
                     provider=provider_name,
                 )
-                safe_inc(vision_errors_total, provider=provider_name, code="internal")
+                safe_inc(
+                    vision_errors_total,
+                    provider=provider_name,
+                    code=ErrorCode.INTERNAL_ERROR.value,
+                )
                 update_vision_error_ema(True)
             except Exception:
                 pass

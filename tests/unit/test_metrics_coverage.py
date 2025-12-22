@@ -419,9 +419,14 @@ class TestMetricLabels:
     def test_ocr_errors_labels(self):
         """Test ocr_errors_total accepts expected labels."""
         from src.utils.metrics import ocr_errors_total
+        from src.core.errors import ErrorCode
 
         # Should not raise
-        ocr_errors_total.labels(provider="tesseract", code="500", stage="extraction")
+        ocr_errors_total.labels(
+            provider="tesseract",
+            code=ErrorCode.INTERNAL_ERROR.value,
+            stage="infer",
+        )
 
     def test_vision_requests_labels(self):
         """Test vision_requests_total accepts expected labels."""

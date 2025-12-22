@@ -20,6 +20,7 @@ except Exception:  # module missing
 import uvicorn
 
 from src.api import api_router
+from src.api.middleware.integration_auth import IntegrationAuthMiddleware
 from src.core.config import get_settings
 from src.models.loader import load_models
 from src.utils.cache import init_redis
@@ -204,6 +205,9 @@ app.add_middleware(
 
 # 配置信任主机
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.ALLOWED_HOSTS)
+
+# Optional integration auth (JWT) for upstream platforms
+app.add_middleware(IntegrationAuthMiddleware, settings=settings)
 
 # 注册路由
 app.include_router(api_router, prefix="/api")

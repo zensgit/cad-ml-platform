@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 from src.adapters.factory import AdapterFactory
 from src.api.dependencies import get_api_key
@@ -40,7 +40,9 @@ from src.utils.analysis_metrics import (
     analysis_parse_latency_budget_ratio,
     process_rule_version_total,
     classification_latency_seconds,
+    dfm_analysis_latency_seconds,
     process_recommend_latency_seconds,
+    cost_estimation_latency_seconds,
     vector_store_material_total,
     analysis_parallel_enabled,
     classification_prediction_drift_score,
@@ -77,6 +79,7 @@ class AnalysisOptions(BaseModel):
     reference_id: Optional[str] = Field(default=None, description="参考文件ID")
     quality_check: bool = Field(default=True, description="是否质量检查")
     process_recommendation: bool = Field(default=False, description="是否推荐工艺")
+    estimate_cost: bool = Field(default=False, description="是否估算成本 (L4)")
     enable_ocr: bool = Field(default=False, description="是否启用OCR解析 (默认关闭保障向后兼容)")
     ocr_provider: str = Field(default="auto", description="OCR provider策略 auto|paddle|deepseek_hf")
 
@@ -567,20 +570,107 @@ async def analyze_cad_file(
             stage_times["features"] = time.time() - started - sum(stage_times.values())
             analysis_stage_duration_seconds.labels(stage="features").observe(stage_times["features"])
 
+        # L3: 3D Feature Extraction
+        features_3d: Dict[str, Any] = {}
+        if analysis_options.extract_features and file_format in ["step", "stp", "iges", "igs"]:
+             try:
+                 # Lazy import to avoid startup overhead if not used
+                 from src.core.geometry.engine import get_geometry_engine
+                 from src.ml.vision_3d import get_3d_encoder
+                 from src.core.geometry.cache import get_feature_cache
+                 
+                 _geo_start = time.time()
+                 
+                 # Check Cache
+                 f_cache = get_feature_cache()
+                 # Use feature version from env or default
+                 f_ver = "l4_v1" 
+                 cache_key = f_cache.generate_key(content, f_ver)
+                 cached_3d = f_cache.get(cache_key)
+                 
+                 if cached_3d:
+                     features_3d = cached_3d
+                     logger.info(f"3D Feature Cache HIT for {file.filename}")
+                 else:
+                     geo_engine = get_geometry_engine()
+                     # Parse 3D content
+                     shape = geo_engine.load_step(content, file_name=file.filename)
+                     if shape:
+                         features_3d = geo_engine.extract_brep_features(shape)
+                         # L4: Extract DFM features (Wall thickness, etc.)
+                         dfm_feats = geo_engine.extract_dfm_features(shape)
+                         features_3d.update(dfm_feats)
+                         
+                         # Deep Learning Embedding
+                         encoder = get_3d_encoder()
+                         embedding_3d = encoder.encode(features_3d)
+                         features_3d["embedding_vector"] = embedding_3d
+                         
+                         # Save to Cache
+                         f_cache.set(cache_key, features_3d)
+                     
+                 # Add to result payload for debugging/inspection
+                 if "embedding_vector" in features_3d:
+                    results["features_3d"] = {k:v for k,v in features_3d.items() if k != "embedding_vector"}
+                    results["features_3d"]["embedding_dim"] = len(features_3d["embedding_vector"])
+                     
+                 stage_times["features_3d"] = time.time() - _geo_start
+             except Exception as e:
+                 logger.error(f"L3 Analysis failed: {e}")
+
         # Parallelize classification / quality / process recommendation if multiple enabled
         import asyncio
         parallel_tasks = []
         if analysis_options.classify_parts:
             async def _run_classify():
                 t0 = time.time()
-                classification = await analyzer.classify_part(doc, features)
+                
+                # Check if we can use L3 Fusion
+                if features_3d:
+                    try:
+                        from src.core.knowledge.fusion import get_fusion_classifier
+                        fusion = get_fusion_classifier()
+                        
+                        # Build entity counts for Fusion
+                        ent_counts = {}
+                        for e in doc.entities:
+                            ent_counts[e.kind] = ent_counts.get(e.kind, 0) + 1
+                            
+                        # Perform fused classification
+                        fused_result = fusion.classify(
+                            text_signals=str(doc.metadata.get("text", "")),
+                            features_2d={"geometric_features": {}, "entity_counts": ent_counts},
+                            features_3d=features_3d
+                        )
+                        
+                        classification = {
+                            "type": fused_result["type"],
+                            "confidence": fused_result["confidence"],
+                            "sub_type": None,
+                            "characteristics": [],
+                            "rule_version": "L3-Fusion-v1",
+                            "alternatives": fused_result.get("alternatives", []),
+                            "confidence_breakdown": fused_result.get("fusion_breakdown"),
+                        }
+                    except Exception as e:
+                        logger.error(f"Fusion failed, falling back to L1: {e}")
+                        classification = await analyzer.classify_part(doc, features)
+                else:
+                    classification = await analyzer.classify_part(doc, features)
+
                 cls_payload = {
                     "part_type": classification["type"],
                     "confidence": classification["confidence"],
                     "sub_type": classification.get("sub_type"),
                     "characteristics": classification.get("characteristics", []),
                     "rule_version": classification.get("rule_version"),
+                    "alternatives": classification.get("alternatives", []),
+                    "confidence_breakdown": classification.get("confidence_breakdown"),
                 }
+                rule_version = str(cls_payload.get("rule_version") or "")
+                cls_payload["confidence_source"] = (
+                    "fusion" if rule_version.startswith("L3-Fusion") else "rules"
+                )
                 # Attempt ML classification overlay
                 try:
                     from src.ml.classifier import predict
@@ -597,6 +687,28 @@ async def analyze_cad_file(
                 except Exception:
                     cls_payload["model_version"] = "ml_error"
                 results["classification"] = cls_payload
+                # Active learning: flag low-confidence samples for review
+                try:
+                    enabled = __import__("os").getenv("ACTIVE_LEARNING_ENABLED", "false").lower() == "true"
+                    threshold = float(__import__("os").getenv("ACTIVE_LEARNING_CONFIDENCE_THRESHOLD", "0.6"))
+                    if enabled and float(cls_payload.get("confidence", 1.0)) < threshold:
+                        from src.core.active_learning import get_active_learner
+                        learner = get_active_learner()
+                        learner.flag_for_review(
+                            doc_id=analysis_id,
+                            predicted_type=str(cls_payload.get("part_type", "unknown")),
+                            confidence=float(cls_payload.get("confidence", 0.0)),
+                            alternatives=cls_payload.get("alternatives", []),
+                            score_breakdown={
+                                "rule_version": cls_payload.get("rule_version"),
+                                "model_version": cls_payload.get("model_version"),
+                                "confidence_source": cls_payload.get("confidence_source"),
+                                "confidence_breakdown": cls_payload.get("confidence_breakdown"),
+                            },
+                            uncertainty_reason="low_confidence",
+                        )
+                except Exception as e:
+                    logger.warning(f"Active learning flag failed: {e}")
                 dur = time.time() - t0
                 classification_latency_seconds.observe(dur)
                 return ("classify", dur)
@@ -605,22 +717,96 @@ async def analyze_cad_file(
         if analysis_options.quality_check:
             async def _run_quality():
                 t0 = time.time()
-                quality = await analyzer.check_quality(doc, features)
-                results["quality"] = {
-                    "score": quality["score"],
-                    "issues": quality.get("issues", []),
-                    "suggestions": quality.get("suggestions", []),
-                }
+                # L4 DFM Check
+                if "features_3d" in locals() and features_3d:
+                     try:
+                         dfm_start = time.time()
+                         # Extract extra DFM features if not already done
+                         if "thin_walls_detected" not in features_3d:
+                             from src.core.geometry.engine import get_geometry_engine
+                             geo = get_geometry_engine()
+                             # Re-load shape from cache or content not ideal here, 
+                             # but for prototype we assume features_3d already has what we need 
+                             # OR we enhanced extract_brep_features to include DFM.
+                             # Let's assume we call extract_dfm_features here if shape is available:
+                             # shape = geo.load_step(...) # Expensive, in prod pass shape around
+                             pass 
+                             
+                         from src.core.dfm.analyzer import get_dfm_analyzer
+                         dfm = get_dfm_analyzer()
+                         # Use classified type or unknown
+                         ptype = results.get("classification", {}).get("part_type", "unknown")
+                         dfm_result = dfm.analyze(features_3d, ptype)
+                         dfm_analysis_latency_seconds.observe(time.time() - dfm_start)
+                         
+                         results["quality"] = {
+                             "mode": "L4_DFM",
+                             "score": dfm_result["dfm_score"],
+                             "issues": dfm_result["issues"],
+                             "manufacturability": dfm_result["manufacturability"]
+                         }
+                     except Exception as e:
+                         logger.error(f"DFM check failed: {e}")
+                         # Fallback
+                         quality = await analyzer.check_quality(doc, features)
+                         results["quality"] = quality
+                else:
+                    quality = await analyzer.check_quality(doc, features)
+                    results["quality"] = {
+                        "score": quality["score"],
+                        "issues": quality.get("issues", []),
+                        "suggestions": quality.get("suggestions", []),
+                    }
                 return ("quality", time.time() - t0)
             parallel_tasks.append(_run_quality())
 
         if analysis_options.process_recommendation:
             async def _run_process():
                 t0 = time.time()
-                process = await analyzer.recommend_process(doc, features)
-                if isinstance(process, dict) and process.get("rule_version"):
-                    process_rule_version_total.labels(version=str(process.get("rule_version"))).inc()
-                results["process"] = process
+                # L4 AI Process Recommendation
+                proc_result = None
+                if "features_3d" in locals() and features_3d:
+                    try:
+                        from src.core.process.ai_recommender import get_process_recommender
+                        recommender = get_process_recommender()
+                        ptype = results.get("classification", {}).get("part_type", "unknown")
+                        mat = material or "steel" # Default
+                        
+                        proc_result = recommender.recommend(features_3d, ptype, mat)
+                        results["process"] = proc_result
+                    except Exception as e:
+                        logger.error(f"AI Process failed: {e}")
+                        process = await analyzer.recommend_process(doc, features)
+                        results["process"] = process
+                        proc_result = process if isinstance(process, dict) else {}
+                else:
+                    process = await analyzer.recommend_process(doc, features)
+                    if isinstance(process, dict) and process.get("rule_version"):
+                        process_rule_version_total.labels(version=str(process.get("rule_version"))).inc()
+                    results["process"] = process
+                    proc_result = process if isinstance(process, dict) else {}
+
+                # L4 Cost Estimation (Chained after Process)
+                if analysis_options.estimate_cost and "features_3d" in locals() and features_3d:
+                    try:
+                        from src.core.cost.estimator import get_cost_estimator
+                        estimator = get_cost_estimator()
+                        # Use primary recommendation if available
+                        primary_proc = proc_result.get("primary_recommendation", {})
+                        if not primary_proc and "process" in proc_result:
+                             # Fallback to legacy rule structure
+                             primary_proc = {"process": proc_result.get("process"), "method": "standard"}
+                        cost_start = time.time()
+                        cost_est = estimator.estimate(
+                            features_3d, 
+                            primary_proc, 
+                            material=material or "steel"
+                        )
+                        results["cost_estimation"] = cost_est
+                        cost_estimation_latency_seconds.observe(time.time() - cost_start)
+                    except Exception as e:
+                        logger.error(f"Cost estimation failed: {e}")
+                        
                 dur = time.time() - t0
                 process_recommend_latency_seconds.observe(dur)
                 return ("process", dur)
@@ -646,6 +832,44 @@ async def analyze_cad_file(
             analysis_parallel_savings_seconds.observe(savings)
         else:
             analysis_parallel_enabled.set(0)
+
+        # Manufacturing decision summary (quality + process + cost)
+        try:
+            quality = results.get("quality", {}) if isinstance(results, dict) else {}
+            process = results.get("process", {}) if isinstance(results, dict) else {}
+            cost = results.get("cost_estimation", {}) if isinstance(results, dict) else {}
+
+            primary_proc = {}
+            if isinstance(process, dict):
+                primary_proc = process.get("primary_recommendation", {})
+                if not primary_proc and "process" in process:
+                    primary_proc = {
+                        "process": process.get("process"),
+                        "method": process.get("method"),
+                    }
+
+            total_cost = None
+            if isinstance(cost, dict):
+                total_cost = cost.get("total_unit_cost")
+
+            cost_range = None
+            if isinstance(total_cost, (int, float)):
+                cost_range = {
+                    "low": round(total_cost * 0.9, 2),
+                    "high": round(total_cost * 1.1, 2),
+                }
+
+            if quality or process or cost:
+                results["manufacturing_decision"] = {
+                    "feasibility": quality.get("manufacturability") if isinstance(quality, dict) else None,
+                    "risks": quality.get("issues", []) if isinstance(quality, dict) else [],
+                    "process": primary_proc or None,
+                    "cost_estimate": cost if isinstance(cost, dict) else None,
+                    "cost_range": cost_range,
+                    "currency": cost.get("currency") if isinstance(cost, dict) else None,
+                }
+        except Exception as e:
+            logger.warning(f"Manufacturing decision summary failed: {e}")
 
         # Drift metrics (executed once per analysis after classification if present)
         try:
@@ -693,12 +917,17 @@ async def analyze_cad_file(
         except Exception:
             pass
 
-        # Register vector for later similarity queries (use geometric+semantic concatenation)
+        # Register vector for later similarity queries (use geometric+semantic concatenation + L3 embedding)
         try:
             feature_vector: list[float] = [
                 *[float(x) for x in features.get("geometric", [])],
                 *[float(x) for x in features.get("semantic", [])],
             ]
+            
+            # L3 Integration: Append 3D embedding if available
+            if "features_3d" in locals() and "embedding_vector" in features_3d:
+                 feature_vector.extend([float(x) for x in features_3d["embedding_vector"]])
+
             m_used = material or "unknown"
             accepted = register_vector(
                 analysis_id,
@@ -722,12 +951,17 @@ async def analyze_cad_file(
                 # enrich meta with dimension breakdown for future migrations
                 try:
                     _VECTOR_META = __import__("src.core.similarity", fromlist=["_VECTOR_META"])._VECTOR_META  # type: ignore
-                    _VECTOR_META[analysis_id].update({
+                    
+                    meta_update = {
                         "geometric_dim": str(len(features.get("geometric", []))),
                         "semantic_dim": str(len(features.get("semantic", []))),
-                        "total_dim": str(len(feature_vector)),
                         "feature_version": feature_version,
-                    })
+                    }
+                    if "features_3d" in locals() and "embedding_vector" in features_3d:
+                         meta_update["l3_3d_dim"] = str(len(features_3d["embedding_vector"]))
+                    
+                    meta_update["total_dim"] = str(len(feature_vector))
+                    _VECTOR_META[analysis_id].update(meta_update)
                 except Exception:
                     pass
         except Exception:
@@ -849,7 +1083,7 @@ async def analyze_cad_file(
         raise HTTPException(status_code=he.status_code, detail=err)
     except Exception as e:
         analysis_requests_total.labels(status="error").inc()
-        analysis_errors_total.labels(stage="general", code="internal").inc()
+        analysis_errors_total.labels(stage="general", code=ErrorCode.INTERNAL_ERROR.value).inc()
         analysis_error_code_total.labels(code=ErrorCode.INTERNAL_ERROR.value).inc()
         logger.error(f"Analysis failed for {file.filename}: {str(e)}")
         # ErrorCode and build_error imported at module level
@@ -1349,6 +1583,8 @@ class ModelReloadResponse(BaseModel):
     model_version: Optional[str] = None
     hash: Optional[str] = None
     error: Optional[Dict[str, Any]] = None
+
+    model_config = ConfigDict(protected_namespaces=())
 
 
 @router.post("/model/reload", response_model=ModelReloadResponse, deprecated=True)

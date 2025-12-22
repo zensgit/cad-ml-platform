@@ -5,6 +5,7 @@ FROM python:3.9-slim
 WORKDIR /app
 
 # 安装系统依赖
+# L3 Upgrade: Added libgl1, libx11-6, libxrender1, libglib2.0-0 for PythonOCC/OpenCV support
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
@@ -13,13 +14,20 @@ RUN apt-get update && apt-get install -y \
     fontconfig \
     fonts-dejavu-core \
     fonts-noto-cjk \
+    libgl1 \
+    libx11-6 \
+    libxrender1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制依赖文件
 COPY requirements.txt .
+COPY requirements-l3.txt .
 
 # 安装Python依赖
-RUN pip install --no-cache-dir -r requirements.txt
+# Install L3 dependencies first to allow caching
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r requirements-l3.txt
 
 # 复制源代码
 COPY src/ ./src/
