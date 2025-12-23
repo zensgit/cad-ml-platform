@@ -40,10 +40,10 @@ def test_vector_migrate_metrics_all_statuses(monkeypatch):
     from src.core.feature_extractor import FeatureExtractor as FE
     original_upgrade = FE.upgrade_vector
 
-    def faulty(self, existing):  # type: ignore
+    def faulty(self, existing, current_version=None):  # type: ignore
         if len(existing) == 999:
             raise Exception("upgrade_failed")
-        return original_upgrade(self, existing)
+        return original_upgrade(self, existing, current_version=current_version)
 
     monkeypatch.setattr(FE, "upgrade_vector", faulty)
 

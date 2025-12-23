@@ -56,6 +56,11 @@ _FAISS_RECOVERY_FLAP_THRESHOLD = int(os.getenv("FAISS_RECOVERY_FLAP_THRESHOLD", 
 _FAISS_RECOVERY_FLAP_WINDOW_SECONDS = int(os.getenv("FAISS_RECOVERY_FLAP_WINDOW_SECONDS", "900"))  # 15m
 _FAISS_RECOVERY_SUPPRESSION_SECONDS = int(os.getenv("FAISS_RECOVERY_SUPPRESSION_SECONDS", "300"))  # 5m
 _FAISS_RECOVERY_STATE_BACKEND = os.getenv("FAISS_RECOVERY_STATE_BACKEND", "file").lower()
+
+
+def get_client() -> Any | None:
+    """Compatibility wrapper for recovery-state tests."""
+    return get_sync_client()
 try:
     faiss_recovery_state_backend.labels(backend=_FAISS_RECOVERY_STATE_BACKEND).set(1)
 except Exception:
@@ -69,7 +74,7 @@ def _store_recovery_state(payload: dict) -> None:
     """Store recovery state using configured backend (file|redis)."""
     try:
         if _FAISS_RECOVERY_STATE_BACKEND == "redis":
-            client = get_sync_client()
+            client = get_client()
             if client is not None:
                 client.set("faiss:recovery_state", __import__("json").dumps(payload))
                 return
@@ -109,7 +114,7 @@ def load_recovery_state():  # pragma: no cover (invoked at startup)
         import json, os, time
         data = None
         if _FAISS_RECOVERY_STATE_BACKEND == "redis":
-            client = get_sync_client()
+            client = get_client()
             if client is not None:
                 val = client.get("faiss:recovery_state")
                 if val:

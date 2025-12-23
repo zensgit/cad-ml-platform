@@ -26,6 +26,7 @@ class TelemetryIngestor:
         self._queue: Optional[asyncio.Queue[TelemetryFrame]] = None
         self.drop_count = 0
         self._worker: Optional[asyncio.Task[None]] = None
+        self._worker_loop: Optional[asyncio.AbstractEventLoop] = None
         self._started = False
         self._start_lock: Optional[asyncio.Lock] = None
 
@@ -48,18 +49,24 @@ class TelemetryIngestor:
             if self._started:
                 return
             self._started = True
-            self._worker = asyncio.create_task(self._run())
+            self._worker_loop = asyncio.get_running_loop()
+            self._worker = self._worker_loop.create_task(self._run())
 
     async def stop(self) -> None:
         """Stop worker task."""
-        if self._worker:
-            self._worker.cancel()
-            try:
-                await self._worker
-            except asyncio.CancelledError:
-                pass
+        worker = self._worker
+        worker_loop = self._worker_loop
+        if worker:
+            worker.cancel()
+            if worker_loop is asyncio.get_running_loop():
+                try:
+                    await worker
+                except asyncio.CancelledError:
+                    pass
         self._worker = None
+        self._worker_loop = None
         self._started = False
+        self._start_lock = None
 
     async def handle_payload(self, payload: Any, topic: Optional[str] = None) -> Dict[str, Any]:
         """Decode payload and enqueue for persistence."""

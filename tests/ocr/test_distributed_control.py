@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
-
 import pytest
 
 from src.core.ocr.base import OcrResult
@@ -29,7 +27,8 @@ class _SlowFailProvider:
         return True
 
 
-def test_rate_limit_blocks(monkeypatch):
+@pytest.mark.asyncio
+async def test_rate_limit_blocks(monkeypatch):
     # Patch RateLimiter to a tiny burst/qps
     # Use unique key to avoid polluting Redis state for other tests
     import uuid
@@ -45,22 +44,21 @@ def test_rate_limit_blocks(monkeypatch):
     m = OcrManager({"paddle": provider})
     m._rate_limiters = {"paddle": _TinyRL(unique_key, qps=0.0001, burst=1)}
     # First allowed, second likely blocked
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(m.extract(b"img", strategy="paddle"))
+    await m.extract(b"img", strategy="paddle")
     with pytest.raises(Exception):
-        loop.run_until_complete(m.extract(b"img", strategy="paddle"))
+        await m.extract(b"img", strategy="paddle")
 
 
-def test_circuit_opens_and_blocks():
+@pytest.mark.asyncio
+async def test_circuit_opens_and_blocks():
     import uuid
     # Use unique image bytes to avoid cache hits from other tests
     unique_img = f"circuit_test_{uuid.uuid4()}".encode()
     provider = _SlowFailProvider(fail_times=2)
     m = OcrManager({"paddle": provider})
-    loop = asyncio.get_event_loop()
     # First call fails and opens breaker
     with pytest.raises(Exception):
-        loop.run_until_complete(m.extract(unique_img, strategy="paddle"))
+        await m.extract(unique_img, strategy="paddle")
     # Immediately second call should be blocked by circuit (open)
     with pytest.raises(Exception):
-        loop.run_until_complete(m.extract(unique_img, strategy="paddle"))
+        await m.extract(unique_img, strategy="paddle")

@@ -38,7 +38,7 @@ from src.core.dedupcad_2d_jobs_redis import (
     is_cad_file,
     mark_dedup2d_job_result,
 )
-from src.core.dedup2d_file_storage import create_dedup2d_file_storage
+import src.core.dedup2d_file_storage as dedup2d_file_storage
 from src.core.dedupcad_2d_pipeline import run_dedup_2d_pipeline
 from src.core.dedupcad_precision.cad_pipeline import (
     DxfRenderConfig,
@@ -190,7 +190,7 @@ async def _load_file_bytes_from_payload(
     if isinstance(file_ref_raw, dict):
         # New format: file_ref pointing to external storage
         file_ref = Dedup2DFileRef.from_dict(file_ref_raw)
-        storage = create_dedup2d_file_storage()
+        storage = dedup2d_file_storage.create_dedup2d_file_storage()
         file_bytes = await storage.load_bytes(file_ref)
         logger.debug(
             "dedup2d_worker_loaded_file_ref",
