@@ -818,6 +818,18 @@ Grafana 面板示例：见 `docs/grafana/observability_dashboard.json`（导入�
 - `ERROR_EMA_ALPHA`：错误率 EMA 平滑因子（0<alpha<=1，默认 0.2）。
 - `OCR_MAX_PDF_PAGES`：OCR PDF 最大页数（默认 20）。
 - `OCR_MAX_FILE_MB`：OCR 上传文件大小上限（MB，默认 50）。
+- `TELEMETRY_MQTT_ENABLED`：是否启用 MQTT 遥测接入（默认 false）。
+- `MQTT_HOST`/`MQTT_PORT`/`MQTT_TOPIC`：MQTT Broker 连接参数。
+- `TELEMETRY_STORE_BACKEND`：遥测存储后端（memory|influx|timescale|none）。
+
+### 可选模块：Digital Twin / Telemetry
+
+`/api/v1/twin/*` 路由默认未挂载。若需启用数字孪生接口，请：
+
+1. 在 `src/api/__init__.py` 中引入 `src.api.v1.twin` 并注册
+   `v1_router.include_router(twin.router, prefix="/twin", tags=["数字孪生"])`。
+2. 配置上面的 Telemetry 环境变量，确保存储后端可用。
+3. 若启用 MQTT，请确保 Broker 可连接（测试依赖 `aiomqtt`）。
 
 ### 基础端点
 
