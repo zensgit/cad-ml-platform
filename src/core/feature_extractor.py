@@ -41,12 +41,16 @@ def compute_shape_entropy(type_counts: Dict[str, int]) -> float:
     if K == 1:
         return 0.0  # Single type → no uncertainty
 
-    # Laplace smoothed probabilities
-    probs = [(c + 1) / (N + K) for c in type_counts.values()]
+    denom = N + K
+    inv_denom = 1.0 / denom
+    log = math.log
 
-    # Shannon entropy with natural log
-    H = -sum(p * math.log(p) for p in probs)
-    max_H = math.log(K)  # Maximum entropy for uniform distribution
+    # Shannon entropy with natural log, computed in a single pass
+    H = 0.0
+    for count in type_counts.values():
+        p = (count + 1) * inv_denom
+        H -= p * log(p)
+    max_H = log(K)  # Maximum entropy for uniform distribution
 
     return H / max_H if max_H > 0 else 0.0
 
