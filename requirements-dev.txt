@@ -15,6 +15,7 @@ pytest-asyncio==0.21.1
 pytest-cov==4.1.0
 httpx==0.25.1
 httpcore==0.17.3  # Align with runtime to allow FastAPI TestClient usage
+aiomqtt==1.2.1
 
 # Security audits (run ad-hoc; not pinned to avoid resolver conflicts)
 # pip-audit
