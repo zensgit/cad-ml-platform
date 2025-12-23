@@ -56,6 +56,10 @@ try:
     from src.api.v1 import active_learning  # type: ignore
 except Exception:
     active_learning = None  # type: ignore
+try:
+    from src.api.v1 import twin  # type: ignore
+except Exception:
+    twin = None  # type: ignore
 
 api_router = APIRouter()
 
@@ -109,6 +113,8 @@ if active_learning is not None:
     v1_router.include_router(
         active_learning.router, prefix="/active-learning", tags=["主动学习"]
     )  # type: ignore
+if twin is not None:
+    v1_router.include_router(twin.router, prefix="/twin", tags=["数字孪生"])  # type: ignore
 
 api_router.include_router(v1_router)
 
