@@ -117,7 +117,7 @@ env:
 make eval-e2e         # Full end-to-end evaluation
 make eval-full        # Alias for eval-e2e
 make e2e-smoke        # API + dedupcad-vision smoke regression
-# Override image (CI): DEDUPCAD_VISION_IMAGE=ghcr.io/zensgit/dedupcad-vision@sha256:41cd67e8f7aeeb2a96b5fa3c49797af79ee4dda4df9885640a1385826cbbe5ce
+# Override image (CI): DEDUPCAD_VISION_IMAGE=ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251
 
 # Workflow steps:
 1. Run combined evaluation
