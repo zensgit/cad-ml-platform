@@ -1436,6 +1436,7 @@ make e2e-smoke
 # CI 默认使用 pinned GHCR 镜像，可覆盖：
 # DEDUPCAD_VISION_IMAGE=ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251
 # GHCR 需 public 或 CI 开启 packages:read 权限
+# 若保持私有，建议 GHCR_TOKEN 仅授予 read:packages
 
 # 生成覆盖率报告
 pytest --cov=src --cov-report=html
