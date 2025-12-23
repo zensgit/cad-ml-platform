@@ -1435,7 +1435,9 @@ pytest tests/e2e/
 # 运行 E2E smoke（需服务已启动；可设置 API_BASE_URL、DEDUPCAD_VISION_URL）
 make e2e-smoke
 # 使用本地 stub（本地/离线开发备用）：python scripts/dedupcad_vision_stub.py
-# CI 默认使用 pinned 镜像，可覆盖：DEDUPCAD_VISION_IMAGE=caddedup/vision:1.1.0
+# CI 默认使用 pinned GHCR 镜像，可覆盖：
+# DEDUPCAD_VISION_IMAGE=ghcr.io/zensgit/dedupcad-vision@sha256:41cd67e8f7aeeb2a96b5fa3c49797af79ee4dda4df9885640a1385826cbbe5ce
+# GHCR 需 public 或 CI 开启 packages:read 权限
 
 # 生成覆盖率报告
 pytest --cov=src --cov-report=html

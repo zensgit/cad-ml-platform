@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   lint-type:
     runs-on: ubuntu-latest
@@ -118,7 +122,7 @@ jobs:
     needs: [lint-type]
     runs-on: ubuntu-latest
     env:
-      DEDUPCAD_VISION_IMAGE: ${{ vars.DEDUPCAD_VISION_IMAGE || 'caddedup/vision:1.1.0' }}
+      DEDUPCAD_VISION_IMAGE: ${{ vars.DEDUPCAD_VISION_IMAGE || 'ghcr.io/zensgit/dedupcad-vision@sha256:41cd67e8f7aeeb2a96b5fa3c49797af79ee4dda4df9885640a1385826cbbe5ce' }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -134,6 +138,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+      - name: Log in to GHCR
+        if: startsWith(env.DEDUPCAD_VISION_IMAGE, 'ghcr.io/')
+        run: |
+          echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
       - name: Start dedupcad-vision (real image)
         run: |
           docker run -d --name dedupcad-vision -p 58001:8000 \

@@ -117,7 +117,7 @@ env:
 make eval-e2e         # Full end-to-end evaluation
 make eval-full        # Alias for eval-e2e
 make e2e-smoke        # API + dedupcad-vision smoke regression
-# Override image (CI): DEDUPCAD_VISION_IMAGE=caddedup/vision:1.1.0
+# Override image (CI): DEDUPCAD_VISION_IMAGE=ghcr.io/zensgit/dedupcad-vision@sha256:41cd67e8f7aeeb2a96b5fa3c49797af79ee4dda4df9885640a1385826cbbe5ce
 
 # Workflow steps:
 1. Run combined evaluation
@@ -125,9 +125,10 @@ make e2e-smoke        # API + dedupcad-vision smoke regression
 3. Generate interactive report
 4. Run validation
 
-**CI note**: the `e2e-smoke` job starts a pinned `dedupcad-vision` image (override
-via `DEDUPCAD_VISION_IMAGE`) and enforces contract tests
-(`DEDUPCAD_VISION_REQUIRED=1`). The stub remains a local fallback.
+**CI note**: the `e2e-smoke` job starts a pinned GHCR `dedupcad-vision` image
+(override via `DEDUPCAD_VISION_IMAGE`) and enforces contract tests
+(`DEDUPCAD_VISION_REQUIRED=1`). GHCR requires public access or `packages:read`
+permissions + login; the stub remains a local fallback.
 ```
 
 ### 5. Workflow Improvements ✅
