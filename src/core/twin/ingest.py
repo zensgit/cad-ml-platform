@@ -86,7 +86,16 @@ class TelemetryIngestor:
     async def _run(self) -> None:
         """Worker loop that drains the queue to the time-series store."""
         while True:
-            frame = await self.queue.get()
+            try:
+                frame = await self.queue.get()
+            except asyncio.CancelledError:
+                break
+            except GeneratorExit:
+                break
+            except RuntimeError as exc:
+                if "Event loop is closed" in str(exc):
+                    break
+                raise
             try:
                 await self.store.append(frame)
             except Exception:
