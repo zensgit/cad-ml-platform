@@ -116,12 +116,16 @@ env:
 # Complete E2E workflow
 make eval-e2e         # Full end-to-end evaluation
 make eval-full        # Alias for eval-e2e
+make e2e-smoke        # API + dedupcad-vision smoke regression
 
 # Workflow steps:
 1. Run combined evaluation
 2. Generate trend charts
 3. Generate interactive report
 4. Run validation
+
+**CI note**: the `e2e-smoke` job starts a lightweight `dedupcad-vision` stub and
+requires contract tests to pass (`DEDUPCAD_VISION_REQUIRED=1`).
 ```
 
 ### 5. Workflow Improvements ✅
