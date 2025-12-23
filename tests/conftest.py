@@ -161,11 +161,7 @@ def ingestor_isolation():
     try:
         from src.core.twin.ingest import reset_ingestor_for_tests
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                pass  # Skip if async loop is running
-            else:
-                loop.run_until_complete(reset_ingestor_for_tests())
+            asyncio.get_running_loop()
         except RuntimeError:
             asyncio.run(reset_ingestor_for_tests())
     except ImportError:
@@ -174,11 +170,7 @@ def ingestor_isolation():
     try:
         from src.core.twin.ingest import reset_ingestor_for_tests
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                pass
-            else:
-                loop.run_until_complete(reset_ingestor_for_tests())
+            asyncio.get_running_loop()
         except RuntimeError:
             asyncio.run(reset_ingestor_for_tests())
     except ImportError:
@@ -364,4 +356,3 @@ def redis_client_isolation():
         cache_mod._redis_client = backup_client
     except (ImportError, AttributeError):
         pass
-
