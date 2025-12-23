@@ -9,6 +9,8 @@ from fastapi.testclient import TestClient
 from src.core.twin.connectivity import TelemetryFrame
 from src.core.twin.ingest import reset_ingestor_for_tests
 
+pytest.importorskip("jose")
+
 if os.getenv("PYTEST_DISABLE_PLUGIN_AUTOLOAD") == "1":  # pragma: no cover - safety for minimal runs
     pytest.skip("asyncio plugin disabled", allow_module_level=True)
 
