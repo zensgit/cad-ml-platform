@@ -1422,7 +1422,8 @@ pytest tests/e2e/
 
 # 运行 E2E smoke（需服务已启动；可设置 API_BASE_URL、DEDUPCAD_VISION_URL）
 make e2e-smoke
-# 使用本地 stub（用于 CI/开发）：python scripts/dedupcad_vision_stub.py
+# 使用本地 stub（本地/离线开发备用）：python scripts/dedupcad_vision_stub.py
+# CI 默认使用 pinned 镜像，可覆盖：DEDUPCAD_VISION_IMAGE=caddedup/vision:1.1.0
 
 # 生成覆盖率报告
 pytest --cov=src --cov-report=html

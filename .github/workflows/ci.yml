@@ -117,6 +117,8 @@ jobs:
   e2e-smoke:
     needs: [lint-type]
     runs-on: ubuntu-latest
+    env:
+      DEDUPCAD_VISION_IMAGE: ${{ vars.DEDUPCAD_VISION_IMAGE || 'caddedup/vision:1.1.0' }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -132,21 +134,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-      - name: Start dedupcad-vision stub
+      - name: Start dedupcad-vision (real image)
         run: |
-          nohup python scripts/dedupcad_vision_stub.py > /tmp/vision_stub.log 2>&1 &
-          echo $! > /tmp/vision_stub.pid
-      - name: Wait for dedupcad-vision stub
+          docker run -d --name dedupcad-vision -p 58001:8000 \
+            -e S3_ENABLED=false \
+            -e EVENT_BUS_ENABLED=false \
+            -e ML_PLATFORM_ENABLED=false \
+            -e GEOMETRIC_ENABLED=false \
+            -e LOG_LEVEL=INFO \
+            -e VISION_ENV=ci \
+            "$DEDUPCAD_VISION_IMAGE"
+      - name: Wait for dedupcad-vision
         run: |
           for i in {1..30}; do
             if curl -fsS http://localhost:58001/health >/dev/null; then
-              echo "dedupcad-vision stub ready"
+              echo "dedupcad-vision ready"
               exit 0
             fi
             sleep 2
           done
-          echo "dedupcad-vision stub failed to start"
-          cat /tmp/vision_stub.log || true
+          echo "dedupcad-vision failed to start"
+          docker logs dedupcad-vision || true
           exit 1
       - name: Start API
         env:
@@ -178,9 +186,7 @@ jobs:
           if [ -f /tmp/uvicorn.pid ]; then
             kill "$(cat /tmp/uvicorn.pid)" || true
           fi
-      - name: Stop dedupcad-vision stub
+      - name: Stop dedupcad-vision
         if: always()
         run: |
-          if [ -f /tmp/vision_stub.pid ]; then
-            kill "$(cat /tmp/vision_stub.pid)" || true
-          fi
+          docker rm -f dedupcad-vision || true

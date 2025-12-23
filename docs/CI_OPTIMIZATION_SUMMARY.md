@@ -117,6 +117,7 @@ env:
 make eval-e2e         # Full end-to-end evaluation
 make eval-full        # Alias for eval-e2e
 make e2e-smoke        # API + dedupcad-vision smoke regression
+# Override image (CI): DEDUPCAD_VISION_IMAGE=caddedup/vision:1.1.0
 
 # Workflow steps:
 1. Run combined evaluation
@@ -124,8 +125,9 @@ make e2e-smoke        # API + dedupcad-vision smoke regression
 3. Generate interactive report
 4. Run validation
 
-**CI note**: the `e2e-smoke` job starts a lightweight `dedupcad-vision` stub and
-requires contract tests to pass (`DEDUPCAD_VISION_REQUIRED=1`).
+**CI note**: the `e2e-smoke` job starts a pinned `dedupcad-vision` image (override
+via `DEDUPCAD_VISION_IMAGE`) and enforces contract tests
+(`DEDUPCAD_VISION_REQUIRED=1`). The stub remains a local fallback.
 ```
 
 ### 5. Workflow Improvements ✅

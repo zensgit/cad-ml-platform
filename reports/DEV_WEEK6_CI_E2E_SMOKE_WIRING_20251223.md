@@ -12,4 +12,4 @@
 - Failed: 0
 
 ## Notes
-- CI starts a local `dedupcad-vision` stub and waits for `/health` before running tests.
+- Initial stub-based wiring; CI now uses a pinned real image (see latest CI report).

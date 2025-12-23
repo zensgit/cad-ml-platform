@@ -1,4 +1,4 @@
-# Archived (superseded by stub-based CI on 2025-12-23)
+# Archived (superseded by pinned-image CI report on 2025-12-23)
 
 # Week6 CI - DedupCAD Vision Real Image (2025-12-23)
 
