@@ -29,3 +29,7 @@ Defined in `src/core/knowledge/dynamic/models.py`:
 ## Operational Notes
 - Knowledge status and reload endpoints live under `/api/v1/maintenance/knowledge/*`.
 - Add or edit JSON files under `data/knowledge/` and call `/api/v1/maintenance/knowledge/reload` to apply.
+
+## Seeding (Dev Only)
+- Set `KNOWLEDGE_AUTO_SEED=1` to copy seed JSON files into `data/knowledge/` when empty.
+- Seed source defaults to `seed/knowledge/` and can be overridden via `KNOWLEDGE_SEED_DIR`.

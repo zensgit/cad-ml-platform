@@ -10,6 +10,7 @@ import pytest
 BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 API_KEY = os.environ.get("API_KEY", "test")
 TIMEOUT = float(os.environ.get("E2E_HTTP_TIMEOUT", "10"))
+VISION_REQUIRED = os.environ.get("DEDUPCAD_VISION_REQUIRED", "0") == "1"
 
 DXF_PATH = Path(os.environ.get("E2E_DXF_PATH", "data/dxf_fixtures_subset/mixed.dxf"))
 PNG_PATH = Path(os.environ.get("E2E_PNG_PATH", "data/dxf_fixtures_subset_out/mixed.png"))
@@ -144,9 +145,13 @@ def test_e2e_dedup_search_smoke() -> None:
             params={"mode": "balanced", "max_results": "5", "compute_diff": "false"},
         )
     except Exception:
+        if VISION_REQUIRED:
+            pytest.fail("Dedup search not reachable")
         pytest.skip("Dedup search not reachable; skipping smoke")
 
     if resp.status_code in {404, 502, 503, 504}:
+        if VISION_REQUIRED:
+            pytest.fail(f"Dedup search unavailable ({resp.status_code})")
         pytest.skip(f"Dedup search unavailable ({resp.status_code}); skipping smoke")
 
     assert resp.status_code == 200

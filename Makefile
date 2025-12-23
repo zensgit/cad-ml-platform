@@ -3,7 +3,7 @@
 
 .PHONY: help install dev test lint format type-check clean run docs docker eval-history health-check eval-trend \
 	observability-up observability-down observability-status self-check metrics-validate prom-validate \
-	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted
+	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted e2e-smoke
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -129,6 +129,13 @@ test-targeted: ## Run targeted tests (Faiss health/ETA scheduling)
 		tests/unit/test_faiss_health_response.py \
 		tests/unit/test_faiss_eta_schedules_on_failed_recovery.py -q || true
 	@echo "$(GREEN)Targeted tests completed (allowing skips).$(NC)"
+
+e2e-smoke: ## Run E2E smoke tests against running services
+	@echo "$(GREEN)Running E2E smoke tests...$(NC)"
+	API_BASE_URL=$${API_BASE_URL:-http://localhost:8000} \
+	DEDUPCAD_VISION_URL=$${DEDUPCAD_VISION_URL:-http://localhost:58001} \
+	$(PYTEST) tests/integration/test_e2e_api_smoke.py \
+		tests/integration/test_dedupcad_vision_contract.py -v -rs
 
 docker-build: ## 构建Docker镜像
 	@echo "$(GREEN)Building Docker image...$(NC)"

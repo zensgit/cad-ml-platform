@@ -45,6 +45,13 @@ async def lifespan(app: FastAPI):
     # 启动时
     logger.info("Starting CAD ML Platform...")
 
+    # Optional dev seeding of knowledge rules
+    try:
+        from src.utils.knowledge_seed import seed_knowledge_if_empty
+        seed_knowledge_if_empty()
+    except Exception:
+        logger.warning("Knowledge seed failed", exc_info=True)
+
     # Phase 1: Register dedup2d job metrics callback
     from src.api.v1.dedup import register_dedup2d_job_metrics
     register_dedup2d_job_metrics()
