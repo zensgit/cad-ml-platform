@@ -17,14 +17,14 @@ class LayeredVectorManager:
     """
     Orchestrates searches across Public (Shared) and Private (Tenant) indexes.
     """
-    
+
     def __init__(self, public_path: Optional[str] = None):
         self.partitions: Dict[str, BaseVectorStore] = {}
-        
+
         # 1. Initialize Public Index (Read-Only)
         self.public_path = public_path or os.getenv("PUBLIC_INDEX_PATH", "data/public_index.bin")
         self._load_public_index()
-        
+
         # 2. Initialize Private Index (Default Tenant)
         # In multi-tenant env, this would be a map of tenant_id -> store
         self.private_store = MemoryVectorStore() # Start with memory, can swap to Faiss
@@ -44,16 +44,21 @@ class LayeredVectorManager:
         except Exception as e:
             logger.error(f"Failed to load public index: {e}")
 
-    def search(self, vector: List[float], top_k: int = 5, partitions: List[str] = None) -> List[Tuple[str, float, str]]:
+    def search(
+        self,
+        vector: List[float],
+        top_k: int = 5,
+        partitions: List[str] = None,
+    ) -> List[Tuple[str, float, str]]:
         """
         Search across specified partitions.
         Returns: [(id, score, partition_name), ...]
         """
         if partitions is None:
             partitions = ["public", "private"]
-            
+
         all_results = []
-        
+
         for p_name in partitions:
             store = self.partitions.get(p_name)
             if store:
@@ -61,7 +66,7 @@ class LayeredVectorManager:
                 # Tag with partition name
                 for hit_id, score in hits:
                     all_results.append((hit_id, score, p_name))
-                    
+
         # Global Sort
         all_results.sort(key=lambda x: x[1], reverse=True)
         return all_results[:top_k]

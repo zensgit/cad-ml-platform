@@ -16,7 +16,7 @@ class ABCDataset(Dataset):
     """
     PyTorch Dataset for ABC CAD models.
     """
-    
+
     def __init__(self, root_dir: str, transform=None):
         """
         Args:
@@ -26,11 +26,11 @@ class ABCDataset(Dataset):
         self.root_dir = root_dir
         self.transform = transform
         self.file_list = []
-        
+
         if os.path.exists(root_dir):
             self.file_list = [
-                os.path.join(root_dir, f) 
-                for f in os.listdir(root_dir) 
+                os.path.join(root_dir, f)
+                for f in os.listdir(root_dir)
                 if f.lower().endswith(('.step', '.stp'))
             ]
         else:
@@ -44,31 +44,31 @@ class ABCDataset(Dataset):
             idx = idx.tolist()
 
         step_path = self.file_list[idx]
-        
+
         # Real Feature Extraction
         try:
             # Lazy import to avoid circular dependencies
             from src.core.geometry.engine import get_geometry_engine
-            
-            # Note: In a high-performance training loop, you might want to pre-process 
-            # these features offline and save them as .pt or .npy files to avoid 
+
+            # Note: In a high-performance training loop, you might want to pre-process
+            # these features offline and save them as .pt or .npy files to avoid
             # re-parsing STEP files (which is slow) every epoch.
             # For this MVP, we parse on-the-fly or assume a cached version exists.
-            
+
             geo = get_geometry_engine()
             with open(step_path, 'rb') as f:
                 content = f.read()
-            
+
             shape = geo.load_step(content, os.path.basename(step_path))
             if shape:
                 feats = geo.extract_brep_features(shape)
                 # Convert dict features to tensor
                 # This is a simplified encoding. Real UV-Net extracts a graph.
                 # Here we map our scalar features to a vector for the scaffold model.
-                
+
                 # Feature Vector Construction (Must match input_dim=12 in model.py)
                 # [faces, edges, vertices, volume, area, plane_count, cyl_count, ...]
-                
+
                 surfaces = feats.get("surface_types", {})
                 vector = [
                     float(feats.get("faces", 0)),
@@ -84,15 +84,16 @@ class ABCDataset(Dataset):
                     float(surfaces.get("bspline", 0)),
                     float(feats.get("solids", 0))
                 ]
-                
+
                 # Normalize (Naive) - In prod use standard scaler
                 vector = [torch.tensor(v).float() for v in vector]
-                sample = torch.stack(vector).unsqueeze(1).repeat(1, 1024) # Mocking point cloud shape (12, 1024)
-                
+                # Mocking point cloud shape (12, 1024)
+                sample = torch.stack(vector).unsqueeze(1).repeat(1, 1024)
+
             else:
                 # Fallback for failed parse
                 sample = torch.zeros(12, 1024)
-                
+
         except Exception as e:
             logger.error(f"Error processing {step_path}: {e}")
             sample = torch.zeros(12, 1024)
@@ -100,7 +101,7 @@ class ABCDataset(Dataset):
         # Mock Label: In reality, ABC dataset needs external labels or self-supervised task
         # Here we just use a dummy label for the pipeline to run
         label = torch.randint(0, 10, (1,)).item()
-        
+
         if self.transform:
             sample = self.transform(sample)
 

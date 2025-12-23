@@ -19,19 +19,35 @@ try:
     from OCC.Core.IFSelect import IFSelect_RetDone
     from OCC.Core.TopoDS import TopoDS_Shape
     from OCC.Core.TopExp import TopExp_Explorer
-    from OCC.Core.TopAbs import TopAbs_FACE, TopAbs_EDGE, TopAbs_VERTEX, TopAbs_SOLID, TopAbs_SHELL
+    from OCC.Core.TopAbs import (
+        TopAbs_FACE,
+        TopAbs_EDGE,
+        TopAbs_VERTEX,
+        TopAbs_SOLID,
+        TopAbs_SHELL,
+    )
     from OCC.Core.BRepGProp import brepgprop_VolumeProperties, brepgprop_SurfaceProperties
     from OCC.Core.GProp import GProp_GProps
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface, BRepAdaptor_Curve
-    from OCC.Core.GeomAbs import GeomAbs_Plane, GeomAbs_Cylinder, GeomAbs_Cone, GeomAbs_Sphere, GeomAbs_Torus, GeomAbs_BezierSurface, GeomAbs_BSplineSurface
+    from OCC.Core.GeomAbs import (
+        GeomAbs_Plane,
+        GeomAbs_Cylinder,
+        GeomAbs_Cone,
+        GeomAbs_Sphere,
+        GeomAbs_Torus,
+        GeomAbs_BezierSurface,
+        GeomAbs_BSplineSurface,
+    )
     from OCC.Core.BRepBndLib import brepbndlib_Add
     from OCC.Core.Bnd import Bnd_Box
     from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
-    
+
     HAS_OCC = True
 except ImportError:
     HAS_OCC = False
-    logger.warning("pythonocc-core not found. 3D analysis capabilities will be limited to mock/fallback.")
+    logger.warning(
+        "pythonocc-core not found. 3D analysis capabilities will be limited to mock/fallback."
+    )
 
 class GeometryEngine:
     """
@@ -55,7 +71,7 @@ class GeometryEngine:
         suffix = os.path.splitext(file_name)[1]
         if not suffix:
             suffix = ".step"
-            
+
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
             tmp.write(content)
             tmp_path = tmp.name
@@ -63,11 +79,11 @@ class GeometryEngine:
         try:
             reader = STEPControl_Reader()
             status = reader.ReadFile(tmp_path)
-            
+
             if status != IFSelect_RetDone:
                 logger.error(f"Error reading STEP file {file_name}: status {status}")
                 return None
-                
+
             reader.TransferRoots()
             shape = reader.OneShape()
             return shape
@@ -101,14 +117,14 @@ class GeometryEngine:
 
         try:
             features["valid_3d"] = True
-            
+
             # Topological counts
             features["faces"] = self._count_subshapes(shape, TopAbs_FACE)
             features["edges"] = self._count_subshapes(shape, TopAbs_EDGE)
             features["vertices"] = self._count_subshapes(shape, TopAbs_VERTEX)
             features["solids"] = self._count_subshapes(shape, TopAbs_SOLID)
             features["shells"] = self._count_subshapes(shape, TopAbs_SHELL)
-            
+
             if features["solids"] > 1:
                 features["is_assembly"] = True
 
@@ -116,7 +132,7 @@ class GeometryEngine:
             gprops = GProp_GProps()
             brepgprop_VolumeProperties(shape, gprops)
             features["volume"] = gprops.Mass()
-            
+
             brepgprop_SurfaceProperties(shape, gprops)
             features["surface_area"] = gprops.Mass()
 
@@ -152,7 +168,7 @@ class GeometryEngine:
             "sharp_edges_count": 0,
             "machinability_score": 1.0 # 0.0 - 1.0
         }
-        
+
         if not HAS_OCC or shape is None:
             return dfm_features
 
@@ -166,34 +182,38 @@ class GeometryEngine:
                 dfm_features["aspect_ratio_max_min"] = dims[2] / dims[0]
             else:
                 dfm_features["aspect_ratio_max_min"] = 0.0
-                
+
             # 2. Volume to BBox Volume Ratio (Material removal rate)
             bbox_vol = dims[0] * dims[1] * dims[2]
             gprops = GProp_GProps()
             brepgprop_VolumeProperties(shape, gprops)
             actual_vol = gprops.Mass()
-            
+
             if bbox_vol > 0:
                 dfm_features["stock_removal_ratio"] = 1.0 - (actual_vol / bbox_vol)
-            
+
             # 3. Heuristic Thin Wall Detection
             # Real implementation uses ray casting or medial axis transform.
             # Here we use a heuristic: Surface Area / Volume ratio.
             # Very high ratio implies thin sheets or complex lattices.
             if actual_vol > 0:
                 sa_vol_ratio = self.extract_brep_features(shape)["surface_area"] / actual_vol
-                if sa_vol_ratio > 2.0: # Threshold depends on unit system (assuming mm)
+                if sa_vol_ratio > 2.0:
+                    # Threshold depends on unit system (assuming mm)
                     dfm_features["thin_walls_detected"] = True
-                    dfm_features["min_thickness_estimate"] = 2.0 / sa_vol_ratio # Rough approximation
+                    dfm_features["min_thickness_estimate"] = 2.0 / sa_vol_ratio
 
             # 4. Sharp Edge Detection (Stress risers)
             # Iterate edges, check continuity (C0 vs G1)
             # Placeholder for complex topology traversal
-            dfm_features["sharp_edges_count"] = self._count_subshapes(shape, TopAbs_EDGE) # Baseline
+            dfm_features["sharp_edges_count"] = self._count_subshapes(
+                shape,
+                TopAbs_EDGE,
+            )
 
         except Exception as e:
             logger.error(f"Error extracting DFM features: {e}")
-            
+
         return dfm_features
 
     def _count_subshapes(self, shape: Any, shape_type: Any) -> int:
@@ -216,41 +236,53 @@ class GeometryEngine:
             "bspline": 0,
             "other": 0
         }
-        
+
         exp = TopExp_Explorer(shape, TopAbs_FACE)
         while exp.More():
             face = exp.Current()
             surf = BRepAdaptor_Surface(face, True) # True = restriction
             st = surf.GetType()
-            
-            if st == GeomAbs_Plane: types["plane"] += 1
-            elif st == GeomAbs_Cylinder: types["cylinder"] += 1
-            elif st == GeomAbs_Cone: types["cone"] += 1
-            elif st == GeomAbs_Sphere: types["sphere"] += 1
-            elif st == GeomAbs_Torus: types["torus"] += 1
-            elif st == GeomAbs_BezierSurface: types["bezier"] += 1
-            elif st == GeomAbs_BSplineSurface: types["bspline"] += 1
-            else: types["other"] += 1
-            
+
+            if st == GeomAbs_Plane:
+                types["plane"] += 1
+            elif st == GeomAbs_Cylinder:
+                types["cylinder"] += 1
+            elif st == GeomAbs_Cone:
+                types["cone"] += 1
+            elif st == GeomAbs_Sphere:
+                types["sphere"] += 1
+            elif st == GeomAbs_Torus:
+                types["torus"] += 1
+            elif st == GeomAbs_BezierSurface:
+                types["bezier"] += 1
+            elif st == GeomAbs_BSplineSurface:
+                types["bspline"] += 1
+            else:
+                types["other"] += 1
+
             exp.Next()
-            
+
         return types
 
-    def tessellate(self, shape: Any, deflection: float = 0.1) -> Tuple[List[List[float]], List[List[int]]]:
+    def tessellate(
+        self,
+        shape: Any,
+        deflection: float = 0.1,
+    ) -> Tuple[List[List[float]], List[List[int]]]:
         """
         Tessellate shape to mesh (vertices, faces) for visualization or UV-Net processing if needed.
         """
         if not HAS_OCC or shape is None:
             return [], []
-            
+
         BRepMesh_IncrementalMesh(shape, deflection)
-        
+
         vertices = []
         triangles = []
-        
+
         # This is a simplified extraction, a full one would iterate faces and triangulation
         # Placeholder for complex mesh extraction logic needed for PointNet/UV-Net inputs
-        
+
         return vertices, triangles
 
 # Singleton

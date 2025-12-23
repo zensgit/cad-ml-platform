@@ -1388,7 +1388,10 @@ async def dedup_2d_job_list(
                 status_code=400,
                 detail={
                     "error": "INVALID_STATUS_FILTER",
-                    "message": f"Invalid status: {status}. Valid values: pending, in_progress, completed, failed, canceled",
+                    "message": (
+                        f"Invalid status: {status}. Valid values: pending, in_progress, "
+                        "completed, failed, canceled"
+                    ),
                 },
             ) from None
 

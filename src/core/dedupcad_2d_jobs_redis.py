@@ -106,7 +106,9 @@ class Dedup2DPayloadConfig:
 
     @classmethod
     def from_env(cls) -> "Dedup2DPayloadConfig":
-        include_bytes_b64_raw = os.getenv("DEDUP2D_JOB_PAYLOAD_INCLUDE_BYTES_B64", "").strip().lower()
+        include_bytes_b64_raw = (
+            os.getenv("DEDUP2D_JOB_PAYLOAD_INCLUDE_BYTES_B64", "").strip().lower()
+        )
         include_bytes_b64 = include_bytes_b64_raw in {"1", "true", "yes", "on"}
 
         # Default 10MB max for embedded base64 (avoid Redis memory pressure)

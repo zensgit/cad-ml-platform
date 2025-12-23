@@ -13,12 +13,12 @@ class FeatureCache:
     Simple In-Memory LRU Cache for Feature Vectors.
     In production, this should wrap Redis.
     """
-    
+
     def __init__(self, capacity: int = 1000):
         self.capacity = capacity
         self.cache: Dict[str, Any] = {}
         self.lru: List[str] = []
-        
+
     def get(self, key: str) -> Optional[Any]:
         if key in self.cache:
             # Move to end (most recently used)
@@ -26,7 +26,7 @@ class FeatureCache:
             self.lru.append(key)
             return self.cache[key]
         return None
-        
+
     def set(self, key: str, value: Any):
         if key in self.cache:
             self.lru.remove(key)
@@ -34,7 +34,7 @@ class FeatureCache:
             # Evict oldest
             oldest = self.lru.pop(0)
             del self.cache[oldest]
-            
+
         self.cache[key] = value
         self.lru.append(key)
 

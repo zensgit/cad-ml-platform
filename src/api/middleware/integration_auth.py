@@ -37,7 +37,8 @@ class IntegrationAuthMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, *, settings) -> None:
         super().__init__(app)
         self.settings = settings
-        mode = (getattr(settings, "INTEGRATION_AUTH_MODE", "disabled") or "disabled").strip().lower()
+        mode_value = getattr(settings, "INTEGRATION_AUTH_MODE", "disabled") or "disabled"
+        mode = mode_value.strip().lower()
         self.mode = mode if mode in {"disabled", "optional", "required"} else "disabled"
         self.jwt_secret = getattr(settings, "INTEGRATION_JWT_SECRET", "") or None
         self.jwt_alg = getattr(settings, "INTEGRATION_JWT_ALG", "HS256") or "HS256"
@@ -60,7 +61,10 @@ class IntegrationAuthMiddleware(BaseHTTPMiddleware):
 
         if not self.jwt_secret:
             if self.mode == "required":
-                return JSONResponse({"detail": "INTEGRATION_JWT_SECRET not configured"}, status_code=401)
+                return JSONResponse(
+                    {"detail": "INTEGRATION_JWT_SECRET not configured"},
+                    status_code=401,
+                )
             self._set_state_from_headers(request)
             return await call_next(request)
 

@@ -26,7 +26,7 @@ class FeedbackResponse(BaseModel):
 
 @router.post("/", response_model=FeedbackResponse)
 async def submit_feedback(
-    payload: FeedbackRequest, 
+    payload: FeedbackRequest,
     api_key: str = Depends(get_api_key)
 ):
     """
@@ -36,27 +36,27 @@ async def submit_feedback(
     import uuid
     import json
     import os
-    
+
     feedback_id = str(uuid.uuid4())
-    
+
     # In a real system, this would write to a database (PostgreSQL/MongoDB).
     # For now, we append to a JSONL file.
-    
+
     entry = {
         "id": feedback_id,
         "timestamp": datetime.now().isoformat(),
         **payload.model_dump()
     }
-    
+
     log_path = os.getenv("FEEDBACK_LOG_PATH", "data/feedback_log.jsonl")
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    
+
     try:
         with open(log_path, "a") as f:
             f.write(json.dumps(entry) + "\n")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save feedback: {str(e)}")
-        
+
     return FeedbackResponse(
         status="success",
         feedback_id=feedback_id,

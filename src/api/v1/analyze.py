@@ -578,50 +578,54 @@ async def analyze_cad_file(
         # L3: 3D Feature Extraction
         features_3d: Dict[str, Any] = {}
         if analysis_options.extract_features and file_format in ["step", "stp", "iges", "igs"]:
-             try:
-                 # Lazy import to avoid startup overhead if not used
-                 from src.core.geometry.engine import get_geometry_engine
-                 from src.ml.vision_3d import get_3d_encoder
-                 from src.core.geometry.cache import get_feature_cache
-                 
-                 _geo_start = time.time()
-                 
-                 # Check Cache
-                 f_cache = get_feature_cache()
-                 # Use feature version from env or default
-                 f_ver = "l4_v1" 
-                 cache_key = f_cache.generate_key(content, f_ver)
-                 cached_3d = f_cache.get(cache_key)
-                 
-                 if cached_3d:
-                     features_3d = cached_3d
-                     logger.info(f"3D Feature Cache HIT for {file.filename}")
-                 else:
-                     geo_engine = get_geometry_engine()
-                     # Parse 3D content
-                     shape = geo_engine.load_step(content, file_name=file.filename)
-                     if shape:
-                         features_3d = geo_engine.extract_brep_features(shape)
-                         # L4: Extract DFM features (Wall thickness, etc.)
-                         dfm_feats = geo_engine.extract_dfm_features(shape)
-                         features_3d.update(dfm_feats)
-                         
-                         # Deep Learning Embedding
-                         encoder = get_3d_encoder()
-                         embedding_3d = encoder.encode(features_3d)
-                         features_3d["embedding_vector"] = embedding_3d
-                         
-                         # Save to Cache
-                         f_cache.set(cache_key, features_3d)
-                     
-                 # Add to result payload for debugging/inspection
-                 if "embedding_vector" in features_3d:
-                    results["features_3d"] = {k:v for k,v in features_3d.items() if k != "embedding_vector"}
-                    results["features_3d"]["embedding_dim"] = len(features_3d["embedding_vector"])
-                     
-                 stage_times["features_3d"] = time.time() - _geo_start
-             except Exception as e:
-                 logger.error(f"L3 Analysis failed: {e}")
+            try:
+                # Lazy import to avoid startup overhead if not used
+                from src.core.geometry.engine import get_geometry_engine
+                from src.ml.vision_3d import get_3d_encoder
+                from src.core.geometry.cache import get_feature_cache
+
+                _geo_start = time.time()
+
+                # Check Cache
+                f_cache = get_feature_cache()
+                # Use feature version from env or default
+                f_ver = "l4_v1"
+                cache_key = f_cache.generate_key(content, f_ver)
+                cached_3d = f_cache.get(cache_key)
+
+                if cached_3d:
+                    features_3d = cached_3d
+                    logger.info(f"3D Feature Cache HIT for {file.filename}")
+                else:
+                    geo_engine = get_geometry_engine()
+                    # Parse 3D content
+                    shape = geo_engine.load_step(content, file_name=file.filename)
+                    if shape:
+                        features_3d = geo_engine.extract_brep_features(shape)
+                        # L4: Extract DFM features (Wall thickness, etc.)
+                        dfm_feats = geo_engine.extract_dfm_features(shape)
+                        features_3d.update(dfm_feats)
+
+                        # Deep Learning Embedding
+                        encoder = get_3d_encoder()
+                        embedding_3d = encoder.encode(features_3d)
+                        features_3d["embedding_vector"] = embedding_3d
+
+                        # Save to Cache
+                        f_cache.set(cache_key, features_3d)
+
+                # Add to result payload for debugging/inspection
+                if "embedding_vector" in features_3d:
+                    results["features_3d"] = {
+                        k: v for k, v in features_3d.items() if k != "embedding_vector"
+                    }
+                    results["features_3d"]["embedding_dim"] = len(
+                        features_3d["embedding_vector"]
+                    )
+
+                stage_times["features_3d"] = time.time() - _geo_start
+            except Exception as e:
+                logger.error(f"L3 Analysis failed: {e}")
 
         # Parallelize classification / quality / process recommendation if multiple enabled
         import asyncio
@@ -629,25 +633,25 @@ async def analyze_cad_file(
         if analysis_options.classify_parts:
             async def _run_classify():
                 t0 = time.time()
-                
+
                 # Check if we can use L3 Fusion
                 if features_3d:
                     try:
                         from src.core.knowledge.fusion import get_fusion_classifier
                         fusion = get_fusion_classifier()
-                        
+
                         # Build entity counts for Fusion
                         ent_counts = {}
                         for e in doc.entities:
                             ent_counts[e.kind] = ent_counts.get(e.kind, 0) + 1
-                            
+
                         # Perform fused classification
                         fused_result = fusion.classify(
                             text_signals=str(doc.metadata.get("text", "")),
                             features_2d={"geometric_features": {}, "entity_counts": ent_counts},
                             features_3d=features_3d
                         )
-                        
+
                         classification = {
                             "type": fused_result["type"],
                             "confidence": fused_result["confidence"],
@@ -721,37 +725,39 @@ async def analyze_cad_file(
                 t0 = time.time()
                 # L4 DFM Check
                 if "features_3d" in locals() and features_3d:
-                     try:
-                         dfm_start = time.time()
-                         # Extract extra DFM features if not already done
-                         if "thin_walls_detected" not in features_3d:
-                             from src.core.geometry.engine import get_geometry_engine
-                             geo = get_geometry_engine()
-                             # Re-load shape from cache or content not ideal here, 
-                             # but for prototype we assume features_3d already has what we need 
-                             # OR we enhanced extract_brep_features to include DFM.
-                             # Let's assume we call extract_dfm_features here if shape is available:
-                             # shape = geo.load_step(...) # Expensive, in prod pass shape around
-                             pass 
-                             
-                         from src.core.dfm.analyzer import get_dfm_analyzer
-                         dfm = get_dfm_analyzer()
-                         # Use classified type or unknown
-                         ptype = results.get("classification", {}).get("part_type", "unknown")
-                         dfm_result = dfm.analyze(features_3d, ptype)
-                         dfm_analysis_latency_seconds.observe(time.time() - dfm_start)
-                         
-                         results["quality"] = {
-                             "mode": "L4_DFM",
-                             "score": dfm_result["dfm_score"],
-                             "issues": dfm_result["issues"],
-                             "manufacturability": dfm_result["manufacturability"]
-                         }
-                     except Exception as e:
-                         logger.error(f"DFM check failed: {e}")
-                         # Fallback
-                         quality = await analyzer.check_quality(doc, features)
-                         results["quality"] = quality
+                    try:
+                        dfm_start = time.time()
+                        # Extract extra DFM features if not already done
+                        if "thin_walls_detected" not in features_3d:
+                            from src.core.geometry.engine import get_geometry_engine
+
+                            geo = get_geometry_engine()
+                            # Re-load shape from cache or content not ideal here,
+                            # but for prototype we assume features_3d already has what we need
+                            # OR we enhanced extract_brep_features to include DFM.
+                            # Let's assume we call extract_dfm_features here if shape is available:
+                            # shape = geo.load_step(...)  # Expensive, in prod pass shape around
+                            pass
+
+                        from src.core.dfm.analyzer import get_dfm_analyzer
+
+                        dfm = get_dfm_analyzer()
+                        # Use classified type or unknown
+                        ptype = results.get("classification", {}).get("part_type", "unknown")
+                        dfm_result = dfm.analyze(features_3d, ptype)
+                        dfm_analysis_latency_seconds.observe(time.time() - dfm_start)
+
+                        results["quality"] = {
+                            "mode": "L4_DFM",
+                            "score": dfm_result["dfm_score"],
+                            "issues": dfm_result["issues"],
+                            "manufacturability": dfm_result["manufacturability"],
+                        }
+                    except Exception as e:
+                        logger.error(f"DFM check failed: {e}")
+                        # Fallback
+                        quality = await analyzer.check_quality(doc, features)
+                        results["quality"] = quality
                 else:
                     quality = await analyzer.check_quality(doc, features)
                     results["quality"] = {
@@ -773,7 +779,7 @@ async def analyze_cad_file(
                         recommender = get_process_recommender()
                         ptype = results.get("classification", {}).get("part_type", "unknown")
                         mat = material or "steel" # Default
-                        
+
                         proc_result = recommender.recommend(features_3d, ptype, mat)
                         results["process"] = proc_result
                     except Exception as e:
@@ -796,19 +802,22 @@ async def analyze_cad_file(
                         # Use primary recommendation if available
                         primary_proc = proc_result.get("primary_recommendation", {})
                         if not primary_proc and "process" in proc_result:
-                             # Fallback to legacy rule structure
-                             primary_proc = {"process": proc_result.get("process"), "method": "standard"}
+                            # Fallback to legacy rule structure
+                            primary_proc = {
+                                "process": proc_result.get("process"),
+                                "method": "standard",
+                            }
                         cost_start = time.time()
                         cost_est = estimator.estimate(
-                            features_3d, 
-                            primary_proc, 
+                            features_3d,
+                            primary_proc,
                             material=material or "steel"
                         )
                         results["cost_estimation"] = cost_est
                         cost_estimation_latency_seconds.observe(time.time() - cost_start)
                     except Exception as e:
                         logger.error(f"Cost estimation failed: {e}")
-                        
+
                 dur = time.time() - t0
                 process_recommend_latency_seconds.observe(dur)
                 return ("process", dur)

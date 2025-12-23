@@ -129,7 +129,11 @@ async def _summarize_vectors_redis(
     scanned = 0
     scan_limit = int(os.getenv("VECTOR_STATS_SCAN_LIMIT", "5000"))
     while True:
-        cursor, batch = await client.scan(cursor=cursor, match="vector:*", count=500)  # type: ignore[attr-defined]
+        cursor, batch = await client.scan(  # type: ignore[attr-defined]
+            cursor=cursor,
+            match="vector:*",
+            count=500,
+        )
         for key in batch:
             scanned += 1
             if scan_limit > 0 and scanned > scan_limit:

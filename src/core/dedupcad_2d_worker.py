@@ -26,7 +26,7 @@ import time
 from contextlib import contextmanager
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
 from arq.connections import RedisSettings
 
@@ -38,6 +38,7 @@ from src.core.dedupcad_2d_jobs_redis import (
     is_cad_file,
     mark_dedup2d_job_result,
 )
+from src.core.dedup2d_file_storage import create_dedup2d_file_storage
 from src.core.dedupcad_2d_pipeline import run_dedup_2d_pipeline
 from src.core.dedupcad_precision.cad_pipeline import (
     DxfRenderConfig,
@@ -48,6 +49,9 @@ from src.core.dedup2d_file_storage import Dedup2DFileRef
 from src.core.dedupcad_precision import PrecisionVerifier, create_geom_store
 from src.core.dedupcad_vision import DedupCadVisionClient
 from src.core.dedup2d_webhook import send_dedup2d_webhook
+
+if TYPE_CHECKING:
+    from src.core.dedup2d_file_storage import Dedup2DFileStorageProtocol
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +173,7 @@ def _render_cad_to_png(
 
 async def _load_file_bytes_from_payload(
     payload: Dict[str, Any],
-) -> Tuple[bytes, Optional[Dedup2DFileRef], Optional["Dedup2DFileStorageProtocol"]]:
+) -> Tuple[bytes, Optional[Dedup2DFileRef], Optional[Dedup2DFileStorageProtocol]]:
     """Load file bytes from payload, supporting both new and legacy formats.
 
     Returns:
@@ -179,11 +183,6 @@ async def _load_file_bytes_from_payload(
     Raises:
         ValueError: If neither file_ref nor file_bytes_b64 is present
     """
-    from src.core.dedup2d_file_storage import (
-        Dedup2DFileStorageProtocol,
-        create_dedup2d_file_storage,
-    )
-
     file_ref_raw = payload.get("file_ref")
     file_ref: Optional[Dedup2DFileRef] = None
     storage: Optional[Dedup2DFileStorageProtocol] = None
