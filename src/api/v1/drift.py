@@ -164,11 +164,13 @@ async def drift_status(api_key: str = Depends(get_api_key)):
             _DRIFT_STATE["baseline_predictions_startup_mark"] = True
     stale_flag = None
     max_age = int(os.getenv("DRIFT_BASELINE_MAX_AGE_SECONDS", "86400"))
-    if baseline_material_age and baseline_material_age > max_age:
+    if baseline_material_age is not None and baseline_material_age > max_age:
         stale_flag = True
-    if baseline_prediction_age and baseline_prediction_age > max_age:
-        stale_flag = True if stale_flag is None else True
-    if stale_flag is None and (baseline_material_age or baseline_prediction_age):
+    if baseline_prediction_age is not None and baseline_prediction_age > max_age:
+        stale_flag = True
+    if stale_flag is None and (
+        baseline_material_age is not None or baseline_prediction_age is not None
+    ):
         stale_flag = False
     return DriftStatusResponse(
         material_current=material_current_counts,

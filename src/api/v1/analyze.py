@@ -1823,6 +1823,8 @@ async def drift_status(api_key: str = Depends(get_api_key)):
     from collections import Counter
 
     min_count = int(os.getenv("DRIFT_BASELINE_MIN_COUNT", "100"))
+    max_age = int(os.getenv("DRIFT_BASELINE_MAX_AGE_SECONDS", "86400"))
+    auto_refresh_enabled = os.getenv("DRIFT_BASELINE_AUTO_REFRESH", "1") == "1"
     mats = _DRIFT_STATE["materials"]
     preds = _DRIFT_STATE["predictions"]
     material_current_counts = dict(Counter(mats))
@@ -1841,6 +1843,17 @@ async def drift_status(api_key: str = Depends(get_api_key)):
 
     mat_score = None
     if material_baseline_counts:
+        material_age = int(time.time() - _DRIFT_STATE.get("baseline_materials_ts", 0))
+        if auto_refresh_enabled and material_age > max_age and len(mats) >= min_count:
+            _DRIFT_STATE["baseline_materials"] = list(mats)
+            _DRIFT_STATE["baseline_materials_ts"] = time.time()
+            try:
+                from src.utils.analysis_metrics import drift_baseline_refresh_total
+
+                drift_baseline_refresh_total.labels(type="material", trigger="stale").inc()
+            except Exception:
+                pass
+            material_baseline_counts = dict(Counter(mats))
         mat_score = compute_drift(mats, _DRIFT_STATE["baseline_materials"])  # type: ignore
     else:
         # establish baseline when threshold met
@@ -1855,6 +1868,17 @@ async def drift_status(api_key: str = Depends(get_api_key)):
                 pass
     pred_score = None
     if prediction_baseline_counts:
+        prediction_age = int(time.time() - _DRIFT_STATE.get("baseline_predictions_ts", 0))
+        if auto_refresh_enabled and prediction_age > max_age and len(preds) >= min_count:
+            _DRIFT_STATE["baseline_predictions"] = list(preds)
+            _DRIFT_STATE["baseline_predictions_ts"] = time.time()
+            try:
+                from src.utils.analysis_metrics import drift_baseline_refresh_total
+
+                drift_baseline_refresh_total.labels(type="prediction", trigger="stale").inc()
+            except Exception:
+                pass
+            prediction_baseline_counts = dict(Counter(preds))
         pred_score = compute_drift(preds, _DRIFT_STATE["baseline_predictions"])  # type: ignore
     else:
         if len(preds) >= min_count:
@@ -1892,12 +1916,13 @@ async def drift_status(api_key: str = Depends(get_api_key)):
             pass
     stale_flag = None
     try:
-        max_age = int(os.getenv("DRIFT_BASELINE_MAX_AGE_SECONDS", "86400"))  # default 24h
-        if baseline_material_age and baseline_material_age > max_age:
+        if baseline_material_age is not None and baseline_material_age > max_age:
             stale_flag = True
-        if baseline_prediction_age and baseline_prediction_age > max_age:
-            stale_flag = True if stale_flag is None else stale_flag or True
-        if stale_flag is None and (baseline_material_age or baseline_prediction_age):
+        if baseline_prediction_age is not None and baseline_prediction_age > max_age:
+            stale_flag = True
+        if stale_flag is None and (
+            baseline_material_age is not None or baseline_prediction_age is not None
+        ):
             stale_flag = False
     except Exception:
         pass
@@ -1907,10 +1932,26 @@ async def drift_status(api_key: str = Depends(get_api_key)):
         baseline_material_created_at = datetime.fromtimestamp(
             _DRIFT_STATE["baseline_materials_ts"], tz=timezone.utc
         )
+        if _DRIFT_STATE.get("baseline_materials_startup_mark") is None:
+            try:
+                from src.utils.analysis_metrics import drift_baseline_refresh_total
+
+                drift_baseline_refresh_total.labels(type="material", trigger="startup").inc()
+            except Exception:
+                pass
+            _DRIFT_STATE["baseline_materials_startup_mark"] = True
     if _DRIFT_STATE.get("baseline_predictions_ts"):
         baseline_prediction_created_at = datetime.fromtimestamp(
             _DRIFT_STATE["baseline_predictions_ts"], tz=timezone.utc
         )
+        if _DRIFT_STATE.get("baseline_predictions_startup_mark") is None:
+            try:
+                from src.utils.analysis_metrics import drift_baseline_refresh_total
+
+                drift_baseline_refresh_total.labels(type="prediction", trigger="startup").inc()
+            except Exception:
+                pass
+            _DRIFT_STATE["baseline_predictions_startup_mark"] = True
     return DriftStatusResponse(
         material_current=material_current_counts,
         material_baseline=material_baseline_counts,

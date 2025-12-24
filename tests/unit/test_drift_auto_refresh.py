@@ -48,7 +48,6 @@ def reset_drift_state():
     _DRIFT_STATE["baseline_predictions_ts"] = original_state["baseline_predictions_ts"]
 
 
-@pytest.mark.skip(reason="Auto-refresh feature not yet implemented")
 def test_drift_auto_refresh_when_stale():
     """Test baseline is automatically refreshed when age exceeds threshold."""
     from src.api.v1 import analyze as analyze_module
@@ -183,7 +182,6 @@ def test_drift_manual_reset_records_metric():
     assert _DRIFT_STATE["baseline_predictions_ts"] is None
 
 
-@pytest.mark.skip(reason="Auto-refresh feature not yet implemented")
 def test_drift_auto_refresh_updates_baseline_content():
     """Test auto-refresh updates baseline to current distribution."""
     from src.api.v1 import analyze as analyze_module
