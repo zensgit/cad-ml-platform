@@ -1,13 +1,17 @@
 import time
+
 import pytest
 
 try:
     import httpcore  # type: ignore
+
     if not hasattr(httpcore, "UnsupportedProtocol"):
         raise ImportError("httpcore too old for fastapi TestClient")
     from fastapi.testclient import TestClient
 except Exception:  # pragma: no cover
-    pytest.skip("Incompatible httpcore/httpx; skipping flapping suppression test", allow_module_level=True)
+    pytest.skip(
+        "Incompatible httpcore/httpx; skipping flapping suppression test", allow_module_level=True
+    )
 
 from src.main import app
 
@@ -20,6 +24,7 @@ def client():
 def _scrape_metric_value(metric_name: str, label_fragment: str) -> float:
     try:
         from prometheus_client import generate_latest
+
         text = generate_latest().decode()
         for line in text.splitlines():
             if line.startswith(metric_name) and label_fragment in line:
@@ -35,7 +40,10 @@ def _scrape_metric_value(metric_name: str, label_fragment: str) -> float:
 def test_flapping_suppression_increments_and_skips_recovery(client: TestClient):
     # Configure environment-like globals for aggressive flapping detection
     import src.core.similarity as sim
-    from src.utils.analysis_metrics import faiss_recovery_suppressed_total, faiss_recovery_attempts_total
+    from src.utils.analysis_metrics import (
+        faiss_recovery_attempts_total,
+        faiss_recovery_suppressed_total,
+    )
 
     # Force degraded mode
     setattr(sim, "_VECTOR_DEGRADED", True)

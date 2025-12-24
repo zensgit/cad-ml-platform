@@ -15,7 +15,7 @@ import pickle
 import tempfile
 from pathlib import Path
 from typing import Dict, List
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, mock_open, patch
 
 import numpy as np
 import pytest
@@ -41,7 +41,7 @@ class TestPlattScaling:
 
     def test_platt_scaling_fit_sets_fitted_flag(self):
         """Test fit sets fitted flag to True."""
-        from src.core.assembly.confidence_calibrator import PlattScaling, SKLEARN_AVAILABLE
+        from src.core.assembly.confidence_calibrator import SKLEARN_AVAILABLE, PlattScaling
 
         if not SKLEARN_AVAILABLE:
             pytest.skip("sklearn not available")
@@ -55,7 +55,7 @@ class TestPlattScaling:
 
     def test_platt_scaling_fit_and_calibrate(self):
         """Test fit then calibrate returns valid probability."""
-        from src.core.assembly.confidence_calibrator import PlattScaling, SKLEARN_AVAILABLE
+        from src.core.assembly.confidence_calibrator import SKLEARN_AVAILABLE, PlattScaling
 
         if not SKLEARN_AVAILABLE:
             pytest.skip("sklearn not available")
@@ -71,7 +71,7 @@ class TestPlattScaling:
 
     def test_platt_scaling_handles_extreme_confidence(self):
         """Test calibrate handles extreme confidence values."""
-        from src.core.assembly.confidence_calibrator import PlattScaling, SKLEARN_AVAILABLE
+        from src.core.assembly.confidence_calibrator import SKLEARN_AVAILABLE, PlattScaling
 
         if not SKLEARN_AVAILABLE:
             pytest.skip("sklearn not available")
@@ -110,7 +110,7 @@ class TestIsotonicCalibration:
 
     def test_isotonic_fit_sets_fitted_flag(self):
         """Test fit sets fitted flag to True."""
-        from src.core.assembly.confidence_calibrator import IsotonicCalibration, SKLEARN_AVAILABLE
+        from src.core.assembly.confidence_calibrator import SKLEARN_AVAILABLE, IsotonicCalibration
 
         if not SKLEARN_AVAILABLE:
             pytest.skip("sklearn not available")
@@ -124,7 +124,7 @@ class TestIsotonicCalibration:
 
     def test_isotonic_fit_and_calibrate(self):
         """Test fit then calibrate returns valid probability."""
-        from src.core.assembly.confidence_calibrator import IsotonicCalibration, SKLEARN_AVAILABLE
+        from src.core.assembly.confidence_calibrator import SKLEARN_AVAILABLE, IsotonicCalibration
 
         if not SKLEARN_AVAILABLE:
             pytest.skip("sklearn not available")
@@ -244,10 +244,12 @@ class TestLogOddsWeighting:
         """Test combine_confidence with equal weights."""
         from src.core.assembly.confidence_calibrator import LogOddsWeighting
 
-        result = LogOddsWeighting.combine_confidence([
-            (0.7, 1.0),
-            (0.9, 1.0),
-        ])
+        result = LogOddsWeighting.combine_confidence(
+            [
+                (0.7, 1.0),
+                (0.9, 1.0),
+            ]
+        )
         # Average should be between 0.7 and 0.9
         assert 0.7 <= result <= 0.9
 
@@ -256,10 +258,12 @@ class TestLogOddsWeighting:
         from src.core.assembly.confidence_calibrator import LogOddsWeighting
 
         # Higher weight for 0.9 should pull result towards 0.9
-        result = LogOddsWeighting.combine_confidence([
-            (0.5, 1.0),
-            (0.9, 3.0),
-        ])
+        result = LogOddsWeighting.combine_confidence(
+            [
+                (0.5, 1.0),
+                (0.9, 3.0),
+            ]
+        )
         assert result > 0.7
 
     def test_combine_confidence_extreme_values(self):
@@ -267,20 +271,24 @@ class TestLogOddsWeighting:
         from src.core.assembly.confidence_calibrator import LogOddsWeighting
 
         # Very low and very high values should be clipped
-        result = LogOddsWeighting.combine_confidence([
-            (0.01, 1.0),
-            (0.99, 1.0),
-        ])
+        result = LogOddsWeighting.combine_confidence(
+            [
+                (0.01, 1.0),
+                (0.99, 1.0),
+            ]
+        )
         assert 0.0 <= result <= 1.0
 
     def test_combine_confidence_zero_weights(self):
         """Test combine_confidence with zero total weight."""
         from src.core.assembly.confidence_calibrator import LogOddsWeighting
 
-        result = LogOddsWeighting.combine_confidence([
-            (0.8, 0.0),
-            (0.6, 0.0),
-        ])
+        result = LogOddsWeighting.combine_confidence(
+            [
+                (0.8, 0.0),
+                (0.6, 0.0),
+            ]
+        )
         assert result == 0.5
 
 
@@ -312,8 +320,8 @@ class TestConfidenceCalibrationSystem:
     def test_system_init_isotonic(self):
         """Test system initialization with isotonic method."""
         from src.core.assembly.confidence_calibrator import (
-            ConfidenceCalibrationSystem,
             SKLEARN_AVAILABLE,
+            ConfidenceCalibrationSystem,
         )
 
         system = ConfidenceCalibrationSystem(method="isotonic")
@@ -322,8 +330,8 @@ class TestConfidenceCalibrationSystem:
     def test_system_init_platt(self):
         """Test system initialization with platt method."""
         from src.core.assembly.confidence_calibrator import (
-            ConfidenceCalibrationSystem,
             SKLEARN_AVAILABLE,
+            ConfidenceCalibrationSystem,
         )
 
         system = ConfidenceCalibrationSystem(method="platt")
@@ -387,8 +395,8 @@ class TestConfidenceCalibrationSystem:
     def test_train_calibrator_requires_sklearn(self):
         """Test train_calibrator raises error without sklearn."""
         from src.core.assembly.confidence_calibrator import (
-            ConfidenceCalibrationSystem,
             SKLEARN_AVAILABLE,
+            ConfidenceCalibrationSystem,
         )
 
         if SKLEARN_AVAILABLE:
@@ -406,8 +414,8 @@ class TestConfidenceCalibrationSystem:
     def test_train_calibrator_with_sklearn(self):
         """Test train_calibrator works with sklearn."""
         from src.core.assembly.confidence_calibrator import (
-            ConfidenceCalibrationSystem,
             SKLEARN_AVAILABLE,
+            ConfidenceCalibrationSystem,
         )
 
         if not SKLEARN_AVAILABLE:
@@ -439,8 +447,8 @@ class TestConfidenceCalibrationSystem:
     def test_save_and_load_calibrator(self):
         """Test save and load calibrator functionality."""
         from src.core.assembly.confidence_calibrator import (
-            ConfidenceCalibrationSystem,
             SKLEARN_AVAILABLE,
+            ConfidenceCalibrationSystem,
         )
 
         if not SKLEARN_AVAILABLE:
@@ -487,8 +495,8 @@ class TestCalibrationMetrics:
     def test_brier_score_calculation(self):
         """Test Brier score calculation logic."""
         from src.core.assembly.confidence_calibrator import (
-            ConfidenceCalibrationSystem,
             SKLEARN_AVAILABLE,
+            ConfidenceCalibrationSystem,
         )
 
         if not SKLEARN_AVAILABLE:
@@ -512,8 +520,8 @@ class TestCalibrationMetrics:
     def test_ece_calculation_bins(self):
         """Test ECE calculation with binning logic."""
         from src.core.assembly.confidence_calibrator import (
-            ConfidenceCalibrationSystem,
             SKLEARN_AVAILABLE,
+            ConfidenceCalibrationSystem,
         )
 
         if not SKLEARN_AVAILABLE:

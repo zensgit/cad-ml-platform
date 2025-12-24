@@ -25,4 +25,3 @@ def test_deprecated_faiss_health_endpoint_returns_410():
     assert detail["code"] == "RESOURCE_GONE"
     assert "Moved" in detail["message"] or "moved" in detail["message"].lower()
     assert "new_path" in detail["context"]
-

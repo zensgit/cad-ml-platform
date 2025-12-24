@@ -1,4 +1,5 @@
 import asyncio
+
 import pytest
 
 from src.core.storage.timeseries import InMemoryTimeSeriesStore

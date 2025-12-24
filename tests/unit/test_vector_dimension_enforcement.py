@@ -1,4 +1,4 @@
-from src.core.similarity import register_vector, _VECTOR_STORE  # type: ignore
+from src.core.similarity import _VECTOR_STORE, register_vector  # type: ignore
 
 
 def test_vector_dimension_enforcement():

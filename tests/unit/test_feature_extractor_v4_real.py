@@ -1,19 +1,20 @@
 import importlib
+
 import pytest
 
 
 def test_v4_length_24():
-    mod = importlib.import_module('src.core.feature_extractor')
-    length = getattr(mod, 'VECTOR_V4_LENGTH', None)
+    mod = importlib.import_module("src.core.feature_extractor")
+    length = getattr(mod, "VECTOR_V4_LENGTH", None)
     if length is None:
-        pytest.skip('VECTOR_V4_LENGTH not defined; skip until aligned')
+        pytest.skip("VECTOR_V4_LENGTH not defined; skip until aligned")
     assert length == 24
 
 
 def test_latency_metric_exported():
-    metrics = importlib.import_module('src.utils.analysis_metrics')
-    exported = set(getattr(metrics, '__all__', []))
-    assert 'feature_extraction_latency_seconds' in exported
+    metrics = importlib.import_module("src.utils.analysis_metrics")
+    exported = set(getattr(metrics, "__all__", []))
+    assert "feature_extraction_latency_seconds" in exported
 
 
 @pytest.mark.skip(reason="Enable after import alignment")

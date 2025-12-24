@@ -43,4 +43,3 @@ def test_recovery_state_persistence(tmp_path, monkeypatch):
     assert similarity._VECTOR_DEGRADED is True
     assert similarity._VECTOR_DEGRADED_REASON == "init_fail"
     assert isinstance(similarity._VECTOR_DEGRADED_AT, float)
-

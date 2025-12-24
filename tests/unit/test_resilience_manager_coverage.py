@@ -84,9 +84,7 @@ class TestResilienceConfigDataclass:
         from src.core.resilience.resilience_manager import ResilienceConfig
 
         config = ResilienceConfig(
-            circuit_breaker_enabled=False,
-            rate_limit=50.0,
-            retry_max_attempts=5
+            circuit_breaker_enabled=False, rate_limit=50.0, retry_max_attempts=5
         )
 
         assert config.circuit_breaker_enabled is False
@@ -119,7 +117,7 @@ class TestResilienceHealthDataclass:
         health = ResilienceHealth(
             healthy=False,
             overall_status="unhealthy",
-            issues=["Circuit breaker open", "High rejection rate"]
+            issues=["Circuit breaker open", "High rejection rate"],
         )
 
         assert health.healthy is False
@@ -149,7 +147,7 @@ class TestResilienceManagerSingleton:
         ResilienceManager._instance = None
 
         manager = ResilienceManager()
-        assert hasattr(manager, 'initialized')
+        assert hasattr(manager, "initialized")
         assert manager.initialized is True
 
 
@@ -158,9 +156,7 @@ class TestResilienceManagerConfigure:
 
     def test_configure_updates_config(self):
         """Test configure updates manager config."""
-        from src.core.resilience.resilience_manager import (
-            ResilienceManager, ResilienceConfig
-        )
+        from src.core.resilience.resilience_manager import ResilienceConfig, ResilienceManager
 
         # Reset singleton
         ResilienceManager._instance = None
@@ -331,9 +327,7 @@ class TestProtectMethod:
 
     def test_protect_disabled_components(self):
         """Test protect with all components disabled."""
-        from src.core.resilience.resilience_manager import (
-            ResilienceManager, ResilienceConfig
-        )
+        from src.core.resilience.resilience_manager import ResilienceConfig, ResilienceManager
 
         ResilienceManager._instance = None
         manager = ResilienceManager()
@@ -343,18 +337,19 @@ class TestProtectMethod:
             circuit_breaker_enabled=False,
             rate_limiter_enabled=False,
             retry_enabled=False,
-            bulkhead_enabled=False
+            bulkhead_enabled=False,
         )
 
         def func():
             return "success"
 
         result = manager.protect(
-            "test", func,
+            "test",
+            func,
             use_circuit_breaker=False,
             use_rate_limiter=False,
             use_retry=False,
-            use_bulkhead=False
+            use_bulkhead=False,
         )
 
         assert result == "success"
@@ -544,12 +539,7 @@ class TestImportConfig:
         ResilienceManager._instance = None
         manager = ResilienceManager()
 
-        config_dict = {
-            "global_config": {
-                "rate_limit": 50.0,
-                "retry_max_attempts": 5
-            }
-        }
+        config_dict = {"global_config": {"rate_limit": 50.0, "retry_max_attempts": 5}}
 
         manager.import_config(config_dict)
 
@@ -577,9 +567,7 @@ class TestWithResilienceDecorator:
 
     def test_decorator_wraps_function(self):
         """Test decorator wraps function."""
-        from src.core.resilience.resilience_manager import (
-            with_resilience, ResilienceManager
-        )
+        from src.core.resilience.resilience_manager import ResilienceManager, with_resilience
 
         ResilienceManager._instance = None
 
@@ -587,14 +575,12 @@ class TestWithResilienceDecorator:
         def my_function():
             return "result"
 
-        assert hasattr(my_function, 'resilience_name')
+        assert hasattr(my_function, "resilience_name")
         assert my_function.resilience_name == "test_func"
 
     def test_decorator_auto_name(self):
         """Test decorator generates name from function."""
-        from src.core.resilience.resilience_manager import (
-            with_resilience, ResilienceManager
-        )
+        from src.core.resilience.resilience_manager import ResilienceManager, with_resilience
 
         ResilienceManager._instance = None
 
@@ -602,7 +588,7 @@ class TestWithResilienceDecorator:
         def another_function():
             return "result"
 
-        assert hasattr(another_function, 'resilience_name')
+        assert hasattr(another_function, "resilience_name")
         assert "another_function" in another_function.resilience_name
 
 
@@ -617,9 +603,7 @@ class TestGlobalInstance:
 
     def test_global_instance_is_manager(self):
         """Test global instance is ResilienceManager."""
-        from src.core.resilience.resilience_manager import (
-            resilience_manager, ResilienceManager
-        )
+        from src.core.resilience.resilience_manager import ResilienceManager, resilience_manager
 
         assert isinstance(resilience_manager, ResilienceManager)
 
@@ -641,11 +625,11 @@ class TestAutoScaleEnabled:
         initial_threshold = cb.failure_threshold
 
         # Mock very low failure rate
-        with patch.object(cb, 'get_health', return_value={
-            "state": "closed",
-            "failure_rate": 0.005,  # < 0.01
-            "failure_count": 0
-        }):
+        with patch.object(
+            cb,
+            "get_health",
+            return_value={"state": "closed", "failure_rate": 0.005, "failure_count": 0},  # < 0.01
+        ):
             manager.auto_scale()
 
         # Threshold should increase
@@ -665,11 +649,10 @@ class TestAutoScaleEnabled:
         initial_rate = rl.rate
 
         # Mock high rejection rate
-        with patch.object(rl, 'get_health', return_value={
-            "rejection_rate": 0.25,  # > 0.2
-            "current_rate": 100.0
-        }):
-            with patch.object(rl, 'update_rate') as mock_update:
+        with patch.object(
+            rl, "get_health", return_value={"rejection_rate": 0.25, "current_rate": 100.0}  # > 0.2
+        ):
+            with patch.object(rl, "update_rate") as mock_update:
                 manager.auto_scale()
                 # Rate should be reduced by 10%
                 mock_update.assert_called_once()
@@ -690,11 +673,12 @@ class TestAutoScaleEnabled:
         initial_rate = rl.rate
 
         # Mock low rejection rate
-        with patch.object(rl, 'get_health', return_value={
-            "rejection_rate": 0.005,  # < 0.01
-            "current_rate": 100.0
-        }):
-            with patch.object(rl, 'update_rate') as mock_update:
+        with patch.object(
+            rl,
+            "get_health",
+            return_value={"rejection_rate": 0.005, "current_rate": 100.0},  # < 0.01
+        ):
+            with patch.object(rl, "update_rate") as mock_update:
                 manager.auto_scale()
                 # Rate should be increased by 10%
                 mock_update.assert_called_once()
@@ -714,11 +698,10 @@ class TestAutoScaleEnabled:
         bh = manager.get_bulkhead("test_bh", max_concurrent_calls=10)
 
         # Mock high utilization
-        with patch.object(bh, 'get_health', return_value={
-            "utilization": 0.95,  # > 0.9
-            "active_calls": 9
-        }):
-            with patch.object(bh, 'resize') as mock_resize:
+        with patch.object(
+            bh, "get_health", return_value={"utilization": 0.95, "active_calls": 9}  # > 0.9
+        ):
+            with patch.object(bh, "resize") as mock_resize:
                 manager.auto_scale()
                 mock_resize.assert_called_once()
                 new_capacity = mock_resize.call_args[0][0]
@@ -737,11 +720,10 @@ class TestAutoScaleEnabled:
         bh = manager.get_bulkhead("test_bh", max_concurrent_calls=10)
 
         # Mock low utilization
-        with patch.object(bh, 'get_health', return_value={
-            "utilization": 0.25,  # < 0.3
-            "active_calls": 2
-        }):
-            with patch.object(bh, 'resize') as mock_resize:
+        with patch.object(
+            bh, "get_health", return_value={"utilization": 0.25, "active_calls": 2}  # < 0.3
+        ):
+            with patch.object(bh, "resize") as mock_resize:
                 manager.auto_scale()
                 mock_resize.assert_called_once()
                 new_capacity = mock_resize.call_args[0][0]
@@ -760,9 +742,7 @@ class TestImportConfigComponents:
 
         config_dict = {
             "global_config": {"rate_limit": 50.0},
-            "circuit_breakers": {
-                "api_cb": {"failure_threshold": 10, "recovery_timeout": 120}
-            }
+            "circuit_breakers": {"api_cb": {"failure_threshold": 10, "recovery_timeout": 120}},
         }
 
         with patch("src.core.resilience.resilience_manager.logger") as mock_logger:
@@ -781,7 +761,7 @@ class TestImportConfigComponents:
             "circuit_breakers": {"cb1": {"failure_threshold": 5}},
             "rate_limiters": {"rl1": {"rate": 50.0}},
             "retry_policies": {"rp1": {"max_attempts": 5}},
-            "bulkheads": {"bh1": {"max_concurrent_calls": 20}}
+            "bulkheads": {"bh1": {"max_concurrent_calls": 20}},
         }
 
         with patch("src.core.resilience.resilience_manager.logger") as mock_logger:
@@ -807,13 +787,14 @@ class TestProtectPathsCoverage:
 
         # Protect with bulkhead - need to mock rate limiter allow
         rl = manager.get_rate_limiter("test")
-        with patch.object(rl, 'allow_request', return_value=True):
+        with patch.object(rl, "allow_request", return_value=True):
             result = manager.protect(
-                "test", func,
+                "test",
+                func,
                 use_circuit_breaker=False,
                 use_rate_limiter=True,
                 use_retry=False,
-                use_bulkhead=True
+                use_bulkhead=True,
             )
 
         assert result == "bulkhead_result"
@@ -834,11 +815,12 @@ class TestProtectPathsCoverage:
         manager.config.rate_limiter_enabled = False
 
         result = manager.protect(
-            "test", func,
+            "test",
+            func,
             use_circuit_breaker=True,
             use_rate_limiter=False,
             use_retry=False,
-            use_bulkhead=False
+            use_bulkhead=False,
         )
 
         assert result == "cb_result"
@@ -864,11 +846,12 @@ class TestProtectPathsCoverage:
         manager.config.rate_limiter_enabled = False
 
         result = manager.protect(
-            "test", func,
+            "test",
+            func,
             use_circuit_breaker=True,
             use_rate_limiter=False,
             use_retry=True,
-            use_bulkhead=False
+            use_bulkhead=False,
         )
 
         assert result == "retry_cb_result"
@@ -890,11 +873,12 @@ class TestProtectPathsCoverage:
         manager.config.circuit_breaker_enabled = False
 
         result = manager.protect(
-            "test", func,
+            "test",
+            func,
             use_circuit_breaker=False,
             use_rate_limiter=False,
             use_retry=True,
-            use_bulkhead=False
+            use_bulkhead=False,
         )
 
         assert result == "retry_result"
@@ -905,8 +889,8 @@ class TestGetHealthWithIssues:
 
     def test_health_detects_open_circuit_breaker(self):
         """Test get_health detects open circuit breaker."""
-        from src.core.resilience.resilience_manager import ResilienceManager
         from src.core.resilience.circuit_breaker import CircuitState
+        from src.core.resilience.resilience_manager import ResilienceManager
 
         ResilienceManager._instance = None
         manager = ResilienceManager()
@@ -915,11 +899,15 @@ class TestGetHealthWithIssues:
         cb = manager.get_circuit_breaker("test_cb")
 
         # Mock open state
-        with patch.object(cb, 'get_health', return_value={
-            "state": CircuitState.OPEN.value,
-            "failure_rate": 0.5,
-            "failure_count": 5
-        }):
+        with patch.object(
+            cb,
+            "get_health",
+            return_value={
+                "state": CircuitState.OPEN.value,
+                "failure_rate": 0.5,
+                "failure_count": 5,
+            },
+        ):
             health = manager.get_health()
 
         assert len(health.issues) > 0
@@ -936,10 +924,9 @@ class TestGetHealthWithIssues:
         rl = manager.get_rate_limiter("test_rl")
 
         # Mock high rejection rate
-        with patch.object(rl, 'get_health', return_value={
-            "rejection_rate": 0.15,  # > 0.1
-            "current_rate": 100.0
-        }):
+        with patch.object(
+            rl, "get_health", return_value={"rejection_rate": 0.15, "current_rate": 100.0}  # > 0.1
+        ):
             health = manager.get_health()
 
         assert len(health.issues) > 0
@@ -956,10 +943,9 @@ class TestGetHealthWithIssues:
         rp = manager.get_retry_policy("test_rp")
 
         # Mock low success rate
-        with patch.object(rp, 'get_health', return_value={
-            "success_rate": 0.4,  # < 0.5
-            "total_attempts": 100
-        }):
+        with patch.object(
+            rp, "get_health", return_value={"success_rate": 0.4, "total_attempts": 100}  # < 0.5
+        ):
             health = manager.get_health()
 
         assert len(health.issues) > 0
@@ -976,10 +962,9 @@ class TestGetHealthWithIssues:
         bh = manager.get_bulkhead("test_bh")
 
         # Mock high utilization
-        with patch.object(bh, 'get_health', return_value={
-            "utilization": 0.95,  # > 0.9
-            "active_calls": 9
-        }):
+        with patch.object(
+            bh, "get_health", return_value={"utilization": 0.95, "active_calls": 9}  # > 0.9
+        ):
             health = manager.get_health()
 
         assert len(health.issues) > 0
@@ -991,9 +976,7 @@ class TestWithResilienceDecoratorExecution:
 
     def test_decorator_executes_through_manager(self):
         """Test decorator executes function through resilience manager."""
-        from src.core.resilience.resilience_manager import (
-            with_resilience, ResilienceManager
-        )
+        from src.core.resilience.resilience_manager import ResilienceManager, with_resilience
 
         ResilienceManager._instance = None
         manager = ResilienceManager()
@@ -1012,9 +995,7 @@ class TestWithResilienceDecoratorExecution:
 
     def test_decorator_auto_name_execution(self):
         """Test decorator with auto-generated name executes correctly."""
-        from src.core.resilience.resilience_manager import (
-            with_resilience, ResilienceManager
-        )
+        from src.core.resilience.resilience_manager import ResilienceManager, with_resilience
 
         ResilienceManager._instance = None
         manager = ResilienceManager()

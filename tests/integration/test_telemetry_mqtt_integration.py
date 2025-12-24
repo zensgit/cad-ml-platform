@@ -74,6 +74,7 @@ async def test_mqtt_ingest_history_roundtrip(monkeypatch):
         if not found:
             # Debug fallback: inspect store directly
             from src.core.twin.ingest import get_store
+
             hist = await get_store().history(device_id, limit=5)
             if hist:
                 found = any(f.sensors.get("temp") == 42.0 for f in hist)

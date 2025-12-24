@@ -3,6 +3,7 @@
 Top-level classes/functions so they are pickleable in tests.
 """
 
+
 class DummyModel:
     def predict(self, xs):  # pragma: no cover - trivial
         return ["A"] * len(xs)
@@ -19,8 +20,8 @@ class GoodModel:
 
 class VersionedModel:
     """A model with version metadata for version mismatch tests."""
+
     __version__ = "v2.0"
 
     def predict(self, xs):  # pragma: no cover - trivial
         return ["test"] * len(xs)
-

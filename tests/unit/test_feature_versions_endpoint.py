@@ -3,7 +3,6 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 
-
 client = TestClient(app)
 
 
@@ -20,5 +19,3 @@ def test_feature_versions_endpoint_structure():
     # Stability flags
     assert versions["v1"]["stable"] is True and versions["v1"]["experimental"] is False
     assert versions["v4"]["experimental"] is True
-
-

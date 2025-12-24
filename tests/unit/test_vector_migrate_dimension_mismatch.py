@@ -13,12 +13,12 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 
-
 client = TestClient(app)
 
 
 @pytest.mark.skip(reason="TODO: implement mismatch seeding & migration call")
 def test_vector_migrate_dimension_mismatch_error() -> None:
-    response = client.post("/api/v1/vectors/migrate", json={"ids": ["nonexistent"], "to_version": "v3"})
+    response = client.post(
+        "/api/v1/vectors/migrate", json={"ids": ["nonexistent"], "to_version": "v3"}
+    )
     assert response.status_code in {200, 404, 409}
-

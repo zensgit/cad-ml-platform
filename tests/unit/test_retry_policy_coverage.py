@@ -19,16 +19,16 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.core.resilience.retry_policy import (
-    RetryError,
-    RetryStats,
-    RetryStrategy,
-    FixedDelay,
-    LinearBackoff,
+    AdaptiveRetry,
     ExponentialBackoff,
     FibonacciBackoff,
+    FixedDelay,
+    LinearBackoff,
+    RetryError,
     RetryPolicy,
+    RetryStats,
+    RetryStrategy,
     retry,
-    AdaptiveRetry,
 )
 
 
@@ -60,7 +60,7 @@ class TestRetryStats:
             failed_retries=2,
             total_delay_time=15.5,
             last_retry_time=datetime.now(),
-            error_distribution={"TimeoutError": 2}
+            error_distribution={"TimeoutError": 2},
         )
 
         assert stats.total_attempts == 10
@@ -121,7 +121,9 @@ class TestExponentialBackoff:
 
     def test_exponential_backoff_max_delay(self):
         """Test ExponentialBackoff respects max_delay."""
-        strategy = ExponentialBackoff(base_delay=1.0, exponential_base=2.0, max_delay=5.0, jitter=False)
+        strategy = ExponentialBackoff(
+            base_delay=1.0, exponential_base=2.0, max_delay=5.0, jitter=False
+        )
 
         assert strategy.get_delay(1) == 1.0
         assert strategy.get_delay(2) == 2.0
@@ -207,11 +209,7 @@ class TestRetryPolicy:
 
     def test_execute_success_after_retry(self):
         """Test execute succeeds after retry."""
-        policy = RetryPolicy(
-            name="test",
-            max_attempts=3,
-            strategy=FixedDelay(delay=0.01)
-        )
+        policy = RetryPolicy(name="test", max_attempts=3, strategy=FixedDelay(delay=0.01))
 
         call_count = 0
 
@@ -230,11 +228,7 @@ class TestRetryPolicy:
 
     def test_execute_max_retries_exhausted(self):
         """Test execute raises RetryError after max retries."""
-        policy = RetryPolicy(
-            name="test",
-            max_attempts=3,
-            strategy=FixedDelay(delay=0.01)
-        )
+        policy = RetryPolicy(name="test", max_attempts=3, strategy=FixedDelay(delay=0.01))
 
         def always_fails():
             raise ValueError("Always fails")
@@ -247,10 +241,7 @@ class TestRetryPolicy:
 
     def test_should_retry_retryable_exception(self):
         """Test _should_retry returns True for retryable exceptions."""
-        policy = RetryPolicy(
-            name="test",
-            retryable_exceptions=[ValueError, TypeError]
-        )
+        policy = RetryPolicy(name="test", retryable_exceptions=[ValueError, TypeError])
 
         assert policy._should_retry(ValueError("test")) is True
         assert policy._should_retry(TypeError("test")) is True
@@ -258,19 +249,14 @@ class TestRetryPolicy:
     def test_should_retry_non_retryable_exception(self):
         """Test _should_retry returns False for non-retryable exceptions."""
         policy = RetryPolicy(
-            name="test",
-            retryable_exceptions=[Exception],
-            non_retryable_exceptions=[KeyError]
+            name="test", retryable_exceptions=[Exception], non_retryable_exceptions=[KeyError]
         )
 
         assert policy._should_retry(KeyError("test")) is False
 
     def test_should_retry_unknown_exception(self):
         """Test _should_retry returns False for unknown exceptions."""
-        policy = RetryPolicy(
-            name="test",
-            retryable_exceptions=[ValueError]
-        )
+        policy = RetryPolicy(name="test", retryable_exceptions=[ValueError])
 
         assert policy._should_retry(TypeError("test")) is False
 
@@ -280,7 +266,7 @@ class TestRetryPolicy:
             name="test",
             max_attempts=3,
             non_retryable_exceptions=[KeyError],
-            strategy=FixedDelay(delay=0.01)
+            strategy=FixedDelay(delay=0.01),
         )
 
         def raises_key_error():
@@ -356,10 +342,7 @@ class TestRetryPolicy:
             callback_calls.append((str(exc), attempt))
 
         policy = RetryPolicy(
-            name="test",
-            max_attempts=3,
-            strategy=FixedDelay(delay=0.01),
-            on_retry=on_retry_callback
+            name="test", max_attempts=3, strategy=FixedDelay(delay=0.01), on_retry=on_retry_callback
         )
 
         call_count = 0
@@ -388,7 +371,7 @@ class TestRetryPolicy:
             name="test",
             max_attempts=3,
             strategy=FixedDelay(delay=0.01),
-            metrics_callback=metrics_callback
+            metrics_callback=metrics_callback,
         )
 
         def always_succeeds():
@@ -401,11 +384,7 @@ class TestRetryPolicy:
 
     def test_error_distribution_tracking(self):
         """Test error distribution is tracked."""
-        policy = RetryPolicy(
-            name="test",
-            max_attempts=5,
-            strategy=FixedDelay(delay=0.01)
-        )
+        policy = RetryPolicy(name="test", max_attempts=5, strategy=FixedDelay(delay=0.01))
 
         call_count = 0
 
@@ -431,6 +410,7 @@ class TestRetryDecorator:
 
     def test_retry_decorator_success(self):
         """Test retry decorator allows success."""
+
         @retry(max_attempts=3, strategy=FixedDelay(delay=0.01))
         def decorated_func():
             return "result"
@@ -458,6 +438,7 @@ class TestRetryDecorator:
 
     def test_retry_decorator_exhausted(self):
         """Test retry decorator raises after exhaustion."""
+
         @retry(max_attempts=2, strategy=FixedDelay(delay=0.01))
         def decorated_func():
             raise ValueError("Always fails")
@@ -467,6 +448,7 @@ class TestRetryDecorator:
 
     def test_retry_decorator_policy_accessible(self):
         """Test decorated function has retry_policy attribute."""
+
         @retry(max_attempts=5)
         def decorated_func():
             pass
@@ -484,7 +466,7 @@ class TestAdaptiveRetry:
             name="adaptive_test",
             initial_max_attempts=3,
             min_success_rate=0.5,
-            adjustment_window=100
+            adjustment_window=100,
         )
 
         assert adaptive.max_attempts == 3
@@ -494,9 +476,7 @@ class TestAdaptiveRetry:
     def test_adaptive_retry_execute(self):
         """Test AdaptiveRetry execute works like parent."""
         adaptive = AdaptiveRetry(
-            name="adaptive_test",
-            initial_max_attempts=3,
-            strategy=FixedDelay(delay=0.01)
+            name="adaptive_test", initial_max_attempts=3, strategy=FixedDelay(delay=0.01)
         )
 
         def success_func():
@@ -513,7 +493,7 @@ class TestAdaptiveRetry:
             initial_max_attempts=3,
             min_success_rate=0.5,
             adjustment_window=1,  # Adjust after every call
-            strategy=FixedDelay(delay=0.01)
+            strategy=FixedDelay(delay=0.01),
         )
 
         # Simulate low success rate scenario
@@ -531,7 +511,7 @@ class TestAdaptiveRetry:
             initial_max_attempts=5,
             min_success_rate=0.5,
             adjustment_window=1,
-            strategy=FixedDelay(delay=0.01)
+            strategy=FixedDelay(delay=0.01),
         )
 
         # Simulate high success rate scenario
@@ -549,7 +529,7 @@ class TestAdaptiveRetry:
             initial_max_attempts=3,
             min_success_rate=0.5,
             adjustment_window=1,
-            strategy=FixedDelay(delay=0.01)
+            strategy=FixedDelay(delay=0.01),
         )
 
         # Simulate moderate success rate
@@ -568,7 +548,7 @@ class TestAdaptiveRetry:
             initial_max_attempts=10,
             min_success_rate=0.5,
             adjustment_window=1,
-            strategy=FixedDelay(delay=0.01)
+            strategy=FixedDelay(delay=0.01),
         )
 
         adaptive._stats.total_attempts = 10
@@ -585,7 +565,7 @@ class TestAdaptiveRetry:
             initial_max_attempts=1,
             min_success_rate=0.5,
             adjustment_window=1,
-            strategy=FixedDelay(delay=0.01)
+            strategy=FixedDelay(delay=0.01),
         )
 
         adaptive._stats.total_attempts = 10
@@ -602,7 +582,7 @@ class TestAdaptiveRetry:
             initial_max_attempts=3,
             min_success_rate=0.5,
             adjustment_window=1,
-            strategy=FixedDelay(delay=0.01)
+            strategy=FixedDelay(delay=0.01),
         )
 
         initial_attempts = adaptive.max_attempts

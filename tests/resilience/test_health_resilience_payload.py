@@ -3,15 +3,17 @@ Test Health Check Resilience Payload
 测试健康检查中的韧性层状态信息
 """
 
-import pytest
 import json
 from datetime import datetime, timedelta
+
+import pytest
+
 from src.api.health_resilience import (
-    ResilienceHealthCollector,
     CircuitBreakerStatus,
-    RateLimiterStatus,
     CircuitState,
-    get_resilience_health
+    RateLimiterStatus,
+    ResilienceHealthCollector,
+    get_resilience_health,
 )
 
 
@@ -62,7 +64,7 @@ class TestResilienceHealth:
             state=CircuitState.OPEN,
             failure_count=6,
             success_count=0,
-            failure_threshold=5
+            failure_threshold=5,
         )
         collector.circuit_breakers["failing_service"] = cb
 
@@ -99,7 +101,7 @@ class TestResilienceHealth:
             name="exhausted_limiter",
             current_tokens=5,  # <10% of max
             max_tokens=100,
-            refill_rate=10
+            refill_rate=10,
         )
         collector.rate_limiters["exhausted_limiter"] = rl
 
@@ -110,11 +112,7 @@ class TestResilienceHealth:
         """测试自适应状态更新"""
         collector = ResilienceHealthCollector()
 
-        collector.update_adaptive_status(
-            enabled=True,
-            rate_multiplier=0.75,
-            error_rate=0.025
-        )
+        collector.update_adaptive_status(enabled=True, rate_multiplier=0.75, error_rate=0.025)
 
         status = collector.get_health_status()
         adaptive = status["resilience"]["adaptive"]
@@ -130,21 +128,13 @@ class TestResilienceHealth:
 
         # 添加多个组件
         collector.circuit_breakers = {
-            "cb1": CircuitBreakerStatus(
-                "cb1", CircuitState.CLOSED, 0, 10, 5
-            ),
-            "cb2": CircuitBreakerStatus(
-                "cb2", CircuitState.OPEN, 5, 0, 5
-            ),
+            "cb1": CircuitBreakerStatus("cb1", CircuitState.CLOSED, 0, 10, 5),
+            "cb2": CircuitBreakerStatus("cb2", CircuitState.OPEN, 5, 0, 5),
         }
 
         collector.rate_limiters = {
-            "rl1": RateLimiterStatus(
-                "rl1", 80, 100, 10
-            ),
-            "rl2": RateLimiterStatus(
-                "rl2", 40, 100, 10
-            ),
+            "rl1": RateLimiterStatus("rl1", 80, 100, 10),
+            "rl2": RateLimiterStatus("rl2", 40, 100, 10),
         }
 
         status = collector.get_health_status()
@@ -158,21 +148,28 @@ class TestResilienceHealth:
         collector = ResilienceHealthCollector()
 
         # 添加各种组件
-        collector.register_circuit_breaker("test_cb", type('', (), {
-            'state': CircuitState.HALF_OPEN,
-            'failure_count': 3,
-            'success_count': 7,
-            'failure_threshold': 5,
-            'last_failure_time': datetime.now(),
-            'recovery_timeout': 30
-        }))
+        collector.register_circuit_breaker(
+            "test_cb",
+            type(
+                "",
+                (),
+                {
+                    "state": CircuitState.HALF_OPEN,
+                    "failure_count": 3,
+                    "success_count": 7,
+                    "failure_threshold": 5,
+                    "last_failure_time": datetime.now(),
+                    "recovery_timeout": 30,
+                },
+            ),
+        )
 
-        collector.register_rate_limiter("test_rl", type('', (), {
-            'tokens': 75,
-            'capacity': 100,
-            'rate': 10,
-            'algorithm': 'sliding_window'
-        }))
+        collector.register_rate_limiter(
+            "test_rl",
+            type(
+                "", (), {"tokens": 75, "capacity": 100, "rate": 10, "algorithm": "sliding_window"}
+            ),
+        )
 
         collector.update_adaptive_status(True, 1.2, 0.008)
 
@@ -192,16 +189,11 @@ class TestResilienceHealth:
 
         # 添加多个不同状态的组件
         collector.circuit_breakers = {
-            "service_a": CircuitBreakerStatus(
-                "service_a", CircuitState.CLOSED, 1, 100, 5
-            ),
+            "service_a": CircuitBreakerStatus("service_a", CircuitState.CLOSED, 1, 100, 5),
             "service_b": CircuitBreakerStatus(
-                "service_b", CircuitState.OPEN, 10, 0, 5,
-                last_failure_time=datetime.now()
+                "service_b", CircuitState.OPEN, 10, 0, 5, last_failure_time=datetime.now()
             ),
-            "service_c": CircuitBreakerStatus(
-                "service_c", CircuitState.HALF_OPEN, 4, 2, 5
-            ),
+            "service_c": CircuitBreakerStatus("service_c", CircuitState.HALF_OPEN, 4, 2, 5),
         }
 
         collector.rate_limiters = {
@@ -259,17 +251,18 @@ class TestIntegration:
         assert health["resilience"]["status"] == "healthy"
         assert "test" in health["resilience"]["circuit_breakers"]
 
-    @pytest.mark.parametrize("state,expected_status", [
-        (CircuitState.CLOSED, "healthy"),
-        (CircuitState.OPEN, "degraded"),
-        (CircuitState.HALF_OPEN, "healthy"),
-    ])
+    @pytest.mark.parametrize(
+        "state,expected_status",
+        [
+            (CircuitState.CLOSED, "healthy"),
+            (CircuitState.OPEN, "degraded"),
+            (CircuitState.HALF_OPEN, "healthy"),
+        ],
+    )
     def test_status_mapping(self, state, expected_status):
         """测试状态映射"""
         collector = ResilienceHealthCollector()
-        collector.circuit_breakers["test"] = CircuitBreakerStatus(
-            "test", state, 0, 0, 5
-        )
+        collector.circuit_breakers["test"] = CircuitBreakerStatus("test", state, 0, 0, 5)
 
         status = collector.get_health_status()
         assert status["resilience"]["status"] == expected_status

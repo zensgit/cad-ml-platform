@@ -21,9 +21,7 @@ def test_validate_callback_url_requires_https_by_default():
         backoff_base_seconds=0.0,
         backoff_max_seconds=0.0,
     )
-    assert validate_dedup2d_callback_url("https://example.com/hook", cfg=cfg).startswith(
-        "https://"
-    )
+    assert validate_dedup2d_callback_url("https://example.com/hook", cfg=cfg).startswith("https://")
     with pytest.raises(ValueError):
         validate_dedup2d_callback_url("http://example.com/hook", cfg=cfg)
 
@@ -70,4 +68,3 @@ def test_sign_webhook_has_expected_headers():
     headers = sign_dedup2d_webhook(secret="secret", job_id="job1", body=body, timestamp=123)
     assert headers["X-Dedup-Job-Id"] == "job1"
     assert headers["X-Dedup-Signature"].startswith("t=123,v1=")
-

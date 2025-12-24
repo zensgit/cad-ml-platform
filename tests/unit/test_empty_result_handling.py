@@ -7,7 +7,8 @@ properly rejected with appropriate error responses.
 from __future__ import annotations
 
 import pytest
-from src.core.similarity import compute_similarity, register_vector, has_vector
+
+from src.core.similarity import compute_similarity, has_vector, register_vector
 
 
 def test_compute_similarity_missing_reference():

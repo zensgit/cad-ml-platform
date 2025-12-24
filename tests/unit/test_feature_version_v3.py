@@ -1,7 +1,8 @@
-import os
-from src.core.feature_extractor import FeatureExtractor
-from src.models.cad_document import CadDocument, CadEntity, BoundingBox
 import asyncio
+import os
+
+from src.core.feature_extractor import FeatureExtractor
+from src.models.cad_document import BoundingBox, CadDocument, CadEntity
 
 
 def test_feature_version_v3_dimensions():
@@ -11,14 +12,16 @@ def test_feature_version_v3_dimensions():
     doc.metadata["solids"] = 3
     doc.metadata["facets"] = 10
     # add entities of different kinds
-    doc.entities.extend([
-        CadEntity(kind="SOLID"),
-        CadEntity(kind="SOLID"),
-        CadEntity(kind="SOLID"),
-        CadEntity(kind="FACET"),
-        CadEntity(kind="FACET"),
-        CadEntity(kind="LINE"),
-    ])
+    doc.entities.extend(
+        [
+            CadEntity(kind="SOLID"),
+            CadEntity(kind="SOLID"),
+            CadEntity(kind="SOLID"),
+            CadEntity(kind="FACET"),
+            CadEntity(kind="FACET"),
+            CadEntity(kind="LINE"),
+        ]
+    )
     doc.bounding_box.max_x = 10
     doc.bounding_box.max_y = 5
     doc.bounding_box.max_z = 2

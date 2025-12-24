@@ -1,7 +1,9 @@
 import os
+
 from fastapi.testclient import TestClient
-from src.main import app
+
 from src.core.similarity import FaissVectorStore, register_vector  # type: ignore
+from src.main import app
 
 client = TestClient(app)
 
@@ -21,4 +23,3 @@ def test_faiss_auto_rebuild_metric(monkeypatch):
     r = client.get("/metrics")
     if r.status_code == 200:
         assert "faiss_auto_rebuild_total" in r.text
-

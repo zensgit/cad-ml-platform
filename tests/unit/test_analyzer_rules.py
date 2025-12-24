@@ -1,9 +1,8 @@
+import asyncio
+
 from src.core.analyzer import CADAnalyzer
 from src.core.feature_extractor import FeatureExtractor
 from src.models.cad_document import CadDocument, CadEntity
-
-
-import asyncio
 
 
 def test_analyzer_classification_simple():

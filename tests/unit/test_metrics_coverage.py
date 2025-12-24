@@ -9,7 +9,7 @@ Covers:
 
 from __future__ import annotations
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -418,8 +418,8 @@ class TestMetricLabels:
 
     def test_ocr_errors_labels(self):
         """Test ocr_errors_total accepts expected labels."""
-        from src.utils.metrics import ocr_errors_total
         from src.core.errors import ErrorCode
+        from src.utils.metrics import ocr_errors_total
 
         # Should not raise
         ocr_errors_total.labels(

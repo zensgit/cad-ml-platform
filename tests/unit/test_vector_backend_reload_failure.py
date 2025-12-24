@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 
-
 client = TestClient(app)
 
 
@@ -21,4 +20,3 @@ client = TestClient(app)
 def test_vector_backend_reload_failure_keeps_original_backend() -> None:
     response = client.post("/api/v1/vectors/backend/reload", json={"backend": "nonexistent"})
     assert response.status_code in {200, 400, 401, 404}
-

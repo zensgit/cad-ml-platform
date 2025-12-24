@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+
 from src.main import app
 
 client = TestClient(app)
@@ -10,7 +11,9 @@ def test_feature_slots_presence(monkeypatch):
     files = {"file": ("fs_test.dxf", content, "application/octet-stream")}
     r = client.post(
         "/api/v1/analyze",
-        data={"options": '{"extract_features": true, "classify_parts": false, "process_recommendation": false}'},
+        data={
+            "options": '{"extract_features": true, "classify_parts": false, "process_recommendation": false}'
+        },
         files=files,
         headers={"x-api-key": "test"},
     )

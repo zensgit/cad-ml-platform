@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from src.main import app
 from src.core.errors_extended import ErrorCode
+from src.main import app
 
 
 class DummyRedis:
@@ -66,10 +66,12 @@ def test_vectors_list_pagination_memory():
         "vec2": {"material": "aluminum", "complexity": "mid", "format": "dwg"},
         "vec3": {"material": "steel", "complexity": "high", "format": "step"},
     }
-    with patch("src.core.similarity._VECTOR_STORE", vector_store), \
-        patch("src.core.similarity._VECTOR_META", vector_meta), \
-        patch("src.core.similarity._BACKEND", "memory"):
-        r = client.get("/api/v1/vectors?source=memory&offset=1&limit=1", headers={"X-API-Key": "test"})
+    with patch("src.core.similarity._VECTOR_STORE", vector_store), patch(
+        "src.core.similarity._VECTOR_META", vector_meta
+    ), patch("src.core.similarity._BACKEND", "memory"):
+        r = client.get(
+            "/api/v1/vectors?source=memory&offset=1&limit=1", headers={"X-API-Key": "test"}
+        )
     assert r.status_code == 200
     data = r.json()
     assert data["total"] == 3
@@ -90,9 +92,12 @@ def test_vectors_list_redis_source():
         },
     }
     dummy = DummyRedis(redis_data)
-    with patch("src.api.v1.vectors.get_client", return_value=dummy), \
-        patch("src.core.similarity._BACKEND", "redis"):
-        r = client.get("/api/v1/vectors?source=redis&offset=1&limit=1", headers={"X-API-Key": "test"})
+    with patch("src.api.v1.vectors.get_client", return_value=dummy), patch(
+        "src.core.similarity._BACKEND", "redis"
+    ):
+        r = client.get(
+            "/api/v1/vectors?source=redis&offset=1&limit=1", headers={"X-API-Key": "test"}
+        )
     assert r.status_code == 200
     data = r.json()
     assert data["total"] == 2

@@ -1,6 +1,7 @@
-from fastapi.testclient import TestClient
-from pathlib import Path
 import io
+from pathlib import Path
+
+from fastapi.testclient import TestClient
 
 from src.main import app
 
@@ -29,7 +30,10 @@ def test_feature_cache_hit(tmp_path):
     data2 = r2.json()
     # Check top-level cache_hit for full analysis cache
     # or feature-level cache_hit in results.features
-    assert data2.get("cache_hit") is True or data2.get("results", {}).get("features", {}).get("cache_hit") is True
+    assert (
+        data2.get("cache_hit") is True
+        or data2.get("results", {}).get("features", {}).get("cache_hit") is True
+    )
 
 
 def test_orphan_cleanup_endpoint(tmp_path):

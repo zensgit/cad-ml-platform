@@ -1,4 +1,4 @@
-from src.core.similarity import register_vector, last_vector_error, _VECTOR_STORE  # type: ignore
+from src.core.similarity import _VECTOR_STORE, last_vector_error, register_vector  # type: ignore
 
 
 def test_vector_register_dimension_error_structured():
@@ -15,4 +15,3 @@ def test_vector_register_dimension_error_structured():
     assert err.get("expected") == "4"
     assert err.get("found") == "3"
     assert "bad_dim_vec" not in _VECTOR_STORE
-

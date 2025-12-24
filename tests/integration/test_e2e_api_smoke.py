@@ -6,7 +6,6 @@ from typing import Dict, Optional
 import httpx
 import pytest
 
-
 BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 API_KEY = os.environ.get("API_KEY", "test")
 TIMEOUT = float(os.environ.get("E2E_HTTP_TIMEOUT", "10"))
@@ -29,7 +28,9 @@ def _check_health() -> None:
         pytest.skip(f"API health check failed ({resp.status_code}); skipping E2E smoke")
 
 
-def _post_file(path: Path, endpoint: str, params: Optional[Dict[str, str]] = None) -> httpx.Response:
+def _post_file(
+    path: Path, endpoint: str, params: Optional[Dict[str, str]] = None
+) -> httpx.Response:
     with path.open("rb") as handle:
         files = {"file": (path.name, handle, "application/octet-stream")}
         return httpx.post(
@@ -52,11 +53,7 @@ def test_e2e_core_api_smoke() -> None:
         pytest.skip("Analyze endpoint not found; skipping E2E smoke")
     assert analyze_resp.status_code == 200
     analyze_data = analyze_resp.json()
-    combined = (
-        analyze_data.get("results", {})
-        .get("features", {})
-        .get("combined")
-    )
+    combined = analyze_data.get("results", {}).get("features", {}).get("combined")
     assert isinstance(combined, list)
     assert len(combined) >= 5
     if all(value == 0 for value in combined):

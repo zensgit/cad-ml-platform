@@ -6,9 +6,9 @@ import pytest
 
 from src.api.v1.vectors import (
     VectorMigrateRequest,
+    _prepare_vector_for_upgrade,
     migrate_vectors,
     preview_migration,
-    _prepare_vector_for_upgrade,
 )
 from src.core.feature_extractor import FeatureExtractor
 from src.core.vector_layouts import VECTOR_LAYOUT_L3, VECTOR_LAYOUT_LEGACY

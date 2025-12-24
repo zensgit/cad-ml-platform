@@ -1,9 +1,9 @@
 import os
-from fastapi.testclient import TestClient
 from pathlib import Path
 
-from src.main import app
+from fastapi.testclient import TestClient
 
+from src.main import app
 
 client = TestClient(app)
 
@@ -28,7 +28,7 @@ def test_model_reload_magic_invalid(tmp_path):
     resp = client.post(
         "/api/v1/model/reload",
         headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(bad)}
+        json={"path": str(bad)},
     )
     assert resp.status_code in (200, 400, 422)
     data = resp.json()
@@ -47,7 +47,7 @@ def test_model_reload_size_exceeded(tmp_path):
     resp = client.post(
         "/api/v1/model/reload",
         headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(big)}
+        json={"path": str(big)},
     )
     assert resp.status_code in (200, 400, 422)
     data = resp.json()
@@ -64,7 +64,9 @@ def test_model_reload_hash_mismatch(tmp_path):
     # Create a minimal valid pickle with protocol 5 (use top-level class to allow pickling)
     model_file = tmp_path / "model.pkl"
     import pickle
+
     from tests.unit.test_model_reload_errors_structured_support import DummyModel
+
     model_file.write_bytes(pickle.dumps(DummyModel(), protocol=5))
     # Set whitelist that won't match
     os.environ["ALLOWED_MODEL_HASHES"] = "deadbeefcafefeed"
@@ -72,7 +74,7 @@ def test_model_reload_hash_mismatch(tmp_path):
     resp = client.post(
         "/api/v1/model/reload",
         headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(model_file)}
+        json={"path": str(model_file)},
     )
     data = resp.json()
     assert data["status"] == "hash_mismatch"
@@ -87,14 +89,16 @@ def test_model_reload_hash_mismatch(tmp_path):
 def test_model_reload_opcode_blocked(tmp_path):
     # Craft pickle containing GLOBAL opcode by pickling a function reference
     import pickle
+
     from tests.unit.test_model_reload_errors_structured_support import dummy_function
+
     blocked_file = tmp_path / "blocked.pkl"
     blocked_file.write_bytes(pickle.dumps(dummy_function, protocol=2))  # Protocol 2 emits GLOBAL
     os.environ["MODEL_OPCODE_SCAN"] = "1"
     resp = client.post(
         "/api/v1/model/reload",
         headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(blocked_file)}
+        json={"path": str(blocked_file)},
     )
     data = resp.json()
     assert data["status"] == "opcode_blocked"
@@ -107,7 +111,9 @@ def test_model_reload_opcode_blocked(tmp_path):
 
 def test_model_reload_success(tmp_path):
     import pickle
+
     from tests.unit.test_model_reload_errors_structured_support import GoodModel
+
     good = tmp_path / "good.pkl"
     good.write_bytes(pickle.dumps(GoodModel(), protocol=5))
     # Clear restrictive envs
@@ -117,7 +123,7 @@ def test_model_reload_success(tmp_path):
     resp = client.post(
         "/api/v1/model/reload",
         headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(good)}
+        json={"path": str(good)},
     )
     data = resp.json()
     assert data["status"] == "success"

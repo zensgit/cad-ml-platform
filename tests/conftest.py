@@ -1,6 +1,6 @@
 import os
-import pytest
 
+import pytest
 
 # List of environment variables that may be modified by tests
 _ENV_VARS_TO_ISOLATE = [
@@ -49,6 +49,7 @@ def vector_store_isolation():
     Backs up and restores similarity globals to avoid cross-test interference.
     """
     from src.core import similarity  # type: ignore
+
     backup_store = dict(similarity._VECTOR_STORE)
     backup_meta = dict(similarity._VECTOR_META)
     backup_ts = dict(similarity._VECTOR_TS)
@@ -60,7 +61,9 @@ def vector_store_isolation():
     backup_faiss_index = similarity._FAISS_INDEX
     backup_faiss_dim = similarity._FAISS_DIM
     backup_faiss_id_map = dict(similarity._FAISS_ID_MAP) if similarity._FAISS_ID_MAP else {}
-    backup_faiss_reverse_map = dict(similarity._FAISS_REVERSE_MAP) if similarity._FAISS_REVERSE_MAP else {}
+    backup_faiss_reverse_map = (
+        dict(similarity._FAISS_REVERSE_MAP) if similarity._FAISS_REVERSE_MAP else {}
+    )
     backup_faiss_next_recovery = getattr(similarity, "_FAISS_NEXT_RECOVERY_TS", None)
     backup_faiss_suppress_until = getattr(similarity, "_FAISS_SUPPRESS_UNTIL_TS", None)
     backup_degradation_history = list(getattr(similarity, "_DEGRADATION_HISTORY", []))
@@ -97,12 +100,14 @@ def feature_cache_isolation():
     """Reset feature cache between tests."""
     try:
         from src.core.feature_cache import reset_feature_cache_for_tests
+
         reset_feature_cache_for_tests()
     except ImportError:
         pass
     yield
     try:
         from src.core.feature_cache import reset_feature_cache_for_tests
+
         reset_feature_cache_for_tests()
     except ImportError:
         pass
@@ -119,12 +124,14 @@ def config_cache_isolation():
     """Reset config settings cache between tests."""
     try:
         import src.core.config as cfg
+
         backup_cache = cfg._settings_cache
     except (ImportError, AttributeError):
         backup_cache = None
     yield
     try:
         import src.core.config as cfg
+
         cfg._settings_cache = backup_cache
     except (ImportError, AttributeError):
         pass
@@ -135,6 +142,7 @@ def migration_history_isolation():
     """Reset vector migration history between tests."""
     try:
         import src.api.v1.vectors as vectors_mod
+
         if "_VECTOR_MIGRATION_HISTORY" in vectors_mod.__dict__:
             backup_history = list(vectors_mod._VECTOR_MIGRATION_HISTORY)
         else:
@@ -144,6 +152,7 @@ def migration_history_isolation():
     yield
     try:
         import src.api.v1.vectors as vectors_mod
+
         if backup_history is not None:
             if "_VECTOR_MIGRATION_HISTORY" in vectors_mod.__dict__:
                 vectors_mod._VECTOR_MIGRATION_HISTORY.clear()
@@ -158,8 +167,10 @@ def migration_history_isolation():
 def ingestor_isolation():
     """Reset telemetry ingestor singleton between tests."""
     import asyncio
+
     try:
         from src.core.twin.ingest import reset_ingestor_for_tests
+
         try:
             asyncio.get_running_loop()
         except RuntimeError:
@@ -169,6 +180,7 @@ def ingestor_isolation():
     yield
     try:
         from src.core.twin.ingest import reset_ingestor_for_tests
+
         try:
             asyncio.get_running_loop()
         except RuntimeError:
@@ -182,12 +194,14 @@ def local_cache_isolation():
     """Reset in-memory cache between tests."""
     try:
         import src.utils.cache as cache_mod
+
         backup_cache = dict(cache_mod._local_cache)
     except (ImportError, AttributeError):
         backup_cache = None
     yield
     try:
         import src.utils.cache as cache_mod
+
         cache_mod._local_cache.clear()
         if backup_cache is not None:
             cache_mod._local_cache.update(backup_cache)
@@ -200,6 +214,7 @@ def classifier_isolation():
     """Reset ML classifier state between tests."""
     try:
         from src.ml import classifier
+
         backup_model = classifier._MODEL
         backup_hash = classifier._MODEL_HASH
         backup_loaded_at = classifier._MODEL_LOADED_AT
@@ -209,6 +224,7 @@ def classifier_isolation():
     yield
     try:
         from src.ml import classifier
+
         classifier._MODEL = backup_model
         classifier._MODEL_HASH = backup_hash
         classifier._MODEL_LOADED_AT = backup_loaded_at
@@ -228,6 +244,7 @@ def analyze_module_isolation():
     """
     try:
         import src.api.v1.analyze as analyze_mod
+
         # Backup _DRIFT_STATE
         backup_drift = {
             "materials": list(analyze_mod._DRIFT_STATE.get("materials", [])),
@@ -242,9 +259,11 @@ def analyze_module_isolation():
         backup_miss_events = None
         if "_CACHE_HIT_EVENTS" in analyze_mod.__dict__:
             from collections import deque
+
             backup_hit_events = deque(analyze_mod._CACHE_HIT_EVENTS)
         if "_CACHE_MISS_EVENTS" in analyze_mod.__dict__:
             from collections import deque
+
             backup_miss_events = deque(analyze_mod._CACHE_MISS_EVENTS)
     except (ImportError, AttributeError):
         backup_drift = None
@@ -255,6 +274,7 @@ def analyze_module_isolation():
 
     try:
         import src.api.v1.analyze as analyze_mod
+
         # Restore _DRIFT_STATE
         if backup_drift is not None:
             analyze_mod._DRIFT_STATE.clear()
@@ -287,6 +307,7 @@ def ocr_manager_isolation():
     # Reset BEFORE test to ensure clean state
     try:
         import src.api.v1.ocr as ocr_mod
+
         # Reset the global manager singleton to force fresh creation
         ocr_mod._manager = None
     except (ImportError, AttributeError):
@@ -297,6 +318,7 @@ def ocr_manager_isolation():
     # Also reset after test as cleanup
     try:
         import src.api.v1.ocr as ocr_mod
+
         ocr_mod._manager = None
     except (ImportError, AttributeError):
         pass
@@ -312,6 +334,7 @@ def adaptive_limiter_isolation():
     """
     try:
         from src.core.resilience.adaptive_rate_limiter import adaptive_manager
+
         # Reset all existing limiters BEFORE test to ensure clean state
         for limiter in adaptive_manager.limiters.values():
             limiter.reset()
@@ -323,6 +346,7 @@ def adaptive_limiter_isolation():
     # Also reset after test as cleanup
     try:
         from src.core.resilience.adaptive_rate_limiter import adaptive_manager
+
         for limiter in adaptive_manager.limiters.values():
             limiter.reset()
     except (ImportError, AttributeError):
@@ -343,6 +367,7 @@ def redis_client_isolation():
     """
     try:
         import src.utils.cache as cache_mod
+
         backup_client = cache_mod._redis_client
         cache_mod._redis_client = None  # Reset to None before test
     except (ImportError, AttributeError):
@@ -353,6 +378,7 @@ def redis_client_isolation():
     # Restore after test (though typically we want to leave it as None)
     try:
         import src.utils.cache as cache_mod
+
         cache_mod._redis_client = backup_client
     except (ImportError, AttributeError):
         pass

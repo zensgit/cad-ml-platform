@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
-from src.main import app
+
 from src.core.similarity import register_vector  # type: ignore
+from src.main import app
 
 client = TestClient(app)
 
@@ -20,4 +21,3 @@ def test_features_diff_basic():
     # Original vectors: [0.1, 0.2, 0.3] vs [0.1, 0.25, 0.35]
     # Differences: 0, 0.05, 0.05 - sorted descending so order may vary
     assert 0.05 in abs_diffs or 0.04999999999999999 in abs_diffs
-

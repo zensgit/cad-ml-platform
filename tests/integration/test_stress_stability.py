@@ -2,9 +2,8 @@ import os
 import time
 from typing import Dict
 
-import pytest
 import httpx
-
+import pytest
 
 BASE_URL = os.environ.get("API_BASE_URL", "http://127.0.0.1:8000")
 API_KEY = os.environ.get("API_KEY", "test")

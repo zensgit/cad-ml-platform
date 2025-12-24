@@ -14,7 +14,6 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 
-
 client = TestClient(app)
 
 
@@ -23,4 +22,3 @@ def test_batch_similarity_faiss_unavailable_degraded_flag() -> None:
     payload = {"ids": ["a", "b"], "top_k": 3}
     response = client.post("/api/v1/vectors/similarity/batch", json=payload)
     assert response.status_code in {200, 422}
-

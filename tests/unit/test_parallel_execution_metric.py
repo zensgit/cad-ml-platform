@@ -1,4 +1,5 @@
 import os
+
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -27,5 +28,6 @@ def test_parallel_execution_gauge(monkeypatch):
     if m.status_code == 200:
         # Accept either real gauge line or absence (dummy implementation)
         text = m.text
-        assert "analysis_parallel_enabled" in text or text.strip() == ""  # dummy exporter returns empty
-
+        assert (
+            "analysis_parallel_enabled" in text or text.strip() == ""
+        )  # dummy exporter returns empty

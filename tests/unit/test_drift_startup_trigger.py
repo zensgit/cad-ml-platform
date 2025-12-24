@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 
-
 client = TestClient(app)
 
 
@@ -21,4 +20,3 @@ client = TestClient(app)
 def test_drift_startup_trigger_metric_present() -> None:
     response = client.get("/api/v1/analyze/drift/baseline/status")
     assert response.status_code in {200, 204}
-

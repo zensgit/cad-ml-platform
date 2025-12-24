@@ -1,7 +1,8 @@
 import os
-from fastapi.testclient import TestClient
-from pathlib import Path
 import pickle
+from pathlib import Path
+
+from fastapi.testclient import TestClient
 
 from src.main import app
 
@@ -42,7 +43,7 @@ def test_opcode_blacklist_blocks_global(tmp_path):
     resp = client.post(
         "/api/v1/model/reload",
         headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(target)}
+        json={"path": str(target)},
     )
     data = resp.json()
     assert data["status"] == "opcode_blocked"
@@ -59,13 +60,17 @@ def test_opcode_audit_does_not_block(tmp_path):
     resp = client.post(
         "/api/v1/model/reload",
         headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(target), "force": True}
+        json={"path": str(target), "force": True},
     )
     data = resp.json()
     # In audit mode we still require predict; unsafe_function lacks it so treat as load error
     if data["status"] != "success":
         # Should fail due to missing predict, not opcode block
-        assert data["status"] == "error" or data["status"].startswith("rollback") or data["status"] == "opcode_scan_error"
+        assert (
+            data["status"] == "error"
+            or data["status"].startswith("rollback")
+            or data["status"] == "opcode_scan_error"
+        )
 
 
 def test_opcode_whitelist_blocks_global(tmp_path):
@@ -76,7 +81,7 @@ def test_opcode_whitelist_blocks_global(tmp_path):
     resp = client.post(
         "/api/v1/model/reload",
         headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(target)}
+        json={"path": str(target)},
     )
     data = resp.json()
     assert data["status"] == "opcode_blocked"
@@ -91,7 +96,7 @@ def test_opcode_audit_counts_increment(tmp_path):
     resp = client.post(
         "/api/v1/model/reload",
         headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
-        json={"path": str(target), "force": True}
+        json={"path": str(target), "force": True},
     )
     # Query audit endpoint
     audit_resp = client.get(
@@ -101,4 +106,3 @@ def test_opcode_audit_counts_increment(tmp_path):
     audit = audit_resp.json()
     assert "GLOBAL" in audit["opcodes"] or len(audit["opcodes"]) > 0
     assert audit["total_samples"] >= 1
-

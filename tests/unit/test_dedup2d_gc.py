@@ -70,6 +70,7 @@ class TestGCScriptHelpers:
     def test_format_size_bytes(self) -> None:
         """Format small file sizes."""
         import sys
+
         sys.path.insert(0, str(Path(__file__).parent.parent.parent))
         from scripts.dedup2d_uploads_gc import format_size
 
@@ -136,8 +137,8 @@ class TestLocalGC:
 
     def test_list_local_files_empty_dir(self) -> None:
         """List files in empty directory."""
-        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
         from scripts.dedup2d_uploads_gc import list_local_files
+        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
 
         with tempfile.TemporaryDirectory() as tmpdir:
             env = {
@@ -152,8 +153,8 @@ class TestLocalGC:
 
     def test_list_local_files_with_files(self) -> None:
         """List files in directory with content."""
-        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
         from scripts.dedup2d_uploads_gc import list_local_files
+        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create some test files
@@ -176,8 +177,8 @@ class TestLocalGC:
 
     def test_list_local_files_nonexistent_dir(self) -> None:
         """List files when directory doesn't exist."""
-        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
         from scripts.dedup2d_uploads_gc import list_local_files
+        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
 
         env = {
             "DEDUP2D_FILE_STORAGE": "local",
@@ -191,8 +192,8 @@ class TestLocalGC:
 
     def test_delete_local_file(self) -> None:
         """Delete a local file."""
-        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
         from scripts.dedup2d_uploads_gc import delete_local_file
+        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
 
         with tempfile.TemporaryDirectory() as tmpdir:
             test_file = Path(tmpdir) / "test.txt"
@@ -212,8 +213,8 @@ class TestLocalGC:
 
     def test_delete_local_file_removes_empty_parent(self) -> None:
         """Deleting file should remove empty parent directories."""
-        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
         from scripts.dedup2d_uploads_gc import delete_local_file
+        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
 
         with tempfile.TemporaryDirectory() as tmpdir:
             subdir = Path(tmpdir) / "job123" / "uuid"
@@ -236,8 +237,8 @@ class TestLocalGC:
 
     def test_delete_local_file_path_traversal_blocked(self) -> None:
         """Path traversal attempts should be blocked."""
-        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
         from scripts.dedup2d_uploads_gc import delete_local_file
+        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
 
         with tempfile.TemporaryDirectory() as tmpdir:
             env = {
@@ -257,8 +258,8 @@ class TestGCDryRun:
 
     def test_gc_dry_run_does_not_delete(self) -> None:
         """Dry run should not delete any files."""
-        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
         from scripts.dedup2d_uploads_gc import run_gc
+        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create old file
@@ -291,8 +292,8 @@ class TestGCDryRun:
 
     def test_gc_execute_deletes_old_files(self) -> None:
         """Execute mode should delete old files."""
-        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
         from scripts.dedup2d_uploads_gc import run_gc
+        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # Create old file

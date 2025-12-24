@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import time
 from typing import Any, Dict
 
-import time
 import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from src.main import app
 from src.api.v1.dedup import (
     get_dedupcad_vision_client,
     get_geom_store,
@@ -16,6 +15,7 @@ from src.api.v1.dedup import (
 )
 from src.core.dedupcad_2d_jobs import reset_dedup2d_job_store
 from src.core.dedupcad_precision.verifier import PrecisionScore
+from src.main import app
 
 
 @pytest.fixture(autouse=True)
@@ -75,7 +75,9 @@ class _FakeDedupClient:
 
 class _FailingDedupClient:
     async def health(self) -> Dict[str, Any]:
-        raise httpx.ConnectError("boom", request=httpx.Request("GET", "http://localhost:58001/health"))
+        raise httpx.ConnectError(
+            "boom", request=httpx.Request("GET", "http://localhost:58001/health")
+        )
 
 
 class _FakeDedupClientTwoCandidates:
@@ -279,9 +281,15 @@ def test_dedup_2d_search_preset_version_can_classify_mid_similarity_as_similar()
         client = TestClient(app)
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
-            "geom_json": ("geom.json", b'{"layers":{"0":{"name":"0"}},"entities":[]}', "application/json"),
+            "geom_json": (
+                "geom.json",
+                b'{"layers":{"0":{"name":"0"}},"entities":[]}',
+                "application/json",
+            ),
         }
-        resp = client.post("/api/v1/dedup/2d/search?preset=version&mode=balanced&max_results=10", files=files)
+        resp = client.post(
+            "/api/v1/dedup/2d/search?preset=version&mode=balanced&max_results=10", files=files
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["duplicates"] == []
@@ -303,7 +311,11 @@ def test_dedup_2d_search_preset_does_not_override_explicit_thresholds():
         client = TestClient(app)
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
-            "geom_json": ("geom.json", b'{"layers":{"0":{"name":"0"}},"entities":[]}', "application/json"),
+            "geom_json": (
+                "geom.json",
+                b'{"layers":{"0":{"name":"0"}},"entities":[]}',
+                "application/json",
+            ),
         }
         resp = client.post(
             "/api/v1/dedup/2d/search?preset=version&mode=balanced&max_results=10&similar_threshold=0.90",
@@ -328,7 +340,11 @@ def test_dedup_2d_search_precision_diff_can_be_requested():
         client = TestClient(app)
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
-            "geom_json": ("geom.json", b'{"layers":{"0":{"name":"0"}},"entities":[]}', "application/json"),
+            "geom_json": (
+                "geom.json",
+                b'{"layers":{"0":{"name":"0"}},"entities":[]}',
+                "application/json",
+            ),
         }
         resp = client.post(
             "/api/v1/dedup/2d/search?mode=balanced&max_results=10&precision_compute_diff=true&precision_diff_top_n=1",
@@ -356,7 +372,9 @@ def test_dedup_2d_index_add_stores_geom_json():
             "file": ("drawing.png", b"fake", "image/png"),
             "geom_json": ("geom.json", b'{"entities":[]}', "application/json"),
         }
-        resp = client.post("/api/v1/dedup/2d/index/add?user_name=tester&upload_to_s3=false", files=files)
+        resp = client.post(
+            "/api/v1/dedup/2d/index/add?user_name=tester&upload_to_s3=false", files=files
+        )
         assert resp.status_code == 200
         assert "geom_json stored" in resp.json()["message"]
         assert "abc" in fake_store.saved
@@ -412,7 +430,9 @@ def test_dedup_2d_tenant_config_put_requires_admin_token():
     app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
     try:
         client = TestClient(app)
-        resp = client.put("/api/v1/dedup/2d/config", json={"preset": "version"}, headers={"X-API-Key": "t1"})
+        resp = client.put(
+            "/api/v1/dedup/2d/config", json={"preset": "version"}, headers={"X-API-Key": "t1"}
+        )
         assert resp.status_code == 401
     finally:
         app.dependency_overrides.clear()
@@ -464,7 +484,11 @@ def test_dedup_2d_search_applies_tenant_preset_when_no_preset_given():
         client = TestClient(app)
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
-            "geom_json": ("geom.json", b'{"layers":{"0":{"name":"0"}},"entities":[]}', "application/json"),
+            "geom_json": (
+                "geom.json",
+                b'{"layers":{"0":{"name":"0"}},"entities":[]}',
+                "application/json",
+            ),
         }
         resp = client.post("/api/v1/dedup/2d/search?mode=balanced&max_results=10", files=files)
         assert resp.status_code == 200
@@ -491,9 +515,15 @@ def test_dedup_2d_search_explicit_preset_overrides_tenant_preset():
         client = TestClient(app)
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
-            "geom_json": ("geom.json", b'{"layers":{"0":{"name":"0"}},"entities":[]}', "application/json"),
+            "geom_json": (
+                "geom.json",
+                b'{"layers":{"0":{"name":"0"}},"entities":[]}',
+                "application/json",
+            ),
         }
-        resp = client.post("/api/v1/dedup/2d/search?preset=version&mode=balanced&max_results=10", files=files)
+        resp = client.post(
+            "/api/v1/dedup/2d/search?preset=version&mode=balanced&max_results=10", files=files
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["duplicates"] == []
@@ -536,7 +566,9 @@ def test_dedup_2d_search_async_returns_job_and_completes():
     try:
         client = TestClient(app)
         files = {"file": ("drawing.png", b"fake", "image/png")}
-        resp = client.post("/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true", files=files)
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true", files=files
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["job_id"]
@@ -572,7 +604,9 @@ def test_dedup_2d_search_async_cancel():
     try:
         client = TestClient(app)
         files = {"file": ("drawing.png", b"fake", "image/png")}
-        resp = client.post("/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true", files=files)
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true", files=files
+        )
         assert resp.status_code == 200
         job_id = resp.json()["job_id"]
 
@@ -831,7 +865,9 @@ def test_dedup_2d_async_backend_redis_can_submit_and_poll(monkeypatch):
 
     async def _fake_submit(**kwargs):  # noqa: ANN001
         assert kwargs.get("callback_url") == "https://example.com/hook"
-        return Dedup2DJob(job_id="job_redis_1", tenant_id="tenant:test", status=Dedup2DJobStatus.PENDING)
+        return Dedup2DJob(
+            job_id="job_redis_1", tenant_id="tenant:test", status=Dedup2DJobStatus.PENDING
+        )
 
     async def _fake_depth():  # noqa: ANN001
         return 0

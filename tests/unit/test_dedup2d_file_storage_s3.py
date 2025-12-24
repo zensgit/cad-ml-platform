@@ -41,10 +41,7 @@ class TestS3Dedup2DFileStorageConfig:
 
     def test_s3_bucket_required(self) -> None:
         """S3 backend requires bucket to be set."""
-        from src.core.dedup2d_file_storage import (
-            Dedup2DFileStorageConfig,
-            S3Dedup2DFileStorage,
-        )
+        from src.core.dedup2d_file_storage import Dedup2DFileStorageConfig, S3Dedup2DFileStorage
 
         env = {
             "DEDUP2D_FILE_STORAGE": "s3",
@@ -311,10 +308,7 @@ class TestCreateFileStorageFactory:
 
     def test_create_s3_storage(self) -> None:
         """Factory should create S3 storage when backend is 's3'."""
-        from src.core.dedup2d_file_storage import (
-            S3Dedup2DFileStorage,
-            create_dedup2d_file_storage,
-        )
+        from src.core.dedup2d_file_storage import S3Dedup2DFileStorage, create_dedup2d_file_storage
 
         env = {
             "DEDUP2D_FILE_STORAGE": "s3",

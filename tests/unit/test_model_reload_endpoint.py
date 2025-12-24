@@ -2,10 +2,15 @@ import os
 import pickle
 from pathlib import Path
 from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from src.main import app
-from tests.unit.test_model_reload_errors_structured_support import DummyModel, GoodModel, VersionedModel
+from tests.unit.test_model_reload_errors_structured_support import (
+    DummyModel,
+    GoodModel,
+    VersionedModel,
+)
 
 
 def test_model_reload_success(tmp_path):
@@ -43,6 +48,21 @@ def test_model_reload_not_found():
     # Verify structured error
     assert "error" in data
     assert data["error"]["code"] in ("DATA_NOT_FOUND", "MODEL_NOT_FOUND")
+
+
+def test_model_reload_missing_path_uses_default(tmp_path, monkeypatch):
+    model_path = tmp_path / "missing_default.pkl"
+    monkeypatch.setenv("CLASSIFICATION_MODEL_PATH", str(model_path))
+    client = TestClient(app)
+    r = client.post(
+        "/api/v1/model/reload",
+        json={"force": True},
+        headers={"X-API-Key": "test", "X-Admin-Token": "test"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "not_found"
+    assert data["error"]["context"]["path"] == str(model_path)
 
 
 def test_model_reload_size_exceeded(tmp_path, monkeypatch):
@@ -94,7 +114,7 @@ def test_model_reload_version_mismatch(tmp_path, monkeypatch):
             json={
                 "path": str(model_path),
                 "expected_version": "v2.0",  # Mismatch with env var
-                "force": False  # Don't force - should fail on mismatch
+                "force": False,  # Don't force - should fail on mismatch
             },
             headers={"X-API-Key": "test", "X-Admin-Token": "test"},
         )
@@ -115,10 +135,7 @@ def test_model_reload_rollback_on_failure(tmp_path):
         client = TestClient(app)
         r = client.post(
             "/api/v1/model/reload",
-            json={
-                "path": str(bad_model_path),
-                "force": True
-            },
+            json={"path": str(bad_model_path), "force": True},
             headers={"X-API-Key": "test", "X-Admin-Token": "test"},
         )
 

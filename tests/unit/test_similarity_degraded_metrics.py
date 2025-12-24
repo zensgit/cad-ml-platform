@@ -7,7 +7,7 @@ restored events when requesting Faiss backend via get_vector_store().
 from __future__ import annotations
 
 import os
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -15,6 +15,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def reset_state():
     from src.core.similarity import reset_default_store
+
     reset_default_store()
     yield
     reset_default_store()
@@ -23,7 +24,7 @@ def reset_state():
 def _read_metric_counter(counter) -> int:
     # Helper to read Prometheus counter value robustly
     try:
-        return int(getattr(counter, '_value').get())  # type: ignore[attr-defined]
+        return int(getattr(counter, "_value").get())  # type: ignore[attr-defined]
     except Exception:
         # Fallback; some dummy counters may expose simple attribute
         try:
@@ -34,8 +35,8 @@ def _read_metric_counter(counter) -> int:
 
 def test_similarity_degraded_metric_increment_on_degrade():
     """Faiss unavailable should increment degraded event metric."""
-    from src.utils.analysis_metrics import similarity_degraded_total
     from src.core.similarity import get_vector_store
+    from src.utils.analysis_metrics import similarity_degraded_total
 
     before = _read_metric_counter(similarity_degraded_total.labels(event="degraded"))
 
@@ -54,8 +55,8 @@ def test_similarity_degraded_metric_increment_on_degrade():
 
 def test_similarity_restored_metric_increment_on_recovery():
     """Faiss available after degradation should increment restored event metric."""
-    from src.utils.analysis_metrics import similarity_degraded_total
     from src.core.similarity import get_vector_store
+    from src.utils.analysis_metrics import similarity_degraded_total
 
     # First trigger degradation
     os.environ["VECTOR_STORE_BACKEND"] = "faiss"
@@ -66,7 +67,9 @@ def test_similarity_restored_metric_increment_on_recovery():
             MockFaiss.return_value = inst
             get_vector_store("faiss")
 
-        degraded_before_restore = _read_metric_counter(similarity_degraded_total.labels(event="degraded"))
+        degraded_before_restore = _read_metric_counter(
+            similarity_degraded_total.labels(event="degraded")
+        )
         restored_before = _read_metric_counter(similarity_degraded_total.labels(event="restored"))
 
         # Now simulate successful availability (restoration)
@@ -76,7 +79,9 @@ def test_similarity_restored_metric_increment_on_recovery():
             MockFaiss.return_value = inst2
             get_vector_store("faiss")
 
-        degraded_after_restore = _read_metric_counter(similarity_degraded_total.labels(event="degraded"))
+        degraded_after_restore = _read_metric_counter(
+            similarity_degraded_total.labels(event="degraded")
+        )
         restored_after = _read_metric_counter(similarity_degraded_total.labels(event="restored"))
 
         # Degraded count unchanged; restored incremented by 1
@@ -88,8 +93,8 @@ def test_similarity_restored_metric_increment_on_recovery():
 
 def test_similarity_no_restore_without_previous_degrade():
     """If Faiss is available initially, restored metric should not increment."""
-    from src.utils.analysis_metrics import similarity_degraded_total
     from src.core.similarity import get_vector_store, reset_default_store
+    from src.utils.analysis_metrics import similarity_degraded_total
 
     os.environ["VECTOR_STORE_BACKEND"] = "faiss"
     try:

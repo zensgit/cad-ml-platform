@@ -5,6 +5,7 @@ import pickle
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 
 from tests.unit.test_model_reload_errors_structured_support import DummyModel, GoodModel
@@ -74,8 +75,9 @@ def test_model_magic_number_validation_fail_pe_binary(tmp_path):
 
 def test_model_hash_whitelist_validation_success(tmp_path):
     """Test model reload succeeds when hash is in whitelist."""
-    from src.ml.classifier import reload_model
     import hashlib
+
+    from src.ml.classifier import reload_model
 
     # Create a valid model
     model_path = tmp_path / "whitelisted_model.pkl"
@@ -115,13 +117,17 @@ def test_model_hash_whitelist_validation_fail(tmp_path):
     assert "error" in result
     assert "expected_hashes" in result["error"]["context"]
     assert "found_hash" in result["error"]["context"]
-    assert result["error"]["context"]["found_hash"] not in result["error"]["context"]["expected_hashes"]
+    assert (
+        result["error"]["context"]["found_hash"]
+        not in result["error"]["context"]["expected_hashes"]
+    )
 
 
 def test_model_hash_whitelist_multiple_allowed(tmp_path):
     """Test model reload with multiple hashes in whitelist."""
-    from src.ml.classifier import reload_model
     import hashlib
+
+    from src.ml.classifier import reload_model
 
     # Create model
     model_path = tmp_path / "model.pkl"
@@ -195,7 +201,9 @@ def test_model_reload_without_whitelist_skips_hash_check(tmp_path):
         pickle.dump(DummyModel(), f, protocol=4)
 
     # Ensure no whitelist set and disable opcode scan
-    with patch.dict(os.environ, {"ALLOWED_MODEL_HASHES": "", "MODEL_OPCODE_SCAN": "0"}, clear=False):
+    with patch.dict(
+        os.environ, {"ALLOWED_MODEL_HASHES": "", "MODEL_OPCODE_SCAN": "0"}, clear=False
+    ):
         result = reload_model(str(model_path), force=True)
 
     # Should not fail on hash (whitelist not configured)

@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
+
 from src.main import app
 from src.utils.analysis_metrics import vector_migrate_total
-
 
 client = TestClient(app)
 
@@ -20,6 +20,7 @@ def _counter_values(counter):
 def test_vector_migrate_metrics_all_statuses(monkeypatch):
     # Prepare in-memory vectors with different feature versions
     from src.core import similarity
+
     similarity._VECTOR_STORE.clear()  # type: ignore
     similarity._VECTOR_META.clear()  # type: ignore
 
@@ -38,6 +39,7 @@ def test_vector_migrate_metrics_all_statuses(monkeypatch):
 
     # Monkeypatch upgrade_vector to raise for length 999
     from src.core.feature_extractor import FeatureExtractor as FE
+
     original_upgrade = FE.upgrade_vector
 
     def faulty(self, existing, current_version=None):  # type: ignore
@@ -77,7 +79,7 @@ def test_vector_migrate_metrics_all_statuses(monkeypatch):
     values = _counter_values(vector_migrate_total)
     # Ensure each status had at least one increment
     for status in ["dry_run", "skipped", "not_found", "error", "migrated"]:
-        assert status in values and values[status] > 0, f"Missing counter for {status}" 
+        assert status in values and values[status] > 0, f"Missing counter for {status}"
 
 
 def test_vector_migrate_invalid_version():

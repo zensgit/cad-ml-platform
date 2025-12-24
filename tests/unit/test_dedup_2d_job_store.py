@@ -17,6 +17,7 @@ from unittest import mock
 import pytest
 
 from src.core.dedupcad_2d_jobs import (
+    _MULTI_WORKER_WARNING_ISSUED,
     Dedup2DJob,
     Dedup2DJobStatus,
     Dedup2DJobStore,
@@ -24,7 +25,6 @@ from src.core.dedupcad_2d_jobs import (
     JobNotFoundError,
     JobQueueFullError,
     _check_multi_worker_warning,
-    _MULTI_WORKER_WARNING_ISSUED,
     get_dedup2d_job_store,
     reset_dedup2d_job_store,
 )
@@ -195,6 +195,7 @@ class TestDedup2DJobStoreQueueCapacity:
         store = Dedup2DJobStore(max_concurrency=1, max_jobs=2, ttl_seconds=60)
 
         try:
+
             async def slow_runner() -> Dict[str, Any]:
                 await asyncio.sleep(10.0)
                 return {"success": True}

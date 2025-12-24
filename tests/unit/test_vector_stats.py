@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from src.main import app
 from src.core.similarity import register_vector
+from src.main import app
 
 client = TestClient(app)
 
@@ -25,7 +25,9 @@ def test_vector_stats_counts():
     # register some vectors
     for m in ["steel", "aluminum", "steel"]:
         vid = str(uuid.uuid4())
-        register_vector(vid, [0.1, 0.2, 0.3], meta={"material": m, "complexity": "low", "format": "dxf"})
+        register_vector(
+            vid, [0.1, 0.2, 0.3], meta={"material": m, "complexity": "low", "format": "dxf"}
+        )
     resp = client.get("/api/v1/vectors_stats/stats", headers={"X-API-Key": "test"})
     assert resp.status_code == 200
     data = resp.json()
@@ -45,13 +47,19 @@ def test_vector_stats_redis_backend():
         b"vector:beta": {
             b"v": "0.4,0.5",
             b"m": json.dumps(
-                {"material": "aluminum", "complexity": "mid", "format": "dwg", "feature_version": "v3"}
+                {
+                    "material": "aluminum",
+                    "complexity": "mid",
+                    "format": "dwg",
+                    "feature_version": "v3",
+                }
             ),
         },
     }
     dummy = DummyRedis(redis_data)
-    with patch("src.api.v1.vectors_stats.get_client", return_value=dummy), \
-        patch("src.core.similarity._BACKEND", "redis"):
+    with patch("src.api.v1.vectors_stats.get_client", return_value=dummy), patch(
+        "src.core.similarity._BACKEND", "redis"
+    ):
         resp = client.get("/api/v1/vectors_stats/stats", headers={"X-API-Key": "test"})
     assert resp.status_code == 200
     data = resp.json()

@@ -13,7 +13,6 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 
-
 client = TestClient(app)
 
 
@@ -21,4 +20,3 @@ client = TestClient(app)
 def test_model_security_rollback_health_fields() -> None:
     response = client.get("/api/v1/health/model")
     assert response.status_code == 200
-

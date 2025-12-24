@@ -6,8 +6,9 @@ when model reloading fails and triggers automatic rollback to previous versions.
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -88,10 +89,7 @@ def test_model_health_no_rollback(mock_model_info_no_rollback):
     with patch("src.ml.classifier.get_model_info") as mock_info:
         mock_info.return_value = mock_model_info_no_rollback
 
-        response = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -113,10 +111,7 @@ def test_model_health_rollback_level1(mock_model_info_rollback_level1):
     with patch("src.ml.classifier.get_model_info") as mock_info:
         mock_info.return_value = mock_model_info_rollback_level1
 
-        response = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -137,10 +132,7 @@ def test_model_health_rollback_level2(mock_model_info_rollback_level2):
     with patch("src.ml.classifier.get_model_info") as mock_info:
         mock_info.return_value = mock_model_info_rollback_level2
 
-        response = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -161,10 +153,7 @@ def test_model_health_absent(mock_model_info_absent):
     with patch("src.ml.classifier.get_model_info") as mock_info:
         mock_info.return_value = mock_model_info_absent
 
-        response = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -198,10 +187,7 @@ def test_model_health_metric_recording():
             "has_prev2": False,
         }
 
-        response = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         # Metric should be recorded with status="ok"
@@ -210,10 +196,7 @@ def test_model_health_metric_recording():
         mock_info.return_value["rollback_level"] = 1
         mock_info.return_value["rollback_reason"] = "Test rollback"
 
-        response = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -237,10 +220,7 @@ def test_model_health_rollback_clear_after_recovery():
             "has_prev2": False,
         }
 
-        response1 = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response1 = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response1.status_code == 200
         data1 = response1.json()
@@ -261,10 +241,7 @@ def test_model_health_rollback_clear_after_recovery():
             "has_prev2": False,
         }
 
-        response2 = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response2 = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response2.status_code == 200
         data2 = response2.json()
@@ -303,20 +280,19 @@ def test_model_health_consecutive_failures():
 
         for state in states:
             # Add common fields
-            state.update({
-                "hash": "test",
-                "path": "/test.pkl",
-                "loaded_at": 1700000000.0,
-                "last_error": None,
-                "has_prev": True,
-                "has_prev2": True,
-            })
+            state.update(
+                {
+                    "hash": "test",
+                    "path": "/test.pkl",
+                    "loaded_at": 1700000000.0,
+                    "last_error": None,
+                    "has_prev": True,
+                    "has_prev2": True,
+                }
+            )
             mock_info.return_value = state
 
-            response = client.get(
-                "/api/v1/health/model",
-                headers={"X-API-Key": "test"}
-            )
+            response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
             assert response.status_code == 200
             data = response.json()

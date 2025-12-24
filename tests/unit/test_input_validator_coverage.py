@@ -14,7 +14,7 @@ Covers:
 from __future__ import annotations
 
 import os
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -299,7 +299,9 @@ class TestMatrixValidate:
         """Test returns True when no spec for format."""
         from src.security.input_validator import matrix_validate
 
-        with patch("src.security.input_validator.load_validation_matrix", return_value={"formats": {}}):
+        with patch(
+            "src.security.input_validator.load_validation_matrix", return_value={"formats": {}}
+        ):
             valid, reason = matrix_validate(b"data", "xyz")
 
         assert valid is True

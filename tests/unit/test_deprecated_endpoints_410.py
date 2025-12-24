@@ -99,7 +99,9 @@ def test_deprecated_endpoint_returns_410_with_structured_error(endpoint):
     assert isinstance(detail, dict), f"Detail should be dict, got {type(detail)}"
 
     # Assert error code is RESOURCE_GONE (ErrorCode.GONE.value)
-    assert detail.get("code") == "RESOURCE_GONE", f"Expected code=RESOURCE_GONE, got {detail.get('code')}"
+    assert (
+        detail.get("code") == "RESOURCE_GONE"
+    ), f"Expected code=RESOURCE_GONE, got {detail.get('code')}"
 
     # Get context which contains migration metadata
     context = detail.get("context", {})
@@ -111,40 +113,34 @@ def test_deprecated_endpoint_returns_410_with_structured_error(endpoint):
     assert "migration_date" in context, "Missing migration_date in context"
 
     # Validate deprecated_path matches
-    assert context["deprecated_path"] == endpoint["old_path"], \
-        f"deprecated_path mismatch: {context['deprecated_path']} != {endpoint['old_path']}"
+    assert (
+        context["deprecated_path"] == endpoint["old_path"]
+    ), f"deprecated_path mismatch: {context['deprecated_path']} != {endpoint['old_path']}"
 
     # Validate method matches
-    assert context["method"] == method, \
-        f"method mismatch: {context['method']} != {method}"
+    assert context["method"] == method, f"method mismatch: {context['method']} != {method}"
 
 
 def test_deprecated_endpoint_error_message_clarity():
     """Test that error message provides clear migration guidance."""
-    resp = client.get(
-        "/api/v1/analyze/vectors/distribution",
-        headers={"X-API-Key": "test"}
-    )
+    resp = client.get("/api/v1/analyze/vectors/distribution", headers={"X-API-Key": "test"})
 
     assert resp.status_code == 410
     detail = resp.json()["detail"]
 
     # Check message includes migration guidance
     message = detail.get("message", "")
-    assert "moved" in message.lower() or "use" in message.lower(), \
-        f"Message should provide migration guidance: {message}"
+    assert (
+        "moved" in message.lower() or "use" in message.lower()
+    ), f"Message should provide migration guidance: {message}"
     context = detail.get("context", {})
-    assert context["new_path"] in message, \
-        f"Message should mention new path: {message}"
+    assert context["new_path"] in message, f"Message should mention new path: {message}"
 
 
 def test_deprecated_endpoint_severity():
     """Test that GONE errors have appropriate severity (INFO level)."""
     # Use a working deprecated endpoint (not /vectors which has routing issue)
-    resp = client.get(
-        "/api/v1/analyze/vectors/stats",
-        headers={"X-API-Key": "test"}
-    )
+    resp = client.get("/api/v1/analyze/vectors/stats", headers={"X-API-Key": "test"})
 
     assert resp.status_code == 410
     detail = resp.json()["detail"]
@@ -160,17 +156,16 @@ def test_all_deprecated_endpoints_covered():
     # This is a meta-test to ensure we don't miss any deprecated endpoints
     # If a new 410 endpoint is added, this test should be updated
     # Note: One endpoint (/analyze/vectors) is excluded due to routing order issue
-    assert len(DEPRECATED_ENDPOINTS) >= 7, \
-        f"Expected at least 7 deprecated endpoints, got {len(DEPRECATED_ENDPOINTS)}"
+    assert (
+        len(DEPRECATED_ENDPOINTS) >= 7
+    ), f"Expected at least 7 deprecated endpoints, got {len(DEPRECATED_ENDPOINTS)}"
 
 
 def test_deprecated_vector_delete_POST_migration():
     """Specific test for POST /vectors/delete migration to new endpoint."""
     # Old POST method (deprecated)
     resp = client.post(
-        "/api/v1/analyze/vectors/delete",
-        json={"id": "test-id"},
-        headers={"X-API-Key": "test"}
+        "/api/v1/analyze/vectors/delete", json={"id": "test-id"}, headers={"X-API-Key": "test"}
     )
 
     assert resp.status_code == 410
@@ -185,7 +180,7 @@ def test_deprecated_model_reload_migration():
     resp = client.post(
         "/api/v1/analyze/model/reload",
         json={"path": "/tmp/model.bin"},
-        headers={"X-API-Key": "test"}
+        headers={"X-API-Key": "test"},
     )
 
     assert resp.status_code == 410

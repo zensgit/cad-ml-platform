@@ -221,10 +221,7 @@ class TestDualWritePayload:
     @pytest.mark.asyncio
     async def test_payload_includes_bytes_b64_when_enabled_small_file(self) -> None:
         """When enabled and file is small, payload should include file_bytes_b64."""
-        from src.core.dedupcad_2d_jobs_redis import (
-            Dedup2DPayloadConfig,
-            _encode_bytes_b64,
-        )
+        from src.core.dedupcad_2d_jobs_redis import Dedup2DPayloadConfig, _encode_bytes_b64
 
         env = {
             "DEDUP2D_JOB_PAYLOAD_INCLUDE_BYTES_B64": "1",
@@ -251,10 +248,7 @@ class TestDualWritePayload:
     @pytest.mark.asyncio
     async def test_payload_excludes_bytes_b64_when_file_too_large(self) -> None:
         """When file exceeds max size, payload should not include file_bytes_b64."""
-        from src.core.dedupcad_2d_jobs_redis import (
-            Dedup2DPayloadConfig,
-            _encode_bytes_b64,
-        )
+        from src.core.dedupcad_2d_jobs_redis import Dedup2DPayloadConfig, _encode_bytes_b64
 
         env = {
             "DEDUP2D_JOB_PAYLOAD_INCLUDE_BYTES_B64": "1",

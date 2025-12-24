@@ -7,8 +7,9 @@ invalid backend names, initialization failures, and proper metric recording.
 from __future__ import annotations
 
 import os
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -21,10 +22,12 @@ _original_getenv = os.getenv
 
 def make_getenv_side_effect(backend_value: str):
     """Create a getenv side_effect that only overrides VECTOR_STORE_BACKEND."""
+
     def getenv_side_effect(key, default=None):
         if key == "VECTOR_STORE_BACKEND":
             return backend_value
         return _original_getenv(key, default)
+
     return getenv_side_effect
 
 
@@ -44,8 +47,7 @@ def test_backend_reload_invalid_backend():
             mock_reload.return_value = False
 
             response = client.post(
-                "/api/v1/maintenance/vectors/backend/reload",
-                headers={"X-API-Key": "test"}
+                "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
             )
 
             # Should return 500 with structured error
@@ -85,8 +87,7 @@ def test_backend_reload_initialization_failure():
         mock_reload.side_effect = Exception("Backend initialization failed")
 
         response = client.post(
-            "/api/v1/maintenance/vectors/backend/reload",
-            headers={"X-API-Key": "test"}
+            "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
         )
 
         # Should return 500 with structured error
@@ -122,8 +123,7 @@ def test_backend_reload_success():
             mock_getenv.side_effect = getenv_side_effect
 
             response = client.post(
-                "/api/v1/maintenance/vectors/backend/reload",
-                headers={"X-API-Key": "test"}
+                "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
             )
 
             # Should return 200 OK
@@ -146,8 +146,7 @@ def test_backend_reload_metric_recording():
             mock_getenv.side_effect = make_getenv_side_effect("memory")
 
             response = client.post(
-                "/api/v1/maintenance/vectors/backend/reload",
-                headers={"X-API-Key": "test"}
+                "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
             )
 
             assert response.status_code == 200
@@ -157,8 +156,7 @@ def test_backend_reload_metric_recording():
         mock_reload.side_effect = Exception("Test error")
 
         response = client.post(
-            "/api/v1/maintenance/vectors/backend/reload",
-            headers={"X-API-Key": "test"}
+            "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
         )
 
         assert response.status_code == 500
@@ -175,6 +173,7 @@ def test_backend_reload_returns_current_backend():
 
         for backend_name in backends:
             with patch("os.getenv") as mock_getenv:
+
                 def getenv_side_effect(key, default=None):
                     if key == "VECTOR_STORE_BACKEND":
                         return backend_name
@@ -183,8 +182,7 @@ def test_backend_reload_returns_current_backend():
                 mock_getenv.side_effect = getenv_side_effect
 
                 response = client.post(
-                    "/api/v1/maintenance/vectors/backend/reload",
-                    headers={"X-API-Key": "test"}
+                    "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
                 )
 
                 assert response.status_code == 200
@@ -201,8 +199,7 @@ def test_backend_reload_error_has_suggestion():
             mock_getenv.side_effect = make_getenv_side_effect("faiss")
 
             response = client.post(
-                "/api/v1/maintenance/vectors/backend/reload",
-                headers={"X-API-Key": "test"}
+                "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
             )
 
             assert response.status_code == 500
@@ -215,7 +212,10 @@ def test_backend_reload_error_has_suggestion():
                 assert isinstance(suggestion, str)
                 assert len(suggestion) > 0
                 # Should mention checking configuration or logs
-                assert any(word in suggestion.lower() for word in ["check", "log", "configuration", "backend"])
+                assert any(
+                    word in suggestion.lower()
+                    for word in ["check", "log", "configuration", "backend"]
+                )
 
 
 def test_backend_reload_structured_error_format():
@@ -224,8 +224,7 @@ def test_backend_reload_structured_error_format():
         mock_reload.side_effect = RuntimeError("Test failure")
 
         response = client.post(
-            "/api/v1/maintenance/vectors/backend/reload",
-            headers={"X-API-Key": "test"}
+            "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
         )
 
         assert response.status_code == 500
@@ -275,14 +274,14 @@ def test_backend_reload_concurrent_conflict():
                 def slow_reload():
                     time.sleep(0.1)
                     return True
+
                 mock_reload.side_effect = slow_reload
 
                 with patch("os.getenv") as mock_getenv:
                     mock_getenv.side_effect = make_getenv_side_effect("memory")
 
                     response = client.post(
-                        "/api/v1/maintenance/vectors/backend/reload",
-                        headers={"X-API-Key": "test"}
+                        "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
                     )
                     results.append((idx, response.status_code))
         except Exception as e:
@@ -311,8 +310,7 @@ def test_backend_reload_config_file_missing():
         mock_reload.side_effect = FileNotFoundError("Configuration file not found")
 
         response = client.post(
-            "/api/v1/maintenance/vectors/backend/reload",
-            headers={"X-API-Key": "test"}
+            "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
         )
 
         # Should return 500 with structured error
@@ -335,8 +333,7 @@ def test_backend_reload_permission_denied():
         mock_reload.side_effect = PermissionError("Permission denied: cannot write to index file")
 
         response = client.post(
-            "/api/v1/maintenance/vectors/backend/reload",
-            headers={"X-API-Key": "test"}
+            "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
         )
 
         # Should return 500 with structured error
@@ -359,8 +356,7 @@ def test_backend_reload_timeout():
         mock_reload.side_effect = TimeoutError("Backend reload timed out after 30s")
 
         response = client.post(
-            "/api/v1/maintenance/vectors/backend/reload",
-            headers={"X-API-Key": "test"}
+            "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
         )
 
         # Should return 500 with structured error
@@ -381,8 +377,7 @@ def test_backend_reload_memory_error():
         mock_reload.side_effect = MemoryError("Not enough memory to load index")
 
         response = client.post(
-            "/api/v1/maintenance/vectors/backend/reload",
-            headers={"X-API-Key": "test"}
+            "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
         )
 
         # Should return 500 with structured error
@@ -405,8 +400,7 @@ def test_backend_reload_partial_failure():
             mock_getenv.side_effect = make_getenv_side_effect("faiss")
 
             response = client.post(
-                "/api/v1/maintenance/vectors/backend/reload",
-                headers={"X-API-Key": "test"}
+                "/api/v1/maintenance/vectors/backend/reload", headers={"X-API-Key": "test"}
             )
 
             # Should return 500 indicating partial/full failure

@@ -13,7 +13,7 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timezone
 from typing import Dict
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -113,7 +113,9 @@ class TestHealthCheck:
             )
             with patch("src.main.get_ocr_error_rate_ema", return_value=0.01):
                 with patch("src.main.get_vision_error_rate_ema", return_value=0.02):
-                    with patch("src.main.get_resilience_health", side_effect=Exception("Module error")):
+                    with patch(
+                        "src.main.get_resilience_health", side_effect=Exception("Module error")
+                    ):
                         result = await health_check()
 
         # Should still return healthy even if resilience fails
@@ -144,6 +146,7 @@ class TestExtendedHealth:
     async def test_extended_health_with_faiss_enabled(self):
         """Test extended health with Faiss enabled."""
         import time
+
         from src.main import extended_health
 
         export_ts = time.time() - 100  # 100 seconds ago
@@ -179,6 +182,7 @@ class TestReadinessCheck:
     async def test_readiness_models_not_loaded(self):
         """Test readiness check when models not loaded."""
         from fastapi import HTTPException
+
         from src.main import readiness_check
 
         with patch("src.main.settings", MagicMock(REDIS_ENABLED=False)):
@@ -194,6 +198,7 @@ class TestReadinessCheck:
     async def test_readiness_redis_not_ready(self):
         """Test readiness check when Redis not ready."""
         from fastapi import HTTPException
+
         from src.main import readiness_check
 
         with patch("src.main.settings", MagicMock(REDIS_ENABLED=True)):
@@ -354,7 +359,7 @@ class TestFaissAgeCalculation:
     def test_age_none_when_no_export(self):
         """Test age is None when no export timestamp."""
         export_ts = None
-        
+
         if export_ts:
             age = 100.0
         else:

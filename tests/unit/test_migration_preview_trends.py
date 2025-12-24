@@ -10,15 +10,16 @@ Verifies that:
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime, timedelta
-from typing import Dict, Any
-from unittest.mock import patch, MagicMock
+from typing import Any, Dict
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from src.api.v1.vectors import (
+    VectorMigrateItem,
     VectorMigrationPreviewResponse,
     VectorMigrationTrendsResponse,
-    VectorMigrateItem,
 )
 
 
@@ -40,7 +41,7 @@ class TestMigrationPreviewEndpoint:
             "vec1": [1.0] * 22,  # v3 vector (22 dimensions)
             "vec2": [2.0] * 22,  # v3 vector
             "vec3": [3.0] * 24,  # v4 vector (24 dimensions)
-            "vec4": [4.0] * 7,   # v1 vector (7 dimensions)
+            "vec4": [4.0] * 7,  # v1 vector (7 dimensions)
             "vec5": [5.0] * 12,  # v2 vector (12 dimensions)
         }
         meta = {
@@ -148,8 +149,9 @@ class TestMigrationPreviewEndpoint:
     @pytest.mark.asyncio
     async def test_preview_invalid_version_rejected(self, mock_vector_store):
         """Preview should reject invalid target version."""
-        from src.api.v1.vectors import preview_migration
         from fastapi import HTTPException
+
+        from src.api.v1.vectors import preview_migration
 
         with patch("src.api.v1.vectors.get_api_key", return_value="test-key"):
             with pytest.raises(HTTPException) as exc_info:
@@ -192,8 +194,8 @@ class TestMigrationTrendsEndpoint:
     @pytest.mark.asyncio
     async def test_trends_empty_history(self, mock_empty_store):
         """Trends should handle empty history."""
-        from src.api.v1.vectors import migrate_trends
         import src.api.v1.vectors as vectors_module
+        from src.api.v1.vectors import migrate_trends
 
         # Clear history
         vectors_module._VECTOR_MIGRATION_HISTORY = []
@@ -209,8 +211,8 @@ class TestMigrationTrendsEndpoint:
     @pytest.mark.asyncio
     async def test_trends_with_history(self, mock_store_with_versions):
         """Trends should calculate stats from history."""
-        from src.api.v1.vectors import migrate_trends
         import src.api.v1.vectors as vectors_module
+        from src.api.v1.vectors import migrate_trends
 
         # Set up history
         now = datetime.utcnow()
@@ -228,7 +230,7 @@ class TestMigrationTrendsEndpoint:
                     "downgraded": 0,
                     "error": 0,
                     "not_found": 0,
-                }
+                },
             }
         ]
 
@@ -241,8 +243,8 @@ class TestMigrationTrendsEndpoint:
     @pytest.mark.asyncio
     async def test_trends_v4_adoption_rate(self, mock_store_with_versions):
         """Trends should calculate v4 adoption rate correctly."""
-        from src.api.v1.vectors import migrate_trends
         import src.api.v1.vectors as vectors_module
+        from src.api.v1.vectors import migrate_trends
 
         vectors_module._VECTOR_MIGRATION_HISTORY = []
 
@@ -256,8 +258,8 @@ class TestMigrationTrendsEndpoint:
     @pytest.mark.asyncio
     async def test_trends_time_window_filtering(self, mock_store_with_versions):
         """Trends should filter by time window."""
-        from src.api.v1.vectors import migrate_trends
         import src.api.v1.vectors as vectors_module
+        from src.api.v1.vectors import migrate_trends
 
         now = datetime.utcnow()
         old_time = now - timedelta(hours=48)
@@ -267,14 +269,14 @@ class TestMigrationTrendsEndpoint:
                 "migration_id": "old",
                 "started_at": old_time.isoformat(),
                 "total": 100,
-                "counts": {"migrated": 100}
+                "counts": {"migrated": 100},
             },
             {
                 "migration_id": "new",
                 "started_at": now.isoformat(),
                 "total": 10,
-                "counts": {"migrated": 10}
-            }
+                "counts": {"migrated": 10},
+            },
         ]
 
         with patch("src.api.v1.vectors.get_api_key", return_value="test-key"):
@@ -287,8 +289,8 @@ class TestMigrationTrendsEndpoint:
     @pytest.mark.asyncio
     async def test_trends_error_rate(self, mock_store_with_versions):
         """Trends should calculate error rate correctly."""
-        from src.api.v1.vectors import migrate_trends
         import src.api.v1.vectors as vectors_module
+        from src.api.v1.vectors import migrate_trends
 
         now = datetime.utcnow()
         vectors_module._VECTOR_MIGRATION_HISTORY = [
@@ -302,7 +304,7 @@ class TestMigrationTrendsEndpoint:
                     "downgraded": 0,
                     "error": 2,
                     "not_found": 2,
-                }
+                },
             }
         ]
 
@@ -315,8 +317,8 @@ class TestMigrationTrendsEndpoint:
     @pytest.mark.asyncio
     async def test_trends_downgrade_rate(self, mock_store_with_versions):
         """Trends should calculate downgrade rate correctly."""
-        from src.api.v1.vectors import migrate_trends
         import src.api.v1.vectors as vectors_module
+        from src.api.v1.vectors import migrate_trends
 
         now = datetime.utcnow()
         vectors_module._VECTOR_MIGRATION_HISTORY = [
@@ -330,7 +332,7 @@ class TestMigrationTrendsEndpoint:
                     "downgraded": 5,
                     "error": 0,
                     "not_found": 0,
-                }
+                },
             }
         ]
 
@@ -343,8 +345,8 @@ class TestMigrationTrendsEndpoint:
     @pytest.mark.asyncio
     async def test_trends_migration_velocity(self, mock_store_with_versions):
         """Trends should calculate migration velocity correctly."""
-        from src.api.v1.vectors import migrate_trends
         import src.api.v1.vectors as vectors_module
+        from src.api.v1.vectors import migrate_trends
 
         now = datetime.utcnow()
         vectors_module._VECTOR_MIGRATION_HISTORY = [
@@ -352,7 +354,7 @@ class TestMigrationTrendsEndpoint:
                 "migration_id": "test1",
                 "started_at": now.isoformat(),
                 "total": 24,
-                "counts": {"migrated": 24}
+                "counts": {"migrated": 24},
             }
         ]
 
@@ -365,8 +367,8 @@ class TestMigrationTrendsEndpoint:
     @pytest.mark.asyncio
     async def test_trends_time_range_returned(self, mock_store_with_versions):
         """Trends should return time range."""
-        from src.api.v1.vectors import migrate_trends
         import src.api.v1.vectors as vectors_module
+        from src.api.v1.vectors import migrate_trends
 
         vectors_module._VECTOR_MIGRATION_HISTORY = []
 
@@ -419,8 +421,8 @@ class TestMigrationTrendsEdgeCases:
     @pytest.mark.asyncio
     async def test_trends_zero_window_hours(self):
         """Trends should handle zero window hours."""
-        from src.api.v1.vectors import migrate_trends
         import src.api.v1.vectors as vectors_module
+        from src.api.v1.vectors import migrate_trends
 
         vectors_module._VECTOR_MIGRATION_HISTORY = []
 
@@ -434,8 +436,8 @@ class TestMigrationTrendsEdgeCases:
     @pytest.mark.asyncio
     async def test_trends_invalid_history_entries(self):
         """Trends should handle invalid history entries."""
-        from src.api.v1.vectors import migrate_trends
         import src.api.v1.vectors as vectors_module
+        from src.api.v1.vectors import migrate_trends
 
         vectors_module._VECTOR_MIGRATION_HISTORY = [
             {"migration_id": "bad", "started_at": "invalid-date"},

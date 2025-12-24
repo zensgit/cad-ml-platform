@@ -1,8 +1,7 @@
-from src.core.feature_extractor import FeatureExtractor
-from src.models.cad_document import CadDocument, CadEntity, BoundingBox
-
-
 import asyncio
+
+from src.core.feature_extractor import FeatureExtractor
+from src.models.cad_document import BoundingBox, CadDocument, CadEntity
 
 
 def test_feature_extractor_basic():

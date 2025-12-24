@@ -1,11 +1,7 @@
 from __future__ import annotations
 
 from src.core.knowledge.dynamic.manager import KnowledgeManager
-from src.core.knowledge.dynamic.models import (
-    GeometryPattern,
-    KnowledgeCategory,
-    KnowledgeEntry,
-)
+from src.core.knowledge.dynamic.models import GeometryPattern, KnowledgeCategory, KnowledgeEntry
 from src.core.knowledge.dynamic.store import JSONKnowledgeStore
 
 

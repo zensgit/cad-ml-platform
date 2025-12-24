@@ -12,8 +12,6 @@ Covers:
 
 from __future__ import annotations
 
-
-
 from src.core.ocr.base import DimensionInfo, DimensionType, SymbolInfo, SymbolType
 
 
@@ -212,9 +210,7 @@ class TestAssignBboxesDimensions:
         """Test skips dimension if bbox already set."""
         from src.core.ocr.parsing.bbox_mapper import assign_bboxes
 
-        dim = DimensionInfo(
-            type=DimensionType.length, value=20.0, raw="20mm", bbox=[1, 2, 3, 4]
-        )
+        dim = DimensionInfo(type=DimensionType.length, value=20.0, raw="20mm", bbox=[1, 2, 3, 4])
         ocr_lines = [{"text": "20mm", "bbox": [10, 20, 30, 40]}]
 
         assign_bboxes([dim], [], ocr_lines)
@@ -287,9 +283,7 @@ class TestAssignBboxesSymbols:
         """Test skips symbol if bbox already set."""
         from src.core.ocr.parsing.bbox_mapper import assign_bboxes
 
-        sym = SymbolInfo(
-            type=SymbolType.surface_roughness, value="Ra 3.2", bbox=[1, 2, 3, 4]
-        )
+        sym = SymbolInfo(type=SymbolType.surface_roughness, value="Ra 3.2", bbox=[1, 2, 3, 4])
         ocr_lines = [{"text": "Ra 3.2", "bbox": [10, 20, 30, 40]}]
 
         assign_bboxes([], [sym], ocr_lines)
