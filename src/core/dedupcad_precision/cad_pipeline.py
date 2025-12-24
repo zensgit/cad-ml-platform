@@ -78,8 +78,8 @@ def render_dxf_to_png(
         import matplotlib
 
         matplotlib.use("Agg", force=True)
-        import matplotlib.pyplot as plt  # type: ignore
         import ezdxf  # type: ignore
+        import matplotlib.pyplot as plt  # type: ignore
         from ezdxf import bbox  # type: ignore
         from ezdxf.addons.drawing import Frontend  # type: ignore
         from ezdxf.addons.drawing.config import (  # type: ignore
@@ -161,6 +161,7 @@ def render_dxf_to_png(
     ctx = RenderContext(doc, export_mode=True)
     ctx.set_current_layout(msp)
     backend = MatplotlibBackend(ax)
+
     def filter_entities(entity: Any) -> bool:
         dxftype = entity.dxftype()
         if dxftype in {"ACAD_PROXY_ENTITY", "PROXY_ENTITY"}:
@@ -275,9 +276,7 @@ def _default_oda_candidates() -> list[Path]:
     ]
     program_files = os.getenv("ProgramFiles")
     if program_files:
-        candidates.append(
-            Path(program_files) / "ODA" / "ODAFileConverter" / "ODAFileConverter.exe"
-        )
+        candidates.append(Path(program_files) / "ODA" / "ODAFileConverter" / "ODAFileConverter.exe")
     program_files_x86 = os.getenv("ProgramFiles(x86)")
     if program_files_x86:
         candidates.append(

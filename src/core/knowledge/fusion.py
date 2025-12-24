@@ -8,10 +8,12 @@ Combines signals from:
 """
 
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
+
 from src.core.knowledge.dynamic.manager import get_knowledge_manager
 
 logger = logging.getLogger(__name__)
+
 
 class FusionClassifier:
     """
@@ -23,10 +25,7 @@ class FusionClassifier:
         self.km = get_knowledge_manager()
 
     def classify(
-        self,
-        text_signals: str,
-        features_2d: Dict[str, Any],
-        features_3d: Dict[str, Any]
+        self, text_signals: str, features_2d: Dict[str, Any], features_3d: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Main entry point for multi-modal classification.
@@ -37,7 +36,7 @@ class FusionClassifier:
         hints_2d = self.km.get_part_hints(
             text=text_signals,
             geometric_features=features_2d.get("geometric_features"),
-            entity_counts=features_2d.get("entity_counts")
+            entity_counts=features_2d.get("entity_counts"),
         )
 
         # 2. Analyze 3D Signals (L3 capability)
@@ -62,11 +61,7 @@ class FusionClassifier:
         best_part = sorted_parts[0][0] if sorted_parts else "unknown"
         best_score = sorted_parts[0][1] if sorted_parts else 0.0
 
-        alternatives = [
-            {"part_type": p, "confidence": s}
-            for p, s in sorted_parts[1:5]
-            if s > 0.1
-        ]
+        alternatives = [{"part_type": p, "confidence": s} for p, s in sorted_parts[1:5] if s > 0.1]
 
         return {
             "type": best_part,
@@ -75,8 +70,8 @@ class FusionClassifier:
             "fusion_breakdown": {
                 "2d_score": hints_2d.get(best_part, 0),
                 "3d_score": hints_3d.get(best_part, 0),
-                "source": "l3_fusion"
-            }
+                "source": "l3_fusion",
+            },
         }
 
     def _analyze_3d_signals(self, features_3d: Dict[str, Any]) -> Dict[str, float]:
@@ -138,8 +133,10 @@ class FusionClassifier:
 
         return final
 
+
 # Singleton
 _fusion = FusionClassifier()
+
 
 def get_fusion_classifier():
     return _fusion

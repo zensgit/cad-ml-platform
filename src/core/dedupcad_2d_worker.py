@@ -26,10 +26,13 @@ import time
 from contextlib import contextmanager
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
 from arq.connections import RedisSettings
 
+import src.core.dedup2d_file_storage as dedup2d_file_storage
+from src.core.dedup2d_file_storage import Dedup2DFileRef
+from src.core.dedup2d_webhook import send_dedup2d_webhook
 from src.core.dedupcad_2d_jobs import Dedup2DJobStatus
 from src.core.dedupcad_2d_jobs_redis import (
     Dedup2DRedisJobConfig,
@@ -38,17 +41,14 @@ from src.core.dedupcad_2d_jobs_redis import (
     is_cad_file,
     mark_dedup2d_job_result,
 )
-import src.core.dedup2d_file_storage as dedup2d_file_storage
 from src.core.dedupcad_2d_pipeline import run_dedup_2d_pipeline
+from src.core.dedupcad_precision import PrecisionVerifier, create_geom_store
 from src.core.dedupcad_precision.cad_pipeline import (
     DxfRenderConfig,
     convert_dwg_to_dxf,
     render_dxf_to_png,
 )
-from src.core.dedup2d_file_storage import Dedup2DFileRef
-from src.core.dedupcad_precision import PrecisionVerifier, create_geom_store
 from src.core.dedupcad_vision import DedupCadVisionClient
-from src.core.dedup2d_webhook import send_dedup2d_webhook
 
 if TYPE_CHECKING:
     from src.core.dedup2d_file_storage import Dedup2DFileStorageProtocol
@@ -485,9 +485,7 @@ async def _try_send_callback(
 class WorkerSettings:
     functions = [dedup2d_run_job]
     redis_settings = RedisSettings.from_dsn(
-        os.getenv("DEDUP2D_REDIS_URL")
-        or os.getenv("REDIS_URL")
-        or "redis://localhost:6379/0"
+        os.getenv("DEDUP2D_REDIS_URL") or os.getenv("REDIS_URL") or "redis://localhost:6379/0"
     )
     queue_name = os.getenv("DEDUP2D_ARQ_QUEUE_NAME") or "dedup2d:queue"
     max_jobs = int(os.getenv("DEDUP2D_WORKER_MAX_JOBS", "10"))

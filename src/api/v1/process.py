@@ -46,12 +46,12 @@ async def process_rules_audit(raw: bool = True, api_key: str = Depends(get_api_k
         file_hash = None
     try:
         resp = ProcessRulesAuditResponse(
-        version=version,
-        source=path if os.path.exists(path) else "embedded-defaults",
-        hash=file_hash,
-        materials=materials,
-        complexities=complexities,
-        raw=rules if raw else {},
+            version=version,
+            source=path if os.path.exists(path) else "embedded-defaults",
+            hash=file_hash,
+            materials=materials,
+            complexities=complexities,
+            raw=rules if raw else {},
         )
         process_rules_audit_requests_total.labels(status="ok").inc()
         return resp

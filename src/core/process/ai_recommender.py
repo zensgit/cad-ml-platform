@@ -8,13 +8,15 @@ Loads thresholds from a YAML config file.
 
 import logging
 import os
+from typing import Any, Dict, List
+
 import yaml
-from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
 # Default config path
 CONFIG_PATH = os.getenv("MANUFACTURING_CONFIG_PATH", "config/manufacturing_data.yaml")
+
 
 class AIProcessRecommender:
     """
@@ -68,10 +70,7 @@ class AIProcessRecommender:
         }
 
     def recommend(
-        self,
-        dfm_features: Dict[str, Any],
-        part_type: str,
-        material: str
+        self, dfm_features: Dict[str, Any], part_type: str, material: str
     ) -> Dict[str, Any]:
         """
         Recommend manufacturing processes.
@@ -83,19 +82,16 @@ class AIProcessRecommender:
         # Assuming surface_area and volume are in dfm_features or features_3d
         surface_area = dfm_features.get("surface_area", 0)
         volume = dfm_features.get("volume", 1)
-        complexity_score = surface_area / (volume + 1) # Heuristic
+        complexity_score = surface_area / (volume + 1)  # Heuristic
         is_thin_walled = dfm_features.get("thin_walls_detected", False)
 
         # Logic Tree (Simulating a Decision Tree Classifier)
 
         # Branch 1: Additive Manufacturing
         # High complexity, low material removal (wasteful to machine), or thin walls
-        if (
-            complexity_score
-            > self.proc_rec_thresholds.get("complex_geometry_score", 5.0)
-            or stock_removal
-            > self.proc_rec_thresholds.get("high_stock_removal_additive", 0.9)
-        ):
+        if complexity_score > self.proc_rec_thresholds.get(
+            "complex_geometry_score", 5.0
+        ) or stock_removal > self.proc_rec_thresholds.get("high_stock_removal_additive", 0.9):
             rec = {
                 "process": "additive_manufacturing",
                 "method": "SLS" if "nylon" in material.lower() else "DMLS",
@@ -118,7 +114,7 @@ class AIProcessRecommender:
                     else "5_axis"
                 ),
                 "confidence": 0.90,
-                "reason": "Prismatic geometry suitable for milling."
+                "reason": "Prismatic geometry suitable for milling.",
             }
             recommendations.append(rec)
 
@@ -129,7 +125,7 @@ class AIProcessRecommender:
                 "process": "turning",
                 "method": "cnc_lathe",
                 "confidence": 0.95,
-                "reason": "Rotational symmetry favors turning."
+                "reason": "Rotational symmetry favors turning.",
             }
             recommendations.append(rec)
 
@@ -149,8 +145,10 @@ class AIProcessRecommender:
             "analysis_mode": "L4_AI_Heuristic",
         }
 
+
 # Singleton
 _recommender = AIProcessRecommender()
+
 
 def get_process_recommender():
     return _recommender

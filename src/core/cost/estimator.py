@@ -1,12 +1,14 @@
 import logging
 import os
+from typing import Any, Dict, Optional
+
 import yaml
-from typing import Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
 # Default config path
 CONFIG_PATH = os.getenv("MANUFACTURING_CONFIG_PATH", "config/manufacturing_data.yaml")
+
 
 class CostEstimator:
     """
@@ -77,7 +79,7 @@ class CostEstimator:
             "cnc_lathe": 50.0,
             "5_axis": 120.0,
             "additive_manufacturing": 40.0,
-            "general_machining": 55.0
+            "general_machining": 55.0,
         }
 
     def estimate(
@@ -85,7 +87,7 @@ class CostEstimator:
         features_3d: Dict[str, Any],
         process_rec: Dict[str, Any],
         material: str = "steel",
-        batch_size: int = 1
+        batch_size: int = 1,
     ) -> Dict[str, Any]:
         """
         Calculate estimated cost.
@@ -102,9 +104,7 @@ class CostEstimator:
         # Add waste factor (Stock Removal)
         removal_ratio = features_3d.get("stock_removal_ratio", 0.0)
         stock_weight_kg = (
-            weight_kg / (1.0 - min(0.9, removal_ratio))
-            if removal_ratio < 1.0
-            else weight_kg * 1.2
+            weight_kg / (1.0 - min(0.9, removal_ratio)) if removal_ratio < 1.0 else weight_kg * 1.2
         )
 
         material_cost = stock_weight_kg * mat_price
@@ -117,7 +117,7 @@ class CostEstimator:
         base_setup_hrs = 0.5
 
         removal_vol_mm3 = stock_weight_kg / density * 1e9 - volume_mm3
-        removal_hours = (removal_vol_mm3 / 1000) / (100 * 60) # Rough estimate
+        removal_hours = (removal_vol_mm3 / 1000) / (100 * 60)  # Rough estimate
 
         complexity_mult = 1.0
         if process_rec.get("method") == "5_axis":
@@ -133,15 +133,15 @@ class CostEstimator:
             "breakdown": {
                 "material_cost": round(material_cost, 2),
                 "machining_cost": round(machining_cost, 2),
-                "setup_amortized": round((base_setup_hrs * rate) / batch_size, 2)
+                "setup_amortized": round((base_setup_hrs * rate) / batch_size, 2),
             },
             "parameters": {
                 "stock_weight_kg": round(stock_weight_kg, 3),
                 "est_cycle_time_min": round(machining_hours * 60, 1),
                 "material_rate": mat_price,
-                "machine_rate": rate
+                "machine_rate": rate,
             },
-            "currency": "USD"
+            "currency": "USD",
         }
 
     def _resolve_material(self, mat: str) -> str:

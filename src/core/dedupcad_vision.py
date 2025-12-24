@@ -6,9 +6,9 @@ separate `dedupcad-vision` service (default http://localhost:58001).
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
-import os
 
 import httpx
 

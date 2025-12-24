@@ -97,14 +97,14 @@ dedup2d_file_upload_bytes = Histogram(
     "Size of uploaded files in bytes",
     ["backend"],
     buckets=[
-        1_000,       # 1KB
-        10_000,      # 10KB
-        100_000,     # 100KB
-        1_000_000,   # 1MB
-        5_000_000,   # 5MB
+        1_000,  # 1KB
+        10_000,  # 10KB
+        100_000,  # 100KB
+        1_000_000,  # 1MB
+        5_000_000,  # 5MB
         10_000_000,  # 10MB
         50_000_000,  # 50MB
-        100_000_000, # 100MB
+        100_000_000,  # 100MB
     ],
 )
 

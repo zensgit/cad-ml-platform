@@ -221,9 +221,7 @@ class Dedup2DJobStore:
             self._cleanup_locked()
 
             # Phase 1: Check queue capacity before accepting new job
-            pending_or_running = sum(
-                1 for j in self._jobs.values() if not j.is_finished()
-            )
+            pending_or_running = sum(1 for j in self._jobs.values() if not j.is_finished())
             if pending_or_running >= self._max_jobs:
                 raise JobQueueFullError(self._max_jobs, pending_or_running)
 
@@ -378,7 +376,7 @@ class Dedup2DJobStore:
                 job.status = Dedup2DJobStatus.COMPLETED
                 job.result = result
                 job.finished_at = self._now()
-                duration = (job.finished_at - (job.started_at or job.created_at))
+                duration = job.finished_at - (job.started_at or job.created_at)
                 # Avoid re-acquiring the same lock (threading.Lock is not re-entrant).
                 queue_depth = sum(1 for j in self._jobs.values() if not j.is_finished())
 
@@ -417,7 +415,7 @@ class Dedup2DJobStore:
                 job.status = Dedup2DJobStatus.FAILED
                 job.error = str(e)
                 job.finished_at = self._now()
-                duration = (job.finished_at - (job.started_at or job.created_at))
+                duration = job.finished_at - (job.started_at or job.created_at)
                 queue_depth = sum(1 for j in self._jobs.values() if not j.is_finished())
 
             # Call metrics callback outside the lock

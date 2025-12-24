@@ -7,13 +7,15 @@ and identify potential production issues.
 
 import logging
 import os
+from typing import Any, Dict, List
+
 import yaml
-from typing import Dict, Any, List
 
 logger = logging.getLogger(__name__)
 
 # Default config path
 CONFIG_PATH = os.getenv("MANUFACTURING_CONFIG_PATH", "config/manufacturing_data.yaml")
+
 
 class DFMAnalyzer:
     """
@@ -133,8 +135,10 @@ class DFMAnalyzer:
             "manufacturability": manufacturability,
         }
 
+
 # Singleton
 _dfm = DFMAnalyzer()
+
 
 def get_dfm_analyzer():
     return _dfm

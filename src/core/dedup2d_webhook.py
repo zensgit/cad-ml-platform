@@ -8,6 +8,7 @@ This module provides:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import ipaddress
@@ -16,7 +17,6 @@ import logging
 import os
 import socket
 import time
-import asyncio
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse, urlunparse

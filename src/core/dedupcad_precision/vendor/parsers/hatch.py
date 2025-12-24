@@ -60,7 +60,9 @@ def extract_pattern_definition(hatch_entity: Any) -> Dict[str, Any]:
     pattern_scale = getattr(hatch_entity.dxf, "pattern_scale", 1.0)
     pattern_angle = getattr(hatch_entity.dxf, "pattern_angle", 0.0)
     return {
-        "pattern_name": pattern_name if pattern_name and str(pattern_name).upper() != "SOLID" else None,
+        "pattern_name": pattern_name
+        if pattern_name and str(pattern_name).upper() != "SOLID"
+        else None,
         "pattern_scale": pattern_scale,
         "pattern_angle": pattern_angle,
     }

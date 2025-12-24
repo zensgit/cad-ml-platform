@@ -21,11 +21,6 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from pydantic import BaseModel, Field, model_validator
 
 from src.api.dependencies import get_admin_token, get_api_key
-from src.core.dedupcad_2d_pipeline import run_dedup_2d_pipeline
-from src.core.dedupcad_precision import GeomJsonStoreProtocol, PrecisionVerifier, create_geom_store
-from src.core.dedupcad_precision.vendor.json_diff import compare_json
-from src.core.dedupcad_tenant_config import TenantDedup2DConfigStore
-from src.core.dedupcad_vision import DedupCadVisionClient
 from src.core.dedupcad_2d_jobs import (
     Dedup2DJob,
     Dedup2DJobStatus,
@@ -35,15 +30,24 @@ from src.core.dedupcad_2d_jobs import (
     get_dedup2d_job_store,
     set_dedup2d_job_metrics_callback,
 )
+from src.core.dedupcad_2d_jobs_redis import Dedup2DRedisJobConfig
 from src.core.dedupcad_2d_jobs_redis import (
-    Dedup2DRedisJobConfig,
     cancel_dedup2d_job_for_tenant as cancel_dedup2d_job_for_tenant_redis,
-    get_dedup2d_job_for_tenant as get_dedup2d_job_for_tenant_redis,
-    get_dedup2d_queue_depth as get_dedup2d_queue_depth_redis,
-    get_dedup2d_redis_pool,
-    list_dedup2d_jobs_for_tenant as list_dedup2d_jobs_for_tenant_redis,
-    submit_dedup2d_job as submit_dedup2d_job_redis,
 )
+from src.core.dedupcad_2d_jobs_redis import (
+    get_dedup2d_job_for_tenant as get_dedup2d_job_for_tenant_redis,
+)
+from src.core.dedupcad_2d_jobs_redis import get_dedup2d_queue_depth as get_dedup2d_queue_depth_redis
+from src.core.dedupcad_2d_jobs_redis import get_dedup2d_redis_pool
+from src.core.dedupcad_2d_jobs_redis import (
+    list_dedup2d_jobs_for_tenant as list_dedup2d_jobs_for_tenant_redis,
+)
+from src.core.dedupcad_2d_jobs_redis import submit_dedup2d_job as submit_dedup2d_job_redis
+from src.core.dedupcad_2d_pipeline import run_dedup_2d_pipeline
+from src.core.dedupcad_precision import GeomJsonStoreProtocol, PrecisionVerifier, create_geom_store
+from src.core.dedupcad_precision.vendor.json_diff import compare_json
+from src.core.dedupcad_tenant_config import TenantDedup2DConfigStore
+from src.core.dedupcad_vision import DedupCadVisionClient
 from src.utils.analysis_metrics import (
     dedup2d_cancel_total,
     dedup2d_job_duration_seconds,
@@ -106,6 +110,7 @@ def _get_dedup2d_async_backend() -> str:
 # =============================================================================
 # Phase 4 Day 6: Forced Async Configuration
 # =============================================================================
+
 
 def _get_int_env(name: str, *, default: int) -> int:
     raw = os.getenv(name)

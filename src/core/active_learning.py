@@ -137,9 +137,7 @@ class ActiveLearner:
 
     def check_retrain_threshold(self) -> Dict[str, Any]:
         """Check if retrain threshold is reached."""
-        labeled_count = sum(
-            1 for s in self._samples.values() if s.status == SampleStatus.LABELED
-        )
+        labeled_count = sum(1 for s in self._samples.values() if s.status == SampleStatus.LABELED)
         return {
             "ready": labeled_count >= self._retrain_threshold,
             "labeled_samples": labeled_count,

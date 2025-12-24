@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key
 from src.core.active_learning import ActiveLearningSample, get_active_learner
-from src.core.errors_extended import build_error, ErrorCode
+from src.core.errors_extended import ErrorCode, build_error
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

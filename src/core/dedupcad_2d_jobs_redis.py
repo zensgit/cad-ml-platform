@@ -44,6 +44,8 @@ except Exception:  # pragma: no cover - optional at runtime
     RedisSettings = None  # type: ignore
     Job = None  # type: ignore
 
+from src.core.dedup2d_file_storage import Dedup2DFileRef, create_dedup2d_file_storage
+from src.core.dedup2d_webhook import validate_dedup2d_callback_url
 from src.core.dedupcad_2d_jobs import (
     Dedup2DJob,
     Dedup2DJobStatus,
@@ -51,11 +53,6 @@ from src.core.dedupcad_2d_jobs import (
     JobNotFoundError,
     JobQueueFullError,
 )
-from src.core.dedup2d_file_storage import (
-    Dedup2DFileRef,
-    create_dedup2d_file_storage,
-)
-from src.core.dedup2d_webhook import validate_dedup2d_callback_url
 
 logger = logging.getLogger(__name__)
 
@@ -72,16 +69,14 @@ class Dedup2DRedisJobConfig:
 
     @classmethod
     def from_env(cls) -> "Dedup2DRedisJobConfig":
-        key_prefix = (os.getenv("DEDUP2D_REDIS_KEY_PREFIX", "dedup2d").strip() or "dedup2d")
+        key_prefix = os.getenv("DEDUP2D_REDIS_KEY_PREFIX", "dedup2d").strip() or "dedup2d"
         queue_name = os.getenv("DEDUP2D_ARQ_QUEUE_NAME")
         if queue_name is None or not queue_name.strip():
             queue_name = f"{key_prefix}:queue"
         render_queue_raw = os.getenv("DEDUP2D_RENDER_QUEUE_NAME", "").strip()
         render_queue_name = render_queue_raw or None
         redis_url = (
-            os.getenv("DEDUP2D_REDIS_URL")
-            or os.getenv("REDIS_URL")
-            or "redis://localhost:6379/0"
+            os.getenv("DEDUP2D_REDIS_URL") or os.getenv("REDIS_URL") or "redis://localhost:6379/0"
         )
         ttl_seconds = int(os.getenv("DEDUP2D_ASYNC_TTL_SECONDS", "3600"))
         max_jobs = int(os.getenv("DEDUP2D_ASYNC_MAX_JOBS", "200"))

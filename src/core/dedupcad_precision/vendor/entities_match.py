@@ -1174,6 +1174,6 @@ def entities_geom_similarity(
         gamma = 2.0
     if gamma <= 0.0:
         gamma = 1.0
-    count_factor = count_sim ** gamma
+    count_factor = count_sim**gamma
     w_spatial = w_max * count_factor
     return (1.0 - w_spatial) * sim_boff + w_spatial * sim_spatial
