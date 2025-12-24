@@ -18,6 +18,24 @@ against a real dedupcad-vision instance.
 4. Deploy dedup2d-worker (ARQ)
 5. Enable Prometheus scrape + Grafana dashboard
 
+## 1.5) Optional local staging via Docker Compose
+
+If you run staging locally, use the compose overrides:
+
+```bash
+docker compose -f deployments/docker/docker-compose.yml \
+  -f deployments/docker/docker-compose.minio.yml \
+  -f deployments/docker/docker-compose.dedup2d-staging.yml up -d
+```
+
+Recommended env (or .env) for the override:
+
+- DEDUP2D_S3_BUCKET, DEDUP2D_S3_ENDPOINT, DEDUP2D_S3_REGION
+- DEDUP2D_S3_ACCESS_KEY, DEDUP2D_S3_SECRET_KEY (or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY)
+- DEDUP2D_CALLBACK_ALLOWLIST, DEDUP2D_CALLBACK_HMAC_SECRET
+- DEDUP2D_CALLBACK_ALLOW_HTTP (set to 1 only for local dev)
+- DEDUP2D_CALLBACK_BLOCK_PRIVATE_NETWORKS, DEDUP2D_CALLBACK_RESOLVE_DNS
+
 ## 2) Config checklist (staging)
 
 - DEDUP2D_ASYNC_BACKEND=redis
@@ -69,6 +87,31 @@ curl -sSf -H "X-API-Key: <api-key>" \
 ```
 
 Expect completed job to appear within TTL.
+
+### Callback allowlist + HMAC (optional)
+
+Allowlist rejection (should return 400):
+
+```bash
+curl -sSf -X POST \
+  "http://<api-host>/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true&callback_url=http://example.com/hook" \
+  -H "X-API-Key: <api-key>" \
+  -F "file=@<png-or-jpg-file>;type=image/png"
+```
+
+Callback success (use an allowlisted host):
+
+```bash
+curl -sSf -X POST \
+  "http://<api-host>/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true&callback_url=https://<callback-host>/hook" \
+  -H "X-API-Key: <api-key>" \
+  -F "file=@<png-or-jpg-file>;type=image/png"
+```
+
+Then poll the job and confirm:
+- callback_status=success
+- callback_http_status=200
+- HMAC signature header (X-Dedup-Signature) validates with DEDUP2D_CALLBACK_HMAC_SECRET
 
 ## 4) Worker validation
 
