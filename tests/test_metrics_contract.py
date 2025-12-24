@@ -19,6 +19,9 @@ from src.core.errors import ErrorCode
 from src.main import app
 
 client = TestClient(app)
+_SAMPLE_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z/C/HwAFgwJ/lb9a0QAAAABJRU5ErkJggg=="
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -29,7 +32,7 @@ def trigger_metrics_registration():
     so we need to make sample calls to ensure all metrics are registered.
     """
     # Trigger OCR metrics
-    files = {"file": ("test.txt", b"trigger_metrics_registration", "text/plain")}
+    files = {"file": ("test.png", _SAMPLE_PNG_BYTES, "image/png")}
     client.post("/api/v1/ocr/extract", files=files)
 
     # Trigger Vision metrics
@@ -291,7 +294,7 @@ class TestMetricsContract:
         before_raw = response.text
 
         # Make an OCR call - the stub processes text files successfully
-        files = {"file": ("test.txt", b"test_increment_call", "text/plain")}
+        files = {"file": ("test.png", _SAMPLE_PNG_BYTES, "image/png")}
         ocr_response = client.post("/api/v1/ocr/extract", files=files)
 
         # Get updated metrics

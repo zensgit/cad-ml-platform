@@ -214,12 +214,19 @@ def _get_env_float(name: str, default: float) -> float:
 
 def _resolve_mime(upload_file: UploadFile, data: bytes) -> str:
     sniffed_mime, _ = sniff_mime(data)
-    upload_mime = (upload_file.content_type or "").strip()
+    upload_mime = getattr(upload_file, "content_type", None)
+    if isinstance(upload_mime, str):
+        upload_mime = upload_mime.strip()
+    else:
+        upload_mime = ""
     if upload_mime and upload_mime != "application/octet-stream":
         return upload_mime
     if sniffed_mime and sniffed_mime != "application/octet-stream":
         return sniffed_mime
-    ext = os.path.splitext(upload_file.filename or "")[1].lower()
+    filename = getattr(upload_file, "filename", "") or ""
+    if not isinstance(filename, str):
+        filename = ""
+    ext = os.path.splitext(filename)[1].lower()
     return _OCR_EXTENSION_MIME_MAP.get(ext, "application/octet-stream")
 
 
