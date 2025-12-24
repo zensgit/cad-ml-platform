@@ -35,6 +35,8 @@ Recommended env (or .env) for the override:
 - DEDUP2D_CALLBACK_ALLOWLIST, DEDUP2D_CALLBACK_HMAC_SECRET
 - DEDUP2D_CALLBACK_ALLOW_HTTP (set to 1 only for local dev)
 - DEDUP2D_CALLBACK_BLOCK_PRIVATE_NETWORKS, DEDUP2D_CALLBACK_RESOLVE_DNS
+- CAD_ML_MINIO_PORT, CAD_ML_MINIO_CONSOLE_PORT (optional host ports, e.g. 19000/19001 if
+  9000/9001 are already in use)
 
 Note: `deployments/docker/docker-compose.yml` pins the network name to `cad-ml-network`
 so different compose project names can share a single network. If you already have
