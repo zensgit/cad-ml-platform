@@ -138,6 +138,7 @@ services:
 # 网络配置
 networks:
   cad-ml-network:
+    name: cad-ml-network
     driver: bridge
     # Avoid hard-coded subnets: can overlap with existing Docker networks.
 

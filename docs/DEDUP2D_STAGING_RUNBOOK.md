@@ -36,6 +36,11 @@ Recommended env (or .env) for the override:
 - DEDUP2D_CALLBACK_ALLOW_HTTP (set to 1 only for local dev)
 - DEDUP2D_CALLBACK_BLOCK_PRIVATE_NETWORKS, DEDUP2D_CALLBACK_RESOLVE_DNS
 
+Note: `deployments/docker/docker-compose.yml` pins the network name to `cad-ml-network`
+so different compose project names can share a single network. If you already have
+containers on the old prefixed network, recreate them or attach the `cad-ml-network`
+manually.
+
 ## 2) Config checklist (staging)
 
 - DEDUP2D_ASYNC_BACKEND=redis
