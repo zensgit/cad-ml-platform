@@ -217,7 +217,6 @@ def test_drift_auto_refresh_updates_baseline_content():
     assert data["material_drift_score"] == 0.0
 
 
-@pytest.mark.skip(reason="Auto-refresh feature not yet implemented")
 def test_drift_auto_refresh_only_refreshes_stale_baselines():
     """Test only stale baselines are refreshed, not fresh ones."""
     from src.api.v1 import analyze as analyze_module

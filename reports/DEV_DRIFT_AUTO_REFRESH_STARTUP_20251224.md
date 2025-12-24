@@ -17,4 +17,4 @@
 
 ## Validation
 - Command: `.venv/bin/python -m pytest tests/unit/test_drift_auto_refresh.py tests/unit/test_drift_startup_trigger.py -v`
-  - Result: 7 passed, 1 skipped.
+  - Result: 8 passed.
