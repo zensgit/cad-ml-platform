@@ -112,6 +112,14 @@ reports/baselines/*.json
 reports/baselines/latest_snapshot.json
 !reports/baselines/.gitkeep
 
+# Large/local artifacts (keep reports and handoff folders in repo, ignore generated outputs)
+handoff/*.zip
+reports/*.csv
+reports/*.json
+reports/*.jsonl
+reports/replay/
+reports/replay_extended/
+
 # Virtual environments
 .venv/
 .venv311/
