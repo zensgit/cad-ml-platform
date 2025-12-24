@@ -20,12 +20,12 @@
 - Metrics:
   - `curl -sSL http://localhost:8000/metrics | rg dedup2d_` → dedup2d metrics present.
 - S3 cleanup (MinIO):
-  - `boto3 list_objects_v2` under `dedup2d-uploads/uploads` found no keys for job id.
+  - `mc find myminio/dedup2d-uploads --name '*<job_id>*'` (via minio/mc on `cad-ml-network`) found no matches.
 - Prometheus target:
   - `cad-ml-api` target health `up` via `http://localhost:9091/api/v1/targets`.
 - Grafana:
   - `Dedup2D Dashboard` visible via `http://localhost:3001/api/search?query=Dedup2D`.
 
 ## Notes
-- MinIO is internal only (no host ports); S3 verification used `http://localhost:9000`.
+- MinIO is internal only (no host ports); S3 verification used minio/mc on `cad-ml-network`.
 - Local dedupcad-vision was stopped after validation.
