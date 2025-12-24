@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -78,10 +78,16 @@ class DriftBaselineImportResponse(BaseModel):
 
 @router.get("/drift", response_model=DriftStatusResponse)
 async def drift_status(api_key: str = Depends(get_api_key)):
+    import os
+    import time
     from collections import Counter
-    import os, time
+
+    from src.utils.analysis_metrics import (
+        drift_baseline_created_total,
+        drift_baseline_refresh_total,
+    )
     from src.utils.drift import compute_drift
-    from src.utils.analysis_metrics import drift_baseline_refresh_total, drift_baseline_created_total
+
     _DRIFT_STATE: Dict[str, Any] = analyze_module._DRIFT_STATE  # type: ignore
     min_count = int(os.getenv("DRIFT_BASELINE_MIN_COUNT", "100"))
     max_age = int(os.getenv("DRIFT_BASELINE_MAX_AGE_SECONDS", "86400"))
@@ -91,8 +97,16 @@ async def drift_status(api_key: str = Depends(get_api_key)):
     preds = _DRIFT_STATE["predictions"]
     material_current_counts = dict(Counter(mats))
     prediction_current_counts = dict(Counter(preds))
-    material_baseline_counts = dict(Counter(_DRIFT_STATE["baseline_materials"])) if _DRIFT_STATE["baseline_materials"] else None
-    prediction_baseline_counts = dict(Counter(_DRIFT_STATE["baseline_predictions"])) if _DRIFT_STATE["baseline_predictions"] else None
+    material_baseline_counts = (
+        dict(Counter(_DRIFT_STATE["baseline_materials"]))
+        if _DRIFT_STATE["baseline_materials"]
+        else None
+    )
+    prediction_baseline_counts = (
+        dict(Counter(_DRIFT_STATE["baseline_predictions"]))
+        if _DRIFT_STATE["baseline_predictions"]
+        else None
+    )
 
     # Check material baseline age and soft refresh if stale
     mat_score = None
@@ -134,13 +148,17 @@ async def drift_status(api_key: str = Depends(get_api_key)):
     baseline_prediction_created_at = None
     if _DRIFT_STATE.get("baseline_materials_ts"):
         baseline_material_age = int(time.time() - _DRIFT_STATE["baseline_materials_ts"])
-        baseline_material_created_at = datetime.fromtimestamp(_DRIFT_STATE["baseline_materials_ts"], tz=timezone.utc)
+        baseline_material_created_at = datetime.fromtimestamp(
+            _DRIFT_STATE["baseline_materials_ts"], tz=timezone.utc
+        )
         if _DRIFT_STATE.get("baseline_materials_startup_mark") is None:
             drift_baseline_refresh_total.labels(type="material", trigger="startup").inc()
             _DRIFT_STATE["baseline_materials_startup_mark"] = True
     if _DRIFT_STATE.get("baseline_predictions_ts"):
         baseline_prediction_age = int(time.time() - _DRIFT_STATE["baseline_predictions_ts"])
-        baseline_prediction_created_at = datetime.fromtimestamp(_DRIFT_STATE["baseline_predictions_ts"], tz=timezone.utc)
+        baseline_prediction_created_at = datetime.fromtimestamp(
+            _DRIFT_STATE["baseline_predictions_ts"], tz=timezone.utc
+        )
         if _DRIFT_STATE.get("baseline_predictions_startup_mark") is None:
             drift_baseline_refresh_total.labels(type="prediction", trigger="startup").inc()
             _DRIFT_STATE["baseline_predictions_startup_mark"] = True
@@ -174,6 +192,7 @@ async def drift_status(api_key: str = Depends(get_api_key)):
 @router.post("/drift/reset", response_model=DriftResetResponse)
 async def drift_reset(api_key: str = Depends(get_api_key)):
     from src.utils.analysis_metrics import drift_baseline_refresh_total
+
     _DRIFT_STATE: Dict[str, Any] = analyze_module._DRIFT_STATE  # type: ignore
     reset_material = bool(_DRIFT_STATE["baseline_materials"])
     reset_predictions = bool(_DRIFT_STATE["baseline_predictions"])
@@ -188,12 +207,16 @@ async def drift_reset(api_key: str = Depends(get_api_key)):
     _DRIFT_STATE["baseline_predictions"] = []
     _DRIFT_STATE["baseline_materials_ts"] = None
     _DRIFT_STATE["baseline_predictions_ts"] = None
-    return DriftResetResponse(status="ok", reset_material=reset_material, reset_predictions=reset_predictions)
+    return DriftResetResponse(
+        status="ok", reset_material=reset_material, reset_predictions=reset_predictions
+    )
 
 
 @router.get("/drift/baseline/status", response_model=DriftBaselineStatusResponse)
 async def drift_baseline_status(api_key: str = Depends(get_api_key)):
-    import os, time
+    import os
+    import time
+
     _DRIFT_STATE: Dict[str, Any] = analyze_module._DRIFT_STATE  # type: ignore
     max_age = int(os.getenv("DRIFT_BASELINE_MAX_AGE_SECONDS", "86400"))
     material_age = None
@@ -202,10 +225,14 @@ async def drift_baseline_status(api_key: str = Depends(get_api_key)):
     prediction_created_at = None
     if _DRIFT_STATE.get("baseline_materials_ts"):
         material_age = int(time.time() - _DRIFT_STATE["baseline_materials_ts"])
-        material_created_at = datetime.fromtimestamp(_DRIFT_STATE["baseline_materials_ts"], tz=timezone.utc)
+        material_created_at = datetime.fromtimestamp(
+            _DRIFT_STATE["baseline_materials_ts"], tz=timezone.utc
+        )
     if _DRIFT_STATE.get("baseline_predictions_ts"):
         prediction_age = int(time.time() - _DRIFT_STATE["baseline_predictions_ts"])
-        prediction_created_at = datetime.fromtimestamp(_DRIFT_STATE["baseline_predictions_ts"], tz=timezone.utc)
+        prediction_created_at = datetime.fromtimestamp(
+            _DRIFT_STATE["baseline_predictions_ts"], tz=timezone.utc
+        )
     stale_flag = None
     if material_age and material_age > max_age:
         stale_flag = True
@@ -298,14 +325,18 @@ async def drift_baseline_import(
         try:
             if imported_materials:
                 if _DRIFT_STATE["baseline_materials"]:
-                    await client.set("baseline:material", json.dumps(_DRIFT_STATE["baseline_materials"]))
+                    await client.set(
+                        "baseline:material", json.dumps(_DRIFT_STATE["baseline_materials"])
+                    )
                     await client.set("baseline:material:ts", str(material_ts or now_ts))
                 else:
                     await client.delete("baseline:material")
                     await client.delete("baseline:material:ts")
             if imported_predictions:
                 if _DRIFT_STATE["baseline_predictions"]:
-                    await client.set("baseline:class", json.dumps(_DRIFT_STATE["baseline_predictions"]))
+                    await client.set(
+                        "baseline:class", json.dumps(_DRIFT_STATE["baseline_predictions"])
+                    )
                     await client.set("baseline:class:ts", str(prediction_ts or now_ts))
                 else:
                     await client.delete("baseline:class")

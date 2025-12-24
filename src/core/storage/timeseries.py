@@ -15,9 +15,11 @@ from src.core.twin.connectivity import TelemetryFrame
 
 
 class TimeSeriesStore(Protocol):
-    async def append(self, frame: TelemetryFrame) -> None: ...
+    async def append(self, frame: TelemetryFrame) -> None:
+        ...
 
-    async def history(self, device_id: str, limit: int = 100) -> List[TelemetryFrame]: ...
+    async def history(self, device_id: str, limit: int = 100) -> List[TelemetryFrame]:
+        ...
 
 
 class InMemoryTimeSeriesStore:

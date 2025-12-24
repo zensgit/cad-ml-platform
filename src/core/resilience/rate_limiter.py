@@ -3,25 +3,27 @@ Rate Limiter Pattern Implementation
 限流器模式 - 防止系统过载和资源耗尽
 """
 
-import time
+import logging
 import threading
+import time
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, Callable
 from dataclasses import dataclass
 from datetime import datetime
-import logging
+from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class RateLimitError(Exception):
     """限流异常"""
+
     pass
 
 
 @dataclass
 class RateLimiterStats:
     """限流器统计信息"""
+
     allowed_count: int = 0
     rejected_count: int = 0
     total_requests: int = 0
@@ -212,7 +214,7 @@ class RateLimiter:
         rate: float,
         burst: Optional[int] = None,
         algorithm: str = "token_bucket",
-        metrics_callback: Optional[Callable] = None
+        metrics_callback: Optional[Callable] = None,
     ):
         """
         初始化限流器
@@ -340,32 +342,32 @@ class RateLimiter:
             "rejected_count": stats.rejected_count,
             "total_requests": stats.total_requests,
             "rejection_rate": (
-                stats.rejected_count / stats.total_requests
-                if stats.total_requests > 0 else 0
+                stats.rejected_count / stats.total_requests if stats.total_requests > 0 else 0
             ),
             "current_rate": stats.current_rate,
             "last_rejection": (
-                stats.last_rejection_time.isoformat()
-                if stats.last_rejection_time else None
-            )
+                stats.last_rejection_time.isoformat() if stats.last_rejection_time else None
+            ),
         }
 
     def _emit_metrics(self, event_type: str, identifier: Optional[str] = None):
         """发送指标"""
         if self.metrics_callback:
-            self.metrics_callback({
-                "rate_limiter": self.name,
-                "event": event_type,
-                "identifier": identifier or "default",
-                "timestamp": datetime.now().isoformat()
-            })
+            self.metrics_callback(
+                {
+                    "rate_limiter": self.name,
+                    "event": event_type,
+                    "identifier": identifier or "default",
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
 
 def rate_limit(
     rate: float,
     burst: Optional[int] = None,
     algorithm: str = "token_bucket",
-    raise_on_limit: bool = True
+    raise_on_limit: bool = True,
 ):
     """
     限流装饰器
@@ -376,12 +378,10 @@ def rate_limit(
             # API logic
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         limiter = RateLimiter(
-            name=f"{func.__module__}.{func.__name__}",
-            rate=rate,
-            burst=burst,
-            algorithm=algorithm
+            name=f"{func.__module__}.{func.__name__}", rate=rate, burst=burst, algorithm=algorithm
         )
 
         def wrapper(*args, **kwargs):

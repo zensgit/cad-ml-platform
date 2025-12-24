@@ -3,13 +3,13 @@ Adaptive Rate Limiter
 自适应限流器 - 基于错误率、延迟和拒绝率动态调整限流速率
 """
 
-import time
-import threading
-from typing import Dict, Any, Optional
-from dataclasses import dataclass, field
-from collections import deque
-from enum import Enum
 import logging
+import threading
+import time
+from collections import deque
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, Optional
 
 """Prometheus-backed gauges/counters with graceful fallback.
 
@@ -24,15 +24,17 @@ logger = logging.getLogger(__name__)
 
 class AdaptivePhase(str, Enum):
     """自适应阶段"""
-    NORMAL = "normal"       # 正常阶段
-    DEGRADING = "degrading" # 降级阶段
-    RECOVERY = "recovery"   # 恢复阶段
-    CLAMPED = "clamped"    # 触底保护
+
+    NORMAL = "normal"  # 正常阶段
+    DEGRADING = "degrading"  # 降级阶段
+    RECOVERY = "recovery"  # 恢复阶段
+    CLAMPED = "clamped"  # 触底保护
 
 
 @dataclass
 class AdjustmentRecord:
     """调整记录"""
+
     timestamp: float
     old_rate: float
     new_rate: float
@@ -44,6 +46,7 @@ class AdjustmentRecord:
 @dataclass
 class AdaptiveState:
     """自适应状态"""
+
     base_rate: float
     current_rate: float
     phase: AdaptivePhase = AdaptivePhase.NORMAL
@@ -59,6 +62,7 @@ class AdaptiveState:
 @dataclass
 class AdaptiveConfig:
     """自适应配置"""
+
     # 基础配置
     enabled: bool = True
     base_rate: float = 100.0
@@ -93,49 +97,42 @@ class AdaptiveConfig:
 
 # Prometheus 指标
 adaptive_tokens_current = Gauge(
-    'adaptive_rate_limit_tokens_current',
-    'Current available tokens in adaptive rate limiter',
-    ['service', 'endpoint']
+    "adaptive_rate_limit_tokens_current",
+    "Current available tokens in adaptive rate limiter",
+    ["service", "endpoint"],
 )
 
 adaptive_base_rate = Gauge(
-    'adaptive_rate_limit_base_rate',
-    'Base rate for adaptive limiter',
-    ['service', 'endpoint']
+    "adaptive_rate_limit_base_rate", "Base rate for adaptive limiter", ["service", "endpoint"]
 )
 
 adaptive_adjustments_total = Counter(
-    'adaptive_rate_limit_adjustments_total',
-    'Total number of rate adjustments',
-    ['service', 'reason']
+    "adaptive_rate_limit_adjustments_total",
+    "Total number of rate adjustments",
+    ["service", "reason"],
 )
 
 adaptive_state_gauge = Gauge(
-    'adaptive_rate_limit_state',
-    'Current adaptive limiter state (0=normal, 1=degrading, 2=recovery, 3=clamped)',
-    ['service', 'state']
+    "adaptive_rate_limit_state",
+    "Current adaptive limiter state (0=normal, 1=degrading, 2=recovery, 3=clamped)",
+    ["service", "state"],
 )
 
 adaptive_error_ema = Gauge(
-    'adaptive_rate_limit_error_ema',
-    'Exponential moving average of error rate',
-    ['service']
+    "adaptive_rate_limit_error_ema", "Exponential moving average of error rate", ["service"]
 )
 
 adaptive_latency_p95 = Gauge(
-    'adaptive_rate_limit_latency_p95',
-    'P95 latency being tracked',
-    ['service']
+    "adaptive_rate_limit_latency_p95", "P95 latency being tracked", ["service"]
 )
 
 
 class AdaptiveRateLimiter:
     """自适应限流器"""
 
-    def __init__(self,
-                 service_name: str,
-                 endpoint_name: str,
-                 config: Optional[AdaptiveConfig] = None):
+    def __init__(
+        self, service_name: str, endpoint_name: str, config: Optional[AdaptiveConfig] = None
+    ):
         self.service_name = service_name
         self.endpoint_name = endpoint_name
         self.config = config or AdaptiveConfig()
@@ -144,7 +141,7 @@ class AdaptiveRateLimiter:
         self.state = AdaptiveState(
             base_rate=self.config.base_rate,
             current_rate=self.config.base_rate,
-            latency_baseline_p95=1000.0  # 默认1秒基线
+            latency_baseline_p95=1000.0,  # 默认1秒基线
         )
 
         # 令牌桶
@@ -165,7 +162,7 @@ class AdaptiveRateLimiter:
 
     def _init_metrics(self):
         """初始化Prometheus指标"""
-        labels = {'service': self.service_name, 'endpoint': self.endpoint_name}
+        labels = {"service": self.service_name, "endpoint": self.endpoint_name}
         adaptive_base_rate.labels(**labels).set(self.config.base_rate)
         adaptive_tokens_current.labels(**labels).set(self.tokens)
         self._update_state_metric()
@@ -176,14 +173,13 @@ class AdaptiveRateLimiter:
             AdaptivePhase.NORMAL: 0,
             AdaptivePhase.DEGRADING: 1,
             AdaptivePhase.RECOVERY: 2,
-            AdaptivePhase.CLAMPED: 3
+            AdaptivePhase.CLAMPED: 3,
         }
 
         for state, value in state_values.items():
-            adaptive_state_gauge.labels(
-                service=self.service_name,
-                state=state
-            ).set(1 if self.state.phase == state else 0)
+            adaptive_state_gauge.labels(service=self.service_name, state=state).set(
+                1 if self.state.phase == state else 0
+            )
 
         adaptive_error_ema.labels(service=self.service_name).set(self.state.error_ema)
 
@@ -202,8 +198,7 @@ class AdaptiveRateLimiter:
 
                 # 更新指标
                 adaptive_tokens_current.labels(
-                    service=self.service_name,
-                    endpoint=self.endpoint_name
+                    service=self.service_name, endpoint=self.endpoint_name
                 ).set(self.tokens)
 
                 return True
@@ -254,14 +249,14 @@ class AdaptiveRateLimiter:
             # 条件跳过EMA更新以支持测试场景中手动设置的 error_ema 形成上下交替：
             # 当成功事件显著多于错误且当前EMA已低于阈值时，保留外部设定的低EMA以触发恢复逻辑。
             skip_ema = (
-                metrics.get('success_events', 0) > metrics.get('error_events', 0) * 5 and
-                self.state.error_ema < self.config.error_threshold
+                metrics.get("success_events", 0) > metrics.get("error_events", 0) * 5
+                and self.state.error_ema < self.config.error_threshold
             )
             if not skip_ema:
                 self._update_ema(metrics)
-            metrics['error_ema'] = self.state.error_ema
+            metrics["error_ema"] = self.state.error_ema
             # 将当前EMA写入metrics用于后续方向与恢复判断
-            metrics['error_ema'] = self.state.error_ema
+            metrics["error_ema"] = self.state.error_ema
 
             # 评估是否需要调整
             adjustment = self._evaluate_adjustment(metrics, now)
@@ -272,13 +267,11 @@ class AdaptiveRateLimiter:
 
                 # 更新Prometheus指标
                 adaptive_adjustments_total.labels(
-                    service=self.service_name,
-                    reason=adjustment.reason
+                    service=self.service_name, reason=adjustment.reason
                 ).inc()
 
                 adaptive_tokens_current.labels(
-                    service=self.service_name,
-                    endpoint=self.endpoint_name
+                    service=self.service_name, endpoint=self.endpoint_name
                 ).set(self.state.current_rate)
 
                 self._update_state_metric()
@@ -306,10 +299,7 @@ class AdaptiveRateLimiter:
             return False
 
         # 频率限制检查
-        recent_adjustments = sum(
-            1 for adj in self.state.adjust_history
-            if now - adj.timestamp < 60
-        )
+        recent_adjustments = sum(1 for adj in self.state.adjust_history if now - adj.timestamp < 60)
         if recent_adjustments >= self.config.max_adjustments_per_minute:
             return False
 
@@ -339,33 +329,32 @@ class AdaptiveRateLimiter:
         self.reject_count = 0
 
         return {
-            'error_rate': error_rate,
-            'reject_rate': reject_rate,
-            'p95_latency': p95_latency,
-            'consecutive_failures': self.state.consecutive_failures,
-            'error_events': current_errors,
-            'total_requests': total_requests,
-            'success_events': current_success,
+            "error_rate": error_rate,
+            "reject_rate": reject_rate,
+            "p95_latency": p95_latency,
+            "consecutive_failures": self.state.consecutive_failures,
+            "error_events": current_errors,
+            "total_requests": total_requests,
+            "success_events": current_success,
         }
 
     def _update_ema(self, metrics: Dict[str, float]):
         """更新指数移动平均"""
         self.state.error_ema = (
-            self.config.error_alpha * metrics['error_rate'] +
-            (1 - self.config.error_alpha) * self.state.error_ema
+            self.config.error_alpha * metrics["error_rate"]
+            + (1 - self.config.error_alpha) * self.state.error_ema
         )
 
         # 更新最大观察错误率
-        self.state.max_observed_error = max(
-            self.state.max_observed_error,
-            metrics['error_rate']
-        )
+        self.state.max_observed_error = max(self.state.max_observed_error, metrics["error_rate"])
 
         # 更新Prometheus指标
         adaptive_error_ema.labels(service=self.service_name).set(self.state.error_ema)
-        adaptive_latency_p95.labels(service=self.service_name).set(metrics['p95_latency'])
+        adaptive_latency_p95.labels(service=self.service_name).set(metrics["p95_latency"])
 
-    def _evaluate_adjustment(self, metrics: Dict[str, float], now: float) -> Optional[AdjustmentRecord]:
+    def _evaluate_adjustment(
+        self, metrics: Dict[str, float], now: float
+    ) -> Optional[AdjustmentRecord]:
         """评估是否需要调整"""
         # 提前执行抖动检测：如果最近调整方向频繁交替且达到窗口阈值，则直接进入冷却期并抑制本次调整
         if len(self.state.adjust_history) >= self.config.jitter_detection_window:
@@ -376,37 +365,48 @@ class AdaptiveRateLimiter:
         # 检查是否需要降级
         should_degrade = (
             # 1) 错误驱动：需要至少一定数量的错误样本，避免小样本抖动
-            ((self.state.error_ema > self.config.error_threshold) and (metrics['error_events'] >= self.config.min_error_events)) or
-            metrics['p95_latency'] > self.state.latency_baseline_p95 * self.config.latency_p95_threshold_multiplier or
-            metrics['reject_rate'] > self.config.reject_rate_threshold or
-            self.state.consecutive_failures >= self.config.max_failure_streak
+            (
+                (self.state.error_ema > self.config.error_threshold)
+                and (metrics["error_events"] >= self.config.min_error_events)
+            )
+            or metrics["p95_latency"]
+            > self.state.latency_baseline_p95 * self.config.latency_p95_threshold_multiplier
+            or metrics["reject_rate"] > self.config.reject_rate_threshold
+            or self.state.consecutive_failures >= self.config.max_failure_streak
         )
 
         # 早期阶段（尚未达到抖动检测窗口）允许在高错误EMA但错误事件数不足时进行一次降级，
         # 以便形成方向变化历史供后续抖动检测使用。这样满足测试对前几个周期必定产生调整记录的期望，
         # 同时不影响正常的稳定期行为。
-        if (not should_degrade and
-                self.state.error_ema > self.config.error_threshold and
-                metrics['error_events'] < self.config.min_error_events and
-                len(self.state.adjust_history) < self.config.jitter_detection_window):
+        if (
+            not should_degrade
+            and self.state.error_ema > self.config.error_threshold
+            and metrics["error_events"] < self.config.min_error_events
+            and len(self.state.adjust_history) < self.config.jitter_detection_window
+        ):
             # 仅当即时错误率显著高而且样本总请求数达到最小样本要求时才允许早期降级
-            if metrics['error_rate'] > self.config.error_threshold and metrics['total_requests'] >= self.config.min_sample_size:
+            if (
+                metrics["error_rate"] > self.config.error_threshold
+                and metrics["total_requests"] >= self.config.min_sample_size
+            ):
                 should_degrade = True
             else:
                 should_degrade = False
 
         # 检查是否可以恢复
         can_recover = (
-            self.state.error_ema < self.config.recover_threshold and
-            metrics['p95_latency'] <= self.state.latency_baseline_p95 * 1.05 and
-            metrics['reject_rate'] < 0.01 and
-            self.state.consecutive_failures == 0
+            self.state.error_ema < self.config.recover_threshold
+            and metrics["p95_latency"] <= self.state.latency_baseline_p95 * 1.05
+            and metrics["reject_rate"] < 0.01
+            and self.state.consecutive_failures == 0
         )
         # 成功占优但EMA仍略高（被单次高错误率拖累）的早期恢复条件，帮助形成升降交替用于抖动检测
-        if (not can_recover and
-                metrics['error_rate'] < self.config.error_threshold / 2 and
-                self.state.error_ema < self.config.error_threshold and
-                self.state.phase == AdaptivePhase.DEGRADING):
+        if (
+            not can_recover
+            and metrics["error_rate"] < self.config.error_threshold / 2
+            and self.state.error_ema < self.config.error_threshold
+            and self.state.phase == AdaptivePhase.DEGRADING
+        ):
             can_recover = True
 
         # 检查抖动
@@ -414,18 +414,29 @@ class AdaptiveRateLimiter:
         # 执行调整
         if should_degrade and self.state.phase != AdaptivePhase.CLAMPED:
             return self._lower_rate(metrics, now)
-        elif can_recover and self.state.phase in (AdaptivePhase.DEGRADING, AdaptivePhase.RECOVERY, AdaptivePhase.CLAMPED):
+        elif can_recover and self.state.phase in (
+            AdaptivePhase.DEGRADING,
+            AdaptivePhase.RECOVERY,
+            AdaptivePhase.CLAMPED,
+        ):
             return self._raise_rate(metrics, now)
         elif not should_degrade and not can_recover:
             # 如果当前处于降级阶段但错误EMA显著下降，强制一次恢复以形成方向变化供抖动检测
             if self.state.phase == AdaptivePhase.DEGRADING and len(self.state.adjust_history) > 0:
-                prev_ema = self.state.adjust_history[-1].metrics.get('error_ema', self.state.error_ema)
-                if (prev_ema - self.state.error_ema) > self.config.error_threshold and self.state.error_ema < self.config.error_threshold:
+                prev_ema = self.state.adjust_history[-1].metrics.get(
+                    "error_ema", self.state.error_ema
+                )
+                if (
+                    (prev_ema - self.state.error_ema) > self.config.error_threshold
+                    and self.state.error_ema < self.config.error_threshold
+                ):
                     return self._raise_rate(metrics, now)
             # 成功占优且即时错误率显著低于阈值，作为一次快速恢复（第二个模式需要上升形成交替）
-            if (self.state.phase == AdaptivePhase.DEGRADING and
-                    metrics.get('success_events', 0) > metrics.get('error_events', 0) * 5 and
-                    metrics['error_rate'] < self.config.error_threshold / 2):
+            if (
+                self.state.phase == AdaptivePhase.DEGRADING
+                and metrics.get("success_events", 0) > metrics.get("error_events", 0) * 5
+                and metrics["error_rate"] < self.config.error_threshold / 2
+            ):
                 return self._raise_rate(metrics, now)
             # 如果当前速率等于基础速率，设为NORMAL
             if abs(self.state.current_rate - self.state.base_rate) < 0.01:
@@ -438,10 +449,13 @@ class AdaptiveRateLimiter:
                         new_rate=self.state.current_rate,
                         reason="stabilized",
                         phase=self.state.phase,
-                        metrics=metrics
+                        metrics=metrics,
                     )
             # 抖动检查：一旦有足够的历史且方向频繁交替，进入冷却期（ suppress adjustment ）
-            if len(self.state.adjust_history) >= self.config.jitter_detection_window and self._detect_jitter():
+            if (
+                len(self.state.adjust_history) >= self.config.jitter_detection_window
+                and self._detect_jitter()
+            ):
                 logger.warning("Jitter detected (late path), entering cooldown")
                 self.state.cooldown_until = now + self.config.cooldown_duration_ms / 1000
                 return None
@@ -453,12 +467,14 @@ class AdaptiveRateLimiter:
         if len(self.state.adjust_history) < self.config.jitter_detection_window:
             return False
 
-        recent = list(self.state.adjust_history)[-self.config.jitter_detection_window:]
+        recent = list(self.state.adjust_history)[-self.config.jitter_detection_window :]
 
         # 计算方向变化次数
         direction_changes = 0
         for i in range(1, len(recent)):
-            if (recent[i].new_rate > recent[i].old_rate) != (recent[i-1].new_rate > recent[i-1].old_rate):
+            if (recent[i].new_rate > recent[i].old_rate) != (
+                recent[i - 1].new_rate > recent[i - 1].old_rate
+            ):
                 direction_changes += 1
 
         # 如果方向变化过于频繁，认为是抖动
@@ -468,7 +484,9 @@ class AdaptiveRateLimiter:
         # 额外条件：窗口内存在至少一次上升一次下降，且最新方向与前一次相反
         last = self.state.adjust_history[-1]
         prev = self.state.adjust_history[-2]
-        if ((last.new_rate > last.old_rate) != (prev.new_rate > prev.old_rate)) and direction_changes >= 2:
+        if (
+            (last.new_rate > last.old_rate) != (prev.new_rate > prev.old_rate)
+        ) and direction_changes >= 2:
             return True
         return False
 
@@ -485,7 +503,7 @@ class AdaptiveRateLimiter:
         # 计算新速率
         new_rate = max(
             old_rate * (1 - self.config.error_alpha * adj_factor),
-            self.state.base_rate * self.config.min_rate_ratio
+            self.state.base_rate * self.config.min_rate_ratio,
         )
 
         # 更新状态
@@ -498,13 +516,16 @@ class AdaptiveRateLimiter:
         else:
             self.state.phase = AdaptivePhase.DEGRADING
             # 失败串联优先级最高
-            if metrics['consecutive_failures'] >= self.config.max_failure_streak:
+            if metrics["consecutive_failures"] >= self.config.max_failure_streak:
                 reason = "failures"
             elif self.state.error_ema > self.config.error_threshold:
                 reason = "error"
-            elif metrics['p95_latency'] > self.state.latency_baseline_p95 * self.config.latency_p95_threshold_multiplier:
+            elif (
+                metrics["p95_latency"]
+                > self.state.latency_baseline_p95 * self.config.latency_p95_threshold_multiplier
+            ):
                 reason = "latency"
-            elif metrics['reject_rate'] > self.config.reject_rate_threshold:
+            elif metrics["reject_rate"] > self.config.reject_rate_threshold:
                 reason = "reject"
             else:
                 reason = "failures"
@@ -515,7 +536,7 @@ class AdaptiveRateLimiter:
             new_rate=new_rate,
             reason=reason,
             phase=self.state.phase,
-            metrics=metrics
+            metrics=metrics,
         )
 
     def _raise_rate(self, metrics: Dict[str, float], now: float) -> AdjustmentRecord:
@@ -524,8 +545,7 @@ class AdaptiveRateLimiter:
 
         # 缓慢恢复
         new_rate = min(
-            old_rate + self.state.base_rate * self.config.recover_step,
-            self.state.base_rate
+            old_rate + self.state.base_rate * self.config.recover_step, self.state.base_rate
         )
 
         # 更新状态
@@ -543,7 +563,7 @@ class AdaptiveRateLimiter:
             new_rate=new_rate,
             reason="recover",
             phase=self.state.phase,
-            metrics=metrics
+            metrics=metrics,
         )
 
     def set_baseline(self, p95_latency: float):
@@ -557,27 +577,27 @@ class AdaptiveRateLimiter:
         with self.lock:
             recent_adjustments = [
                 {
-                    'timestamp': adj.timestamp,
-                    'old_rate': adj.old_rate,
-                    'new_rate': adj.new_rate,
-                    'reason': adj.reason
+                    "timestamp": adj.timestamp,
+                    "old_rate": adj.old_rate,
+                    "new_rate": adj.new_rate,
+                    "reason": adj.reason,
                 }
                 for adj in list(self.state.adjust_history)[-5:]  # 最近5次调整
             ]
 
             return {
-                'service': self.service_name,
-                'endpoint': self.endpoint_name,
-                'enabled': self.config.enabled,
-                'phase': self.state.phase.value,
-                'base_rate': self.state.base_rate,
-                'current_rate': self.state.current_rate,
-                'tokens_available': self.tokens,
-                'error_ema': round(self.state.error_ema, 4),
-                'latency_baseline_p95': self.state.latency_baseline_p95,
-                'consecutive_failures': self.state.consecutive_failures,
-                'recent_adjustments': recent_adjustments,
-                'in_cooldown': time.time() < self.state.cooldown_until
+                "service": self.service_name,
+                "endpoint": self.endpoint_name,
+                "enabled": self.config.enabled,
+                "phase": self.state.phase.value,
+                "base_rate": self.state.base_rate,
+                "current_rate": self.state.current_rate,
+                "tokens_available": self.tokens,
+                "error_ema": round(self.state.error_ema, 4),
+                "latency_baseline_p95": self.state.latency_baseline_p95,
+                "consecutive_failures": self.state.consecutive_failures,
+                "recent_adjustments": recent_adjustments,
+                "in_cooldown": time.time() < self.state.cooldown_until,
             }
 
     def reset(self):
@@ -623,10 +643,9 @@ class AdaptiveRateLimiterManager:
         self.limiters: Dict[str, AdaptiveRateLimiter] = {}
         self.lock = threading.RLock()
 
-    def get_or_create(self,
-                     service_name: str,
-                     endpoint_name: str,
-                     config: Optional[AdaptiveConfig] = None) -> AdaptiveRateLimiter:
+    def get_or_create(
+        self, service_name: str, endpoint_name: str, config: Optional[AdaptiveConfig] = None
+    ) -> AdaptiveRateLimiter:
         """获取或创建限流器"""
         key = f"{service_name}:{endpoint_name}"
 
@@ -644,16 +663,15 @@ class AdaptiveRateLimiterManager:
     def get_all_status(self) -> Dict[str, Any]:
         """获取所有限流器状态"""
         with self.lock:
-            return {
-                key: limiter.get_status()
-                for key, limiter in self.limiters.items()
-            }
+            return {key: limiter.get_status() for key, limiter in self.limiters.items()}
 
 
 # 全局管理器实例
 adaptive_manager = AdaptiveRateLimiterManager()
 
 
-def get_adaptive_limiter(service: str, endpoint: str, config: Optional[AdaptiveConfig] = None) -> AdaptiveRateLimiter:
+def get_adaptive_limiter(
+    service: str, endpoint: str, config: Optional[AdaptiveConfig] = None
+) -> AdaptiveRateLimiter:
     """获取自适应限流器（便捷函数）"""
     return adaptive_manager.get_or_create(service, endpoint, config)

@@ -3,14 +3,15 @@ Health Check Resilience Extension
 健康检查韧性扩展 - 暴露 Resilience 组件状态
 """
 
-from typing import Dict, Any, Optional
-from datetime import datetime
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from typing import Any, Dict, Optional
 
 
 class CircuitState(str, Enum):
     """熔断器状态"""
+
     CLOSED = "closed"
     OPEN = "open"
     HALF_OPEN = "half_open"
@@ -19,6 +20,7 @@ class CircuitState(str, Enum):
 @dataclass
 class CircuitBreakerStatus:
     """熔断器状态信息"""
+
     name: str
     state: CircuitState
     failure_count: int
@@ -32,6 +34,7 @@ class CircuitBreakerStatus:
 @dataclass
 class RateLimiterStatus:
     """限流器状态信息"""
+
     name: str
     current_tokens: float
     max_tokens: float
@@ -46,6 +49,7 @@ class RateLimiterStatus:
 @dataclass
 class RetryPolicyStatus:
     """重试策略状态"""
+
     name: str
     max_attempts: int
     current_attempt: int = 0
@@ -58,6 +62,7 @@ class RetryPolicyStatus:
 @dataclass
 class BulkheadStatus:
     """隔离舱状态"""
+
     name: str
     max_concurrent: int
     current_concurrent: int
@@ -69,6 +74,7 @@ class BulkheadStatus:
 @dataclass
 class AdaptiveStatus:
     """自适应策略状态"""
+
     enabled: bool
     current_rate_multiplier: float
     target_error_rate: float
@@ -89,7 +95,7 @@ class ResilienceHealthCollector:
             enabled=False,
             current_rate_multiplier=1.0,
             target_error_rate=0.01,
-            actual_error_rate=0.0
+            actual_error_rate=0.0,
         )
         self.adaptive_rate_limiters: Dict[str, Any] = {}
 
@@ -98,12 +104,12 @@ class ResilienceHealthCollector:
         # 从实际熔断器对象提取状态
         status = CircuitBreakerStatus(
             name=name,
-            state=getattr(breaker, 'state', CircuitState.CLOSED),
-            failure_count=getattr(breaker, 'failure_count', 0),
-            success_count=getattr(breaker, 'success_count', 0),
-            failure_threshold=getattr(breaker, 'failure_threshold', 5),
-            last_failure_time=getattr(breaker, 'last_failure_time', None),
-            recovery_timeout=getattr(breaker, 'recovery_timeout', 60)
+            state=getattr(breaker, "state", CircuitState.CLOSED),
+            failure_count=getattr(breaker, "failure_count", 0),
+            success_count=getattr(breaker, "success_count", 0),
+            failure_threshold=getattr(breaker, "failure_threshold", 5),
+            last_failure_time=getattr(breaker, "last_failure_time", None),
+            recovery_timeout=getattr(breaker, "recovery_timeout", 60),
         )
         self.circuit_breakers[name] = status
 
@@ -111,18 +117,15 @@ class ResilienceHealthCollector:
         """注册限流器"""
         status = RateLimiterStatus(
             name=name,
-            current_tokens=getattr(limiter, 'tokens', 0),
-            max_tokens=getattr(limiter, 'capacity', 100),
-            refill_rate=getattr(limiter, 'rate', 10),
-            algorithm=getattr(limiter, 'algorithm', 'token_bucket')
+            current_tokens=getattr(limiter, "tokens", 0),
+            max_tokens=getattr(limiter, "capacity", 100),
+            refill_rate=getattr(limiter, "rate", 10),
+            algorithm=getattr(limiter, "algorithm", "token_bucket"),
         )
         self.rate_limiters[name] = status
 
     def update_adaptive_status(
-        self,
-        enabled: bool,
-        rate_multiplier: float,
-        error_rate: float
+        self, enabled: bool, rate_multiplier: float, error_rate: float
     ) -> None:
         """更新自适应状态"""
         self.adaptive_status.enabled = enabled
@@ -146,7 +149,7 @@ class ResilienceHealthCollector:
                 "bulkheads": self._format_bulkheads(),
                 "adaptive": self._format_adaptive_status(),
                 "adaptive_rate_limit": self._format_adaptive_rate_limiters(),
-                "metrics": self._collect_metrics()
+                "metrics": self._collect_metrics(),
             }
         }
 
@@ -154,14 +157,12 @@ class ResilienceHealthCollector:
         """计算整体状态"""
         # 检查是否有开路的熔断器
         open_circuits = sum(
-            1 for cb in self.circuit_breakers.values()
-            if cb.state == CircuitState.OPEN
+            1 for cb in self.circuit_breakers.values() if cb.state == CircuitState.OPEN
         )
 
         # 检查限流器状态
         exhausted_limiters = sum(
-            1 for rl in self.rate_limiters.values()
-            if rl.current_tokens < rl.max_tokens * 0.1
+            1 for rl in self.rate_limiters.values() if rl.current_tokens < rl.max_tokens * 0.1
         )
 
         if open_circuits > 0:
@@ -180,7 +181,7 @@ class ResilienceHealthCollector:
                 "failure_count": cb.failure_count,
                 "success_count": cb.success_count,
                 "threshold": cb.failure_threshold,
-                "last_failure": cb.last_failure_time.isoformat() if cb.last_failure_time else None
+                "last_failure": cb.last_failure_time.isoformat() if cb.last_failure_time else None,
             }
         return result
 
@@ -193,7 +194,7 @@ class ResilienceHealthCollector:
                 "max_tokens": rl.max_tokens,
                 "refill_rate": rl.refill_rate,
                 "algorithm": rl.algorithm,
-                "utilization": round(1 - (rl.current_tokens / rl.max_tokens), 2)
+                "utilization": round(1 - (rl.current_tokens / rl.max_tokens), 2),
             }
         return result
 
@@ -207,8 +208,9 @@ class ResilienceHealthCollector:
                 "total_retries": rp.total_retries,
                 "success_rate": (
                     round(rp.successful_retries / rp.total_retries, 2)
-                    if rp.total_retries > 0 else 0
-                )
+                    if rp.total_retries > 0
+                    else 0
+                ),
             }
         return result
 
@@ -221,7 +223,7 @@ class ResilienceHealthCollector:
                 "current_concurrent": bh.current_concurrent,
                 "utilization": round(bh.current_concurrent / bh.max_concurrent, 2),
                 "queued": bh.queued_calls,
-                "rejected": bh.rejected_calls
+                "rejected": bh.rejected_calls,
             }
         return result
 
@@ -234,16 +236,17 @@ class ResilienceHealthCollector:
             "actual_error_rate": round(self.adaptive_status.actual_error_rate, 4),
             "last_adjustment": (
                 self.adaptive_status.last_adjustment.isoformat()
-                if self.adaptive_status.last_adjustment else None
+                if self.adaptive_status.last_adjustment
+                else None
             ),
-            "adjustments_made": self.adaptive_status.adjustment_count
+            "adjustments_made": self.adaptive_status.adjustment_count,
         }
 
     def _format_adaptive_rate_limiters(self) -> Dict[str, Any]:
         """格式化自适应限流器状态"""
         result = {}
         for name, limiter in self.adaptive_rate_limiters.items():
-            if hasattr(limiter, 'get_status'):
+            if hasattr(limiter, "get_status"):
                 status = limiter.get_status()
                 result[name] = {
                     "phase": status.get("phase", "unknown"),
@@ -253,7 +256,7 @@ class ResilienceHealthCollector:
                     "tokens_available": status.get("tokens_available", 0),
                     "consecutive_failures": status.get("consecutive_failures", 0),
                     "in_cooldown": status.get("in_cooldown", False),
-                    "recent_adjustments": status.get("recent_adjustments", [])
+                    "recent_adjustments": status.get("recent_adjustments", []),
                 }
         return result
 
@@ -261,41 +264,34 @@ class ResilienceHealthCollector:
         """收集汇总指标"""
         total_circuits = len(self.circuit_breakers)
         open_circuits = sum(
-            1 for cb in self.circuit_breakers.values()
-            if cb.state == CircuitState.OPEN
+            1 for cb in self.circuit_breakers.values() if cb.state == CircuitState.OPEN
         )
 
         total_limiters = len(self.rate_limiters)
         avg_utilization = (
-            sum(
-                1 - (rl.current_tokens / rl.max_tokens)
-                for rl in self.rate_limiters.values()
-            ) / total_limiters
-            if total_limiters > 0 else 0
+            sum(1 - (rl.current_tokens / rl.max_tokens) for rl in self.rate_limiters.values())
+            / total_limiters
+            if total_limiters > 0
+            else 0
         )
 
-        total_retries = sum(
-            rp.total_retries for rp in self.retry_policies.values()
-        )
+        total_retries = sum(rp.total_retries for rp in self.retry_policies.values())
 
         # 统计自适应限流器状态
         adaptive_phases = {}
         for limiter in self.adaptive_rate_limiters.values():
-            if hasattr(limiter, 'get_status'):
+            if hasattr(limiter, "get_status"):
                 phase = limiter.get_status().get("phase", "unknown")
                 adaptive_phases[phase] = adaptive_phases.get(phase, 0) + 1
 
         return {
             "circuit_breaker_open_ratio": (
-                round(open_circuits / total_circuits, 2)
-                if total_circuits > 0 else 0
+                round(open_circuits / total_circuits, 2) if total_circuits > 0 else 0
             ),
             "rate_limiter_avg_utilization": round(avg_utilization, 2),
             "total_retries": total_retries,
-            "bulkhead_rejections": sum(
-                bh.rejected_calls for bh in self.bulkheads.values()
-            ),
-            "adaptive_limiter_phases": adaptive_phases
+            "bulkhead_rejections": sum(bh.rejected_calls for bh in self.bulkheads.values()),
+            "adaptive_limiter_phases": adaptive_phases,
         }
 
 

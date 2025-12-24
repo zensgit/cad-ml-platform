@@ -3,17 +3,17 @@ Resilience Manager - 统一的弹性管理器
 整合所有弹性模式，提供统一接口和协调
 """
 
+import logging
 import threading
-from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass, field
 from datetime import datetime
-import logging
+from typing import Any, Callable, Dict, List, Optional
 
-from .circuit_breaker import CircuitBreaker, CircuitState
-from .rate_limiter import RateLimiter
-from .retry_policy import RetryPolicy, ExponentialBackoff
 from .bulkhead import Bulkhead
+from .circuit_breaker import CircuitBreaker, CircuitState
 from .metrics import ResilienceMetrics
+from .rate_limiter import RateLimiter
+from .retry_policy import ExponentialBackoff, RetryPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ResilienceConfig:
     """弹性配置"""
+
     # Circuit Breaker 配置
     circuit_breaker_enabled: bool = True
     circuit_failure_threshold: int = 5
@@ -55,6 +56,7 @@ class ResilienceConfig:
 @dataclass
 class ResilienceHealth:
     """弹性健康状态"""
+
     healthy: bool = True
     circuit_breakers: Dict[str, Dict] = field(default_factory=dict)
     rate_limiters: Dict[str, Dict] = field(default_factory=dict)
@@ -90,7 +92,7 @@ class ResilienceManager:
 
     def __init__(self):
         """初始化管理器"""
-        if not hasattr(self, 'initialized'):
+        if not hasattr(self, "initialized"):
             self.config = ResilienceConfig()
             self.circuit_breakers: Dict[str, CircuitBreaker] = {}
             self.rate_limiters: Dict[str, RateLimiter] = {}
@@ -110,7 +112,7 @@ class ResilienceManager:
         self,
         name: str,
         failure_threshold: Optional[int] = None,
-        recovery_timeout: Optional[int] = None
+        recovery_timeout: Optional[int] = None,
     ) -> CircuitBreaker:
         """获取或创建熔断器"""
         if name not in self.circuit_breakers:
@@ -119,15 +121,12 @@ class ResilienceManager:
                 failure_threshold=failure_threshold or self.config.circuit_failure_threshold,
                 recovery_timeout=recovery_timeout or self.config.circuit_recovery_timeout,
                 half_open_max_calls=self.config.circuit_half_open_max_calls,
-                metrics_callback=self.metrics.record_circuit_breaker_event
+                metrics_callback=self.metrics.record_circuit_breaker_event,
             )
         return self.circuit_breakers[name]
 
     def get_rate_limiter(
-        self,
-        name: str,
-        rate: Optional[float] = None,
-        burst: Optional[int] = None
+        self, name: str, rate: Optional[float] = None, burst: Optional[int] = None
     ) -> RateLimiter:
         """获取或创建限流器"""
         if name not in self.rate_limiters:
@@ -136,15 +135,11 @@ class ResilienceManager:
                 rate=rate or self.config.rate_limit,
                 burst=burst or self.config.rate_burst,
                 algorithm=self.config.rate_algorithm,
-                metrics_callback=self.metrics.record_rate_limiter_event
+                metrics_callback=self.metrics.record_rate_limiter_event,
             )
         return self.rate_limiters[name]
 
-    def get_retry_policy(
-        self,
-        name: str,
-        max_attempts: Optional[int] = None
-    ) -> RetryPolicy:
+    def get_retry_policy(self, name: str, max_attempts: Optional[int] = None) -> RetryPolicy:
         """获取或创建重试策略"""
         if name not in self.retry_policies:
             self.retry_policies[name] = RetryPolicy(
@@ -153,17 +148,13 @@ class ResilienceManager:
                 strategy=ExponentialBackoff(
                     base_delay=self.config.retry_base_delay,
                     max_delay=self.config.retry_max_delay,
-                    exponential_base=self.config.retry_exponential_base
+                    exponential_base=self.config.retry_exponential_base,
                 ),
-                metrics_callback=self.metrics.record_retry_event
+                metrics_callback=self.metrics.record_retry_event,
             )
         return self.retry_policies[name]
 
-    def get_bulkhead(
-        self,
-        name: str,
-        max_concurrent_calls: Optional[int] = None
-    ) -> Bulkhead:
+    def get_bulkhead(self, name: str, max_concurrent_calls: Optional[int] = None) -> Bulkhead:
         """获取或创建隔板"""
         if name not in self.bulkheads:
             self.bulkheads[name] = Bulkhead(
@@ -171,7 +162,7 @@ class ResilienceManager:
                 max_concurrent_calls=max_concurrent_calls or self.config.bulkhead_max_concurrent,
                 max_wait_duration=self.config.bulkhead_max_wait,
                 bulkhead_type=self.config.bulkhead_type,
-                metrics_callback=self.metrics.record_bulkhead_event
+                metrics_callback=self.metrics.record_bulkhead_event,
             )
         return self.bulkheads[name]
 
@@ -184,7 +175,7 @@ class ResilienceManager:
         use_retry: bool = True,
         use_bulkhead: bool = True,
         *args,
-        **kwargs
+        **kwargs,
     ) -> Any:
         """
         使用多重保护执行函数
@@ -205,16 +196,12 @@ class ResilienceManager:
         if use_bulkhead and self.config.bulkhead_enabled:
             bulkhead = self.get_bulkhead(name)
             return self._execute_with_bulkhead(
-                bulkhead, name, func,
-                use_circuit_breaker, use_retry,
-                *args, **kwargs
+                bulkhead, name, func, use_circuit_breaker, use_retry, *args, **kwargs
             )
 
         # 3. Circuit Breaker + Retry
         return self._execute_with_circuit_breaker_and_retry(
-            name, func,
-            use_circuit_breaker, use_retry,
-            *args, **kwargs
+            name, func, use_circuit_breaker, use_retry, *args, **kwargs
         )
 
     def _execute_with_bulkhead(
@@ -225,25 +212,19 @@ class ResilienceManager:
         use_circuit_breaker: bool,
         use_retry: bool,
         *args,
-        **kwargs
+        **kwargs,
     ) -> Any:
         """通过隔板执行"""
+
         def wrapped():
             return self._execute_with_circuit_breaker_and_retry(
-                name, func,
-                use_circuit_breaker, use_retry,
-                *args, **kwargs
+                name, func, use_circuit_breaker, use_retry, *args, **kwargs
             )
+
         return bulkhead.execute(wrapped)
 
     def _execute_with_circuit_breaker_and_retry(
-        self,
-        name: str,
-        func: Callable,
-        use_circuit_breaker: bool,
-        use_retry: bool,
-        *args,
-        **kwargs
+        self, name: str, func: Callable, use_circuit_breaker: bool, use_retry: bool, *args, **kwargs
     ) -> Any:
         """通过熔断器和重试执行"""
         if use_retry and self.config.retry_enabled:
@@ -251,9 +232,7 @@ class ResilienceManager:
 
             if use_circuit_breaker and self.config.circuit_breaker_enabled:
                 circuit_breaker = self.get_circuit_breaker(name)
-                return retry_policy.execute(
-                    lambda: circuit_breaker.call(func, *args, **kwargs)
-                )
+                return retry_policy.execute(lambda: circuit_breaker.call(func, *args, **kwargs))
             else:
                 return retry_policy.execute(func, *args, **kwargs)
 
@@ -381,30 +360,24 @@ class ResilienceManager:
                 name: {
                     "failure_threshold": cb.failure_threshold,
                     "recovery_timeout": cb.recovery_timeout,
-                    "state": cb.state.value
+                    "state": cb.state.value,
                 }
                 for name, cb in self.circuit_breakers.items()
             },
             "rate_limiters": {
-                name: {
-                    "rate": rl.rate,
-                    "burst": rl.burst
-                }
+                name: {"rate": rl.rate, "burst": rl.burst}
                 for name, rl in self.rate_limiters.items()
             },
             "retry_policies": {
-                name: {
-                    "max_attempts": rp.max_attempts
-                }
-                for name, rp in self.retry_policies.items()
+                name: {"max_attempts": rp.max_attempts} for name, rp in self.retry_policies.items()
             },
             "bulkheads": {
                 name: {
                     "max_concurrent_calls": bh.max_concurrent_calls,
-                    "max_wait_duration": bh.max_wait_duration
+                    "max_wait_duration": bh.max_wait_duration,
                 }
                 for name, bh in self.bulkheads.items()
-            }
+            },
         }
 
     def import_config(self, config_dict: Dict[str, Any]):
@@ -433,7 +406,7 @@ def with_resilience(
     use_circuit_breaker: bool = True,
     use_rate_limiter: bool = True,
     use_retry: bool = True,
-    use_bulkhead: bool = True
+    use_bulkhead: bool = True,
 ):
     """
     弹性保护装饰器
@@ -444,15 +417,20 @@ def with_resilience(
             # API call logic
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         component_name = name or f"{func.__module__}.{func.__name__}"
 
         def wrapper(*args, **kwargs):
             return resilience_manager.protect(
-                component_name, func,
-                use_circuit_breaker, use_rate_limiter,
-                use_retry, use_bulkhead,
-                *args, **kwargs
+                component_name,
+                func,
+                use_circuit_breaker,
+                use_rate_limiter,
+                use_retry,
+                use_bulkhead,
+                *args,
+                **kwargs,
             )
 
         wrapper.resilience_name = component_name

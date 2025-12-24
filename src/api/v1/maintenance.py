@@ -7,12 +7,13 @@ from __future__ import annotations
 
 import logging
 from typing import Dict, List, Optional
-from fastapi import APIRouter, Depends, Query, HTTPException
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key
+from src.core.errors_extended import ErrorCode, build_error
 from src.utils.analysis_metrics import vector_cold_pruned_total, vector_orphan_total
-from src.core.errors_extended import build_error, ErrorCode
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -20,6 +21,7 @@ router = APIRouter()
 
 class OrphanCleanupResponse(BaseModel):
     """孤儿向量清理响应"""
+
     orphan_count: int = Field(..., description="孤儿向量数量")
     deleted_count: int = Field(..., description="已删除数量")
     sample_ids: Optional[List[str]] = Field(None, description="孤儿ID样例（verbose模式）")
@@ -29,6 +31,7 @@ class OrphanCleanupResponse(BaseModel):
 
 class KnowledgeReloadResponse(BaseModel):
     """知识库热加载响应"""
+
     status: str = Field(..., description="状态: ok/error")
     previous_version: str = Field(..., description="重载前版本")
     current_version: str = Field(..., description="重载后版本")
@@ -37,6 +40,7 @@ class KnowledgeReloadResponse(BaseModel):
 
 class KnowledgeStatusResponse(BaseModel):
     """知识库状态响应"""
+
     version: str = Field(..., description="当前版本")
     total_rules: int = Field(..., description="规则总数")
     by_category: Dict[str, int] = Field(..., description="按类别统计")
@@ -47,6 +51,7 @@ async def reload_knowledge(api_key: str = Depends(get_api_key)):
     """手动触发知识库热加载"""
     try:
         from src.core.knowledge.dynamic.manager import get_knowledge_manager
+
         km = get_knowledge_manager()
         prev = km.get_version()
         km.reload()
@@ -123,7 +128,7 @@ async def cleanup_orphan_vectors(
     Returns:
         清理结果统计
     """
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_LOCK
+    from src.core.similarity import _VECTOR_LOCK, _VECTOR_STORE
     from src.utils.cache import get_client
 
     # Get cache client with error handling
@@ -136,7 +141,7 @@ async def cleanup_orphan_vectors(
             stage="orphan_cleanup",
             message="Redis connection failed during orphan cleanup",
             detail=str(e),
-            suggestion="Check Redis connectivity and retry"
+            suggestion="Check Redis connectivity and retry",
         )
         vector_orphan_total.inc()  # Track the attempt
         raise HTTPException(status_code=503, detail=err)
@@ -168,7 +173,7 @@ async def cleanup_orphan_vectors(
                         message="Redis connection unstable, aborting orphan cleanup",
                         checked_count=len(keys_snapshot),
                         error_count=redis_errors,
-                        suggestion="Check Redis health before retrying"
+                        suggestion="Check Redis health before retrying",
                     )
                     raise HTTPException(status_code=503, detail=err)
                 continue
@@ -189,7 +194,7 @@ async def cleanup_orphan_vectors(
             deleted_count=0,
             sample_ids=orphan_ids[:10] if verbose else None,
             status="skipped",
-            message=f"Orphan count {orphan_count} below threshold {threshold}"
+            message=f"Orphan count {orphan_count} below threshold {threshold}",
         )
 
     # Dry run mode
@@ -199,7 +204,7 @@ async def cleanup_orphan_vectors(
             deleted_count=0,
             sample_ids=orphan_ids[:10] if verbose else None,
             status="dry_run",
-            message=f"Would delete {orphan_count} orphan vectors"
+            message=f"Would delete {orphan_count} orphan vectors",
         )
 
     # Execute deletion
@@ -217,6 +222,7 @@ async def cleanup_orphan_vectors(
 
     # Also clean up metadata if exists
     from src.core.similarity import _VECTOR_META  # type: ignore
+
     with _VECTOR_LOCK:
         for oid in orphan_ids:
             if oid in _VECTOR_META:
@@ -235,14 +241,13 @@ async def cleanup_orphan_vectors(
         deleted_count=deleted_count,
         sample_ids=orphan_ids[:10] if verbose else None,
         status="ok",
-        message=f"Successfully deleted {deleted_count} orphan vectors"
+        message=f"Successfully deleted {deleted_count} orphan vectors",
     )
 
 
 @router.post("/cache/clear")
 async def clear_cache(
-    pattern: str = Query("*", description="缓存键模式，支持通配符"),
-    api_key: str = Depends(get_api_key)
+    pattern: str = Query("*", description="缓存键模式，支持通配符"), api_key: str = Depends(get_api_key)
 ):
     """
     清理缓存
@@ -263,7 +268,7 @@ async def clear_cache(
             stage="cache_clear",
             message="Cache client not available",
             reason="redis_not_configured",
-            suggestion="Configure Redis connection or use alternative caching"
+            suggestion="Configure Redis connection or use alternative caching",
         )
         raise HTTPException(status_code=503, detail=err)
 
@@ -271,10 +276,7 @@ async def clear_cache(
         # Get matching keys
         keys = await client.keys(pattern)  # type: ignore[attr-defined]
         if not keys:
-            return {
-                "deleted_count": 0,
-                "message": f"No keys matching pattern: {pattern}"
-            }
+            return {"deleted_count": 0, "message": f"No keys matching pattern: {pattern}"}
 
         # Delete keys
         deleted = await client.delete(*keys)  # type: ignore[attr-defined]
@@ -282,7 +284,7 @@ async def clear_cache(
         logger.info(f"Cleared {deleted} cache entries matching pattern: {pattern}")
         return {
             "deleted_count": deleted,
-            "message": f"Successfully deleted {deleted} cache entries"
+            "message": f"Successfully deleted {deleted} cache entries",
         }
 
     except Exception as e:
@@ -293,7 +295,7 @@ async def clear_cache(
             message="Failed to clear cache",
             pattern=pattern,
             detail=str(e),
-            suggestion="Check Redis connection and retry"
+            suggestion="Check Redis connection and retry",
         )
         raise HTTPException(status_code=500, detail=err)
 
@@ -306,7 +308,7 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
     Returns:
         维护相关的统计数据
     """
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META, _VECTOR_LOCK  # type: ignore
+    from src.core.similarity import _VECTOR_LOCK, _VECTOR_META, _VECTOR_STORE  # type: ignore
     from src.utils.cache import get_client
 
     try:
@@ -318,23 +320,14 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
             ErrorCode.INTERNAL_ERROR,
             stage="maintenance_stats",
             message="Failed to read vector store stats",
-            detail=str(e)
+            detail=str(e),
         )
         raise HTTPException(status_code=500, detail=err)
 
     stats = {
-        "vector_store": {
-            "total_vectors": total_vectors,
-            "metadata_entries": metadata_entries
-        },
-        "cache": {
-            "available": False,
-            "size": 0
-        },
-        "maintenance": {
-            "orphan_check_available": False,
-            "last_cleanup": None
-        }
+        "vector_store": {"total_vectors": total_vectors, "metadata_entries": metadata_entries},
+        "cache": {"available": False, "size": 0},
+        "maintenance": {"orphan_check_available": False, "last_cleanup": None},
     }
 
     # Check cache stats
@@ -356,16 +349,20 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
         logger.warning(f"Could not initialize cache client: {e}")
 
     return stats
+
+
 class VectorStoreReloadResponse(BaseModel):
     status: str
     backend: Optional[str] = None
 
+
 @router.post("/vectors/backend/reload", response_model=VectorStoreReloadResponse)
 async def reload_vector_backend(api_key: str = Depends(get_api_key)):
     """Force reload of vector store backend selection (clears cached instance)."""
+    import os
+
     from src.core.similarity import reload_vector_store_backend
     from src.utils.analysis_metrics import vector_store_reload_total
-    import os
 
     try:
         ok = reload_vector_store_backend()
@@ -379,7 +376,7 @@ async def reload_vector_backend(api_key: str = Depends(get_api_key)):
                 stage="backend_reload",
                 message="Vector store backend reload failed",
                 backend=backend,
-                suggestion="Check backend configuration and logs"
+                suggestion="Check backend configuration and logs",
             )
             raise HTTPException(status_code=500, detail=err)
 
@@ -393,6 +390,6 @@ async def reload_vector_backend(api_key: str = Depends(get_api_key)):
             stage="backend_reload",
             message="Exception during backend reload",
             detail=str(e),
-            suggestion="Check system logs and backend availability"
+            suggestion="Check system logs and backend availability",
         )
         raise HTTPException(status_code=500, detail=err)

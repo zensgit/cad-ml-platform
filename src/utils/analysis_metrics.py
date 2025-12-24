@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 try:
-    from prometheus_client import (  # type: ignore
-        Counter as _Counter, Histogram as _Histogram, Gauge as _Gauge, REGISTRY
-    )
+    from prometheus_client import REGISTRY
+    from prometheus_client import Counter as _Counter  # type: ignore
+    from prometheus_client import Gauge as _Gauge
+    from prometheus_client import Histogram as _Histogram
 
     # Cache for already-registered metrics (avoids registry lookup overhead)
     _METRIC_CACHE = {}
@@ -21,13 +22,18 @@ try:
         except ValueError:
             # Already registered - find in registry by checking collectors
             for collector in list(REGISTRY._names_to_collectors.values()):
-                if hasattr(collector, '_name') and collector._name == name:
+                if hasattr(collector, "_name") and collector._name == name:
                     _METRIC_CACHE[name] = collector
                     return collector
+
             # Fallback: return dummy if not found (should not happen)
             class _FallbackDummy:
-                def labels(self, *a, **kw): return self
-                def inc(self, *a, **kw): pass
+                def labels(self, *a, **kw):
+                    return self
+
+                def inc(self, *a, **kw):
+                    pass
+
             return _FallbackDummy()
 
     def _safe_histogram(name, *args, **kwargs):
@@ -40,12 +46,17 @@ try:
             return m
         except ValueError:
             for collector in list(REGISTRY._names_to_collectors.values()):
-                if hasattr(collector, '_name') and collector._name == name:
+                if hasattr(collector, "_name") and collector._name == name:
                     _METRIC_CACHE[name] = collector
                     return collector
+
             class _FallbackDummy:
-                def labels(self, *a, **kw): return self
-                def observe(self, *a, **kw): pass
+                def labels(self, *a, **kw):
+                    return self
+
+                def observe(self, *a, **kw):
+                    pass
+
             return _FallbackDummy()
 
     def _safe_gauge(name, *args, **kwargs):
@@ -58,12 +69,17 @@ try:
             return m
         except ValueError:
             for collector in list(REGISTRY._names_to_collectors.values()):
-                if hasattr(collector, '_name') and collector._name == name:
+                if hasattr(collector, "_name") and collector._name == name:
                     _METRIC_CACHE[name] = collector
                     return collector
+
             class _FallbackDummy:
-                def labels(self, *a, **kw): return self
-                def set(self, *a, **kw): pass
+                def labels(self, *a, **kw):
+                    return self
+
+                def set(self, *a, **kw):
+                    pass
+
             return _FallbackDummy()
 
     Counter = _safe_counter
@@ -71,29 +87,32 @@ try:
     Gauge = _safe_gauge
 
 except Exception:  # pragma: no cover - fallback dummy
+
     class _Dummy:
         def labels(self, *a, **kw):
             return self
+
         def inc(self, *a, **kw):
             pass
+
         def observe(self, *a, **kw):
             pass
+
         def set(self, *a, **kw):
             pass
+
     def Counter(*a, **kw):  # type: ignore
         return _Dummy()
+
     def Histogram(*a, **kw):  # type: ignore
         return _Dummy()
+
     def Gauge(*a, **kw):  # type: ignore
         return _Dummy()
 
 
-analysis_requests_total = Counter(
-    "analysis_requests_total", "CAD analysis requests", ["status"]
-)
-analysis_errors_total = Counter(
-    "analysis_errors_total", "CAD analysis errors", ["stage", "code"]
-)
+analysis_requests_total = Counter("analysis_requests_total", "CAD analysis requests", ["status"])
+analysis_errors_total = Counter("analysis_errors_total", "CAD analysis errors", ["stage", "code"])
 analysis_stage_duration_seconds = Histogram(
     "analysis_stage_duration_seconds",
     "Per-stage duration for CAD analysis",
@@ -519,6 +538,7 @@ process_start_time_seconds = Gauge(
 )
 try:
     import time as _t
+
     process_start_time_seconds.set(_t.time())
 except Exception:
     pass
