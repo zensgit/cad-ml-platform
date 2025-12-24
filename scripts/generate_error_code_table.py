@@ -27,15 +27,27 @@ def parse_errors(py_path: Path) -> tuple[list[str], dict[str, str]]:
                 if isinstance(stmt, ast.Assign) and len(stmt.targets) == 1 and isinstance(stmt.targets[0], ast.Name):
                     name = stmt.targets[0].id
                     error_codes.append(name)
+        mapping_node = None
         if isinstance(node, ast.Assign):
-            if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) and node.targets[0].id == "ERROR_SOURCE_MAPPING":
-                if isinstance(node.value, ast.Dict):
-                    for k, v in zip(node.value.keys, node.value.values):
-                        # Keys like ErrorCode.SOMETHING, values like ErrorSource.INPUT
-                        if isinstance(k, ast.Attribute) and isinstance(v, ast.Attribute):
-                            code_name = k.attr
-                            source_name = v.attr
-                            source_map[code_name] = source_name
+            if (
+                len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and node.targets[0].id == "ERROR_SOURCE_MAPPING"
+            ):
+                mapping_node = node.value
+        if isinstance(node, ast.AnnAssign):
+            if (
+                isinstance(node.target, ast.Name)
+                and node.target.id == "ERROR_SOURCE_MAPPING"
+            ):
+                mapping_node = node.value
+        if mapping_node and isinstance(mapping_node, ast.Dict):
+            for k, v in zip(mapping_node.keys, mapping_node.values):
+                # Keys like ErrorCode.SOMETHING, values like ErrorSource.INPUT
+                if isinstance(k, ast.Attribute) and isinstance(v, ast.Attribute):
+                    code_name = k.attr
+                    source_name = v.attr
+                    source_map[code_name] = source_name
 
     # Deduplicate while preserving order
     seen = set()
@@ -76,4 +88,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
