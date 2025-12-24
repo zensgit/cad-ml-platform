@@ -37,7 +37,7 @@ class VectorDistributionResponse(BaseModel):
 
 @router.get("/stats", response_model=VectorStatsResponse)
 async def vector_stats(api_key: str = Depends(get_api_key)):
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META, _BACKEND  # type: ignore
+    from src.core.similarity import _BACKEND, _VECTOR_META, _VECTOR_STORE  # type: ignore
 
     total, by_material, by_complexity, by_format, versions, _ = await _summarize_vectors(
         backend=_BACKEND,
@@ -56,7 +56,7 @@ async def vector_stats(api_key: str = Depends(get_api_key)):
 
 @router.get("/distribution", response_model=VectorDistributionResponse)
 async def vector_distribution(api_key: str = Depends(get_api_key)):
-    from src.core.similarity import _VECTOR_META, _VECTOR_STORE, _BACKEND  # type: ignore
+    from src.core.similarity import _BACKEND, _VECTOR_META, _VECTOR_STORE  # type: ignore
 
     total, by_material, by_complexity, by_format, versions, avg_dim = await _summarize_vectors(
         backend=_BACKEND,

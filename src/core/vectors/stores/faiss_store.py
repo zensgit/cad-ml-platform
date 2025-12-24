@@ -3,21 +3,25 @@ Faiss Vector Store Wrapper.
 Provides high-performance indexing for Public/Private libraries.
 """
 
-import os
 import logging
+import os
 import pickle
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
-from typing import List, Tuple, Dict, Any, Optional
+
 from src.core.vectors.stores.base import BaseVectorStore
 
 logger = logging.getLogger(__name__)
 
 try:
     import faiss
+
     HAS_FAISS = True
 except ImportError:
     HAS_FAISS = False
     logger.warning("Faiss not installed. FaissStore will fail if used.")
+
 
 class FaissStore(BaseVectorStore):
     def __init__(self, dimension: int = 128, index_key: str = "Flat"):
@@ -26,8 +30,8 @@ class FaissStore(BaseVectorStore):
 
         self.dimension = dimension
         self.index = faiss.index_factory(dimension, index_key, faiss.METRIC_INNER_PRODUCT)
-        self.id_map: Dict[int, str] = {} # Int ID -> Str ID
-        self.rev_map: Dict[str, int] = {} # Str ID -> Int ID
+        self.id_map: Dict[int, str] = {}  # Int ID -> Str ID
+        self.rev_map: Dict[str, int] = {}  # Str ID -> Int ID
         self.metadata: Dict[str, Dict[str, Any]] = {}
         self.counter = 0
 
@@ -76,19 +80,17 @@ class FaissStore(BaseVectorStore):
         # Save index + auxiliary data
         base = os.path.splitext(path)[0]
         faiss.write_index(self.index, f"{base}.index")
-        with open(f"{base}.meta", 'wb') as f:
-            pickle.dump({
-                "id_map": self.id_map,
-                "metadata": self.metadata,
-                "counter": self.counter
-            }, f)
+        with open(f"{base}.meta", "wb") as f:
+            pickle.dump(
+                {"id_map": self.id_map, "metadata": self.metadata, "counter": self.counter}, f
+            )
 
     def load(self, path: str):
         base = os.path.splitext(path)[0]
         if os.path.exists(f"{base}.index"):
             self.index = faiss.read_index(f"{base}.index")
         if os.path.exists(f"{base}.meta"):
-            with open(f"{base}.meta", 'rb') as f:
+            with open(f"{base}.meta", "rb") as f:
                 data = pickle.load(f)
                 self.id_map = data["id_map"]
                 self.metadata = data["metadata"]

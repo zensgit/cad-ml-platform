@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from src.models.cad_document import CadDocument, CadEntity, BoundingBox
+from src.models.cad_document import BoundingBox, CadDocument, CadEntity
 
 
 class _BaseAdapter:
@@ -30,8 +30,9 @@ class DxfAdapter(_BaseAdapter):
         entities: list[CadEntity] = []
         bbox = BoundingBox()
         try:
-            import ezdxf  # type: ignore
             from io import BytesIO
+
+            import ezdxf  # type: ignore
 
             stream = BytesIO(data)
             doc = ezdxf.read(stream)
@@ -78,8 +79,9 @@ class StlAdapter(_BaseAdapter):
         entities: list[CadEntity] = []
         bbox = BoundingBox()
         try:
-            import trimesh  # type: ignore
             from io import BytesIO
+
+            import trimesh  # type: ignore
 
             mesh = trimesh.load(BytesIO(data), file_type="stl")
             # Each facet treated as entity for initial stats
@@ -148,19 +150,20 @@ class StepIgesAdapter(_BaseAdapter):
         bbox = BoundingBox()
         metadata: Dict[str, Any] = {"parser": "stub"}
         try:
-            from OCC.Core.STEPControl import STEPControl_Reader  # type: ignore
-            from OCC.Core.IFSelect import IFSelect_RetDone  # type: ignore
-            from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox  # type: ignore
             from OCC.Core.Bnd import Bnd_Box  # type: ignore
             from OCC.Core.BRepBndLib import brepbndlib_Add  # type: ignore
-            from OCC.Core.TopExp import TopExp_Explorer  # type: ignore
+            from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox  # type: ignore
+            from OCC.Core.IFSelect import IFSelect_RetDone  # type: ignore
+            from OCC.Core.STEPControl import STEPControl_Reader  # type: ignore
             from OCC.Core.TopAbs import TopAbs_SOLID  # type: ignore
+            from OCC.Core.TopExp import TopExp_Explorer  # type: ignore
 
             # Reading actual STEP from bytes is non-trivial; many libs expect file path.
             # Fallback: create dummy box to simulate geometry if reader fails.
             reader = STEPControl_Reader()
             # Write bytes to temp file to allow reader usage if possible.
-            import tempfile, os
+            import os
+            import tempfile
 
             with tempfile.NamedTemporaryFile(delete=False, suffix=".step") as tmp:
                 tmp.write(data)

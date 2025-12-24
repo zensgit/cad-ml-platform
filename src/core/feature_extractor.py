@@ -90,6 +90,7 @@ def compute_surface_count(doc: "CadDocument") -> int:
     solids = doc.metadata.get("solids") or 0
     return int(solids)
 
+
 # Stable slot declarations per version for dynamic introspection
 SLOTS_V1 = [
     ("entity_count", "geometric"),
@@ -138,7 +139,9 @@ class FeatureExtractor:
             feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
         self.feature_version = feature_version
 
-    def upgrade_vector(self, existing: List[float], current_version: str | None = None) -> List[float]:
+    def upgrade_vector(
+        self, existing: List[float], current_version: str | None = None
+    ) -> List[float]:
         """Upgrade an existing combined vector to target version.
 
         This is a best-effort transformation when original document context is
@@ -218,7 +221,9 @@ class FeatureExtractor:
         Extract features from CAD document.
         """
         import time
+
         from src.utils.analysis_metrics import feature_extraction_latency_seconds
+
         start = time.time()
         entity_count = doc.entity_count()
         bbox = doc.bounding_box

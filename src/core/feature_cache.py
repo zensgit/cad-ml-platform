@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Tuple, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class FeatureCache:
@@ -44,6 +44,7 @@ class FeatureCache:
             self._misses += 1
             try:
                 from src.utils.analysis_metrics import feature_cache_miss_total
+
                 feature_cache_miss_total.inc()
             except Exception:
                 pass
@@ -54,6 +55,7 @@ class FeatureCache:
         self._hits += 1
         try:
             from src.utils.analysis_metrics import feature_cache_hits_total
+
             feature_cache_hits_total.inc()
         except Exception:
             pass
@@ -69,6 +71,7 @@ class FeatureCache:
             self._evictions += evicted
             try:
                 from src.utils.analysis_metrics import feature_cache_evictions_total
+
                 feature_cache_evictions_total.inc(evicted)
             except Exception:
                 pass
@@ -85,7 +88,9 @@ class FeatureCache:
         }
 
     # Runtime configuration updates
-    def update_settings(self, *, capacity: Optional[int] = None, ttl_seconds: Optional[int] = None) -> Dict[str, Any]:
+    def update_settings(
+        self, *, capacity: Optional[int] = None, ttl_seconds: Optional[int] = None
+    ) -> Dict[str, Any]:
         """Update cache capacity and/or TTL at runtime.
 
         Returns a dict with previous and new settings plus evicted count if any.
@@ -115,6 +120,7 @@ def get_feature_cache() -> FeatureCache:
     global _FEATURE_CACHE
     if _FEATURE_CACHE is None:
         from os import getenv
+
         cap = int(getenv("FEATURE_CACHE_CAPACITY", "256"))
         ttl = int(getenv("FEATURE_CACHE_TTL_SECONDS", "0"))
         _FEATURE_CACHE = FeatureCache(capacity=cap, ttl_seconds=ttl)
@@ -239,6 +245,7 @@ def prewarm_cache(strategy: str = "auto", limit: int = 0) -> Dict[str, Any]:
             touched += 1
     try:
         from src.utils.analysis_metrics import feature_cache_prewarm_total
+
         feature_cache_prewarm_total.labels(result="ok").inc()
     except Exception:
         pass

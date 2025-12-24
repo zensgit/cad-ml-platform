@@ -5,42 +5,36 @@ Handles 3D CAD file parsing, B-Rep analysis, and topological feature extraction.
 Uses pythonocc-core (OpenCascade) as the kernel.
 """
 
-import logging
 import io
-import tempfile
+import logging
 import os
-from typing import Dict, Any, List, Optional, Tuple, Union
+import tempfile
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 logger = logging.getLogger(__name__)
 
 # Conditional import to allow running in environments without OCC
 try:
-    from OCC.Core.STEPControl import STEPControl_Reader
-    from OCC.Core.IFSelect import IFSelect_RetDone
-    from OCC.Core.TopoDS import TopoDS_Shape
-    from OCC.Core.TopExp import TopExp_Explorer
-    from OCC.Core.TopAbs import (
-        TopAbs_FACE,
-        TopAbs_EDGE,
-        TopAbs_VERTEX,
-        TopAbs_SOLID,
-        TopAbs_SHELL,
-    )
-    from OCC.Core.BRepGProp import brepgprop_VolumeProperties, brepgprop_SurfaceProperties
-    from OCC.Core.GProp import GProp_GProps
-    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface, BRepAdaptor_Curve
+    from OCC.Core.Bnd import Bnd_Box
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+    from OCC.Core.BRepBndLib import brepbndlib_Add
+    from OCC.Core.BRepGProp import brepgprop_SurfaceProperties, brepgprop_VolumeProperties
+    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
     from OCC.Core.GeomAbs import (
-        GeomAbs_Plane,
-        GeomAbs_Cylinder,
-        GeomAbs_Cone,
-        GeomAbs_Sphere,
-        GeomAbs_Torus,
         GeomAbs_BezierSurface,
         GeomAbs_BSplineSurface,
+        GeomAbs_Cone,
+        GeomAbs_Cylinder,
+        GeomAbs_Plane,
+        GeomAbs_Sphere,
+        GeomAbs_Torus,
     )
-    from OCC.Core.BRepBndLib import brepbndlib_Add
-    from OCC.Core.Bnd import Bnd_Box
-    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+    from OCC.Core.GProp import GProp_GProps
+    from OCC.Core.IFSelect import IFSelect_RetDone
+    from OCC.Core.STEPControl import STEPControl_Reader
+    from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_SHELL, TopAbs_SOLID, TopAbs_VERTEX
+    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.TopoDS import TopoDS_Shape
 
     HAS_OCC = True
 except ImportError:
@@ -48,6 +42,7 @@ except ImportError:
     logger.warning(
         "pythonocc-core not found. 3D analysis capabilities will be limited to mock/fallback."
     )
+
 
 class GeometryEngine:
     """
@@ -109,7 +104,7 @@ class GeometryEngine:
             "shells": 0,
             "surface_types": {},
             "bbox": {"x": 0, "y": 0, "z": 0},
-            "is_assembly": False
+            "is_assembly": False,
         }
 
         if not HAS_OCC or shape is None:
@@ -147,7 +142,7 @@ class GeometryEngine:
                 "x": xmax - xmin,
                 "y": ymax - ymin,
                 "z": zmax - zmin,
-                "diag": ((xmax-xmin)**2 + (ymax-ymin)**2 + (zmax-zmin)**2)**0.5
+                "diag": ((xmax - xmin) ** 2 + (ymax - ymin) ** 2 + (zmax - zmin) ** 2) ** 0.5,
             }
 
         except Exception as e:
@@ -164,9 +159,9 @@ class GeometryEngine:
         dfm_features = {
             "thin_walls_detected": False,
             "min_thickness_estimate": 0.0,
-            "undercuts_detected": False, # Requires ray tracing, placeholder
+            "undercuts_detected": False,  # Requires ray tracing, placeholder
             "sharp_edges_count": 0,
-            "machinability_score": 1.0 # 0.0 - 1.0
+            "machinability_score": 1.0,  # 0.0 - 1.0
         }
 
         if not HAS_OCC or shape is None:
@@ -177,7 +172,7 @@ class GeometryEngine:
             bbox = Bnd_Box()
             brepbndlib_Add(shape, bbox)
             xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
-            dims = sorted([xmax-xmin, ymax-ymin, zmax-zmin])
+            dims = sorted([xmax - xmin, ymax - ymin, zmax - zmin])
             if dims[0] > 0:
                 dfm_features["aspect_ratio_max_min"] = dims[2] / dims[0]
             else:
@@ -234,13 +229,13 @@ class GeometryEngine:
             "torus": 0,
             "bezier": 0,
             "bspline": 0,
-            "other": 0
+            "other": 0,
         }
 
         exp = TopExp_Explorer(shape, TopAbs_FACE)
         while exp.More():
             face = exp.Current()
-            surf = BRepAdaptor_Surface(face, True) # True = restriction
+            surf = BRepAdaptor_Surface(face, True)  # True = restriction
             st = surf.GetType()
 
             if st == GeomAbs_Plane:
@@ -285,8 +280,10 @@ class GeometryEngine:
 
         return vertices, triangles
 
+
 # Singleton
 _engine = GeometryEngine()
+
 
 def get_geometry_engine():
     return _engine

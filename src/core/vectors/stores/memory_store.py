@@ -5,10 +5,12 @@ Useful for testing or small-scale private indexes.
 
 import json
 import logging
-from typing import List, Tuple, Dict, Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
 from src.core.vectors.stores.base import BaseVectorStore
 
 logger = logging.getLogger(__name__)
+
 
 class MemoryVectorStore(BaseVectorStore):
     def __init__(self):
@@ -26,13 +28,13 @@ class MemoryVectorStore(BaseVectorStore):
         results = []
 
         # Precompute query norm
-        q_norm = sum(x*x for x in vector) ** 0.5
+        q_norm = sum(x * x for x in vector) ** 0.5
         if q_norm == 0:
             return []
 
         for vid, v in self.vectors.items():
-            dot = sum(a*b for a, b in zip(vector, v))
-            v_norm = sum(x*x for x in v) ** 0.5
+            dot = sum(a * b for a, b in zip(vector, v))
+            v_norm = sum(x * x for x in v) ** 0.5
             if v_norm == 0:
                 continue
             score = dot / (q_norm * v_norm)
@@ -49,16 +51,13 @@ class MemoryVectorStore(BaseVectorStore):
         return len(self.vectors)
 
     def save(self, path: str):
-        data = {
-            "vectors": self.vectors,
-            "metadata": self.metadata
-        }
-        with open(path, 'w') as f:
+        data = {"vectors": self.vectors, "metadata": self.metadata}
+        with open(path, "w") as f:
             json.dump(data, f)
 
     def load(self, path: str):
         try:
-            with open(path, 'r') as f:
+            with open(path, "r") as f:
                 data = json.load(f)
                 self.vectors = data.get("vectors", {})
                 self.metadata = data.get("metadata", {})

@@ -130,9 +130,7 @@ class GeometricFeatureExtractor:
             ImportError: If Open3D is not installed.
         """
         if not OPEN3D_AVAILABLE:
-            raise ImportError(
-                "Open3D is not installed. Install with: pip install open3d"
-            )
+            raise ImportError("Open3D is not installed. Install with: pip install open3d")
 
         self.num_points = num_points
         self.fpfh_radius = fpfh_radius
@@ -176,9 +174,7 @@ class GeometricFeatureExtractor:
 
         return pcd
 
-    def align_to_canonical(
-        self, pcd: "o3d.geometry.PointCloud"
-    ) -> "o3d.geometry.PointCloud":
+    def align_to_canonical(self, pcd: "o3d.geometry.PointCloud") -> "o3d.geometry.PointCloud":
         """Align point cloud to canonical pose using PCA.
 
         This makes features rotation-invariant by aligning all
@@ -365,9 +361,7 @@ class _FallbackFeatureExtractor:
     """Fallback extractor using basic numpy operations."""
 
     def __init__(self, **kwargs):
-        logger.warning(
-            "Open3D not available. Using fallback extractor with limited features."
-        )
+        logger.warning("Open3D not available. Using fallback extractor with limited features.")
 
     def extract_features(self, mesh: Any) -> GeometricFeatures:
         """Extract basic features without Open3D."""

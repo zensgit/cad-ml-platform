@@ -4,10 +4,10 @@ Allows interchangeable backends (Faiss, Memory, Milvus).
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Tuple, Dict, Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
 
 class BaseVectorStore(ABC):
-
     @abstractmethod
     def add(self, id: str, vector: List[float], meta: Optional[Dict[str, Any]] = None) -> bool:
         pass

@@ -4,14 +4,17 @@ Layered Vector Manager.
 Manages multiple vector indexes (Public/Private) and merges search results.
 """
 
-import os
 import logging
-from typing import List, Tuple, Dict, Any, Optional
+import os
+from typing import Any, Dict, List, Optional, Tuple
+
 from src.core.vectors.stores.base import BaseVectorStore
 from src.core.vectors.stores.memory_store import MemoryVectorStore
+
 # Optional Faiss import inside logic
 
 logger = logging.getLogger(__name__)
+
 
 class LayeredVectorManager:
     """
@@ -27,13 +30,14 @@ class LayeredVectorManager:
 
         # 2. Initialize Private Index (Default Tenant)
         # In multi-tenant env, this would be a map of tenant_id -> store
-        self.private_store = MemoryVectorStore() # Start with memory, can swap to Faiss
+        self.private_store = MemoryVectorStore()  # Start with memory, can swap to Faiss
         self.partitions["private"] = self.private_store
 
     def _load_public_index(self):
         # Try to load Faiss if available and file exists
         try:
-            from src.core.vectors.stores.faiss_store import FaissStore, HAS_FAISS
+            from src.core.vectors.stores.faiss_store import HAS_FAISS, FaissStore
+
             if HAS_FAISS and os.path.exists(f"{os.path.splitext(self.public_path)[0]}.index"):
                 store = FaissStore()
                 store.load(self.public_path)
@@ -81,8 +85,10 @@ class LayeredVectorManager:
             return store.get_meta(id)
         return None
 
+
 # Singleton
 _manager = LayeredVectorManager()
+
 
 def get_vector_manager():
     return _manager

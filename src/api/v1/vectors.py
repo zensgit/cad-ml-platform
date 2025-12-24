@@ -2,17 +2,22 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import json
 import os
-from typing import Any, Dict, Optional, List, TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from src.api.dependencies import get_api_key, get_admin_token
-from src.core.errors_extended import build_error, ErrorCode
-from src.core.vector_layouts import VECTOR_LAYOUT_BASE, VECTOR_LAYOUT_LEGACY, VECTOR_LAYOUT_L3, layout_has_l3
+from src.api.dependencies import get_admin_token, get_api_key
+from src.core.errors_extended import ErrorCode, build_error
+from src.core.vector_layouts import (
+    VECTOR_LAYOUT_BASE,
+    VECTOR_LAYOUT_L3,
+    VECTOR_LAYOUT_LEGACY,
+    layout_has_l3,
+)
 from src.utils.cache import get_client
 
 router = APIRouter()
@@ -77,8 +82,14 @@ class VectorSearchResponse(BaseModel):
 
 @router.post("/delete", response_model=VectorDeleteResponse)
 async def delete_vector(payload: VectorDeleteRequest, api_key: str = Depends(get_api_key)):
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META, _BACKEND, FaissVectorStore  # type: ignore
+    from src.core.similarity import (  # type: ignore
+        _BACKEND,
+        _VECTOR_META,
+        _VECTOR_STORE,
+        FaissVectorStore,
+    )
     from src.utils.cache import get_client
+
     if payload.id not in _VECTOR_STORE:
         err = build_error(
             ErrorCode.DATA_NOT_FOUND,
@@ -125,7 +136,7 @@ async def list_vectors(
     limit: int = Query(default=50, ge=1, description="返回数量上限"),
     api_key: str = Depends(get_api_key),
 ):
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META, _BACKEND  # type: ignore
+    from src.core.similarity import _BACKEND, _VECTOR_META, _VECTOR_STORE  # type: ignore
 
     allowed_sources = {"auto", "memory", "redis"}
     if source not in allowed_sources:
@@ -154,7 +165,7 @@ async def register_vector_endpoint(
     payload: VectorRegisterRequest,
     api_key: str = Depends(get_api_key),
 ):
-    from src.core.similarity import register_vector, last_vector_error, FaissVectorStore
+    from src.core.similarity import FaissVectorStore, last_vector_error, register_vector
 
     meta = dict(payload.meta or {})
     meta.setdefault("total_dim", str(len(payload.vector)))
@@ -342,6 +353,8 @@ def _prepare_vector_for_upgrade(
 
 
 __all__ = ["router"]
+
+
 class VectorUpdateRequest(BaseModel):
     id: str = Field(description="要更新的向量分析ID")
     replace: Optional[list[float]] = Field(default=None, description="新的向量 (维度需与原向量一致)")
@@ -361,10 +374,16 @@ class VectorUpdateResponse(BaseModel):
 
 @router.post("/update", response_model=VectorUpdateResponse)
 async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get_api_key)):
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
+    from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
     from src.utils.analysis_metrics import analysis_error_code_total
+
     if payload.id not in _VECTOR_STORE:
-        err = build_error(ErrorCode.DATA_NOT_FOUND, stage="vector_update", message="Vector not found", id=payload.id)
+        err = build_error(
+            ErrorCode.DATA_NOT_FOUND,
+            stage="vector_update",
+            message="Vector not found",
+            id=payload.id,
+        )
         analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
         return VectorUpdateResponse(id=payload.id, status="not_found", error=err)
     vec = _VECTOR_STORE[payload.id]
@@ -384,13 +403,21 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
                     )
                     analysis_error_code_total.labels(code=ErrorCode.DIMENSION_MISMATCH.value).inc()
                     from src.utils.analysis_metrics import vector_dimension_rejections_total
-                    vector_dimension_rejections_total.labels(reason="dimension_mismatch_replace").inc()
+
+                    vector_dimension_rejections_total.labels(
+                        reason="dimension_mismatch_replace"
+                    ).inc()
                     raise HTTPException(status_code=409, detail=err)
                 return VectorUpdateResponse(
                     id=payload.id,
                     status="dimension_mismatch",
                     dimension=original_dim,
-                    error={"code": ErrorCode.DIMENSION_MISMATCH.value, "expected": original_dim, "found": len(payload.replace), "id": payload.id},
+                    error={
+                        "code": ErrorCode.DIMENSION_MISMATCH.value,
+                        "expected": original_dim,
+                        "found": len(payload.replace),
+                        "id": payload.id,
+                    },
                 )
             _VECTOR_STORE[payload.id] = [float(x) for x in payload.replace]
         elif payload.append is not None:
@@ -407,7 +434,10 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
                     )
                     analysis_error_code_total.labels(code=ErrorCode.DIMENSION_MISMATCH.value).inc()
                     from src.utils.analysis_metrics import vector_dimension_rejections_total
-                    vector_dimension_rejections_total.labels(reason="dimension_mismatch_append").inc()
+
+                    vector_dimension_rejections_total.labels(
+                        reason="dimension_mismatch_append"
+                    ).inc()
                     raise HTTPException(status_code=409, detail=err)
             _VECTOR_STORE[payload.id] = vec + [float(float(x)) for x in payload.append]
         meta = _VECTOR_META.get(payload.id, {})
@@ -427,9 +457,13 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
     except HTTPException:
         raise
     except Exception as e:
-        err = build_error(ErrorCode.INTERNAL_ERROR, stage="vector_update", message=str(e), id=payload.id)
+        err = build_error(
+            ErrorCode.INTERNAL_ERROR, stage="vector_update", message=str(e), id=payload.id
+        )
         analysis_error_code_total.labels(code=ErrorCode.INTERNAL_ERROR.value).inc()
         return VectorUpdateResponse(id=payload.id, status="error", error=err)
+
+
 class VectorMigrateItem(BaseModel):
     id: str
     status: str
@@ -478,10 +512,13 @@ class VectorMigrationSummaryResponse(BaseModel):
 
 class VectorMigrationPreviewResponse(BaseModel):
     """迁移预览响应 - 不执行实际写入"""
+
     total_vectors: int = Field(description="总向量数量")
     by_version: Dict[str, int] = Field(description="各版本向量数量统计")
     preview_items: List[VectorMigrateItem] = Field(description="预览前N个向量的迁移结果")
-    estimated_dimension_changes: Dict[str, int] = Field(description="预计维度变化统计 (positive/negative/zero)")
+    estimated_dimension_changes: Dict[str, int] = Field(
+        description="预计维度变化统计 (positive/negative/zero)"
+    )
     migration_feasible: bool = Field(description="迁移是否可行")
     warnings: List[str] = Field(default_factory=list, description="潜在问题警告")
     avg_delta: Optional[float] = Field(default=None, description="采样维度变化平均值")
@@ -489,11 +526,7 @@ class VectorMigrationPreviewResponse(BaseModel):
 
 
 @router.get("/migrate/preview", response_model=VectorMigrationPreviewResponse)
-async def preview_migration(
-    to_version: str,
-    limit: int = 10,
-    api_key: str = Depends(get_api_key)
-):
+async def preview_migration(to_version: str, limit: int = 10, api_key: str = Depends(get_api_key)):
     """
     预览向量特征迁移 - 不执行写入操作
 
@@ -505,8 +538,8 @@ async def preview_migration(
     Returns:
         迁移预览信息，包含版本分布、样本预览、维度变化预估等
     """
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META
     from src.core.feature_extractor import FeatureExtractor
+    from src.core.similarity import _VECTOR_META, _VECTOR_STORE
 
     # Validate target version
     allowed_versions = {"v1", "v2", "v3", "v4"}
@@ -516,9 +549,10 @@ async def preview_migration(
             stage="migration_preview",
             message="Unsupported target feature version",
             to_version=to_version,
-            allowed=list(allowed_versions)
+            allowed=list(allowed_versions),
         )
         from src.utils.analysis_metrics import analysis_error_code_total
+
         analysis_error_code_total.labels(code=ErrorCode.INPUT_VALIDATION_FAILED.value).inc()
         raise HTTPException(status_code=422, detail=err)
 
@@ -551,14 +585,16 @@ async def preview_migration(
         dimension_before = len(vec)
 
         if from_version == to_version:
-            preview_items.append(VectorMigrateItem(
-                id=vid,
-                status="skipped",
-                from_version=from_version,
-                to_version=to_version,
-                dimension_before=dimension_before,
-                dimension_after=dimension_before
-            ))
+            preview_items.append(
+                VectorMigrateItem(
+                    id=vid,
+                    status="skipped",
+                    from_version=from_version,
+                    to_version=to_version,
+                    dimension_before=dimension_before,
+                    dimension_after=dimension_before,
+                )
+            )
             dimension_changes["zero"] += 1
             sampled += 1
             continue
@@ -586,27 +622,28 @@ async def preview_migration(
 
             # Detect downgrade
             is_downgrade = (from_version, to_version) in {
-                ("v4", "v3"), ("v4", "v2"), ("v4", "v1"),
-                ("v3", "v2"), ("v3", "v1"),
-                ("v2", "v1")
+                ("v4", "v3"),
+                ("v4", "v2"),
+                ("v4", "v1"),
+                ("v3", "v2"),
+                ("v3", "v1"),
+                ("v2", "v1"),
             }
 
-            preview_items.append(VectorMigrateItem(
-                id=vid,
-                status="downgrade_preview" if is_downgrade else "upgrade_preview",
-                from_version=from_version,
-                to_version=to_version,
-                dimension_before=dimension_before,
-                dimension_after=dimension_after
-            ))
+            preview_items.append(
+                VectorMigrateItem(
+                    id=vid,
+                    status="downgrade_preview" if is_downgrade else "upgrade_preview",
+                    from_version=from_version,
+                    to_version=to_version,
+                    dimension_before=dimension_before,
+                    dimension_after=dimension_after,
+                )
+            )
             sampled += 1
 
         except Exception as e:
-            preview_items.append(VectorMigrateItem(
-                id=vid,
-                status="error_preview",
-                error=str(e)
-            ))
+            preview_items.append(VectorMigrateItem(id=vid, status="error_preview", error=str(e)))
             warnings.append(f"Vector {vid} migration would fail: {str(e)}")
             sampled += 1
 
@@ -624,9 +661,10 @@ async def preview_migration(
         avg_delta = float(sum(deltas) / len(deltas))
         try:
             import statistics
+
             median_delta = float(statistics.median(deltas))
         except Exception:
-            median_delta = float(deltas[len(deltas)//2])
+            median_delta = float(deltas[len(deltas) // 2])
     # Warning heuristics
     if median_delta is not None and median_delta < -5:
         warnings.append("large_negative_skew")
@@ -650,13 +688,16 @@ async def preview_migration(
 
 @router.post("/migrate", response_model=VectorMigrateResponse)
 async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(get_api_key)):
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
-    from src.core.feature_extractor import FeatureExtractor
     import uuid
+
+    from src.core.feature_extractor import FeatureExtractor
+    from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+
     # Validate target version early
     allowed_versions = {"v1", "v2", "v3", "v4"}
     if payload.to_version not in allowed_versions:
         from src.utils.analysis_metrics import analysis_error_code_total
+
         err = build_error(
             ErrorCode.INPUT_VALIDATION_FAILED,
             stage="vector_migrate",
@@ -675,7 +716,8 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
     dry_run_total = 0
     # FeatureExtractor expects 'feature_version' parameter; pass target_version explicitly.
     extractor = FeatureExtractor(feature_version=target_version)
-    from src.utils.analysis_metrics import vector_migrate_total, vector_migrate_dimension_delta
+    from src.utils.analysis_metrics import vector_migrate_dimension_delta, vector_migrate_total
+
     for vid in payload.ids:
         if vid not in _VECTOR_STORE:
             items.append(VectorMigrateItem(id=vid, status="not_found", error="not_found"))
@@ -685,7 +727,11 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
         meta = _VECTOR_META.get(vid, {})
         from_version = meta.get("feature_version", "v1")
         if from_version == target_version:
-            items.append(VectorMigrateItem(id=vid, status="skipped", from_version=from_version, to_version=target_version))
+            items.append(
+                VectorMigrateItem(
+                    id=vid, status="skipped", from_version=from_version, to_version=target_version
+                )
+            )
             skipped += 1
             vector_migrate_total.labels(status="skipped").inc()
             continue
@@ -706,7 +752,16 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
             # Record dimension delta for observability
             vector_migrate_dimension_delta.observe(dimension_delta)
             if payload.dry_run:
-                items.append(VectorMigrateItem(id=vid, status="dry_run", from_version=from_version, to_version=target_version, dimension_before=dimension_before, dimension_after=dimension_after))
+                items.append(
+                    VectorMigrateItem(
+                        id=vid,
+                        status="dry_run",
+                        from_version=from_version,
+                        to_version=target_version,
+                        dimension_before=dimension_before,
+                        dimension_after=dimension_after,
+                    )
+                )
                 dry_run_total += 1
                 vector_migrate_total.labels(status="dry_run").inc()
             else:
@@ -723,12 +778,37 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
                     meta.pop("l3_3d_dim", None)
                 _VECTOR_META[vid] = meta
                 # Track downgrade separately if target lower than source
-                if (from_version, target_version) in {("v4", "v3"), ("v4", "v2"), ("v4", "v1"), ("v3", "v2"), ("v3", "v1"), ("v2", "v1")}:
-                    items.append(VectorMigrateItem(id=vid, status="downgraded", from_version=from_version, to_version=target_version, dimension_before=dimension_before, dimension_after=dimension_after))
+                if (from_version, target_version) in {
+                    ("v4", "v3"),
+                    ("v4", "v2"),
+                    ("v4", "v1"),
+                    ("v3", "v2"),
+                    ("v3", "v1"),
+                    ("v2", "v1"),
+                }:
+                    items.append(
+                        VectorMigrateItem(
+                            id=vid,
+                            status="downgraded",
+                            from_version=from_version,
+                            to_version=target_version,
+                            dimension_before=dimension_before,
+                            dimension_after=dimension_after,
+                        )
+                    )
                     vector_migrate_total.labels(status="downgraded").inc()
                 else:
                     migrated += 1
-                    items.append(VectorMigrateItem(id=vid, status="migrated", from_version=from_version, to_version=target_version, dimension_before=dimension_before, dimension_after=dimension_after))
+                    items.append(
+                        VectorMigrateItem(
+                            id=vid,
+                            status="migrated",
+                            from_version=from_version,
+                            to_version=target_version,
+                            dimension_before=dimension_before,
+                            dimension_after=dimension_after,
+                        )
+                    )
                     vector_migrate_total.labels(status="migrated").inc()
         except Exception as e:
             items.append(VectorMigrateItem(id=vid, status="error", error=str(e)))
@@ -773,6 +853,7 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
 @router.get("/migrate/status", response_model=VectorMigrationStatusResponse)
 async def migrate_status(api_key: str = Depends(get_api_key)):
     from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+
     versions: Dict[str, int] = {}
     for vid, meta in _VECTOR_META.items():
         if vid not in _VECTOR_STORE:
@@ -814,6 +895,7 @@ async def migrate_summary(api_key: str = Depends(get_api_key)):
 
 class VectorMigrationTrendsResponse(BaseModel):
     """迁移趋势响应"""
+
     total_migrations: int = Field(description="窗口内总迁移数量")
     success_rate: float = Field(description="迁移成功率 (0.0-1.0)")
     v4_adoption_rate: float = Field(description="v4版本采用率")
@@ -827,10 +909,7 @@ class VectorMigrationTrendsResponse(BaseModel):
 
 
 @router.get("/migrate/trends", response_model=VectorMigrationTrendsResponse)
-async def migrate_trends(
-    window_hours: int = 24,
-    api_key: str = Depends(get_api_key)
-):
+async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_key)):
     """
     获取迁移趋势统计
 
@@ -841,12 +920,13 @@ async def migrate_trends(
     Returns:
         迁移趋势统计，包含成功率、v4采用率、维度变化等
     """
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META
+    from src.core.similarity import _VECTOR_META, _VECTOR_STORE
 
     history = globals().get("_VECTOR_MIGRATION_HISTORY", [])
 
     # Filter history by time window
     from datetime import datetime, timedelta
+
     cutoff = datetime.utcnow() - timedelta(hours=window_hours)
     filtered_history = []
     for entry in history:
@@ -896,15 +976,19 @@ async def migrate_trends(
     # For now, estimate based on version changes (v3->v4 adds 2 dimensions)
     if total_migrated > 0:
         # Rough estimate: upgrade to v4 adds 2, downgrade removes dimensions
-        avg_dimension_delta = (total_migrated * 2 - total_downgraded * 2) / max(total_migrated + total_downgraded, 1)
+        avg_dimension_delta = (total_migrated * 2 - total_downgraded * 2) / max(
+            total_migrated + total_downgraded, 1
+        )
 
     # Migration velocity (per hour)
     migration_velocity = total_migrations / max(window_hours, 1)
 
     # Time range
     time_range = {
-        "start": (datetime.utcnow() - timedelta(hours=window_hours)).isoformat() if window_hours > 0 else None,
-        "end": datetime.utcnow().isoformat()
+        "start": (datetime.utcnow() - timedelta(hours=window_hours)).isoformat()
+        if window_hours > 0
+        else None,
+        "end": datetime.utcnow().isoformat(),
     }
 
     return VectorMigrationTrendsResponse(
@@ -923,6 +1007,7 @@ async def migrate_trends(
 
 class BatchSimilarityRequest(BaseModel):
     """批量相似度查询请求"""
+
     ids: list[str] = Field(description="需要查询的向量ID列表")
     top_k: int = Field(default=5, ge=1, le=50, description="每个向量返回的最相似结果数量")
     material: Optional[str] = Field(default=None, description="过滤材料类型")
@@ -933,6 +1018,7 @@ class BatchSimilarityRequest(BaseModel):
 
 class BatchSimilarityItem(BaseModel):
     """单个向量的相似度查询结果"""
+
     id: str
     status: str  # success|not_found|error
     similar: list[Dict[str, Any]] = Field(default_factory=list)
@@ -941,6 +1027,7 @@ class BatchSimilarityItem(BaseModel):
 
 class BatchSimilarityResponse(BaseModel):
     """批量相似度查询响应"""
+
     total: int
     successful: int
     failed: int
@@ -970,15 +1057,26 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
     """
     import time
     import uuid
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META, get_vector_store, get_degraded_mode_info
-    from src.utils.analysis_metrics import vector_query_batch_latency_seconds, vector_query_backend_total
+
+    from src.core.similarity import (
+        _VECTOR_META,
+        _VECTOR_STORE,
+        get_degraded_mode_info,
+        get_vector_store,
+    )
+    from src.utils.analysis_metrics import (
+        vector_query_backend_total,
+        vector_query_batch_latency_seconds,
+    )
 
     batch_id = str(uuid.uuid4())
     # Enforce batch size cap from env or default 200
     import os
+
     max_batch = int(os.getenv("BATCH_SIMILARITY_MAX_IDS", "200"))
     if len(payload.ids) > max_batch:
-        from src.utils.analysis_metrics import analysis_rejections_total, analysis_error_code_total
+        from src.utils.analysis_metrics import analysis_error_code_total, analysis_rejections_total
+
         err = build_error(
             ErrorCode.INPUT_VALIDATION_FAILED,
             stage="batch_similarity",
@@ -1012,6 +1110,7 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
     expected_backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
     if expected_backend == "faiss":
         from src.core.similarity import InMemoryVectorStore
+
         if isinstance(store, InMemoryVectorStore):
             is_fallback = True
             # Record fallback metric
@@ -1023,11 +1122,18 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
     # Process each vector ID
     for vid in payload.ids:
         if vid not in _VECTOR_STORE:
-            items.append(BatchSimilarityItem(
-                id=vid,
-                status="not_found",
-                error=build_error(ErrorCode.DATA_NOT_FOUND, stage="batch_similarity", message="Vector not found", id=vid)
-            ))
+            items.append(
+                BatchSimilarityItem(
+                    id=vid,
+                    status="not_found",
+                    error=build_error(
+                        ErrorCode.DATA_NOT_FOUND,
+                        stage="batch_similarity",
+                        message="Vector not found",
+                        id=vid,
+                    ),
+                )
+            )
             failed += 1
             continue
 
@@ -1060,32 +1166,38 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
                 if payload.format and meta.get("format") != payload.format:
                     continue
 
-                similar.append({
-                    "id": result_id,
-                    "score": round(score, 4),
-                    "material": meta.get("material"),
-                    "complexity": meta.get("complexity"),
-                    "format": meta.get("format"),
-                    "dimension": len(_VECTOR_STORE.get(result_id, []))
-                })
+                similar.append(
+                    {
+                        "id": result_id,
+                        "score": round(score, 4),
+                        "material": meta.get("material"),
+                        "complexity": meta.get("complexity"),
+                        "format": meta.get("format"),
+                        "dimension": len(_VECTOR_STORE.get(result_id, [])),
+                    }
+                )
 
                 # Limit to top_k after filtering
                 if len(similar) >= payload.top_k:
                     break
 
-            items.append(BatchSimilarityItem(
-                id=vid,
-                status="success",
-                similar=similar
-            ))
+            items.append(BatchSimilarityItem(id=vid, status="success", similar=similar))
             successful += 1
 
         except Exception as e:
-            items.append(BatchSimilarityItem(
-                id=vid,
-                status="error",
-                error=build_error(ErrorCode.INTERNAL_ERROR, stage="batch_similarity", message="Query failed", id=vid, detail=str(e))
-            ))
+            items.append(
+                BatchSimilarityItem(
+                    id=vid,
+                    status="error",
+                    error=build_error(
+                        ErrorCode.INTERNAL_ERROR,
+                        stage="batch_similarity",
+                        message="Query failed",
+                        id=vid,
+                        detail=str(e),
+                    ),
+                )
+            )
             failed += 1
 
     # Record metrics
@@ -1096,6 +1208,7 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
     if successful > 0 and all((not it.similar) for it in items if it.status == "success"):
         try:
             from src.utils.analysis_metrics import analysis_rejections_total
+
             analysis_rejections_total.labels(reason="batch_empty_results").inc()
         except Exception:
             pass
@@ -1111,7 +1224,7 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
         batch_id=batch_id,
         duration_ms=round(duration * 1000, 2),
         fallback=is_fallback if is_fallback else None,
-        degraded=degraded_info["degraded"]
+        degraded=degraded_info["degraded"],
     )
 
 
@@ -1122,9 +1235,10 @@ async def reload_vector_backend(
     admin_token: str = Depends(get_admin_token),
 ):
     """Reload vector store backend (admin token required)."""
+    import os
+
     from src.core.similarity import reload_vector_store_backend
     from src.utils.analysis_metrics import vector_store_reload_total
-    import os
 
     allowed = {"memory", "faiss", "redis"}
     if backend is not None:

@@ -6,7 +6,8 @@ Handles caching of expensive feature extraction (especially 3D B-Rep).
 
 import hashlib
 import json
-from typing import Optional, Dict, Any, List
+from typing import Any, Dict, List, Optional
+
 
 class FeatureCache:
     """
@@ -43,8 +44,10 @@ class FeatureCache:
         h = hashlib.sha256(content).hexdigest()
         return f"feat:{version}:{h}"
 
+
 # Global instance
 _feature_cache = FeatureCache()
+
 
 def get_feature_cache():
     return _feature_cache
