@@ -28,7 +28,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -220,18 +219,50 @@ class CodeScanner(VulnerabilityScanner):
     def __init__(self):
         self._patterns: Dict[ThreatCategory, List[Dict[str, Any]]] = {
             ThreatCategory.INJECTION: [
-                {"pattern": r"exec\s*\(", "name": "Code Injection", "severity": VulnerabilitySeverity.CRITICAL},
-                {"pattern": r"eval\s*\(", "name": "Eval Injection", "severity": VulnerabilitySeverity.CRITICAL},
-                {"pattern": r"subprocess\.call.*shell\s*=\s*True", "name": "Shell Injection", "severity": VulnerabilitySeverity.HIGH},
+                {
+                    "pattern": r"exec\s*\(",
+                    "name": "Code Injection",
+                    "severity": VulnerabilitySeverity.CRITICAL,
+                },
+                {
+                    "pattern": r"eval\s*\(",
+                    "name": "Eval Injection",
+                    "severity": VulnerabilitySeverity.CRITICAL,
+                },
+                {
+                    "pattern": r"subprocess\.call.*shell\s*=\s*True",
+                    "name": "Shell Injection",
+                    "severity": VulnerabilitySeverity.HIGH,
+                },
             ],
             ThreatCategory.DATA_EXPOSURE: [
-                {"pattern": r"password\s*=\s*['\"][^'\"]+['\"]", "name": "Hardcoded Password", "severity": VulnerabilitySeverity.HIGH},
-                {"pattern": r"api_key\s*=\s*['\"][^'\"]+['\"]", "name": "Hardcoded API Key", "severity": VulnerabilitySeverity.HIGH},
-                {"pattern": r"secret\s*=\s*['\"][^'\"]+['\"]", "name": "Hardcoded Secret", "severity": VulnerabilitySeverity.HIGH},
+                {
+                    "pattern": r"password\s*=\s*['\"][^'\"]+['\"]",
+                    "name": "Hardcoded Password",
+                    "severity": VulnerabilitySeverity.HIGH,
+                },
+                {
+                    "pattern": r"api_key\s*=\s*['\"][^'\"]+['\"]",
+                    "name": "Hardcoded API Key",
+                    "severity": VulnerabilitySeverity.HIGH,
+                },
+                {
+                    "pattern": r"secret\s*=\s*['\"][^'\"]+['\"]",
+                    "name": "Hardcoded Secret",
+                    "severity": VulnerabilitySeverity.HIGH,
+                },
             ],
             ThreatCategory.CRYPTOGRAPHIC: [
-                {"pattern": r"md5\s*\(", "name": "Weak Hash (MD5)", "severity": VulnerabilitySeverity.MEDIUM},
-                {"pattern": r"sha1\s*\(", "name": "Weak Hash (SHA1)", "severity": VulnerabilitySeverity.LOW},
+                {
+                    "pattern": r"md5\s*\(",
+                    "name": "Weak Hash (MD5)",
+                    "severity": VulnerabilitySeverity.MEDIUM,
+                },
+                {
+                    "pattern": r"sha1\s*\(",
+                    "name": "Weak Hash (SHA1)",
+                    "severity": VulnerabilitySeverity.LOW,
+                },
             ],
         }
 
@@ -245,7 +276,9 @@ class CodeScanner(VulnerabilityScanner):
             for pattern_info in patterns:
                 # In real implementation, would scan actual files
                 vuln = Vulnerability(
-                    vuln_id=hashlib.md5(f"{pattern_info['name']}:{config.target}".encode()).hexdigest()[:8],
+                    vuln_id=hashlib.md5(
+                        f"{pattern_info['name']}:{config.target}".encode()
+                    ).hexdigest()[:8],
                     title=pattern_info["name"],
                     severity=pattern_info["severity"],
                     category=category,
@@ -287,13 +320,25 @@ class DependencyScanner(VulnerabilityScanner):
     def __init__(self):
         self._known_vulnerabilities: Dict[str, List[Dict[str, Any]]] = {
             "requests": [
-                {"version": "<2.20.0", "cve": "CVE-2018-18074", "severity": VulnerabilitySeverity.MEDIUM},
+                {
+                    "version": "<2.20.0",
+                    "cve": "CVE-2018-18074",
+                    "severity": VulnerabilitySeverity.MEDIUM,
+                },
             ],
             "django": [
-                {"version": "<2.2.24", "cve": "CVE-2021-33203", "severity": VulnerabilitySeverity.HIGH},
+                {
+                    "version": "<2.2.24",
+                    "cve": "CVE-2021-33203",
+                    "severity": VulnerabilitySeverity.HIGH,
+                },
             ],
             "flask": [
-                {"version": "<1.0", "cve": "CVE-2019-1010083", "severity": VulnerabilitySeverity.MEDIUM},
+                {
+                    "version": "<1.0",
+                    "cve": "CVE-2019-1010083",
+                    "severity": VulnerabilitySeverity.MEDIUM,
+                },
             ],
         }
 
@@ -387,9 +432,7 @@ class RiskAssessor:
 
     def assess(self, scan_results: List[ScanResult]) -> RiskAssessment:
         """Assess risk from scan results."""
-        assessment_id = hashlib.md5(
-            f"{time.time()}".encode()
-        ).hexdigest()[:8]
+        assessment_id = hashlib.md5(f"{time.time()}".encode()).hexdigest()[:8]
 
         vulnerabilities_by_severity: Dict[str, int] = defaultdict(int)
         total_score = 0.0

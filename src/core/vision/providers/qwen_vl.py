@@ -203,7 +203,8 @@ class QwenVLProvider(VisionProvider):
                             },
                             {
                                 "type": "text",
-                                "text": "请分析这张工程图纸，仅返回JSON格式。" if self.use_chinese_prompt
+                                "text": "请分析这张工程图纸，仅返回JSON格式。"
+                                if self.use_chinese_prompt
                                 else "Analyze this engineering drawing. Respond with JSON only.",
                             },
                         ],
@@ -236,9 +237,7 @@ class QwenVLProvider(VisionProvider):
             return self._parse_response(result)
 
         except httpx.TimeoutException:
-            raise VisionProviderError(
-                "qwen_vl", f"Request timeout after {self.timeout_seconds}s"
-            )
+            raise VisionProviderError("qwen_vl", f"Request timeout after {self.timeout_seconds}s")
         except httpx.RequestError as e:
             raise VisionProviderError("qwen_vl", f"Request failed: {str(e)}")
         except json.JSONDecodeError as e:

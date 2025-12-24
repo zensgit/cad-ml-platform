@@ -15,7 +15,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 
-
 class ProfileType(Enum):
     """Types of configuration profiles."""
 
@@ -193,9 +192,7 @@ class ProfileConfig:
             "profile_type": self.profile_type.value,
             "description": self.description,
             "providers": [p.to_dict() for p in self.providers],
-            "primary_provider": (
-                self.primary_provider.value if self.primary_provider else None
-            ),
+            "primary_provider": (self.primary_provider.value if self.primary_provider else None),
             "fallback_providers": [p.value for p in self.fallback_providers],
             "enable_load_balancing": self.enable_load_balancing,
             "load_balancing_algorithm": self.load_balancing_algorithm,
@@ -492,12 +489,8 @@ class ProfileManager:
                     "enable_preprocessing", base.enable_preprocessing
                 ),
                 enable_logging=overrides.get("enable_logging", base.enable_logging),
-                enable_persistence=overrides.get(
-                    "enable_persistence", base.enable_persistence
-                ),
-                enable_analytics=overrides.get(
-                    "enable_analytics", base.enable_analytics
-                ),
+                enable_persistence=overrides.get("enable_persistence", base.enable_persistence),
+                enable_analytics=overrides.get("enable_analytics", base.enable_analytics),
             )
         else:
             # Create from scratch
@@ -541,13 +534,11 @@ class ProfileManager:
         # Check primary provider
         if profile.primary_provider:
             primary_found = any(
-                p.provider_type == profile.primary_provider and p.enabled
-                for p in profile.providers
+                p.provider_type == profile.primary_provider and p.enabled for p in profile.providers
             )
             if not primary_found:
                 errors.append(
-                    f"Primary provider {profile.primary_provider.value} "
-                    "not found or disabled"
+                    f"Primary provider {profile.primary_provider.value} " "not found or disabled"
                 )
 
         # Check fallback providers
@@ -556,9 +547,7 @@ class ProfileManager:
                 p.provider_type == fallback and p.enabled for p in profile.providers
             )
             if not fallback_found:
-                warnings.append(
-                    f"Fallback provider {fallback.value} not found or disabled"
-                )
+                warnings.append(f"Fallback provider {fallback.value} not found or disabled")
 
         return {
             "valid": len(errors) == 0,

@@ -4,23 +4,23 @@ Tests the vision provider implementations and factory.
 """
 
 import os
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 from src.core.vision import (
     VisionDescription,
     VisionProviderError,
+    create_stub_provider,
     create_vision_provider,
     get_available_providers,
-    create_stub_provider,
 )
 from src.core.vision.providers import (
+    AnthropicVisionProvider,
     DeepSeekStubProvider,
     DeepSeekVisionProvider,
     OpenAIVisionProvider,
-    AnthropicVisionProvider,
 )
-
 
 # Sample image data (minimal PNG header)
 SAMPLE_PNG = (

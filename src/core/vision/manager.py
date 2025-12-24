@@ -13,6 +13,8 @@ import time
 from typing import Optional
 
 import src.core.config as config
+from src.core.errors import ErrorCode
+from src.core.resilience.adaptive_decorator import adaptive_rate_limit
 from src.utils.metrics import (
     update_vision_error_ema,
     vision_errors_total,
@@ -22,7 +24,6 @@ from src.utils.metrics import (
     vision_requests_total,
 )
 from src.utils.metrics_helpers import safe_inc, safe_observe
-from src.core.errors import ErrorCode
 
 from .base import (
     OcrResult,
@@ -30,10 +31,9 @@ from .base import (
     VisionAnalyzeResponse,
     VisionDescription,
     VisionInputError,
-    VisionProviderError,
     VisionProvider,
+    VisionProviderError,
 )
-from src.core.resilience.adaptive_decorator import adaptive_rate_limit
 
 
 class VisionManager:
@@ -125,6 +125,10 @@ class VisionManager:
             if request.include_description:
                 description = await self.vision_provider.analyze_image(
                     image_data=image_bytes, include_description=True
+                )
+            elif request.include_ocr:
+                description = await self.vision_provider.analyze_image(
+                    image_data=image_bytes, include_description=False
                 )
             ocr_result: Optional[OcrResult] = None
             if request.include_ocr and self.ocr_manager:

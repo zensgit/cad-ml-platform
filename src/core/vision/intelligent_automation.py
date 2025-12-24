@@ -32,7 +32,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -232,9 +231,7 @@ class TuningParameter:
             if self.best_value is not None and random.random() > 0.3:
                 # Exploit around best
                 delta = random.gauss(0, self.step_size)
-                return max(
-                    self.min_value, min(self.max_value, self.best_value + delta)
-                )
+                return max(self.min_value, min(self.max_value, self.best_value + delta))
             else:
                 # Explore
                 return random.uniform(self.min_value, self.max_value)
@@ -495,9 +492,7 @@ class DecisionEngine:
 
             return None
 
-    def record_feedback(
-        self, decision_id: str, outcome: str, score: float
-    ) -> Optional[Decision]:
+    def record_feedback(self, decision_id: str, outcome: str, score: float) -> Optional[Decision]:
         """Record feedback for a decision."""
         with self._lock:
             for decision in self._decisions:
@@ -613,9 +608,7 @@ class SelfTuner:
             session.iterations += 1
             return next_values
 
-    def record_result(
-        self, session_id: str, values: Dict[str, float], score: float
-    ) -> bool:
+    def record_result(self, session_id: str, values: Dict[str, float], score: float) -> bool:
         """Record the result of a tuning iteration."""
         with self._lock:
             session = self._sessions.get(session_id)
@@ -638,10 +631,7 @@ class SelfTuner:
                         all_converged = False
                         break
                     recent_scores = [s for _, s in param.history[-10:]]
-                    if (
-                        max(recent_scores) - min(recent_scores)
-                        > session.convergence_threshold
-                    ):
+                    if max(recent_scores) - min(recent_scores) > session.convergence_threshold:
                         all_converged = False
                         break
 
@@ -765,11 +755,7 @@ class IntelligentScheduler:
                     SchedulerPriority.LOW: 3,
                     SchedulerPriority.BACKGROUND: 4,
                 }
-                deadline_urgency = (
-                    0.0
-                    if t.deadline is None
-                    else (t.deadline - now).total_seconds()
-                )
+                deadline_urgency = 0.0 if t.deadline is None else (t.deadline - now).total_seconds()
                 return (priority_order[t.priority], deadline_urgency)
 
             eligible.sort(key=sort_key)
@@ -787,9 +773,7 @@ class IntelligentScheduler:
                 return True
             return False
 
-    def complete_task(
-        self, task_id: str, result: Any = None, error: Optional[str] = None
-    ) -> bool:
+    def complete_task(self, task_id: str, result: Any = None, error: Optional[str] = None) -> bool:
         """Mark a task as completed."""
         with self._lock:
             task = self._tasks.get(task_id)
@@ -841,8 +825,8 @@ class LoadManager:
         """Initialize load manager."""
         self._config = config or AutomationConfig()
         self._metrics_history: List[LoadMetrics] = []
-        self._load_handlers: Dict[LoadLevel, List[Callable[[LoadMetrics], None]]] = (
-            defaultdict(list)
+        self._load_handlers: Dict[LoadLevel, List[Callable[[LoadMetrics], None]]] = defaultdict(
+            list
         )
         self._lock = threading.RLock()
         self._max_history = 1000
@@ -865,9 +849,7 @@ class LoadManager:
 
             return load_level
 
-    def register_handler(
-        self, level: LoadLevel, handler: Callable[[LoadMetrics], None]
-    ) -> None:
+    def register_handler(self, level: LoadLevel, handler: Callable[[LoadMetrics], None]) -> None:
         """Register a handler for a specific load level."""
         with self._lock:
             self._load_handlers[level].append(handler)
@@ -939,16 +921,14 @@ class PerformancePredictor:
     def __init__(self, config: Optional[AutomationConfig] = None) -> None:
         """Initialize predictor."""
         self._config = config or AutomationConfig()
-        self._historical_data: Dict[PredictionType, List[Tuple[datetime, float]]] = (
-            defaultdict(list)
+        self._historical_data: Dict[PredictionType, List[Tuple[datetime, float]]] = defaultdict(
+            list
         )
         self._predictions: List[Prediction] = []
         self._lock = threading.RLock()
         self._max_history = 10000
 
-    def record_observation(
-        self, prediction_type: PredictionType, value: float
-    ) -> None:
+    def record_observation(self, prediction_type: PredictionType, value: float) -> None:
         """Record an observation for a metric type."""
         with self._lock:
             history = self._historical_data[prediction_type]
@@ -1017,9 +997,7 @@ class PerformancePredictor:
             self._predictions.append(prediction)
             return prediction
 
-    def validate_prediction(
-        self, prediction_id: str, actual_value: float
-    ) -> Optional[Prediction]:
+    def validate_prediction(self, prediction_id: str, actual_value: float) -> Optional[Prediction]:
         """Validate a prediction with the actual value."""
         with self._lock:
             for pred in self._predictions:
@@ -1046,15 +1024,11 @@ class PerformancePredictor:
             errors = []
             for p in validated:
                 if p.actual_value != 0:
-                    errors.append(
-                        abs(p.predicted_value - p.actual_value) / abs(p.actual_value)
-                    )
+                    errors.append(abs(p.predicted_value - p.actual_value) / abs(p.actual_value))
 
             mape = statistics.mean(errors) * 100 if errors else None
 
-            squared_errors = [
-                (p.predicted_value - p.actual_value) ** 2 for p in validated
-            ]
+            squared_errors = [(p.predicted_value - p.actual_value) ** 2 for p in validated]
             rmse = math.sqrt(statistics.mean(squared_errors)) if squared_errors else None
 
             return {"mape": mape, "rmse": rmse, "count": len(validated)}
@@ -1151,9 +1125,7 @@ class AutoRemediation:
             if not self._remediations:
                 return {"total": 0, "success_rate": None, "by_action": {}}
 
-            by_action: Dict[str, Dict[str, int]] = defaultdict(
-                lambda: {"total": 0, "success": 0}
-            )
+            by_action: Dict[str, Dict[str, int]] = defaultdict(lambda: {"total": 0, "success": 0})
             for r in self._remediations:
                 by_action[r.action.value]["total"] += 1
                 if r.success:
@@ -1210,9 +1182,7 @@ class PatternLearner:
                 pattern.sample_count += 1
                 alpha = 0.1
                 current_success = 1.0 if success else 0.0
-                pattern.success_rate = (
-                    alpha * current_success + (1 - alpha) * pattern.success_rate
-                )
+                pattern.success_rate = alpha * current_success + (1 - alpha) * pattern.success_rate
                 if success and pattern.success_rate > 0.5:
                     pattern.optimal_action = action
                 pattern.last_updated = datetime.now()
@@ -1231,9 +1201,7 @@ class PatternLearner:
         sorted_items = sorted(conditions.items())
         return hashlib.md5(json.dumps(sorted_items).encode()).hexdigest()[:16]
 
-    def get_recommended_action(
-        self, conditions: Dict[str, Any]
-    ) -> Optional[Tuple[str, float]]:
+    def get_recommended_action(self, conditions: Dict[str, Any]) -> Optional[Tuple[str, float]]:
         """Get recommended action for given conditions."""
         with self._lock:
             pattern_key = self._generate_pattern_key(conditions)
@@ -1245,9 +1213,7 @@ class PatternLearner:
     def get_patterns(self, min_samples: int = 5) -> List[LearningPattern]:
         """Get learned patterns with minimum sample count."""
         with self._lock:
-            return [
-                p for p in self._patterns.values() if p.sample_count >= min_samples
-            ]
+            return [p for p in self._patterns.values() if p.sample_count >= min_samples]
 
     def get_learning_stats(self) -> Dict[str, Any]:
         """Get learning statistics."""
@@ -1264,9 +1230,7 @@ class PatternLearner:
                 "total_patterns": len(patterns),
                 "total_observations": len(self._observations),
                 "avg_success_rate": statistics.mean([p.success_rate for p in patterns]),
-                "patterns_with_high_confidence": sum(
-                    1 for p in patterns if p.sample_count >= 10
-                ),
+                "patterns_with_high_confidence": sum(1 for p in patterns if p.sample_count >= 10),
             }
 
 
@@ -1331,12 +1295,8 @@ class IntelligentAutomationHub:
 
             # Record observations for prediction
             self._predictor.record_observation(PredictionType.LOAD, metrics.cpu_usage)
-            self._predictor.record_observation(
-                PredictionType.LATENCY, metrics.latency_p99
-            )
-            self._predictor.record_observation(
-                PredictionType.ERROR_RATE, metrics.error_rate
-            )
+            self._predictor.record_observation(PredictionType.LATENCY, metrics.latency_p99)
+            self._predictor.record_observation(PredictionType.ERROR_RATE, metrics.error_rate)
 
             # Evaluate decision rules
             context = {
@@ -1435,9 +1395,7 @@ class AutomatedVisionProvider(VisionProvider):
                     )
                     raise RuntimeError("Request throttled due to high load")
 
-            result = await self._base_provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._base_provider.analyze_image(image_data, include_description)
 
             return result
 
@@ -1462,14 +1420,10 @@ class AutomatedVisionProvider(VisionProvider):
             # Record metrics
             with self._lock:
                 error_rate = (
-                    self._error_count / self._request_count
-                    if self._request_count > 0
-                    else 0
+                    self._error_count / self._request_count if self._request_count > 0 else 0
                 )
                 avg_latency = (
-                    self._total_latency / self._request_count
-                    if self._request_count > 0
-                    else 0
+                    self._total_latency / self._request_count if self._request_count > 0 else 0
                 )
 
             metrics = LoadMetrics(

@@ -15,7 +15,6 @@ import pytest
 
 from src.core.vision.base import VisionDescription, VisionProvider, VisionProviderError
 
-
 # =============================================================================
 # Preprocessing Tests
 # =============================================================================
@@ -184,8 +183,8 @@ class TestPreprocessingVisionProvider:
     async def test_analyze_with_preprocessing(self, mock_provider: MagicMock) -> None:
         """Test image analysis with preprocessing."""
         from src.core.vision.preprocessing import (
-            ImageInfo,
             ImageFormat,
+            ImageInfo,
             PreprocessingConfig,
             PreprocessingVisionProvider,
         )
@@ -246,14 +245,18 @@ class TestPreprocessingVisionProvider:
         with patch.object(
             wrapper._validator,
             "validate",
-            return_value=MagicMock(valid=True, errors=[], info=ImageInfo(
-                format=ImageFormat.PNG,
-                width=100,
-                height=100,
-                size_bytes=len(test_data),
-                has_alpha=False,
-                color_mode="RGB",
-            )),
+            return_value=MagicMock(
+                valid=True,
+                errors=[],
+                info=ImageInfo(
+                    format=ImageFormat.PNG,
+                    width=100,
+                    height=100,
+                    size_bytes=len(test_data),
+                    has_alpha=False,
+                    color_mode="RGB",
+                ),
+            ),
         ):
             # When skip_preprocessing=True, data should pass through without preprocessing
             result = await wrapper.analyze_image(test_data, skip_preprocessing=True)
@@ -883,10 +886,7 @@ class TestLoggingVisionProvider:
     @pytest.mark.asyncio
     async def test_analyze_image_logs_request(self, mock_provider: MagicMock) -> None:
         """Test that analyze_image logs request."""
-        from src.core.vision.logging_middleware import (
-            LoggingMiddleware,
-            LoggingVisionProvider,
-        )
+        from src.core.vision.logging_middleware import LoggingMiddleware, LoggingVisionProvider
 
         middleware = LoggingMiddleware()
         wrapper = LoggingVisionProvider(mock_provider, middleware)
@@ -900,10 +900,7 @@ class TestLoggingVisionProvider:
     @pytest.mark.asyncio
     async def test_analyze_image_logs_error(self, mock_provider: MagicMock) -> None:
         """Test that analyze_image logs errors."""
-        from src.core.vision.logging_middleware import (
-            LoggingMiddleware,
-            LoggingVisionProvider,
-        )
+        from src.core.vision.logging_middleware import LoggingMiddleware, LoggingVisionProvider
 
         mock_provider.analyze_image = AsyncMock(side_effect=Exception("Test error"))
 
@@ -1166,10 +1163,7 @@ class TestPhase3Integration:
     @pytest.mark.asyncio
     async def test_preprocessing_with_logging(self) -> None:
         """Test preprocessing combined with logging."""
-        from src.core.vision.logging_middleware import (
-            LoggingMiddleware,
-            LoggingVisionProvider,
-        )
+        from src.core.vision.logging_middleware import LoggingMiddleware, LoggingVisionProvider
         from src.core.vision.preprocessing import (
             ImageFormat,
             ImageInfo,
@@ -1190,9 +1184,7 @@ class TestPhase3Integration:
 
         # Wrap with preprocessing
         preprocessing_config = PreprocessingConfig()
-        preprocessing_wrapper = PreprocessingVisionProvider(
-            mock_provider, preprocessing_config
-        )
+        preprocessing_wrapper = PreprocessingVisionProvider(mock_provider, preprocessing_config)
 
         # Wrap with logging
         middleware = LoggingMiddleware()
@@ -1224,14 +1216,11 @@ class TestPhase3Integration:
     async def test_load_balancer_with_logging(self) -> None:
         """Test load balancer combined with logging."""
         from src.core.vision.load_balancer import (
-            LoadBalancer,
             LoadBalancedVisionProvider,
+            LoadBalancer,
             ProviderNode,
         )
-        from src.core.vision.logging_middleware import (
-            LoggingMiddleware,
-            LoggingVisionProvider,
-        )
+        from src.core.vision.logging_middleware import LoggingMiddleware, LoggingVisionProvider
 
         # Create mock providers
         nodes = []

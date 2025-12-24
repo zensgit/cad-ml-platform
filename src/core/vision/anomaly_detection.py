@@ -5,16 +5,15 @@ Provides anomaly detection capabilities including statistical methods,
 threshold monitoring, pattern recognition, and alerting.
 """
 
+import math
+import statistics
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar, Union
-import math
-import statistics
 
-from .base import VisionProvider, VisionDescription
-
+from .base import VisionDescription, VisionProvider
 
 # ============================================================================
 # Enums
@@ -269,10 +268,15 @@ class IQRDetector(AnomalyDetector):
         anomalies: List[Anomaly] = []
         for i, point in enumerate(data):
             if point.value < lower_fence or point.value > upper_fence:
-                deviation = max(
-                    abs(point.value - lower_fence) if point.value < lower_fence else 0,
-                    abs(point.value - upper_fence) if point.value > upper_fence else 0,
-                ) / iqr if iqr > 0 else 0
+                deviation = (
+                    max(
+                        abs(point.value - lower_fence) if point.value < lower_fence else 0,
+                        abs(point.value - upper_fence) if point.value > upper_fence else 0,
+                    )
+                    / iqr
+                    if iqr > 0
+                    else 0
+                )
 
                 anomalies.append(
                     Anomaly(
@@ -304,10 +308,15 @@ class IQRDetector(AnomalyDetector):
         median = statistics.median(values)
 
         if point.value < lower_fence or point.value > upper_fence:
-            deviation = max(
-                abs(point.value - lower_fence) if point.value < lower_fence else 0,
-                abs(point.value - upper_fence) if point.value > upper_fence else 0,
-            ) / iqr if iqr > 0 else 0
+            deviation = (
+                max(
+                    abs(point.value - lower_fence) if point.value < lower_fence else 0,
+                    abs(point.value - upper_fence) if point.value > upper_fence else 0,
+                )
+                / iqr
+                if iqr > 0
+                else 0
+            )
 
             return Anomaly(
                 anomaly_id="iqr_point",
@@ -424,7 +433,7 @@ class MovingAverageDetector(AnomalyDetector):
         if len(history) < self._window_size:
             return None
 
-        window = [p.value for p in history[-self._window_size:]]
+        window = [p.value for p in history[-self._window_size :]]
         ma = statistics.mean(window)
         std = statistics.stdev(window) if len(window) > 1 else 0
 
@@ -469,7 +478,8 @@ class AlertManager:
             alert_id=alert_id,
             anomaly=anomaly,
             severity=severity,
-            message=message or f"Anomaly detected: {anomaly.value} (expected: {anomaly.expected_value})",
+            message=message
+            or f"Anomaly detected: {anomaly.value} (expected: {anomaly.expected_value})",
         )
         self._alerts[alert_id] = alert
 
@@ -542,7 +552,7 @@ class AnomalyDetectionEngine:
 
         # Keep buffer at configured size
         if len(self._data_buffer) > self._config.window_size:
-            self._data_buffer = self._data_buffer[-self._config.window_size:]
+            self._data_buffer = self._data_buffer[-self._config.window_size :]
 
         # Check for anomalies
         detector = self._detectors.get(self._config.method)
@@ -649,7 +659,8 @@ class AnomalyDetectionVisionProvider(VisionProvider):
             # Add anomaly warning to details
             result = VisionDescription(
                 summary=result.summary,
-                details=result.details + [f"Warning: Anomalous confidence detected ({anomaly.deviation:.2f} deviation)"],
+                details=result.details
+                + [f"Warning: Anomalous confidence detected ({anomaly.deviation:.2f} deviation)"],
                 confidence=result.confidence,
             )
 

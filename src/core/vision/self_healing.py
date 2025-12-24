@@ -144,9 +144,7 @@ class HealthMonitor:
         self._status: Dict[str, HealthStatus] = {}
         self._lock = threading.Lock()
 
-    def register_check(
-        self, component: str, check_func: Callable[[], HealthCheck]
-    ) -> None:
+    def register_check(self, component: str, check_func: Callable[[], HealthCheck]) -> None:
         """Register a health check."""
         with self._lock:
             self._checks[component] = check_func
@@ -208,7 +206,7 @@ class HealthMonitor:
             self._status[component] = HealthStatus.UNKNOWN
             return
 
-        recent = list(history)[-self.unhealthy_threshold:]
+        recent = list(history)[-self.unhealthy_threshold :]
         unhealthy_count = sum(
             1 for h in recent if h.status in (HealthStatus.UNHEALTHY, HealthStatus.CRITICAL)
         )
@@ -262,68 +260,84 @@ class IssueDetector:
         # Check metrics
         latency = metrics.get("latency_ms", 0)
         if latency > self._thresholds["latency_ms"]["critical"]:
-            issues.append(self._create_issue(
-                IssueType.LATENCY_HIGH,
-                "system",
-                0.9,
-                f"Critical latency: {latency:.0f}ms",
-            ))
+            issues.append(
+                self._create_issue(
+                    IssueType.LATENCY_HIGH,
+                    "system",
+                    0.9,
+                    f"Critical latency: {latency:.0f}ms",
+                )
+            )
         elif latency > self._thresholds["latency_ms"]["warning"]:
-            issues.append(self._create_issue(
-                IssueType.LATENCY_HIGH,
-                "system",
-                0.5,
-                f"High latency: {latency:.0f}ms",
-            ))
+            issues.append(
+                self._create_issue(
+                    IssueType.LATENCY_HIGH,
+                    "system",
+                    0.5,
+                    f"High latency: {latency:.0f}ms",
+                )
+            )
 
         error_rate = metrics.get("error_rate", 0)
         if error_rate > self._thresholds["error_rate"]["critical"]:
-            issues.append(self._create_issue(
-                IssueType.ERROR_RATE_HIGH,
-                "system",
-                0.9,
-                f"Critical error rate: {error_rate:.2%}",
-            ))
+            issues.append(
+                self._create_issue(
+                    IssueType.ERROR_RATE_HIGH,
+                    "system",
+                    0.9,
+                    f"Critical error rate: {error_rate:.2%}",
+                )
+            )
         elif error_rate > self._thresholds["error_rate"]["warning"]:
-            issues.append(self._create_issue(
-                IssueType.ERROR_RATE_HIGH,
-                "system",
-                0.6,
-                f"High error rate: {error_rate:.2%}",
-            ))
+            issues.append(
+                self._create_issue(
+                    IssueType.ERROR_RATE_HIGH,
+                    "system",
+                    0.6,
+                    f"High error rate: {error_rate:.2%}",
+                )
+            )
 
         memory = metrics.get("memory_percent", 0)
         if memory > self._thresholds["memory_percent"]["critical"]:
-            issues.append(self._create_issue(
-                IssueType.MEMORY_PRESSURE,
-                "system",
-                0.95,
-                f"Critical memory usage: {memory:.0f}%",
-            ))
+            issues.append(
+                self._create_issue(
+                    IssueType.MEMORY_PRESSURE,
+                    "system",
+                    0.95,
+                    f"Critical memory usage: {memory:.0f}%",
+                )
+            )
         elif memory > self._thresholds["memory_percent"]["warning"]:
-            issues.append(self._create_issue(
-                IssueType.MEMORY_PRESSURE,
-                "system",
-                0.6,
-                f"High memory usage: {memory:.0f}%",
-            ))
+            issues.append(
+                self._create_issue(
+                    IssueType.MEMORY_PRESSURE,
+                    "system",
+                    0.6,
+                    f"High memory usage: {memory:.0f}%",
+                )
+            )
 
         # Check component health
         for component, status in health_status.items():
             if status == HealthStatus.UNHEALTHY:
-                issues.append(self._create_issue(
-                    IssueType.PROVIDER_UNAVAILABLE,
-                    component,
-                    0.8,
-                    f"Component unhealthy: {component}",
-                ))
+                issues.append(
+                    self._create_issue(
+                        IssueType.PROVIDER_UNAVAILABLE,
+                        component,
+                        0.8,
+                        f"Component unhealthy: {component}",
+                    )
+                )
             elif status == HealthStatus.CRITICAL:
-                issues.append(self._create_issue(
-                    IssueType.PROVIDER_UNAVAILABLE,
-                    component,
-                    1.0,
-                    f"Component critical: {component}",
-                ))
+                issues.append(
+                    self._create_issue(
+                        IssueType.PROVIDER_UNAVAILABLE,
+                        component,
+                        1.0,
+                        f"Component critical: {component}",
+                    )
+                )
 
         # Track detected issues
         with self._lock:
@@ -454,9 +468,7 @@ class RecoveryExecutor:
         self._action_handlers: Dict[RecoveryAction, Callable[[], bool]] = {}
         self._lock = threading.Lock()
 
-    def register_handler(
-        self, action: RecoveryAction, handler: Callable[[], bool]
-    ) -> None:
+    def register_handler(self, action: RecoveryAction, handler: Callable[[], bool]) -> None:
         """Register a handler for an action."""
         with self._lock:
             self._action_handlers[action] = handler
@@ -520,9 +532,7 @@ class SelfHealingEngine:
         self._recovery_attempts: Dict[str, int] = {}
         self._lock = threading.Lock()
 
-    def register_health_check(
-        self, component: str, check_func: Callable[[], HealthCheck]
-    ) -> None:
+    def register_health_check(self, component: str, check_func: Callable[[], HealthCheck]) -> None:
         """Register a health check."""
         self._health_monitor.register_check(component, check_func)
 
@@ -612,12 +622,16 @@ class SelfHealingEngine:
 
         healthy = sum(1 for s in status.values() if s == HealthStatus.HEALTHY)
         degraded = sum(1 for s in status.values() if s == HealthStatus.DEGRADED)
-        unhealthy = sum(1 for s in status.values() if s in (HealthStatus.UNHEALTHY, HealthStatus.CRITICAL))
+        unhealthy = sum(
+            1 for s in status.values() if s in (HealthStatus.UNHEALTHY, HealthStatus.CRITICAL)
+        )
 
         return {
             "overall_status": (
-                HealthStatus.HEALTHY.value if unhealthy == 0 and degraded == 0
-                else HealthStatus.DEGRADED.value if unhealthy == 0
+                HealthStatus.HEALTHY.value
+                if unhealthy == 0 and degraded == 0
+                else HealthStatus.DEGRADED.value
+                if unhealthy == 0
                 else HealthStatus.UNHEALTHY.value
             ),
             "components": {
@@ -679,9 +693,7 @@ class SelfHealingVisionProvider(VisionProvider):
                 message=f"Error rate: {error_rate:.2%}, Avg latency: {avg_latency:.0f}ms",
             )
 
-        self.healing_engine.register_health_check(
-            self._provider.provider_name, provider_check
-        )
+        self.healing_engine.register_health_check(self._provider.provider_name, provider_check)
 
     @property
     def provider_name(self) -> str:
@@ -698,9 +710,7 @@ class SelfHealingVisionProvider(VisionProvider):
             self._request_count += 1
 
         try:
-            result = await self._provider.analyze_image(
-                image_data, include_description, **kwargs
-            )
+            result = await self._provider.analyze_image(image_data, include_description, **kwargs)
             return result
         except Exception as e:
             with self._lock:

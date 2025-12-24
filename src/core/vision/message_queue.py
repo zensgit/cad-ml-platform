@@ -5,18 +5,17 @@ Provides message queue capabilities including pub/sub,
 dead letter queues, message persistence, and delivery guarantees.
 """
 
+import asyncio
+import threading
+import uuid
 from abc import ABC, abstractmethod
+from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, Generic, List, Optional, Set, TypeVar, Union
-import uuid
-import asyncio
-import threading
-from collections import deque
 
-from .base import VisionProvider, VisionDescription
-
+from .base import VisionDescription, VisionProvider
 
 # ============================================================================
 # Enums

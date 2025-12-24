@@ -5,36 +5,32 @@ Tests webhook handler module components.
 """
 
 import asyncio
-import pytest
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.core.vision.webhook_handler import (
-    # Enums
-    WebhookEventType,
-    WebhookStatus,
-    DeliveryStatus,
-    SignatureAlgorithm,
-    # Dataclasses
-    WebhookConfig,
-    WebhookRegistration,
-    WebhookEvent,
+import pytest
+
+from src.core.vision.base import VisionDescription
+from src.core.vision.webhook_handler import (  # Enums; Dataclasses; Classes; Factory functions
     DeliveryAttempt,
     DeliveryRecord,
-    # Classes
-    WebhookSignature,
-    WebhookRateLimiter,
+    DeliveryStatus,
+    SignatureAlgorithm,
+    WebhookConfig,
     WebhookDeliveryService,
-    WebhookRegistry,
+    WebhookEvent,
+    WebhookEventType,
     WebhookManager,
+    WebhookRateLimiter,
+    WebhookRegistration,
+    WebhookRegistry,
+    WebhookSignature,
+    WebhookStatus,
     WebhookVisionProvider,
-    # Factory functions
     create_webhook_config,
-    create_webhook_manager,
     create_webhook_event,
+    create_webhook_manager,
 )
-from src.core.vision.base import VisionDescription
-
 
 # ============================================================================
 # Test Fixtures
@@ -248,9 +244,7 @@ class TestWebhookSignature:
         payload = '{"event": "test"}'
         secret = "test_secret"
 
-        signature = WebhookSignature.generate(
-            payload, secret, SignatureAlgorithm.HMAC_SHA256
-        )
+        signature = WebhookSignature.generate(payload, secret, SignatureAlgorithm.HMAC_SHA256)
 
         assert signature is not None
         assert len(signature) == 64  # SHA256 hex digest length
@@ -260,9 +254,7 @@ class TestWebhookSignature:
         payload = '{"event": "test"}'
         secret = "test_secret"
 
-        signature = WebhookSignature.generate(
-            payload, secret, SignatureAlgorithm.HMAC_SHA512
-        )
+        signature = WebhookSignature.generate(payload, secret, SignatureAlgorithm.HMAC_SHA512)
 
         assert signature is not None
         assert len(signature) == 128  # SHA512 hex digest length
@@ -284,13 +276,9 @@ class TestWebhookSignature:
         payload = '{"event": "test"}'
         secret = "test_secret"
 
-        signature = WebhookSignature.generate(
-            payload, secret, SignatureAlgorithm.HMAC_SHA256
-        )
+        signature = WebhookSignature.generate(payload, secret, SignatureAlgorithm.HMAC_SHA256)
 
-        result = WebhookSignature.verify(
-            payload, signature, secret, SignatureAlgorithm.HMAC_SHA256
-        )
+        result = WebhookSignature.verify(payload, signature, secret, SignatureAlgorithm.HMAC_SHA256)
 
         assert result is True
 
@@ -468,9 +456,7 @@ class TestWebhookRegistry:
             config=webhook_config,
         )
 
-        result = webhook_registry.update_status(
-            registration.webhook_id, WebhookStatus.PAUSED
-        )
+        result = webhook_registry.update_status(registration.webhook_id, WebhookStatus.PAUSED)
 
         assert result is not None
         assert result.status == WebhookStatus.PAUSED

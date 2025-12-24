@@ -207,9 +207,7 @@ class KnowledgeGraph:
             self._reverse_relationships[relationship.target_id].append(relationship)
             return True
 
-    def get_relationships(
-        self, entity_id: str, direction: str = "outgoing"
-    ) -> List[Relationship]:
+    def get_relationships(self, entity_id: str, direction: str = "outgoing") -> List[Relationship]:
         """Get relationships for an entity."""
         with self._lock:
             if direction == "incoming":
@@ -276,9 +274,7 @@ class KnowledgeGraph:
             return {
                 "total_entities": len(self._entities),
                 "total_relationships": total_relationships,
-                "entities_by_type": {
-                    t.value: len(ids) for t, ids in self._type_index.items()
-                },
+                "entities_by_type": {t.value: len(ids) for t, ids in self._type_index.items()},
             }
 
 
@@ -304,9 +300,7 @@ class SemanticIndex:
         with self._lock:
             return self._embeddings.pop(entity_id, None) is not None
 
-    def search(
-        self, query_embedding: List[float], top_k: int = 10
-    ) -> List[Tuple[str, float]]:
+    def search(self, query_embedding: List[float], top_k: int = 10) -> List[Tuple[str, float]]:
         """Search for similar entities."""
         if len(query_embedding) != self.dimension:
             return []
@@ -393,10 +387,7 @@ class KnowledgeStore:
         with self._lock:
             results = []
             for entry in self._entries.values():
-                if (
-                    query_lower in entry.title.lower()
-                    or query_lower in entry.content.lower()
-                ):
+                if query_lower in entry.title.lower() or query_lower in entry.content.lower():
                     results.append(entry)
             return results
 
@@ -419,9 +410,7 @@ class KnowledgeBase:
         self._embedding_function: Optional[Callable[[str], List[float]]] = None
         self._lock = threading.Lock()
 
-    def set_embedding_function(
-        self, func: Callable[[str], List[float]]
-    ) -> None:
+    def set_embedding_function(self, func: Callable[[str], List[float]]) -> None:
         """Set the function for generating embeddings."""
         self._embedding_function = func
 
@@ -533,9 +522,7 @@ class KnowledgeBase:
             if self._embedding_function:
                 try:
                     query_embedding = self._embedding_function(query)
-                    semantic_results = self._semantic_index.search(
-                        query_embedding, top_k=limit
-                    )
+                    semantic_results = self._semantic_index.search(query_embedding, top_k=limit)
                     for entity_id, score in semantic_results:
                         entity = self._graph.get_entity(entity_id)
                         if entity and score > 0.5:
@@ -587,11 +574,7 @@ class KnowledgeBase:
             else:
                 related_ids.add(rel.source_id)
 
-        return [
-            self._graph.get_entity(eid)
-            for eid in related_ids
-            if self._graph.get_entity(eid)
-        ]
+        return [self._graph.get_entity(eid) for eid in related_ids if self._graph.get_entity(eid)]
 
     def get_entity(self, entity_id: str) -> Optional[Entity]:
         """Get an entity by ID."""
@@ -632,9 +615,7 @@ class KnowledgeEnhancedVisionProvider(VisionProvider):
     ) -> VisionDescription:
         """Analyze image with knowledge enhancement."""
         # Get base analysis
-        result = await self._provider.analyze_image(
-            image_data, include_description, **kwargs
-        )
+        result = await self._provider.analyze_image(image_data, include_description, **kwargs)
 
         # Enhance with knowledge
         if include_description and result.summary:
@@ -647,9 +628,7 @@ class KnowledgeEnhancedVisionProvider(VisionProvider):
 
             for search_result in query_result.results:
                 if search_result.score > 0.6:
-                    enhanced_details.append(
-                        f"Related: {search_result.entity.name}"
-                    )
+                    enhanced_details.append(f"Related: {search_result.entity.name}")
 
             return VisionDescription(
                 summary=result.summary,
@@ -669,9 +648,7 @@ class KnowledgeEnhancedVisionProvider(VisionProvider):
         entry_id = hashlib.md5(f"{title}{content}".encode()).hexdigest()[:16]
         return self.knowledge_base.add_knowledge(entry_id, title, content, tags)
 
-    def search_knowledge(
-        self, query: str, limit: int = 10
-    ) -> QueryResult:
+    def search_knowledge(self, query: str, limit: int = 10) -> QueryResult:
         """Search the knowledge base."""
         return self.knowledge_base.search(query, limit=limit)
 

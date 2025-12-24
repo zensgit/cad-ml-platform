@@ -5,7 +5,6 @@ from typing import Dict
 import httpx
 import pytest
 
-
 VISION_URL = os.environ.get("DEDUPCAD_VISION_URL", "http://localhost:58001")
 TIMEOUT = float(os.environ.get("E2E_HTTP_TIMEOUT", "20"))
 PNG_PATH = Path(os.environ.get("E2E_PNG_PATH", "data/dxf_fixtures_subset_out/mixed.png"))

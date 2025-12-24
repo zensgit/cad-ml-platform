@@ -20,7 +20,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .base import VisionDescription, VisionProvider
 
-
 # ============================================================================
 # Enums and Types
 # ============================================================================
@@ -220,9 +219,7 @@ class BruteForceDetector(ThreatDetector):
 
         with self._lock:
             # Clean old attempts
-            self._attempts[key] = [
-                t for t in self._attempts[key] if t > window_start
-            ]
+            self._attempts[key] = [t for t in self._attempts[key] if t > window_start]
 
             # Record this attempt
             self._attempts[key].append(now)
@@ -356,7 +353,7 @@ class AuditLogger:
 
             # Trim if exceeds max
             if len(self._events) > self._max_events:
-                self._events = self._events[-self._max_events:]
+                self._events = self._events[-self._max_events :]
 
         # Notify handlers
         for handler in self._handlers:
@@ -688,9 +685,7 @@ class SecurityAuditManager:
         if active_only:
             now = datetime.utcnow()
             indicators = [
-                i
-                for i in indicators
-                if i.active and (not i.expires_at or i.expires_at > now)
+                i for i in indicators if i.active and (not i.expires_at or i.expires_at > now)
             ]
 
         return indicators

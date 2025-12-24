@@ -5,16 +5,15 @@ Provides machine learning model integration including model management,
 feature extraction, inference pipelines, and model versioning.
 """
 
+import hashlib
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar, Union
-import hashlib
-import json
 
-from .base import VisionProvider, VisionDescription
-
+from .base import VisionDescription, VisionProvider
 
 # ============================================================================
 # Enums
@@ -401,6 +400,7 @@ class EnsembleModel(MLModel):
         if self._aggregation == "voting":
             # Simple voting
             from collections import Counter
+
             flat = [p for preds in all_predictions for p in preds]
             counter = Counter(flat)
             return [counter.most_common(1)[0][0]] if counter else []

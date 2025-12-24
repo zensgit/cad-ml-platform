@@ -19,7 +19,6 @@ import pytest
 
 from src.core.vision import VisionDescription, VisionProvider
 
-
 # ============================================================================
 # Mock Provider
 # ============================================================================
@@ -254,11 +253,7 @@ class TestPluginSystem:
 
     def test_plugin_metadata(self) -> None:
         """Test PluginMetadata."""
-        from src.core.vision.plugin_system import (
-            PluginCapability,
-            PluginMetadata,
-            PluginType,
-        )
+        from src.core.vision.plugin_system import PluginCapability, PluginMetadata, PluginType
 
         metadata = PluginMetadata(
             name="test_plugin",
@@ -278,11 +273,7 @@ class TestPluginSystem:
 
     def test_plugin_instance(self) -> None:
         """Test PluginInstance."""
-        from src.core.vision.plugin_system import (
-            PluginInstance,
-            PluginMetadata,
-            PluginState,
-        )
+        from src.core.vision.plugin_system import PluginInstance, PluginMetadata, PluginState
 
         metadata = PluginMetadata(name="test", version="1.0.0")
         instance = PluginInstance(metadata=metadata)
@@ -347,11 +338,7 @@ class TestPluginSystem:
 
     def test_plugin_sandbox(self) -> None:
         """Test PluginSandbox."""
-        from src.core.vision.plugin_system import (
-            PluginCapability,
-            PluginMetadata,
-            PluginSandbox,
-        )
+        from src.core.vision.plugin_system import PluginCapability, PluginMetadata, PluginSandbox
 
         sandbox = PluginSandbox(allowed_capabilities=[PluginCapability.NETWORK])
 
@@ -418,10 +405,7 @@ class TestPluginSystem:
 
     def test_create_plugin_manager(self) -> None:
         """Test create_plugin_manager factory."""
-        from src.core.vision.plugin_system import (
-            PluginCapability,
-            create_plugin_manager,
-        )
+        from src.core.vision.plugin_system import PluginCapability, create_plugin_manager
 
         manager = create_plugin_manager(
             plugin_dirs=["/tmp/plugins"],
@@ -510,11 +494,7 @@ class TestApiGateway:
     @pytest.mark.asyncio
     async def test_load_balancer_round_robin(self) -> None:
         """Test LoadBalancer round robin."""
-        from src.core.vision.api_gateway import (
-            LoadBalancer,
-            LoadBalanceStrategy,
-            ServiceEndpoint,
-        )
+        from src.core.vision.api_gateway import LoadBalancer, LoadBalanceStrategy, ServiceEndpoint
 
         balancer = LoadBalancer(strategy=LoadBalanceStrategy.ROUND_ROBIN)
         balancer.add_endpoint(ServiceEndpoint(host="host1", port=8080))
@@ -531,11 +511,7 @@ class TestApiGateway:
     @pytest.mark.asyncio
     async def test_load_balancer_least_connections(self) -> None:
         """Test LoadBalancer least connections."""
-        from src.core.vision.api_gateway import (
-            LoadBalancer,
-            LoadBalanceStrategy,
-            ServiceEndpoint,
-        )
+        from src.core.vision.api_gateway import LoadBalancer, LoadBalanceStrategy, ServiceEndpoint
 
         balancer = LoadBalancer(strategy=LoadBalanceStrategy.LEAST_CONNECTIONS)
         ep1 = ServiceEndpoint(host="host1", port=8080, active_connections=5)
@@ -566,11 +542,7 @@ class TestApiGateway:
 
     def test_api_version_extraction(self) -> None:
         """Test version extraction from request."""
-        from src.core.vision.api_gateway import (
-            ApiVersionManager,
-            GatewayRequest,
-            HttpMethod,
-        )
+        from src.core.vision.api_gateway import ApiVersionManager, GatewayRequest, HttpMethod
 
         manager = ApiVersionManager(default_version="v1")
 
@@ -623,12 +595,7 @@ class TestApiGateway:
     @pytest.mark.asyncio
     async def test_api_gateway_handle_request(self) -> None:
         """Test ApiGateway request handling."""
-        from src.core.vision.api_gateway import (
-            ApiGateway,
-            GatewayRequest,
-            HttpMethod,
-            RouteConfig,
-        )
+        from src.core.vision.api_gateway import ApiGateway, GatewayRequest, HttpMethod, RouteConfig
 
         gateway = ApiGateway()
 
@@ -859,11 +826,7 @@ class TestDistributedLock:
     @pytest.mark.asyncio
     async def test_lock_manager_deadlock_detection(self) -> None:
         """Test LockManager deadlock detection."""
-        from src.core.vision.distributed_lock import (
-            LockAcquisitionResult,
-            LockManager,
-            LockRequest,
-        )
+        from src.core.vision.distributed_lock import LockAcquisitionResult, LockManager, LockRequest
 
         manager = LockManager(enable_deadlock_detection=True)
 
@@ -871,9 +834,7 @@ class TestDistributedLock:
         manager.on_deadlock(lambda d: deadlocks_detected.append(d))
 
         # Owner-1 holds resource-1
-        await manager.acquire(
-            LockRequest(resource_id="resource-1", owner_id="owner-1")
-        )
+        await manager.acquire(LockRequest(resource_id="resource-1", owner_id="owner-1"))
 
         # Manually simulate wait graph cycle
         manager._wait_graph["owner-1"] = {"owner-2"}
@@ -976,11 +937,7 @@ class TestWorkflowEngine:
 
     def test_workflow_definition(self) -> None:
         """Test WorkflowDefinition."""
-        from src.core.vision.workflow_engine import (
-            TaskDefinition,
-            TriggerType,
-            WorkflowDefinition,
-        )
+        from src.core.vision.workflow_engine import TaskDefinition, TriggerType, WorkflowDefinition
 
         workflow = WorkflowDefinition(
             workflow_id="wf-1",
@@ -997,11 +954,7 @@ class TestWorkflowEngine:
 
     def test_task_execution(self) -> None:
         """Test TaskExecution."""
-        from src.core.vision.workflow_engine import (
-            TaskDefinition,
-            TaskExecution,
-            TaskStatus,
-        )
+        from src.core.vision.workflow_engine import TaskDefinition, TaskExecution, TaskStatus
 
         definition = TaskDefinition(task_id="t1", name="Task", handler="h1")
         execution = TaskExecution(task_id="t1", definition=definition)
@@ -1129,11 +1082,7 @@ class TestWorkflowEngine:
 
     def test_workflow_builder(self) -> None:
         """Test WorkflowBuilder."""
-        from src.core.vision.workflow_engine import (
-            RetryPolicy,
-            TriggerType,
-            WorkflowBuilder,
-        )
+        from src.core.vision.workflow_engine import RetryPolicy, TriggerType, WorkflowBuilder
 
         workflow = (
             WorkflowBuilder("wf-1", "Test Workflow")
@@ -1184,11 +1133,7 @@ class TestWorkflowEngine:
     @pytest.mark.asyncio
     async def test_simple_task_handler(self) -> None:
         """Test simple TaskHandler."""
-        from src.core.vision.workflow_engine import (
-            TaskDefinition,
-            TaskExecution,
-            TaskHandler,
-        )
+        from src.core.vision.workflow_engine import TaskDefinition, TaskExecution, TaskHandler
 
         class SimpleHandler(TaskHandler):
             async def execute(self, task: TaskExecution, context: Dict[str, Any]) -> str:
@@ -1368,10 +1313,7 @@ class TestPhase10Integration:
     @pytest.mark.asyncio
     async def test_locked_vision_provider(self) -> None:
         """Test LockedVisionProvider."""
-        from src.core.vision.distributed_lock import (
-            LockManager,
-            LockedVisionProvider,
-        )
+        from src.core.vision.distributed_lock import LockedVisionProvider, LockManager
 
         base_provider = MockVisionProvider()
         lock_manager = LockManager()
@@ -1406,11 +1348,7 @@ class TestPhase10Integration:
     @pytest.mark.asyncio
     async def test_vision_api_gateway(self) -> None:
         """Test VisionApiGateway."""
-        from src.core.vision.api_gateway import (
-            GatewayRequest,
-            HttpMethod,
-            VisionApiGateway,
-        )
+        from src.core.vision.api_gateway import GatewayRequest, HttpMethod, VisionApiGateway
 
         provider = MockVisionProvider()
         gateway = VisionApiGateway(providers={"default": provider})
@@ -1537,8 +1475,8 @@ class TestPhase10Imports:
             HookPriority,
             HookRegistration,
             MiddlewarePlugin,
-            Plugin,
             PluggableVisionProvider,
+            Plugin,
             PluginCapability,
             PluginDiscovery,
             PluginEvent,
@@ -1598,13 +1536,13 @@ class TestPhase10Imports:
             FencingTokenManager,
             InMemoryLock,
             LockAcquisitionResult,
+            LockedVisionProvider,
             LockInfo,
             LockManager,
             LockRequest,
             LockResult,
             LockState,
             LockType,
-            LockedVisionProvider,
             ReadWriteLock,
             ReentrantLock,
             create_lock_manager,

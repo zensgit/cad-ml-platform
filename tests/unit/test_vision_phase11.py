@@ -19,7 +19,6 @@ import pytest
 
 from src.core.vision import VisionDescription, VisionProvider
 
-
 # ============================================================================
 # Mock Provider
 # ============================================================================
@@ -65,12 +64,7 @@ class TestEncryption:
 
     def test_key_metadata(self) -> None:
         """Test KeyMetadata."""
-        from src.core.vision.encryption import (
-            EncryptionAlgorithm,
-            KeyMetadata,
-            KeyStatus,
-            KeyType,
-        )
+        from src.core.vision.encryption import EncryptionAlgorithm, KeyMetadata, KeyStatus, KeyType
 
         metadata = KeyMetadata(
             key_id="key-1",
@@ -87,11 +81,7 @@ class TestEncryption:
 
     def test_key_metadata_expiration(self) -> None:
         """Test KeyMetadata expiration."""
-        from src.core.vision.encryption import (
-            EncryptionAlgorithm,
-            KeyMetadata,
-            KeyType,
-        )
+        from src.core.vision.encryption import EncryptionAlgorithm, KeyMetadata, KeyType
 
         metadata = KeyMetadata(
             key_id="key-1",
@@ -315,11 +305,7 @@ class TestAuditLogging:
 
     def test_in_memory_audit_store(self) -> None:
         """Test InMemoryAuditStore."""
-        from src.core.vision.audit_logging import (
-            AuditEvent,
-            AuditEventType,
-            InMemoryAuditStore,
-        )
+        from src.core.vision.audit_logging import AuditEvent, AuditEventType, InMemoryAuditStore
 
         store = InMemoryAuditStore()
 
@@ -367,11 +353,7 @@ class TestAuditLogging:
 
     def test_audit_logger_access_event(self) -> None:
         """Test AuditLogger access logging."""
-        from src.core.vision.audit_logging import (
-            AuditActor,
-            AuditLogger,
-            AuditResource,
-        )
+        from src.core.vision.audit_logging import AuditActor, AuditLogger, AuditResource
 
         logger = AuditLogger()
         actor = AuditActor(actor_id="user-1", actor_type="user")
@@ -555,11 +537,13 @@ class TestDataPipeline:
             PipelineStageType,
         )
 
-        source = InMemoryDataSource([
-            DataRecord(record_id="1", data=1),
-            DataRecord(record_id="2", data=2),
-            DataRecord(record_id="3", data=3),
-        ])
+        source = InMemoryDataSource(
+            [
+                DataRecord(record_id="1", data=1),
+                DataRecord(record_id="2", data=2),
+                DataRecord(record_id="3", data=3),
+            ]
+        )
         sink = InMemoryDataSink()
 
         config = PipelineConfig(pipeline_id="p1", name="test_pipeline")
@@ -588,11 +572,13 @@ class TestDataPipeline:
             create_pipeline,
         )
 
-        source = InMemoryDataSource([
-            DataRecord(record_id="1", data=1),
-            DataRecord(record_id="2", data=5),
-            DataRecord(record_id="3", data=10),
-        ])
+        source = InMemoryDataSource(
+            [
+                DataRecord(record_id="1", data=1),
+                DataRecord(record_id="2", data=5),
+                DataRecord(record_id="3", data=10),
+            ]
+        )
         sink = InMemoryDataSink()
 
         pipeline = (
@@ -797,18 +783,13 @@ class TestStreamProcessing:
             stream.process_event(event)
 
         assert 10 in results  # 5 * 2 = 10
-        assert 8 in results   # 4 * 2 = 8
+        assert 8 in results  # 4 * 2 = 8
 
     def test_stream_builder(self) -> None:
         """Test StreamBuilder."""
         from src.core.vision.stream_processing import create_stream
 
-        stream = (
-            create_stream()
-            .map(lambda x: x * 2)
-            .filter(lambda x: x > 0)
-            .build()
-        )
+        stream = create_stream().map(lambda x: x * 2).filter(lambda x: x > 0).build()
 
         assert stream is not None
 
@@ -934,15 +915,17 @@ class TestDataValidation:
         """Test CompositeValidator."""
         from src.core.vision.data_validation import (
             CompositeValidator,
+            DataType,
             RangeValidator,
             TypeValidator,
-            DataType,
         )
 
-        validator = CompositeValidator([
-            TypeValidator(DataType.INTEGER),
-            RangeValidator(min_value=0, max_value=100),
-        ])
+        validator = CompositeValidator(
+            [
+                TypeValidator(DataType.INTEGER),
+                RangeValidator(min_value=0, max_value=100),
+            ]
+        )
 
         assert validator.validate(50, "field").valid
         assert not validator.validate("50", "field").valid
@@ -991,11 +974,13 @@ class TestDataValidation:
             .build()
         )
 
-        result = schema.validate({
-            "name": "John",
-            "age": 30,
-            "status": "active",
-        })
+        result = schema.validate(
+            {
+                "name": "John",
+                "age": 30,
+                "status": "active",
+            }
+        )
         assert result.valid
 
     def test_data_quality_checker(self) -> None:
@@ -1016,10 +1001,7 @@ class TestDataValidation:
     @pytest.mark.asyncio
     async def test_validated_vision_provider(self) -> None:
         """Test ValidatedVisionProvider."""
-        from src.core.vision.data_validation import (
-            create_schema,
-            create_validated_provider,
-        )
+        from src.core.vision.data_validation import create_schema, create_validated_provider
 
         # Allow extra fields since VisionDescription has summary, details, confidence
         output_schema = (
@@ -1069,10 +1051,7 @@ class TestPhase11Integration:
     @pytest.mark.asyncio
     async def test_validated_pipeline_provider(self) -> None:
         """Test validated provider with pipeline."""
-        from src.core.vision.data_validation import (
-            create_schema,
-            create_validated_provider,
-        )
+        from src.core.vision.data_validation import create_schema, create_validated_provider
 
         schema = create_schema("output").float_field("confidence").allow_extra(True).build()
 
@@ -1097,29 +1076,35 @@ class TestPhase11Integration:
         )
 
         # Create pipeline that transforms and filters
-        source = InMemoryDataSource([
-            DataRecord(record_id="1", data={"value": 5}),
-            DataRecord(record_id="2", data={"value": 15}),
-            DataRecord(record_id="3", data={"value": 25}),
-        ])
+        source = InMemoryDataSource(
+            [
+                DataRecord(record_id="1", data={"value": 5}),
+                DataRecord(record_id="2", data={"value": 15}),
+                DataRecord(record_id="3", data={"value": 25}),
+            ]
+        )
         sink = InMemoryDataSink()
 
         config = PipelineConfig(pipeline_id="p1", name="validated_pipeline")
         pipeline = Pipeline(config, source, sink)
 
         # Extract value and filter
-        pipeline.add_stage(PipelineStage(
-            stage_id="s1",
-            stage_type=PipelineStageType.TRANSFORM,
-            name="extract",
-            transformer=MapTransformer(lambda x: x.get("value", 0)),
-        ))
-        pipeline.add_stage(PipelineStage(
-            stage_id="s2",
-            stage_type=PipelineStageType.FILTER,
-            name="filter",
-            transformer=FilterTransformer(lambda x: x > 10),
-        ))
+        pipeline.add_stage(
+            PipelineStage(
+                stage_id="s1",
+                stage_type=PipelineStageType.TRANSFORM,
+                name="extract",
+                transformer=MapTransformer(lambda x: x.get("value", 0)),
+            )
+        )
+        pipeline.add_stage(
+            PipelineStage(
+                stage_id="s2",
+                stage_type=PipelineStageType.FILTER,
+                name="filter",
+                transformer=FilterTransformer(lambda x: x > 10),
+            )
+        )
 
         result = pipeline.run()
 
@@ -1138,16 +1123,16 @@ class TestPhase11Imports:
     def test_encryption_imports(self) -> None:
         """Test encryption imports."""
         from src.core.vision import (
-            EncryptionService,
-            KeyManager,
-            InMemoryKeyStore,
-            Hasher,
-            SecureStorage,
             EncryptionAlgorithm,
-            KeyType,
+            EncryptionService,
+            Hasher,
+            InMemoryKeyStore,
+            KeyManager,
             KeyStatus,
-            create_encryption_service,
+            KeyType,
+            SecureStorage,
             create_encrypted_provider,
+            create_encryption_service,
         )
 
         assert EncryptionService is not None
@@ -1157,11 +1142,11 @@ class TestPhase11Imports:
     def test_audit_logging_imports(self) -> None:
         """Test audit logging imports."""
         from src.core.vision import (
+            AuditActor,
+            AuditResource,
             AuditStore,
             AuditTrail,
             ComplianceFramework,
-            AuditActor,
-            AuditResource,
             create_audited_provider,
         )
 
@@ -1172,21 +1157,21 @@ class TestPhase11Imports:
     def test_data_pipeline_imports(self) -> None:
         """Test data pipeline imports."""
         from src.core.vision import (
-            Pipeline,
-            PipelineBuilder,
-            ETLPipeline,
-            DataSource,
-            DataSink,
-            InMemoryDataSource,
-            InMemoryDataSink,
-            MapTransformer,
-            FilterTransformer,
-            PipelineStageType,
-            PipelineStatus,
             DataFormat,
             DataRecord,
-            create_pipeline,
+            DataSink,
+            DataSource,
+            ETLPipeline,
+            FilterTransformer,
+            InMemoryDataSink,
+            InMemoryDataSource,
+            MapTransformer,
+            Pipeline,
+            PipelineBuilder,
+            PipelineStageType,
+            PipelineStatus,
             create_etl_pipeline,
+            create_pipeline,
         )
 
         assert Pipeline is not None
@@ -1196,20 +1181,20 @@ class TestPhase11Imports:
     def test_stream_processing_imports(self) -> None:
         """Test stream processing imports."""
         from src.core.vision import (
+            Aggregator,
+            CountAggregator,
+            FilterOperator,
+            MapOperator,
+            SlidingWindow,
             Stream,
             StreamBuilder,
-            Window,
-            TumblingWindow,
-            SlidingWindow,
             StreamOperator,
-            MapOperator,
-            FilterOperator,
-            Aggregator,
-            SumAggregator,
-            CountAggregator,
-            WindowType,
             StreamState,
+            SumAggregator,
+            TumblingWindow,
+            Window,
             WindowResult,
+            WindowType,
             create_stream,
         )
 
@@ -1220,25 +1205,25 @@ class TestPhase11Imports:
     def test_data_validation_imports(self) -> None:
         """Test data validation imports."""
         from src.core.vision import (
-            Schema,
-            SchemaBuilder,
-            Validator,
-            TypeValidator,
-            RequiredValidator,
-            RangeValidator,
+            CompositeValidator,
+            CustomValidator,
+            DataQualityChecker,
+            DataType,
+            EnumValidator,
+            FieldSchema,
             LengthValidator,
             PatternValidator,
-            EnumValidator,
-            CustomValidator,
-            CompositeValidator,
-            DataQualityChecker,
+            RangeValidator,
+            RequiredValidator,
+            Schema,
+            SchemaBuilder,
+            TypeValidator,
             ValidationStatus,
-            DataType,
-            FieldSchema,
-            create_schema,
-            create_validator,
+            Validator,
             create_quality_checker,
+            create_schema,
             create_validated_provider,
+            create_validator,
         )
 
         assert Schema is not None

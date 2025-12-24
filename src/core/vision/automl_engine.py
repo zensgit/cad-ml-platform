@@ -30,7 +30,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -137,11 +136,15 @@ class HyperparameterSpace:
             return random.choice([True, False])
         elif self.param_type == "int":
             if self.log_scale:
-                return int(math.exp(random.uniform(math.log(self.low or 1), math.log(self.high or 100))))
+                return int(
+                    math.exp(random.uniform(math.log(self.low or 1), math.log(self.high or 100)))
+                )
             return random.randint(int(self.low or 0), int(self.high or 100))
         elif self.param_type == "float":
             if self.log_scale:
-                return math.exp(random.uniform(math.log(self.low or 0.001), math.log(self.high or 1.0)))
+                return math.exp(
+                    random.uniform(math.log(self.low or 0.001), math.log(self.high or 1.0))
+                )
             return random.uniform(self.low or 0.0, self.high or 1.0)
         return self.default
 
@@ -276,13 +279,16 @@ class RandomSearchOptimizer(HyperparameterOptimizer):
             score = metrics.get(self._objective.value, 0.0)
             if self._best_score is None or score > self._best_score:
                 self._best_score = score
-                self._best_params = self._trials.get(trial_id, TrialResult(
-                    trial_id=trial_id,
-                    hyperparameters={},
-                    metrics=metrics,
-                    status=status,
-                    start_time=datetime.now(),
-                )).hyperparameters
+                self._best_params = self._trials.get(
+                    trial_id,
+                    TrialResult(
+                        trial_id=trial_id,
+                        hyperparameters={},
+                        metrics=metrics,
+                        status=status,
+                        start_time=datetime.now(),
+                    ),
+                ).hyperparameters
 
     def get_best_params(self) -> Dict[str, Any]:
         """Get best hyperparameters."""
@@ -327,10 +333,15 @@ class BayesianOptimizer(HyperparameterOptimizer):
                     # Add small perturbation
                     if space.param_type == "float":
                         delta = (space.high - space.low) * 0.1 * random.uniform(-1, 1)
-                        params[space.name] = max(space.low, min(space.high, best_params[space.name] + delta))
+                        params[space.name] = max(
+                            space.low, min(space.high, best_params[space.name] + delta)
+                        )
                     elif space.param_type == "int":
                         delta = int((space.high - space.low) * 0.1 * random.uniform(-1, 1))
-                        params[space.name] = max(int(space.low), min(int(space.high), int(best_params[space.name]) + delta))
+                        params[space.name] = max(
+                            int(space.low),
+                            min(int(space.high), int(best_params[space.name]) + delta),
+                        )
                     else:
                         params[space.name] = space.sample()
                 else:
@@ -419,7 +430,9 @@ class ModelSelector:
             "neural_network": [
                 HyperparameterSpace("hidden_layers", "int", low=1, high=5),
                 HyperparameterSpace("neurons_per_layer", "int", low=16, high=512),
-                HyperparameterSpace("learning_rate", "float", low=0.0001, high=0.01, log_scale=True),
+                HyperparameterSpace(
+                    "learning_rate", "float", low=0.0001, high=0.01, log_scale=True
+                ),
                 HyperparameterSpace("dropout", "float", low=0.0, high=0.5),
             ],
         }
@@ -533,26 +546,31 @@ class AutoMLEngine:
         completed_trials = [t for t in self._trials if t.status == TrialStatus.COMPLETED]
 
         all_candidates = []
-        for i, trial in enumerate(sorted(
-            completed_trials,
-            key=lambda t: t.metrics.get(self._objective.value, 0),
-            reverse=True,
-        )):
-            all_candidates.append(ModelCandidate(
-                candidate_id=trial.trial_id,
-                model_type=ModelType.ENSEMBLE,
-                hyperparameters=trial.hyperparameters,
-                score=trial.metrics.get(self._objective.value, 0),
-                rank=i + 1,
-                training_time=trial.duration_seconds,
-                inference_time=0.001,
-            ))
+        for i, trial in enumerate(
+            sorted(
+                completed_trials,
+                key=lambda t: t.metrics.get(self._objective.value, 0),
+                reverse=True,
+            )
+        ):
+            all_candidates.append(
+                ModelCandidate(
+                    candidate_id=trial.trial_id,
+                    model_type=ModelType.ENSEMBLE,
+                    hyperparameters=trial.hyperparameters,
+                    score=trial.metrics.get(self._objective.value, 0),
+                    rank=i + 1,
+                    training_time=trial.duration_seconds,
+                    inference_time=0.001,
+                )
+            )
 
         total_time = sum(t.duration_seconds for t in self._trials)
 
         return AutoMLResult(
             search_id=search_id,
-            best_model=best_model or ModelCandidate(
+            best_model=best_model
+            or ModelCandidate(
                 candidate_id="none",
                 model_type=ModelType.LINEAR,
                 hyperparameters={},
@@ -609,12 +627,14 @@ class NeuralArchitectureSearch:
         activations = ["relu", "tanh", "sigmoid", "gelu"]
 
         for i in range(num_layers):
-            layers.append({
-                "type": random.choice(layer_types),
-                "units": random.choice([32, 64, 128, 256, 512]),
-                "activation": random.choice(activations),
-                "dropout": random.uniform(0, 0.5),
-            })
+            layers.append(
+                {
+                    "type": random.choice(layer_types),
+                    "units": random.choice([32, 64, 128, 256, 512]),
+                    "activation": random.choice(activations),
+                    "dropout": random.uniform(0, 0.5),
+                }
+            )
 
         return {
             "architecture_id": hashlib.md5(str(layers).encode()).hexdigest()[:8],
@@ -667,8 +687,7 @@ class FeatureSelector:
     def select_by_threshold(self, threshold: float) -> List[str]:
         """Select features above threshold."""
         self._selected_features = [
-            name for name, score in self._feature_scores.items()
-            if score >= threshold
+            name for name, score in self._feature_scores.items() if score >= threshold
         ]
         return self._selected_features
 

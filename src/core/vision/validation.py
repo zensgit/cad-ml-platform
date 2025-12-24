@@ -116,9 +116,7 @@ class ResponseValidator:
             schema: Optional validation schema
         """
         self._schema = schema
-        self._custom_validators: Dict[
-            str, Callable[[Any, Dict[str, Any]], Optional[str]]
-        ] = {}
+        self._custom_validators: Dict[str, Callable[[Any, Dict[str, Any]], Optional[str]]] = {}
 
     def set_schema(self, schema: ValidationSchema) -> None:
         """Set the validation schema."""
@@ -234,9 +232,7 @@ class ResponseValidator:
 
         return value
 
-    def _validate_required(
-        self, rule: ValidationRule, value: Any
-    ) -> Optional[ValidationIssue]:
+    def _validate_required(self, rule: ValidationRule, value: Any) -> Optional[ValidationIssue]:
         """Validate required field."""
         if value is None or (isinstance(value, str) and not value.strip()):
             return ValidationIssue(
@@ -249,9 +245,7 @@ class ResponseValidator:
             )
         return None
 
-    def _validate_min_length(
-        self, rule: ValidationRule, value: Any
-    ) -> Optional[ValidationIssue]:
+    def _validate_min_length(self, rule: ValidationRule, value: Any) -> Optional[ValidationIssue]:
         """Validate minimum length."""
         min_len = rule.params.get("min_length", 0)
 
@@ -272,9 +266,7 @@ class ResponseValidator:
             )
         return None
 
-    def _validate_max_length(
-        self, rule: ValidationRule, value: Any
-    ) -> Optional[ValidationIssue]:
+    def _validate_max_length(self, rule: ValidationRule, value: Any) -> Optional[ValidationIssue]:
         """Validate maximum length."""
         max_len = rule.params.get("max_length", float("inf"))
 
@@ -295,9 +287,7 @@ class ResponseValidator:
             )
         return None
 
-    def _validate_pattern(
-        self, rule: ValidationRule, value: Any
-    ) -> Optional[ValidationIssue]:
+    def _validate_pattern(self, rule: ValidationRule, value: Any) -> Optional[ValidationIssue]:
         """Validate against regex pattern."""
         pattern = rule.params.get("pattern", "")
 
@@ -308,17 +298,14 @@ class ResponseValidator:
             return ValidationIssue(
                 rule_name=rule.name,
                 field=rule.field,
-                message=rule.message
-                or f"Field '{rule.field}' does not match required pattern",
+                message=rule.message or f"Field '{rule.field}' does not match required pattern",
                 severity=rule.severity,
                 actual_value=value,
                 expected_value=f"pattern: {pattern}",
             )
         return None
 
-    def _validate_range(
-        self, rule: ValidationRule, value: Any
-    ) -> Optional[ValidationIssue]:
+    def _validate_range(self, rule: ValidationRule, value: Any) -> Optional[ValidationIssue]:
         """Validate numeric range."""
         min_val = rule.params.get("min")
         max_val = rule.params.get("max")
@@ -360,9 +347,7 @@ class ResponseValidator:
 
         return None
 
-    def _validate_confidence(
-        self, rule: ValidationRule, value: Any
-    ) -> Optional[ValidationIssue]:
+    def _validate_confidence(self, rule: ValidationRule, value: Any) -> Optional[ValidationIssue]:
         """Validate confidence threshold."""
         threshold = rule.params.get("threshold", 0.5)
 
@@ -385,8 +370,7 @@ class ResponseValidator:
             return ValidationIssue(
                 rule_name=rule.name,
                 field=rule.field,
-                message=rule.message
-                or f"Confidence {conf_value:.2f} below threshold {threshold}",
+                message=rule.message or f"Confidence {conf_value:.2f} below threshold {threshold}",
                 severity=rule.severity,
                 actual_value=conf_value,
                 expected_value=f">= {threshold}",
@@ -394,9 +378,7 @@ class ResponseValidator:
 
         return None
 
-    def _validate_list_min(
-        self, rule: ValidationRule, value: Any
-    ) -> Optional[ValidationIssue]:
+    def _validate_list_min(self, rule: ValidationRule, value: Any) -> Optional[ValidationIssue]:
         """Validate minimum list items."""
         min_items = rule.params.get("min_items", 0)
 
@@ -426,9 +408,7 @@ class ResponseValidator:
 
         return None
 
-    def _validate_list_max(
-        self, rule: ValidationRule, value: Any
-    ) -> Optional[ValidationIssue]:
+    def _validate_list_max(self, rule: ValidationRule, value: Any) -> Optional[ValidationIssue]:
         """Validate maximum list items."""
         max_items = rule.params.get("max_items", float("inf"))
 
@@ -439,8 +419,7 @@ class ResponseValidator:
             return ValidationIssue(
                 rule_name=rule.name,
                 field=rule.field,
-                message=rule.message
-                or f"Field '{rule.field}' must have at most {max_items} items",
+                message=rule.message or f"Field '{rule.field}' must have at most {max_items} items",
                 severity=rule.severity,
                 actual_value=len(value),
                 expected_value=f"<= {max_items}",

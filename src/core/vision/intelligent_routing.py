@@ -159,9 +159,7 @@ class CapabilityMatchRule(RoutingRule):
             if name in context.excluded_providers:
                 continue
 
-            has_all = all(
-                cap in config.capabilities for cap in context.required_capabilities
-            )
+            has_all = all(cap in config.capabilities for cap in context.required_capabilities)
             if has_all:
                 matching.append(name)
 
@@ -260,9 +258,7 @@ class LoadBalancer:
             self._stats[provider].total_requests += 1
             self._stats[provider].last_updated = datetime.now()
 
-    def record_request_end(
-        self, provider: str, latency: float, success: bool
-    ) -> None:
+    def record_request_end(self, provider: str, latency: float, success: bool) -> None:
         """Record request completion."""
         with self._lock:
             stats = self._stats[provider]
@@ -331,9 +327,7 @@ class AdaptiveRouter:
         """Apply decay to scores (call periodically)."""
         with self._lock:
             for provider in self._scores:
-                self._scores[provider] = 1.0 + (
-                    self._scores[provider] - 1.0
-                ) * self.decay_factor
+                self._scores[provider] = 1.0 + (self._scores[provider] - 1.0) * self.decay_factor
 
     def get_best_provider(self, available: List[str]) -> Optional[str]:
         """Get provider with best adaptive score."""
@@ -484,9 +478,7 @@ class IntelligentRouter:
 
         # Apply preference filter
         if context.preferred_providers:
-            preferred_available = [
-                p for p in available if p in context.preferred_providers
-            ]
+            preferred_available = [p for p in available if p in context.preferred_providers]
             if preferred_available:
                 available = preferred_available
 
@@ -544,10 +536,7 @@ class IntelligentRouter:
 
         elif strategy == RoutingStrategy.WEIGHTED:
             with self._lock:
-                weights = [
-                    self._providers.get(p, ProviderConfig(name=p)).weight
-                    for p in available
-                ]
+                weights = [self._providers.get(p, ProviderConfig(name=p)).weight for p in available]
             total = sum(weights)
             if total == 0:
                 return random.choice(available)
@@ -565,9 +554,7 @@ class IntelligentRouter:
         elif strategy == RoutingStrategy.CONTENT_BASED:
             if image_data:
                 analysis = self._content_analyzer.analyze(image_data, context)
-                recommended = self._content_analyzer.get_recommended_provider(
-                    analysis, available
-                )
+                recommended = self._content_analyzer.get_recommended_provider(analysis, available)
                 if recommended:
                     return recommended
             return self._adaptive_router.get_best_provider(available) or available[0]
@@ -576,18 +563,14 @@ class IntelligentRouter:
             with self._lock:
                 best = min(
                     available,
-                    key=lambda p: self._providers.get(
-                        p, ProviderConfig(name=p)
-                    ).cost_per_request,
+                    key=lambda p: self._providers.get(p, ProviderConfig(name=p)).cost_per_request,
                 )
             return best
 
         # Default: ML-based combines adaptive + content
         return self._adaptive_router.get_best_provider(available) or available[0]
 
-    def record_result(
-        self, provider: str, success: bool, latency: float
-    ) -> None:
+    def record_result(self, provider: str, success: bool, latency: float) -> None:
         """Record request result for learning."""
         self._load_balancer.record_request_end(provider, latency, success)
         self._adaptive_router.update_score(provider, success, latency)
@@ -634,9 +617,7 @@ class RoutedVisionProvider(VisionProvider):
         self, image_data: bytes, include_description: bool = True, **kwargs: Any
     ) -> VisionDescription:
         """Analyze image with intelligent routing."""
-        context = kwargs.pop("routing_context", None) or RoutingContext(
-            image_size=len(image_data)
-        )
+        context = kwargs.pop("routing_context", None) or RoutingContext(image_size=len(image_data))
         strategy = kwargs.pop("routing_strategy", None)
 
         decision = self.router.route(context, image_data, strategy)
@@ -653,9 +634,7 @@ class RoutedVisionProvider(VisionProvider):
 
         try:
             self.router._load_balancer.record_request_start(decision.selected_provider)
-            result = await provider.analyze_image(
-                image_data, include_description, **kwargs
-            )
+            result = await provider.analyze_image(image_data, include_description, **kwargs)
             return result
         except Exception as e:
             success = False

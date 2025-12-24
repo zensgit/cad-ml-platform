@@ -18,108 +18,106 @@ import pytest
 
 from src.core.vision.base import VisionDescription, VisionProvider
 
-# Phase 9 imports - Observability
-from src.core.vision.observability import (
-    MetricsCollector,
-    StructuredLogger,
-    AlertManager,
-    HealthChecker,
-    SLOMonitor,
-    ObservabilityContext,
-    ObservableVisionProvider,
-    MetricType,
-    LogLevel,
-    AlertSeverity,
-    AlertStatus,
-    HealthStatus,
-    MetricValue,
-    HistogramBucket,
-    HistogramValue,
-    LogEntry,
-    Alert,
-    AlertRule,
-    HealthCheck,
-    SLI,
-    SLO,
-    create_observable_provider,
+# Phase 9 imports - Chaos Engineering
+from src.core.vision.chaos_engineering import (
+    ChaosExperiment,
+    ChaosManager,
+    ChaosVisionProvider,
+    ErrorInjector,
+    ExperimentConfig,
+    ExperimentResult,
+    ExperimentStatus,
+    FaultConfig,
+    FaultInjector,
+    FaultType,
+    InjectionStrategy,
+    LatencyInjector,
+    TargetType,
+    create_chaos_provider,
+    create_experiment,
+)
+
+# Phase 9 imports - Compliance
+from src.core.vision.compliance import AuditEvent, AuditEventType, AuditLogger
+from src.core.vision.compliance import AuditSeverity as ComplianceAuditSeverity
+from src.core.vision.compliance import (
+    ComplianceManager,
+    ComplianceRequirement,
+    ComplianceStandard,
+    ComplianceVisionProvider,
+    DataClassification,
+    DataRetentionConfig,
+    DataRetentionManager,
+    PIIDetectionResult,
+    PIIDetector,
+    RetentionPolicy,
+    create_compliant_provider,
 )
 
 # Phase 9 imports - Deployment
 from src.core.vision.deployment import (
-    DeploymentManager,
-    DeploymentVisionProvider,
-    TrafficRouter,
     BlueGreenDeployment,
     CanaryRelease,
-    RollingUpdate,
-    DeploymentStrategy,
-    DeploymentPhase,
-    EnvironmentType,
-    TrafficSplitMethod,
-    DeploymentVersion,
     DeploymentConfig,
+    DeploymentManager,
     DeploymentMetrics,
+    DeploymentPhase,
     DeploymentState,
+    DeploymentStrategy,
+    DeploymentVersion,
+    DeploymentVisionProvider,
+    EnvironmentType,
+    RollingUpdate,
+    TrafficRouter,
+    TrafficSplitMethod,
     create_blue_green_provider,
     create_canary_provider,
 )
 
 # Phase 9 imports - Multi-tenancy
 from src.core.vision.multi_tenancy import (
-    TenantManager,
+    InMemoryTenantStore,
+    IsolationLevel,
     MultiTenantVisionProvider,
     QuotaManager,
-    UsageTracker,
-    TenantContext,
-    TenantStore,
-    InMemoryTenantStore,
-    TenantStatus,
-    TenantTier,
-    IsolationLevel,
     QuotaType,
     ResourceQuota,
-    TenantConfig,
     Tenant,
+    TenantConfig,
+    TenantContext,
+    TenantManager,
+    TenantStatus,
+    TenantStore,
+    TenantTier,
     TenantUsage,
+    UsageTracker,
     create_multi_tenant_provider,
 )
 
-# Phase 9 imports - Compliance
-from src.core.vision.compliance import (
-    ComplianceManager,
-    ComplianceVisionProvider,
-    AuditLogger,
-    PIIDetector,
-    DataRetentionManager,
-    AuditEventType,
-    AuditSeverity as ComplianceAuditSeverity,
-    ComplianceStandard,
-    DataClassification,
-    RetentionPolicy,
-    AuditEvent,
-    DataRetentionConfig,
-    ComplianceRequirement,
-    PIIDetectionResult,
-    create_compliant_provider,
-)
-
-# Phase 9 imports - Chaos Engineering
-from src.core.vision.chaos_engineering import (
-    ChaosManager,
-    ChaosVisionProvider,
-    FaultInjector,
-    LatencyInjector,
-    ErrorInjector,
-    ChaosExperiment,
-    FaultType,
-    ExperimentStatus,
-    TargetType,
-    InjectionStrategy,
-    FaultConfig,
-    ExperimentConfig,
-    ExperimentResult,
-    create_chaos_provider,
-    create_experiment,
+# Phase 9 imports - Observability
+from src.core.vision.observability import (
+    SLI,
+    SLO,
+    Alert,
+    AlertManager,
+    AlertRule,
+    AlertSeverity,
+    AlertStatus,
+    HealthCheck,
+    HealthChecker,
+    HealthStatus,
+    HistogramBucket,
+    HistogramValue,
+    LogEntry,
+    LogLevel,
+    MetricsCollector,
+    MetricType,
+    MetricValue,
+    ObservabilityContext,
+    ObservableVisionProvider,
+    SLOMonitor,
+    StructuredLogger,
+    create_observable_provider,
 )
 
 
@@ -381,12 +379,12 @@ class TestObservability:
         """Test health checker overall status."""
         checker = HealthChecker()
 
-        checker.register("service1", lambda: HealthCheck(
-            name="service1", status=HealthStatus.HEALTHY
-        ))
-        checker.register("service2", lambda: HealthCheck(
-            name="service2", status=HealthStatus.HEALTHY
-        ))
+        checker.register(
+            "service1", lambda: HealthCheck(name="service1", status=HealthStatus.HEALTHY)
+        )
+        checker.register(
+            "service2", lambda: HealthCheck(name="service2", status=HealthStatus.HEALTHY)
+        )
 
         assert checker.get_overall_status() == HealthStatus.HEALTHY
 

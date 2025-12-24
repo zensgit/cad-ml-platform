@@ -2,16 +2,17 @@
 
 import asyncio
 from unittest.mock import Mock, patch
+
 import pytest
 
 from src.core.errors import ErrorCode
 from src.core.ocr.providers.error_map import (
-    map_exception_to_error_code,
-    log_and_map_exception,
     handle_inference_error,
-    handle_parse_error,
     handle_init_error,
-    handle_load_error
+    handle_load_error,
+    handle_parse_error,
+    log_and_map_exception,
+    map_exception_to_error_code,
 )
 
 
@@ -112,7 +113,7 @@ class TestExceptionMapping:
 class TestLogAndMap:
     """Test logging and mapping functions."""
 
-    @patch('src.core.ocr.providers.error_map.logger')
+    @patch("src.core.ocr.providers.error_map.logger")
     def test_log_and_map_logs_at_correct_level(self, mock_logger):
         """Test that exceptions are logged at appropriate levels."""
         # Resource exhausted - error level
@@ -135,7 +136,7 @@ class TestLogAndMap:
         assert code3 == ErrorCode.INTERNAL_ERROR
         assert mock_logger.info.called
 
-    @patch('src.core.ocr.providers.error_map.logger')
+    @patch("src.core.ocr.providers.error_map.logger")
     def test_log_includes_context(self, mock_logger):
         """Test that context is included in log messages."""
         exc = RuntimeError("Test error")
@@ -153,7 +154,7 @@ class TestConvenienceFunctions:
     def test_handle_inference_error(self):
         """Test inference error handling."""
         exc = TimeoutError("Inference timeout")
-        with patch('src.core.ocr.providers.error_map.log_and_map_exception') as mock_log:
+        with patch("src.core.ocr.providers.error_map.log_and_map_exception") as mock_log:
             mock_log.return_value = ErrorCode.PROVIDER_TIMEOUT
             code = handle_inference_error(exc, "test_provider")
             mock_log.assert_called_once_with(exc, "test_provider", "infer")
@@ -176,7 +177,7 @@ class TestConvenienceFunctions:
     def test_handle_init_error(self):
         """Test init error handling."""
         exc = RuntimeError("Init failed")
-        with patch('src.core.ocr.providers.error_map.log_and_map_exception') as mock_log:
+        with patch("src.core.ocr.providers.error_map.log_and_map_exception") as mock_log:
             mock_log.return_value = ErrorCode.INTERNAL_ERROR
             code = handle_init_error(exc, "test_provider")
             mock_log.assert_called_once_with(exc, "test_provider", "init")

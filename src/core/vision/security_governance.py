@@ -46,7 +46,8 @@ class DataClassification(Enum):
     INTERNAL = "internal"
     CONFIDENTIAL = "confidential"
     RESTRICTED = "restricted"
-    HIGHEST = "highest"
+    TOP_SECRET = "top_secret"
+    HIGHEST = "top_secret"
 
 
 class PolicyType(Enum):
@@ -356,7 +357,8 @@ class PolicyEngine:
         """Evaluate policies against context."""
         with self._lock:
             active_policies = [
-                p for p in self._policies.values()
+                p
+                for p in self._policies.values()
                 if p.status == PolicyStatus.ACTIVE
                 and (policy_type is None or p.policy_type == policy_type)
             ]
@@ -438,9 +440,7 @@ class DataClassificationManager:
             DataClassification.PUBLIC,
         ]
 
-        rules.sort(
-            key=lambda r: classification_order.index(r.classification)
-        )
+        rules.sort(key=lambda r: classification_order.index(r.classification))
 
         for rule in rules:
             if self._matches_rule(rule, data):
@@ -595,7 +595,8 @@ class KeyManager:
         now = datetime.now()
         with self._lock:
             return [
-                k for k in self._keys.values()
+                k
+                for k in self._keys.values()
                 if k.status == KeyStatus.ACTIVE
                 and k.expires_at
                 and k.expires_at <= now + timedelta(days=7)
@@ -722,10 +723,7 @@ class SecretManager:
         """Get secrets expiring within specified days."""
         cutoff = datetime.now() + timedelta(days=days)
         with self._lock:
-            return [
-                s for s in self._secrets.values()
-                if s.expires_at and s.expires_at <= cutoff
-            ]
+            return [s for s in self._secrets.values() if s.expires_at and s.expires_at <= cutoff]
 
     def _encrypt(self, value: str) -> str:
         """Encrypt a value (simplified implementation)."""
@@ -776,8 +774,7 @@ class ThreatIntelManager:
         """Check if a value matches any threat indicator."""
         with self._lock:
             for indicator in self._indicators.values():
-                if (indicator.indicator_type == indicator_type
-                        and indicator.value == value):
+                if indicator.indicator_type == indicator_type and indicator.value == value:
                     indicator.last_seen = datetime.now()
                     return indicator
             return None
@@ -788,10 +785,7 @@ class ThreatIntelManager:
     ) -> List[ThreatIndicator]:
         """Get indicators by threat level."""
         with self._lock:
-            return [
-                i for i in self._indicators.values()
-                if i.threat_level == threat_level
-            ]
+            return [i for i in self._indicators.values() if i.threat_level == threat_level]
 
     def list_indicators(
         self,
@@ -801,10 +795,7 @@ class ThreatIntelManager:
         with self._lock:
             indicators = list(self._indicators.values())
             if indicator_type:
-                indicators = [
-                    i for i in indicators
-                    if i.indicator_type == indicator_type
-                ]
+                indicators = [i for i in indicators if i.indicator_type == indicator_type]
             return indicators
 
 
@@ -867,10 +858,7 @@ class SecurityEventCorrelator:
             for event in self._events:
                 if event.event_id == event_id:
                     correlated_ids = event.correlated_events
-                    return [
-                        e for e in self._events
-                        if e.event_id in correlated_ids
-                    ]
+                    return [e for e in self._events if e.event_id in correlated_ids]
             return []
 
     def _correlate(self, event: SecurityEvent) -> List[str]:
@@ -886,8 +874,7 @@ class SecurityEventCorrelator:
                 time_diff = abs((event.timestamp - existing.timestamp).total_seconds())
                 if time_diff <= window.total_seconds():
                     # Same source or same resource
-                    if (existing.source == event.source
-                            or existing.resource == event.resource):
+                    if existing.source == event.source or existing.resource == event.resource:
                         correlated.append(existing.event_id)
 
         return correlated
@@ -929,11 +916,13 @@ class SecurityPostureAssessor:
         metrics["total_policies"] = total_policies
 
         if total_policies == 0:
-            findings.append({
-                "category": "policy",
-                "severity": "high",
-                "message": "No security policies defined",
-            })
+            findings.append(
+                {
+                    "category": "policy",
+                    "severity": "high",
+                    "message": "No security policies defined",
+                }
+            )
             recommendations.append("Define and activate security policies")
 
         # Check keys
@@ -943,19 +932,23 @@ class SecurityPostureAssessor:
         metrics["keys_pending_rotation"] = len(keys_for_rotation)
 
         if keys_for_rotation:
-            findings.append({
-                "category": "encryption",
-                "severity": "medium",
-                "message": f"{len(keys_for_rotation)} keys pending rotation",
-            })
+            findings.append(
+                {
+                    "category": "encryption",
+                    "severity": "medium",
+                    "message": f"{len(keys_for_rotation)} keys pending rotation",
+                }
+            )
             recommendations.append("Rotate encryption keys approaching expiration")
 
         if not active_keys:
-            findings.append({
-                "category": "encryption",
-                "severity": "high",
-                "message": "No active encryption keys",
-            })
+            findings.append(
+                {
+                    "category": "encryption",
+                    "severity": "high",
+                    "message": "No active encryption keys",
+                }
+            )
             recommendations.append("Generate at least one active encryption key")
 
         # Check secrets
@@ -965,11 +958,13 @@ class SecurityPostureAssessor:
         metrics["expiring_secrets"] = len(expiring_secrets)
 
         if expiring_secrets:
-            findings.append({
-                "category": "secrets",
-                "severity": "medium",
-                "message": f"{len(expiring_secrets)} secrets expiring within 30 days",
-            })
+            findings.append(
+                {
+                    "category": "secrets",
+                    "severity": "medium",
+                    "message": f"{len(expiring_secrets)} secrets expiring within 30 days",
+                }
+            )
             recommendations.append("Rotate expiring secrets")
 
         # Calculate score
@@ -1173,14 +1168,10 @@ class SecurityGovernanceHub:
             },
             "policies": {
                 "total": len(self._policy_engine.list_policies()),
-                "active": len(self._policy_engine.list_policies(
-                    status=PolicyStatus.ACTIVE
-                )),
+                "active": len(self._policy_engine.list_policies(status=PolicyStatus.ACTIVE)),
             },
             "encryption": {
-                "active_keys": len(self._key_manager.list_keys(
-                    status=KeyStatus.ACTIVE
-                )),
+                "active_keys": len(self._key_manager.list_keys(status=KeyStatus.ACTIVE)),
                 "pending_rotation": len(self._key_manager.get_keys_for_rotation()),
             },
             "secrets": {
@@ -1189,9 +1180,7 @@ class SecurityGovernanceHub:
             },
             "threat_intel": {
                 "total_indicators": len(self._threat_intel.list_indicators()),
-                "critical": len(self._threat_intel.get_indicators_by_level(
-                    ThreatLevel.CRITICAL
-                )),
+                "critical": len(self._threat_intel.get_indicators_by_level(ThreatLevel.CRITICAL)),
             },
             "events": {
                 "recent": len(self._event_correlator.get_events(limit=100)),

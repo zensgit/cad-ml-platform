@@ -6,51 +6,47 @@ health monitoring, alerting, SLO tracking, and anomaly detection.
 """
 
 import asyncio
-import pytest
+import time
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
-import time
 
-from src.core.vision.observability_hub import (
-    # Enums
-    MetricType,
-    HealthStatus,
+import pytest
+
+from src.core.vision.base import VisionDescription
+from src.core.vision.observability_hub import (  # Enums; Dataclasses; Classes; Factory functions
+    Alert,
+    AlertManager,
     AlertSeverity,
     AlertState,
-    TraceStatus,
-    SLOStatus,
-    AnomalyType,
-    # Dataclasses
-    MetricPoint,
-    MetricSeries,
-    SpanContext,
-    Span,
-    HealthCheck,
-    Alert,
-    SLODefinition,
-    SLOResult,
     Anomaly,
-    ObservabilityConfig,
-    # Classes
-    MetricsCollector,
-    TraceManager,
-    HealthMonitor,
-    AlertManager,
-    SLOTracker,
     AnomalyDetector,
+    AnomalyType,
+    HealthCheck,
+    HealthMonitor,
+    HealthStatus,
+    MetricPoint,
+    MetricsCollector,
+    MetricSeries,
+    MetricType,
+    ObservabilityConfig,
     ObservabilityHub,
     ObservableVisionProvider,
-    # Factory functions
-    create_observability_hub,
-    create_metrics_collector,
-    create_trace_manager,
-    create_health_monitor,
+    SLODefinition,
+    SLOResult,
+    SLOStatus,
+    SLOTracker,
+    Span,
+    SpanContext,
+    TraceManager,
+    TraceStatus,
     create_alert_manager,
-    create_slo_definition,
+    create_health_monitor,
+    create_metrics_collector,
+    create_observability_hub,
     create_observable_provider,
+    create_slo_definition,
+    create_trace_manager,
 )
-from src.core.vision.base import VisionDescription
-
 
 # ============================================================================
 # Test Fixtures
@@ -547,6 +543,7 @@ class TestHealthMonitor:
 
     def test_register_check(self, health_monitor):
         """Test registering a health check."""
+
         def check_fn():
             return HealthCheck(name="test", status=HealthStatus.HEALTHY)
 
@@ -555,6 +552,7 @@ class TestHealthMonitor:
 
     def test_unregister_check(self, health_monitor):
         """Test unregistering a health check."""
+
         def check_fn():
             return HealthCheck(name="test", status=HealthStatus.HEALTHY)
 
@@ -565,6 +563,7 @@ class TestHealthMonitor:
 
     def test_run_check(self, health_monitor):
         """Test running a health check."""
+
         def healthy_check():
             return HealthCheck(name="healthy", status=HealthStatus.HEALTHY)
 
@@ -577,6 +576,7 @@ class TestHealthMonitor:
 
     def test_run_check_with_exception(self, health_monitor):
         """Test running a check that throws an exception."""
+
         def failing_check():
             raise RuntimeError("Check failed")
 
@@ -589,6 +589,7 @@ class TestHealthMonitor:
 
     def test_run_all_checks(self, health_monitor):
         """Test running all health checks."""
+
         def check1():
             return HealthCheck(name="check1", status=HealthStatus.HEALTHY)
 
@@ -605,6 +606,7 @@ class TestHealthMonitor:
 
     def test_get_overall_status_healthy(self, health_monitor):
         """Test overall status when all checks are healthy."""
+
         def healthy():
             return HealthCheck(name="h", status=HealthStatus.HEALTHY)
 
@@ -616,6 +618,7 @@ class TestHealthMonitor:
 
     def test_get_overall_status_degraded(self, health_monitor):
         """Test overall status when some checks are degraded."""
+
         def healthy():
             return HealthCheck(name="h", status=HealthStatus.HEALTHY)
 
@@ -630,6 +633,7 @@ class TestHealthMonitor:
 
     def test_get_overall_status_unhealthy(self, health_monitor):
         """Test overall status when any check is unhealthy."""
+
         def healthy():
             return HealthCheck(name="h", status=HealthStatus.HEALTHY)
 
@@ -657,6 +661,7 @@ class TestAlertManager:
 
     def test_register_rule(self, alert_manager):
         """Test registering an alert rule."""
+
         def rule(ctx):
             if ctx.get("error_rate", 0) > 0.1:
                 return Alert(
@@ -671,6 +676,7 @@ class TestAlertManager:
 
     def test_unregister_rule(self, alert_manager):
         """Test unregistering an alert rule."""
+
         def rule(ctx):
             return None
 
@@ -695,9 +701,7 @@ class TestAlertManager:
     def test_fire_alert_with_suppression(self, alert_manager):
         """Test firing an alert with suppression."""
         # Add suppression rule for low severity alerts
-        alert_manager.add_suppression_rule(
-            lambda a: a.severity == AlertSeverity.INFO
-        )
+        alert_manager.add_suppression_rule(lambda a: a.severity == AlertSeverity.INFO)
 
         alert = Alert(
             alert_id="suppress-test",
@@ -737,15 +741,15 @@ class TestAlertManager:
 
     def test_get_alerts_by_severity(self, alert_manager):
         """Test getting alerts by severity."""
-        alert_manager.fire_alert(Alert(
-            alert_id="crit-1", name="Critical1", severity=AlertSeverity.CRITICAL
-        ))
-        alert_manager.fire_alert(Alert(
-            alert_id="warn-1", name="Warning1", severity=AlertSeverity.WARNING
-        ))
-        alert_manager.fire_alert(Alert(
-            alert_id="crit-2", name="Critical2", severity=AlertSeverity.CRITICAL
-        ))
+        alert_manager.fire_alert(
+            Alert(alert_id="crit-1", name="Critical1", severity=AlertSeverity.CRITICAL)
+        )
+        alert_manager.fire_alert(
+            Alert(alert_id="warn-1", name="Warning1", severity=AlertSeverity.WARNING)
+        )
+        alert_manager.fire_alert(
+            Alert(alert_id="crit-2", name="Critical2", severity=AlertSeverity.CRITICAL)
+        )
 
         critical = alert_manager.get_alerts_by_severity(AlertSeverity.CRITICAL)
         assert len(critical) == 2
@@ -771,6 +775,7 @@ class TestAlertManager:
 
     def test_evaluate_rules(self, alert_manager):
         """Test evaluating all rules."""
+
         def high_latency_rule(ctx):
             if ctx.get("latency_ms", 0) > 1000:
                 return Alert(
@@ -1006,8 +1011,7 @@ class TestObservabilityHub:
         # Add some data
         observability_hub.metrics.increment("test_counter")
         observability_hub.health.register_check(
-            "test_check",
-            lambda: HealthCheck(name="test", status=HealthStatus.HEALTHY)
+            "test_check", lambda: HealthCheck(name="test", status=HealthStatus.HEALTHY)
         )
         observability_hub.health.run_all_checks()
 
@@ -1031,8 +1035,7 @@ class TestObservabilityHub:
 
         # Register health check
         observability_hub.health.register_check(
-            "api_health",
-            lambda: HealthCheck(name="api", status=HealthStatus.HEALTHY)
+            "api_health", lambda: HealthCheck(name="api", status=HealthStatus.HEALTHY)
         )
 
         # Fire an alert
@@ -1081,14 +1084,12 @@ class TestObservableVisionProvider:
 
         # Check metrics were recorded
         requests = observability_hub.metrics.get_counter(
-            "vision_requests_total",
-            labels={"provider": "mock_provider"}
+            "vision_requests_total", labels={"provider": "mock_provider"}
         )
         assert requests == 1
 
         success = observability_hub.metrics.get_counter(
-            "vision_requests_success",
-            labels={"provider": "mock_provider"}
+            "vision_requests_success", labels={"provider": "mock_provider"}
         )
         assert success == 1
 
@@ -1103,8 +1104,7 @@ class TestObservableVisionProvider:
 
         # Check error metrics were recorded
         errors = observability_hub.metrics.get_counter(
-            "vision_requests_error",
-            labels={"provider": "mock_provider"}
+            "vision_requests_error", labels={"provider": "mock_provider"}
         )
         assert errors == 1
 
@@ -1234,8 +1234,7 @@ class TestObservabilityIntegration:
 
         # Verify metrics
         total_requests = hub.metrics.get_counter(
-            "vision_requests_total",
-            labels={"provider": "mock_provider"}
+            "vision_requests_total", labels={"provider": "mock_provider"}
         )
         assert total_requests == 10
 
@@ -1253,16 +1252,13 @@ class TestObservabilityIntegration:
 
         # Register multiple health checks
         hub.health.register_check(
-            "database",
-            lambda: HealthCheck(name="db", status=HealthStatus.HEALTHY)
+            "database", lambda: HealthCheck(name="db", status=HealthStatus.HEALTHY)
         )
         hub.health.register_check(
-            "cache",
-            lambda: HealthCheck(name="cache", status=HealthStatus.HEALTHY)
+            "cache", lambda: HealthCheck(name="cache", status=HealthStatus.HEALTHY)
         )
         hub.health.register_check(
-            "api",
-            lambda: HealthCheck(name="api", status=HealthStatus.DEGRADED)
+            "api", lambda: HealthCheck(name="api", status=HealthStatus.DEGRADED)
         )
 
         hub.health.run_all_checks()
@@ -1281,7 +1277,9 @@ class TestObservabilityIntegration:
                 alert_id="err-1",
                 name="HighErrorRate",
                 severity=AlertSeverity.ERROR,
-            ) if ctx.get("error_rate", 0) > 0.05 else None
+            )
+            if ctx.get("error_rate", 0) > 0.05
+            else None,
         )
 
         hub.alerts.register_rule(
@@ -1290,7 +1288,9 @@ class TestObservabilityIntegration:
                 alert_id="lat-1",
                 name="HighLatency",
                 severity=AlertSeverity.WARNING,
-            ) if ctx.get("latency_ms", 0) > 500 else None
+            )
+            if ctx.get("latency_ms", 0) > 500
+            else None,
         )
 
         # Evaluate with context triggering both

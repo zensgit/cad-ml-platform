@@ -238,9 +238,7 @@ class DoubaoVisionProvider(VisionProvider):
             return self._parse_response(result)
 
         except httpx.TimeoutException:
-            raise VisionProviderError(
-                "doubao", f"Request timeout after {self.timeout_seconds}s"
-            )
+            raise VisionProviderError("doubao", f"Request timeout after {self.timeout_seconds}s")
         except httpx.RequestError as e:
             raise VisionProviderError("doubao", f"Request failed: {str(e)}")
         except json.JSONDecodeError as e:

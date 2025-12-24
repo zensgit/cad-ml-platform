@@ -29,7 +29,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -43,6 +42,7 @@ class Permission(str, Enum):
     DELETE = "delete"
     ADMIN = "admin"
     EXECUTE = "execute"
+    ANALYZE = "analyze"
     MANAGE_USERS = "manage_users"
     MANAGE_ROLES = "manage_roles"
     VIEW_AUDIT = "view_audit"
@@ -92,6 +92,7 @@ class ACLResourceType(str, Enum):
     DATASET = "dataset"
     PIPELINE = "pipeline"
     EXPERIMENT = "experiment"
+    IMAGE = "image"
     API = "api"
     SYSTEM = "system"
 
@@ -198,6 +199,17 @@ class AccessResult:
 
 
 @dataclass
+class Policy:
+    """Access control policy."""
+
+    policy_id: str
+    name: str
+    effect: "PolicyEffect"
+    conditions: Dict[str, Any] = field(default_factory=dict)
+    description: str = ""
+
+
+@dataclass
 class Tenant:
     """A tenant in multi-tenant setup."""
 
@@ -298,8 +310,10 @@ class UserManager:
 class RoleManager:
     """Manage roles and permissions."""
 
-    def __init__(self):
+    def __init__(self, user_manager: Optional[UserManager] = None):
         self._roles: Dict[str, Role] = {}
+        self._user_roles: Dict[str, Set[str]] = defaultdict(set)
+        self._user_manager = user_manager
         self._lock = threading.RLock()
         self._initialize_default_roles()
 
@@ -331,11 +345,27 @@ class RoleManager:
         for role in default_roles:
             self._roles[role.role_id] = role
 
-    def create_role(self, role: Role) -> Role:
+    def create_role(
+        self,
+        role: Role | str,
+        permissions: Optional[Set[Permission] | List[Permission]] = None,
+        role_type: RoleType = RoleType.CUSTOM,
+        description: str = "",
+    ) -> Role:
         """Create a new role."""
+        if isinstance(role, Role):
+            new_role = role
+        else:
+            new_role = Role(
+                role_id=secrets.token_hex(8),
+                name=role,
+                role_type=role_type,
+                permissions=list(permissions or []),
+                description=description,
+            )
         with self._lock:
-            self._roles[role.role_id] = role
-        return role
+            self._roles[new_role.role_id] = new_role
+        return new_role
 
     def get_role(self, role_id: str) -> Optional[Role]:
         """Get a role by ID."""
@@ -363,6 +393,33 @@ class RoleManager:
         if role_type:
             roles = [r for r in roles if r.role_type == role_type]
         return roles
+
+    def assign_role(self, user_id: str, role_id: str) -> bool:
+        """Assign a role to a user."""
+        with self._lock:
+            if role_id not in self._roles:
+                return False
+            self._user_roles[user_id].add(role_id)
+            if self._user_manager:
+                user = self._user_manager.get_user(user_id)
+                if user and role_id not in user.roles:
+                    user.roles.append(role_id)
+            return True
+
+    def get_user_roles(self, user_id: str) -> List[Role]:
+        """Get roles assigned to a user."""
+        role_ids: Set[str] = set(self._user_roles.get(user_id, set()))
+        if self._user_manager:
+            user = self._user_manager.get_user(user_id)
+            if user:
+                role_ids.update(user.roles)
+        return [self._roles[role_id] for role_id in role_ids if role_id in self._roles]
+
+    def check_permission(self, user_id: str, permission: Permission) -> bool:
+        """Check if a user has a permission via assigned roles."""
+        role_ids = [role.role_id for role in self.get_user_roles(user_id)]
+        permissions = self.get_effective_permissions(role_ids)
+        return permission in permissions
 
     def get_effective_permissions(self, role_ids: List[str]) -> Set[Permission]:
         """Get effective permissions for a set of roles."""
@@ -527,11 +584,33 @@ class AccessController:
 
     def __init__(self):
         self._user_manager = UserManager()
-        self._role_manager = RoleManager()
+        self._role_manager = RoleManager(self._user_manager)
         self._session_manager = SessionManager()
         self._api_key_manager = APIKeyManager()
         self._resources: Dict[str, ACLResource] = {}
         self._lock = threading.RLock()
+
+    @property
+    def role_manager(self) -> RoleManager:
+        """Expose role manager for convenience."""
+        return self._role_manager
+
+    def create_user(
+        self,
+        username: str,
+        email: str = "",
+        roles: Optional[List[str]] = None,
+        permissions: Optional[Set[Permission]] = None,
+    ) -> User:
+        """Create and register a user."""
+        user = User(
+            user_id=secrets.token_hex(8),
+            username=username,
+            email=email,
+            roles=roles or [],
+            permissions=list(permissions or []),
+        )
+        return self._user_manager.create_user(user)
 
     def evaluate_access(self, request: AccessRequest) -> AccessResult:
         """Evaluate an access request."""
@@ -576,10 +655,42 @@ class AccessController:
             reason="Insufficient permissions",
         )
 
-    def register_resource(self, resource: ACLResource) -> None:
+    def check_access(
+        self,
+        user_id: str,
+        resource_id: str,
+        permission: Permission,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> AccessResult:
+        """Check access for a user against a resource."""
+        request = AccessRequest(
+            user_id=user_id,
+            resource_id=resource_id,
+            permission=permission,
+            context=context or {},
+        )
+        return self.evaluate_access(request)
+
+    def register_resource(
+        self,
+        resource: ACLResource | ACLResourceType,
+        name: str = "",
+        owner_id: str = "",
+    ) -> ACLResource:
         """Register a protected resource."""
+        if isinstance(resource, ACLResource):
+            registered = resource
+        else:
+            resource_name = name or resource.value
+            registered = ACLResource(
+                resource_id=secrets.token_hex(8),
+                resource_type=resource,
+                name=resource_name,
+                owner_id=owner_id,
+            )
         with self._lock:
-            self._resources[resource.resource_id] = resource
+            self._resources[registered.resource_id] = registered
+        return registered
 
     def get_user_manager(self) -> UserManager:
         """Get the user manager."""
@@ -599,6 +710,32 @@ class AccessController:
 
 
 # ========================
+# Policy Engine
+# ========================
+
+
+class PolicyEngine:
+    """Simple policy engine for ABAC-like rules."""
+
+    def __init__(self):
+        self._policies: Dict[str, Policy] = {}
+        self._lock = threading.RLock()
+
+    def add_policy(self, policy: Policy) -> None:
+        """Register a policy."""
+        with self._lock:
+            self._policies[policy.policy_id] = policy
+
+    def get_policy(self, policy_id: str) -> Optional[Policy]:
+        """Get a policy by ID."""
+        return self._policies.get(policy_id)
+
+    def list_policies(self) -> List[Policy]:
+        """List all policies."""
+        return list(self._policies.values())
+
+
+# ========================
 # Vision Provider
 # ========================
 
@@ -606,8 +743,15 @@ class AccessController:
 class AccessControlVisionProvider(VisionProvider):
     """Vision provider for access control capabilities."""
 
-    def __init__(self):
-        self._controller: Optional[AccessController] = None
+    def __init__(
+        self,
+        provider: Optional[VisionProvider] = None,
+        controller: Optional[AccessController] = None,
+        user_id: str = "",
+    ):
+        self._provider = provider
+        self._controller = controller
+        self._user_id = user_id
 
     @property
     def provider_name(self) -> str:
@@ -615,10 +759,26 @@ class AccessControlVisionProvider(VisionProvider):
         return "access_control"
 
     async def analyze_image(
-        self, image_data: bytes, include_description: bool = True
+        self,
+        image_data: bytes,
+        include_description: bool = True,
+        resource_id: Optional[str] = None,
+        permission: Permission = Permission.ANALYZE,
+        **kwargs: Any,
     ) -> VisionDescription:
         """Analyze image for access control context."""
-        return self.get_description()
+        if self._provider is None:
+            return self.get_description()
+        if resource_id and self._user_id:
+            controller = self.get_controller()
+            result = controller.check_access(self._user_id, resource_id, permission)
+            if result.decision != AccessDecision.ALLOW:
+                raise PermissionError(result.reason or "Access denied")
+        return await self._provider.analyze_image(
+            image_data,
+            include_description=include_description,
+            **kwargs,
+        )
 
     def get_description(self) -> VisionDescription:
         """Get provider description."""
@@ -658,6 +818,11 @@ class AccessControlVisionProvider(VisionProvider):
 def create_access_controller() -> AccessController:
     """Create an access controller."""
     return AccessController()
+
+
+def create_policy_engine() -> PolicyEngine:
+    """Create a policy engine."""
+    return PolicyEngine()
 
 
 def create_user(
@@ -738,18 +903,23 @@ def create_api_key_manager() -> APIKeyManager:
     return APIKeyManager()
 
 
-def create_access_control_provider() -> AccessControlVisionProvider:
+def create_access_control_provider(
+    provider: Optional[VisionProvider] = None,
+    controller: Optional[AccessController] = None,
+    user_id: str = "",
+) -> AccessControlVisionProvider:
     """Create an access control vision provider."""
-    return AccessControlVisionProvider()
+    return AccessControlVisionProvider(
+        provider=provider,
+        controller=controller,
+        user_id=user_id,
+    )
 
 
 # Aliases for backward compatibility and test compatibility
 AccessControlManager = AccessController
 Resource = ACLResource
 ResourceType = ACLResourceType
-Policy = ACLResource  # Policy-like structure
 PolicyEffect = AccessDecision  # Similar purpose
-PolicyEngine = AccessController  # Access evaluation
 create_access_manager = create_access_controller
 create_acl_provider = create_access_control_provider
-create_policy_engine = create_access_controller

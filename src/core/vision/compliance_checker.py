@@ -26,7 +26,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -355,8 +354,13 @@ class ControlAssessor:
         """Default assessment for a control."""
         # Simulated assessment
         import random
-        statuses = [ComplianceStatus.COMPLIANT, ComplianceStatus.COMPLIANT,
-                   ComplianceStatus.PARTIAL, ComplianceStatus.NON_COMPLIANT]
+
+        statuses = [
+            ComplianceStatus.COMPLIANT,
+            ComplianceStatus.COMPLIANT,
+            ComplianceStatus.PARTIAL,
+            ComplianceStatus.NON_COMPLIANT,
+        ]
         status = random.choice(statuses)
 
         findings = []
@@ -428,9 +432,7 @@ class PolicyEngine:
                 continue
 
             for rule in policy.rules:
-                violation = self._evaluate_rule(
-                    policy, rule, resource_id, resource_type, context
-                )
+                violation = self._evaluate_rule(policy, rule, resource_id, resource_type, context)
                 if violation:
                     violations.append(violation)
 
@@ -543,9 +545,14 @@ class ComplianceReporter:
         summary = {
             "total_controls": len(assessments),
             "compliant": sum(1 for a in assessments if a.status == ComplianceStatus.COMPLIANT),
-            "non_compliant": sum(1 for a in assessments if a.status == ComplianceStatus.NON_COMPLIANT),
+            "non_compliant": sum(
+                1 for a in assessments if a.status == ComplianceStatus.NON_COMPLIANT
+            ),
             "partial": sum(1 for a in assessments if a.status == ComplianceStatus.PARTIAL),
-            "compliance_rate": sum(1 for a in assessments if a.status == ComplianceStatus.COMPLIANT) / len(assessments) if assessments else 0,
+            "compliance_rate": sum(1 for a in assessments if a.status == ComplianceStatus.COMPLIANT)
+            / len(assessments)
+            if assessments
+            else 0,
         }
 
         # Generate recommendations
@@ -554,13 +561,11 @@ class ComplianceReporter:
             if assessment.status != ComplianceStatus.COMPLIANT:
                 control = self._registry.get_control(assessment.control_id)
                 if control and control.implementation_guidance:
-                    recommendations.append(
-                        f"{control.name}: {control.implementation_guidance}"
-                    )
+                    recommendations.append(f"{control.name}: {control.implementation_guidance}")
 
-        report_id = hashlib.md5(
-            f"{framework}:{period_start}:{period_end}".encode()
-        ).hexdigest()[:12]
+        report_id = hashlib.md5(f"{framework}:{period_start}:{period_end}".encode()).hexdigest()[
+            :12
+        ]
 
         return ComplianceReport(
             report_id=report_id,
@@ -607,9 +612,9 @@ class DataInventory:
     def get_pii_items(self) -> List[DataInventoryItem]:
         """Get items containing PII."""
         return [
-            i for i in self._items.values()
-            if i.classification in [DataClassification.PII, DataClassification.PHI]
-            or i.pii_fields
+            i
+            for i in self._items.values()
+            if i.classification in [DataClassification.PII, DataClassification.PHI] or i.pii_fields
         ]
 
 

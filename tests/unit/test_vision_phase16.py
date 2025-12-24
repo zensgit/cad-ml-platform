@@ -16,130 +16,131 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.core.vision.plugin_manager import (
-    Plugin,
-    PluginManager,
-    PluginVisionProvider,
-    PluginRegistry,
-    HookExecutor,
-    PluginLoader,
-    DependencyContainer,
-    PluginType,
-    PluginState,
-    HookType,
-    PluginMetadata,
-    PluginInfo,
-    HookResult,
-    create_plugin_manager,
-    create_dependency_container,
-    create_plugin_metadata,
-)
 from src.core.vision.api_versioning import (
+    ApiChange,
     ApiVersionManager,
-    VersionedVisionProvider,
-    SemanticVersion,
-    VersionRegistry,
+    CompatibilityLevel,
     DeprecationManager,
+)
+from src.core.vision.api_versioning import DeprecationWarning as VersionDeprecationWarning
+from src.core.vision.api_versioning import (
+    SemanticVersion,
+    VersionedVisionProvider,
+    VersionInfo,
     VersionNegotiator,
+    VersionRegistry,
     VersionRouter,
     VersionStatus,
-    CompatibilityLevel,
-    VersionInfo,
-    ApiChange,
-    DeprecationWarning as VersionDeprecationWarning,
-    create_version_manager,
-    create_versioned_provider,
     create_semantic_version,
     create_version_info,
-)
-from src.core.vision.sdk_generator import (
-    SDKGenerator,
-    SDKGeneratorVisionProvider,
-    PythonGenerator,
-    TypeScriptGenerator,
-    OpenAPIGenerator,
-    GraphQLSchemaGenerator,
-    APIDefinitionBuilder,
-    SDKLanguage,
-    SpecFormat,
-    HTTPMethod,
-    ParameterLocation,
-    DataType,
-    SchemaProperty,
-    SchemaDefinition,
-    ParameterDefinition,
-    ResponseDefinition,
-    EndpointDefinition,
-    APIDefinition,
-    GeneratedFile,
-    SDKConfig,
-    GenerationResult,
-    create_sdk_generator,
-    create_api_definition_builder,
-    create_python_generator,
-    create_typescript_generator,
-    create_openapi_generator,
-    create_graphql_generator,
-)
-from src.core.vision.integration_hub import (
-    IntegrationHub,
-    IntegrationHubVisionProvider,
-    Connector,
-    RESTConnector,
-    WebSocketConnector,
-    WebhookManager,
-    RateLimiter,
-    DataTransformer,
-    ConnectorType,
-    AuthenticationType,
-    ConnectorStatus,
-    WebhookEventType,
-    DataFormat,
-    AuthCredentials,
-    RateLimitConfig,
-    ConnectorConfig,
-    WebhookConfig,
-    WebhookPayload,
-    IntegrationHealth,
-    DataMapping,
-    TransformResult,
-    create_integration_hub,
-    create_rest_connector,
-    create_websocket_connector,
-    create_webhook_manager,
-    create_rate_limiter,
-    create_data_transformer,
-)
-from src.core.vision.documentation_generator import (
-    DocumentationGenerator,
-    DocumentedVisionProvider,
-    MarkdownGenerator,
-    HTMLGenerator,
-    CodeExtractor,
-    DocstringParser,
-    DocFormat,
-    DocSection,
-    ChangeType,
-    ParameterType,
-    ParameterDoc,
-    ReturnDoc,
-    ExceptionDoc,
-    MethodDoc,
-    ClassDoc,
-    ModuleDoc,
-    ChangeLogEntry,
-    ChangeLog,
-    DocConfig,
-    GeneratedDoc,
-    DocGenerationResult,
-    create_documentation_generator,
-    create_markdown_generator,
-    create_html_generator,
-    create_code_extractor,
-    create_docstring_parser,
+    create_version_manager,
+    create_versioned_provider,
 )
 from src.core.vision.base import VisionDescription, VisionProvider
-
+from src.core.vision.documentation_generator import (
+    ChangeLog,
+    ChangeLogEntry,
+    ChangeType,
+    ClassDoc,
+    CodeExtractor,
+    DocConfig,
+    DocFormat,
+    DocGenerationResult,
+    DocSection,
+    DocstringParser,
+    DocumentationGenerator,
+    DocumentedVisionProvider,
+    ExceptionDoc,
+    GeneratedDoc,
+    HTMLGenerator,
+    MarkdownGenerator,
+    MethodDoc,
+    ModuleDoc,
+    ParameterDoc,
+    ParameterType,
+    ReturnDoc,
+    create_code_extractor,
+    create_docstring_parser,
+    create_documentation_generator,
+    create_html_generator,
+    create_markdown_generator,
+)
+from src.core.vision.integration_hub import (
+    AuthCredentials,
+    AuthenticationType,
+    Connector,
+    ConnectorConfig,
+    ConnectorStatus,
+    ConnectorType,
+    DataFormat,
+    DataMapping,
+    DataTransformer,
+    IntegrationHealth,
+    IntegrationHub,
+    IntegrationHubVisionProvider,
+    RateLimitConfig,
+    RateLimiter,
+    RESTConnector,
+    TransformResult,
+    WebhookConfig,
+    WebhookEventType,
+    WebhookManager,
+    WebhookPayload,
+    WebSocketConnector,
+    create_data_transformer,
+    create_integration_hub,
+    create_rate_limiter,
+    create_rest_connector,
+    create_webhook_manager,
+    create_websocket_connector,
+)
+from src.core.vision.plugin_manager import (
+    DependencyContainer,
+    HookExecutor,
+    HookResult,
+    HookType,
+    Plugin,
+    PluginInfo,
+    PluginLoader,
+    PluginManager,
+    PluginMetadata,
+    PluginRegistry,
+    PluginState,
+    PluginType,
+    PluginVisionProvider,
+    create_dependency_container,
+    create_plugin_manager,
+    create_plugin_metadata,
+)
+from src.core.vision.sdk_generator import (
+    APIDefinition,
+    APIDefinitionBuilder,
+    DataType,
+    EndpointDefinition,
+    GeneratedFile,
+    GenerationResult,
+    GraphQLSchemaGenerator,
+    HTTPMethod,
+    OpenAPIGenerator,
+    ParameterDefinition,
+    ParameterLocation,
+    PythonGenerator,
+    ResponseDefinition,
+    SchemaDefinition,
+    SchemaProperty,
+    SDKConfig,
+    SDKGenerator,
+    SDKGeneratorVisionProvider,
+    SDKLanguage,
+    SpecFormat,
+    TypeScriptGenerator,
+    create_api_definition_builder,
+    create_graphql_generator,
+    create_openapi_generator,
+    create_python_generator,
+    create_sdk_generator,
+    create_typescript_generator,
+)
 
 # ========================
 # Mock Provider
@@ -154,15 +155,10 @@ class MockVisionProvider(VisionProvider):
         return "mock_provider"
 
     async def analyze_image(
-        self,
-        image_data: bytes,
-        include_description: bool = True,
-        **kwargs: Any
+        self, image_data: bytes, include_description: bool = True, **kwargs: Any
     ) -> VisionDescription:
         return VisionDescription(
-            summary="Mock analysis result",
-            details=["Detail 1", "Detail 2"],
-            confidence=0.95
+            summary="Mock analysis result", details=["Detail 1", "Detail 2"], confidence=0.95
         )
 
 
@@ -176,10 +172,7 @@ class MockPlugin(Plugin):
 
     def __init__(self, name: str = "test-plugin", plugin_type: PluginType = PluginType.PROCESSOR):
         self._metadata = PluginMetadata(
-            name=name,
-            version="1.0.0",
-            plugin_type=plugin_type,
-            hooks=[HookType.PRE_ANALYZE]
+            name=name, version="1.0.0", plugin_type=plugin_type, hooks=[HookType.PRE_ANALYZE]
         )
 
     @property
@@ -440,9 +433,7 @@ class TestVersionRegistry:
         registry = VersionRegistry()
         version = SemanticVersion(1, 0, 0)
         info = VersionInfo(
-            version=version,
-            status=VersionStatus.CURRENT,
-            release_date=datetime.now()
+            version=version, status=VersionStatus.CURRENT, release_date=datetime.now()
         )
 
         registry.register_version(info)
@@ -458,11 +449,7 @@ class TestVersionRegistry:
         for i in range(3):
             version = SemanticVersion(1, i, 0)
             status = VersionStatus.CURRENT if i == 2 else VersionStatus.SUPPORTED
-            info = VersionInfo(
-                version=version,
-                status=status,
-                release_date=datetime.now()
-            )
+            info = VersionInfo(version=version, status=status, release_date=datetime.now())
             registry.register_version(info)
 
         current = registry.get_current()
@@ -474,9 +461,7 @@ class TestVersionRegistry:
         registry = VersionRegistry()
         version = SemanticVersion(1, 0, 0)
         info = VersionInfo(
-            version=version,
-            status=VersionStatus.CURRENT,
-            release_date=datetime.now()
+            version=version, status=VersionStatus.CURRENT, release_date=datetime.now()
         )
 
         registry.register_version(info)
@@ -490,11 +475,11 @@ class TestVersionRegistry:
         """Test getting supported versions."""
         registry = VersionRegistry()
 
-        for i, status in enumerate([VersionStatus.CURRENT, VersionStatus.SUPPORTED, VersionStatus.DEPRECATED]):
+        for i, status in enumerate(
+            [VersionStatus.CURRENT, VersionStatus.SUPPORTED, VersionStatus.DEPRECATED]
+        ):
             info = VersionInfo(
-                version=SemanticVersion(1, i, 0),
-                status=status,
-                release_date=datetime.now()
+                version=SemanticVersion(1, i, 0), status=status, release_date=datetime.now()
             )
             registry.register_version(info)
 
@@ -511,9 +496,7 @@ class TestDeprecationManager:
         version = SemanticVersion(1, 0, 0)
 
         warning = manager.deprecate(
-            feature="old_endpoint",
-            deprecated_in=version,
-            message="This endpoint is deprecated"
+            feature="old_endpoint", deprecated_in=version, message="This endpoint is deprecated"
         )
 
         assert warning is not None
@@ -524,11 +507,7 @@ class TestDeprecationManager:
         manager = DeprecationManager()
         version = SemanticVersion(1, 0, 0)
 
-        manager.deprecate(
-            feature="old_endpoint",
-            deprecated_in=version,
-            message="Deprecated"
-        )
+        manager.deprecate(feature="old_endpoint", deprecated_in=version, message="Deprecated")
 
         warning = manager.get_deprecation("old_endpoint")
         assert warning is not None
@@ -541,11 +520,7 @@ class TestDeprecationManager:
 
         assert not manager.is_deprecated("old_endpoint")
 
-        manager.deprecate(
-            feature="old_endpoint",
-            deprecated_in=version,
-            message="Deprecated"
-        )
+        manager.deprecate(feature="old_endpoint", deprecated_in=version, message="Deprecated")
 
         assert manager.is_deprecated("old_endpoint")
 
@@ -571,9 +546,7 @@ class TestVersionNegotiator:
 
         version = SemanticVersion(1, 0, 0)
         info = VersionInfo(
-            version=version,
-            status=VersionStatus.CURRENT,
-            release_date=datetime.now()
+            version=version, status=VersionStatus.CURRENT, release_date=datetime.now()
         )
         registry.register_version(info)
 
@@ -592,7 +565,7 @@ class TestVersionNegotiator:
             info = VersionInfo(
                 version=version,
                 status=VersionStatus.CURRENT if i == 2 else VersionStatus.SUPPORTED,
-                release_date=datetime.now()
+                release_date=datetime.now(),
             )
             registry.register_version(info)
 
@@ -640,9 +613,7 @@ class TestApiVersionManager:
 
         # deprecate_feature takes string for deprecated_in
         warning = manager.deprecate_feature(
-            feature="old_api",
-            deprecated_in="1.0.0",
-            message="Use new_api instead"
+            feature="old_api", deprecated_in="1.0.0", message="Use new_api instead"
         )
 
         assert warning is not None
@@ -664,13 +635,9 @@ class TestPythonGenerator:
             title="Test API",
             version="1.0.0",
             description="Test API description",
-            base_url="https://api.example.com"
+            base_url="https://api.example.com",
         )
-        config = SDKConfig(
-            language=SDKLanguage.PYTHON,
-            package_name="test_sdk",
-            version="1.0.0"
-        )
+        config = SDKConfig(language=SDKLanguage.PYTHON, package_name="test_sdk", version="1.0.0")
 
         files = generator.generate_client(api_def, config)
 
@@ -685,24 +652,12 @@ class TestPythonGenerator:
                 name="User",
                 description="User model",
                 properties=[
-                    SchemaProperty(
-                        name="id",
-                        data_type=DataType.INTEGER,
-                        required=True
-                    ),
-                    SchemaProperty(
-                        name="name",
-                        data_type=DataType.STRING,
-                        required=True
-                    )
-                ]
+                    SchemaProperty(name="id", data_type=DataType.INTEGER, required=True),
+                    SchemaProperty(name="name", data_type=DataType.STRING, required=True),
+                ],
             )
         ]
-        config = SDKConfig(
-            language=SDKLanguage.PYTHON,
-            package_name="test_sdk",
-            version="1.0.0"
-        )
+        config = SDKConfig(language=SDKLanguage.PYTHON, package_name="test_sdk", version="1.0.0")
 
         files = generator.generate_models(schemas, config)
 
@@ -717,14 +672,10 @@ class TestTypeScriptGenerator:
         """Test TypeScript client generation."""
         generator = TypeScriptGenerator()
         api_def = APIDefinition(
-            title="Test API",
-            version="1.0.0",
-            base_url="https://api.example.com"
+            title="Test API", version="1.0.0", base_url="https://api.example.com"
         )
         config = SDKConfig(
-            language=SDKLanguage.TYPESCRIPT,
-            package_name="test-sdk",
-            version="1.0.0"
+            language=SDKLanguage.TYPESCRIPT, package_name="test-sdk", version="1.0.0"
         )
 
         files = generator.generate_client(api_def, config)
@@ -739,19 +690,11 @@ class TestTypeScriptGenerator:
             SchemaDefinition(
                 name="User",
                 description="User interface",
-                properties=[
-                    SchemaProperty(
-                        name="id",
-                        data_type=DataType.INTEGER,
-                        required=True
-                    )
-                ]
+                properties=[SchemaProperty(name="id", data_type=DataType.INTEGER, required=True)],
             )
         ]
         config = SDKConfig(
-            language=SDKLanguage.TYPESCRIPT,
-            package_name="test-sdk",
-            version="1.0.0"
+            language=SDKLanguage.TYPESCRIPT, package_name="test-sdk", version="1.0.0"
         )
 
         files = generator.generate_models(schemas, config)
@@ -776,9 +719,9 @@ class TestOpenAPIGenerator:
                     path="/users",
                     method=HTTPMethod.GET,
                     operation_id="getUsers",
-                    summary="Get all users"
+                    summary="Get all users",
                 )
-            ]
+            ],
         )
 
         spec = generator.generate(api_def, SpecFormat.OPENAPI_3_0)
@@ -790,10 +733,7 @@ class TestOpenAPIGenerator:
     def test_to_json(self):
         """Test spec to JSON conversion."""
         generator = OpenAPIGenerator()
-        api_def = APIDefinition(
-            title="Test API",
-            version="1.0.0"
-        )
+        api_def = APIDefinition(title="Test API", version="1.0.0")
 
         spec = generator.generate(api_def)
         json_str = generator.to_json(spec)
@@ -817,25 +757,14 @@ class TestGraphQLSchemaGenerator:
                     name="User",
                     description="User type",
                     properties=[
-                        SchemaProperty(
-                            name="id",
-                            data_type=DataType.INTEGER,
-                            required=True
-                        ),
-                        SchemaProperty(
-                            name="name",
-                            data_type=DataType.STRING
-                        )
-                    ]
+                        SchemaProperty(name="id", data_type=DataType.INTEGER, required=True),
+                        SchemaProperty(name="name", data_type=DataType.STRING),
+                    ],
                 )
             ],
             endpoints=[
-                EndpointDefinition(
-                    path="/users",
-                    method=HTTPMethod.GET,
-                    operation_id="getUsers"
-                )
-            ]
+                EndpointDefinition(path="/users", method=HTTPMethod.GET, operation_id="getUsers")
+            ],
         )
 
         schema = generator.generate(api_def)
@@ -856,15 +785,9 @@ class TestSDKGenerator:
         """Test Python SDK generation."""
         generator = SDKGenerator()
         api_def = APIDefinition(
-            title="Test API",
-            version="1.0.0",
-            base_url="https://api.example.com"
+            title="Test API", version="1.0.0", base_url="https://api.example.com"
         )
-        config = SDKConfig(
-            language=SDKLanguage.PYTHON,
-            package_name="test_sdk",
-            version="1.0.0"
-        )
+        config = SDKConfig(language=SDKLanguage.PYTHON, package_name="test_sdk", version="1.0.0")
 
         result = generator.generate_sdk(api_def, config)
 
@@ -874,10 +797,7 @@ class TestSDKGenerator:
     def test_generate_openapi_spec(self):
         """Test OpenAPI spec generation."""
         generator = SDKGenerator()
-        api_def = APIDefinition(
-            title="Test API",
-            version="1.0.0"
-        )
+        api_def = APIDefinition(title="Test API", version="1.0.0")
 
         spec = generator.generate_openapi_spec(api_def)
 
@@ -901,16 +821,13 @@ class TestAPIDefinitionBuilder:
         builder = create_api_definition_builder()
 
         api_def = (
-            builder
-            .title("Test API")
+            builder.title("Test API")
             .version("1.0.0")
             .description("Test description")
             .base_url("https://api.example.com")
-            .add_endpoint(EndpointDefinition(
-                path="/users",
-                method=HTTPMethod.GET,
-                operation_id="getUsers"
-            ))
+            .add_endpoint(
+                EndpointDefinition(path="/users", method=HTTPMethod.GET, operation_id="getUsers")
+            )
             .build()
         )
 
@@ -929,19 +846,14 @@ class TestRateLimiter:
 
     def test_can_proceed(self):
         """Test rate limiting check."""
-        config = RateLimitConfig(
-            requests_per_second=10.0,
-            requests_per_minute=100
-        )
+        config = RateLimitConfig(requests_per_second=10.0, requests_per_minute=100)
         limiter = RateLimiter(config)
 
         assert limiter.can_proceed()
 
     def test_record_request(self):
         """Test recording requests."""
-        config = RateLimitConfig(
-            requests_per_second=2.0
-        )
+        config = RateLimitConfig(requests_per_second=2.0)
         limiter = RateLimiter(config)
 
         limiter.record_request()
@@ -970,14 +882,8 @@ class TestDataTransformer:
         transformer = DataTransformer()
         data = {"firstName": "John", "lastName": "Doe"}
         mappings = [
-            DataMapping(
-                source_field="firstName",
-                target_field="first_name"
-            ),
-            DataMapping(
-                source_field="lastName",
-                target_field="last_name"
-            )
+            DataMapping(source_field="firstName", target_field="first_name"),
+            DataMapping(source_field="lastName", target_field="last_name"),
         ]
 
         result = transformer.apply_mapping(data, mappings)
@@ -989,13 +895,7 @@ class TestDataTransformer:
         """Test data transformation."""
         transformer = DataTransformer()
         data = {"name": "  john  "}
-        mappings = [
-            DataMapping(
-                source_field="name",
-                target_field="name",
-                transform="trim"
-            )
-        ]
+        mappings = [DataMapping(source_field="name", target_field="name", transform="trim")]
 
         result = transformer.apply_mapping(data, mappings)
         assert result["name"] == "john"
@@ -1004,13 +904,7 @@ class TestDataTransformer:
         """Test uppercase transformation."""
         transformer = DataTransformer()
         data = {"name": "john"}
-        mappings = [
-            DataMapping(
-                source_field="name",
-                target_field="name",
-                transform="uppercase"
-            )
-        ]
+        mappings = [DataMapping(source_field="name", target_field="name", transform="uppercase")]
 
         result = transformer.apply_mapping(data, mappings)
         assert result["name"] == "JOHN"
@@ -1020,11 +914,7 @@ class TestDataTransformer:
         transformer = DataTransformer()
         data = {"name": "John", "age": "30"}
 
-        result = transformer.transform_format(
-            data,
-            DataFormat.JSON,
-            DataFormat.XML
-        )
+        result = transformer.transform_format(data, DataFormat.JSON, DataFormat.XML)
 
         assert result.success
         assert "<name>" in result.data
@@ -1039,7 +929,7 @@ class TestWebhookManager:
         config = WebhookConfig(
             webhook_id="test-webhook",
             url="https://example.com/webhook",
-            events=[WebhookEventType.ANALYSIS_COMPLETED]
+            events=[WebhookEventType.ANALYSIS_COMPLETED],
         )
 
         assert manager.register_webhook(config)
@@ -1050,7 +940,7 @@ class TestWebhookManager:
         config = WebhookConfig(
             webhook_id="test-webhook",
             url="https://example.com/webhook",
-            events=[WebhookEventType.ANALYSIS_COMPLETED]
+            events=[WebhookEventType.ANALYSIS_COMPLETED],
         )
 
         manager.register_webhook(config)
@@ -1064,7 +954,7 @@ class TestWebhookManager:
             config = WebhookConfig(
                 webhook_id=f"webhook-{i}",
                 url=f"https://example.com/webhook{i}",
-                events=[WebhookEventType.ANALYSIS_COMPLETED]
+                events=[WebhookEventType.ANALYSIS_COMPLETED],
             )
             manager.register_webhook(config)
 
@@ -1078,13 +968,12 @@ class TestWebhookManager:
         config = WebhookConfig(
             webhook_id="test-webhook",
             url="https://example.com/webhook",
-            events=[WebhookEventType.ANALYSIS_COMPLETED]
+            events=[WebhookEventType.ANALYSIS_COMPLETED],
         )
         manager.register_webhook(config)
 
         delivered = await manager.dispatch_event(
-            WebhookEventType.ANALYSIS_COMPLETED,
-            {"result": "success"}
+            WebhookEventType.ANALYSIS_COMPLETED, {"result": "success"}
         )
 
         assert "test-webhook" in delivered
@@ -1100,7 +989,7 @@ class TestRESTConnector:
             connector_id="test-rest",
             name="Test REST",
             connector_type=ConnectorType.REST_API,
-            base_url="https://api.example.com"
+            base_url="https://api.example.com",
         )
         connector = RESTConnector(config)
 
@@ -1115,7 +1004,7 @@ class TestRESTConnector:
             connector_id="test-rest",
             name="Test REST",
             connector_type=ConnectorType.REST_API,
-            base_url="https://api.example.com"
+            base_url="https://api.example.com",
         )
         connector = RESTConnector(config)
 
@@ -1132,15 +1021,12 @@ class TestRESTConnector:
             connector_id="test-rest",
             name="Test REST",
             connector_type=ConnectorType.REST_API,
-            base_url="https://api.example.com"
+            base_url="https://api.example.com",
         )
         connector = RESTConnector(config)
         await connector.connect()
 
-        result = await connector.execute("get_users", {
-            "method": "GET",
-            "endpoint": "/users"
-        })
+        result = await connector.execute("get_users", {"method": "GET", "endpoint": "/users"})
 
         assert result["status"] == "success"
 
@@ -1160,7 +1046,7 @@ class TestIntegrationHub:
             connector_id="test-connector",
             name="Test Connector",
             connector_type=ConnectorType.REST_API,
-            base_url="https://api.example.com"
+            base_url="https://api.example.com",
         )
         connector = RESTConnector(config)
 
@@ -1178,7 +1064,7 @@ class TestIntegrationHub:
                 connector_id=f"connector-{i}",
                 name=f"Connector {i}",
                 connector_type=ConnectorType.REST_API,
-                base_url="https://api.example.com"
+                base_url="https://api.example.com",
             )
             connector = RESTConnector(config)
             hub.register_connector(connector)
@@ -1192,12 +1078,7 @@ class TestIntegrationHub:
         """Test data transformation through hub."""
         hub = IntegrationHub()
         data = {"source_field": "value"}
-        mappings = [
-            DataMapping(
-                source_field="source_field",
-                target_field="target_field"
-            )
-        ]
+        mappings = [DataMapping(source_field="source_field", target_field="target_field")]
 
         result = hub.transform_data(data, mappings)
         assert result["target_field"] == "value"
@@ -1276,18 +1157,12 @@ class TestMarkdownGenerator:
                     name="param1",
                     param_type=ParameterType.STRING,
                     description="First param",
-                    required=True
+                    required=True,
                 )
             ],
-            returns=ReturnDoc(
-                return_type="str",
-                description="Return value"
-            )
+            returns=ReturnDoc(return_type="str", description="Return value"),
         )
-        config = DocConfig(
-            title="Test",
-            version="1.0.0"
-        )
+        config = DocConfig(title="Test", version="1.0.0")
 
         result = generator.generate(doc, config)
 
@@ -1301,14 +1176,9 @@ class TestMarkdownGenerator:
         doc = ClassDoc(
             name="TestClass",
             summary="Test class summary",
-            methods=[
-                MethodDoc(name="method1", summary="Method 1")
-            ]
+            methods=[MethodDoc(name="method1", summary="Method 1")],
         )
-        config = DocConfig(
-            title="Test",
-            version="1.0.0"
-        )
+        config = DocConfig(title="Test", version="1.0.0")
 
         result = generator.generate(doc, config)
 
@@ -1324,14 +1194,11 @@ class TestMarkdownGenerator:
                     version="1.0.0",
                     date="2024-01-01",
                     change_type=ChangeType.ADDED,
-                    description="Initial release"
+                    description="Initial release",
                 )
             ]
         )
-        config = DocConfig(
-            title="Test",
-            version="1.0.0"
-        )
+        config = DocConfig(title="Test", version="1.0.0")
 
         result = generator.generate_changelog(changelog, config)
 
@@ -1346,14 +1213,8 @@ class TestHTMLGenerator:
     def test_generate_html(self):
         """Test HTML generation."""
         generator = HTMLGenerator()
-        doc = MethodDoc(
-            name="test_method",
-            summary="Test summary"
-        )
-        config = DocConfig(
-            title="Test",
-            version="1.0.0"
-        )
+        doc = MethodDoc(name="test_method", summary="Test summary")
+        config = DocConfig(title="Test", version="1.0.0")
 
         result = generator.generate(doc, config)
 
@@ -1399,9 +1260,7 @@ class TestDocumentationGenerator:
         generator = DocumentationGenerator()
 
         generator.add_changelog_entry(
-            version="1.0.0",
-            change_type=ChangeType.ADDED,
-            description="Initial release"
+            version="1.0.0", change_type=ChangeType.ADDED, description="Initial release"
         )
 
         changelog = generator.get_changelog()
@@ -1413,15 +1272,9 @@ class TestDocumentationGenerator:
         doc = ModuleDoc(
             name="test_module",
             summary="Test module",
-            classes=[
-                ClassDoc(name="TestClass", summary="Test class")
-            ]
+            classes=[ClassDoc(name="TestClass", summary="Test class")],
         )
-        config = DocConfig(
-            title="Test",
-            version="1.0.0",
-            format=DocFormat.MARKDOWN
-        )
+        config = DocConfig(title="Test", version="1.0.0", format=DocFormat.MARKDOWN)
 
         result = generator.generate(doc, config)
 
@@ -1490,57 +1343,41 @@ class TestPhase16Integration:
         # Build API definition
         builder = create_api_definition_builder()
         api_def = (
-            builder
-            .title("Vision API")
+            builder.title("Vision API")
             .version("1.0.0")
             .description("Vision analysis API")
             .base_url("https://api.example.com")
-            .add_endpoint(EndpointDefinition(
-                path="/analyze",
-                method=HTTPMethod.POST,
-                operation_id="analyzeImage",
-                summary="Analyze an image",
-                request_body=SchemaDefinition(
-                    name="AnalyzeRequest",
-                    properties=[
-                        SchemaProperty(
-                            name="image",
-                            data_type=DataType.BINARY,
-                            required=True
-                        )
-                    ]
-                ),
-                responses=[
-                    ResponseDefinition(
-                        status_code=200,
-                        description="Analysis result"
-                    )
-                ]
-            ))
-            .add_schema(SchemaDefinition(
-                name="AnalysisResult",
-                description="Vision analysis result",
-                properties=[
-                    SchemaProperty(
-                        name="summary",
-                        data_type=DataType.STRING
+            .add_endpoint(
+                EndpointDefinition(
+                    path="/analyze",
+                    method=HTTPMethod.POST,
+                    operation_id="analyzeImage",
+                    summary="Analyze an image",
+                    request_body=SchemaDefinition(
+                        name="AnalyzeRequest",
+                        properties=[
+                            SchemaProperty(name="image", data_type=DataType.BINARY, required=True)
+                        ],
                     ),
-                    SchemaProperty(
-                        name="confidence",
-                        data_type=DataType.NUMBER
-                    )
-                ]
-            ))
+                    responses=[ResponseDefinition(status_code=200, description="Analysis result")],
+                )
+            )
+            .add_schema(
+                SchemaDefinition(
+                    name="AnalysisResult",
+                    description="Vision analysis result",
+                    properties=[
+                        SchemaProperty(name="summary", data_type=DataType.STRING),
+                        SchemaProperty(name="confidence", data_type=DataType.NUMBER),
+                    ],
+                )
+            )
             .build()
         )
 
         # Generate Python SDK
         generator = create_sdk_generator()
-        config = SDKConfig(
-            language=SDKLanguage.PYTHON,
-            package_name="vision_sdk",
-            version="1.0.0"
-        )
+        config = SDKConfig(language=SDKLanguage.PYTHON, package_name="vision_sdk", version="1.0.0")
 
         result = generator.generate_sdk(api_def, config)
 
@@ -1567,9 +1404,7 @@ class TestPhase16Integration:
             name="API Connector",
             connector_type=ConnectorType.REST_API,
             base_url="https://api.example.com",
-            rate_limit=RateLimitConfig(
-                requests_per_second=10.0
-            )
+            rate_limit=RateLimitConfig(requests_per_second=10.0),
         )
         connector = create_rest_connector(config)
         hub.register_connector(connector)
@@ -1578,11 +1413,8 @@ class TestPhase16Integration:
         webhook_config = WebhookConfig(
             webhook_id="notification-webhook",
             url="https://hooks.example.com/notify",
-            events=[
-                WebhookEventType.ANALYSIS_COMPLETED,
-                WebhookEventType.ERROR_OCCURRED
-            ],
-            secret="webhook_secret"
+            events=[WebhookEventType.ANALYSIS_COMPLETED, WebhookEventType.ERROR_OCCURRED],
+            secret="webhook_secret",
         )
         hub.register_webhook(webhook_config)
 
@@ -1591,10 +1423,9 @@ class TestPhase16Integration:
         assert all(connect_results.values())
 
         # Execute operation
-        result = await hub.execute("api-connector", "get_data", {
-            "method": "GET",
-            "endpoint": "/data"
-        })
+        result = await hub.execute(
+            "api-connector", "get_data", {"method": "GET", "endpoint": "/data"}
+        )
         assert result["status"] == "success"
 
         # Health check
@@ -1603,7 +1434,6 @@ class TestPhase16Integration:
 
         # Data transformation
         transformed = hub.transform_data(
-            {"input": "value"},
-            [DataMapping(source_field="input", target_field="output")]
+            {"input": "value"}, [DataMapping(source_field="input", target_field="output")]
         )
         assert transformed["output"] == "value"

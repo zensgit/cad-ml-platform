@@ -166,22 +166,13 @@ class InMemoryStorage(StorageProvider):
             results = [r for r in results if r.created_at <= filter.end_date]
 
         if filter.min_confidence is not None:
-            results = [
-                r for r in results
-                if r.result.confidence >= filter.min_confidence
-            ]
+            results = [r for r in results if r.result.confidence >= filter.min_confidence]
 
         if filter.max_confidence is not None:
-            results = [
-                r for r in results
-                if r.result.confidence <= filter.max_confidence
-            ]
+            results = [r for r in results if r.result.confidence <= filter.max_confidence]
 
         if filter.tags:
-            results = [
-                r for r in results
-                if any(tag in r.tags for tag in filter.tags)
-            ]
+            results = [r for r in results if any(tag in r.tags for tag in filter.tags)]
 
         if filter.image_hash:
             results = [r for r in results if r.image_hash == filter.image_hash]
@@ -193,7 +184,7 @@ class InMemoryStorage(StorageProvider):
         has_more = (filter.offset + filter.limit) < total_count
 
         # Apply pagination
-        results = results[filter.offset:filter.offset + filter.limit]
+        results = results[filter.offset : filter.offset + filter.limit]
 
         return QueryResult(
             records=results,
@@ -428,11 +419,10 @@ class PersistentVisionProvider:
             Tuple of (VisionDescription, AnalysisRecord)
         """
         import time
+
         start_time = time.time()
 
-        result = await self._provider.analyze_image(
-            image_data, include_description
-        )
+        result = await self._provider.analyze_image(image_data, include_description)
         processing_time_ms = (time.time() - start_time) * 1000
 
         # Combine auto-tags with provided tags

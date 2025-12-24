@@ -267,9 +267,7 @@ class InMemoryLock(DistributedLock):
             # Check timeout
             elapsed = time.time() - start_time
             if elapsed >= timeout_seconds:
-                logger.debug(
-                    f"Lock timeout: {resource_id} for {owner_id} after {elapsed:.2f}s"
-                )
+                logger.debug(f"Lock timeout: {resource_id} for {owner_id} after {elapsed:.2f}s")
                 return LockResult(
                     success=False,
                     result=LockAcquisitionResult.TIMEOUT,
@@ -356,9 +354,7 @@ class InMemoryLock(DistributedLock):
                 return False
 
             lock_info.extend(timedelta(seconds=extension_seconds))
-            logger.debug(
-                f"Lock extended: {resource_id} by {extension_seconds}s"
-            )
+            logger.debug(f"Lock extended: {resource_id} by {extension_seconds}s")
             return True
 
 
@@ -395,9 +391,7 @@ class ReentrantLock(DistributedLock):
                     self._reentry_counts[resource_id][owner_id] += 1
                     lock_info = await self._base_lock.get_lock_info(resource_id)
                     if lock_info:
-                        lock_info.reentry_count = self._reentry_counts[resource_id][
-                            owner_id
-                        ]
+                        lock_info.reentry_count = self._reentry_counts[resource_id][owner_id]
                     return LockResult(
                         success=True,
                         result=LockAcquisitionResult.ALREADY_HELD,
@@ -405,9 +399,7 @@ class ReentrantLock(DistributedLock):
                     )
 
         # Try to acquire base lock
-        result = await self._base_lock.acquire(
-            resource_id, owner_id, timeout_seconds, ttl_seconds
-        )
+        result = await self._base_lock.acquire(resource_id, owner_id, timeout_seconds, ttl_seconds)
 
         if result.success:
             async with self._lock:
@@ -684,9 +676,7 @@ class LockManager:
                 # Record wait edge
                 current_owner = await self._get_resource_owner(request.resource_id)
                 if current_owner and current_owner != request.owner_id:
-                    self._wait_graph.setdefault(request.owner_id, set()).add(
-                        current_owner
-                    )
+                    self._wait_graph.setdefault(request.owner_id, set()).add(current_owner)
 
                     # Check for cycle
                     cycle = self._detect_cycle(request.owner_id)
@@ -724,9 +714,7 @@ class LockManager:
 
             if result.success:
                 # Track held lock
-                self._held_locks.setdefault(request.owner_id, set()).add(
-                    request.resource_id
-                )
+                self._held_locks.setdefault(request.owner_id, set()).add(request.resource_id)
 
         return result
 
@@ -845,9 +833,7 @@ class LockManager:
         result = await self.acquire(request)
 
         if not result.success:
-            raise TimeoutError(
-                f"Failed to acquire lock: {result.result.value}"
-            )
+            raise TimeoutError(f"Failed to acquire lock: {result.result.value}")
 
         try:
             yield result.lock_info  # type: ignore

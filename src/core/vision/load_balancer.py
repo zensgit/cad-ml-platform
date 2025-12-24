@@ -164,8 +164,7 @@ class LoadBalancerStats:
             "successful_requests": self.successful_requests,
             "failed_requests": self.failed_requests,
             "success_rate": (
-                self.successful_requests / self.total_requests
-                if self.total_requests > 0 else 0
+                self.successful_requests / self.total_requests if self.total_requests > 0 else 0
             ),
             "avg_response_time_ms": self.avg_response_time_ms,
             "requests_per_provider": self.requests_per_provider,
@@ -281,9 +280,7 @@ class LoadBalancer:
             self._round_robin_index += 1
             return selected
 
-    async def _weighted_round_robin(
-        self, nodes: List[ProviderNode]
-    ) -> ProviderNode:
+    async def _weighted_round_robin(self, nodes: List[ProviderNode]) -> ProviderNode:
         """Weighted round-robin selection."""
         # Build weighted list
         weighted_nodes: List[ProviderNode] = []
@@ -305,16 +302,15 @@ class LoadBalancer:
         """Select node with least connections."""
         return min(nodes, key=lambda n: n.current_connections)
 
-    def _weighted_least_connections(
-        self, nodes: List[ProviderNode]
-    ) -> ProviderNode:
+    def _weighted_least_connections(self, nodes: List[ProviderNode]) -> ProviderNode:
         """Select node with least weighted connections."""
         # Score = connections / weight (lower is better)
         return min(
             nodes,
             key=lambda n: (
                 n.current_connections / n.effective_weight
-                if n.effective_weight > 0 else float("inf")
+                if n.effective_weight > 0
+                else float("inf")
             ),
         )
 
@@ -343,6 +339,7 @@ class LoadBalancer:
         Score = (response_time * 0.4) + (connection_util * 0.3) + (1/success_rate * 0.3)
         Lower score is better.
         """
+
         def score(node: ProviderNode) -> float:
             # Normalize response time (assume 10s is max)
             rt_score = min(node.avg_response_time_ms / 10000, 1.0)
@@ -372,9 +369,7 @@ class LoadBalancer:
             successful_requests=successful_requests,
             failed_requests=failed_requests,
             avg_response_time_ms=avg_time,
-            requests_per_provider={
-                n.provider.provider_name: n.total_requests for n in self._nodes
-            },
+            requests_per_provider={n.provider.provider_name: n.total_requests for n in self._nodes},
             success_rate_per_provider={
                 n.provider.provider_name: n.success_rate for n in self._nodes
             },
@@ -444,7 +439,8 @@ class LoadBalancedVisionProvider:
             if provider_name in tried_providers:
                 # Try to find another node
                 available = [
-                    n for n in self._balancer.get_available_nodes()
+                    n
+                    for n in self._balancer.get_available_nodes()
                     if n.provider.provider_name not in tried_providers
                 ]
                 if available:
@@ -458,15 +454,12 @@ class LoadBalancedVisionProvider:
             start_time = time.time()
 
             try:
-                result = await node.provider.analyze_image(
-                    image_data, include_description
-                )
+                result = await node.provider.analyze_image(image_data, include_description)
                 response_time_ms = (time.time() - start_time) * 1000
                 node.record_request_end(True, response_time_ms)
 
                 logger.debug(
-                    f"Load balancer: {provider_name} responded in "
-                    f"{response_time_ms:.0f}ms"
+                    f"Load balancer: {provider_name} responded in " f"{response_time_ms:.0f}ms"
                 )
                 return result
 
@@ -475,9 +468,7 @@ class LoadBalancedVisionProvider:
                 node.record_request_end(False, response_time_ms)
                 last_error = str(e)
 
-                logger.warning(
-                    f"Load balancer: {provider_name} failed: {e}"
-                )
+                logger.warning(f"Load balancer: {provider_name} failed: {e}")
 
                 if not self._retry_on_failure:
                     break

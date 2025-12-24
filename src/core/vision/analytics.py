@@ -259,10 +259,7 @@ class VisionAnalytics:
             bucket_end = min(current + bucket_delta, end_date)
 
             # Filter records for this bucket
-            bucket_records = [
-                r for r in result.records
-                if current <= r.created_at < bucket_end
-            ]
+            bucket_records = [r for r in result.records if current <= r.created_at < bucket_end]
 
             if bucket_records:
                 confidences = [r.result.confidence for r in bucket_records]
@@ -389,9 +386,7 @@ class VisionAnalytics:
             for name, s in stats.items():
                 pct = (s.total_requests / total_requests) * 100
                 if pct > 50:
-                    insights.append(
-                        f"{name} handles {pct:.0f}% of all requests"
-                    )
+                    insights.append(f"{name} handles {pct:.0f}% of all requests")
 
         return insights
 
@@ -431,12 +426,8 @@ class VisionAnalytics:
             total_time = sum(s.total_processing_time_ms for s in all_stats)
 
             # Weighted average confidence
-            weighted_confidence = sum(
-                s.avg_confidence * s.total_requests for s in all_stats
-            )
-            avg_confidence = (
-                weighted_confidence / total_requests if total_requests > 0 else 0
-            )
+            weighted_confidence = sum(s.avg_confidence * s.total_requests for s in all_stats)
+            avg_confidence = weighted_confidence / total_requests if total_requests > 0 else 0
 
             overall_stats = ProviderStats(
                 provider="all",
@@ -515,5 +506,6 @@ def create_analytics(
         >>> print(f"Total requests: {report.overall_stats.total_requests}")
     """
     from .persistence import get_persistence
+
     persistence = persistence or get_persistence()
     return VisionAnalytics(persistence)

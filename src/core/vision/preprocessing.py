@@ -216,9 +216,7 @@ class ImageValidator:
             color_mode=color_mode,
         )
 
-    def _get_dimensions(
-        self, image_data: bytes, format: ImageFormat
-    ) -> Tuple[int, int]:
+    def _get_dimensions(self, image_data: bytes, format: ImageFormat) -> Tuple[int, int]:
         """Extract width and height from image data."""
         try:
             if format == ImageFormat.PNG:
@@ -264,18 +262,30 @@ class ImageValidator:
             marker = data[i + 1]
 
             # SOF markers (Start Of Frame)
-            if marker in (0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
-                          0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF):
-                height = int.from_bytes(data[i + 5:i + 7], "big")
-                width = int.from_bytes(data[i + 7:i + 9], "big")
+            if marker in (
+                0xC0,
+                0xC1,
+                0xC2,
+                0xC3,
+                0xC5,
+                0xC6,
+                0xC7,
+                0xC9,
+                0xCA,
+                0xCB,
+                0xCD,
+                0xCE,
+                0xCF,
+            ):
+                height = int.from_bytes(data[i + 5 : i + 7], "big")
+                width = int.from_bytes(data[i + 7 : i + 9], "big")
                 return width, height
 
             # Get segment length and skip
-            if marker in (0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7,
-                          0xD8, 0xD9, 0x01):
+            if marker in (0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7, 0xD8, 0xD9, 0x01):
                 i += 2
             else:
-                length = int.from_bytes(data[i + 2:i + 4], "big")
+                length = int.from_bytes(data[i + 2 : i + 4], "big")
                 i += 2 + length
 
         return 0, 0
@@ -381,14 +391,10 @@ class ImageValidator:
             return ValidationResult(valid=False, info=info, errors=errors)
 
         if info.width < self._config.min_width:
-            errors.append(
-                f"Image width {info.width}px below minimum {self._config.min_width}px"
-            )
+            errors.append(f"Image width {info.width}px below minimum {self._config.min_width}px")
 
         if info.height < self._config.min_height:
-            errors.append(
-                f"Image height {info.height}px below minimum {self._config.min_height}px"
-            )
+            errors.append(f"Image height {info.height}px below minimum {self._config.min_height}px")
 
         if info.width > self._config.max_width:
             if self._config.auto_resize:
@@ -463,6 +469,7 @@ class ImagePreprocessor:
         """Check if Pillow is available."""
         try:
             import importlib.util
+
             return importlib.util.find_spec("PIL") is not None
         except Exception:
             logger.warning("Pillow not available - preprocessing limited")
@@ -484,9 +491,7 @@ class ImagePreprocessor:
         # Validate first
         validation = self._validator.validate(image_data)
         if not validation.valid:
-            raise VisionInputError(
-                f"Image validation failed: {'; '.join(validation.errors)}"
-            )
+            raise VisionInputError(f"Image validation failed: {'; '.join(validation.errors)}")
 
         info = validation.info
 
@@ -496,12 +501,11 @@ class ImagePreprocessor:
 
         # Check if preprocessing needed
         needs_processing = (
-            (info.width > self._config.max_width) or
-            (info.height > self._config.max_height) or
-            (info.megapixels > self._config.max_megapixels) or
-            (self._config.target_format and
-             info.format != self._config.target_format) or
-            self._config.strip_metadata
+            (info.width > self._config.max_width)
+            or (info.height > self._config.max_height)
+            or (info.megapixels > self._config.max_megapixels)
+            or (self._config.target_format and info.format != self._config.target_format)
+            or self._config.strip_metadata
         )
 
         if not needs_processing:
@@ -510,9 +514,7 @@ class ImagePreprocessor:
         # Process with Pillow
         return self._process_with_pillow(image_data, info)
 
-    def _process_with_pillow(
-        self, image_data: bytes, info: ImageInfo
-    ) -> Tuple[bytes, ImageInfo]:
+    def _process_with_pillow(self, image_data: bytes, info: ImageInfo) -> Tuple[bytes, ImageInfo]:
         """Process image using Pillow."""
         from PIL import Image
 
@@ -520,9 +522,11 @@ class ImagePreprocessor:
         img = Image.open(io.BytesIO(image_data))
 
         # Resize if needed
-        if (info.width > self._config.max_width or
-                info.height > self._config.max_height or
-                info.megapixels > self._config.max_megapixels):
+        if (
+            info.width > self._config.max_width
+            or info.height > self._config.max_height
+            or info.megapixels > self._config.max_megapixels
+        ):
             img = self._resize_image(img)
 
         # Convert format if needed
@@ -593,9 +597,7 @@ class ImagePreprocessor:
                 (new_width, new_height),
                 Image.Resampling.LANCZOS,
             )
-            logger.debug(
-                f"Resized image from {width}x{height} to {new_width}x{new_height}"
-            )
+            logger.debug(f"Resized image from {width}x{height} to {new_width}x{new_height}")
 
         return img
 
@@ -647,9 +649,7 @@ class PreprocessingVisionProvider:
             # Just validate
             validation = self._validator.validate(image_data)
             if not validation.valid:
-                raise VisionInputError(
-                    f"Image validation failed: {'; '.join(validation.errors)}"
-                )
+                raise VisionInputError(f"Image validation failed: {'; '.join(validation.errors)}")
             processed_data = image_data
         else:
             # Preprocess
@@ -659,9 +659,7 @@ class PreprocessingVisionProvider:
                 f"{info.width}x{info.height} ({info.size_bytes} bytes)"
             )
 
-        return await self._provider.analyze_image(
-            processed_data, include_description
-        )
+        return await self._provider.analyze_image(processed_data, include_description)
 
     def validate(self, image_data: bytes) -> ValidationResult:
         """

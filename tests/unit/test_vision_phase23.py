@@ -18,49 +18,47 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from src.core.vision import (
-    # Main classes
-    IntelligentAutomationHub,
     AutomatedVisionProvider,
-    DecisionEngine,
-    SelfTuner,
-    IntelligentScheduler,
-    LoadManager,
-    PerformancePredictor,
+    AutomationConfig,
     AutoRemediation,
-    PatternLearner,
-    # Enums
-    DecisionType,
-    DecisionConfidence,
-    TuningStrategy,
-    TuningStatus,
-    SchedulerPriority,
-    TaskStateP23 as TaskState,
-    LoadLevel,
-    RemediationAction,
-    PredictionType,
-    LearningMode,
-    # Dataclasses
     Decision,
+    DecisionConfidence,
+    DecisionEngine,
     DecisionRule,
+    DecisionType,
+    IntelligentAutomationHub,
+    IntelligentScheduler,
+    LearningMode,
+    LearningPattern,
+    LoadLevel,
+    LoadManager,
+    LoadMetrics,
+    PatternLearner,
+    PerformancePredictor,
+    Prediction,
+    PredictionType,
+    Remediation,
+    RemediationAction,
+    ResourcePool,
+    ScheduledTask,
+    SchedulerPriority,
+    SelfTuner,
+)
+from src.core.vision import (
+    TaskStateP23 as TaskState,  # Main classes; Enums; Dataclasses; Factory functions; Base
+)
+from src.core.vision import (
     TuningParameter,
     TuningSession,
-    ScheduledTask,
-    ResourcePool,
-    LoadMetrics,
-    Remediation,
-    Prediction,
-    LearningPattern,
-    AutomationConfig,
-    # Factory functions
-    create_automation_config,
-    create_intelligent_automation_hub,
-    create_decision_rule,
-    create_load_metrics,
-    create_automated_provider,
-    # Base
+    TuningStatus,
+    TuningStrategy,
     VisionDescription,
+    create_automated_provider,
+    create_automation_config,
+    create_decision_rule,
+    create_intelligent_automation_hub,
+    create_load_metrics,
 )
-
 
 # ========================
 # Test Enums
@@ -857,9 +855,7 @@ class TestAutoRemediation:
         remediation.register_handler(RemediationAction.THROTTLE, success_handler)
 
         # Execute some remediations
-        remediation.execute_remediation(
-            RemediationAction.THROTTLE, "target", "test"
-        )
+        remediation.execute_remediation(RemediationAction.THROTTLE, "target", "test")
 
         stats = remediation.get_remediation_stats()
         assert stats["total"] > 0
@@ -1242,9 +1238,7 @@ class TestAutomationIntegration:
             )
 
         # Get recommendation
-        recommendation = learner.get_recommended_action(
-            {"load": "high", "time_of_day": "peak"}
-        )
+        recommendation = learner.get_recommended_action({"load": "high", "time_of_day": "peak"})
         assert recommendation is not None
         action, confidence = recommendation
         assert action == "scale_up"

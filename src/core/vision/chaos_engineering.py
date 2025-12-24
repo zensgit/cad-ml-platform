@@ -287,9 +287,7 @@ class LatencyInjector:
             "total_injected": self._total_injected,
             "total_latency_ms": self._total_latency_ms,
             "avg_latency_ms": (
-                self._total_latency_ms / self._total_injected
-                if self._total_injected > 0
-                else 0
+                self._total_latency_ms / self._total_injected if self._total_injected > 0 else 0
             ),
         }
 
@@ -442,10 +440,12 @@ class ChaosExperiment:
             observation: Observation data
         """
         with self._lock:
-            self._result.observations.append({
-                "timestamp": datetime.now().isoformat(),
-                **observation,
-            })
+            self._result.observations.append(
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    **observation,
+                }
+            )
 
     def get_result(self) -> ExperimentResult:
         """Get current result."""

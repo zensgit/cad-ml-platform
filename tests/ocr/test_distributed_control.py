@@ -32,6 +32,7 @@ async def test_rate_limit_blocks(monkeypatch):
     # Patch RateLimiter to a tiny burst/qps
     # Use unique key to avoid polluting Redis state for other tests
     import uuid
+
     from src.utils.rate_limiter import RateLimiter
 
     unique_key = f"paddle_test_{uuid.uuid4().hex[:8]}"
@@ -52,6 +53,7 @@ async def test_rate_limit_blocks(monkeypatch):
 @pytest.mark.asyncio
 async def test_circuit_opens_and_blocks():
     import uuid
+
     # Use unique image bytes to avoid cache hits from other tests
     unique_img = f"circuit_test_{uuid.uuid4()}".encode()
     provider = _SlowFailProvider(fail_times=2)

@@ -7,32 +7,17 @@ import asyncio
 
 import pytest
 
-from src.core.vision import (
-    VisionDescription,
-    VisionProviderError,
-)
-from src.core.vision.cache import (
-    VisionCache,
-    CachedVisionProvider,
-    create_cached_provider,
-)
+from src.core.vision import VisionDescription, VisionProviderError
+from src.core.vision.batch import BatchProcessor, process_images_batch
+from src.core.vision.cache import CachedVisionProvider, VisionCache, create_cached_provider
+from src.core.vision.comparison import ProviderComparator, SelectionStrategy, compare_providers
 from src.core.vision.rate_limiter import (
-    TokenBucketRateLimiter,
-    RateLimitedVisionProvider,
     RateLimitConfig,
+    RateLimitedVisionProvider,
     RateLimitError,
+    TokenBucketRateLimiter,
     create_rate_limited_provider,
 )
-from src.core.vision.batch import (
-    BatchProcessor,
-    process_images_batch,
-)
-from src.core.vision.comparison import (
-    ProviderComparator,
-    SelectionStrategy,
-    compare_providers,
-)
-
 
 # Sample image data
 SAMPLE_PNG = (
@@ -94,9 +79,7 @@ class TestVisionCache:
         cache = VisionCache(max_size=10)
 
         # Store value
-        description = VisionDescription(
-            summary="Test", details=[], confidence=0.9
-        )
+        description = VisionDescription(summary="Test", details=[], confidence=0.9)
         await cache.set(SAMPLE_PNG, "test", description, True)
 
         # Retrieve
@@ -110,9 +93,7 @@ class TestVisionCache:
         """Test expired entries are not returned."""
         cache = VisionCache(max_size=10, ttl_seconds=0.01)
 
-        description = VisionDescription(
-            summary="Test", details=[], confidence=0.9
-        )
+        description = VisionDescription(summary="Test", details=[], confidence=0.9)
         await cache.set(SAMPLE_PNG, "test", description, True)
 
         # Wait for expiration
@@ -129,9 +110,7 @@ class TestVisionCache:
         # Fill cache
         for i in range(3):
             img = bytes([i]) + SAMPLE_PNG
-            desc = VisionDescription(
-                summary=f"Test {i}", details=[], confidence=0.9
-            )
+            desc = VisionDescription(summary=f"Test {i}", details=[], confidence=0.9)
             await cache.set(img, "test", desc, True)
 
         assert cache.stats.size == 2
@@ -142,9 +121,7 @@ class TestVisionCache:
         """Test clearing cache."""
         cache = VisionCache(max_size=10)
 
-        description = VisionDescription(
-            summary="Test", details=[], confidence=0.9
-        )
+        description = VisionDescription(summary="Test", details=[], confidence=0.9)
         await cache.set(SAMPLE_PNG, "test", description, True)
 
         count = await cache.clear()

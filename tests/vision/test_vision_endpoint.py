@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 
 # ========== Test Fixtures ==========
 
+
 @pytest.fixture(autouse=True)
 def _force_stub_provider(monkeypatch):
     """Force stub provider for deterministic tests.

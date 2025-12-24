@@ -33,7 +33,9 @@ def test_ocr_pdf_pages_exceed():
         assert "pdf_pages_exceed" in metrics_resp.text
 
 
-@pytest.mark.skip(reason="PDF forbidden token validation not yet implemented in validate_and_read()")
+@pytest.mark.skip(
+    reason="PDF forbidden token validation not yet implemented in validate_and_read()"
+)
 def test_ocr_pdf_forbidden_token():
     # TODO: Implement PDF forbidden token validation in src/security/input_validator.py
     pdf_bytes = _make_pdf(2, forbidden=True)

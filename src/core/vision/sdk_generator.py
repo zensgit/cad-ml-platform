@@ -26,7 +26,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -244,19 +243,13 @@ class CodeGenerator(ABC):
     """Abstract base class for code generators."""
 
     @abstractmethod
-    def generate_client(
-        self,
-        api_def: APIDefinition,
-        config: SDKConfig
-    ) -> List[GeneratedFile]:
+    def generate_client(self, api_def: APIDefinition, config: SDKConfig) -> List[GeneratedFile]:
         """Generate client code."""
         pass
 
     @abstractmethod
     def generate_models(
-        self,
-        schemas: List[SchemaDefinition],
-        config: SDKConfig
+        self, schemas: List[SchemaDefinition], config: SDKConfig
     ) -> List[GeneratedFile]:
         """Generate model/type definitions."""
         pass
@@ -268,8 +261,8 @@ class CodeGenerator(ABC):
 
     def _to_pascal_case(self, name: str) -> str:
         """Convert string to PascalCase."""
-        parts = re.split(r'[-_\s]', name)
-        return ''.join(part.capitalize() for part in parts)
+        parts = re.split(r"[-_\s]", name)
+        return "".join(part.capitalize() for part in parts)
 
     def _to_camel_case(self, name: str) -> str:
         """Convert string to camelCase."""
@@ -279,9 +272,9 @@ class CodeGenerator(ABC):
     def _to_snake_case(self, name: str) -> str:
         """Convert string to snake_case."""
         # Handle camelCase and PascalCase
-        name = re.sub(r'([A-Z]+)([A-Z][a-z])', r'\1_\2', name)
-        name = re.sub(r'([a-z\d])([A-Z])', r'\1_\2', name)
-        return name.lower().replace('-', '_').replace(' ', '_')
+        name = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1_\2", name)
+        name = re.sub(r"([a-z\d])([A-Z])", r"\1_\2", name)
+        return name.lower().replace("-", "_").replace(" ", "_")
 
 
 class PythonGenerator(CodeGenerator):
@@ -299,63 +292,61 @@ class PythonGenerator(CodeGenerator):
         DataType.FILE: "BinaryIO",
     }
 
-    def generate_client(
-        self,
-        api_def: APIDefinition,
-        config: SDKConfig
-    ) -> List[GeneratedFile]:
+    def generate_client(self, api_def: APIDefinition, config: SDKConfig) -> List[GeneratedFile]:
         """Generate Python client code."""
         files = []
 
         # Generate main client class
         client_code = self._generate_client_class(api_def, config)
-        files.append(GeneratedFile(
-            path=f"{config.output_dir}/{config.package_name}/client.py",
-            content=client_code,
-            language=SDKLanguage.PYTHON,
-            file_type="client"
-        ))
+        files.append(
+            GeneratedFile(
+                path=f"{config.output_dir}/{config.package_name}/client.py",
+                content=client_code,
+                language=SDKLanguage.PYTHON,
+                file_type="client",
+            )
+        )
 
         # Generate __init__.py
         init_code = self._generate_init(api_def, config)
-        files.append(GeneratedFile(
-            path=f"{config.output_dir}/{config.package_name}/__init__.py",
-            content=init_code,
-            language=SDKLanguage.PYTHON,
-            file_type="config"
-        ))
+        files.append(
+            GeneratedFile(
+                path=f"{config.output_dir}/{config.package_name}/__init__.py",
+                content=init_code,
+                language=SDKLanguage.PYTHON,
+                file_type="config",
+            )
+        )
 
         return files
 
     def generate_models(
-        self,
-        schemas: List[SchemaDefinition],
-        config: SDKConfig
+        self, schemas: List[SchemaDefinition], config: SDKConfig
     ) -> List[GeneratedFile]:
         """Generate Python model classes."""
         model_code = self._generate_models_code(schemas, config)
-        return [GeneratedFile(
-            path=f"{config.output_dir}/{config.package_name}/models.py",
-            content=model_code,
-            language=SDKLanguage.PYTHON,
-            file_type="model"
-        )]
+        return [
+            GeneratedFile(
+                path=f"{config.output_dir}/{config.package_name}/models.py",
+                content=model_code,
+                language=SDKLanguage.PYTHON,
+                file_type="model",
+            )
+        ]
 
     def generate_utils(self, config: SDKConfig) -> List[GeneratedFile]:
         """Generate Python utility code."""
         utils_code = self._generate_utils_code(config)
-        return [GeneratedFile(
-            path=f"{config.output_dir}/{config.package_name}/utils.py",
-            content=utils_code,
-            language=SDKLanguage.PYTHON,
-            file_type="util"
-        )]
+        return [
+            GeneratedFile(
+                path=f"{config.output_dir}/{config.package_name}/utils.py",
+                content=utils_code,
+                language=SDKLanguage.PYTHON,
+                file_type="util",
+            )
+        ]
 
-    def _generate_client_class(
-        self,
-        api_def: APIDefinition,
-        config: SDKConfig
-    ) -> str:
+    def _generate_client_class(self, api_def: APIDefinition, config: SDKConfig) -> str:
         """Generate the main client class."""
         class_name = self._to_pascal_case(config.package_name) + "Client"
 
@@ -440,11 +431,7 @@ class {class_name}:
 {chr(10).join(methods)}
 '''
 
-    def _generate_method(
-        self,
-        endpoint: EndpointDefinition,
-        config: SDKConfig
-    ) -> str:
+    def _generate_method(self, endpoint: EndpointDefinition, config: SDKConfig) -> str:
         """Generate a method for an endpoint."""
         method_name = self._to_snake_case(endpoint.operation_id)
         async_prefix = "async " if config.async_support else ""
@@ -482,9 +469,9 @@ class {class_name}:
         # Build query string
         query_build = ""
         if query_params:
-            query_build = f'''
+            query_build = f"""
         params = {{}}
-        {chr(10).join(f'        if {p} is not None: params["{p}"] = {p}' for p in query_params)}'''
+        {chr(10).join(f'        if {p} is not None: params["{p}"] = {p}' for p in query_params)}"""
 
         # Build request
         http_method = endpoint.method.value.lower()
@@ -510,11 +497,7 @@ class {class_name}:
         return handle_response(response)
 '''
 
-    def _generate_models_code(
-        self,
-        schemas: List[SchemaDefinition],
-        config: SDKConfig
-    ) -> str:
+    def _generate_models_code(self, schemas: List[SchemaDefinition], config: SDKConfig) -> str:
         """Generate model classes code."""
         models = []
 
@@ -619,11 +602,7 @@ def handle_response(response: Any) -> Dict[str, Any]:
         return {"data": response.text if hasattr(response, 'text') else str(response)}
 '''
 
-    def _generate_init(
-        self,
-        api_def: APIDefinition,
-        config: SDKConfig
-    ) -> str:
+    def _generate_init(self, api_def: APIDefinition, config: SDKConfig) -> str:
         """Generate __init__.py content."""
         class_name = self._to_pascal_case(config.package_name) + "Client"
 
@@ -658,72 +637,72 @@ class TypeScriptGenerator(CodeGenerator):
         DataType.FILE: "File",
     }
 
-    def generate_client(
-        self,
-        api_def: APIDefinition,
-        config: SDKConfig
-    ) -> List[GeneratedFile]:
+    def generate_client(self, api_def: APIDefinition, config: SDKConfig) -> List[GeneratedFile]:
         """Generate TypeScript client code."""
         files = []
 
         # Generate main client
         client_code = self._generate_client_class(api_def, config)
-        files.append(GeneratedFile(
-            path=f"{config.output_dir}/src/client.ts",
-            content=client_code,
-            language=SDKLanguage.TYPESCRIPT,
-            file_type="client"
-        ))
+        files.append(
+            GeneratedFile(
+                path=f"{config.output_dir}/src/client.ts",
+                content=client_code,
+                language=SDKLanguage.TYPESCRIPT,
+                file_type="client",
+            )
+        )
 
         # Generate index.ts
         index_code = self._generate_index(api_def, config)
-        files.append(GeneratedFile(
-            path=f"{config.output_dir}/src/index.ts",
-            content=index_code,
-            language=SDKLanguage.TYPESCRIPT,
-            file_type="config"
-        ))
+        files.append(
+            GeneratedFile(
+                path=f"{config.output_dir}/src/index.ts",
+                content=index_code,
+                language=SDKLanguage.TYPESCRIPT,
+                file_type="config",
+            )
+        )
 
         # Generate package.json
         package_json = self._generate_package_json(api_def, config)
-        files.append(GeneratedFile(
-            path=f"{config.output_dir}/package.json",
-            content=package_json,
-            language=SDKLanguage.TYPESCRIPT,
-            file_type="config"
-        ))
+        files.append(
+            GeneratedFile(
+                path=f"{config.output_dir}/package.json",
+                content=package_json,
+                language=SDKLanguage.TYPESCRIPT,
+                file_type="config",
+            )
+        )
 
         return files
 
     def generate_models(
-        self,
-        schemas: List[SchemaDefinition],
-        config: SDKConfig
+        self, schemas: List[SchemaDefinition], config: SDKConfig
     ) -> List[GeneratedFile]:
         """Generate TypeScript interfaces."""
         types_code = self._generate_types(schemas)
-        return [GeneratedFile(
-            path=f"{config.output_dir}/src/types.ts",
-            content=types_code,
-            language=SDKLanguage.TYPESCRIPT,
-            file_type="model"
-        )]
+        return [
+            GeneratedFile(
+                path=f"{config.output_dir}/src/types.ts",
+                content=types_code,
+                language=SDKLanguage.TYPESCRIPT,
+                file_type="model",
+            )
+        ]
 
     def generate_utils(self, config: SDKConfig) -> List[GeneratedFile]:
         """Generate TypeScript utilities."""
         utils_code = self._generate_utils_code()
-        return [GeneratedFile(
-            path=f"{config.output_dir}/src/utils.ts",
-            content=utils_code,
-            language=SDKLanguage.TYPESCRIPT,
-            file_type="util"
-        )]
+        return [
+            GeneratedFile(
+                path=f"{config.output_dir}/src/utils.ts",
+                content=utils_code,
+                language=SDKLanguage.TYPESCRIPT,
+                file_type="util",
+            )
+        ]
 
-    def _generate_client_class(
-        self,
-        api_def: APIDefinition,
-        config: SDKConfig
-    ) -> str:
+    def _generate_client_class(self, api_def: APIDefinition, config: SDKConfig) -> str:
         """Generate TypeScript client class."""
         class_name = self._to_pascal_case(config.package_name) + "Client"
 
@@ -732,7 +711,7 @@ class TypeScriptGenerator(CodeGenerator):
             method = self._generate_method(endpoint)
             methods.append(method)
 
-        return f'''/**
+        return f"""/**
  * {api_def.title} SDK Client
  *
  * Auto-generated TypeScript client for {api_def.title} API.
@@ -810,7 +789,7 @@ export class {class_name} {{
 
 {chr(10).join(methods)}
 }}
-'''
+"""
 
     def _generate_method(self, endpoint: EndpointDefinition) -> str:
         """Generate a TypeScript method."""
@@ -849,7 +828,7 @@ export class {class_name} {{
             options_parts.append("body")
         options = f"{{ {', '.join(options_parts)} }}" if options_parts else ""
 
-        return f'''
+        return f"""
   /**
    * {endpoint.summary}
    *
@@ -858,7 +837,7 @@ export class {class_name} {{
   async {method_name}({params_str}): Promise<any> {{
     return this.request('{endpoint.method.value}', `{path}`{f', {options}' if options else ''});
   }}
-'''
+"""
 
     def _generate_types(self, schemas: List[SchemaDefinition]) -> str:
         """Generate TypeScript interfaces."""
@@ -879,27 +858,27 @@ export class {class_name} {{
 
             fields_str = "\n".join(fields) if fields else "  [key: string]: any;"
 
-            interface = f'''
+            interface = f"""
 /**
  * {schema.description or f'{interface_name} interface.'}
  */
 export interface {interface_name} {{
 {fields_str}
 }}
-'''
+"""
             interfaces.append(interface)
 
-        return f'''/**
+        return f"""/**
  * Type definitions for the API.
  *
  * Auto-generated from API schemas.
  */
 {"".join(interfaces)}
-'''
+"""
 
     def _generate_utils_code(self) -> str:
         """Generate TypeScript utilities."""
-        return '''/**
+        return """/**
  * Utility functions for the SDK.
  */
 
@@ -936,17 +915,13 @@ export async function handleResponse<T>(response: Response): Promise<T> {
     return { data: await response.text() } as T;
   }
 }
-'''
+"""
 
-    def _generate_index(
-        self,
-        api_def: APIDefinition,
-        config: SDKConfig
-    ) -> str:
+    def _generate_index(self, api_def: APIDefinition, config: SDKConfig) -> str:
         """Generate index.ts content."""
         class_name = self._to_pascal_case(config.package_name) + "Client"
 
-        return f'''/**
+        return f"""/**
  * {api_def.title} SDK
  *
  * Auto-generated SDK for {api_def.title} API.
@@ -956,31 +931,24 @@ export async function handleResponse<T>(response: Response): Promise<T> {
 export {{ {class_name}, ClientConfig }} from './client';
 export * from './types';
 export {{ APIError }} from './utils';
-'''
+"""
 
-    def _generate_package_json(
-        self,
-        api_def: APIDefinition,
-        config: SDKConfig
-    ) -> str:
+    def _generate_package_json(self, api_def: APIDefinition, config: SDKConfig) -> str:
         """Generate package.json."""
-        return json.dumps({
-            "name": config.package_name,
-            "version": config.version,
-            "description": api_def.description or f"SDK for {api_def.title}",
-            "main": "dist/index.js",
-            "types": "dist/index.d.ts",
-            "scripts": {
-                "build": "tsc",
-                "test": "jest"
+        return json.dumps(
+            {
+                "name": config.package_name,
+                "version": config.version,
+                "description": api_def.description or f"SDK for {api_def.title}",
+                "main": "dist/index.js",
+                "types": "dist/index.d.ts",
+                "scripts": {"build": "tsc", "test": "jest"},
+                "author": config.author,
+                "license": config.license,
+                "devDependencies": {"typescript": "^5.0.0", "@types/node": "^20.0.0"},
             },
-            "author": config.author,
-            "license": config.license,
-            "devDependencies": {
-                "typescript": "^5.0.0",
-                "@types/node": "^20.0.0"
-            }
-        }, indent=2)
+            indent=2,
+        )
 
 
 # ========================
@@ -992,9 +960,7 @@ class OpenAPIGenerator:
     """OpenAPI specification generator."""
 
     def generate(
-        self,
-        api_def: APIDefinition,
-        format: SpecFormat = SpecFormat.OPENAPI_3_0
+        self, api_def: APIDefinition, format: SpecFormat = SpecFormat.OPENAPI_3_0
     ) -> Dict[str, Any]:
         """Generate OpenAPI specification."""
         if format == SpecFormat.OPENAPI_3_1:
@@ -1010,14 +976,11 @@ class OpenAPIGenerator:
             "info": {
                 "title": api_def.title,
                 "version": api_def.version,
-                "description": api_def.description
+                "description": api_def.description,
             },
             "servers": api_def.servers or [{"url": api_def.base_url or "http://localhost:8000"}],
             "paths": {},
-            "components": {
-                "schemas": {},
-                "securitySchemes": api_def.security_schemes
-            }
+            "components": {"schemas": {}, "securitySchemes": api_def.security_schemes},
         }
 
         if api_def.tags:
@@ -1035,7 +998,7 @@ class OpenAPIGenerator:
                 "description": endpoint.description,
                 "tags": endpoint.tags,
                 "parameters": [],
-                "responses": {}
+                "responses": {},
             }
 
             if endpoint.deprecated:
@@ -1044,13 +1007,15 @@ class OpenAPIGenerator:
             # Add parameters
             for param in endpoint.parameters:
                 if param.location != ParameterLocation.BODY:
-                    operation["parameters"].append({
-                        "name": param.name,
-                        "in": param.location.value,
-                        "description": param.description,
-                        "required": param.required,
-                        "schema": {"type": param.data_type.value}
-                    })
+                    operation["parameters"].append(
+                        {
+                            "name": param.name,
+                            "in": param.location.value,
+                            "description": param.description,
+                            "required": param.required,
+                            "schema": {"type": param.data_type.value},
+                        }
+                    )
 
             # Add request body
             if endpoint.request_body:
@@ -1060,7 +1025,7 @@ class OpenAPIGenerator:
                         "application/json": {
                             "schema": self._schema_to_openapi(endpoint.request_body)
                         }
-                    }
+                    },
                 }
 
             # Add responses
@@ -1068,9 +1033,7 @@ class OpenAPIGenerator:
                 resp_obj: Dict[str, Any] = {"description": response.description}
                 if response.schema:
                     resp_obj["content"] = {
-                        response.content_type: {
-                            "schema": self._schema_to_openapi(response.schema)
-                        }
+                        response.content_type: {"schema": self._schema_to_openapi(response.schema)}
                     }
                 operation["responses"][str(response.status_code)] = resp_obj
 
@@ -1098,13 +1061,15 @@ class OpenAPIGenerator:
             "info": {
                 "title": api_def.title,
                 "version": api_def.version,
-                "description": api_def.description
+                "description": api_def.description,
             },
-            "host": api_def.base_url.replace("http://", "").replace("https://", "") if api_def.base_url else "localhost:8000",
+            "host": api_def.base_url.replace("http://", "").replace("https://", "")
+            if api_def.base_url
+            else "localhost:8000",
             "basePath": "/",
             "schemes": ["https", "http"],
             "paths": {},
-            "definitions": {}
+            "definitions": {},
         }
 
         # Convert endpoints (simplified)
@@ -1116,17 +1081,14 @@ class OpenAPIGenerator:
             spec["paths"][path][endpoint.method.value.lower()] = {
                 "operationId": endpoint.operation_id,
                 "summary": endpoint.summary,
-                "responses": {"200": {"description": "Success"}}
+                "responses": {"200": {"description": "Success"}},
             }
 
         return spec
 
     def _schema_to_openapi(self, schema: SchemaDefinition) -> Dict[str, Any]:
         """Convert schema to OpenAPI format."""
-        result: Dict[str, Any] = {
-            "type": "object",
-            "description": schema.description
-        }
+        result: Dict[str, Any] = {"type": "object", "description": schema.description}
 
         if schema.properties:
             result["properties"] = {}
@@ -1210,14 +1172,14 @@ class GraphQLSchemaGenerator:
         """Generate GraphQL schema."""
         lines = [
             '"""',
-            f'{api_def.title} GraphQL Schema',
-            f'Version: {api_def.version}',
+            f"{api_def.title} GraphQL Schema",
+            f"Version: {api_def.version}",
             '"""',
-            '',
-            'scalar JSON',
-            'scalar DateTime',
-            'scalar Upload',
-            ''
+            "",
+            "scalar JSON",
+            "scalar DateTime",
+            "scalar Upload",
+            "",
         ]
 
         # Generate types from schemas
@@ -1227,23 +1189,27 @@ class GraphQLSchemaGenerator:
         # Generate Query type
         queries = [e for e in api_def.endpoints if e.method == HTTPMethod.GET]
         if queries:
-            lines.append('type Query {')
+            lines.append("type Query {")
             for endpoint in queries:
                 query = self._endpoint_to_field(endpoint)
-                lines.append(f'  {query}')
-            lines.append('}')
-            lines.append('')
+                lines.append(f"  {query}")
+            lines.append("}")
+            lines.append("")
 
         # Generate Mutation type
-        mutations = [e for e in api_def.endpoints if e.method in (HTTPMethod.POST, HTTPMethod.PUT, HTTPMethod.DELETE)]
+        mutations = [
+            e
+            for e in api_def.endpoints
+            if e.method in (HTTPMethod.POST, HTTPMethod.PUT, HTTPMethod.DELETE)
+        ]
         if mutations:
-            lines.append('type Mutation {')
+            lines.append("type Mutation {")
             for endpoint in mutations:
                 mutation = self._endpoint_to_field(endpoint)
-                lines.append(f'  {mutation}')
-            lines.append('}')
+                lines.append(f"  {mutation}")
+            lines.append("}")
 
-        return '\n'.join(lines)
+        return "\n".join(lines)
 
     def _generate_type(self, schema: SchemaDefinition) -> List[str]:
         """Generate GraphQL type from schema."""
@@ -1254,7 +1220,7 @@ class GraphQLSchemaGenerator:
         if schema.description:
             lines.append(f'"""{schema.description}"""')
 
-        lines.append(f'type {type_name} {{')
+        lines.append(f"type {type_name} {{")
 
         for prop in schema.properties:
             gql_type = self._get_graphql_type(prop)
@@ -1262,13 +1228,13 @@ class GraphQLSchemaGenerator:
             desc = f'  """{prop.description}"""' if prop.description else ""
             if desc:
                 lines.append(desc)
-            lines.append(f'  {prop.name}: {gql_type}{required}')
+            lines.append(f"  {prop.name}: {gql_type}{required}")
 
         if not schema.properties:
-            lines.append('  _empty: String')
+            lines.append("  _empty: String")
 
-        lines.append('}')
-        lines.append('')
+        lines.append("}")
+        lines.append("")
 
         return lines
 
@@ -1277,7 +1243,9 @@ class GraphQLSchemaGenerator:
         base_type = self.TYPE_MAPPING.get(prop.data_type, "JSON")
 
         if prop.data_type == DataType.ARRAY:
-            items_type = self.TYPE_MAPPING.get(prop.items_type, "JSON") if prop.items_type else "JSON"
+            items_type = (
+                self.TYPE_MAPPING.get(prop.items_type, "JSON") if prop.items_type else "JSON"
+            )
             return f"[{items_type}]"
 
         return base_type
@@ -1294,12 +1262,12 @@ class GraphQLSchemaGenerator:
 
         args_str = f"({', '.join(args)})" if args else ""
 
-        return f'{name}{args_str}: JSON'
+        return f"{name}{args_str}: JSON"
 
     def _to_pascal_case(self, name: str) -> str:
         """Convert to PascalCase."""
-        parts = re.split(r'[-_\s]', name)
-        return ''.join(part.capitalize() for part in parts)
+        parts = re.split(r"[-_\s]", name)
+        return "".join(part.capitalize() for part in parts)
 
     def _to_camel_case(self, name: str) -> str:
         """Convert to camelCase."""
@@ -1326,20 +1294,12 @@ class SDKGenerator:
         self._graphql_generator = GraphQLSchemaGenerator()
         self._generation_history: List[GenerationResult] = []
 
-    def register_generator(
-        self,
-        language: SDKLanguage,
-        generator: CodeGenerator
-    ) -> None:
+    def register_generator(self, language: SDKLanguage, generator: CodeGenerator) -> None:
         """Register a code generator."""
         with self._lock:
             self._generators[language] = generator
 
-    def generate_sdk(
-        self,
-        api_def: APIDefinition,
-        config: SDKConfig
-    ) -> GenerationResult:
+    def generate_sdk(self, api_def: APIDefinition, config: SDKConfig) -> GenerationResult:
         """Generate complete SDK for a language."""
         errors = []
         warnings = []
@@ -1348,8 +1308,7 @@ class SDKGenerator:
         generator = self._generators.get(config.language)
         if not generator:
             return GenerationResult(
-                success=False,
-                errors=[f"No generator available for language: {config.language}"]
+                success=False, errors=[f"No generator available for language: {config.language}"]
             )
 
         try:
@@ -1371,23 +1330,15 @@ class SDKGenerator:
                 "client_files": len([f for f in files if f.file_type == "client"]),
                 "model_files": len([f for f in files if f.file_type == "model"]),
                 "util_files": len([f for f in files if f.file_type == "util"]),
-                "total_size": sum(len(f.content) for f in files)
+                "total_size": sum(len(f.content) for f in files),
             }
 
             result = GenerationResult(
-                success=True,
-                files=files,
-                errors=errors,
-                warnings=warnings,
-                stats=stats
+                success=True, files=files, errors=errors, warnings=warnings, stats=stats
             )
 
         except Exception as e:
-            result = GenerationResult(
-                success=False,
-                files=files,
-                errors=[str(e)]
-            )
+            result = GenerationResult(success=False, files=files, errors=[str(e)])
 
         with self._lock:
             self._generation_history.append(result)
@@ -1395,9 +1346,7 @@ class SDKGenerator:
         return result
 
     def generate_openapi_spec(
-        self,
-        api_def: APIDefinition,
-        format: SpecFormat = SpecFormat.OPENAPI_3_0
+        self, api_def: APIDefinition, format: SpecFormat = SpecFormat.OPENAPI_3_0
     ) -> str:
         """Generate OpenAPI specification."""
         spec = self._openapi_generator.generate(api_def, format)
@@ -1468,10 +1417,7 @@ class APIDefinitionBuilder:
         return self
 
     def add_security_scheme(
-        self,
-        name: str,
-        scheme_type: str,
-        **kwargs: Any
+        self, name: str, scheme_type: str, **kwargs: Any
     ) -> "APIDefinitionBuilder":
         """Add a security scheme."""
         self._security_schemes[name] = {"type": scheme_type, **kwargs}
@@ -1498,7 +1444,7 @@ class APIDefinitionBuilder:
             schemas=self._schemas,
             security_schemes=self._security_schemes,
             tags=self._tags,
-            servers=self._servers
+            servers=self._servers,
         )
 
 
@@ -1510,11 +1456,7 @@ class APIDefinitionBuilder:
 class SDKGeneratorVisionProvider(VisionProvider):
     """Vision provider with SDK generation capabilities."""
 
-    def __init__(
-        self,
-        base_provider: VisionProvider,
-        sdk_generator: Optional[SDKGenerator] = None
-    ):
+    def __init__(self, base_provider: VisionProvider, sdk_generator: Optional[SDKGenerator] = None):
         """Initialize SDK generator vision provider."""
         self._base_provider = base_provider
         self._sdk_generator = sdk_generator or SDKGenerator()
@@ -1526,16 +1468,11 @@ class SDKGeneratorVisionProvider(VisionProvider):
         return f"sdk_generator_{self._base_provider.provider_name}"
 
     async def analyze_image(
-        self,
-        image_data: bytes,
-        include_description: bool = True,
-        **kwargs: Any
+        self, image_data: bytes, include_description: bool = True, **kwargs: Any
     ) -> VisionDescription:
         """Analyze image with SDK generation support."""
         result = await self._base_provider.analyze_image(
-            image_data,
-            include_description=include_description,
-            **kwargs
+            image_data, include_description=include_description, **kwargs
         )
         return result
 
@@ -1543,22 +1480,13 @@ class SDKGeneratorVisionProvider(VisionProvider):
         """Set the API definition for SDK generation."""
         self._api_definition = api_def
 
-    def generate_sdk(
-        self,
-        config: SDKConfig
-    ) -> GenerationResult:
+    def generate_sdk(self, config: SDKConfig) -> GenerationResult:
         """Generate SDK for the configured API."""
         if not self._api_definition:
-            return GenerationResult(
-                success=False,
-                errors=["No API definition set"]
-            )
+            return GenerationResult(success=False, errors=["No API definition set"])
         return self._sdk_generator.generate_sdk(self._api_definition, config)
 
-    def generate_openapi(
-        self,
-        format: SpecFormat = SpecFormat.OPENAPI_3_0
-    ) -> Optional[str]:
+    def generate_openapi(self, format: SpecFormat = SpecFormat.OPENAPI_3_0) -> Optional[str]:
         """Generate OpenAPI specification."""
         if not self._api_definition:
             return None
@@ -1587,8 +1515,7 @@ def create_api_definition_builder() -> APIDefinitionBuilder:
 
 
 def create_sdk_generator_provider(
-    base_provider: VisionProvider,
-    sdk_generator: Optional[SDKGenerator] = None
+    base_provider: VisionProvider, sdk_generator: Optional[SDKGenerator] = None
 ) -> SDKGeneratorVisionProvider:
     """Create an SDK generator vision provider."""
     return SDKGeneratorVisionProvider(base_provider, sdk_generator)

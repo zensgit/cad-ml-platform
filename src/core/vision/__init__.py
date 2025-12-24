@@ -10,6 +10,291 @@ Supported providers:
 - anthropic: Claude 3 family (Opus, Sonnet, Haiku)
 """
 
+from .ab_testing import (
+    ABTestingVisionProvider,
+    AllocationStrategy,
+    ExperimentAnalysis,
+    ExperimentConfig,
+    ExperimentManager,
+    ExperimentResult,
+    ExperimentStatus,
+    StatisticalMethod,
+    Variant,
+    VariantStats,
+    VariantType,
+    create_ab_testing_provider,
+    get_experiment_manager,
+)
+
+# Phase 14: Advanced Security & Privacy (merged with Phase 19)
+from .access_control import AccessController
+from .access_control import AccessController as AccessControlManager
+from .access_control import AccessControlVisionProvider, AccessDecision, AccessRequest, AccessResult
+from .access_control import ACLResource
+from .access_control import ACLResource as Resource
+from .access_control import ACLResourceType
+from .access_control import ACLResourceType as ResourceType
+from .access_control import APIKey, APIKeyManager, AuthMethod
+from .access_control import Permission
+from .access_control import Permission as AccessPermission
+from .access_control import Role
+from .access_control import Role as ACLRole
+from .access_control import RoleManager, RoleType
+from .access_control import Session as ACLSession
+from .access_control import SessionManager, SessionStatus, Tenant
+from .access_control import User as ACLUser
+from .access_control import User as AccessUser
+from .access_control import UserManager
+from .access_control import create_access_control_provider
+from .access_control import create_access_control_provider as create_acl_provider
+from .access_control import create_access_controller
+from .access_control import create_access_controller as create_access_manager
+from .access_control import create_access_request, create_acl_resource, create_api_key_manager
+from .access_control import create_role as create_acl_role
+from .access_control import create_role as create_role_p14
+from .access_control import create_role_manager
+from .access_control import create_role_manager as create_role_manager_p14
+from .access_control import create_session_manager
+from .access_control import create_user as create_acl_user
+from .access_control import create_user_manager
+from .alert_manager import Alert as AlertInstance
+from .alert_manager import AlertCondition, AlertEvaluator
+from .alert_manager import AlertManager as Phase17AlertManager
+from .alert_manager import AlertManagerVisionProvider
+from .alert_manager import AlertRule as Phase17AlertRule
+from .alert_manager import AlertSeverity as Phase17AlertSeverity
+from .alert_manager import (
+    AlertState,
+    ComparisonOperator,
+    EscalationAction,
+    EscalationPolicy,
+    InhibitionRule,
+    NotificationChannel,
+    NotificationConfig,
+    SilenceRule,
+)
+from .alert_manager import create_alert_manager as create_phase17_alert_manager
+from .alert_manager import create_alert_manager_provider
+from .alert_manager import create_alert_rule as create_phase17_alert_rule
+from .alert_manager import create_escalation_policy, create_notification_channel, create_silence
+from .analytics import (
+    AnalyticsReport,
+    ProviderStats,
+    TimeBucket,
+    TimeGranularity,
+    TrendData,
+    VisionAnalytics,
+    create_analytics,
+)
+from .anomaly_detection import Alert as AnomalyAlert
+from .anomaly_detection import AlertManager as AnomalyAlertManager
+from .anomaly_detection import AlertSeverity as AnomalySeverity
+from .anomaly_detection import AlertStatus as AnomalyAlertStatus
+from .anomaly_detection import (
+    Anomaly,
+    AnomalyDetectionEngine,
+    AnomalyDetectionVisionProvider,
+    AnomalyDetector,
+    AnomalyType,
+    DataPoint,
+    DetectionConfig,
+    DetectionMethod,
+    DetectionResult,
+    IQRDetector,
+    MovingAverageDetector,
+)
+from .anomaly_detection import Threshold as AnomalyThreshold
+from .anomaly_detection import (
+    ThresholdDetector,
+    ZScoreDetector,
+    create_alert_manager,
+    create_anomaly_engine,
+    create_anomaly_provider,
+    create_iqr_detector,
+    create_moving_average_detector,
+    create_threshold,
+    create_threshold_detector,
+    create_zscore_detector,
+)
+from .api_gateway import (
+    ApiAggregator,
+    ApiGateway,
+    ApiVersion,
+    ApiVersionManager,
+    CompressionMiddleware,
+    CorsMiddleware,
+    GatewayMiddleware,
+    GatewayRequest,
+    GatewayResponse,
+    HeaderInjectionTransformer,
+    HttpMethod,
+    JsonResponseTransformer,
+)
+from .api_gateway import LoadBalancer as GatewayLoadBalancer
+from .api_gateway import LoadBalanceStrategy
+from .api_gateway import LoggingMiddleware as GatewayLoggingMiddleware
+from .api_gateway import PathRewriteTransformer, ProtocolType
+from .api_gateway import RequestTransformer as GatewayRequestTransformer
+from .api_gateway import ResponseStatus
+from .api_gateway import ResponseTransformer as GatewayResponseTransformer
+from .api_gateway import RouteConfig, Router
+from .api_gateway import ServiceEndpoint as GatewayServiceEndpoint
+from .api_gateway import VisionApiGateway, create_api_gateway
+from .api_gateway import create_load_balancer as create_gateway_load_balancer
+from .api_gateway import create_vision_gateway
+from .api_versioning import ApiChange, ApiVersionManager
+from .api_versioning import ChangeType as VersionChangeType
+from .api_versioning import CompatibilityLevel, DeprecationManager
+from .api_versioning import DeprecationWarning as VersionDeprecationWarning
+from .api_versioning import (
+    SemanticVersion,
+    VersionedVisionProvider,
+    VersionInfo,
+    VersionNegotiator,
+    VersionRegistry,
+    VersionRouter,
+    VersionStatus,
+    create_semantic_version,
+    create_version_info,
+    create_version_manager,
+    create_versioned_provider,
+)
+from .apm_integration import APMConfig, APMManager, APMProvider, APMVisionProvider
+from .apm_integration import DependencyInfo as DependencyRecord
+from .apm_integration import DependencyTracker
+from .apm_integration import ErrorInfo as ErrorRecord
+from .apm_integration import ErrorTracker, PerformanceAnalyzer
+from .apm_integration import PerformanceMetrics as APMPerformanceMetrics
+from .apm_integration import ProfileType
+from .apm_integration import Span as APMSpan
+from .apm_integration import SpanKind as APMSpanKind
+from .apm_integration import SpanStatus as APMSpanStatus
+from .apm_integration import (
+    SpanTracker,
+    Transaction,
+    TransactionTracker,
+    TransactionType,
+    create_apm_config,
+    create_apm_manager,
+    create_apm_provider,
+)
+from .audit import (
+    AuditConfig,
+    AuditContext,
+    AuditEntry,
+    AuditEventType,
+    AuditingVisionProvider,
+    AuditLevel,
+    AuditLogger,
+    AuditStorage,
+    InMemoryAuditStorage,
+    RetentionPolicy,
+    create_auditing_provider,
+    get_audit_logger,
+)
+from .audit_logger import (
+    AuditAlert,
+    AuditCategory,
+    AuditEvent,
+    AuditEventType,
+    AuditLogger,
+    AuditLoggerVisionProvider,
+    AuditPolicy,
+    AuditQuery,
+    AuditSeverity,
+    AuditSummary,
+    ComplianceAuditLogger,
+    LogDestination,
+    LogIntegrity,
+    MemoryAuditStore,
+    RetentionPeriod,
+    create_audit_alert,
+    create_audit_event,
+    create_audit_logger,
+    create_audit_logger_provider,
+    create_audit_policy,
+    create_audit_query,
+    create_compliance_audit_logger,
+    create_memory_audit_store,
+)
+from .audit_logging import AuditActor, AuditedVisionProvider
+from .audit_logging import AuditEvent as Phase11AuditEvent
+from .audit_logging import AuditEventType as Phase11AuditEventType
+from .audit_logging import AuditLogger as Phase11AuditLogger
+from .audit_logging import AuditResource
+from .audit_logging import AuditSeverity as Phase11AuditSeverity
+from .audit_logging import AuditStore, AuditTrail, ComplianceFramework
+from .audit_logging import ComplianceRequirement as Phase11ComplianceRequirement
+from .audit_logging import ComplianceTracker as Phase11ComplianceTracker
+from .audit_logging import InMemoryAuditStore as Phase11InMemoryAuditStore
+from .audit_logging import create_audit_logger as create_phase11_audit_logger
+from .audit_logging import create_audited_provider
+from .audit_logging import create_compliance_tracker as create_phase11_compliance_tracker
+from .auto_scaling import (
+    AutoScaledVisionProvider,
+    AutoScaler,
+    CapacityPlan,
+    MetricsCollector,
+    PredictiveScaler,
+    ReactiveScaler,
+)
+from .auto_scaling import ResourceType as ScalingResourceType
+from .auto_scaling import (
+    ScalingConfig,
+    ScalingDecision,
+    ScalingDirection,
+    ScalingEvent,
+    ScalingMetrics,
+    ScalingPolicy,
+    ScalingPredictor,
+    ScalingState,
+    ScheduledScaler,
+    create_auto_scaled_provider,
+    create_auto_scaler,
+    create_capacity_plan,
+    create_scaling_config,
+)
+
+# Phase 18: Advanced ML Pipeline & AutoML
+from .automl_engine import (
+    AutoMLEngine,
+    AutoMLResult,
+    AutoMLVisionProvider,
+    BayesianOptimizer,
+    EarlyStoppingStrategy,
+    EnsembleBuilder,
+    EnsembleConfig,
+)
+from .automl_engine import FeatureSelector as AutoMLFeatureSelector
+from .automl_engine import (
+    HyperparameterOptimizer,
+    HyperparameterSpace,
+    ModelCandidate,
+    ModelSelector,
+)
+from .automl_engine import ModelType as AutoMLModelType
+from .automl_engine import (
+    NeuralArchitectureSearch,
+    OptimizationObjective,
+    RandomSearchOptimizer,
+    SearchConfig,
+    SearchStrategy,
+)
+from .automl_engine import TaskType as AutoMLTaskType
+from .automl_engine import (
+    TrialResult,
+    TrialStatus,
+    create_automl_engine,
+    create_automl_provider,
+    create_ensemble_builder,
+)
+from .automl_engine import create_feature_selector as create_automl_feature_selector
+from .automl_engine import (
+    create_hyperparameter_space,
+    create_model_selector,
+    create_nas,
+    create_search_config,
+)
 from .base import (
     OcrResult,
     VisionAnalyzeRequest,
@@ -20,2111 +305,1748 @@ from .base import (
     VisionProvider,
     VisionProviderError,
 )
-from .manager import VisionManager
-from .providers import (
-    # Stub provider
-    DeepSeekStubProvider,
-    create_stub_provider,
-    # DeepSeek provider
-    DeepSeekVisionProvider,
-    create_deepseek_provider,
-    # OpenAI provider
-    OpenAIVisionProvider,
-    create_openai_provider,
-    # Anthropic provider
-    AnthropicVisionProvider,
-    create_anthropic_provider,
-)
-from .factory import (
-    create_vision_provider,
-    get_vision_provider,
-    get_available_providers,
-)
-from .resilience import (
-    ResilientVisionProvider,
-    RetryConfig,
-    CircuitBreakerConfig,
-    CircuitState,
-    CircuitOpenError,
-    ProviderMetrics,
-    create_resilient_provider,
-)
-from .cache import (
-    VisionCache,
-    CachedVisionProvider,
-    CacheStats,
-    create_cached_provider,
-)
-from .rate_limiter import (
-    RateLimitConfig,
-    RateLimitStats,
-    RateLimitError,
-    RateLimitedVisionProvider,
-    TokenBucketRateLimiter,
-    create_rate_limited_provider,
-)
-from .batch import (
-    BatchProcessor,
-    BatchResult,
-    BatchProgress,
-    process_images_batch,
-)
-from .comparison import (
-    ProviderComparator,
-    ComparisonResult,
-    SelectionStrategy,
-    compare_providers,
-)
-from .streaming import (
-    StreamingVisionProvider,
-    StreamEvent,
-    StreamEventType,
-    StreamConfig,
-    BatchStreamProcessor,
-    stream_analysis,
-    generate_sse_stream,
-    create_streaming_provider,
-)
-from .prompts import (
-    PromptManager,
-    PromptTemplate,
-    PromptConfig,
-    PromptType,
-    get_prompt_manager,
-    get_prompts,
-    register_custom_template,
-    BUILTIN_TEMPLATES,
-)
-from .cost_tracker import (
-    CostTracker,
-    CostTrackedVisionProvider,
-    PricingTier,
-    UsageRecord,
-    UsageSummary,
-    BudgetConfig,
-    get_cost_tracker,
-    create_cost_tracked_provider,
-)
-from .webhooks import (
-    WebhookManager,
-    WebhookVisionProvider,
-    WebhookConfig,
-    WebhookEvent,
-    WebhookEventType,
-    WebhookStatus,
-    DeliveryResult,
-    get_webhook_manager,
-    create_webhook_provider,
-)
-from .persistence import (
-    ResultPersistence,
-    PersistentVisionProvider,
-    StorageProvider,
-    InMemoryStorage,
-    StorageBackend,
-    AnalysisRecord,
-    QueryFilter,
-    QueryResult,
-    get_persistence,
-    create_persistent_provider,
-)
-from .analytics import (
-    VisionAnalytics,
-    ProviderStats,
-    TimeBucket,
-    TrendData,
-    TimeGranularity,
-    AnalyticsReport,
-    create_analytics,
-)
-from .failover import (
-    FailoverManager,
-    FailoverVisionProvider,
-    ProviderEndpoint,
-    ProviderHealth,
-    FailoverStrategy,
-    FailoverConfig,
-    FailoverResult,
-    create_failover_provider,
-)
-from .health import (
-    HealthMonitor,
-    HealthAwareVisionProvider,
-    HealthMetrics,
-    HealthStatus,
-    HealthAlert,
-    AlertSeverity,
-    HealthCheckConfig,
-    HealthDashboard,
-    get_health_monitor,
-    create_health_aware_provider,
-)
-from .preprocessing import (
-    ImagePreprocessor,
-    ImageValidator,
-    PreprocessingVisionProvider,
-    PreprocessingConfig,
-    ImageFormat,
-    ImageInfo,
-    ValidationResult,
-    create_preprocessing_provider,
-)
-from .load_balancer import (
-    LoadBalancer,
-    LoadBalancedVisionProvider,
-    LoadBalancingAlgorithm,
-    LoadBalancerConfig,
-    LoadBalancerStats,
-    ProviderNode,
-    create_load_balanced_provider,
-)
-from .logging_middleware import (
-    LoggingMiddleware,
-    LoggingVisionProvider,
-    LoggingConfig,
-    LogLevel,
-    LogDestination,
-    RequestLog,
-    ResponseLog,
-    PerformanceMetrics,
-    LogHandler,
-    ConsoleLogHandler,
-    FileLogHandler,
-    JSONLogHandler,
-    CallbackLogHandler,
-    get_logging_middleware,
-    create_logging_provider,
-)
-from .profiles import (
-    ProfileManager,
-    ProfileConfig,
-    ProviderConfig,
-    ProfileType,
-    ProviderType,
-    RetryConfig as ProfileRetryConfig,
-    RateLimitConfig as ProfileRateLimitConfig,
-    CacheConfig as ProfileCacheConfig,
-    CircuitBreakerConfig as ProfileCircuitBreakerConfig,
-    TimeoutConfig,
-    ProfileEnvironmentLoader,
-    get_profile_manager,
-    get_profile,
-    create_profile,
-)
-from .tracing import (
-    Tracer,
-    TracingVisionProvider,
-    Span,
-    SpanStatus,
-    SpanKind,
-    RequestContext,
-    SpanExporter,
-    ConsoleSpanExporter,
-    TracerConfig,
-    get_current_context,
-    set_current_context,
-    get_tracer,
-    create_tracing_provider,
-)
-from .metrics_exporter import (
-    MetricsExporter,
-    MetricsVisionProvider,
-    MetricType,
-    MetricValue,
-    HistogramValue,
-    MetricBackend,
-    InMemoryMetricBackend,
-    CallbackMetricBackend,
-    MetricsConfig,
-    get_metrics_exporter,
-    create_metrics_provider,
-)
-from .embedding import (
-    ImageEmbedder,
-    SimilarityIndex,
-    SimilarityVisionProvider,
-    HashAlgorithm,
-    ImageHash,
-    EmbeddingVector,
-    ImageRecord,
-    SimilarityResult,
-    CryptographicHashGenerator,
-    PerceptualHashGenerator,
-    create_similarity_provider,
-)
-from .quotas import (
-    QuotaManager,
-    Throttler,
-    QuotaVisionProvider,
-    QuotaPeriod,
-    ThrottleStrategy,
-    QuotaAction,
-    QuotaLimit,
-    QuotaUsage,
-    ThrottleConfig,
-    ThrottleState,
-    QuotaCheckResult,
-    ProviderQuotaConfig,
-    QUOTA_PRESETS,
-    THROTTLE_PRESETS,
-    get_quota_preset,
-    get_throttle_preset,
-    create_quota_provider,
-)
-from .ab_testing import (
-    ExperimentManager,
-    ABTestingVisionProvider,
-    ExperimentConfig,
-    ExperimentStatus,
-    ExperimentResult,
-    ExperimentAnalysis,
-    Variant,
-    VariantType,
-    VariantStats,
-    AllocationStrategy,
-    StatisticalMethod,
-    get_experiment_manager,
-    create_ab_testing_provider,
-)
-from .validation import (
-    ResponseValidator,
-    ValidatingVisionProvider,
-    ValidationSchema,
-    ValidationRule,
-    ValidationResult,
-    ValidationIssue,
-    ValidationSeverity,
-    ValidationRuleType,
-    ValidationStats,
-    ValidationError,
-    STANDARD_SCHEMA,
-    STRICT_SCHEMA,
-    OCR_SCHEMA,
-    create_validating_provider,
-)
-from .audit import (
-    AuditLogger,
-    AuditingVisionProvider,
-    AuditEntry,
-    AuditContext,
-    AuditConfig,
-    AuditEventType,
-    AuditLevel,
-    AuditStorage,
-    InMemoryAuditStorage,
-    RetentionPolicy,
-    get_audit_logger,
-    create_auditing_provider,
-)
-from .multiregion import (
-    RegionRouter,
-    MultiRegionVisionProvider,
-    Region,
-    RegionConfig,
-    RegionHealth,
-    RegionStatus,
-    RoutingStrategy,
-    RoutingDecision,
-    LatencyMeasurer,
-    create_multiregion_provider,
-)
-from .priority import (
-    RequestScheduler,
-    PrioritizedVisionProvider,
-    PriorityQueue,
-    HeapPriorityQueue,
-    MultiLevelQueue,
-    Priority,
-    QueueStrategy,
-    RequestStatus,
-    PrioritizedRequest,
-    QueueStats,
-    QueueFullError,
-    create_prioritized_provider,
-)
-from .transformation import (
-    TransformationPipeline,
-    TransformingVisionProvider,
-    Transformer,
-    RequestTransformer,
-    ResponseTransformer,
-    LambdaRequestTransformer,
-    LambdaResponseTransformer,
-    TransformStage,
-    TransformPriority,
-    TransformContext,
-    TransformResult,
-    PipelineStats,
-    ConfidenceBoostTransformer,
-    SummaryPrefixTransformer,
-    DetailFilterTransformer,
-    create_transforming_provider,
-)
-from .discovery import (
-    CapabilityDiscovery,
-    CapabilityAwareVisionProvider,
-    Capability,
-    CapabilityStatus,
-    CapabilityInfo,
-    CapabilityRequirement,
-    ProviderCapabilities,
-    MatchResult,
-    get_capability_discovery,
-    create_capability_aware_provider,
-)
-from .hot_reload import (
-    HotReloadManager,
-    HotReloadingVisionProvider,
-    ConfigSource,
-    FileConfigSource,
-    DictConfigSource,
-    HotReloadConfig,
-    ConfigValidator,
-    ReloadEvent,
-    ReloadTrigger,
-    ReloadStatus,
-    ConfigVersion,
-    create_hot_reloading_provider,
-)
-from .deduplication import (
-    DeduplicationManager,
-    DeduplicatingVisionProvider,
-    DeduplicationConfig,
-    DeduplicationStrategy,
-    DeduplicationCache,
-    DeduplicationStats,
-    CachedResult,
-    KeyGenerator,
-    HashKeyGenerator,
-    SizeHashKeyGenerator,
-    HashAlgorithm as DeduplicationHashAlgorithm,
-    get_deduplication_manager,
-    create_deduplicating_provider,
-)
-from .versioning import (
-    VersionRegistry,
-    VersionedVisionProvider,
-    SemanticVersion,
-    ProviderVersion,
-    VersionStatus,
-    VersionConstraint,
-    VersionHistory,
-    CompatibilityLevel,
-    get_version_registry,
-    create_versioned_provider,
-)
-from .middleware import (
-    MiddlewareChain,
-    MiddlewareVisionProvider,
-    Middleware,
-    LambdaMiddleware,
-    ConditionalMiddleware,
-    MiddlewareContext,
-    MiddlewareResult,
-    MiddlewarePhase,
-    MiddlewarePriority,
-    MiddlewareChainStats,
-    TimingMiddleware,
-    LoggingMiddleware as MiddlewareLogging,
-    MetadataMiddleware,
-    create_middleware_provider,
-)
-from .circuit_breaker import (
-    CircuitBreaker,
-    CircuitBreakerVisionProvider,
-    CircuitBreakerConfig as AdvancedCircuitBreakerConfig,
-    CircuitBreakerStats,
-    CircuitBreakerError,
-    CircuitState as AdvancedCircuitState,
-    FailureType,
-    RecoveryStrategy,
-    SlidingWindow,
-    get_circuit_breaker,
-    create_circuit_breaker_provider,
-)
-from .retry_policy import (
-    RetryPolicy,
-    RetryVisionProvider,
-    RetryPolicyConfig,
-    RetryStats,
-    RetryAttempt,
-    RetryBudget,
-    BackoffStrategy,
-    JitterType,
-    BackoffCalculator,
-    FixedBackoff,
-    ExponentialBackoff,
-    LinearBackoff,
-    FibonacciBackoff,
-    create_retry_provider,
-)
-from .request_context import (
-    RequestContext,
-    ContextManager,
-    ContextAwareVisionProvider,
-    ContextScope,
-    ContextSpan,
-    BaggageItem,
-    get_current_context as get_request_context,
-    set_current_context as set_request_context,
-    context_scope,
-    get_context_manager,
-    create_context_aware_provider,
-)
-from .provider_pool import (
-    ProviderPool,
-    PooledVisionProvider,
-    PoolConfig,
-    PoolState,
-    PoolStats,
-    PooledConnection,
-    ConnectionState,
-    ProviderFactory,
-    SimpleProviderFactory,
-    create_pooled_provider,
-)
-from .service_mesh import (
-    ServiceMesh,
-    MeshVisionProvider,
-    ServiceRegistry,
-    LoadBalancer as MeshLoadBalancer,
-    TrafficManager,
-    Sidecar,
-    ServiceInstance,
-    ServiceEndpoint,
-    ServiceStatus,
-    LoadBalancerPolicy,
-    RetryPolicy as MeshRetryPolicy,
-    CircuitState as MeshCircuitState,
-    TrafficRule,
-    MeshConfig,
-    SidecarConfig,
-    SidecarStats,
-    create_mesh_provider,
-)
-from .distributed_tracing import (
-    TracerProvider,
-    DistributedTracer,
-    TracingVisionProvider as DistributedTracingVisionProvider,
-    TracingSpan,
-    SpanContext,
-    SpanEvent,
-    SpanLink,
-    SpanKind as DistributedSpanKind,
-    SpanStatus as DistributedSpanStatus,
-    TraceId,
-    SpanId,
-    TraceContext,
-    Sampler,
-    AlwaysOnSampler,
-    AlwaysOffSampler,
-    TraceIdRatioSampler,
-    ParentBasedSampler,
-    SamplingDecision,
-    SpanExporter as DistributedSpanExporter,
-    InMemorySpanExporter,
-    ConsoleSpanExporter as DistributedConsoleSpanExporter,
-    BatchSpanProcessor,
-    Propagator,
-    W3CTraceContextPropagator,
-    B3Propagator,
-    TracerConfig as DistributedTracerConfig,
-    TracingStats,
-    trace_span,
-    create_tracing_provider as create_distributed_tracing_provider,
-)
-from .config_management import (
-    ConfigurationManager,
-    ConfigurableVisionProvider,
-    ConfigProvider,
-    DictConfigProvider,
-    EnvironmentConfigProvider,
-    FileConfigProvider,
-    ConfigSchema,
-    ConfigValue,
-    ConfigChange,
-    ConfigWatcher,
-    ProfileManager as ConfigProfileManager,
-    ConfigProfile,
-    ConfigSnapshotManager,
-    ConfigSnapshot,
-    ConfigSource as ConfigSourceType,
-    ConfigFormat,
-    ValidationLevel,
-    create_configurable_provider,
-)
-from .feature_flags import (
-    FeatureFlagManager,
-    FeatureFlagVisionProvider,
-    FlagEvaluator,
-    FlagStore,
-    InMemoryFlagStore,
-    FeatureFlag,
-    FlagVariation,
-    TargetingRule,
-    PercentageRollout,
-    EvaluationContext,
-    EvaluationResult,
-    FlagType,
-    FlagStatus,
-    TargetingOperator,
-    FlagEvaluationCache,
-    create_feature_flag_provider,
-)
-from .graceful_degradation import (
-    DegradationManager,
-    GracefulDegradationVisionProvider,
-    FallbackChain,
-    FallbackChainVisionProvider,
-    FallbackProvider,
-    StaticFallbackProvider,
-    CachedFallbackProvider,
-    DegradationPolicy,
-    RecoveryManager,
-    DegradationLevel,
-    DegradationReason,
-    RecoveryStrategy as DegradationRecoveryStrategy,
-    DegradationState,
-    DegradationMetrics,
-    DegradationThresholds,
-    DegradationConfig,
-    FallbackResponse,
-    create_graceful_provider,
-    create_fallback_chain,
-)
-from .observability import (
-    MetricsCollector,
-    StructuredLogger,
-    AlertManager,
-    HealthChecker,
-    SLOMonitor,
-    ObservabilityContext,
-    ObservableVisionProvider,
-    MetricType as ObservabilityMetricType,
-    LogLevel as ObservabilityLogLevel,
-    AlertSeverity as ObservabilityAlertSeverity,
-    AlertStatus,
-    HealthStatus as ObservabilityHealthStatus,
-    MetricValue as ObservabilityMetricValue,
-    HistogramBucket,
-    HistogramValue as ObservabilityHistogramValue,
-    LogEntry,
-    Alert,
-    AlertRule,
-    HealthCheck,
-    SLI,
-    SLO,
-    create_observable_provider,
-)
-from .deployment import (
-    DeploymentManager,
-    DeploymentVisionProvider,
-    TrafficRouter,
-    BlueGreenDeployment,
-    CanaryRelease,
-    RollingUpdate,
-    DeploymentStrategy,
-    DeploymentPhase,
-    EnvironmentType,
-    TrafficSplitMethod,
-    DeploymentVersion,
-    DeploymentConfig,
-    DeploymentMetrics as DeploymentMetricsData,
-    DeploymentState,
-    create_blue_green_provider,
-    create_canary_provider,
-)
-from .multi_tenancy import (
-    TenantManager,
-    MultiTenantVisionProvider,
-    QuotaManager as TenantQuotaManager,
-    UsageTracker,
-    TenantContext,
-    TenantStore,
-    InMemoryTenantStore,
-    TenantStatus,
-    TenantTier,
-    IsolationLevel,
-    QuotaType,
-    ResourceQuota,
-    TenantConfig,
-    Tenant,
-    TenantUsage,
-    create_multi_tenant_provider,
-)
-from .compliance import (
-    ComplianceManager,
-    ComplianceVisionProvider,
-    AuditLogger as ComplianceAuditLogger,
-    PIIDetector,
-    DataRetentionManager,
-    AuditEventType as ComplianceAuditEventType,
-    AuditSeverity as ComplianceAuditSeverity,
-    ComplianceStandard,
-    DataClassification,
-    RetentionPolicy as ComplianceRetentionPolicy,
-    AuditEvent,
-    DataRetentionConfig,
-    ComplianceRequirement,
-    PIIDetectionResult,
-    create_compliant_provider,
-)
+from .batch import BatchProcessor, BatchProgress, BatchResult, process_images_batch
+from .cache import CachedVisionProvider, CacheStats, VisionCache, create_cached_provider
+from .chaos_engineering import ChaosExperiment, ChaosManager, ChaosVisionProvider, ErrorInjector
+from .chaos_engineering import ExperimentConfig as ChaosExperimentConfig
+from .chaos_engineering import ExperimentResult as ChaosExperimentResult
+from .chaos_engineering import ExperimentStatus as ChaosExperimentStatus
 from .chaos_engineering import (
-    ChaosManager,
-    ChaosVisionProvider,
-    FaultInjector,
-    LatencyInjector,
-    ErrorInjector,
-    ChaosExperiment,
-    FaultType,
-    ExperimentStatus as ChaosExperimentStatus,
-    TargetType,
-    InjectionStrategy,
     FaultConfig,
-    ExperimentConfig as ChaosExperimentConfig,
-    ExperimentResult as ChaosExperimentResult,
+    FaultInjector,
+    FaultType,
+    InjectionStrategy,
+    LatencyInjector,
+    TargetType,
     create_chaos_provider,
     create_experiment,
 )
-from .event_sourcing import (
-    EventStore,
-    InMemoryEventStore,
-    SnapshotStore,
-    SnapshotStore as InMemorySnapshotStore,  # Alias for compatibility
-    Aggregate,
-    Aggregate as AggregateRoot,  # Alias for compatibility
-    VisionRequestAggregate,
-    Projection,
-    RequestCountProjection,
-    LatencyProjection,
-    Command,
-    Query,
-    CommandHandler,
-    QueryHandler,
-    GetStatisticsQuery as GetRequestStatsQuery,  # Alias
-    GetStatisticsQueryHandler as GetRequestStatsHandler,  # Alias
-    EventSourcedVisionProvider,
-    Event,
-    Snapshot,
-    EventType,
-    AggregateType,
-    create_event_sourced_provider,
-)
-from .plugin_system import (
-    PluginManager,
-    PluginRegistry,
-    PluginPipeline,
-    PluggableVisionProvider,
-    Plugin,
-    VisionProviderPlugin,
-    PreprocessorPlugin,
-    PostprocessorPlugin,
-    MiddlewarePlugin,
-    HookManager,
-    PluginDiscovery,
-    PluginSandbox,
-    PluginState,
-    PluginType,
-    HookPriority,
-    PluginCapability,
-    PluginMetadata,
-    PluginInstance,
-    HookRegistration,
-    PluginEvent,
-    create_plugin_manager,
-    create_plugin_pipeline,
-)
-from .api_gateway import (
-    ApiGateway,
-    VisionApiGateway,
-    Router,
-    LoadBalancer as GatewayLoadBalancer,
-    ApiVersionManager,
-    ApiAggregator,
-    GatewayMiddleware,
-    LoggingMiddleware as GatewayLoggingMiddleware,
-    CorsMiddleware,
-    CompressionMiddleware,
-    RequestTransformer as GatewayRequestTransformer,
-    ResponseTransformer as GatewayResponseTransformer,
-    HeaderInjectionTransformer,
-    PathRewriteTransformer,
-    JsonResponseTransformer,
-    HttpMethod,
-    LoadBalanceStrategy,
-    ProtocolType,
-    ResponseStatus,
-    GatewayRequest,
-    GatewayResponse,
-    RouteConfig,
-    ServiceEndpoint as GatewayServiceEndpoint,
-    ApiVersion,
-    create_api_gateway,
-    create_vision_gateway,
-    create_load_balancer as create_gateway_load_balancer,
-)
-from .distributed_lock import (
-    LockManager,
-    DistributedLock,
-    InMemoryLock,
-    ReentrantLock,
-    ReadWriteLock,
-    DistributedSemaphore,
-    FencingTokenManager,
-    LockedVisionProvider,
-    LockType,
-    LockState,
-    LockAcquisitionResult,
-    LockInfo,
-    LockRequest,
-    LockResult,
-    DeadlockInfo,
-    create_lock_manager,
-    create_reentrant_lock,
-    create_read_write_lock,
-    create_semaphore,
-)
-from .workflow_engine import (
-    WorkflowEngine,
-    WorkflowBuilder,
-    WorkflowVisionProvider,
-    TaskHandler,
-    VisionAnalysisTask,
-    ConditionalTask,
-    ParallelTask,
-    SequentialTask,
-    ImagePreprocessTask,
-    ImageAnalysisTask,
-    ResultAggregationTask,
-    StateMachine,
-    WorkflowStatus,
-    TaskStatus,
-    TriggerType,
-    RetryPolicy as WorkflowRetryPolicy,
-    TaskDefinition,
-    WorkflowDefinition,
-    TaskExecution,
-    WorkflowExecution,
-    WorkflowEvent,
-    StateTransition,
-    create_workflow_engine,
-    create_workflow_builder,
-    create_vision_workflow,
-)
-from .encryption import (
-    EncryptionService,
-    EncryptedVisionProvider,
-    KeyManager,
-    KeyStore,
-    InMemoryKeyStore,
-    Encryptor,
-    SimpleAESEncryptor,
-    Hasher,
-    HMACAuthenticator,
-    SecureStorage,
-    EncryptionAlgorithm,
-    KeyType,
-    KeyStatus,
-    HashAlgorithm as EncryptionHashAlgorithm,
-    KeyMetadata,
-    EncryptedData,
-    SecureValue,
-    create_encryption_service,
-    create_encrypted_provider,
-)
-from .audit_logging import (
-    AuditLogger as Phase11AuditLogger,
-    AuditedVisionProvider,
-    AuditStore,
-    InMemoryAuditStore as Phase11InMemoryAuditStore,
-    ComplianceTracker as Phase11ComplianceTracker,
-    AuditTrail,
-    AuditEventType as Phase11AuditEventType,
-    AuditSeverity as Phase11AuditSeverity,
-    ComplianceFramework,
-    AuditActor,
-    AuditResource,
-    AuditEvent as Phase11AuditEvent,
-    ComplianceRequirement as Phase11ComplianceRequirement,
-    create_audit_logger as create_phase11_audit_logger,
-    create_audited_provider,
-    create_compliance_tracker as create_phase11_compliance_tracker,
-)
-from .data_pipeline import (
-    Pipeline,
-    PipelineBuilder,
-    VisionPipelineProvider,
-    ETLPipeline,
-    BatchProcessor as PipelineBatchProcessor,
-    DataSource,
-    DataSink,
-    InMemoryDataSource,
-    InMemoryDataSink,
-    Transformer as PipelineTransformer,
-    MapTransformer,
-    FilterTransformer,
-    FieldExtractTransformer,
-    EnrichTransformer,
-    PipelineStageType,
-    PipelineStatus,
-    DataFormat,
-    DataRecord,
-    BatchResult as PipelineBatchResult,
-    PipelineStage,
-    PipelineConfig,
-    create_pipeline,
-    create_etl_pipeline,
-    create_batch_processor as create_pipeline_batch_processor,
-)
-from .stream_processing import (
-    Stream,
-    StreamBuilder,
-    StreamingVisionProvider as Phase11StreamingVisionProvider,
-    Window,
-    TumblingWindow,
+from .circuit_breaker import CircuitBreaker
+from .circuit_breaker import CircuitBreakerConfig as AdvancedCircuitBreakerConfig
+from .circuit_breaker import CircuitBreakerError, CircuitBreakerStats, CircuitBreakerVisionProvider
+from .circuit_breaker import CircuitState as AdvancedCircuitState
+from .circuit_breaker import (
+    FailureType,
+    RecoveryStrategy,
     SlidingWindow,
-    SessionWindow,
-    CountWindow,
-    WindowedStream,
-    StreamOperator,
-    MapOperator,
-    FilterOperator,
-    FlatMapOperator,
-    KeyByOperator,
-    Aggregator,
-    SumAggregator,
-    CountAggregator,
-    AverageAggregator,
-    MinAggregator,
-    MaxAggregator,
-    WindowType,
-    TriggerType as StreamTriggerType,
-    StreamState,
-    StreamEvent as Phase11StreamEvent,
-    WindowResult,
-    create_stream,
-    create_streaming_provider as create_phase11_streaming_provider,
+    create_circuit_breaker_provider,
+    get_circuit_breaker,
 )
-from .data_validation import (
-    Schema,
-    SchemaBuilder,
-    ValidatedVisionProvider,
-    Validator,
-    TypeValidator,
-    RequiredValidator,
-    RangeValidator,
-    LengthValidator,
-    PatternValidator,
-    EnumValidator,
-    CustomValidator,
-    CompositeValidator,
-    DataQualityChecker,
-    ValidationSeverity as Phase11ValidationSeverity,
-    ValidationStatus,
-    DataType,
-    ValidationError as Phase11ValidationError,
-    ValidationResult as Phase11ValidationResult,
-    FieldSchema,
-    create_schema,
-    create_validator,
-    create_quality_checker,
-    create_validated_provider,
-)
-
-# Phase 12: Advanced Analytics & ML Integration
-from .ml_integration import (
-    ModelRegistry,
-    MLVisionProvider,
-    InferenceEngine,
-    InferencePipeline,
-    ModelStore,
-    InMemoryModelStore,
-    FeatureExtractor,
-    ImageFeatureExtractor,
-    CompositeFeatureExtractor,
-    MLModel,
-    SimpleClassifier,
-    EnsembleModel,
-    ModelType,
-    ModelStatus,
-    InferenceMode,
-    FeatureType,
-    ModelMetadata,
-    ModelVersion,
-    Feature as MLFeature,
-    FeatureVector,
-    InferenceRequest,
-    InferenceResult,
-    PipelineStage as MLPipelineStage,
-    PipelineConfig as MLPipelineConfig,
-    create_model_registry,
-    create_inference_engine,
-    create_ml_provider,
-    create_feature_extractor,
-    create_simple_classifier,
-    create_ensemble_model,
-)
-from .recommendations import (
-    RecommendationEngine,
-    RecommendationVisionProvider,
-    SimilarityCalculator,
-    ItemStore,
-    InMemoryItemStore,
-    InteractionStore,
-    InMemoryInteractionStore,
-    RecommendationStrategy,
-    PopularityStrategy,
-    ContentBasedStrategy,
-    CollaborativeStrategy,
-    RecommendationType,
-    SimilarityMetric,
-    InteractionType,
-    Item,
-    User as RecommendationUser,
-    Interaction,
-    Recommendation,
-    RecommendationRequest,
-    RecommendationResult,
-    SimilarityResult,
-    create_recommendation_engine,
-    create_recommendation_provider,
-    create_similarity_calculator,
-    create_item,
-    create_interaction,
-)
-from .anomaly_detection import (
-    AnomalyDetectionEngine,
-    AnomalyDetectionVisionProvider,
-    AlertManager as AnomalyAlertManager,
-    AnomalyDetector,
-    ZScoreDetector,
-    IQRDetector,
-    ThresholdDetector,
-    MovingAverageDetector,
-    AnomalyType,
-    DetectionMethod,
-    AlertSeverity as AnomalySeverity,
-    AlertStatus as AnomalyAlertStatus,
-    DataPoint,
-    Anomaly,
-    Alert as AnomalyAlert,
-    Threshold as AnomalyThreshold,
-    DetectionConfig,
-    DetectionResult,
-    create_anomaly_engine,
-    create_anomaly_provider,
-    create_zscore_detector,
-    create_iqr_detector,
-    create_threshold_detector,
-    create_moving_average_detector,
-    create_alert_manager,
-    create_threshold,
-)
-from .reporting import (
-    ReportGenerator,
-    ReportBuilder,
-    ReportingVisionProvider,
-    DashboardManager,
-    ReportScheduler,
-    ReportFormatter,
-    JSONFormatter,
-    MarkdownFormatter,
-    CSVFormatter,
-    HTMLFormatter,
-    ReportType,
-    ReportFormat,
-    ChartType,
-    ReportStatus,
-    ScheduleFrequency,
-    DataSeries,
-    ChartConfig,
-    ReportSection,
-    ReportConfig,
-    Report,
-    DashboardWidget,
-    Dashboard,
-    ScheduledReport,
-    ExportResult,
-    create_report_generator,
-    create_report_builder,
-    create_dashboard_manager,
-    create_report_scheduler,
-    create_reporting_provider,
-    create_chart_config,
-    create_data_series,
-    create_dashboard_widget,
-)
-
-# Phase 13: Advanced Distributed Systems & Messaging
-from .message_queue import (
-    MessageQueue,
-    MessageBroker,
-    MessageQueueVisionProvider,
-    Publisher,
-    Subscriber,
-    DeadLetterQueue,
-    Message,
-    MessageStatus,
-    DeliveryMode,
-    QueueType,
-    AckMode,
-    MessageBatch,
-    PublishResult,
-    ConsumeResult,
-    QueueConfig,
-    QueueStats as MessageQueueStats,
-    Subscription,
-    create_message_queue,
-    create_message_broker,
-    create_mq_provider,
-    create_message,
-    create_dead_letter_queue,
-)
-from .distributed_cache import (
-    DistributedCache,
-    DistributedCacheVisionProvider,
-    CacheManager,
-    CacheShard,
-    ConsistentHashRing,
-    CacheNode,
-    CacheStrategy,
-    ConsistencyLevel,
-    InvalidationStrategy,
-    CacheNodeStatus,
-    CacheEntry,
-    CacheStats as DistributedCacheStats,
-    CacheConfig,
-    ShardInfo,
-    create_distributed_cache,
-    create_cache_manager,
-    create_dcache_provider,
-    create_cache_config,
-    create_consistent_hash_ring,
-)
-from .saga_pattern import (
-    SagaOrchestrator,
-    SagaVisionProvider,
-    SagaDefinition,
-    SagaBuilder,
-    CompensationManager,
-    TransactionCoordinator,
-    TransactionParticipant,
-    SimpleParticipant,
-    ChoreographySaga,
-    SagaStep,
-    SagaContext,
-    SagaExecution,
-    SagaStatus,
-    StepStatus,
-    create_saga_orchestrator,
-    create_saga_builder,
-    create_compensation_manager,
-    create_transaction_coordinator,
-    create_choreography_saga,
-    create_saga_provider,
-)
-from .event_bus import (
-    EventBus,
-    EventDrivenVisionProvider,
-    EventRouter,
-    EventStore as EventBusStore,
-    EventAggregator,
-    CommandBus,
-    QueryBus,
-    EventHandler,
-    FunctionEventHandler,
-    Event as EventBusEvent,
-    VisionEvent,
-    ImageAnalyzedEvent,
-    AnalysisFailedEvent,
-    EventEnvelope,
-    EventPriority,
-    EventStatus,
-    create_event_bus,
-    create_event_router,
-    create_event_store as create_event_bus_store,
-    create_event_aggregator,
-    create_command_bus,
-    create_query_bus,
-    create_event_provider,
-)
-
-# Phase 14: Advanced Security & Privacy (merged with Phase 19)
-from .access_control import (
-    RoleManager,
-    AccessController as AccessControlManager,
-    AccessControlVisionProvider,
-    Role,
-    Permission as AccessPermission,
-    User as AccessUser,
-    AccessDecision,
-    AccessRequest,
-    AccessResult,
-    ACLResource as Resource,
-    ACLResourceType as ResourceType,
-    create_role_manager as create_role_manager_p14,
-    create_access_controller as create_access_manager,
-    create_access_control_provider as create_acl_provider,
-    create_role as create_role_p14,
-)
-from .data_masking import (
-    MaskingEngine,
-    DataMaskingVisionProvider,
+from .comparison import ComparisonResult, ProviderComparator, SelectionStrategy, compare_providers
+from .compliance import AuditEvent as ComplianceAuditEvent
+from .compliance import AuditEventType as ComplianceAuditEventType
+from .compliance import AuditLogger as ComplianceAuditLoggerP9
+from .compliance import AuditSeverity as ComplianceAuditSeverity
+from .compliance import (
+    ComplianceManager,
+    ComplianceRequirement,
+    ComplianceStandard,
+    ComplianceVisionProvider,
+    DataClassification,
+    DataRetentionConfig,
+    DataRetentionManager,
+    PIIDetectionResult,
     PIIDetector,
-    RegexPIIDetector,
-    HeuristicPIIDetector,
-    DataMasker,
-    RedactionMasker,
-    PartialMasker,
-    HashMasker,
-    TokenizeMasker,
-    PseudonymizeMasker,
-    PIIType,
-    MaskingStrategy,
-    SensitivityLevel,
-    PIIMatch,
-    MaskingRule,
-    MaskingResult,
-    DetectionReport,
-    create_masking_engine,
-    create_masking_provider,
-    create_regex_detector,
-    create_heuristic_detector,
-    create_masking_rule,
-    create_redaction_masker,
-    create_partial_masker,
-    create_hash_masker,
-    create_tokenize_masker,
-    create_pseudonymize_masker,
 )
-from .security_audit import (
-    SecurityAuditManager,
-    SecurityAuditVisionProvider,
-    ThreatDetector,
-    BruteForceDetector,
-    AnomalyDetector as SecurityAnomalyDetector,
-    IPReputationDetector,
-    AuditLogger as SecurityAuditLogger,
-    AlertManager as SecurityAlertManager,
-    SecurityEventType,
-    SeverityLevel as SecuritySeverityLevel,
-    ThreatLevel,
-    AlertStatus as SecurityAlertStatus,
-    SecurityEvent,
-    SecurityAlert,
-    ThreatIndicator,
-    AuditPolicy,
-    SecurityMetrics,
-    create_security_audit_manager,
-    create_audit_provider as create_security_audit_provider,
-    create_brute_force_detector,
-    create_anomaly_detector as create_security_anomaly_detector,
-    create_ip_reputation_detector,
-    create_audit_logger as create_security_audit_logger,
-    create_alert_manager as create_security_alert_manager,
-    create_security_event,
-    create_audit_policy,
-)
-from .key_management import (
-    KeyManager as Phase14KeyManager,
-    KeyManagedVisionProvider,
-    KeyGenerator,
-    KeyStore as Phase14KeyStore,
-    InMemoryKeyStore as Phase14InMemoryKeyStore,
-    EncryptedKeyStore,
-    SecretsVault,
-    KeyRotationPolicy,
-    KeyType as Phase14KeyType,
-    KeyStatus as Phase14KeyStatus,
-    KeyAlgorithm,
-    SecretType,
-    CryptoKey,
-    Secret,
-    KeyAuditEntry,
-    create_key_manager,
-    create_key_managed_provider,
-    create_key_generator,
-    create_in_memory_key_store,
-    create_encrypted_key_store,
-    create_secrets_vault,
-    create_rotation_policy,
-    create_crypto_key,
-)
-from .privacy_compliance import (
-    PrivacyComplianceManager,
-    PrivacyComplianceVisionProvider,
-    ConsentManager,
-    ConsentStore,
-    InMemoryConsentStore,
-    DataSubjectRequestHandler,
-    DataRetentionManager as PrivacyRetentionManager,
-    ProcessingActivityLog,
-    PrivacyRegulation,
-    ConsentType,
-    LegalBasis,
-    DataSubjectRight,
-    RequestStatus as PrivacyRequestStatus,
-    Consent,
-    DataSubjectRequest,
-    DataRetentionPolicy,
-    ProcessingActivity,
-    PrivacyImpactAssessment,
-    create_consent_manager,
-    create_consent_store,
-    create_request_handler,
-    create_retention_manager as create_privacy_retention_manager,
-    create_activity_log,
-    create_compliance_manager as create_privacy_compliance_manager,
-    create_compliance_provider,
-)
-
-# Phase 15: Advanced Analytics & Intelligence
-from .predictive_analytics import (
-    PredictiveEngine,
-    PredictiveVisionProvider,
-    DemandPredictor,
-    AnomalyPredictor,
-    TimeSeriesStore,
-    TrendAnalyzer,
-    MovingAverageModel,
-    ExponentialSmoothingModel,
-    PredictionType,
-    ModelType as PredictionModelType,
-    ForecastHorizon,
-    TrendDirection,
-    DataPoint,
-    PredictionResult,
-    TrendAnalysis,
-    ForecastResult,
-    ModelMetrics as PredictionModelMetrics,
-    create_predictive_engine,
-    create_predictive_provider,
-    create_demand_predictor,
-    create_anomaly_predictor,
-)
-from .intelligent_routing import (
-    IntelligentRouter,
-    RoutedVisionProvider,
-    LoadBalancer,
-    AdaptiveRouter,
-    ContentAnalyzer,
-    CapabilityMatchRule,
-    LatencyConstraintRule,
-    CostConstraintRule,
-    RoutingStrategy,
-    ProviderCapability,
-    RequestPriority,
-    ProviderStats,
-    RoutingDecision,
-    RoutingContext,
-    ProviderConfig as RoutingProviderConfig,
-    create_intelligent_router,
-    create_routed_provider,
-    create_provider_config,
-    create_routing_context,
-)
-from .auto_scaling import (
-    AutoScaler,
-    AutoScaledVisionProvider,
-    MetricsCollector,
-    ScalingPredictor,
-    ReactiveScaler,
-    PredictiveScaler,
-    ScheduledScaler,
-    ScalingDirection,
-    ScalingPolicy,
-    ResourceType as ScalingResourceType,
-    ScalingState,
-    ScalingConfig,
-    ScalingMetrics,
-    ScalingDecision,
-    ScalingEvent,
-    CapacityPlan,
-    create_scaling_config,
-    create_auto_scaler,
-    create_auto_scaled_provider,
-    create_capacity_plan,
-)
-from .self_healing import (
-    SelfHealingEngine,
-    SelfHealingVisionProvider,
-    HealthMonitor,
-    IssueDetector,
-    RecoveryPlanner,
-    RecoveryExecutor,
-    HealthStatus,
-    IssueType,
-    RecoveryAction,
-    RecoveryStatus,
-    HealthCheck,
-    Issue,
-    RecoveryPlan,
-    RecoveryResult,
-    HealingEvent,
-    create_health_monitor,
-    create_self_healing_engine,
-    create_self_healing_provider,
-    create_health_check,
-)
-from .knowledge_base import (
-    KnowledgeBase,
-    KnowledgeEnhancedVisionProvider,
-    KnowledgeGraph,
-    SemanticIndex,
-    KnowledgeStore,
-    EntityType,
-    RelationType,
-    SearchStrategy,
-    Entity,
-    Relationship,
-    SearchResult as KnowledgeSearchResult,
-    QueryResult as KnowledgeQueryResult,
-    KnowledgeEntry,
-    create_knowledge_graph,
-    create_knowledge_base,
-    create_knowledge_provider,
-    create_entity,
-    create_relationship,
-)
-
-# Phase 16: Advanced Integration & Extensibility
-from .plugin_manager import (
-    PluginManager,
-    PluginVisionProvider,
-    PluginRegistry,
-    HookExecutor,
-    PluginLoader,
-    DependencyContainer,
-    PluginType,
-    PluginState,
-    HookType,
-    PluginMetadata,
-    PluginInfo,
-    HookResult,
-    Plugin,
-    VisionPlugin,
-    ProviderPlugin,
-    FilterPlugin,
-    TransformerPlugin,
-    create_plugin_manager,
-    create_plugin_provider,
-    create_dependency_container,
-    create_plugin_metadata,
-)
-from .api_versioning import (
-    ApiVersionManager,
-    VersionedVisionProvider,
-    SemanticVersion,
-    VersionRegistry,
-    DeprecationManager,
-    VersionNegotiator,
-    VersionRouter,
-    VersionStatus,
-    CompatibilityLevel,
-    ChangeType as VersionChangeType,
-    VersionInfo,
-    ApiChange,
-    DeprecationWarning as VersionDeprecationWarning,
-    create_version_manager,
-    create_versioned_provider,
-    create_semantic_version,
-    create_version_info,
-)
-from .sdk_generator import (
-    SDKGenerator,
-    SDKGeneratorVisionProvider,
-    PythonGenerator,
-    TypeScriptGenerator,
-    OpenAPIGenerator,
-    GraphQLSchemaGenerator,
-    APIDefinitionBuilder,
-    SDKLanguage,
-    SpecFormat,
-    HTTPMethod,
-    ParameterLocation,
-    DataType as SDKDataType,
-    SchemaProperty,
-    SchemaDefinition,
-    ParameterDefinition,
-    ResponseDefinition,
-    EndpointDefinition,
-    APIDefinition,
-    GeneratedFile,
-    SDKConfig,
-    GenerationResult as SDKGenerationResult,
-    create_sdk_generator,
-    create_api_definition_builder,
-    create_sdk_generator_provider,
-    create_python_generator,
-    create_typescript_generator,
-    create_openapi_generator,
-    create_graphql_generator,
-)
-from .integration_hub import (
-    IntegrationHub,
-    IntegrationHubVisionProvider,
-    Connector,
-    RESTConnector,
-    WebSocketConnector,
-    WebhookManager as IntegrationWebhookManager,
-    RateLimiter as IntegrationRateLimiter,
-    DataTransformer,
-    ConnectorType,
-    AuthenticationType,
-    ConnectorStatus,
-    WebhookEventType,
-    DataFormat,
-    AuthCredentials,
-    RateLimitConfig as IntegrationRateLimitConfig,
-    ConnectorConfig,
-    WebhookConfig as IntegrationWebhookConfig,
-    WebhookPayload,
-    IntegrationHealth,
-    DataMapping,
-    TransformResult,
-    create_integration_hub,
-    create_rest_connector,
-    create_websocket_connector,
-    create_webhook_manager as create_integration_webhook_manager,
-    create_rate_limiter as create_integration_rate_limiter,
-    create_data_transformer,
-    create_integration_hub_provider,
-)
-from .documentation_generator import (
-    DocumentationGenerator,
-    DocumentedVisionProvider,
-    MarkdownGenerator,
-    HTMLGenerator,
-    CodeExtractor,
-    DocstringParser,
-    DocFormat,
-    DocSection,
-    ChangeType,
-    ParameterType as DocParameterType,
-    ParameterDoc,
-    ReturnDoc,
-    ExceptionDoc,
-    MethodDoc,
-    ClassDoc,
-    ModuleDoc,
-    ChangeLogEntry,
-    ChangeLog,
-    DocConfig,
-    GeneratedDoc,
-    DocGenerationResult,
-    create_documentation_generator,
-    create_markdown_generator,
-    create_html_generator,
-    create_code_extractor,
-    create_docstring_parser,
-    create_documented_provider,
-)
-
-# Phase 17: Advanced Observability & Monitoring
-from .metrics_dashboard import (
-    MetricCollector,
-    DashboardManager as MetricsDashboardManager,
-    MetricStreamer,
-    CustomMetricBuilder,
-    MetricsDashboardVisionProvider,
-    MetricType as DashboardMetricType,
-    AggregationType,
-    WidgetType,
-    TimeRange,
-    RefreshInterval,
-    MetricDefinition,
-    MetricValue as MetricDataPoint,
-    MetricSeries as TimeSeriesData,
-    WidgetConfig as MetricsDashboardWidget,
-    DashboardConfig as MetricsDashboardConfig,
-    create_metric_collector,
-    create_dashboard_manager as create_metrics_dashboard_manager,
-    create_metric_streamer,
-    create_custom_metric_builder,
-    create_metrics_dashboard_provider,
-)
-from .alert_manager import (
-    AlertManager as Phase17AlertManager,
-    AlertEvaluator,
-    AlertManagerVisionProvider,
-    AlertSeverity as Phase17AlertSeverity,
-    AlertState,
-    NotificationChannel,
-    ComparisonOperator,
-    EscalationAction,
-    AlertRule as Phase17AlertRule,
-    AlertCondition,
-    Alert as AlertInstance,
-    NotificationConfig,
-    EscalationPolicy,
-    SilenceRule,
-    InhibitionRule,
-    create_alert_manager as create_phase17_alert_manager,
-    create_alert_rule as create_phase17_alert_rule,
-    create_notification_channel,
-    create_silence,
-    create_escalation_policy,
-    create_alert_manager_provider,
-)
-from .log_aggregator import (
-    LogAggregator,
-    LogStore as AggregatorLogStore,
-    LogCorrelator,
-    PatternDetector,
-    LogAggregatorVisionProvider,
-    LogLevel as AggregatorLogLevel,
-    LogSource,
-    ParserType,
-    AggregationMode,
-    LogEntry as AggregatorLogEntry,
-    LogFilter,
-    CorrelatedLogs as CorrelationResult,
-    LogPattern,
-    LogStats,
-    RetentionPolicy as RetentionConfig,
-    create_log_aggregator,
-    create_json_parser,
-    create_regex_parser,
-    create_retention_policy as create_log_retention_policy,
-    create_log_aggregator_provider,
-)
-from .apm_integration import (
-    APMManager,
-    SpanTracker,
-    TransactionTracker,
-    PerformanceAnalyzer,
-    ErrorTracker,
-    DependencyTracker,
-    APMVisionProvider,
-    TransactionType,
-    SpanKind as APMSpanKind,
-    SpanStatus as APMSpanStatus,
-    APMProvider,
-    ProfileType,
-    Transaction,
-    Span as APMSpan,
-    ErrorInfo as ErrorRecord,
-    DependencyInfo as DependencyRecord,
-    PerformanceMetrics as APMPerformanceMetrics,
-    APMConfig,
-    create_apm_manager,
-    create_apm_config,
-    create_apm_provider,
-)
-from .sla_monitor import (
-    SLAMonitor,
-    SLATracker,
-    UptimeTracker,
-    SLAReporter,
-    SLAMonitorVisionProvider,
-    SLAType,
-    SLAStatus,
-    UptimeStatus,
-    ReportPeriod,
-    CheckType,
-    SLADefinition,
-    SLAMeasurement,
-    UptimeCheck,
-    IncidentRecord as UptimeIncident,
-    SLAComplianceReport as SLAReport,
-    create_sla_monitor,
-    create_sla_definition,
-    create_uptime_check,
-    create_sla_monitor_provider,
-)
-
-# Phase 18: Advanced ML Pipeline & AutoML
-from .automl_engine import (
-    AutoMLEngine,
-    HyperparameterOptimizer,
-    RandomSearchOptimizer,
-    BayesianOptimizer,
-    ModelSelector,
-    NeuralArchitectureSearch,
-    FeatureSelector as AutoMLFeatureSelector,
-    EnsembleBuilder,
-    AutoMLVisionProvider,
-    SearchStrategy,
-    OptimizationObjective,
-    ModelType as AutoMLModelType,
-    TaskType as AutoMLTaskType,
-    TrialStatus,
-    EarlyStoppingStrategy,
-    HyperparameterSpace,
-    TrialResult,
-    SearchConfig,
-    ModelCandidate,
-    EnsembleConfig,
-    AutoMLResult,
-    create_automl_engine,
-    create_search_config,
-    create_hyperparameter_space,
-    create_model_selector,
-    create_nas,
-    create_feature_selector as create_automl_feature_selector,
-    create_ensemble_builder,
-    create_automl_provider,
-)
-from .feature_store import (
-    FeatureRegistry,
-    FeatureStore,
-    FeatureComputer,
-    FeatureValidator as FeatureStoreValidator,
-    FeatureStatisticsComputer,
-    FeatureStoreVisionProvider,
-    FeatureType,
-    FeatureStatus,
-    ComputationMode,
-    TransformationType,
-    AggregationWindow,
-    DataQualityCheck,
-    FeatureDefinition,
-    FeatureValue,
-    FeatureGroup,
-    FeatureTransformation,
-    FeatureLineage,
-    FeatureStatistics,
-    QualityReport as FeatureQualityReport,
-    create_feature_registry,
-    create_feature_store,
-    create_feature_definition,
-    create_feature_group,
-    create_feature_transformation,
-    create_feature_computer,
-    create_feature_validator,
-    create_feature_store_provider,
-)
-from .model_registry import (
-    ModelRegistry,
-    ModelDeployer,
-    ABTestManager,
-    ApprovalWorkflow,
-    ModelValidator as ModelRegistryValidator,
-    ModelRegistryVisionProvider,
-    ModelStage,
-    ModelStatus as ModelRegistryStatus,
-    DeploymentStrategy,
-    ServingFormat,
-    ApprovalStatus,
-    MetricType as ModelMetricType,
-    ModelVersion,
-    ModelMetadata,
-    ModelLineage,
-    DeploymentConfig,
-    Deployment,
-    ABTestConfig,
-    ABTestResult,
-    ApprovalRequest,
-    create_model_registry,
-    create_model_version,
-    create_model_metadata,
-    create_deployment_config,
-    create_ab_test_config,
-    create_model_deployer,
-    create_ab_test_manager,
-    create_approval_workflow,
-    create_model_registry_provider,
-)
-from .pipeline_orchestrator import (
-    PipelineOrchestrator,
-    DAGBuilder,
-    TaskExecutor,
-    PipelineScheduler,
-    PipelineTemplate,
-    PipelineOrchestratorVisionProvider,
-    TaskStatus as PipelineTaskStatus,
-    PipelineStatus,
-    TriggerType,
-    RetryPolicy,
-    ExecutionMode,
-    ResourceType,
-    TaskDefinition,
-    TaskInstance,
-    PipelineDefinition,
-    PipelineRun,
-    DAGNode,
-    ScheduleConfig,
-    ResourceRequirements,
-    create_pipeline_orchestrator,
-    create_pipeline_definition,
-    create_task_definition,
-    create_dag_builder,
-    create_task_executor,
-    create_pipeline_scheduler,
-    create_schedule_config,
-    create_pipeline_template,
-    create_pipeline_orchestrator_provider,
-)
-from .experiment_tracker import (
-    ExperimentTracker,
-    ExperimentStore,
-    RunContext,
-    MetricAggregator,
-    HyperparameterAnalyzer,
-    ExperimentTrackerVisionProvider,
-    RunStatus,
-    MetricGoal,
-    ArtifactType,
-    ComparisonMode,
-    TagType,
-    Experiment,
-    Run as ExperimentRun,
-    Parameter as ExperimentParameter,
-    Metric as ExperimentMetric,
-    MetricHistory,
-    Artifact as ExperimentArtifact,
-    ComparisonResult,
-    SearchQuery,
-    create_experiment_tracker,
-    create_experiment,
-    create_run as create_experiment_run,
-    create_metric as create_experiment_metric,
-    create_parameter as create_experiment_parameter,
-    create_artifact as create_experiment_artifact,
-    create_search_query,
-    create_metric_aggregator,
-    create_hyperparameter_analyzer,
-    create_experiment_tracker_provider,
-)
-# Phase 19: Advanced Security & Compliance
-from .security_scanner import (
-    SecurityScanner,
-    CodeScanner,
-    DependencyScanner,
-    ThreatDetector,
-    RiskAssessor,
-    SecurityScannerVisionProvider,
-    VulnerabilitySeverity,
-    ScanType,
-    ThreatCategory,
-    ScanStatus,
-    RemediationPriority,
-    RiskLevel as SecurityRiskLevel,
-    Vulnerability,
-    ScanConfig,
-    ScanResult,
-    ThreatIndicator,
-    RiskAssessment,
-    SecurityPolicy,
-    create_security_scanner,
-    create_scan_config,
-    create_vulnerability,
-    create_threat_indicator,
-    create_security_policy,
-    create_code_scanner,
-    create_dependency_scanner,
-    create_threat_detector,
-    create_risk_assessor,
-    create_security_scanner_provider,
-)
-from .access_control import (
-    AccessController,
-    UserManager,
-    RoleManager,
-    SessionManager,
-    APIKeyManager,
-    AccessControlVisionProvider,
-    Permission,
-    RoleType,
-    AuthMethod,
-    SessionStatus,
-    AccessDecision,
-    ACLResourceType,
-    User as ACLUser,
-    Role as ACLRole,
-    ACLResource,
-    Session as ACLSession,
-    APIKey,
-    AccessRequest,
-    AccessResult,
-    Tenant,
-    create_access_controller,
-    create_user as create_acl_user,
-    create_role as create_acl_role,
-    create_acl_resource,
-    create_access_request,
-    create_user_manager,
-    create_role_manager,
-    create_session_manager,
-    create_api_key_manager,
-    create_access_control_provider,
-)
-from .audit_logger import (
-    AuditLogger,
-    ComplianceAuditLogger,
-    MemoryAuditStore,
-    AuditLoggerVisionProvider,
-    AuditEventType,
-    AuditSeverity,
-    AuditCategory,
-    LogDestination,
-    RetentionPeriod,
-    AuditEvent,
-    AuditQuery,
-    AuditSummary,
-    AuditPolicy,
-    AuditAlert,
-    LogIntegrity,
-    create_audit_logger,
-    create_compliance_audit_logger,
-    create_audit_event,
-    create_audit_query,
-    create_audit_policy,
-    create_audit_alert,
-    create_memory_audit_store,
-    create_audit_logger_provider,
-)
-from .encryption_manager import (
-    EncryptionManager,
-    KeyGenerator,
-    Encryptor,
-    KeyRotationManager,
-    MemoryKeyStore,
-    EncryptionManagerVisionProvider,
-    EncryptionAlgorithm,
-    KeyType,
-    KeyStatus,
-    KeyPurpose,
-    HashAlgorithm,
-    EncryptionKey,
-    EncryptedData,
-    KeyPolicy,
-    Certificate,
-    KeyRotationEvent,
-    create_encryption_manager,
-    create_memory_key_store,
-    create_key_generator,
-    create_encryptor,
-    create_key_policy,
-    create_encryption_manager_provider,
-)
+from .compliance import RetentionPolicy as ComplianceRetentionPolicy
+from .compliance import create_compliant_provider
 from .compliance_checker import (
     ComplianceChecker,
-    ControlRegistry,
-    ControlAssessor,
-    PolicyEngine,
-    ComplianceReporter,
-    DataInventory,
     ComplianceCheckerVisionProvider,
-    ComplianceFramework,
-    ComplianceStatus,
-    ControlCategory,
-    RiskLevel as ComplianceRiskLevel,
-    DataClassification,
-    PolicyType,
     ComplianceControl,
-    ControlAssessment,
+    ComplianceFramework,
     CompliancePolicy,
-    PolicyViolation,
     ComplianceReport,
+    ComplianceReporter,
+    ComplianceStatus,
+    ControlAssessment,
+    ControlAssessor,
+    ControlCategory,
+    ControlRegistry,
+    DataClassification,
+    DataInventory,
     DataInventoryItem,
+    PolicyEngine,
+    PolicyType,
+    PolicyViolation,
     PrivacyImpactAssessment,
+)
+from .compliance_checker import RiskLevel as ComplianceRiskLevel
+from .compliance_checker import (
     create_compliance_checker,
+    create_compliance_checker_provider,
     create_compliance_control,
     create_compliance_policy,
-    create_data_inventory_item,
-    create_privacy_impact_assessment,
     create_control_registry,
-    create_policy_engine,
     create_data_inventory,
-    create_compliance_checker_provider,
+    create_data_inventory_item,
+    create_policy_engine,
+    create_privacy_impact_assessment,
 )
-
-# Phase 20: Advanced Integration & Extensibility - Webhook Handler
-from .webhook_handler import (
-    # Classes
-    WebhookManager as WebhookManagerP20,
-    WebhookRegistry as WebhookRegistryP20,
-    WebhookDeliveryService,
-    WebhookRateLimiter,
-    WebhookSignature,
-    WebhookVisionProvider,
-    # Enums
-    WebhookEventType as WebhookEventTypeP20,
-    WebhookStatus,
-    DeliveryStatus,
-    SignatureAlgorithm,
-    # Dataclasses
-    WebhookConfig as WebhookConfigP20,
-    WebhookRegistration,
-    WebhookEvent,
-    DeliveryAttempt,
-    DeliveryRecord,
-    # Factory functions
-    create_webhook_config as create_webhook_config_p20,
-    create_webhook_manager as create_webhook_manager_p20,
-    create_webhook_event,
+from .config_management import (
+    ConfigChange,
+    ConfigFormat,
+    ConfigProfile,
+    ConfigProvider,
+    ConfigSchema,
+    ConfigSnapshot,
+    ConfigSnapshotManager,
 )
-
-# Phase 21: Advanced Observability & Telemetry - Observability Hub
-from .observability_hub import (
-    # Main orchestration classes
-    ObservabilityHub,
-    ObservableVisionProvider,
-    # Component classes
-    MetricsCollector,
-    TraceManager,
-    HealthMonitor,
-    AlertManager as AlertManagerP21,
-    SLOTracker,
-    AnomalyDetector,
-    # Enums
-    MetricType,
-    HealthStatus as HealthStatusP21,
-    AlertSeverity as AlertSeverityP21,
-    AlertState,
-    TraceStatus,
-    SLOStatus,
-    AnomalyType,
-    # Dataclasses
-    MetricPoint,
-    MetricSeries,
-    SpanContext,
-    Span,
-    HealthCheck as HealthCheckP21,
-    Alert as AlertP21,
-    SLODefinition,
-    SLOResult,
-    Anomaly,
-    ObservabilityConfig,
-    # Factory functions
-    create_observability_hub,
-    create_metrics_collector,
-    create_trace_manager,
-    create_health_monitor,
-    create_alert_manager as create_alert_manager_p21,
-    create_slo_definition,
-    create_observable_provider,
+from .config_management import ConfigSource as ConfigSourceType
+from .config_management import (
+    ConfigurableVisionProvider,
+    ConfigurationManager,
+    ConfigValue,
+    ConfigWatcher,
+    DictConfigProvider,
+    EnvironmentConfigProvider,
+    FileConfigProvider,
 )
-
-# Phase 22: Advanced Security & Governance - Security Governance Hub
-from .security_governance import (
-    # Main orchestration classes
-    SecurityGovernanceHub,
-    SecureVisionProvider,
-    # Component classes
-    PolicyEngine,
-    DataClassificationManager,
-    KeyManager,
-    SecretManager,
-    ThreatIntelManager,
-    SecurityEventCorrelator,
-    SecurityPostureAssessor,
-    # Enums
-    DataClassification,
-    PolicyType as PolicyTypeP22,
-    PolicyStatus as PolicyStatusP22,
-    PolicyAction,
-    EncryptionAlgorithm,
-    KeyStatus,
-    SecretType,
-    ThreatLevel,
-    SecurityEventType,
-    PostureStatus,
-    # Dataclasses
-    SecurityPolicy,
-    PolicyEvaluation,
-    DataClassificationRule,
-    EncryptionKey,
-    Secret,
-    ThreatIndicator,
-    SecurityEvent,
-    SecurityPosture,
-    GovernanceConfig,
-    # Factory functions
-    create_governance_config,
-    create_security_governance_hub,
-    create_security_policy,
-    create_classification_rule,
-    create_threat_indicator,
-    create_secure_provider,
-)
-
-# Phase 23: Intelligent Automation & Self-Optimization
-from .intelligent_automation import (
-    # Main orchestration classes
-    IntelligentAutomationHub,
-    AutomatedVisionProvider,
-    # Component classes
-    DecisionEngine,
-    SelfTuner,
-    IntelligentScheduler,
-    LoadManager,
-    PerformancePredictor,
-    AutoRemediation,
-    PatternLearner,
-    # Enums
-    DecisionType,
-    DecisionConfidence,
-    TuningStrategy,
-    TuningStatus,
-    SchedulerPriority,
-    TaskState as TaskStateP23,
-    LoadLevel,
-    RemediationAction,
-    PredictionType,
-    LearningMode,
-    # Dataclasses
-    Decision,
-    DecisionRule,
-    TuningParameter,
-    TuningSession,
-    ScheduledTask,
-    ResourcePool,
-    LoadMetrics,
-    Remediation,
-    Prediction,
-    LearningPattern,
-    AutomationConfig,
-    # Factory functions
-    create_automation_config,
-    create_intelligent_automation_hub,
-    create_decision_rule,
-    create_load_metrics,
-    create_automated_provider,
+from .config_management import ProfileManager as ConfigProfileManager
+from .config_management import ValidationLevel, create_configurable_provider
+from .cost_tracker import (
+    BudgetConfig,
+    CostTrackedVisionProvider,
+    CostTracker,
+    PricingTier,
+    UsageRecord,
+    UsageSummary,
+    create_cost_tracked_provider,
+    get_cost_tracker,
 )
 
 # Phase 24: Advanced Data Management & Lifecycle
 from .data_lifecycle import (
-    # Main orchestration classes
-    DataLifecycleHub,
-    ManagedVisionProvider,
-    # Component classes
-    VersionManager,
-    LineageTracker,
-    QualityManager,
-    RetentionManager,
+    AccessLevel,
+    CatalogEntry,
+    CatalogEntryType,
+    DataAsset,
     DataCatalog,
-    TransformationTracker,
-    # Enums
+    DataLifecycleHub,
     DataState,
-    VersionType,
+    DataVersion,
+    LifecycleConfig,
+    LineageEdge,
+    LineageNode,
     LineageRelation,
+    LineageTracker,
+    ManagedVisionProvider,
     QualityDimension,
     QualityLevel,
-    RetentionAction,
-    CatalogEntryType,
-    TransformationType,
-    AccessLevel,
-    # Dataclasses
-    DataVersion,
-    LineageNode,
-    LineageEdge,
-    QualityRule,
-    QualityResult,
+    QualityManager,
     QualityReport,
+    QualityResult,
+    QualityRule,
+    RetentionAction,
+    RetentionManager,
     RetentionPolicy,
     RetentionResult,
-    CatalogEntry,
     TransformationRecord,
-    DataAsset,
-    LifecycleConfig,
-    # Factory functions
-    create_lifecycle_config,
+    TransformationTracker,
+)
+from .data_lifecycle import (
+    TransformationType as TransformationTypeP24,  # Main orchestration classes; Component classes; Enums; Dataclasses; Factory functions
+)
+from .data_lifecycle import (
+    VersionManager,
+    VersionType,
     create_data_lifecycle_hub,
+    create_lifecycle_config,
+    create_managed_provider,
     create_quality_rule,
     create_retention_policy,
-    create_managed_provider,
+)
+from .data_masking import (
+    DataMasker,
+    DataMaskingVisionProvider,
+    DetectionReport,
+    HashMasker,
+    HeuristicPIIDetector,
+    MaskingEngine,
+    MaskingResult,
+    MaskingRule,
+    MaskingStrategy,
+    PartialMasker,
+    PIIDetector,
+    PIIMatch,
+    PIIType,
+    PseudonymizeMasker,
+    RedactionMasker,
+    RegexPIIDetector,
+    SensitivityLevel,
+    TokenizeMasker,
+    create_hash_masker,
+    create_heuristic_detector,
+    create_masking_engine,
+    create_masking_provider,
+    create_masking_rule,
+    create_partial_masker,
+    create_pseudonymize_masker,
+    create_redaction_masker,
+    create_regex_detector,
+    create_tokenize_masker,
+)
+from .data_pipeline import BatchProcessor as PipelineBatchProcessor
+from .data_pipeline import BatchResult as PipelineBatchResult
+from .data_pipeline import (
+    DataFormat,
+    DataRecord,
+    DataSink,
+    DataSource,
+    EnrichTransformer,
+    ETLPipeline,
+    FieldExtractTransformer,
+    FilterTransformer,
+    InMemoryDataSink,
+    InMemoryDataSource,
+    MapTransformer,
+    Pipeline,
+    PipelineBuilder,
+    PipelineConfig,
+    PipelineStage,
+    PipelineStageType,
+    PipelineStatus,
+)
+from .data_pipeline import Transformer as PipelineTransformer
+from .data_pipeline import VisionPipelineProvider
+from .data_pipeline import create_batch_processor as create_pipeline_batch_processor
+from .data_pipeline import create_etl_pipeline, create_pipeline
+from .data_validation import (
+    CompositeValidator,
+    CustomValidator,
+    DataQualityChecker,
+    DataType,
+    EnumValidator,
+    FieldSchema,
+    LengthValidator,
+    PatternValidator,
+    RangeValidator,
+    RequiredValidator,
+    Schema,
+    SchemaBuilder,
+    TypeValidator,
+    ValidatedVisionProvider,
+)
+from .data_validation import ValidationError as Phase11ValidationError
+from .data_validation import ValidationResult as Phase11ValidationResult
+from .data_validation import ValidationSeverity as Phase11ValidationSeverity
+from .data_validation import (
+    ValidationStatus,
+    Validator,
+    create_quality_checker,
+    create_schema,
+    create_validated_provider,
+    create_validator,
+)
+from .deduplication import (
+    CachedResult,
+    DeduplicatingVisionProvider,
+    DeduplicationCache,
+    DeduplicationConfig,
+    DeduplicationManager,
+    DeduplicationStats,
+    DeduplicationStrategy,
+)
+from .deduplication import HashAlgorithm as DeduplicationHashAlgorithm
+from .deduplication import (
+    HashKeyGenerator,
+    KeyGenerator,
+    SizeHashKeyGenerator,
+    create_deduplicating_provider,
+    get_deduplication_manager,
+)
+from .deployment import BlueGreenDeployment, CanaryRelease, DeploymentConfig, DeploymentManager
+from .deployment import DeploymentMetrics as DeploymentMetricsData
+from .deployment import (
+    DeploymentPhase,
+    DeploymentState,
+    DeploymentStrategy,
+    DeploymentVersion,
+    DeploymentVisionProvider,
+    EnvironmentType,
+    RollingUpdate,
+    TrafficRouter,
+    TrafficSplitMethod,
+    create_blue_green_provider,
+    create_canary_provider,
+)
+from .discovery import (
+    Capability,
+    CapabilityAwareVisionProvider,
+    CapabilityDiscovery,
+    CapabilityInfo,
+    CapabilityRequirement,
+    CapabilityStatus,
+    MatchResult,
+    ProviderCapabilities,
+    create_capability_aware_provider,
+    get_capability_discovery,
+)
+from .distributed_cache import (
+    CacheConfig,
+    CacheEntry,
+    CacheManager,
+    CacheNode,
+    CacheNodeStatus,
+    CacheShard,
+)
+from .distributed_cache import CacheStats as DistributedCacheStats
+from .distributed_cache import (
+    CacheStrategy,
+    ConsistencyLevel,
+    ConsistentHashRing,
+    DistributedCache,
+    DistributedCacheVisionProvider,
+    InvalidationStrategy,
+    ShardInfo,
+    create_cache_config,
+    create_cache_manager,
+    create_consistent_hash_ring,
+    create_dcache_provider,
+    create_distributed_cache,
+)
+from .distributed_lock import (
+    DeadlockInfo,
+    DistributedLock,
+    DistributedSemaphore,
+    FencingTokenManager,
+    InMemoryLock,
+    LockAcquisitionResult,
+    LockedVisionProvider,
+    LockInfo,
+    LockManager,
+    LockRequest,
+    LockResult,
+    LockState,
+    LockType,
+    ReadWriteLock,
+    ReentrantLock,
+    create_lock_manager,
+    create_read_write_lock,
+    create_reentrant_lock,
+    create_semaphore,
+)
+from .distributed_tracing import AlwaysOffSampler, AlwaysOnSampler, B3Propagator, BatchSpanProcessor
+from .distributed_tracing import ConsoleSpanExporter as DistributedConsoleSpanExporter
+from .distributed_tracing import (
+    DistributedTracer,
+    InMemorySpanExporter,
+    ParentBasedSampler,
+    Propagator,
+    Sampler,
+    SamplingDecision,
+    SpanContext,
+    SpanEvent,
+)
+from .distributed_tracing import SpanExporter as DistributedSpanExporter
+from .distributed_tracing import SpanId
+from .distributed_tracing import SpanKind as DistributedSpanKind
+from .distributed_tracing import SpanLink
+from .distributed_tracing import SpanStatus as DistributedSpanStatus
+from .distributed_tracing import TraceContext, TraceId, TraceIdRatioSampler
+from .distributed_tracing import TracerConfig as DistributedTracerConfig
+from .distributed_tracing import TracerProvider, TracingSpan, TracingStats
+from .distributed_tracing import TracingVisionProvider as DistributedTracingVisionProvider
+from .distributed_tracing import W3CTraceContextPropagator
+from .distributed_tracing import create_tracing_provider as create_distributed_tracing_provider
+from .distributed_tracing import trace_span
+from .documentation_generator import (
+    ChangeLog,
+    ChangeLogEntry,
+    ChangeType,
+    ClassDoc,
+    CodeExtractor,
+    DocConfig,
+    DocFormat,
+    DocGenerationResult,
+    DocSection,
+    DocstringParser,
+    DocumentationGenerator,
+    DocumentedVisionProvider,
+    ExceptionDoc,
+    GeneratedDoc,
+    HTMLGenerator,
+    MarkdownGenerator,
+    MethodDoc,
+    ModuleDoc,
+    ParameterDoc,
+)
+from .documentation_generator import ParameterType as DocParameterType
+from .documentation_generator import (
+    ReturnDoc,
+    create_code_extractor,
+    create_docstring_parser,
+    create_documentation_generator,
+    create_documented_provider,
+    create_html_generator,
+    create_markdown_generator,
+)
+from .embedding import (
+    CryptographicHashGenerator,
+    EmbeddingVector,
+    HashAlgorithm,
+    ImageEmbedder,
+    ImageHash,
+    ImageRecord,
+    PerceptualHashGenerator,
+    SimilarityIndex,
+    SimilarityResult,
+    SimilarityVisionProvider,
+    create_similarity_provider,
+)
+from .encryption import (
+    EncryptedData,
+    EncryptedVisionProvider,
+    EncryptionAlgorithm,
+    EncryptionService,
+    Encryptor,
+)
+from .encryption import HashAlgorithm as EncryptionHashAlgorithm
+from .encryption import (
+    Hasher,
+    HMACAuthenticator,
+    InMemoryKeyStore,
+    KeyManager,
+    KeyMetadata,
+    KeyStatus,
+    KeyStore,
+    KeyType,
+    SecureStorage,
+    SecureValue,
+    SimpleAESEncryptor,
+    create_encrypted_provider,
+    create_encryption_service,
+)
+from .encryption_manager import (
+    Certificate,
+    EncryptedData,
+    EncryptionAlgorithm,
+    EncryptionKey,
+    EncryptionManager,
+    EncryptionManagerVisionProvider,
+    Encryptor,
+    HashAlgorithm,
+    KeyGenerator,
+    KeyPolicy,
+    KeyPurpose,
+    KeyRotationEvent,
+    KeyRotationManager,
+    KeyStatus,
+    KeyType,
+    MemoryKeyStore,
+    create_encryption_manager,
+    create_encryption_manager_provider,
+    create_encryptor,
+    create_key_generator,
+    create_key_policy,
+    create_memory_key_store,
+)
+from .event_bus import AnalysisFailedEvent, CommandBus
+from .event_bus import Event as EventBusEvent
+from .event_bus import (
+    EventAggregator,
+    EventBus,
+    EventDrivenVisionProvider,
+    EventEnvelope,
+    EventHandler,
+    EventPriority,
+    EventRouter,
+    EventStatus,
+)
+from .event_bus import EventStore as EventBusStore
+from .event_bus import (
+    FunctionEventHandler,
+    ImageAnalyzedEvent,
+    QueryBus,
+    VisionEvent,
+    create_command_bus,
+    create_event_aggregator,
+    create_event_bus,
+    create_event_provider,
+    create_event_router,
+)
+from .event_bus import create_event_store as create_event_bus_store
+from .event_bus import create_query_bus
+from .event_sourcing import Aggregate
+from .event_sourcing import Aggregate as AggregateRoot  # Alias for compatibility
+from .event_sourcing import (
+    AggregateType,
+    Command,
+    CommandHandler,
+    Event,
+    EventSourcedVisionProvider,
+    EventStore,
+    EventType,
+)
+from .event_sourcing import GetStatisticsQuery as GetRequestStatsQuery  # Alias
+from .event_sourcing import GetStatisticsQueryHandler as GetRequestStatsHandler  # Alias
+from .event_sourcing import (
+    InMemoryEventStore,
+    LatencyProjection,
+    Projection,
+    Query,
+    QueryHandler,
+    RequestCountProjection,
+    Snapshot,
+)
+from .event_sourcing import SnapshotStore
+from .event_sourcing import SnapshotStore as InMemorySnapshotStore  # Alias for compatibility
+from .event_sourcing import VisionRequestAggregate, create_event_sourced_provider
+from .experiment_tracker import Artifact as ExperimentArtifact
+from .experiment_tracker import (
+    ArtifactType,
+    ComparisonMode,
+    ComparisonResult,
+    Experiment,
+    ExperimentStore,
+    ExperimentTracker,
+    ExperimentTrackerVisionProvider,
+    HyperparameterAnalyzer,
+)
+from .experiment_tracker import Metric as ExperimentMetric
+from .experiment_tracker import MetricAggregator, MetricGoal, MetricHistory
+from .experiment_tracker import Parameter as ExperimentParameter
+from .experiment_tracker import Run as ExperimentRun
+from .experiment_tracker import RunContext, RunStatus, SearchQuery, TagType
+from .experiment_tracker import create_artifact as create_experiment_artifact
+from .experiment_tracker import (
+    create_experiment,
+    create_experiment_tracker,
+    create_experiment_tracker_provider,
+    create_hyperparameter_analyzer,
+)
+from .experiment_tracker import create_metric as create_experiment_metric
+from .experiment_tracker import create_metric_aggregator
+from .experiment_tracker import create_parameter as create_experiment_parameter
+from .experiment_tracker import create_run as create_experiment_run
+from .experiment_tracker import create_search_query
+from .factory import create_vision_provider, get_available_providers, get_vision_provider
+from .failover import (
+    FailoverConfig,
+    FailoverManager,
+    FailoverResult,
+    FailoverStrategy,
+    FailoverVisionProvider,
+    ProviderEndpoint,
+    ProviderHealth,
+    create_failover_provider,
+)
+from .feature_flags import (
+    EvaluationContext,
+    EvaluationResult,
+    FeatureFlag,
+    FeatureFlagManager,
+    FeatureFlagVisionProvider,
+    FlagEvaluationCache,
+    FlagEvaluator,
+    FlagStatus,
+    FlagStore,
+    FlagType,
+    FlagVariation,
+    InMemoryFlagStore,
+    PercentageRollout,
+    TargetingOperator,
+    TargetingRule,
+    create_feature_flag_provider,
+)
+from .feature_store import (
+    AggregationWindow,
+    ComputationMode,
+    DataQualityCheck,
+    FeatureComputer,
+    FeatureDefinition,
+    FeatureGroup,
+    FeatureLineage,
+    FeatureRegistry,
+    FeatureStatistics,
+    FeatureStatisticsComputer,
+    FeatureStatus,
+    FeatureStore,
+    FeatureStoreVisionProvider,
+    FeatureTransformation,
+    FeatureType,
+)
+from .feature_store import FeatureValidator as FeatureStoreValidator
+from .feature_store import FeatureValue
+from .feature_store import QualityReport as FeatureQualityReport
+from .feature_store import (
+    TransformationType,
+    create_feature_computer,
+    create_feature_definition,
+    create_feature_group,
+    create_feature_registry,
+    create_feature_store,
+    create_feature_store_provider,
+    create_feature_transformation,
+    create_feature_validator,
+)
+from .graceful_degradation import (
+    CachedFallbackProvider,
+    DegradationConfig,
+    DegradationLevel,
+    DegradationManager,
+    DegradationMetrics,
+    DegradationPolicy,
+    DegradationReason,
+    DegradationState,
+    DegradationThresholds,
+    FallbackChain,
+    FallbackChainVisionProvider,
+    FallbackProvider,
+    FallbackResponse,
+    GracefulDegradationVisionProvider,
+    RecoveryManager,
+)
+from .graceful_degradation import RecoveryStrategy as DegradationRecoveryStrategy
+from .graceful_degradation import (
+    StaticFallbackProvider,
+    create_fallback_chain,
+    create_graceful_provider,
+)
+from .health import (
+    AlertSeverity,
+    HealthAlert,
+    HealthAwareVisionProvider,
+    HealthCheckConfig,
+    HealthDashboard,
+    HealthMetrics,
+    HealthMonitor,
+    HealthStatus,
+    create_health_aware_provider,
+    get_health_monitor,
+)
+from .hot_reload import (
+    ConfigSource,
+    ConfigValidator,
+    ConfigVersion,
+    DictConfigSource,
+    FileConfigSource,
+    HotReloadConfig,
+    HotReloadingVisionProvider,
+    HotReloadManager,
+    ReloadEvent,
+    ReloadStatus,
+    ReloadTrigger,
+    create_hot_reloading_provider,
+)
+from .integration_hub import (
+    AuthCredentials,
+    AuthenticationType,
+    Connector,
+    ConnectorConfig,
+    ConnectorStatus,
+    ConnectorType,
+    DataFormat,
+    DataMapping,
+    DataTransformer,
+    IntegrationHealth,
+    IntegrationHub,
+    IntegrationHubVisionProvider,
+)
+from .integration_hub import RateLimitConfig as IntegrationRateLimitConfig
+from .integration_hub import RateLimiter as IntegrationRateLimiter
+from .integration_hub import RESTConnector, TransformResult
+from .integration_hub import WebhookConfig as IntegrationWebhookConfig
+from .integration_hub import WebhookEventType
+from .integration_hub import WebhookManager as IntegrationWebhookManager
+from .integration_hub import (
+    WebhookPayload,
+    WebSocketConnector,
+    create_data_transformer,
+    create_integration_hub,
+    create_integration_hub_provider,
+)
+from .integration_hub import create_rate_limiter as create_integration_rate_limiter
+from .integration_hub import create_rest_connector
+from .integration_hub import create_webhook_manager as create_integration_webhook_manager
+from .integration_hub import create_websocket_connector
+
+# Phase 23: Intelligent Automation & Self-Optimization
+from .intelligent_automation import (
+    AutomatedVisionProvider,
+    AutomationConfig,
+    AutoRemediation,
+    Decision,
+    DecisionConfidence,
+    DecisionEngine,
+    DecisionRule,
+    DecisionType,
+    IntelligentAutomationHub,
+    IntelligentScheduler,
+    LearningMode,
+    LearningPattern,
+    LoadLevel,
+    LoadManager,
+    LoadMetrics,
+    PatternLearner,
+    PerformancePredictor,
+    Prediction,
+    PredictionType,
+    Remediation,
+    RemediationAction,
+    ResourcePool,
+    ScheduledTask,
+    SchedulerPriority,
+    SelfTuner,
+)
+from .intelligent_automation import (
+    TaskState as TaskStateP23,  # Main orchestration classes; Component classes; Enums; Dataclasses; Factory functions
+)
+from .intelligent_automation import (
+    TuningParameter,
+    TuningSession,
+    TuningStatus,
+    TuningStrategy,
+    create_automated_provider,
+    create_automation_config,
+    create_decision_rule,
+    create_intelligent_automation_hub,
+    create_load_metrics,
+)
+from .intelligent_routing import (
+    AdaptiveRouter,
+    CapabilityMatchRule,
+    ContentAnalyzer,
+    CostConstraintRule,
+    IntelligentRouter,
+    LatencyConstraintRule,
+    LoadBalancer,
+    ProviderCapability,
+)
+from .intelligent_routing import ProviderConfig as RoutingProviderConfig
+from .intelligent_routing import (
+    ProviderStats,
+    RequestPriority,
+    RoutedVisionProvider,
+    RoutingContext,
+    RoutingDecision,
+    RoutingStrategy,
+    create_intelligent_router,
+    create_provider_config,
+    create_routed_provider,
+    create_routing_context,
+)
+from .key_management import CryptoKey, EncryptedKeyStore
+from .key_management import InMemoryKeyStore as Phase14InMemoryKeyStore
+from .key_management import KeyAlgorithm, KeyAuditEntry, KeyGenerator, KeyManagedVisionProvider
+from .key_management import KeyManager as Phase14KeyManager
+from .key_management import KeyRotationPolicy
+from .key_management import KeyStatus as Phase14KeyStatus
+from .key_management import KeyStore as Phase14KeyStore
+from .key_management import KeyType as Phase14KeyType
+from .key_management import (
+    Secret,
+    SecretsVault,
+    SecretType,
+    create_crypto_key,
+    create_encrypted_key_store,
+    create_in_memory_key_store,
+    create_key_generator,
+    create_key_managed_provider,
+    create_key_manager,
+    create_rotation_policy,
+    create_secrets_vault,
+)
+from .knowledge_base import (
+    Entity,
+    EntityType,
+    KnowledgeBase,
+    KnowledgeEnhancedVisionProvider,
+    KnowledgeEntry,
+    KnowledgeGraph,
+    KnowledgeStore,
+)
+from .knowledge_base import QueryResult as KnowledgeQueryResult
+from .knowledge_base import Relationship, RelationType
+from .knowledge_base import SearchResult as KnowledgeSearchResult
+from .knowledge_base import (
+    SearchStrategy as KnowledgeSearchStrategy,
+    SemanticIndex,
+    create_entity,
+    create_knowledge_base,
+    create_knowledge_graph,
+    create_knowledge_provider,
+    create_relationship,
+)
+from .load_balancer import (
+    LoadBalancedVisionProvider,
+    LoadBalancer,
+    LoadBalancerConfig,
+    LoadBalancerStats,
+    LoadBalancingAlgorithm,
+    ProviderNode,
+    create_load_balanced_provider,
+)
+from .log_aggregator import AggregationMode
+from .log_aggregator import CorrelatedLogs as CorrelationResult
+from .log_aggregator import LogAggregator, LogAggregatorVisionProvider, LogCorrelator
+from .log_aggregator import LogEntry as AggregatorLogEntry
+from .log_aggregator import LogFilter
+from .log_aggregator import LogLevel as AggregatorLogLevel
+from .log_aggregator import LogPattern, LogSource, LogStats
+from .log_aggregator import LogStore as AggregatorLogStore
+from .log_aggregator import ParserType, PatternDetector
+from .log_aggregator import RetentionPolicy as RetentionConfig
+from .log_aggregator import (
+    create_json_parser,
+    create_log_aggregator,
+    create_log_aggregator_provider,
+    create_regex_parser,
+)
+from .log_aggregator import create_retention_policy as create_log_retention_policy
+from .logging_middleware import (
+    CallbackLogHandler,
+    ConsoleLogHandler,
+    FileLogHandler,
+    JSONLogHandler,
+    LogDestination as MiddlewareLogDestination,
+    LogHandler,
+    LogLevel,
+    LoggingConfig,
+    LoggingMiddleware,
+    LoggingVisionProvider,
+    PerformanceMetrics,
+    RequestLog,
+    ResponseLog,
+    create_logging_provider,
+    get_logging_middleware,
+)
+from .manager import VisionManager
+
+# Phase 13: Advanced Distributed Systems & Messaging
+from .message_queue import (
+    AckMode,
+    ConsumeResult,
+    DeadLetterQueue,
+    DeliveryMode,
+    Message,
+    MessageBatch,
+    MessageBroker,
+    MessageQueue,
+    MessageQueueVisionProvider,
+    MessageStatus,
+    Publisher,
+    PublishResult,
+    QueueConfig,
+)
+from .message_queue import QueueStats as MessageQueueStats
+from .message_queue import (
+    QueueType,
+    Subscriber,
+    Subscription,
+    create_dead_letter_queue,
+    create_message,
+    create_message_broker,
+    create_message_queue,
+    create_mq_provider,
+)
+
+# Phase 17: Advanced Observability & Monitoring
+from .metrics_dashboard import AggregationType, CustomMetricBuilder
+from .metrics_dashboard import DashboardConfig as MetricsDashboardConfig
+from .metrics_dashboard import DashboardManager as MetricsDashboardManager
+from .metrics_dashboard import MetricCollector, MetricDefinition, MetricsDashboardVisionProvider
+from .metrics_dashboard import MetricSeries as TimeSeriesData
+from .metrics_dashboard import MetricStreamer
+from .metrics_dashboard import MetricType as DashboardMetricType
+from .metrics_dashboard import MetricValue as MetricDataPoint
+from .metrics_dashboard import RefreshInterval, TimeRange
+from .metrics_dashboard import WidgetConfig as MetricsDashboardWidget
+from .metrics_dashboard import WidgetType, create_custom_metric_builder
+from .metrics_dashboard import create_dashboard_manager as create_metrics_dashboard_manager
+from .metrics_dashboard import (
+    create_metric_collector,
+    create_metric_streamer,
+    create_metrics_dashboard_provider,
+)
+from .metrics_exporter import (
+    CallbackMetricBackend,
+    HistogramValue,
+    InMemoryMetricBackend,
+    MetricBackend,
+    MetricsConfig,
+    MetricsExporter,
+    MetricsVisionProvider,
+    MetricType,
+    MetricValue,
+    create_metrics_provider,
+    get_metrics_exporter,
+)
+from .middleware import ConditionalMiddleware, LambdaMiddleware
+from .middleware import LoggingMiddleware as MiddlewareLogging
+from .middleware import (
+    MetadataMiddleware,
+    Middleware,
+    MiddlewareChain,
+    MiddlewareChainStats,
+    MiddlewareContext,
+    MiddlewarePhase,
+    MiddlewarePriority,
+    MiddlewareResult,
+    MiddlewareVisionProvider,
+    TimingMiddleware,
+    create_middleware_provider,
+)
+
+# Phase 12: Advanced Analytics & ML Integration
+from .ml_integration import CompositeFeatureExtractor, EnsembleModel
+from .ml_integration import Feature as MLFeature
+from .ml_integration import (
+    FeatureExtractor,
+    FeatureType as MLFeatureType,
+    FeatureVector,
+    ImageFeatureExtractor,
+    InferenceEngine,
+    InferenceMode,
+    InferencePipeline,
+    InferenceRequest,
+    InferenceResult,
+    InMemoryModelStore,
+    MLModel,
+    MLVisionProvider,
+    ModelMetadata,
+    ModelRegistry,
+    ModelStatus,
+    ModelStore,
+    ModelType,
+    ModelVersion,
+)
+from .ml_integration import PipelineConfig as MLPipelineConfig
+from .ml_integration import PipelineStage as MLPipelineStage
+from .ml_integration import (
+    SimpleClassifier,
+    create_ensemble_model,
+    create_feature_extractor,
+    create_inference_engine,
+    create_ml_provider,
+    create_model_registry,
+    create_simple_classifier,
+)
+from .model_registry import (
+    ABTestConfig,
+    ABTestManager,
+    ABTestResult,
+    ApprovalRequest,
+    ApprovalStatus,
+    ApprovalWorkflow,
+    Deployment,
+    DeploymentConfig,
+    DeploymentStrategy,
+)
+from .model_registry import MetricType as ModelMetricType
+from .model_registry import (
+    ModelDeployer,
+    ModelLineage,
+    ModelMetadata,
+    ModelRegistry,
+    ModelRegistryVisionProvider,
+    ModelStage,
+)
+from .model_registry import ModelStatus as ModelRegistryStatus
+from .model_registry import ModelValidator as ModelRegistryValidator
+from .model_registry import (
+    ModelVersion,
+    ServingFormat,
+    create_ab_test_config,
+    create_ab_test_manager,
+    create_approval_workflow,
+    create_deployment_config,
+    create_model_deployer,
+    create_model_metadata,
+    create_model_registry,
+    create_model_registry_provider,
+    create_model_version,
+)
+from .multi_tenancy import InMemoryTenantStore, IsolationLevel, MultiTenantVisionProvider
+from .multi_tenancy import QuotaManager as TenantQuotaManager
+from .multi_tenancy import (
+    QuotaType,
+    ResourceQuota,
+    Tenant,
+    TenantConfig,
+    TenantContext,
+    TenantManager,
+    TenantStatus,
+    TenantStore,
+    TenantTier,
+    TenantUsage,
+    UsageTracker,
+    create_multi_tenant_provider,
+)
+from .multiregion import (
+    LatencyMeasurer,
+    MultiRegionVisionProvider,
+    Region,
+    RegionConfig,
+    RegionHealth,
+    RegionRouter,
+    RegionStatus,
+    RoutingDecision,
+    RoutingStrategy,
+    create_multiregion_provider,
+)
+from .observability import SLI, SLO, Alert, AlertManager, AlertRule
+from .observability import AlertSeverity as ObservabilityAlertSeverity
+from .observability import AlertStatus, HealthCheck, HealthChecker
+from .observability import HealthStatus as ObservabilityHealthStatus
+from .observability import HistogramBucket
+from .observability import HistogramValue as ObservabilityHistogramValue
+from .observability import LogEntry
+from .observability import LogLevel as ObservabilityLogLevel
+from .observability import MetricsCollector
+from .observability import MetricType as ObservabilityMetricType
+from .observability import MetricValue as ObservabilityMetricValue
+from .observability import (
+    ObservabilityContext,
+    ObservableVisionProvider,
+    SLOMonitor,
+    StructuredLogger,
+    create_observable_provider,
+)
+
+# Phase 21: Advanced Observability & Telemetry - Observability Hub
+from .observability_hub import Alert as AlertP21
+from .observability_hub import (
+    AlertManager as AlertManagerP21,  # Main orchestration classes; Component classes; Enums; Dataclasses; Factory functions
+)
+from .observability_hub import AlertSeverity as AlertSeverityP21
+from .observability_hub import AlertState, Anomaly, AnomalyDetector, AnomalyType
+from .observability_hub import HealthCheck as HealthCheckP21
+from .observability_hub import HealthMonitor
+from .observability_hub import HealthStatus as HealthStatusP21
+from .observability_hub import (
+    MetricPoint,
+    MetricsCollector,
+    MetricSeries,
+    MetricType,
+    ObservabilityConfig,
+    ObservabilityHub,
+    ObservableVisionProvider,
+    SLODefinition,
+    SLOResult,
+    SLOStatus,
+    SLOTracker,
+    Span,
+    SpanContext,
+    TraceManager,
+    TraceStatus,
+)
+from .observability_hub import create_alert_manager as create_alert_manager_p21
+from .observability_hub import (
+    create_health_monitor,
+    create_metrics_collector,
+    create_observability_hub,
+    create_observable_provider,
+    create_slo_definition,
+    create_trace_manager,
+)
+from .persistence import (
+    AnalysisRecord,
+    InMemoryStorage,
+    PersistentVisionProvider,
+    QueryFilter,
+    QueryResult,
+    ResultPersistence,
+    StorageBackend,
+    StorageProvider,
+    create_persistent_provider,
+    get_persistence,
+)
+from .pipeline_orchestrator import (
+    DAGBuilder,
+    DAGNode,
+    ExecutionMode,
+    PipelineDefinition,
+    PipelineOrchestrator,
+    PipelineOrchestratorVisionProvider,
+    PipelineRun,
+    PipelineScheduler,
+    PipelineStatus,
+    PipelineTemplate,
+    ResourceRequirements,
+    ResourceType,
+    RetryPolicy,
+    ScheduleConfig,
+    TaskDefinition,
+    TaskExecutor,
+    TaskInstance,
+)
+from .pipeline_orchestrator import TaskStatus as PipelineTaskStatus
+from .pipeline_orchestrator import (
+    TriggerType,
+    create_dag_builder,
+    create_pipeline_definition,
+    create_pipeline_orchestrator,
+    create_pipeline_orchestrator_provider,
+    create_pipeline_scheduler,
+    create_pipeline_template,
+    create_schedule_config,
+    create_task_definition,
+    create_task_executor,
+)
+
+# Phase 16: Advanced Integration & Extensibility
+from .plugin_manager import (
+    DependencyContainer,
+    FilterPlugin,
+    HookExecutor,
+    HookResult,
+    HookType,
+    Plugin,
+    PluginInfo,
+    PluginLoader,
+    PluginManager,
+    PluginMetadata,
+    PluginRegistry,
+    PluginState,
+    PluginType,
+    PluginVisionProvider,
+    ProviderPlugin,
+    TransformerPlugin,
+    VisionPlugin,
+    create_dependency_container,
+    create_plugin_manager,
+    create_plugin_metadata,
+    create_plugin_provider,
+)
+from .plugin_system import (
+    HookManager,
+    HookPriority,
+    HookRegistration,
+    MiddlewarePlugin,
+    PluggableVisionProvider,
+    Plugin,
+    PluginCapability,
+    PluginDiscovery,
+    PluginEvent,
+    PluginInstance,
+    PluginManager,
+    PluginMetadata,
+    PluginPipeline,
+    PluginRegistry,
+    PluginSandbox,
+    PluginState,
+    PluginType,
+    PostprocessorPlugin,
+    PreprocessorPlugin,
+    VisionProviderPlugin,
+    create_plugin_manager,
+    create_plugin_pipeline,
+)
+
+# Phase 15: Advanced Analytics & Intelligence
+from .predictive_analytics import (
+    AnomalyPredictor,
+    DataPoint,
+    DemandPredictor,
+    ExponentialSmoothingModel,
+    ForecastHorizon,
+    ForecastResult,
+)
+from .predictive_analytics import ModelMetrics as PredictionModelMetrics
+from .predictive_analytics import ModelType as PredictionModelType
+from .predictive_analytics import (
+    MovingAverageModel,
+    PredictionResult,
+    PredictionType as PredictivePredictionType,
+    PredictiveEngine,
+    PredictiveVisionProvider,
+    TimeSeriesStore,
+    TrendAnalysis,
+    TrendAnalyzer,
+    TrendDirection,
+    create_anomaly_predictor,
+    create_demand_predictor,
+    create_predictive_engine,
+    create_predictive_provider,
+)
+from .preprocessing import (
+    ImageFormat,
+    ImageInfo,
+    ImagePreprocessor,
+    ImageValidator,
+    PreprocessingConfig,
+    PreprocessingVisionProvider,
+    ValidationResult,
+    create_preprocessing_provider,
+)
+from .priority import (
+    HeapPriorityQueue,
+    MultiLevelQueue,
+    PrioritizedRequest,
+    PrioritizedVisionProvider,
+    Priority,
+    PriorityQueue,
+    QueueFullError,
+    QueueStats,
+    QueueStrategy,
+    RequestScheduler,
+    RequestStatus,
+    create_prioritized_provider,
+)
+from .privacy_compliance import Consent, ConsentManager, ConsentStore, ConsentType
+from .privacy_compliance import DataRetentionManager as PrivacyRetentionManager
+from .privacy_compliance import (
+    DataRetentionPolicy,
+    DataSubjectRequest,
+    DataSubjectRequestHandler,
+    DataSubjectRight,
+    InMemoryConsentStore,
+    LegalBasis,
+    PrivacyComplianceManager,
+    PrivacyComplianceVisionProvider,
+    PrivacyImpactAssessment,
+    PrivacyRegulation,
+    ProcessingActivity,
+    ProcessingActivityLog,
+)
+from .privacy_compliance import RequestStatus as PrivacyRequestStatus
+from .privacy_compliance import create_activity_log
+from .privacy_compliance import create_compliance_manager as create_privacy_compliance_manager
+from .privacy_compliance import (
+    create_compliance_provider,
+    create_consent_manager,
+    create_consent_store,
+    create_request_handler,
+)
+from .privacy_compliance import create_retention_manager as create_privacy_retention_manager
+from .profiles import CacheConfig as ProfileCacheConfig
+from .profiles import CircuitBreakerConfig as ProfileCircuitBreakerConfig
+from .profiles import (
+    ProfileConfig,
+    ProfileEnvironmentLoader,
+    ProfileManager,
+    ProfileType,
+    ProviderConfig,
+    ProviderType,
+)
+from .profiles import RateLimitConfig as ProfileRateLimitConfig
+from .profiles import RetryConfig as ProfileRetryConfig
+from .profiles import TimeoutConfig, create_profile, get_profile, get_profile_manager
+from .prompts import (
+    BUILTIN_TEMPLATES,
+    PromptConfig,
+    PromptManager,
+    PromptTemplate,
+    PromptType,
+    get_prompt_manager,
+    get_prompts,
+    register_custom_template,
+)
+from .provider_pool import (
+    ConnectionState,
+    PoolConfig,
+    PooledConnection,
+    PooledVisionProvider,
+    PoolState,
+    PoolStats,
+    ProviderFactory,
+    ProviderPool,
+    SimpleProviderFactory,
+    create_pooled_provider,
+)
+from .providers import (  # Stub provider; DeepSeek provider; OpenAI provider; Anthropic provider
+    AnthropicVisionProvider,
+    DeepSeekStubProvider,
+    DeepSeekVisionProvider,
+    OpenAIVisionProvider,
+    create_anthropic_provider,
+    create_deepseek_provider,
+    create_openai_provider,
+    create_stub_provider,
+)
+from .quotas import (
+    QUOTA_PRESETS,
+    THROTTLE_PRESETS,
+    ProviderQuotaConfig,
+    QuotaAction,
+    QuotaCheckResult,
+    QuotaLimit,
+    QuotaManager,
+    QuotaPeriod,
+    QuotaUsage,
+    QuotaVisionProvider,
+    ThrottleConfig,
+    Throttler,
+    ThrottleState,
+    ThrottleStrategy,
+    create_quota_provider,
+    get_quota_preset,
+    get_throttle_preset,
+)
+from .rate_limiter import (
+    RateLimitConfig,
+    RateLimitedVisionProvider,
+    RateLimitError,
+    RateLimitStats,
+    TokenBucketRateLimiter,
+    create_rate_limited_provider,
+)
+from .recommendations import (
+    CollaborativeStrategy,
+    ContentBasedStrategy,
+    InMemoryInteractionStore,
+    InMemoryItemStore,
+    Interaction,
+    InteractionStore,
+    InteractionType,
+    Item,
+    ItemStore,
+    PopularityStrategy,
+    Recommendation,
+    RecommendationEngine,
+    RecommendationRequest,
+    RecommendationResult,
+    RecommendationStrategy,
+    RecommendationType,
+    RecommendationVisionProvider,
+    SimilarityCalculator,
+    SimilarityMetric,
+    SimilarityResult,
+)
+from .recommendations import User as RecommendationUser
+from .recommendations import (
+    create_interaction,
+    create_item,
+    create_recommendation_engine,
+    create_recommendation_provider,
+    create_similarity_calculator,
+)
+from .reporting import (
+    ChartConfig,
+    ChartType,
+    CSVFormatter,
+    Dashboard,
+    DashboardManager,
+    DashboardWidget,
+    DataSeries,
+    ExportResult,
+    HTMLFormatter,
+    JSONFormatter,
+    MarkdownFormatter,
+    Report,
+    ReportBuilder,
+    ReportConfig,
+    ReportFormat,
+    ReportFormatter,
+    ReportGenerator,
+    ReportingVisionProvider,
+    ReportScheduler,
+    ReportSection,
+    ReportStatus,
+    ReportType,
+    ScheduledReport,
+    ScheduleFrequency,
+    create_chart_config,
+    create_dashboard_manager,
+    create_dashboard_widget,
+    create_data_series,
+    create_report_builder,
+    create_report_generator,
+    create_report_scheduler,
+    create_reporting_provider,
+)
+from .request_context import (
+    BaggageItem,
+    ContextAwareVisionProvider,
+    ContextManager,
+    ContextScope,
+    ContextSpan,
+    RequestContext,
+    context_scope,
+    create_context_aware_provider,
+    get_context_manager,
+)
+from .request_context import get_current_context as get_request_context
+from .request_context import set_current_context as set_request_context
+from .resilience import (
+    CircuitBreakerConfig,
+    CircuitOpenError,
+    CircuitState,
+    ProviderMetrics,
+    ResilientVisionProvider,
+    RetryConfig,
+    create_resilient_provider,
+)
+from .retry_policy import (
+    BackoffCalculator,
+    BackoffStrategy,
+    ExponentialBackoff,
+    FibonacciBackoff,
+    FixedBackoff,
+    JitterType,
+    LinearBackoff,
+    RetryAttempt,
+    RetryBudget,
+    RetryPolicy as ResilienceRetryPolicy,
+    RetryPolicyConfig,
+    RetryStats,
+    RetryVisionProvider,
+    create_retry_provider,
+)
+from .saga_pattern import (
+    ChoreographySaga,
+    CompensationManager,
+    SagaBuilder,
+    SagaContext,
+    SagaDefinition,
+    SagaExecution,
+    SagaOrchestrator,
+    SagaStatus,
+    SagaStep,
+    SagaVisionProvider,
+    SimpleParticipant,
+    StepStatus,
+    TransactionCoordinator,
+    TransactionParticipant,
+    create_choreography_saga,
+    create_compensation_manager,
+    create_saga_builder,
+    create_saga_orchestrator,
+    create_saga_provider,
+    create_transaction_coordinator,
+)
+from .sdk_generator import APIDefinition, APIDefinitionBuilder
+from .sdk_generator import DataType as SDKDataType
+from .sdk_generator import EndpointDefinition, GeneratedFile
+from .sdk_generator import GenerationResult as SDKGenerationResult
+from .sdk_generator import (
+    GraphQLSchemaGenerator,
+    HTTPMethod,
+    OpenAPIGenerator,
+    ParameterDefinition,
+    ParameterLocation,
+    PythonGenerator,
+    ResponseDefinition,
+    SchemaDefinition,
+    SchemaProperty,
+    SDKConfig,
+    SDKGenerator,
+    SDKGeneratorVisionProvider,
+    SDKLanguage,
+    SpecFormat,
+    TypeScriptGenerator,
+    create_api_definition_builder,
+    create_graphql_generator,
+    create_openapi_generator,
+    create_python_generator,
+    create_sdk_generator,
+    create_sdk_generator_provider,
+    create_typescript_generator,
+)
+from .security_audit import AlertManager as SecurityAlertManager
+from .security_audit import AlertStatus as SecurityAlertStatus
+from .security_audit import AnomalyDetector as SecurityAnomalyDetector
+from .security_audit import AuditLogger as SecurityAuditLogger
+from .security_audit import (
+    AuditPolicy as SecurityAuditPolicy,
+    BruteForceDetector,
+    IPReputationDetector,
+    SecurityAlert,
+    SecurityAuditManager,
+    SecurityAuditVisionProvider,
+    SecurityEvent,
+    SecurityEventType,
+    SecurityMetrics,
+)
+from .security_audit import SeverityLevel as SecuritySeverityLevel
+from .security_audit import ThreatDetector, ThreatIndicator, ThreatLevel
+from .security_audit import create_alert_manager as create_security_alert_manager
+from .security_audit import create_anomaly_detector as create_security_anomaly_detector
+from .security_audit import create_audit_logger as create_security_audit_logger
+from .security_audit import create_audit_policy as create_security_audit_policy
+from .security_audit import create_audit_provider as create_security_audit_provider
+from .security_audit import (
+    create_brute_force_detector,
+    create_ip_reputation_detector,
+    create_security_audit_manager,
+    create_security_event,
+)
+
+# Phase 22: Advanced Security & Governance - Security Governance Hub
+from .security_governance import DataClassification as DataClassificationP22
+from .security_governance import DataClassificationManager, DataClassificationRule
+from .security_governance import EncryptionAlgorithm as EncryptionAlgorithmP22
+from .security_governance import EncryptionKey as EncryptionKeyP22
+from .security_governance import GovernanceConfig
+from .security_governance import KeyManager as KeyManagerP22
+from .security_governance import KeyStatus as KeyStatusP22
+from .security_governance import PolicyAction
+from .security_governance import (
+    PolicyEngine as PolicyEngineP22,  # Main orchestration classes; Component classes; Enums; Dataclasses; Factory functions
+)
+from .security_governance import PolicyEvaluation
+from .security_governance import PolicyStatus as PolicyStatusP22
+from .security_governance import PolicyType as PolicyTypeP22
+from .security_governance import PostureStatus
+from .security_governance import Secret as SecretP22
+from .security_governance import SecretManager
+from .security_governance import SecretType as SecretTypeP22
+from .security_governance import SecureVisionProvider
+from .security_governance import SecurityEvent as SecurityEventP22
+from .security_governance import SecurityEventCorrelator
+from .security_governance import SecurityEventType as SecurityEventTypeP22
+from .security_governance import SecurityGovernanceHub
+from .security_governance import SecurityPolicy as SecurityPolicyP22
+from .security_governance import SecurityPosture, SecurityPostureAssessor
+from .security_governance import ThreatIndicator as ThreatIndicatorP22
+from .security_governance import ThreatIntelManager
+from .security_governance import ThreatLevel as ThreatLevelP22
+from .security_governance import (
+    create_classification_rule,
+    create_governance_config,
+    create_secure_provider,
+    create_security_governance_hub,
+)
+from .security_governance import create_security_policy as create_security_policy_p22
+from .security_governance import create_threat_indicator as create_threat_indicator_p22
+
+# Phase 19: Advanced Security & Compliance
+from .security_scanner import (
+    CodeScanner,
+    DependencyScanner,
+    RemediationPriority,
+    RiskAssessment,
+    RiskAssessor,
+)
+from .security_scanner import RiskLevel as SecurityRiskLevel
+from .security_scanner import (
+    ScanConfig,
+    ScanResult,
+    ScanStatus,
+    ScanType,
+    SecurityPolicy,
+    SecurityScanner,
+    SecurityScannerVisionProvider,
+    ThreatCategory,
+    ThreatDetector,
+    ThreatIndicator,
+    Vulnerability,
+    VulnerabilitySeverity,
+    create_code_scanner,
+    create_dependency_scanner,
+    create_risk_assessor,
+    create_scan_config,
+    create_security_policy,
+    create_security_scanner,
+    create_security_scanner_provider,
+    create_threat_detector,
+    create_threat_indicator,
+    create_vulnerability,
+)
+from .self_healing import (
+    HealingEvent,
+    HealthCheck,
+    HealthMonitor,
+    HealthStatus,
+    Issue,
+    IssueDetector,
+    IssueType,
+    RecoveryAction,
+    RecoveryExecutor,
+    RecoveryPlan,
+    RecoveryPlanner,
+    RecoveryResult,
+    RecoveryStatus,
+    SelfHealingEngine,
+    SelfHealingVisionProvider,
+    create_health_check,
+    create_health_monitor,
+    create_self_healing_engine,
+    create_self_healing_provider,
+)
+from .service_mesh import CircuitState as MeshCircuitState
+from .service_mesh import LoadBalancer as MeshLoadBalancer
+from .service_mesh import LoadBalancerPolicy, MeshConfig, MeshVisionProvider
+from .service_mesh import RetryPolicy as MeshRetryPolicy
+from .service_mesh import (
+    ServiceEndpoint,
+    ServiceInstance,
+    ServiceMesh,
+    ServiceRegistry,
+    ServiceStatus,
+    Sidecar,
+    SidecarConfig,
+    SidecarStats,
+    TrafficManager,
+    TrafficRule,
+    create_mesh_provider,
+)
+from .sla_monitor import CheckType
+from .sla_monitor import IncidentRecord as UptimeIncident
+from .sla_monitor import ReportPeriod
+from .sla_monitor import SLAComplianceReport as SLAReport
+from .sla_monitor import (
+    SLADefinition,
+    SLAMeasurement,
+    SLAMonitor,
+    SLAMonitorVisionProvider,
+    SLAReporter,
+    SLAStatus,
+    SLATracker,
+    SLAType,
+    UptimeCheck,
+    UptimeStatus,
+    UptimeTracker,
+    create_sla_definition,
+    create_sla_monitor,
+    create_sla_monitor_provider,
+    create_uptime_check,
+)
+from .stream_processing import (
+    Aggregator,
+    AverageAggregator,
+    CountAggregator,
+    CountWindow,
+    FilterOperator,
+    FlatMapOperator,
+    KeyByOperator,
+    MapOperator,
+    MaxAggregator,
+    MinAggregator,
+    SessionWindow,
+    SlidingWindow,
+    Stream,
+    StreamBuilder,
+)
+from .stream_processing import StreamEvent as Phase11StreamEvent
+from .stream_processing import StreamingVisionProvider as Phase11StreamingVisionProvider
+from .stream_processing import StreamOperator, StreamState, SumAggregator
+from .stream_processing import TriggerType as StreamTriggerType
+from .stream_processing import (
+    TumblingWindow,
+    Window,
+    WindowedStream,
+    WindowResult,
+    WindowType,
+    create_stream,
+)
+from .stream_processing import create_streaming_provider as create_phase11_streaming_provider
+from .streaming import (
+    BatchStreamProcessor,
+    StreamConfig,
+    StreamEvent,
+    StreamEventType,
+    StreamingVisionProvider,
+    create_streaming_provider,
+    generate_sse_stream,
+    stream_analysis,
+)
+from .tracing import (
+    ConsoleSpanExporter,
+    RequestContext,
+    Span,
+    SpanExporter,
+    SpanKind,
+    SpanStatus,
+    Tracer,
+    TracerConfig,
+    TracingVisionProvider,
+    create_tracing_provider,
+    get_current_context,
+    get_tracer,
+    set_current_context,
+)
+from .transformation import (
+    ConfidenceBoostTransformer,
+    DetailFilterTransformer,
+    LambdaRequestTransformer,
+    LambdaResponseTransformer,
+    PipelineStats,
+    RequestTransformer,
+    ResponseTransformer,
+    SummaryPrefixTransformer,
+    TransformationPipeline,
+    TransformContext,
+    Transformer,
+    TransformingVisionProvider,
+    TransformPriority,
+    TransformResult,
+    TransformStage,
+    create_transforming_provider,
+)
+from .validation import (
+    OCR_SCHEMA,
+    STANDARD_SCHEMA,
+    STRICT_SCHEMA,
+    ResponseValidator,
+    ValidatingVisionProvider,
+    ValidationError,
+    ValidationIssue,
+    ValidationResult,
+    ValidationRule,
+    ValidationRuleType,
+    ValidationSchema,
+    ValidationSeverity,
+    ValidationStats,
+    create_validating_provider,
+)
+from .versioning import (
+    CompatibilityLevel,
+    ProviderVersion,
+    SemanticVersion,
+    VersionConstraint,
+    VersionedVisionProvider,
+    VersionHistory,
+    VersionRegistry,
+    VersionStatus,
+    create_versioned_provider,
+    get_version_registry,
+)
+
+# Phase 20: Advanced Integration & Extensibility - Webhook Handler
+from .webhook_handler import DeliveryAttempt, DeliveryRecord, DeliveryStatus, SignatureAlgorithm
+from .webhook_handler import WebhookConfig as WebhookConfigP20
+from .webhook_handler import WebhookDeliveryService, WebhookEvent
+from .webhook_handler import WebhookEventType as WebhookEventTypeP20
+from .webhook_handler import (
+    WebhookManager as WebhookManagerP20,  # Classes; Enums; Dataclasses; Factory functions
+)
+from .webhook_handler import WebhookRateLimiter, WebhookRegistration
+from .webhook_handler import WebhookRegistry as WebhookRegistryP20
+from .webhook_handler import WebhookSignature, WebhookStatus, WebhookVisionProvider
+from .webhook_handler import create_webhook_config as create_webhook_config_p20
+from .webhook_handler import create_webhook_event
+from .webhook_handler import create_webhook_manager as create_webhook_manager_p20
+from .webhooks import (
+    DeliveryResult,
+    WebhookConfig,
+    WebhookEvent,
+    WebhookEventType,
+    WebhookManager,
+    WebhookStatus,
+    WebhookVisionProvider,
+    create_webhook_provider,
+    get_webhook_manager,
+)
+from .workflow_engine import (
+    ConditionalTask,
+    ImageAnalysisTask,
+    ImagePreprocessTask,
+    ParallelTask,
+    ResultAggregationTask,
+)
+from .workflow_engine import RetryPolicy as WorkflowRetryPolicy
+from .workflow_engine import (
+    SequentialTask,
+    StateMachine,
+    StateTransition,
+    TaskDefinition,
+    TaskExecution,
+    TaskHandler,
+    TaskStatus,
+    TriggerType as WorkflowTriggerType,
+    VisionAnalysisTask,
+    WorkflowBuilder,
+    WorkflowDefinition,
+    WorkflowEngine,
+    WorkflowEvent,
+    WorkflowExecution,
+    WorkflowStatus,
+    WorkflowVisionProvider,
+    create_vision_workflow,
+    create_workflow_builder,
+    create_workflow_engine,
 )
 
 __all__ = [
@@ -2285,7 +2207,7 @@ __all__ = [
     "LoggingVisionProvider",
     "LoggingConfig",
     "LogLevel",
-    "LogDestination",
+    "MiddlewareLogDestination",
     "RequestLog",
     "ResponseLog",
     "PerformanceMetrics",
@@ -2527,7 +2449,7 @@ __all__ = [
     "get_circuit_breaker",
     "create_circuit_breaker_provider",
     # Retry Policy
-    "RetryPolicy",
+    "ResilienceRetryPolicy",
     "RetryVisionProvider",
     "RetryPolicyConfig",
     "RetryStats",
@@ -2728,7 +2650,7 @@ __all__ = [
     # Compliance (Phase 9)
     "ComplianceManager",
     "ComplianceVisionProvider",
-    "ComplianceAuditLogger",
+    "ComplianceAuditLoggerP9",
     "PIIDetector",
     "DataRetentionManager",
     "ComplianceAuditEventType",
@@ -2736,7 +2658,7 @@ __all__ = [
     "ComplianceStandard",
     "DataClassification",
     "ComplianceRetentionPolicy",
-    "AuditEvent",
+    "ComplianceAuditEvent",
     "DataRetentionConfig",
     "ComplianceRequirement",
     "PIIDetectionResult",
@@ -2866,7 +2788,7 @@ __all__ = [
     "StateMachine",
     "WorkflowStatus",
     "TaskStatus",
-    "TriggerType",
+    "WorkflowTriggerType",
     "WorkflowRetryPolicy",
     "TaskDefinition",
     "WorkflowDefinition",
@@ -2961,7 +2883,7 @@ __all__ = [
     "MinAggregator",
     "MaxAggregator",
     "WindowType",
-    "TriggerType",
+    "StreamTriggerType",
     "StreamState",
     "StreamEvent",
     "WindowResult",
@@ -3007,7 +2929,7 @@ __all__ = [
     "ModelType",
     "ModelStatus",
     "InferenceMode",
-    "FeatureType",
+    "MLFeatureType",
     "ModelMetadata",
     "ModelVersion",
     "MLFeature",
@@ -3257,7 +3179,7 @@ __all__ = [
     "SecurityEvent",
     "SecurityAlert",
     "ThreatIndicator",
-    "AuditPolicy",
+    "SecurityAuditPolicy",
     "SecurityMetrics",
     "create_security_audit_manager",
     "create_security_audit_provider",
@@ -3267,7 +3189,7 @@ __all__ = [
     "create_security_audit_logger",
     "create_security_alert_manager",
     "create_security_event",
-    "create_audit_policy",
+    "create_security_audit_policy",
     # Key Management (Phase 14)
     "Phase14KeyManager",
     "KeyManagedVisionProvider",
@@ -3327,7 +3249,7 @@ __all__ = [
     "TrendAnalyzer",
     "MovingAverageModel",
     "ExponentialSmoothingModel",
-    "PredictionType",
+    "PredictivePredictionType",
     "PredictionModelType",
     "ForecastHorizon",
     "TrendDirection",
@@ -3409,7 +3331,7 @@ __all__ = [
     "KnowledgeStore",
     "EntityType",
     "RelationType",
-    "SearchStrategy",
+    "KnowledgeSearchStrategy",
     "Entity",
     "Relationship",
     "KnowledgeSearchResult",
@@ -3991,37 +3913,37 @@ __all__ = [
     # Security Governance Hub (Phase 22)
     "SecurityGovernanceHub",
     "SecureVisionProvider",
-    "PolicyEngine",
+    "PolicyEngineP22",
     "DataClassificationManager",
-    "KeyManager",
+    "KeyManagerP22",
     "SecretManager",
     "ThreatIntelManager",
     "SecurityEventCorrelator",
     "SecurityPostureAssessor",
-    "DataClassification",
+    "DataClassificationP22",
     "PolicyTypeP22",
     "PolicyStatusP22",
     "PolicyAction",
-    "EncryptionAlgorithm",
-    "KeyStatus",
-    "SecretType",
-    "ThreatLevel",
-    "SecurityEventType",
+    "EncryptionAlgorithmP22",
+    "KeyStatusP22",
+    "SecretTypeP22",
+    "ThreatLevelP22",
+    "SecurityEventTypeP22",
     "PostureStatus",
-    "SecurityPolicy",
+    "SecurityPolicyP22",
     "PolicyEvaluation",
     "DataClassificationRule",
-    "EncryptionKey",
-    "Secret",
-    "ThreatIndicator",
-    "SecurityEvent",
+    "EncryptionKeyP22",
+    "SecretP22",
+    "ThreatIndicatorP22",
+    "SecurityEventP22",
     "SecurityPosture",
     "GovernanceConfig",
     "create_governance_config",
     "create_security_governance_hub",
-    "create_security_policy",
+    "create_security_policy_p22",
     "create_classification_rule",
-    "create_threat_indicator",
+    "create_threat_indicator_p22",
     "create_secure_provider",
     # Intelligent Automation Hub (Phase 23)
     "IntelligentAutomationHub",
@@ -4075,7 +3997,7 @@ __all__ = [
     "QualityLevel",
     "RetentionAction",
     "CatalogEntryType",
-    "TransformationType",
+    "TransformationTypeP24",
     "AccessLevel",
     "DataVersion",
     "LineageNode",

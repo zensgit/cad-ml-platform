@@ -254,9 +254,7 @@ class WebhookRateLimiter:
         self._windows: Dict[str, List[float]] = {}
         self._lock = threading.RLock()
 
-    def check_rate_limit(
-        self, webhook_id: str, limit_per_minute: int
-    ) -> tuple[bool, int]:
+    def check_rate_limit(self, webhook_id: str, limit_per_minute: int) -> tuple[bool, int]:
         """
         Check if webhook is within rate limit.
 
@@ -270,9 +268,7 @@ class WebhookRateLimiter:
                 self._windows[webhook_id] = []
 
             # Clean old entries
-            self._windows[webhook_id] = [
-                t for t in self._windows[webhook_id] if t > window_start
-            ]
+            self._windows[webhook_id] = [t for t in self._windows[webhook_id] if t > window_start]
 
             current_count = len(self._windows[webhook_id])
             remaining = limit_per_minute - current_count
@@ -568,8 +564,7 @@ class WebhookRegistry:
             return [
                 self._webhooks[wid]
                 for wid in webhook_ids
-                if wid in self._webhooks
-                and self._webhooks[wid].status == WebhookStatus.ACTIVE
+                if wid in self._webhooks and self._webhooks[wid].status == WebhookStatus.ACTIVE
             ]
 
     def get_by_owner(self, owner_id: str) -> List[WebhookRegistration]:
@@ -614,9 +609,7 @@ class WebhookManager:
         """Initialize webhook manager."""
         self._registry = registry or WebhookRegistry()
         self._delivery_service = delivery_service or WebhookDeliveryService()
-        self._event_handlers: Dict[
-            WebhookEventType, List[Callable[[WebhookEvent], None]]
-        ] = {}
+        self._event_handlers: Dict[WebhookEventType, List[Callable[[WebhookEvent], None]]] = {}
         self._lock = threading.RLock()
 
     @property
@@ -693,14 +686,10 @@ class WebhookManager:
 
                     # Disable webhook if too many failures
                     if webhook.failure_count >= 10:
-                        self._registry.update_status(
-                            webhook.webhook_id, WebhookStatus.FAILED
-                        )
+                        self._registry.update_status(webhook.webhook_id, WebhookStatus.FAILED)
 
             except Exception as e:
-                logger.error(
-                    f"Error delivering to webhook {webhook.webhook_id}: {e}"
-                )
+                logger.error(f"Error delivering to webhook {webhook.webhook_id}: {e}")
 
         return deliveries
 
@@ -734,9 +723,7 @@ class WebhookManager:
             return self._registry.get_by_owner(owner_id)
         return self._registry.list_all()
 
-    def get_delivery_history(
-        self, webhook_id: str, limit: int = 100
-    ) -> List[DeliveryRecord]:
+    def get_delivery_history(self, webhook_id: str, limit: int = 100) -> List[DeliveryRecord]:
         """Get delivery history for a webhook."""
         return self._delivery_service.get_delivery_history(webhook_id, limit)
 
@@ -792,9 +779,7 @@ class WebhookVisionProvider(VisionProvider):
 
         try:
             # Perform analysis
-            description = await self._base_provider.analyze_image(
-                image_data, include_description
-            )
+            description = await self._base_provider.analyze_image(image_data, include_description)
 
             # Emit completion event
             await self._webhook_manager.emit_event(
