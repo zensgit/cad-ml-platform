@@ -1,24 +1,36 @@
-"""Tests: vector migration dimension mismatch structured error.
-
-Goals (TODO):
-1. Seed a vector with incorrect length vs declared feature_version.
-2. Migrate (e.g. to v3) expecting DIMENSION_MISMATCH (HTTP 409) structured error.
-3. Validate error schema fields: code, stage, expected, found, id.
-"""
+"""Tests: vector migration dimension mismatch error handling."""
 
 from __future__ import annotations
 
-import pytest
 from fastapi.testclient import TestClient
 
+from src.core import similarity
 from src.main import app
 
 client = TestClient(app)
 
 
-@pytest.mark.skip(reason="TODO: implement mismatch seeding & migration call")
 def test_vector_migrate_dimension_mismatch_error() -> None:
-    response = client.post(
-        "/api/v1/vectors/migrate", json={"ids": ["nonexistent"], "to_version": "v3"}
-    )
-    assert response.status_code in {200, 404, 409}
+    original_vectors = similarity._VECTOR_STORE.copy()
+    original_meta = similarity._VECTOR_META.copy()
+    similarity._VECTOR_STORE.clear()
+    similarity._VECTOR_META.clear()
+    try:
+        # Seed mismatch: meta says v3 but vector length matches v1 (7)
+        similarity._VECTOR_STORE["bad_vec"] = [0.1] * 7
+        similarity._VECTOR_META["bad_vec"] = {"feature_version": "v3"}
+
+        response = client.post(
+            "/api/v1/vectors/migrate",
+            json={"ids": ["bad_vec"], "to_version": "v4"},
+            headers={"X-API-Key": "test"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["items"][0]["status"] == "error"
+        assert "expected" in data["items"][0]["error"]
+    finally:
+        similarity._VECTOR_STORE.clear()
+        similarity._VECTOR_META.clear()
+        similarity._VECTOR_STORE.update(original_vectors)
+        similarity._VECTOR_META.update(original_meta)
