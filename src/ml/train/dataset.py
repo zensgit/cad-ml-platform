@@ -4,13 +4,15 @@ ABC Dataset Loader.
 Handles loading of STEP files from the ABC Dataset structure for training.
 """
 
-import os
-import torch
-from torch.utils.data import Dataset, DataLoader
 import logging
-from typing import List, Tuple, Optional
+import os
+from typing import List, Optional, Tuple
+
+import torch
+from torch.utils.data import DataLoader, Dataset
 
 logger = logging.getLogger(__name__)
+
 
 class ABCDataset(Dataset):
     """
@@ -31,7 +33,7 @@ class ABCDataset(Dataset):
             self.file_list = [
                 os.path.join(root_dir, f)
                 for f in os.listdir(root_dir)
-                if f.lower().endswith(('.step', '.stp'))
+                if f.lower().endswith((".step", ".stp"))
             ]
         else:
             logger.warning(f"ABC Dataset root {root_dir} not found. Using empty set.")
@@ -56,7 +58,7 @@ class ABCDataset(Dataset):
             # For this MVP, we parse on-the-fly or assume a cached version exists.
 
             geo = get_geometry_engine()
-            with open(step_path, 'rb') as f:
+            with open(step_path, "rb") as f:
                 content = f.read()
 
             shape = geo.load_step(content, os.path.basename(step_path))
@@ -82,7 +84,7 @@ class ABCDataset(Dataset):
                     float(surfaces.get("sphere", 0)),
                     float(surfaces.get("torus", 0)),
                     float(surfaces.get("bspline", 0)),
-                    float(feats.get("solids", 0))
+                    float(feats.get("solids", 0)),
                 ]
 
                 # Normalize (Naive) - In prod use standard scaler
@@ -106,6 +108,7 @@ class ABCDataset(Dataset):
             sample = self.transform(sample)
 
         return sample, label
+
 
 def get_dataloader(data_dir: str, batch_size: int = 32, shuffle: bool = True):
     dataset = ABCDataset(data_dir)

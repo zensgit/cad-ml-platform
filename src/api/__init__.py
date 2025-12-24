@@ -3,6 +3,7 @@ from fastapi import APIRouter
 
 # Import critical routers first (health). Other routers are imported best-effort
 from src.api.v1 import health
+
 try:
     from src.api.v1 import analyze  # type: ignore
 except Exception:

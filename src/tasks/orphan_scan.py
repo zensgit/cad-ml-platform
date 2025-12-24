@@ -6,7 +6,7 @@ import asyncio
 import os
 import time
 
-from src.utils.analysis_metrics import vector_orphan_total, vector_orphan_scan_last_seconds
+from src.utils.analysis_metrics import vector_orphan_scan_last_seconds, vector_orphan_total
 from src.utils.cache import get_client
 
 
@@ -16,6 +16,7 @@ async def orphan_scan_loop(interval: float | None = None) -> None:  # pragma: no
     while True:
         try:
             from src.core.similarity import _VECTOR_STORE  # type: ignore
+
             client = get_client()
             orphan_count = 0
             if client is not None:

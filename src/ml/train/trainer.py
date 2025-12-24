@@ -12,17 +12,25 @@ import sys
 # Mock Torch for environments without it (e.g. CI/Lightweight)
 try:
     import torch
-    import torch.optim as optim
     import torch.nn.functional as F
+    import torch.optim as optim
+
     from src.ml.train.dataset import get_dataloader
     from src.ml.train.model import UVNetModel
 except ImportError:
     # Minimal mock to pass dry-run
     class MagicMock:
-        def __getattr__(self, name): return MagicMock()
-        def __call__(self, *args, **kwargs): return MagicMock()
-        def to(self, *args): return self
-        def item(self): return 0.5
+        def __getattr__(self, name):
+            return MagicMock()
+
+        def __call__(self, *args, **kwargs):
+            return MagicMock()
+
+        def to(self, *args):
+            return self
+
+        def item(self):
+            return 0.5
 
     def _mock_device(device_name):
         return device_name
@@ -51,6 +59,7 @@ except ImportError:
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("Trainer")
+
 
 def train(args):
     if isinstance(torch, type) and torch.__name__ == "MagicMock":
@@ -109,6 +118,7 @@ def train(args):
         os.makedirs("models", exist_ok=True)
         torch.save(model.state_dict(), "models/uvnet_v1.pth")
         logger.info("Model saved to models/uvnet_v1.pth")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train UV-Net")

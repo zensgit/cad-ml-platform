@@ -8,18 +8,20 @@ Designed to interface with UV-Net or PointNet++ style models for B-Rep/Mesh embe
 import logging
 import os
 import time
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
 # Placeholder for torch
 try:
-    import torch
     import numpy as np
+    import torch
+
     HAS_TORCH = True
 except ImportError:
     HAS_TORCH = False
     logger.warning("Torch not found. 3D Vision module running in mock mode.")
+
 
 class UVNetEncoder:
     """
@@ -97,9 +99,9 @@ class UVNetEncoder:
         # This ensures the same part gets the same embedding (Consistency)
 
         seed_val = (
-            features.get("faces", 0) * 1000 +
-            features.get("edges", 0) +
-            int(features.get("volume", 0) * 100)
+            features.get("faces", 0) * 1000
+            + features.get("edges", 0)
+            + int(features.get("volume", 0) * 100)
         )
 
         # Simple heuristic to distinguish broad classes
@@ -108,9 +110,9 @@ class UVNetEncoder:
         # Dimension 0-10: Surface Type Histogram
         surfaces = features.get("surface_types", {})
         vec[0] = surfaces.get("plane", 0) / 100.0
-        vec[1] = surfaces.get("cylinder", 0) / 50.0 # High cylinder count -> Shaft/Bolt
-        vec[2] = surfaces.get("sphere", 0) / 10.0   # High sphere -> Ball bearing
-        vec[3] = surfaces.get("torus", 0) / 5.0     # Torus -> O-ring/Tire
+        vec[1] = surfaces.get("cylinder", 0) / 50.0  # High cylinder count -> Shaft/Bolt
+        vec[2] = surfaces.get("sphere", 0) / 10.0  # High sphere -> Ball bearing
+        vec[3] = surfaces.get("torus", 0) / 5.0  # Torus -> O-ring/Tire
 
         # Dimension 11: Complexity
         vec[11] = features.get("faces", 0) / 200.0
@@ -119,7 +121,7 @@ class UVNetEncoder:
         vol = features.get("volume", 1)
         area = features.get("surface_area", 1)
         if vol > 0:
-            vec[12] = (area ** 1.5) / vol # Shape factor
+            vec[12] = (area**1.5) / vol  # Shape factor
 
         # Fill the rest with pseudo-random noise seeded by topology
         # (simulating a 'fingerprint')
@@ -129,19 +131,22 @@ class UVNetEncoder:
             vec[20:] = noise.tolist()
         else:
             import random
+
             random.seed(seed_val)
             for i in range(20, dim):
                 vec[i] = random.random() * 0.1
 
         # Normalize
-        norm = sum(x*x for x in vec) ** 0.5
+        norm = sum(x * x for x in vec) ** 0.5
         if norm > 0:
-            vec = [x/norm for x in vec]
+            vec = [x / norm for x in vec]
 
         return vec
 
+
 # Singleton
 _encoder = UVNetEncoder()
+
 
 def get_3d_encoder():
     return _encoder

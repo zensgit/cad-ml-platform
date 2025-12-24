@@ -7,9 +7,9 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.responses import PlainTextResponse
 
 try:
     from prometheus_client import make_asgi_app  # type: ignore
@@ -20,16 +20,19 @@ except Exception:  # module missing
 import uvicorn
 
 from src.api import api_router
+from src.api.health_resilience import get_resilience_health
 from src.api.middleware.integration_auth import IntegrationAuthMiddleware
 from src.core.config import get_settings
+from src.core.similarity import (  # type: ignore
+    FaissVectorStore,
+    background_prune_task,
+    load_recovery_state,
+)
 from src.models.loader import load_models
+from src.tasks.orphan_scan import orphan_scan_loop
 from src.utils.cache import init_redis
 from src.utils.logging import setup_logging
 from src.utils.metrics import get_ocr_error_rate_ema, get_vision_error_rate_ema
-from src.api.health_resilience import get_resilience_health
-from src.core.similarity import background_prune_task
-from src.core.similarity import FaissVectorStore, load_recovery_state  # type: ignore
-from src.tasks.orphan_scan import orphan_scan_loop
 
 # 设置日志
 setup_logging()
@@ -48,12 +51,14 @@ async def lifespan(app: FastAPI):
     # Optional dev seeding of knowledge rules
     try:
         from src.utils.knowledge_seed import seed_knowledge_if_empty
+
         seed_knowledge_if_empty()
     except Exception:
         logger.warning("Knowledge seed failed", exc_info=True)
 
     # Phase 1: Register dedup2d job metrics callback
     from src.api.v1.dedup import register_dedup2d_job_metrics
+
     register_dedup2d_job_metrics()
 
     # 初始化Redis连接
@@ -67,6 +72,7 @@ async def lifespan(app: FastAPI):
 
     # 启动向量 TTL 定期清理任务
     import asyncio
+
     prune_interval = float(__import__("os").getenv("VECTOR_PRUNE_INTERVAL_SECONDS", "30"))
     _prune_handle = asyncio.create_task(background_prune_task(prune_interval))
 
@@ -82,17 +88,26 @@ async def lifespan(app: FastAPI):
             imported = store.import_index(faiss_path)
             if imported:
                 from src.core.similarity import _FAISS_INDEX  # type: ignore
-                dim = getattr(_FAISS_INDEX, 'd', None) if _FAISS_INDEX is not None else None  # type: ignore
-                size = getattr(_FAISS_INDEX, 'ntotal', None) if _FAISS_INDEX is not None else None  # type: ignore
-                env_dim = int(__import__('os').getenv('FEATURE_VECTOR_EXPECTED_DIM', '0') or 0)
+
+                dim = getattr(_FAISS_INDEX, "d", None) if _FAISS_INDEX is not None else None  # type: ignore
+                size = getattr(_FAISS_INDEX, "ntotal", None) if _FAISS_INDEX is not None else None  # type: ignore
+                env_dim = int(__import__("os").getenv("FEATURE_VECTOR_EXPECTED_DIM", "0") or 0)
                 if env_dim and dim and dim != env_dim:
                     from src.utils.analysis_metrics import faiss_index_dim_mismatch_total
+
                     faiss_index_dim_mismatch_total.inc()
-                    logger.warning("Faiss index dim mismatch (imported=%s, expected=%s) - falling back to memory store", dim, env_dim)
+                    logger.warning(
+                        "Faiss index dim mismatch (imported=%s, expected=%s) - falling back to memory store",
+                        dim,
+                        env_dim,
+                    )
                 else:
-                    logger.info("Faiss index auto-imported from %s (dim=%s, size=%s)", faiss_path, dim, size)
+                    logger.info(
+                        "Faiss index auto-imported from %s (dim=%s, size=%s)", faiss_path, dim, size
+                    )
     except Exception:
         logger.warning("Faiss index auto-import failed")
+
     async def _faiss_export_loop():
         while True:
             try:
@@ -102,32 +117,39 @@ async def lifespan(app: FastAPI):
                     # update index age gauge (reset to 0 after export)
                     try:
                         from src.utils.analysis_metrics import faiss_index_age_seconds
+
                         faiss_index_age_seconds.set(0)
                     except Exception:
                         pass
             except Exception:
                 pass
             await asyncio.sleep(faiss_interval)
+
     _faiss_export_handle = asyncio.create_task(_faiss_export_loop())
 
     # Faiss age increment loop (ticks every 60s) to show staleness when exports disabled or failing
     async def _faiss_age_loop():
-        import asyncio, os
+        import asyncio
+        import os
+
         while True:
             try:
                 if os.getenv("VECTOR_STORE_BACKEND", "memory") == "faiss":
                     from src.utils.analysis_metrics import faiss_index_age_seconds
+
                     # increment age by 60s up to a cap for visibility; if export loop resets to 0 this shows freshness
                     current = getattr(faiss_index_age_seconds, "_value", 0) or 0
                     faiss_index_age_seconds.set(current + 60)
             except Exception:
                 pass
             await asyncio.sleep(60)
+
     _faiss_age_handle = __import__("asyncio").create_task(_faiss_age_loop())
 
     # Faiss auto recovery loop
     try:
         from src.core.similarity import faiss_recovery_loop
+
         _faiss_recovery_handle = asyncio.create_task(faiss_recovery_loop())
     except Exception:
         _faiss_recovery_handle = None
@@ -135,10 +157,13 @@ async def lifespan(app: FastAPI):
     # Load drift baselines from Redis if present
     try:
         from src.utils.cache import get_client
+
         client = get_client()
         if client is not None:
             import json
+
             from src.api.v1 import analyze as _an
+
             raw_m = await client.get("baseline:material")  # type: ignore[attr-defined]
             raw_c = await client.get("baseline:class")  # type: ignore[attr-defined]
             ts_m = await client.get("baseline:material:ts")  # type: ignore[attr-defined]
@@ -223,6 +248,7 @@ if _metrics_enabled:
     metrics_app = make_asgi_app()
     app.mount("/metrics", metrics_app)
 else:
+
     @app.get("/metrics")
     async def metrics_fallback() -> PlainTextResponse:  # type: ignore
         """Fallback metrics endpoint when prometheus_client is unavailable.
@@ -319,9 +345,17 @@ async def health_check():
 @app.get("/health/extended")
 async def extended_health():
     """扩展健康检查: 包含向量与特征版本分布、Faiss索引状态、缓存命中情况等。"""
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
-    from src.core.similarity import _FAISS_IMPORTED, _FAISS_LAST_EXPORT_SIZE, _FAISS_LAST_EXPORT_TS  # type: ignore
-    import os, time
+    import os
+    import time
+
+    from src.core.similarity import (  # type: ignore
+        _FAISS_IMPORTED,
+        _FAISS_LAST_EXPORT_SIZE,
+        _FAISS_LAST_EXPORT_TS,
+        _VECTOR_META,
+        _VECTOR_STORE,
+    )
+
     vector_total = len(_VECTOR_STORE)
     versions: dict[str, int] = {}
     for meta in _VECTOR_META.values():

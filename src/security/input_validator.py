@@ -5,13 +5,13 @@ from __future__ import annotations
 Uses python-magic if available; degrades gracefully when library absent.
 """
 
-from typing import Tuple, Dict, Any
+from typing import Any, Dict, Tuple
 
 # Known lightweight CAD format signatures (heuristic) for basic validation.
 # This is NOT a full parser; it only checks early markers to catch gross mismatches.
 _STEP_SIGNATURE_PREFIX = b"ISO-10303-21"
 _STL_ASCII_PREFIX = b"solid"
-_IGES_SIGNATURE_TOKENS = [b"IGES", b"S","G","D","P"]  # IGES has section markers (simplified)
+_IGES_SIGNATURE_TOKENS = [b"IGES", b"S", "G", "D", "P"]  # IGES has section markers (simplified)
 
 
 def verify_signature(data: bytes, file_format: str) -> Tuple[bool, str]:
@@ -84,7 +84,10 @@ def deep_format_validate(data: bytes, file_format: str) -> Tuple[bool, str]:
 
 
 def load_validation_matrix() -> Dict[str, Any]:
-    import os, yaml
+    import os
+
+    import yaml
+
     path = os.getenv("FORMAT_VALIDATION_MATRIX", "config/format_validation_matrix.yaml")
     if not os.path.exists(path):
         return {}
@@ -95,7 +98,9 @@ def load_validation_matrix() -> Dict[str, Any]:
         return {}
 
 
-def matrix_validate(data: bytes, file_format: str, project_id: str | None = None) -> Tuple[bool, str]:
+def matrix_validate(
+    data: bytes, file_format: str, project_id: str | None = None
+) -> Tuple[bool, str]:
     matrix = load_validation_matrix()
     fmts = matrix.get("formats", {})
     spec = fmts.get(file_format.lower())
@@ -119,6 +124,7 @@ def matrix_validate(data: bytes, file_format: str, project_id: str | None = None
 def sniff_mime(data: bytes) -> Tuple[str, bool]:
     try:
         import magic  # type: ignore
+
         mime = magic.from_buffer(data, mime=True) or "application/octet-stream"
         return mime, True
     except Exception:
