@@ -3,7 +3,8 @@
 
 .PHONY: help install dev test lint format type-check clean run docs docker eval-history health-check eval-trend \
 	observability-up observability-down observability-status self-check metrics-validate prom-validate \
-	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted e2e-smoke
+	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted e2e-smoke \
+	dedup2d-secure-smoke
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -136,6 +137,11 @@ e2e-smoke: ## Run E2E smoke tests against running services
 	DEDUPCAD_VISION_URL=$${DEDUPCAD_VISION_URL:-http://localhost:58001} \
 	$(PYTEST) tests/integration/test_e2e_api_smoke.py \
 		tests/integration/test_dedupcad_vision_contract.py -v -rs
+
+dedup2d-secure-smoke: ## Run Dedup2D secure callback smoke test
+	@echo "$(GREEN)Running Dedup2D secure callback smoke test...$(NC)"
+	DEDUPCAD_VISION_START=$${DEDUPCAD_VISION_START:-0} \
+		scripts/e2e_dedup2d_secure_callback.sh
 
 docker-build: ## 构建Docker镜像
 	@echo "$(GREEN)Building Docker image...$(NC)"
