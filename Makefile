@@ -141,6 +141,7 @@ e2e-smoke: ## Run E2E smoke tests against running services
 dedup2d-secure-smoke: ## Run Dedup2D secure callback smoke test
 	@echo "$(GREEN)Running Dedup2D secure callback smoke test...$(NC)"
 	DEDUPCAD_VISION_START=$${DEDUPCAD_VISION_START:-0} \
+	DEDUP2D_SECURE_SMOKE_CLEANUP=$${DEDUP2D_SECURE_SMOKE_CLEANUP:-1} \
 		scripts/e2e_dedup2d_secure_callback.sh
 
 docker-build: ## 构建Docker镜像
