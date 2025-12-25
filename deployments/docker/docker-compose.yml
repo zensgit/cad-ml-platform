@@ -25,7 +25,7 @@ services:
       - DEDUP2D_FILE_STORAGE_DIR=data/dedup2d_uploads
       - DEDUP2D_FILE_STORAGE_CLEANUP_ON_FINISH=1
       # Point to dedupcad-vision (run it separately, or change this to your service DNS)
-      - DEDUPCAD_VISION_URL=http://host.docker.internal:58001
+      - DEDUPCAD_VISION_URL=${DEDUPCAD_VISION_URL:-http://host.docker.internal:58001}
       - DEDUPCAD_VISION_TIMEOUT_SECONDS=60
       - WORKERS=1
       - HOST=0.0.0.0
@@ -41,6 +41,8 @@ services:
       - redis
     networks:
       - cad-ml-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
 
   # 2D Dedup worker (ARQ)
@@ -57,7 +59,7 @@ services:
       - DEDUP2D_FILE_STORAGE=local
       - DEDUP2D_FILE_STORAGE_DIR=data/dedup2d_uploads
       - DEDUP2D_FILE_STORAGE_CLEANUP_ON_FINISH=1
-      - DEDUPCAD_VISION_URL=http://host.docker.internal:58001
+      - DEDUPCAD_VISION_URL=${DEDUPCAD_VISION_URL:-http://host.docker.internal:58001}
       - DEDUPCAD_VISION_TIMEOUT_SECONDS=60
     volumes:
       - cad-ml-data:/app/data
@@ -65,6 +67,8 @@ services:
       - redis
     networks:
       - cad-ml-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       disable: true
     restart: unless-stopped
