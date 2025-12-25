@@ -10,7 +10,12 @@
 .DEFAULT_GOAL := help
 
 # 变量定义
-PYTHON := python3
+# Prefer project venv or newer Python when available to match 3.10+ requirement.
+PYTHON ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; \
+	elif command -v python3.11 >/dev/null 2>&1; then command -v python3.11; \
+	elif command -v python3.10 >/dev/null 2>&1; then command -v python3.10; \
+	elif command -v python3 >/dev/null 2>&1; then command -v python3; \
+	else echo python3; fi)
 PIP := $(PYTHON) -m pip
 PYTEST := $(PYTHON) -m pytest
 BLACK := $(PYTHON) -m black

@@ -1215,6 +1215,7 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
 
     # Get degraded mode status
     degraded_info = get_degraded_mode_info()
+    is_degraded = degraded_info["degraded"] or is_fallback
 
     return BatchSimilarityResponse(
         total=len(payload.ids),
@@ -1224,7 +1225,7 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
         batch_id=batch_id,
         duration_ms=round(duration * 1000, 2),
         fallback=is_fallback if is_fallback else None,
-        degraded=degraded_info["degraded"],
+        degraded=is_degraded,
     )
 
 
