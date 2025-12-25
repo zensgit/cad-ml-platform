@@ -23,6 +23,7 @@ fi
 TMP_DIR="$(mktemp -d /tmp/dedup2d_secure_callback.XXXXXX)"
 CALLBACK_PORT="${DEDUP2D_CALLBACK_PORT:-19080}"
 CALLBACK_SECRET="${DEDUP2D_CALLBACK_HMAC_SECRET:-dedup2d-test}"
+CLEANUP_TMP="${DEDUP2D_SECURE_SMOKE_CLEANUP:-0}"
 MINIO_BUCKET="${DEDUP2D_S3_BUCKET:-dedup2d-uploads}"
 VISION_BUCKET="${DEDUPCAD_VISION_S3_BUCKET:-dedupcad-drawings}"
 VISION_START="${DEDUPCAD_VISION_START:-0}"
@@ -45,6 +46,16 @@ cleanup() {
   fi
   if [ "${VISION_STARTED}" = "1" ]; then
     docker rm -f "${VISION_CONTAINER}" >/dev/null 2>&1 || true
+  fi
+  if [ "${CLEANUP_TMP}" = "1" ] && [ -n "${TMP_DIR}" ]; then
+    case "${TMP_DIR}" in
+      /tmp/dedup2d_secure_callback.*)
+        rm -rf "${TMP_DIR}" || true
+        ;;
+      *)
+        echo "Skip cleanup for unexpected TMP_DIR: ${TMP_DIR}" >&2
+        ;;
+    esac
   fi
 }
 trap cleanup EXIT

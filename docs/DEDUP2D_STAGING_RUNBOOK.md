@@ -138,6 +138,7 @@ Notes:
 - The script restarts `cad-ml-api` + `dedup2d-worker` with a temporary allowlist
   entry for the HTTPS tunnel.
 - Override `DEDUPCAD_VISION_IMAGE` if you want a non-local Vision image.
+- Set `DEDUP2D_SECURE_SMOKE_CLEANUP=1` to remove `/tmp` artifacts after the run.
 
 ## 4) Worker validation
 
