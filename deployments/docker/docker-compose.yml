@@ -65,6 +65,8 @@ services:
       - redis
     networks:
       - cad-ml-network
+    healthcheck:
+      disable: true
     restart: unless-stopped
 
   # Redis缓存服务
