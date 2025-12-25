@@ -122,6 +122,23 @@ Then poll the job and confirm:
 - callback_http_status=200
 - HMAC signature header (X-Dedup-Signature) validates with DEDUP2D_CALLBACK_HMAC_SECRET
 
+### Secure HTTPS callback (local)
+
+If you want to keep `DEDUP2D_CALLBACK_ALLOW_HTTP=0` for local smoke tests, use the
+secure callback script (requires `cloudflared`):
+
+```bash
+brew install cloudflared
+
+DEDUPCAD_VISION_START=1 \
+  scripts/e2e_dedup2d_secure_callback.sh
+```
+
+Notes:
+- The script restarts `cad-ml-api` + `dedup2d-worker` with a temporary allowlist
+  entry for the HTTPS tunnel.
+- Override `DEDUPCAD_VISION_IMAGE` if you want a non-local Vision image.
+
 ## 4) Worker validation
 
 - Confirm ARQ worker logs show job execution and no uncaught exceptions
