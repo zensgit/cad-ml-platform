@@ -30,12 +30,19 @@ class DxfAdapter(_BaseAdapter):
         entities: list[CadEntity] = []
         bbox = BoundingBox()
         try:
-            from io import BytesIO
-
             import ezdxf  # type: ignore
+            import tempfile
 
-            stream = BytesIO(data)
-            doc = ezdxf.read(stream)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
+                tmp.write(data)
+                tmp_path = tmp.name
+            try:
+                doc = ezdxf.readfile(tmp_path)
+            finally:
+                try:
+                    __import__("os").unlink(tmp_path)
+                except Exception:
+                    pass
             msp = doc.modelspace()
             for e in msp:
                 kind = e.dxftype()
