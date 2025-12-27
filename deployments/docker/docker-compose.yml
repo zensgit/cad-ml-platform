@@ -104,6 +104,20 @@ services:
       - cad-ml-network
     restart: unless-stopped
 
+  # Alertmanager (Prometheus alert routing)
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: cad-ml-alertmanager
+    ports:
+      - "${CAD_ML_ALERTMANAGER_PORT:-9093}:9093"
+    volumes:
+      - ../../config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+    networks:
+      - cad-ml-network
+    restart: unless-stopped
+
   # Grafana可视化
   grafana:
     image: grafana/grafana:latest
