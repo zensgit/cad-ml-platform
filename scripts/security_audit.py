@@ -207,14 +207,19 @@ class SecurityAuditor:
             )
 
             if result.returncode != 0 and result.stderr:
-                # git-secrets found something
-                secrets_found.append({
-                    "type": "exposed_secret",
-                    "tool": "git-secrets",
-                    "findings": result.stderr,
-                    "severity": "critical"
-                })
-                print(f"  git-secrets: Found potential secrets")
+                if "is not a git command" in result.stderr:
+                    print("  git-secrets not available")
+                else:
+                    # git-secrets found something
+                    secrets_found.append({
+                        "type": "exposed_secret",
+                        "tool": "git-secrets",
+                        "findings": result.stderr,
+                        "severity": "critical"
+                    })
+                    print("  git-secrets: Found potential secrets")
+            elif result.returncode == 0:
+                print("  git-secrets: No secrets detected")
 
         except:
             print("  git-secrets not available")

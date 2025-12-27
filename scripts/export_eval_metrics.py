@@ -60,6 +60,18 @@ class MetricsExporter:
 
         return time_series
 
+    @staticmethod
+    def _get_metric(metrics: Optional[Dict], key: str, default: float = 0.0) -> float:
+        """Fetch metric value supporting legacy and normalized key casing."""
+        if not metrics:
+            return default
+        if key in metrics:
+            return metrics[key]
+        upper_key = key.upper()
+        if upper_key in metrics:
+            return metrics[upper_key]
+        return default
+
     def format_prometheus(self) -> str:
         """Format metrics in Prometheus exposition format."""
         latest = self.load_latest_evaluation()
@@ -84,8 +96,8 @@ class MetricsExporter:
             combined = latest["combined"]["combined_score"]
             vision = latest["combined"]["vision_score"]
             ocr = latest["combined"]["ocr_score"]
-            vision_metrics = latest["vision_metrics"]
-            ocr_metrics = latest["ocr_metrics"]
+            vision_metrics = latest.get("vision_metrics", {})
+            ocr_metrics = latest.get("ocr_metrics", {})
 
         lines.append(f'cad_ml_evaluation_score{{module="combined"}} {combined:.4f}')
         lines.append(f'cad_ml_evaluation_score{{module="vision"}} {vision:.4f}')
@@ -95,10 +107,22 @@ class MetricsExporter:
         lines.append("# HELP cad_ml_vision_metrics Vision module detailed metrics")
         lines.append("# TYPE cad_ml_vision_metrics gauge")
 
-        lines.append(f'cad_ml_vision_metrics{{metric="avg_hit_rate"}} {vision_metrics.get("AVG_HIT_RATE", 0):.4f}')
-        lines.append(f'cad_ml_vision_metrics{{metric="min_hit_rate"}} {vision_metrics.get("MIN_HIT_RATE", 0):.4f}')
-        lines.append(f'cad_ml_vision_metrics{{metric="max_hit_rate"}} {vision_metrics.get("MAX_HIT_RATE", 0):.4f}')
-        lines.append(f'cad_ml_vision_metrics{{metric="num_samples"}} {vision_metrics.get("NUM_SAMPLES", 0)}')
+        lines.append(
+            f'cad_ml_vision_metrics{{metric="avg_hit_rate"}} '
+            f'{self._get_metric(vision_metrics, "avg_hit_rate"):.4f}'
+        )
+        lines.append(
+            f'cad_ml_vision_metrics{{metric="min_hit_rate"}} '
+            f'{self._get_metric(vision_metrics, "min_hit_rate"):.4f}'
+        )
+        lines.append(
+            f'cad_ml_vision_metrics{{metric="max_hit_rate"}} '
+            f'{self._get_metric(vision_metrics, "max_hit_rate"):.4f}'
+        )
+        lines.append(
+            f'cad_ml_vision_metrics{{metric="num_samples"}} '
+            f'{self._get_metric(vision_metrics, "num_samples", default=0):.0f}'
+        )
 
         # OCR metrics
         lines.append("# HELP cad_ml_ocr_metrics OCR module detailed metrics")
@@ -112,8 +136,9 @@ class MetricsExporter:
         lines.append("# HELP cad_ml_evaluation_info Evaluation metadata")
         lines.append("# TYPE cad_ml_evaluation_info info")
 
-        git_branch = latest.get("git_info", {}).get("branch", "unknown")
-        git_commit = latest.get("git_info", {}).get("commit", "unknown")
+        git_info = latest.get("git_info", {})
+        git_branch = git_info.get("branch") or latest.get("branch", "unknown")
+        git_commit = git_info.get("commit") or latest.get("commit", "unknown")
         lines.append(f'cad_ml_evaluation_info{{branch="{git_branch}",commit="{git_commit}"}} 1')
 
         # Timestamp
@@ -134,6 +159,17 @@ class MetricsExporter:
 
         timestamp = datetime.fromisoformat(latest["timestamp"].replace("Z", "+00:00"))
         unix_nano = int(timestamp.timestamp() * 1e9)
+
+        if "scores" in latest:
+            combined_score = latest["scores"]["combined"]
+            vision_score = latest["scores"]["vision"]["score"]
+            ocr_score = latest["scores"]["ocr"]["normalized"]
+            vision_metrics = latest["scores"]["vision"]["metrics"]
+        else:
+            combined_score = latest["combined"]["combined_score"]
+            vision_score = latest["combined"]["vision_score"]
+            ocr_score = latest["combined"]["ocr_score"]
+            vision_metrics = latest.get("vision_metrics", {})
 
         metrics = {
             "resource_metrics": [{
@@ -158,17 +194,17 @@ class MetricsExporter:
                                     {
                                         "attributes": [{"key": "module", "value": {"string_value": "combined"}}],
                                         "time_unix_nano": unix_nano,
-                                        "as_double": latest["scores"]["combined"]
+                                        "as_double": combined_score
                                     },
                                     {
                                         "attributes": [{"key": "module", "value": {"string_value": "vision"}}],
                                         "time_unix_nano": unix_nano,
-                                        "as_double": latest["scores"]["vision"]["score"]
+                                        "as_double": vision_score
                                     },
                                     {
                                         "attributes": [{"key": "module", "value": {"string_value": "ocr"}}],
                                         "time_unix_nano": unix_nano,
-                                        "as_double": latest["scores"]["ocr"]["normalized"]
+                                        "as_double": ocr_score
                                     }
                                 ]
                             }
@@ -182,17 +218,17 @@ class MetricsExporter:
                                     {
                                         "attributes": [{"key": "type", "value": {"string_value": "avg"}}],
                                         "time_unix_nano": unix_nano,
-                                        "as_double": latest["scores"]["vision"]["metrics"]["AVG_HIT_RATE"]
+                                        "as_double": self._get_metric(vision_metrics, "avg_hit_rate")
                                     },
                                     {
                                         "attributes": [{"key": "type", "value": {"string_value": "min"}}],
                                         "time_unix_nano": unix_nano,
-                                        "as_double": latest["scores"]["vision"]["metrics"]["MIN_HIT_RATE"]
+                                        "as_double": self._get_metric(vision_metrics, "min_hit_rate")
                                     },
                                     {
                                         "attributes": [{"key": "type", "value": {"string_value": "max"}}],
                                         "time_unix_nano": unix_nano,
-                                        "as_double": latest["scores"]["vision"]["metrics"]["MAX_HIT_RATE"]
+                                        "as_double": self._get_metric(vision_metrics, "max_hit_rate")
                                     }
                                 ]
                             }
