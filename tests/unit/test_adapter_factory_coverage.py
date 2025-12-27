@@ -42,11 +42,14 @@ class TestBaseAdapter:
     async def test_base_adapter_convert_calls_parse(self):
         """Test _BaseAdapter.convert calls parse and to_unified_dict."""
         from src.adapters.factory import _BaseAdapter
-        from src.models.cad_document import CadDocument
 
         adapter = _BaseAdapter()
-        mock_doc = MagicMock(spec=CadDocument)
-        mock_doc.to_unified_dict.return_value = {"key": "value"}
+
+        class DummyDoc:
+            def to_unified_dict(self):
+                return {"key": "value"}
+
+        mock_doc = DummyDoc()
 
         with patch.object(adapter, "parse", new_callable=AsyncMock, return_value=mock_doc):
             result = await adapter.convert(b"data", file_name="test.file")
