@@ -15,6 +15,8 @@ python3 "$SCRIPT" | tee /tmp/eval_out.txt
 
 timestamp=$(date +"%Y%m%d_%H%M%S")
 branch=$(git -C "$ROOT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+safe_branch=$(echo "$branch" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+|-+$//g')
+safe_branch=${safe_branch:-unknown}
 commit=$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 # Parse metrics from stdout
@@ -22,7 +24,7 @@ dimension_recall=$(grep -Eo 'dimension_recall=[0-9.]+"?' /tmp/eval_out.txt | cut
 brier_score=$(grep -Eo 'brier_score=[0-9.]+' /tmp/eval_out.txt | cut -d= -f2)
 edge_f1=$(grep -Eo 'edge_f1=[0-9.]+' /tmp/eval_out.txt | cut -d= -f2)
 
-outfile="$REPORT_DIR/${timestamp}_${branch}_${commit}.json"
+outfile="$REPORT_DIR/${timestamp}_${safe_branch}_${commit}.json"
 
 # Get system information for run context
 runner="local"
@@ -58,4 +60,3 @@ cat > "$outfile" <<JSON
 JSON
 
 echo "Saved eval history -> $outfile"
-

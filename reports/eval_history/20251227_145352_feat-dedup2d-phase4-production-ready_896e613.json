@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0.0",
+  "timestamp": "2025-12-27T06:53:53Z",
+  "branch": "feat/dedup2d-phase4-production-ready",
+  "commit": "896e613",
+  "type": "ocr",
+  "run_context": {
+    "runner": "local",
+    "machine": "hua-MacBook-Pro.local",
+    "os": "Darwin 25.1.0",
+    "python": "3.9.6",
+    "start_time": "2025-12-27T06:53:53Z",
+    "ci_job_id": "null",
+    "ci_workflow": "null"
+  },
+  "metrics": {
+    "dimension_recall": 1.000,
+    "brier_score": 0.025,
+    "edge_f1": 0.000
+  }
+}
