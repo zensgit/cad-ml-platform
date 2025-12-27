@@ -242,17 +242,6 @@ dashboard-import: ## 导入Grafana仪表板
 	@echo "  docs/grafana/observability_dashboard.json"
 	@open http://localhost:3000/dashboard/import || echo "Open http://localhost:3000/dashboard/import manually"
 
-security-audit: ## 运行安全审计
-	@echo "$(GREEN)Running security audit...$(NC)"
-	@echo "$(YELLOW)Checking dependencies with pip-audit...$(NC)"
-	-pip-audit
-	@echo ""
-	@echo "$(YELLOW)Checking with safety...$(NC)"
-	-safety check
-	@echo ""
-	@echo "$(YELLOW)Running bandit security scan...$(NC)"
-	-bandit -r $(SRC_DIR) -f json -o security-report.json
-
 observability-test: ## 运行可观测性测试套件
 	@echo "$(GREEN)Running observability test suite...$(NC)"
 	$(PYTEST) tests/test_observability_suite.py -v

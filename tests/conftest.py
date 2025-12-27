@@ -57,6 +57,7 @@ def vector_store_isolation():
     backup_degraded = similarity._VECTOR_DEGRADED
     backup_degraded_reason = similarity._VECTOR_DEGRADED_REASON
     backup_degraded_at = similarity._VECTOR_DEGRADED_AT
+    backup_default_store = getattr(similarity, "_DEFAULT_STORE", None)
     # Backup faiss-specific globals
     backup_faiss_index = similarity._FAISS_INDEX
     backup_faiss_dim = similarity._FAISS_DIM
@@ -81,6 +82,8 @@ def vector_store_isolation():
         similarity._VECTOR_DEGRADED = backup_degraded
         similarity._VECTOR_DEGRADED_REASON = backup_degraded_reason
         similarity._VECTOR_DEGRADED_AT = backup_degraded_at
+        if hasattr(similarity, "_DEFAULT_STORE"):
+            similarity._DEFAULT_STORE = backup_default_store
         # Restore faiss-specific globals
         similarity._FAISS_INDEX = backup_faiss_index
         similarity._FAISS_DIM = backup_faiss_dim

@@ -414,6 +414,7 @@ python3 scripts/run_full_integration_test.py
 {"code":"INPUT_VALIDATION_FAILED","stage":"batch_similarity","message":"Batch size exceeds limit","batch_size":350,"max_batch":200}
 ```
 指标：`vector_query_batch_latency_seconds{batch_size_range="small|medium|large"}`，`analysis_rejections_total{reason="batch_too_large"}`，`analysis_rejections_total{reason="batch_empty_results"}`。
+响应字段：`fallback` 表示向量后端降级 (Faiss 不可用或处于 degraded)，与 `degraded` 一致。
 
 ### 🔄 向量迁移摘要
 `GET /api/v1/vectors/migrate/summary`
