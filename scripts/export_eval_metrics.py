@@ -134,7 +134,7 @@ class MetricsExporter:
 
         # Metadata
         lines.append("# HELP cad_ml_evaluation_info Evaluation metadata")
-        lines.append("# TYPE cad_ml_evaluation_info info")
+        lines.append("# TYPE cad_ml_evaluation_info gauge")
 
         git_info = latest.get("git_info", {})
         git_branch = git_info.get("branch") or latest.get("branch", "unknown")
@@ -149,7 +149,7 @@ class MetricsExporter:
         unix_timestamp = int(timestamp.timestamp())
         lines.append(f'cad_ml_evaluation_timestamp {unix_timestamp}')
 
-        return "\n".join(lines)
+        return "\n".join(lines) + "\n"
 
     def format_opentelemetry(self) -> Dict:
         """Format metrics in OpenTelemetry JSON format."""
