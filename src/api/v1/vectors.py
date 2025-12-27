@@ -1108,16 +1108,19 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
     # Detect if fallback occurred (Faiss unavailable -> memory)
     is_fallback = False
     expected_backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
-    if expected_backend == "faiss":
+    if getattr(store, "_available", True) is False:
+        is_fallback = True
+    elif expected_backend == "faiss":
         from src.core.similarity import InMemoryVectorStore
 
         if isinstance(store, InMemoryVectorStore):
             is_fallback = True
-            # Record fallback metric
-            try:
-                vector_query_backend_total.labels(backend="memory_fallback").inc()
-            except Exception:
-                pass
+    if is_fallback:
+        # Record fallback metric
+        try:
+            vector_query_backend_total.labels(backend="memory_fallback").inc()
+        except Exception:
+            pass
 
     # Process each vector ID
     for vid in payload.ids:
@@ -1215,9 +1218,7 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
 
     # Get degraded mode status
     degraded_info = get_degraded_mode_info()
-    fallback = is_fallback or (
-        expected_backend == "faiss" and degraded_info["degraded"]
-    )
+    fallback = is_fallback or degraded_info["degraded"]
     is_degraded = degraded_info["degraded"] or fallback
 
     return BatchSimilarityResponse(
