@@ -1,0 +1,34 @@
+{
+  "schema_version": "1.0.0",
+  "timestamp": "2025-12-27T07:36:00Z",
+  "branch": "feat/dedup2d-phase4-production-ready",
+  "commit": "2b53dfa",
+  "type": "combined",
+  "run_context": {
+    "runner": "local",
+    "machine": "hua-MacBook-Pro.local",
+    "os": "Darwin 25.1.0",
+    "python": "3.11.13",
+    "start_time": "2025-12-27T07:36:00Z",
+    "ci_job_id": null,
+    "ci_workflow": null
+  },
+  "vision_metrics": {
+    "avg_hit_rate": 0.667,
+    "min_hit_rate": 0.4,
+    "max_hit_rate": 1.0,
+    "num_samples": 3
+  },
+  "ocr_metrics": {
+    "dimension_recall": 1.0,
+    "brier_score": 0.025,
+    "edge_f1": 0.0
+  },
+  "combined": {
+    "vision_score": 0.667,
+    "ocr_score": 0.975,
+    "combined_score": 0.821,
+    "vision_weight": 0.5,
+    "ocr_weight": 0.5
+  }
+}
