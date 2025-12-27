@@ -540,7 +540,7 @@ metrics-serve: ## 启动指标服务器 (端口 8000)
 
 metrics-push: ## 推送指标到 Prometheus Gateway
 	@echo "$(GREEN)Pushing metrics to Prometheus Gateway...$(NC)"
-	$(PYTHON) scripts/export_eval_metrics.py --push-gateway http://localhost:9091
+	$(PYTHON) scripts/export_eval_metrics.py --push-gateway $${PUSHGATEWAY_URL:-http://localhost:9091}
 
 security-audit: ## 运行安全审计
 	@echo "$(YELLOW)Running security audit...$(NC)"
