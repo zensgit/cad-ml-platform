@@ -767,8 +767,8 @@ from .event_bus import (
 )
 from .event_bus import create_event_store as create_event_bus_store
 from .event_bus import create_query_bus
-from .event_sourcing import Aggregate
-from .event_sourcing import Aggregate as AggregateRoot  # Alias for compatibility
+from .event_sourcing import Aggregate  # Alias for compatibility
+from .event_sourcing import Aggregate as AggregateRoot
 from .event_sourcing import (
     AggregateType,
     Command,
@@ -789,8 +789,8 @@ from .event_sourcing import (
     RequestCountProjection,
     Snapshot,
 )
-from .event_sourcing import SnapshotStore
-from .event_sourcing import SnapshotStore as InMemorySnapshotStore  # Alias for compatibility
+from .event_sourcing import SnapshotStore  # Alias for compatibility
+from .event_sourcing import SnapshotStore as InMemorySnapshotStore
 from .event_sourcing import VisionRequestAggregate, create_event_sourced_provider
 from .experiment_tracker import Artifact as ExperimentArtifact
 from .experiment_tracker import (
@@ -1059,8 +1059,8 @@ from .knowledge_base import (
 from .knowledge_base import QueryResult as KnowledgeQueryResult
 from .knowledge_base import Relationship, RelationType
 from .knowledge_base import SearchResult as KnowledgeSearchResult
+from .knowledge_base import SearchStrategy as KnowledgeSearchStrategy
 from .knowledge_base import (
-    SearchStrategy as KnowledgeSearchStrategy,
     SemanticIndex,
     create_entity,
     create_knowledge_base,
@@ -1099,12 +1099,14 @@ from .logging_middleware import (
     ConsoleLogHandler,
     FileLogHandler,
     JSONLogHandler,
-    LogDestination as MiddlewareLogDestination,
-    LogHandler,
-    LogLevel,
+)
+from .logging_middleware import LogDestination as MiddlewareLogDestination
+from .logging_middleware import (
     LoggingConfig,
     LoggingMiddleware,
     LoggingVisionProvider,
+    LogHandler,
+    LogLevel,
     PerformanceMetrics,
     RequestLog,
     ResponseLog,
@@ -1191,9 +1193,9 @@ from .middleware import (
 # Phase 12: Advanced Analytics & ML Integration
 from .ml_integration import CompositeFeatureExtractor, EnsembleModel
 from .ml_integration import Feature as MLFeature
+from .ml_integration import FeatureExtractor
+from .ml_integration import FeatureType as MLFeatureType
 from .ml_integration import (
-    FeatureExtractor,
-    FeatureType as MLFeatureType,
     FeatureVector,
     ImageFeatureExtractor,
     InferenceEngine,
@@ -1445,10 +1447,9 @@ from .predictive_analytics import (
 )
 from .predictive_analytics import ModelMetrics as PredictionModelMetrics
 from .predictive_analytics import ModelType as PredictionModelType
+from .predictive_analytics import MovingAverageModel, PredictionResult
+from .predictive_analytics import PredictionType as PredictivePredictionType
 from .predictive_analytics import (
-    MovingAverageModel,
-    PredictionResult,
-    PredictionType as PredictivePredictionType,
     PredictiveEngine,
     PredictiveVisionProvider,
     TimeSeriesStore,
@@ -1678,12 +1679,9 @@ from .retry_policy import (
     LinearBackoff,
     RetryAttempt,
     RetryBudget,
-    RetryPolicy as ResilienceRetryPolicy,
-    RetryPolicyConfig,
-    RetryStats,
-    RetryVisionProvider,
-    create_retry_provider,
 )
+from .retry_policy import RetryPolicy as ResilienceRetryPolicy
+from .retry_policy import RetryPolicyConfig, RetryStats, RetryVisionProvider, create_retry_provider
 from .saga_pattern import (
     ChoreographySaga,
     CompensationManager,
@@ -1738,8 +1736,8 @@ from .security_audit import AlertManager as SecurityAlertManager
 from .security_audit import AlertStatus as SecurityAlertStatus
 from .security_audit import AnomalyDetector as SecurityAnomalyDetector
 from .security_audit import AuditLogger as SecurityAuditLogger
+from .security_audit import AuditPolicy as SecurityAuditPolicy
 from .security_audit import (
-    AuditPolicy as SecurityAuditPolicy,
     BruteForceDetector,
     IPReputationDetector,
     SecurityAlert,
@@ -2035,7 +2033,9 @@ from .workflow_engine import (
     TaskExecution,
     TaskHandler,
     TaskStatus,
-    TriggerType as WorkflowTriggerType,
+)
+from .workflow_engine import TriggerType as WorkflowTriggerType
+from .workflow_engine import (
     VisionAnalysisTask,
     WorkflowBuilder,
     WorkflowDefinition,

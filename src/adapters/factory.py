@@ -30,8 +30,9 @@ class DxfAdapter(_BaseAdapter):
         entities: list[CadEntity] = []
         bbox = BoundingBox()
         try:
-            import ezdxf  # type: ignore
             import tempfile
+
+            import ezdxf  # type: ignore
 
             with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
                 tmp.write(data)
