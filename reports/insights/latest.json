@@ -1,0 +1,30 @@
+{
+  "generated_at": "2025-12-27T07:19:49.531195+00:00",
+  "analysis_period": {
+    "start": "2025-12-27T06:50:24Z",
+    "end": "2025-12-27T07:01:50Z",
+    "count": 2
+  },
+  "trends": {
+    "combined": "stable",
+    "vision": "stable",
+    "ocr": "stable",
+    "period": {
+      "start": "2025-12-27T06:50:24Z",
+      "end": "2025-12-27T07:01:50Z",
+      "count": 2
+    }
+  },
+  "anomalies": [],
+  "statistics": {
+    "combined": {
+      "mean": 0.821,
+      "median": 0.821,
+      "stdev": 0.0,
+      "min": 0.821,
+      "max": 0.821,
+      "range": 0.0
+    }
+  },
+  "narrative": "# Evaluation Insights Report\n\n*Generated: 2025-12-27T07:19:49.531288+00:00*\n\n## Executive Summary\n\n**Latest Performance**: Combined score of **0.821** (Vision: 0.667, OCR: 0.975)\n\n## Trend Analysis\n\n- **Combined Score**: \u27a1\ufe0f Stable\n- **Vision Module**: \u27a1\ufe0f Stable\n- **OCR Module**: \u27a1\ufe0f Stable\n\n## Statistical Summary\n\n- **Mean Score**: 0.821\n- **Std Deviation**: 0.000\n- **Min Score**: 0.821\n- **Max Score**: 0.821\n- **Sample Size**: 2 evaluations\n\n## \u2705 No Anomalies Detected\n\nAll metrics are within expected ranges.\n\n## Recommendations\n\n\u2705 **Stable Performance**: System is performing consistently.\n- Continue monitoring\n- Consider optimization opportunities\n\n## Risk Assessment\n\n**Overall Risk Level**: \ud83d\udfe2 LOW"
+}
