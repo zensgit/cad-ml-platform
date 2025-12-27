@@ -6,8 +6,8 @@ Degrades gracefully to stub if transformers not available.
 from __future__ import annotations
 
 import asyncio
-import time
 import logging
+import time
 
 """DeepSeek HF OCR provider stub."""
 try:

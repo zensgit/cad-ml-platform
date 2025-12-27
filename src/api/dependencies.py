@@ -1,6 +1,7 @@
 """API dependency stubs for testing environment."""
 
 import os
+
 from fastapi import Header, HTTPException
 
 
@@ -25,10 +26,11 @@ async def get_admin_token(x_admin_token: str = Header(default="", alias="X-Admin
     """
     if not x_admin_token:
         from src.core.errors_extended import ErrorCode, create_extended_error
+
         error = create_extended_error(
             ErrorCode.AUTHORIZATION_FAILED,
             "Missing admin token",
-            context={"hint": "Provide X-Admin-Token header"}
+            context={"hint": "Provide X-Admin-Token header"},
         )
         raise HTTPException(status_code=401, detail=error.to_dict())
 
@@ -38,10 +40,11 @@ async def get_admin_token(x_admin_token: str = Header(default="", alias="X-Admin
     # Validate token
     if x_admin_token != expected_token:
         from src.core.errors_extended import ErrorCode, create_extended_error
+
         error = create_extended_error(
             ErrorCode.AUTHORIZATION_FAILED,
             "Invalid admin token",
-            context={"hint": "Check X-Admin-Token header"}
+            context={"hint": "Check X-Admin-Token header"},
         )
         raise HTTPException(status_code=403, detail=error.to_dict())
 

@@ -482,9 +482,7 @@ class CircuitBreakerVisionProvider(VisionProvider):
         start_time = time.time()
 
         try:
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
             duration_ms = (time.time() - start_time) * 1000
             self._circuit_breaker.record_success(duration_ms)
             return result

@@ -50,6 +50,18 @@ class InsightsAnalyzer:
         self.history.sort(key=lambda x: x.get("timestamp", ""))
         print(f"Loaded {len(self.history)} evaluations from last {days} days")
 
+    @staticmethod
+    def _get_metric(metrics: Optional[Dict], key: str, default: float = 0.0) -> float:
+        """Fetch metric value supporting legacy and normalized key casing."""
+        if not metrics:
+            return default
+        if key in metrics:
+            return metrics[key]
+        upper_key = key.upper()
+        if upper_key in metrics:
+            return metrics[upper_key]
+        return default
+
     def detect_anomalies(self, threshold: float = 0.1) -> List[Dict]:
         """Detect anomalies in evaluation metrics."""
         if len(self.history) < 3:
@@ -69,7 +81,9 @@ class InsightsAnalyzer:
             elif "combined" in h:
                 # Legacy format
                 combined_scores.append(h["combined"].get("combined_score", 0))
-                vision_scores.append(h["vision_metrics"].get("AVG_HIT_RATE", 0))
+                vision_scores.append(
+                    self._get_metric(h.get("vision_metrics"), "avg_hit_rate")
+                )
                 ocr_scores.append(h["combined"].get("ocr_score", 0))
             else:
                 continue
@@ -151,7 +165,9 @@ class InsightsAnalyzer:
             elif "combined" in h:
                 # Legacy format
                 combined_scores.append(h["combined"].get("combined_score", 0))
-                vision_scores.append(h["vision_metrics"].get("AVG_HIT_RATE", 0))
+                vision_scores.append(
+                    self._get_metric(h.get("vision_metrics"), "avg_hit_rate")
+                )
                 ocr_scores.append(h["combined"].get("ocr_score", 0))
             else:
                 continue
@@ -208,7 +224,11 @@ class InsightsAnalyzer:
             ocr = latest["scores"]["ocr"]["normalized"]
         else:
             combined = latest["combined"].get("combined_score", 0)
-            vision = latest["vision_metrics"].get("AVG_HIT_RATE", 0)
+            vision = self._get_metric(
+                latest.get("vision_metrics"),
+                "avg_hit_rate",
+                default=latest.get("combined", {}).get("vision_score", 0),
+            )
             ocr = latest["combined"].get("ocr_score", 0)
 
         # Analyze trends

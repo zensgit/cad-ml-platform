@@ -13,10 +13,9 @@ from __future__ import annotations
 import hashlib
 import os
 from typing import Dict
-from unittest.mock import MagicMock, patch, mock_open
+from unittest.mock import MagicMock, mock_open, patch
 
 import pytest
-
 
 
 class TestProcessRulesAuditResponseModel:
@@ -447,14 +446,16 @@ class TestProcessRulesAuditEndpoint:
         mock_rules = {
             "__meta__": {"version": "v2"},
             "steel": {"simple": ["step1"], "complex": ["step1", "step2"]},
-            "aluminum": {"basic": ["cut"]}
+            "aluminum": {"basic": ["cut"]},
         }
 
         with patch("src.core.process_rules.load_rules", return_value=mock_rules):
             with patch.dict(os.environ, {"PROCESS_RULES_FILE": "/tmp/rules.yaml"}):
                 with patch("src.api.v1.process.os.path.exists", return_value=True):
                     with patch("builtins.open", mock_open(read_data=b"test content")):
-                        with patch("src.api.v1.process.process_rules_audit_requests_total") as mock_metric:
+                        with patch(
+                            "src.api.v1.process.process_rules_audit_requests_total"
+                        ) as mock_metric:
                             mock_metric.labels.return_value = MagicMock()
 
                             result = await process_rules_audit(raw=True, api_key="test")
@@ -473,15 +474,14 @@ class TestProcessRulesAuditEndpoint:
         """Test process_rules_audit when rules file doesn't exist."""
         from src.api.v1.process import process_rules_audit
 
-        mock_rules = {
-            "__meta__": {"version": "v1"},
-            "copper": {"simple": ["step1"]}
-        }
+        mock_rules = {"__meta__": {"version": "v1"}, "copper": {"simple": ["step1"]}}
 
         with patch("src.core.process_rules.load_rules", return_value=mock_rules):
             with patch.dict(os.environ, {"PROCESS_RULES_FILE": "/nonexistent/path.yaml"}):
                 with patch("src.api.v1.process.os.path.exists", return_value=False):
-                    with patch("src.api.v1.process.process_rules_audit_requests_total") as mock_metric:
+                    with patch(
+                        "src.api.v1.process.process_rules_audit_requests_total"
+                    ) as mock_metric:
                         mock_metric.labels.return_value = MagicMock()
 
                         result = await process_rules_audit(raw=True, api_key="test")
@@ -495,10 +495,7 @@ class TestProcessRulesAuditEndpoint:
         """Test process_rules_audit with raw=False returns empty raw dict."""
         from src.api.v1.process import process_rules_audit
 
-        mock_rules = {
-            "__meta__": {"version": "v1"},
-            "steel": {"simple": ["step1"]}
-        }
+        mock_rules = {"__meta__": {"version": "v1"}, "steel": {"simple": ["step1"]}}
 
         with patch("src.core.process_rules.load_rules", return_value=mock_rules):
             with patch("src.api.v1.process.os.path.exists", return_value=False):
@@ -514,9 +511,7 @@ class TestProcessRulesAuditEndpoint:
         """Test process_rules_audit defaults version when __meta__ missing."""
         from src.api.v1.process import process_rules_audit
 
-        mock_rules = {
-            "steel": {"simple": ["step1"]}
-        }
+        mock_rules = {"steel": {"simple": ["step1"]}}
 
         with patch("src.core.process_rules.load_rules", return_value=mock_rules):
             with patch("src.api.v1.process.os.path.exists", return_value=False):
@@ -532,16 +527,15 @@ class TestProcessRulesAuditEndpoint:
         """Test process_rules_audit handles file read errors gracefully."""
         from src.api.v1.process import process_rules_audit
 
-        mock_rules = {
-            "__meta__": {"version": "v1"},
-            "steel": {"simple": ["step1"]}
-        }
+        mock_rules = {"__meta__": {"version": "v1"}, "steel": {"simple": ["step1"]}}
 
         with patch("src.core.process_rules.load_rules", return_value=mock_rules):
             with patch.dict(os.environ, {"PROCESS_RULES_FILE": "/tmp/rules.yaml"}):
                 with patch("src.api.v1.process.os.path.exists", return_value=True):
                     with patch("builtins.open", side_effect=IOError("Permission denied")):
-                        with patch("src.api.v1.process.process_rules_audit_requests_total") as mock_metric:
+                        with patch(
+                            "src.api.v1.process.process_rules_audit_requests_total"
+                        ) as mock_metric:
                             mock_metric.labels.return_value = MagicMock()
 
                             result = await process_rules_audit(raw=True, api_key="test")
@@ -558,8 +552,13 @@ class TestProcessRulesAuditEndpoint:
 
         with patch("src.core.process_rules.load_rules", return_value=mock_rules):
             with patch("src.api.v1.process.os.path.exists", return_value=False):
-                with patch("src.api.v1.process.ProcessRulesAuditResponse", side_effect=Exception("Model error")):
-                    with patch("src.api.v1.process.process_rules_audit_requests_total") as mock_metric:
+                with patch(
+                    "src.api.v1.process.ProcessRulesAuditResponse",
+                    side_effect=Exception("Model error"),
+                ):
+                    with patch(
+                        "src.api.v1.process.process_rules_audit_requests_total"
+                    ) as mock_metric:
                         mock_labels = MagicMock()
                         mock_metric.labels.return_value = mock_labels
 
@@ -628,7 +627,7 @@ class TestProcessRulesAuditResponseModelDirect:
             hash="abc123",
             materials=["steel", "aluminum"],
             complexities={"steel": ["simple", "complex"]},
-            raw={"__meta__": {"version": "v1"}}
+            raw={"__meta__": {"version": "v1"}},
         )
 
         assert response.version == "v1"
@@ -646,7 +645,7 @@ class TestProcessRulesAuditResponseModelDirect:
             hash=None,
             materials=[],
             complexities={},
-            raw={}
+            raw={},
         )
 
         assert response.hash is None

@@ -1,6 +1,8 @@
-from fastapi.testclient import TestClient
-from src.main import app
 import uuid
+
+from fastapi.testclient import TestClient
+
+from src.main import app
 
 client = TestClient(app)
 
@@ -34,7 +36,7 @@ def test_similarity_topk_complexity_filter():
             f"part_{test_run_id}_{i}.dxf",
             entity_count=i * 30 + 5,
             material=m,
-            unique_suffix=test_run_id
+            unique_suffix=test_run_id,
         )
         ids.append(aid)
 

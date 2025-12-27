@@ -125,10 +125,7 @@ class ServiceEndpoint:
 
     def get_healthy_instances(self) -> List[ServiceInstance]:
         """Get healthy instances."""
-        return [
-            inst for inst in self.instances
-            if inst.status == ServiceStatus.HEALTHY
-        ]
+        return [inst for inst in self.instances if inst.status == ServiceStatus.HEALTHY]
 
 
 @dataclass
@@ -209,9 +206,7 @@ class ServiceRegistry:
         """
         with self._lock:
             if service_name not in self._services:
-                self._services[service_name] = ServiceEndpoint(
-                    service_name=service_name
-                )
+                self._services[service_name] = ServiceEndpoint(service_name=service_name)
             self._services[service_name].add_instance(instance)
 
         self._notify_watchers(service_name, instance, "register")
@@ -375,10 +370,7 @@ class ServiceRegistry:
 
         with self._lock:
             for service_name, endpoint in self._services.items():
-                stale = [
-                    inst for inst in endpoint.instances
-                    if inst.is_stale(timeout)
-                ]
+                stale = [inst for inst in endpoint.instances if inst.is_stale(timeout)]
                 for inst in stale:
                     endpoint.remove_instance(inst.instance_id)
                     inst.status = ServiceStatus.UNHEALTHY
@@ -881,10 +873,7 @@ class ServiceMesh:
         for service in services:
             instances = self._registry.get_instances(service)
             total_instances += len(instances)
-            healthy_instances += len([
-                i for i in instances
-                if i.status == ServiceStatus.HEALTHY
-            ])
+            healthy_instances += len([i for i in instances if i.status == ServiceStatus.HEALTHY])
 
         sidecar_stats = {}
         with self._lock:
@@ -990,9 +979,7 @@ class MeshVisionProvider(VisionProvider):
         success = False
 
         try:
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
             success = True
 
             # Update instance stats

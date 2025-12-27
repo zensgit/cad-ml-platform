@@ -138,8 +138,12 @@ class Settings:
     entities_spatial_count_sim_gamma: float = float(
         _get_env("DEDUPCAD2_ENTITIES_SPATIAL_COUNT_GAMMA", "2.0")
     )
-    entities_spatial_bbox_q_low: float = float(_get_env("DEDUPCAD2_ENTITIES_SPATIAL_BBOX_Q_LOW", "1.0"))
-    entities_spatial_bbox_q_high: float = float(_get_env("DEDUPCAD2_ENTITIES_SPATIAL_BBOX_Q_HIGH", "99.0"))
+    entities_spatial_bbox_q_low: float = float(
+        _get_env("DEDUPCAD2_ENTITIES_SPATIAL_BBOX_Q_LOW", "1.0")
+    )
+    entities_spatial_bbox_q_high: float = float(
+        _get_env("DEDUPCAD2_ENTITIES_SPATIAL_BBOX_Q_HIGH", "99.0")
+    )
     # Extended entity enable toggles
     enable_entity_ellipse: bool = _get_env("DEDUPCAD2_ENABLE_ENTITY_ELLIPSE", "1") == "1"
     enable_entity_leader: bool = _get_env("DEDUPCAD2_ENABLE_ENTITY_LEADER", "1") == "1"

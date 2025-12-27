@@ -1,17 +1,22 @@
-import os
-from fastapi.testclient import TestClient
-from src.main import app
 import io
+import os
+
+from fastapi.testclient import TestClient
+
+from src.main import app
 
 client = TestClient(app)
 
 
-def test_matrix_exempt_project():
-    os.environ["FORMAT_STRICT_MODE"] = "1"
+def test_matrix_exempt_project(tmp_path, monkeypatch):
+    monkeypatch.setenv("FORMAT_STRICT_MODE", "1")
     # Create matrix file with exemption
-    path = "config/format_validation_matrix.yaml"
-    with open(path, "w", encoding="utf-8") as f:
-        f.write("formats:\n  dxf:\n    required_tokens: ['SECTION','HEADER']\nexempt_projects: ['proj_exempt']\n")
+    path = tmp_path / "format_validation_matrix.yaml"
+    path.write_text(
+        "formats:\n  dxf:\n    required_tokens: ['SECTION','HEADER']\nexempt_projects: ['proj_exempt']\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("FORMAT_VALIDATION_MATRIX", str(path))
     # Use DXF format which has more lenient validation
     # This DXF content would fail token check if not exempted
     dxf_content = b"0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF" + b"X" * 100
@@ -26,4 +31,3 @@ def test_matrix_exempt_project():
     )
     # Exempt project should pass
     assert resp.status_code == 200, resp.text
-    os.environ.pop("FORMAT_STRICT_MODE", None)

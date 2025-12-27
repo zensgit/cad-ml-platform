@@ -1,0 +1,41 @@
+# Manufacturing Data Configuration
+# This file stores dynamic data for DFM, Process Recommendation, and Cost Estimation.
+# Values can be updated without code changes.
+
+# Material Properties (USD/kg for cost, kg/m^3 for density)
+materials:
+  steel:
+    price_per_kg_usd: 2.5
+    density_kg_per_m3: 7850
+  aluminum:
+    price_per_kg_usd: 4.0
+    density_kg_per_m3: 2700
+  titanium:
+    price_per_kg_usd: 40.0
+    density_kg_per_m3: 4500
+  plastic: # Engineering plastic
+    price_per_kg_usd: 15.0
+    density_kg_per_m3: 1200
+  unknown: # Fallback material
+    price_per_kg_usd: 3.0
+    density_kg_per_m3: 7850
+
+# Machine Hourly Rates (USD/hr)
+machine_hourly_rates:
+  cnc_milling: 60.0
+  cnc_lathe: 50.0
+  5_axis: 120.0
+  additive_manufacturing: 40.0 # Machine time
+  general_machining: 55.0
+
+# DFM Thresholds (Example, can be expanded)
+dfm_thresholds:
+  min_wall_thickness_mm: 0.8
+  max_slenderness_ratio: 10.0 # L/D ratio for shafts
+  max_stock_removal_ratio: 0.85 # Max ratio before recommending additive
+
+process_recommendation_thresholds:
+  complex_geometry_score: 5.0 # Heuristic complexity score threshold for additive
+  high_stock_removal_additive: 0.9 # Stock removal ratio threshold for additive
+  prismatic_complexity_max: 2.0 # Max complexity score for 3-axis CNC
+

@@ -174,9 +174,7 @@ class ConfigValidator:
         """Initialize validator."""
         self._rules: List[Callable[[Dict[str, Any]], Optional[str]]] = []
 
-    def add_rule(
-        self, rule: Callable[[Dict[str, Any]], Optional[str]]
-    ) -> None:
+    def add_rule(self, rule: Callable[[Dict[str, Any]], Optional[str]]) -> None:
         """Add validation rule.
 
         Rule should return None if valid, error message if invalid.
@@ -249,15 +247,11 @@ class HotReloadManager:
         """Get reload events."""
         return list(self._events)
 
-    def add_callback(
-        self, callback: Callable[[ReloadEvent], None]
-    ) -> None:
+    def add_callback(self, callback: Callable[[ReloadEvent], None]) -> None:
         """Add reload callback."""
         self._callbacks.append(callback)
 
-    def remove_callback(
-        self, callback: Callable[[ReloadEvent], None]
-    ) -> None:
+    def remove_callback(self, callback: Callable[[ReloadEvent], None]) -> None:
         """Remove reload callback."""
         if callback in self._callbacks:
             self._callbacks.remove(callback)
@@ -279,9 +273,7 @@ class HotReloadManager:
 
         return config
 
-    def reload(
-        self, trigger: ReloadTrigger = ReloadTrigger.MANUAL
-    ) -> ReloadEvent:
+    def reload(self, trigger: ReloadTrigger = ReloadTrigger.MANUAL) -> ReloadEvent:
         """Reload configuration.
 
         Args:

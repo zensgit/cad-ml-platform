@@ -13,20 +13,20 @@ import asyncio
 import math
 import time
 from typing import Dict, List
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.core.feature_extractor import (
-    FeatureExtractor,
-    compute_shape_entropy,
-    compute_surface_count,
     SLOTS_V1,
     SLOTS_V2,
     SLOTS_V3,
     SLOTS_V4,
+    FeatureExtractor,
+    compute_shape_entropy,
+    compute_surface_count,
 )
-from src.models.cad_document import CadDocument, CadEntity, BoundingBox
+from src.models.cad_document import BoundingBox, CadDocument, CadEntity
 
 
 def create_mock_document(
@@ -50,9 +50,7 @@ def create_mock_document(
         file_name="test.step",
         format="STEP",
         entities=entities,
-        bounding_box=BoundingBox(
-            min_x=0, max_x=100, min_y=0, max_y=100, min_z=0, max_z=100
-        ),
+        bounding_box=BoundingBox(min_x=0, max_x=100, min_y=0, max_y=100, min_z=0, max_z=100),
         metadata=metadata,
         layers={"layer1": 5, "layer2": 5},
     )

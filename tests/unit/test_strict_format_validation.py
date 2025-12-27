@@ -1,7 +1,9 @@
-import os
-from fastapi.testclient import TestClient
-from src.main import app
 import io
+import os
+
+from fastapi.testclient import TestClient
+
+from src.main import app
 
 client = TestClient(app)
 
@@ -18,7 +20,10 @@ def test_step_deep_validation_fail_strict_mode():
     )
     assert resp.status_code == 415
     body = resp.json()
-    assert body.get("code") == "INPUT_FORMAT_INVALID" or body.get("detail", {}).get("code") == "INPUT_FORMAT_INVALID"
+    assert (
+        body.get("code") == "INPUT_FORMAT_INVALID"
+        or body.get("detail", {}).get("code") == "INPUT_FORMAT_INVALID"
+    )
 
 
 def test_step_deep_validation_pass_strict_mode():

@@ -3,16 +3,17 @@ Resilience Metrics Collection
 弹性指标收集和监控
 """
 
-from typing import Dict, Any, List
+import threading
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from collections import defaultdict, deque
-import threading
+from typing import Any, Dict, List
 
 
 @dataclass
 class MetricPoint:
     """指标数据点"""
+
     timestamp: datetime
     value: float
     labels: Dict[str, str] = field(default_factory=dict)
@@ -21,11 +22,12 @@ class MetricPoint:
 @dataclass
 class MetricSummary:
     """指标摘要"""
+
     name: str
     count: int = 0
     sum: float = 0.0
-    min: float = float('inf')
-    max: float = float('-inf')
+    min: float = float("inf")
+    max: float = float("-inf")
     avg: float = 0.0
     p50: float = 0.0
     p95: float = 0.0
@@ -69,23 +71,22 @@ class ResilienceMetrics:
         """记录熔断器事件"""
         with self._lock:
             metric_name = f"circuit_breaker_{event['event']}_total"
-            labels = {
-                "name": event["circuit_breaker"],
-                "state": event["state"]
-            }
+            labels = {"name": event["circuit_breaker"], "state": event["state"]}
 
             # 增加计数器
             counter_key = (metric_name, tuple(labels.items()))
             self.counters[counter_key] += 1
 
             # 记录事件
-            self.circuit_breaker_metrics[event["circuit_breaker"]].append({
-                "timestamp": datetime.now(),
-                "event": event["event"],
-                "state": event["state"],
-                "duration": event.get("duration", 0),
-                "detail": event.get("detail", "")
-            })
+            self.circuit_breaker_metrics[event["circuit_breaker"]].append(
+                {
+                    "timestamp": datetime.now(),
+                    "event": event["event"],
+                    "state": event["state"],
+                    "duration": event.get("duration", 0),
+                    "detail": event.get("detail", ""),
+                }
+            )
 
             # 记录延迟
             if event.get("duration", 0) > 0:
@@ -97,7 +98,7 @@ class ResilienceMetrics:
             metric_name = f"rate_limiter_{event['event']}_total"
             labels = {
                 "name": event["rate_limiter"],
-                "identifier": event.get("identifier", "default")
+                "identifier": event.get("identifier", "default"),
             }
 
             # 增加计数器
@@ -105,32 +106,33 @@ class ResilienceMetrics:
             self.counters[counter_key] += 1
 
             # 记录事件
-            self.rate_limiter_metrics[event["rate_limiter"]].append({
-                "timestamp": datetime.now(),
-                "event": event["event"],
-                "identifier": event.get("identifier", "default")
-            })
+            self.rate_limiter_metrics[event["rate_limiter"]].append(
+                {
+                    "timestamp": datetime.now(),
+                    "event": event["event"],
+                    "identifier": event.get("identifier", "default"),
+                }
+            )
 
     def record_retry_event(self, event: Dict[str, Any]):
         """记录重试事件"""
         with self._lock:
             metric_name = f"retry_{event['event']}_total"
-            labels = {
-                "name": event["retry_policy"],
-                "attempt": str(event.get("attempt", 0))
-            }
+            labels = {"name": event["retry_policy"], "attempt": str(event.get("attempt", 0))}
 
             # 增加计数器
             counter_key = (metric_name, tuple(labels.items()))
             self.counters[counter_key] += 1
 
             # 记录事件
-            self.retry_metrics[event["retry_policy"]].append({
-                "timestamp": datetime.now(),
-                "event": event["event"],
-                "attempt": event.get("attempt", 0),
-                "delay": event.get("delay", 0)
-            })
+            self.retry_metrics[event["retry_policy"]].append(
+                {
+                    "timestamp": datetime.now(),
+                    "event": event["event"],
+                    "attempt": event.get("attempt", 0),
+                    "delay": event.get("delay", 0),
+                }
+            )
 
             # 记录延迟
             if event.get("delay", 0) > 0:
@@ -140,22 +142,21 @@ class ResilienceMetrics:
         """记录隔板事件"""
         with self._lock:
             metric_name = f"bulkhead_{event['event']}_total"
-            labels = {
-                "name": event["bulkhead"],
-                "active": str(event.get("active_calls", 0))
-            }
+            labels = {"name": event["bulkhead"], "active": str(event.get("active_calls", 0))}
 
             # 增加计数器
             counter_key = (metric_name, tuple(labels.items()))
             self.counters[counter_key] += 1
 
             # 记录事件
-            self.bulkhead_metrics[event["bulkhead"]].append({
-                "timestamp": datetime.now(),
-                "event": event["event"],
-                "active_calls": event.get("active_calls", 0),
-                "duration": event.get("duration", 0)
-            })
+            self.bulkhead_metrics[event["bulkhead"]].append(
+                {
+                    "timestamp": datetime.now(),
+                    "event": event["event"],
+                    "active_calls": event.get("active_calls", 0),
+                    "duration": event.get("duration", 0),
+                }
+            )
 
             # 记录执行时间
             if event.get("duration", 0) > 0:
@@ -175,7 +176,7 @@ class ResilienceMetrics:
                 "retry_policies": self._summarize_retry_policies(window_start),
                 "bulkheads": self._summarize_bulkheads(window_start),
                 "counters": self._get_counter_summary(),
-                "histograms": self._get_histogram_summary()
+                "histograms": self._get_histogram_summary(),
             }
 
             return summary
@@ -192,7 +193,7 @@ class ResilienceMetrics:
                     "rejections": sum(1 for e in recent_events if e["event"] == "rejected"),
                     "successes": sum(1 for e in recent_events if e["event"] == "success"),
                     "failures": sum(1 for e in recent_events if e["event"] == "failure"),
-                    "current_state": recent_events[-1]["state"] if recent_events else "unknown"
+                    "current_state": recent_events[-1]["state"] if recent_events else "unknown",
                 }
         return summary
 
@@ -209,7 +210,7 @@ class ResilienceMetrics:
                     "total_requests": total,
                     "allowed": allowed,
                     "rejected": rejected,
-                    "rejection_rate": rejected / total if total > 0 else 0
+                    "rejection_rate": rejected / total if total > 0 else 0,
                 }
         return summary
 
@@ -227,7 +228,7 @@ class ResilienceMetrics:
                     "successes": sum(1 for e in recent_events if e["event"] == "success"),
                     "exhausted": sum(1 for e in recent_events if e["event"] == "exhausted"),
                     "avg_delay": sum(delays) / len(delays) if delays else 0,
-                    "total_delay": sum(delays)
+                    "total_delay": sum(delays),
                 }
         return summary
 
@@ -245,8 +246,10 @@ class ResilienceMetrics:
                     "rejections": sum(1 for e in recent_events if e["event"] == "rejected"),
                     "timeouts": sum(1 for e in recent_events if e["event"] == "timeout"),
                     "avg_duration": sum(durations) / len(durations) if durations else 0,
-                    "avg_active_calls": sum(active_calls) / len(active_calls) if active_calls else 0,
-                    "max_active_calls": max(active_calls) if active_calls else 0
+                    "avg_active_calls": sum(active_calls) / len(active_calls)
+                    if active_calls
+                    else 0,
+                    "max_active_calls": max(active_calls) if active_calls else 0,
                 }
         return summary
 
@@ -256,7 +259,7 @@ class ResilienceMetrics:
         for (metric_name, labels), count in self.counters.items():
             # Build label string safely without nested f-strings (Python 3.10+ compatible)
             try:
-                label_str = ",".join([f"{k}=\"{v}\"" for k, v in labels])
+                label_str = ",".join([f'{k}="{v}"' for k, v in labels])
             except Exception:
                 label_str = ""
             key = f"{metric_name}{{{label_str}}}"
@@ -278,7 +281,7 @@ class ResilienceMetrics:
                     "avg": sum(sorted_values) / count,
                     "p50": self._percentile(sorted_values, 0.50),
                     "p95": self._percentile(sorted_values, 0.95),
-                    "p99": self._percentile(sorted_values, 0.99)
+                    "p99": self._percentile(sorted_values, 0.99),
                 }
         return summary
 
@@ -329,7 +332,7 @@ class ResilienceMetrics:
                 self.circuit_breaker_metrics,
                 self.rate_limiter_metrics,
                 self.retry_metrics,
-                self.bulkhead_metrics
+                self.bulkhead_metrics,
             ]:
                 for name, events in metrics.items():
                     # deque 会自动限制大小，这里只是额外的清理

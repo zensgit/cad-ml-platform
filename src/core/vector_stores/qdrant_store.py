@@ -109,8 +109,7 @@ class QdrantVectorStore:
         """
         if not QDRANT_AVAILABLE:
             raise ImportError(
-                "qdrant-client is not installed. "
-                "Install with: pip install qdrant-client"
+                "qdrant-client is not installed. " "Install with: pip install qdrant-client"
             )
 
         self.config = config or QdrantConfig.from_env()
@@ -433,9 +432,7 @@ class QdrantVectorStore:
             logger.error(f"Failed to delete vector {vector_id}: {e}")
             return False
 
-    async def delete_vectors_by_filter(
-        self, filter_conditions: dict[str, Any]
-    ) -> int:
+    async def delete_vectors_by_filter(self, filter_conditions: dict[str, Any]) -> int:
         """Delete vectors matching filter conditions.
 
         Args:
@@ -475,9 +472,7 @@ class QdrantVectorStore:
             logger.error(f"Failed to delete vectors by filter: {e}")
             raise
 
-    async def update_metadata(
-        self, vector_id: str, metadata: dict[str, Any]
-    ) -> bool:
+    async def update_metadata(self, vector_id: str, metadata: dict[str, Any]) -> bool:
         """Update metadata for a vector.
 
         Args:

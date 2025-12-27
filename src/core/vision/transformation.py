@@ -175,9 +175,7 @@ class LambdaResponseTransformer(ResponseTransformer):
         super().__init__(name, TransformStage.POST_RESPONSE, priority)
         self._transform_fn = transform_fn
 
-    def transform(
-        self, data: VisionDescription, context: TransformContext
-    ) -> VisionDescription:
+    def transform(self, data: VisionDescription, context: TransformContext) -> VisionDescription:
         """Apply transformation function."""
         return self._transform_fn(data, context)
 
@@ -193,9 +191,7 @@ class PipelineStats:
     transforms_by_name: Dict[str, int] = field(default_factory=dict)
     errors_by_transform: Dict[str, int] = field(default_factory=dict)
 
-    def record_transform(
-        self, name: str, success: bool, duration_ms: float
-    ) -> None:
+    def record_transform(self, name: str, success: bool, duration_ms: float) -> None:
         """Record a transformation."""
         self.total_transforms += 1
         self.total_duration_ms += duration_ms
@@ -430,9 +426,7 @@ class TransformingVisionProvider(VisionProvider):
         transformed_data, _ = self._pipeline.transform_request(image_data, pre_context)
 
         # Call provider
-        result = await self._provider.analyze_image(
-            transformed_data, include_description
-        )
+        result = await self._provider.analyze_image(transformed_data, include_description)
 
         # Post-response transformation
         post_context = TransformContext(
@@ -466,9 +460,7 @@ class ConfidenceBoostTransformer(ResponseTransformer):
         self._boost_factor = boost_factor
         self._max_confidence = max_confidence
 
-    def transform(
-        self, data: VisionDescription, context: TransformContext
-    ) -> VisionDescription:
+    def transform(self, data: VisionDescription, context: TransformContext) -> VisionDescription:
         """Boost confidence."""
         new_confidence = min(
             data.confidence * self._boost_factor,
@@ -493,9 +485,7 @@ class SummaryPrefixTransformer(ResponseTransformer):
         )
         self._prefix = prefix
 
-    def transform(
-        self, data: VisionDescription, context: TransformContext
-    ) -> VisionDescription:
+    def transform(self, data: VisionDescription, context: TransformContext) -> VisionDescription:
         """Add prefix to summary."""
         return VisionDescription(
             summary=self._prefix + data.summary,
@@ -523,9 +513,7 @@ class DetailFilterTransformer(ResponseTransformer):
         self._max_length = max_length
         self._keywords = keywords
 
-    def transform(
-        self, data: VisionDescription, context: TransformContext
-    ) -> VisionDescription:
+    def transform(self, data: VisionDescription, context: TransformContext) -> VisionDescription:
         """Filter details."""
         filtered = []
         for detail in data.details:

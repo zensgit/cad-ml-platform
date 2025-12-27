@@ -8,16 +8,12 @@ Tests cover:
 - Fallback behavior when arq unavailable
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.core.tasks import (
-    TaskConfig,
-    TaskResult,
-    TaskStatus,
-    ARQ_AVAILABLE,
-)
+import pytest
+
+from src.core.tasks import ARQ_AVAILABLE, TaskConfig, TaskResult, TaskStatus
 
 
 class TestTaskConfig:
@@ -164,6 +160,7 @@ class TestTaskClient:
     def task_client(self):
         """Create a TaskClient instance."""
         from src.core.tasks import TaskClient
+
         return TaskClient()
 
     @pytest.mark.asyncio

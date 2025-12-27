@@ -211,9 +211,7 @@ class ResponseTransformer(ABC):
     """Abstract response transformer."""
 
     @abstractmethod
-    def transform(
-        self, response: GatewayResponse, request: GatewayRequest
-    ) -> GatewayResponse:
+    def transform(self, response: GatewayResponse, request: GatewayRequest) -> GatewayResponse:
         """Transform the response."""
         pass
 
@@ -252,9 +250,7 @@ class JsonResponseTransformer(ResponseTransformer):
         """Initialize transformer."""
         self._envelope = envelope
 
-    def transform(
-        self, response: GatewayResponse, request: GatewayRequest
-    ) -> GatewayResponse:
+    def transform(self, response: GatewayResponse, request: GatewayRequest) -> GatewayResponse:
         """Wrap response in JSON envelope."""
         import json
 
@@ -329,9 +325,7 @@ class LoadBalancer:
 
         return healthy_endpoints[0]
 
-    async def _round_robin(
-        self, endpoints: List[ServiceEndpoint]
-    ) -> ServiceEndpoint:
+    async def _round_robin(self, endpoints: List[ServiceEndpoint]) -> ServiceEndpoint:
         """Round robin selection."""
         async with self._lock:
             endpoint = endpoints[self._current_index % len(endpoints)]
@@ -344,9 +338,7 @@ class LoadBalancer:
 
         return random.choice(endpoints)
 
-    def _least_connections(
-        self, endpoints: List[ServiceEndpoint]
-    ) -> ServiceEndpoint:
+    def _least_connections(self, endpoints: List[ServiceEndpoint]) -> ServiceEndpoint:
         """Select endpoint with least active connections."""
         return min(endpoints, key=lambda ep: ep.active_connections)
 
@@ -376,9 +368,7 @@ class LoadBalancer:
             return endpoints[hash_val % len(endpoints)]
         return endpoints[0]
 
-    def _least_latency(
-        self, endpoints: List[ServiceEndpoint]
-    ) -> ServiceEndpoint:
+    def _least_latency(self, endpoints: List[ServiceEndpoint]) -> ServiceEndpoint:
         """Select endpoint with lowest average latency."""
         return min(endpoints, key=lambda ep: ep.avg_latency_ms)
 
@@ -475,9 +465,7 @@ class ApiVersionManager:
         self._versions[version.version] = version
         logger.info(f"Registered API version: {version.version}")
 
-    def deprecate_version(
-        self, version: str, sunset_date: Optional[datetime] = None
-    ) -> None:
+    def deprecate_version(self, version: str, sunset_date: Optional[datetime] = None) -> None:
         """Mark a version as deprecated."""
         if version in self._versions:
             self._versions[version].deprecated = True
@@ -519,10 +507,7 @@ class ApiVersionManager:
 
     def get_active_versions(self) -> List[str]:
         """Get non-deprecated versions."""
-        return [
-            v for v, config in self._versions.items()
-            if not config.deprecated
-        ]
+        return [v for v, config in self._versions.items() if not config.deprecated]
 
 
 # ============================================================================
@@ -537,9 +522,7 @@ class ApiAggregator:
         """Initialize aggregator."""
         self._aggregations: Dict[str, List[str]] = {}
 
-    def register_aggregation(
-        self, name: str, endpoints: List[str]
-    ) -> None:
+    def register_aggregation(self, name: str, endpoints: List[str]) -> None:
         """Register an aggregation definition."""
         self._aggregations[name] = endpoints
 
@@ -610,10 +593,7 @@ class LoggingMiddleware(GatewayMiddleware):
     ) -> GatewayResponse:
         """Log request details."""
         start = time.time()
-        logger.info(
-            f"Request: {request.method.value} {request.path} "
-            f"[{request.request_id}]"
-        )
+        logger.info(f"Request: {request.method.value} {request.path} " f"[{request.request_id}]")
 
         result = next_handler(request)
         if asyncio.iscoroutine(result):
@@ -622,10 +602,7 @@ class LoggingMiddleware(GatewayMiddleware):
             response = result
 
         elapsed = (time.time() - start) * 1000
-        logger.info(
-            f"Response: {response.status.value} [{request.request_id}] "
-            f"{elapsed:.2f}ms"
-        )
+        logger.info(f"Response: {response.status.value} [{request.request_id}] " f"{elapsed:.2f}ms")
 
         return response
 
@@ -677,9 +654,7 @@ class CorsMiddleware(GatewayMiddleware):
 
         return {
             "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Methods": ", ".join(
-                m.value for m in self._methods
-            ),
+            "Access-Control-Allow-Methods": ", ".join(m.value for m in self._methods),
             "Access-Control-Allow-Headers": ", ".join(self._headers),
             "Access-Control-Max-Age": str(self._max_age),
         }
@@ -706,11 +681,7 @@ class CompressionMiddleware(GatewayMiddleware):
 
         accept_encoding = request.headers.get("Accept-Encoding", "")
 
-        if (
-            response.body
-            and len(response.body) >= self._min_size
-            and "gzip" in accept_encoding
-        ):
+        if response.body and len(response.body) >= self._min_size and "gzip" in accept_encoding:
             import gzip
 
             response.body = gzip.compress(response.body)
@@ -755,9 +726,7 @@ class ApiGateway:
         """Add a route."""
         self._router.add_route(config)
 
-    def register_handler(
-        self, name: str, handler: Callable[..., Any]
-    ) -> None:
+    def register_handler(self, name: str, handler: Callable[..., Any]) -> None:
         """Register a request handler."""
         self._handlers[name] = handler
 
@@ -788,9 +757,7 @@ class ApiGateway:
         """Register an API version."""
         self._version_manager.register_version(version)
 
-    def register_aggregation(
-        self, name: str, endpoints: List[str]
-    ) -> None:
+    def register_aggregation(self, name: str, endpoints: List[str]) -> None:
         """Register an API aggregation."""
         self._aggregator.register_aggregation(name, endpoints)
 
@@ -809,9 +776,7 @@ class ApiGateway:
                 logger.warning(f"Request using deprecated API version: {version}")
 
             # Match route
-            match_result = self._router.match_route(
-                request.path, request.method, version
-            )
+            match_result = self._router.match_route(request.path, request.method, version)
 
             if not match_result:
                 return GatewayResponse(
@@ -825,9 +790,7 @@ class ApiGateway:
 
             # Apply request transformer
             if route_config.transform_request:
-                transformer = self._request_transformers.get(
-                    route_config.transform_request
-                )
+                transformer = self._request_transformers.get(route_config.transform_request)
                 if transformer:
                     request = transformer.transform(request)
 
@@ -836,9 +799,7 @@ class ApiGateway:
 
             # Apply response transformer
             if route_config.transform_response:
-                transformer = self._response_transformers.get(
-                    route_config.transform_response
-                )
+                transformer = self._response_transformers.get(route_config.transform_response)
                 if transformer:
                     response = transformer.transform(response, request)
 
@@ -868,6 +829,7 @@ class ApiGateway:
         route_config: RouteConfig,
     ) -> GatewayResponse:
         """Execute request through middleware chain."""
+
         # Build middleware chain
         async def final_handler(req: GatewayRequest) -> GatewayResponse:
             return await self._route_to_handler(req, route_config)
@@ -955,12 +917,8 @@ class ApiGateway:
         total = self._metrics["requests_total"]
         return {
             **self._metrics,
-            "avg_latency_ms": (
-                self._metrics["latency_sum_ms"] / total if total > 0 else 0
-            ),
-            "success_rate": (
-                self._metrics["requests_success"] / total if total > 0 else 0
-            ),
+            "avg_latency_ms": (self._metrics["latency_sum_ms"] / total if total > 0 else 0),
+            "success_rate": (self._metrics["requests_success"] / total if total > 0 else 0),
         }
 
 
@@ -1028,9 +986,7 @@ class VisionApiGateway(ApiGateway):
         self.register_handler("list_providers", self._handle_list_providers)
         self.register_handler("health_check", self._handle_health_check)
 
-    async def _handle_analyze(
-        self, request: GatewayRequest
-    ) -> Dict[str, Any]:
+    async def _handle_analyze(self, request: GatewayRequest) -> Dict[str, Any]:
         """Handle image analysis request."""
         import json
 
@@ -1052,6 +1008,7 @@ class VisionApiGateway(ApiGateway):
             # Analyze image
             if isinstance(image_data, str):
                 import base64
+
                 image_bytes = base64.b64decode(image_data)
             else:
                 image_bytes = bytes(image_data)
@@ -1068,9 +1025,7 @@ class VisionApiGateway(ApiGateway):
         except Exception as e:
             return {"error": str(e)}
 
-    def _handle_list_providers(
-        self, request: GatewayRequest
-    ) -> Dict[str, Any]:
+    def _handle_list_providers(self, request: GatewayRequest) -> Dict[str, Any]:
         """List available providers."""
         return {
             "providers": [
@@ -1082,9 +1037,7 @@ class VisionApiGateway(ApiGateway):
             ]
         }
 
-    def _handle_health_check(
-        self, request: GatewayRequest
-    ) -> Dict[str, Any]:
+    def _handle_health_check(self, request: GatewayRequest) -> Dict[str, Any]:
         """Health check endpoint."""
         return {
             "status": "healthy",

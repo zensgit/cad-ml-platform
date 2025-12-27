@@ -10,8 +10,8 @@ Covers:
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
-import numpy as np
 
+import numpy as np
 import pytest
 
 
@@ -49,7 +49,7 @@ class TestGeometricFeaturesDataclass:
             bbox_volume=6000.0,
             centroid=[5.0, 10.0, 15.0],
             compactness=0.8,
-            elongation=3.0
+            elongation=3.0,
         )
 
         assert features.fpfh_descriptor == [1.0, 2.0, 3.0]
@@ -61,11 +61,7 @@ class TestGeometricFeaturesDataclass:
         """Test to_dict method."""
         from src.core.geometry import GeometricFeatures
 
-        features = GeometricFeatures(
-            fpfh_descriptor=[1.0, 2.0],
-            point_count=100,
-            surface_area=50.0
-        )
+        features = GeometricFeatures(fpfh_descriptor=[1.0, 2.0], point_count=100, surface_area=50.0)
 
         result = features.to_dict()
 
@@ -90,7 +86,7 @@ class TestGeometricFeaturesDataclass:
             surface_area=100.0,
             volume=50.0,
             compactness=0.8,
-            elongation=2.0
+            elongation=2.0,
         )
 
         vector = features.to_vector()
@@ -127,18 +123,13 @@ class TestFallbackFeatureExtractor:
 
     def test_fallback_extract_features_basic(self):
         """Test fallback extract_features returns basic features."""
-        from src.core.geometry import _FallbackFeatureExtractor, GeometricFeatures
+        from src.core.geometry import GeometricFeatures, _FallbackFeatureExtractor
 
         extractor = _FallbackFeatureExtractor()
 
         # Create mock mesh with vertices
         mock_mesh = MagicMock()
-        mock_mesh.vertices = np.array([
-            [0, 0, 0],
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 0, 1]
-        ])
+        mock_mesh.vertices = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]])
         mock_mesh.area = 10.0
         mock_mesh.volume = 0.166
 
@@ -226,10 +217,7 @@ class TestFallbackFeatureExtractor:
         extractor = _FallbackFeatureExtractor()
 
         mock_mesh = MagicMock()
-        mock_mesh.vertices = np.array([
-            [0, 0, 0],
-            [10, 20, 30]
-        ])
+        mock_mesh.vertices = np.array([[0, 0, 0], [10, 20, 30]])
 
         features = extractor.extract_features(mock_mesh)
 
@@ -243,10 +231,7 @@ class TestFallbackFeatureExtractor:
         extractor = _FallbackFeatureExtractor()
 
         mock_mesh = MagicMock()
-        mock_mesh.vertices = np.array([
-            [0, 0, 0],
-            [100, 10, 10]  # Elongated in x direction
-        ])
+        mock_mesh.vertices = np.array([[0, 0, 0], [100, 10, 10]])  # Elongated in x direction
 
         features = extractor.extract_features(mock_mesh)
 
@@ -260,10 +245,7 @@ class TestFallbackFeatureExtractor:
         extractor = _FallbackFeatureExtractor()
 
         mock_mesh = MagicMock()
-        mock_mesh.vertices = np.array([
-            [0, 0, 0],
-            [10, 10, 10]
-        ])
+        mock_mesh.vertices = np.array([[0, 0, 0], [10, 10, 10]])
 
         features = extractor.extract_features(mock_mesh)
 
@@ -281,7 +263,7 @@ class TestGetFeatureExtractor:
         extractor = get_feature_extractor()
 
         assert extractor is not None
-        assert hasattr(extractor, 'extract_features')
+        assert hasattr(extractor, "extract_features")
 
     def test_with_custom_params(self):
         """Test get_feature_extractor with custom parameters."""
@@ -325,9 +307,17 @@ class TestGeometricFeaturesEdgeCases:
         result = features.to_dict()
 
         expected_fields = [
-            "fpfh_descriptor", "point_count", "surface_area", "volume",
-            "bbox_extent", "bbox_volume", "centroid", "compactness",
-            "elongation", "mean_curvature", "gaussian_curvature"
+            "fpfh_descriptor",
+            "point_count",
+            "surface_area",
+            "volume",
+            "bbox_extent",
+            "bbox_volume",
+            "centroid",
+            "compactness",
+            "elongation",
+            "mean_curvature",
+            "gaussian_curvature",
         ]
 
         for field in expected_fields:
@@ -339,7 +329,7 @@ class TestFallbackExtractorNoVertices:
 
     def test_mesh_without_vertices(self):
         """Test fallback handles mesh without vertices attribute."""
-        from src.core.geometry import _FallbackFeatureExtractor, GeometricFeatures
+        from src.core.geometry import GeometricFeatures, _FallbackFeatureExtractor
 
         extractor = _FallbackFeatureExtractor()
 
@@ -364,10 +354,7 @@ class TestFallbackElongationDivisionByZero:
 
         mock_mesh = MagicMock()
         # Nearly zero extent in one dimension
-        mock_mesh.vertices = np.array([
-            [0, 0, 0],
-            [100, 0.0000001, 10]
-        ])
+        mock_mesh.vertices = np.array([[0, 0, 0], [100, 0.0000001, 10]])
 
         features = extractor.extract_features(mock_mesh)
 

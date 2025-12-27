@@ -11,10 +11,13 @@ import asyncio
 import logging
 from typing import Any, Dict, Optional
 
-from src.core.storage.timeseries import TimeSeriesStore
-from src.core.twin.connectivity import TelemetryFrame
 from src.core.config import get_settings
-from src.core.storage.timeseries import InMemoryTimeSeriesStore, NullTimeSeriesStore
+from src.core.storage.timeseries import (
+    InMemoryTimeSeriesStore,
+    NullTimeSeriesStore,
+    TimeSeriesStore,
+)
+from src.core.twin.connectivity import TelemetryFrame
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +29,7 @@ class TelemetryIngestor:
         self._queue: Optional[asyncio.Queue[TelemetryFrame]] = None
         self.drop_count = 0
         self._worker: Optional[asyncio.Task[None]] = None
+        self._worker_loop: Optional[asyncio.AbstractEventLoop] = None
         self._started = False
         self._start_lock: Optional[asyncio.Lock] = None
 
@@ -48,18 +52,24 @@ class TelemetryIngestor:
             if self._started:
                 return
             self._started = True
-            self._worker = asyncio.create_task(self._run())
+            self._worker_loop = asyncio.get_running_loop()
+            self._worker = self._worker_loop.create_task(self._run())
 
     async def stop(self) -> None:
         """Stop worker task."""
-        if self._worker:
-            self._worker.cancel()
-            try:
-                await self._worker
-            except asyncio.CancelledError:
-                pass
+        worker = self._worker
+        worker_loop = self._worker_loop
+        if worker:
+            worker.cancel()
+            if worker_loop is asyncio.get_running_loop():
+                try:
+                    await worker
+                except asyncio.CancelledError:
+                    pass
         self._worker = None
+        self._worker_loop = None
         self._started = False
+        self._start_lock = None
 
     async def handle_payload(self, payload: Any, topic: Optional[str] = None) -> Dict[str, Any]:
         """Decode payload and enqueue for persistence."""
@@ -79,7 +89,16 @@ class TelemetryIngestor:
     async def _run(self) -> None:
         """Worker loop that drains the queue to the time-series store."""
         while True:
-            frame = await self.queue.get()
+            try:
+                frame = await self.queue.get()
+            except asyncio.CancelledError:
+                break
+            except GeneratorExit:
+                break
+            except RuntimeError as exc:
+                if "Event loop is closed" in str(exc):
+                    break
+                raise
             try:
                 await self.store.append(frame)
             except Exception:

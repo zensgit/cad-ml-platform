@@ -66,11 +66,7 @@ class SemanticVersion:
         """Check equality."""
         if not isinstance(other, SemanticVersion):
             return False
-        return (
-            self.major == other.major
-            and self.minor == other.minor
-            and self.patch == other.patch
-        )
+        return self.major == other.major and self.minor == other.minor and self.patch == other.patch
 
     def __hash__(self) -> int:
         """Return hash."""
@@ -490,9 +486,7 @@ class VersionedVisionProvider(VisionProvider):
             return self._registry.get_version(self._provider_name, self._version)
 
         if self._constraint:
-            matches = self._registry.find_matching(
-                self._provider_name, self._constraint
-            )
+            matches = self._registry.find_matching(self._provider_name, self._constraint)
             if matches:
                 return matches[0]
 
@@ -517,9 +511,7 @@ class VersionedVisionProvider(VisionProvider):
             raise RuntimeError(f"No version available for {self._provider_name}")
 
         if not pv.is_available():
-            raise RuntimeError(
-                f"Version {pv.version} is not available (status: {pv.status})"
-            )
+            raise RuntimeError(f"Version {pv.version} is not available (status: {pv.status})")
 
         return await pv.provider.analyze_image(image_data, include_description)
 

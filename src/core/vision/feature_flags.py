@@ -18,7 +18,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, Generic, Iterator, List, Optional, Set, TypeVar, Union
 
-
 from .base import VisionDescription, VisionProvider
 
 
@@ -866,9 +865,7 @@ class FeatureFlagVisionProvider(VisionProvider):
                 f"Vision provider disabled by feature flag: {self._feature_flag_key}"
             )
 
-        return await self._provider.analyze_image(
-            image_data, include_description
-        )
+        return await self._provider.analyze_image(image_data, include_description)
 
 
 def create_feature_flag_provider(

@@ -6,6 +6,22 @@
 
 ---
 
+## 🧾 最新验证记录 (2025-02-14)
+
+- ✅ Self-check 严格模式通过（`reports/SELF_CHECK.md`）
+- ✅ 全量测试通过：3628 passed / 42 skipped（`reports/FULL_TESTS.md`）
+- ✅ Metrics 导出一致性验证通过（`reports/METRICS_CONSISTENCY.md`）
+- ✅ Prometheus 规则静态校验通过（`reports/PROM_RULES_VALIDATION.md`）
+- ✅ Day 6 性能基线已生成并对比 Day 0（`reports/performance_baseline_day6.json`, `reports/performance_baseline.md`）
+- ✅ 可选任务已完成：Drift baseline export/import + 向量后端 reload 管理员校验（`reports/OPTIONAL_TASKS_DAY6.md`）
+- ✅ 特征向量顺序一致性修复完成（`reports/FEATURE_VECTOR_LAYOUT_ALIGNMENT.md`）
+- ✅ 向量存量审计与迁移建议已生成（`reports/VECTOR_STORE_LAYOUT_AUDIT.md`）
+- ✅ 向量布局迁移脚本与验证报告已生成（`reports/VECTOR_LAYOUT_MIGRATION_TOOL.md`）
+- ✅ 开发环境服务冒烟验证通过（`reports/DEV_SERVICE_SMOKE.md`）
+- ✅ 开发环境扩展冒烟已完成（`reports/DEV_SERVICE_SMOKE_EXTENDED.md`）
+
+---
+
 ## 📋 执行概览
 
 ### 整体策略

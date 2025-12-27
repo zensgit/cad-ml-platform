@@ -5,13 +5,45 @@ from __future__ import annotations
 Uses python-magic if available; degrades gracefully when library absent.
 """
 
-from typing import Tuple, Dict, Any
+import os
+import re
+from typing import Any, Dict, Tuple
+
+from fastapi import HTTPException, UploadFile
 
 # Known lightweight CAD format signatures (heuristic) for basic validation.
 # This is NOT a full parser; it only checks early markers to catch gross mismatches.
 _STEP_SIGNATURE_PREFIX = b"ISO-10303-21"
 _STL_ASCII_PREFIX = b"solid"
-_IGES_SIGNATURE_TOKENS = [b"IGES", b"S","G","D","P"]  # IGES has section markers (simplified)
+_IGES_SIGNATURE_TOKENS = [b"IGES", b"S", "G", "D", "P"]  # IGES has section markers (simplified)
+_OCR_ALLOWED_IMAGE_EXTENSIONS = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".bmp",
+    ".tif",
+    ".tiff",
+    ".webp",
+    ".gif",
+}
+_OCR_EXTENSION_MIME_MAP = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".bmp": "image/bmp",
+    ".tif": "image/tiff",
+    ".tiff": "image/tiff",
+    ".webp": "image/webp",
+    ".gif": "image/gif",
+    ".pdf": "application/pdf",
+}
+_PDF_FORBIDDEN_TOKENS = (
+    b"/JavaScript",
+    b"/JS",
+    b"/AA",
+    b"/OpenAction",
+    b"/Launch",
+)
 
 
 def verify_signature(data: bytes, file_format: str) -> Tuple[bool, str]:
@@ -84,7 +116,10 @@ def deep_format_validate(data: bytes, file_format: str) -> Tuple[bool, str]:
 
 
 def load_validation_matrix() -> Dict[str, Any]:
-    import os, yaml
+    import os
+
+    import yaml
+
     path = os.getenv("FORMAT_VALIDATION_MATRIX", "config/format_validation_matrix.yaml")
     if not os.path.exists(path):
         return {}
@@ -95,7 +130,9 @@ def load_validation_matrix() -> Dict[str, Any]:
         return {}
 
 
-def matrix_validate(data: bytes, file_format: str, project_id: str | None = None) -> Tuple[bool, str]:
+def matrix_validate(
+    data: bytes, file_format: str, project_id: str | None = None
+) -> Tuple[bool, str]:
     matrix = load_validation_matrix()
     fmts = matrix.get("formats", {})
     spec = fmts.get(file_format.lower())
@@ -119,6 +156,7 @@ def matrix_validate(data: bytes, file_format: str, project_id: str | None = None
 def sniff_mime(data: bytes) -> Tuple[str, bool]:
     try:
         import magic  # type: ignore
+
         mime = magic.from_buffer(data, mime=True) or "application/octet-stream"
         return mime, True
     except Exception:
@@ -158,11 +196,78 @@ __all__ = [
 ]
 
 
-async def validate_and_read(upload_file) -> tuple[bytes, str]:  # type: ignore
+def _get_env_int(name: str, default: int) -> int:
+    raw = os.getenv(name, str(default))
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _get_env_float(name: str, default: float) -> float:
+    raw = os.getenv(name, str(default))
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _resolve_mime(upload_file: UploadFile, data: bytes) -> str:
+    sniffed_mime, _ = sniff_mime(data)
+    upload_mime = getattr(upload_file, "content_type", None)
+    if isinstance(upload_mime, str):
+        upload_mime = upload_mime.strip()
+    else:
+        upload_mime = ""
+    if upload_mime and upload_mime != "application/octet-stream":
+        return upload_mime
+    if sniffed_mime and sniffed_mime != "application/octet-stream":
+        return sniffed_mime
+    filename = getattr(upload_file, "filename", "") or ""
+    if not isinstance(filename, str):
+        filename = ""
+    ext = os.path.splitext(filename)[1].lower()
+    return _OCR_EXTENSION_MIME_MAP.get(ext, "application/octet-stream")
+
+
+def _count_pdf_pages(data: bytes) -> int:
+    text = data.decode(errors="ignore")
+    typed_pages = re.findall(r"/Type\\s*/Page\\b", text)
+    if typed_pages:
+        return len(typed_pages)
+    comment_pages = re.findall(r"(?m)^%Page", text)
+    if comment_pages:
+        return len(comment_pages)
+    return len(re.findall(r"/Page(?!s)", text))
+
+
+def _has_pdf_forbidden_token(data: bytes) -> bool:
+    lower = data.lower()
+    return any(token.lower() in lower for token in _PDF_FORBIDDEN_TOKENS)
+
+
+async def validate_and_read(upload_file: UploadFile) -> tuple[bytes, str]:
     """Compatibility helper for OCR module expecting validate_and_read.
 
     Reads file bytes and returns (data, mime). Keeps logic minimal and reuses sniff_mime.
     """
     data = await upload_file.read()
-    mime, _ = sniff_mime(data)
+    max_mb = _get_env_float("OCR_MAX_FILE_MB", 50.0)
+    if max_mb > 0 and len(data) > int(max_mb * 1024 * 1024):
+        raise HTTPException(status_code=413, detail="File too large")
+    mime = _resolve_mime(upload_file, data)
+    ext = os.path.splitext(upload_file.filename or "")[1].lower()
+    is_pdf = data.startswith(b"%PDF")
+    is_image = mime.startswith("image/") or ext in _OCR_ALLOWED_IMAGE_EXTENSIONS
+    if not is_pdf and mime == "application/pdf":
+        is_pdf = True
+    if not (is_pdf or is_image):
+        raise HTTPException(status_code=415, detail="Unsupported MIME type")
+    if is_pdf:
+        max_pages = _get_env_int("OCR_MAX_PDF_PAGES", 20)
+        page_count = _count_pdf_pages(data)
+        if page_count and page_count > max_pages:
+            raise HTTPException(status_code=400, detail="PDF page count exceeded")
+        if _has_pdf_forbidden_token(data):
+            raise HTTPException(status_code=400, detail="PDF forbidden token detected")
     return data, mime

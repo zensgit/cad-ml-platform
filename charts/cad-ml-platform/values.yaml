@@ -186,6 +186,9 @@ env:
   LOG_LEVEL: "INFO"
   LOG_FORMAT: "json"
 
+  # Optional: route CAD (DXF/DWG) jobs to render queue
+  DEDUP2D_RENDER_QUEUE_NAME: ""
+
 # ConfigMap for additional configuration
 configMap:
   enabled: false
@@ -257,3 +260,160 @@ initContainers: []
 
 # Extra containers (sidecars)
 extraContainers: []
+
+# =============================================================================
+# Dedup2D Worker Configuration (Phase 4)
+# =============================================================================
+dedup2d:
+  worker:
+    enabled: true
+    replicaCount: 2
+
+    image:
+      repository: ""  # defaults to main image
+      tag: ""         # defaults to main tag
+      pullPolicy: IfNotPresent
+
+    # ARQ worker command
+    command:
+      - arq
+      - src.core.dedupcad_2d_worker.WorkerSettings
+
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 200m
+        memory: 512Mi
+
+    # Autoscaling for workers
+    autoscaling:
+      enabled: false
+      minReplicas: 2
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+
+    # Node selector, tolerations, affinity
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+    # Extra environment variables
+    extraEnv: {}
+
+  # Optional render worker for CAD (DXF/DWG) high-fidelity rendering.
+  renderWorker:
+    enabled: false
+    replicaCount: 1
+
+    image:
+      repository: ""  # defaults to main image
+      tag: ""         # defaults to main tag
+      pullPolicy: IfNotPresent
+
+    command:
+      - arq
+      - src.core.dedupcad_2d_worker.WorkerSettings
+
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 8Gi
+      requests:
+        cpu: 500m
+        memory: 4Gi
+
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 4
+      targetCPUUtilizationPercentage: 70
+
+    nodeSelector: {}
+    tolerations: []
+    affinity: {}
+
+    extraEnv: {}
+
+  # File storage configuration
+  # Mode: "local" (requires shared PVC) or "s3" (requires S3 credentials)
+  storage:
+    mode: "s3"  # "local" or "s3" - s3 recommended for production (no shared disk)
+
+    # Local storage (mode: local)
+    local:
+      # PVC for shared storage between API and workers
+      pvc:
+        enabled: true
+        storageClass: ""  # use default storage class
+        accessModes:
+          - ReadWriteMany  # Required for multi-pod access
+        size: 10Gi
+      path: "data/dedup2d_uploads"
+      retentionSeconds: 3600
+      cleanupOnFinish: true
+
+    # S3/MinIO storage (mode: s3) - recommended for production
+    s3:
+      bucket: "dedup2d-uploads"
+      prefix: "uploads"
+      endpoint: ""       # e.g., "https://s3.amazonaws.com" or "http://minio:9000"
+      region: "us-east-1"
+      retentionSeconds: 3600
+      cleanupOnFinish: true
+      # Credentials from existing secret or inline
+      existingSecret: ""  # name of existing secret with AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+      # Or provide inline (will create a secret)
+      accessKeyId: ""
+      secretAccessKey: ""
+
+  # Redis configuration for job queue
+  redis:
+    url: "redis://redis:6379/0"
+    keyPrefix: "dedup2d"
+    queueName: "dedup2d:queue"
+    renderQueueName: ""
+
+  # Job configuration
+  job:
+    maxConcurrency: 2
+    maxJobs: 200
+    ttlSeconds: 3600
+    timeoutSeconds: 300
+
+  # Rolling upgrade (grayscale) configuration
+  rollingUpgrade:
+    # Enable dual-write of file_bytes_b64 for backward compatibility
+    includeBytes64: false
+    bytes64MaxBytes: 10485760  # 10MB
+
+  # Vision service endpoint
+  vision:
+    url: "http://dedupcad-vision:58001"
+    timeoutSeconds: 60
+
+  # Callback configuration
+  callback:
+    allowHttp: false
+    blockPrivateNetworks: true
+    resolveDns: false
+    allowlist: ""
+    hmacSecret: ""
+    timeoutSeconds: 10
+    maxAttempts: 3
+
+# GC CronJob for cleaning up old uploads
+dedup2dGc:
+  enabled: true
+  schedule: "0 * * * *"  # Every hour
+  retentionSeconds: 3600
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi

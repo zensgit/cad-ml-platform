@@ -21,19 +21,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import Any, Callable, Dict, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
 
 from .base import VisionDescription, VisionProvider
 
@@ -180,8 +168,7 @@ class WorkflowExecution:
         if not self.tasks:
             return 0.0
         completed = sum(
-            1 for t in self.tasks.values()
-            if t.status in [TaskStatus.COMPLETED, TaskStatus.SKIPPED]
+            1 for t in self.tasks.values() if t.status in [TaskStatus.COMPLETED, TaskStatus.SKIPPED]
         )
         return (completed / len(self.tasks)) * 100
 
@@ -401,9 +388,7 @@ class StateMachine:
                 action(context)
 
             # Record history
-            self._history.append(
-                (self._current_state, transition.to_state, datetime.now())
-            )
+            self._history.append((self._current_state, transition.to_state, datetime.now()))
 
             # Execute transition action
             if transition.action:
@@ -538,10 +523,7 @@ class WorkflowEngine:
             await self._execute_tasks(execution, context)
 
             # Check final status
-            failed_tasks = [
-                t for t in execution.tasks.values()
-                if t.status == TaskStatus.FAILED
-            ]
+            failed_tasks = [t for t in execution.tasks.values() if t.status == TaskStatus.FAILED]
 
             if failed_tasks:
                 execution.status = WorkflowStatus.FAILED
@@ -561,7 +543,8 @@ class WorkflowEngine:
         finally:
             execution.completed_at = datetime.now()
             self._emit_event(
-                "workflow_completed" if execution.status == WorkflowStatus.COMPLETED
+                "workflow_completed"
+                if execution.status == WorkflowStatus.COMPLETED
                 else "workflow_failed",
                 execution,
             )
@@ -617,9 +600,7 @@ class WorkflowEngine:
             # Check condition
             if task.definition.condition:
                 # Simple condition evaluation (in production, use safe eval)
-                condition_result = self._evaluate_condition(
-                    task.definition.condition, context
-                )
+                condition_result = self._evaluate_condition(task.definition.condition, context)
                 if not condition_result:
                     task.status = TaskStatus.SKIPPED
                     task.completed_at = datetime.now()
@@ -684,7 +665,7 @@ class WorkflowEngine:
 
             # Calculate retry delay
             if definition.retry_policy == RetryPolicy.EXPONENTIAL:
-                delay = retry_delay * (2 ** attempt)
+                delay = retry_delay * (2**attempt)
             elif definition.retry_policy == RetryPolicy.LINEAR:
                 delay = retry_delay * (attempt + 1)
             else:
@@ -708,10 +689,7 @@ class WorkflowEngine:
         self._emit_event("compensation_started", execution)
 
         # Get completed tasks in reverse order
-        completed_tasks = [
-            t for t in execution.tasks.values()
-            if t.status == TaskStatus.COMPLETED
-        ]
+        completed_tasks = [t for t in execution.tasks.values() if t.status == TaskStatus.COMPLETED]
         completed_tasks.sort(key=lambda t: t.completed_at or datetime.min, reverse=True)
 
         for task in completed_tasks:
@@ -826,14 +804,9 @@ class WorkflowEngine:
         """Get workflow execution by ID."""
         return self._executions.get(execution_id)
 
-    def get_executions_by_workflow(
-        self, workflow_id: str
-    ) -> List[WorkflowExecution]:
+    def get_executions_by_workflow(self, workflow_id: str) -> List[WorkflowExecution]:
         """Get all executions for a workflow."""
-        return [
-            e for e in self._executions.values()
-            if e.workflow_id == workflow_id
-        ]
+        return [e for e in self._executions.values() if e.workflow_id == workflow_id]
 
 
 # ============================================================================
@@ -1075,9 +1048,7 @@ def create_workflow_engine() -> WorkflowEngine:
     return WorkflowEngine()
 
 
-def create_workflow_builder(
-    workflow_id: str, name: str
-) -> WorkflowBuilder:
+def create_workflow_builder(workflow_id: str, name: str) -> WorkflowBuilder:
     """Create a workflow builder."""
     return WorkflowBuilder(workflow_id, name)
 

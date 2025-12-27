@@ -27,7 +27,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -229,14 +228,14 @@ class MemoryAuditStore(AuditEventStore):
         with self._lock:
             self._events.append(event)
             if len(self._events) > self._max_events:
-                self._events = self._events[-self._max_events:]
+                self._events = self._events[-self._max_events :]
 
     def query(self, query: AuditQuery) -> List[AuditEvent]:
         """Query audit events."""
         with self._lock:
             results = self._filter_events(query)
             results = sorted(results, key=lambda e: e.timestamp, reverse=True)
-            return results[query.offset:query.offset + query.limit]
+            return results[query.offset : query.offset + query.limit]
 
     def count(self, query: AuditQuery) -> int:
         """Count matching events."""
@@ -295,14 +294,10 @@ class AuditLogger:
         session_id: Optional[str] = None,
     ) -> AuditEvent:
         """Log an audit event."""
-        event_id = hashlib.md5(
-            f"{time.time()}:{action}:{resource_id}".encode()
-        ).hexdigest()[:16]
+        event_id = hashlib.md5(f"{time.time()}:{action}:{resource_id}".encode()).hexdigest()[:16]
 
         # Get correlation ID from context
-        correlation_id = self._correlation_context.get(
-            threading.current_thread().name
-        )
+        correlation_id = self._correlation_context.get(threading.current_thread().name)
 
         event = AuditEvent(
             event_id=event_id,
@@ -409,8 +404,10 @@ class AuditLogger:
             events_by_outcome=dict(events_by_outcome),
             top_users=top_users,
             top_resources=top_resources,
-            time_range=(min_time if min_time != datetime.max else datetime.now(),
-                       max_time if max_time != datetime.min else datetime.now()),
+            time_range=(
+                min_time if min_time != datetime.max else datetime.now(),
+                max_time if max_time != datetime.min else datetime.now(),
+            ),
         )
 
     def add_policy(self, policy: AuditPolicy) -> None:
@@ -559,9 +556,7 @@ class AuditLoggerVisionProvider(VisionProvider):
     def initialize(self) -> None:
         """Initialize the provider."""
         if self._compliance_standard:
-            self._logger = ComplianceAuditLogger(
-                compliance_standard=self._compliance_standard
-            )
+            self._logger = ComplianceAuditLogger(compliance_standard=self._compliance_standard)
         else:
             self._logger = AuditLogger()
 

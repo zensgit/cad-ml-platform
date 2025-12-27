@@ -9,13 +9,13 @@ Verifies that:
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch, MagicMock
-from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, patch
+
 import numpy as np
+import pytest
+from fastapi.testclient import TestClient
 
 from src.main import app
-
 
 client = TestClient(app)
 
@@ -33,17 +33,21 @@ class TestBatchSimilarityEmptyResults:
         original_meta = sim_module._VECTOR_META.copy()
 
         # Create test vectors - orthogonal vectors will have low similarity
-        sim_module._VECTOR_STORE.update({
-            "test-empty-001": [1.0, 0.0, 0.0, 0.0, 0.0],
-            "test-empty-002": [0.0, 1.0, 0.0, 0.0, 0.0],
-            "test-empty-003": [0.0, 0.0, 1.0, 0.0, 0.0],
-        })
+        sim_module._VECTOR_STORE.update(
+            {
+                "test-empty-001": [1.0, 0.0, 0.0, 0.0, 0.0],
+                "test-empty-002": [0.0, 1.0, 0.0, 0.0, 0.0],
+                "test-empty-003": [0.0, 0.0, 1.0, 0.0, 0.0],
+            }
+        )
 
-        sim_module._VECTOR_META.update({
-            "test-empty-001": {"feature_version": "v1", "material": "steel"},
-            "test-empty-002": {"feature_version": "v1", "material": "aluminum"},
-            "test-empty-003": {"feature_version": "v1", "material": "plastic"},
-        })
+        sim_module._VECTOR_META.update(
+            {
+                "test-empty-001": {"feature_version": "v1", "material": "steel"},
+                "test-empty-002": {"feature_version": "v1", "material": "aluminum"},
+                "test-empty-003": {"feature_version": "v1", "material": "plastic"},
+            }
+        )
 
         yield
 
@@ -62,9 +66,9 @@ class TestBatchSimilarityEmptyResults:
             json={
                 "ids": ["test-empty-001"],
                 "top_k": 5,
-                "min_score": 0.9999  # Very high threshold
+                "min_score": 0.9999,  # Very high threshold
             },
-            headers={"X-API-Key": "test"}
+            headers={"X-API-Key": "test"},
         )
 
         assert response.status_code == 200
@@ -88,9 +92,9 @@ class TestBatchSimilarityEmptyResults:
             json={
                 "ids": ["test-empty-001", "test-empty-002"],
                 "top_k": 5,
-                "min_score": 0.9999  # Very high threshold ensures empty results
+                "min_score": 0.9999,  # Very high threshold ensures empty results
             },
-            headers={"X-API-Key": "test"}
+            headers={"X-API-Key": "test"},
         )
 
         assert response.status_code == 200
@@ -110,12 +114,8 @@ class TestBatchSimilarityEmptyResults:
         """Test that empty results return 200, not an error status."""
         response = client.post(
             "/api/v1/vectors/similarity/batch",
-            json={
-                "ids": ["test-empty-001"],
-                "top_k": 5,
-                "min_score": 0.9999
-            },
-            headers={"X-API-Key": "test"}
+            json={"ids": ["test-empty-001"], "top_k": 5, "min_score": 0.9999},
+            headers={"X-API-Key": "test"},
         )
 
         # Should be 200, not 400/404/500
@@ -130,6 +130,7 @@ class TestBatchSimilarityEmptyResults:
         """Test batch with some empty and some non-empty results."""
         # Add a vector that will have matches
         from src.core import similarity as sim_module
+
         sim_module._VECTOR_STORE["test-similar-001"] = [1.0, 0.1, 0.0, 0.0, 0.0]
         sim_module._VECTOR_META["test-similar-001"] = {"feature_version": "v1"}
 
@@ -139,9 +140,9 @@ class TestBatchSimilarityEmptyResults:
                 json={
                     "ids": ["test-empty-001", "test-similar-001"],
                     "top_k": 5,
-                    "min_score": 0.5  # Lower threshold
+                    "min_score": 0.5,  # Lower threshold
                 },
-                headers={"X-API-Key": "test"}
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -169,9 +170,9 @@ class TestBatchSimilarityEmptyResults:
                 "ids": ["test-empty-001"],
                 "top_k": 5,
                 "min_score": 0.0,  # Low threshold
-                "material": "nonexistent_material"  # No vectors have this material
+                "material": "nonexistent_material",  # No vectors have this material
             },
-            headers={"X-API-Key": "test"}
+            headers={"X-API-Key": "test"},
         )
 
         assert response.status_code == 200
@@ -186,11 +187,8 @@ class TestBatchSimilarityEmptyResults:
         """Test batch with empty IDs list."""
         response = client.post(
             "/api/v1/vectors/similarity/batch",
-            json={
-                "ids": [],
-                "top_k": 5
-            },
-            headers={"X-API-Key": "test"}
+            json={"ids": [], "top_k": 5},
+            headers={"X-API-Key": "test"},
         )
 
         # Empty list should either be 200 with empty items or 422 validation error
@@ -206,11 +204,8 @@ class TestBatchSimilarityEmptyResults:
         """Test that not_found IDs don't trigger empty results metric."""
         response = client.post(
             "/api/v1/vectors/similarity/batch",
-            json={
-                "ids": ["nonexistent-001", "nonexistent-002"],
-                "top_k": 5
-            },
-            headers={"X-API-Key": "test"}
+            json={"ids": ["nonexistent-001", "nonexistent-002"], "top_k": 5},
+            headers={"X-API-Key": "test"},
         )
 
         assert response.status_code == 200
@@ -228,12 +223,8 @@ class TestBatchSimilarityEmptyResults:
         """Test the structure of empty results response."""
         response = client.post(
             "/api/v1/vectors/similarity/batch",
-            json={
-                "ids": ["test-empty-001"],
-                "top_k": 5,
-                "min_score": 0.9999
-            },
-            headers={"X-API-Key": "test"}
+            json={"ids": ["test-empty-001"], "top_k": 5, "min_score": 0.9999},
+            headers={"X-API-Key": "test"},
         )
 
         assert response.status_code == 200
@@ -255,12 +246,8 @@ class TestBatchSimilarityEmptyResults:
         """Test single vector query returning empty similar list."""
         response = client.post(
             "/api/v1/vectors/similarity/batch",
-            json={
-                "ids": ["test-empty-001"],
-                "top_k": 1,
-                "min_score": 0.9999
-            },
-            headers={"X-API-Key": "test"}
+            json={"ids": ["test-empty-001"], "top_k": 1, "min_score": 0.9999},
+            headers={"X-API-Key": "test"},
         )
 
         assert response.status_code == 200
@@ -282,15 +269,19 @@ class TestBatchSimilarityMetricsIntegration:
         original_meta = sim_module._VECTOR_META.copy()
 
         # Orthogonal vectors for predictable empty results
-        sim_module._VECTOR_STORE.update({
-            "metric-test-001": [1.0, 0.0, 0.0, 0.0, 0.0],
-            "metric-test-002": [0.0, 1.0, 0.0, 0.0, 0.0],
-        })
+        sim_module._VECTOR_STORE.update(
+            {
+                "metric-test-001": [1.0, 0.0, 0.0, 0.0, 0.0],
+                "metric-test-002": [0.0, 1.0, 0.0, 0.0, 0.0],
+            }
+        )
 
-        sim_module._VECTOR_META.update({
-            "metric-test-001": {"feature_version": "v1"},
-            "metric-test-002": {"feature_version": "v1"},
-        })
+        sim_module._VECTOR_META.update(
+            {
+                "metric-test-001": {"feature_version": "v1"},
+                "metric-test-002": {"feature_version": "v1"},
+            }
+        )
 
         yield
 
@@ -307,11 +298,8 @@ class TestBatchSimilarityMetricsIntegration:
 
         response = client.post(
             "/api/v1/vectors/similarity/batch",
-            json={
-                "ids": ["metric-test-001"],
-                "top_k": 5
-            },
-            headers={"X-API-Key": "test"}
+            json={"ids": ["metric-test-001"], "top_k": 5},
+            headers={"X-API-Key": "test"},
         )
 
         assert response.status_code == 200
@@ -324,9 +312,9 @@ class TestBatchSimilarityMetricsIntegration:
             json={
                 "ids": ["metric-test-001", "metric-test-002"],
                 "top_k": 5,
-                "min_score": 0.9999  # Ensures empty results
+                "min_score": 0.9999,  # Ensures empty results
             },
-            headers={"X-API-Key": "test"}
+            headers={"X-API-Key": "test"},
         )
 
         assert response.status_code == 200

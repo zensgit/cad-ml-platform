@@ -3,25 +3,27 @@ Retry Policy Pattern Implementation
 重试策略模式 - 处理瞬时故障和提高可靠性
 """
 
-import time
-import random
 import logging
-from typing import Callable, Optional, List, Type, Any, Dict
+import random
+import time
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from abc import ABC, abstractmethod
+from typing import Any, Callable, Dict, List, Optional, Type
 
 logger = logging.getLogger(__name__)
 
 
 class RetryError(Exception):
     """重试异常"""
+
     pass
 
 
 @dataclass
 class RetryStats:
     """重试统计信息"""
+
     total_attempts: int = 0
     successful_retries: int = 0
     failed_retries: int = 0
@@ -74,7 +76,7 @@ class ExponentialBackoff(RetryStrategy):
         base_delay: float = 1.0,
         exponential_base: float = 2.0,
         max_delay: float = 300.0,
-        jitter: bool = True
+        jitter: bool = True,
     ):
         self.base_delay = base_delay
         self.exponential_base = exponential_base
@@ -131,7 +133,7 @@ class RetryPolicy:
         retryable_exceptions: Optional[List[Type[Exception]]] = None,
         non_retryable_exceptions: Optional[List[Type[Exception]]] = None,
         on_retry: Optional[Callable[[Exception, int], None]] = None,
-        metrics_callback: Optional[Callable] = None
+        metrics_callback: Optional[Callable] = None,
     ):
         """
         初始化重试策略
@@ -182,10 +184,7 @@ class RetryPolicy:
                 # 记录成功
                 if attempt > 1:
                     self._stats.successful_retries += 1
-                    logger.info(
-                        f"Retry successful for '{self.name}' "
-                        f"after {attempt} attempts"
-                    )
+                    logger.info(f"Retry successful for '{self.name}' " f"after {attempt} attempts")
 
                 self._emit_metrics("success", attempt, elapsed, total_delay)
                 return result
@@ -196,21 +195,19 @@ class RetryPolicy:
 
                 # 记录错误分布
                 error_type = type(e).__name__
-                self._stats.error_distribution[error_type] = \
+                self._stats.error_distribution[error_type] = (
                     self._stats.error_distribution.get(error_type, 0) + 1
+                )
 
                 # 检查是否应该重试
                 if not self._should_retry(e):
-                    logger.error(
-                        f"Non-retryable exception for '{self.name}': {e}"
-                    )
+                    logger.error(f"Non-retryable exception for '{self.name}': {e}")
                     self._emit_metrics("non_retryable", attempt, 0, total_delay)
                     raise
 
                 if attempt == self.max_attempts:
                     logger.error(
-                        f"Max retry attempts ({self.max_attempts}) reached "
-                        f"for '{self.name}'"
+                        f"Max retry attempts ({self.max_attempts}) reached " f"for '{self.name}'"
                     )
                     self._stats.failed_retries += 1
                     self._emit_metrics("exhausted", attempt, 0, total_delay)
@@ -270,44 +267,41 @@ class RetryPolicy:
             "failed_retries": self._stats.failed_retries,
             "success_rate": (
                 self._stats.successful_retries / self._stats.total_attempts
-                if self._stats.total_attempts > 0 else 0
+                if self._stats.total_attempts > 0
+                else 0
             ),
             "total_delay_time": self._stats.total_delay_time,
             "avg_delay_time": (
                 self._stats.total_delay_time / self._stats.total_attempts
-                if self._stats.total_attempts > 0 else 0
+                if self._stats.total_attempts > 0
+                else 0
             ),
             "last_retry": (
-                self._stats.last_retry_time.isoformat()
-                if self._stats.last_retry_time else None
+                self._stats.last_retry_time.isoformat() if self._stats.last_retry_time else None
             ),
-            "error_distribution": self._stats.error_distribution
+            "error_distribution": self._stats.error_distribution,
         }
 
-    def _emit_metrics(
-        self,
-        event_type: str,
-        attempt: int,
-        duration: float,
-        delay: float
-    ):
+    def _emit_metrics(self, event_type: str, attempt: int, duration: float, delay: float):
         """发送指标"""
         if self.metrics_callback:
-            self.metrics_callback({
-                "retry_policy": self.name,
-                "event": event_type,
-                "attempt": attempt,
-                "duration": duration,
-                "delay": delay,
-                "timestamp": datetime.now().isoformat()
-            })
+            self.metrics_callback(
+                {
+                    "retry_policy": self.name,
+                    "event": event_type,
+                    "attempt": attempt,
+                    "duration": duration,
+                    "delay": delay,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
 
 def retry(
     max_attempts: int = 3,
     strategy: Optional[RetryStrategy] = None,
     retryable_exceptions: Optional[List[Type[Exception]]] = None,
-    on_retry: Optional[Callable] = None
+    on_retry: Optional[Callable] = None,
 ):
     """
     重试装饰器
@@ -318,13 +312,14 @@ def retry(
             # Operation that might fail
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         policy = RetryPolicy(
             name=f"{func.__module__}.{func.__name__}",
             max_attempts=max_attempts,
             strategy=strategy,
             retryable_exceptions=retryable_exceptions,
-            on_retry=on_retry
+            on_retry=on_retry,
         )
 
         def wrapper(*args, **kwargs):
@@ -349,7 +344,7 @@ class AdaptiveRetry(RetryPolicy):
         initial_max_attempts: int = 3,
         min_success_rate: float = 0.5,
         adjustment_window: int = 100,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(name, initial_max_attempts, **kwargs)
         self.min_success_rate = min_success_rate
@@ -379,15 +374,13 @@ class AdaptiveRetry(RetryPolicy):
             # 降低成功率，增加重试次数
             self.max_attempts = min(self.max_attempts + 1, 10)
             logger.info(
-                f"Adaptive retry '{self.name}': "
-                f"Increasing max_attempts to {self.max_attempts}"
+                f"Adaptive retry '{self.name}': " f"Increasing max_attempts to {self.max_attempts}"
             )
         elif success_rate > 0.8:
             # 高成功率，减少重试次数
             self.max_attempts = max(self.max_attempts - 1, 1)
             logger.info(
-                f"Adaptive retry '{self.name}': "
-                f"Decreasing max_attempts to {self.max_attempts}"
+                f"Adaptive retry '{self.name}': " f"Decreasing max_attempts to {self.max_attempts}"
             )
 
         # 重置统计窗口

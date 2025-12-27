@@ -16,6 +16,7 @@ import asyncio
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 import time
@@ -69,6 +70,13 @@ def get_git_info() -> Dict[str, str]:
         pass
 
     return info
+
+
+def sanitize_filename_component(value: str) -> str:
+    """Return a filesystem-safe filename component."""
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", value.strip())
+    safe = safe.strip("-.")
+    return safe or "unknown"
 
 
 def run_vision_golden() -> Dict[str, float]:
@@ -381,8 +389,9 @@ def save_history(
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     branch = git_info["branch"]
     commit = git_info["commit"]
+    safe_branch = sanitize_filename_component(branch)
 
-    filename = f"{timestamp}_{branch}_{commit}_combined.json"
+    filename = f"{timestamp}_{safe_branch}_{commit}_combined.json"
     filepath = history_dir / filename
 
     # Get run context information

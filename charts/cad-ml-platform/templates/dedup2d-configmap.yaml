@@ -1,0 +1,69 @@
+{{- if .Values.dedup2d.worker.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cad-ml-platform.fullname" . }}-dedup2d-config
+  labels:
+    {{- include "cad-ml-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dedup2d-config
+data:
+  # Async backend
+  DEDUP2D_ASYNC_BACKEND: "redis"
+  DEDUP2D_ASYNC_MAX_CONCURRENCY: {{ .Values.dedup2d.job.maxConcurrency | quote }}
+  DEDUP2D_ASYNC_MAX_JOBS: {{ .Values.dedup2d.job.maxJobs | quote }}
+  DEDUP2D_ASYNC_TTL_SECONDS: {{ .Values.dedup2d.job.ttlSeconds | quote }}
+  DEDUP2D_ASYNC_JOB_TIMEOUT_SECONDS: {{ .Values.dedup2d.job.timeoutSeconds | quote }}
+
+  # Redis configuration
+  DEDUP2D_REDIS_URL: {{ .Values.dedup2d.redis.url | quote }}
+  DEDUP2D_REDIS_KEY_PREFIX: {{ .Values.dedup2d.redis.keyPrefix | quote }}
+  DEDUP2D_ARQ_QUEUE_NAME: {{ .Values.dedup2d.redis.queueName | quote }}
+  DEDUP2D_RENDER_QUEUE_NAME: {{ .Values.dedup2d.redis.renderQueueName | quote }}
+
+  # File storage mode
+  DEDUP2D_FILE_STORAGE: {{ .Values.dedup2d.storage.mode | quote }}
+
+  {{- if eq .Values.dedup2d.storage.mode "local" }}
+  # Local storage configuration
+  DEDUP2D_FILE_STORAGE_DIR: {{ .Values.dedup2d.storage.local.path | quote }}
+  DEDUP2D_FILE_STORAGE_CLEANUP_ON_FINISH: {{ .Values.dedup2d.storage.local.cleanupOnFinish | ternary "1" "0" | quote }}
+  DEDUP2D_FILE_STORAGE_RETENTION_SECONDS: {{ .Values.dedup2d.storage.local.retentionSeconds | quote }}
+  {{- else if eq .Values.dedup2d.storage.mode "s3" }}
+  # S3 storage configuration
+  DEDUP2D_S3_BUCKET: {{ .Values.dedup2d.storage.s3.bucket | quote }}
+  DEDUP2D_S3_PREFIX: {{ .Values.dedup2d.storage.s3.prefix | quote }}
+  {{- if .Values.dedup2d.storage.s3.endpoint }}
+  DEDUP2D_S3_ENDPOINT: {{ .Values.dedup2d.storage.s3.endpoint | quote }}
+  {{- end }}
+  {{- if .Values.dedup2d.storage.s3.region }}
+  DEDUP2D_S3_REGION: {{ .Values.dedup2d.storage.s3.region | quote }}
+  {{- end }}
+  DEDUP2D_FILE_STORAGE_CLEANUP_ON_FINISH: {{ .Values.dedup2d.storage.s3.cleanupOnFinish | ternary "1" "0" | quote }}
+  DEDUP2D_FILE_STORAGE_RETENTION_SECONDS: {{ .Values.dedup2d.storage.s3.retentionSeconds | quote }}
+  {{- end }}
+
+  # Rolling upgrade (grayscale) configuration
+  {{- if .Values.dedup2d.rollingUpgrade.includeBytes64 }}
+  DEDUP2D_JOB_PAYLOAD_INCLUDE_BYTES_B64: "1"
+  DEDUP2D_JOB_PAYLOAD_BYTES_B64_MAX_BYTES: {{ .Values.dedup2d.rollingUpgrade.bytes64MaxBytes | quote }}
+  {{- else }}
+  DEDUP2D_JOB_PAYLOAD_INCLUDE_BYTES_B64: "0"
+  {{- end }}
+
+  # Vision service
+  DEDUPCAD_VISION_URL: {{ .Values.dedup2d.vision.url | quote }}
+  DEDUPCAD_VISION_TIMEOUT_SECONDS: {{ .Values.dedup2d.vision.timeoutSeconds | quote }}
+
+  # Callback configuration
+  DEDUP2D_CALLBACK_ALLOW_HTTP: {{ .Values.dedup2d.callback.allowHttp | ternary "1" "0" | quote }}
+  DEDUP2D_CALLBACK_BLOCK_PRIVATE_NETWORKS: {{ .Values.dedup2d.callback.blockPrivateNetworks | ternary "1" "0" | quote }}
+  DEDUP2D_CALLBACK_RESOLVE_DNS: {{ .Values.dedup2d.callback.resolveDns | ternary "1" "0" | quote }}
+  {{- if .Values.dedup2d.callback.allowlist }}
+  DEDUP2D_CALLBACK_ALLOWLIST: {{ .Values.dedup2d.callback.allowlist | quote }}
+  {{- end }}
+  DEDUP2D_CALLBACK_TIMEOUT_SECONDS: {{ .Values.dedup2d.callback.timeoutSeconds | quote }}
+  DEDUP2D_CALLBACK_MAX_ATTEMPTS: {{ .Values.dedup2d.callback.maxAttempts | quote }}
+
+  # Logging
+  LOG_LEVEL: {{ .Values.env.LOG_LEVEL | default "INFO" | quote }}
+{{- end }}

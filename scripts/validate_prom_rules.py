@@ -68,8 +68,16 @@ class PromtoolValidator:
             if result.returncode == 0:
                 if not silent:
                     print(f"{GREEN}✓{RESET} Found Docker, will use prom/prometheus image")
-                return ["docker", "run", "--rm", "-v", f"{os.getcwd()}:/workspace:ro",
-                       "prom/prometheus:latest", "promtool"]
+                return [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "--entrypoint",
+                    "promtool",
+                    "-v",
+                    f"{os.getcwd()}:/workspace:ro",
+                    "prom/prometheus:latest",
+                ]
         except (subprocess.SubprocessError, FileNotFoundError):
             pass
 
@@ -141,6 +149,10 @@ class PromtoolValidator:
             for group in rules_data.get('groups', []):
                 for rule in group.get('rules', []):
                     expr = rule.get('expr', '')
+                    if expr is None:
+                        continue
+                    if not isinstance(expr, str):
+                        expr = str(expr)
                     # Extract metric names (simplified - won't catch all cases)
                     # Matches: metric_name{...} or metric_name[...]
                     pattern = r'\b([a-z_][a-z0-9_]*(?:_total|_bucket|_count|_sum)?)\s*[{\[]'
@@ -175,19 +187,40 @@ class PromtoolValidator:
 
             for rule in group.get('rules', []):
                 record_name = rule.get('record', '')
+                alert_name = rule.get('alert', '')
+
+                # Skip alerting rules; naming rules apply only to recording rules
+                if alert_name and not record_name:
+                    continue
 
                 # Check naming conventions
                 if not record_name:
                     issues.append(f"Missing 'record' field in group '{group_name}'")
                     continue
 
-                # Recording rules should use snake_case
-                if not re.match(r'^[a-z][a-z0-9_]*$', record_name):
-                    issues.append(f"Invalid rule name '{record_name}' (should be snake_case)")
+                # Recording rules should use snake_case or recording rule convention (prefix:name)
+                if ":" in record_name:
+                    if not re.match(r'^[a-z][a-z0-9_]*:[a-z][a-z0-9_]*$', record_name):
+                        issues.append(
+                            f"Invalid rule name '{record_name}' (should be prefix:name with snake_case)"
+                        )
+                else:
+                    if not re.match(r'^[a-z][a-z0-9_]*$', record_name):
+                        issues.append(f"Invalid rule name '{record_name}' (should be snake_case)")
 
                 # Check for meaningful prefixes
-                known_prefixes = ['ocr_', 'vision_', 'platform_', 'provider_',
-                                'slo_', 'error_', 'model_', 'circuit_']
+                known_prefixes = [
+                    "ocr_",
+                    "vision_",
+                    "platform_",
+                    "provider_",
+                    "slo_",
+                    "error_",
+                    "model_",
+                    "circuit_",
+                    "cad_ml:",
+                    "cad_ml_",
+                ]
                 if not any(record_name.startswith(p) for p in known_prefixes):
                     issues.append(f"Rule '{record_name}' lacks standard prefix")
 
@@ -218,7 +251,12 @@ class PromtoolValidator:
         for group in rules_data.get('groups', []):
             for rule in group.get('rules', []):
                 expr = rule.get('expr', '')
-                record = rule.get('record', 'unnamed')
+                record = rule.get('record') or rule.get('alert') or 'unnamed'
+                if expr is None:
+                    expression_errors.append(f"Empty expression for rule '{record}'")
+                    continue
+                if not isinstance(expr, str):
+                    expr = str(expr)
 
                 # Basic expression validation
                 if not expr:

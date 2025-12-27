@@ -1,13 +1,15 @@
+import os
 import time
+
 from fastapi.testclient import TestClient
 
 from src.main import app
-import os
 
 
 def setup_function():
     # Reset cache singleton for isolation
     from src.core.feature_cache import reset_feature_cache_for_tests
+
     reset_feature_cache_for_tests()
     os.environ["ADMIN_TOKEN"] = "admin_test"
 
@@ -70,6 +72,7 @@ def test_cache_prewarm_endpoint():
     # Populate cache minimally by setting and then prewarming
     # Directly interact with cache internals to create entries
     from src.core.feature_cache import get_feature_cache
+
     cache = get_feature_cache()
     cache.set("k1", [0.1])
     cache.set("k2", [0.2])

@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+
 from src.main import app
 
 client = TestClient(app)
@@ -10,7 +11,9 @@ def _analyze(name: str, material: str) -> str:
         "options": '{"extract_features": true, "classify_parts": false}',
         "material": material,
     }
-    r = client.post("/api/v1/analyze", files={"file": file}, data=data, headers={"X-API-Key": "test"})
+    r = client.post(
+        "/api/v1/analyze", files={"file": file}, data=data, headers={"X-API-Key": "test"}
+    )
     assert r.status_code == 200
     return r.json()["id"]
 
@@ -35,4 +38,3 @@ def test_similarity_filter_material():
     )
     assert resp_none.status_code == 200
     assert resp_none.json()["results"] == []
-

@@ -5,9 +5,10 @@ Tests for message queue, distributed cache, saga pattern, and event bus modules.
 """
 
 import asyncio
-import pytest
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
+
+import pytest
 
 from src.core.vision.base import VisionDescription, VisionProvider
 
@@ -47,7 +48,7 @@ class TestMessageQueue:
 
     def test_message_enqueue_dequeue(self) -> None:
         """Test enqueue and dequeue operations."""
-        from src.core.vision.message_queue import create_message_queue, create_message
+        from src.core.vision.message_queue import create_message, create_message_queue
 
         queue = create_message_queue("test_queue", "test_queue")
 
@@ -62,11 +63,7 @@ class TestMessageQueue:
 
     def test_message_priority(self) -> None:
         """Test message priority field is preserved."""
-        from src.core.vision.message_queue import (
-            create_message_queue,
-            create_message,
-            QueueType,
-        )
+        from src.core.vision.message_queue import QueueType, create_message, create_message_queue
 
         queue = create_message_queue("priority_queue", "priority_queue", QueueType.PRIORITY)
 
@@ -106,10 +103,7 @@ class TestMessageQueue:
 
     def test_dead_letter_queue(self) -> None:
         """Test dead letter queue functionality."""
-        from src.core.vision.message_queue import (
-            create_dead_letter_queue,
-            create_message,
-        )
+        from src.core.vision.message_queue import create_dead_letter_queue, create_message
 
         dlq = create_dead_letter_queue("dlq")
 
@@ -238,10 +232,7 @@ class TestDistributedCache:
 
     def test_cache_manager(self) -> None:
         """Test cache manager."""
-        from src.core.vision.distributed_cache import (
-            create_cache_manager,
-            create_cache_config,
-        )
+        from src.core.vision.distributed_cache import create_cache_config, create_cache_manager
 
         manager = create_cache_manager()
 
@@ -299,8 +290,7 @@ class TestSagaPattern:
 
         builder = create_saga_builder("test_saga")
         saga = (
-            builder
-            .step("step1", lambda ctx: "result1")
+            builder.step("step1", lambda ctx: "result1")
             .step("step2", lambda ctx: "result2")
             .build()
         )
@@ -312,10 +302,10 @@ class TestSagaPattern:
     async def test_saga_execution(self) -> None:
         """Test saga execution."""
         from src.core.vision.saga_pattern import (
-            create_saga_orchestrator,
-            SagaDefinition,
             SagaContext,
+            SagaDefinition,
             SagaStatus,
+            create_saga_orchestrator,
         )
 
         orchestrator = create_saga_orchestrator()
@@ -343,10 +333,10 @@ class TestSagaPattern:
     async def test_saga_compensation(self) -> None:
         """Test saga compensation on failure."""
         from src.core.vision.saga_pattern import (
-            create_saga_orchestrator,
-            SagaDefinition,
             SagaContext,
+            SagaDefinition,
             SagaStatus,
+            create_saga_orchestrator,
         )
 
         orchestrator = create_saga_orchestrator()
@@ -388,10 +378,7 @@ class TestSagaPattern:
     @pytest.mark.asyncio
     async def test_transaction_coordinator(self) -> None:
         """Test transaction coordinator."""
-        from src.core.vision.saga_pattern import (
-            create_transaction_coordinator,
-            SimpleParticipant,
-        )
+        from src.core.vision.saga_pattern import SimpleParticipant, create_transaction_coordinator
 
         coordinator = create_transaction_coordinator()
 
@@ -465,7 +452,7 @@ class TestEventBus:
     @pytest.mark.asyncio
     async def test_event_subscription(self) -> None:
         """Test event subscription and publishing."""
-        from src.core.vision.event_bus import create_event_bus, Event
+        from src.core.vision.event_bus import Event, create_event_bus
 
         bus = create_event_bus()
         received: List[Event] = []
@@ -484,7 +471,7 @@ class TestEventBus:
     @pytest.mark.asyncio
     async def test_global_handler(self) -> None:
         """Test global event handler."""
-        from src.core.vision.event_bus import create_event_bus, Event
+        from src.core.vision.event_bus import Event, create_event_bus
 
         bus = create_event_bus()
         received: List[Event] = []
@@ -501,11 +488,7 @@ class TestEventBus:
 
     def test_event_router(self) -> None:
         """Test event router."""
-        from src.core.vision.event_bus import (
-            create_event_bus,
-            create_event_router,
-            Event,
-        )
+        from src.core.vision.event_bus import Event, create_event_bus, create_event_router
 
         bus1 = create_event_bus()
         bus2 = create_event_bus()
@@ -530,7 +513,8 @@ class TestEventBus:
 
     def test_event_store(self) -> None:
         """Test event store for event sourcing."""
-        from src.core.vision.event_bus import create_event_store as create_bus_store, Event
+        from src.core.vision.event_bus import Event
+        from src.core.vision.event_bus import create_event_store as create_bus_store
 
         store = create_bus_store()
 
@@ -561,11 +545,7 @@ class TestEventBus:
     @pytest.mark.asyncio
     async def test_event_aggregator(self) -> None:
         """Test event aggregator."""
-        from src.core.vision.event_bus import (
-            create_event_bus,
-            create_event_aggregator,
-            Event,
-        )
+        from src.core.vision.event_bus import Event, create_event_aggregator, create_event_bus
 
         bus1 = create_event_bus()
         bus2 = create_event_bus()
@@ -632,10 +612,7 @@ class TestEventBus:
     @pytest.mark.asyncio
     async def test_vision_events(self) -> None:
         """Test vision-specific events."""
-        from src.core.vision.event_bus import (
-            ImageAnalyzedEvent,
-            AnalysisFailedEvent,
-        )
+        from src.core.vision.event_bus import AnalysisFailedEvent, ImageAnalyzedEvent
 
         success_event = ImageAnalyzedEvent(
             provider_name="test",
@@ -758,11 +735,11 @@ class TestPhase13Integration:
     @pytest.mark.asyncio
     async def test_event_bus_with_saga(self) -> None:
         """Test event bus integration with saga pattern."""
-        from src.core.vision.event_bus import create_event_bus, Event
+        from src.core.vision.event_bus import Event, create_event_bus
         from src.core.vision.saga_pattern import (
-            create_saga_orchestrator,
-            SagaDefinition,
             SagaContext,
+            SagaDefinition,
+            create_saga_orchestrator,
         )
 
         bus = create_event_bus()
@@ -809,10 +786,10 @@ class TestPhase13Integration:
     @pytest.mark.asyncio
     async def test_full_distributed_pipeline(self) -> None:
         """Test full distributed pipeline with all components."""
-        from src.core.vision.message_queue import create_mq_provider
         from src.core.vision.distributed_cache import create_dcache_provider
-        from src.core.vision.saga_pattern import create_saga_provider
         from src.core.vision.event_bus import create_event_provider
+        from src.core.vision.message_queue import create_mq_provider
+        from src.core.vision.saga_pattern import create_saga_provider
 
         base = SimpleStubProvider()
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
+
 from src.main import app
 
 client = TestClient(app)
@@ -8,6 +9,7 @@ client = TestClient(app)
 
 def _auth_headers():
     import os
+
     return {"X-API-Key": os.getenv("API_KEY", "test")}
 
 

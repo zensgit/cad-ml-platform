@@ -1,15 +1,16 @@
 """Tests for VectorStore factory and dependency injection."""
 
 import os
-import pytest
 from unittest.mock import patch
 
+import pytest
+
 from src.core.similarity import (
+    FaissVectorStore,
+    InMemoryVectorStore,
+    VectorStoreProtocol,
     get_vector_store,
     reset_default_store,
-    InMemoryVectorStore,
-    FaissVectorStore,
-    VectorStoreProtocol,
 )
 
 

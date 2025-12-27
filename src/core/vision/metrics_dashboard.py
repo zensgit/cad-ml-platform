@@ -28,7 +28,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -134,11 +133,11 @@ class MetricSeries:
 
     def add_value(self, value: float, timestamp: Optional[datetime] = None) -> None:
         """Add a value to the series."""
-        self.values.append(MetricValue(
-            value=value,
-            timestamp=timestamp or datetime.now(),
-            labels=self.labels.copy()
-        ))
+        self.values.append(
+            MetricValue(
+                value=value, timestamp=timestamp or datetime.now(), labels=self.labels.copy()
+            )
+        )
 
 
 @dataclass
@@ -238,10 +237,7 @@ class MetricCollector:
             return self._definitions.get(name)
 
     def increment(
-        self,
-        name: str,
-        value: float = 1.0,
-        labels: Optional[Dict[str, str]] = None
+        self, name: str, value: float = 1.0, labels: Optional[Dict[str, str]] = None
     ) -> None:
         """Increment a counter metric."""
         labels = labels or {}
@@ -251,12 +247,7 @@ class MetricCollector:
             self._counters[name][labels_key] += value
             self._record_series(name, self._counters[name][labels_key], labels)
 
-    def set_gauge(
-        self,
-        name: str,
-        value: float,
-        labels: Optional[Dict[str, str]] = None
-    ) -> None:
+    def set_gauge(self, name: str, value: float, labels: Optional[Dict[str, str]] = None) -> None:
         """Set a gauge metric."""
         labels = labels or {}
         labels_key = self._labels_to_key(labels)
@@ -265,12 +256,7 @@ class MetricCollector:
             self._gauges[name][labels_key] = value
             self._record_series(name, value, labels)
 
-    def observe(
-        self,
-        name: str,
-        value: float,
-        labels: Optional[Dict[str, str]] = None
-    ) -> None:
+    def observe(self, name: str, value: float, labels: Optional[Dict[str, str]] = None) -> None:
         """Observe a value for histogram/summary."""
         labels = labels or {}
         labels_key = self._labels_to_key(labels)
@@ -281,37 +267,30 @@ class MetricCollector:
 
             # Limit stored values
             if len(self._histograms[name][labels_key]) > self._max_points:
-                self._histograms[name][labels_key] = \
-                    self._histograms[name][labels_key][-self._max_points:]
+                self._histograms[name][labels_key] = self._histograms[name][labels_key][
+                    -self._max_points :
+                ]
 
-    def _record_series(
-        self,
-        name: str,
-        value: float,
-        labels: Dict[str, str]
-    ) -> None:
+    def _record_series(self, name: str, value: float, labels: Dict[str, str]) -> None:
         """Record a value in the time series."""
         labels_key = self._labels_to_key(labels)
 
         if labels_key not in self._series[name]:
-            self._series[name][labels_key] = MetricSeries(
-                metric_name=name,
-                labels=labels
-            )
+            self._series[name][labels_key] = MetricSeries(metric_name=name, labels=labels)
 
         self._series[name][labels_key].add_value(value)
 
         # Limit series length
         series = self._series[name][labels_key]
         if len(series.values) > self._max_points:
-            series.values = series.values[-self._max_points:]
+            series.values = series.values[-self._max_points :]
 
     def get_series(
         self,
         name: str,
         labels: Optional[Dict[str, str]] = None,
         start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        end_time: Optional[datetime] = None,
     ) -> List[MetricSeries]:
         """Get metric series."""
         with self._lock:
@@ -325,22 +304,18 @@ class MetricCollector:
 
                 filtered_values = series.values
                 if start_time:
-                    filtered_values = [
-                        v for v in filtered_values
-                        if v.timestamp >= start_time
-                    ]
+                    filtered_values = [v for v in filtered_values if v.timestamp >= start_time]
                 if end_time:
-                    filtered_values = [
-                        v for v in filtered_values
-                        if v.timestamp <= end_time
-                    ]
+                    filtered_values = [v for v in filtered_values if v.timestamp <= end_time]
 
                 if filtered_values:
-                    result.append(MetricSeries(
-                        metric_name=series.metric_name,
-                        labels=series.labels.copy(),
-                        values=filtered_values
-                    ))
+                    result.append(
+                        MetricSeries(
+                            metric_name=series.metric_name,
+                            labels=series.labels.copy(),
+                            values=filtered_values,
+                        )
+                    )
 
             return result
 
@@ -350,7 +325,7 @@ class MetricCollector:
         aggregation: AggregationType,
         labels: Optional[Dict[str, str]] = None,
         start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        end_time: Optional[datetime] = None,
     ) -> Optional[AggregatedMetric]:
         """Aggregate metric values."""
         series_list = self.get_series(name, labels, start_time, end_time)
@@ -374,14 +349,10 @@ class MetricCollector:
             start_time=start_time or datetime.min,
             end_time=end_time or datetime.now(),
             labels=labels or {},
-            sample_count=len(all_values)
+            sample_count=len(all_values),
         )
 
-    def _compute_aggregation(
-        self,
-        values: List[float],
-        aggregation: AggregationType
-    ) -> float:
+    def _compute_aggregation(self, values: List[float], aggregation: AggregationType) -> float:
         """Compute aggregation on values."""
         if not values:
             return 0.0
@@ -426,11 +397,7 @@ class MetricCollector:
         """Convert labels to a hashable key."""
         return json.dumps(labels, sort_keys=True)
 
-    def _labels_match(
-        self,
-        series_labels: Dict[str, str],
-        filter_labels: Dict[str, str]
-    ) -> bool:
+    def _labels_match(self, series_labels: Dict[str, str], filter_labels: Dict[str, str]) -> bool:
         """Check if series labels match filter."""
         for key, value in filter_labels.items():
             if series_labels.get(key) != value:
@@ -447,10 +414,7 @@ class MetricCollector:
                 for labels_key in list(self._series[name].keys()):
                     series = self._series[name][labels_key]
                     original_len = len(series.values)
-                    series.values = [
-                        v for v in series.values
-                        if v.timestamp >= cutoff
-                    ]
+                    series.values = [v for v in series.values if v.timestamp >= cutoff]
                     removed_count += original_len - len(series.values)
 
                     if not series.values:
@@ -539,10 +503,7 @@ class DashboardManager:
                 return False
 
             original_count = len(dashboard.widgets)
-            dashboard.widgets = [
-                w for w in dashboard.widgets
-                if w.widget_id != widget_id
-            ]
+            dashboard.widgets = [w for w in dashboard.widgets if w.widget_id != widget_id]
 
             if len(dashboard.widgets) < original_count:
                 dashboard.updated_at = datetime.now()
@@ -550,66 +511,58 @@ class DashboardManager:
             return False
 
     def get_widget_data(
-        self,
-        widget: WidgetConfig,
-        custom_time_range: Optional[Tuple[datetime, datetime]] = None
+        self, widget: WidgetConfig, custom_time_range: Optional[Tuple[datetime, datetime]] = None
     ) -> WidgetData:
         """Get data for a widget."""
-        start_time, end_time = self._resolve_time_range(
-            widget.time_range,
-            custom_time_range
-        )
+        start_time, end_time = self._resolve_time_range(widget.time_range, custom_time_range)
 
         data = []
         for metric_name in widget.metrics:
             aggregated = self._collector.aggregate(
-                metric_name,
-                widget.aggregation,
-                start_time=start_time,
-                end_time=end_time
+                metric_name, widget.aggregation, start_time=start_time, end_time=end_time
             )
 
             if aggregated:
-                data.append({
-                    "metric": metric_name,
-                    "value": aggregated.value,
-                    "aggregation": aggregated.aggregation.value,
-                    "sample_count": aggregated.sample_count
-                })
+                data.append(
+                    {
+                        "metric": metric_name,
+                        "value": aggregated.value,
+                        "aggregation": aggregated.aggregation.value,
+                        "sample_count": aggregated.sample_count,
+                    }
+                )
 
             # Also get time series for charts
             series_list = self._collector.get_series(
-                metric_name,
-                start_time=start_time,
-                end_time=end_time
+                metric_name, start_time=start_time, end_time=end_time
             )
 
             for series in series_list:
-                data.append({
-                    "metric": metric_name,
-                    "series": [
-                        {
-                            "timestamp": v.timestamp.isoformat(),
-                            "value": v.value,
-                            "labels": v.labels
-                        }
-                        for v in series.values
-                    ]
-                })
+                data.append(
+                    {
+                        "metric": metric_name,
+                        "series": [
+                            {
+                                "timestamp": v.timestamp.isoformat(),
+                                "value": v.value,
+                                "labels": v.labels,
+                            }
+                            for v in series.values
+                        ],
+                    }
+                )
 
         return WidgetData(
             widget_id=widget.widget_id,
             data=data,
             metadata={
                 "time_range": widget.time_range.value,
-                "aggregation": widget.aggregation.value
-            }
+                "aggregation": widget.aggregation.value,
+            },
         )
 
     def get_dashboard_snapshot(
-        self,
-        dashboard_id: str,
-        custom_time_range: Optional[Tuple[datetime, datetime]] = None
+        self, dashboard_id: str, custom_time_range: Optional[Tuple[datetime, datetime]] = None
     ) -> Optional[DashboardSnapshot]:
         """Get a snapshot of dashboard data."""
         dashboard = self.get_dashboard(dashboard_id)
@@ -621,15 +574,10 @@ class DashboardManager:
             widget_data = self.get_widget_data(widget, custom_time_range)
             widgets_data.append(widget_data)
 
-        return DashboardSnapshot(
-            dashboard_id=dashboard_id,
-            widgets=widgets_data
-        )
+        return DashboardSnapshot(dashboard_id=dashboard_id, widgets=widgets_data)
 
     def _resolve_time_range(
-        self,
-        time_range: TimeRange,
-        custom_range: Optional[Tuple[datetime, datetime]] = None
+        self, time_range: TimeRange, custom_range: Optional[Tuple[datetime, datetime]] = None
     ) -> Tuple[datetime, datetime]:
         """Resolve time range to start/end times."""
         if custom_range:
@@ -772,7 +720,7 @@ class CustomMetricBuilder:
             unit=self._unit,
             labels=self._labels,
             buckets=self._buckets,
-            quantiles=self._quantiles
+            quantiles=self._quantiles,
         )
 
 
@@ -788,7 +736,7 @@ class MetricsDashboardVisionProvider(VisionProvider):
         self,
         base_provider: VisionProvider,
         collector: Optional[MetricCollector] = None,
-        dashboard_manager: Optional[DashboardManager] = None
+        dashboard_manager: Optional[DashboardManager] = None,
     ):
         self._base_provider = base_provider
         self._collector = collector or MetricCollector()
@@ -802,7 +750,7 @@ class MetricsDashboardVisionProvider(VisionProvider):
                 name="vision_requests_total",
                 metric_type=MetricType.COUNTER,
                 description="Total vision analysis requests",
-                labels=["provider", "status"]
+                labels=["provider", "status"],
             ),
             MetricDefinition(
                 name="vision_request_duration_seconds",
@@ -810,13 +758,13 @@ class MetricsDashboardVisionProvider(VisionProvider):
                 description="Vision request duration in seconds",
                 unit="seconds",
                 labels=["provider"],
-                buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+                buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0],
             ),
             MetricDefinition(
                 name="vision_confidence_score",
                 metric_type=MetricType.GAUGE,
                 description="Latest confidence score",
-                labels=["provider"]
+                labels=["provider"],
             ),
         ]
 
@@ -828,9 +776,7 @@ class MetricsDashboardVisionProvider(VisionProvider):
         return f"metrics_dashboard_{self._base_provider.provider_name}"
 
     async def analyze_image(
-        self,
-        image_data: bytes,
-        context: Optional[Dict[str, Any]] = None
+        self, image_data: bytes, context: Optional[Dict[str, Any]] = None
     ) -> VisionDescription:
         """Analyze image with metrics collection."""
         start_time = time.time()
@@ -843,26 +789,20 @@ class MetricsDashboardVisionProvider(VisionProvider):
 
             # Record metrics
             self._collector.increment(
-                "vision_requests_total",
-                labels={"provider": provider, "status": "success"}
+                "vision_requests_total", labels={"provider": provider, "status": "success"}
             )
             self._collector.observe(
-                "vision_request_duration_seconds",
-                duration,
-                labels={"provider": provider}
+                "vision_request_duration_seconds", duration, labels={"provider": provider}
             )
             self._collector.set_gauge(
-                "vision_confidence_score",
-                result.confidence,
-                labels={"provider": provider}
+                "vision_confidence_score", result.confidence, labels={"provider": provider}
             )
 
             return result
 
         except Exception as e:
             self._collector.increment(
-                "vision_requests_total",
-                labels={"provider": provider, "status": "error"}
+                "vision_requests_total", labels={"provider": provider, "status": "error"}
             )
             raise
 
@@ -880,24 +820,17 @@ class MetricsDashboardVisionProvider(VisionProvider):
 # ========================
 
 
-def create_metric_collector(
-    max_points: int = 10000,
-    retention_hours: int = 24
-) -> MetricCollector:
+def create_metric_collector(max_points: int = 10000, retention_hours: int = 24) -> MetricCollector:
     """Create a new metric collector."""
     return MetricCollector(max_points, retention_hours)
 
 
-def create_dashboard_manager(
-    collector: Optional[MetricCollector] = None
-) -> DashboardManager:
+def create_dashboard_manager(collector: Optional[MetricCollector] = None) -> DashboardManager:
     """Create a new dashboard manager."""
     return DashboardManager(collector or create_metric_collector())
 
 
-def create_metric_streamer(
-    collector: Optional[MetricCollector] = None
-) -> MetricStreamer:
+def create_metric_streamer(collector: Optional[MetricCollector] = None) -> MetricStreamer:
     """Create a new metric streamer."""
     return MetricStreamer(collector or create_metric_collector())
 
@@ -910,9 +843,7 @@ def create_custom_metric_builder() -> CustomMetricBuilder:
 def create_metrics_dashboard_provider(
     base_provider: VisionProvider,
     collector: Optional[MetricCollector] = None,
-    dashboard_manager: Optional[DashboardManager] = None
+    dashboard_manager: Optional[DashboardManager] = None,
 ) -> MetricsDashboardVisionProvider:
     """Create a metrics dashboard vision provider."""
-    return MetricsDashboardVisionProvider(
-        base_provider, collector, dashboard_manager
-    )
+    return MetricsDashboardVisionProvider(base_provider, collector, dashboard_manager)

@@ -1,9 +1,10 @@
 from datetime import datetime
-from fastapi.testclient import TestClient
-from src.main import app
-from src.core.feature_extractor import SLOTS_V1, SLOTS_V2, SLOTS_V3, SLOTS_V4
-from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
 
+from fastapi.testclient import TestClient
+
+from src.core.feature_extractor import SLOTS_V1, SLOTS_V2, SLOTS_V3, SLOTS_V4
+from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+from src.main import app
 
 client = TestClient(app)
 
@@ -48,7 +49,9 @@ def test_migrate_v3_to_v4_actual():
     assert resp.status_code == 200
     item = resp.json()["items"][0]
     assert item["status"] == "migrated"
-    assert len(_VECTOR_STORE["v3_to_v4"]) == len(SLOTS_V1) + len(SLOTS_V2) + len(SLOTS_V3) + len(SLOTS_V4)
+    assert len(_VECTOR_STORE["v3_to_v4"]) == len(SLOTS_V1) + len(SLOTS_V2) + len(SLOTS_V3) + len(
+        SLOTS_V4
+    )
     assert _VECTOR_META["v3_to_v4"]["feature_version"] == "v4"
 
 
@@ -90,4 +93,3 @@ def test_migrate_summary_endpoint():
     assert "counts" in data
     assert "total_migrations" in data
     assert isinstance(data["statuses"], list)
-

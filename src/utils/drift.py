@@ -5,10 +5,11 @@ All functions degrade gracefully without raising; used by analysis pipeline and 
 
 from __future__ import annotations
 
-from typing import Dict, Iterable
 import math
+from typing import Dict, Iterable
 
 EPS = 1e-9
+
 
 def _distribution(items: Iterable[str]) -> Dict[str, float]:
     counts: Dict[str, int] = {}

@@ -11,56 +11,50 @@ This module tests the data lifecycle management capabilities including:
 """
 
 import asyncio
+import uuid
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
-import uuid
 
 import pytest
 
-from src.core.vision import (
-    # Enums
+from src.core.vision import (  # Enums; Dataclasses; Core classes; Factory functions; Base
+    AccessLevel,
+    CatalogEntry,
+    CatalogEntryType,
+    DataAsset,
+    DataCatalog,
+    DataLifecycleHub,
     DataState,
-    VersionType,
+    DataVersion,
+    LifecycleConfig,
+    LineageEdge,
+    LineageNode,
     LineageRelation,
+    LineageTracker,
+    ManagedVisionProvider,
     QualityDimension,
     QualityLevel,
-    RetentionAction,
-    CatalogEntryType,
-    TransformationType,
-    AccessLevel,
-    # Dataclasses
-    DataVersion,
-    LineageNode,
-    LineageEdge,
-    QualityRule,
-    QualityResult,
+    QualityManager,
     QualityReport,
+    QualityResult,
+    QualityRule,
+    RetentionAction,
+    RetentionManager,
     RetentionPolicy,
     RetentionResult,
-    CatalogEntry,
     TransformationRecord,
-    DataAsset,
-    LifecycleConfig,
-    # Core classes
-    VersionManager,
-    LineageTracker,
-    QualityManager,
-    RetentionManager,
-    DataCatalog,
     TransformationTracker,
-    DataLifecycleHub,
-    ManagedVisionProvider,
-    # Factory functions
-    create_lifecycle_config,
-    create_data_lifecycle_hub,
-    create_quality_rule,
-    create_retention_policy,
-    create_managed_provider,
-    # Base
+    TransformationType,
+    VersionManager,
+    VersionType,
     VisionDescription,
     VisionProvider,
+    create_data_lifecycle_hub,
+    create_lifecycle_config,
+    create_managed_provider,
+    create_quality_rule,
+    create_retention_policy,
 )
-
 
 # ========================
 # Enum Tests
@@ -373,18 +367,14 @@ class TestVersionManager:
         """Test creating minor version."""
         manager = VersionManager()
         manager.create_version("asset1", {"v": 1})
-        v2 = manager.create_version(
-            "asset1", {"v": 2}, version_type=VersionType.MINOR
-        )
+        v2 = manager.create_version("asset1", {"v": 2}, version_type=VersionType.MINOR)
         assert v2.version_number == "1.1.0"
 
     def test_create_patch_version(self) -> None:
         """Test creating patch version."""
         manager = VersionManager()
         manager.create_version("asset1", {"v": 1})
-        v2 = manager.create_version(
-            "asset1", {"v": 2}, version_type=VersionType.PATCH
-        )
+        v2 = manager.create_version("asset1", {"v": 2}, version_type=VersionType.PATCH)
         assert v2.version_number == "1.0.1"
 
     def test_create_major_version_increment(self) -> None:
@@ -392,9 +382,7 @@ class TestVersionManager:
         manager = VersionManager()
         manager.create_version("asset1", {"v": 1})
         manager.create_version("asset1", {"v": 2}, version_type=VersionType.MINOR)
-        v3 = manager.create_version(
-            "asset1", {"v": 3}, version_type=VersionType.MAJOR
-        )
+        v3 = manager.create_version("asset1", {"v": 3}, version_type=VersionType.MAJOR)
         assert v3.version_number == "2.0.0"
 
     def test_get_current_version(self) -> None:
@@ -578,16 +566,22 @@ class TestQualityManager:
     def test_list_rules_by_dimension(self) -> None:
         """Test listing rules by dimension."""
         manager = QualityManager()
-        manager.add_rule(QualityRule(
-            rule_id="r1", name="test1",
-            dimension=QualityDimension.COMPLETENESS,
-            check_fn=lambda x: True,
-        ))
-        manager.add_rule(QualityRule(
-            rule_id="r2", name="test2",
-            dimension=QualityDimension.ACCURACY,
-            check_fn=lambda x: True,
-        ))
+        manager.add_rule(
+            QualityRule(
+                rule_id="r1",
+                name="test1",
+                dimension=QualityDimension.COMPLETENESS,
+                check_fn=lambda x: True,
+            )
+        )
+        manager.add_rule(
+            QualityRule(
+                rule_id="r2",
+                name="test2",
+                dimension=QualityDimension.ACCURACY,
+                check_fn=lambda x: True,
+            )
+        )
 
         completeness_rules = manager.list_rules(QualityDimension.COMPLETENESS)
         assert len(completeness_rules) == 1
@@ -595,11 +589,14 @@ class TestQualityManager:
     def test_check_quality_all_pass(self) -> None:
         """Test quality check when all rules pass."""
         manager = QualityManager()
-        manager.add_rule(QualityRule(
-            rule_id="r1", name="always_pass",
-            dimension=QualityDimension.COMPLETENESS,
-            check_fn=lambda x: True,
-        ))
+        manager.add_rule(
+            QualityRule(
+                rule_id="r1",
+                name="always_pass",
+                dimension=QualityDimension.COMPLETENESS,
+                check_fn=lambda x: True,
+            )
+        )
 
         report = manager.check_quality("data1", {"test": "value"})
         assert report.overall_score == 1.0
@@ -608,17 +605,23 @@ class TestQualityManager:
     def test_check_quality_some_fail(self) -> None:
         """Test quality check when some rules fail."""
         manager = QualityManager()
-        manager.add_rule(QualityRule(
-            rule_id="r1", name="pass",
-            dimension=QualityDimension.COMPLETENESS,
-            check_fn=lambda x: True,
-        ))
-        manager.add_rule(QualityRule(
-            rule_id="r2", name="fail",
-            dimension=QualityDimension.ACCURACY,
-            check_fn=lambda x: False,
-            description="Accuracy check",
-        ))
+        manager.add_rule(
+            QualityRule(
+                rule_id="r1",
+                name="pass",
+                dimension=QualityDimension.COMPLETENESS,
+                check_fn=lambda x: True,
+            )
+        )
+        manager.add_rule(
+            QualityRule(
+                rule_id="r2",
+                name="fail",
+                dimension=QualityDimension.ACCURACY,
+                check_fn=lambda x: False,
+                description="Accuracy check",
+            )
+        )
 
         report = manager.check_quality("data1", {"test": "value"})
         assert report.overall_score == 0.5
@@ -630,22 +633,28 @@ class TestQualityManager:
         manager = QualityManager()
 
         # Test EXCELLENT (>= 0.9)
-        manager.add_rule(QualityRule(
-            rule_id="r1", name="pass",
-            dimension=QualityDimension.COMPLETENESS,
-            check_fn=lambda x: True,
-        ))
+        manager.add_rule(
+            QualityRule(
+                rule_id="r1",
+                name="pass",
+                dimension=QualityDimension.COMPLETENESS,
+                check_fn=lambda x: True,
+            )
+        )
         report = manager.check_quality("d1", {})
         assert report.overall_level == QualityLevel.EXCELLENT
 
     def test_get_reports(self) -> None:
         """Test getting quality reports."""
         manager = QualityManager()
-        manager.add_rule(QualityRule(
-            rule_id="r1", name="test",
-            dimension=QualityDimension.COMPLETENESS,
-            check_fn=lambda x: True,
-        ))
+        manager.add_rule(
+            QualityRule(
+                rule_id="r1",
+                name="test",
+                dimension=QualityDimension.COMPLETENESS,
+                check_fn=lambda x: True,
+            )
+        )
 
         manager.check_quality("data1", {})
         manager.check_quality("data2", {})
@@ -693,14 +702,22 @@ class TestRetentionManager:
     def test_list_policies(self) -> None:
         """Test listing all policies."""
         manager = RetentionManager()
-        manager.add_policy(RetentionPolicy(
-            policy_id="p1", name="test1",
-            retention_days=30, action=RetentionAction.ARCHIVE,
-        ))
-        manager.add_policy(RetentionPolicy(
-            policy_id="p2", name="test2",
-            retention_days=60, action=RetentionAction.DELETE,
-        ))
+        manager.add_policy(
+            RetentionPolicy(
+                policy_id="p1",
+                name="test1",
+                retention_days=30,
+                action=RetentionAction.ARCHIVE,
+            )
+        )
+        manager.add_policy(
+            RetentionPolicy(
+                policy_id="p2",
+                name="test2",
+                retention_days=60,
+                action=RetentionAction.DELETE,
+            )
+        )
 
         policies = manager.list_policies()
         assert len(policies) == 2
@@ -708,14 +725,19 @@ class TestRetentionManager:
     def test_evaluate_asset_keep(self) -> None:
         """Test evaluating asset that should be kept."""
         manager = RetentionManager()
-        manager.add_policy(RetentionPolicy(
-            policy_id="p1", name="30_day",
-            retention_days=30, action=RetentionAction.DELETE,
-        ))
+        manager.add_policy(
+            RetentionPolicy(
+                policy_id="p1",
+                name="30_day",
+                retention_days=30,
+                action=RetentionAction.DELETE,
+            )
+        )
 
         # Asset created now should be kept
         asset = DataAsset(
-            asset_id="a1", name="test",
+            asset_id="a1",
+            name="test",
             state=DataState.ACTIVE,
         )
         action, policy = manager.evaluate_asset(asset)
@@ -725,15 +747,20 @@ class TestRetentionManager:
     def test_evaluate_asset_action_needed(self) -> None:
         """Test evaluating asset that needs action."""
         manager = RetentionManager()
-        manager.add_policy(RetentionPolicy(
-            policy_id="p1", name="30_day",
-            retention_days=30, action=RetentionAction.ARCHIVE,
-            enabled=True,
-        ))
+        manager.add_policy(
+            RetentionPolicy(
+                policy_id="p1",
+                name="30_day",
+                retention_days=30,
+                action=RetentionAction.ARCHIVE,
+                enabled=True,
+            )
+        )
 
         # Asset created 60 days ago
         asset = DataAsset(
-            asset_id="a1", name="test",
+            asset_id="a1",
+            name="test",
             state=DataState.ACTIVE,
             created_at=datetime.now() - timedelta(days=60),
         )
@@ -744,15 +771,20 @@ class TestRetentionManager:
     def test_evaluate_asset_with_conditions(self) -> None:
         """Test evaluating asset with policy conditions."""
         manager = RetentionManager()
-        manager.add_policy(RetentionPolicy(
-            policy_id="p1", name="draft_cleanup",
-            retention_days=7, action=RetentionAction.DELETE,
-            conditions={"state": DataState.DRAFT},
-        ))
+        manager.add_policy(
+            RetentionPolicy(
+                policy_id="p1",
+                name="draft_cleanup",
+                retention_days=7,
+                action=RetentionAction.DELETE,
+                conditions={"state": DataState.DRAFT},
+            )
+        )
 
         # Draft asset older than 7 days
         draft_asset = DataAsset(
-            asset_id="a1", name="test",
+            asset_id="a1",
+            name="test",
             state=DataState.DRAFT,
             created_at=datetime.now() - timedelta(days=10),
         )
@@ -761,7 +793,8 @@ class TestRetentionManager:
 
         # Active asset should not match
         active_asset = DataAsset(
-            asset_id="a2", name="test",
+            asset_id="a2",
+            name="test",
             state=DataState.ACTIVE,
             created_at=datetime.now() - timedelta(days=10),
         )
@@ -771,13 +804,18 @@ class TestRetentionManager:
     def test_apply_policy(self) -> None:
         """Test applying retention policy."""
         manager = RetentionManager()
-        manager.add_policy(RetentionPolicy(
-            policy_id="p1", name="archive",
-            retention_days=30, action=RetentionAction.ARCHIVE,
-        ))
+        manager.add_policy(
+            RetentionPolicy(
+                policy_id="p1",
+                name="archive",
+                retention_days=30,
+                action=RetentionAction.ARCHIVE,
+            )
+        )
 
         asset = DataAsset(
-            asset_id="a1", name="test",
+            asset_id="a1",
+            name="test",
             state=DataState.ACTIVE,
             created_at=datetime.now() - timedelta(days=60),
         )
@@ -857,8 +895,12 @@ class TestDataCatalog:
     def test_search_by_access_level(self) -> None:
         """Test searching by access level."""
         catalog = DataCatalog()
-        catalog.register_entry("public_data", CatalogEntryType.DATASET, access_level=AccessLevel.PUBLIC)
-        catalog.register_entry("private_data", CatalogEntryType.DATASET, access_level=AccessLevel.RESTRICTED)
+        catalog.register_entry(
+            "public_data", CatalogEntryType.DATASET, access_level=AccessLevel.PUBLIC
+        )
+        catalog.register_entry(
+            "private_data", CatalogEntryType.DATASET, access_level=AccessLevel.RESTRICTED
+        )
 
         results = catalog.search(access_level=AccessLevel.PUBLIC)
         assert len(results) == 1
@@ -935,23 +977,20 @@ class TestTransformationTracker:
         """Test getting transformation statistics."""
         tracker = TransformationTracker()
         tracker.record_transformation(
-            TransformationType.FILTER, ["i1"], "o1",
-            duration_ms=100, success=True
+            TransformationType.FILTER, ["i1"], "o1", duration_ms=100, success=True
         )
         tracker.record_transformation(
-            TransformationType.FILTER, ["i2"], "o2",
-            duration_ms=200, success=True
+            TransformationType.FILTER, ["i2"], "o2", duration_ms=200, success=True
         )
         tracker.record_transformation(
-            TransformationType.MAP, ["i3"], "o3",
-            duration_ms=150, success=False
+            TransformationType.MAP, ["i3"], "o3", duration_ms=150, success=False
         )
 
         stats = tracker.get_transformation_stats()
         assert stats["total"] == 3
         assert stats["by_type"]["filter"] == 2
         assert stats["by_type"]["map"] == 1
-        assert stats["success_rate"] == 2/3
+        assert stats["success_rate"] == 2 / 3
         assert stats["avg_duration_ms"] == 150
 
     def test_get_transformation_stats_empty(self) -> None:
@@ -1046,11 +1085,14 @@ class TestDataLifecycleHub:
         hub.lineage.register_node("node1", "raw")
 
         # Add quality rules
-        hub.quality.add_rule(QualityRule(
-            rule_id="r1", name="test",
-            dimension=QualityDimension.COMPLETENESS,
-            check_fn=lambda x: True,
-        ))
+        hub.quality.add_rule(
+            QualityRule(
+                rule_id="r1",
+                name="test",
+                dimension=QualityDimension.COMPLETENESS,
+                check_fn=lambda x: True,
+            )
+        )
 
         summary = hub.get_lifecycle_summary()
         assert summary["total_assets"] == 2
@@ -1298,12 +1340,14 @@ class TestDataLifecycleIntegration:
         hub.update_asset_state(asset.asset_id, DataState.ACTIVE)
 
         # 5. Add quality rule and check
-        hub.quality.add_rule(QualityRule(
-            rule_id="r1",
-            name="has_total",
-            dimension=QualityDimension.COMPLETENESS,
-            check_fn=lambda x: "total" in x if isinstance(x, dict) else False,
-        ))
+        hub.quality.add_rule(
+            QualityRule(
+                rule_id="r1",
+                name="has_total",
+                dimension=QualityDimension.COMPLETENESS,
+                check_fn=lambda x: "total" in x if isinstance(x, dict) else False,
+            )
+        )
         report = hub.quality.check_quality(
             asset.asset_id,
             {"period": "2024-01", "total": 1000000},
@@ -1367,21 +1411,27 @@ class TestDataLifecycleIntegration:
         hub = DataLifecycleHub()
 
         # Add retention policy for poor quality data
-        hub.retention.add_policy(RetentionPolicy(
-            policy_id="poor_quality_cleanup",
-            name="Poor Quality Cleanup",
-            retention_days=0,
-            action=RetentionAction.QUARANTINED if hasattr(RetentionAction, 'QUARANTINED') else RetentionAction.DELETE,
-            conditions={},
-        ))
+        hub.retention.add_policy(
+            RetentionPolicy(
+                policy_id="poor_quality_cleanup",
+                name="Poor Quality Cleanup",
+                retention_days=0,
+                action=RetentionAction.QUARANTINED
+                if hasattr(RetentionAction, "QUARANTINED")
+                else RetentionAction.DELETE,
+                conditions={},
+            )
+        )
 
         # Add quality rule
-        hub.quality.add_rule(QualityRule(
-            rule_id="r1",
-            name="critical_check",
-            dimension=QualityDimension.COMPLETENESS,
-            check_fn=lambda x: False,  # Always fails
-        ))
+        hub.quality.add_rule(
+            QualityRule(
+                rule_id="r1",
+                name="critical_check",
+                dimension=QualityDimension.COMPLETENESS,
+                check_fn=lambda x: False,  # Always fails
+            )
+        )
 
         # Check quality
         report = hub.quality.check_quality("data1", {})
@@ -1445,11 +1495,13 @@ class TestDataLifecycleIntegration:
         )
 
         # Add quality rule
-        hub.quality.add_rule(create_quality_rule(
-            name="confidence_check",
-            dimension=QualityDimension.ACCURACY,
-            check_fn=lambda x: x.get("confidence", 0) > 0.5 if isinstance(x, dict) else True,
-        ))
+        hub.quality.add_rule(
+            create_quality_rule(
+                name="confidence_check",
+                dimension=QualityDimension.ACCURACY,
+                check_fn=lambda x: x.get("confidence", 0) > 0.5 if isinstance(x, dict) else True,
+            )
+        )
 
         managed = create_managed_provider(mock_provider, hub)
 

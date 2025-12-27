@@ -27,7 +27,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -68,6 +67,13 @@ class TransformationType(str, Enum):
     """Feature transformation types."""
 
     IDENTITY = "identity"
+    FILTER = "filter"
+    MAP = "map"
+    AGGREGATE = "aggregate"
+    JOIN = "join"
+    SORT = "sort"
+    DEDUPLICATE = "deduplicate"
+    ENRICH = "enrich"
     NORMALIZE = "normalize"
     STANDARDIZE = "standardize"
     LOG = "log"
@@ -366,12 +372,14 @@ class FeatureStore:
                 if end_time and value.timestamp > end_time:
                     continue
 
-                result.append({
-                    "feature_id": value.feature_id,
-                    "entity_id": value.entity_id,
-                    "value": value.value,
-                    "timestamp": value.timestamp,
-                })
+                result.append(
+                    {
+                        "feature_id": value.feature_id,
+                        "entity_id": value.entity_id,
+                        "value": value.value,
+                        "timestamp": value.timestamp,
+                    }
+                )
 
         return result
 
@@ -472,6 +480,7 @@ class FeatureComputer:
 
         elif transform.transform_type == TransformationType.LOG:
             import math
+
             value = input_values[0]
             if value is not None and value > 0:
                 return math.log(value)
@@ -596,8 +605,7 @@ class FeatureValidator:
             return True, None, {}
 
         numeric_values = [
-            v.value for v in values
-            if v.value is not None and isinstance(v.value, (int, float))
+            v.value for v in values if v.value is not None and isinstance(v.value, (int, float))
         ]
 
         if not numeric_values:
@@ -617,10 +625,14 @@ class FeatureValidator:
 
         passed = len(issues) == 0
 
-        return passed, "; ".join(issues) if issues else None, {
-            "min_value": float(min_val),
-            "max_value": float(max_val),
-        }
+        return (
+            passed,
+            "; ".join(issues) if issues else None,
+            {
+                "min_value": float(min_val),
+                "max_value": float(max_val),
+            },
+        )
 
     def _check_unique(
         self,
@@ -632,10 +644,14 @@ class FeatureValidator:
         unique_count = len(set(v.value for v in values if v.value is not None))
         unique_rate = unique_count / total if total > 0 else 0
 
-        return True, None, {
-            "unique_count": float(unique_count),
-            "unique_rate": unique_rate,
-        }
+        return (
+            True,
+            None,
+            {
+                "unique_count": float(unique_count),
+                "unique_rate": unique_rate,
+            },
+        )
 
     def _check_type(
         self,
@@ -693,12 +709,10 @@ class FeatureStatisticsComputer:
 
         # Compute numeric statistics
         if feature.feature_type == FeatureType.NUMERICAL:
-            numeric_values = [
-                v for v in non_null_values
-                if isinstance(v, (int, float))
-            ]
+            numeric_values = [v for v in non_null_values if isinstance(v, (int, float))]
             if numeric_values:
                 import statistics as stats_lib
+
                 stats.mean = stats_lib.mean(numeric_values)
                 stats.std = stats_lib.stdev(numeric_values) if len(numeric_values) > 1 else 0.0
                 stats.min_value = min(numeric_values)
@@ -718,6 +732,7 @@ class FeatureStatisticsComputer:
         # Compute distribution for categorical
         if feature.feature_type == FeatureType.CATEGORICAL:
             from collections import Counter
+
             stats.distribution = dict(Counter(non_null_values))
 
         return stats

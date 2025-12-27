@@ -9,13 +9,13 @@ Verifies that:
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch, MagicMock
-from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, patch
+
 import numpy as np
+import pytest
+from fastapi.testclient import TestClient
 
 from src.main import app
-
 
 client = TestClient(app)
 
@@ -34,21 +34,25 @@ class TestVectorMigrateDowngradeChain:
         original_meta = sim_module._VECTOR_META.copy()
 
         # Create test vectors with v4 features
-        sim_module._VECTOR_STORE.update({
-            "test-v4-001": np.random.rand(20).tolist(),
-            "test-v4-002": np.random.rand(20).tolist(),
-            "test-v4-003": np.random.rand(20).tolist(),
-            "test-v3-001": np.random.rand(15).tolist(),
-            "test-v3-002": np.random.rand(15).tolist(),
-        })
+        sim_module._VECTOR_STORE.update(
+            {
+                "test-v4-001": np.random.rand(20).tolist(),
+                "test-v4-002": np.random.rand(20).tolist(),
+                "test-v4-003": np.random.rand(20).tolist(),
+                "test-v3-001": np.random.rand(15).tolist(),
+                "test-v3-002": np.random.rand(15).tolist(),
+            }
+        )
 
-        sim_module._VECTOR_META.update({
-            "test-v4-001": {"feature_version": "v4", "material": "steel"},
-            "test-v4-002": {"feature_version": "v4", "material": "aluminum"},
-            "test-v4-003": {"feature_version": "v4", "material": "plastic"},
-            "test-v3-001": {"feature_version": "v3", "material": "steel"},
-            "test-v3-002": {"feature_version": "v3", "material": "aluminum"},
-        })
+        sim_module._VECTOR_META.update(
+            {
+                "test-v4-001": {"feature_version": "v4", "material": "steel"},
+                "test-v4-002": {"feature_version": "v4", "material": "aluminum"},
+                "test-v4-003": {"feature_version": "v4", "material": "plastic"},
+                "test-v3-001": {"feature_version": "v3", "material": "steel"},
+                "test-v3-002": {"feature_version": "v3", "material": "aluminum"},
+            }
+        )
 
         yield
 
@@ -69,12 +73,8 @@ class TestVectorMigrateDowngradeChain:
 
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["test-v4-001"],
-                    "to_version": "v3",
-                    "dry_run": False
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["test-v4-001"], "to_version": "v3", "dry_run": False},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -97,9 +97,9 @@ class TestVectorMigrateDowngradeChain:
                 json={
                     "ids": ["test-v4-001", "test-v4-002", "test-v4-003"],
                     "to_version": "v3",
-                    "dry_run": False
+                    "dry_run": False,
                 },
-                headers={"X-API-Key": "test"}
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -116,12 +116,8 @@ class TestVectorMigrateDowngradeChain:
 
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["test-v3-001", "test-v3-002"],
-                    "to_version": "v2",
-                    "dry_run": False
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["test-v3-001", "test-v3-002"], "to_version": "v2", "dry_run": False},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -143,12 +139,8 @@ class TestVectorMigrateDowngradeChain:
 
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["test-v4-001"],
-                    "to_version": "v2",
-                    "dry_run": False
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["test-v4-001"], "to_version": "v2", "dry_run": False},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -166,12 +158,8 @@ class TestVectorMigrateDowngradeChain:
 
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["test-v4-001"],
-                    "to_version": "v1",
-                    "dry_run": False
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["test-v4-001"], "to_version": "v1", "dry_run": False},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -190,12 +178,8 @@ class TestVectorMigrateDowngradeChain:
 
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["test-v4-001"],
-                    "to_version": "v3",
-                    "dry_run": False
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["test-v4-001"], "to_version": "v3", "dry_run": False},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -211,12 +195,8 @@ class TestVectorMigrateDowngradeChain:
         """Test that same version migration is skipped, not downgraded."""
         response = client.post(
             "/api/v1/vectors/migrate",
-            json={
-                "ids": ["test-v4-001"],
-                "to_version": "v4",
-                "dry_run": False
-            },
-            headers={"X-API-Key": "test"}
+            json={"ids": ["test-v4-001"], "to_version": "v4", "dry_run": False},
+            headers={"X-API-Key": "test"},
         )
 
         assert response.status_code == 200
@@ -232,12 +212,8 @@ class TestVectorMigrateDowngradeChain:
 
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["test-v3-001"],
-                    "to_version": "v4",
-                    "dry_run": False
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["test-v3-001"], "to_version": "v4", "dry_run": False},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -261,9 +237,9 @@ class TestVectorMigrateDowngradeChain:
                     # test-v3-001: v3->v3 = skip (same version)
                     "ids": ["test-v4-001", "test-v3-001"],
                     "to_version": "v3",
-                    "dry_run": False
+                    "dry_run": False,
                 },
-                headers={"X-API-Key": "test"}
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -281,20 +257,15 @@ class TestVectorMigrateDowngradeChain:
             # First do a downgrade migration
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["test-v4-001", "test-v4-002"],
-                    "to_version": "v3",
-                    "dry_run": False
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["test-v4-001", "test-v4-002"], "to_version": "v3", "dry_run": False},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
 
             # Now check summary
             summary_response = client.get(
-                "/api/v1/vectors/migrate/summary",
-                headers={"X-API-Key": "test"}
+                "/api/v1/vectors/migrate/summary", headers={"X-API-Key": "test"}
             )
 
             assert summary_response.status_code == 200
@@ -310,12 +281,8 @@ class TestVectorMigrateDowngradeChain:
 
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["test-v4-001"],
-                    "to_version": "v3",
-                    "dry_run": True
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["test-v4-001"], "to_version": "v3", "dry_run": True},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200

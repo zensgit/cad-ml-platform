@@ -11,23 +11,23 @@ Covers:
 
 from __future__ import annotations
 
+from io import BytesIO
 from typing import Any, Dict
 from unittest.mock import AsyncMock, MagicMock, patch
-from io import BytesIO
 
 import pytest
 from fastapi import HTTPException
 
+from src.core.errors import ErrorCode
 from src.core.ocr.base import (
-    OcrResult,
     DimensionInfo,
     DimensionType,
+    OcrResult,
     SymbolInfo,
     SymbolType,
     TitleBlock,
 )
 from src.core.ocr.exceptions import OcrError
-from src.core.errors import ErrorCode
 
 
 class TestGetManager:
@@ -107,7 +107,7 @@ class TestOcrExtractEndpoint:
     @pytest.mark.asyncio
     async def test_ocr_extract_idempotency_hit(self):
         """Test idempotency cache hit returns cached response."""
-        from src.api.v1.ocr import ocr_extract, OcrResponse
+        from src.api.v1.ocr import OcrResponse, ocr_extract
 
         # Create a mock file
         mock_file = MagicMock()
@@ -152,9 +152,13 @@ class TestOcrExtractEndpoint:
         with patch("src.api.v1.ocr.check_idempotency", new_callable=AsyncMock) as mock_check:
             mock_check.return_value = None
             with patch("src.api.v1.ocr.rate_limit") as mock_rate_limit:
-                with patch("src.api.v1.ocr.validate_and_read", new_callable=AsyncMock) as mock_validate:
+                with patch(
+                    "src.api.v1.ocr.validate_and_read", new_callable=AsyncMock
+                ) as mock_validate:
                     # Raise to short-circuit the rest
-                    mock_validate.side_effect = HTTPException(status_code=400, detail="Invalid file")
+                    mock_validate.side_effect = HTTPException(
+                        status_code=400, detail="Invalid file"
+                    )
 
                     result = await ocr_extract(
                         file=mock_file,
@@ -201,9 +205,7 @@ class TestOcrExtractEndpoint:
         with patch("src.api.v1.ocr.check_idempotency", new_callable=AsyncMock) as mock_check:
             mock_check.return_value = None
             with patch("src.api.v1.ocr.validate_and_read", new_callable=AsyncMock) as mock_validate:
-                mock_validate.side_effect = HTTPException(
-                    status_code=413, detail="File too large"
-                )
+                mock_validate.side_effect = HTTPException(status_code=413, detail="File too large")
 
                 result = await ocr_extract(
                     file=mock_file,
@@ -381,12 +383,8 @@ class TestOcrExtractEndpoint:
             processing_time_ms=120,
             fallback_level="primary",
             extraction_mode="provider_native",
-            dimensions=[
-                DimensionInfo(type=DimensionType.diameter, value=10.0, unit="mm")
-            ],
-            symbols=[
-                SymbolInfo(type=SymbolType.perpendicular, value="0.05")
-            ],
+            dimensions=[DimensionInfo(type=DimensionType.diameter, value=10.0, unit="mm")],
+            symbols=[SymbolInfo(type=SymbolType.perpendicular, value="0.05")],
             title_block=TitleBlock(drawing_number="DWG-001"),
             image_hash="abc123",
             completeness=0.95,
@@ -401,7 +399,9 @@ class TestOcrExtractEndpoint:
             with patch("src.api.v1.ocr.validate_and_read", new_callable=AsyncMock) as mock_validate:
                 mock_validate.return_value = (b"image_bytes", "image/png")
                 with patch("src.api.v1.ocr.get_manager", return_value=mock_manager):
-                    with patch("src.api.v1.ocr.store_idempotency", new_callable=AsyncMock) as mock_store:
+                    with patch(
+                        "src.api.v1.ocr.store_idempotency", new_callable=AsyncMock
+                    ) as mock_store:
                         result = await ocr_extract(
                             file=mock_file,
                             provider="paddle",
@@ -440,7 +440,9 @@ class TestOcrExtractEndpoint:
             with patch("src.api.v1.ocr.validate_and_read", new_callable=AsyncMock) as mock_validate:
                 mock_validate.return_value = (b"image_bytes", "image/png")
                 with patch("src.api.v1.ocr.get_manager", return_value=mock_manager):
-                    with patch("src.api.v1.ocr.store_idempotency", new_callable=AsyncMock) as mock_store:
+                    with patch(
+                        "src.api.v1.ocr.store_idempotency", new_callable=AsyncMock
+                    ) as mock_store:
                         result = await ocr_extract(
                             file=mock_file,
                             provider="paddle",
@@ -513,9 +515,13 @@ class TestOcrExtractEndpoint:
             with patch("src.api.v1.ocr.validate_and_read", new_callable=AsyncMock) as mock_validate:
                 mock_validate.return_value = (b"image_bytes", "image/png")
                 with patch("src.api.v1.ocr.get_manager", return_value=mock_manager):
-                    with patch("src.api.v1.ocr.store_idempotency", new_callable=AsyncMock) as mock_store:
+                    with patch(
+                        "src.api.v1.ocr.store_idempotency", new_callable=AsyncMock
+                    ) as mock_store:
                         # Raise HTTPException from store_idempotency to trigger outer exception handler
-                        mock_store.side_effect = HTTPException(status_code=400, detail="Storage error")
+                        mock_store.side_effect = HTTPException(
+                            status_code=400, detail="Storage error"
+                        )
 
                         result = await ocr_extract(
                             file=mock_file,

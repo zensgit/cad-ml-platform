@@ -58,7 +58,7 @@ def get_health_status(base_url: str, api_key: str) -> Dict[str, Any]:
     if requests is None:
         return {"error": "requests not installed"}
 
-    url = f"{base_url.rstrip('/')}/api/v1/health/vectors"
+    url = f"{base_url.rstrip('/')}/api/v1/health/faiss/health"
     headers = {"X-API-Key": api_key}
 
     try:

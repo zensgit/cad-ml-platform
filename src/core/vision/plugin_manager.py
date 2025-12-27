@@ -17,7 +17,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Type, TypeVar
 
 from .base import VisionDescription, VisionProvider
 
-
 T = TypeVar("T")
 
 
@@ -124,9 +123,7 @@ class VisionPlugin(Plugin):
     """Base class for vision-related plugins."""
 
     @abstractmethod
-    def process(
-        self, image_data: bytes, context: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def process(self, image_data: bytes, context: Dict[str, Any]) -> Dict[str, Any]:
         """Process image data."""
         pass
 
@@ -135,15 +132,11 @@ class ProviderPlugin(VisionPlugin):
     """Plugin that provides vision analysis."""
 
     @abstractmethod
-    def analyze(
-        self, image_data: bytes, **kwargs: Any
-    ) -> VisionDescription:
+    def analyze(self, image_data: bytes, **kwargs: Any) -> VisionDescription:
         """Analyze an image."""
         pass
 
-    def process(
-        self, image_data: bytes, context: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def process(self, image_data: bytes, context: Dict[str, Any]) -> Dict[str, Any]:
         """Process by analyzing."""
         result = self.analyze(image_data, **context)
         return {"description": result}
@@ -153,15 +146,11 @@ class FilterPlugin(VisionPlugin):
     """Plugin that filters image data."""
 
     @abstractmethod
-    def should_process(
-        self, image_data: bytes, context: Dict[str, Any]
-    ) -> bool:
+    def should_process(self, image_data: bytes, context: Dict[str, Any]) -> bool:
         """Determine if image should be processed."""
         pass
 
-    def process(
-        self, image_data: bytes, context: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def process(self, image_data: bytes, context: Dict[str, Any]) -> Dict[str, Any]:
         """Process by filtering."""
         return {"should_process": self.should_process(image_data, context)}
 
@@ -170,15 +159,11 @@ class TransformerPlugin(VisionPlugin):
     """Plugin that transforms image data or results."""
 
     @abstractmethod
-    def transform(
-        self, data: Any, context: Dict[str, Any]
-    ) -> Any:
+    def transform(self, data: Any, context: Dict[str, Any]) -> Any:
         """Transform data."""
         pass
 
-    def process(
-        self, image_data: bytes, context: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def process(self, image_data: bytes, context: Dict[str, Any]) -> Dict[str, Any]:
         """Process by transforming."""
         return {"transformed": self.transform(image_data, context)}
 
@@ -196,9 +181,7 @@ class DependencyContainer:
         with self._lock:
             self._singletons[interface] = instance
 
-    def register_factory(
-        self, interface: type, factory: Callable[[], Any]
-    ) -> None:
+    def register_factory(self, interface: type, factory: Callable[[], Any]) -> None:
         """Register a factory function."""
         with self._lock:
             self._factories[interface] = factory
@@ -328,29 +311,35 @@ class HookExecutor:
                 hook_method = getattr(plugin_info.instance, hook_type.value, None)
                 if hook_method and callable(hook_method):
                     result = hook_method(context)
-                    results.append(HookResult(
-                        hook_type=hook_type,
-                        plugin_name=plugin_info.metadata.name,
-                        success=True,
-                        result=result,
-                        execution_time_ms=(time.time() - start_time) * 1000,
-                    ))
+                    results.append(
+                        HookResult(
+                            hook_type=hook_type,
+                            plugin_name=plugin_info.metadata.name,
+                            success=True,
+                            result=result,
+                            execution_time_ms=(time.time() - start_time) * 1000,
+                        )
+                    )
                 else:
-                    results.append(HookResult(
+                    results.append(
+                        HookResult(
+                            hook_type=hook_type,
+                            plugin_name=plugin_info.metadata.name,
+                            success=True,
+                            result=None,
+                            execution_time_ms=(time.time() - start_time) * 1000,
+                        )
+                    )
+            except Exception as e:
+                results.append(
+                    HookResult(
                         hook_type=hook_type,
                         plugin_name=plugin_info.metadata.name,
-                        success=True,
-                        result=None,
+                        success=False,
+                        error=str(e),
                         execution_time_ms=(time.time() - start_time) * 1000,
-                    ))
-            except Exception as e:
-                results.append(HookResult(
-                    hook_type=hook_type,
-                    plugin_name=plugin_info.metadata.name,
-                    success=False,
-                    error=str(e),
-                    execution_time_ms=(time.time() - start_time) * 1000,
-                ))
+                    )
+                )
                 if stop_on_error:
                     break
 
@@ -407,9 +396,7 @@ class PluginLoader:
                 continue
 
             try:
-                spec = importlib.util.spec_from_file_location(
-                    file_path.stem, file_path
-                )
+                spec = importlib.util.spec_from_file_location(file_path.stem, file_path)
                 if spec is None or spec.loader is None:
                     continue
 
@@ -558,10 +545,7 @@ class PluginManager:
 
     def get_active_plugins(self) -> List[PluginInfo]:
         """Get all active plugins."""
-        return [
-            p for p in self._registry.get_all()
-            if p.state == PluginState.ACTIVE
-        ]
+        return [p for p in self._registry.get_all() if p.state == PluginState.ACTIVE]
 
     def get_all_plugins(self) -> List[PluginInfo]:
         """Get all plugins."""
@@ -619,9 +603,7 @@ class PluginVisionProvider(VisionProvider):
         self.manager.execute_hook(HookType.PRE_ANALYZE, context)
 
         try:
-            result = await self._wrapped.analyze_image(
-                image_data, include_description, **kwargs
-            )
+            result = await self._wrapped.analyze_image(image_data, include_description, **kwargs)
 
             # Post-analyze hooks
             context["result"] = result

@@ -310,9 +310,7 @@ class DeploymentManager:
         Args:
             config: Deployment configuration
         """
-        self._config = config or DeploymentConfig(
-            strategy=DeploymentStrategy.CANARY
-        )
+        self._config = config or DeploymentConfig(strategy=DeploymentStrategy.CANARY)
         self._versions: Dict[str, DeploymentVersion] = {}
         self._active_version: Optional[str] = None
         self._state = DeploymentState()

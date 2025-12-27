@@ -178,9 +178,7 @@ class AnthropicVisionProvider(VisionProvider):
             return self._parse_response(result)
 
         except httpx.TimeoutException:
-            raise VisionProviderError(
-                "anthropic", f"Request timeout after {self.timeout_seconds}s"
-            )
+            raise VisionProviderError("anthropic", f"Request timeout after {self.timeout_seconds}s")
         except httpx.RequestError as e:
             raise VisionProviderError("anthropic", f"Request failed: {str(e)}")
         except json.JSONDecodeError as e:

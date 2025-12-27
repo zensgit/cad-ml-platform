@@ -63,6 +63,7 @@ async def analyze_cad_file(
         if analyzer is None:
             # Lazy initialization if not in context
             from src.core.cad_analyzer import CADAnalyzer
+
             analyzer = CADAnalyzer()
 
         result = await analyzer.analyze(file_path, **options)
@@ -103,6 +104,7 @@ async def extract_features(
         extractor = ctx.get("extractor")
         if extractor is None:
             from src.core.feature_extractor import FeatureExtractor
+
             extractor = FeatureExtractor()
 
         features = await extractor.extract(document_id, feature_types=feature_types)
@@ -144,6 +146,7 @@ async def search_similar(
         vector_store = ctx.get("vector_store")
         if vector_store is None:
             from src.core.vector_stores import get_vector_store
+
             vector_store = get_vector_store()
 
         results = await vector_store.search_similar(
@@ -154,10 +157,7 @@ async def search_similar(
 
         return {
             "status": "success",
-            "results": [
-                {"id": r.id, "score": r.score, "metadata": r.metadata}
-                for r in results
-            ],
+            "results": [{"id": r.id, "score": r.score, "metadata": r.metadata} for r in results],
         }
     except Exception as e:
         logger.error(f"Similarity search failed: {e}")
@@ -186,6 +186,7 @@ async def batch_register_vectors(
         vector_store = ctx.get("vector_store")
         if vector_store is None:
             from src.core.vector_stores import get_vector_store
+
             vector_store = get_vector_store()
 
         count = await vector_store.register_vectors_batch(vectors)
@@ -253,18 +254,26 @@ class WorkerSettings:
     ]
 
     # Cron jobs (scheduled tasks)
-    cron_jobs = [
-        # Run cleanup every hour
-        # cron(cleanup_expired_vectors, hour={0, 6, 12, 18}, minute=0),
-    ] if ARQ_AVAILABLE and cron else []
+    cron_jobs = (
+        [
+            # Run cleanup every hour
+            # cron(cleanup_expired_vectors, hour={0, 6, 12, 18}, minute=0),
+        ]
+        if ARQ_AVAILABLE and cron
+        else []
+    )
 
     # Redis connection
-    redis_settings = RedisSettings(
-        host=os.getenv("REDIS_HOST", "localhost"),
-        port=int(os.getenv("REDIS_PORT", "6379")),
-        database=int(os.getenv("REDIS_DB", "0")),
-        password=os.getenv("REDIS_PASSWORD"),
-    ) if ARQ_AVAILABLE else None
+    redis_settings = (
+        RedisSettings(
+            host=os.getenv("REDIS_HOST", "localhost"),
+            port=int(os.getenv("REDIS_PORT", "6379")),
+            database=int(os.getenv("REDIS_DB", "0")),
+            password=os.getenv("REDIS_PASSWORD"),
+        )
+        if ARQ_AVAILABLE
+        else None
+    )
 
     # Concurrency settings
     max_jobs = int(os.getenv("ARQ_MAX_JOBS", "10"))

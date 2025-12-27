@@ -4,10 +4,15 @@ from fastapi.testclient import TestClient
 
 def test_cache_controls_apply_rollback_prewarm_smoke():
     from src.main import app
+
     client = TestClient(app)
     headers = {"X-API-Key": "test"}
     # Apply
-    resp_apply = client.post("/api/v1/health/features/cache/apply", json={"capacity": 128, "ttl_seconds": 300}, headers=headers)
+    resp_apply = client.post(
+        "/api/v1/health/features/cache/apply",
+        json={"capacity": 128, "ttl_seconds": 300},
+        headers=headers,
+    )
     assert resp_apply.status_code in (200, 401, 403, 422)
     if resp_apply.status_code == 200:
         data = resp_apply.json()

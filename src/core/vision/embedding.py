@@ -103,9 +103,7 @@ class EmbeddingVector:
         if len(self.vector) != len(other.vector):
             raise ValueError("Vectors must have same dimensions")
 
-        return math.sqrt(
-            sum((a - b) ** 2 for a, b in zip(self.vector, other.vector))
-        )
+        return math.sqrt(sum((a - b) ** 2 for a, b in zip(self.vector, other.vector)))
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -196,8 +194,9 @@ class PerceptualHashGenerator(HashGenerator):
     def hash(self, image_data: bytes) -> ImageHash:
         """Generate perceptual hash."""
         try:
-            from PIL import Image
             import io
+
+            from PIL import Image
 
             img = Image.open(io.BytesIO(image_data)).convert("L")
 
@@ -446,8 +445,9 @@ class ImageEmbedder:
     def _simple_embed(self, image_data: bytes) -> EmbeddingVector:
         """Generate simple embedding from image statistics."""
         try:
-            from PIL import Image
             import io
+
+            from PIL import Image
 
             img = Image.open(io.BytesIO(image_data))
 
@@ -479,12 +479,14 @@ class ImageEmbedder:
             # Add size features
             w, h = img.size
             max_dim = max(w, h)
-            vector.extend([
-                w / max_dim,
-                h / max_dim,
-                (w * h) / 1_000_000,  # Megapixels normalized
-                w / h if h > 0 else 1,  # Aspect ratio
-            ])
+            vector.extend(
+                [
+                    w / max_dim,
+                    h / max_dim,
+                    (w * h) / 1_000_000,  # Megapixels normalized
+                    w / h if h > 0 else 1,  # Aspect ratio
+                ]
+            )
 
             return EmbeddingVector(
                 vector=vector,
@@ -495,7 +497,7 @@ class ImageEmbedder:
         except ImportError:
             # Fallback: hash-based embedding
             hash_value = hashlib.sha256(image_data).hexdigest()
-            vector = [int(hash_value[i:i+2], 16) / 255.0 for i in range(0, 64, 2)]
+            vector = [int(hash_value[i : i + 2], 16) / 255.0 for i in range(0, 64, 2)]
             return EmbeddingVector(
                 vector=vector,
                 model="hash_fallback",
@@ -566,12 +568,11 @@ class SimilarityVisionProvider:
                     return result, similarity_result
 
         # Process normally
-        result = await self._provider.analyze_image(
-            image_data, include_description
-        )
+        result = await self._provider.analyze_image(image_data, include_description)
 
         # Add to index and cache
         import uuid
+
         image_id = str(uuid.uuid4())[:8]
         self._index.add(image_id, image_data)
 

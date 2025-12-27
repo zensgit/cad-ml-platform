@@ -80,4 +80,3 @@ def parse_text_content(entities: Sequence[Any], *, max_items: int = 5000) -> Lis
 
     out.sort()
     return out
-

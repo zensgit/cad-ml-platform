@@ -7,17 +7,21 @@ Validates:
 4. Counters increment correctly with sample calls
 """
 
-import re
-from typing import Dict, List, Set, Optional, Tuple
-import pytest
-from fastapi.testclient import TestClient
 import base64
 import json
+import re
+from typing import Dict, List, Optional, Set, Tuple
 
-from src.main import app
+import pytest
+from fastapi.testclient import TestClient
+
 from src.core.errors import ErrorCode
+from src.main import app
 
 client = TestClient(app)
+_SAMPLE_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z/C/HwAFgwJ/lb9a0QAAAABJRU5ErkJggg=="
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -28,14 +32,13 @@ def trigger_metrics_registration():
     so we need to make sample calls to ensure all metrics are registered.
     """
     # Trigger OCR metrics
-    files = {"file": ("test.txt", b"trigger_metrics_registration", "text/plain")}
+    files = {"file": ("test.png", _SAMPLE_PNG_BYTES, "image/png")}
     client.post("/api/v1/ocr/extract", files=files)
 
     # Trigger Vision metrics
     small_image = base64.b64encode(b"x" * 50).decode()
     client.post(
-        "/api/v1/vision/analyze",
-        json={"image_base64": small_image, "include_description": False}
+        "/api/v1/vision/analyze", json={"image_base64": small_image, "include_description": False}
     )
 
     yield
@@ -72,20 +75,35 @@ class MetricsContract:
 
     # Valid label values for validation
     # Include both uppercase (from ErrorCode enum) and lowercase (legacy usage)
-    VALID_ERROR_CODES = {code.value for code in ErrorCode} | {code.value.lower() for code in ErrorCode}
+    VALID_ERROR_CODES = {code.value for code in ErrorCode} | {
+        code.value.lower() for code in ErrorCode
+    }
     VALID_STAGES = {"init", "load", "preprocess", "infer", "parse", "align", "postprocess"}
     VALID_STATUSES = {"start", "success", "error", "cache_hit", "input_error"}
     VALID_REJECTION_REASONS = {
         # OCR rejection reasons
-        "validation_failed", "invalid_mime", "file_too_large",
-        "pdf_pages_exceed", "pdf_forbidden_token",
+        "validation_failed",
+        "invalid_mime",
+        "file_too_large",
+        "pdf_pages_exceed",
+        "pdf_forbidden_token",
         # Vision rejection reasons
-        "base64_too_large", "base64_empty", "base64_padding_error",
-        "base64_invalid_char", "base64_decode_error",
-        "url_invalid_scheme", "url_invalid_format", "url_not_found",
-        "url_forbidden", "url_http_error", "url_too_large_header",
-        "url_too_large_download", "url_empty", "url_timeout",
-        "url_network_error", "url_download_error"
+        "base64_too_large",
+        "base64_empty",
+        "base64_padding_error",
+        "base64_invalid_char",
+        "base64_decode_error",
+        "url_invalid_scheme",
+        "url_invalid_format",
+        "url_not_found",
+        "url_forbidden",
+        "url_http_error",
+        "url_too_large_header",
+        "url_too_large_download",
+        "url_empty",
+        "url_timeout",
+        "url_network_error",
+        "url_download_error",
     }
 
 
@@ -96,20 +114,20 @@ def parse_metrics_exposition(text: str) -> Dict[str, List[Dict[str, str]]]:
     """
     metrics = {}
 
-    for line in text.split('\n'):
+    for line in text.split("\n"):
         line = line.strip()
-        if not line or line.startswith('#'):
+        if not line or line.startswith("#"):
             continue
 
         # Match metric lines: metric_name{label1="value1",label2="value2"} value
-        match = re.match(r'^([a-zA-Z_][a-zA-Z0-9_]*)((?:\{[^}]*\})?)[\s]+[\d\.\+\-eE]+', line)
+        match = re.match(r"^([a-zA-Z_][a-zA-Z0-9_]*)((?:\{[^}]*\})?)[\s]+[\d\.\+\-eE]+", line)
         if match:
             metric_name = match.group(1)
             labels_str = match.group(2)
 
             # Parse labels
             labels = {}
-            if labels_str and labels_str != '{}':
+            if labels_str and labels_str != "{}":
                 # Remove braces
                 labels_str = labels_str[1:-1]
                 # Parse key="value" pairs
@@ -125,9 +143,12 @@ def parse_metrics_exposition(text: str) -> Dict[str, List[Dict[str, str]]]:
 
 def extract_base_metric_name(full_name: str) -> str:
     """Extract base metric name from histogram/summary variants."""
-    for suffix in ['_bucket', '_count', '_sum', '_total']:
-        if full_name.endswith(suffix) and full_name.replace(suffix, '') in MetricsContract.REQUIRED_METRICS:
-            return full_name.replace(suffix, '')
+    for suffix in ["_bucket", "_count", "_sum", "_total"]:
+        if (
+            full_name.endswith(suffix)
+            and full_name.replace(suffix, "") in MetricsContract.REQUIRED_METRICS
+        ):
+            return full_name.replace(suffix, "")
     return full_name
 
 
@@ -139,8 +160,9 @@ class TestMetricsContract:
         response = client.get("/metrics")
         assert response.status_code == 200, "Metrics endpoint should return 200"
         content_type = response.headers.get("content-type", "")
-        assert content_type.startswith("text/plain; version=0.0.4"), \
-            f"Metrics should use Prometheus text format, got: {content_type}"
+        assert content_type.startswith(
+            "text/plain; version=0.0.4"
+        ), f"Metrics should use Prometheus text format, got: {content_type}"
 
     def test_required_metrics_present(self):
         """Verify all required metrics are present."""
@@ -160,8 +182,7 @@ class TestMetricsContract:
             if required_metric not in found_metrics:
                 missing_metrics.append(required_metric)
 
-        assert len(missing_metrics) == 0, \
-            f"Missing core metrics: {missing_metrics}"
+        assert len(missing_metrics) == 0, f"Missing core metrics: {missing_metrics}"
 
     def test_metric_label_schemas(self):
         """Verify metrics have expected label schemas."""
@@ -199,12 +220,9 @@ class TestMetricsContract:
                 # Check for unexpected labels (excluding 'le' which is standard for histograms)
                 extra = comparison_labels - expected_labels
                 if extra and expected_labels:  # Only check if we expect specific labels
-                    label_errors.append(
-                        f"{metric_name}: unexpected labels {extra}"
-                    )
+                    label_errors.append(f"{metric_name}: unexpected labels {extra}")
 
-        assert len(label_errors) == 0, \
-            f"Label schema violations:\n" + "\n".join(label_errors)
+        assert len(label_errors) == 0, f"Label schema violations:\n" + "\n".join(label_errors)
 
     def test_error_code_values_valid(self):
         """Verify error code label values are from ErrorCode enum."""
@@ -223,12 +241,9 @@ class TestMetricsContract:
                     if "code" in instance:
                         code = instance["code"]
                         if code not in MetricsContract.VALID_ERROR_CODES:
-                            invalid_codes.append(
-                                f"{base_name}: invalid code '{code}'"
-                            )
+                            invalid_codes.append(f"{base_name}: invalid code '{code}'")
 
-        assert len(invalid_codes) == 0, \
-            f"Invalid error codes found:\n" + "\n".join(invalid_codes)
+        assert len(invalid_codes) == 0, f"Invalid error codes found:\n" + "\n".join(invalid_codes)
 
     def test_stage_values_valid(self):
         """Verify stage label values are from expected set."""
@@ -247,12 +262,11 @@ class TestMetricsContract:
                     if "stage" in instance:
                         stage = instance["stage"]
                         if stage not in MetricsContract.VALID_STAGES:
-                            invalid_stages.append(
-                                f"{base_name}: invalid stage '{stage}'"
-                            )
+                            invalid_stages.append(f"{base_name}: invalid stage '{stage}'")
 
-        assert len(invalid_stages) == 0, \
-            f"Invalid stage values found:\n" + "\n".join(invalid_stages)
+        assert len(invalid_stages) == 0, f"Invalid stage values found:\n" + "\n".join(
+            invalid_stages
+        )
 
     def test_ema_values_in_health(self):
         """Verify EMA values are available in /health endpoint."""
@@ -261,8 +275,7 @@ class TestMetricsContract:
 
         health_data = response.json()
         assert "runtime" in health_data, "Health should have runtime section"
-        assert "error_rate_ema" in health_data["runtime"], \
-            "Runtime should have error_rate_ema"
+        assert "error_rate_ema" in health_data["runtime"], "Runtime should have error_rate_ema"
 
         ema_data = health_data["runtime"]["error_rate_ema"]
         assert "ocr" in ema_data, "Should have OCR EMA"
@@ -281,7 +294,7 @@ class TestMetricsContract:
         before_raw = response.text
 
         # Make an OCR call - the stub processes text files successfully
-        files = {"file": ("test.txt", b"test_increment_call", "text/plain")}
+        files = {"file": ("test.png", _SAMPLE_PNG_BYTES, "image/png")}
         ocr_response = client.post("/api/v1/ocr/extract", files=files)
 
         # Get updated metrics
@@ -293,8 +306,9 @@ class TestMetricsContract:
         requests_before = self._sum_metric_values(before_raw, "ocr_requests_total")
         requests_after = self._sum_metric_values(after_raw, "ocr_requests_total")
 
-        assert requests_after > requests_before, \
-            f"ocr_requests_total should increment on API call (before={requests_before}, after={requests_after})"
+        assert (
+            requests_after > requests_before
+        ), f"ocr_requests_total should increment on API call (before={requests_before}, after={requests_after})"
 
     @pytest.mark.asyncio
     async def test_metrics_increment_on_vision_call(self):
@@ -307,10 +321,7 @@ class TestMetricsContract:
         small_image = base64.b64encode(b"x" * 50).decode()
         vision_response = client.post(
             "/api/v1/vision/analyze",
-            json={
-                "image_base64": small_image,
-                "include_description": True
-            }
+            json={"image_base64": small_image, "include_description": True},
         )
 
         # Get updated metrics
@@ -321,8 +332,9 @@ class TestMetricsContract:
         requests_before = self._sum_metric_values(before_raw, "vision_requests_total")
         requests_after = self._sum_metric_values(after_raw, "vision_requests_total")
 
-        assert requests_after > requests_before, \
-            f"vision_requests_total should increment on API call (before={requests_before}, after={requests_after})"
+        assert (
+            requests_after > requests_before
+        ), f"vision_requests_total should increment on API call (before={requests_before}, after={requests_after})"
 
     def test_rejection_reasons_valid(self):
         """Verify rejection reason values are from expected set."""
@@ -341,14 +353,14 @@ class TestMetricsContract:
                     if "reason" in instance:
                         reason = instance["reason"]
                         if reason not in MetricsContract.VALID_REJECTION_REASONS:
-                            invalid_reasons.append(
-                                f"{base_name}: unexpected reason '{reason}'"
-                            )
+                            invalid_reasons.append(f"{base_name}: unexpected reason '{reason}'")
 
         # This is a warning, not a failure - new reasons may be added
         if invalid_reasons:
-            print(f"Warning: New rejection reasons found (update contract if valid):\n" +
-                  "\n".join(invalid_reasons))
+            print(
+                f"Warning: New rejection reasons found (update contract if valid):\n"
+                + "\n".join(invalid_reasons)
+            )
 
     def test_circuit_breaker_metrics_structure(self):
         """Verify circuit breaker metrics have correct structure."""
@@ -363,8 +375,7 @@ class TestMetricsContract:
 
         # If circuit breaker metrics exist, they should have 'circuit' label
         for metric in cb_metrics:
-            assert "circuit" in metric, \
-                f"Circuit breaker metric missing 'circuit' label: {metric}"
+            assert "circuit" in metric, f"Circuit breaker metric missing 'circuit' label: {metric}"
 
     def test_model_loaded_gauge_structure(self):
         """Verify model loaded gauge has provider label."""
@@ -375,8 +386,7 @@ class TestMetricsContract:
         model_metrics = parsed.get("ocr_model_loaded", [])
 
         for metric in model_metrics:
-            assert "provider" in metric, \
-                f"ocr_model_loaded missing 'provider' label: {metric}"
+            assert "provider" in metric, f"ocr_model_loaded missing 'provider' label: {metric}"
 
     def _count_metric_value(self, parsed: Dict, metric_name: str) -> int:
         """Helper to count total instances of a metric."""
@@ -392,12 +402,12 @@ class TestMetricsContract:
         For counters like 'metric_name{label="value"} 5', this sums all the values.
         """
         total = 0.0
-        for line in raw_text.split('\n'):
+        for line in raw_text.split("\n"):
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
             # Match metric lines and extract base name
-            match = re.match(r'^([a-zA-Z_][a-zA-Z0-9_]*)((?:\{[^}]*\})?)[\s]+([\d\.\+\-eE]+)', line)
+            match = re.match(r"^([a-zA-Z_][a-zA-Z0-9_]*)((?:\{[^}]*\})?)[\s]+([\d\.\+\-eE]+)", line)
             if match:
                 full_name = match.group(1)
                 value_str = match.group(3)
@@ -420,7 +430,7 @@ class TestMetricsContract:
             "vision_processing_duration_seconds",
             "ocr_stage_duration_seconds",
             "ocr_confidence_distribution",
-            "vision_image_size_bytes"
+            "vision_image_size_bytes",
         ]
 
         missing_variants = []
@@ -441,8 +451,7 @@ class TestMetricsContract:
             if not has_sum:
                 missing_variants.append(f"{hist_metric}_sum")
 
-        assert len(missing_variants) == 0, \
-            f"Missing histogram variants: {missing_variants}"
+        assert len(missing_variants) == 0, f"Missing histogram variants: {missing_variants}"
 
 
 class TestMetricsContractStrictMode:
@@ -450,11 +459,10 @@ class TestMetricsContractStrictMode:
 
     # Guard: pytest.config was removed in newer pytest; fall back to env
     import os
+
     strict_enabled = os.getenv("STRICT_METRICS", "0") == "1"
-    @pytest.mark.skipif(
-        not strict_enabled,
-        reason="Strict metrics mode not enabled"
-    )
+
+    @pytest.mark.skipif(not strict_enabled, reason="Strict metrics mode not enabled")
     def test_minimum_error_counters(self):
         """In strict mode, verify minimum error counter thresholds."""
         response = client.get("/metrics")
@@ -467,10 +475,7 @@ class TestMetricsContractStrictMode:
         assert len(ocr_errors) > 0, "No OCR error metrics found (strict mode)"
         assert len(vision_errors) > 0, "No Vision error metrics found (strict mode)"
 
-    @pytest.mark.skipif(
-        not strict_enabled,
-        reason="Strict metrics mode not enabled"
-    )
+    @pytest.mark.skipif(not strict_enabled, reason="Strict metrics mode not enabled")
     def test_all_providers_have_metrics(self):
         """In strict mode, all configured providers must have metrics."""
         response = client.get("/metrics")
@@ -487,8 +492,7 @@ class TestMetricsContractStrictMode:
         expected_providers = {"paddle", "deepseek_hf", "deepseek_stub"}
         missing = expected_providers - providers
 
-        assert len(missing) == 0, \
-            f"Missing metrics for providers: {missing}"
+        assert len(missing) == 0, f"Missing metrics for providers: {missing}"
 
 
 def pytest_addoption(parser):
@@ -498,11 +502,96 @@ def pytest_addoption(parser):
             "--strict-metrics",
             action="store_true",
             default=False,
-            help="Run strict metrics contract tests"
+            help="Run strict metrics contract tests",
         )
     except Exception:
         # PyTest version may not support dynamic addoption at this stage; ignore
         pass
+
+
+class TestDedup2DMetricsContract:
+    """Tests for dedup2d metrics contract."""
+
+    def test_dedup2d_metrics_module_exists(self) -> None:
+        """Verify dedup2d metrics module can be imported."""
+        from pathlib import Path
+
+        metrics_path = Path(__file__).parent.parent / "src" / "core" / "dedup2d_metrics.py"
+        assert metrics_path.exists(), f"Metrics module not found at {metrics_path}"
+
+        # Check that the module contains expected metric names
+        content = metrics_path.read_text()
+        expected_metrics = [
+            "dedup2d_jobs_submitted_total",
+            "dedup2d_jobs_completed_total",
+            "dedup2d_job_duration_seconds",
+            "dedup2d_jobs_queued",
+            "dedup2d_jobs_active",
+            "dedup2d_file_uploads_total",
+            "dedup2d_file_downloads_total",
+            "dedup2d_callbacks_total",
+            "dedup2d_gc_runs_total",
+            "dedup2d_error_rate_ema",
+        ]
+        for metric in expected_metrics:
+            assert metric in content, f"Missing metric {metric} in dedup2d_metrics.py"
+
+    def test_dedup2d_metrics_exports(self) -> None:
+        """Verify dedup2d metrics module has proper __all__ exports."""
+        from pathlib import Path
+
+        metrics_path = Path(__file__).parent.parent / "src" / "core" / "dedup2d_metrics.py"
+        content = metrics_path.read_text()
+
+        # Check __all__ is defined
+        assert "__all__" in content, "Metrics module should define __all__"
+
+        # Check key exports are in __all__
+        assert "dedup2d_jobs_submitted_total" in content
+        assert "update_dedup2d_error_ema" in content
+        assert "get_dedup2d_error_rate_ema" in content
+
+    def test_grafana_dashboard_exists(self) -> None:
+        """Verify dedup2d Grafana dashboard exists."""
+        from pathlib import Path
+
+        dashboard_path = Path(__file__).parent.parent / "grafana" / "dashboards" / "dedup2d.json"
+        assert dashboard_path.exists(), f"Dashboard not found at {dashboard_path}"
+
+    def test_prometheus_alerts_exist(self) -> None:
+        """Verify dedup2d Prometheus alerts exist."""
+        from pathlib import Path
+
+        alerts_path = Path(__file__).parent.parent / "prometheus" / "alerts" / "dedup2d.yml"
+        assert alerts_path.exists(), f"Alerts not found at {alerts_path}"
+
+    def test_grafana_dashboard_valid_json(self) -> None:
+        """Verify dedup2d Grafana dashboard is valid JSON."""
+        from pathlib import Path
+
+        dashboard_path = Path(__file__).parent.parent / "grafana" / "dashboards" / "dedup2d.json"
+        if dashboard_path.exists():
+            content = dashboard_path.read_text()
+            dashboard = json.loads(content)
+            assert "panels" in dashboard
+            assert "title" in dashboard
+            assert dashboard["title"] == "Dedup2D Dashboard"
+
+    def test_prometheus_alerts_valid_yaml(self) -> None:
+        """Verify dedup2d Prometheus alerts is valid YAML."""
+        from pathlib import Path
+
+        import yaml
+
+        alerts_path = Path(__file__).parent.parent / "prometheus" / "alerts" / "dedup2d.yml"
+        if alerts_path.exists():
+            content = alerts_path.read_text()
+            alerts = yaml.safe_load(content)
+            assert "groups" in alerts
+            assert len(alerts["groups"]) > 0
+            # Check first group has rules
+            assert "rules" in alerts["groups"][0]
+            assert len(alerts["groups"][0]["rules"]) > 0
 
 
 if __name__ == "__main__":

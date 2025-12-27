@@ -20,12 +20,12 @@ class TestAnalysisMetricsExist:
     def test_core_counters_exist(self):
         """Test core counter metrics are defined."""
         from src.utils.analysis_metrics import (
-            analysis_requests_total,
-            analysis_errors_total,
-            analysis_rejections_total,
-            analysis_error_code_total,
             analysis_cache_hits_total,
             analysis_cache_miss_total,
+            analysis_error_code_total,
+            analysis_errors_total,
+            analysis_rejections_total,
+            analysis_requests_total,
         )
 
         assert analysis_requests_total is not None
@@ -38,11 +38,11 @@ class TestAnalysisMetricsExist:
     def test_histogram_metrics_exist(self):
         """Test histogram metrics are defined."""
         from src.utils.analysis_metrics import (
-            analysis_stage_duration_seconds,
-            parse_stage_latency_seconds,
             analysis_feature_vector_dimension,
-            feature_extraction_latency_seconds,
+            analysis_stage_duration_seconds,
             classification_latency_seconds,
+            feature_extraction_latency_seconds,
+            parse_stage_latency_seconds,
             process_recommend_latency_seconds,
         )
 
@@ -56,11 +56,11 @@ class TestAnalysisMetricsExist:
     def test_gauge_metrics_exist(self):
         """Test gauge metrics are defined."""
         from src.utils.analysis_metrics import (
-            faiss_index_size,
             analysis_parallel_enabled,
-            strict_mode_enabled,
+            faiss_index_size,
             faiss_rebuild_backoff_seconds,
             process_start_time_seconds,
+            strict_mode_enabled,
         )
 
         assert faiss_index_size is not None
@@ -72,15 +72,15 @@ class TestAnalysisMetricsExist:
     def test_faiss_metrics_exist(self):
         """Test Faiss-related metrics are defined."""
         from src.utils.analysis_metrics import (
-            faiss_init_errors_total,
-            faiss_rebuild_total,
-            faiss_rebuild_duration_seconds,
-            faiss_export_total,
-            faiss_export_duration_seconds,
-            faiss_import_total,
-            faiss_import_duration_seconds,
             faiss_auto_rebuild_total,
+            faiss_export_duration_seconds,
+            faiss_export_total,
+            faiss_import_duration_seconds,
+            faiss_import_total,
             faiss_index_dim_mismatch_total,
+            faiss_init_errors_total,
+            faiss_rebuild_duration_seconds,
+            faiss_rebuild_total,
         )
 
         assert faiss_init_errors_total is not None
@@ -97,10 +97,10 @@ class TestAnalysisMetricsExist:
         """Test drift-related metrics are defined."""
         from src.utils.analysis_metrics import (
             classification_prediction_drift_score,
-            material_distribution_drift_score,
-            material_drift_ratio,
             drift_baseline_created_total,
             drift_baseline_refresh_total,
+            material_distribution_drift_score,
+            material_drift_ratio,
         )
 
         assert classification_prediction_drift_score is not None
@@ -112,9 +112,9 @@ class TestAnalysisMetricsExist:
     def test_recovery_metrics_exist(self):
         """Test recovery-related metrics are defined."""
         from src.utils.analysis_metrics import (
-            faiss_recovery_attempts_total,
             faiss_degraded_duration_seconds,
             faiss_next_recovery_eta_seconds,
+            faiss_recovery_attempts_total,
             faiss_recovery_suppressed_total,
             faiss_recovery_suppression_remaining_seconds,
         )

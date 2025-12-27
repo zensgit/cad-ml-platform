@@ -26,16 +26,18 @@ class TestDriftStatusEndpoint:
         original_state = analyze_module._DRIFT_STATE.copy()
 
         # Reset to clean state
-        analyze_module._DRIFT_STATE.update({
-            "materials": [],
-            "predictions": [],
-            "baseline_materials": [],
-            "baseline_predictions": [],
-            "baseline_materials_ts": None,
-            "baseline_predictions_ts": None,
-            "baseline_materials_startup_mark": None,
-            "baseline_predictions_startup_mark": None,
-        })
+        analyze_module._DRIFT_STATE.update(
+            {
+                "materials": [],
+                "predictions": [],
+                "baseline_materials": [],
+                "baseline_predictions": [],
+                "baseline_materials_ts": None,
+                "baseline_predictions_ts": None,
+                "baseline_materials_startup_mark": None,
+                "baseline_predictions_startup_mark": None,
+            }
+        )
 
         yield
 
@@ -62,8 +64,8 @@ class TestDriftStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_status_creates_material_baseline(self):
         """Test drift_status creates material baseline when threshold reached."""
-        from src.api.v1.drift import drift_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_status
 
         # Set sufficient materials
         analyze_module._DRIFT_STATE["materials"] = ["steel"] * 60 + ["aluminum"] * 40
@@ -82,8 +84,8 @@ class TestDriftStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_status_computes_drift_score(self):
         """Test drift_status computes drift score with existing baseline."""
-        from src.api.v1.drift import drift_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_status
 
         # Set different current vs baseline distributions
         analyze_module._DRIFT_STATE["materials"] = ["steel"] * 80 + ["aluminum"] * 20
@@ -105,8 +107,8 @@ class TestDriftStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_status_auto_refresh_stale_material_baseline(self):
         """Test drift_status auto-refreshes stale material baseline."""
-        from src.api.v1.drift import drift_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_status
 
         # Set stale baseline
         old_time = time.time() - 100000  # Very old
@@ -117,11 +119,14 @@ class TestDriftStatusEndpoint:
         analyze_module._DRIFT_STATE["baseline_materials_ts"] = old_time
         analyze_module._DRIFT_STATE["baseline_predictions_ts"] = old_time
 
-        with patch.dict("os.environ", {
-            "DRIFT_BASELINE_AUTO_REFRESH": "1",
-            "DRIFT_BASELINE_MAX_AGE_SECONDS": "86400",
-            "DRIFT_BASELINE_MIN_COUNT": "100",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "DRIFT_BASELINE_AUTO_REFRESH": "1",
+                "DRIFT_BASELINE_MAX_AGE_SECONDS": "86400",
+                "DRIFT_BASELINE_MIN_COUNT": "100",
+            },
+        ):
             result = await drift_status(api_key="test")
 
         # Should have been refreshed with current distribution
@@ -131,8 +136,8 @@ class TestDriftStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_status_no_auto_refresh_when_disabled(self):
         """Test drift_status does not auto-refresh when disabled."""
-        from src.api.v1.drift import drift_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_status
 
         old_time = time.time() - 100000
         analyze_module._DRIFT_STATE["materials"] = ["steel"] * 100
@@ -142,10 +147,13 @@ class TestDriftStatusEndpoint:
         analyze_module._DRIFT_STATE["baseline_materials_ts"] = old_time
         analyze_module._DRIFT_STATE["baseline_predictions_ts"] = old_time
 
-        with patch.dict("os.environ", {
-            "DRIFT_BASELINE_AUTO_REFRESH": "0",
-            "DRIFT_BASELINE_MAX_AGE_SECONDS": "86400",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "DRIFT_BASELINE_AUTO_REFRESH": "0",
+                "DRIFT_BASELINE_MAX_AGE_SECONDS": "86400",
+            },
+        ):
             result = await drift_status(api_key="test")
 
         # Should NOT have been refreshed
@@ -157,8 +165,8 @@ class TestDriftStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_status_stale_flag_true_for_old_baselines(self):
         """Test drift_status sets stale flag when baselines are old."""
-        from src.api.v1.drift import drift_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_status
 
         old_time = time.time() - 100000
         analyze_module._DRIFT_STATE["materials"] = ["steel"] * 50
@@ -170,10 +178,13 @@ class TestDriftStatusEndpoint:
         analyze_module._DRIFT_STATE["baseline_materials_startup_mark"] = True
         analyze_module._DRIFT_STATE["baseline_predictions_startup_mark"] = True
 
-        with patch.dict("os.environ", {
-            "DRIFT_BASELINE_AUTO_REFRESH": "0",
-            "DRIFT_BASELINE_MAX_AGE_SECONDS": "86400",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "DRIFT_BASELINE_AUTO_REFRESH": "0",
+                "DRIFT_BASELINE_MAX_AGE_SECONDS": "86400",
+            },
+        ):
             result = await drift_status(api_key="test")
 
         assert result.stale is True
@@ -183,8 +194,8 @@ class TestDriftStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_status_stale_flag_false_for_fresh_baselines(self):
         """Test drift_status sets stale flag False when baselines are fresh."""
-        from src.api.v1.drift import drift_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_status
 
         recent_time = time.time() - 1000  # 1000 seconds ago
         analyze_module._DRIFT_STATE["materials"] = ["steel"] * 100
@@ -205,8 +216,8 @@ class TestDriftStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_status_startup_mark_set(self):
         """Test drift_status sets startup mark on first access."""
-        from src.api.v1.drift import drift_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_status
 
         analyze_module._DRIFT_STATE["materials"] = ["steel"] * 100
         analyze_module._DRIFT_STATE["predictions"] = ["simple"] * 100
@@ -225,8 +236,8 @@ class TestDriftStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_status_datetime_fields(self):
         """Test drift_status populates datetime fields correctly."""
-        from src.api.v1.drift import drift_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_status
 
         ts = time.time()
         analyze_module._DRIFT_STATE["materials"] = ["steel"] * 100
@@ -248,8 +259,8 @@ class TestDriftStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_status_material_only_stale(self):
         """Test drift_status when only material baseline is stale."""
-        from src.api.v1.drift import drift_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_status
 
         old_time = time.time() - 100000
         recent_time = time.time() - 1000
@@ -270,8 +281,8 @@ class TestDriftStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_status_prediction_only_stale(self):
         """Test drift_status when only prediction baseline is stale."""
-        from src.api.v1.drift import drift_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_status
 
         old_time = time.time() - 100000
         recent_time = time.time() - 1000
@@ -300,14 +311,16 @@ class TestDriftResetEndpoint:
 
         original_state = analyze_module._DRIFT_STATE.copy()
 
-        analyze_module._DRIFT_STATE.update({
-            "materials": [],
-            "predictions": [],
-            "baseline_materials": [],
-            "baseline_predictions": [],
-            "baseline_materials_ts": None,
-            "baseline_predictions_ts": None,
-        })
+        analyze_module._DRIFT_STATE.update(
+            {
+                "materials": [],
+                "predictions": [],
+                "baseline_materials": [],
+                "baseline_predictions": [],
+                "baseline_materials_ts": None,
+                "baseline_predictions_ts": None,
+            }
+        )
 
         yield
 
@@ -316,8 +329,8 @@ class TestDriftResetEndpoint:
     @pytest.mark.asyncio
     async def test_drift_reset_with_both_baselines(self):
         """Test drift_reset when both baselines exist."""
-        from src.api.v1.drift import drift_reset
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_reset
 
         analyze_module._DRIFT_STATE["baseline_materials"] = ["steel"] * 50
         analyze_module._DRIFT_STATE["baseline_predictions"] = ["simple"] * 50
@@ -337,8 +350,8 @@ class TestDriftResetEndpoint:
     @pytest.mark.asyncio
     async def test_drift_reset_with_only_material_baseline(self):
         """Test drift_reset when only material baseline exists."""
-        from src.api.v1.drift import drift_reset
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_reset
 
         analyze_module._DRIFT_STATE["baseline_materials"] = ["steel"] * 50
         analyze_module._DRIFT_STATE["baseline_predictions"] = []
@@ -353,8 +366,8 @@ class TestDriftResetEndpoint:
     @pytest.mark.asyncio
     async def test_drift_reset_with_only_prediction_baseline(self):
         """Test drift_reset when only prediction baseline exists."""
-        from src.api.v1.drift import drift_reset
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_reset
 
         analyze_module._DRIFT_STATE["baseline_materials"] = []
         analyze_module._DRIFT_STATE["baseline_predictions"] = ["simple"] * 50
@@ -388,14 +401,16 @@ class TestDriftBaselineStatusEndpoint:
 
         original_state = analyze_module._DRIFT_STATE.copy()
 
-        analyze_module._DRIFT_STATE.update({
-            "materials": [],
-            "predictions": [],
-            "baseline_materials": [],
-            "baseline_predictions": [],
-            "baseline_materials_ts": None,
-            "baseline_predictions_ts": None,
-        })
+        analyze_module._DRIFT_STATE.update(
+            {
+                "materials": [],
+                "predictions": [],
+                "baseline_materials": [],
+                "baseline_predictions": [],
+                "baseline_materials_ts": None,
+                "baseline_predictions_ts": None,
+            }
+        )
 
         yield
 
@@ -418,8 +433,8 @@ class TestDriftBaselineStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_baseline_status_fresh_baselines(self):
         """Test drift_baseline_status with fresh baselines."""
-        from src.api.v1.drift import drift_baseline_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_baseline_status
 
         recent_time = time.time() - 1000
         analyze_module._DRIFT_STATE["baseline_materials_ts"] = recent_time
@@ -439,8 +454,8 @@ class TestDriftBaselineStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_baseline_status_stale_baselines(self):
         """Test drift_baseline_status with stale baselines."""
-        from src.api.v1.drift import drift_baseline_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_baseline_status
 
         old_time = time.time() - 100000
         analyze_module._DRIFT_STATE["baseline_materials_ts"] = old_time
@@ -457,8 +472,8 @@ class TestDriftBaselineStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_baseline_status_only_material_exists(self):
         """Test drift_baseline_status when only material baseline exists."""
-        from src.api.v1.drift import drift_baseline_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_baseline_status
 
         recent_time = time.time() - 1000
         analyze_module._DRIFT_STATE["baseline_materials_ts"] = recent_time
@@ -473,8 +488,8 @@ class TestDriftBaselineStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_baseline_status_only_prediction_exists(self):
         """Test drift_baseline_status when only prediction baseline exists."""
-        from src.api.v1.drift import drift_baseline_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_baseline_status
 
         recent_time = time.time() - 1000
         analyze_module._DRIFT_STATE["baseline_predictions_ts"] = recent_time
@@ -489,8 +504,8 @@ class TestDriftBaselineStatusEndpoint:
     @pytest.mark.asyncio
     async def test_drift_baseline_status_material_stale_prediction_fresh(self):
         """Test drift_baseline_status when material is stale but prediction is fresh."""
-        from src.api.v1.drift import drift_baseline_status
         from src.api.v1 import analyze as analyze_module
+        from src.api.v1.drift import drift_baseline_status
 
         old_time = time.time() - 100000
         recent_time = time.time() - 1000

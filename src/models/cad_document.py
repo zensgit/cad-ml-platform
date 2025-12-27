@@ -52,7 +52,9 @@ class CadDocument(BaseModel):
     layers: Dict[str, int] = Field(default_factory=dict, description="Layer name -> entity count")
     bounding_box: BoundingBox = Field(default_factory=BoundingBox)
     metadata: Dict[str, Any] = Field(default_factory=dict)
-    raw_stats: Dict[str, Any] = Field(default_factory=dict, description="Quick scalar stats for fast access")
+    raw_stats: Dict[str, Any] = Field(
+        default_factory=dict, description="Quick scalar stats for fast access"
+    )
 
     def entity_count(self) -> int:
         return len(self.entities)
@@ -79,4 +81,3 @@ class CadDocument(BaseModel):
 
 
 __all__ = ["CadDocument", "CadEntity", "BoundingBox"]
-

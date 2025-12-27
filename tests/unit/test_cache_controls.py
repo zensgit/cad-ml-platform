@@ -1,8 +1,9 @@
 import os
+
 from fastapi.testclient import TestClient
 
-from src.main import app
 from src.core.feature_cache import reset_feature_cache_for_tests
+from src.main import app
 
 
 def setup_function():
@@ -57,4 +58,3 @@ def test_cache_rollback_then_reapply_allowed():
     )
     assert r2.status_code == 200
     assert r2.json().get("status") != "window_active"
-

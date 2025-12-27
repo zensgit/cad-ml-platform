@@ -128,9 +128,7 @@ class TaskClient:
             ImportError: If arq is not installed.
         """
         if not ARQ_AVAILABLE:
-            raise ImportError(
-                "arq is not installed. Install with: pip install arq"
-            )
+            raise ImportError("arq is not installed. Install with: pip install arq")
 
         self.config = config or TaskConfig.from_env()
         self._pool = None

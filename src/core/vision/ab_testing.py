@@ -125,7 +125,7 @@ class VariantStats:
     @property
     def latency_std_dev(self) -> float:
         """Calculate latency standard deviation."""
-        return self.latency_variance ** 0.5
+        return self.latency_variance**0.5
 
 
 @dataclass
@@ -247,9 +247,7 @@ class ExperimentManager:
 
         experiment = self._experiments[experiment_id]
         if experiment.status != ExperimentStatus.DRAFT:
-            raise ValueError(
-                f"Cannot start experiment in {experiment.status.value} status"
-            )
+            raise ValueError(f"Cannot start experiment in {experiment.status.value} status")
 
         experiment.status = ExperimentStatus.RUNNING
         experiment.started_at = datetime.now()
@@ -298,18 +296,14 @@ class ExperimentManager:
         """Get experiment configuration."""
         return self._experiments.get(experiment_id)
 
-    def list_experiments(
-        self, status: Optional[ExperimentStatus] = None
-    ) -> List[ExperimentConfig]:
+    def list_experiments(self, status: Optional[ExperimentStatus] = None) -> List[ExperimentConfig]:
         """List all experiments, optionally filtered by status."""
         experiments = list(self._experiments.values())
         if status:
             experiments = [e for e in experiments if e.status == status]
         return experiments
 
-    def allocate_variant(
-        self, experiment_id: str, request_id: str
-    ) -> Optional[Variant]:
+    def allocate_variant(self, experiment_id: str, request_id: str) -> Optional[Variant]:
         """Allocate a variant for a request.
 
         Args:
@@ -351,9 +345,7 @@ class ExperimentManager:
         """Allocate using pure random selection."""
         return random.choice(variants)
 
-    def _allocate_hash_based(
-        self, variants: List[Variant], request_id: str
-    ) -> Variant:
+    def _allocate_hash_based(self, variants: List[Variant], request_id: str) -> Variant:
         """Allocate using deterministic hash-based selection."""
         hash_value = int(hashlib.md5(request_id.encode()).hexdigest(), 16)
         normalized = (hash_value % 10000) / 10000.0
@@ -371,9 +363,7 @@ class ExperimentManager:
         weights = [v.weight for v in variants]
         return random.choices(variants, weights=weights, k=1)[0]
 
-    def _allocate_round_robin(
-        self, experiment_id: str, variants: List[Variant]
-    ) -> Variant:
+    def _allocate_round_robin(self, experiment_id: str, variants: List[Variant]) -> Variant:
         """Allocate using round-robin selection."""
         counter = self._round_robin_counters.get(experiment_id, 0)
         variant = variants[counter % len(variants)]
@@ -504,13 +494,9 @@ class ExperimentManager:
 
             # Calculate effect size (Cohen's d for latency)
             if control.latency_std_dev > 0 and treatment.latency_std_dev > 0:
-                pooled_std = (
-                    (control.latency_std_dev + treatment.latency_std_dev) / 2
-                )
+                pooled_std = (control.latency_std_dev + treatment.latency_std_dev) / 2
                 if pooled_std > 0:
-                    d = (
-                        control.average_latency_ms - treatment.average_latency_ms
-                    ) / pooled_std
+                    d = (control.average_latency_ms - treatment.average_latency_ms) / pooled_std
                     effect_size = abs(d)
 
             # Simple t-test approximation
@@ -525,9 +511,7 @@ class ExperimentManager:
                 else 0
             )
 
-            success_improvement = (
-                treatment.success_rate - control.success_rate
-            )
+            success_improvement = treatment.success_rate - control.success_rate
 
             # Combined improvement score
             improvement = latency_improvement * 0.5 + success_improvement * 0.5
@@ -539,9 +523,7 @@ class ExperimentManager:
                     is_significant = True
 
         # Generate recommendation
-        recommendation = self._generate_recommendation(
-            control, treatments, winner, is_significant
-        )
+        recommendation = self._generate_recommendation(control, treatments, winner, is_significant)
 
         return ExperimentAnalysis(
             experiment_id=experiment_id,
@@ -555,9 +537,7 @@ class ExperimentManager:
             recommendation=recommendation,
         )
 
-    def _simple_t_test(
-        self, control: VariantStats, treatment: VariantStats
-    ) -> float:
+    def _simple_t_test(self, control: VariantStats, treatment: VariantStats) -> float:
         """Simplified t-test calculation."""
         if control.total_requests < 2 or treatment.total_requests < 2:
             return 1.0
@@ -582,7 +562,7 @@ class ExperimentManager:
             df = 1
 
         # Simple approximation: higher t-stat = lower p-value
-        p_value = max(0.001, 1.0 / (1.0 + t_stat * (df ** 0.5) / 10))
+        p_value = max(0.001, 1.0 / (1.0 + t_stat * (df**0.5) / 10))
 
         return p_value
 
@@ -597,9 +577,7 @@ class ExperimentManager:
         if not treatments:
             return "No treatment variants to analyze."
 
-        total_samples = control.total_requests + sum(
-            t.total_requests for t in treatments.values()
-        )
+        total_samples = control.total_requests + sum(t.total_requests for t in treatments.values())
 
         if total_samples < 100:
             return f"Insufficient data. Current samples: {total_samples}. Recommend collecting at least 100 samples."

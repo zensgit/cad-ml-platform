@@ -14,54 +14,54 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from src.core.vision import VisionDescription
-from src.core.vision.tracing import (
-    Tracer,
-    TracingVisionProvider,
-    Span,
-    SpanStatus,
-    SpanKind,
-    RequestContext,
-    SpanExporter,
-    ConsoleSpanExporter,
-    SpanEvent,
-    create_tracing_provider,
+from src.core.vision.embedding import (
+    CryptographicHashGenerator,
+    EmbeddingVector,
+    HashAlgorithm,
+    ImageEmbedder,
+    ImageHash,
+    PerceptualHashGenerator,
+    SimilarityIndex,
+    SimilarityVisionProvider,
+    create_similarity_provider,
 )
 from src.core.vision.metrics_exporter import (
+    HistogramValue,
+    InMemoryMetricBackend,
     MetricsExporter,
     MetricsVisionProvider,
     MetricType,
     MetricValue,
-    HistogramValue,
-    InMemoryMetricBackend,
     create_metrics_provider,
 )
-from src.core.vision.embedding import (
-    ImageEmbedder,
-    SimilarityIndex,
-    SimilarityVisionProvider,
-    HashAlgorithm,
-    ImageHash,
-    EmbeddingVector,
-    CryptographicHashGenerator,
-    PerceptualHashGenerator,
-    create_similarity_provider,
-)
 from src.core.vision.quotas import (
-    QuotaManager,
-    Throttler,
-    QuotaVisionProvider,
-    QuotaPeriod,
-    ThrottleStrategy,
-    QuotaAction,
-    QuotaLimit,
-    QuotaUsage,
-    ThrottleConfig,
-    QuotaCheckResult,
     QUOTA_PRESETS,
     THROTTLE_PRESETS,
+    QuotaAction,
+    QuotaCheckResult,
+    QuotaLimit,
+    QuotaManager,
+    QuotaPeriod,
+    QuotaUsage,
+    QuotaVisionProvider,
+    ThrottleConfig,
+    Throttler,
+    ThrottleStrategy,
+    create_quota_provider,
     get_quota_preset,
     get_throttle_preset,
-    create_quota_provider,
+)
+from src.core.vision.tracing import (
+    ConsoleSpanExporter,
+    RequestContext,
+    Span,
+    SpanEvent,
+    SpanExporter,
+    SpanKind,
+    SpanStatus,
+    Tracer,
+    TracingVisionProvider,
+    create_tracing_provider,
 )
 
 
@@ -198,6 +198,7 @@ class TestTracer:
         context = tracer.create_context()
         # Need to set current context first
         from src.core.vision.tracing import set_current_context
+
         set_current_context(context)
         span = tracer.start_span("test_operation")
         assert span is not None
@@ -555,9 +556,7 @@ class TestSimilarityVisionProvider:
         return provider
 
     @pytest.mark.asyncio
-    async def test_similarity_provider_analyze_with_mock_index(
-        self, mock_provider
-    ) -> None:
+    async def test_similarity_provider_analyze_with_mock_index(self, mock_provider) -> None:
         """Test similarity provider analyzes image with mocked index."""
         index = MagicMock()
         index.find_duplicates = MagicMock(return_value=[])
@@ -797,9 +796,7 @@ class TestQuotaPresets:
         """Test free tier preset."""
         limits = get_quota_preset("free_tier")
         assert len(limits) > 0
-        day_limit = next(
-            (lmt for lmt in limits if lmt.period == QuotaPeriod.PER_DAY), None
-        )
+        day_limit = next((lmt for lmt in limits if lmt.period == QuotaPeriod.PER_DAY), None)
         assert day_limit is not None
         assert day_limit.max_requests == 100
 
@@ -811,9 +808,7 @@ class TestQuotaPresets:
     def test_enterprise_preset(self) -> None:
         """Test enterprise preset."""
         limits = get_quota_preset("enterprise")
-        day_limit = next(
-            (lmt for lmt in limits if lmt.period == QuotaPeriod.PER_DAY), None
-        )
+        day_limit = next((lmt for lmt in limits if lmt.period == QuotaPeriod.PER_DAY), None)
         assert day_limit.max_requests == 100000
 
     def test_unknown_preset_returns_standard(self) -> None:

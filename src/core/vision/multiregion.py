@@ -312,9 +312,7 @@ class RegionRouter:
 
         return selected, fallbacks
 
-    def _route_nearest(
-        self, available: List[Region]
-    ) -> Tuple[Region, List[Region]]:
+    def _route_nearest(self, available: List[Region]) -> Tuple[Region, List[Region]]:
         """Route to nearest region (by priority for now)."""
         # Sort by priority (lower is better)
         sorted_regions = sorted(
@@ -323,9 +321,7 @@ class RegionRouter:
         )
         return sorted_regions[0], sorted_regions[1:]
 
-    def _route_by_latency(
-        self, available: List[Region]
-    ) -> Tuple[Region, List[Region]]:
+    def _route_by_latency(self, available: List[Region]) -> Tuple[Region, List[Region]]:
         """Route based on measured latency."""
         # Get regions with latency data
         regions_with_latency = []
@@ -349,18 +345,14 @@ class RegionRouter:
 
         return sorted_regions[0], sorted_regions[1:]
 
-    def _route_round_robin(
-        self, available: List[Region]
-    ) -> Tuple[Region, List[Region]]:
+    def _route_round_robin(self, available: List[Region]) -> Tuple[Region, List[Region]]:
         """Route using round-robin."""
         self._round_robin_index = (self._round_robin_index + 1) % len(available)
         selected = available[self._round_robin_index]
         fallbacks = [r for r in available if r != selected]
         return selected, fallbacks
 
-    def _route_weighted(
-        self, available: List[Region]
-    ) -> Tuple[Region, List[Region]]:
+    def _route_weighted(self, available: List[Region]) -> Tuple[Region, List[Region]]:
         """Route based on weights."""
         import random
 
@@ -369,9 +361,7 @@ class RegionRouter:
         fallbacks = [r for r in available if r != selected]
         return selected, fallbacks
 
-    def _route_failover(
-        self, available: List[Region]
-    ) -> Tuple[Region, List[Region]]:
+    def _route_failover(self, available: List[Region]) -> Tuple[Region, List[Region]]:
         """Route with primary/failover pattern."""
         # Find primary region
         primary = None
@@ -412,9 +402,7 @@ class RegionRouter:
         if len(self._decisions) > 1000:
             self._decisions = self._decisions[-1000:]
 
-    def record_result(
-        self, region: Region, success: bool, latency_ms: float
-    ) -> None:
+    def record_result(self, region: Region, success: bool, latency_ms: float) -> None:
         """Record a request result."""
         health = self._health.get(region)
         if health:
@@ -485,7 +473,7 @@ class MultiRegionVisionProvider(VisionProvider):
             raise RuntimeError("No available regions")
 
         regions_to_try = [selected] + (fallbacks if self._retry_on_regions else [])
-        regions_to_try = regions_to_try[:self._max_retries + 1]
+        regions_to_try = regions_to_try[: self._max_retries + 1]
 
         last_error = None
 

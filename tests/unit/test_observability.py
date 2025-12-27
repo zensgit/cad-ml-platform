@@ -8,17 +8,18 @@ Tests cover:
 - No-op implementations when OTEL unavailable
 """
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 
 from src.core.observability import (
-    TelemetryConfig,
-    setup_telemetry,
-    get_tracer,
-    get_meter,
-    traced,
-    trace_operation,
     OTEL_AVAILABLE,
+    TelemetryConfig,
+    get_meter,
+    get_tracer,
+    setup_telemetry,
+    trace_operation,
+    traced,
 )
 
 
@@ -86,7 +87,7 @@ class TestNoOpImplementations:
 
     def test_noop_tracer(self):
         """Test no-op tracer."""
-        from src.core.observability import _NoOpTracer, _NoOpSpan
+        from src.core.observability import _NoOpSpan, _NoOpTracer
 
         tracer = _NoOpTracer()
         span = tracer.start_as_current_span("test")
@@ -150,6 +151,7 @@ class TestTracedDecorator:
 
     def test_traced_sync_function(self):
         """Test traced decorator on sync function."""
+
         @traced("test_operation")
         def sync_func(x, y):
             return x + y
@@ -160,6 +162,7 @@ class TestTracedDecorator:
     @pytest.mark.asyncio
     async def test_traced_async_function(self):
         """Test traced decorator on async function."""
+
         @traced("async_operation")
         async def async_func(x, y):
             return x * y
@@ -169,6 +172,7 @@ class TestTracedDecorator:
 
     def test_traced_with_attributes(self):
         """Test traced decorator with static attributes."""
+
         @traced("operation", attributes={"version": "1.0"})
         def func_with_attrs():
             return "done"
@@ -178,6 +182,7 @@ class TestTracedDecorator:
 
     def test_traced_preserves_function_name(self):
         """Test that traced preserves function metadata."""
+
         @traced()
         def my_named_function():
             """My docstring."""
@@ -188,6 +193,7 @@ class TestTracedDecorator:
 
     def test_traced_exception_handling(self):
         """Test traced handles exceptions correctly."""
+
         @traced("failing_op")
         def failing_func():
             raise ValueError("test error")
@@ -198,6 +204,7 @@ class TestTracedDecorator:
     @pytest.mark.asyncio
     async def test_traced_async_exception_handling(self):
         """Test traced handles async exceptions correctly."""
+
         @traced("async_failing")
         async def async_failing():
             raise RuntimeError("async error")

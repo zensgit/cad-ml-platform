@@ -1,13 +1,18 @@
 import pytest
+
 try:
     import httpcore  # type: ignore
+
     # Skip if legacy httpcore lacking required symbols (common in 0.9.x)
     if not hasattr(httpcore, "UnsupportedProtocol"):
         raise ImportError("httpcore too old for httpx TestClient")
     from fastapi.testclient import TestClient
 except Exception:  # pragma: no cover
     import pytest
-    pytest.skip("Incompatible httpcore/httpx; skipping Faiss ETA reset test", allow_module_level=True)
+
+    pytest.skip(
+        "Incompatible httpcore/httpx; skipping Faiss ETA reset test", allow_module_level=True
+    )
 
 from src.main import app
 

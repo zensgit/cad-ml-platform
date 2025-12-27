@@ -256,8 +256,7 @@ class PromptManager:
         """
         if template.name in self._templates and not overwrite:
             raise ValueError(
-                f"Template '{template.name}' already exists. "
-                "Use overwrite=True to replace."
+                f"Template '{template.name}' already exists. " "Use overwrite=True to replace."
             )
         self._templates[template.name] = template
         logger.info(f"Registered prompt template: {template.name}")

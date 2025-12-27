@@ -28,7 +28,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -234,7 +233,7 @@ class Connector(ABC):
         self._health = IntegrationHealth(
             connector_id=config.connector_id,
             status=ConnectorStatus.INACTIVE,
-            last_check=datetime.now()
+            last_check=datetime.now(),
         )
 
     @property
@@ -258,11 +257,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    async def execute(
-        self,
-        operation: str,
-        params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def execute(self, operation: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """Execute an operation."""
         pass
 
@@ -306,11 +301,7 @@ class RESTConnector(Connector):
         except Exception:
             return False
 
-    async def execute(
-        self,
-        operation: str,
-        params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def execute(self, operation: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """Execute REST API call."""
         start_time = time.time()
 
@@ -336,7 +327,7 @@ class RESTConnector(Connector):
                 "operation": operation,
                 "method": method,
                 "url": url,
-                "response_time_ms": (time.time() - start_time) * 1000
+                "response_time_ms": (time.time() - start_time) * 1000,
             }
 
             self._health.success_count += 1
@@ -385,9 +376,8 @@ class RESTConnector(Connector):
 
         if auth.auth_type == AuthenticationType.BASIC:
             import base64
-            credentials = base64.b64encode(
-                f"{auth.username}:{auth.password}".encode()
-            ).decode()
+
+            credentials = base64.b64encode(f"{auth.username}:{auth.password}".encode()).decode()
             return {"Authorization": f"Basic {credentials}"}
 
         return auth.custom_headers
@@ -421,11 +411,7 @@ class WebSocketConnector(Connector):
         self._status = ConnectorStatus.INACTIVE
         return True
 
-    async def execute(
-        self,
-        operation: str,
-        params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def execute(self, operation: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """Send WebSocket message."""
         message = params.get("message", {})
         return {"status": "sent", "operation": operation, "message": message}
@@ -481,28 +467,20 @@ class WebhookManager:
         with self._lock:
             return list(self._webhooks.values())
 
-    async def dispatch_event(
-        self,
-        event_type: WebhookEventType,
-        data: Dict[str, Any]
-    ) -> List[str]:
+    async def dispatch_event(self, event_type: WebhookEventType, data: Dict[str, Any]) -> List[str]:
         """Dispatch event to all subscribed webhooks."""
         delivered_to = []
 
         with self._lock:
             matching_webhooks = [
-                wh for wh in self._webhooks.values()
-                if wh.enabled and (
-                    event_type in wh.events or
-                    WebhookEventType.CUSTOM in wh.events
-                )
+                wh
+                for wh in self._webhooks.values()
+                if wh.enabled and (event_type in wh.events or WebhookEventType.CUSTOM in wh.events)
             ]
 
         for webhook in matching_webhooks:
             payload = WebhookPayload(
-                event_type=event_type,
-                data=data,
-                webhook_id=webhook.webhook_id
+                event_type=event_type, data=data, webhook_id=webhook.webhook_id
             )
 
             if webhook.secret:
@@ -514,11 +492,7 @@ class WebhookManager:
 
         return delivered_to
 
-    async def _deliver_webhook(
-        self,
-        webhook: WebhookConfig,
-        payload: WebhookPayload
-    ) -> bool:
+    async def _deliver_webhook(self, webhook: WebhookConfig, payload: WebhookPayload) -> bool:
         """Deliver webhook payload."""
         for attempt in range(webhook.retry_count):
             try:
@@ -529,7 +503,7 @@ class WebhookManager:
                     "url": webhook.url,
                     "timestamp": datetime.now().isoformat(),
                     "attempt": attempt + 1,
-                    "success": True
+                    "success": True,
                 }
 
                 with self._lock:
@@ -540,15 +514,17 @@ class WebhookManager:
             except Exception as e:
                 if attempt == webhook.retry_count - 1:
                     with self._lock:
-                        self._delivery_history.append({
-                            "webhook_id": webhook.webhook_id,
-                            "event_type": payload.event_type.value,
-                            "url": webhook.url,
-                            "timestamp": datetime.now().isoformat(),
-                            "attempt": attempt + 1,
-                            "success": False,
-                            "error": str(e)
-                        })
+                        self._delivery_history.append(
+                            {
+                                "webhook_id": webhook.webhook_id,
+                                "event_type": payload.event_type.value,
+                                "url": webhook.url,
+                                "timestamp": datetime.now().isoformat(),
+                                "attempt": attempt + 1,
+                                "success": False,
+                                "error": str(e),
+                            }
+                        )
 
                 await asyncio.sleep(1.0 * (attempt + 1))
 
@@ -556,36 +532,23 @@ class WebhookManager:
 
     def _sign_payload(self, payload: WebhookPayload, secret: str) -> str:
         """Sign webhook payload."""
-        data = json.dumps({
-            "event_type": payload.event_type.value,
-            "data": payload.data,
-            "timestamp": payload.timestamp.isoformat()
-        })
-        signature = hmac.new(
-            secret.encode(),
-            data.encode(),
-            hashlib.sha256
-        ).hexdigest()
+        data = json.dumps(
+            {
+                "event_type": payload.event_type.value,
+                "data": payload.data,
+                "timestamp": payload.timestamp.isoformat(),
+            }
+        )
+        signature = hmac.new(secret.encode(), data.encode(), hashlib.sha256).hexdigest()
         return f"sha256={signature}"
 
-    def verify_signature(
-        self,
-        payload: str,
-        signature: str,
-        secret: str
-    ) -> bool:
+    def verify_signature(self, payload: str, signature: str, secret: str) -> bool:
         """Verify webhook signature."""
-        expected = hmac.new(
-            secret.encode(),
-            payload.encode(),
-            hashlib.sha256
-        ).hexdigest()
+        expected = hmac.new(secret.encode(), payload.encode(), hashlib.sha256).hexdigest()
         return hmac.compare_digest(f"sha256={expected}", signature)
 
     def get_delivery_history(
-        self,
-        webhook_id: Optional[str] = None,
-        limit: int = 100
+        self, webhook_id: Optional[str] = None, limit: int = 100
     ) -> List[Dict[str, Any]]:
         """Get delivery history."""
         with self._lock:
@@ -629,10 +592,7 @@ class RateLimiter:
             cutoff_minute = now - 60.0
             cutoff_hour = now - 3600.0
 
-            self._request_times = [
-                t for t in self._request_times
-                if t > cutoff_hour
-            ]
+            self._request_times = [t for t in self._request_times if t > cutoff_hour]
 
             # Check limits
             recent_second = sum(1 for t in self._request_times if t > cutoff_second)
@@ -686,7 +646,7 @@ class RateLimiter:
                 "requests_last_minute": sum(1 for t in self._request_times if t > now - 60.0),
                 "requests_last_hour": len([t for t in self._request_times if t > now - 3600.0]),
                 "blocked": self._blocked_until is not None,
-                "blocked_until": self._blocked_until.isoformat() if self._blocked_until else None
+                "blocked_until": self._blocked_until.isoformat() if self._blocked_until else None,
             }
 
 
@@ -712,19 +672,11 @@ class DataTransformer:
             "json_stringify": json.dumps,
         }
 
-    def register_transform(
-        self,
-        name: str,
-        transform: Callable[[Any], Any]
-    ) -> None:
+    def register_transform(self, name: str, transform: Callable[[Any], Any]) -> None:
         """Register a custom transform."""
         self._transforms[name] = transform
 
-    def apply_mapping(
-        self,
-        data: Dict[str, Any],
-        mappings: List[DataMapping]
-    ) -> Dict[str, Any]:
+    def apply_mapping(self, data: Dict[str, Any], mappings: List[DataMapping]) -> Dict[str, Any]:
         """Apply field mappings to data."""
         result = {}
 
@@ -749,10 +701,7 @@ class DataTransformer:
         return result
 
     def transform_format(
-        self,
-        data: Any,
-        source_format: DataFormat,
-        target_format: DataFormat
+        self, data: Any, source_format: DataFormat, target_format: DataFormat
     ) -> TransformResult:
         """Transform data between formats."""
         try:
@@ -777,10 +726,7 @@ class DataTransformer:
                 output = parsed
 
             return TransformResult(
-                success=True,
-                data=output,
-                source_format=source_format,
-                target_format=target_format
+                success=True, data=output, source_format=source_format, target_format=target_format
             )
 
         except Exception as e:
@@ -788,7 +734,7 @@ class DataTransformer:
                 success=False,
                 source_format=source_format,
                 target_format=target_format,
-                errors=[str(e)]
+                errors=[str(e)],
             )
 
     def _get_nested_value(self, data: Dict[str, Any], path: str) -> Any:
@@ -802,12 +748,7 @@ class DataTransformer:
                 return None
         return value
 
-    def _set_nested_value(
-        self,
-        data: Dict[str, Any],
-        path: str,
-        value: Any
-    ) -> None:
+    def _set_nested_value(self, data: Dict[str, Any], path: str, value: Any) -> None:
         """Set nested value in dict using dot notation."""
         keys = path.split(".")
         current = data
@@ -822,7 +763,7 @@ class DataTransformer:
         # Simplified XML parsing
         result: Dict[str, Any] = {}
         # Extract simple key-value pairs
-        pattern = r'<(\w+)>([^<]+)</\1>'
+        pattern = r"<(\w+)>([^<]+)</\1>"
         for match in re.finditer(pattern, data):
             result[match.group(1)] = match.group(2)
         return result
@@ -928,8 +869,7 @@ class IntegrationHub:
 
             if success:
                 await self._webhook_manager.dispatch_event(
-                    WebhookEventType.PROVIDER_CONNECTED,
-                    {"connector_id": connector.connector_id}
+                    WebhookEventType.PROVIDER_CONNECTED, {"connector_id": connector.connector_id}
                 )
 
         return results
@@ -946,17 +886,13 @@ class IntegrationHub:
 
             if success:
                 await self._webhook_manager.dispatch_event(
-                    WebhookEventType.PROVIDER_DISCONNECTED,
-                    {"connector_id": connector.connector_id}
+                    WebhookEventType.PROVIDER_DISCONNECTED, {"connector_id": connector.connector_id}
                 )
 
         return results
 
     async def execute(
-        self,
-        connector_id: str,
-        operation: str,
-        params: Dict[str, Any]
+        self, connector_id: str, operation: str, params: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Execute operation on a connector."""
         connector = self.get_connector(connector_id)
@@ -969,10 +905,7 @@ class IntegrationHub:
             wait_time = rate_limiter.get_wait_time()
             await self._webhook_manager.dispatch_event(
                 WebhookEventType.RATE_LIMIT_REACHED,
-                {
-                    "connector_id": connector_id,
-                    "wait_time": wait_time
-                }
+                {"connector_id": connector_id, "wait_time": wait_time},
             )
             raise RuntimeError(f"Rate limited. Wait {wait_time:.2f}s")
 
@@ -987,11 +920,7 @@ class IntegrationHub:
         except Exception as e:
             await self._webhook_manager.dispatch_event(
                 WebhookEventType.ERROR_OCCURRED,
-                {
-                    "connector_id": connector_id,
-                    "operation": operation,
-                    "error": str(e)
-                }
+                {"connector_id": connector_id, "operation": operation, "error": str(e)},
             )
             raise
 
@@ -1007,7 +936,7 @@ class IntegrationHub:
 
         await self._webhook_manager.dispatch_event(
             WebhookEventType.HEALTH_CHECK,
-            {"connectors": {k: v.status.value for k, v in results.items()}}
+            {"connectors": {k: v.status.value for k, v in results.items()}},
         )
 
         return results
@@ -1021,38 +950,23 @@ class IntegrationHub:
         """Unregister a webhook."""
         return self._webhook_manager.unregister_webhook(webhook_id)
 
-    async def dispatch_event(
-        self,
-        event_type: WebhookEventType,
-        data: Dict[str, Any]
-    ) -> List[str]:
+    async def dispatch_event(self, event_type: WebhookEventType, data: Dict[str, Any]) -> List[str]:
         """Dispatch webhook event."""
         return await self._webhook_manager.dispatch_event(event_type, data)
 
     # Data transformation
-    def transform_data(
-        self,
-        data: Dict[str, Any],
-        mappings: List[DataMapping]
-    ) -> Dict[str, Any]:
+    def transform_data(self, data: Dict[str, Any], mappings: List[DataMapping]) -> Dict[str, Any]:
         """Transform data using mappings."""
         return self._transformer.apply_mapping(data, mappings)
 
     def convert_format(
-        self,
-        data: Any,
-        source_format: DataFormat,
-        target_format: DataFormat
+        self, data: Any, source_format: DataFormat, target_format: DataFormat
     ) -> TransformResult:
         """Convert data format."""
         return self._transformer.transform_format(data, source_format, target_format)
 
     # Event handling
-    def on_event(
-        self,
-        event_type: str,
-        handler: Callable[[Dict[str, Any]], None]
-    ) -> None:
+    def on_event(self, event_type: str, handler: Callable[[Dict[str, Any]], None]) -> None:
         """Register event handler."""
         with self._lock:
             if event_type not in self._event_handlers:
@@ -1080,9 +994,7 @@ class IntegrationHubVisionProvider(VisionProvider):
     """Vision provider with integration hub capabilities."""
 
     def __init__(
-        self,
-        base_provider: VisionProvider,
-        integration_hub: Optional[IntegrationHub] = None
+        self, base_provider: VisionProvider, integration_hub: Optional[IntegrationHub] = None
     ):
         """Initialize integration hub vision provider."""
         self._base_provider = base_provider
@@ -1094,23 +1006,17 @@ class IntegrationHubVisionProvider(VisionProvider):
         return f"integration_hub_{self._base_provider.provider_name}"
 
     async def analyze_image(
-        self,
-        image_data: bytes,
-        include_description: bool = True,
-        **kwargs: Any
+        self, image_data: bytes, include_description: bool = True, **kwargs: Any
     ) -> VisionDescription:
         """Analyze image with integration support."""
         # Dispatch analysis started event
         await self._hub.dispatch_event(
-            WebhookEventType.ANALYSIS_STARTED,
-            {"provider": self._base_provider.provider_name}
+            WebhookEventType.ANALYSIS_STARTED, {"provider": self._base_provider.provider_name}
         )
 
         try:
             result = await self._base_provider.analyze_image(
-                image_data,
-                include_description=include_description,
-                **kwargs
+                image_data, include_description=include_description, **kwargs
             )
 
             # Dispatch analysis completed event
@@ -1119,8 +1025,8 @@ class IntegrationHubVisionProvider(VisionProvider):
                 {
                     "provider": self._base_provider.provider_name,
                     "summary": result.summary,
-                    "confidence": result.confidence
-                }
+                    "confidence": result.confidence,
+                },
             )
 
             return result
@@ -1129,10 +1035,7 @@ class IntegrationHubVisionProvider(VisionProvider):
             # Dispatch analysis failed event
             await self._hub.dispatch_event(
                 WebhookEventType.ANALYSIS_FAILED,
-                {
-                    "provider": self._base_provider.provider_name,
-                    "error": str(e)
-                }
+                {"provider": self._base_provider.provider_name, "error": str(e)},
             )
             raise
 
@@ -1141,10 +1044,7 @@ class IntegrationHubVisionProvider(VisionProvider):
         return self._hub.register_connector(connector)
 
     async def execute_integration(
-        self,
-        connector_id: str,
-        operation: str,
-        params: Dict[str, Any]
+        self, connector_id: str, operation: str, params: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Execute integration operation."""
         return await self._hub.execute(connector_id, operation, params)
@@ -1190,8 +1090,7 @@ def create_data_transformer() -> DataTransformer:
 
 
 def create_integration_hub_provider(
-    base_provider: VisionProvider,
-    hub: Optional[IntegrationHub] = None
+    base_provider: VisionProvider, hub: Optional[IntegrationHub] = None
 ) -> IntegrationHubVisionProvider:
     """Create an integration hub vision provider."""
     return IntegrationHubVisionProvider(base_provider, hub)

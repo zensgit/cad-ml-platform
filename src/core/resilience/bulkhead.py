@@ -3,14 +3,15 @@ Bulkhead Pattern Implementation
 隔板模式 - 资源隔离和故障限制
 """
 
+import logging
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
-from typing import Callable, Optional, Any, Dict
+from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from dataclasses import dataclass
 from datetime import datetime
-from abc import ABC, abstractmethod
-import logging
+from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,7 @@ class BulkheadError(Exception):
 @dataclass
 class BulkheadStats:
     """隔板统计信息"""
+
     total_calls: int = 0
     successful_calls: int = 0
     rejected_calls: int = 0
@@ -52,12 +54,7 @@ class ThreadPoolBulkhead(BulkheadStrategy):
     使用独立的线程池隔离资源
     """
 
-    def __init__(
-        self,
-        max_workers: int = 10,
-        queue_size: int = 0,
-        timeout: Optional[float] = None
-    ):
+    def __init__(self, max_workers: int = 10, queue_size: int = 0, timeout: Optional[float] = None):
         """
         初始化线程池隔板
 
@@ -78,9 +75,7 @@ class ThreadPoolBulkhead(BulkheadStrategy):
         """通过线程池执行函数"""
         with self._lock:
             if self.queue_size > 0 and self._queue_count >= self.queue_size:
-                raise BulkheadError(
-                    f"Thread pool queue is full (size: {self.queue_size})"
-                )
+                raise BulkheadError(f"Thread pool queue is full (size: {self.queue_size})")
             self._queue_count += 1
 
         try:
@@ -116,7 +111,7 @@ class ThreadPoolBulkhead(BulkheadStrategy):
                 "max_workers": self.max_workers,
                 "active_threads": self._active_count,
                 "queued_tasks": self._queue_count,
-                "available_capacity": self.max_workers - self._active_count
+                "available_capacity": self.max_workers - self._active_count,
             }
 
     def shutdown(self, wait: bool = True):
@@ -131,11 +126,7 @@ class SemaphoreBulkhead(BulkheadStrategy):
     使用信号量限制并发访问
     """
 
-    def __init__(
-        self,
-        max_concurrent_calls: int = 10,
-        timeout: Optional[float] = None
-    ):
+    def __init__(self, max_concurrent_calls: int = 10, timeout: Optional[float] = None):
         """
         初始化信号量隔板
 
@@ -153,9 +144,7 @@ class SemaphoreBulkhead(BulkheadStrategy):
         """通过信号量控制执行函数"""
         acquired = self.semaphore.acquire(timeout=self.timeout)
         if not acquired:
-            raise BulkheadError(
-                f"Failed to acquire semaphore within {self.timeout} seconds"
-            )
+            raise BulkheadError(f"Failed to acquire semaphore within {self.timeout} seconds")
 
         with self._lock:
             self._active_count += 1
@@ -173,7 +162,7 @@ class SemaphoreBulkhead(BulkheadStrategy):
             return {
                 "max_concurrent_calls": self.max_concurrent_calls,
                 "active_calls": self._active_count,
-                "available_permits": self.max_concurrent_calls - self._active_count
+                "available_permits": self.max_concurrent_calls - self._active_count,
             }
 
 
@@ -194,7 +183,7 @@ class Bulkhead:
         max_concurrent_calls: int = 10,
         max_wait_duration: float = 0,
         bulkhead_type: str = "threadpool",
-        metrics_callback: Optional[Callable] = None
+        metrics_callback: Optional[Callable] = None,
     ):
         """
         初始化隔板
@@ -218,12 +207,12 @@ class Bulkhead:
         if bulkhead_type == "threadpool":
             self._strategy = ThreadPoolBulkhead(
                 max_workers=max_concurrent_calls,
-                timeout=max_wait_duration if max_wait_duration > 0 else None
+                timeout=max_wait_duration if max_wait_duration > 0 else None,
             )
         elif bulkhead_type == "semaphore":
             self._strategy = SemaphoreBulkhead(
                 max_concurrent_calls=max_concurrent_calls,
-                timeout=max_wait_duration if max_wait_duration > 0 else None
+                timeout=max_wait_duration if max_wait_duration > 0 else None,
             )
         else:
             raise ValueError(f"Unknown bulkhead type: {bulkhead_type}")
@@ -257,14 +246,11 @@ class Bulkhead:
                     self._stats.last_rejection_time = datetime.now()
                     self._emit_metrics("rejected", 0)
                     raise BulkheadError(
-                        f"Bulkhead '{self.name}' is full "
-                        f"({active}/{self.max_concurrent_calls})"
+                        f"Bulkhead '{self.name}' is full " f"({active}/{self.max_concurrent_calls})"
                     )
 
                 self._stats.active_calls = active
-                self._stats.max_active_recorded = max(
-                    self._stats.max_active_recorded, active
-                )
+                self._stats.max_active_recorded = max(self._stats.max_active_recorded, active)
 
         try:
             # 执行实际调用
@@ -276,7 +262,9 @@ class Bulkhead:
                 self._execution_times.append(elapsed)
                 if len(self._execution_times) > 100:
                     self._execution_times = self._execution_times[-100:]
-                self._stats.avg_execution_time = sum(self._execution_times) / len(self._execution_times)
+                self._stats.avg_execution_time = sum(self._execution_times) / len(
+                    self._execution_times
+                )
 
             self._emit_metrics("success", elapsed)
             return result
@@ -328,24 +316,22 @@ class Bulkhead:
             "rejected_calls": stats.rejected_calls,
             "timeout_calls": stats.timeout_calls,
             "rejection_rate": (
-                stats.rejected_calls / stats.total_calls
-                if stats.total_calls > 0 else 0
+                stats.rejected_calls / stats.total_calls if stats.total_calls > 0 else 0
             ),
             "success_rate": (
-                stats.successful_calls / stats.total_calls
-                if stats.total_calls > 0 else 0
+                stats.successful_calls / stats.total_calls if stats.total_calls > 0 else 0
             ),
             "avg_execution_time": stats.avg_execution_time,
             "max_active_recorded": stats.max_active_recorded,
             "utilization": (
                 stats.active_calls / self.max_concurrent_calls
-                if self.max_concurrent_calls > 0 else 0
+                if self.max_concurrent_calls > 0
+                else 0
             ),
             "last_rejection": (
-                stats.last_rejection_time.isoformat()
-                if stats.last_rejection_time else None
+                stats.last_rejection_time.isoformat() if stats.last_rejection_time else None
             ),
-            **strategy_stats
+            **strategy_stats,
         }
 
     def resize(self, new_max_concurrent_calls: int):
@@ -359,36 +345,33 @@ class Bulkhead:
                 self._strategy.shutdown(wait=False)
                 self._strategy = ThreadPoolBulkhead(
                     max_workers=new_max_concurrent_calls,
-                    timeout=self.max_wait_duration if self.max_wait_duration > 0 else None
+                    timeout=self.max_wait_duration if self.max_wait_duration > 0 else None,
                 )
             elif isinstance(self._strategy, SemaphoreBulkhead):
                 self._strategy = SemaphoreBulkhead(
                     max_concurrent_calls=new_max_concurrent_calls,
-                    timeout=self.max_wait_duration if self.max_wait_duration > 0 else None
+                    timeout=self.max_wait_duration if self.max_wait_duration > 0 else None,
                 )
 
             logger.info(
-                f"Bulkhead '{self.name}' resized from {old_size} to "
-                f"{new_max_concurrent_calls}"
+                f"Bulkhead '{self.name}' resized from {old_size} to " f"{new_max_concurrent_calls}"
             )
 
     def _emit_metrics(self, event_type: str, duration: float):
         """发送指标"""
         if self.metrics_callback:
-            self.metrics_callback({
-                "bulkhead": self.name,
-                "event": event_type,
-                "duration": duration,
-                "active_calls": self._stats.active_calls,
-                "timestamp": datetime.now().isoformat()
-            })
+            self.metrics_callback(
+                {
+                    "bulkhead": self.name,
+                    "event": event_type,
+                    "duration": duration,
+                    "active_calls": self._stats.active_calls,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
 
-def bulkhead(
-    max_concurrent_calls: int = 10,
-    bulkhead_type: str = "threadpool",
-    timeout: float = 0
-):
+def bulkhead(max_concurrent_calls: int = 10, bulkhead_type: str = "threadpool", timeout: float = 0):
     """
     隔板装饰器
 
@@ -398,12 +381,13 @@ def bulkhead(
             # Operation logic
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         bulk = Bulkhead(
             name=f"{func.__module__}.{func.__name__}",
             max_concurrent_calls=max_concurrent_calls,
             max_wait_duration=timeout,
-            bulkhead_type=bulkhead_type
+            bulkhead_type=bulkhead_type,
         )
 
         def wrapper(*args, **kwargs):

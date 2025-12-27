@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = ["*"]
     ALLOWED_HOSTS: list[str] = ["*"]
 
+    # Integration auth (optional)
+    INTEGRATION_AUTH_MODE: str = "disabled"  # disabled|optional|required
+    INTEGRATION_JWT_SECRET: str = ""
+    INTEGRATION_JWT_ALG: str = "HS256"
+    INTEGRATION_TENANT_HEADER: str = "x-tenant-id"
+    INTEGRATION_ORG_HEADER: str = "x-org-id"
+    INTEGRATION_USER_HEADER: str = "x-user-id"
+
     OCR_PROVIDER_DEFAULT: str = "auto"  # auto|paddle|deepseek_hf
     CONFIDENCE_FALLBACK: float = 0.85
     OCR_TIMEOUT_MS: int = 30000

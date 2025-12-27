@@ -29,7 +29,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -334,7 +333,11 @@ class ModelRegistry:
             # Validate transition
             valid_transitions = {
                 ModelStage.DEVELOPMENT: [ModelStage.STAGING, ModelStage.ARCHIVED],
-                ModelStage.STAGING: [ModelStage.PRODUCTION, ModelStage.DEVELOPMENT, ModelStage.ARCHIVED],
+                ModelStage.STAGING: [
+                    ModelStage.PRODUCTION,
+                    ModelStage.DEVELOPMENT,
+                    ModelStage.ARCHIVED,
+                ],
                 ModelStage.PRODUCTION: [ModelStage.STAGING, ModelStage.ARCHIVED],
                 ModelStage.ARCHIVED: [ModelStage.DEVELOPMENT],
             }
@@ -529,7 +532,9 @@ class ABTestManager:
         self._registry = registry
         self._tests: Dict[str, ABTestConfig] = {}
         self._results: Dict[str, ABTestResult] = {}
-        self._assignments: Dict[str, Dict[str, str]] = defaultdict(dict)  # test_id -> user_id -> variant
+        self._assignments: Dict[str, Dict[str, str]] = defaultdict(
+            dict
+        )  # test_id -> user_id -> variant
         self._lock = threading.RLock()
 
     def create_test(self, config: ABTestConfig) -> ABTestConfig:
@@ -555,6 +560,7 @@ class ABTestManager:
 
             # Random assignment based on traffic split
             import random
+
             variant = "treatment" if random.random() < test.traffic_split else "control"
             self._assignments[test_id][user_id] = variant
             return variant
@@ -599,6 +605,7 @@ class ABTestManager:
 
         # Simulated results
         import random
+
         control_metrics = {test.success_metric: random.uniform(0.1, 0.3)}
         treatment_metrics = {test.success_metric: random.uniform(0.1, 0.35)}
 
@@ -730,10 +737,7 @@ class ApprovalWorkflow:
     ) -> List[ApprovalRequest]:
         """Get pending approval requests."""
         with self._lock:
-            requests = [
-                r for r in self._requests.values()
-                if r.status == ApprovalStatus.PENDING
-            ]
+            requests = [r for r in self._requests.values() if r.status == ApprovalStatus.PENDING]
             if approver:
                 requests = [r for r in requests if approver in r.approvers]
             return requests

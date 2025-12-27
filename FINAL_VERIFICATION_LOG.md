@@ -52,8 +52,19 @@
   - Implemented basic PDF validation (page count, forbidden tokens).
   - Verified `OCR_PROVIDER_DOWN` and `INPUT_ERROR` handling.
 - **Test Suite**:
-  - Refactored tests to use `TestClient` context manager for proper lifespan event handling.
-  - All tests passed (including `tests/test_metrics_contract.py` and `tests/test_ocr_*.py`).
+- Refactored tests to use `TestClient` context manager for proper lifespan event handling.
+- All tests passed (including `tests/test_metrics_contract.py` and `tests/test_ocr_*.py`).
+
+## 7. Post-Release Verification (2025-12-22)
+- **CAD Render Autostart + Token Rotation**:
+  - LaunchAgent moved to runtime path outside `~/Downloads` (macOS TCC-safe).
+  - Token rotated and verified with authorized render calls.
+  - End-to-end Athena preview smoke test passed.
+  - One-command update script with auto-rollback: `scripts/update_cad_render_runtime.sh`.
+  - Reports:
+    - `reports/CAD_RENDER_AUTOSTART_TOKEN_ROTATION.md`
+    - `reports/CAD_RENDER_UPDATE_RUN_20251222_114125.md`
+    - `reports/CAD_RENDER_UPDATE_RUN_20251222_130125.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

@@ -7,11 +7,11 @@ dynamically loaded, updated, and persisted.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
-import uuid
 
 
 class KnowledgeCategory(str, Enum):
@@ -102,12 +102,14 @@ class MaterialRule(KnowledgeEntry):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data.update({
-            "material_type": self.material_type,
-            "material_grades": self.material_grades,
-            "hardness_range": self.hardness_range,
-            "typical_applications": self.typical_applications,
-        })
+        data.update(
+            {
+                "material_type": self.material_type,
+                "material_grades": self.material_grades,
+                "hardness_range": self.hardness_range,
+                "typical_applications": self.typical_applications,
+            }
+        )
         return data
 
     @classmethod
@@ -147,12 +149,14 @@ class PrecisionRule(KnowledgeEntry):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data.update({
-            "tolerance_grade": self.tolerance_grade,
-            "surface_roughness_range": self.surface_roughness_range,
-            "gdt_symbols": self.gdt_symbols,
-            "fit_types": self.fit_types,
-        })
+        data.update(
+            {
+                "tolerance_grade": self.tolerance_grade,
+                "surface_roughness_range": self.surface_roughness_range,
+                "gdt_symbols": self.gdt_symbols,
+                "fit_types": self.fit_types,
+            }
+        )
         return data
 
     @classmethod
@@ -176,7 +180,8 @@ class PrecisionRule(KnowledgeEntry):
             tolerance_grade=data.get("tolerance_grade", ""),
             surface_roughness_range=(
                 tuple(data["surface_roughness_range"])
-                if data.get("surface_roughness_range") else None
+                if data.get("surface_roughness_range")
+                else None
             ),
             gdt_symbols=data.get("gdt_symbols", []),
             fit_types=data.get("fit_types", []),
@@ -195,12 +200,14 @@ class StandardRule(KnowledgeEntry):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data.update({
-            "standard_org": self.standard_org,
-            "standard_number": self.standard_number,
-            "designation_pattern": self.designation_pattern,
-            "year": self.year,
-        })
+        data.update(
+            {
+                "standard_org": self.standard_org,
+                "standard_number": self.standard_number,
+                "designation_pattern": self.designation_pattern,
+                "year": self.year,
+            }
+        )
         return data
 
     @classmethod
@@ -240,12 +247,14 @@ class FunctionalFeatureRule(KnowledgeEntry):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data.update({
-            "feature_type": self.feature_type,
-            "typical_parts": self.typical_parts,
-            "geometric_indicators": self.geometric_indicators,
-            "weight": self.weight,
-        })
+        data.update(
+            {
+                "feature_type": self.feature_type,
+                "typical_parts": self.typical_parts,
+                "geometric_indicators": self.geometric_indicators,
+                "weight": self.weight,
+            }
+        )
         return data
 
     @classmethod
@@ -285,12 +294,14 @@ class AssemblyRule(KnowledgeEntry):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data.update({
-            "part_a": self.part_a,
-            "part_b": self.part_b,
-            "connection_type": self.connection_type,
-            "typical_fits": self.typical_fits,
-        })
+        data.update(
+            {
+                "part_a": self.part_a,
+                "part_b": self.part_b,
+                "connection_type": self.connection_type,
+                "typical_fits": self.typical_fits,
+            }
+        )
         return data
 
     @classmethod
@@ -330,12 +341,14 @@ class ManufacturingRule(KnowledgeEntry):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data.update({
-            "process_type": self.process_type,
-            "process_name": self.process_name,
-            "surface_finish_range": self.surface_finish_range,
-            "tolerance_capability": self.tolerance_capability,
-        })
+        data.update(
+            {
+                "process_type": self.process_type,
+                "process_name": self.process_name,
+                "surface_finish_range": self.surface_finish_range,
+                "tolerance_capability": self.tolerance_capability,
+            }
+        )
         return data
 
     @classmethod
@@ -359,8 +372,7 @@ class ManufacturingRule(KnowledgeEntry):
             process_type=data.get("process_type", ""),
             process_name=data.get("process_name", ""),
             surface_finish_range=(
-                tuple(data["surface_finish_range"])
-                if data.get("surface_finish_range") else None
+                tuple(data["surface_finish_range"]) if data.get("surface_finish_range") else None
             ),
             tolerance_capability=data.get("tolerance_capability", ""),
         )
@@ -381,9 +393,11 @@ class GeometryPattern(KnowledgeEntry):
 
     def to_dict(self) -> Dict[str, Any]:
         data = super().to_dict()
-        data.update({
-            "conditions": self.conditions,
-        })
+        data.update(
+            {
+                "conditions": self.conditions,
+            }
+        )
         return data
 
     @classmethod
@@ -408,10 +422,22 @@ class GeometryPattern(KnowledgeEntry):
         )
 
     # Entity types that can be computed as ratios from entity_counts
-    ENTITY_RATIO_TYPES = frozenset({
-        "circle", "arc", "line", "ellipse", "spline", "polyline",
-        "point", "solid", "facet", "surface", "edge", "vertex",
-    })
+    ENTITY_RATIO_TYPES = frozenset(
+        {
+            "circle",
+            "arc",
+            "line",
+            "ellipse",
+            "spline",
+            "polyline",
+            "point",
+            "solid",
+            "facet",
+            "surface",
+            "edge",
+            "vertex",
+        }
+    )
 
     def matches(
         self,

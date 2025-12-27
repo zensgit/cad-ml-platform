@@ -20,11 +20,12 @@ Exit codes (aligned with CI failure routing):
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
 import sys
-import base64
+from pathlib import Path
 from typing import Any, Dict, List, Set, Optional
 
 # Global variables for JSON output mode
@@ -36,6 +37,11 @@ CHECK_RESULTS: Dict[str, Any] = {
     "exit_code": 0,
     "summary": ""
 }
+
+# Ensure project root is on sys.path for local TestClient usage.
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 # Try local client first, fallback to httpx for remote URLs
 base_url = os.getenv("SELF_CHECK_BASE_URL", "").strip()

@@ -12,12 +12,18 @@ try:
     import redis.asyncio as redis  # type: ignore
 except Exception:  # redis not installed
     redis = None  # type: ignore
+try:
+    import redis as redis_sync  # type: ignore
+except Exception:  # redis not installed
+    redis_sync = None  # type: ignore
 from src.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 _redis_client: Optional[redis.Redis] = None
+_redis_sync_client: Optional["redis_sync.Redis"] = None
 _init_lock = asyncio.Lock()
+_sync_init_lock = __import__("threading").Lock()
 
 # In-memory cache fallback when Redis is unavailable
 _local_cache: Dict[str, Tuple[Any, float]] = {}  # key -> (value, expire_time)
@@ -42,6 +48,31 @@ async def init_redis() -> None:
 
 def get_client() -> Optional[redis.Redis]:
     return _redis_client
+
+
+def get_sync_client() -> Optional["redis_sync.Redis"]:
+    """Return a synchronous Redis client for sync call-sites."""
+    global _redis_sync_client
+    if _redis_sync_client is not None:
+        return _redis_sync_client
+    if redis_sync is None:
+        return None
+    settings = get_settings()
+    if not settings.REDIS_ENABLED:
+        return None
+    with _sync_init_lock:
+        if _redis_sync_client is not None:
+            return _redis_sync_client
+        try:
+            _redis_sync_client = redis_sync.Redis.from_url(
+                settings.REDIS_URL, decode_responses=True
+            )
+            _redis_sync_client.ping()
+            logger.info("Redis sync connected")
+        except Exception as e:
+            logger.warning(f"Redis sync init failed: {e}")
+            _redis_sync_client = None
+    return _redis_sync_client
 
 
 async def redis_healthy() -> bool:

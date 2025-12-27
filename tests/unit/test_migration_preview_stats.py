@@ -1,8 +1,8 @@
 import os
+
 from fastapi.testclient import TestClient
 
 from src.main import app
-
 
 client = TestClient(app)
 
@@ -14,6 +14,7 @@ def setup_module(module):
 def test_preview_stats_avg_median_and_warnings(monkeypatch):
     # Prepare in-memory store with mixed deltas
     from src.core import similarity as sim
+
     sim._VECTOR_STORE.clear()
     sim._VECTOR_META.clear()
 
@@ -23,7 +24,11 @@ def test_preview_stats_avg_median_and_warnings(monkeypatch):
         sim._VECTOR_META[f"v{i}"] = {"feature_version": "v1"}
 
     # Call preview to v4
-    resp = client.get("/api/v1/vectors/migrate/preview", params={"to_version": "v4", "limit": 5}, headers={"X-API-Key": "test"})
+    resp = client.get(
+        "/api/v1/vectors/migrate/preview",
+        params={"to_version": "v4", "limit": 5},
+        headers={"X-API-Key": "test"},
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert "avg_delta" in data and "median_delta" in data
@@ -36,6 +41,7 @@ def test_preview_stats_avg_median_and_warnings(monkeypatch):
 
 def test_preview_limit_cap(monkeypatch):
     from src.core import similarity as sim
+
     sim._VECTOR_STORE.clear()
     sim._VECTOR_META.clear()
 
@@ -43,7 +49,11 @@ def test_preview_limit_cap(monkeypatch):
         sim._VECTOR_STORE[f"id{i}"] = [0.0] * 8
         sim._VECTOR_META[f"id{i}"] = {"feature_version": "v2"}
 
-    resp = client.get("/api/v1/vectors/migrate/preview", params={"to_version": "v3", "limit": 1000}, headers={"X-API-Key": "test"})
+    resp = client.get(
+        "/api/v1/vectors/migrate/preview",
+        params={"to_version": "v3", "limit": 1000},
+        headers={"X-API-Key": "test"},
+    )
     assert resp.status_code == 200
     data = resp.json()
     # Sampled should not exceed 100; feasibility computed against sampled
@@ -52,7 +62,11 @@ def test_preview_limit_cap(monkeypatch):
 
 
 def test_preview_invalid_version():
-    resp = client.get("/api/v1/vectors/migrate/preview", params={"to_version": "v9"}, headers={"X-API-Key": "test"})
+    resp = client.get(
+        "/api/v1/vectors/migrate/preview",
+        params={"to_version": "v9"},
+        headers={"X-API-Key": "test"},
+    )
     assert resp.status_code == 422
     err = resp.json()["detail"]
     assert err["code"] == "INPUT_VALIDATION_FAILED"

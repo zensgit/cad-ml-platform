@@ -9,7 +9,7 @@ Covers:
 
 from __future__ import annotations
 
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -82,7 +82,9 @@ class TestCheckIdempotency:
 
         cached_response = {"result": "cached_data", "status": "success"}
 
-        with patch("src.utils.idempotency.get_cache", new_callable=AsyncMock, return_value=cached_response):
+        with patch(
+            "src.utils.idempotency.get_cache", new_callable=AsyncMock, return_value=cached_response
+        ):
             result = await check_idempotency("request-123")
 
         assert result == cached_response
@@ -104,7 +106,9 @@ class TestCheckIdempotency:
 
         cached_response = {"result": "cached"}
 
-        with patch("src.utils.idempotency.get_cache", new_callable=AsyncMock, return_value=cached_response):
+        with patch(
+            "src.utils.idempotency.get_cache", new_callable=AsyncMock, return_value=cached_response
+        ):
             with patch("src.utils.idempotency.logger") as mock_logger:
                 await check_idempotency("request-123", endpoint="ocr")
 
@@ -117,7 +121,9 @@ class TestCheckIdempotency:
         """Test check_idempotency with custom endpoint."""
         from src.utils.idempotency import check_idempotency
 
-        with patch("src.utils.idempotency.get_cache", new_callable=AsyncMock, return_value=None) as mock_get:
+        with patch(
+            "src.utils.idempotency.get_cache", new_callable=AsyncMock, return_value=None
+        ) as mock_get:
             await check_idempotency("request-123", endpoint="vision")
 
             mock_get.assert_called_once_with("idempotency:vision:request-123")
@@ -149,7 +155,7 @@ class TestStoreIdempotency:
     @pytest.mark.asyncio
     async def test_stores_response(self):
         """Test store_idempotency stores response in cache."""
-        from src.utils.idempotency import store_idempotency, IDEMPOTENCY_TTL_SECONDS
+        from src.utils.idempotency import IDEMPOTENCY_TTL_SECONDS, store_idempotency
 
         response = {"result": "success", "data": [1, 2, 3]}
 
@@ -157,9 +163,7 @@ class TestStoreIdempotency:
             await store_idempotency("request-123", response)
 
             mock_set.assert_called_once_with(
-                "idempotency:ocr:request-123",
-                response,
-                IDEMPOTENCY_TTL_SECONDS
+                "idempotency:ocr:request-123", response, IDEMPOTENCY_TTL_SECONDS
             )
 
     @pytest.mark.asyncio
@@ -173,16 +177,12 @@ class TestStoreIdempotency:
         with patch("src.utils.idempotency.set_cache", new_callable=AsyncMock) as mock_set:
             await store_idempotency("request-123", response, ttl_seconds=custom_ttl)
 
-            mock_set.assert_called_once_with(
-                "idempotency:ocr:request-123",
-                response,
-                custom_ttl
-            )
+            mock_set.assert_called_once_with("idempotency:ocr:request-123", response, custom_ttl)
 
     @pytest.mark.asyncio
     async def test_custom_endpoint(self):
         """Test store_idempotency with custom endpoint."""
-        from src.utils.idempotency import store_idempotency, IDEMPOTENCY_TTL_SECONDS
+        from src.utils.idempotency import IDEMPOTENCY_TTL_SECONDS, store_idempotency
 
         response = {"result": "success"}
 
@@ -190,9 +190,7 @@ class TestStoreIdempotency:
             await store_idempotency("request-123", response, endpoint="vision")
 
             mock_set.assert_called_once_with(
-                "idempotency:vision:request-123",
-                response,
-                IDEMPOTENCY_TTL_SECONDS
+                "idempotency:vision:request-123", response, IDEMPOTENCY_TTL_SECONDS
             )
 
     @pytest.mark.asyncio
@@ -240,7 +238,9 @@ class TestIdempotencyFlow:
         idempotency_key = "duplicate-request"
         cached_response = {"result": "already_processed"}
 
-        with patch("src.utils.idempotency.get_cache", new_callable=AsyncMock, return_value=cached_response):
+        with patch(
+            "src.utils.idempotency.get_cache", new_callable=AsyncMock, return_value=cached_response
+        ):
             result = await check_idempotency(idempotency_key)
 
         assert result == cached_response

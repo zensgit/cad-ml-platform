@@ -3,13 +3,19 @@
 
 .PHONY: help install dev test lint format type-check clean run docs docker eval-history health-check eval-trend \
 	observability-up observability-down observability-status self-check metrics-validate prom-validate \
-	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted
+	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted e2e-smoke \
+	dedup2d-secure-smoke
 
 # 默认目标
 .DEFAULT_GOAL := help
 
 # 变量定义
-PYTHON := python3
+# Prefer project venv or newer Python when available to match 3.10+ requirement.
+PYTHON ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; \
+	elif command -v python3.11 >/dev/null 2>&1; then command -v python3.11; \
+	elif command -v python3.10 >/dev/null 2>&1; then command -v python3.10; \
+	elif command -v python3 >/dev/null 2>&1; then command -v python3; \
+	else echo python3; fi)
 PIP := $(PYTHON) -m pip
 PYTEST := $(PYTHON) -m pytest
 BLACK := $(PYTHON) -m black
@@ -130,6 +136,19 @@ test-targeted: ## Run targeted tests (Faiss health/ETA scheduling)
 		tests/unit/test_faiss_eta_schedules_on_failed_recovery.py -q || true
 	@echo "$(GREEN)Targeted tests completed (allowing skips).$(NC)"
 
+e2e-smoke: ## Run E2E smoke tests against running services
+	@echo "$(GREEN)Running E2E smoke tests...$(NC)"
+	API_BASE_URL=$${API_BASE_URL:-http://localhost:8000} \
+	DEDUPCAD_VISION_URL=$${DEDUPCAD_VISION_URL:-http://localhost:58001} \
+	$(PYTEST) tests/integration/test_e2e_api_smoke.py \
+		tests/integration/test_dedupcad_vision_contract.py -v -rs
+
+dedup2d-secure-smoke: ## Run Dedup2D secure callback smoke test
+	@echo "$(GREEN)Running Dedup2D secure callback smoke test...$(NC)"
+	DEDUPCAD_VISION_START=$${DEDUPCAD_VISION_START:-0} \
+	DEDUP2D_SECURE_SMOKE_CLEANUP=$${DEDUP2D_SECURE_SMOKE_CLEANUP:-1} \
+		scripts/e2e_dedup2d_secure_callback.sh
+
 docker-build: ## 构建Docker镜像
 	@echo "$(GREEN)Building Docker image...$(NC)"
 	docker build -t cad-ml-platform:latest .
@@ -222,17 +241,6 @@ dashboard-import: ## 导入Grafana仪表板
 	@echo "Login with admin/admin and import the dashboard from:"
 	@echo "  docs/grafana/observability_dashboard.json"
 	@open http://localhost:3000/dashboard/import || echo "Open http://localhost:3000/dashboard/import manually"
-
-security-audit: ## 运行安全审计
-	@echo "$(GREEN)Running security audit...$(NC)"
-	@echo "$(YELLOW)Checking dependencies with pip-audit...$(NC)"
-	-pip-audit
-	@echo ""
-	@echo "$(YELLOW)Checking with safety...$(NC)"
-	-safety check
-	@echo ""
-	@echo "$(YELLOW)Running bandit security scan...$(NC)"
-	-bandit -r $(SRC_DIR) -f json -o security-report.json
 
 observability-test: ## 运行可观测性测试套件
 	@echo "$(GREEN)Running observability test suite...$(NC)"
@@ -532,7 +540,7 @@ metrics-serve: ## 启动指标服务器 (端口 8000)
 
 metrics-push: ## 推送指标到 Prometheus Gateway
 	@echo "$(GREEN)Pushing metrics to Prometheus Gateway...$(NC)"
-	$(PYTHON) scripts/export_eval_metrics.py --push-gateway http://localhost:9091
+	$(PYTHON) scripts/export_eval_metrics.py --push-gateway $${PUSHGATEWAY_URL:-http://localhost:9091}
 
 security-audit: ## 运行安全审计
 	@echo "$(YELLOW)Running security audit...$(NC)"

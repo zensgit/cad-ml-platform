@@ -14,6 +14,7 @@ from fastapi import APIRouter, Query
 
 from src.core.errors import ErrorCode
 from src.core.vision import (
+    ResilientVisionProvider,
     VisionAnalyzeRequest,
     VisionAnalyzeResponse,
     VisionInputError,
@@ -21,7 +22,6 @@ from src.core.vision import (
     VisionProviderError,
     create_vision_provider,
     get_available_providers,
-    ResilientVisionProvider,
 )
 
 router = APIRouter(tags=["vision"])

@@ -1,8 +1,9 @@
-from fastapi.testclient import TestClient
-from src.main import app
 import io
 import os
 
+from fastapi.testclient import TestClient
+
+from src.main import app
 
 client = TestClient(app)
 
@@ -31,4 +32,3 @@ def test_step_signature_validation_fail(monkeypatch):
     # Expect 415
     assert resp.status_code == 415, resp.text
     assert "Signature validation failed" in resp.text
-

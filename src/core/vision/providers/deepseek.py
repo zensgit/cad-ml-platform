@@ -139,9 +139,7 @@ class DeepSeekVisionProvider(VisionProvider):
                         "content": [
                             {
                                 "type": "image_url",
-                                "image_url": {
-                                    "url": f"data:{image_type};base64,{image_b64}"
-                                },
+                                "image_url": {"url": f"data:{image_type};base64,{image_b64}"},
                             },
                             {
                                 "type": "text",

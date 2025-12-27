@@ -1,9 +1,10 @@
 import time
+
 from fastapi.testclient import TestClient
+
 from src.main import app
 from src.ml import classifier
 from src.ml.classifier import get_model_info
-
 
 client = TestClient(app)
 
@@ -24,9 +25,12 @@ def test_model_health_uptime_absent():
 
 def test_model_health_uptime_loaded(monkeypatch, tmp_path):
     # Forge minimal pickle model with predict method
-    import pickle, os
+    import os
+    import pickle
+
     # Use a top-level dummy class to avoid local class pickle issue
     from src.ml.dummy_model_holder import DummyModel  # type: ignore
+
     model_path = tmp_path / "model.pkl"
     model_path.write_bytes(pickle.dumps(DummyModel()))
     monkeypatch.setenv("CLASSIFICATION_MODEL_PATH", str(model_path))
@@ -34,7 +38,8 @@ def test_model_health_uptime_loaded(monkeypatch, tmp_path):
     # Disable opcode scan to allow loading this simple pickle
     monkeypatch.setenv("MODEL_OPCODE_SCAN", "0")
     # Force reload
-    from src.ml.classifier import reload_model, load_model
+    from src.ml.classifier import load_model, reload_model
+
     resp = reload_model(str(model_path), expected_version="vTest", force=True)
     assert resp["status"] == "success"
     load_model()

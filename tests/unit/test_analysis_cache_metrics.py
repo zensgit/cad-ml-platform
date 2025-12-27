@@ -1,6 +1,8 @@
 import os
 import uuid
+
 from fastapi.testclient import TestClient
+
 from src.main import app
 
 
@@ -42,4 +44,3 @@ def test_analysis_cache_hit_miss_metrics(monkeypatch):
     if m.status_code == 200 and m.text:
         assert "analysis_cache_hits_total" in m.text
         assert "analysis_cache_miss_total" in m.text
-

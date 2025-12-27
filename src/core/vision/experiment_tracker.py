@@ -30,7 +30,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -185,7 +184,9 @@ class SearchQuery:
     """Query for searching experiments/runs."""
 
     filter_string: Optional[str] = None
-    metric_filters: Dict[str, Tuple[str, float]] = field(default_factory=dict)  # metric -> (op, value)
+    metric_filters: Dict[str, Tuple[str, float]] = field(
+        default_factory=dict
+    )  # metric -> (op, value)
     param_filters: Dict[str, str] = field(default_factory=dict)
     tag_filters: Dict[str, str] = field(default_factory=dict)
     order_by: Optional[str] = None
@@ -232,10 +233,7 @@ class ExperimentStore:
         lifecycle_stage: str = "active",
     ) -> List[Experiment]:
         """List experiments."""
-        return [
-            e for e in self._experiments.values()
-            if e.lifecycle_stage == lifecycle_stage
-        ]
+        return [e for e in self._experiments.values() if e.lifecycle_stage == lifecycle_stage]
 
     def delete_experiment(self, experiment_id: str) -> bool:
         """Delete an experiment."""
@@ -330,9 +328,7 @@ class RunContext:
 
     def __enter__(self) -> RunContext:
         """Start the run."""
-        run_id = hashlib.md5(
-            f"{self._experiment_id}:{time.time()}".encode()
-        ).hexdigest()[:12]
+        run_id = hashlib.md5(f"{self._experiment_id}:{time.time()}".encode()).hexdigest()[:12]
 
         self._run = Run(
             run_id=run_id,
@@ -446,9 +442,7 @@ class ExperimentTracker:
         tags: Optional[List[str]] = None,
     ) -> Experiment:
         """Create a new experiment."""
-        experiment_id = hashlib.md5(
-            f"{name}:{time.time()}".encode()
-        ).hexdigest()[:12]
+        experiment_id = hashlib.md5(f"{name}:{time.time()}".encode()).hexdigest()[:12]
 
         experiment = Experiment(
             experiment_id=experiment_id,
@@ -521,9 +515,7 @@ class ExperimentTracker:
                     metrics[m.key] = m.value
 
             # Check param filters
-            param_match = all(
-                params.get(k) == v for k, v in query.param_filters.items()
-            )
+            param_match = all(params.get(k) == v for k, v in query.param_filters.items())
 
             # Check metric filters
             metric_match = True
@@ -542,9 +534,7 @@ class ExperimentTracker:
                         metric_match = False
 
             # Check tag filters
-            tag_match = all(
-                run.tags.get(k) == v for k, v in query.tag_filters.items()
-            )
+            tag_match = all(run.tags.get(k) == v for k, v in query.tag_filters.items())
 
             if param_match and metric_match and tag_match:
                 filtered_runs.append(run)
@@ -555,9 +545,8 @@ class ExperimentTracker:
                 metric_key = query.order_by[7:]
                 filtered_runs.sort(
                     key=lambda r: next(
-                        (m.value for m in self._store.get_metrics(r.run_id)
-                         if m.key == metric_key),
-                        float('-inf') if query.ascending else float('inf'),
+                        (m.value for m in self._store.get_metrics(r.run_id) if m.key == metric_key),
+                        float("-inf") if query.ascending else float("inf"),
                     ),
                     reverse=not query.ascending,
                 )
@@ -565,14 +554,17 @@ class ExperimentTracker:
                 param_key = query.order_by[6:]
                 filtered_runs.sort(
                     key=lambda r: next(
-                        (p.value for p in self._store.get_parameters(r.run_id)
-                         if p.key == param_key),
+                        (
+                            p.value
+                            for p in self._store.get_parameters(r.run_id)
+                            if p.key == param_key
+                        ),
                         "",
                     ),
                     reverse=not query.ascending,
                 )
 
-        return filtered_runs[:query.max_results]
+        return filtered_runs[: query.max_results]
 
     def get_metric_history(
         self,
@@ -589,9 +581,7 @@ class ExperimentTracker:
         goal: MetricGoal = MetricGoal.MAXIMIZE,
     ) -> ComparisonResult:
         """Compare multiple runs."""
-        comparison_id = hashlib.md5(
-            f"{':'.join(run_ids)}:{time.time()}".encode()
-        ).hexdigest()[:8]
+        comparison_id = hashlib.md5(f"{':'.join(run_ids)}:{time.time()}".encode()).hexdigest()[:8]
 
         parameters: Dict[str, Dict[str, str]] = {}
         metrics: Dict[str, Dict[str, float]] = {}
@@ -658,6 +648,7 @@ class MetricAggregator:
             return {}
 
         import statistics
+
         return {
             "count": len(values),
             "mean": statistics.mean(values),
@@ -856,9 +847,7 @@ def create_experiment(
     tags: Optional[List[str]] = None,
 ) -> Experiment:
     """Create an experiment."""
-    experiment_id = hashlib.md5(
-        f"{name}:{time.time()}".encode()
-    ).hexdigest()[:12]
+    experiment_id = hashlib.md5(f"{name}:{time.time()}".encode()).hexdigest()[:12]
 
     return Experiment(
         experiment_id=experiment_id,
