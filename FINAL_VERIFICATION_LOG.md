@@ -110,6 +110,9 @@
 - **Dedup2D Load Test (High QPS)**:
   - 5-minute load test with raised rate limit; circuit breaker mapped to 503.
   - Report: `reports/DEV_DEDUPCAD_VISION_LOAD_HIGH_QPS_20251228.md`
+- **Dedup2D Async Queue Load**:
+  - 5-minute async load test; queue backpressure observed via JOB_QUEUE_FULL.
+  - Report: `reports/DEV_DEDUP2D_ASYNC_QUEUE_LOAD_20251228.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
