@@ -13,6 +13,7 @@ from src.api.v1.dedup import (
     get_precision_verifier,
     get_tenant_config_store,
 )
+from src.core.dedupcad_vision import DedupCadVisionCircuitOpen
 from src.core.dedupcad_2d_jobs import reset_dedup2d_job_store
 from src.core.dedupcad_precision.verifier import PrecisionScore
 from src.main import app
@@ -78,6 +79,11 @@ class _FailingDedupClient:
         raise httpx.ConnectError(
             "boom", request=httpx.Request("GET", "http://localhost:58001/health")
         )
+
+
+class _CircuitOpenDedupClient:
+    async def search_2d(self, **_kwargs) -> Dict[str, Any]:
+        raise DedupCadVisionCircuitOpen("dedupcad-vision circuit open")
 
 
 class _FakeDedupClientTwoCandidates:
@@ -421,6 +427,19 @@ def test_dedup_2d_health_proxy_unavailable_returns_503():
         client = TestClient(app)
         resp = client.get("/api/v1/dedup/2d/health")
         assert resp.status_code == 503
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_search_circuit_open_returns_503():
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _CircuitOpenDedupClient()
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+        resp = client.post("/api/v1/dedup/2d/search?mode=balanced&max_results=10", files=files)
+        assert resp.status_code == 503
+        assert resp.json()["detail"] == "dedupcad-vision circuit open"
+        assert resp.headers.get("Retry-After") == "5"
     finally:
         app.dependency_overrides.clear()
 

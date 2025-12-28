@@ -47,7 +47,7 @@ from src.core.dedupcad_2d_pipeline import run_dedup_2d_pipeline
 from src.core.dedupcad_precision import GeomJsonStoreProtocol, PrecisionVerifier, create_geom_store
 from src.core.dedupcad_precision.vendor.json_diff import compare_json
 from src.core.dedupcad_tenant_config import TenantDedup2DConfigStore
-from src.core.dedupcad_vision import DedupCadVisionClient
+from src.core.dedupcad_vision import DedupCadVisionCircuitOpen, DedupCadVisionClient
 from src.utils.analysis_metrics import (
     dedup2d_cancel_total,
     dedup2d_job_duration_seconds,
@@ -799,6 +799,13 @@ async def dedup_2d_health(
     """Proxy dedupcad-vision health for operational visibility."""
     try:
         return await client.health()
+    except DedupCadVisionCircuitOpen as e:
+        logger.warning("dedupcad_vision_circuit_open", extra={"error": str(e)})
+        raise HTTPException(
+            status_code=503,
+            detail="dedupcad-vision circuit open",
+            headers={"Retry-After": "5"},
+        ) from e
     except httpx.RequestError as e:
         logger.warning("dedupcad_vision_unavailable", extra={"error": str(e)})
         raise HTTPException(status_code=503, detail="dedupcad-vision unavailable") from e
@@ -819,6 +826,13 @@ async def dedup_2d_index_rebuild(
     """Trigger a rebuild of dedupcad-vision L1/L2 indexes (batch-friendly)."""
     try:
         return await client.rebuild_indexes()
+    except DedupCadVisionCircuitOpen as e:
+        logger.warning("dedupcad_vision_circuit_open", extra={"error": str(e)})
+        raise HTTPException(
+            status_code=503,
+            detail="dedupcad-vision circuit open",
+            headers={"Retry-After": "5"},
+        ) from e
     except httpx.RequestError as e:
         logger.warning("dedupcad_vision_unavailable", extra={"error": str(e)})
         raise HTTPException(status_code=503, detail="dedupcad-vision unavailable") from e
@@ -1218,6 +1232,13 @@ async def dedup_2d_search(
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
+    except DedupCadVisionCircuitOpen as e:
+        logger.warning("dedupcad_vision_circuit_open", extra={"error": str(e), "mode": mode})
+        raise HTTPException(
+            status_code=503,
+            detail="dedupcad-vision circuit open",
+            headers={"Retry-After": "5"},
+        ) from e
     except httpx.RequestError as e:
         logger.warning("dedupcad_vision_unavailable", extra={"error": str(e), "mode": mode})
         raise HTTPException(status_code=503, detail="dedupcad-vision unavailable") from e
@@ -1474,6 +1495,13 @@ async def dedup_2d_index_add(
         except Exception:
             pass
         return response
+    except DedupCadVisionCircuitOpen as e:
+        logger.warning("dedupcad_vision_circuit_open", extra={"error": str(e)})
+        raise HTTPException(
+            status_code=503,
+            detail="dedupcad-vision circuit open",
+            headers={"Retry-After": "5"},
+        ) from e
     except httpx.RequestError as e:
         logger.warning("dedupcad_vision_unavailable", extra={"error": str(e)})
         raise HTTPException(status_code=503, detail="dedupcad-vision unavailable") from e

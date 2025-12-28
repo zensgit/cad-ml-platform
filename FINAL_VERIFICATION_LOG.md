@@ -106,5 +106,10 @@
     - `reports/DEV_REDIS_BACKUP_RECOVERY_20251227.md`
     - `reports/DEV_DISASTER_RECOVERY_20251227.md`
 
+## 9. Post-Release Verification (2025-12-28)
+- **Dedup2D Load Test (High QPS)**:
+  - 5-minute load test with raised rate limit; circuit breaker mapped to 503.
+  - Report: `reports/DEV_DEDUPCAD_VISION_LOAD_HIGH_QPS_20251228.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
