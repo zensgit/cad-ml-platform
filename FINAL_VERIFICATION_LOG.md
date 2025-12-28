@@ -143,6 +143,9 @@
 - **DedupCAD Vision Integration (Re-Run)**:
   - Full `tests/integration` executed against live `dedupcad-vision`.
   - Report: `reports/DEV_INTEGRATION_FULL_DEDUPCAD_VISION_RERUN_20251228.md`
+- **Full Test Run (DedupCAD Vision Required)**:
+  - `make test` executed with live `dedupcad-vision`.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_RERUN_20251228.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
