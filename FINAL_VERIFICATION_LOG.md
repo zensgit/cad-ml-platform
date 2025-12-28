@@ -66,5 +66,27 @@
     - `reports/CAD_RENDER_UPDATE_RUN_20251222_114125.md`
     - `reports/CAD_RENDER_UPDATE_RUN_20251222_130125.md`
 
+## 8. Post-Release Verification (2025-12-27)
+- **Full Regression**:
+  - `make test` completed successfully.
+  - Coverage: 71% (htmlcov generated).
+  - Results: 3952 passed, 28 skipped.
+- **Production Verification Plan**:
+  - `PRODUCTION_VERIFICATION_PLAN.md` marked completed.
+- **Memory Stability (1h)**:
+  - Sustained load test with stable memory usage.
+  - Report: `reports/DEV_MEMORY_STABILITY_1H_20251227.md`
+- **Alerting Pipeline**:
+  - Prometheus → Alertmanager chain verified.
+  - Report: `reports/DEV_ALERT_CHAIN_20251227.md`
+- **Security Runtime**:
+  - Admin token rotation + opcode blocking verified.
+  - Report: `reports/DEV_SECURITY_TOKEN_OPCODE_20251227.md`
+- **Backup & Recovery**:
+  - Redis backup and crash recovery verified.
+  - Reports:
+    - `reports/DEV_REDIS_BACKUP_RECOVERY_20251227.md`
+    - `reports/DEV_DISASTER_RECOVERY_20251227.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
