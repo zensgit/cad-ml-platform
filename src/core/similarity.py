@@ -744,6 +744,20 @@ class FaissVectorStore(VectorStoreProtocol):
 _DEFAULT_STORE: VectorStoreProtocol | None = None
 
 
+def _set_store_metadata(
+    store: VectorStoreProtocol,
+    requested_backend: str,
+    actual_backend: str,
+    fallback_from: str | None = None,
+) -> None:
+    try:
+        setattr(store, "_requested_backend", requested_backend)
+        setattr(store, "_backend", actual_backend)
+        setattr(store, "_fallback_from", fallback_from)
+    except Exception:
+        pass
+
+
 def reload_vector_store_backend() -> bool:
     """Force reinitialization of cached default store.
 
@@ -781,6 +795,7 @@ def get_vector_store(backend: str | None = None) -> VectorStoreProtocol:
         return _DEFAULT_STORE
 
     # Create new store instance
+    requested_backend = backend
     if backend == "faiss":
         try:
             store = FaissVectorStore()
@@ -815,7 +830,9 @@ def get_vector_store(backend: str | None = None) -> VectorStoreProtocol:
                     },
                 )
                 store = InMemoryVectorStore()
+                _set_store_metadata(store, requested_backend, "memory", fallback_from="faiss")
             else:
+                _set_store_metadata(store, requested_backend, "faiss")
                 # Faiss available: if we were previously degraded, record restore event
                 if _VECTOR_DEGRADED:
                     import time
@@ -870,8 +887,10 @@ def get_vector_store(backend: str | None = None) -> VectorStoreProtocol:
                 },
             )
             store = InMemoryVectorStore()
+            _set_store_metadata(store, requested_backend, "memory", fallback_from="faiss")
     else:
         store = InMemoryVectorStore()
+        _set_store_metadata(store, requested_backend, backend)
 
     # Cache as default store
     _DEFAULT_STORE = store

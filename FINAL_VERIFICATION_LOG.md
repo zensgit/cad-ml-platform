@@ -152,7 +152,7 @@
 
 ## 10. Post-Release Verification (2025-12-29)
 - **Batch Similarity Degraded Flag**:
-  - Normalized degraded/fallback computation for Faiss-unavailable batch similarity.
+  - Attached store backend metadata and normalized fallback detection for Faiss-unavailable batch similarity.
   - Report: `reports/DEV_BATCH_SIMILARITY_FAISS_UNAVAILABLE_DEGRADED_FLAG_FIX_20251229.md`
 
 ---

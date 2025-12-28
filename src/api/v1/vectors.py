@@ -1106,11 +1106,14 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
     store = get_vector_store()
 
     # Detect if fallback occurred (Faiss unavailable -> memory)
-    is_fallback = False
-    expected_backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
-    if not getattr(store, "_available", True):
+    is_fallback = bool(getattr(store, "_fallback_from", None))
+    requested_backend = getattr(
+        store, "_requested_backend", os.getenv("VECTOR_STORE_BACKEND", "memory")
+    )
+    expected_backend = requested_backend
+    if not is_fallback and not getattr(store, "_available", True):
         is_fallback = True
-    elif expected_backend == "faiss":
+    elif not is_fallback and expected_backend == "faiss":
         from src.core.similarity import FaissVectorStore
 
         if not isinstance(FaissVectorStore, type):
