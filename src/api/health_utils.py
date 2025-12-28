@@ -24,7 +24,9 @@ def metrics_enabled() -> bool:
 
 def build_health_payload(metrics_enabled_override: Optional[bool] = None) -> Dict[str, Any]:
     """Build health payload shared by /health and /api/v1/health."""
-    metrics_enabled = _METRICS_ENABLED if metrics_enabled_override is None else metrics_enabled_override
+    metrics_enabled = (
+        _METRICS_ENABLED if metrics_enabled_override is None else metrics_enabled_override
+    )
     current_settings = get_settings()
 
     base = {

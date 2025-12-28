@@ -119,6 +119,15 @@
 - **Full Test Run**:
   - `make test` completed (full pytest suite).
   - Report: `reports/DEV_MAKE_TEST_20251228.md`
+- **Metrics Contract Test**:
+  - `tests/test_metrics_contract.py` executed.
+  - Report: `reports/DEV_METRICS_CONTRACT_20251228.md`
+- **Lint**:
+  - `make lint` completed after line-length fixes.
+  - Report: `reports/DEV_LINT_20251228.md`
+- **Type Check**:
+  - `make type-check` completed.
+  - Report: `reports/DEV_TYPECHECK_20251228.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

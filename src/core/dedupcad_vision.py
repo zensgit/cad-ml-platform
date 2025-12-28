@@ -195,7 +195,9 @@ class DedupCadVisionClient:
 
         for attempt in range(1, max_attempts + 1):
             if breaker and not breaker.can_execute():
-                dedupcad_vision_requests_total.labels(endpoint=endpoint, status="circuit_open").inc()
+                dedupcad_vision_requests_total.labels(
+                    endpoint=endpoint, status="circuit_open"
+                ).inc()
                 self._record_circuit_state(endpoint, breaker)
                 raise DedupCadVisionCircuitOpen(
                     f"dedupcad-vision circuit open for {endpoint}"
