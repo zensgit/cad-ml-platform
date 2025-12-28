@@ -150,5 +150,10 @@
   - `make test-dedupcad-vision` executed with live `dedupcad-vision`.
   - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_TARGET_20251228.md`
 
+## 10. Post-Release Verification (2025-12-29)
+- **Batch Similarity Degraded Flag**:
+  - Normalized degraded/fallback computation for Faiss-unavailable batch similarity.
+  - Report: `reports/DEV_BATCH_SIMILARITY_FAISS_UNAVAILABLE_DEGRADED_FLAG_FIX_20251229.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
