@@ -1439,6 +1439,9 @@ make e2e-smoke
 # GHCR 需 public 或 CI 开启 packages:read 权限
 # 若保持私有，建议 GHCR_TOKEN 仅授予 read:packages
 
+# 运行全量测试（需 DedupCAD Vision 服务已启动）
+DEDUPCAD_VISION_URL=http://localhost:58001 make test-dedupcad-vision
+
 # 生成覆盖率报告
 pytest --cov=src --cov-report=html
 ```

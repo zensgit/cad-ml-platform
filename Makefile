@@ -1,7 +1,7 @@
 # CAD ML Platform - Makefile
 # 统一的开发工作流
 
-.PHONY: help install dev test lint format type-check clean run docs docker eval-history health-check eval-trend \
+.PHONY: help install dev test test-dedupcad-vision lint format type-check clean run docs docker eval-history health-check eval-trend \
 	observability-up observability-down observability-status self-check metrics-validate prom-validate \
 	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted e2e-smoke \
 	dedup2d-secure-smoke
@@ -56,6 +56,14 @@ dev: ## 设置开发环境
 
 test: ## 运行测试
 	@echo "$(GREEN)Running tests...$(NC)"
+	$(PYTEST) $(TEST_DIR) -v --cov=$(SRC_DIR) --cov-report=term-missing --cov-report=html
+
+test-dedupcad-vision: ## 运行测试（依赖 DedupCAD Vision 已启动）
+	@echo "$(GREEN)Running tests with DedupCAD Vision required...$(NC)"
+	@echo "$(YELLOW)Ensure dedupcad-vision is running at $${DEDUPCAD_VISION_URL:-http://localhost:58001}$(NC)"
+	DEDUPCAD_VISION_REQUIRED=1 \
+	PYTHONPATH=$(PWD) \
+	DEDUPCAD_VISION_URL=$${DEDUPCAD_VISION_URL:-http://localhost:58001} \
 	$(PYTEST) $(TEST_DIR) -v --cov=$(SRC_DIR) --cov-report=term-missing --cov-report=html
 
 test-assembly: ## 运行装配模块测试
