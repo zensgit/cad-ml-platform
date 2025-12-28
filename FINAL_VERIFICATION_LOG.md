@@ -128,6 +128,9 @@
 - **Type Check**:
   - `make type-check` completed.
   - Report: `reports/DEV_TYPECHECK_20251228.md`
+- **DedupCAD Vision Contract + E2E**:
+  - Live `dedupcad-vision` contract + E2E smoke against localhost service.
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_E2E_20251228.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
