@@ -143,6 +143,12 @@ jobs:
         if: startsWith(env.DEDUPCAD_VISION_IMAGE, 'ghcr.io/')
         run: |
           echo "${{ secrets.GHCR_TOKEN || github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Pull dedupcad-vision image
+        run: docker pull "$DEDUPCAD_VISION_IMAGE"
+      - name: Record dedupcad-vision image
+        run: |
+          echo "DEDUPCAD_VISION_IMAGE=$DEDUPCAD_VISION_IMAGE" >> "$GITHUB_STEP_SUMMARY"
+          docker image inspect "$DEDUPCAD_VISION_IMAGE" --format "Image ID: {{.Id}}" >> "$GITHUB_STEP_SUMMARY"
       - name: Start dedupcad-vision (real image)
         run: |
           docker run -d --name dedupcad-vision -p 58001:8000 \

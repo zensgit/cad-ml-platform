@@ -82,6 +82,9 @@
 - **DedupCAD Vision Integration**:
   - Contract + E2E smoke tests passed.
   - Report: `reports/DEV_DEDUPCAD_VISION_INTEGRATION_20251227.md`
+- **CI DedupCAD Vision Traceability**:
+  - Image pull + digest recorded in e2e-smoke job.
+  - Report: `reports/DEV_CI_DEDUPCAD_VISION_E2E_20251227.md`
 - **Security Runtime**:
   - Admin token rotation + opcode blocking verified.
   - Report: `reports/DEV_SECURITY_TOKEN_OPCODE_20251227.md`
