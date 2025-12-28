@@ -140,6 +140,9 @@
 - **DedupCAD Vision Contract + E2E (Re-Run)**:
   - Re-verified after `dedupcad-vision` updates.
   - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_E2E_RERUN_20251228.md`
+- **DedupCAD Vision Integration (Re-Run)**:
+  - Full `tests/integration` executed against live `dedupcad-vision`.
+  - Report: `reports/DEV_INTEGRATION_FULL_DEDUPCAD_VISION_RERUN_20251228.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
