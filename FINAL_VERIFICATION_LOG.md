@@ -137,6 +137,9 @@
 - **DedupCAD Vision Repo Quality**:
   - `ruff`, `pytest`, and `mypy` executed in local `dedupcad-vision`.
   - Report: `reports/DEV_DEDUPCAD_VISION_REPO_QUALITY_20251228.md`
+- **DedupCAD Vision Contract + E2E (Re-Run)**:
+  - Re-verified after `dedupcad-vision` updates.
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_E2E_RERUN_20251228.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
