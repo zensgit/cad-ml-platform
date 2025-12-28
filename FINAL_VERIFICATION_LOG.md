@@ -79,6 +79,9 @@
 - **Alerting Pipeline**:
   - Prometheus → Alertmanager chain verified.
   - Report: `reports/DEV_ALERT_CHAIN_20251227.md`
+- **DedupCAD Vision Integration**:
+  - Contract + E2E smoke tests passed.
+  - Report: `reports/DEV_DEDUPCAD_VISION_INTEGRATION_20251227.md`
 - **Security Runtime**:
   - Admin token rotation + opcode blocking verified.
   - Report: `reports/DEV_SECURITY_TOKEN_OPCODE_20251227.md`
