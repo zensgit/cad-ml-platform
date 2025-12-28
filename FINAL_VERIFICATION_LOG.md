@@ -146,6 +146,9 @@
 - **Full Test Run (DedupCAD Vision Required)**:
   - `make test` executed with live `dedupcad-vision`.
   - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_RERUN_20251228.md`
+- **Make Target (DedupCAD Vision Required)**:
+  - `make test-dedupcad-vision` executed with live `dedupcad-vision`.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_TARGET_20251228.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
