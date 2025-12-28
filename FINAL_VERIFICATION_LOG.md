@@ -113,6 +113,9 @@
 - **Dedup2D Async Queue Load**:
   - 5-minute async load test; queue backpressure observed via JOB_QUEUE_FULL.
   - Report: `reports/DEV_DEDUP2D_ASYNC_QUEUE_LOAD_20251228.md`
+- **Health Alias Refactor**:
+  - Shared health payload builder; OCR metrics test now uses valid PNG fixture.
+  - Report: `reports/DEV_HEALTH_ALIAS_REFACTOR_20251228.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

@@ -10,17 +10,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import PlainTextResponse
-
-try:
-    from prometheus_client import make_asgi_app  # type: ignore
-
-    _metrics_enabled = True
-except Exception:  # module missing
-    _metrics_enabled = False
 import uvicorn
 
 from src.api import api_router
-from src.api.health_resilience import get_resilience_health
+from src.api.health_utils import build_health_payload, metrics_enabled
 from src.api.middleware.integration_auth import IntegrationAuthMiddleware
 from src.core.config import get_settings
 from src.core.similarity import (  # type: ignore
@@ -32,7 +25,10 @@ from src.models.loader import load_models
 from src.tasks.orphan_scan import orphan_scan_loop
 from src.utils.cache import init_redis
 from src.utils.logging import setup_logging
-from src.utils.metrics import get_ocr_error_rate_ema, get_vision_error_rate_ema
+
+_metrics_enabled = metrics_enabled()
+if _metrics_enabled:
+    from prometheus_client import make_asgi_app  # type: ignore
 
 # 设置日志
 setup_logging()
@@ -279,67 +275,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     """健康检查（附加运行时与指标状态）"""
-    import sys
-    from datetime import datetime, timezone
-
-    current_settings = get_settings()
-
-    base = {
-        "status": "healthy",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "services": {
-            "api": "up",
-            "ml": "up",
-            "redis": "up" if settings.REDIS_ENABLED else "disabled",
-        },
-        "runtime": {
-            "python_version": sys.version.split(" ")[0],
-            "metrics_enabled": _metrics_enabled,
-            "vision_max_base64_bytes": current_settings.VISION_MAX_BASE64_BYTES,
-            "error_rate_ema": {
-                "ocr": get_ocr_error_rate_ema(),
-                "vision": get_vision_error_rate_ema(),
-            },
-        },
-        "config": {
-            # 运维可见的关键配置
-            "limits": {
-                "vision_max_base64_bytes": current_settings.VISION_MAX_BASE64_BYTES,
-                # precompute to keep line length under linter threshold
-                "vision_max_base64_mb": round(
-                    current_settings.VISION_MAX_BASE64_BYTES / 1024 / 1024, 2
-                ),
-                "ocr_timeout_ms": current_settings.OCR_TIMEOUT_MS,
-                "ocr_timeout_seconds": current_settings.OCR_TIMEOUT_MS / 1000,
-            },
-            "providers": {
-                "ocr_default": current_settings.OCR_PROVIDER_DEFAULT,
-                "confidence_fallback": current_settings.CONFIDENCE_FALLBACK,
-            },
-            "monitoring": {
-                "error_ema_alpha": current_settings.ERROR_EMA_ALPHA,
-                "metrics_enabled": _metrics_enabled,
-                "redis_enabled": current_settings.REDIS_ENABLED,
-            },
-            "network": {
-                "cors_origins": current_settings.CORS_ORIGINS,
-                "allowed_hosts": current_settings.ALLOWED_HOSTS,
-            },
-            "debug": {
-                "debug_mode": current_settings.DEBUG,
-                "log_level": current_settings.LOG_LEVEL,
-            },
-        },
-    }
-
-    # Merge resilience health block
-    try:
-        base.update(get_resilience_health())
-    except Exception:
-        # Keep /health resilient if resilience module is unavailable
-        pass
-
-    return base
+    return build_health_payload(metrics_enabled_override=_metrics_enabled)
 
 
 @app.get("/health/extended")

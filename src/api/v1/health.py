@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_admin_token, get_api_key
+from src.api.health_utils import build_health_payload
 
 router = APIRouter()
 
@@ -72,6 +73,12 @@ class FaissHealthResponse(BaseModel):
     degradation_history: Optional[List[Dict]] = None  # Recent degradation events (last 10)
     next_recovery_eta: Optional[int] = None
     manual_recovery_in_progress: bool = False
+
+
+@router.get("/health")
+async def health_alias() -> Dict[str, Any]:
+    """Alias `/api/v1/health` to the root `/health` endpoint."""
+    return build_health_payload()
 
 
 @router.get("/features/cache", response_model=FeatureCacheStatsResponse)
