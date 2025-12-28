@@ -131,6 +131,9 @@
 - **DedupCAD Vision Contract + E2E**:
   - Live `dedupcad-vision` contract + E2E smoke against localhost service.
   - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_E2E_20251228.md`
+- **Integration Suite (DedupCAD Vision)**:
+  - `tests/integration` executed against live `dedupcad-vision`.
+  - Report: `reports/DEV_INTEGRATION_FULL_DEDUPCAD_VISION_20251228.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
