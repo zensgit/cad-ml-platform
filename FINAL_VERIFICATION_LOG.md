@@ -88,6 +88,9 @@
 - **DedupCAD Vision Contract Schema**:
   - Health/search payloads validated against JSON schemas.
   - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_SCHEMA_20251227.md`
+- **DedupCAD Vision Resilience**:
+  - Retry/backoff + circuit breaker + metrics added for dedupcad-vision client.
+  - Report: `reports/DEV_DEDUPCAD_VISION_RESILIENCE_20251227.md`
 - **Security Runtime**:
   - Admin token rotation + opcode blocking verified.
   - Report: `reports/DEV_SECURITY_TOKEN_OPCODE_20251227.md`

@@ -613,6 +613,37 @@ dedup2d_async_backend = Gauge(
     ["backend"],  # inprocess|redis
 )
 
+dedupcad_vision_requests_total = Counter(
+    "dedupcad_vision_requests_total",
+    "Total requests from cad-ml-platform to dedupcad-vision",
+    ["endpoint", "status"],  # success|error|circuit_open
+)
+
+dedupcad_vision_request_duration_seconds = Histogram(
+    "dedupcad_vision_request_duration_seconds",
+    "Latency of dedupcad-vision requests (seconds)",
+    ["endpoint", "status"],
+    buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
+)
+
+dedupcad_vision_errors_total = Counter(
+    "dedupcad_vision_errors_total",
+    "Dedupcad-vision request errors",
+    ["endpoint", "error"],
+)
+
+dedupcad_vision_retry_total = Counter(
+    "dedupcad_vision_retry_total",
+    "Dedupcad-vision retry attempts",
+    ["endpoint", "reason"],
+)
+
+dedupcad_vision_circuit_state = Gauge(
+    "dedupcad_vision_circuit_state",
+    "Circuit breaker state for dedupcad-vision (0=closed, 1=open, 2=half_open)",
+    ["endpoint"],
+)
+
 __all__ = [
     "analysis_requests_total",
     "analysis_errors_total",
@@ -707,4 +738,9 @@ __all__ = [
     "dedup2d_tenant_access_denied_total",
     "dedup2d_search_mode_total",
     "dedup2d_async_backend",
+    "dedupcad_vision_requests_total",
+    "dedupcad_vision_request_duration_seconds",
+    "dedupcad_vision_errors_total",
+    "dedupcad_vision_retry_total",
+    "dedupcad_vision_circuit_state",
 ]
