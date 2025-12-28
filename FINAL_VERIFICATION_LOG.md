@@ -116,6 +116,9 @@
 - **Health Alias Refactor**:
   - Shared health payload builder; OCR metrics test now uses valid PNG fixture.
   - Report: `reports/DEV_HEALTH_ALIAS_REFACTOR_20251228.md`
+- **Full Test Run**:
+  - `make test` completed (full pytest suite).
+  - Report: `reports/DEV_MAKE_TEST_20251228.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

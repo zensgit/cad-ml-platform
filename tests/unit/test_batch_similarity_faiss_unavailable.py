@@ -11,8 +11,6 @@ from src.core import similarity
 from src.core.similarity import reset_default_store
 from src.main import app
 
-client = TestClient(app)
-
 
 def test_batch_similarity_faiss_unavailable_degraded_flag(monkeypatch: MonkeyPatch) -> None:
     original_vectors: Dict[str, List[float]] = similarity._VECTOR_STORE.copy()
@@ -37,9 +35,10 @@ def test_batch_similarity_faiss_unavailable_degraded_flag(monkeypatch: MonkeyPat
 
     try:
         payload = {"ids": ["a"], "top_k": 1}
-        response = client.post("/api/v1/vectors/similarity/batch", json=payload)
-        assert response.status_code == 200
-        data = response.json()
+        with TestClient(app) as client:
+            response = client.post("/api/v1/vectors/similarity/batch", json=payload)
+            assert response.status_code == 200
+            data = response.json()
         assert data["fallback"] is True
         assert data["degraded"] is True
         assert data["successful"] == 1
@@ -89,9 +88,10 @@ def test_batch_similarity_degraded_forces_fallback(monkeypatch: MonkeyPatch) -> 
 
     try:
         payload = {"ids": ["a"], "top_k": 1}
-        response = client.post("/api/v1/vectors/similarity/batch", json=payload)
-        assert response.status_code == 200
-        data = response.json()
+        with TestClient(app) as client:
+            response = client.post("/api/v1/vectors/similarity/batch", json=payload)
+            assert response.status_code == 200
+            data = response.json()
         assert data["fallback"] is True
         assert data["degraded"] is True
         assert data["successful"] == 1

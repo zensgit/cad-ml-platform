@@ -43,7 +43,7 @@ class TestHealthCheck:
         """Test health check returns healthy status."""
         from src.main import health_check
 
-        with patch("src.main.get_settings") as mock_settings:
+        with patch("src.api.health_utils.get_settings") as mock_settings:
             mock_settings.return_value = MagicMock(
                 REDIS_ENABLED=False,
                 VISION_MAX_BASE64_BYTES=10_000_000,
@@ -56,9 +56,12 @@ class TestHealthCheck:
                 DEBUG=False,
                 LOG_LEVEL="INFO",
             )
-            with patch("src.main.get_ocr_error_rate_ema", return_value=0.01):
-                with patch("src.main.get_vision_error_rate_ema", return_value=0.02):
-                    with patch("src.main.get_resilience_health", return_value={"resilience": "ok"}):
+            with patch("src.api.health_utils.get_ocr_error_rate_ema", return_value=0.01):
+                with patch("src.api.health_utils.get_vision_error_rate_ema", return_value=0.02):
+                    with patch(
+                        "src.api.health_utils.get_resilience_health",
+                        return_value={"resilience": "ok"},
+                    ):
                         result = await health_check()
 
         assert result["status"] == "healthy"
@@ -72,7 +75,7 @@ class TestHealthCheck:
         """Test health check with Redis enabled."""
         from src.main import health_check
 
-        with patch("src.main.get_settings") as mock_settings:
+        with patch("src.api.health_utils.get_settings") as mock_settings:
             mock_obj = MagicMock(
                 REDIS_ENABLED=True,
                 VISION_MAX_BASE64_BYTES=10_000_000,
@@ -86,9 +89,9 @@ class TestHealthCheck:
                 LOG_LEVEL="INFO",
             )
             mock_settings.return_value = mock_obj
-            with patch("src.main.get_ocr_error_rate_ema", return_value=0.01):
-                with patch("src.main.get_vision_error_rate_ema", return_value=0.02):
-                    with patch("src.main.get_resilience_health", return_value={}):
+            with patch("src.api.health_utils.get_ocr_error_rate_ema", return_value=0.01):
+                with patch("src.api.health_utils.get_vision_error_rate_ema", return_value=0.02):
+                    with patch("src.api.health_utils.get_resilience_health", return_value={}):
                         result = await health_check()
 
         assert result["services"]["redis"] == "up"
@@ -98,7 +101,7 @@ class TestHealthCheck:
         """Test health check handles resilience module error."""
         from src.main import health_check
 
-        with patch("src.main.get_settings") as mock_settings:
+        with patch("src.api.health_utils.get_settings") as mock_settings:
             mock_settings.return_value = MagicMock(
                 REDIS_ENABLED=False,
                 VISION_MAX_BASE64_BYTES=10_000_000,
@@ -111,10 +114,11 @@ class TestHealthCheck:
                 DEBUG=False,
                 LOG_LEVEL="INFO",
             )
-            with patch("src.main.get_ocr_error_rate_ema", return_value=0.01):
-                with patch("src.main.get_vision_error_rate_ema", return_value=0.02):
+            with patch("src.api.health_utils.get_ocr_error_rate_ema", return_value=0.01):
+                with patch("src.api.health_utils.get_vision_error_rate_ema", return_value=0.02):
                     with patch(
-                        "src.main.get_resilience_health", side_effect=Exception("Module error")
+                        "src.api.health_utils.get_resilience_health",
+                        side_effect=Exception("Module error"),
                     ):
                         result = await health_check()
 
