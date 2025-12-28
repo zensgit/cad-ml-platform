@@ -85,6 +85,9 @@
 - **CI DedupCAD Vision Traceability**:
   - Image pull + digest recorded in e2e-smoke job.
   - Report: `reports/DEV_CI_DEDUPCAD_VISION_E2E_20251227.md`
+- **DedupCAD Vision Contract Schema**:
+  - Health/search payloads validated against JSON schemas.
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_SCHEMA_20251227.md`
 - **Security Runtime**:
   - Admin token rotation + opcode blocking verified.
   - Report: `reports/DEV_SECURITY_TOKEN_OPCODE_20251227.md`

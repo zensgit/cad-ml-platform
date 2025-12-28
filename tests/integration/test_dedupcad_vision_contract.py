@@ -1,14 +1,32 @@
+import json
 import os
 from pathlib import Path
 from typing import Dict
 
 import httpx
 import pytest
+from jsonschema import validate
 
 VISION_URL = os.environ.get("DEDUPCAD_VISION_URL", "http://localhost:58001")
 TIMEOUT = float(os.environ.get("E2E_HTTP_TIMEOUT", "20"))
 PNG_PATH = Path(os.environ.get("E2E_PNG_PATH", "data/dxf_fixtures_subset_out/mixed.png"))
 VISION_REQUIRED = os.environ.get("DEDUPCAD_VISION_REQUIRED", "0") == "1"
+
+
+def _repo_root() -> Path:
+    for parent in Path(__file__).resolve().parents:
+        if (parent / "contracts").exists() and (parent / "src").exists():
+            return parent
+    raise RuntimeError("Repository root not found")
+
+
+def _load_schema(name: str) -> dict:
+    schema_path = _repo_root() / "contracts" / name
+    return json.loads(schema_path.read_text(encoding="utf-8"))
+
+
+HEALTH_SCHEMA = _load_schema("dedupcad_vision_health.schema.json")
+SEARCH_SCHEMA = _load_schema("dedupcad_vision_search.schema.json")
 
 
 def _skip_or_fail(message: str) -> None:
@@ -27,6 +45,10 @@ def _check_health() -> Dict[str, object]:
     payload = resp.json()
     if "status" not in payload:
         _skip_or_fail("dedupcad-vision health payload missing status")
+    try:
+        validate(instance=payload, schema=HEALTH_SCHEMA)
+    except Exception as exc:
+        _skip_or_fail(f"dedupcad-vision health schema mismatch: {exc}")
     return payload
 
 
@@ -77,3 +99,4 @@ def test_vision_search_contract() -> None:
     timing = payload.get("timing", {})
     for key in ("total_ms", "l1_ms", "l2_ms", "l3_ms", "l4_ms"):
         assert key in timing
+    validate(instance=payload, schema=SEARCH_SCHEMA)
