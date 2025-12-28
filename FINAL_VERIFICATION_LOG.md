@@ -154,6 +154,9 @@
 - **Batch Similarity Degraded Flag**:
   - Attached store backend metadata and normalized fallback detection for Faiss-unavailable batch similarity.
   - Report: `reports/DEV_BATCH_SIMILARITY_FAISS_UNAVAILABLE_DEGRADED_FLAG_FIX_20251229.md`
+- **CI Re-Run (Batch Similarity Fallback)**:
+  - Workflow re-run after fallback test stabilization.
+  - Report: `reports/DEV_CI_BATCH_SIMILARITY_FAISS_FALLBACK_20251229.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
