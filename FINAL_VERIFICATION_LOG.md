@@ -94,6 +94,9 @@
 - **Dedup2D Load Test**:
   - 5-minute load test against `/api/v1/dedup/2d/search` completed.
   - Report: `reports/DEV_DEDUPCAD_VISION_LOAD_20251227.md`
+- **DedupCAD Vision Docs**:
+  - Documented retry/circuit breaker env vars.
+  - Report: `reports/DEV_DEDUPCAD_VISION_DOCS_20251227.md`
 - **Security Runtime**:
   - Admin token rotation + opcode blocking verified.
   - Report: `reports/DEV_SECURITY_TOKEN_OPCODE_20251227.md`
