@@ -25,12 +25,13 @@ def test_batch_similarity_faiss_unavailable_degraded_flag(monkeypatch: MonkeyPat
         }
     )
 
-    class DummyFaissVectorStore:
-        def __init__(self) -> None:
-            self._available = False
-
     monkeypatch.setenv("VECTOR_STORE_BACKEND", "faiss")
-    monkeypatch.setattr(similarity, "FaissVectorStore", DummyFaissVectorStore)
+    store = similarity.InMemoryVectorStore()
+    store._fallback_from = "faiss"
+    store._requested_backend = "faiss"
+    store._backend = "memory"
+    store._available = False
+    monkeypatch.setattr(similarity, "get_vector_store", lambda *_args, **_kwargs: store)
     reset_default_store()
 
     try:

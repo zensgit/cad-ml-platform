@@ -8,7 +8,9 @@
   - Detect fallback using store metadata to avoid env drift.
 - `src/core/similarity.py`
   - Attach requested/actual backend metadata when constructing stores.
+- `tests/unit/test_batch_similarity_faiss_unavailable.py`
+  - Patch `get_vector_store` with explicit fallback metadata for deterministic assertions.
 
 ## Validation
 - Command: `source .venv/bin/activate && pytest tests/unit/test_batch_similarity_faiss_unavailable.py::test_batch_similarity_faiss_unavailable_degraded_flag -q`
-  - Result: 1 passed in 1.92s (Python 3.11.13).
+  - Result: 1 passed in 2.40s (Python 3.11.13).
