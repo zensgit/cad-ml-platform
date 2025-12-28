@@ -134,6 +134,9 @@
 - **Integration Suite (DedupCAD Vision)**:
   - `tests/integration` executed against live `dedupcad-vision`.
   - Report: `reports/DEV_INTEGRATION_FULL_DEDUPCAD_VISION_20251228.md`
+- **DedupCAD Vision Repo Quality**:
+  - `ruff`, `pytest`, and `mypy` executed in local `dedupcad-vision`.
+  - Report: `reports/DEV_DEDUPCAD_VISION_REPO_QUALITY_20251228.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
