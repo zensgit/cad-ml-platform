@@ -6,6 +6,16 @@
 
 ---
 
+## 🧾 最新验证记录 (2025-12-30)
+
+- ✅ 全量测试通过：3961 passed / 29 skipped，覆盖率 71%（`reports/DEV_MAKE_TEST_20251230_FULL.md`）
+- ✅ Prometheus 规则校验通过（promtool via Docker）：recording 46 / alerting 47（`reports/DEV_PROMTOOL_RULES_VALIDATE_20251230.md`）
+- ✅ 回归套件无序依赖验证通过（3次运行）（`reports/DEV_REGRESSION_VALIDATION_20251230.md`, `reports/regression_validation.md`）
+- ✅ Metrics 导出一致性验证通过（`reports/DEV_METRICS_CONSISTENCY_20251230.md`）
+- ✅ 性能基线已生成并更新对比（`reports/DEV_PERFORMANCE_BASELINE_20251230.md`, `reports/DEV_PERFORMANCE_BASELINE_COMPARE_20251230.md`）
+
+---
+
 ## 🧾 最新验证记录 (2025-02-14)
 
 - ✅ Self-check 严格模式通过（`reports/SELF_CHECK.md`）

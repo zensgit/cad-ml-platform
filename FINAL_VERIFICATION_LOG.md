@@ -157,6 +157,81 @@
 - **CI Re-Run (Batch Similarity Fallback)**:
   - Workflow re-run after fallback test stabilization.
   - Report: `reports/DEV_CI_BATCH_SIMILARITY_FAISS_FALLBACK_20251229.md`
+- **Full Test Run**:
+  - `make test` completed (full pytest suite).
+  - Report: `reports/DEV_MAKE_TEST_20251229.md`
+- **Lint**:
+  - `make lint` completed.
+  - Report: `reports/DEV_LINT_20251229.md`
+- **Type Check**:
+  - `make type-check` completed.
+  - Report: `reports/DEV_TYPECHECK_20251229.md`
+- **Pre-Commit Soft Validation**:
+  - `make pre-commit` completed (integrity, schema validation, health check).
+  - Report: `reports/DEV_PRE_COMMIT_20251229.md`
+- **Prometheus Rules Validation**:
+  - `scripts/validate_prom_rules.py --skip-promtool` completed (promtool deferred; Docker CLI unresponsive).
+  - Report: `reports/DEV_PROM_VALIDATE_20251229.md`
+- **Metrics Contract Validation**:
+  - `make metrics-validate` completed (metrics contract + provider error mapping).
+  - Report: `reports/DEV_METRICS_VALIDATE_20251229.md`
+- **Security Audit**:
+  - pip-audit + bandit executed; `scripts/security_audit.py --severity medium` summarized findings.
+  - Report: `reports/DEV_SECURITY_AUDIT_20251229.md`
+
+## 11. Post-Release Verification (2025-12-30)
+- **Security Audit (Post-Hardening)**:
+  - bandit: 0 high (10 medium, 315 low); pip-audit: 1 vulnerability (ecdsa 0.19.1, CVE-2024-23342).
+  - Report: `reports/DEV_SECURITY_AUDIT_20251230.md`
+- **Integration Auth JWT Update**:
+  - Replaced python-jose with PyJWT; pip-audit clean (0 vulnerabilities).
+  - Report: `reports/DEV_ECDSA_REMOVAL_20251230.md`
+- **DeepSeek HF Revision Pinning**:
+  - Added model/revision env defaults and verified provider metrics tests.
+  - Report: `reports/DEV_DEEPSEEK_HF_REVISION_20251230.md`
+- **Full Test Run (Post-JWT)**:
+  - `make test` completed (full pytest suite).
+  - Report: `reports/DEV_MAKE_TEST_20251230_POST_JWT.md`
+- **Security Audit (Medium Cleared)**:
+  - pip-audit: 0 vulnerabilities; bandit: 0 medium/high (315 low).
+  - Report: `reports/DEV_SECURITY_AUDIT_20251230_POST_MEDIUM.md`
+- **Safe Eval Unit Tests**:
+  - Added/validated restricted expression evaluator.
+  - Report: `reports/DEV_SAFE_EVAL_TEST_20251230.md`
+- **Lint**:
+  - `make lint` completed.
+  - Report: `reports/DEV_LINT_20251230.md`
+- **Type Check**:
+  - `make type-check` completed.
+  - Report: `reports/DEV_TYPECHECK_20251230.md`
+- **Full Test Run (DedupCAD Vision Required)**:
+  - `make test-dedupcad-vision` completed.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251230.md`
+- **Hash Compatibility Assessment**:
+  - MD5/SHA1 → SHA256 impact analysis for caches and IDs.
+  - Report: `reports/DEV_HASH_COMPAT_20251230.md`
+- **Regression Validation**:
+  - Stateless execution regression suite ran 3x.
+  - Report: `reports/DEV_REGRESSION_VALIDATION_20251230.md`
+- **Metrics Consistency Check**:
+  - `scripts/check_metrics_consistency.py` validated all metric exports.
+  - Report: `reports/DEV_METRICS_CONSISTENCY_20251230.md`
+- **Performance Baseline Capture**:
+  - `scripts/performance_baseline.py` executed to refresh Day 0 baseline.
+  - Report: `reports/DEV_PERFORMANCE_BASELINE_20251230.md`
+  - Snapshot: `reports/performance_baseline_day0_20251230.json`
+- **Performance Baseline Comparison**:
+  - Compared Day 0 vs Day 6 p95 latencies (synthetic baseline).
+  - Report: `reports/DEV_PERFORMANCE_BASELINE_COMPARE_20251230.md`
+- **Prometheus Rules Validation**:
+  - promtool 2.49.1 executed via Docker; recording and alert rules validated.
+  - Report: `reports/DEV_PROMTOOL_RULES_VALIDATE_20251230.md`
+- **Full Test Run (Full Coverage)**:
+  - `make test` completed (full pytest suite with coverage).
+  - Report: `reports/DEV_MAKE_TEST_20251230_FULL.md`
+- **Full Test Run**:
+  - `make test` completed (full pytest suite).
+  - Report: `reports/DEV_MAKE_TEST_20251230.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

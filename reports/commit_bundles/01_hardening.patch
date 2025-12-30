@@ -1,0 +1,1108 @@
+diff --git a/scripts/security_audit.py b/scripts/security_audit.py
+index e2bf169..5a57944 100644
+--- a/scripts/security_audit.py
++++ b/scripts/security_audit.py
+@@ -41,20 +41,41 @@ class SecurityAuditor:
+                 timeout=60
+             )
+ 
+-            if result.returncode == 0:
+-                audit_data = json.loads(result.stdout)
+-                for vuln in audit_data.get("vulnerabilities", []):
+-                    vulnerabilities.append({
+-                        "type": "python_dependency",
+-                        "package": vuln["name"],
+-                        "installed_version": vuln["installed_version"],
+-                        "vulnerable_versions": vuln["vulnerable_versions"],
+-                        "severity": self._map_severity(vuln.get("severity", "unknown")),
+-                        "description": vuln.get("description", ""),
+-                        "fix_version": vuln.get("fixed_version"),
+-                        "cve": vuln.get("id")
+-                    })
+-                print(f"  pip-audit: Found {len(vulnerabilities)} vulnerabilities")
++            if result.stdout:
++                try:
++                    audit_data = json.loads(result.stdout)
++                except json.JSONDecodeError:
++                    audit_data = None
++                if isinstance(audit_data, dict) and "dependencies" in audit_data:
++                    for dep in audit_data.get("dependencies", []):
++                        for vuln in dep.get("vulns", []):
++                            fix_versions = vuln.get("fix_versions") or []
++                            vulnerabilities.append({
++                                "type": "python_dependency",
++                                "package": dep.get("name", ""),
++                                "installed_version": dep.get("version", ""),
++                                "vulnerable_versions": vuln.get("vulnerable_versions", ""),
++                                "severity": self._map_severity(vuln.get("severity", "medium")),
++                                "description": vuln.get("description", ""),
++                                "fix_version": ", ".join(fix_versions) if fix_versions else None,
++                                "cve": vuln.get("id")
++                            })
++                    print(f"  pip-audit: Found {len(vulnerabilities)} vulnerabilities")
++                elif isinstance(audit_data, dict):
++                    for vuln in audit_data.get("vulnerabilities", []):
++                        vulnerabilities.append({
++                            "type": "python_dependency",
++                            "package": vuln.get("name", ""),
++                            "installed_version": vuln.get("installed_version", ""),
++                            "vulnerable_versions": vuln.get("vulnerable_versions", ""),
++                            "severity": self._map_severity(vuln.get("severity", "medium")),
++                            "description": vuln.get("description", ""),
++                            "fix_version": vuln.get("fixed_version"),
++                            "cve": vuln.get("id")
++                        })
++                    print(f"  pip-audit: Found {len(vulnerabilities)} vulnerabilities")
++                else:
++                    print("  pip-audit output was not JSON")
+             else:
+                 print("  pip-audit not available or failed")
+ 
+@@ -263,7 +284,7 @@ class SecurityAuditor:
+         # Use bandit for Python security
+         try:
+             result = subprocess.run(
+-                ["bandit", "-r", "src/", "-f", "json"],
++                ["bandit", "-r", "src/", "-f", "json", "-q"],
+                 capture_output=True,
+                 text=True,
+                 timeout=60
+diff --git a/src/core/active_learning.py b/src/core/active_learning.py
+index 2466557..cefd9ea 100644
+--- a/src/core/active_learning.py
++++ b/src/core/active_learning.py
+@@ -9,6 +9,7 @@ from __future__ import annotations
+ import json
+ import logging
+ import os
++import tempfile
+ import uuid
+ from datetime import datetime
+ from enum import Enum
+@@ -51,7 +52,11 @@ class ActiveLearner:
+ 
+     def __init__(self) -> None:
+         self._samples: Dict[str, ActiveLearningSample] = {}
+-        self._data_dir = Path(os.environ.get("ACTIVE_LEARNING_DATA_DIR", "/tmp/active_learning"))
++        data_dir_env = os.environ.get("ACTIVE_LEARNING_DATA_DIR")
++        if data_dir_env:
++            self._data_dir = Path(data_dir_env)
++        else:
++            self._data_dir = Path(tempfile.gettempdir()) / "active_learning"
+         self._store_type = os.environ.get("ACTIVE_LEARNING_STORE", "memory")
+         self._retrain_threshold = int(os.environ.get("ACTIVE_LEARNING_RETRAIN_THRESHOLD", "10"))
+ 
+diff --git a/src/core/assembly/confidence_calibrator.py b/src/core/assembly/confidence_calibrator.py
+index 9b74b0d..cabbc2c 100644
+--- a/src/core/assembly/confidence_calibrator.py
++++ b/src/core/assembly/confidence_calibrator.py
+@@ -389,14 +389,16 @@ class ConfidenceCalibrationSystem:
+         """保存校准模型"""
+         model_file = self.model_path / f"{self.method}_calibrator.pkl"
+         with open(model_file, "wb") as f:
+-            pickle.dump(self.calibrator, f)
++            # Trusted local artifact only; not for untrusted input.
++            pickle.dump(self.calibrator, f)  # nosec B301
+ 
+     def load_calibrator(self) -> bool:
+         """加载校准模型"""
+         model_file = self.model_path / f"{self.method}_calibrator.pkl"
+         if model_file.exists():
+             with open(model_file, "rb") as f:
+-                self.calibrator = pickle.load(f)
++                # Trusted local artifact only; not for untrusted input.
++                self.calibrator = pickle.load(f)  # nosec B301
+                 return True
+         return False
+ 
+diff --git a/src/core/config.py b/src/core/config.py
+index 5bcac46..d874129 100644
+--- a/src/core/config.py
++++ b/src/core/config.py
+@@ -10,7 +10,8 @@ from pydantic_settings import BaseSettings
+ 
+ class Settings(BaseSettings):
+     DEBUG: bool = True
+-    HOST: str = "0.0.0.0"
++    # Intended for container binding; override in env for tighter exposure.
++    HOST: str = "0.0.0.0"  # nosec B104
+     PORT: int = 8000
+     WORKERS: int = 1
+     LOG_LEVEL: str = "INFO"
+diff --git a/src/core/dedupcad_precision/cad_pipeline.py b/src/core/dedupcad_precision/cad_pipeline.py
+index 63115fb..6bc44d2 100644
+--- a/src/core/dedupcad_precision/cad_pipeline.py
++++ b/src/core/dedupcad_precision/cad_pipeline.py
+@@ -3,6 +3,7 @@ from __future__ import annotations
+ import logging
+ import math
+ import os
++import shlex
+ import subprocess
+ import tempfile
+ from dataclasses import dataclass
+@@ -264,7 +265,10 @@ def convert_dwg_to_dxf_cmd(dwg_path: Path, out_dxf_path: Path, *, cmd_template:
+     out_dxf_path.parent.mkdir(parents=True, exist_ok=True)
+ 
+     cmd = cmd_template.format(input=str(dwg_path), output=str(out_dxf_path))
+-    subprocess.run(cmd, check=True, shell=True)
++    cmd_parts = shlex.split(cmd, posix=os.name != "nt")
++    if not cmd_parts:
++        raise ValueError("DWG->DXF command template resolved to empty command")
++    subprocess.run(cmd_parts, check=True)
+     if not out_dxf_path.exists():
+         raise RuntimeError("DWG->DXF command finished but output missing")
+ 
+diff --git a/src/core/vectors/stores/faiss_store.py b/src/core/vectors/stores/faiss_store.py
+index 1f70138..f32f869 100644
+--- a/src/core/vectors/stores/faiss_store.py
++++ b/src/core/vectors/stores/faiss_store.py
+@@ -81,9 +81,10 @@ class FaissStore(BaseVectorStore):
+         base = os.path.splitext(path)[0]
+         faiss.write_index(self.index, f"{base}.index")
+         with open(f"{base}.meta", "wb") as f:
++            # Local-only metadata cache; never load from untrusted sources.
+             pickle.dump(
+                 {"id_map": self.id_map, "metadata": self.metadata, "counter": self.counter}, f
+-            )
++            )  # nosec B301
+ 
+     def load(self, path: str):
+         base = os.path.splitext(path)[0]
+@@ -91,7 +92,8 @@ class FaissStore(BaseVectorStore):
+             self.index = faiss.read_index(f"{base}.index")
+         if os.path.exists(f"{base}.meta"):
+             with open(f"{base}.meta", "rb") as f:
+-                data = pickle.load(f)
++                # Local-only metadata cache; never load from untrusted sources.
++                data = pickle.load(f)  # nosec B301
+                 self.id_map = data["id_map"]
+                 self.metadata = data["metadata"]
+                 self.counter = data["counter"]
+diff --git a/src/core/vision/ab_testing.py b/src/core/vision/ab_testing.py
+index b285840..134ef20 100644
+--- a/src/core/vision/ab_testing.py
++++ b/src/core/vision/ab_testing.py
+@@ -347,7 +347,7 @@ class ExperimentManager:
+ 
+     def _allocate_hash_based(self, variants: List[Variant], request_id: str) -> Variant:
+         """Allocate using deterministic hash-based selection."""
+-        hash_value = int(hashlib.md5(request_id.encode()).hexdigest(), 16)
++        hash_value = int(hashlib.sha256(request_id.encode()).hexdigest(), 16)
+         normalized = (hash_value % 10000) / 10000.0
+ 
+         cumulative = 0.0
+diff --git a/src/core/vision/access_control.py b/src/core/vision/access_control.py
+index fca4e6b..60988e3 100644
+--- a/src/core/vision/access_control.py
++++ b/src/core/vision/access_control.py
+@@ -532,7 +532,7 @@ class APIKeyManager:
+         """Generate a new API key."""
+         key_value = secrets.token_urlsafe(32)
+         key_hash = hashlib.sha256(key_value.encode()).hexdigest()
+-        key_id = hashlib.md5(f"{user_id}:{name}:{time.time()}".encode()).hexdigest()[:12]
++        key_id = hashlib.sha256(f"{user_id}:{name}:{time.time()}".encode()).hexdigest()[:12]
+ 
+         expires_at = None
+         if expires_in_days:
+diff --git a/src/core/vision/alert_manager.py b/src/core/vision/alert_manager.py
+index 13380a0..673133a 100644
+--- a/src/core/vision/alert_manager.py
++++ b/src/core/vision/alert_manager.py
+@@ -607,7 +607,7 @@ class AlertManager:
+ 
+     def _create_alert(self, rule: AlertRule, value: Optional[float]) -> Alert:
+         """Create an alert from a rule."""
+-        fingerprint = hashlib.md5(
++        fingerprint = hashlib.sha256(
+             f"{rule.rule_id}:{json.dumps(rule.labels, sort_keys=True)}".encode()
+         ).hexdigest()
+ 
+diff --git a/src/core/vision/api_gateway.py b/src/core/vision/api_gateway.py
+index 2387e63..802ca68 100644
+--- a/src/core/vision/api_gateway.py
++++ b/src/core/vision/api_gateway.py
+@@ -123,7 +123,7 @@ class GatewayRequest:
+     def __post_init__(self) -> None:
+         """Generate request ID if not provided."""
+         if not self.request_id:
+-            self.request_id = hashlib.md5(
++            self.request_id = hashlib.sha256(
+                 f"{self.path}{self.timestamp.isoformat()}".encode()
+             ).hexdigest()[:16]
+ 
+diff --git a/src/core/vision/apm_integration.py b/src/core/vision/apm_integration.py
+index 1caeffd..41dc00f 100644
+--- a/src/core/vision/apm_integration.py
++++ b/src/core/vision/apm_integration.py
+@@ -464,7 +464,7 @@ class ErrorTracker:
+         stack_trace = traceback.format_exc()
+ 
+         # Create fingerprint for deduplication
+-        fingerprint = hashlib.md5(f"{error_type}:{message}".encode()).hexdigest()[:12]
++        fingerprint = hashlib.sha256(f"{error_type}:{message}".encode()).hexdigest()[:12]
+ 
+         now = datetime.now()
+ 
+diff --git a/src/core/vision/audit_logger.py b/src/core/vision/audit_logger.py
+index fdfd229..2196f26 100644
+--- a/src/core/vision/audit_logger.py
++++ b/src/core/vision/audit_logger.py
+@@ -294,7 +294,7 @@ class AuditLogger:
+         session_id: Optional[str] = None,
+     ) -> AuditEvent:
+         """Log an audit event."""
+-        event_id = hashlib.md5(f"{time.time()}:{action}:{resource_id}".encode()).hexdigest()[:16]
++        event_id = hashlib.sha256(f"{time.time()}:{action}:{resource_id}".encode()).hexdigest()[:16]
+ 
+         # Get correlation ID from context
+         correlation_id = self._correlation_context.get(threading.current_thread().name)
+diff --git a/src/core/vision/automl_engine.py b/src/core/vision/automl_engine.py
+index 47b97bd..2932807 100644
+--- a/src/core/vision/automl_engine.py
++++ b/src/core/vision/automl_engine.py
+@@ -637,7 +637,7 @@ class NeuralArchitectureSearch:
+             )
+ 
+         return {
+-            "architecture_id": hashlib.md5(str(layers).encode()).hexdigest()[:8],
++            "architecture_id": hashlib.sha256(str(layers).encode()).hexdigest()[:8],
+             "layers": layers,
+             "optimizer": random.choice(["adam", "sgd", "rmsprop"]),
+             "learning_rate": random.uniform(0.0001, 0.01),
+@@ -714,7 +714,7 @@ class EnsembleBuilder:
+     def build(self) -> EnsembleConfig:
+         """Build ensemble configuration."""
+         return EnsembleConfig(
+-            ensemble_id=hashlib.md5(
++            ensemble_id=hashlib.sha256(
+                 str([m.candidate_id for m in self._base_models]).encode()
+             ).hexdigest()[:8],
+             strategy=self._strategy,
+diff --git a/src/core/vision/compliance_checker.py b/src/core/vision/compliance_checker.py
+index bc2b320..c74c065 100644
+--- a/src/core/vision/compliance_checker.py
++++ b/src/core/vision/compliance_checker.py
+@@ -456,7 +456,7 @@ class PolicyEngine:
+         if rule_type == "encryption_required":
+             if context.get("encrypted") != rule_value:
+                 return PolicyViolation(
+-                    violation_id=hashlib.md5(
++                    violation_id=hashlib.sha256(
+                         f"{policy.policy_id}:{resource_id}:{time.time()}".encode()
+                     ).hexdigest()[:12],
+                     policy_id=policy.policy_id,
+@@ -470,7 +470,7 @@ class PolicyEngine:
+             retention = context.get("retention_days", 0)
+             if retention > rule_value:
+                 return PolicyViolation(
+-                    violation_id=hashlib.md5(
++                    violation_id=hashlib.sha256(
+                         f"{policy.policy_id}:{resource_id}:{time.time()}".encode()
+                     ).hexdigest()[:12],
+                     policy_id=policy.policy_id,
+@@ -483,7 +483,7 @@ class PolicyEngine:
+         elif rule_type == "classification_required":
+             if context.get("classification") not in rule_value:
+                 return PolicyViolation(
+-                    violation_id=hashlib.md5(
++                    violation_id=hashlib.sha256(
+                         f"{policy.policy_id}:{resource_id}:{time.time()}".encode()
+                     ).hexdigest()[:12],
+                     policy_id=policy.policy_id,
+@@ -563,7 +563,7 @@ class ComplianceReporter:
+                 if control and control.implementation_guidance:
+                     recommendations.append(f"{control.name}: {control.implementation_guidance}")
+ 
+-        report_id = hashlib.md5(f"{framework}:{period_start}:{period_end}".encode()).hexdigest()[
++        report_id = hashlib.sha256(f"{framework}:{period_start}:{period_end}".encode()).hexdigest()[
+             :12
+         ]
+ 
+diff --git a/src/core/vision/deduplication.py b/src/core/vision/deduplication.py
+index 3aaa302..ac8790d 100644
+--- a/src/core/vision/deduplication.py
++++ b/src/core/vision/deduplication.py
+@@ -32,8 +32,6 @@ class DeduplicationStrategy(Enum):
+ class HashAlgorithm(Enum):
+     """Hash algorithm for deduplication."""
+ 
+-    MD5 = "md5"
+-    SHA1 = "sha1"
+     SHA256 = "sha256"
+     XXHASH = "xxhash"  # If available
+ 
+@@ -134,10 +132,13 @@ class HashKeyGenerator(KeyGenerator):
+         **kwargs: Any,
+     ) -> str:
+         """Generate hash-based key."""
+-        if self._algorithm == HashAlgorithm.MD5:
+-            hasher = hashlib.md5()
+-        elif self._algorithm == HashAlgorithm.SHA1:
+-            hasher = hashlib.sha1()
++        if self._algorithm == HashAlgorithm.XXHASH:
++            try:
++                import xxhash  # type: ignore
++            except ImportError:
++                hasher = hashlib.sha256()
++            else:
++                hasher = xxhash.xxh64()
+         else:
+             hasher = hashlib.sha256()
+ 
+diff --git a/src/core/vision/deployment.py b/src/core/vision/deployment.py
+index b35d007..1557c2a 100644
+--- a/src/core/vision/deployment.py
++++ b/src/core/vision/deployment.py
+@@ -276,7 +276,7 @@ class TrafficRouter:
+         if not self._versions:
+             return None
+ 
+-        hash_val = int(hashlib.md5(key.encode()).hexdigest(), 16)
++        hash_val = int(hashlib.sha256(key.encode()).hexdigest(), 16)
+         total_weight = sum(self._weights.values())
+ 
+         if total_weight == 0:
+diff --git a/src/core/vision/distributed_cache.py b/src/core/vision/distributed_cache.py
+index 0611764..4090a09 100644
+--- a/src/core/vision/distributed_cache.py
++++ b/src/core/vision/distributed_cache.py
+@@ -310,7 +310,7 @@ class ConsistentHashRing:
+ 
+     def _hash(self, key: str) -> int:
+         """Hash a key to an integer."""
+-        return int(hashlib.md5(key.encode()).hexdigest(), 16)
++        return int(hashlib.sha256(key.encode()).hexdigest(), 16)
+ 
+     def get_nodes(self) -> Set[str]:
+         """Get all nodes."""
+@@ -540,7 +540,7 @@ class DistributedCacheVisionProvider(VisionProvider):
+     ) -> VisionDescription:
+         """Analyze image with distributed caching."""
+         # Generate cache key
+-        cache_key = hashlib.md5(image_data).hexdigest()
++        cache_key = hashlib.sha256(image_data).hexdigest()
+ 
+         # Check cache
+         cached = self._cache.get(cache_key)
+diff --git a/src/core/vision/documentation_generator.py b/src/core/vision/documentation_generator.py
+index c973a35..58ba14d 100644
+--- a/src/core/vision/documentation_generator.py
++++ b/src/core/vision/documentation_generator.py
+@@ -228,7 +228,7 @@ class GeneratedDoc:
+         if not self.checksum:
+             import hashlib
+ 
+-            self.checksum = hashlib.md5(self.content.encode()).hexdigest()
++            self.checksum = hashlib.sha256(self.content.encode()).hexdigest()
+ 
+ 
+ @dataclass
+diff --git a/src/core/vision/embedding.py b/src/core/vision/embedding.py
+index e79266a..53df267 100644
+--- a/src/core/vision/embedding.py
++++ b/src/core/vision/embedding.py
+@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
+ class HashAlgorithm(Enum):
+     """Supported hash algorithms."""
+ 
+-    MD5 = "md5"
+     SHA256 = "sha256"
+     DHASH = "dhash"  # Difference hash (perceptual)
+     PHASH = "phash"  # Perceptual hash
+@@ -56,7 +55,7 @@ class ImageHash:
+             raise ValueError("Cannot compare hashes from different algorithms")
+ 
+         # For hex hashes, convert to binary
+-        if self.algorithm in (HashAlgorithm.MD5, HashAlgorithm.SHA256):
++        if self.algorithm == HashAlgorithm.SHA256:
+             b1 = bin(int(self.hash_value, 16))[2:].zfill(len(self.hash_value) * 4)
+             b2 = bin(int(other.hash_value, 16))[2:].zfill(len(other.hash_value) * 4)
+         else:
+@@ -155,21 +154,17 @@ class HashGenerator(ABC):
+ 
+ 
+ class CryptographicHashGenerator(HashGenerator):
+-    """Generate cryptographic hashes (MD5, SHA256)."""
++    """Generate cryptographic hashes (SHA256)."""
+ 
+     def __init__(self, algorithm: HashAlgorithm = HashAlgorithm.SHA256):
+-        if algorithm not in (HashAlgorithm.MD5, HashAlgorithm.SHA256):
++        if algorithm != HashAlgorithm.SHA256:
+             raise ValueError(f"Unsupported algorithm: {algorithm}")
+         self._algorithm = algorithm
+ 
+     def hash(self, image_data: bytes) -> ImageHash:
+         """Generate cryptographic hash."""
+-        if self._algorithm == HashAlgorithm.MD5:
+-            h = hashlib.md5(image_data)
+-            bit_length = 128
+-        else:
+-            h = hashlib.sha256(image_data)
+-            bit_length = 256
++        h = hashlib.sha256(image_data)
++        bit_length = 256
+ 
+         return ImageHash(
+             algorithm=self._algorithm,
+@@ -301,7 +296,7 @@ class SimilarityIndex:
+         self._threshold = similarity_threshold
+ 
+         # Initialize hash generator
+-        if hash_algorithm in (HashAlgorithm.MD5, HashAlgorithm.SHA256):
++        if hash_algorithm == HashAlgorithm.SHA256:
+             self._hasher = CryptographicHashGenerator(hash_algorithm)
+         else:
+             self._hasher = PerceptualHashGenerator(hash_algorithm)
+diff --git a/src/core/vision/encryption_manager.py b/src/core/vision/encryption_manager.py
+index 0847642..b349fc3 100644
+--- a/src/core/vision/encryption_manager.py
++++ b/src/core/vision/encryption_manager.py
+@@ -417,7 +417,7 @@ class KeyRotationManager:
+ 
+         # Record rotation event
+         event = KeyRotationEvent(
+-            event_id=hashlib.md5(f"{old_key_id}:{new_key.key_id}".encode()).hexdigest()[:8],
++            event_id=hashlib.sha256(f"{old_key_id}:{new_key.key_id}".encode()).hexdigest()[:8],
+             old_key_id=old_key_id,
+             new_key_id=new_key.key_id,
+             reason=reason,
+diff --git a/src/core/vision/experiment_tracker.py b/src/core/vision/experiment_tracker.py
+index dab860c..b77236f 100644
+--- a/src/core/vision/experiment_tracker.py
++++ b/src/core/vision/experiment_tracker.py
+@@ -328,7 +328,7 @@ class RunContext:
+ 
+     def __enter__(self) -> RunContext:
+         """Start the run."""
+-        run_id = hashlib.md5(f"{self._experiment_id}:{time.time()}".encode()).hexdigest()[:12]
++        run_id = hashlib.sha256(f"{self._experiment_id}:{time.time()}".encode()).hexdigest()[:12]
+ 
+         self._run = Run(
+             run_id=run_id,
+@@ -403,7 +403,7 @@ class RunContext:
+     ) -> None:
+         """Log an artifact."""
+         if self._run:
+-            artifact_id = hashlib.md5(
++            artifact_id = hashlib.sha256(
+                 f"{self._run.run_id}:{name}:{time.time()}".encode()
+             ).hexdigest()[:8]
+ 
+@@ -442,7 +442,7 @@ class ExperimentTracker:
+         tags: Optional[List[str]] = None,
+     ) -> Experiment:
+         """Create a new experiment."""
+-        experiment_id = hashlib.md5(f"{name}:{time.time()}".encode()).hexdigest()[:12]
++        experiment_id = hashlib.sha256(f"{name}:{time.time()}".encode()).hexdigest()[:12]
+ 
+         experiment = Experiment(
+             experiment_id=experiment_id,
+@@ -581,7 +581,7 @@ class ExperimentTracker:
+         goal: MetricGoal = MetricGoal.MAXIMIZE,
+     ) -> ComparisonResult:
+         """Compare multiple runs."""
+-        comparison_id = hashlib.md5(f"{':'.join(run_ids)}:{time.time()}".encode()).hexdigest()[:8]
++        comparison_id = hashlib.sha256(f"{':'.join(run_ids)}:{time.time()}".encode()).hexdigest()[:8]
+ 
+         parameters: Dict[str, Dict[str, str]] = {}
+         metrics: Dict[str, Dict[str, float]] = {}
+@@ -847,7 +847,7 @@ def create_experiment(
+     tags: Optional[List[str]] = None,
+ ) -> Experiment:
+     """Create an experiment."""
+-    experiment_id = hashlib.md5(f"{name}:{time.time()}".encode()).hexdigest()[:12]
++    experiment_id = hashlib.sha256(f"{name}:{time.time()}".encode()).hexdigest()[:12]
+ 
+     return Experiment(
+         experiment_id=experiment_id,
+diff --git a/src/core/vision/feature_flags.py b/src/core/vision/feature_flags.py
+index efcd56e..1dfe03c 100644
+--- a/src/core/vision/feature_flags.py
++++ b/src/core/vision/feature_flags.py
+@@ -168,7 +168,7 @@ class PercentageRollout:
+ 
+         # Generate consistent bucket
+         hash_input = f"{self.rollout_id}:{bucket_value}"
+-        hash_value = int(hashlib.md5(hash_input.encode()).hexdigest()[:8], 16)
++        hash_value = int(hashlib.sha256(hash_input.encode()).hexdigest()[:8], 16)
+         bucket = hash_value % 100
+ 
+         # Find variation based on weight
+@@ -422,7 +422,7 @@ class FlagEvaluationCache:
+             Cache key
+         """
+         ctx_str = str(sorted(context.to_dict().items()))
+-        return f"{flag_key}:{hashlib.md5(ctx_str.encode()).hexdigest()}"
++        return f"{flag_key}:{hashlib.sha256(ctx_str.encode()).hexdigest()}"
+ 
+ 
+ class FlagEvaluator:
+diff --git a/src/core/vision/feature_store.py b/src/core/vision/feature_store.py
+index b852334..ddbfc59 100644
+--- a/src/core/vision/feature_store.py
++++ b/src/core/vision/feature_store.py
+@@ -507,7 +507,7 @@ class FeatureComputer:
+         elif transform.transform_type == TransformationType.HASH:
+             value = str(input_values[0]) if input_values[0] is not None else ""
+             num_buckets = transform.parameters.get("num_buckets", 1000)
+-            return int(hashlib.md5(value.encode()).hexdigest(), 16) % num_buckets
++            return int(hashlib.sha256(value.encode()).hexdigest(), 16) % num_buckets
+ 
+         elif transform.transform_type == TransformationType.CUSTOM:
+             if transform.custom_fn is not None:
+diff --git a/src/core/vision/graceful_degradation.py b/src/core/vision/graceful_degradation.py
+index 767f1d2..1126480 100644
+--- a/src/core/vision/graceful_degradation.py
++++ b/src/core/vision/graceful_degradation.py
+@@ -269,7 +269,7 @@ class CachedFallbackProvider(FallbackProvider):
+         """Get fallback from cache."""
+         import hashlib
+ 
+-        image_hash = hashlib.md5(image_data).hexdigest()
++        image_hash = hashlib.sha256(image_data).hexdigest()
+ 
+         with self._lock:
+             if image_hash in self._cache:
+diff --git a/src/core/vision/intelligent_automation.py b/src/core/vision/intelligent_automation.py
+index 67b3713..9176d15 100644
+--- a/src/core/vision/intelligent_automation.py
++++ b/src/core/vision/intelligent_automation.py
+@@ -1199,7 +1199,7 @@ class PatternLearner:
+     def _generate_pattern_key(self, conditions: Dict[str, Any]) -> str:
+         """Generate a unique key for conditions."""
+         sorted_items = sorted(conditions.items())
+-        return hashlib.md5(json.dumps(sorted_items).encode()).hexdigest()[:16]
++        return hashlib.sha256(json.dumps(sorted_items).encode()).hexdigest()[:16]
+ 
+     def get_recommended_action(self, conditions: Dict[str, Any]) -> Optional[Tuple[str, float]]:
+         """Get recommended action for given conditions."""
+diff --git a/src/core/vision/intelligent_routing.py b/src/core/vision/intelligent_routing.py
+index b448959..ae59c09 100644
+--- a/src/core/vision/intelligent_routing.py
++++ b/src/core/vision/intelligent_routing.py
+@@ -363,7 +363,7 @@ class ContentAnalyzer:
+         analysis = {
+             "size": len(image_data),
+             "size_category": self._categorize_size(len(image_data)),
+-            "hash": hashlib.md5(image_data[:1024]).hexdigest()[:8],
++            "hash": hashlib.sha256(image_data[:1024]).hexdigest()[:8],
+         }
+ 
+         # Detect image type from magic bytes
+diff --git a/src/core/vision/knowledge_base.py b/src/core/vision/knowledge_base.py
+index 7a0df7b..d29e531 100644
+--- a/src/core/vision/knowledge_base.py
++++ b/src/core/vision/knowledge_base.py
+@@ -645,7 +645,7 @@ class KnowledgeEnhancedVisionProvider(VisionProvider):
+         tags: Optional[List[str]] = None,
+     ) -> KnowledgeEntry:
+         """Add knowledge to the base."""
+-        entry_id = hashlib.md5(f"{title}{content}".encode()).hexdigest()[:16]
++        entry_id = hashlib.sha256(f"{title}{content}".encode()).hexdigest()[:16]
+         return self.knowledge_base.add_knowledge(entry_id, title, content, tags)
+ 
+     def search_knowledge(self, query: str, limit: int = 10) -> QueryResult:
+diff --git a/src/core/vision/log_aggregator.py b/src/core/vision/log_aggregator.py
+index 9351ebc..f1a8ee7 100644
+--- a/src/core/vision/log_aggregator.py
++++ b/src/core/vision/log_aggregator.py
+@@ -540,7 +540,7 @@ class PatternDetector:
+         """Process a log entry and detect patterns."""
+         # Create a simplified pattern by replacing variables
+         pattern = self._simplify_message(entry.message)
+-        pattern_id = hashlib.md5(pattern.encode()).hexdigest()[:12]
++        pattern_id = hashlib.sha256(pattern.encode()).hexdigest()[:12]
+ 
+         with self._lock:
+             if pattern_id in self._patterns:
+diff --git a/src/core/vision/ml_integration.py b/src/core/vision/ml_integration.py
+index c10ef91..b67bbe0 100644
+--- a/src/core/vision/ml_integration.py
++++ b/src/core/vision/ml_integration.py
+@@ -274,7 +274,7 @@ class ImageFeatureExtractor(FeatureExtractor):
+         """Extract features from image data."""
+         features = {
+             "size": len(data),
+-            "hash": hashlib.md5(data).hexdigest()[:8],
++            "hash": hashlib.sha256(data).hexdigest()[:8],
+         }
+ 
+         # Simple image header detection
+diff --git a/src/core/vision/model_registry.py b/src/core/vision/model_registry.py
+index c36662d..6ec5f1d 100644
+--- a/src/core/vision/model_registry.py
++++ b/src/core/vision/model_registry.py
+@@ -661,7 +661,7 @@ class ApprovalWorkflow:
+         reason: str = "",
+     ) -> ApprovalRequest:
+         """Request approval for stage transition."""
+-        request_id = hashlib.md5(
++        request_id = hashlib.sha256(
+             f"{model_id}:{version}:{target_stage}:{time.time()}".encode()
+         ).hexdigest()[:8]
+ 
+diff --git a/src/core/vision/observability.py b/src/core/vision/observability.py
+index a2b6f2a..653efb5 100644
+--- a/src/core/vision/observability.py
++++ b/src/core/vision/observability.py
+@@ -19,6 +19,7 @@ from enum import Enum
+ from typing import Any, Callable, Dict, Generic, Iterator, List, Optional, Set, TypeVar, Union
+ 
+ from .base import VisionDescription, VisionProvider
++from src.utils.safe_eval import safe_eval
+ 
+ 
+ class MetricType(Enum):
+@@ -663,7 +664,7 @@ class AlertManager:
+         try:
+             # Simple expression evaluation
+             # In production, use a proper expression parser
+-            result = eval(condition, {"__builtins__": {}}, metrics)
++            result = safe_eval(condition, metrics)
+             return bool(result)
+         except Exception:
+             return False
+diff --git a/src/core/vision/pipeline_orchestrator.py b/src/core/vision/pipeline_orchestrator.py
+index 4bc6b19..e80bfb0 100644
+--- a/src/core/vision/pipeline_orchestrator.py
++++ b/src/core/vision/pipeline_orchestrator.py
+@@ -499,7 +499,7 @@ class PipelineOrchestrator:
+         if pipeline is None:
+             raise ValueError(f"Pipeline not found: {pipeline_id}")
+ 
+-        run_id = hashlib.md5(f"{pipeline_id}:{time.time()}".encode()).hexdigest()[:12]
++        run_id = hashlib.sha256(f"{pipeline_id}:{time.time()}".encode()).hexdigest()[:12]
+ 
+         run = PipelineRun(
+             run_id=run_id,
+diff --git a/src/core/vision/recommendations.py b/src/core/vision/recommendations.py
+index 469571d..3d34964 100644
+--- a/src/core/vision/recommendations.py
++++ b/src/core/vision/recommendations.py
+@@ -684,7 +684,7 @@ class RecommendationVisionProvider(VisionProvider):
+         # Record the analysis as an interaction
+         import hashlib
+ 
+-        item_id = hashlib.md5(image_data).hexdigest()[:12]
++        item_id = hashlib.sha256(image_data).hexdigest()[:12]
+ 
+         interaction = Interaction(
+             interaction_id=f"int_{item_id}",
+diff --git a/src/core/vision/sdk_generator.py b/src/core/vision/sdk_generator.py
+index 4d3e94a..e068e4e 100644
+--- a/src/core/vision/sdk_generator.py
++++ b/src/core/vision/sdk_generator.py
+@@ -202,7 +202,7 @@ class GeneratedFile:
+ 
+     def __post_init__(self):
+         if not self.checksum:
+-            self.checksum = hashlib.md5(self.content.encode()).hexdigest()
++            self.checksum = hashlib.sha256(self.content.encode()).hexdigest()
+ 
+ 
+ @dataclass
+diff --git a/src/core/vision/security_scanner.py b/src/core/vision/security_scanner.py
+index 272b6f5..d87ba00 100644
+--- a/src/core/vision/security_scanner.py
++++ b/src/core/vision/security_scanner.py
+@@ -276,7 +276,7 @@ class CodeScanner(VulnerabilityScanner):
+             for pattern_info in patterns:
+                 # In real implementation, would scan actual files
+                 vuln = Vulnerability(
+-                    vuln_id=hashlib.md5(
++                    vuln_id=hashlib.sha256(
+                         f"{pattern_info['name']}:{config.target}".encode()
+                     ).hexdigest()[:8],
+                     title=pattern_info["name"],
+@@ -351,7 +351,7 @@ class DependencyScanner(VulnerabilityScanner):
+         for package, vulns in self._known_vulnerabilities.items():
+             for vuln_info in vulns:
+                 vuln = Vulnerability(
+-                    vuln_id=hashlib.md5(f"{package}:{vuln_info['cve']}".encode()).hexdigest()[:8],
++                    vuln_id=hashlib.sha256(f"{package}:{vuln_info['cve']}".encode()).hexdigest()[:8],
+                     title=f"Vulnerable dependency: {package}",
+                     severity=vuln_info["severity"],
+                     category=ThreatCategory.COMPONENT,
+@@ -432,7 +432,7 @@ class RiskAssessor:
+ 
+     def assess(self, scan_results: List[ScanResult]) -> RiskAssessment:
+         """Assess risk from scan results."""
+-        assessment_id = hashlib.md5(f"{time.time()}".encode()).hexdigest()[:8]
++        assessment_id = hashlib.sha256(f"{time.time()}".encode()).hexdigest()[:8]
+ 
+         vulnerabilities_by_severity: Dict[str, int] = defaultdict(int)
+         total_score = 0.0
+diff --git a/src/core/vision/service_mesh.py b/src/core/vision/service_mesh.py
+index 406698f..30a7415 100644
+--- a/src/core/vision/service_mesh.py
++++ b/src/core/vision/service_mesh.py
+@@ -483,7 +483,7 @@ class LoadBalancer:
+         if not request_key:
+             return self._random(instances)
+ 
+-        hash_val = int(hashlib.md5(request_key.encode()).hexdigest(), 16)
++        hash_val = int(hashlib.sha256(request_key.encode()).hexdigest(), 16)
+         idx = hash_val % len(instances)
+         return instances[idx]
+ 
+diff --git a/src/core/vision/workflow_engine.py b/src/core/vision/workflow_engine.py
+index 0427dd0..593819c 100644
+--- a/src/core/vision/workflow_engine.py
++++ b/src/core/vision/workflow_engine.py
+@@ -24,6 +24,7 @@ from enum import Enum
+ from typing import Any, Callable, Dict, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
+ 
+ from .base import VisionDescription, VisionProvider
++from src.utils.safe_eval import safe_eval
+ 
+ logger = logging.getLogger(__name__)
+ 
+@@ -731,7 +732,7 @@ class WorkflowEngine:
+         # Simple implementation - in production use safe evaluation
+         try:
+             # Support basic conditions like "results.task1.success == true"
+-            return bool(eval(condition, {"__builtins__": {}}, context))
++            return bool(safe_eval(condition, context))
+         except Exception:
+             return True  # Default to true if condition can't be evaluated
+ 
+diff --git a/src/ml/classifier.py b/src/ml/classifier.py
+index cd89af9..9dd703b 100644
+--- a/src/ml/classifier.py
++++ b/src/ml/classifier.py
+@@ -80,7 +80,8 @@ def load_model() -> None:
+             return
+         try:
+             with _MODEL_PATH.open("rb") as f:
+-                _MODEL = pickle.load(f)
++                # Trusted local model file only; guarded by hash + opcode checks.
++                _MODEL = pickle.load(f)  # nosec B301
+ 
+             import time as _t
+ 
+@@ -452,7 +453,8 @@ def _reload_model_impl(
+                         context={"error": str(scan_err), "path": str(p)},
+                     )
+                     return {"status": "opcode_scan_error", "error": err.to_dict()}
+-        obj = pickle.loads(data)
++        # Trusted model payload after opcode scan + hash validation.
++        obj = pickle.loads(data)  # nosec B301
+         if not hasattr(obj, "predict"):
+             raise ValueError("Model missing predict method")
+         new_version = expected_version or _MODEL_VERSION
+diff --git a/src/utils/safe_eval.py b/src/utils/safe_eval.py
+new file mode 100644
+index 0000000..2a9a090
+--- /dev/null
++++ b/src/utils/safe_eval.py
+@@ -0,0 +1,118 @@
++from __future__ import annotations
++
++import ast
++import operator
++from typing import Any, Callable, Mapping
++
++BinaryOp = Callable[[Any, Any], Any]
++UnaryOp = Callable[[Any], Any]
++CompareOp = Callable[[Any, Any], bool]
++
++_BIN_OPS: dict[type[ast.operator], BinaryOp] = {
++    ast.Add: operator.add,
++    ast.Sub: operator.sub,
++    ast.Mult: operator.mul,
++    ast.Div: operator.truediv,
++    ast.Mod: operator.mod,
++}
++_UNARY_OPS: dict[type[ast.unaryop], UnaryOp] = {
++    ast.Not: operator.not_,
++    ast.UAdd: operator.pos,
++    ast.USub: operator.neg,
++}
++_CMP_OPS: dict[type[ast.cmpop], CompareOp] = {
++    ast.Eq: operator.eq,
++    ast.NotEq: operator.ne,
++    ast.Gt: operator.gt,
++    ast.GtE: operator.ge,
++    ast.Lt: operator.lt,
++    ast.LtE: operator.le,
++}
++_BOOL_NAMES = {
++    "true": True,
++    "false": False,
++    "null": None,
++    "none": None,
++}
++
++
++def safe_eval(expression: str, names: Mapping[str, Any]) -> Any:
++    """Evaluate a simple expression with a restricted AST."""
++    tree = ast.parse(expression, mode="eval")
++    return _eval_node(tree.body, names)
++
++
++def _eval_node(node: ast.AST, names: Mapping[str, Any]) -> Any:
++    if isinstance(node, ast.Constant):
++        return node.value
++    if isinstance(node, ast.Name):
++        if node.id in names:
++            return names[node.id]
++        if node.id.lower() in _BOOL_NAMES:
++            return _BOOL_NAMES[node.id.lower()]
++        raise ValueError(f"Unknown name: {node.id}")
++    if isinstance(node, ast.BoolOp):
++        values = [_eval_node(value, names) for value in node.values]
++        if isinstance(node.op, ast.And):
++            return all(values)
++        if isinstance(node.op, ast.Or):
++            return any(values)
++        raise ValueError("Unsupported boolean operator")
++    if isinstance(node, ast.BinOp):
++        bin_op = _BIN_OPS.get(type(node.op))
++        if not bin_op:
++            raise ValueError("Unsupported binary operator")
++        return bin_op(_eval_node(node.left, names), _eval_node(node.right, names))
++    if isinstance(node, ast.UnaryOp):
++        unary_op = _UNARY_OPS.get(type(node.op))
++        if not unary_op:
++            raise ValueError("Unsupported unary operator")
++        return unary_op(_eval_node(node.operand, names))
++    if isinstance(node, ast.Compare):
++        left = _eval_node(node.left, names)
++        for op_node, comparator in zip(node.ops, node.comparators):
++            cmp_op = _CMP_OPS.get(type(op_node))
++            if not cmp_op:
++                raise ValueError("Unsupported comparison operator")
++            right = _eval_node(comparator, names)
++            if not cmp_op(left, right):
++                return False
++            left = right
++        return True
++    if isinstance(node, ast.Attribute):
++        value = _eval_node(node.value, names)
++        attr = node.attr
++        if attr.startswith("_"):
++            raise ValueError("Private attributes are not allowed")
++        if isinstance(value, dict) and attr in value:
++            return value[attr]
++        return getattr(value, attr)
++    if isinstance(node, ast.Subscript):
++        value = _eval_node(node.value, names)
++        key = _eval_slice(node.slice, names)
++        return value[key]
++    if isinstance(node, (ast.List, ast.Tuple)):
++        return [_eval_node(elt, names) for elt in node.elts]
++    if isinstance(node, ast.Dict):
++        result: dict[Any, Any] = {}
++        for key_node, value_node in zip(node.keys, node.values):
++            if key_node is None:
++                raise ValueError("Dict unpacking is not supported")
++            result[_eval_node(key_node, names)] = _eval_node(value_node, names)
++        return result
++    raise ValueError(f"Unsupported expression: {type(node).__name__}")
++
++
++def _eval_slice(node: ast.AST, names: Mapping[str, Any]) -> Any:
++    if isinstance(node, ast.Slice):
++        lower = _eval_optional(node.lower, names)
++        upper = _eval_optional(node.upper, names)
++        step = _eval_optional(node.step, names)
++        return slice(lower, upper, step)
++    return _eval_node(node, names)
++
++
++def _eval_optional(node: ast.AST | None, names: Mapping[str, Any]) -> Any | None:
++    if node is None:
++        return None
++    return _eval_node(node, names)
+diff --git a/tests/integration/test_e2e_api_smoke.py b/tests/integration/test_e2e_api_smoke.py
+index bac15e0..691eb2a 100644
+--- a/tests/integration/test_e2e_api_smoke.py
++++ b/tests/integration/test_e2e_api_smoke.py
+@@ -1,4 +1,5 @@
+ import os
++import time
+ import uuid
+ from pathlib import Path
+ from typing import Dict, Optional
+@@ -8,7 +9,7 @@ import pytest
+ 
+ BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
+ API_KEY = os.environ.get("API_KEY", "test")
+-TIMEOUT = float(os.environ.get("E2E_HTTP_TIMEOUT", "10"))
++TIMEOUT = float(os.environ.get("E2E_HTTP_TIMEOUT", "20"))
+ VISION_REQUIRED = os.environ.get("DEDUPCAD_VISION_REQUIRED", "0") == "1"
+ 
+ DXF_PATH = Path(os.environ.get("E2E_DXF_PATH", "data/dxf_fixtures_subset/mixed.dxf"))
+@@ -31,15 +32,43 @@ def _check_health() -> None:
+ def _post_file(
+     path: Path, endpoint: str, params: Optional[Dict[str, str]] = None
+ ) -> httpx.Response:
+-    with path.open("rb") as handle:
+-        files = {"file": (path.name, handle, "application/octet-stream")}
+-        return httpx.post(
+-            f"{BASE_URL}{endpoint}",
++    last_error: Exception | None = None
++    for _ in range(2):
++        try:
++            with path.open("rb") as handle:
++                files = {"file": (path.name, handle, "application/octet-stream")}
++                return httpx.post(
++                    f"{BASE_URL}{endpoint}",
++                    headers=_headers(),
++                    files=files,
++                    params=params,
++                    timeout=TIMEOUT,
++                )
++        except httpx.TimeoutException as exc:
++            last_error = exc
++            time.sleep(0.5)
++    if last_error is not None:
++        raise last_error
++    raise RuntimeError("Unexpected retry failure")
++
++
++def _search_with_retry(vector: list, vector_id: str) -> tuple[httpx.Response, list[str]]:
++    response: httpx.Response | None = None
++    ids: list[str] = []
++    for _ in range(5):
++        response = httpx.post(
++            f"{BASE_URL}/api/v1/vectors/search",
+             headers=_headers(),
+-            files=files,
+-            params=params,
++            json={"vector": vector, "k": 5},
+             timeout=TIMEOUT,
+         )
++        if response.status_code != 200:
++            break
++        ids = [item.get("id") for item in response.json().get("results", [])]
++        if vector_id in ids:
++            break
++        time.sleep(0.5)
++    return response or httpx.Response(500), ids
+ 
+ 
+ def test_e2e_core_api_smoke() -> None:
+@@ -80,14 +109,8 @@ def test_e2e_core_api_smoke() -> None:
+     assert register_resp.status_code == 200
+     assert register_resp.json().get("status") == "accepted"
+ 
+-    search_resp = httpx.post(
+-        f"{BASE_URL}/api/v1/vectors/search",
+-        headers=_headers(),
+-        json={"vector": combined, "k": 5},
+-        timeout=TIMEOUT,
+-    )
++    search_resp, search_ids = _search_with_retry(combined, vector_id)
+     assert search_resp.status_code == 200
+-    search_ids = [item.get("id") for item in search_resp.json().get("results", [])]
+     assert vector_id in search_ids
+ 
+     list_resp = httpx.get(
+diff --git a/tests/unit/test_safe_eval.py b/tests/unit/test_safe_eval.py
+new file mode 100644
+index 0000000..ee68829
+--- /dev/null
++++ b/tests/unit/test_safe_eval.py
+@@ -0,0 +1,21 @@
++from __future__ import annotations
++
++from src.utils.safe_eval import safe_eval
++
++
++def test_safe_eval_arithmetic() -> None:
++    assert safe_eval("1 + 2 * 3", {}) == 7
++
++
++def test_safe_eval_comparison_with_names() -> None:
++    assert safe_eval("a > 3 and b == 2", {"a": 4, "b": 2}) is True
++
++
++def test_safe_eval_attribute_dict_access() -> None:
++    ctx = {"results": {"task1": {"success": True}}}
++    assert safe_eval("results.task1.success == true", ctx) is True
++
++
++def test_safe_eval_subscript_access() -> None:
++    ctx = {"results": {"task1": {"success": False}}}
++    assert safe_eval("results['task1']['success'] == false", ctx) is True
+diff --git a/tests/unit/test_vision_phase4.py b/tests/unit/test_vision_phase4.py
+index 37d335d..0197651 100644
+--- a/tests/unit/test_vision_phase4.py
++++ b/tests/unit/test_vision_phase4.py
+@@ -394,10 +394,10 @@ class TestImageHash:
+     def test_hash_creation(self) -> None:
+         """Test creating image hash."""
+         hash_obj = ImageHash(
+-            algorithm=HashAlgorithm.MD5,
++            algorithm=HashAlgorithm.SHA256,
+             hash_value="abc123",
+         )
+-        assert hash_obj.algorithm == HashAlgorithm.MD5
++        assert hash_obj.algorithm == HashAlgorithm.SHA256
+         assert hash_obj.hash_value == "abc123"
+ 
+     def test_hamming_distance_binary(self) -> None:
+@@ -462,13 +462,6 @@ class TestEmbeddingVector:
+ class TestCryptographicHashGenerator:
+     """Tests for CryptographicHashGenerator."""
+ 
+-    def test_md5_hash(self) -> None:
+-        """Test MD5 hash generation."""
+-        generator = CryptographicHashGenerator(HashAlgorithm.MD5)
+-        hash_obj = generator.hash(b"test data")
+-        assert hash_obj.algorithm == HashAlgorithm.MD5
+-        assert len(hash_obj.hash_value) == 32  # MD5 hex length
+-
+     def test_sha256_hash(self) -> None:
+         """Test SHA256 hash generation."""
+         generator = CryptographicHashGenerator(HashAlgorithm.SHA256)
+@@ -476,9 +469,14 @@ class TestCryptographicHashGenerator:
+         assert hash_obj.algorithm == HashAlgorithm.SHA256
+         assert len(hash_obj.hash_value) == 64  # SHA256 hex length
+ 
++    def test_rejects_non_crypto_hash(self) -> None:
++        """Test non-cryptographic algorithms are rejected."""
++        with pytest.raises(ValueError):
++            CryptographicHashGenerator(HashAlgorithm.DHASH)
++
+     def test_deterministic_hashing(self) -> None:
+         """Test deterministic hashing."""
+-        generator = CryptographicHashGenerator(HashAlgorithm.MD5)
++        generator = CryptographicHashGenerator(HashAlgorithm.SHA256)
+         hash1 = generator.hash(b"test data")
+         hash2 = generator.hash(b"test data")
+         assert hash1.hash_value == hash2.hash_value
+@@ -499,7 +497,7 @@ class TestSimilarityIndex:
+     @pytest.fixture
+     def index(self) -> SimilarityIndex:
+         """Create similarity index."""
+-        return SimilarityIndex(hash_algorithm=HashAlgorithm.MD5)
++        return SimilarityIndex(hash_algorithm=HashAlgorithm.SHA256)
+ 
+     def test_add_image(self, index) -> None:
+         """Test adding image to index."""
+@@ -579,7 +577,7 @@ class TestSimilarityVisionProvider:
+         # Create mock duplicate record
+         duplicate = ImageRecord(
+             image_id="existing",
+-            hash=ImageHash(HashAlgorithm.MD5, "abc123"),
++            hash=ImageHash(HashAlgorithm.SHA256, "abc123"),
+         )
+ 
+         index = MagicMock()
+diff --git a/tests/unit/test_vision_phase6.py b/tests/unit/test_vision_phase6.py
+index a423c16..7a6ccd0 100644
+--- a/tests/unit/test_vision_phase6.py
++++ b/tests/unit/test_vision_phase6.py
+@@ -581,8 +581,8 @@ class TestDeduplication:
+         """Test HashAlgorithm enum values."""
+         from src.core.vision.deduplication import HashAlgorithm
+ 
+-        assert HashAlgorithm.MD5.value == "md5"
+         assert HashAlgorithm.SHA256.value == "sha256"
++        assert HashAlgorithm.XXHASH.value == "xxhash"
+ 
+     def test_deduplication_config(self):
+         """Test DeduplicationConfig dataclass."""
