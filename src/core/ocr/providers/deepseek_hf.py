@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 
 """DeepSeek HF OCR provider stub."""
@@ -44,6 +45,10 @@ except Exception:
 logger = logging.getLogger(__name__)
 
 
+def _is_commit_hash(value: str) -> bool:
+    return len(value) >= 7 and all(c in "0123456789abcdefABCDEF" for c in value)
+
+
 class DeepSeekHfProvider(OcrClient):
     name = "deepseek_hf"
 
@@ -57,7 +62,9 @@ class DeepSeekHfProvider(OcrClient):
         self._tokenizer = None
         self._lock = asyncio.Lock()
         self.timeout_ms = timeout_ms
-        self.model_name = model_name
+        self.model_name = os.getenv("DEEPSEEK_HF_MODEL", model_name)
+        self._revision = os.getenv("DEEPSEEK_HF_REVISION", "").strip()
+        self._allow_unpinned = os.getenv("DEEPSEEK_HF_ALLOW_UNPINNED", "0") == "1"
         self._parser = FallbackParser()
         self._align_with_paddle = align_with_paddle
         self._paddle = None
@@ -85,8 +92,38 @@ class DeepSeekHfProvider(OcrClient):
 
                 try:
                     start = time.time()
-                    self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-                    self._model = AutoModelForCausalLM.from_pretrained(self.model_name)
+                    if not self._revision:
+                        if not self._allow_unpinned:
+                            ocr_errors_total.labels(
+                                provider=self.name,
+                                code=ErrorCode.MODEL_LOAD_ERROR.value,
+                                stage="load",
+                            ).inc()
+                            logger.error("DEEPSEEK_HF_REVISION not set; refusing unpinned load")
+                            self._model = "stub"
+                            return
+                        self._revision = "main"
+                    if not _is_commit_hash(self._revision) and not self._allow_unpinned:
+                        ocr_errors_total.labels(
+                            provider=self.name,
+                            code=ErrorCode.MODEL_LOAD_ERROR.value,
+                            stage="load",
+                        ).inc()
+                        logger.error("DEEPSEEK_HF_REVISION is not a commit hash; refusing load")
+                        self._model = "stub"
+                        return
+                    if not _is_commit_hash(self._revision):
+                        logger.warning(
+                            "DEEPSEEK_HF_REVISION is not a commit hash; using unpinned revision"
+                        )
+                    self._tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
+                        self.model_name,
+                        revision=self._revision,
+                    )
+                    self._model = AutoModelForCausalLM.from_pretrained(  # nosec B615
+                        self.model_name,
+                        revision=self._revision,
+                    )
                     ocr_cold_start_seconds.labels(provider=self.name).set(time.time() - start)
                 except MemoryError as e:
                     ocr_errors_total.labels(

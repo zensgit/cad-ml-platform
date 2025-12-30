@@ -819,6 +819,9 @@ Grafana 面板示例：见 `docs/grafana/observability_dashboard.json`（导入�
 - `ERROR_EMA_ALPHA`：错误率 EMA 平滑因子（0<alpha<=1，默认 0.2）。
 - `OCR_MAX_PDF_PAGES`：OCR PDF 最大页数（默认 20）。
 - `OCR_MAX_FILE_MB`：OCR 上传文件大小上限（MB，默认 50）。
+- `DEEPSEEK_HF_REVISION`：DeepSeek HF 模型固定版本（提交哈希，>=7 位十六进制）。
+- `DEEPSEEK_HF_ALLOW_UNPINNED`：允许未固定版本下载（1=允许；默认禁用）。
+- `DEEPSEEK_HF_MODEL`：DeepSeek HF 模型仓库名（例如 `deepseek-ai/DeepSeek-OCR`）。
 - `TELEMETRY_MQTT_ENABLED`：是否启用 MQTT 遥测接入（默认 false）。
 - `MQTT_HOST`/`MQTT_PORT`/`MQTT_TOPIC`：MQTT Broker 连接参数。
 - `TELEMETRY_STORE_BACKEND`：遥测存储后端（memory|influx|timescale|none）。
