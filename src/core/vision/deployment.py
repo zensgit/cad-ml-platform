@@ -276,7 +276,7 @@ class TrafficRouter:
         if not self._versions:
             return None
 
-        hash_val = int(hashlib.md5(key.encode()).hexdigest(), 16)
+        hash_val = int(hashlib.sha256(key.encode()).hexdigest(), 16)
         total_weight = sum(self._weights.values())
 
         if total_weight == 0:

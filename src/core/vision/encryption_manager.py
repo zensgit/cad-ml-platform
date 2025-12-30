@@ -417,7 +417,7 @@ class KeyRotationManager:
 
         # Record rotation event
         event = KeyRotationEvent(
-            event_id=hashlib.md5(f"{old_key_id}:{new_key.key_id}".encode()).hexdigest()[:8],
+            event_id=hashlib.sha256(f"{old_key_id}:{new_key.key_id}".encode()).hexdigest()[:8],
             old_key_id=old_key_id,
             new_key_id=new_key.key_id,
             reason=reason,

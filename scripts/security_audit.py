@@ -41,20 +41,41 @@ class SecurityAuditor:
                 timeout=60
             )
 
-            if result.returncode == 0:
-                audit_data = json.loads(result.stdout)
-                for vuln in audit_data.get("vulnerabilities", []):
-                    vulnerabilities.append({
-                        "type": "python_dependency",
-                        "package": vuln["name"],
-                        "installed_version": vuln["installed_version"],
-                        "vulnerable_versions": vuln["vulnerable_versions"],
-                        "severity": self._map_severity(vuln.get("severity", "unknown")),
-                        "description": vuln.get("description", ""),
-                        "fix_version": vuln.get("fixed_version"),
-                        "cve": vuln.get("id")
-                    })
-                print(f"  pip-audit: Found {len(vulnerabilities)} vulnerabilities")
+            if result.stdout:
+                try:
+                    audit_data = json.loads(result.stdout)
+                except json.JSONDecodeError:
+                    audit_data = None
+                if isinstance(audit_data, dict) and "dependencies" in audit_data:
+                    for dep in audit_data.get("dependencies", []):
+                        for vuln in dep.get("vulns", []):
+                            fix_versions = vuln.get("fix_versions") or []
+                            vulnerabilities.append({
+                                "type": "python_dependency",
+                                "package": dep.get("name", ""),
+                                "installed_version": dep.get("version", ""),
+                                "vulnerable_versions": vuln.get("vulnerable_versions", ""),
+                                "severity": self._map_severity(vuln.get("severity", "medium")),
+                                "description": vuln.get("description", ""),
+                                "fix_version": ", ".join(fix_versions) if fix_versions else None,
+                                "cve": vuln.get("id")
+                            })
+                    print(f"  pip-audit: Found {len(vulnerabilities)} vulnerabilities")
+                elif isinstance(audit_data, dict):
+                    for vuln in audit_data.get("vulnerabilities", []):
+                        vulnerabilities.append({
+                            "type": "python_dependency",
+                            "package": vuln.get("name", ""),
+                            "installed_version": vuln.get("installed_version", ""),
+                            "vulnerable_versions": vuln.get("vulnerable_versions", ""),
+                            "severity": self._map_severity(vuln.get("severity", "medium")),
+                            "description": vuln.get("description", ""),
+                            "fix_version": vuln.get("fixed_version"),
+                            "cve": vuln.get("id")
+                        })
+                    print(f"  pip-audit: Found {len(vulnerabilities)} vulnerabilities")
+                else:
+                    print("  pip-audit output was not JSON")
             else:
                 print("  pip-audit not available or failed")
 
@@ -263,7 +284,7 @@ class SecurityAuditor:
         # Use bandit for Python security
         try:
             result = subprocess.run(
-                ["bandit", "-r", "src/", "-f", "json"],
+                ["bandit", "-r", "src/", "-f", "json", "-q"],
                 capture_output=True,
                 text=True,
                 timeout=60

@@ -532,7 +532,7 @@ class APIKeyManager:
         """Generate a new API key."""
         key_value = secrets.token_urlsafe(32)
         key_hash = hashlib.sha256(key_value.encode()).hexdigest()
-        key_id = hashlib.md5(f"{user_id}:{name}:{time.time()}".encode()).hexdigest()[:12]
+        key_id = hashlib.sha256(f"{user_id}:{name}:{time.time()}".encode()).hexdigest()[:12]
 
         expires_at = None
         if expires_in_days:

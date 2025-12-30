@@ -81,9 +81,10 @@ class FaissStore(BaseVectorStore):
         base = os.path.splitext(path)[0]
         faiss.write_index(self.index, f"{base}.index")
         with open(f"{base}.meta", "wb") as f:
+            # Local-only metadata cache; never load from untrusted sources.
             pickle.dump(
                 {"id_map": self.id_map, "metadata": self.metadata, "counter": self.counter}, f
-            )
+            )  # nosec B301
 
     def load(self, path: str):
         base = os.path.splitext(path)[0]
@@ -91,7 +92,8 @@ class FaissStore(BaseVectorStore):
             self.index = faiss.read_index(f"{base}.index")
         if os.path.exists(f"{base}.meta"):
             with open(f"{base}.meta", "rb") as f:
-                data = pickle.load(f)
+                # Local-only metadata cache; never load from untrusted sources.
+                data = pickle.load(f)  # nosec B301
                 self.id_map = data["id_map"]
                 self.metadata = data["metadata"]
                 self.counter = data["counter"]

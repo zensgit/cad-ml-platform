@@ -394,10 +394,10 @@ class TestImageHash:
     def test_hash_creation(self) -> None:
         """Test creating image hash."""
         hash_obj = ImageHash(
-            algorithm=HashAlgorithm.MD5,
+            algorithm=HashAlgorithm.SHA256,
             hash_value="abc123",
         )
-        assert hash_obj.algorithm == HashAlgorithm.MD5
+        assert hash_obj.algorithm == HashAlgorithm.SHA256
         assert hash_obj.hash_value == "abc123"
 
     def test_hamming_distance_binary(self) -> None:
@@ -462,13 +462,6 @@ class TestEmbeddingVector:
 class TestCryptographicHashGenerator:
     """Tests for CryptographicHashGenerator."""
 
-    def test_md5_hash(self) -> None:
-        """Test MD5 hash generation."""
-        generator = CryptographicHashGenerator(HashAlgorithm.MD5)
-        hash_obj = generator.hash(b"test data")
-        assert hash_obj.algorithm == HashAlgorithm.MD5
-        assert len(hash_obj.hash_value) == 32  # MD5 hex length
-
     def test_sha256_hash(self) -> None:
         """Test SHA256 hash generation."""
         generator = CryptographicHashGenerator(HashAlgorithm.SHA256)
@@ -476,9 +469,14 @@ class TestCryptographicHashGenerator:
         assert hash_obj.algorithm == HashAlgorithm.SHA256
         assert len(hash_obj.hash_value) == 64  # SHA256 hex length
 
+    def test_rejects_non_crypto_hash(self) -> None:
+        """Test non-cryptographic algorithms are rejected."""
+        with pytest.raises(ValueError):
+            CryptographicHashGenerator(HashAlgorithm.DHASH)
+
     def test_deterministic_hashing(self) -> None:
         """Test deterministic hashing."""
-        generator = CryptographicHashGenerator(HashAlgorithm.MD5)
+        generator = CryptographicHashGenerator(HashAlgorithm.SHA256)
         hash1 = generator.hash(b"test data")
         hash2 = generator.hash(b"test data")
         assert hash1.hash_value == hash2.hash_value
@@ -499,7 +497,7 @@ class TestSimilarityIndex:
     @pytest.fixture
     def index(self) -> SimilarityIndex:
         """Create similarity index."""
-        return SimilarityIndex(hash_algorithm=HashAlgorithm.MD5)
+        return SimilarityIndex(hash_algorithm=HashAlgorithm.SHA256)
 
     def test_add_image(self, index) -> None:
         """Test adding image to index."""
@@ -579,7 +577,7 @@ class TestSimilarityVisionProvider:
         # Create mock duplicate record
         duplicate = ImageRecord(
             image_id="existing",
-            hash=ImageHash(HashAlgorithm.MD5, "abc123"),
+            hash=ImageHash(HashAlgorithm.SHA256, "abc123"),
         )
 
         index = MagicMock()

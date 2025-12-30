@@ -389,14 +389,16 @@ class ConfidenceCalibrationSystem:
         """保存校准模型"""
         model_file = self.model_path / f"{self.method}_calibrator.pkl"
         with open(model_file, "wb") as f:
-            pickle.dump(self.calibrator, f)
+            # Trusted local artifact only; not for untrusted input.
+            pickle.dump(self.calibrator, f)  # nosec B301
 
     def load_calibrator(self) -> bool:
         """加载校准模型"""
         model_file = self.model_path / f"{self.method}_calibrator.pkl"
         if model_file.exists():
             with open(model_file, "rb") as f:
-                self.calibrator = pickle.load(f)
+                # Trusted local artifact only; not for untrusted input.
+                self.calibrator = pickle.load(f)  # nosec B301
                 return True
         return False
 

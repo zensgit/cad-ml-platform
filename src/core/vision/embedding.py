@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 class HashAlgorithm(Enum):
     """Supported hash algorithms."""
 
-    MD5 = "md5"
     SHA256 = "sha256"
     DHASH = "dhash"  # Difference hash (perceptual)
     PHASH = "phash"  # Perceptual hash
@@ -56,7 +55,7 @@ class ImageHash:
             raise ValueError("Cannot compare hashes from different algorithms")
 
         # For hex hashes, convert to binary
-        if self.algorithm in (HashAlgorithm.MD5, HashAlgorithm.SHA256):
+        if self.algorithm == HashAlgorithm.SHA256:
             b1 = bin(int(self.hash_value, 16))[2:].zfill(len(self.hash_value) * 4)
             b2 = bin(int(other.hash_value, 16))[2:].zfill(len(other.hash_value) * 4)
         else:
@@ -155,21 +154,17 @@ class HashGenerator(ABC):
 
 
 class CryptographicHashGenerator(HashGenerator):
-    """Generate cryptographic hashes (MD5, SHA256)."""
+    """Generate cryptographic hashes (SHA256)."""
 
     def __init__(self, algorithm: HashAlgorithm = HashAlgorithm.SHA256):
-        if algorithm not in (HashAlgorithm.MD5, HashAlgorithm.SHA256):
+        if algorithm != HashAlgorithm.SHA256:
             raise ValueError(f"Unsupported algorithm: {algorithm}")
         self._algorithm = algorithm
 
     def hash(self, image_data: bytes) -> ImageHash:
         """Generate cryptographic hash."""
-        if self._algorithm == HashAlgorithm.MD5:
-            h = hashlib.md5(image_data)
-            bit_length = 128
-        else:
-            h = hashlib.sha256(image_data)
-            bit_length = 256
+        h = hashlib.sha256(image_data)
+        bit_length = 256
 
         return ImageHash(
             algorithm=self._algorithm,
@@ -301,7 +296,7 @@ class SimilarityIndex:
         self._threshold = similarity_threshold
 
         # Initialize hash generator
-        if hash_algorithm in (HashAlgorithm.MD5, HashAlgorithm.SHA256):
+        if hash_algorithm == HashAlgorithm.SHA256:
             self._hasher = CryptographicHashGenerator(hash_algorithm)
         else:
             self._hasher = PerceptualHashGenerator(hash_algorithm)

@@ -269,7 +269,7 @@ class CachedFallbackProvider(FallbackProvider):
         """Get fallback from cache."""
         import hashlib
 
-        image_hash = hashlib.md5(image_data).hexdigest()
+        image_hash = hashlib.sha256(image_data).hexdigest()
 
         with self._lock:
             if image_hash in self._cache:

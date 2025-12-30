@@ -363,7 +363,7 @@ class ContentAnalyzer:
         analysis = {
             "size": len(image_data),
             "size_category": self._categorize_size(len(image_data)),
-            "hash": hashlib.md5(image_data[:1024]).hexdigest()[:8],
+            "hash": hashlib.sha256(image_data[:1024]).hexdigest()[:8],
         }
 
         # Detect image type from magic bytes

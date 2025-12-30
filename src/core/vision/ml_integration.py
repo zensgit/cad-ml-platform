@@ -274,7 +274,7 @@ class ImageFeatureExtractor(FeatureExtractor):
         """Extract features from image data."""
         features = {
             "size": len(data),
-            "hash": hashlib.md5(data).hexdigest()[:8],
+            "hash": hashlib.sha256(data).hexdigest()[:8],
         }
 
         # Simple image header detection

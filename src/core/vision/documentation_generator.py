@@ -228,7 +228,7 @@ class GeneratedDoc:
         if not self.checksum:
             import hashlib
 
-            self.checksum = hashlib.md5(self.content.encode()).hexdigest()
+            self.checksum = hashlib.sha256(self.content.encode()).hexdigest()
 
 
 @dataclass

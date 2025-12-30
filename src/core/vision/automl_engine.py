@@ -637,7 +637,7 @@ class NeuralArchitectureSearch:
             )
 
         return {
-            "architecture_id": hashlib.md5(str(layers).encode()).hexdigest()[:8],
+            "architecture_id": hashlib.sha256(str(layers).encode()).hexdigest()[:8],
             "layers": layers,
             "optimizer": random.choice(["adam", "sgd", "rmsprop"]),
             "learning_rate": random.uniform(0.0001, 0.01),
@@ -714,7 +714,7 @@ class EnsembleBuilder:
     def build(self) -> EnsembleConfig:
         """Build ensemble configuration."""
         return EnsembleConfig(
-            ensemble_id=hashlib.md5(
+            ensemble_id=hashlib.sha256(
                 str([m.candidate_id for m in self._base_models]).encode()
             ).hexdigest()[:8],
             strategy=self._strategy,

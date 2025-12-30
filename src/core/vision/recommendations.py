@@ -684,7 +684,7 @@ class RecommendationVisionProvider(VisionProvider):
         # Record the analysis as an interaction
         import hashlib
 
-        item_id = hashlib.md5(image_data).hexdigest()[:12]
+        item_id = hashlib.sha256(image_data).hexdigest()[:12]
 
         interaction = Interaction(
             interaction_id=f"int_{item_id}",

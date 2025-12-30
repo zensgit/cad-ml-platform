@@ -294,7 +294,7 @@ class AuditLogger:
         session_id: Optional[str] = None,
     ) -> AuditEvent:
         """Log an audit event."""
-        event_id = hashlib.md5(f"{time.time()}:{action}:{resource_id}".encode()).hexdigest()[:16]
+        event_id = hashlib.sha256(f"{time.time()}:{action}:{resource_id}".encode()).hexdigest()[:16]
 
         # Get correlation ID from context
         correlation_id = self._correlation_context.get(threading.current_thread().name)

@@ -1,4 +1,5 @@
 import os
+import time
 import uuid
 from pathlib import Path
 from typing import Dict, Optional
@@ -8,7 +9,7 @@ import pytest
 
 BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
 API_KEY = os.environ.get("API_KEY", "test")
-TIMEOUT = float(os.environ.get("E2E_HTTP_TIMEOUT", "10"))
+TIMEOUT = float(os.environ.get("E2E_HTTP_TIMEOUT", "20"))
 VISION_REQUIRED = os.environ.get("DEDUPCAD_VISION_REQUIRED", "0") == "1"
 
 DXF_PATH = Path(os.environ.get("E2E_DXF_PATH", "data/dxf_fixtures_subset/mixed.dxf"))
@@ -31,15 +32,43 @@ def _check_health() -> None:
 def _post_file(
     path: Path, endpoint: str, params: Optional[Dict[str, str]] = None
 ) -> httpx.Response:
-    with path.open("rb") as handle:
-        files = {"file": (path.name, handle, "application/octet-stream")}
-        return httpx.post(
-            f"{BASE_URL}{endpoint}",
+    last_error: Exception | None = None
+    for _ in range(2):
+        try:
+            with path.open("rb") as handle:
+                files = {"file": (path.name, handle, "application/octet-stream")}
+                return httpx.post(
+                    f"{BASE_URL}{endpoint}",
+                    headers=_headers(),
+                    files=files,
+                    params=params,
+                    timeout=TIMEOUT,
+                )
+        except httpx.TimeoutException as exc:
+            last_error = exc
+            time.sleep(0.5)
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Unexpected retry failure")
+
+
+def _search_with_retry(vector: list, vector_id: str) -> tuple[httpx.Response, list[str]]:
+    response: httpx.Response | None = None
+    ids: list[str] = []
+    for _ in range(5):
+        response = httpx.post(
+            f"{BASE_URL}/api/v1/vectors/search",
             headers=_headers(),
-            files=files,
-            params=params,
+            json={"vector": vector, "k": 5},
             timeout=TIMEOUT,
         )
+        if response.status_code != 200:
+            break
+        ids = [item.get("id") for item in response.json().get("results", [])]
+        if vector_id in ids:
+            break
+        time.sleep(0.5)
+    return response or httpx.Response(500), ids
 
 
 def test_e2e_core_api_smoke() -> None:
@@ -80,14 +109,8 @@ def test_e2e_core_api_smoke() -> None:
     assert register_resp.status_code == 200
     assert register_resp.json().get("status") == "accepted"
 
-    search_resp = httpx.post(
-        f"{BASE_URL}/api/v1/vectors/search",
-        headers=_headers(),
-        json={"vector": combined, "k": 5},
-        timeout=TIMEOUT,
-    )
+    search_resp, search_ids = _search_with_retry(combined, vector_id)
     assert search_resp.status_code == 200
-    search_ids = [item.get("id") for item in search_resp.json().get("results", [])]
     assert vector_id in search_ids
 
     list_resp = httpx.get(

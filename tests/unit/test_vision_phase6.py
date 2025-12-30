@@ -581,8 +581,8 @@ class TestDeduplication:
         """Test HashAlgorithm enum values."""
         from src.core.vision.deduplication import HashAlgorithm
 
-        assert HashAlgorithm.MD5.value == "md5"
         assert HashAlgorithm.SHA256.value == "sha256"
+        assert HashAlgorithm.XXHASH.value == "xxhash"
 
     def test_deduplication_config(self):
         """Test DeduplicationConfig dataclass."""

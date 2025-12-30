@@ -123,7 +123,7 @@ class GatewayRequest:
     def __post_init__(self) -> None:
         """Generate request ID if not provided."""
         if not self.request_id:
-            self.request_id = hashlib.md5(
+            self.request_id = hashlib.sha256(
                 f"{self.path}{self.timestamp.isoformat()}".encode()
             ).hexdigest()[:16]
 

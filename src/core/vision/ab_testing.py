@@ -347,7 +347,7 @@ class ExperimentManager:
 
     def _allocate_hash_based(self, variants: List[Variant], request_id: str) -> Variant:
         """Allocate using deterministic hash-based selection."""
-        hash_value = int(hashlib.md5(request_id.encode()).hexdigest(), 16)
+        hash_value = int(hashlib.sha256(request_id.encode()).hexdigest(), 16)
         normalized = (hash_value % 10000) / 10000.0
 
         cumulative = 0.0

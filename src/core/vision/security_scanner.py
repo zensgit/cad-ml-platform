@@ -276,7 +276,7 @@ class CodeScanner(VulnerabilityScanner):
             for pattern_info in patterns:
                 # In real implementation, would scan actual files
                 vuln = Vulnerability(
-                    vuln_id=hashlib.md5(
+                    vuln_id=hashlib.sha256(
                         f"{pattern_info['name']}:{config.target}".encode()
                     ).hexdigest()[:8],
                     title=pattern_info["name"],
@@ -351,7 +351,7 @@ class DependencyScanner(VulnerabilityScanner):
         for package, vulns in self._known_vulnerabilities.items():
             for vuln_info in vulns:
                 vuln = Vulnerability(
-                    vuln_id=hashlib.md5(f"{package}:{vuln_info['cve']}".encode()).hexdigest()[:8],
+                    vuln_id=hashlib.sha256(f"{package}:{vuln_info['cve']}".encode()).hexdigest()[:8],
                     title=f"Vulnerable dependency: {package}",
                     severity=vuln_info["severity"],
                     category=ThreatCategory.COMPONENT,
@@ -432,7 +432,7 @@ class RiskAssessor:
 
     def assess(self, scan_results: List[ScanResult]) -> RiskAssessment:
         """Assess risk from scan results."""
-        assessment_id = hashlib.md5(f"{time.time()}".encode()).hexdigest()[:8]
+        assessment_id = hashlib.sha256(f"{time.time()}".encode()).hexdigest()[:8]
 
         vulnerabilities_by_severity: Dict[str, int] = defaultdict(int)
         total_score = 0.0

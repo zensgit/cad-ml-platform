@@ -456,7 +456,7 @@ class PolicyEngine:
         if rule_type == "encryption_required":
             if context.get("encrypted") != rule_value:
                 return PolicyViolation(
-                    violation_id=hashlib.md5(
+                    violation_id=hashlib.sha256(
                         f"{policy.policy_id}:{resource_id}:{time.time()}".encode()
                     ).hexdigest()[:12],
                     policy_id=policy.policy_id,
@@ -470,7 +470,7 @@ class PolicyEngine:
             retention = context.get("retention_days", 0)
             if retention > rule_value:
                 return PolicyViolation(
-                    violation_id=hashlib.md5(
+                    violation_id=hashlib.sha256(
                         f"{policy.policy_id}:{resource_id}:{time.time()}".encode()
                     ).hexdigest()[:12],
                     policy_id=policy.policy_id,
@@ -483,7 +483,7 @@ class PolicyEngine:
         elif rule_type == "classification_required":
             if context.get("classification") not in rule_value:
                 return PolicyViolation(
-                    violation_id=hashlib.md5(
+                    violation_id=hashlib.sha256(
                         f"{policy.policy_id}:{resource_id}:{time.time()}".encode()
                     ).hexdigest()[:12],
                     policy_id=policy.policy_id,
@@ -563,7 +563,7 @@ class ComplianceReporter:
                 if control and control.implementation_guidance:
                     recommendations.append(f"{control.name}: {control.implementation_guidance}")
 
-        report_id = hashlib.md5(f"{framework}:{period_start}:{period_end}".encode()).hexdigest()[
+        report_id = hashlib.sha256(f"{framework}:{period_start}:{period_end}".encode()).hexdigest()[
             :12
         ]
 

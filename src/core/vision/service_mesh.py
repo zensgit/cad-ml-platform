@@ -483,7 +483,7 @@ class LoadBalancer:
         if not request_key:
             return self._random(instances)
 
-        hash_val = int(hashlib.md5(request_key.encode()).hexdigest(), 16)
+        hash_val = int(hashlib.sha256(request_key.encode()).hexdigest(), 16)
         idx = hash_val % len(instances)
         return instances[idx]
 

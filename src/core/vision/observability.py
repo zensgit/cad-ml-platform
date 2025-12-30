@@ -19,6 +19,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, Generic, Iterator, List, Optional, Set, TypeVar, Union
 
 from .base import VisionDescription, VisionProvider
+from src.utils.safe_eval import safe_eval
 
 
 class MetricType(Enum):
@@ -663,7 +664,7 @@ class AlertManager:
         try:
             # Simple expression evaluation
             # In production, use a proper expression parser
-            result = eval(condition, {"__builtins__": {}}, metrics)
+            result = safe_eval(condition, metrics)
             return bool(result)
         except Exception:
             return False

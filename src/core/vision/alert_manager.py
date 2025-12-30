@@ -607,7 +607,7 @@ class AlertManager:
 
     def _create_alert(self, rule: AlertRule, value: Optional[float]) -> Alert:
         """Create an alert from a rule."""
-        fingerprint = hashlib.md5(
+        fingerprint = hashlib.sha256(
             f"{rule.rule_id}:{json.dumps(rule.labels, sort_keys=True)}".encode()
         ).hexdigest()
 

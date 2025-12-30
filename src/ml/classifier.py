@@ -80,7 +80,8 @@ def load_model() -> None:
             return
         try:
             with _MODEL_PATH.open("rb") as f:
-                _MODEL = pickle.load(f)
+                # Trusted local model file only; guarded by hash + opcode checks.
+                _MODEL = pickle.load(f)  # nosec B301
 
             import time as _t
 
@@ -452,7 +453,8 @@ def _reload_model_impl(
                         context={"error": str(scan_err), "path": str(p)},
                     )
                     return {"status": "opcode_scan_error", "error": err.to_dict()}
-        obj = pickle.loads(data)
+        # Trusted model payload after opcode scan + hash validation.
+        obj = pickle.loads(data)  # nosec B301
         if not hasattr(obj, "predict"):
             raise ValueError("Model missing predict method")
         new_version = expected_version or _MODEL_VERSION

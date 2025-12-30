@@ -24,6 +24,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, Generic, List, Optional, Set, Tuple, Type, TypeVar, Union
 
 from .base import VisionDescription, VisionProvider
+from src.utils.safe_eval import safe_eval
 
 logger = logging.getLogger(__name__)
 
@@ -731,7 +732,7 @@ class WorkflowEngine:
         # Simple implementation - in production use safe evaluation
         try:
             # Support basic conditions like "results.task1.success == true"
-            return bool(eval(condition, {"__builtins__": {}}, context))
+            return bool(safe_eval(condition, context))
         except Exception:
             return True  # Default to true if condition can't be evaluated
 

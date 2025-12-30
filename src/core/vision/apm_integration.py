@@ -464,7 +464,7 @@ class ErrorTracker:
         stack_trace = traceback.format_exc()
 
         # Create fingerprint for deduplication
-        fingerprint = hashlib.md5(f"{error_type}:{message}".encode()).hexdigest()[:12]
+        fingerprint = hashlib.sha256(f"{error_type}:{message}".encode()).hexdigest()[:12]
 
         now = datetime.now()
 

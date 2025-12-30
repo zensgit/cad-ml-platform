@@ -1199,7 +1199,7 @@ class PatternLearner:
     def _generate_pattern_key(self, conditions: Dict[str, Any]) -> str:
         """Generate a unique key for conditions."""
         sorted_items = sorted(conditions.items())
-        return hashlib.md5(json.dumps(sorted_items).encode()).hexdigest()[:16]
+        return hashlib.sha256(json.dumps(sorted_items).encode()).hexdigest()[:16]
 
     def get_recommended_action(self, conditions: Dict[str, Any]) -> Optional[Tuple[str, float]]:
         """Get recommended action for given conditions."""

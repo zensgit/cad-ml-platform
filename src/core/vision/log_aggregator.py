@@ -540,7 +540,7 @@ class PatternDetector:
         """Process a log entry and detect patterns."""
         # Create a simplified pattern by replacing variables
         pattern = self._simplify_message(entry.message)
-        pattern_id = hashlib.md5(pattern.encode()).hexdigest()[:12]
+        pattern_id = hashlib.sha256(pattern.encode()).hexdigest()[:12]
 
         with self._lock:
             if pattern_id in self._patterns:

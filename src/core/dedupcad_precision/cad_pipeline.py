@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+import shlex
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -264,7 +265,10 @@ def convert_dwg_to_dxf_cmd(dwg_path: Path, out_dxf_path: Path, *, cmd_template: 
     out_dxf_path.parent.mkdir(parents=True, exist_ok=True)
 
     cmd = cmd_template.format(input=str(dwg_path), output=str(out_dxf_path))
-    subprocess.run(cmd, check=True, shell=True)
+    cmd_parts = shlex.split(cmd, posix=os.name != "nt")
+    if not cmd_parts:
+        raise ValueError("DWG->DXF command template resolved to empty command")
+    subprocess.run(cmd_parts, check=True)
     if not out_dxf_path.exists():
         raise RuntimeError("DWG->DXF command finished but output missing")
 

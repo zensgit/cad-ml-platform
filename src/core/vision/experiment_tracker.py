@@ -328,7 +328,7 @@ class RunContext:
 
     def __enter__(self) -> RunContext:
         """Start the run."""
-        run_id = hashlib.md5(f"{self._experiment_id}:{time.time()}".encode()).hexdigest()[:12]
+        run_id = hashlib.sha256(f"{self._experiment_id}:{time.time()}".encode()).hexdigest()[:12]
 
         self._run = Run(
             run_id=run_id,
@@ -403,7 +403,7 @@ class RunContext:
     ) -> None:
         """Log an artifact."""
         if self._run:
-            artifact_id = hashlib.md5(
+            artifact_id = hashlib.sha256(
                 f"{self._run.run_id}:{name}:{time.time()}".encode()
             ).hexdigest()[:8]
 
@@ -442,7 +442,7 @@ class ExperimentTracker:
         tags: Optional[List[str]] = None,
     ) -> Experiment:
         """Create a new experiment."""
-        experiment_id = hashlib.md5(f"{name}:{time.time()}".encode()).hexdigest()[:12]
+        experiment_id = hashlib.sha256(f"{name}:{time.time()}".encode()).hexdigest()[:12]
 
         experiment = Experiment(
             experiment_id=experiment_id,
@@ -581,7 +581,7 @@ class ExperimentTracker:
         goal: MetricGoal = MetricGoal.MAXIMIZE,
     ) -> ComparisonResult:
         """Compare multiple runs."""
-        comparison_id = hashlib.md5(f"{':'.join(run_ids)}:{time.time()}".encode()).hexdigest()[:8]
+        comparison_id = hashlib.sha256(f"{':'.join(run_ids)}:{time.time()}".encode()).hexdigest()[:8]
 
         parameters: Dict[str, Dict[str, str]] = {}
         metrics: Dict[str, Dict[str, float]] = {}
@@ -847,7 +847,7 @@ def create_experiment(
     tags: Optional[List[str]] = None,
 ) -> Experiment:
     """Create an experiment."""
-    experiment_id = hashlib.md5(f"{name}:{time.time()}".encode()).hexdigest()[:12]
+    experiment_id = hashlib.sha256(f"{name}:{time.time()}".encode()).hexdigest()[:12]
 
     return Experiment(
         experiment_id=experiment_id,

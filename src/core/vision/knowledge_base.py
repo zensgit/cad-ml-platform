@@ -645,7 +645,7 @@ class KnowledgeEnhancedVisionProvider(VisionProvider):
         tags: Optional[List[str]] = None,
     ) -> KnowledgeEntry:
         """Add knowledge to the base."""
-        entry_id = hashlib.md5(f"{title}{content}".encode()).hexdigest()[:16]
+        entry_id = hashlib.sha256(f"{title}{content}".encode()).hexdigest()[:16]
         return self.knowledge_base.add_knowledge(entry_id, title, content, tags)
 
     def search_knowledge(self, query: str, limit: int = 10) -> QueryResult:

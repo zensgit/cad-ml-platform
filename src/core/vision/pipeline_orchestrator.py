@@ -499,7 +499,7 @@ class PipelineOrchestrator:
         if pipeline is None:
             raise ValueError(f"Pipeline not found: {pipeline_id}")
 
-        run_id = hashlib.md5(f"{pipeline_id}:{time.time()}".encode()).hexdigest()[:12]
+        run_id = hashlib.sha256(f"{pipeline_id}:{time.time()}".encode()).hexdigest()[:12]
 
         run = PipelineRun(
             run_id=run_id,

@@ -507,7 +507,7 @@ class FeatureComputer:
         elif transform.transform_type == TransformationType.HASH:
             value = str(input_values[0]) if input_values[0] is not None else ""
             num_buckets = transform.parameters.get("num_buckets", 1000)
-            return int(hashlib.md5(value.encode()).hexdigest(), 16) % num_buckets
+            return int(hashlib.sha256(value.encode()).hexdigest(), 16) % num_buckets
 
         elif transform.transform_type == TransformationType.CUSTOM:
             if transform.custom_fn is not None:

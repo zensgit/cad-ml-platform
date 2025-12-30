@@ -310,7 +310,7 @@ class ConsistentHashRing:
 
     def _hash(self, key: str) -> int:
         """Hash a key to an integer."""
-        return int(hashlib.md5(key.encode()).hexdigest(), 16)
+        return int(hashlib.sha256(key.encode()).hexdigest(), 16)
 
     def get_nodes(self) -> Set[str]:
         """Get all nodes."""
@@ -540,7 +540,7 @@ class DistributedCacheVisionProvider(VisionProvider):
     ) -> VisionDescription:
         """Analyze image with distributed caching."""
         # Generate cache key
-        cache_key = hashlib.md5(image_data).hexdigest()
+        cache_key = hashlib.sha256(image_data).hexdigest()
 
         # Check cache
         cached = self._cache.get(cache_key)

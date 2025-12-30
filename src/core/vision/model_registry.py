@@ -661,7 +661,7 @@ class ApprovalWorkflow:
         reason: str = "",
     ) -> ApprovalRequest:
         """Request approval for stage transition."""
-        request_id = hashlib.md5(
+        request_id = hashlib.sha256(
             f"{model_id}:{version}:{target_stage}:{time.time()}".encode()
         ).hexdigest()[:8]
 

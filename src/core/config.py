@@ -10,7 +10,8 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     DEBUG: bool = True
-    HOST: str = "0.0.0.0"
+    # Intended for container binding; override in env for tighter exposure.
+    HOST: str = "0.0.0.0"  # nosec B104
     PORT: int = 8000
     WORKERS: int = 1
     LOG_LEVEL: str = "INFO"

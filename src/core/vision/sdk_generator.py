@@ -202,7 +202,7 @@ class GeneratedFile:
 
     def __post_init__(self):
         if not self.checksum:
-            self.checksum = hashlib.md5(self.content.encode()).hexdigest()
+            self.checksum = hashlib.sha256(self.content.encode()).hexdigest()
 
 
 @dataclass

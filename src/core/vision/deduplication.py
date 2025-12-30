@@ -32,8 +32,6 @@ class DeduplicationStrategy(Enum):
 class HashAlgorithm(Enum):
     """Hash algorithm for deduplication."""
 
-    MD5 = "md5"
-    SHA1 = "sha1"
     SHA256 = "sha256"
     XXHASH = "xxhash"  # If available
 
@@ -134,10 +132,13 @@ class HashKeyGenerator(KeyGenerator):
         **kwargs: Any,
     ) -> str:
         """Generate hash-based key."""
-        if self._algorithm == HashAlgorithm.MD5:
-            hasher = hashlib.md5()
-        elif self._algorithm == HashAlgorithm.SHA1:
-            hasher = hashlib.sha1()
+        if self._algorithm == HashAlgorithm.XXHASH:
+            try:
+                import xxhash  # type: ignore
+            except ImportError:
+                hasher = hashlib.sha256()
+            else:
+                hasher = xxhash.xxh64()
         else:
             hasher = hashlib.sha256()
 
