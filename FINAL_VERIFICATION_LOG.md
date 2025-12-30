@@ -204,6 +204,9 @@
 - **Type Check**:
   - `make type-check` completed.
   - Report: `reports/DEV_TYPECHECK_20251230.md`
+- **Type Check (CI Fix)**:
+  - `make type-check` completed after mypy fix in dedupcad 2D pipeline.
+  - Report: `reports/DEV_TYPECHECK_20251230_CI_FIX.md`
 - **Full Test Run (DedupCAD Vision Required)**:
   - `make test-dedupcad-vision` completed.
   - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251230.md`

@@ -325,10 +325,9 @@ async def run_dedup_2d_pipeline(
         enable_geometric=enable_geometric,
     )
 
-    should_run_precision = query_geom is not None and (
-        enable_precision or enable_geometric or mode == "precise"
-    )
-    if not should_run_precision:
+    if query_geom is None:
+        return response
+    if not (enable_precision or enable_geometric or mode == "precise"):
         return response
 
     precision_start = time.perf_counter()
