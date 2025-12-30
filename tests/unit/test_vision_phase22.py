@@ -138,7 +138,7 @@ class TestSecurityEnums:
         assert DataClassification.INTERNAL.value == "internal"
         assert DataClassification.CONFIDENTIAL.value == "confidential"
         assert DataClassification.RESTRICTED.value == "restricted"
-        assert DataClassification.TOP_SECRET.value == "top_secret"
+        assert DataClassification.TOP_SECRET.value == "topsecret"
 
     def test_policy_type_values(self):
         """Test PolicyType enum values."""

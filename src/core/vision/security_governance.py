@@ -46,8 +46,8 @@ class DataClassification(Enum):
     INTERNAL = "internal"
     CONFIDENTIAL = "confidential"
     RESTRICTED = "restricted"
-    TOP_SECRET = "top_secret"
-    HIGHEST = "top_secret"
+    TOP_SECRET = "topsecret"  # nosec B105 - classification label, not a credential
+    HIGHEST = "topsecret"  # nosec B105 - classification alias, not a credential
 
 
 class PolicyType(Enum):

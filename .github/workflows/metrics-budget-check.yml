@@ -22,7 +22,7 @@ on:
         type: number
 
 env:
-  PYTHON_VERSION: '3.9'
+  PYTHON_VERSION: '3.10'
   PROMETHEUS_URL: ${{ github.event.inputs.prometheus_url || 'http://prometheus:9090' }}
   BUDGET_THRESHOLD: ${{ github.event.inputs.budget_threshold || 90 }}
 
