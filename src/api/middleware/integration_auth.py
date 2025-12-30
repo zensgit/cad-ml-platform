@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -69,7 +70,7 @@ class IntegrationAuthMiddleware(BaseHTTPMiddleware):
 
         try:
             payload = jwt.decode(token, self.jwt_secret, algorithms=[self.jwt_alg])
-        except JWTError:
+        except PyJWTError:
             return JSONResponse({"detail": "Invalid bearer token"}, status_code=401)
 
         tenant_claim = payload.get("tenant_id")
