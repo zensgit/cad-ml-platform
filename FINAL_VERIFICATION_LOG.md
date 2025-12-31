@@ -272,6 +272,9 @@
 - **DedupCAD Vision Field Compatibility Audit**:
   - Verified vector register/search payloads and documented `/api/compare` fallback gap.
   - Report: `reports/DEV_DEDUPCAD_VISION_FIELD_COMPAT_AUDIT_20251231.md`
+- **DedupCAD Vision Required Test Run (Re-run)**:
+  - `make test-dedupcad-vision` completed against live dedupcad-vision + local API.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231_RERUN.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
