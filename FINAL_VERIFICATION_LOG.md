@@ -395,6 +395,9 @@
 - **Full Test Run**:
   - `make test` completed (3985 passed, 19 skipped).
   - Report: `reports/DEV_MAKE_TEST_20260101.md`
+- **Docker Compose Down**:
+  - Stopped cad-ml compose services after validation runs.
+  - Report: `reports/DEV_DOCKER_COMPOSE_DOWN_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
