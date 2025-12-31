@@ -201,4 +201,9 @@
   - JSON：`{ "vector": [..], "k": 10, "material_filter": "<opt>", "complexity_filter": "<opt>" }`
   - 响应：`{ "results": [ { "id": "...", "score": <float>, "material": "...", "complexity": "...", "format": "...", "dimension": <int> } ], "total": <int> }`
 
-注意：`dedupcad-vision` 的 L3 比对在找不到候选向量时会尝试调用 `/api/compare` 作为降级路径，但 cad-ml-platform 当前未提供该端点，因此该分支会返回空结果（不会阻断整体流程）。
+### 5.2 特征向量降级比对（dedupcad-vision → cad-ml-platform）
+
+- `POST /api/compare`（兼容路径；等价于 `/api/v1/compare`）
+  - JSON：`{ "query_features": [..], "candidate_hash": "<doc_id>" }`
+  - 响应：`{ "similarity": <float>, "score": <float>, "feature_distance": <float>, "category_match": false, "ocr_match": 0.0, "method": "cosine", "dimension": <int>, "reference_id": "<doc_id>" }`
+  - 失败：候选向量不存在返回 404；维度不一致返回 400。

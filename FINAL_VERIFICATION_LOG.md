@@ -275,6 +275,9 @@
 - **DedupCAD Vision Required Test Run (Re-run)**:
   - `make test-dedupcad-vision` completed against live dedupcad-vision + local API.
   - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231_RERUN.md`
+- **DedupCAD Vision /api/compare Compatibility**:
+  - Added `/api/compare` fallback endpoint (alias `/api/v1/compare`) with unit tests.
+  - Report: `reports/DEV_DEDUPCAD_VISION_COMPARE_ENDPOINT_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

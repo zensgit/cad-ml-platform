@@ -58,6 +58,10 @@ try:
 except Exception:
     active_learning = None  # type: ignore
 try:
+    from src.api.v1 import compare  # type: ignore
+except Exception:
+    compare = None  # type: ignore
+try:
     from src.api.v1 import twin  # type: ignore
 except Exception:
     twin = None  # type: ignore
@@ -74,6 +78,8 @@ if drift is not None:
     v1_router.include_router(drift.router, prefix="/analyze", tags=["漂移"])  # type: ignore
 if analyze is not None:
     v1_router.include_router(analyze.router, prefix="/analyze", tags=["分析"])  # type: ignore
+if compare is not None:
+    v1_router.include_router(compare.router, prefix="/compare", tags=["对比"])  # type: ignore
 
 # 向量相关模块
 if vectors is not None:
@@ -118,5 +124,9 @@ if twin is not None:
     v1_router.include_router(twin.router, prefix="/twin", tags=["数字孪生"])  # type: ignore
 
 api_router.include_router(v1_router)
+if compare is not None:
+    api_router.include_router(
+        compare.router, prefix="/compare", tags=["对比"], include_in_schema=False
+    )  # type: ignore
 
 __all__ = ["api_router"]
