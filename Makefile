@@ -235,9 +235,9 @@ prom-validate: ## 验证Prometheus录制规则
 	$(PYTHON) scripts/validate_prom_rules.py --skip-promtool
 	@echo ""
 	@echo "$(YELLOW)Validating with promtool (Docker)...$(NC)"
-	@docker run --rm -v $(PWD)/docs/prometheus:/rules:ro \
+	@docker run --rm --entrypoint promtool -v $(PWD)/docs/prometheus:/rules:ro \
 		prom/prometheus:latest \
-		promtool check rules /rules/recording_rules.yml || echo "$(YELLOW)Promtool not available$(NC)"
+		check rules /rules/recording_rules.yml || echo "$(YELLOW)Promtool not available$(NC)"
 
 promtool-validate-all: ## 使用 promtool 验证所有规则文件
 	@echo "$(GREEN)Validating all Prometheus rules with promtool...$(NC)"

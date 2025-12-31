@@ -356,6 +356,9 @@
 - **Metrics Export Verification**:
   - `make verify-metrics` completed.
   - Report: `reports/DEV_VERIFY_METRICS_20260101.md`
+- **Prometheus Rules Validation**:
+  - `make prom-validate` completed (promtool check rules succeeded).
+  - Report: `reports/DEV_PROM_VALIDATE_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
