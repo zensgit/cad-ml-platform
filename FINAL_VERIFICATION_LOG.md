@@ -251,6 +251,9 @@
 - **CI Workflow Verification**:
   - PR workflows re-run after verification log update; all completed successfully.
   - Report: `reports/DEV_CI_WORKFLOW_VERIFY_20251231.md`
+- **Full Test Run**:
+  - `make test` completed (full pytest suite with coverage).
+  - Report: `reports/DEV_MAKE_TEST_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
