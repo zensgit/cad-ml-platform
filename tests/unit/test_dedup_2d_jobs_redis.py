@@ -11,6 +11,19 @@ from unittest import mock
 import pytest
 
 
+def _counter_value(counter, labels: dict[str, str] | None = None) -> float:
+    if not hasattr(counter, "collect"):
+        pytest.skip("prometheus_client not available")
+    for sample in counter.collect()[0].samples:
+        if not sample.name.endswith("_total"):
+            continue
+        if labels is None and not sample.labels:
+            return float(sample.value)
+        if labels is not None and sample.labels == labels:
+            return float(sample.value)
+    return 0.0
+
+
 class TestDedup2DPayloadConfig:
     """Tests for Dedup2DPayloadConfig."""
 
@@ -202,6 +215,50 @@ class TestWorkerBackwardCompatibility:
 
         with pytest.raises(ValueError, match="Missing file_ref and file_bytes_b64"):
             await _load_file_bytes_from_payload(payload)
+
+    @pytest.mark.asyncio
+    async def test_legacy_b64_fallback_metric_increments(self) -> None:
+        """Legacy base64 fallback should increment the metric counter."""
+        from src.core.dedupcad_2d_worker import _load_file_bytes_from_payload
+        from src.core.dedup2d_metrics import dedup2d_legacy_b64_fallback_total
+
+        payload = {
+            "file_bytes_b64": base64.b64encode(b"legacy metric").decode("ascii"),
+        }
+
+        before = _counter_value(dedup2d_legacy_b64_fallback_total)
+        await _load_file_bytes_from_payload(payload)
+        after = _counter_value(dedup2d_legacy_b64_fallback_total)
+        assert after == before + 1
+
+
+class TestDedup2DPayloadMetrics:
+    """Tests for payload format metrics."""
+
+    def test_payload_format_metric_file_ref_only(self) -> None:
+        from src.core.dedupcad_2d_jobs_redis import _record_payload_format
+        from src.core.dedup2d_metrics import dedup2d_payload_format
+
+        payload = {"file_ref": {"backend": "local", "path": "job123/file.dxf"}}
+        before = _counter_value(dedup2d_payload_format, {"format": "file_ref_only"})
+        label = _record_payload_format(payload)
+        after = _counter_value(dedup2d_payload_format, {"format": "file_ref_only"})
+        assert label == "file_ref_only"
+        assert after == before + 1
+
+    def test_payload_format_metric_file_ref_and_b64(self) -> None:
+        from src.core.dedupcad_2d_jobs_redis import _record_payload_format
+        from src.core.dedup2d_metrics import dedup2d_payload_format
+
+        payload = {
+            "file_ref": {"backend": "local", "path": "job123/file.dxf"},
+            "file_bytes_b64": base64.b64encode(b"payload").decode("ascii"),
+        }
+        before = _counter_value(dedup2d_payload_format, {"format": "file_ref_and_b64"})
+        label = _record_payload_format(payload)
+        after = _counter_value(dedup2d_payload_format, {"format": "file_ref_and_b64"})
+        assert label == "file_ref_and_b64"
+        assert after == before + 1
 
 
 class TestDualWritePayload:

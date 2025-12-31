@@ -45,6 +45,7 @@ except Exception:  # pragma: no cover - optional at runtime
     Job = None  # type: ignore
 
 from src.core.dedup2d_file_storage import Dedup2DFileRef, create_dedup2d_file_storage
+from src.core.dedup2d_metrics import dedup2d_payload_format
 from src.core.dedup2d_webhook import validate_dedup2d_callback_url
 from src.core.dedupcad_2d_jobs import (
     Dedup2DJob,
@@ -119,6 +120,29 @@ class Dedup2DPayloadConfig:
 def _encode_bytes_b64(data: bytes) -> str:
     """Encode bytes to base64 string."""
     return base64.b64encode(data).decode("ascii")
+
+
+def _payload_format_label(payload: Dict[str, Any]) -> str:
+    file_ref = payload.get("file_ref")
+    has_ref = isinstance(file_ref, dict) and bool(file_ref)
+    b64 = payload.get("file_bytes_b64")
+    has_b64 = isinstance(b64, str) and b64 != ""
+    if has_ref and has_b64:
+        return "file_ref_and_b64"
+    if has_ref:
+        return "file_ref_only"
+    if has_b64:
+        return "b64_only"
+    return "unknown"
+
+
+def _record_payload_format(payload: Dict[str, Any]) -> str:
+    label = _payload_format_label(payload)
+    try:
+        dedup2d_payload_format.labels(format=label).inc()
+    except Exception:
+        pass
+    return label
 
 
 _CAD_EXTENSIONS = {".dxf", ".dwg"}
@@ -348,6 +372,7 @@ async def submit_dedup2d_job(
         )
         if job is None:
             raise RuntimeError("ARQ returned None (job already exists)")
+        _record_payload_format(payload)
         return Dedup2DJob(job_id=job_id, tenant_id=tenant_id, status=Dedup2DJobStatus.PENDING)
     except Exception:
         # Best-effort cleanup so a failed enqueue doesn't leak capacity.

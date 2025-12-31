@@ -410,6 +410,9 @@
 - **DedupCAD Vision Vector/Hash Compatibility**:
   - Verified feature vector ordering and compare fallback expectations.
   - Report: `reports/DEV_DEDUPCAD_VISION_VECTOR_HASH_COMPAT_20260101.md`
+- **DedupCAD Vision Compatibility & Fallback Metrics**:
+  - Added payload format + legacy fallback metrics and guarded worker imports.
+  - Report: `reports/DEV_DEDUPCAD_VISION_COMPAT_FALLBACK_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

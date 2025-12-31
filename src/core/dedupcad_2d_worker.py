@@ -28,7 +28,14 @@ from datetime import timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
-from arq.connections import RedisSettings
+try:
+    from arq.connections import RedisSettings  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+
+    class RedisSettings:  # type: ignore
+        @classmethod
+        def from_dsn(cls, *args: Any, **kwargs: Any) -> None:
+            return None
 
 import src.core.dedup2d_file_storage as dedup2d_file_storage
 from src.core.dedup2d_file_storage import Dedup2DFileRef
@@ -49,6 +56,7 @@ from src.core.dedupcad_precision.cad_pipeline import (
     render_dxf_to_png,
 )
 from src.core.dedupcad_vision import DedupCadVisionClient
+from src.core.dedup2d_metrics import dedup2d_legacy_b64_fallback_total
 
 if TYPE_CHECKING:
     from src.core.dedup2d_file_storage import Dedup2DFileStorageProtocol
@@ -202,6 +210,10 @@ async def _load_file_bytes_from_payload(
     file_bytes_b64 = payload.get("file_bytes_b64")
     if file_bytes_b64 and isinstance(file_bytes_b64, str):
         file_bytes = _decode_bytes_b64(file_bytes_b64)
+        try:
+            dedup2d_legacy_b64_fallback_total.inc()
+        except Exception:
+            pass
         logger.debug(
             "dedup2d_worker_loaded_legacy_b64",
             extra={"size": len(file_bytes)},
