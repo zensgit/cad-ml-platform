@@ -302,6 +302,9 @@
 - **Compare Alert Rules Docs**:
   - Documented compare alert examples in `docs/ALERT_RULES.md`.
   - Report: `reports/DEV_COMPARE_ALERT_RULES_DOC_20251231.md`
+- **Compare Observability Checklist**:
+  - Added compare alert/runbook items to `docs/OBSERVABILITY_CHECKLIST.md`.
+  - Report: `reports/DEV_COMPARE_OBSERVABILITY_CHECKLIST_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
