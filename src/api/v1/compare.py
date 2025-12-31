@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from src.api.dependencies import get_api_key
 from src.core.errors_extended import ErrorCode, build_error
 from src.core.similarity import InMemoryVectorStore, _cosine
+from src.utils.analysis_metrics import compare_requests_total
 
 router = APIRouter()
 
@@ -35,6 +36,7 @@ async def compare_features(
 ):
     """Compare query features against a stored candidate vector."""
     if not payload.query_features:
+        compare_requests_total.labels(status="invalid").inc()
         err = build_error(
             ErrorCode.INPUT_VALIDATION_FAILED,
             stage="compare",
@@ -43,6 +45,7 @@ async def compare_features(
         raise HTTPException(status_code=400, detail=err)
     candidate_id = payload.candidate_hash.strip()
     if not candidate_id:
+        compare_requests_total.labels(status="invalid").inc()
         err = build_error(
             ErrorCode.INPUT_VALIDATION_FAILED,
             stage="compare",
@@ -53,6 +56,7 @@ async def compare_features(
     store = InMemoryVectorStore()
     reference = store.get(candidate_id)
     if reference is None:
+        compare_requests_total.labels(status="not_found").inc()
         err = build_error(
             ErrorCode.DATA_NOT_FOUND,
             stage="compare",
@@ -61,6 +65,7 @@ async def compare_features(
         )
         raise HTTPException(status_code=404, detail=err)
     if len(reference) != len(payload.query_features):
+        compare_requests_total.labels(status="dimension_mismatch").inc()
         err = build_error(
             ErrorCode.DIMENSION_MISMATCH,
             stage="compare",
@@ -72,6 +77,7 @@ async def compare_features(
 
     score = _cosine(reference, payload.query_features)
     similarity = round(score, 4)
+    compare_requests_total.labels(status="success").inc()
     return CompareResponse(
         similarity=similarity,
         score=similarity,

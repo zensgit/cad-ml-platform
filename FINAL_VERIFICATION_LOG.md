@@ -287,6 +287,9 @@
 - **Compare Endpoint Redirect Fix**:
   - Bound `/api/compare` without trailing slash to avoid 307 redirects.
   - Report: `reports/DEV_COMPARE_ENDPOINT_NO_REDIRECT_20251231.md`
+- **Compare Endpoint Metrics**:
+  - Added `compare_requests_total` counter for `/api/compare`.
+  - Report: `reports/DEV_COMPARE_ENDPOINT_METRICS_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

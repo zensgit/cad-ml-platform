@@ -113,6 +113,11 @@ except Exception:  # pragma: no cover - fallback dummy
 
 analysis_requests_total = Counter("analysis_requests_total", "CAD analysis requests", ["status"])
 analysis_errors_total = Counter("analysis_errors_total", "CAD analysis errors", ["stage", "code"])
+compare_requests_total = Counter(
+    "compare_requests_total",
+    "Feature compare requests",
+    ["status"],
+)
 analysis_stage_duration_seconds = Histogram(
     "analysis_stage_duration_seconds",
     "Per-stage duration for CAD analysis",
@@ -647,6 +652,7 @@ dedupcad_vision_circuit_state = Gauge(
 __all__ = [
     "analysis_requests_total",
     "analysis_errors_total",
+    "compare_requests_total",
     "analysis_stage_duration_seconds",
     "analysis_feature_vector_dimension",
     "feature_extraction_latency_seconds",
