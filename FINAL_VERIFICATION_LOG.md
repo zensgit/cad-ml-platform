@@ -407,6 +407,9 @@
 - **DedupCAD Vision Contract Matrix**:
   - Documented endpoint mapping and error passthrough behavior.
   - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_MATRIX_20260101.md`
+- **DedupCAD Vision Vector/Hash Compatibility**:
+  - Verified feature vector ordering and compare fallback expectations.
+  - Report: `reports/DEV_DEDUPCAD_VISION_VECTOR_HASH_COMPAT_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
