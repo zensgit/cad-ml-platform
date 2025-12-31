@@ -81,10 +81,11 @@ jobs:
         run: |
           # 分析新增的指标和标签
           cat > analyze_metrics.py << 'EOF'
-          import re
-          import sys
-          import subprocess
           import json
+          import os
+          import re
+          import subprocess
+          import sys
 
           def extract_metrics_from_diff():
               """从git diff中提取新增的指标"""
