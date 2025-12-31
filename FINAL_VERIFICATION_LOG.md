@@ -248,6 +248,9 @@
 - **V4 Performance Test Stabilization**:
   - Switched to absolute overhead threshold for low-baseline runs.
   - Report: `reports/DEV_CI_TEST_FIX_20251231.md`
+- **CI Workflow Verification**:
+  - PR workflows re-run after verification log update; all completed successfully.
+  - Report: `reports/DEV_CI_WORKFLOW_VERIFY_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
