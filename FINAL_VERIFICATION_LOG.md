@@ -374,6 +374,9 @@
 - **Self-Check**:
   - `make self-check` completed.
   - Report: `reports/DEV_SELF_CHECK_20260101.md`
+- **Enhanced Self-Check**:
+  - `make self-check-enhanced` completed after aligning checks with repo targets.
+  - Report: `reports/DEV_SELF_CHECK_ENHANCED_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
