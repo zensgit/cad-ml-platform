@@ -413,6 +413,18 @@
 - **DedupCAD Vision Compatibility & Fallback Metrics**:
   - Added payload format + legacy fallback metrics and guarded worker imports.
   - Report: `reports/DEV_DEDUPCAD_VISION_COMPAT_FALLBACK_20260101.md`
+- **DedupCAD Vision Reliability Tests**:
+  - Added retry/timeout/circuit-open coverage for dedupcad-vision client.
+  - Report: `reports/DEV_DEDUPCAD_VISION_RELIABILITY_20260101.md`
+- **Dedup2D Async Precision Overlay Test**:
+  - Added async precision overlay coverage and hardened middleware import fallback.
+  - Report: `reports/DEV_DEDUP2D_ASYNC_PRECISION_E2E_20260101.md`
+- **Dedup2D Observability Runbook Updates**:
+  - Documented dedupcad-vision circuit metrics and payload format rollout signals.
+  - Report: `reports/DEV_DEDUP2D_OBSERVABILITY_RUNBOOK_20260101.md`
+- **DedupCAD Vision Final Handoff**:
+  - Consolidated integration status, tests, and runbook changes.
+  - Report: `reports/DEV_DEDUPCAD_VISION_FINAL_HANDOFF_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

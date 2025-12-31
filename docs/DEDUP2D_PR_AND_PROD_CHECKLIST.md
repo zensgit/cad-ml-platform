@@ -9,6 +9,7 @@
   - [ ] 先升级 worker（支持 `file_ref` 与 `file_bytes_b64`）
   - [ ] 再按需开启 `DEDUP2D_JOB_PAYLOAD_INCLUDE_BYTES_B64=1`（可选）
   - [ ] 全量升级后关闭该 flag（回到 `file_ref`-only）
+  - [ ] 观察 `dedup2d_payload_format_total` 与 `dedup2d_legacy_b64_fallback_total`，确认旧格式逐步归零
 - [ ] 不引入循环依赖：生产推荐由 `cad-ml-platform` 调用 `dedupcad-vision`（Vision 端调用 ML 平台默认关闭）
 
 ### 必跑测试
@@ -102,6 +103,7 @@ dedup2d:
 - [ ] Prometheus 能 scrape `cad-ml-platform` `/metrics`
 - [ ] Grafana 预置 `Dedup2D Dashboard` 可见
 - [ ] Alert rules 已加载并在 staging 验证触发/静默策略
+- [ ] `dedupcad_vision_requests_total` / `dedupcad_vision_circuit_state` 指标稳定（无持续熔断）
 
 ## 3) 回滚/降级 Checklist
 
@@ -110,4 +112,3 @@ dedup2d:
 - [ ] 必要时降级到单实例 in-process：
   - [ ] `DEDUP2D_ASYNC_BACKEND=inprocess`
   - [ ] `WORKERS=1`（避免多 worker 状态不一致）
-

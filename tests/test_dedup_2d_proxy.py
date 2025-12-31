@@ -609,6 +609,42 @@ def test_dedup_2d_search_async_returns_job_and_completes():
         app.dependency_overrides.clear()
 
 
+def test_dedup_2d_search_async_with_precision_overlay():
+    reset_dedup2d_job_store()
+    fake_store = _FakeGeomStore()
+    fake_store.save("abc", {"entities": []})
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
+    app.dependency_overrides[get_geom_store] = lambda: fake_store
+    app.dependency_overrides[get_precision_verifier] = lambda: _FakePrecisionVerifier()
+    try:
+        client = TestClient(app)
+        files = {
+            "file": ("drawing.png", b"fake", "image/png"),
+            "geom_json": ("geom.json", b'{"entities":[]}', "application/json"),
+        }
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true",
+            files=files,
+        )
+        assert resp.status_code == 200
+        poll_url = resp.json()["poll_url"]
+
+        for _ in range(50):
+            job_resp = client.get(poll_url)
+            assert job_resp.status_code == 200
+            job = job_resp.json()
+            if job["status"] == "completed":
+                result = job["result"]
+                assert result["duplicates"][0]["precision_score"] == 1.0
+                assert any("precision_verified:" in w for w in result.get("warnings", []))
+                break
+            time.sleep(0.01)
+        else:
+            raise AssertionError("async job did not complete in time")
+    finally:
+        app.dependency_overrides.clear()
+
+
 class _SlowDedupClient(_FakeDedupClient):
     async def search_2d(self, **kwargs) -> Dict[str, Any]:
         import anyio

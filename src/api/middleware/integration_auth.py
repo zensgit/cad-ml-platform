@@ -2,8 +2,14 @@ from __future__ import annotations
 
 from typing import Optional
 
-import jwt
-from jwt import PyJWTError
+try:
+    import jwt
+    from jwt import PyJWTError
+except Exception:  # pragma: no cover - optional dependency in test/runtime
+    jwt = None  # type: ignore
+
+    class PyJWTError(Exception):
+        pass
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -65,6 +71,12 @@ class IntegrationAuthMiddleware(BaseHTTPMiddleware):
                     {"detail": "INTEGRATION_JWT_SECRET not configured"},
                     status_code=401,
                 )
+            self._set_state_from_headers(request)
+            return await call_next(request)
+
+        if jwt is None:
+            if self.mode == "required":
+                return JSONResponse({"detail": "PyJWT not installed"}, status_code=401)
             self._set_state_from_headers(request)
             return await call_next(request)
 

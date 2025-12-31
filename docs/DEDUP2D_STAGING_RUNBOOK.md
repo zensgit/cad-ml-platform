@@ -153,6 +153,11 @@ Notes:
 - Prometheus target for cad-ml-platform is UP
 - Grafana dashboard "Dedup2D Dashboard" exists and shows non-zero samples
 - No new alert rules firing unexpectedly
+- `dedupcad_vision_*` metrics present; `dedupcad_vision_circuit_state` should be `0` (closed)
+  for healthy endpoints (health/search).
+- Rolling upgrade signals:
+  - `dedup2d_payload_format_total{format="file_ref_only"}` should dominate after rollout.
+  - `dedup2d_legacy_b64_fallback_total` should stop increasing once old workers are drained.
 
 ## 6) Failure handling
 
@@ -161,6 +166,8 @@ If job fails:
 - Check worker logs for Vision HTTP errors or timeouts
 - Confirm DEDUPCAD_VISION_URL is reachable from worker Pod
 - Confirm S3 bucket permissions; verify cleanup_on_finish if enabled
+- If `dedup2d_legacy_b64_fallback_total` keeps increasing, verify worker versions and
+  disable `DEDUP2D_JOB_PAYLOAD_INCLUDE_BYTES_B64` after the upgrade.
 
 ## 7) Exit criteria
 
