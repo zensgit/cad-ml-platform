@@ -350,6 +350,9 @@
 - **Dedup2D Secure Callback E2E Smoke**:
   - `make dedup2d-secure-smoke` completed with host DedupCAD Vision.
   - Report: `reports/DEV_DEDUP2D_SECURE_CALLBACK_E2E_20260101.md`
+- **Lint Run**:
+  - `make lint` completed.
+  - Report: `reports/DEV_MAKE_LINT_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
