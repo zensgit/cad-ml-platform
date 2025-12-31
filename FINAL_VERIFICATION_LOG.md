@@ -341,6 +341,9 @@
 - **DedupCAD Vision Required Test Run (Real Service)**:
   - `make test-dedupcad-vision` completed against live dedupcad-vision container + local API.
   - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231_REAL.md`
+- **Dedup2D Webhook E2E Smoke**:
+  - `scripts/e2e_dedup2d_webhook.py` completed (callback signature verified).
+  - Report: `reports/DEV_E2E_DEDUP2D_WEBHOOK_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
