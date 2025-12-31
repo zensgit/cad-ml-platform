@@ -383,6 +383,12 @@
 - **Metrics Cardinality Check**:
   - Ran cardinality audit against local Prometheus (9091) and saved JSON report.
   - Report: `reports/DEV_CARDINALITY_CHECK_20260101.md`
+- **Targeted FAISS Tests**:
+  - `make test-targeted` completed (3 tests, SWIG warnings only).
+  - Report: `reports/DEV_TEST_TARGETED_20260101.md`
+- **Metrics Cardinality Audit (Markdown)**:
+  - Generated `reports/cardinality_audit_20260101.md` from Prometheus (9091).
+  - Report: `reports/DEV_METRICS_AUDIT_MARKDOWN_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
