@@ -190,3 +190,15 @@
 补充：`/api/v1/analyze` 的 `results.features` 现在包含 `combined` 字段（与 `flatten()` 同序），供 dedupcad-vision 融合语义特征使用。
 
 补充：`/api/v1/vectors/register` 与 `/api/v1/vectors/search` 已提供用于 dedupcad-vision 的向量注册与相似检索。
+
+### 5.1 向量注册与检索（dedupcad-vision → cad-ml-platform）
+
+- `POST /api/v1/vectors/register`
+  - JSON：`{ "id": "<doc_id>", "vector": [..], "meta": { "material": "...", "complexity": "...", "format": "..." } }`
+  - 响应：`{ "id": "...", "status": "accepted|rejected", "dimension": <int>, "error": <optional> }`
+
+- `POST /api/v1/vectors/search`
+  - JSON：`{ "vector": [..], "k": 10, "material_filter": "<opt>", "complexity_filter": "<opt>" }`
+  - 响应：`{ "results": [ { "id": "...", "score": <float>, "material": "...", "complexity": "...", "format": "...", "dimension": <int> } ], "total": <int> }`
+
+注意：`dedupcad-vision` 的 L3 比对在找不到候选向量时会尝试调用 `/api/compare` 作为降级路径，但 cad-ml-platform 当前未提供该端点，因此该分支会返回空结果（不会阻断整体流程）。

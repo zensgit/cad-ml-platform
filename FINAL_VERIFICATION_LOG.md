@@ -269,6 +269,9 @@
 - **DedupCAD Vision ML Platform Audit**:
   - Verified L3 requires CAD source path; PNG/JPG inputs are unsupported by `/api/v1/analyze`.
   - Report: `reports/DEV_DEDUPCAD_VISION_MLPLATFORM_AUDIT_20251231.md`
+- **DedupCAD Vision Field Compatibility Audit**:
+  - Verified vector register/search payloads and documented `/api/compare` fallback gap.
+  - Report: `reports/DEV_DEDUPCAD_VISION_FIELD_COMPAT_AUDIT_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
