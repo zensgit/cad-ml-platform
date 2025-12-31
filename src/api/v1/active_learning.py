@@ -74,7 +74,7 @@ async def submit_feedback(
     )
     if result.get("status") != "ok":
         err = build_error(
-            ErrorCode.NOT_FOUND,
+            ErrorCode.DATA_NOT_FOUND,
             stage="active_learning_feedback",
             message=result.get("message", "Sample not found"),
             sample_id=payload.sample_id,

@@ -257,6 +257,9 @@
 - **Render + Feedback Endpoint Tests**:
   - Added targeted tests for render + feedback APIs.
   - Report: `reports/DEV_RENDER_FEEDBACK_TESTS_20251231.md`
+- **Active Learning API Coverage**:
+  - Added API tests for pending/feedback/stats/export and corrected feedback error code.
+  - Report: `reports/DEV_ACTIVE_LEARNING_API_TESTS_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
