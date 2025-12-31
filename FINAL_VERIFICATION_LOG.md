@@ -293,6 +293,9 @@
 - **Compare Requests Grafana Panel**:
   - Added dashboard panel for `compare_requests_total` rates by status.
   - Report: `reports/DEV_COMPARE_DASHBOARD_PANEL_20251231.md`
+- **Compare Alert Rules**:
+  - Added alerting rules for compare failure rate and not_found dominance.
+  - Report: `reports/DEV_COMPARE_ALERT_RULES_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

@@ -127,6 +127,39 @@ groups:
           runbook_url: "https://docs.example.com/runbooks/cache_hit_rate_low"
           feature_version: "${FEATURE_VERSION}"  # annotate current feature version for correlation
 
+      # Compare Fallback Alerts
+      - alert: CompareRequestFailureRateHigh
+        expr: |
+          (
+            sum(rate(compare_requests_total{status!="success"}[5m]))
+            / sum(rate(compare_requests_total[5m]))
+          ) > 0.3
+          and sum(rate(compare_requests_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          component: compare
+        annotations:
+          summary: "High /api/compare failure rate"
+          description: "More than 30% of /api/compare requests are failing over 10m"
+          runbook_url: "https://docs.example.com/runbooks/compare_failure_rate"
+
+      - alert: CompareNotFoundDominant
+        expr: |
+          (
+            sum(rate(compare_requests_total{status="not_found"}[5m]))
+            / sum(rate(compare_requests_total[5m]))
+          ) > 0.5
+          and sum(rate(compare_requests_total[5m])) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+          component: compare
+        annotations:
+          summary: "Compare not_found dominates"
+          description: "More than 50% of /api/compare requests are not_found over 10m"
+          runbook_url: "https://docs.example.com/runbooks/compare_not_found"
+
       # Feature Cache Sliding Hour Hit Rate Drop Alert
       - alert: FeatureCacheHitRateLowSlidingHour
         expr: |
