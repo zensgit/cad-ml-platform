@@ -278,6 +278,12 @@
 - **DedupCAD Vision /api/compare Compatibility**:
   - Added `/api/compare` fallback endpoint (alias `/api/v1/compare`) with unit tests.
   - Report: `reports/DEV_DEDUPCAD_VISION_COMPARE_ENDPOINT_20251231.md`
+- **DedupCAD Vision /api/compare Fallback E2E**:
+  - Verified ML client fallback to `/api/compare` when vector search misses candidate hash.
+  - Report: `reports/DEV_DEDUPCAD_VISION_COMPARE_FALLBACK_E2E_20251231.md`
+- **DedupCAD Vision Vector ID Alignment Review**:
+  - Confirmed `candidate_hash` must match vector id; documented hash→id alignment requirement.
+  - Report: `reports/DEV_DEDUPCAD_VISION_VECTOR_ID_ALIGNMENT_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

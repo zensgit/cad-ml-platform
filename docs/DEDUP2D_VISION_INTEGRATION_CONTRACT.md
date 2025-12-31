@@ -207,3 +207,5 @@
   - JSON：`{ "query_features": [..], "candidate_hash": "<doc_id>" }`
   - 响应：`{ "similarity": <float>, "score": <float>, "feature_distance": <float>, "category_match": false, "ocr_match": 0.0, "method": "cosine", "dimension": <int>, "reference_id": "<doc_id>" }`
   - 失败：候选向量不存在返回 404；维度不一致返回 400。
+
+注意：`candidate_hash` 会被当作向量 ID 查找；要启用该降级路径，需确保向量注册时 `doc_id == file_hash`（或提供 hash → id 映射层）。
