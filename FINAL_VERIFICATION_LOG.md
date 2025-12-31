@@ -254,6 +254,9 @@
 - **Full Test Run**:
   - `make test` completed (full pytest suite with coverage).
   - Report: `reports/DEV_MAKE_TEST_20251231.md`
+- **Render + Feedback Endpoint Tests**:
+  - Added targeted tests for render + feedback APIs.
+  - Report: `reports/DEV_RENDER_FEEDBACK_TESTS_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
