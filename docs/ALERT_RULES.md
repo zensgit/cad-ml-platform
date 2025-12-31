@@ -103,6 +103,41 @@ This document includes sample Prometheus alerting rules for OCR/Vision services.
       annotations:
         summary: "Vision image size P99 high"
         description: "P99 input size >2MB. Monitor downstream latency and costs."
+        runbook_url: https://example.org/runbooks/input_rejections_spike
+
+    # 9) Compare failure rate elevated
+    - alert: CompareRequestFailureRateHigh
+      expr: |
+        (
+          sum(rate(compare_requests_total{status!="success"}[5m]))
+          / sum(rate(compare_requests_total[5m]))
+        ) > 0.3
+        and sum(rate(compare_requests_total[5m])) > 0.05
+      for: 10m
+      labels:
+        severity: warning
+        team: compare
+      annotations:
+        summary: "High /api/compare failure rate"
+        description: "More than 30% of /api/compare requests are failing over 10m."
+        runbook_url: https://example.org/runbooks/compare_failure_rate
+
+    # 10) Compare not_found dominates
+    - alert: CompareNotFoundDominant
+      expr: |
+        (
+          sum(rate(compare_requests_total{status="not_found"}[5m]))
+          / sum(rate(compare_requests_total[5m]))
+        ) > 0.5
+        and sum(rate(compare_requests_total[5m])) > 0.05
+      for: 10m
+      labels:
+        severity: warning
+        team: compare
+      annotations:
+        summary: "Compare not_found dominates"
+        description: "More than 50% of /api/compare requests are not_found over 10m."
+        runbook_url: https://example.org/runbooks/compare_not_found
 ```
 
 Notes:
@@ -115,4 +150,3 @@ Notes:
 - GitHub Actions: use `curl` in post-failure hooks to send alerts to Slack/PagerDuty.
 - Slack: route Vision alerts to `#vision-alerts`, OCR alerts to `#ocr-alerts`.
 - PagerDuty: map severity critical to P1, warning to P2/P3.
-
