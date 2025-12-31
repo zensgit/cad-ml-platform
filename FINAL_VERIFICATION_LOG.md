@@ -305,6 +305,9 @@
 - **Compare Observability Checklist**:
   - Added compare alert/runbook items to `docs/OBSERVABILITY_CHECKLIST.md`.
   - Report: `reports/DEV_COMPARE_OBSERVABILITY_CHECKLIST_20251231.md`
+- **Compare Operations Manual**:
+  - Added compare alert response workflow and runbook directory entries.
+  - Report: `reports/DEV_COMPARE_OPERATIONS_MANUAL_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
