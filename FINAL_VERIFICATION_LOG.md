@@ -377,6 +377,9 @@
 - **Enhanced Self-Check**:
   - `make self-check-enhanced` completed after aligning checks with repo targets.
   - Report: `reports/DEV_SELF_CHECK_ENHANCED_20260101.md`
+- **Security Audit**:
+  - `make security-audit` completed with 0 vulnerabilities after remediation.
+  - Report: `reports/DEV_SECURITY_AUDIT_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

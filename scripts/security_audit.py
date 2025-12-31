@@ -31,11 +31,37 @@ class SecurityAuditor:
         print("Checking Python dependencies...")
 
         vulnerabilities = []
+        def _run_safety_fallback() -> None:
+            """Run safety as a fallback scanner."""
+            try:
+                result = subprocess.run(
+                    ["safety", "check", "--json"],
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+
+                if result.stdout:
+                    safety_data = json.loads(result.stdout)
+                    for vuln in safety_data:
+                        vulnerabilities.append({
+                            "type": "python_dependency",
+                            "package": vuln[0],
+                            "installed_version": vuln[2],
+                            "vulnerable_versions": vuln[1],
+                            "severity": "high",  # Safety doesn't provide severity
+                            "description": vuln[3],
+                            "fix_version": vuln[5] if len(vuln) > 5 else None,
+                            "cve": vuln[4] if len(vuln) > 4 else None
+                        })
+                    print(f"  safety: Found {len(vulnerabilities)} vulnerabilities")
+            except FileNotFoundError:
+                print("  Neither pip-audit nor safety installed")
 
         # Method 1: pip-audit (if available)
         try:
             result = subprocess.run(
-                ["pip-audit", "--format", "json"],
+                [sys.executable, "-m", "pip_audit", "--format", "json"],
                 capture_output=True,
                 text=True,
                 timeout=60
@@ -77,37 +103,15 @@ class SecurityAuditor:
                 else:
                     print("  pip-audit output was not JSON")
             else:
-                print("  pip-audit not available or failed")
+                if "No module named pip_audit" in (result.stderr or ""):
+                    print("  pip-audit not installed, trying safety...")
+                    _run_safety_fallback()
+                else:
+                    print("  pip-audit not available or failed")
 
         except FileNotFoundError:
             print("  pip-audit not installed, trying safety...")
-
-            # Method 2: safety check (fallback)
-            try:
-                result = subprocess.run(
-                    ["safety", "check", "--json"],
-                    capture_output=True,
-                    text=True,
-                    timeout=60
-                )
-
-                if result.stdout:
-                    safety_data = json.loads(result.stdout)
-                    for vuln in safety_data:
-                        vulnerabilities.append({
-                            "type": "python_dependency",
-                            "package": vuln[0],
-                            "installed_version": vuln[2],
-                            "vulnerable_versions": vuln[1],
-                            "severity": "high",  # Safety doesn't provide severity
-                            "description": vuln[3],
-                            "fix_version": vuln[5] if len(vuln) > 5 else None,
-                            "cve": vuln[4] if len(vuln) > 4 else None
-                        })
-                    print(f"  safety: Found {len(vulnerabilities)} vulnerabilities")
-
-            except FileNotFoundError:
-                print("  Neither pip-audit nor safety installed")
+            _run_safety_fallback()
 
         except Exception as e:
             print(f"  Error checking dependencies: {e}")
