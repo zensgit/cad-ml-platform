@@ -236,5 +236,18 @@
   - `make test` completed (full pytest suite).
   - Report: `reports/DEV_MAKE_TEST_20251230.md`
 
+## 12. Post-Release Verification (2025-12-30)
+- **CI Workflow Hardening**:
+  - Adjusted workflow permissions/guards and fixed SBOM diff command.
+  - Report: `reports/DEV_CI_WORKFLOW_FIX_20251230.md`
+- **Metrics Budget Check Fix**:
+  - Added missing `os` import in metrics analysis helper script.
+  - Report: `reports/DEV_METRICS_BUDGET_FIX_20251230.md`
+
+## 13. Post-Release Verification (2025-12-31)
+- **V4 Performance Test Stabilization**:
+  - Switched to absolute overhead threshold for low-baseline runs.
+  - Report: `reports/DEV_CI_TEST_FIX_20251231.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
