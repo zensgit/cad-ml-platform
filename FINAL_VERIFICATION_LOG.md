@@ -332,6 +332,15 @@
 - **Redis/FAISS E2E Smoke**:
   - Ran `make e2e-smoke` against a Redis-enabled API (FAISS backend requested).
   - Report: `reports/DEV_E2E_SMOKE_REDIS_FAISS_20251231.md`
+- **FAISS Installation**:
+  - Installed `faiss-cpu` and reconciled numpy compatibility for local FAISS validation.
+  - Report: `reports/DEV_FAISS_INSTALL_20251231.md`
+- **Redis/FAISS E2E Smoke (Real FAISS)**:
+  - Ran `make e2e-smoke` with FAISS loaded and Redis enabled.
+  - Report: `reports/DEV_E2E_SMOKE_REDIS_FAISS_REAL_20251231.md`
+- **DedupCAD Vision Required Test Run (Real Service)**:
+  - `make test-dedupcad-vision` completed against live dedupcad-vision container + local API.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231_REAL.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
