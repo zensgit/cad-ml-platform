@@ -344,6 +344,9 @@
 - **Dedup2D Webhook E2E Smoke**:
   - `scripts/e2e_dedup2d_webhook.py` completed (callback signature verified).
   - Report: `reports/DEV_E2E_DEDUP2D_WEBHOOK_20251231.md`
+- **Dedup2D Webhook E2E Smoke (MinIO)**:
+  - `scripts/e2e_dedup2d_webhook_minio.py` completed (callback + MinIO cleanup verified).
+  - Report: `reports/DEV_E2E_DEDUP2D_WEBHOOK_MINIO_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
