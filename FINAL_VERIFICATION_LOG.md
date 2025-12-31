@@ -371,6 +371,9 @@
 - **Observability Test Suite**:
   - `make observability-test` completed (21 tests).
   - Report: `reports/DEV_OBSERVABILITY_TEST_20260101.md`
+- **Self-Check**:
+  - `make self-check` completed.
+  - Report: `reports/DEV_SELF_CHECK_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
