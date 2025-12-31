@@ -291,7 +291,7 @@ class VectorStoreProtocol(Protocol):
 
 
 class InMemoryVectorStore(VectorStoreProtocol):
-    def __init__(self):
+    def __init__(self) -> None:
         self._store: Dict[
             str, List[float]
         ] = _VECTOR_STORE  # reuse global for backward compatibility
@@ -472,7 +472,7 @@ class FaissVectorStore(VectorStoreProtocol):
     Gracefully degrades to unavailable state if faiss not installed.
     """
 
-    def __init__(self, normalize: bool | None = None):
+    def __init__(self, normalize: bool | None = None) -> None:
         global _FAISS_AVAILABLE
         if _FAISS_AVAILABLE is None:
             try:

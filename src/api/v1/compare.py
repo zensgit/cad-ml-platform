@@ -33,7 +33,7 @@ class CompareResponse(BaseModel):
 async def compare_features(
     payload: CompareRequest,
     api_key: str = Depends(get_api_key),
-):
+) -> CompareResponse:
     """Compare query features against a stored candidate vector."""
     if not payload.query_features:
         compare_requests_total.labels(status="invalid").inc()

@@ -314,6 +314,12 @@
 - **Full Test Run (Re-run)**:
   - `make test` completed (full pytest suite with coverage).
   - Report: `reports/DEV_MAKE_TEST_20251231_RERUN.md`
+- **CI Type-Check Fix (Compare Endpoint)**:
+  - Added missing type annotations to resolve mypy failures.
+  - Report: `reports/DEV_CI_TYPECHECK_COMPARE_FIX_20251231.md`
+- **Type Check Run**:
+  - `make type-check` completed.
+  - Report: `reports/DEV_MAKE_TYPE_CHECK_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
