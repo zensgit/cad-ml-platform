@@ -263,6 +263,9 @@
 - **DedupCAD Vision Required Test Run**:
   - `make test-dedupcad-vision` completed against live dedupcad-vision + local API.
   - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231.md`
+- **DedupCAD Vision Contract Audit**:
+  - Contract doc aligned with live dedupcad-vision endpoints (health/search/index).
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_AUDIT_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

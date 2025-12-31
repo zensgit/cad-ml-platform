@@ -24,12 +24,13 @@
 - `POST /api/v2/search`
 - Content-Type: `multipart/form-data`
 - Form 字段：
-  - `file`：图纸图像文件（推荐 `png/jpg`）
+  - `file`：图纸图像文件（推荐 `png/jpg`；也支持 `pdf/dxf/dwg`，由 vision 侧转换）
   - `mode`：`fast|balanced|precise`（字符串）
-  - `max_results`：整数
+  - `max_results`：整数（建议 1-500）
   - `compute_diff`：`true|false`
   - `enable_ml`：`true|false`（可选，需 vision 端已配置 L3）
   - `enable_geometric`：`true|false`（可选，需 vision 端已配置 L4）
+  - `exclude_self`：`true|false`（可选，默认 `true`）
 
 #### 响应（JSON）
 
@@ -57,6 +58,33 @@
 - `levels: object`
 - 可选：`diff_image_base64`, `diff_regions`
 
+### 1.3 Index Add
+
+- `POST /api/index/add`
+- Content-Type: `multipart/form-data`
+- Form 字段：
+  - `file`：图纸文件（可选，与 `s3_key` 二选一）
+  - `s3_key`：已上传文件键（可选，与 `file` 二选一）
+- Query：
+  - `user_name`：操作人（必填）
+  - `upload_to_s3`：`true|false`（可选，默认 `true`）
+
+#### 响应（JSON）
+
+- `success: bool`
+- `drawing_id: int|null`
+- `file_hash: str`（cad-ml-platform 依赖该字段存储 `geom_json`）
+- `message: str`
+- `processing_time_ms: float`
+- `s3_key: str|null`
+
+### 1.4 Index Rebuild
+
+- `POST /api/v2/index/rebuild`
+- `200` JSON：
+  - `success: bool`
+  - `message: str`
+
 ## 2) cad-ml-platform（对外 API）
 
 ### 2.1 提交查重
@@ -66,10 +94,15 @@
   - `async=true|false`
   - `mode=fast|balanced|precise`
   - `max_results=<int>`
+  - `compute_diff=true|false`（透传至 vision）
+  - `enable_ml=true|false`（透传至 vision）
+  - `enable_geometric=true|false`（透传至 vision）
   - `callback_url=<url>`（可选）
 - Form：
-  - `file`（图像文件）
+  - `file`（图像文件，PNG/JPG/PDF）
   - `geom_json`（可选，用于 precision；启用时通常强制 async）
+
+补充：`enable_precision` 与 `precision_*` 参数用于本地 L4 精度验证（不透传至 vision）。
 
 #### 同步响应（async=false 且未触发 forced-async）
 
