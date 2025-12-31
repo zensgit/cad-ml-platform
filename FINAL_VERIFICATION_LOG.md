@@ -290,6 +290,9 @@
 - **Compare Endpoint Metrics**:
   - Added `compare_requests_total` counter for `/api/compare`.
   - Report: `reports/DEV_COMPARE_ENDPOINT_METRICS_20251231.md`
+- **Compare Requests Grafana Panel**:
+  - Added dashboard panel for `compare_requests_total` rates by status.
+  - Report: `reports/DEV_COMPARE_DASHBOARD_PANEL_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
