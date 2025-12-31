@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # CAD ML Platform主服务
   cad-ml-api:

@@ -398,6 +398,9 @@
 - **Docker Compose Down**:
   - Stopped cad-ml compose services after validation runs.
   - Report: `reports/DEV_DOCKER_COMPOSE_DOWN_20260101.md`
+- **Compose/Prometheus Maintenance**:
+  - Removed compose `version` fields; added `PROMETHEUS_URL` default for cardinality audits.
+  - Report: `reports/DEV_MAINTENANCE_COMPOSE_PROM_URL_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

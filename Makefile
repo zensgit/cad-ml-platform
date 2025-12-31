@@ -22,6 +22,7 @@ BLACK := $(PYTHON) -m black
 ISORT := $(PYTHON) -m isort
 MYPY := $(PYTHON) -m mypy
 FLAKE8 := $(PYTHON) -m flake8
+PROMETHEUS_URL ?= http://localhost:9091
 
 # 项目路径
 SRC_DIR := src
@@ -272,13 +273,13 @@ observability-clean: ## 清理可观测性数据
 
 metrics-audit: ## 运行指标基数审计
 	@echo "$(GREEN)Running metrics cardinality audit...$(NC)"
-	$(PYTHON) scripts/cardinality_audit.py --format markdown
+	$(PYTHON) scripts/cardinality_audit.py --prometheus-url $(PROMETHEUS_URL) --format markdown
 	@echo "$(GREEN)Audit complete!$(NC)"
 
 cardinality-check: ## 检查指标基数并生成报告
 	@echo "$(GREEN)Checking metrics cardinality...$(NC)"
 	$(PYTHON) scripts/cardinality_audit.py \
-		--prometheus-url http://localhost:9090 \
+		--prometheus-url $(PROMETHEUS_URL) \
 		--warning-threshold 100 \
 		--critical-threshold 1000 \
 		--format json \
@@ -289,7 +290,7 @@ metrics-audit-watch: ## 持续监控指标基数
 	@echo "$(GREEN)Starting continuous cardinality monitoring...$(NC)"
 	@while true; do \
 		clear; \
-		$(PYTHON) scripts/cardinality_audit.py --format markdown; \
+		$(PYTHON) scripts/cardinality_audit.py --prometheus-url $(PROMETHEUS_URL) --format markdown; \
 		sleep 60; \
 	done
 

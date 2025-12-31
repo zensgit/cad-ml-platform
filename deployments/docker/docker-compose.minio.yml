@@ -11,8 +11,6 @@
 #
 # Default credentials: minioadmin / minioadmin (change in production!)
 
-version: '3.8'
-
 services:
   # MinIO S3-compatible storage
   minio:
