@@ -142,7 +142,7 @@ groups:
         annotations:
           summary: "High /api/compare failure rate"
           description: "More than 30% of /api/compare requests are failing over 10m"
-          runbook_url: "https://docs.example.com/runbooks/compare_failure_rate"
+          runbook_url: "docs/runbooks/compare_failure_rate.md"
 
       - alert: CompareNotFoundDominant
         expr: |
@@ -158,7 +158,7 @@ groups:
         annotations:
           summary: "Compare not_found dominates"
           description: "More than 50% of /api/compare requests are not_found over 10m"
-          runbook_url: "https://docs.example.com/runbooks/compare_not_found"
+          runbook_url: "docs/runbooks/compare_not_found.md"
 
       # Feature Cache Sliding Hour Hit Rate Drop Alert
       - alert: FeatureCacheHitRateLowSlidingHour

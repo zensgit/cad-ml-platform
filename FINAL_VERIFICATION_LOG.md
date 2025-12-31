@@ -296,6 +296,9 @@
 - **Compare Alert Rules**:
   - Added alerting rules for compare failure rate and not_found dominance.
   - Report: `reports/DEV_COMPARE_ALERT_RULES_20251231.md`
+- **Compare Alert Runbooks**:
+  - Added runbooks for compare failure rate and not_found dominance.
+  - Report: `reports/DEV_COMPARE_RUNBOOKS_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
