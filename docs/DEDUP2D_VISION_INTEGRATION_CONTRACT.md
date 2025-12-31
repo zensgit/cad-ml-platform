@@ -12,6 +12,29 @@
 
 > 说明：`dedupcad-vision` 内置 `MLPlatformClient` 默认禁用（见 `ML_PLATFORM_ENABLED=false`），建议不要形成循环依赖。
 
+## 0) 接口映射矩阵（核心路径）
+
+### 0.1 cad-ml-platform → dedupcad-vision
+
+| cad-ml-platform | dedupcad-vision | 请求映射 | 成功响应 | 失败映射 |
+| --- | --- | --- | --- | --- |
+| `GET /api/v1/dedup/2d/health` | `GET /health` | 无 | 直接透传 dedupcad-vision JSON | circuit open → `503` + `Retry-After: 5`；网络错误 → `503`；HTTP 错误 → 透传状态码与 body |
+| `POST /api/v1/dedup/2d/index/rebuild` | `POST /api/v2/index/rebuild` | 无 | 透传 dedupcad-vision JSON | 同上（无重试） |
+| `POST /api/v1/dedup/2d/search`（sync） | `POST /api/v2/search` | `multipart/form-data`：`file` + `mode/max_results/compute_diff/enable_ml/enable_geometric` | 透传搜索 JSON（可能叠加 L4 精度） | circuit open → `503` + `Retry-After: 5`；网络错误 → `503`；HTTP 错误 → 透传状态码与 body |
+| `POST /api/v1/dedup/2d/search`（async） | `POST /api/v2/search`（worker） | 同上；worker 内部调用 | `job_id` + `poll_url`（完成后结果为 dedupcad-vision JSON） | `CALLBACK_UNSUPPORTED`/`CALLBACK_URL_INVALID`/`JOB_QUEUE_FULL` 等 cad-ml 侧错误；vision 调用失败会进入 job error |
+| `POST /api/v1/dedup/2d/index/add` | `POST /api/index/add` | `file` + `user_name` + `upload_to_s3` | 透传 index add JSON；如附带 `geom_json`，cad-ml 会存储并补充 `message` | `file_hash` 缺失 → `502`；其余错误同上 |
+
+### 0.2 cad-ml-platform 外部错误码（与 vision 关联）
+
+- `503 dedupcad-vision circuit open`：熔断器打开（含 `Retry-After`）。
+- `503 dedupcad-vision unavailable`：网络/连接错误。
+- `4xx/5xx`：dedupcad-vision 返回的 HTTP 错误，cad-ml 透传状态码与 body。
+- `502 dedupcad-vision response missing file_hash`：index/add 响应缺少 `file_hash`。
+
+### 0.3 本地精度叠加（cad-ml 内部）
+
+- 当 `geom_json` 存在且启用精度（`enable_precision`/`enable_geometric`/`mode=precise`），cad-ml 会对 vision 的 `duplicates/similar` 进行 L4 复算并重排，新增 `precision_*` 字段与 `warnings`。
+
 ## 1) dedupcad-vision（被调方）
 
 ### 1.1 Health

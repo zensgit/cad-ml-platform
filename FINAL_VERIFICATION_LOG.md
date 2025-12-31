@@ -404,6 +404,9 @@
 - **DedupCAD Vision Integration Inventory**:
   - Mapped cad-ml ↔ dedupcad-vision integration paths/configs.
   - Report: `reports/DEV_DEDUPCAD_VISION_INTEGRATION_INVENTORY_20260101.md`
+- **DedupCAD Vision Contract Matrix**:
+  - Documented endpoint mapping and error passthrough behavior.
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_MATRIX_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
