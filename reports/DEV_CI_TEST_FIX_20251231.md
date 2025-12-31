@@ -14,3 +14,7 @@
 
 ## Notes
 - CI rerun required to confirm Python 3.10 pipeline passes.
+
+## CI rerun outcome
+- PR workflows completed successfully: Metrics Budget Check, CI, Release Risk Assessment,
+  Evaluation Report, SBOM Generation and Security Scan, Security Audit, Observability Checks.
