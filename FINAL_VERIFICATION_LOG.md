@@ -266,6 +266,9 @@
 - **DedupCAD Vision Contract Audit**:
   - Contract doc aligned with live dedupcad-vision endpoints (health/search/index).
   - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_AUDIT_20251231.md`
+- **DedupCAD Vision ML Platform Audit**:
+  - Verified L3 requires CAD source path; PNG/JPG inputs are unsupported by `/api/v1/analyze`.
+  - Report: `reports/DEV_DEDUPCAD_VISION_MLPLATFORM_AUDIT_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

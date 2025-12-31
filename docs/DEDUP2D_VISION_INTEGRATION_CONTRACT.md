@@ -184,6 +184,8 @@
 
 - 生产保持 `ML_PLATFORM_ENABLED=false`（避免循环依赖 + 避免格式不兼容）
 - 若必须启用：需要新增/对齐“图像特征/语义分析”端点或让 vision 侧以 CAD 原文件作为 L3 输入（而非 PNG）
+  - L3 仅在 `ml_input_path` 可用时执行；PNG/JPG/PDF 输入通常没有 CAD 源路径，会跳过 L3 并写入 warning。
+  - cad-ml-platform `/api/v1/analyze` 仅支持 `dxf/dwg/step/stp/iges/igs/stl`。
 
 补充：`/api/v1/analyze` 的 `results.features` 现在包含 `combined` 字段（与 `flatten()` 同序），供 dedupcad-vision 融合语义特征使用。
 
