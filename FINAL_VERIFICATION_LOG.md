@@ -365,6 +365,9 @@
 - **Prometheus Rules Validation (Promtool All)**:
   - `make promtool-validate-all` completed for alerting + recording rules.
   - Report: `reports/DEV_PROMTOOL_VALIDATE_ALL_20260101.md`
+- **Dedup2D Observability Local Checks**:
+  - Verified Prometheus alert rules API and Grafana dashboard presence.
+  - Report: `reports/DEV_DEDUP2D_OBSERVABILITY_LOCAL_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
