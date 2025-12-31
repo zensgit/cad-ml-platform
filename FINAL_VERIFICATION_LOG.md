@@ -320,6 +320,15 @@
 - **Type Check Run**:
   - `make type-check` completed.
   - Report: `reports/DEV_MAKE_TYPE_CHECK_20251231.md`
+- **CI Workflow Run**:
+  - `CI` workflow completed successfully (post type-check fix).
+  - Report: `reports/DEV_CI_WORKFLOW_RUN_20251231.md`
+- **DedupCAD Vision Stub Alignment**:
+  - Updated dedupcad-vision stub `level_stats` schema for contract compatibility.
+  - Report: `reports/DEV_DEDUPCAD_VISION_STUB_SCHEMA_ALIGN_20251231.md`
+- **DedupCAD Vision Required Test Run (Stub)**:
+  - `make test-dedupcad-vision` completed against local stub + local API.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231_STUB.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

@@ -65,6 +65,12 @@ async def search(
         "l4_ms": 0,
     }
 
+    level_stats = {
+        "l1": {"passed": len(duplicates), "filtered": 0, "time_ms": timing["l1_ms"]},
+        "l2": {"passed": 0, "filtered": 0, "time_ms": timing["l2_ms"]},
+        "l3": {"passed": 0, "filtered": 0, "time_ms": timing["l3_ms"]},
+        "l4": {"passed": 0, "filtered": 0, "time_ms": timing["l4_ms"]},
+    }
     return {
         "success": True,
         "total_matches": len(duplicates),
@@ -72,7 +78,7 @@ async def search(
         "similar": [],
         "final_level": 1,
         "timing": timing,
-        "level_stats": {"l1": len(duplicates), "l2": 0, "l3": 0, "l4": 0},
+        "level_stats": level_stats,
         "warnings": [],
         "error": None,
     }
