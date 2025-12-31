@@ -308,12 +308,19 @@ class TestV4PerformanceComparison:
         v4_time = time.perf_counter() - v4_start
 
         # Calculate overhead
-        overhead = (v4_time - v3_time) / v3_time
+        delta = v4_time - v3_time
+        overhead = delta / v3_time if v3_time > 0 else 0.0
+        per_iter_overhead = delta / iterations if iterations > 0 else 0.0
 
         # V4 adds additional computations, so some overhead is expected.
-        # CI runners can be slower and have high variability, so use 100% limit.
-        # The key metric is absolute performance (tested separately).
-        assert overhead < 1.0, f"V4 overhead {overhead:.1%} exceeds 100% limit"
+        # When the baseline is extremely small, ratio-based checks are unstable.
+        # Use absolute overhead per extraction for low-baseline runs.
+        if v3_time >= 0.05:
+            assert overhead < 1.0, f"V4 overhead {overhead:.1%} exceeds 100% limit"
+        else:
+            assert per_iter_overhead < 0.005, (
+                f"V4 overhead {per_iter_overhead * 1000:.2f}ms per extraction exceeds 5ms limit"
+            )
 
     @pytest.mark.asyncio
     async def test_v4_absolute_performance(self, mock_metrics):
