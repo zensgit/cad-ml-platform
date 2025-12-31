@@ -28,7 +28,7 @@ class CompareResponse(BaseModel):
     reference_id: str
 
 
-@router.post("/", response_model=CompareResponse)
+@router.post("", response_model=CompareResponse)
 async def compare_features(
     payload: CompareRequest,
     api_key: str = Depends(get_api_key),

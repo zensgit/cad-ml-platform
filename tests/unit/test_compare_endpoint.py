@@ -24,6 +24,7 @@ def test_compare_endpoint_success():
         "/api/compare",
         json={"query_features": vector, "candidate_hash": vid},
         headers=_headers(),
+        follow_redirects=False,
     )
     assert resp.status_code == 200
     data = resp.json()

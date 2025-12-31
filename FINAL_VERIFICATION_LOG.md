@@ -284,6 +284,9 @@
 - **DedupCAD Vision Vector ID Alignment Review**:
   - Confirmed `candidate_hash` must match vector id; documented hash→id alignment requirement.
   - Report: `reports/DEV_DEDUPCAD_VISION_VECTOR_ID_ALIGNMENT_20251231.md`
+- **Compare Endpoint Redirect Fix**:
+  - Bound `/api/compare` without trailing slash to avoid 307 redirects.
+  - Report: `reports/DEV_COMPARE_ENDPOINT_NO_REDIRECT_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
