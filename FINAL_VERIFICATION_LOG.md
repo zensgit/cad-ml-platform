@@ -392,6 +392,9 @@
 - **E2E Smoke Tests**:
   - `make e2e-smoke` completed with DedupCAD Vision on localhost:8100.
   - Report: `reports/DEV_E2E_SMOKE_20260101.md`
+- **Full Test Run**:
+  - `make test` completed (3985 passed, 19 skipped).
+  - Report: `reports/DEV_MAKE_TEST_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
