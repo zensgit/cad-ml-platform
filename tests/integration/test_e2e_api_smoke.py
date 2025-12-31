@@ -52,14 +52,24 @@ def _post_file(
     raise RuntimeError("Unexpected retry failure")
 
 
-def _search_with_retry(vector: list, vector_id: str) -> tuple[httpx.Response, list[str]]:
+def _search_with_retry(
+    vector: list,
+    vector_id: str,
+    material_filter: Optional[str] = None,
+    complexity_filter: Optional[str] = None,
+) -> tuple[httpx.Response, list[str]]:
     response: httpx.Response | None = None
     ids: list[str] = []
     for _ in range(5):
+        payload: Dict[str, object] = {"vector": vector, "k": 5}
+        if material_filter is not None:
+            payload["material_filter"] = material_filter
+        if complexity_filter is not None:
+            payload["complexity_filter"] = complexity_filter
         response = httpx.post(
             f"{BASE_URL}/api/v1/vectors/search",
             headers=_headers(),
-            json={"vector": vector, "k": 5},
+            json=payload,
             timeout=TIMEOUT,
         )
         if response.status_code != 200:
@@ -89,12 +99,14 @@ def test_e2e_core_api_smoke() -> None:
         combined = [float(idx + 1) / 10 for idx in range(len(combined))]
 
     vector_id = f"e2e-{uuid.uuid4().hex[:8]}"
+    material = f"e2e-material-{vector_id}"
+    complexity = f"e2e-complexity-{vector_id}"
     register_payload = {
         "id": vector_id,
         "vector": combined,
         "meta": {
-            "material": "steel",
-            "complexity": "low",
+            "material": material,
+            "complexity": complexity,
             "format": "dxf",
         },
     }
@@ -109,7 +121,12 @@ def test_e2e_core_api_smoke() -> None:
     assert register_resp.status_code == 200
     assert register_resp.json().get("status") == "accepted"
 
-    search_resp, search_ids = _search_with_retry(combined, vector_id)
+    search_resp, search_ids = _search_with_retry(
+        combined,
+        vector_id,
+        material_filter=material,
+        complexity_filter=complexity,
+    )
     assert search_resp.status_code == 200
     assert vector_id in search_ids
 

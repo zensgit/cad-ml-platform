@@ -308,6 +308,12 @@
 - **Compare Operations Manual**:
   - Added compare alert response workflow and runbook directory entries.
   - Report: `reports/DEV_COMPARE_OPERATIONS_MANUAL_20251231.md`
+- **E2E Smoke Search Filter Fix**:
+  - Stabilized vector search in E2E smoke by applying unique material/complexity filters.
+  - Report: `reports/DEV_E2E_API_SMOKE_SEARCH_FILTER_FIX_20251231.md`
+- **Full Test Run (Re-run)**:
+  - `make test` completed (full pytest suite with coverage).
+  - Report: `reports/DEV_MAKE_TEST_20251231_RERUN.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
