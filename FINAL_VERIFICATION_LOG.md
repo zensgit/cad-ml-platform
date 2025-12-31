@@ -401,6 +401,9 @@
 - **Compose/Prometheus Maintenance**:
   - Removed compose `version` fields; added `PROMETHEUS_URL` default for cardinality audits.
   - Report: `reports/DEV_MAINTENANCE_COMPOSE_PROM_URL_20260101.md`
+- **DedupCAD Vision Integration Inventory**:
+  - Mapped cad-ml ↔ dedupcad-vision integration paths/configs.
+  - Report: `reports/DEV_DEDUPCAD_VISION_INTEGRATION_INVENTORY_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
