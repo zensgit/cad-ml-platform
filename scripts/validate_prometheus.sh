@@ -30,7 +30,7 @@ function validate_file() {
   if [[ $have_promtool -eq 1 ]]; then
     promtool check rules "$f"
   else
-    docker run --rm -v "$(pwd)":/workspace:ro prom/prometheus:latest promtool check rules "/workspace/$f"
+    docker run --rm --entrypoint promtool -v "$(pwd)":/workspace:ro prom/prometheus:latest check rules "/workspace/$f"
   fi
 }
 
