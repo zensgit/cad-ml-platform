@@ -359,6 +359,9 @@
 - **Prometheus Rules Validation**:
   - `make prom-validate` completed (promtool check rules succeeded).
   - Report: `reports/DEV_PROM_VALIDATE_20260101.md`
+- **Dedup2D Go/No-Go Local Checks**:
+  - Validated vision health, job list, dedup2d metrics, and worker status.
+  - Report: `reports/DEV_DEDUP2D_GO_NO_GO_LOCAL_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
