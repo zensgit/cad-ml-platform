@@ -329,6 +329,9 @@
 - **DedupCAD Vision Required Test Run (Stub)**:
   - `make test-dedupcad-vision` completed against local stub + local API.
   - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231_STUB.md`
+- **Redis/FAISS E2E Smoke**:
+  - Ran `make e2e-smoke` against a Redis-enabled API (FAISS backend requested).
+  - Report: `reports/DEV_E2E_SMOKE_REDIS_FAISS_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

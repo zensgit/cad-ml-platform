@@ -148,7 +148,7 @@ def test_e2e_core_api_smoke() -> None:
     assert stats_resp.status_code == 200
     stats_payload = stats_resp.json()
     assert stats_payload.get("total", 0) >= 1
-    assert stats_payload.get("backend") in {"memory", "redis"}
+    assert stats_payload.get("backend") in {"memory", "redis", "faiss"}
 
     knowledge_resp = httpx.get(
         f"{BASE_URL}/api/v1/maintenance/knowledge/status",
