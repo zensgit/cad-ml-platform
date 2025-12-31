@@ -389,6 +389,9 @@
 - **Metrics Cardinality Audit (Markdown)**:
   - Generated `reports/cardinality_audit_20260101.md` from Prometheus (9091).
   - Report: `reports/DEV_METRICS_AUDIT_MARKDOWN_20260101.md`
+- **E2E Smoke Tests**:
+  - `make e2e-smoke` completed with DedupCAD Vision on localhost:8100.
+  - Report: `reports/DEV_E2E_SMOKE_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
