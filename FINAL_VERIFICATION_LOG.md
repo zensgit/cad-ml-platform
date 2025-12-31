@@ -260,6 +260,9 @@
 - **Active Learning API Coverage**:
   - Added API tests for pending/feedback/stats/export and corrected feedback error code.
   - Report: `reports/DEV_ACTIVE_LEARNING_API_TESTS_20251231.md`
+- **DedupCAD Vision Required Test Run**:
+  - `make test-dedupcad-vision` completed against live dedupcad-vision + local API.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
