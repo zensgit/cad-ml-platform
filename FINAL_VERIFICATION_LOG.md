@@ -452,6 +452,9 @@
 - **Docker Cleanup**:
   - Removed `cad-ml-network` after disconnecting remaining endpoints.
   - Report: `reports/DEV_DOCKER_CLEANUP_20260101.md`
+- **Docker Image Prune**:
+  - Removed dangling images (no data volumes touched).
+  - Report: `reports/DEV_DOCKER_IMAGE_PRUNE_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
