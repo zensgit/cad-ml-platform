@@ -5,10 +5,20 @@ import logging
 import os
 import re
 import tempfile
+import time
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Protocol
+
+from src.core.dedup2d_metrics import (
+    dedup2d_file_deletes_total,
+    dedup2d_file_downloads_total,
+    dedup2d_file_operation_duration_seconds,
+    dedup2d_file_upload_bytes,
+    dedup2d_file_uploads_total,
+)
+from src.utils.metrics_helpers import safe_inc, safe_observe
 
 logger = logging.getLogger(__name__)
 
@@ -185,14 +195,52 @@ class LocalDedup2DFileStorage:
         safe_name = _sanitize_file_name(file_name)
         key = f"{job_id}/{uuid.uuid4().hex}_{safe_name}"
         path = self._abs_path(key)
-        await asyncio.to_thread(_write_bytes_atomic, path, data)
+        start = time.monotonic()
+        try:
+            await asyncio.to_thread(_write_bytes_atomic, path, data)
+        except Exception:
+            safe_inc(dedup2d_file_uploads_total, backend="local", status="error")
+            safe_observe(
+                dedup2d_file_operation_duration_seconds,
+                time.monotonic() - start,
+                backend="local",
+                operation="upload",
+            )
+            raise
+        safe_inc(dedup2d_file_uploads_total, backend="local", status="success")
+        safe_observe(dedup2d_file_upload_bytes, float(len(data)), backend="local")
+        safe_observe(
+            dedup2d_file_operation_duration_seconds,
+            time.monotonic() - start,
+            backend="local",
+            operation="upload",
+        )
         return Dedup2DFileRef(backend="local", path=key)
 
     async def load_bytes(self, file_ref: Dedup2DFileRef) -> bytes:
         if file_ref.backend != "local" or not file_ref.path:
             raise ValueError("file_ref backend mismatch (expected local)")
         path = self._abs_path(file_ref.path)
-        return await asyncio.to_thread(path.read_bytes)
+        start = time.monotonic()
+        try:
+            data = await asyncio.to_thread(path.read_bytes)
+        except Exception:
+            safe_inc(dedup2d_file_downloads_total, backend="local", status="error")
+            safe_observe(
+                dedup2d_file_operation_duration_seconds,
+                time.monotonic() - start,
+                backend="local",
+                operation="download",
+            )
+            raise
+        safe_inc(dedup2d_file_downloads_total, backend="local", status="success")
+        safe_observe(
+            dedup2d_file_operation_duration_seconds,
+            time.monotonic() - start,
+            backend="local",
+            operation="download",
+        )
+        return data
 
     async def delete(self, file_ref: Dedup2DFileRef) -> None:
         if file_ref.backend != "local" or not file_ref.path:
@@ -201,13 +249,37 @@ class LocalDedup2DFileStorage:
             path = self._abs_path(file_ref.path)
         except Exception:
             return
+        start = time.monotonic()
         try:
             await asyncio.to_thread(path.unlink, True)
         except TypeError:
             # Python <3.8 compatibility; should not happen here but keep safe.
             await asyncio.to_thread(path.unlink)
         except FileNotFoundError:
+            safe_inc(dedup2d_file_deletes_total, backend="local", status="success")
+            safe_observe(
+                dedup2d_file_operation_duration_seconds,
+                time.monotonic() - start,
+                backend="local",
+                operation="delete",
+            )
             return
+        except Exception:
+            safe_inc(dedup2d_file_deletes_total, backend="local", status="error")
+            safe_observe(
+                dedup2d_file_operation_duration_seconds,
+                time.monotonic() - start,
+                backend="local",
+                operation="delete",
+            )
+            return
+        safe_inc(dedup2d_file_deletes_total, backend="local", status="success")
+        safe_observe(
+            dedup2d_file_operation_duration_seconds,
+            time.monotonic() - start,
+            backend="local",
+            operation="delete",
+        )
 
 
 try:
@@ -250,7 +322,26 @@ class S3Dedup2DFileStorage:
                 ContentType=content_type or "application/octet-stream",
             )
 
-        await asyncio.to_thread(_put)
+        start = time.monotonic()
+        try:
+            await asyncio.to_thread(_put)
+        except Exception:
+            safe_inc(dedup2d_file_uploads_total, backend="s3", status="error")
+            safe_observe(
+                dedup2d_file_operation_duration_seconds,
+                time.monotonic() - start,
+                backend="s3",
+                operation="upload",
+            )
+            raise
+        safe_inc(dedup2d_file_uploads_total, backend="s3", status="success")
+        safe_observe(dedup2d_file_upload_bytes, float(len(data)), backend="s3")
+        safe_observe(
+            dedup2d_file_operation_duration_seconds,
+            time.monotonic() - start,
+            backend="s3",
+            operation="upload",
+        )
         return Dedup2DFileRef(backend="s3", bucket=self.bucket, key=key)
 
     async def load_bytes(self, file_ref: Dedup2DFileRef) -> bytes:
@@ -262,7 +353,26 @@ class S3Dedup2DFileStorage:
             body = resp.get("Body")
             return body.read() if body is not None else b""
 
-        return await asyncio.to_thread(_get)
+        start = time.monotonic()
+        try:
+            data = await asyncio.to_thread(_get)
+        except Exception:
+            safe_inc(dedup2d_file_downloads_total, backend="s3", status="error")
+            safe_observe(
+                dedup2d_file_operation_duration_seconds,
+                time.monotonic() - start,
+                backend="s3",
+                operation="download",
+            )
+            raise
+        safe_inc(dedup2d_file_downloads_total, backend="s3", status="success")
+        safe_observe(
+            dedup2d_file_operation_duration_seconds,
+            time.monotonic() - start,
+            backend="s3",
+            operation="download",
+        )
+        return data
 
     async def delete(self, file_ref: Dedup2DFileRef) -> None:
         if file_ref.backend != "s3" or not file_ref.bucket or not file_ref.key:
@@ -271,14 +381,30 @@ class S3Dedup2DFileStorage:
         def _del() -> None:
             self.client.delete_object(Bucket=file_ref.bucket, Key=file_ref.key)
 
+        start = time.monotonic()
         try:
             await asyncio.to_thread(_del)
         except Exception:
+            safe_inc(dedup2d_file_deletes_total, backend="s3", status="error")
+            safe_observe(
+                dedup2d_file_operation_duration_seconds,
+                time.monotonic() - start,
+                backend="s3",
+                operation="delete",
+            )
             logger.debug(
                 "dedup2d_file_storage_delete_failed",
                 extra={"bucket": file_ref.bucket, "key": file_ref.key},
                 exc_info=True,
             )
+            return
+        safe_inc(dedup2d_file_deletes_total, backend="s3", status="success")
+        safe_observe(
+            dedup2d_file_operation_duration_seconds,
+            time.monotonic() - start,
+            backend="s3",
+            operation="delete",
+        )
 
 
 def create_dedup2d_file_storage(

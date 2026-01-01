@@ -15,6 +15,7 @@ from typing import Dict, List, Optional, Set, Tuple
 import pytest
 from fastapi.testclient import TestClient
 
+from src.core.dedup2d_file_storage import LocalDedup2DFileStorage
 from src.core.errors import ErrorCode
 from src.main import app
 
@@ -68,6 +69,11 @@ class MetricsContract:
         "circuit_breaker_state": {"circuit"},  # Only when circuit breaker is registered
         "rate_limiter_allowed_total": {"key"},  # Only when rate limiter is used
         "rate_limiter_rejected_total": {"key"},  # Only when rate limiter rejects
+        "dedup2d_file_uploads_total": {"backend", "status"},
+        "dedup2d_file_downloads_total": {"backend", "status"},
+        "dedup2d_file_deletes_total": {"backend", "status"},
+        "dedup2d_file_upload_bytes": {"backend"},
+        "dedup2d_file_operation_duration_seconds": {"backend", "operation"},
     }
 
     # All metrics for label validation (when they do appear)
@@ -335,6 +341,28 @@ class TestMetricsContract:
         assert (
             requests_after > requests_before
         ), f"vision_requests_total should increment on API call (before={requests_before}, after={requests_after})"
+
+    @pytest.mark.asyncio
+    async def test_dedup2d_storage_metrics_exposed(self, tmp_path, monkeypatch):
+        """Verify dedup2d file storage metrics appear after a storage operation."""
+        monkeypatch.setenv("DEDUP2D_FILE_STORAGE_DIR", str(tmp_path))
+        storage = LocalDedup2DFileStorage()
+
+        file_ref = await storage.save_bytes(
+            job_id="metrics-contract",
+            file_name="sample.png",
+            content_type="image/png",
+            data=b"contract",
+        )
+        await storage.load_bytes(file_ref)
+        await storage.delete(file_ref)
+
+        response = client.get("/metrics")
+        assert response.status_code == 200
+        text = response.text
+        assert "dedup2d_file_uploads_total" in text
+        assert "dedup2d_file_downloads_total" in text
+        assert "dedup2d_file_deletes_total" in text
 
     def test_rejection_reasons_valid(self):
         """Verify rejection reason values are from expected set."""

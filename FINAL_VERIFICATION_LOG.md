@@ -455,6 +455,18 @@
 - **Docker Image Prune**:
   - Removed dangling images (no data volumes touched).
   - Report: `reports/DEV_DOCKER_IMAGE_PRUNE_20260101.md`
+- **Dedup2D Storage Metrics Implementation**:
+  - Added file storage metrics instrumentation and local metrics unit test.
+  - Report: `reports/DEV_DEDUP2D_STORAGE_METRICS_20260101.md`
+- **Dedup2D Runbook Storage Metrics Update**:
+  - Documented storage metrics and cleanup expectations in staging runbook.
+  - Report: `reports/DEV_DEDUP2D_RUNBOOK_STORAGE_METRICS_20260101.md`
+- **Dedup2D Metrics Contract Update**:
+  - Added storage metrics label schemas and exposure check in metrics contract tests.
+  - Report: `reports/DEV_DEDUP2D_METRICS_CONTRACT_UPDATE_20260101.md`
+- **Dedup2D Storage Metrics Test**:
+  - Ran targeted pytest (skipped locally due to missing prometheus_client).
+  - Report: `reports/DEV_DEDUP2D_STORAGE_METRICS_TEST_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

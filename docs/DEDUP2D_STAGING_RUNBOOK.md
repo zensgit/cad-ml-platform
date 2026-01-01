@@ -62,7 +62,7 @@ manually.
 ### Health
 
 - GET /health (expect status=healthy)
-- GET /metrics (expect dedup2d_* metrics present)
+- GET /metrics (expect dedup2d_* metrics present; note `/metrics` redirects to `/metrics/`)
 
 ### Submit async job
 
@@ -155,6 +155,12 @@ Notes:
 - No new alert rules firing unexpectedly
 - `dedupcad_vision_*` metrics present; `dedupcad_vision_circuit_state` should be `0` (closed)
   for healthy endpoints (health/search).
+- Storage metrics present and changing:
+  - `dedup2d_file_uploads_total`, `dedup2d_file_downloads_total`,
+    `dedup2d_file_deletes_total`, `dedup2d_file_upload_bytes`,
+    `dedup2d_file_operation_duration_seconds`.
+- If `DEDUP2D_FILE_STORAGE_CLEANUP_ON_FINISH=1`, uploaded objects should be deleted after
+  completion (confirm via `dedup2d_file_deletes_total` or bucket listing).
 - Rolling upgrade signals:
   - `dedup2d_payload_format_total{format="file_ref_only"}` should dominate after rollout.
   - `dedup2d_legacy_b64_fallback_total` should stop increasing once old workers are drained.
