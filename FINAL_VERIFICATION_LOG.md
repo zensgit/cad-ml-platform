@@ -434,6 +434,21 @@
 - **Dedup2D Metrics Verification Attempt**:
   - Runtime metrics scrape blocked by missing local services.
   - Report: `reports/DEV_DEDUP2D_METRICS_VERIFY_20260101.md`
+- **Dedup2D Staging Smoke (Success)**:
+  - Brought up staging compose with MinIO + Redis backend, ran async job + metrics checks.
+  - Report: `reports/DEV_DEDUP2D_STAGING_SMOKE_20260101.md`
+- **Dedup2D Prometheus Targets**:
+  - Verified Prometheus scraping and dedup2d metrics via query API.
+  - Report: `reports/DEV_DEDUP2D_PROMETHEUS_TARGETS_20260101.md`
+- **Dedup2D S3 Lifecycle**:
+  - Observed MinIO upload during async job and cleanup after completion.
+  - Report: `reports/DEV_DEDUP2D_S3_LIFECYCLE_20260101.md`
+- **Dedup2D Precision Smoke**:
+  - Confirmed geom_json path executes L4 precision timing fields.
+  - Report: `reports/DEV_DEDUP2D_PRECISION_SMOKE_20260101.md`
+- **Dedup2D Index Rebuild**:
+  - Rebuild endpoint succeeded; dedupcad-vision readiness updated.
+  - Report: `reports/DEV_DEDUP2D_INDEX_REBUILD_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
