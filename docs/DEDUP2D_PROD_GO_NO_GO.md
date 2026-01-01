@@ -9,6 +9,7 @@ Use this to decide whether to promote staging -> production.
 - Job list works: GET /api/v1/dedup/2d/jobs returns completed jobs within TTL
 - Worker healthy: no crash loops; queue depth stable (< max_jobs * 0.5)
 - Metrics available: dedup2d_* metrics present in Prometheus
+- Recording rules loaded: `dedup2d_job_success_rate` and `dedup2d_storage_*` series present
 - Vision circuit closed: `dedupcad_vision_circuit_state` indicates CLOSED for health/search
 - Alerts loaded: Dedup2D alert rules visible in Prometheus
 - Dashboard visible: Grafana has "Dedup2D Dashboard"

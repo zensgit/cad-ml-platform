@@ -218,6 +218,7 @@ class PromtoolValidator:
                     "error_",
                     "model_",
                     "circuit_",
+                    "dedup2d_",
                     "cad_ml:",
                     "cad_ml_",
                 ]

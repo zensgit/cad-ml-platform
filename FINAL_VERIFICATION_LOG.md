@@ -467,6 +467,18 @@
 - **Dedup2D Storage Metrics Test**:
   - Ran targeted pytest (skipped locally due to missing prometheus_client).
   - Report: `reports/DEV_DEDUP2D_STORAGE_METRICS_TEST_20260101.md`
+- **Dedup2D Dashboard Metrics Alignment**:
+  - Updated Grafana Dedup2D dashboard to use emitted job/queue metrics.
+  - Report: `reports/DEV_DEDUP2D_DASHBOARD_METRICS_ALIGNMENT_20260101.md`
+- **Dedup2D Recording Rules**:
+  - Added dedup2d success/error/throughput/storage recording rules.
+  - Report: `reports/DEV_DEDUP2D_RECORDING_RULES_20260101.md`
+- **Dedup2D Prod Checklist Update**:
+  - Added recording rule verification to production go/no-go checklist.
+  - Report: `reports/DEV_DEDUP2D_PROD_CHECKLIST_RULES_20260101.md`
+- **Dedup2D Observability Validation**:
+  - Validated dashboard JSON and recording rules; updated promtool prefix list.
+  - Report: `reports/DEV_DEDUP2D_OBSERVABILITY_VALIDATION_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

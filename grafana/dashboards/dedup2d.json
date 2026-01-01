@@ -12,16 +12,26 @@
     {
       "title": "Dedup2D Overview",
       "type": "row",
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
       "collapsed": false
     },
     {
       "title": "Jobs Submitted (rate/min)",
       "type": "stat",
-      "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 1
+      },
       "targets": [
         {
-          "expr": "sum(rate(dedup2d_jobs_submitted_total[5m])) * 60",
+          "expr": "sum(rate(dedup2d_jobs_total{status='pending'}[5m])) * 60",
           "refId": "A"
         }
       ],
@@ -31,9 +41,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 50},
-              {"color": "red", "value": 100}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 50
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
             ]
           }
         }
@@ -42,10 +61,15 @@
     {
       "title": "Success Rate",
       "type": "gauge",
-      "gridPos": {"h": 4, "w": 4, "x": 4, "y": 1},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 1
+      },
       "targets": [
         {
-          "expr": "sum(rate(dedup2d_jobs_completed_total{status='success'}[5m])) / sum(rate(dedup2d_jobs_completed_total[5m])) * 100",
+          "expr": "sum(rate(dedup2d_jobs_total{status='completed'}[5m])) / sum(rate(dedup2d_jobs_total{status=~'completed|failed|canceled'}[5m])) * 100",
           "refId": "A"
         }
       ],
@@ -57,21 +81,35 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "red", "value": null},
-              {"color": "yellow", "value": 90},
-              {"color": "green", "value": 99}
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 90
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
             ]
           }
         }
       }
     },
     {
-      "title": "Active Jobs",
+      "title": "Queue Depth",
       "type": "stat",
-      "gridPos": {"h": 4, "w": 4, "x": 8, "y": 1},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 1
+      },
       "targets": [
         {
-          "expr": "sum(dedup2d_jobs_active)",
+          "expr": "dedup2d_job_queue_depth",
           "refId": "A"
         }
       ],
@@ -81,21 +119,35 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 5},
-              {"color": "red", "value": 10}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
             ]
           }
         }
       }
     },
     {
-      "title": "Queued Jobs",
+      "title": "Jobs Completed (rate/min)",
       "type": "stat",
-      "gridPos": {"h": 4, "w": 4, "x": 12, "y": 1},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 1
+      },
       "targets": [
         {
-          "expr": "sum(dedup2d_jobs_queued)",
+          "expr": "sum(rate(dedup2d_jobs_total{status='completed'}[5m])) * 60",
           "refId": "A"
         }
       ],
@@ -105,9 +157,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 20},
-              {"color": "red", "value": 100}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 20
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
             ]
           }
         }
@@ -116,7 +177,12 @@
     {
       "title": "Error Rate EMA",
       "type": "stat",
-      "gridPos": {"h": 4, "w": 4, "x": 16, "y": 1},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 1
+      },
       "targets": [
         {
           "expr": "dedup2d_error_rate_ema * 100",
@@ -129,9 +195,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 5},
-              {"color": "red", "value": 10}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
             ]
           }
         }
@@ -140,7 +215,12 @@
     {
       "title": "P95 Job Duration",
       "type": "stat",
-      "gridPos": {"h": 4, "w": 4, "x": 20, "y": 1},
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 1
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(dedup2d_job_duration_seconds_bucket[5m])) by (le))",
@@ -153,9 +233,18 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              {"color": "green", "value": null},
-              {"color": "yellow", "value": 30},
-              {"color": "red", "value": 60}
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 60
+              }
             ]
           }
         }
@@ -164,27 +253,37 @@
     {
       "title": "Job Processing",
       "type": "row",
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
       "collapsed": false
     },
     {
       "title": "Jobs Submitted vs Completed",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
       "targets": [
         {
-          "expr": "sum(rate(dedup2d_jobs_submitted_total[5m])) * 60",
+          "expr": "sum(rate(dedup2d_jobs_total{status='pending'}[5m])) * 60",
           "legendFormat": "Submitted",
           "refId": "A"
         },
         {
-          "expr": "sum(rate(dedup2d_jobs_completed_total{status='success'}[5m])) * 60",
-          "legendFormat": "Completed (Success)",
+          "expr": "sum(rate(dedup2d_jobs_total{status='completed'}[5m])) * 60",
+          "legendFormat": "Completed",
           "refId": "B"
         },
         {
-          "expr": "sum(rate(dedup2d_jobs_completed_total{status='error'}[5m])) * 60",
-          "legendFormat": "Completed (Error)",
+          "expr": "sum(rate(dedup2d_jobs_total{status='failed'}[5m])) * 60",
+          "legendFormat": "Failed",
           "refId": "C"
         }
       ],
@@ -197,7 +296,12 @@
     {
       "title": "Job Duration Distribution",
       "type": "heatmap",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
       "targets": [
         {
           "expr": "sum(rate(dedup2d_job_duration_seconds_bucket[5m])) by (le)",
@@ -210,13 +314,23 @@
     {
       "title": "File Storage",
       "type": "row",
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 14
+      },
       "collapsed": false
     },
     {
       "title": "File Operations (rate/min)",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 15},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 15
+      },
       "targets": [
         {
           "expr": "sum(rate(dedup2d_file_uploads_total{status='success'}[5m])) by (backend) * 60",
@@ -243,7 +357,12 @@
     {
       "title": "File Size Distribution",
       "type": "heatmap",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 15},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 15
+      },
       "targets": [
         {
           "expr": "sum(rate(dedup2d_file_upload_bytes_bucket[5m])) by (le)",
@@ -256,13 +375,23 @@
     {
       "title": "Callbacks",
       "type": "row",
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 23},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
       "collapsed": false
     },
     {
       "title": "Callback Status",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
       "targets": [
         {
           "expr": "sum(rate(dedup2d_callbacks_total{status='success'}[5m])) * 60",
@@ -289,7 +418,12 @@
     {
       "title": "Callback Latency (P95)",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(dedup2d_callback_duration_seconds_bucket[5m])) by (le))",
@@ -311,13 +445,23 @@
     {
       "title": "GC & Maintenance",
       "type": "row",
-      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 32},
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
       "collapsed": false
     },
     {
       "title": "GC Runs",
       "type": "timeseries",
-      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 33},
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 33
+      },
       "targets": [
         {
           "expr": "sum(increase(dedup2d_gc_runs_total{status='success'}[1h]))",
@@ -334,7 +478,12 @@
     {
       "title": "Files Deleted by GC",
       "type": "timeseries",
-      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 33},
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 8,
+        "y": 33
+      },
       "targets": [
         {
           "expr": "sum(increase(dedup2d_gc_files_deleted_total[1h])) by (backend)",
@@ -346,7 +495,12 @@
     {
       "title": "Bytes Freed by GC",
       "type": "timeseries",
-      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 33},
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 33
+      },
       "targets": [
         {
           "expr": "sum(increase(dedup2d_gc_bytes_freed_total[1h])) by (backend)",
@@ -364,7 +518,10 @@
   "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["dedup2d", "cad-ml-platform"],
+  "tags": [
+    "dedup2d",
+    "cad-ml-platform"
+  ],
   "templating": {
     "list": []
   },
