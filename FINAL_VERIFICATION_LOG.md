@@ -449,6 +449,9 @@
 - **Dedup2D Index Rebuild**:
   - Rebuild endpoint succeeded; dedupcad-vision readiness updated.
   - Report: `reports/DEV_DEDUP2D_INDEX_REBUILD_20260101.md`
+- **Docker Cleanup**:
+  - Removed `cad-ml-network` after disconnecting remaining endpoints.
+  - Report: `reports/DEV_DOCKER_CLEANUP_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
