@@ -6,7 +6,83 @@ available, dummy objects are provided preserving the .labels() chain.
 from __future__ import annotations
 
 try:
-    from prometheus_client import Counter, Gauge, Histogram  # type: ignore
+    from prometheus_client import REGISTRY
+    from prometheus_client import Counter as _Counter  # type: ignore
+    from prometheus_client import Gauge as _Gauge
+    from prometheus_client import Histogram as _Histogram
+
+    _METRIC_CACHE = {}
+
+    def _safe_counter(name, *args, **kwargs):
+        if name in _METRIC_CACHE:
+            return _METRIC_CACHE[name]
+        try:
+            metric = _Counter(name, *args, **kwargs)
+            _METRIC_CACHE[name] = metric
+            return metric
+        except ValueError:
+            for collector in list(REGISTRY._names_to_collectors.values()):
+                if hasattr(collector, "_name") and collector._name == name:
+                    _METRIC_CACHE[name] = collector
+                    return collector
+
+            class _FallbackDummy:
+                def labels(self, **kwargs):  # type: ignore
+                    return self
+
+                def inc(self, *a, **kw):  # type: ignore
+                    pass
+
+            return _FallbackDummy()
+
+    def _safe_histogram(name, *args, **kwargs):
+        if name in _METRIC_CACHE:
+            return _METRIC_CACHE[name]
+        try:
+            metric = _Histogram(name, *args, **kwargs)
+            _METRIC_CACHE[name] = metric
+            return metric
+        except ValueError:
+            for collector in list(REGISTRY._names_to_collectors.values()):
+                if hasattr(collector, "_name") and collector._name == name:
+                    _METRIC_CACHE[name] = collector
+                    return collector
+
+            class _FallbackDummy:
+                def labels(self, **kwargs):  # type: ignore
+                    return self
+
+                def observe(self, *a, **kw):  # type: ignore
+                    pass
+
+            return _FallbackDummy()
+
+    def _safe_gauge(name, *args, **kwargs):
+        if name in _METRIC_CACHE:
+            return _METRIC_CACHE[name]
+        try:
+            metric = _Gauge(name, *args, **kwargs)
+            _METRIC_CACHE[name] = metric
+            return metric
+        except ValueError:
+            for collector in list(REGISTRY._names_to_collectors.values()):
+                if hasattr(collector, "_name") and collector._name == name:
+                    _METRIC_CACHE[name] = collector
+                    return collector
+
+            class _FallbackDummy:
+                def labels(self, **kwargs):  # type: ignore
+                    return self
+
+                def set(self, *a, **kw):  # type: ignore
+                    pass
+
+            return _FallbackDummy()
+
+    Counter = _safe_counter
+    Histogram = _safe_histogram
+    Gauge = _safe_gauge
+
 except Exception:  # provide no-op dummies if prometheus not installed
 
     class _Dummy:
