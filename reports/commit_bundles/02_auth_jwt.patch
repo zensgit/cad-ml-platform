@@ -1,0 +1,257 @@
+diff --git a/requirements-dev-lite.txt b/requirements-dev-lite.txt
+index c8a263a..192a368 100644
+--- a/requirements-dev-lite.txt
++++ b/requirements-dev-lite.txt
+@@ -1,8 +1,8 @@
+-black==23.10.1
++black==24.3.0
+ isort==5.12.0
+ flake8==6.1.0
+ mypy==1.6.1
+ pytest==7.4.3
+ pytest-asyncio==0.21.1
+-httpx==0.25.1
+-types-requests==2.31.0.10
++httpx==0.28.1
++types-requests==2.32.4.20250913
+diff --git a/requirements-dev.txt b/requirements-dev.txt
+index 374c41d..c0b0b58 100644
+--- a/requirements-dev.txt
++++ b/requirements-dev.txt
+@@ -1,20 +1,20 @@
+ # Development-only dependencies for CAD ML Platform
+ 
+ # Linters/formatters
+-black==23.11.0
++black==24.3.0
+ isort==5.12.0
+ flake8==6.1.0
+ 
+ # Typing
+ mypy==1.7.1
+-types-requests==2.31.0.10
++types-requests==2.32.4.20250913
+ 
+ # Testing
+ pytest==7.4.3
+ pytest-asyncio==0.21.1
+ pytest-cov==4.1.0
+-httpx==0.25.1
+-httpcore==0.17.3  # Align with runtime to allow FastAPI TestClient usage
++httpx==0.28.1
++httpcore==1.0.9
+ aiomqtt==1.2.1
+ 
+ # Security audits (run ad-hoc; not pinned to avoid resolver conflicts)
+diff --git a/requirements.txt b/requirements.txt
+index f28faba..e6c60c8 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,7 +1,7 @@
+ # Core Dependencies
+-fastapi==0.104.1
++fastapi==0.121.0
+ uvicorn[standard]==0.24.0
+-python-multipart==0.0.6
++python-multipart==0.0.18
+ pydantic==2.5.0
+ pydantic-settings==2.1.0
+ 
+@@ -13,18 +13,20 @@ numpy==1.24.3
+ scipy==1.11.4
+ 
+ # Machine Learning
+-scikit-learn==1.3.2
++scikit-learn==1.5.0
+ joblib==1.3.2
+ pandas==2.1.3
+ # tensorflow==2.14.0  # Optional, for deep learning models
+ # torch==2.1.0  # Optional, alternative to TensorFlow
+ 
+ # API & Web
+-httpx==0.25.1
+-httpcore==0.17.3  # Added to ensure TestClient compatibility (avoids missing UnsupportedProtocol)
+-aiohttp==3.9.0
+-requests==2.31.0
+-python-jose[cryptography]==3.3.0
++httpx==0.28.1
++httpcore==1.0.9
++aiohttp==3.12.14
++requests==2.32.4
++PyJWT[crypto]==2.10.1
++starlette==0.49.3
++h11==0.16.0
+ 
+ # Database & Cache
+ redis==5.0.1
+@@ -64,10 +66,10 @@ pytest==7.4.3
+ pytest-asyncio==0.21.1
+ pytest-cov==4.1.0
+ pytest-mock==3.12.0
+-httpx[http2]==0.25.1  # Keep http2 extra aligned
++httpx[http2]==0.28.1  # Keep http2 extra aligned
+ 
+ # Development Tools
+-black==23.11.0
++black==24.3.0
+ flake8==6.1.0
+ mypy==1.7.1
+ pre-commit==3.5.0
+@@ -77,12 +79,15 @@ ipython==8.17.2
+ python-dotenv==1.0.0
+ pyyaml==6.0.1
+ click==8.1.7
+-tqdm==4.66.1
++tqdm==4.66.3
+ matplotlib==3.8.2
+ 
+ # Data Validation
+ jsonschema==4.21.1  # For JSON schema validation
+ 
++# Indirect dependency pinning
++filelock==3.20.1
++
+ # Optional: GPU Support
+ # onnxruntime-gpu==1.16.3  # For GPU inference
+ # cupy-cuda11x==12.2.0  # For CUDA operations
+diff --git a/src/api/middleware/integration_auth.py b/src/api/middleware/integration_auth.py
+index 514b937..413dc77 100644
+--- a/src/api/middleware/integration_auth.py
++++ b/src/api/middleware/integration_auth.py
+@@ -2,7 +2,8 @@ from __future__ import annotations
+ 
+ from typing import Optional
+ 
+-from jose import JWTError, jwt
++import jwt
++from jwt import PyJWTError
+ from starlette.middleware.base import BaseHTTPMiddleware
+ from starlette.requests import Request
+ from starlette.responses import JSONResponse, Response
+@@ -69,7 +70,7 @@ class IntegrationAuthMiddleware(BaseHTTPMiddleware):
+ 
+         try:
+             payload = jwt.decode(token, self.jwt_secret, algorithms=[self.jwt_alg])
+-        except JWTError:
++        except PyJWTError:
+             return JSONResponse({"detail": "Invalid bearer token"}, status_code=401)
+ 
+         tenant_claim = payload.get("tenant_id")
+diff --git a/tests/unit/test_integration_auth_middleware.py b/tests/unit/test_integration_auth_middleware.py
+new file mode 100644
+index 0000000..5d3ae7c
+--- /dev/null
++++ b/tests/unit/test_integration_auth_middleware.py
+@@ -0,0 +1,112 @@
++from __future__ import annotations
++
++from types import SimpleNamespace
++
++import jwt
++from fastapi import FastAPI, Request
++from fastapi.testclient import TestClient
++
++from src.api.middleware.integration_auth import IntegrationAuthMiddleware
++
++
++def _make_settings(
++    *,
++    mode: str = "required",
++    secret: str = "test-secret",
++    alg: str = "HS256",
++) -> SimpleNamespace:
++    return SimpleNamespace(
++        INTEGRATION_AUTH_MODE=mode,
++        INTEGRATION_JWT_SECRET=secret,
++        INTEGRATION_JWT_ALG=alg,
++        INTEGRATION_TENANT_HEADER="x-tenant-id",
++        INTEGRATION_ORG_HEADER="x-org-id",
++        INTEGRATION_USER_HEADER="x-user-id",
++    )
++
++
++def _build_app(settings: SimpleNamespace) -> FastAPI:
++    app = FastAPI()
++    app.add_middleware(IntegrationAuthMiddleware, settings=settings)
++
++    @app.get("/private")
++    async def private(request: Request) -> dict[str, str | None]:
++        return {
++            "tenant_id": getattr(request.state, "tenant_id", None),
++            "org_id": getattr(request.state, "org_id", None),
++            "user_id": getattr(request.state, "user_id", None),
++            "auth_subject": getattr(request.state, "auth_subject", None),
++        }
++
++    return app
++
++
++def _encode(payload: dict[str, str], secret: str, alg: str) -> str:
++    token = jwt.encode(payload, secret, algorithm=alg)
++    return token if isinstance(token, str) else token.decode("utf-8")
++
++
++def test_required_missing_token_rejected() -> None:
++    settings = _make_settings()
++    client = TestClient(_build_app(settings))
++    response = client.get("/private")
++    assert response.status_code == 401
++
++
++def test_required_invalid_token_rejected() -> None:
++    settings = _make_settings()
++    client = TestClient(_build_app(settings))
++    response = client.get("/private", headers={"Authorization": "Bearer not-a-jwt"})
++    assert response.status_code == 401
++
++
++def test_required_missing_claims_rejected() -> None:
++    settings = _make_settings()
++    token = _encode(
++        {"sub": "user-1"},
++        settings.INTEGRATION_JWT_SECRET,
++        settings.INTEGRATION_JWT_ALG,
++    )
++    client = TestClient(_build_app(settings))
++    response = client.get("/private", headers={"Authorization": f"Bearer {token}"})
++    assert response.status_code == 401
++
++
++def test_required_tenant_mismatch_rejected() -> None:
++    settings = _make_settings()
++    token = _encode(
++        {"tenant_id": "tenant-1", "sub": "user-1"},
++        settings.INTEGRATION_JWT_SECRET,
++        settings.INTEGRATION_JWT_ALG,
++    )
++    client = TestClient(_build_app(settings))
++    response = client.get(
++        "/private",
++        headers={"Authorization": f"Bearer {token}", "x-tenant-id": "tenant-2"},
++    )
++    assert response.status_code == 401
++
++
++def test_required_valid_token_sets_state() -> None:
++    settings = _make_settings()
++    token = _encode(
++        {"tenant_id": "tenant-1", "sub": "user-1", "org_id": "org-1"},
++        settings.INTEGRATION_JWT_SECRET,
++        settings.INTEGRATION_JWT_ALG,
++    )
++    client = TestClient(_build_app(settings))
++    response = client.get(
++        "/private",
++        headers={
++            "Authorization": f"Bearer {token}",
++            "x-tenant-id": "tenant-1",
++            "x-org-id": "org-1",
++            "x-user-id": "user-header",
++        },
++    )
++    assert response.status_code == 200
++    payload = response.json()
++    assert payload["tenant_id"] == "tenant-1"
++    assert payload["org_id"] == "org-1"
++    assert payload["user_id"] == "user-header"
++    assert payload["auth_subject"] == "user-1"

@@ -238,9 +238,7 @@ class GLM4VProvider(VisionProvider):
             return self._parse_response(result)
 
         except httpx.TimeoutException:
-            raise VisionProviderError(
-                "glm4v", f"Request timeout after {self.timeout_seconds}s"
-            )
+            raise VisionProviderError("glm4v", f"Request timeout after {self.timeout_seconds}s")
         except httpx.RequestError as e:
             raise VisionProviderError("glm4v", f"Request failed: {str(e)}")
         except json.JSONDecodeError as e:

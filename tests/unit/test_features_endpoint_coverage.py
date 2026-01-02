@@ -275,6 +275,7 @@ class TestFeatureSlots:
     async def test_feature_slots_unsupported_version(self):
         """Test feature slots with unsupported version."""
         from fastapi import HTTPException
+
         from src.api.v1.features import feature_slots
 
         with pytest.raises(HTTPException) as exc_info:

@@ -13,6 +13,8 @@ import time
 from typing import Optional
 
 import src.core.config as config
+from src.core.errors import ErrorCode
+from src.core.resilience.adaptive_decorator import adaptive_rate_limit
 from src.utils.metrics import (
     update_vision_error_ema,
     vision_errors_total,
@@ -30,8 +32,8 @@ from .base import (
     VisionDescription,
     VisionInputError,
     VisionProvider,
+    VisionProviderError,
 )
-from src.core.resilience.adaptive_decorator import adaptive_rate_limit
 
 
 class VisionManager:
@@ -84,7 +86,11 @@ class VisionManager:
             image_bytes = await self._load_image(request)
         except VisionInputError:
             safe_inc(vision_requests_total, provider=provider_name, status="input_error")
-            safe_inc(vision_errors_total, provider=provider_name, code="input_error")
+            safe_inc(
+                vision_errors_total,
+                provider=provider_name,
+                code=ErrorCode.INPUT_ERROR.value,
+            )
             update_vision_error_ema(True)
             raise
         except Exception:
@@ -97,7 +103,11 @@ class VisionManager:
                     processing_time_ms / 1000.0,
                     provider=provider_name,
                 )
-                safe_inc(vision_errors_total, provider=provider_name, code="internal")
+                safe_inc(
+                    vision_errors_total,
+                    provider=provider_name,
+                    code=ErrorCode.INTERNAL_ERROR.value,
+                )
                 update_vision_error_ema(True)
             except Exception:
                 pass
@@ -115,6 +125,10 @@ class VisionManager:
             if request.include_description:
                 description = await self.vision_provider.analyze_image(
                     image_data=image_bytes, include_description=True
+                )
+            elif request.include_ocr:
+                description = await self.vision_provider.analyze_image(
+                    image_data=image_bytes, include_description=False
                 )
             ocr_result: Optional[OcrResult] = None
             if request.include_ocr and self.ocr_manager:
@@ -136,6 +150,24 @@ class VisionManager:
                 provider=provider_name,
                 processing_time_ms=processing_time_ms,
             )
+        except VisionProviderError:
+            try:
+                processing_time_ms = (time.time() - start_time) * 1000
+                safe_inc(vision_requests_total, provider=provider_name, status="error")
+                safe_observe(
+                    vision_processing_duration_seconds,
+                    processing_time_ms / 1000.0,
+                    provider=provider_name,
+                )
+                safe_inc(
+                    vision_errors_total,
+                    provider=provider_name,
+                    code=ErrorCode.EXTERNAL_SERVICE_ERROR.value,
+                )
+                update_vision_error_ema(True)
+            except Exception:
+                pass
+            raise
         except Exception:
             # Propagate unexpected errors; API layer will standardize response
             try:
@@ -146,7 +178,11 @@ class VisionManager:
                     processing_time_ms / 1000.0,
                     provider=provider_name,
                 )
-                safe_inc(vision_errors_total, provider=provider_name, code="internal")
+                safe_inc(
+                    vision_errors_total,
+                    provider=provider_name,
+                    code=ErrorCode.INTERNAL_ERROR.value,
+                )
                 update_vision_error_ema(True)
             except Exception:
                 pass

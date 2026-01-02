@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import time
 from typing import Any, Dict
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -62,9 +62,7 @@ class TestWebSocketEndpoint:
         mock_websocket = MagicMock()
         mock_websocket.accept = AsyncMock()
         # First receive returns text, second raises disconnect
-        mock_websocket.receive_text = AsyncMock(
-            side_effect=["hello", Exception("done")]
-        )
+        mock_websocket.receive_text = AsyncMock(side_effect=["hello", Exception("done")])
         mock_websocket.send_json = AsyncMock()
 
         from src.api.v1.twin import websocket_endpoint
@@ -265,11 +263,7 @@ class TestGetHistory:
                 mock_ingestor.ensure_started = AsyncMock()
                 mock_get_ingestor.return_value = mock_ingestor
 
-                result = await get_history(
-                    device_id="device1",
-                    limit=50,
-                    api_key="test_key"
-                )
+                result = await get_history(device_id="device1", limit=50, api_key="test_key")
 
         assert result["device_id"] == "device1"
         assert result["count"] == 1
@@ -290,11 +284,7 @@ class TestGetHistory:
                 mock_ingestor.ensure_started = AsyncMock()
                 mock_get_ingestor.return_value = mock_ingestor
 
-                result = await get_history(
-                    device_id="unknown",
-                    limit=50,
-                    api_key="test_key"
-                )
+                result = await get_history(device_id="unknown", limit=50, api_key="test_key")
 
         assert result["count"] == 0
         assert result["frames"] == []
@@ -318,11 +308,7 @@ class TestGetHistory:
                 mock_ingestor.ensure_started = AsyncMock()
                 mock_get_ingestor.return_value = mock_ingestor
 
-                result = await get_history(
-                    device_id="device1",
-                    limit=100,
-                    api_key="test_key"
-                )
+                result = await get_history(device_id="device1", limit=100, api_key="test_key")
 
         assert result["count"] == 10
 

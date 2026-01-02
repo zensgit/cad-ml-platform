@@ -6,8 +6,9 @@ and that the health endpoint correctly reports degraded status.
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -19,6 +20,7 @@ client = TestClient(app)
 def reset_store():
     """Reset vector store state before each test."""
     from src.core.similarity import reset_default_store
+
     reset_default_store()
     yield
     reset_default_store()
@@ -26,8 +28,9 @@ def reset_store():
 
 def test_degraded_mode_set_when_faiss_unavailable():
     """Test that degraded mode is set when Faiss library is unavailable."""
-    from src.core.similarity import get_vector_store, get_degraded_mode_info
     import os
+
+    from src.core.similarity import get_degraded_mode_info, get_vector_store
 
     # Set backend to faiss
     original_backend = os.getenv("VECTOR_STORE_BACKEND")
@@ -60,8 +63,9 @@ def test_degraded_mode_set_when_faiss_unavailable():
 
 def test_degraded_mode_set_on_faiss_init_exception():
     """Test that degraded mode is set when Faiss initialization fails."""
-    from src.core.similarity import get_vector_store, get_degraded_mode_info
     import os
+
+    from src.core.similarity import get_degraded_mode_info, get_vector_store
 
     os.environ["VECTOR_STORE_BACKEND"] = "faiss"
 
@@ -77,7 +81,10 @@ def test_degraded_mode_set_on_faiss_init_exception():
             degraded_info = get_degraded_mode_info()
             assert degraded_info["degraded"] is True
             assert "Faiss initialization failed" in degraded_info["reason"]
-            assert "RuntimeError" in degraded_info["reason"] or "init failed" in degraded_info["reason"]
+            assert (
+                "RuntimeError" in degraded_info["reason"]
+                or "init failed" in degraded_info["reason"]
+            )
             assert degraded_info["degraded_at"] is not None
     finally:
         os.environ.pop("VECTOR_STORE_BACKEND", None)
@@ -85,7 +92,7 @@ def test_degraded_mode_set_on_faiss_init_exception():
 
 def test_degraded_mode_not_set_for_memory_backend():
     """Test that degraded mode is not set when using memory backend."""
-    from src.core.similarity import get_vector_store, get_degraded_mode_info
+    from src.core.similarity import get_degraded_mode_info, get_vector_store
 
     # Get memory store (no degradation expected)
     store = get_vector_store("memory")
@@ -99,8 +106,9 @@ def test_degraded_mode_not_set_for_memory_backend():
 
 def test_degraded_mode_reset_on_store_reset():
     """Test that degraded mode flags are cleared on store reset."""
-    from src.core.similarity import get_vector_store, get_degraded_mode_info, reset_default_store
     import os
+
+    from src.core.similarity import get_degraded_mode_info, get_vector_store, reset_default_store
 
     os.environ["VECTOR_STORE_BACKEND"] = "faiss"
 
@@ -136,13 +144,11 @@ def test_faiss_health_endpoint_shows_degraded_status():
     similarity._VECTOR_DEGRADED = True
     similarity._VECTOR_DEGRADED_REASON = "Test degradation"
     import time
+
     similarity._VECTOR_DEGRADED_AT = time.time()
 
     try:
-        response = client.get(
-            "/api/v1/health/faiss/health",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/faiss/health", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -173,10 +179,7 @@ def test_faiss_health_endpoint_normal_status():
     similarity._FAISS_AVAILABLE = True
 
     try:
-        response = client.get(
-            "/api/v1/health/faiss/health",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/faiss/health", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -193,9 +196,10 @@ def test_faiss_health_endpoint_normal_status():
 
 def test_degraded_mode_duration_calculation():
     """Test that degraded duration is calculated correctly."""
-    from src.core.similarity import get_degraded_mode_info
-    from src.core import similarity
     import time
+
+    from src.core import similarity
+    from src.core.similarity import get_degraded_mode_info
 
     # Set degraded 5 seconds ago
     similarity._VECTOR_DEGRADED = True
@@ -218,8 +222,9 @@ def test_degraded_mode_duration_calculation():
 
 def test_degradation_history_recorded():
     """Test that degradation events are recorded in history."""
-    from src.core.similarity import get_vector_store, get_degraded_mode_info
     import os
+
+    from src.core.similarity import get_degraded_mode_info, get_vector_store
 
     os.environ["VECTOR_STORE_BACKEND"] = "faiss"
 
@@ -245,22 +250,26 @@ def test_degradation_history_recorded():
 
 def test_degradation_history_limit():
     """Test that degradation history is limited to 10 events."""
-    from src.core import similarity
     import time
+
+    from src.core import similarity
 
     # Manually add 15 events
     similarity._DEGRADATION_HISTORY = []
     for i in range(15):
-        similarity._DEGRADATION_HISTORY.append({
-            "timestamp": time.time(),
-            "reason": f"Test event {i}",
-            "backend_requested": "faiss",
-            "backend_actual": "memory",
-        })
+        similarity._DEGRADATION_HISTORY.append(
+            {
+                "timestamp": time.time(),
+                "reason": f"Test event {i}",
+                "backend_requested": "faiss",
+                "backend_actual": "memory",
+            }
+        )
 
     # Trigger history cleanup by simulating one more degradation
     # (cleanup happens during append)
     from src.core.similarity import get_degraded_mode_info
+
     degraded_info = get_degraded_mode_info()
 
     # Should have all 15 (cleanup only happens on new append in get_vector_store)
@@ -272,8 +281,9 @@ def test_degradation_history_limit():
 
 def test_degradation_history_in_health_endpoint():
     """Test that degradation history is exposed in health endpoint."""
-    from src.core import similarity
     import time
+
+    from src.core import similarity
 
     # Set up degraded state with history
     similarity._VECTOR_DEGRADED = True
@@ -296,10 +306,7 @@ def test_degradation_history_in_health_endpoint():
     ]
 
     try:
-        response = client.get(
-            "/api/v1/health/faiss/health",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/faiss/health", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()

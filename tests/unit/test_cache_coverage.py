@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import time
 from typing import Any, Tuple
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -340,7 +340,9 @@ class TestCompatibilityWrappers:
         """Test get_cached_result calls get_cache."""
         from src.utils.cache import get_cached_result
 
-        with patch("src.utils.cache.get_cache", new_callable=AsyncMock, return_value={"cached": True}) as mock_get:
+        with patch(
+            "src.utils.cache.get_cache", new_callable=AsyncMock, return_value={"cached": True}
+        ) as mock_get:
             result = await get_cached_result("key")
 
             assert result == {"cached": True}
@@ -354,7 +356,7 @@ class TestLocalCacheLogic:
         """Test local cache stores tuple of value and expire time."""
         value = {"test": "data"}
         expire_time = time.time() + 3600
-        
+
         entry: Tuple[Any, float] = (value, expire_time)
 
         assert entry[0] == value

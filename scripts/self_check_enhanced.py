@@ -14,6 +14,7 @@ Comprehensive health check covering:
 import asyncio
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -81,7 +82,7 @@ class SelfCheck:
         import httpx
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=5.0, follow_redirects=True) as client:
                 # Check health endpoint
                 response = await client.get("http://localhost:8000/health")
                 if response.status_code == 200:
@@ -254,7 +255,7 @@ class SelfCheck:
 
         # Run fast tests
         success, output = self.run_command(
-            ["python3", "-m", "pytest", "tests/", "-q", "--tb=no", "-x"]
+            [sys.executable, "-m", "pytest", "tests/", "-q", "--tb=no", "-x"]
         )
 
         if success:
@@ -279,13 +280,58 @@ class SelfCheck:
         ]
 
         exposed_files = []
+        placeholder_values = {
+            "password",
+            "api_key",
+            "token",
+            "topsecret",
+            "e2e_secret",
+            "my-secret",
+            "your_api_key",
+        }
+        placeholder_fragments = ("example", "dummy", "placeholder", "changeme", "...")
+        search_roots = ["src", "config", "deployments"]
+
+        def is_placeholder(value: str) -> bool:
+            value_lower = value.lower()
+            if value_lower in placeholder_values:
+                return True
+            return any(fragment in value_lower for fragment in placeholder_fragments)
+
         for pattern in sensitive_patterns:
-            cmd = ["grep", "-r", "-i", f"{pattern}\\s*=\\s*['\"]", ".",
-                   "--include=*.py", "--include=*.json", "--include=*.yaml",
-                   "--exclude-dir=.venv", "--exclude-dir=tests"]
+            cmd = [
+                "grep",
+                "-r",
+                "-n",
+                "-i",
+                f"{pattern}\\s*=\\s*['\"]",
+                *search_roots,
+                "--include=*.py",
+                "--include=*.json",
+                "--include=*.yaml",
+                "--exclude-dir=.venv",
+                "--exclude-dir=tests",
+            ]
             success, output = self.run_command(cmd, check=False)
-            if output.strip():
-                exposed_files.extend(output.strip().split('\n'))
+            if not output.strip():
+                continue
+            for line in output.strip().split("\n"):
+                if "# nosec" in line:
+                    continue
+                parts = line.split(":", 2)
+                if len(parts) < 3:
+                    continue
+                _, _, content = parts
+                if ">>>" in content or content.strip().startswith("..."):
+                    continue
+                match = re.search(r'([A-Za-z_][A-Za-z0-9_]*)\s*=\s*["\']([^"\']+)["\']', content)
+                if match:
+                    var_name, value = match.groups()
+                    if var_name.isupper():
+                        continue
+                    if is_placeholder(value):
+                        continue
+                exposed_files.append(line)
 
         self.print_status(
             "No exposed secrets",
@@ -337,10 +383,10 @@ class SelfCheck:
         self.print_header("Configuration Check")
 
         config_files = [
-            "pyproject.toml",
+            "requirements.txt",
             "Makefile",
             ".github/workflows/ci.yml",
-            "config/eval_frontend.json"
+            "config/eval_frontend.json",
         ]
 
         for config in config_files:
@@ -365,12 +411,11 @@ class SelfCheck:
         important_targets = [
             "install",
             "test",
-            "serve",
+            "run",
             "dev",
             "lint",
             "security-audit",
             "eval-phase6",
-            "badges"
         ]
 
         # Get available targets

@@ -11,19 +11,20 @@ Verifies that:
 from __future__ import annotations
 
 import os
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from src.core.model_interface_validation import (
-    validate_model_interface,
-    ValidationResult,
-    count_attributes,
-    check_suspicious_methods,
-    validate_predict_signature,
-    get_validation_config,
-    SUSPICIOUS_METHODS,
-    REQUIRED_METHODS,
     MAX_ATTRIBUTES,
+    REQUIRED_METHODS,
+    SUSPICIOUS_METHODS,
+    ValidationResult,
+    check_suspicious_methods,
+    count_attributes,
+    get_validation_config,
+    validate_model_interface,
+    validate_predict_signature,
 )
 
 

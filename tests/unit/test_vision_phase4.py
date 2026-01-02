@@ -14,54 +14,54 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from src.core.vision import VisionDescription
-from src.core.vision.tracing import (
-    Tracer,
-    TracingVisionProvider,
-    Span,
-    SpanStatus,
-    SpanKind,
-    RequestContext,
-    SpanExporter,
-    ConsoleSpanExporter,
-    SpanEvent,
-    create_tracing_provider,
+from src.core.vision.embedding import (
+    CryptographicHashGenerator,
+    EmbeddingVector,
+    HashAlgorithm,
+    ImageEmbedder,
+    ImageHash,
+    PerceptualHashGenerator,
+    SimilarityIndex,
+    SimilarityVisionProvider,
+    create_similarity_provider,
 )
 from src.core.vision.metrics_exporter import (
+    HistogramValue,
+    InMemoryMetricBackend,
     MetricsExporter,
     MetricsVisionProvider,
     MetricType,
     MetricValue,
-    HistogramValue,
-    InMemoryMetricBackend,
     create_metrics_provider,
 )
-from src.core.vision.embedding import (
-    ImageEmbedder,
-    SimilarityIndex,
-    SimilarityVisionProvider,
-    HashAlgorithm,
-    ImageHash,
-    EmbeddingVector,
-    CryptographicHashGenerator,
-    PerceptualHashGenerator,
-    create_similarity_provider,
-)
 from src.core.vision.quotas import (
-    QuotaManager,
-    Throttler,
-    QuotaVisionProvider,
-    QuotaPeriod,
-    ThrottleStrategy,
-    QuotaAction,
-    QuotaLimit,
-    QuotaUsage,
-    ThrottleConfig,
-    QuotaCheckResult,
     QUOTA_PRESETS,
     THROTTLE_PRESETS,
+    QuotaAction,
+    QuotaCheckResult,
+    QuotaLimit,
+    QuotaManager,
+    QuotaPeriod,
+    QuotaUsage,
+    QuotaVisionProvider,
+    ThrottleConfig,
+    Throttler,
+    ThrottleStrategy,
+    create_quota_provider,
     get_quota_preset,
     get_throttle_preset,
-    create_quota_provider,
+)
+from src.core.vision.tracing import (
+    ConsoleSpanExporter,
+    RequestContext,
+    Span,
+    SpanEvent,
+    SpanExporter,
+    SpanKind,
+    SpanStatus,
+    Tracer,
+    TracingVisionProvider,
+    create_tracing_provider,
 )
 
 
@@ -198,6 +198,7 @@ class TestTracer:
         context = tracer.create_context()
         # Need to set current context first
         from src.core.vision.tracing import set_current_context
+
         set_current_context(context)
         span = tracer.start_span("test_operation")
         assert span is not None
@@ -393,10 +394,10 @@ class TestImageHash:
     def test_hash_creation(self) -> None:
         """Test creating image hash."""
         hash_obj = ImageHash(
-            algorithm=HashAlgorithm.MD5,
+            algorithm=HashAlgorithm.SHA256,
             hash_value="abc123",
         )
-        assert hash_obj.algorithm == HashAlgorithm.MD5
+        assert hash_obj.algorithm == HashAlgorithm.SHA256
         assert hash_obj.hash_value == "abc123"
 
     def test_hamming_distance_binary(self) -> None:
@@ -461,13 +462,6 @@ class TestEmbeddingVector:
 class TestCryptographicHashGenerator:
     """Tests for CryptographicHashGenerator."""
 
-    def test_md5_hash(self) -> None:
-        """Test MD5 hash generation."""
-        generator = CryptographicHashGenerator(HashAlgorithm.MD5)
-        hash_obj = generator.hash(b"test data")
-        assert hash_obj.algorithm == HashAlgorithm.MD5
-        assert len(hash_obj.hash_value) == 32  # MD5 hex length
-
     def test_sha256_hash(self) -> None:
         """Test SHA256 hash generation."""
         generator = CryptographicHashGenerator(HashAlgorithm.SHA256)
@@ -475,9 +469,14 @@ class TestCryptographicHashGenerator:
         assert hash_obj.algorithm == HashAlgorithm.SHA256
         assert len(hash_obj.hash_value) == 64  # SHA256 hex length
 
+    def test_rejects_non_crypto_hash(self) -> None:
+        """Test non-cryptographic algorithms are rejected."""
+        with pytest.raises(ValueError):
+            CryptographicHashGenerator(HashAlgorithm.DHASH)
+
     def test_deterministic_hashing(self) -> None:
         """Test deterministic hashing."""
-        generator = CryptographicHashGenerator(HashAlgorithm.MD5)
+        generator = CryptographicHashGenerator(HashAlgorithm.SHA256)
         hash1 = generator.hash(b"test data")
         hash2 = generator.hash(b"test data")
         assert hash1.hash_value == hash2.hash_value
@@ -498,7 +497,7 @@ class TestSimilarityIndex:
     @pytest.fixture
     def index(self) -> SimilarityIndex:
         """Create similarity index."""
-        return SimilarityIndex(hash_algorithm=HashAlgorithm.MD5)
+        return SimilarityIndex(hash_algorithm=HashAlgorithm.SHA256)
 
     def test_add_image(self, index) -> None:
         """Test adding image to index."""
@@ -555,9 +554,7 @@ class TestSimilarityVisionProvider:
         return provider
 
     @pytest.mark.asyncio
-    async def test_similarity_provider_analyze_with_mock_index(
-        self, mock_provider
-    ) -> None:
+    async def test_similarity_provider_analyze_with_mock_index(self, mock_provider) -> None:
         """Test similarity provider analyzes image with mocked index."""
         index = MagicMock()
         index.find_duplicates = MagicMock(return_value=[])
@@ -580,7 +577,7 @@ class TestSimilarityVisionProvider:
         # Create mock duplicate record
         duplicate = ImageRecord(
             image_id="existing",
-            hash=ImageHash(HashAlgorithm.MD5, "abc123"),
+            hash=ImageHash(HashAlgorithm.SHA256, "abc123"),
         )
 
         index = MagicMock()
@@ -797,9 +794,7 @@ class TestQuotaPresets:
         """Test free tier preset."""
         limits = get_quota_preset("free_tier")
         assert len(limits) > 0
-        day_limit = next(
-            (lmt for lmt in limits if lmt.period == QuotaPeriod.PER_DAY), None
-        )
+        day_limit = next((lmt for lmt in limits if lmt.period == QuotaPeriod.PER_DAY), None)
         assert day_limit is not None
         assert day_limit.max_requests == 100
 
@@ -811,9 +806,7 @@ class TestQuotaPresets:
     def test_enterprise_preset(self) -> None:
         """Test enterprise preset."""
         limits = get_quota_preset("enterprise")
-        day_limit = next(
-            (lmt for lmt in limits if lmt.period == QuotaPeriod.PER_DAY), None
-        )
+        day_limit = next((lmt for lmt in limits if lmt.period == QuotaPeriod.PER_DAY), None)
         assert day_limit.max_requests == 100000
 
     def test_unknown_preset_returns_standard(self) -> None:

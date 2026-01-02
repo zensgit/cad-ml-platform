@@ -31,13 +31,13 @@ logger = logging.getLogger(__name__)
 
 # Conditional imports for OpenTelemetry
 try:
-    from opentelemetry import trace, metrics
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+    from opentelemetry import metrics, trace
     from opentelemetry.sdk.metrics import MeterProvider
     from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-    from opentelemetry.sdk.resources import Resource, SERVICE_NAME
-    from opentelemetry.trace import Status, StatusCode, Span
+    from opentelemetry.sdk.resources import SERVICE_NAME, Resource
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
+    from opentelemetry.trace import Span, Status, StatusCode
     from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
     OTEL_AVAILABLE = True
@@ -52,6 +52,7 @@ except ImportError:
 # Optional exporters
 try:
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
     OTLP_AVAILABLE = True
 except ImportError:
     OTLP_AVAILABLE = False
@@ -59,6 +60,7 @@ except ImportError:
 
 try:
     from opentelemetry.exporter.jaeger.thrift import JaegerExporter
+
     JAEGER_AVAILABLE = True
 except ImportError:
     JAEGER_AVAILABLE = False
@@ -67,6 +69,7 @@ except ImportError:
 # Optional auto-instrumentations
 try:
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
     FASTAPI_INSTRUMENTATION = True
 except ImportError:
     FASTAPI_INSTRUMENTATION = False
@@ -74,6 +77,7 @@ except ImportError:
 
 try:
     from opentelemetry.instrumentation.redis import RedisInstrumentor
+
     REDIS_INSTRUMENTATION = True
 except ImportError:
     REDIS_INSTRUMENTATION = False
@@ -81,6 +85,7 @@ except ImportError:
 
 try:
     from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
     HTTPX_INSTRUMENTATION = True
 except ImportError:
     HTTPX_INSTRUMENTATION = False
@@ -176,11 +181,13 @@ def setup_telemetry(
     config = config or TelemetryConfig.from_env()
 
     # Create resource with service info
-    resource = Resource.create({
-        SERVICE_NAME: config.service_name,
-        "service.version": os.getenv("APP_VERSION", "1.0.0"),
-        "deployment.environment": os.getenv("ENVIRONMENT", "development"),
-    })
+    resource = Resource.create(
+        {
+            SERVICE_NAME: config.service_name,
+            "service.version": os.getenv("APP_VERSION", "1.0.0"),
+            "deployment.environment": os.getenv("ENVIRONMENT", "development"),
+        }
+    )
 
     # Set up tracer provider
     provider = TracerProvider(resource=resource)
@@ -201,6 +208,7 @@ def setup_telemetry(
 
     if config.enable_console_export:
         from opentelemetry.sdk.trace.export import ConsoleSpanExporter
+
         provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))
         logger.info("Console span exporter enabled")
 
@@ -285,6 +293,7 @@ def traced(
         >>> async def analyze(doc_id: str) -> dict:
         ...     return await do_analysis(doc_id)
     """
+
     def decorator(func: Callable) -> Callable:
         import functools
 
@@ -296,6 +305,7 @@ def traced(
         import asyncio
 
         if asyncio.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 tracer = get_tracer()
@@ -314,6 +324,7 @@ def traced(
 
             return async_wrapper
         else:
+
             @functools.wraps(func)
             def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
                 tracer = get_tracer()

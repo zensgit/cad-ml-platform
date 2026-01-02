@@ -1,0 +1,30 @@
+diff --git a/config/prometheus/recording_rules.yml b/config/prometheus/recording_rules.yml
+index bbdfd1f..3c3e4d1 100644
+--- a/config/prometheus/recording_rules.yml
++++ b/config/prometheus/recording_rules.yml
+@@ -83,13 +83,6 @@ groups:
+           /
+           sum(rate(vector_query_backend_total[5m]))
+ 
+-      # Memory fallback ratio (degraded mode indicator)
+-      - record: cad:memory_fallback_ratio:5m
+-        expr: |
+-          sum(rate(vector_query_backend_total{backend="memory_fallback"}[5m]))
+-          /
+-          sum(rate(vector_query_backend_total[5m]))
+-
+       # Vector migration success rate
+       - record: cad:vector_migration_success_rate:5m
+         expr: |
+@@ -97,11 +90,6 @@ groups:
+           /
+           sum(rate(vector_migrate_total[5m]))
+ 
+-      # Security validation failure rate
+-      - record: cad:model_security_fail_rate:5m
+-        expr: |
+-          sum(rate(model_security_fail_total[5m]))
+-
+       # Rejection rate by reason
+       - record: cad:rejection_rate:5m
+         expr: |

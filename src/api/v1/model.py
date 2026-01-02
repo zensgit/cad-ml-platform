@@ -4,12 +4,14 @@ Model management API endpoints
 """
 
 from __future__ import annotations
-import logging
-from typing import Dict, Any, Optional
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
 
-from src.api.dependencies import get_api_key, get_admin_token
+import logging
+from typing import Any, Dict, Optional
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict, Field
+
+from src.api.dependencies import get_admin_token, get_api_key
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -17,6 +19,7 @@ router = APIRouter()
 
 class ModelReloadRequest(BaseModel):
     """模型重载请求"""
+
     path: Optional[str] = Field(None, description="模型文件路径")
     expected_version: Optional[str] = Field(None, description="期望的模型版本")
     force: bool = Field(False, description="强制重载即使版本不匹配")
@@ -24,6 +27,7 @@ class ModelReloadRequest(BaseModel):
 
 class ModelReloadResponse(BaseModel):
     """模型重载响应"""
+
     status: str = Field(
         ...,
         description=(
@@ -36,12 +40,14 @@ class ModelReloadResponse(BaseModel):
     error: Optional[Dict[str, Any]] = Field(None, description="错误信息")
     opcode_audit: Optional[Dict[str, Any]] = Field(None, description="Opcode 审计信息 (仅当 audit 模式返回)")
 
+    model_config = ConfigDict(protected_namespaces=())
+
 
 @router.post("/reload", response_model=ModelReloadResponse)
 async def model_reload(
     payload: ModelReloadRequest,
     api_key: str = Depends(get_api_key),
-    admin_token: str = Depends(get_admin_token)
+    admin_token: str = Depends(get_admin_token),
 ):
     """
     重载机器学习模型
@@ -63,9 +69,7 @@ async def model_reload(
 
     # Call the reload function
     result = reload_model(
-        payload.path,
-        expected_version=payload.expected_version,
-        force=payload.force
+        payload.path, expected_version=payload.expected_version, force=payload.force
     )
 
     status = result.get("status")
@@ -78,11 +82,10 @@ async def model_reload(
         )
         # When audit mode is active, include audit snapshot
         from src.ml.classifier import get_opcode_audit_snapshot  # type: ignore
+
         get_opcode_audit_snapshot()
         return ModelReloadResponse(
-            status="success",
-            model_version=result.get("model_version"),
-            hash=result.get("hash")
+            status="success", model_version=result.get("model_version"), hash=result.get("hash")
         )
 
     if status == "not_found":
@@ -118,7 +121,7 @@ async def model_reload(
             status="rollback",
             model_version=result.get("rollback_version"),
             hash=result.get("rollback_hash"),
-            error=result.get("error")
+            error=result.get("error"),
         )
 
     # Unknown status
@@ -141,12 +144,15 @@ async def get_model_version(api_key: str = Depends(get_api_key)):
         "model_version": info.get("version"),
         "model_hash": info.get("hash"),
         "loaded_at": info.get("loaded_at"),
-        "path": info.get("path")
+        "path": info.get("path"),
     }
 
 
 @router.get("/opcode-audit")
-async def get_opcode_audit(api_key: str = Depends(get_api_key), admin_token: str = Depends(get_admin_token)):
+async def get_opcode_audit(
+    api_key: str = Depends(get_api_key), admin_token: str = Depends(get_admin_token)
+):
     """获取已审计的 pickle opcode 使用情况 (仅当启用扫描时)."""
     from src.ml.classifier import get_opcode_audit_snapshot
+
     return get_opcode_audit_snapshot()

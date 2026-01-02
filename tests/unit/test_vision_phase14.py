@@ -13,8 +13,6 @@ from typing import Any
 
 import pytest
 
-from src.core.vision.base import VisionDescription, VisionProvider
-
 # Access Control imports
 from src.core.vision.access_control import (
     AccessControlManager,
@@ -36,6 +34,7 @@ from src.core.vision.access_control import (
     create_policy_engine,
     create_role_manager,
 )
+from src.core.vision.base import VisionDescription, VisionProvider
 
 # Data Masking imports
 from src.core.vision.data_masking import (
@@ -47,32 +46,10 @@ from src.core.vision.data_masking import (
     PIIMatch,
     PIIType,
     RegexPIIDetector,
+    create_heuristic_detector,
     create_masking_engine,
     create_masking_provider,
     create_regex_detector,
-    create_heuristic_detector,
-)
-
-# Security Audit imports
-from src.core.vision.security_audit import (
-    AlertManager,
-    AnomalyDetector,
-    AuditLogger,
-    BruteForceDetector,
-    IPReputationDetector,
-    SecurityAuditManager,
-    SecurityAuditVisionProvider,
-    SecurityEvent,
-    SecurityEventType,
-    SeverityLevel,
-    ThreatLevel,
-    create_alert_manager,
-    create_anomaly_detector,
-    create_audit_logger,
-    create_audit_provider,
-    create_brute_force_detector,
-    create_ip_reputation_detector,
-    create_security_audit_manager,
 )
 
 # Key Management imports
@@ -116,6 +93,28 @@ from src.core.vision.privacy_compliance import (
     create_consent_manager,
     create_request_handler,
     create_retention_manager,
+)
+
+# Security Audit imports
+from src.core.vision.security_audit import (
+    AlertManager,
+    AnomalyDetector,
+    AuditLogger,
+    BruteForceDetector,
+    IPReputationDetector,
+    SecurityAuditManager,
+    SecurityAuditVisionProvider,
+    SecurityEvent,
+    SecurityEventType,
+    SeverityLevel,
+    ThreatLevel,
+    create_alert_manager,
+    create_anomaly_detector,
+    create_audit_logger,
+    create_audit_provider,
+    create_brute_force_detector,
+    create_ip_reputation_detector,
+    create_security_audit_manager,
 )
 
 
@@ -518,9 +517,7 @@ class TestConsentManager:
         assert result is True
 
         # Should no longer have valid consent
-        has_consent = manager.has_valid_consent(
-            "user1", ConsentType.MARKETING
-        )
+        has_consent = manager.has_valid_consent("user1", ConsentType.MARKETING)
         assert has_consent is False
 
     def test_check_valid_consent(self) -> None:
@@ -531,14 +528,10 @@ class TestConsentManager:
             consent_type=ConsentType.DATA_STORAGE,
         )
 
-        has_consent = manager.has_valid_consent(
-            "user1", ConsentType.DATA_STORAGE
-        )
+        has_consent = manager.has_valid_consent("user1", ConsentType.DATA_STORAGE)
         assert has_consent is True
 
-        no_consent = manager.has_valid_consent(
-            "user1", ConsentType.PROFILING
-        )
+        no_consent = manager.has_valid_consent("user1", ConsentType.PROFILING)
         assert no_consent is False
 
     def test_consent_status(self) -> None:
@@ -803,9 +796,7 @@ class TestPrivacyComplianceVisionProvider:
         )
 
         provider = create_compliance_provider(stub, manager)
-        result = await provider.analyze_image(
-            b"test", subject_id="user1"
-        )
+        result = await provider.analyze_image(b"test", subject_id="user1")
         assert result.confidence == 0.95
 
     @pytest.mark.asyncio
@@ -813,13 +804,9 @@ class TestPrivacyComplianceVisionProvider:
         """Test image analysis without consent."""
         stub = SimpleStubProvider()
         manager = create_compliance_manager()
-        provider = create_compliance_provider(
-            stub, manager, require_consent=True
-        )
+        provider = create_compliance_provider(stub, manager, require_consent=True)
 
-        result = await provider.analyze_image(
-            b"test", subject_id="user_no_consent"
-        )
+        result = await provider.analyze_image(b"test", subject_id="user_no_consent")
         # Should return a result indicating processing not allowed
         assert "not allowed" in result.summary.lower() or result.confidence == 0.0
 
@@ -854,9 +841,7 @@ class TestPhase14Integration:
         provider = create_compliance_provider(stub, compliance_manager)
 
         # Analyze with proper setup
-        result = await provider.analyze_image(
-            b"test", subject_id=user.user_id
-        )
+        result = await provider.analyze_image(b"test", subject_id=user.user_id)
         assert result.confidence == 0.95
 
     def test_data_masking_operations(self) -> None:
@@ -909,7 +894,5 @@ class TestPhase14Integration:
         )
 
         # Check consent is valid
-        has_consent = manager.consent_manager.has_valid_consent(
-            "user1", ConsentType.DATA_STORAGE
-        )
+        has_consent = manager.consent_manager.has_valid_consent("user1", ConsentType.DATA_STORAGE)
         assert has_consent is True

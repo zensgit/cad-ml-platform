@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import io
 from typing import Any, Optional, Tuple
-from unittest.mock import MagicMock, patch, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -423,11 +423,13 @@ class TestEnhanceImageForOCRIntegration:
 
         # Create a minimal valid PNG (1x1 white pixel)
         try:
-            from PIL import Image
             import io
-            img = Image.new('RGB', (100, 100), color='white')
+
+            from PIL import Image
+
+            img = Image.new("RGB", (100, 100), color="white")
             buffer = io.BytesIO()
-            img.save(buffer, format='PNG')
+            img.save(buffer, format="PNG")
             png_bytes = buffer.getvalue()
 
             result_bytes, result_arr = enhance_image_for_ocr(png_bytes)
@@ -443,12 +445,14 @@ class TestEnhanceImageForOCRIntegration:
         from src.core.ocr.preprocessing.image_enhancer import enhance_image_for_ocr
 
         try:
-            from PIL import Image
             import io
+
+            from PIL import Image
+
             # Create large image
-            img = Image.new('RGB', (4000, 3000), color='red')
+            img = Image.new("RGB", (4000, 3000), color="red")
             buffer = io.BytesIO()
-            img.save(buffer, format='PNG')
+            img.save(buffer, format="PNG")
             png_bytes = buffer.getvalue()
 
             result_bytes, result_arr = enhance_image_for_ocr(png_bytes, max_res=1024)

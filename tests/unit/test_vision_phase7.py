@@ -8,10 +8,11 @@ Phase 7 includes:
 - Provider connection pooling
 """
 
-import pytest
 import asyncio
-from unittest.mock import MagicMock, AsyncMock
 from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from src.core.vision.base import VisionDescription, VisionProvider
 
@@ -98,10 +99,7 @@ class TestMiddlewareChain:
 
     def test_middleware_chain_add_remove(self):
         """Test adding and removing middleware."""
-        from src.core.vision.middleware import (
-            MiddlewareChain,
-            LambdaMiddleware,
-        )
+        from src.core.vision.middleware import LambdaMiddleware, MiddlewareChain
 
         chain = MiddlewareChain()
 
@@ -119,10 +117,7 @@ class TestMiddlewareChain:
 
     def test_lambda_middleware(self):
         """Test LambdaMiddleware."""
-        from src.core.vision.middleware import (
-            LambdaMiddleware,
-            MiddlewareContext,
-        )
+        from src.core.vision.middleware import LambdaMiddleware, MiddlewareContext
 
         calls = []
 
@@ -151,11 +146,9 @@ class TestMiddlewareChain:
 
     def test_timing_middleware(self):
         """Test TimingMiddleware."""
-        from src.core.vision.middleware import (
-            TimingMiddleware,
-            MiddlewareContext,
-        )
         import time
+
+        from src.core.vision.middleware import MiddlewareContext, TimingMiddleware
 
         middleware = TimingMiddleware()
         context = MiddlewareContext(
@@ -188,8 +181,8 @@ class TestMiddlewareChain:
     async def test_middleware_vision_provider(self):
         """Test MiddlewareVisionProvider."""
         from src.core.vision.middleware import (
-            MiddlewareVisionProvider,
             MiddlewareChain,
+            MiddlewareVisionProvider,
             TimingMiddleware,
         )
 
@@ -256,7 +249,7 @@ class TestCircuitBreaker:
 
     def test_sliding_window(self):
         """Test SlidingWindow."""
-        from src.core.vision.circuit_breaker import SlidingWindow, CallRecord
+        from src.core.vision.circuit_breaker import CallRecord, SlidingWindow
 
         window = SlidingWindow(size=5)
 
@@ -310,10 +303,7 @@ class TestCircuitBreaker:
 
     def test_circuit_breaker_reset(self):
         """Test circuit breaker reset."""
-        from src.core.vision.circuit_breaker import (
-            CircuitBreaker,
-            CircuitState,
-        )
+        from src.core.vision.circuit_breaker import CircuitBreaker, CircuitState
 
         cb = CircuitBreaker(name="test")
 
@@ -329,10 +319,7 @@ class TestCircuitBreaker:
     @pytest.mark.asyncio
     async def test_circuit_breaker_vision_provider(self):
         """Test CircuitBreakerVisionProvider."""
-        from src.core.vision.circuit_breaker import (
-            CircuitBreakerVisionProvider,
-            CircuitBreaker,
-        )
+        from src.core.vision.circuit_breaker import CircuitBreaker, CircuitBreakerVisionProvider
 
         mock_provider = create_mock_provider()
         cb = CircuitBreaker(name="test")
@@ -481,11 +468,7 @@ class TestRetryPolicy:
     @pytest.mark.asyncio
     async def test_retry_vision_provider(self):
         """Test RetryVisionProvider."""
-        from src.core.vision.retry_policy import (
-            RetryVisionProvider,
-            RetryPolicy,
-            RetryPolicyConfig,
-        )
+        from src.core.vision.retry_policy import RetryPolicy, RetryPolicyConfig, RetryVisionProvider
 
         mock_provider = create_mock_provider()
         config = RetryPolicyConfig(max_retries=3)
@@ -605,9 +588,9 @@ class TestRequestContext:
     def test_context_scope_context_manager(self):
         """Test context_scope context manager."""
         from src.core.vision.request_context import (
+            RequestContext,
             context_scope,
             get_current_context,
-            RequestContext,
         )
 
         context = RequestContext()
@@ -635,17 +618,12 @@ class TestRequestContext:
     @pytest.mark.asyncio
     async def test_context_aware_vision_provider(self):
         """Test ContextAwareVisionProvider."""
-        from src.core.vision.request_context import (
-            ContextAwareVisionProvider,
-            ContextManager,
-        )
+        from src.core.vision.request_context import ContextAwareVisionProvider, ContextManager
 
         mock_provider = create_mock_provider()
         manager = ContextManager()
 
-        provider = ContextAwareVisionProvider(
-            mock_provider, manager, auto_create_context=True
-        )
+        provider = ContextAwareVisionProvider(mock_provider, manager, auto_create_context=True)
 
         result = await provider.analyze_image(b"test_image")
 
@@ -692,7 +670,7 @@ class TestProviderPool:
 
     def test_pooled_connection(self):
         """Test PooledConnection."""
-        from src.core.vision.provider_pool import PooledConnection, ConnectionState
+        from src.core.vision.provider_pool import ConnectionState, PooledConnection
 
         mock_provider = create_mock_provider()
         conn = PooledConnection(
@@ -713,8 +691,9 @@ class TestProviderPool:
 
     def test_pooled_connection_expiration(self):
         """Test PooledConnection expiration."""
-        from src.core.vision.provider_pool import PooledConnection
         from datetime import timedelta
+
+        from src.core.vision.provider_pool import PooledConnection
 
         mock_provider = create_mock_provider()
         conn = PooledConnection(
@@ -754,11 +733,7 @@ class TestProviderPool:
     @pytest.mark.asyncio
     async def test_provider_pool_creation(self):
         """Test ProviderPool creation."""
-        from src.core.vision.provider_pool import (
-            ProviderPool,
-            SimpleProviderFactory,
-            PoolConfig,
-        )
+        from src.core.vision.provider_pool import PoolConfig, ProviderPool, SimpleProviderFactory
 
         factory = SimpleProviderFactory(create_fn=create_mock_provider)
         config = PoolConfig(min_size=2, max_size=10)
@@ -772,11 +747,7 @@ class TestProviderPool:
     @pytest.mark.asyncio
     async def test_provider_pool_acquire_release(self):
         """Test ProviderPool acquire and release."""
-        from src.core.vision.provider_pool import (
-            ProviderPool,
-            SimpleProviderFactory,
-            PoolConfig,
-        )
+        from src.core.vision.provider_pool import PoolConfig, ProviderPool, SimpleProviderFactory
 
         factory = SimpleProviderFactory(create_fn=create_mock_provider)
         config = PoolConfig(min_size=1, max_size=5, validation_on_acquire=False)
@@ -795,10 +766,10 @@ class TestProviderPool:
     async def test_pooled_vision_provider(self):
         """Test PooledVisionProvider."""
         from src.core.vision.provider_pool import (
+            PoolConfig,
             PooledVisionProvider,
             ProviderPool,
             SimpleProviderFactory,
-            PoolConfig,
         )
 
         factory = SimpleProviderFactory(create_fn=create_mock_provider)
@@ -824,14 +795,11 @@ class TestPhase7Integration:
     @pytest.mark.asyncio
     async def test_middleware_with_circuit_breaker(self):
         """Test middleware with circuit breaker."""
+        from src.core.vision.circuit_breaker import CircuitBreaker, CircuitBreakerVisionProvider
         from src.core.vision.middleware import (
-            MiddlewareVisionProvider,
             MiddlewareChain,
+            MiddlewareVisionProvider,
             TimingMiddleware,
-        )
-        from src.core.vision.circuit_breaker import (
-            CircuitBreakerVisionProvider,
-            CircuitBreaker,
         )
 
         mock_provider = create_mock_provider()
@@ -853,14 +821,8 @@ class TestPhase7Integration:
     @pytest.mark.asyncio
     async def test_retry_with_context(self):
         """Test retry policy with request context."""
-        from src.core.vision.retry_policy import (
-            RetryVisionProvider,
-            RetryPolicy,
-        )
-        from src.core.vision.request_context import (
-            ContextAwareVisionProvider,
-            ContextManager,
-        )
+        from src.core.vision.request_context import ContextAwareVisionProvider, ContextManager
+        from src.core.vision.retry_policy import RetryPolicy, RetryVisionProvider
 
         mock_provider = create_mock_provider()
 
@@ -880,16 +842,12 @@ class TestPhase7Integration:
     @pytest.mark.asyncio
     async def test_pool_with_middleware(self):
         """Test provider pool with middleware."""
-        from src.core.vision.provider_pool import (
-            ProviderPool,
-            SimpleProviderFactory,
-            PoolConfig,
-        )
         from src.core.vision.middleware import (
-            MiddlewareVisionProvider,
             MiddlewareChain,
+            MiddlewareVisionProvider,
             TimingMiddleware,
         )
+        from src.core.vision.provider_pool import PoolConfig, ProviderPool, SimpleProviderFactory
 
         # Create pool
         factory = SimpleProviderFactory(create_fn=create_mock_provider)

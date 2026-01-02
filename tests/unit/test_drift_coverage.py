@@ -149,6 +149,7 @@ class TestComputeDrift:
 
     def test_generator_input(self):
         """Test compute_drift works with generator input."""
+
         def gen_current():
             yield "a"
             yield "b"

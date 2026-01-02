@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
-from src.main import app
+
 from src.core.similarity import register_vector  # type: ignore
+from src.main import app
 
 client = TestClient(app)
 
@@ -23,4 +24,3 @@ def test_vector_migration_history_ring(monkeypatch):
     assert len(hist) == 10
     # last entry should correspond to last migration id
     assert hist[-1]["migration_id"] == data.get("last_migration_id")
-

@@ -24,4 +24,3 @@ def test_deprecated_vector_delete_endpoint():
     if resp.status_code == 404:
         body = resp.json()
         assert body.get("detail", {}).get("code") == "DATA_NOT_FOUND"
-

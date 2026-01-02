@@ -20,14 +20,13 @@ import threading
 import time
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from .base import VisionDescription, VisionProvider
-
 
 # ========================
 # Enums
@@ -276,10 +275,7 @@ class DAGBuilder:
         levels: Dict[str, int] = {}
 
         # Find root nodes (no dependencies)
-        roots = [
-            task_id for task_id, node in self._nodes.items()
-            if not node.dependencies
-        ]
+        roots = [task_id for task_id, node in self._nodes.items() if not node.dependencies]
 
         # BFS to assign levels
         queue = deque([(root, 0) for root in roots])
@@ -373,9 +369,7 @@ class TaskExecutor:
 
         futures = []
         for task, instance in tasks:
-            future = self._executor.submit(
-                self.execute_task, task, instance, context
-            )
+            future = self._executor.submit(self.execute_task, task, instance, context)
             futures.append(future)
 
         results = []
@@ -505,9 +499,7 @@ class PipelineOrchestrator:
         if pipeline is None:
             raise ValueError(f"Pipeline not found: {pipeline_id}")
 
-        run_id = hashlib.md5(
-            f"{pipeline_id}:{time.time()}".encode()
-        ).hexdigest()[:12]
+        run_id = hashlib.sha256(f"{pipeline_id}:{time.time()}".encode()).hexdigest()[:12]
 
         run = PipelineRun(
             run_id=run_id,
@@ -633,7 +625,7 @@ class PipelineOrchestrator:
 
         # Apply retry delay
         if task.retry_policy == RetryPolicy.EXPONENTIAL:
-            delay = 2 ** instance.attempt_number
+            delay = 2**instance.attempt_number
         elif task.retry_policy == RetryPolicy.LINEAR:
             delay = instance.attempt_number * 5
         else:
@@ -740,16 +732,18 @@ class PipelineTemplate:
                 else:
                     task_params[key] = value
 
-            tasks.append(TaskDefinition(
-                task_id=template.task_id,
-                name=template.name,
-                task_type=template.task_type,
-                handler=template.handler,
-                parameters=task_params,
-                dependencies=template.dependencies,
-                retry_policy=template.retry_policy,
-                max_retries=template.max_retries,
-            ))
+            tasks.append(
+                TaskDefinition(
+                    task_id=template.task_id,
+                    name=template.name,
+                    task_type=template.task_type,
+                    handler=template.handler,
+                    parameters=task_params,
+                    dependencies=template.dependencies,
+                    retry_policy=template.retry_policy,
+                    max_retries=template.max_retries,
+                )
+            )
 
         return PipelineDefinition(
             pipeline_id=pipeline_id,

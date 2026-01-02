@@ -1,6 +1,8 @@
-from fastapi.testclient import TestClient
-from src.main import app
 import json
+
+from fastapi.testclient import TestClient
+
+from src.main import app
 
 client = TestClient(app)
 
@@ -23,6 +25,7 @@ def test_entity_limit_violation():
     # We simulate by adjusting env and using a large STL-like content (rely on parser stub -> entity_count 0 so skip)
     # Instead we directly check behavior by forcing limit 0 (should reject any non-empty file after parse stage).
     import os
+
     os.environ["ANALYSIS_MAX_ENTITIES"] = "0"
     r = client.post(
         "/api/v1/analyze",
@@ -40,6 +43,7 @@ def test_entity_limit_violation():
 
 def test_file_size_exceeded():
     import os
+
     os.environ["ANALYSIS_MAX_FILE_MB"] = "0.00001"  # very small
     big_content = b"0" * 50000  # ~50KB
     r = client.post(

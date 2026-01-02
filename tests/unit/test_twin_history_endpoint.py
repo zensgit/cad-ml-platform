@@ -42,4 +42,3 @@ async def test_history_endpoint_returns_recent_frames():
     # Newest first
     timestamps = [f["timestamp"] for f in payload["frames"]]
     assert timestamps == [30.0, 20.0]
-

@@ -87,6 +87,16 @@
     },
     {
       "type": "graph",
+      "title": "Compare Requests (rate)",
+      "targets": [
+        {
+          "expr": "sum(rate(compare_requests_total[5m])) by (status)"
+        }
+      ],
+      "description": "/api/compare request rate by status"
+    },
+    {
+      "type": "graph",
       "title": "Opcode Audit/Violations",
       "targets": [
         {

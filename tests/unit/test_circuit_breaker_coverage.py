@@ -10,8 +10,8 @@ Covers:
 
 from __future__ import annotations
 
-import time
 import threading
+import time
 from datetime import datetime
 from unittest.mock import MagicMock
 
@@ -105,7 +105,7 @@ class TestCircuitBreakerStats:
             last_success_time=now,
             total_calls=110,
             state_transitions=[{"from": "closed", "to": "open"}],
-            error_distribution={"ValueError": 5, "TimeoutError": 5}
+            error_distribution={"ValueError": 5, "TimeoutError": 5},
         )
 
         assert stats.success_count == 100
@@ -146,7 +146,7 @@ class TestCircuitBreakerInit:
             expected_exception=ValueError,
             half_open_max_calls=2,
             success_threshold=1,
-            metrics_callback=callback
+            metrics_callback=callback,
         )
 
         assert breaker.name == "custom"
@@ -245,7 +245,7 @@ class TestCircuitBreakerStateTransitions:
 
         # Open the circuit
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         # Next call should be rejected
         with pytest.raises(CircuitBreakerError) as exc_info:
@@ -261,7 +261,7 @@ class TestCircuitBreakerStateTransitions:
 
         # Open the circuit
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         # With recovery_timeout=0, state property check triggers immediate transition
         # The first access to state after failure will transition to HALF_OPEN
@@ -274,21 +274,19 @@ class TestCircuitBreakerStateTransitions:
 
     def test_half_open_limits_test_calls(self):
         """Test half-open state limits test calls."""
-        from src.core.resilience.circuit_breaker import (
-            CircuitBreaker, CircuitBreakerError
-        )
+        from src.core.resilience.circuit_breaker import CircuitBreaker, CircuitBreakerError
 
         breaker = CircuitBreaker(
             name="test",
             failure_threshold=1,
             recovery_timeout=0,
             half_open_max_calls=2,
-            success_threshold=10  # High threshold so we don't close circuit
+            success_threshold=10,  # High threshold so we don't close circuit
         )
 
         # Open the circuit
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         # Wait for recovery and force transition
         time.sleep(0.1)
@@ -313,15 +311,12 @@ class TestCircuitBreakerStateTransitions:
         from src.core.resilience.circuit_breaker import CircuitBreaker, CircuitState
 
         breaker = CircuitBreaker(
-            name="test",
-            failure_threshold=1,
-            recovery_timeout=0,
-            success_threshold=2
+            name="test", failure_threshold=1, recovery_timeout=0, success_threshold=2
         )
 
         # Open the circuit
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         time.sleep(0.1)
 
@@ -338,12 +333,12 @@ class TestCircuitBreakerStateTransitions:
         breaker = CircuitBreaker(
             name="test",
             failure_threshold=1,
-            recovery_timeout=1  # Use positive timeout so we can control state
+            recovery_timeout=1,  # Use positive timeout so we can control state
         )
 
         # Open the circuit
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         # Manually force state to HALF_OPEN for testing
         breaker._state = CircuitState.HALF_OPEN
@@ -351,7 +346,7 @@ class TestCircuitBreakerStateTransitions:
 
         # Fail in half-open
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         assert breaker.state == CircuitState.OPEN
 
@@ -383,7 +378,7 @@ class TestCircuitBreakerReset:
 
         # Open the circuit
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         assert breaker.state == CircuitState.OPEN
 
@@ -424,7 +419,7 @@ class TestCircuitBreakerHealth:
         breaker.call(lambda: 42)
         breaker.call(lambda: 42)
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         health = breaker.get_health()
 
@@ -438,7 +433,7 @@ class TestCircuitBreakerHealth:
 
         breaker.call(lambda: 42)
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         health = breaker.get_health()
 
@@ -477,31 +472,25 @@ class TestCircuitBreakerMetricsCallback:
         breaker = CircuitBreaker(name="test", metrics_callback=callback)
 
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         assert len(callback_data) == 1
         assert callback_data[0]["event"] == "failure"
 
     def test_rejection_emits_metric(self):
         """Test rejection emits metric."""
-        from src.core.resilience.circuit_breaker import (
-            CircuitBreaker, CircuitBreakerError
-        )
+        from src.core.resilience.circuit_breaker import CircuitBreaker, CircuitBreakerError
 
         callback_data = []
 
         def callback(data):
             callback_data.append(data)
 
-        breaker = CircuitBreaker(
-            name="test",
-            failure_threshold=1,
-            metrics_callback=callback
-        )
+        breaker = CircuitBreaker(name="test", failure_threshold=1, metrics_callback=callback)
 
         # Open circuit
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         # Try to call - should be rejected
         with pytest.raises(CircuitBreakerError):
@@ -520,15 +509,11 @@ class TestCircuitBreakerMetricsCallback:
         def callback(data):
             callback_data.append(data)
 
-        breaker = CircuitBreaker(
-            name="test",
-            failure_threshold=1,
-            metrics_callback=callback
-        )
+        breaker = CircuitBreaker(name="test", failure_threshold=1, metrics_callback=callback)
 
         # Open circuit
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         # Find state_change event
         state_events = [d for d in callback_data if d["event"] == "state_change"]
@@ -551,9 +536,7 @@ class TestCircuitBreakerDecorator:
 
     def test_decorator_attaches_breaker(self):
         """Test decorator attaches circuit_breaker attribute."""
-        from src.core.resilience.circuit_breaker import (
-            circuit_breaker, CircuitBreaker
-        )
+        from src.core.resilience.circuit_breaker import CircuitBreaker, circuit_breaker
 
         @circuit_breaker(name="test_func")
         def test_func():
@@ -577,10 +560,7 @@ class TestCircuitBreakerDecorator:
         from src.core.resilience.circuit_breaker import circuit_breaker
 
         @circuit_breaker(
-            name="custom",
-            failure_threshold=2,
-            recovery_timeout=30,
-            expected_exception=ValueError
+            name="custom", failure_threshold=2, recovery_timeout=30, expected_exception=ValueError
         )
         def test_func():
             return 42
@@ -598,15 +578,11 @@ class TestCircuitBreakerTimeUntilRecovery:
         """Test time until recovery is positive when open."""
         from src.core.resilience.circuit_breaker import CircuitBreaker
 
-        breaker = CircuitBreaker(
-            name="test",
-            failure_threshold=1,
-            recovery_timeout=60
-        )
+        breaker = CircuitBreaker(name="test", failure_threshold=1, recovery_timeout=60)
 
         # Open circuit
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         # Time until recovery should be positive
         time_remaining = breaker._time_until_recovery()
@@ -617,15 +593,11 @@ class TestCircuitBreakerTimeUntilRecovery:
         """Test time until recovery is zero after timeout."""
         from src.core.resilience.circuit_breaker import CircuitBreaker
 
-        breaker = CircuitBreaker(
-            name="test",
-            failure_threshold=1,
-            recovery_timeout=0
-        )
+        breaker = CircuitBreaker(name="test", failure_threshold=1, recovery_timeout=0)
 
         # Open circuit
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         time.sleep(0.1)
 
@@ -677,7 +649,7 @@ class TestCircuitBreakerConsecutiveFailures:
         # Fail twice
         for _ in range(2):
             with pytest.raises(Exception):
-                breaker.call(lambda: 1/0)
+                breaker.call(lambda: 1 / 0)
 
         assert breaker.stats.consecutive_failures == 2
 
@@ -698,7 +670,7 @@ class TestCircuitBreakerStateTransitionRecording:
 
         # Open circuit
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         # Check transition recorded
         transitions = breaker.stats.state_transitions
@@ -713,7 +685,7 @@ class TestCircuitBreakerStateTransitionRecording:
 
         # Open circuit
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         health = breaker.get_health()
 
@@ -751,15 +723,12 @@ class TestCircuitBreakerEdgeCases:
         from src.core.resilience.circuit_breaker import CircuitBreaker
 
         breaker = CircuitBreaker(
-            name="test",
-            failure_threshold=1,
-            recovery_timeout=0,
-            success_threshold=3
+            name="test", failure_threshold=1, recovery_timeout=0, success_threshold=3
         )
 
         # Open circuit
         with pytest.raises(Exception):
-            breaker.call(lambda: 1/0)
+            breaker.call(lambda: 1 / 0)
 
         time.sleep(0.1)
 

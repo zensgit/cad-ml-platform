@@ -23,8 +23,8 @@ from .base import VisionDescription, VisionProvider
 logger = logging.getLogger(__name__)
 
 # Context variable for current request context
-_current_context: contextvars.ContextVar[Optional["RequestContext"]] = (
-    contextvars.ContextVar("vision_request_context", default=None)
+_current_context: contextvars.ContextVar[Optional["RequestContext"]] = contextvars.ContextVar(
+    "vision_request_context", default=None
 )
 
 
@@ -438,7 +438,11 @@ class Tracer:
         Returns:
             RequestContext if found, None otherwise
         """
-        trace_id = headers.get("x-trace-id") or headers.get("traceparent", "").split("-")[1] if "-" in headers.get("traceparent", "") else None
+        trace_id = (
+            headers.get("x-trace-id") or headers.get("traceparent", "").split("-")[1]
+            if "-" in headers.get("traceparent", "")
+            else None
+        )
         request_id = headers.get("x-request-id")
         correlation_id = headers.get("x-correlation-id")
 
@@ -564,9 +568,7 @@ class TracingVisionProvider:
             )
 
             start_time = time.time()
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
             duration_ms = (time.time() - start_time) * 1000
 
             # Add response attributes

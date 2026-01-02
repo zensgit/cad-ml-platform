@@ -87,10 +87,7 @@ def get_vector_store(backend: str | None = None) -> "VectorStoreProtocol":
         except ImportError:
             # Try legacy implementation
             try:
-                from src.core.similarity import (
-                    register_vector,
-                    search_similar,
-                )
+                from src.core.similarity import register_vector, search_similar
 
                 logger.info("Using legacy FAISS implementation")
                 from src.core.vector_stores.legacy_adapter import LegacyVectorStoreAdapter

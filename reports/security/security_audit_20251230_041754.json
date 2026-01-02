@@ -1,0 +1,139 @@
+{
+  "timestamp": "2025-12-30T04:17:54.248026+00:00",
+  "summary": {
+    "total_vulnerabilities": 10,
+    "by_severity": {
+      "critical": 0,
+      "high": 0,
+      "medium": 10,
+      "low": 0
+    },
+    "by_type": {
+      "code_security": 10
+    }
+  },
+  "vulnerabilities": [
+    {
+      "type": "code_security",
+      "file": "src/core/active_learning.py",
+      "line": 54,
+      "severity": "medium",
+      "confidence": "medium",
+      "description": "Probable insecure usage of temp file/directory.",
+      "cwe": {
+        "id": 377,
+        "link": "https://cwe.mitre.org/data/definitions/377.html"
+      }
+    },
+    {
+      "type": "code_security",
+      "file": "src/core/assembly/confidence_calibrator.py",
+      "line": 399,
+      "severity": "medium",
+      "confidence": "high",
+      "description": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+      "cwe": {
+        "id": 502,
+        "link": "https://cwe.mitre.org/data/definitions/502.html"
+      }
+    },
+    {
+      "type": "code_security",
+      "file": "src/core/config.py",
+      "line": 13,
+      "severity": "medium",
+      "confidence": "medium",
+      "description": "Possible binding to all interfaces.",
+      "cwe": {
+        "id": 605,
+        "link": "https://cwe.mitre.org/data/definitions/605.html"
+      }
+    },
+    {
+      "type": "code_security",
+      "file": "src/core/ocr/providers/deepseek_hf.py",
+      "line": 88,
+      "severity": "medium",
+      "confidence": "high",
+      "description": "Unsafe Hugging Face Hub download without revision pinning in from_pretrained()",
+      "cwe": {
+        "id": 494,
+        "link": "https://cwe.mitre.org/data/definitions/494.html"
+      }
+    },
+    {
+      "type": "code_security",
+      "file": "src/core/ocr/providers/deepseek_hf.py",
+      "line": 89,
+      "severity": "medium",
+      "confidence": "high",
+      "description": "Unsafe Hugging Face Hub download without revision pinning in from_pretrained()",
+      "cwe": {
+        "id": 494,
+        "link": "https://cwe.mitre.org/data/definitions/494.html"
+      }
+    },
+    {
+      "type": "code_security",
+      "file": "src/core/vectors/stores/faiss_store.py",
+      "line": 94,
+      "severity": "medium",
+      "confidence": "high",
+      "description": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+      "cwe": {
+        "id": 502,
+        "link": "https://cwe.mitre.org/data/definitions/502.html"
+      }
+    },
+    {
+      "type": "code_security",
+      "file": "src/core/vision/observability.py",
+      "line": 666,
+      "severity": "medium",
+      "confidence": "high",
+      "description": "Use of possibly insecure function - consider using safer ast.literal_eval.",
+      "cwe": {
+        "id": 78,
+        "link": "https://cwe.mitre.org/data/definitions/78.html"
+      }
+    },
+    {
+      "type": "code_security",
+      "file": "src/core/vision/workflow_engine.py",
+      "line": 734,
+      "severity": "medium",
+      "confidence": "high",
+      "description": "Use of possibly insecure function - consider using safer ast.literal_eval.",
+      "cwe": {
+        "id": 78,
+        "link": "https://cwe.mitre.org/data/definitions/78.html"
+      }
+    },
+    {
+      "type": "code_security",
+      "file": "src/ml/classifier.py",
+      "line": 83,
+      "severity": "medium",
+      "confidence": "high",
+      "description": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+      "cwe": {
+        "id": 502,
+        "link": "https://cwe.mitre.org/data/definitions/502.html"
+      }
+    },
+    {
+      "type": "code_security",
+      "file": "src/ml/classifier.py",
+      "line": 455,
+      "severity": "medium",
+      "confidence": "high",
+      "description": "Pickle and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue.",
+      "cwe": {
+        "id": 502,
+        "link": "https://cwe.mitre.org/data/definitions/502.html"
+      }
+    }
+  ],
+  "recommendations": [],
+  "status": "fail"
+}

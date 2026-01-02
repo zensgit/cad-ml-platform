@@ -9,19 +9,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.core.vision.providers.qwen_vl import (
-    QwenVLProvider,
-    create_qwen_vl_provider,
-    DEFAULT_SYSTEM_PROMPT,
-    DEFAULT_SYSTEM_PROMPT_EN,
-)
 from src.core.vision.base import VisionDescription, VisionProviderError
 from src.core.vision.factory import (
+    FACTORY_REGISTRY,
+    PROVIDER_REGISTRY,
+    _auto_detect_provider,
     create_vision_provider,
     get_available_providers,
-    _auto_detect_provider,
-    PROVIDER_REGISTRY,
-    FACTORY_REGISTRY,
+)
+from src.core.vision.providers.qwen_vl import (
+    DEFAULT_SYSTEM_PROMPT,
+    DEFAULT_SYSTEM_PROMPT_EN,
+    QwenVLProvider,
+    create_qwen_vl_provider,
 )
 
 
@@ -114,11 +114,13 @@ class TestQwenVLProviderAnalyze:
             "choices": [
                 {
                     "message": {
-                        "content": json.dumps({
-                            "summary": "机械零件图纸",
-                            "details": ["尺寸: 100x50mm", "公差: ±0.1"],
-                            "confidence": 0.95
-                        })
+                        "content": json.dumps(
+                            {
+                                "summary": "机械零件图纸",
+                                "details": ["尺寸: 100x50mm", "公差: ±0.1"],
+                                "confidence": 0.95,
+                            }
+                        )
                     }
                 }
             ]
@@ -218,15 +220,7 @@ class TestQwenVLProviderAnalyze:
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "choices": [
-                {
-                    "message": {
-                        "content": json.dumps({
-                            "概述": "零件图",
-                            "详细信息": ["尺寸信息"],
-                            "置信度": 0.9
-                        })
-                    }
-                }
+                {"message": {"content": json.dumps({"概述": "零件图", "详细信息": ["尺寸信息"], "置信度": 0.9})}}
             ]
         }
 
@@ -377,7 +371,12 @@ class TestFactoryIntegration:
         """Test auto-detection with QWEN_API_KEY."""
         with patch.dict(os.environ, {"QWEN_API_KEY": "test-key"}, clear=True):
             # Clear other keys
-            for key in ["DASHSCOPE_API_KEY", "DEEPSEEK_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"]:
+            for key in [
+                "DASHSCOPE_API_KEY",
+                "DEEPSEEK_API_KEY",
+                "OPENAI_API_KEY",
+                "ANTHROPIC_API_KEY",
+            ]:
                 os.environ.pop(key, None)
             detected = _auto_detect_provider()
             assert detected == "qwen_vl"

@@ -61,3 +61,9 @@
 ## 3. Verification
 - Run `pytest tests/unit/test_v8_features.py` to verify pipeline.
 - Run `python3 scripts/benchmark_vllm_quantization.py` to verify vLLM performance.
+
+## 4. Post-Completion Operational Update (2025-12-22)
+- CAD render service autostarted via LaunchAgent (macOS TCC-safe runtime path).
+- Token rotation validated with Athena end-to-end smoke test.
+- One-command update + auto-rollback: `scripts/update_cad_render_runtime.sh`.
+- Reports: `reports/CAD_RENDER_AUTOSTART_TOKEN_ROTATION.md` and `FINAL_VERIFICATION_LOG.md`.

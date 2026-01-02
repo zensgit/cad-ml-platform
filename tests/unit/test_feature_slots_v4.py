@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+
 from src.main import app
 
 client = TestClient(app)
@@ -16,4 +17,3 @@ def test_feature_slots_v4():
     assert slots[-1]["version"] == "v4"
     assert any(s["name"] == "surface_count" for s in slots)
     assert any(s["name"] == "shape_entropy" for s in slots)
-

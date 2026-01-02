@@ -32,8 +32,6 @@ class DeduplicationStrategy(Enum):
 class HashAlgorithm(Enum):
     """Hash algorithm for deduplication."""
 
-    MD5 = "md5"
-    SHA1 = "sha1"
     SHA256 = "sha256"
     XXHASH = "xxhash"  # If available
 
@@ -134,10 +132,13 @@ class HashKeyGenerator(KeyGenerator):
         **kwargs: Any,
     ) -> str:
         """Generate hash-based key."""
-        if self._algorithm == HashAlgorithm.MD5:
-            hasher = hashlib.md5()
-        elif self._algorithm == HashAlgorithm.SHA1:
-            hasher = hashlib.sha1()
+        if self._algorithm == HashAlgorithm.XXHASH:
+            try:
+                import xxhash  # type: ignore
+            except ImportError:
+                hasher = hashlib.sha256()
+            else:
+                hasher = xxhash.xxh64()
         else:
             hasher = hashlib.sha256()
 
@@ -167,9 +168,7 @@ class SizeHashKeyGenerator(KeyGenerator):
     ) -> str:
         """Generate size+hash key."""
         size = len(image_data)
-        hash_key = self._hash_gen.generate_key(
-            image_data, include_description, **kwargs
-        )
+        hash_key = self._hash_gen.generate_key(image_data, include_description, **kwargs)
         return f"{size}_{hash_key}"
 
 
@@ -302,10 +301,7 @@ class DeduplicationCache:
             Number of entries removed
         """
         with self._lock:
-            expired_keys = [
-                k for k, v in self._cache.items()
-                if v.is_expired()
-            ]
+            expired_keys = [k for k, v in self._cache.items() if v.is_expired()]
 
             for key in expired_keys:
                 del self._cache[key]
@@ -373,9 +369,7 @@ class DeduplicationManager:
         Returns:
             Deduplication key
         """
-        return self._key_generator.generate_key(
-            image_data, include_description, **kwargs
-        )
+        return self._key_generator.generate_key(image_data, include_description, **kwargs)
 
     def check_duplicate(
         self,
@@ -498,9 +492,7 @@ class DeduplicatingVisionProvider(VisionProvider):
             Vision analysis description
         """
         # Check for duplicate
-        is_dup, cached_result, key = self._manager.check_duplicate(
-            image_data, include_description
-        )
+        is_dup, cached_result, key = self._manager.check_duplicate(image_data, include_description)
 
         if is_dup and cached_result is not None:
             return cached_result

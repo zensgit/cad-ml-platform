@@ -1,0 +1,234 @@
+# Dedup2D ↔ DedupCAD-Vision 接口契约（对齐版）
+
+目标：明确 `cad-ml-platform`（编排/异步/存储/回调）与 `dedupcad-vision`（2D 搜索引擎）之间的请求/响应、超时与错误语义，避免“能调用但结果/回传丢失”。
+
+## 角色与调用方向
+
+### 推荐生产拓扑（单向依赖）
+
+- `cad-ml-platform` → `dedupcad-vision`
+  - `cad-ml-platform` 接收上传、入队、持久化、回调
+  - Worker 调用 `dedupcad-vision /api/v2/search`
+
+> 说明：`dedupcad-vision` 内置 `MLPlatformClient` 默认禁用（见 `ML_PLATFORM_ENABLED=false`），建议不要形成循环依赖。
+
+## 0) 接口映射矩阵（核心路径）
+
+### 0.1 cad-ml-platform → dedupcad-vision
+
+| cad-ml-platform | dedupcad-vision | 请求映射 | 成功响应 | 失败映射 |
+| --- | --- | --- | --- | --- |
+| `GET /api/v1/dedup/2d/health` | `GET /health` | 无 | 直接透传 dedupcad-vision JSON | circuit open → `503` + `Retry-After: 5`；网络错误 → `503`；HTTP 错误 → 透传状态码与 body |
+| `POST /api/v1/dedup/2d/index/rebuild` | `POST /api/v2/index/rebuild` | 无 | 透传 dedupcad-vision JSON | 同上（无重试） |
+| `POST /api/v1/dedup/2d/search`（sync） | `POST /api/v2/search` | `multipart/form-data`：`file` + `mode/max_results/compute_diff/enable_ml/enable_geometric` | 透传搜索 JSON（可能叠加 L4 精度） | circuit open → `503` + `Retry-After: 5`；网络错误 → `503`；HTTP 错误 → 透传状态码与 body |
+| `POST /api/v1/dedup/2d/search`（async） | `POST /api/v2/search`（worker） | 同上；worker 内部调用 | `job_id` + `poll_url`（完成后结果为 dedupcad-vision JSON） | `CALLBACK_UNSUPPORTED`/`CALLBACK_URL_INVALID`/`JOB_QUEUE_FULL` 等 cad-ml 侧错误；vision 调用失败会进入 job error |
+| `POST /api/v1/dedup/2d/index/add` | `POST /api/index/add` | `file` + `user_name` + `upload_to_s3` | 透传 index add JSON；如附带 `geom_json`，cad-ml 会存储并补充 `message` | `file_hash` 缺失 → `502`；其余错误同上 |
+
+### 0.2 cad-ml-platform 外部错误码（与 vision 关联）
+
+- `503 dedupcad-vision circuit open`：熔断器打开（含 `Retry-After`）。
+- `503 dedupcad-vision unavailable`：网络/连接错误。
+- `4xx/5xx`：dedupcad-vision 返回的 HTTP 错误，cad-ml 透传状态码与 body。
+- `502 dedupcad-vision response missing file_hash`：index/add 响应缺少 `file_hash`。
+
+### 0.3 本地精度叠加（cad-ml 内部）
+
+- 当 `geom_json` 存在且启用精度（`enable_precision`/`enable_geometric`/`mode=precise`），cad-ml 会对 vision 的 `duplicates/similar` 进行 L4 复算并重排，新增 `precision_*` 字段与 `warnings`。
+
+## 1) dedupcad-vision（被调方）
+
+### 1.1 Health
+
+- `GET /health`
+- `200` JSON：必须包含 `status` 字段，`cad-ml-platform` 用于健康检查/告警。
+
+### 1.2 2D Search（核心）
+
+- `POST /api/v2/search`
+- Content-Type: `multipart/form-data`
+- Form 字段：
+  - `file`：图纸图像文件（推荐 `png/jpg`；也支持 `pdf/dxf/dwg`，由 vision 侧转换）
+  - `mode`：`fast|balanced|precise`（字符串）
+  - `max_results`：整数（建议 1-500）
+  - `compute_diff`：`true|false`
+  - `enable_ml`：`true|false`（可选，需 vision 端已配置 L3）
+  - `enable_geometric`：`true|false`（可选，需 vision 端已配置 L4）
+  - `exclude_self`：`true|false`（可选，默认 `true`）
+
+#### 响应（JSON）
+
+必须包含以下字段（缺失会导致 `cad-ml-platform` 解析/透传不稳定）：
+
+- `success: bool`
+- `total_matches: int`
+- `duplicates: list[MatchItem]`
+- `similar: list[MatchItem]`
+- `final_level: int`
+- `timing: {total_ms,l1_ms,l2_ms,l3_ms,l4_ms}`
+- `level_stats: object`
+- `warnings: list[str]`
+- `error: str|null`
+
+`MatchItem`（最小契约）：
+
+- `drawing_id: str`
+- `file_hash: str`
+- `file_name: str`
+- `similarity: float`
+- `confidence: float`
+- `match_level: int`
+- `verdict: str`
+- `levels: object`
+- 可选：`diff_image_base64`, `diff_regions`
+
+### 1.3 Index Add
+
+- `POST /api/index/add`
+- Content-Type: `multipart/form-data`
+- Form 字段：
+  - `file`：图纸文件（可选，与 `s3_key` 二选一）
+  - `s3_key`：已上传文件键（可选，与 `file` 二选一）
+- Query：
+  - `user_name`：操作人（必填）
+  - `upload_to_s3`：`true|false`（可选，默认 `true`）
+
+#### 响应（JSON）
+
+- `success: bool`
+- `drawing_id: int|null`
+- `file_hash: str`（cad-ml-platform 依赖该字段存储 `geom_json`）
+- `message: str`
+- `processing_time_ms: float`
+- `s3_key: str|null`
+
+### 1.4 Index Rebuild
+
+- `POST /api/v2/index/rebuild`
+- `200` JSON：
+  - `success: bool`
+  - `message: str`
+
+## 2) cad-ml-platform（对外 API）
+
+### 2.1 提交查重
+
+- `POST /api/v1/dedup/2d/search`
+- Query：
+  - `async=true|false`
+  - `mode=fast|balanced|precise`
+  - `max_results=<int>`
+  - `compute_diff=true|false`（透传至 vision）
+  - `enable_ml=true|false`（透传至 vision）
+  - `enable_geometric=true|false`（透传至 vision）
+  - `callback_url=<url>`（可选）
+- Form：
+  - `file`（图像文件，PNG/JPG/PDF）
+  - `geom_json`（可选，用于 precision；启用时通常强制 async）
+
+补充：`enable_precision` 与 `precision_*` 参数用于本地 L4 精度验证（不透传至 vision）。
+
+#### 同步响应（async=false 且未触发 forced-async）
+
+直接返回 `dedupcad-vision /api/v2/search` 的 JSON 结果（透传）。
+
+#### 异步响应（async=true 或 forced-async）
+
+```json
+{
+  "job_id": "<uuid>",
+  "status": "pending",
+  "poll_url": "/api/v1/dedup/2d/jobs/<job_id>",
+  "forced_async_reason": null
+}
+```
+
+### 2.2 查询 Job
+
+- `GET /api/v1/dedup/2d/jobs/{job_id}`
+- `200`：
+  - `status`：`pending|in_progress|completed|failed|canceled`
+  - `result`：完成时为 `dedupcad-vision` JSON（同上）
+  - `error`：失败时给出字符串
+
+### 2.3 取消 Job
+
+- `POST /api/v1/dedup/2d/jobs/{job_id}/cancel`
+- 权限：同租户可取消；跨租户返回 `403 JOB_FORBIDDEN`
+
+### 2.4 列表
+
+- `GET /api/v1/dedup/2d/jobs?status=<opt>&limit=<opt>`
+- 返回 TTL 内的近期 jobs（包含已完成），按 `created_at` 倒序
+
+## 3) Webhook 回调（可选）
+
+当提交时携带 `callback_url`，worker 在 job 完成后 best-effort POST：
+
+- Headers：
+  - `Content-Type: application/json`
+  - `X-Dedup-Job-Id: <job_id>`
+  - `X-Dedup-Tenant-Id: <tenant_id>`（如可用）
+  - `X-Dedup-Signature: t=<ts>,v1=<hex>`（当配置 `DEDUP2D_CALLBACK_HMAC_SECRET` 时）
+
+- Body：`{"job_id": "...", "tenant_id": "...", "status": "completed", "result": {...}}`（以实现为准）
+
+安全默认：
+
+- 仅允许 `https`
+- 默认阻断私网/loopback（SSRF 防护）
+
+开发环境需要本地回调时（仅 dev）：
+
+- `DEDUP2D_CALLBACK_ALLOW_HTTP=1`
+- `DEDUP2D_CALLBACK_BLOCK_PRIVATE_NETWORKS=0`
+
+## 4) 超时与重试建议（默认可调整）
+
+- `DEDUPCAD_VISION_TIMEOUT_SECONDS`: 60（单次调用）
+- `DEDUPCAD_VISION_RETRY_MAX_ATTEMPTS`: 2（health/search 允许重试）
+- `DEDUPCAD_VISION_RETRY_BASE_DELAY_SECONDS`: 0.5
+- `DEDUPCAD_VISION_RETRY_MAX_DELAY_SECONDS`: 5.0
+- `DEDUPCAD_VISION_CIRCUIT_ENABLED`: true
+- `DEDUPCAD_VISION_CIRCUIT_FAILURE_THRESHOLD`: 5
+- `DEDUPCAD_VISION_CIRCUIT_RECOVERY_TIMEOUT_SECONDS`: 30
+- `DEDUPCAD_VISION_CIRCUIT_HALF_OPEN_MAX_CALLS`: 2
+- `DEDUPCAD_VISION_CIRCUIT_SUCCESS_THRESHOLD`: 2
+- `DEDUPCAD_VISION_CIRCUIT_SLOW_CALL_THRESHOLD_SECONDS`: 5.0
+- Job 最大运行：`DEDUP2D_ASYNC_JOB_TIMEOUT_SECONDS`: 300
+- 回调：`DEDUP2D_CALLBACK_TIMEOUT_SECONDS`: 10，`DEDUP2D_CALLBACK_MAX_ATTEMPTS`: 3
+
+## 5) 重要提示：dedupcad-vision → cad-ml-platform 的 ML 调用
+
+`dedupcad-vision` 的 `MLPlatformClient` 默认通过 `/api/v1/analyze` 上传文件获取特征/分类（见 `src/caddedup_vision/integrations/ml_platform.py`）。
+
+注意：`cad-ml-platform /api/v1/analyze` **不支持 PNG/JPG**（会返回 `UNSUPPORTED_FORMAT`），因此如果 `dedupcad-vision` 的 L3 输入是图像文件，则该方向调用无法直接启用。
+
+推荐做法：
+
+- 生产保持 `ML_PLATFORM_ENABLED=false`（避免循环依赖 + 避免格式不兼容）
+- 若必须启用：需要新增/对齐“图像特征/语义分析”端点或让 vision 侧以 CAD 原文件作为 L3 输入（而非 PNG）
+  - L3 仅在 `ml_input_path` 可用时执行；PNG/JPG/PDF 输入通常没有 CAD 源路径，会跳过 L3 并写入 warning。
+  - cad-ml-platform `/api/v1/analyze` 仅支持 `dxf/dwg/step/stp/iges/igs/stl`。
+
+补充：`/api/v1/analyze` 的 `results.features` 现在包含 `combined` 字段（与 `flatten()` 同序），供 dedupcad-vision 融合语义特征使用。
+
+补充：`/api/v1/vectors/register` 与 `/api/v1/vectors/search` 已提供用于 dedupcad-vision 的向量注册与相似检索。
+
+### 5.1 向量注册与检索（dedupcad-vision → cad-ml-platform）
+
+- `POST /api/v1/vectors/register`
+  - JSON：`{ "id": "<doc_id>", "vector": [..], "meta": { "material": "...", "complexity": "...", "format": "..." } }`
+  - 响应：`{ "id": "...", "status": "accepted|rejected", "dimension": <int>, "error": <optional> }`
+
+- `POST /api/v1/vectors/search`
+  - JSON：`{ "vector": [..], "k": 10, "material_filter": "<opt>", "complexity_filter": "<opt>" }`
+  - 响应：`{ "results": [ { "id": "...", "score": <float>, "material": "...", "complexity": "...", "format": "...", "dimension": <int> } ], "total": <int> }`
+
+### 5.2 特征向量降级比对（dedupcad-vision → cad-ml-platform）
+
+- `POST /api/compare`（兼容路径；等价于 `/api/v1/compare`）
+  - JSON：`{ "query_features": [..], "candidate_hash": "<doc_id>" }`
+  - 响应：`{ "similarity": <float>, "score": <float>, "feature_distance": <float>, "category_match": false, "ocr_match": 0.0, "method": "cosine", "dimension": <int>, "reference_id": "<doc_id>" }`
+  - 失败：候选向量不存在返回 404；维度不一致返回 400。
+
+注意：`candidate_hash` 会被当作向量 ID 查找；要启用该降级路径，需确保向量注册时 `doc_id == file_hash`（或提供 hash → id 映射层）。

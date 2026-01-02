@@ -12,23 +12,20 @@ Components:
 - KnowledgeAPI: REST API for CRUD operations
 """
 
+from src.core.knowledge.dynamic.loader import DynamicKnowledgeBase
+from src.core.knowledge.dynamic.manager import KnowledgeManager
 from src.core.knowledge.dynamic.models import (
+    AssemblyRule,
+    FunctionalFeatureRule,
+    GeometryPattern,
+    KnowledgeCategory,
     KnowledgeEntry,
+    ManufacturingRule,
     MaterialRule,
     PrecisionRule,
     StandardRule,
-    FunctionalFeatureRule,
-    AssemblyRule,
-    ManufacturingRule,
-    GeometryPattern,
-    KnowledgeCategory,
 )
-from src.core.knowledge.dynamic.store import (
-    KnowledgeStore,
-    JSONKnowledgeStore,
-)
-from src.core.knowledge.dynamic.manager import KnowledgeManager
-from src.core.knowledge.dynamic.loader import DynamicKnowledgeBase
+from src.core.knowledge.dynamic.store import JSONKnowledgeStore, KnowledgeStore
 
 __all__ = [
     # Models

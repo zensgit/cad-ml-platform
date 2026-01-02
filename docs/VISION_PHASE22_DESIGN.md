@@ -39,7 +39,7 @@ Phase 22 introduces a comprehensive security governance system through the `secu
 
 | Enum | Values | Description |
 |------|--------|-------------|
-| `DataClassification` | public, internal, confidential, restricted, top_secret | Data sensitivity levels |
+| `DataClassification` | public, internal, confidential, restricted, topsecret | Data sensitivity levels |
 | `PolicyType` | access, data, encryption, retention, audit | Types of security policies |
 | `PolicyStatus` | draft, active, inactive, deprecated | Policy lifecycle states |
 | `PolicyAction` | allow, deny, audit, encrypt, redact | Actions taken by policies |

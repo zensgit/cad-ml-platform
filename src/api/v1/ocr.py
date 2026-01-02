@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import List, Dict, Optional
+from typing import Dict, List, Optional
 
 from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
@@ -95,7 +95,11 @@ async def ocr_extract(
                 ocr_input_rejected_total.labels(reason="pdf_forbidden_token").inc()
             else:
                 ocr_input_rejected_total.labels(reason="validation_failed").inc()
-            ocr_errors_total.labels(provider=provider, code="input_error", stage="validate").inc()
+            ocr_errors_total.labels(
+                provider=provider,
+                code=ErrorCode.INPUT_ERROR.value,
+                stage="preprocess",
+            ).inc()
             return OcrResponse(
                 success=False,
                 provider=provider,
@@ -112,7 +116,11 @@ async def ocr_extract(
             from src.utils.metrics import ocr_errors_total, ocr_input_rejected_total
 
             ocr_input_rejected_total.labels(reason="validation_failed").inc()
-            ocr_errors_total.labels(provider=provider, code="input_error", stage="validate").inc()
+            ocr_errors_total.labels(
+                provider=provider,
+                code=ErrorCode.INPUT_ERROR.value,
+                stage="preprocess",
+            ).inc()
             return OcrResponse(
                 success=False,
                 provider=provider,
@@ -148,7 +156,11 @@ async def ocr_extract(
         except Exception:  # unknown internal error
             from src.utils.metrics import ocr_errors_total
 
-            ocr_errors_total.labels(provider=provider, code="internal", stage="manager").inc()
+            ocr_errors_total.labels(
+                provider=provider,
+                code=ErrorCode.INTERNAL_ERROR.value,
+                stage="infer",
+            ).inc()
             return OcrResponse(
                 success=False,
                 provider=provider,
@@ -205,7 +217,11 @@ async def ocr_extract(
         from src.utils.metrics import ocr_errors_total, ocr_input_rejected_total
 
         ocr_input_rejected_total.labels(reason="validation_failed").inc()
-        ocr_errors_total.labels(provider=provider, code="input_error", stage="endpoint").inc()
+        ocr_errors_total.labels(
+            provider=provider,
+            code=ErrorCode.INPUT_ERROR.value,
+            stage="preprocess",
+        ).inc()
         return OcrResponse(
             success=False,
             provider=provider,
@@ -225,7 +241,11 @@ async def ocr_extract(
         )
         from src.utils.metrics import ocr_errors_total
 
-        ocr_errors_total.labels(provider=provider, code="internal", stage="endpoint").inc()
+        ocr_errors_total.labels(
+            provider=provider,
+            code=ErrorCode.INTERNAL_ERROR.value,
+            stage="postprocess",
+        ).inc()
         return OcrResponse(
             success=False,
             provider=provider,

@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 
 from src.api.v1.vision import reset_vision_manager
 
-
 # Sample image data (minimal PNG header)
 SAMPLE_PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"

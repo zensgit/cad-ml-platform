@@ -25,18 +25,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Set,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import Any, Callable, Dict, Generic, List, Optional, Set, Type, TypeVar, Union
 
 from .base import VisionDescription, VisionProvider
 
@@ -249,9 +238,7 @@ class MiddlewarePlugin(Plugin):
     """Base class for middleware plugins."""
 
     @abstractmethod
-    def process_request(
-        self, request: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def process_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
         """Process incoming request."""
         pass
 
@@ -310,9 +297,7 @@ class HookManager:
 
         return registration
 
-    def unregister(
-        self, hook_name: str, plugin_name: Optional[str] = None
-    ) -> int:
+    def unregister(self, hook_name: str, plugin_name: Optional[str] = None) -> int:
         """Unregister hooks by name and optionally plugin."""
         if hook_name not in self._hooks:
             return 0
@@ -341,9 +326,7 @@ class HookManager:
 
         for registration in self._hooks[hook_name]:
             if registration.async_handler:
-                logger.warning(
-                    f"Async handler for hook '{hook_name}' called synchronously"
-                )
+                logger.warning(f"Async handler for hook '{hook_name}' called synchronously")
                 continue
 
             try:
@@ -356,8 +339,7 @@ class HookManager:
 
             except Exception as e:
                 logger.error(
-                    f"Error in hook '{hook_name}' from plugin "
-                    f"'{registration.plugin_name}': {e}"
+                    f"Error in hook '{hook_name}' from plugin " f"'{registration.plugin_name}': {e}"
                 )
 
         # Remove one-time hooks
@@ -366,9 +348,7 @@ class HookManager:
 
         return results
 
-    async def trigger_async(
-        self, hook_name: str, *args: Any, **kwargs: Any
-    ) -> List[Any]:
+    async def trigger_async(self, hook_name: str, *args: Any, **kwargs: Any) -> List[Any]:
         """Trigger a hook asynchronously."""
         if hook_name not in self._hooks:
             return []
@@ -486,9 +466,7 @@ class PluginDiscovery:
                     author=data.get("author", ""),
                     plugin_type=PluginType(data.get("type", "extension")),
                     dependencies=data.get("dependencies", []),
-                    capabilities=[
-                        PluginCapability(c) for c in data.get("capabilities", [])
-                    ],
+                    capabilities=[PluginCapability(c) for c in data.get("capabilities", [])],
                     entry_point=str(plugin_dir / "__init__.py"),
                     config_schema=data.get("config_schema"),
                     tags=data.get("tags", []),
@@ -558,9 +536,7 @@ class PluginSandbox:
 
         for cap in metadata.capabilities:
             if not self.check_capability(cap):
-                violations.append(
-                    f"Plugin requires capability '{cap.value}' which is not allowed"
-                )
+                violations.append(f"Plugin requires capability '{cap.value}' which is not allowed")
 
         return violations
 
@@ -838,10 +814,7 @@ class PluginManager:
 
     def get_plugins_by_type(self, plugin_type: PluginType) -> List[PluginInstance]:
         """Get plugins by type."""
-        return [
-            p for p in self._plugins.values()
-            if p.metadata.plugin_type == plugin_type
-        ]
+        return [p for p in self._plugins.values() if p.metadata.plugin_type == plugin_type]
 
     def on_event(self, handler: Callable[[PluginEvent], None]) -> None:
         """Register event handler."""
@@ -914,30 +887,22 @@ class PluginRegistry:
         self._middleware: Dict[str, Type[MiddlewarePlugin]] = {}
         self._extensions: Dict[str, Type[Plugin]] = {}
 
-    def register_provider(
-        self, name: str, plugin_class: Type[VisionProviderPlugin]
-    ) -> None:
+    def register_provider(self, name: str, plugin_class: Type[VisionProviderPlugin]) -> None:
         """Register a vision provider plugin."""
         self._providers[name] = plugin_class
         logger.debug(f"Registered provider plugin: {name}")
 
-    def register_preprocessor(
-        self, name: str, plugin_class: Type[PreprocessorPlugin]
-    ) -> None:
+    def register_preprocessor(self, name: str, plugin_class: Type[PreprocessorPlugin]) -> None:
         """Register a preprocessor plugin."""
         self._preprocessors[name] = plugin_class
         logger.debug(f"Registered preprocessor plugin: {name}")
 
-    def register_postprocessor(
-        self, name: str, plugin_class: Type[PostprocessorPlugin]
-    ) -> None:
+    def register_postprocessor(self, name: str, plugin_class: Type[PostprocessorPlugin]) -> None:
         """Register a postprocessor plugin."""
         self._postprocessors[name] = plugin_class
         logger.debug(f"Registered postprocessor plugin: {name}")
 
-    def register_middleware(
-        self, name: str, plugin_class: Type[MiddlewarePlugin]
-    ) -> None:
+    def register_middleware(self, name: str, plugin_class: Type[MiddlewarePlugin]) -> None:
         """Register a middleware plugin."""
         self._middleware[name] = plugin_class
         logger.debug(f"Registered middleware plugin: {name}")
@@ -1107,9 +1072,7 @@ class PluggableVisionProvider(VisionProvider):
         }
 
         # Trigger pre-analysis hooks
-        self._plugin_manager.hooks.trigger(
-            "pre_analysis", image_data=image_data, metadata=metadata
-        )
+        self._plugin_manager.hooks.trigger("pre_analysis", image_data=image_data, metadata=metadata)
 
         # Preprocess image
         processed_image = self._pipeline.preprocess(image_data, metadata)

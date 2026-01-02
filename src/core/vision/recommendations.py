@@ -5,15 +5,14 @@ Provides recommendation engine capabilities including collaborative filtering,
 content-based recommendations, and similarity calculations.
 """
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, Generic, List, Optional, Set, TypeVar, Union
-import math
 
-from .base import VisionProvider, VisionDescription
-
+from .base import VisionDescription, VisionProvider
 
 # ============================================================================
 # Enums
@@ -505,7 +504,10 @@ class CollaborativeStrategy(RecommendationStrategy):
         for similar_user, overlap in similar_users.items():
             their_interactions = self._interaction_store.get_user_interactions(similar_user)
             for interaction in their_interactions:
-                if interaction.item_id not in user_items and interaction.item_id not in exclude_items:
+                if (
+                    interaction.item_id not in user_items
+                    and interaction.item_id not in exclude_items
+                ):
                     item_scores[interaction.item_id] = (
                         item_scores.get(interaction.item_id, 0) + overlap * interaction.value
                     )
@@ -681,7 +683,8 @@ class RecommendationVisionProvider(VisionProvider):
 
         # Record the analysis as an interaction
         import hashlib
-        item_id = hashlib.md5(image_data).hexdigest()[:12]
+
+        item_id = hashlib.sha256(image_data).hexdigest()[:12]
 
         interaction = Interaction(
             interaction_id=f"int_{item_id}",
@@ -756,6 +759,7 @@ def create_interaction(
 ) -> Interaction:
     """Create an interaction."""
     import uuid
+
     return Interaction(
         interaction_id=str(uuid.uuid4()),
         user_id=user_id,

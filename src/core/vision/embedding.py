@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 class HashAlgorithm(Enum):
     """Supported hash algorithms."""
 
-    MD5 = "md5"
     SHA256 = "sha256"
     DHASH = "dhash"  # Difference hash (perceptual)
     PHASH = "phash"  # Perceptual hash
@@ -56,7 +55,7 @@ class ImageHash:
             raise ValueError("Cannot compare hashes from different algorithms")
 
         # For hex hashes, convert to binary
-        if self.algorithm in (HashAlgorithm.MD5, HashAlgorithm.SHA256):
+        if self.algorithm == HashAlgorithm.SHA256:
             b1 = bin(int(self.hash_value, 16))[2:].zfill(len(self.hash_value) * 4)
             b2 = bin(int(other.hash_value, 16))[2:].zfill(len(other.hash_value) * 4)
         else:
@@ -103,9 +102,7 @@ class EmbeddingVector:
         if len(self.vector) != len(other.vector):
             raise ValueError("Vectors must have same dimensions")
 
-        return math.sqrt(
-            sum((a - b) ** 2 for a, b in zip(self.vector, other.vector))
-        )
+        return math.sqrt(sum((a - b) ** 2 for a, b in zip(self.vector, other.vector)))
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -157,21 +154,17 @@ class HashGenerator(ABC):
 
 
 class CryptographicHashGenerator(HashGenerator):
-    """Generate cryptographic hashes (MD5, SHA256)."""
+    """Generate cryptographic hashes (SHA256)."""
 
     def __init__(self, algorithm: HashAlgorithm = HashAlgorithm.SHA256):
-        if algorithm not in (HashAlgorithm.MD5, HashAlgorithm.SHA256):
+        if algorithm != HashAlgorithm.SHA256:
             raise ValueError(f"Unsupported algorithm: {algorithm}")
         self._algorithm = algorithm
 
     def hash(self, image_data: bytes) -> ImageHash:
         """Generate cryptographic hash."""
-        if self._algorithm == HashAlgorithm.MD5:
-            h = hashlib.md5(image_data)
-            bit_length = 128
-        else:
-            h = hashlib.sha256(image_data)
-            bit_length = 256
+        h = hashlib.sha256(image_data)
+        bit_length = 256
 
         return ImageHash(
             algorithm=self._algorithm,
@@ -196,8 +189,9 @@ class PerceptualHashGenerator(HashGenerator):
     def hash(self, image_data: bytes) -> ImageHash:
         """Generate perceptual hash."""
         try:
-            from PIL import Image
             import io
+
+            from PIL import Image
 
             img = Image.open(io.BytesIO(image_data)).convert("L")
 
@@ -302,7 +296,7 @@ class SimilarityIndex:
         self._threshold = similarity_threshold
 
         # Initialize hash generator
-        if hash_algorithm in (HashAlgorithm.MD5, HashAlgorithm.SHA256):
+        if hash_algorithm == HashAlgorithm.SHA256:
             self._hasher = CryptographicHashGenerator(hash_algorithm)
         else:
             self._hasher = PerceptualHashGenerator(hash_algorithm)
@@ -446,8 +440,9 @@ class ImageEmbedder:
     def _simple_embed(self, image_data: bytes) -> EmbeddingVector:
         """Generate simple embedding from image statistics."""
         try:
-            from PIL import Image
             import io
+
+            from PIL import Image
 
             img = Image.open(io.BytesIO(image_data))
 
@@ -479,12 +474,14 @@ class ImageEmbedder:
             # Add size features
             w, h = img.size
             max_dim = max(w, h)
-            vector.extend([
-                w / max_dim,
-                h / max_dim,
-                (w * h) / 1_000_000,  # Megapixels normalized
-                w / h if h > 0 else 1,  # Aspect ratio
-            ])
+            vector.extend(
+                [
+                    w / max_dim,
+                    h / max_dim,
+                    (w * h) / 1_000_000,  # Megapixels normalized
+                    w / h if h > 0 else 1,  # Aspect ratio
+                ]
+            )
 
             return EmbeddingVector(
                 vector=vector,
@@ -495,7 +492,7 @@ class ImageEmbedder:
         except ImportError:
             # Fallback: hash-based embedding
             hash_value = hashlib.sha256(image_data).hexdigest()
-            vector = [int(hash_value[i:i+2], 16) / 255.0 for i in range(0, 64, 2)]
+            vector = [int(hash_value[i : i + 2], 16) / 255.0 for i in range(0, 64, 2)]
             return EmbeddingVector(
                 vector=vector,
                 model="hash_fallback",
@@ -566,12 +563,11 @@ class SimilarityVisionProvider:
                     return result, similarity_result
 
         # Process normally
-        result = await self._provider.analyze_image(
-            image_data, include_description
-        )
+        result = await self._provider.analyze_image(image_data, include_description)
 
         # Add to index and cache
         import uuid
+
         image_id = str(uuid.uuid4())[:8]
         self._index.add(image_id, image_data)
 

@@ -31,43 +31,14 @@ class SecurityAuditor:
         print("Checking Python dependencies...")
 
         vulnerabilities = []
-
-        # Method 1: pip-audit (if available)
-        try:
-            result = subprocess.run(
-                ["pip-audit", "--format", "json"],
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
-
-            if result.returncode == 0:
-                audit_data = json.loads(result.stdout)
-                for vuln in audit_data.get("vulnerabilities", []):
-                    vulnerabilities.append({
-                        "type": "python_dependency",
-                        "package": vuln["name"],
-                        "installed_version": vuln["installed_version"],
-                        "vulnerable_versions": vuln["vulnerable_versions"],
-                        "severity": self._map_severity(vuln.get("severity", "unknown")),
-                        "description": vuln.get("description", ""),
-                        "fix_version": vuln.get("fixed_version"),
-                        "cve": vuln.get("id")
-                    })
-                print(f"  pip-audit: Found {len(vulnerabilities)} vulnerabilities")
-            else:
-                print("  pip-audit not available or failed")
-
-        except FileNotFoundError:
-            print("  pip-audit not installed, trying safety...")
-
-            # Method 2: safety check (fallback)
+        def _run_safety_fallback() -> None:
+            """Run safety as a fallback scanner."""
             try:
                 result = subprocess.run(
                     ["safety", "check", "--json"],
                     capture_output=True,
                     text=True,
-                    timeout=60
+                    timeout=60,
                 )
 
                 if result.stdout:
@@ -84,9 +55,63 @@ class SecurityAuditor:
                             "cve": vuln[4] if len(vuln) > 4 else None
                         })
                     print(f"  safety: Found {len(vulnerabilities)} vulnerabilities")
-
             except FileNotFoundError:
                 print("  Neither pip-audit nor safety installed")
+
+        # Method 1: pip-audit (if available)
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip_audit", "--format", "json"],
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+
+            if result.stdout:
+                try:
+                    audit_data = json.loads(result.stdout)
+                except json.JSONDecodeError:
+                    audit_data = None
+                if isinstance(audit_data, dict) and "dependencies" in audit_data:
+                    for dep in audit_data.get("dependencies", []):
+                        for vuln in dep.get("vulns", []):
+                            fix_versions = vuln.get("fix_versions") or []
+                            vulnerabilities.append({
+                                "type": "python_dependency",
+                                "package": dep.get("name", ""),
+                                "installed_version": dep.get("version", ""),
+                                "vulnerable_versions": vuln.get("vulnerable_versions", ""),
+                                "severity": self._map_severity(vuln.get("severity", "medium")),
+                                "description": vuln.get("description", ""),
+                                "fix_version": ", ".join(fix_versions) if fix_versions else None,
+                                "cve": vuln.get("id")
+                            })
+                    print(f"  pip-audit: Found {len(vulnerabilities)} vulnerabilities")
+                elif isinstance(audit_data, dict):
+                    for vuln in audit_data.get("vulnerabilities", []):
+                        vulnerabilities.append({
+                            "type": "python_dependency",
+                            "package": vuln.get("name", ""),
+                            "installed_version": vuln.get("installed_version", ""),
+                            "vulnerable_versions": vuln.get("vulnerable_versions", ""),
+                            "severity": self._map_severity(vuln.get("severity", "medium")),
+                            "description": vuln.get("description", ""),
+                            "fix_version": vuln.get("fixed_version"),
+                            "cve": vuln.get("id")
+                        })
+                    print(f"  pip-audit: Found {len(vulnerabilities)} vulnerabilities")
+                else:
+                    print("  pip-audit output was not JSON")
+            else:
+                if "No module named pip_audit" in (result.stderr or ""):
+                    print("  pip-audit not installed, trying safety...")
+                    _run_safety_fallback()
+                else:
+                    print("  pip-audit not available or failed")
+
+        except FileNotFoundError:
+            print("  pip-audit not installed, trying safety...")
+            _run_safety_fallback()
 
         except Exception as e:
             print(f"  Error checking dependencies: {e}")
@@ -207,14 +232,19 @@ class SecurityAuditor:
             )
 
             if result.returncode != 0 and result.stderr:
-                # git-secrets found something
-                secrets_found.append({
-                    "type": "exposed_secret",
-                    "tool": "git-secrets",
-                    "findings": result.stderr,
-                    "severity": "critical"
-                })
-                print(f"  git-secrets: Found potential secrets")
+                if "is not a git command" in result.stderr:
+                    print("  git-secrets not available")
+                else:
+                    # git-secrets found something
+                    secrets_found.append({
+                        "type": "exposed_secret",
+                        "tool": "git-secrets",
+                        "findings": result.stderr,
+                        "severity": "critical"
+                    })
+                    print("  git-secrets: Found potential secrets")
+            elif result.returncode == 0:
+                print("  git-secrets: No secrets detected")
 
         except:
             print("  git-secrets not available")
@@ -258,7 +288,7 @@ class SecurityAuditor:
         # Use bandit for Python security
         try:
             result = subprocess.run(
-                ["bandit", "-r", "src/", "-f", "json"],
+                ["bandit", "-r", "src/", "-f", "json", "-q"],
                 capture_output=True,
                 text=True,
                 timeout=60

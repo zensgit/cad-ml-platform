@@ -1,10 +1,10 @@
 import os
 import time
+
 from fastapi.testclient import TestClient
 
 from src.core import similarity as sim
 from src.main import app
-
 
 client = TestClient(app)
 

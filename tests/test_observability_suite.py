@@ -14,7 +14,8 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
 import yaml
 
@@ -23,12 +24,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.core.errors import ErrorCode
 from src.core.ocr.providers.error_map import (
-    map_exception_to_error_code,
-    log_and_map_exception,
     handle_inference_error,
-    handle_parse_error,
     handle_init_error,
-    handle_load_error
+    handle_load_error,
+    handle_parse_error,
+    log_and_map_exception,
+    map_exception_to_error_code,
 )
 
 
@@ -49,7 +50,7 @@ class TestErrorCodeMapping:
             RuntimeError("Model failed to load"),
             RuntimeError("Authentication failed"),
             RuntimeError("Rate limit exceeded"),
-            Exception("Generic error")
+            Exception("Generic error"),
         ]
 
         for exc in test_exceptions:
@@ -64,7 +65,7 @@ class TestErrorCodeMapping:
             ErrorCode.PARSE_FAILED,
             ErrorCode.AUTH_FAILED,
             ErrorCode.MODEL_LOAD_ERROR,
-            ErrorCode.INTERNAL_ERROR
+            ErrorCode.INTERNAL_ERROR,
         }
 
         assert len(mapped_codes.intersection(expected_codes)) >= 5
@@ -127,22 +128,22 @@ ocr_input_rejected_total{reason="invalid_format"} 10
 
         # Parse metrics
         metrics = {}
-        for line in sample_metrics.strip().split('\n'):
-            if line and not line.startswith('#'):
-                parts = line.split('{')
+        for line in sample_metrics.strip().split("\n"):
+            if line and not line.startswith("#"):
+                parts = line.split("{")
                 if len(parts) == 2:
                     metric_name = parts[0]
                     labels_and_value = parts[1]
-                    labels_part = labels_and_value.split('}')[0]
+                    labels_part = labels_and_value.split("}")[0]
 
                     if metric_name not in metrics:
                         metrics[metric_name] = []
 
                     # Parse labels
                     labels = {}
-                    for label_pair in labels_part.split(','):
-                        if '=' in label_pair:
-                            key, value = label_pair.split('=')
+                    for label_pair in labels_part.split(","):
+                        if "=" in label_pair:
+                            key, value = label_pair.split("=")
                             labels[key.strip()] = value.strip('"')
 
                     metrics[metric_name].append(labels)
@@ -163,22 +164,16 @@ ocr_input_rejected_total{reason="invalid_format"} 10
             "ocr_input_rejected_total": {"reason"},
             "vision_input_rejected_total": {"reason"},
             "ocr_processing_duration_seconds": set(),
-            "vision_processing_duration_seconds": set()
+            "vision_processing_duration_seconds": set(),
         }
 
         # Sample metrics that pass validation
         good_metrics = {
-            "ocr_errors_total": [
-                {"provider": "test", "code": "TIMEOUT", "stage": "infer"}
-            ],
-            "ocr_input_rejected_total": [
-                {"reason": "invalid"}
-            ],
-            "vision_input_rejected_total": [
-                {"reason": "base64_error"}
-            ],
+            "ocr_errors_total": [{"provider": "test", "code": "TIMEOUT", "stage": "infer"}],
+            "ocr_input_rejected_total": [{"reason": "invalid"}],
+            "vision_input_rejected_total": [{"reason": "base64_error"}],
             "ocr_processing_duration_seconds_bucket": [],
-            "vision_processing_duration_seconds_bucket": []
+            "vision_processing_duration_seconds_bucket": [],
         }
 
         # Check each required metric
@@ -193,11 +188,7 @@ ocr_input_rejected_total{reason="invalid_format"} 10
         # Simulate metrics with various error codes
         test_metrics = []
         for code in ErrorCode:
-            test_metrics.append({
-                "provider": "test",
-                "code": code.value,
-                "stage": "test"
-            })
+            test_metrics.append({"provider": "test", "code": code.value, "stage": "test"})
 
         # Extract codes from metrics
         found_codes = {m["code"] for m in test_metrics}
@@ -214,7 +205,7 @@ class TestPromtoolValidation:
         rules_path = Path("docs/prometheus/recording_rules.yml")
 
         if rules_path.exists():
-            with open(rules_path, 'r') as f:
+            with open(rules_path, "r") as f:
                 rules_data = yaml.safe_load(f)
 
             # Basic structure validation
@@ -241,9 +232,7 @@ class TestPromtoolValidation:
         if script_path.exists():
             # Test help output
             result = subprocess.run(
-                [sys.executable, str(script_path), "--help"],
-                capture_output=True,
-                text=True
+                [sys.executable, str(script_path), "--help"], capture_output=True, text=True
             )
             assert result.returncode == 0
             assert "Validate Prometheus recording rules" in result.stdout
@@ -252,7 +241,7 @@ class TestPromtoolValidation:
             result = subprocess.run(
                 [sys.executable, str(script_path), "--skip-promtool", "--json"],
                 capture_output=True,
-                text=True
+                text=True,
             )
 
             # Should produce valid JSON
@@ -273,17 +262,17 @@ class TestSelfCheckScript:
         assert script_path.exists()
 
         # Check script has proper shebang or can be executed with Python
-        with open(script_path, 'r') as f:
+        with open(script_path, "r") as f:
             first_line = f.readline()
             # Either has shebang or can be run with python
-            assert first_line.startswith('#!') or script_path.suffix == '.py'
+            assert first_line.startswith("#!") or script_path.suffix == ".py"
 
     def test_exit_codes_documented(self):
         """Test that exit codes are properly documented."""
         script_path = Path("scripts/self_check.py")
 
         if script_path.exists():
-            with open(script_path, 'r') as f:
+            with open(script_path, "r") as f:
                 content = f.read()
 
             # Check that exit codes are documented
@@ -298,7 +287,7 @@ class TestSelfCheckScript:
         script_path = Path("scripts/self_check.py")
 
         if script_path.exists():
-            with open(script_path, 'r') as f:
+            with open(script_path, "r") as f:
                 content = f.read()
 
             # Check for environment variable usage
@@ -307,7 +296,7 @@ class TestSelfCheckScript:
                 "SELF_CHECK_STRICT_METRICS",
                 "SELF_CHECK_MIN_OCR_ERRORS",
                 "SELF_CHECK_REQUIRE_EMA",
-                "SELF_CHECK_INCREMENT_COUNTERS"
+                "SELF_CHECK_INCREMENT_COUNTERS",
             ]
 
             for var in env_vars:
@@ -319,10 +308,7 @@ class TestRunbooks:
 
     def test_runbook_structure(self):
         """Test that runbooks have proper structure."""
-        runbook_files = [
-            "docs/runbooks/provider_timeout.md",
-            "docs/runbooks/model_load_error.md"
-        ]
+        runbook_files = ["docs/runbooks/provider_timeout.md", "docs/runbooks/model_load_error.md"]
 
         required_sections = [
             "## Overview",
@@ -331,13 +317,13 @@ class TestRunbooks:
             "## Response Steps",
             "## Root Cause Analysis",
             "## Prevention",
-            "## Escalation"
+            "## Escalation",
         ]
 
         for runbook_path in runbook_files:
             path = Path(runbook_path)
             if path.exists():
-                with open(path, 'r') as f:
+                with open(path, "r") as f:
                     content = f.read()
 
                 for section in required_sections:
@@ -351,13 +337,13 @@ class TestRunbooks:
         """Test that runbooks reference correct error codes."""
         runbook_mapping = {
             "provider_timeout.md": "PROVIDER_TIMEOUT",
-            "model_load_error.md": "MODEL_LOAD_ERROR"
+            "model_load_error.md": "MODEL_LOAD_ERROR",
         }
 
         for filename, expected_code in runbook_mapping.items():
             path = Path(f"docs/runbooks/{filename}")
             if path.exists():
-                with open(path, 'r') as f:
+                with open(path, "r") as f:
                     content = f.read()
 
                 assert expected_code in content
@@ -371,7 +357,7 @@ class TestGrafanaDashboard:
         dashboard_path = Path("docs/grafana/observability_dashboard.json")
 
         if dashboard_path.exists():
-            with open(dashboard_path, 'r') as f:
+            with open(dashboard_path, "r") as f:
                 dashboard = json.load(f)
 
             # Basic structure validation
@@ -397,10 +383,10 @@ class TestGrafanaDashboard:
         rules_path = Path("docs/prometheus/recording_rules.yml")
 
         if dashboard_path.exists() and rules_path.exists():
-            with open(dashboard_path, 'r') as f:
+            with open(dashboard_path, "r") as f:
                 dashboard = json.load(f)
 
-            with open(rules_path, 'r') as f:
+            with open(rules_path, "r") as f:
                 rules = yaml.safe_load(f)
 
             # Extract recording rule names
@@ -429,7 +415,7 @@ class TestDocumentation:
         readme_path = Path("README.md")
 
         if readme_path.exists():
-            with open(readme_path, 'r') as f:
+            with open(readme_path, "r") as f:
                 content = f.read()
 
             # Check for exit codes section
@@ -448,7 +434,7 @@ class TestDocumentation:
         baseline_path = Path("docs/QUALITY_BASELINE.md")
 
         if baseline_path.exists():
-            with open(baseline_path, 'r') as f:
+            with open(baseline_path, "r") as f:
                 content = f.read()
 
             # Check for new sections
@@ -462,7 +448,7 @@ class TestDocumentation:
         roadmap_path = Path("docs/ROADMAP_PHASE2.md")
 
         if roadmap_path.exists():
-            with open(roadmap_path, 'r') as f:
+            with open(roadmap_path, "r") as f:
                 content = f.read()
 
             # Check for key sections
@@ -473,7 +459,7 @@ class TestDocumentation:
                 "Week 4",
                 "Success Metrics",
                 "Risk",
-                "Team"
+                "Team",
             ]
 
             for section in required_sections:
@@ -494,11 +480,7 @@ class TestIntegration:
         assert code.value.replace("_", "").isalpha()
 
         # Simulate metric creation
-        metric_labels = {
-            "provider": "test",
-            "code": code.value,
-            "stage": "infer"
-        }
+        metric_labels = {"provider": "test", "code": code.value, "stage": "infer"}
 
         # All labels should be strings
         assert all(isinstance(v, str) for v in metric_labels.values())
@@ -509,7 +491,7 @@ class TestIntegration:
         rules_path = Path("docs/prometheus/recording_rules.yml")
 
         if rules_path.exists():
-            with open(rules_path, 'r') as f:
+            with open(rules_path, "r") as f:
                 rules = yaml.safe_load(f)
 
             # Extract metrics referenced in expressions
@@ -519,15 +501,12 @@ class TestIntegration:
                     expr = rule.get("expr", "")
                     # Simple extraction of metric names
                     import re
-                    metrics = re.findall(r'\b([a-z_]+(?:_total|_bucket|_count|_sum)?)\b', expr)
+
+                    metrics = re.findall(r"\b([a-z_]+(?:_total|_bucket|_count|_sum)?)\b", expr)
                     referenced_metrics.update(metrics)
 
             # Key metrics should be referenced
-            expected_metrics = [
-                "ocr_errors_total",
-                "ocr_requests_total",
-                "vision_errors_total"
-            ]
+            expected_metrics = ["ocr_errors_total", "ocr_requests_total", "vision_errors_total"]
 
             for metric in expected_metrics:
                 assert metric in referenced_metrics
@@ -547,7 +526,7 @@ def test_all_files_created():
         "docs/runbooks/provider_timeout.md",
         "docs/runbooks/model_load_error.md",
         "docs/QUALITY_BASELINE.md",
-        "docs/ROADMAP_PHASE2.md"
+        "docs/ROADMAP_PHASE2.md",
     ]
 
     missing_files = []

@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+
 from src.main import app
 
 
@@ -11,4 +12,3 @@ def test_drift_endpoint_initial():
     assert "material_current" in data
     # initial scores may be null
     assert "baseline_min_count" in data
-

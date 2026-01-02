@@ -1,0 +1,18 @@
+{{- if and .Values.dedup2d.worker.enabled (eq .Values.dedup2d.storage.mode "local") .Values.dedup2d.storage.local.pvc.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "cad-ml-platform.fullname" . }}-dedup2d-pvc
+  labels:
+    {{- include "cad-ml-platform.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dedup2d-storage
+spec:
+  {{- if .Values.dedup2d.storage.local.pvc.storageClass }}
+  storageClassName: {{ .Values.dedup2d.storage.local.pvc.storageClass | quote }}
+  {{- end }}
+  accessModes:
+    {{- toYaml .Values.dedup2d.storage.local.pvc.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.dedup2d.storage.local.pvc.size }}
+{{- end }}

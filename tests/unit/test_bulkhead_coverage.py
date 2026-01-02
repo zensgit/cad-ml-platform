@@ -78,7 +78,7 @@ class TestBulkheadStats:
             queued_calls=3,
             max_active_recorded=10,
             last_rejection_time=now,
-            avg_execution_time=0.5
+            avg_execution_time=0.5,
         )
 
         assert stats.total_calls == 100
@@ -149,7 +149,7 @@ class TestThreadPoolBulkhead:
 
     def test_threadpool_queue_full_raises_error(self):
         """Test ThreadPoolBulkhead raises error when queue is full."""
-        from src.core.resilience.bulkhead import ThreadPoolBulkhead, BulkheadError
+        from src.core.resilience.bulkhead import BulkheadError, ThreadPoolBulkhead
 
         bulkhead = ThreadPoolBulkhead(max_workers=1, queue_size=1)
 
@@ -192,7 +192,7 @@ class TestThreadPoolBulkhead:
 
     def test_threadpool_timeout_raises_error(self):
         """Test ThreadPoolBulkhead raises error on timeout."""
-        from src.core.resilience.bulkhead import ThreadPoolBulkhead, BulkheadError
+        from src.core.resilience.bulkhead import BulkheadError, ThreadPoolBulkhead
 
         bulkhead = ThreadPoolBulkhead(max_workers=2, timeout=0.1)
 
@@ -272,7 +272,7 @@ class TestSemaphoreBulkhead:
 
     def test_semaphore_timeout_raises_error(self):
         """Test SemaphoreBulkhead raises error when can't acquire semaphore."""
-        from src.core.resilience.bulkhead import SemaphoreBulkhead, BulkheadError
+        from src.core.resilience.bulkhead import BulkheadError, SemaphoreBulkhead
 
         bulkhead = SemaphoreBulkhead(max_concurrent_calls=1, timeout=0.1)
 
@@ -385,11 +385,7 @@ class TestBulkhead:
         def metrics_callback(data):
             callback_data.append(data)
 
-        bulkhead = Bulkhead(
-            name="test",
-            max_concurrent_calls=5,
-            metrics_callback=metrics_callback
-        )
+        bulkhead = Bulkhead(name="test", max_concurrent_calls=5, metrics_callback=metrics_callback)
 
         bulkhead.execute(lambda: 42)
 
@@ -402,10 +398,7 @@ class TestBulkhead:
         from src.core.resilience.bulkhead import Bulkhead, BulkheadError
 
         bulkhead = Bulkhead(
-            name="test",
-            max_concurrent_calls=2,
-            max_wait_duration=0.1,
-            bulkhead_type="threadpool"
+            name="test", max_concurrent_calls=2, max_wait_duration=0.1, bulkhead_type="threadpool"
         )
 
         def slow_func():
@@ -512,11 +505,7 @@ class TestBulkhead:
         """Test Bulkhead resize method for threadpool."""
         from src.core.resilience.bulkhead import Bulkhead
 
-        bulkhead = Bulkhead(
-            name="test",
-            max_concurrent_calls=5,
-            bulkhead_type="threadpool"
-        )
+        bulkhead = Bulkhead(name="test", max_concurrent_calls=5, bulkhead_type="threadpool")
 
         assert bulkhead.max_concurrent_calls == 5
 
@@ -528,11 +517,7 @@ class TestBulkhead:
         """Test Bulkhead resize method for semaphore."""
         from src.core.resilience.bulkhead import Bulkhead
 
-        bulkhead = Bulkhead(
-            name="test",
-            max_concurrent_calls=5,
-            bulkhead_type="semaphore"
-        )
+        bulkhead = Bulkhead(name="test", max_concurrent_calls=5, bulkhead_type="semaphore")
 
         assert bulkhead.max_concurrent_calls == 5
 
@@ -597,7 +582,7 @@ class TestBulkheadDecorator:
 
     def test_decorator_with_timeout(self):
         """Test bulkhead decorator with timeout parameter."""
-        from src.core.resilience.bulkhead import bulkhead, BulkheadError
+        from src.core.resilience.bulkhead import BulkheadError, bulkhead
 
         @bulkhead(max_concurrent_calls=2, timeout=0.1)
         def slow_func():
@@ -609,7 +594,7 @@ class TestBulkheadDecorator:
 
     def test_decorator_with_semaphore_type(self):
         """Test bulkhead decorator with semaphore type."""
-        from src.core.resilience.bulkhead import bulkhead, SemaphoreBulkhead
+        from src.core.resilience.bulkhead import SemaphoreBulkhead, bulkhead
 
         @bulkhead(max_concurrent_calls=5, bulkhead_type="semaphore")
         def test_func():
@@ -627,11 +612,7 @@ class TestBulkheadConcurrency:
         """Test concurrent execution with threadpool."""
         from src.core.resilience.bulkhead import Bulkhead
 
-        bulkhead = Bulkhead(
-            name="test",
-            max_concurrent_calls=5,
-            bulkhead_type="threadpool"
-        )
+        bulkhead = Bulkhead(name="test", max_concurrent_calls=5, bulkhead_type="threadpool")
 
         results = []
         errors = []
@@ -664,11 +645,7 @@ class TestBulkheadConcurrency:
         """Test concurrent execution with semaphore."""
         from src.core.resilience.bulkhead import Bulkhead
 
-        bulkhead = Bulkhead(
-            name="test",
-            max_concurrent_calls=5,
-            bulkhead_type="semaphore"
-        )
+        bulkhead = Bulkhead(name="test", max_concurrent_calls=5, bulkhead_type="semaphore")
 
         results = []
 
@@ -718,11 +695,7 @@ class TestBulkheadExceptionHandling:
         def metrics_callback(data):
             callback_data.append(data)
 
-        bulkhead = Bulkhead(
-            name="test",
-            max_concurrent_calls=5,
-            metrics_callback=metrics_callback
-        )
+        bulkhead = Bulkhead(name="test", max_concurrent_calls=5, metrics_callback=metrics_callback)
 
         def failing_func():
             raise ValueError("Test error")

@@ -8,9 +8,10 @@ Phase 6 includes:
 - Provider versioning
 """
 
-import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
 from datetime import datetime, timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from src.core.vision.base import VisionDescription, VisionProvider
 
@@ -246,9 +247,9 @@ class TestTransformationPipeline:
     async def test_transforming_vision_provider(self):
         """Test TransformingVisionProvider."""
         from src.core.vision.transformation import (
-            TransformingVisionProvider,
-            TransformationPipeline,
             ConfidenceBoostTransformer,
+            TransformationPipeline,
+            TransformingVisionProvider,
         )
 
         mock_provider = create_mock_provider()
@@ -298,11 +299,7 @@ class TestCapabilityDiscovery:
 
     def test_capability_info(self):
         """Test CapabilityInfo dataclass."""
-        from src.core.vision.discovery import (
-            CapabilityInfo,
-            Capability,
-            CapabilityStatus,
-        )
+        from src.core.vision.discovery import Capability, CapabilityInfo, CapabilityStatus
 
         info = CapabilityInfo(
             capability=Capability.IMAGE_ANALYSIS,
@@ -318,11 +315,7 @@ class TestCapabilityDiscovery:
 
     def test_provider_capabilities(self):
         """Test ProviderCapabilities class."""
-        from src.core.vision.discovery import (
-            ProviderCapabilities,
-            Capability,
-            CapabilityStatus,
-        )
+        from src.core.vision.discovery import Capability, CapabilityStatus, ProviderCapabilities
 
         caps = ProviderCapabilities(provider_name="test_provider")
 
@@ -339,10 +332,7 @@ class TestCapabilityDiscovery:
 
     def test_capability_discovery_register(self):
         """Test CapabilityDiscovery registration."""
-        from src.core.vision.discovery import (
-            CapabilityDiscovery,
-            Capability,
-        )
+        from src.core.vision.discovery import Capability, CapabilityDiscovery
 
         discovery = CapabilityDiscovery()
 
@@ -357,11 +347,7 @@ class TestCapabilityDiscovery:
 
     def test_capability_requirement_matching(self):
         """Test CapabilityRequirement matching."""
-        from src.core.vision.discovery import (
-            CapabilityDiscovery,
-            CapabilityRequirement,
-            Capability,
-        )
+        from src.core.vision.discovery import Capability, CapabilityDiscovery, CapabilityRequirement
 
         discovery = CapabilityDiscovery()
         discovery.register_provider(
@@ -387,11 +373,7 @@ class TestCapabilityDiscovery:
 
     def test_find_matching_providers(self):
         """Test finding matching providers."""
-        from src.core.vision.discovery import (
-            CapabilityDiscovery,
-            CapabilityRequirement,
-            Capability,
-        )
+        from src.core.vision.discovery import Capability, CapabilityDiscovery, CapabilityRequirement
 
         discovery = CapabilityDiscovery()
         discovery.register_provider("p1", [Capability.IMAGE_ANALYSIS, Capability.OCR])
@@ -411,9 +393,9 @@ class TestCapabilityDiscovery:
     async def test_capability_aware_provider(self):
         """Test CapabilityAwareVisionProvider."""
         from src.core.vision.discovery import (
+            Capability,
             CapabilityAwareVisionProvider,
             CapabilityDiscovery,
-            Capability,
         )
 
         mock_provider = create_mock_provider()
@@ -511,7 +493,7 @@ class TestHotReload:
 
     def test_hot_reload_manager_load_initial(self):
         """Test HotReloadManager initial load."""
-        from src.core.vision.hot_reload import HotReloadManager, DictConfigSource
+        from src.core.vision.hot_reload import DictConfigSource, HotReloadManager
 
         config = {"setting1": "value1"}
         source = DictConfigSource(config)
@@ -526,10 +508,10 @@ class TestHotReload:
     def test_hot_reload_manager_reload(self):
         """Test HotReloadManager reload."""
         from src.core.vision.hot_reload import (
-            HotReloadManager,
             DictConfigSource,
-            ReloadTrigger,
+            HotReloadManager,
             ReloadStatus,
+            ReloadTrigger,
         )
 
         source = DictConfigSource({"v": 1})
@@ -545,7 +527,7 @@ class TestHotReload:
 
     def test_hot_reload_manager_rollback(self):
         """Test HotReloadManager rollback."""
-        from src.core.vision.hot_reload import HotReloadManager, DictConfigSource
+        from src.core.vision.hot_reload import DictConfigSource, HotReloadManager
 
         source = DictConfigSource({"v": 1})
         manager = HotReloadManager(source)
@@ -564,9 +546,9 @@ class TestHotReload:
     async def test_hot_reloading_vision_provider(self):
         """Test HotReloadingVisionProvider."""
         from src.core.vision.hot_reload import (
+            DictConfigSource,
             HotReloadingVisionProvider,
             HotReloadManager,
-            DictConfigSource,
         )
 
         def factory(config):
@@ -599,15 +581,12 @@ class TestDeduplication:
         """Test HashAlgorithm enum values."""
         from src.core.vision.deduplication import HashAlgorithm
 
-        assert HashAlgorithm.MD5.value == "md5"
         assert HashAlgorithm.SHA256.value == "sha256"
+        assert HashAlgorithm.XXHASH.value == "xxhash"
 
     def test_deduplication_config(self):
         """Test DeduplicationConfig dataclass."""
-        from src.core.vision.deduplication import (
-            DeduplicationConfig,
-            DeduplicationStrategy,
-        )
+        from src.core.vision.deduplication import DeduplicationConfig, DeduplicationStrategy
 
         config = DeduplicationConfig(
             strategy=DeduplicationStrategy.HASH,
@@ -621,7 +600,7 @@ class TestDeduplication:
 
     def test_hash_key_generator(self):
         """Test HashKeyGenerator."""
-        from src.core.vision.deduplication import HashKeyGenerator, HashAlgorithm
+        from src.core.vision.deduplication import HashAlgorithm, HashKeyGenerator
 
         generator = HashKeyGenerator(HashAlgorithm.SHA256)
 
@@ -650,8 +629,9 @@ class TestDeduplication:
 
     def test_deduplication_cache_expiration(self):
         """Test cache expiration."""
-        from src.core.vision.deduplication import DeduplicationCache, CachedResult
         from datetime import timedelta
+
+        from src.core.vision.deduplication import CachedResult, DeduplicationCache
 
         cache = DeduplicationCache(max_size=100, ttl_seconds=0.001)
 
@@ -660,6 +640,7 @@ class TestDeduplication:
 
         # Wait for expiration
         import time
+
         time.sleep(0.01)
 
         result = cache.get("key1")
@@ -785,7 +766,7 @@ class TestVersioning:
 
     def test_semantic_version_compatibility(self):
         """Test version compatibility checking."""
-        from src.core.vision.versioning import SemanticVersion, CompatibilityLevel
+        from src.core.vision.versioning import CompatibilityLevel, SemanticVersion
 
         v1 = SemanticVersion.parse("1.0.0")
         v1_1 = SemanticVersion.parse("1.1.0")
@@ -797,11 +778,7 @@ class TestVersioning:
 
     def test_provider_version(self):
         """Test ProviderVersion dataclass."""
-        from src.core.vision.versioning import (
-            ProviderVersion,
-            SemanticVersion,
-            VersionStatus,
-        )
+        from src.core.vision.versioning import ProviderVersion, SemanticVersion, VersionStatus
 
         mock_provider = create_mock_provider()
         pv = ProviderVersion(
@@ -819,9 +796,9 @@ class TestVersioning:
     def test_version_constraint(self):
         """Test VersionConstraint."""
         from src.core.vision.versioning import (
-            VersionConstraint,
             ProviderVersion,
             SemanticVersion,
+            VersionConstraint,
             VersionStatus,
         )
 
@@ -851,11 +828,7 @@ class TestVersioning:
 
     def test_version_registry(self):
         """Test VersionRegistry."""
-        from src.core.vision.versioning import (
-            VersionRegistry,
-            SemanticVersion,
-            VersionStatus,
-        )
+        from src.core.vision.versioning import SemanticVersion, VersionRegistry, VersionStatus
 
         registry = VersionRegistry()
         mock_provider = create_mock_provider()
@@ -881,9 +854,7 @@ class TestVersioning:
         assert str(pv.version) == "1.0.0"
 
         # Get specific
-        pv_specific = registry.get_version(
-            "test_provider", SemanticVersion.parse("1.1.0")
-        )
+        pv_specific = registry.get_version("test_provider", SemanticVersion.parse("1.1.0"))
         assert pv_specific is not None
         assert str(pv_specific.version) == "1.1.0"
 
@@ -893,11 +864,7 @@ class TestVersioning:
 
     def test_version_registry_deprecate(self):
         """Test version deprecation."""
-        from src.core.vision.versioning import (
-            VersionRegistry,
-            SemanticVersion,
-            VersionStatus,
-        )
+        from src.core.vision.versioning import SemanticVersion, VersionRegistry, VersionStatus
 
         registry = VersionRegistry()
         mock_provider = create_mock_provider()
@@ -918,9 +885,9 @@ class TestVersioning:
     async def test_versioned_vision_provider(self):
         """Test VersionedVisionProvider."""
         from src.core.vision.versioning import (
+            SemanticVersion,
             VersionedVisionProvider,
             VersionRegistry,
-            SemanticVersion,
         )
 
         registry = VersionRegistry()
@@ -949,12 +916,12 @@ class TestPhase6Integration:
     @pytest.mark.asyncio
     async def test_transformation_with_deduplication(self):
         """Test transformation pipeline with deduplication."""
-        from src.core.vision.transformation import (
-            TransformingVisionProvider,
-            TransformationPipeline,
-            ConfidenceBoostTransformer,
-        )
         from src.core.vision.deduplication import DeduplicatingVisionProvider
+        from src.core.vision.transformation import (
+            ConfidenceBoostTransformer,
+            TransformationPipeline,
+            TransformingVisionProvider,
+        )
 
         mock_provider = create_mock_provider()
 
@@ -981,14 +948,11 @@ class TestPhase6Integration:
     async def test_capability_aware_with_versioning(self):
         """Test capability-aware provider with versioning."""
         from src.core.vision.discovery import (
+            Capability,
             CapabilityAwareVisionProvider,
             CapabilityDiscovery,
-            Capability,
         )
-        from src.core.vision.versioning import (
-            VersionRegistry,
-            SemanticVersion,
-        )
+        from src.core.vision.versioning import SemanticVersion, VersionRegistry
 
         mock_provider = create_mock_provider()
 

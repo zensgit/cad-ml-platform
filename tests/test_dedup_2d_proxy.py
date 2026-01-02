@@ -1,20 +1,33 @@
 from __future__ import annotations
 
+import time
 from typing import Any, Dict
 
-import time
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
-from src.main import app
 from src.api.v1.dedup import (
     get_dedupcad_vision_client,
     get_geom_store,
     get_precision_verifier,
     get_tenant_config_store,
 )
+from src.core.dedupcad_vision import DedupCadVisionCircuitOpen
 from src.core.dedupcad_2d_jobs import reset_dedup2d_job_store
 from src.core.dedupcad_precision.verifier import PrecisionScore
+from src.main import app
+
+
+@pytest.fixture(autouse=True)
+def _disable_forced_async(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep proxy tests focused on sync pipeline behavior.
+
+    Forced-async behavior is covered in dedicated unit tests.
+    """
+    monkeypatch.setenv("DEDUP2D_FORCED_ASYNC_FILE_SIZE_BYTES", "0")
+    monkeypatch.setenv("DEDUP2D_FORCED_ASYNC_ON_PRECISION", "0")
+    monkeypatch.setenv("DEDUP2D_FORCED_ASYNC_ON_MODE_PRECISE", "0")
 
 
 class _FakeDedupClient:
@@ -63,7 +76,14 @@ class _FakeDedupClient:
 
 class _FailingDedupClient:
     async def health(self) -> Dict[str, Any]:
-        raise httpx.ConnectError("boom", request=httpx.Request("GET", "http://localhost:58001/health"))
+        raise httpx.ConnectError(
+            "boom", request=httpx.Request("GET", "http://localhost:58001/health")
+        )
+
+
+class _CircuitOpenDedupClient:
+    async def search_2d(self, **_kwargs) -> Dict[str, Any]:
+        raise DedupCadVisionCircuitOpen("dedupcad-vision circuit open")
 
 
 class _FakeDedupClientTwoCandidates:
@@ -267,9 +287,15 @@ def test_dedup_2d_search_preset_version_can_classify_mid_similarity_as_similar()
         client = TestClient(app)
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
-            "geom_json": ("geom.json", b'{"layers":{"0":{"name":"0"}},"entities":[]}', "application/json"),
+            "geom_json": (
+                "geom.json",
+                b'{"layers":{"0":{"name":"0"}},"entities":[]}',
+                "application/json",
+            ),
         }
-        resp = client.post("/api/v1/dedup/2d/search?preset=version&mode=balanced&max_results=10", files=files)
+        resp = client.post(
+            "/api/v1/dedup/2d/search?preset=version&mode=balanced&max_results=10", files=files
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["duplicates"] == []
@@ -291,7 +317,11 @@ def test_dedup_2d_search_preset_does_not_override_explicit_thresholds():
         client = TestClient(app)
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
-            "geom_json": ("geom.json", b'{"layers":{"0":{"name":"0"}},"entities":[]}', "application/json"),
+            "geom_json": (
+                "geom.json",
+                b'{"layers":{"0":{"name":"0"}},"entities":[]}',
+                "application/json",
+            ),
         }
         resp = client.post(
             "/api/v1/dedup/2d/search?preset=version&mode=balanced&max_results=10&similar_threshold=0.90",
@@ -316,7 +346,11 @@ def test_dedup_2d_search_precision_diff_can_be_requested():
         client = TestClient(app)
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
-            "geom_json": ("geom.json", b'{"layers":{"0":{"name":"0"}},"entities":[]}', "application/json"),
+            "geom_json": (
+                "geom.json",
+                b'{"layers":{"0":{"name":"0"}},"entities":[]}',
+                "application/json",
+            ),
         }
         resp = client.post(
             "/api/v1/dedup/2d/search?mode=balanced&max_results=10&precision_compute_diff=true&precision_diff_top_n=1",
@@ -344,7 +378,9 @@ def test_dedup_2d_index_add_stores_geom_json():
             "file": ("drawing.png", b"fake", "image/png"),
             "geom_json": ("geom.json", b'{"entities":[]}', "application/json"),
         }
-        resp = client.post("/api/v1/dedup/2d/index/add?user_name=tester&upload_to_s3=false", files=files)
+        resp = client.post(
+            "/api/v1/dedup/2d/index/add?user_name=tester&upload_to_s3=false", files=files
+        )
         assert resp.status_code == 200
         assert "geom_json stored" in resp.json()["message"]
         assert "abc" in fake_store.saved
@@ -395,12 +431,27 @@ def test_dedup_2d_health_proxy_unavailable_returns_503():
         app.dependency_overrides.clear()
 
 
+def test_dedup_2d_search_circuit_open_returns_503():
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _CircuitOpenDedupClient()
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+        resp = client.post("/api/v1/dedup/2d/search?mode=balanced&max_results=10", files=files)
+        assert resp.status_code == 503
+        assert resp.json()["detail"] == "dedupcad-vision circuit open"
+        assert resp.headers.get("Retry-After") == "5"
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_dedup_2d_tenant_config_put_requires_admin_token():
     tenant_store = _FakeTenantConfigStore()
     app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
     try:
         client = TestClient(app)
-        resp = client.put("/api/v1/dedup/2d/config", json={"preset": "version"}, headers={"X-API-Key": "t1"})
+        resp = client.put(
+            "/api/v1/dedup/2d/config", json={"preset": "version"}, headers={"X-API-Key": "t1"}
+        )
         assert resp.status_code == 401
     finally:
         app.dependency_overrides.clear()
@@ -452,7 +503,11 @@ def test_dedup_2d_search_applies_tenant_preset_when_no_preset_given():
         client = TestClient(app)
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
-            "geom_json": ("geom.json", b'{"layers":{"0":{"name":"0"}},"entities":[]}', "application/json"),
+            "geom_json": (
+                "geom.json",
+                b'{"layers":{"0":{"name":"0"}},"entities":[]}',
+                "application/json",
+            ),
         }
         resp = client.post("/api/v1/dedup/2d/search?mode=balanced&max_results=10", files=files)
         assert resp.status_code == 200
@@ -479,9 +534,15 @@ def test_dedup_2d_search_explicit_preset_overrides_tenant_preset():
         client = TestClient(app)
         files = {
             "file": ("drawing.png", b"fake", "image/png"),
-            "geom_json": ("geom.json", b'{"layers":{"0":{"name":"0"}},"entities":[]}', "application/json"),
+            "geom_json": (
+                "geom.json",
+                b'{"layers":{"0":{"name":"0"}},"entities":[]}',
+                "application/json",
+            ),
         }
-        resp = client.post("/api/v1/dedup/2d/search?preset=version&mode=balanced&max_results=10", files=files)
+        resp = client.post(
+            "/api/v1/dedup/2d/search?preset=version&mode=balanced&max_results=10", files=files
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["duplicates"] == []
@@ -524,7 +585,9 @@ def test_dedup_2d_search_async_returns_job_and_completes():
     try:
         client = TestClient(app)
         files = {"file": ("drawing.png", b"fake", "image/png")}
-        resp = client.post("/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true", files=files)
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true", files=files
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["job_id"]
@@ -538,6 +601,42 @@ def test_dedup_2d_search_async_returns_job_and_completes():
                 assert job["result"]["success"] is True
                 assert job["result"]["total_matches"] == 1
                 assert job["result"]["duplicates"][0]["verdict"] == "duplicate"
+                break
+            time.sleep(0.01)
+        else:
+            raise AssertionError("async job did not complete in time")
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_search_async_with_precision_overlay():
+    reset_dedup2d_job_store()
+    fake_store = _FakeGeomStore()
+    fake_store.save("abc", {"entities": []})
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
+    app.dependency_overrides[get_geom_store] = lambda: fake_store
+    app.dependency_overrides[get_precision_verifier] = lambda: _FakePrecisionVerifier()
+    try:
+        client = TestClient(app)
+        files = {
+            "file": ("drawing.png", b"fake", "image/png"),
+            "geom_json": ("geom.json", b'{"entities":[]}', "application/json"),
+        }
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true",
+            files=files,
+        )
+        assert resp.status_code == 200
+        poll_url = resp.json()["poll_url"]
+
+        for _ in range(50):
+            job_resp = client.get(poll_url)
+            assert job_resp.status_code == 200
+            job = job_resp.json()
+            if job["status"] == "completed":
+                result = job["result"]
+                assert result["duplicates"][0]["precision_score"] == 1.0
+                assert any("precision_verified:" in w for w in result.get("warnings", []))
                 break
             time.sleep(0.01)
         else:
@@ -560,7 +659,9 @@ def test_dedup_2d_search_async_cancel():
     try:
         client = TestClient(app)
         files = {"file": ("drawing.png", b"fake", "image/png")}
-        resp = client.post("/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true", files=files)
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true", files=files
+        )
         assert resp.status_code == 200
         job_id = resp.json()["job_id"]
 
@@ -572,5 +673,313 @@ def test_dedup_2d_search_async_cancel():
         status = client.get(f"/api/v1/dedup/2d/jobs/{job_id}")
         assert status.status_code == 200
         assert status.json()["status"] in {"canceled", "completed"}
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_search_async_callback_url_requires_redis_backend():
+    reset_dedup2d_job_store()
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true&callback_url=https%3A%2F%2Fexample.com%2Fhook",
+            files=files,
+        )
+        assert resp.status_code == 400
+        assert resp.json()["detail"]["error"] == "CALLBACK_UNSUPPORTED"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_search_async_invalid_callback_url_returns_400(monkeypatch):
+    """When the Redis backend rejects callback_url, the API should return 400 (not 500)."""
+    from src.api.v1 import dedup as dedup_module
+
+    async def _fake_submit(**_kwargs):  # noqa: ANN001
+        raise ValueError("callback_url scheme not allowed: http")
+
+    async def _fake_depth():  # noqa: ANN001
+        return 0
+
+    monkeypatch.setenv("DEDUP2D_ASYNC_BACKEND", "redis")
+    monkeypatch.setattr(dedup_module, "submit_dedup2d_job_redis", _fake_submit)
+    monkeypatch.setattr(dedup_module, "get_dedup2d_queue_depth_redis", _fake_depth)
+
+    app.dependency_overrides[get_tenant_config_store] = lambda: _FakeTenantConfigStore()
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true&callback_url=http%3A%2F%2Fexample.com%2Fhook",
+            files=files,
+        )
+        assert resp.status_code == 400
+        detail = resp.json()["detail"]
+        assert detail["error"] == "CALLBACK_URL_INVALID"
+        assert "scheme not allowed" in detail["message"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+# =============================================================================
+# Phase 1: Tenant Isolation Tests
+# =============================================================================
+
+
+class _TenantAwareTenantConfigStore:
+    """Tenant config store that produces distinct tenant IDs per API key."""
+
+    def __init__(self):
+        self.cfg: Dict[str, Dict[str, Any]] = {}
+
+    @staticmethod
+    def tenant_id(api_key: str) -> str:
+        # Produces different tenant IDs for different API keys
+        return f"tenant:{api_key}"
+
+    async def get(self, api_key: str) -> Dict[str, Any] | None:
+        return self.cfg.get(api_key)
+
+    async def set(self, api_key: str, config_obj: Dict[str, Any]) -> None:
+        self.cfg[api_key] = dict(config_obj)
+
+    async def delete(self, api_key: str) -> None:
+        self.cfg.pop(api_key, None)
+
+
+def test_dedup_2d_tenant_isolation_job_access_forbidden():
+    """Job created by tenant A should NOT be accessible by tenant B (403 Forbidden)."""
+    reset_dedup2d_job_store()
+    tenant_store = _TenantAwareTenantConfigStore()
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
+    app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+
+        # Tenant A (api_key=tenant_a) creates a job
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true",
+            files=files,
+            headers={"X-API-Key": "tenant_a"},
+        )
+        assert resp.status_code == 200
+        job_id = resp.json()["job_id"]
+
+        # Tenant B (api_key=tenant_b) tries to access tenant A's job → 403
+        status_resp = client.get(
+            f"/api/v1/dedup/2d/jobs/{job_id}",
+            headers={"X-API-Key": "tenant_b"},
+        )
+        assert status_resp.status_code == 403
+        assert status_resp.json()["detail"]["error"] == "JOB_FORBIDDEN"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_tenant_isolation_job_cancel_forbidden():
+    """Job created by tenant A should NOT be cancellable by tenant B (403 Forbidden)."""
+    reset_dedup2d_job_store()
+    tenant_store = _TenantAwareTenantConfigStore()
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _SlowDedupClient()
+    app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+
+        # Tenant A creates a job
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true",
+            files=files,
+            headers={"X-API-Key": "tenant_a"},
+        )
+        assert resp.status_code == 200
+        job_id = resp.json()["job_id"]
+
+        # Tenant B tries to cancel tenant A's job → 403
+        cancel_resp = client.post(
+            f"/api/v1/dedup/2d/jobs/{job_id}/cancel",
+            headers={"X-API-Key": "tenant_b"},
+        )
+        assert cancel_resp.status_code == 403
+        assert cancel_resp.json()["detail"]["error"] == "JOB_FORBIDDEN"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_tenant_isolation_same_tenant_access_ok():
+    """Job created by tenant A should be accessible by tenant A (200 OK)."""
+    reset_dedup2d_job_store()
+    tenant_store = _TenantAwareTenantConfigStore()
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _FakeDedupClient()
+    app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+
+        # Tenant A creates a job
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true",
+            files=files,
+            headers={"X-API-Key": "tenant_a"},
+        )
+        assert resp.status_code == 200
+        job_id = resp.json()["job_id"]
+
+        # Same tenant A accesses the job → 200 OK
+        for _ in range(50):
+            status_resp = client.get(
+                f"/api/v1/dedup/2d/jobs/{job_id}",
+                headers={"X-API-Key": "tenant_a"},
+            )
+            assert status_resp.status_code == 200
+            data = status_resp.json()
+            # Verify tenant_id is in response
+            assert data["tenant_id"] == "tenant:tenant_a"
+            if data["status"] == "completed":
+                break
+            time.sleep(0.01)
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_tenant_isolation_cancel_response_includes_tenant_id():
+    """Cancel response should include tenant_id field."""
+    reset_dedup2d_job_store()
+    tenant_store = _TenantAwareTenantConfigStore()
+    app.dependency_overrides[get_dedupcad_vision_client] = lambda: _SlowDedupClient()
+    app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+
+        # Create a job
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true",
+            files=files,
+            headers={"X-API-Key": "tenant_x"},
+        )
+        assert resp.status_code == 200
+        job_id = resp.json()["job_id"]
+
+        # Cancel by same tenant
+        cancel_resp = client.post(
+            f"/api/v1/dedup/2d/jobs/{job_id}/cancel",
+            headers={"X-API-Key": "tenant_x"},
+        )
+        assert cancel_resp.status_code == 200
+        data = cancel_resp.json()
+        assert data["job_id"] == job_id
+        assert data["tenant_id"] == "tenant:tenant_x"
+        assert data["canceled"] is True
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_job_not_found_returns_404():
+    """Accessing a non-existent job should return 404."""
+    reset_dedup2d_job_store()
+    tenant_store = _TenantAwareTenantConfigStore()
+    app.dependency_overrides[get_tenant_config_store] = lambda: tenant_store
+    try:
+        client = TestClient(app)
+        fake_job_id = "00000000-0000-0000-0000-000000000000"
+
+        # Get non-existent job
+        status_resp = client.get(
+            f"/api/v1/dedup/2d/jobs/{fake_job_id}",
+            headers={"X-API-Key": "any_tenant"},
+        )
+        assert status_resp.status_code == 404
+        assert status_resp.json()["detail"]["error"] == "JOB_NOT_FOUND"
+
+        # Cancel non-existent job
+        cancel_resp = client.post(
+            f"/api/v1/dedup/2d/jobs/{fake_job_id}/cancel",
+            headers={"X-API-Key": "any_tenant"},
+        )
+        assert cancel_resp.status_code == 404
+        assert cancel_resp.json()["detail"]["error"] == "JOB_NOT_FOUND"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_dedup_2d_async_backend_redis_can_submit_and_poll(monkeypatch):
+    """When DEDUP2D_ASYNC_BACKEND=redis, endpoints should use the Redis backend hooks."""
+    from src.api.v1 import dedup as dedup_module
+    from src.core.dedupcad_2d_jobs import Dedup2DJob, Dedup2DJobStatus
+
+    class _FakePool:
+        async def hsetnx(self, key, field, value):  # noqa: ANN001
+            return True
+
+    async def _fake_get_pool(cfg):  # noqa: ANN001
+        return _FakePool()
+
+    async def _fake_submit(**kwargs):  # noqa: ANN001
+        assert kwargs.get("callback_url") == "https://example.com/hook"
+        return Dedup2DJob(
+            job_id="job_redis_1", tenant_id="tenant:test", status=Dedup2DJobStatus.PENDING
+        )
+
+    async def _fake_depth():  # noqa: ANN001
+        return 0
+
+    async def _fake_get(job_id: str, tenant_id: str, **kwargs):  # noqa: ANN001
+        now = time.time()
+        return Dedup2DJob(
+            job_id=job_id,
+            tenant_id=tenant_id,
+            status=Dedup2DJobStatus.COMPLETED,
+            created_at=now - 1.0,
+            started_at=now - 0.9,
+            finished_at=now - 0.1,
+            result={
+                "success": True,
+                "total_matches": 0,
+                "duplicates": [],
+                "similar": [],
+                "final_level": 2,
+                "timing": {"total_ms": 1.0},
+                "level_stats": {},
+                "warnings": [],
+                "error": None,
+            },
+        )
+
+    async def _fake_cancel(job_id: str, tenant_id: str, **kwargs):  # noqa: ANN001
+        assert job_id
+        assert tenant_id
+        return True
+
+    monkeypatch.setenv("DEDUP2D_ASYNC_BACKEND", "redis")
+    monkeypatch.setattr(dedup_module, "get_dedup2d_redis_pool", _fake_get_pool)
+    monkeypatch.setattr(dedup_module, "submit_dedup2d_job_redis", _fake_submit)
+    monkeypatch.setattr(dedup_module, "get_dedup2d_queue_depth_redis", _fake_depth)
+    monkeypatch.setattr(dedup_module, "get_dedup2d_job_for_tenant_redis", _fake_get)
+    monkeypatch.setattr(dedup_module, "cancel_dedup2d_job_for_tenant_redis", _fake_cancel)
+
+    app.dependency_overrides[get_tenant_config_store] = lambda: _FakeTenantConfigStore()
+    try:
+        client = TestClient(app)
+        files = {"file": ("drawing.png", b"fake", "image/png")}
+
+        resp = client.post(
+            "/api/v1/dedup/2d/search?mode=balanced&max_results=10&async=true&callback_url=https%3A%2F%2Fexample.com%2Fhook",
+            files=files,
+        )
+        assert resp.status_code == 200
+        assert resp.json()["job_id"] == "job_redis_1"
+
+        status_resp = client.get("/api/v1/dedup/2d/jobs/job_redis_1")
+        assert status_resp.status_code == 200
+        assert status_resp.json()["status"] == "completed"
+        assert status_resp.json()["result"]["success"] is True
+
+        cancel_resp = client.post("/api/v1/dedup/2d/jobs/job_redis_1/cancel")
+        assert cancel_resp.status_code == 200
+        assert cancel_resp.json()["canceled"] is True
     finally:
         app.dependency_overrides.clear()

@@ -8,8 +8,9 @@ This module tests the Phase 18 Vision components:
 - Experiment Tracker
 """
 
-import pytest
 from datetime import datetime
+
+import pytest
 
 
 class TestAutoMLEngine:
@@ -82,16 +83,12 @@ class TestAutoMLEngine:
         from src.core.vision import HyperparameterSpace
 
         # Test float sampling
-        float_space = HyperparameterSpace(
-            name="lr", param_type="float", low=0.0, high=1.0
-        )
+        float_space = HyperparameterSpace(name="lr", param_type="float", low=0.0, high=1.0)
         value = float_space.sample()
         assert 0.0 <= value <= 1.0
 
         # Test int sampling
-        int_space = HyperparameterSpace(
-            name="epochs", param_type="int", low=1, high=100
-        )
+        int_space = HyperparameterSpace(name="epochs", param_type="int", low=1, high=100)
         value = int_space.sample()
         assert 1 <= value <= 100
         assert isinstance(value, int)
@@ -105,11 +102,7 @@ class TestAutoMLEngine:
 
     def test_create_automl_engine(self):
         """Test create_automl_engine factory."""
-        from src.core.vision import (
-            create_automl_engine,
-            AutoMLTaskType,
-            OptimizationObjective,
-        )
+        from src.core.vision import AutoMLTaskType, OptimizationObjective, create_automl_engine
 
         engine = create_automl_engine(
             task_type=AutoMLTaskType.CLASSIFICATION,
@@ -120,10 +113,10 @@ class TestAutoMLEngine:
     def test_create_search_config(self):
         """Test create_search_config factory."""
         from src.core.vision import (
-            create_search_config,
-            SearchStrategy,
-            OptimizationObjective,
             AutoMLTaskType,
+            OptimizationObjective,
+            SearchStrategy,
+            create_search_config,
         )
 
         config = create_search_config(
@@ -139,7 +132,7 @@ class TestAutoMLEngine:
 
     def test_create_model_selector(self):
         """Test create_model_selector factory."""
-        from src.core.vision import create_model_selector, AutoMLTaskType
+        from src.core.vision import AutoMLTaskType, create_model_selector
 
         selector = create_model_selector(AutoMLTaskType.CLASSIFICATION)
         candidates = selector.get_candidates()
@@ -197,7 +190,7 @@ class TestFeatureStore:
 
     def test_feature_definition_creation(self):
         """Test FeatureDefinition dataclass."""
-        from src.core.vision import create_feature_definition, FeatureType
+        from src.core.vision import FeatureType, create_feature_definition
 
         feature = create_feature_definition(
             feature_id="user_age",
@@ -237,11 +230,7 @@ class TestFeatureStore:
 
     def test_feature_registry_operations(self):
         """Test FeatureRegistry CRUD operations."""
-        from src.core.vision import (
-            create_feature_registry,
-            create_feature_definition,
-            FeatureType,
-        )
+        from src.core.vision import FeatureType, create_feature_definition, create_feature_registry
 
         registry = create_feature_registry()
         feature = create_feature_definition(
@@ -296,7 +285,7 @@ class TestModelRegistry:
 
     def test_model_version_creation(self):
         """Test ModelVersion dataclass."""
-        from src.core.vision import create_model_version, ModelStage
+        from src.core.vision import ModelStage, create_model_version
 
         version = create_model_version(
             model_id="model1",
@@ -347,10 +336,10 @@ class TestModelRegistry:
     def test_model_registry_operations(self):
         """Test ModelRegistry CRUD operations."""
         from src.core.vision import (
-            create_model_registry,
-            create_model_metadata,
-            create_model_version,
             ModelStage,
+            create_model_metadata,
+            create_model_registry,
+            create_model_version,
         )
 
         registry = create_model_registry()
@@ -433,9 +422,9 @@ class TestPipelineOrchestrator:
     def test_pipeline_definition_creation(self):
         """Test PipelineDefinition dataclass."""
         from src.core.vision import (
+            ExecutionMode,
             create_pipeline_definition,
             create_task_definition,
-            ExecutionMode,
         )
 
         tasks = [
@@ -479,10 +468,10 @@ class TestPipelineOrchestrator:
     def test_pipeline_execution(self):
         """Test pipeline execution."""
         from src.core.vision import (
-            create_pipeline_orchestrator,
-            create_pipeline_definition,
-            create_task_definition,
             PipelineStatus,
+            create_pipeline_definition,
+            create_pipeline_orchestrator,
+            create_task_definition,
         )
 
         orchestrator = create_pipeline_orchestrator()
@@ -548,7 +537,7 @@ class TestExperimentTracker:
 
     def test_experiment_run_creation(self):
         """Test Run dataclass."""
-        from src.core.vision import create_experiment_run, RunStatus
+        from src.core.vision import RunStatus, create_experiment_run
 
         run = create_experiment_run(
             run_id="run1",
@@ -605,7 +594,7 @@ class TestExperimentTracker:
 
     def test_run_comparison(self):
         """Test comparing runs."""
-        from src.core.vision import create_experiment_tracker, MetricGoal
+        from src.core.vision import MetricGoal, create_experiment_tracker
 
         tracker = create_experiment_tracker()
         experiment = tracker.create_experiment(name="Comparison Test")
@@ -633,31 +622,26 @@ class TestPhase18Integration:
 
     def test_all_phase18_exports_available(self):
         """Test that all Phase 18 exports are available."""
-        from src.core.vision import (
-            # AutoML
+        from src.core.vision import (  # AutoML; Feature Store; Model Registry; Pipeline; Experiment
             AutoMLEngine,
-            SearchStrategy,
-            OptimizationObjective,
-            HyperparameterSpace,
-            # Feature Store
+            DAGBuilder,
+            DeploymentStrategy,
+            ExecutionMode,
+            ExperimentTracker,
+            FeatureDefinition,
             FeatureRegistry,
             FeatureStore,
             FeatureType,
-            FeatureDefinition,
-            # Model Registry
-            ModelRegistry,
-            ModelDeployer,
-            ModelStage,
-            DeploymentStrategy,
-            # Pipeline
-            PipelineOrchestrator,
-            DAGBuilder,
-            PipelineStatus,
-            ExecutionMode,
-            # Experiment
-            ExperimentTracker,
-            RunStatus,
+            HyperparameterSpace,
             MetricGoal,
+            ModelDeployer,
+            ModelRegistry,
+            ModelStage,
+            OptimizationObjective,
+            PipelineOrchestrator,
+            PipelineStatus,
+            RunStatus,
+            SearchStrategy,
         )
 
         # Verify all imports worked
@@ -669,29 +653,24 @@ class TestPhase18Integration:
 
     def test_factory_functions_available(self):
         """Test that all factory functions are available."""
-        from src.core.vision import (
-            # AutoML factories
+        from src.core.vision import (  # AutoML factories; Feature Store factories; Model Registry factories; Pipeline factories; Experiment factories
             create_automl_engine,
-            create_search_config,
-            create_hyperparameter_space,
-            create_model_selector,
-            create_nas,
-            # Feature Store factories
+            create_dag_builder,
+            create_deployment_config,
+            create_experiment,
+            create_experiment_tracker,
+            create_feature_definition,
             create_feature_registry,
             create_feature_store,
-            create_feature_definition,
-            # Model Registry factories
+            create_hyperparameter_space,
             create_model_registry,
+            create_model_selector,
             create_model_version,
-            create_deployment_config,
-            # Pipeline factories
-            create_pipeline_orchestrator,
+            create_nas,
             create_pipeline_definition,
+            create_pipeline_orchestrator,
+            create_search_config,
             create_task_definition,
-            create_dag_builder,
-            # Experiment factories
-            create_experiment_tracker,
-            create_experiment,
         )
 
         assert callable(create_automl_engine)
@@ -704,10 +683,10 @@ class TestPhase18Integration:
         """Test that all Vision Provider factory functions are available."""
         from src.core.vision import (
             create_automl_provider,
+            create_experiment_tracker_provider,
             create_feature_store_provider,
             create_model_registry_provider,
             create_pipeline_orchestrator_provider,
-            create_experiment_tracker_provider,
         )
 
         # Test factory functions exist and are callable

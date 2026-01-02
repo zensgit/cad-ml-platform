@@ -803,9 +803,7 @@ class MultiTenantVisionProvider(VisionProvider):
         if not tenant_id:
             raise RuntimeError("No tenant context set")
 
-        return await self.analyze_for_tenant(
-            tenant_id, image_data, include_description
-        )
+        return await self.analyze_for_tenant(tenant_id, image_data, include_description)
 
     async def analyze_for_tenant(
         self,
@@ -832,14 +830,10 @@ class MultiTenantVisionProvider(VisionProvider):
             raise RuntimeError(f"Tenant is not active: {tenant.status.value}")
 
         # Check quotas
-        if not self._manager.check_quota(
-            tenant_id, QuotaType.REQUESTS_PER_MINUTE
-        ):
+        if not self._manager.check_quota(tenant_id, QuotaType.REQUESTS_PER_MINUTE):
             raise RuntimeError("Rate limit exceeded")
 
-        if not self._manager.check_quota(
-            tenant_id, QuotaType.REQUESTS_PER_DAY
-        ):
+        if not self._manager.check_quota(tenant_id, QuotaType.REQUESTS_PER_DAY):
             raise RuntimeError("Daily quota exceeded")
 
         # Get provider

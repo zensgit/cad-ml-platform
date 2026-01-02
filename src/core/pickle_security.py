@@ -18,18 +18,19 @@ Usage:
 
 from __future__ import annotations
 
-import os
 import logging
+import os
 import pickletools
 from enum import Enum
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Set, BinaryIO, Union
+from typing import Any, BinaryIO, Dict, List, Optional, Set, Union
 
 logger = logging.getLogger(__name__)
 
 
 class OpcodeMode(str, Enum):
     """Pickle opcode security modes."""
+
     AUDIT = "audit"
     BLOCKLIST = "blocklist"
     WHITELIST = "whitelist"
@@ -37,15 +38,15 @@ class OpcodeMode(str, Enum):
 
 # Known dangerous opcodes that can enable code execution
 DANGEROUS_OPCODES: Set[str] = {
-    "GLOBAL",           # Load global object (module.attr)
-    "STACK_GLOBAL",     # Load global from stack
-    "REDUCE",           # Apply callable to args (main RCE vector)
-    "INST",             # Build and push class instance
-    "OBJ",              # Build object by calling class
-    "NEWOBJ",           # Build object using cls.__new__
-    "NEWOBJ_EX",        # Extended NEWOBJ
-    "BUILD",            # Call obj.__setstate__ or update __dict__
-    "EXT1",             # Extension registry lookups
+    "GLOBAL",  # Load global object (module.attr)
+    "STACK_GLOBAL",  # Load global from stack
+    "REDUCE",  # Apply callable to args (main RCE vector)
+    "INST",  # Build and push class instance
+    "OBJ",  # Build object by calling class
+    "NEWOBJ",  # Build object using cls.__new__
+    "NEWOBJ_EX",  # Extended NEWOBJ
+    "BUILD",  # Call obj.__setstate__ or update __dict__
+    "EXT1",  # Extension registry lookups
     "EXT2",
     "EXT4",
 }
@@ -160,33 +161,31 @@ def scan_pickle_opcodes(
 
             # Record opcode
             result["opcodes"].append(opcode_name)
-            result["opcode_counts"][opcode_name] = (
-                result["opcode_counts"].get(opcode_name, 0) + 1
-            )
+            result["opcode_counts"][opcode_name] = result["opcode_counts"].get(opcode_name, 0) + 1
 
             if include_positions:
-                result["positions"].append({
-                    "opcode": opcode_name,
-                    "position": pos,
-                    "arg": str(arg) if arg is not None else None,
-                })
+                result["positions"].append(
+                    {
+                        "opcode": opcode_name,
+                        "position": pos,
+                        "arg": str(arg) if arg is not None else None,
+                    }
+                )
 
             # Check based on mode
             if mode == OpcodeMode.BLOCKLIST:
                 if opcode_name in DANGEROUS_OPCODES:
                     result["dangerous"].append(opcode_name)
                     result["safe"] = False
-                    result["blocked_reason"] = (
-                        f"Dangerous opcode '{opcode_name}' at position {pos}"
-                    )
+                    result["blocked_reason"] = f"Dangerous opcode '{opcode_name}' at position {pos}"
 
             elif mode == OpcodeMode.WHITELIST:
                 if opcode_name not in SAFE_OPCODES:
                     result["disallowed"].append(opcode_name)
                     result["safe"] = False
-                    result["blocked_reason"] = (
-                        f"Disallowed opcode '{opcode_name}' at position {pos}"
-                    )
+                    result[
+                        "blocked_reason"
+                    ] = f"Disallowed opcode '{opcode_name}' at position {pos}"
 
             # Audit mode never blocks
             # (safe remains True)
@@ -326,12 +325,14 @@ def audit_pickle_directory(
         for opcode, count in scan["opcode_counts"].items():
             all_opcodes[opcode] = all_opcodes.get(opcode, 0) + count
 
-        file_results.append({
-            "file": str(file_path.name),
-            "safe": scan["safe"],
-            "opcode_count": len(scan["opcodes"]),
-            "dangerous": scan["dangerous"],
-        })
+        file_results.append(
+            {
+                "file": str(file_path.name),
+                "safe": scan["safe"],
+                "opcode_count": len(scan["opcodes"]),
+                "dangerous": scan["dangerous"],
+            }
+        )
 
     return {
         "directory": str(path),

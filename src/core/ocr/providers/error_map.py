@@ -41,7 +41,7 @@ def map_exception_to_error_code(exc: Exception) -> ErrorCode:
     # Parse errors (typically ValueError with parse-related message)
     if isinstance(exc, ValueError):
         error_msg = str(exc).lower()
-        if any(term in error_msg for term in ['parse', 'decode', 'invalid format', 'malformed']):
+        if any(term in error_msg for term in ["parse", "decode", "invalid format", "malformed"]):
             return ErrorCode.PARSE_FAILED
         # Other ValueErrors are input errors
         return ErrorCode.INPUT_ERROR
@@ -53,47 +53,47 @@ def map_exception_to_error_code(exc: Exception) -> ErrorCode:
     # IO errors (file system, permissions)
     if isinstance(exc, (IOError, OSError)):
         error_msg = str(exc).lower()
-        if 'permission' in error_msg:
+        if "permission" in error_msg:
             return ErrorCode.AUTH_FAILED  # Permission denied treated as auth
         return ErrorCode.NETWORK_ERROR  # IO errors often network-related
 
     # Authentication/permission errors
-    if type(exc).__name__ in ['AuthenticationError', 'PermissionError']:
+    if type(exc).__name__ in ["AuthenticationError", "PermissionError"]:
         return ErrorCode.AUTH_FAILED
 
     # Quota/rate limit errors
-    if type(exc).__name__ in ['QuotaExceededError', 'RateLimitError']:
+    if type(exc).__name__ in ["QuotaExceededError", "RateLimitError"]:
         return ErrorCode.QUOTA_EXCEEDED
 
     # Model loading errors
-    if type(exc).__name__ in ['ModelNotFoundError', 'ModelLoadError']:
+    if type(exc).__name__ in ["ModelNotFoundError", "ModelLoadError"]:
         return ErrorCode.MODEL_LOAD_ERROR
 
     # Check exception message for additional patterns
     error_msg = str(exc).lower()
 
     # Network-related patterns
-    if any(term in error_msg for term in ['network', 'connection', 'socket', 'dns', 'resolve']):
+    if any(term in error_msg for term in ["network", "connection", "socket", "dns", "resolve"]):
         return ErrorCode.NETWORK_ERROR
 
     # Timeout patterns
-    if any(term in error_msg for term in ['timeout', 'timed out', 'deadline']):
+    if any(term in error_msg for term in ["timeout", "timed out", "deadline"]):
         return ErrorCode.PROVIDER_TIMEOUT
 
     # Resource patterns
-    if any(term in error_msg for term in ['memory', 'resource', 'exhausted', 'oom']):
+    if any(term in error_msg for term in ["memory", "resource", "exhausted", "oom"]):
         return ErrorCode.RESOURCE_EXHAUSTED
 
     # Auth patterns
-    if any(term in error_msg for term in ['auth', 'permission', 'forbidden', 'unauthorized']):
+    if any(term in error_msg for term in ["auth", "permission", "forbidden", "unauthorized"]):
         return ErrorCode.AUTH_FAILED
 
     # Parse patterns
-    if any(term in error_msg for term in ['parse', 'decode', 'invalid', 'malformed']):
+    if any(term in error_msg for term in ["parse", "decode", "invalid", "malformed"]):
         return ErrorCode.PARSE_FAILED
 
     # Model patterns
-    if any(term in error_msg for term in ['model', 'load', 'initialize']):
+    if any(term in error_msg for term in ["model", "load", "initialize"]):
         return ErrorCode.MODEL_LOAD_ERROR
 
     # Default to internal error
@@ -101,10 +101,7 @@ def map_exception_to_error_code(exc: Exception) -> ErrorCode:
 
 
 def log_and_map_exception(
-    exc: Exception,
-    provider: str,
-    stage: str,
-    context: Optional[str] = None
+    exc: Exception, provider: str, stage: str, context: Optional[str] = None
 ) -> ErrorCode:
     """Log exception details and return mapped ErrorCode.
 

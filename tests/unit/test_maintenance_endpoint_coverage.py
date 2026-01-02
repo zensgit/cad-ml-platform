@@ -50,11 +50,7 @@ class TestCleanupOrphanVectorsEndpoint:
                 with patch.object(similarity, "_VECTOR_LOCK", test_lock):
                     with patch.object(similarity, "_VECTOR_META", test_vector_meta):
                         result = await cleanup_orphan_vectors(
-                            threshold=0,
-                            force=True,
-                            dry_run=False,
-                            verbose=True,
-                            api_key="test"
+                            threshold=0, force=True, dry_run=False, verbose=True, api_key="test"
                         )
 
                         assert result.status == "ok"
@@ -80,7 +76,7 @@ class TestCleanupOrphanVectorsEndpoint:
                         force=False,
                         dry_run=False,
                         verbose=True,
-                        api_key="test"
+                        api_key="test",
                     )
 
                     assert result.status == "skipped"
@@ -102,11 +98,7 @@ class TestCleanupOrphanVectorsEndpoint:
             with patch.object(similarity, "_VECTOR_STORE", test_vector_store):
                 with patch.object(similarity, "_VECTOR_LOCK", test_lock):
                     result = await cleanup_orphan_vectors(
-                        threshold=0,
-                        force=True,
-                        dry_run=True,
-                        verbose=True,
-                        api_key="test"
+                        threshold=0, force=True, dry_run=True, verbose=True, api_key="test"
                     )
 
                     assert result.status == "dry_run"
@@ -132,11 +124,7 @@ class TestCleanupOrphanVectorsEndpoint:
                 with patch.object(similarity, "_VECTOR_LOCK", test_lock):
                     with patch.object(similarity, "_VECTOR_META", test_vector_meta):
                         result = await cleanup_orphan_vectors(
-                            threshold=0,
-                            force=True,
-                            dry_run=False,
-                            verbose=False,
-                            api_key="test"
+                            threshold=0, force=True, dry_run=False, verbose=False, api_key="test"
                         )
 
                         assert result.status == "ok"
@@ -168,11 +156,7 @@ class TestCleanupOrphanVectorsEndpoint:
                 with patch.object(similarity, "_VECTOR_LOCK", test_lock):
                     with patch.object(similarity, "_VECTOR_META", test_vector_meta):
                         result = await cleanup_orphan_vectors(
-                            threshold=0,
-                            force=True,
-                            dry_run=False,
-                            verbose=True,
-                            api_key="test"
+                            threshold=0, force=True, dry_run=False, verbose=True, api_key="test"
                         )
 
                         # Only v2 should be orphan
@@ -197,11 +181,7 @@ class TestCleanupOrphanVectorsEndpoint:
                 with patch.object(similarity, "_VECTOR_LOCK", test_lock):
                     with pytest.raises(HTTPException) as exc_info:
                         await cleanup_orphan_vectors(
-                            threshold=0,
-                            force=True,
-                            dry_run=False,
-                            verbose=False,
-                            api_key="test"
+                            threshold=0, force=True, dry_run=False, verbose=False, api_key="test"
                         )
 
                     assert exc_info.value.status_code == 503
@@ -232,11 +212,7 @@ class TestCleanupOrphanVectorsEndpoint:
                 with patch.object(similarity, "_VECTOR_LOCK", test_lock):
                     with patch.object(similarity, "_VECTOR_META", test_vector_meta):
                         result = await cleanup_orphan_vectors(
-                            threshold=0,
-                            force=True,
-                            dry_run=False,
-                            verbose=False,
-                            api_key="test"
+                            threshold=0, force=True, dry_run=False, verbose=False, api_key="test"
                         )
 
                         # Should continue and handle 1 orphan (v2)
@@ -485,7 +461,9 @@ class TestReloadVectorBackendEndpoint:
         """Test backend reload throws exception."""
         from src.api.v1.maintenance import reload_vector_backend
 
-        with patch("src.core.similarity.reload_vector_store_backend", side_effect=Exception("Reload error")):
+        with patch(
+            "src.core.similarity.reload_vector_store_backend", side_effect=Exception("Reload error")
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 await reload_vector_backend(api_key="test")
 
@@ -504,7 +482,7 @@ class TestOrphanCleanupResponseModel:
             deleted_count=8,
             sample_ids=["v1", "v2"],
             status="ok",
-            message="Cleaned successfully"
+            message="Cleaned successfully",
         )
 
         assert response.orphan_count == 10
@@ -517,11 +495,7 @@ class TestOrphanCleanupResponseModel:
         from src.api.v1.maintenance import OrphanCleanupResponse
 
         response = OrphanCleanupResponse(
-            orphan_count=5,
-            deleted_count=5,
-            sample_ids=None,
-            status="ok",
-            message="Done"
+            orphan_count=5, deleted_count=5, sample_ids=None, status="ok", message="Done"
         )
 
         assert response.sample_ids is None
@@ -534,10 +508,7 @@ class TestVectorStoreReloadResponseModel:
         """Test VectorStoreReloadResponse model creation."""
         from src.api.v1.maintenance import VectorStoreReloadResponse
 
-        response = VectorStoreReloadResponse(
-            status="ok",
-            backend="memory"
-        )
+        response = VectorStoreReloadResponse(status="ok", backend="memory")
 
         assert response.status == "ok"
         assert response.backend == "memory"
@@ -546,10 +517,7 @@ class TestVectorStoreReloadResponseModel:
         """Test VectorStoreReloadResponse with None backend."""
         from src.api.v1.maintenance import VectorStoreReloadResponse
 
-        response = VectorStoreReloadResponse(
-            status="error",
-            backend=None
-        )
+        response = VectorStoreReloadResponse(status="error", backend=None)
 
         assert response.backend is None
 

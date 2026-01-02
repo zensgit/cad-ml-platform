@@ -123,4 +123,3 @@ def extract_dimension_points(dim_entity: Any) -> List[tuple]:
     if defpoint3:
         points.append((defpoint3.x, defpoint3.y))
     return points
-

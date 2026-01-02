@@ -35,6 +35,10 @@ jobs:
   evaluate:
     name: Run Evaluation and Generate Report
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
 
     steps:
     - name: Checkout repository
@@ -218,86 +222,88 @@ jobs:
         echo "*Generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')*" >> $GITHUB_STEP_SUMMARY
 
     - name: Comment PR with results
-      if: github.event_name == 'pull_request'
+      if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
       uses: actions/github-script@v6
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
-          const combined = parseFloat('${{ steps.evaluation.outputs.combined_score }}' || '0');
-          const vision = parseFloat('${{ steps.evaluation.outputs.vision_score }}' || '0');
-          const ocr = parseFloat('${{ steps.evaluation.outputs.ocr_score }}' || '0');
+          try {
+            const combined = parseFloat('${{ steps.evaluation.outputs.combined_score }}' || '0');
+            const vision = parseFloat('${{ steps.evaluation.outputs.vision_score }}' || '0');
+            const ocr = parseFloat('${{ steps.evaluation.outputs.ocr_score }}' || '0');
 
-          const minCombined = parseFloat('${{ github.event.inputs.min_combined || '0.8' }}');
-          const minVision = parseFloat('${{ github.event.inputs.min_vision || '0.65' }}');
-          const minOcr = parseFloat('${{ github.event.inputs.min_ocr || '0.9' }}');
+            const minCombined = parseFloat('${{ github.event.inputs.min_combined || '0.8' }}');
+            const minVision = parseFloat('${{ github.event.inputs.min_vision || '0.65' }}');
+            const minOcr = parseFloat('${{ github.event.inputs.min_ocr || '0.9' }}');
 
-          const combinedStatus = combined >= minCombined ? '✅ Pass' : '❌ Fail';
-          const visionStatus = vision >= minVision ? '✅ Pass' : '❌ Fail';
-          const ocrStatus = ocr >= minOcr ? '✅ Pass' : '❌ Fail';
+            const combinedStatus = combined >= minCombined ? '✅ Pass' : '❌ Fail';
+            const visionStatus = vision >= minVision ? '✅ Pass' : '❌ Fail';
+            const ocrStatus = ocr >= minOcr ? '✅ Pass' : '❌ Fail';
 
-          const overallStatus = (combined >= minCombined && vision >= minVision && ocr >= minOcr)
-            ? '✅ **All checks passed!**'
-            : '⚠️ **Some checks failed - review required**';
+            const overallStatus = (combined >= minCombined && vision >= minVision && ocr >= minOcr)
+              ? '✅ **All checks passed!**'
+              : '⚠️ **Some checks failed - review required**';
 
-          const hasAnomalies = '${{ steps.insights.outputs.has_anomalies }}' === 'true';
-          const securityStatus = '${{ steps.security.outputs.security_status }}';
+            const hasAnomalies = '${{ steps.insights.outputs.has_anomalies }}' === 'true';
+            const securityStatus = '${{ steps.security.outputs.security_status }}';
 
-          const body = `## 📊 CAD ML Platform - Evaluation Results
+            const body = `## 📊 CAD ML Platform - Evaluation Results
 
-          ${overallStatus}
+            ${overallStatus}
 
-          ### Scores
-          | Module | Score | Threshold | Status |
-          |--------|-------|-----------|--------|
-          | **Combined** | ${combined.toFixed(3)} | ${minCombined} | ${combinedStatus} |
-          | **Vision** | ${vision.toFixed(3)} | ${minVision} | ${visionStatus} |
-          | **OCR** | ${ocr.toFixed(3)} | ${minOcr} | ${ocrStatus} |
+            ### Scores
+            | Module | Score | Threshold | Status |
+            |--------|-------|-----------|--------|
+            | **Combined** | ${combined.toFixed(3)} | ${minCombined} | ${combinedStatus} |
+            | **Vision** | ${vision.toFixed(3)} | ${minVision} | ${visionStatus} |
+            | **OCR** | ${ocr.toFixed(3)} | ${minOcr} | ${ocrStatus} |
 
-          ### Formula
-          \`Combined Score = 0.5 × Vision + 0.5 × OCR_normalized\`
+            ### Formula
+            \`Combined Score = 0.5 × Vision + 0.5 × OCR_normalized\`
 
-          ### Additional Analysis
-          | Check | Status |
-          |-------|--------|
-          | **Anomaly Detection** | ${hasAnomalies ? '⚠️ Anomalies detected' : '✅ No anomalies'} |
-          | **Security Audit** | ${securityStatus === 'pass' ? '✅ Passed' : '⚠️ Issues found'} |
+            ### Additional Analysis
+            | Check | Status |
+            |-------|--------|
+            | **Anomaly Detection** | ${hasAnomalies ? '⚠️ Anomalies detected' : '✅ No anomalies'} |
+            | **Security Audit** | ${securityStatus === 'pass' ? '✅ Passed' : '⚠️ Issues found'} |
 
-          ### Quick Actions
-          - 📋 [View Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
-          - 📈 [Download Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)
-          - 🔍 [Check Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs)
+            ### Quick Actions
+            - 📋 [View Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            - 📈 [Download Artifacts](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts)
+            - 🔍 [Check Logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/jobs)
 
-          ---
-          *Updated: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC*
-          *Commit: ${context.sha.substring(0, 7)}*`;
+            ---
+            *Updated: ${new Date().toISOString().replace('T', ' ').substring(0, 19)} UTC*
+            *Commit: ${context.sha.substring(0, 7)}*`;
 
-          // Find existing comment
-          const { data: comments } = await github.rest.issues.listComments({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: context.issue.number
-          });
-
-          const botComment = comments.find(comment =>
-            comment.user.type === 'Bot' &&
-            comment.body.includes('CAD ML Platform - Evaluation Results')
-          );
-
-          // Update or create comment
-          if (botComment) {
-            await github.rest.issues.updateComment({
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              comment_id: botComment.id,
-              body: body
+              issue_number: context.issue.number
             });
-          } else {
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: body
-            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('CAD ML Platform - Evaluation Results')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+          } catch (error) {
+            console.warn(`PR comment skipped: ${error.message}`);
           }
 
   deploy-pages:

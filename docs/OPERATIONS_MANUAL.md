@@ -173,6 +173,22 @@ graph TD
     I --> J[Post-Mortem if Critical]
 ```
 
+#### Compare Alert Response (L2 /api/compare)
+
+1. Confirm sustained traffic to avoid low-sample noise.
+   ```promql
+   sum(rate(compare_requests_total[5m]))
+   ```
+2. Identify the dominant status.
+   ```promql
+   sum by(status) (rate(compare_requests_total[5m]))
+   ```
+3. If `status="error"` dominates, validate dependency health (vector search, storage, network).
+4. If `status="not_found"` dominates, verify candidate id alignment and indexing freshness.
+5. Follow runbooks:
+   - `docs/runbooks/compare_failure_rate.md`
+   - `docs/runbooks/compare_not_found.md`
+
 ### Custom Queries
 
 #### Useful Prometheus Queries
@@ -270,6 +286,8 @@ histogram_quantile(0.99, rate(ocr_processing_duration_seconds_bucket[5m]))
 | Provider Timeout | [provider_timeout.md](runbooks/provider_timeout.md) | Increase timeout, disable provider |
 | Model Load Error | [model_load_error.md](runbooks/model_load_error.md) | Restart pod, increase memory |
 | High Error Rate | [high_error_rate.md](runbooks/high_error_rate.md) | Scale up, check dependencies |
+| Compare Failure Rate | [compare_failure_rate.md](runbooks/compare_failure_rate.md) | Check compare deps, rollback recent change |
+| Compare Not Found Dominant | [compare_not_found.md](runbooks/compare_not_found.md) | Verify candidate id alignment, re-index |
 | Memory Exhaustion | [memory_exhaustion.md](runbooks/memory_exhaustion.md) | Restart pods, increase limits |
 | Circuit Breaker Open | [circuit_breaker.md](runbooks/circuit_breaker.md) | Reset breaker, check provider |
 

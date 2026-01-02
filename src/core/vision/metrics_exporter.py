@@ -154,7 +154,17 @@ class InMemoryMetricBackend(MetricBackend):
         self._gauges: Dict[str, MetricValue] = {}
         self._histograms: Dict[str, HistogramValue] = {}
         self._histogram_buckets = histogram_buckets or [
-            0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1.0,
+            2.5,
+            5.0,
+            10.0,
         ]
 
     def _key(self, name: str, labels: Optional[Dict[str, str]]) -> str:
@@ -342,9 +352,7 @@ class MetricsConfig:
     )
 
     # Histogram buckets for image size (in KB)
-    size_buckets: List[float] = field(
-        default_factory=lambda: [10, 50, 100, 500, 1000, 5000, 10000]
-    )
+    size_buckets: List[float] = field(default_factory=lambda: [10, 50, 100, 500, 1000, 5000, 10000])
 
 
 class MetricsExporter:
@@ -489,12 +497,8 @@ class MetricsExporter:
         """Get metrics as dictionary."""
         if isinstance(self._backend, InMemoryMetricBackend):
             return {
-                "counters": {
-                    k: v.value for k, v in self._backend._counters.items()
-                },
-                "gauges": {
-                    k: v.value for k, v in self._backend._gauges.items()
-                },
+                "counters": {k: v.value for k, v in self._backend._counters.items()},
+                "gauges": {k: v.value for k, v in self._backend._gauges.items()},
                 "histograms": {
                     k: {"count": v.count, "sum": v.sum}
                     for k, v in self._backend._histograms.items()
@@ -553,9 +557,7 @@ class MetricsVisionProvider:
         start_time = time.time()
 
         try:
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
             duration = time.time() - start_time
 
             self._exporter.record_request_end(

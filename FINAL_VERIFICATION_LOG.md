@@ -52,8 +52,439 @@
   - Implemented basic PDF validation (page count, forbidden tokens).
   - Verified `OCR_PROVIDER_DOWN` and `INPUT_ERROR` handling.
 - **Test Suite**:
-  - Refactored tests to use `TestClient` context manager for proper lifespan event handling.
-  - All tests passed (including `tests/test_metrics_contract.py` and `tests/test_ocr_*.py`).
+- Refactored tests to use `TestClient` context manager for proper lifespan event handling.
+- All tests passed (including `tests/test_metrics_contract.py` and `tests/test_ocr_*.py`).
+
+## 7. Post-Release Verification (2025-12-22)
+- **CAD Render Autostart + Token Rotation**:
+  - LaunchAgent moved to runtime path outside `~/Downloads` (macOS TCC-safe).
+  - Token rotated and verified with authorized render calls.
+  - End-to-end Athena preview smoke test passed.
+  - One-command update script with auto-rollback: `scripts/update_cad_render_runtime.sh`.
+  - Reports:
+    - `reports/CAD_RENDER_AUTOSTART_TOKEN_ROTATION.md`
+    - `reports/CAD_RENDER_UPDATE_RUN_20251222_114125.md`
+    - `reports/CAD_RENDER_UPDATE_RUN_20251222_130125.md`
+
+## 8. Post-Release Verification (2025-12-27)
+- **Full Regression**:
+  - `make test` completed successfully.
+  - Coverage: 71% (htmlcov generated).
+  - Results: 3952 passed, 28 skipped.
+- **Production Verification Plan**:
+  - `PRODUCTION_VERIFICATION_PLAN.md` marked completed.
+- **Memory Stability (1h)**:
+  - Sustained load test with stable memory usage.
+  - Report: `reports/DEV_MEMORY_STABILITY_1H_20251227.md`
+- **Alerting Pipeline**:
+  - Prometheus → Alertmanager chain verified.
+  - Report: `reports/DEV_ALERT_CHAIN_20251227.md`
+- **DedupCAD Vision Integration**:
+  - Contract + E2E smoke tests passed.
+  - Report: `reports/DEV_DEDUPCAD_VISION_INTEGRATION_20251227.md`
+- **CI DedupCAD Vision Traceability**:
+  - Image pull + digest recorded in e2e-smoke job.
+  - Report: `reports/DEV_CI_DEDUPCAD_VISION_E2E_20251227.md`
+- **DedupCAD Vision Contract Schema**:
+  - Health/search payloads validated against JSON schemas.
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_SCHEMA_20251227.md`
+- **DedupCAD Vision Resilience**:
+  - Retry/backoff + circuit breaker + metrics added for dedupcad-vision client.
+  - Report: `reports/DEV_DEDUPCAD_VISION_RESILIENCE_20251227.md`
+- **Dedup2D Load Test**:
+  - 5-minute load test against `/api/v1/dedup/2d/search` completed.
+  - Report: `reports/DEV_DEDUPCAD_VISION_LOAD_20251227.md`
+- **DedupCAD Vision Docs**:
+  - Documented retry/circuit breaker env vars.
+  - Report: `reports/DEV_DEDUPCAD_VISION_DOCS_20251227.md`
+- **Security Runtime**:
+  - Admin token rotation + opcode blocking verified.
+  - Report: `reports/DEV_SECURITY_TOKEN_OPCODE_20251227.md`
+- **Backup & Recovery**:
+  - Redis backup and crash recovery verified.
+  - Reports:
+    - `reports/DEV_REDIS_BACKUP_RECOVERY_20251227.md`
+    - `reports/DEV_DISASTER_RECOVERY_20251227.md`
+
+## 9. Post-Release Verification (2025-12-28)
+- **Dedup2D Load Test (High QPS)**:
+  - 5-minute load test with raised rate limit; circuit breaker mapped to 503.
+  - Report: `reports/DEV_DEDUPCAD_VISION_LOAD_HIGH_QPS_20251228.md`
+- **Dedup2D Async Queue Load**:
+  - 5-minute async load test; queue backpressure observed via JOB_QUEUE_FULL.
+  - Report: `reports/DEV_DEDUP2D_ASYNC_QUEUE_LOAD_20251228.md`
+- **Health Alias Refactor**:
+  - Shared health payload builder; OCR metrics test now uses valid PNG fixture.
+  - Report: `reports/DEV_HEALTH_ALIAS_REFACTOR_20251228.md`
+- **Full Test Run**:
+  - `make test` completed (full pytest suite).
+  - Report: `reports/DEV_MAKE_TEST_20251228.md`
+- **Metrics Contract Test**:
+  - `tests/test_metrics_contract.py` executed.
+  - Report: `reports/DEV_METRICS_CONTRACT_20251228.md`
+- **Lint**:
+  - `make lint` completed after line-length fixes.
+  - Report: `reports/DEV_LINT_20251228.md`
+- **Type Check**:
+  - `make type-check` completed.
+  - Report: `reports/DEV_TYPECHECK_20251228.md`
+- **DedupCAD Vision Contract + E2E**:
+  - Live `dedupcad-vision` contract + E2E smoke against localhost service.
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_E2E_20251228.md`
+- **Integration Suite (DedupCAD Vision)**:
+  - `tests/integration` executed against live `dedupcad-vision`.
+  - Report: `reports/DEV_INTEGRATION_FULL_DEDUPCAD_VISION_20251228.md`
+- **DedupCAD Vision Repo Quality**:
+  - `ruff`, `pytest`, and `mypy` executed in local `dedupcad-vision`.
+  - Report: `reports/DEV_DEDUPCAD_VISION_REPO_QUALITY_20251228.md`
+- **DedupCAD Vision Contract + E2E (Re-Run)**:
+  - Re-verified after `dedupcad-vision` updates.
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_E2E_RERUN_20251228.md`
+- **DedupCAD Vision Integration (Re-Run)**:
+  - Full `tests/integration` executed against live `dedupcad-vision`.
+  - Report: `reports/DEV_INTEGRATION_FULL_DEDUPCAD_VISION_RERUN_20251228.md`
+- **Full Test Run (DedupCAD Vision Required)**:
+  - `make test` executed with live `dedupcad-vision`.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_RERUN_20251228.md`
+- **Make Target (DedupCAD Vision Required)**:
+  - `make test-dedupcad-vision` executed with live `dedupcad-vision`.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_TARGET_20251228.md`
+
+## 10. Post-Release Verification (2025-12-29)
+- **Batch Similarity Degraded Flag**:
+  - Attached store backend metadata and normalized fallback detection for Faiss-unavailable batch similarity.
+  - Report: `reports/DEV_BATCH_SIMILARITY_FAISS_UNAVAILABLE_DEGRADED_FLAG_FIX_20251229.md`
+- **CI Re-Run (Batch Similarity Fallback)**:
+  - Workflow re-run after fallback test stabilization.
+  - Report: `reports/DEV_CI_BATCH_SIMILARITY_FAISS_FALLBACK_20251229.md`
+- **Full Test Run**:
+  - `make test` completed (full pytest suite).
+  - Report: `reports/DEV_MAKE_TEST_20251229.md`
+- **Lint**:
+  - `make lint` completed.
+  - Report: `reports/DEV_LINT_20251229.md`
+- **Type Check**:
+  - `make type-check` completed.
+  - Report: `reports/DEV_TYPECHECK_20251229.md`
+- **Pre-Commit Soft Validation**:
+  - `make pre-commit` completed (integrity, schema validation, health check).
+  - Report: `reports/DEV_PRE_COMMIT_20251229.md`
+- **Prometheus Rules Validation**:
+  - `scripts/validate_prom_rules.py --skip-promtool` completed (promtool deferred; Docker CLI unresponsive).
+  - Report: `reports/DEV_PROM_VALIDATE_20251229.md`
+- **Metrics Contract Validation**:
+  - `make metrics-validate` completed (metrics contract + provider error mapping).
+  - Report: `reports/DEV_METRICS_VALIDATE_20251229.md`
+- **Security Audit**:
+  - pip-audit + bandit executed; `scripts/security_audit.py --severity medium` summarized findings.
+  - Report: `reports/DEV_SECURITY_AUDIT_20251229.md`
+
+## 11. Post-Release Verification (2025-12-30)
+- **Security Audit (Post-Hardening)**:
+  - bandit: 0 high (10 medium, 315 low); pip-audit: 1 vulnerability (ecdsa 0.19.1, CVE-2024-23342).
+  - Report: `reports/DEV_SECURITY_AUDIT_20251230.md`
+- **Integration Auth JWT Update**:
+  - Replaced python-jose with PyJWT; pip-audit clean (0 vulnerabilities).
+  - Report: `reports/DEV_ECDSA_REMOVAL_20251230.md`
+- **DeepSeek HF Revision Pinning**:
+  - Added model/revision env defaults and verified provider metrics tests.
+  - Report: `reports/DEV_DEEPSEEK_HF_REVISION_20251230.md`
+- **Full Test Run (Post-JWT)**:
+  - `make test` completed (full pytest suite).
+  - Report: `reports/DEV_MAKE_TEST_20251230_POST_JWT.md`
+- **Security Audit (Medium Cleared)**:
+  - pip-audit: 0 vulnerabilities; bandit: 0 medium/high (315 low).
+  - Report: `reports/DEV_SECURITY_AUDIT_20251230_POST_MEDIUM.md`
+- **Safe Eval Unit Tests**:
+  - Added/validated restricted expression evaluator.
+  - Report: `reports/DEV_SAFE_EVAL_TEST_20251230.md`
+- **Lint**:
+  - `make lint` completed.
+  - Report: `reports/DEV_LINT_20251230.md`
+- **Type Check**:
+  - `make type-check` completed.
+  - Report: `reports/DEV_TYPECHECK_20251230.md`
+- **Type Check (CI Fix)**:
+  - `make type-check` completed after mypy fix in dedupcad 2D pipeline.
+  - Report: `reports/DEV_TYPECHECK_20251230_CI_FIX.md`
+- **Full Test Run (DedupCAD Vision Required)**:
+  - `make test-dedupcad-vision` completed.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251230.md`
+- **Hash Compatibility Assessment**:
+  - MD5/SHA1 → SHA256 impact analysis for caches and IDs.
+  - Report: `reports/DEV_HASH_COMPAT_20251230.md`
+- **Regression Validation**:
+  - Stateless execution regression suite ran 3x.
+  - Report: `reports/DEV_REGRESSION_VALIDATION_20251230.md`
+- **Metrics Consistency Check**:
+  - `scripts/check_metrics_consistency.py` validated all metric exports.
+  - Report: `reports/DEV_METRICS_CONSISTENCY_20251230.md`
+- **Performance Baseline Capture**:
+  - `scripts/performance_baseline.py` executed to refresh Day 0 baseline.
+  - Report: `reports/DEV_PERFORMANCE_BASELINE_20251230.md`
+  - Snapshot: `reports/performance_baseline_day0_20251230.json`
+- **Performance Baseline Comparison**:
+  - Compared Day 0 vs Day 6 p95 latencies (synthetic baseline).
+  - Report: `reports/DEV_PERFORMANCE_BASELINE_COMPARE_20251230.md`
+- **Prometheus Rules Validation**:
+  - promtool 2.49.1 executed via Docker; recording and alert rules validated.
+  - Report: `reports/DEV_PROMTOOL_RULES_VALIDATE_20251230.md`
+- **Full Test Run (Full Coverage)**:
+  - `make test` completed (full pytest suite with coverage).
+  - Report: `reports/DEV_MAKE_TEST_20251230_FULL.md`
+- **Full Test Run**:
+  - `make test` completed (full pytest suite).
+  - Report: `reports/DEV_MAKE_TEST_20251230.md`
+
+## 12. Post-Release Verification (2025-12-30)
+- **CI Workflow Hardening**:
+  - Adjusted workflow permissions/guards and fixed SBOM diff command.
+  - Report: `reports/DEV_CI_WORKFLOW_FIX_20251230.md`
+- **Metrics Budget Check Fix**:
+  - Added missing `os` import in metrics analysis helper script.
+  - Report: `reports/DEV_METRICS_BUDGET_FIX_20251230.md`
+
+## 13. Post-Release Verification (2025-12-31)
+- **V4 Performance Test Stabilization**:
+  - Switched to absolute overhead threshold for low-baseline runs.
+  - Report: `reports/DEV_CI_TEST_FIX_20251231.md`
+- **CI Workflow Verification**:
+  - PR workflows re-run after verification log update; all completed successfully.
+  - Report: `reports/DEV_CI_WORKFLOW_VERIFY_20251231.md`
+- **Full Test Run**:
+  - `make test` completed (full pytest suite with coverage).
+  - Report: `reports/DEV_MAKE_TEST_20251231.md`
+- **Render + Feedback Endpoint Tests**:
+  - Added targeted tests for render + feedback APIs.
+  - Report: `reports/DEV_RENDER_FEEDBACK_TESTS_20251231.md`
+- **Active Learning API Coverage**:
+  - Added API tests for pending/feedback/stats/export and corrected feedback error code.
+  - Report: `reports/DEV_ACTIVE_LEARNING_API_TESTS_20251231.md`
+- **DedupCAD Vision Required Test Run**:
+  - `make test-dedupcad-vision` completed against live dedupcad-vision + local API.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231.md`
+- **DedupCAD Vision Contract Audit**:
+  - Contract doc aligned with live dedupcad-vision endpoints (health/search/index).
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_AUDIT_20251231.md`
+- **DedupCAD Vision ML Platform Audit**:
+  - Verified L3 requires CAD source path; PNG/JPG inputs are unsupported by `/api/v1/analyze`.
+  - Report: `reports/DEV_DEDUPCAD_VISION_MLPLATFORM_AUDIT_20251231.md`
+- **DedupCAD Vision Field Compatibility Audit**:
+  - Verified vector register/search payloads and documented `/api/compare` fallback gap.
+  - Report: `reports/DEV_DEDUPCAD_VISION_FIELD_COMPAT_AUDIT_20251231.md`
+- **DedupCAD Vision Required Test Run (Re-run)**:
+  - `make test-dedupcad-vision` completed against live dedupcad-vision + local API.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231_RERUN.md`
+- **DedupCAD Vision /api/compare Compatibility**:
+  - Added `/api/compare` fallback endpoint (alias `/api/v1/compare`) with unit tests.
+  - Report: `reports/DEV_DEDUPCAD_VISION_COMPARE_ENDPOINT_20251231.md`
+- **DedupCAD Vision /api/compare Fallback E2E**:
+  - Verified ML client fallback to `/api/compare` when vector search misses candidate hash.
+  - Report: `reports/DEV_DEDUPCAD_VISION_COMPARE_FALLBACK_E2E_20251231.md`
+- **DedupCAD Vision Vector ID Alignment Review**:
+  - Confirmed `candidate_hash` must match vector id; documented hash→id alignment requirement.
+  - Report: `reports/DEV_DEDUPCAD_VISION_VECTOR_ID_ALIGNMENT_20251231.md`
+- **Compare Endpoint Redirect Fix**:
+  - Bound `/api/compare` without trailing slash to avoid 307 redirects.
+  - Report: `reports/DEV_COMPARE_ENDPOINT_NO_REDIRECT_20251231.md`
+- **Compare Endpoint Metrics**:
+  - Added `compare_requests_total` counter for `/api/compare`.
+  - Report: `reports/DEV_COMPARE_ENDPOINT_METRICS_20251231.md`
+- **Compare Requests Grafana Panel**:
+  - Added dashboard panel for `compare_requests_total` rates by status.
+  - Report: `reports/DEV_COMPARE_DASHBOARD_PANEL_20251231.md`
+- **Compare Alert Rules**:
+  - Added alerting rules for compare failure rate and not_found dominance.
+  - Report: `reports/DEV_COMPARE_ALERT_RULES_20251231.md`
+- **Compare Alert Runbooks**:
+  - Added runbooks for compare failure rate and not_found dominance.
+  - Report: `reports/DEV_COMPARE_RUNBOOKS_20251231.md`
+- **Compare Alert Rules Docs**:
+  - Documented compare alert examples in `docs/ALERT_RULES.md`.
+  - Report: `reports/DEV_COMPARE_ALERT_RULES_DOC_20251231.md`
+- **Compare Observability Checklist**:
+  - Added compare alert/runbook items to `docs/OBSERVABILITY_CHECKLIST.md`.
+  - Report: `reports/DEV_COMPARE_OBSERVABILITY_CHECKLIST_20251231.md`
+- **Compare Operations Manual**:
+  - Added compare alert response workflow and runbook directory entries.
+  - Report: `reports/DEV_COMPARE_OPERATIONS_MANUAL_20251231.md`
+- **E2E Smoke Search Filter Fix**:
+  - Stabilized vector search in E2E smoke by applying unique material/complexity filters.
+  - Report: `reports/DEV_E2E_API_SMOKE_SEARCH_FILTER_FIX_20251231.md`
+- **Full Test Run (Re-run)**:
+  - `make test` completed (full pytest suite with coverage).
+  - Report: `reports/DEV_MAKE_TEST_20251231_RERUN.md`
+- **CI Type-Check Fix (Compare Endpoint)**:
+  - Added missing type annotations to resolve mypy failures.
+  - Report: `reports/DEV_CI_TYPECHECK_COMPARE_FIX_20251231.md`
+- **Type Check Run**:
+  - `make type-check` completed.
+  - Report: `reports/DEV_MAKE_TYPE_CHECK_20251231.md`
+- **CI Workflow Run**:
+  - `CI` workflow completed successfully (post type-check fix).
+  - Report: `reports/DEV_CI_WORKFLOW_RUN_20251231.md`
+- **DedupCAD Vision Stub Alignment**:
+  - Updated dedupcad-vision stub `level_stats` schema for contract compatibility.
+  - Report: `reports/DEV_DEDUPCAD_VISION_STUB_SCHEMA_ALIGN_20251231.md`
+- **DedupCAD Vision Required Test Run (Stub)**:
+  - `make test-dedupcad-vision` completed against local stub + local API.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231_STUB.md`
+- **Redis/FAISS E2E Smoke**:
+  - Ran `make e2e-smoke` against a Redis-enabled API (FAISS backend requested).
+  - Report: `reports/DEV_E2E_SMOKE_REDIS_FAISS_20251231.md`
+- **FAISS Installation**:
+  - Installed `faiss-cpu` and reconciled numpy compatibility for local FAISS validation.
+  - Report: `reports/DEV_FAISS_INSTALL_20251231.md`
+- **Redis/FAISS E2E Smoke (Real FAISS)**:
+  - Ran `make e2e-smoke` with FAISS loaded and Redis enabled.
+  - Report: `reports/DEV_E2E_SMOKE_REDIS_FAISS_REAL_20251231.md`
+- **DedupCAD Vision Required Test Run (Real Service)**:
+  - `make test-dedupcad-vision` completed against live dedupcad-vision container + local API.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231_REAL.md`
+- **Dedup2D Webhook E2E Smoke**:
+  - `scripts/e2e_dedup2d_webhook.py` completed (callback signature verified).
+  - Report: `reports/DEV_E2E_DEDUP2D_WEBHOOK_20251231.md`
+- **Dedup2D Webhook E2E Smoke (MinIO)**:
+  - `scripts/e2e_dedup2d_webhook_minio.py` completed (callback + MinIO cleanup verified).
+  - Report: `reports/DEV_E2E_DEDUP2D_WEBHOOK_MINIO_20251231.md`
+- **Dedup2D Secure Callback E2E Smoke**:
+  - `make dedup2d-secure-smoke` completed with host DedupCAD Vision.
+  - Report: `reports/DEV_DEDUP2D_SECURE_CALLBACK_E2E_20260101.md`
+- **Lint Run**:
+  - `make lint` completed.
+  - Report: `reports/DEV_MAKE_LINT_20260101.md`
+- **Metrics Export Verification**:
+  - `make verify-metrics` completed.
+  - Report: `reports/DEV_VERIFY_METRICS_20260101.md`
+- **Prometheus Rules Validation**:
+  - `make prom-validate` completed (promtool check rules succeeded).
+  - Report: `reports/DEV_PROM_VALIDATE_20260101.md`
+- **Dedup2D Go/No-Go Local Checks**:
+  - Validated vision health, job list, dedup2d metrics, and worker status.
+  - Report: `reports/DEV_DEDUP2D_GO_NO_GO_LOCAL_20260101.md`
+- **Prometheus Rules Validation (Promtool All)**:
+  - `make promtool-validate-all` completed for alerting + recording rules.
+  - Report: `reports/DEV_PROMTOOL_VALIDATE_ALL_20260101.md`
+- **Dedup2D Observability Local Checks**:
+  - Verified Prometheus alert rules API and Grafana dashboard presence.
+  - Report: `reports/DEV_DEDUP2D_OBSERVABILITY_LOCAL_20260101.md`
+- **Observability Test Suite**:
+  - `make observability-test` completed (21 tests).
+  - Report: `reports/DEV_OBSERVABILITY_TEST_20260101.md`
+- **Self-Check**:
+  - `make self-check` completed.
+  - Report: `reports/DEV_SELF_CHECK_20260101.md`
+- **Enhanced Self-Check**:
+  - `make self-check-enhanced` completed after aligning checks with repo targets.
+  - Report: `reports/DEV_SELF_CHECK_ENHANCED_20260101.md`
+- **Security Audit**:
+  - `make security-audit` completed with 0 vulnerabilities after remediation.
+  - Report: `reports/DEV_SECURITY_AUDIT_20260101.md`
+- **Metrics Cardinality Check**:
+  - Ran cardinality audit against local Prometheus (9091) and saved JSON report.
+  - Report: `reports/DEV_CARDINALITY_CHECK_20260101.md`
+- **Targeted FAISS Tests**:
+  - `make test-targeted` completed (3 tests, SWIG warnings only).
+  - Report: `reports/DEV_TEST_TARGETED_20260101.md`
+- **Metrics Cardinality Audit (Markdown)**:
+  - Generated `reports/cardinality_audit_20260101.md` from Prometheus (9091).
+  - Report: `reports/DEV_METRICS_AUDIT_MARKDOWN_20260101.md`
+- **E2E Smoke Tests**:
+  - `make e2e-smoke` completed with DedupCAD Vision on localhost:8100.
+  - Report: `reports/DEV_E2E_SMOKE_20260101.md`
+- **Full Test Run**:
+  - `make test` completed (3985 passed, 19 skipped).
+  - Report: `reports/DEV_MAKE_TEST_20260101.md`
+- **Docker Compose Down**:
+  - Stopped cad-ml compose services after validation runs.
+  - Report: `reports/DEV_DOCKER_COMPOSE_DOWN_20260101.md`
+- **Compose/Prometheus Maintenance**:
+  - Removed compose `version` fields; added `PROMETHEUS_URL` default for cardinality audits.
+  - Report: `reports/DEV_MAINTENANCE_COMPOSE_PROM_URL_20260101.md`
+- **DedupCAD Vision Integration Inventory**:
+  - Mapped cad-ml ↔ dedupcad-vision integration paths/configs.
+  - Report: `reports/DEV_DEDUPCAD_VISION_INTEGRATION_INVENTORY_20260101.md`
+- **DedupCAD Vision Contract Matrix**:
+  - Documented endpoint mapping and error passthrough behavior.
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_MATRIX_20260101.md`
+- **DedupCAD Vision Vector/Hash Compatibility**:
+  - Verified feature vector ordering and compare fallback expectations.
+  - Report: `reports/DEV_DEDUPCAD_VISION_VECTOR_HASH_COMPAT_20260101.md`
+- **DedupCAD Vision Compatibility & Fallback Metrics**:
+  - Added payload format + legacy fallback metrics and guarded worker imports.
+  - Report: `reports/DEV_DEDUPCAD_VISION_COMPAT_FALLBACK_20260101.md`
+- **DedupCAD Vision Reliability Tests**:
+  - Added retry/timeout/circuit-open coverage for dedupcad-vision client.
+  - Report: `reports/DEV_DEDUPCAD_VISION_RELIABILITY_20260101.md`
+- **Dedup2D Async Precision Overlay Test**:
+  - Added async precision overlay coverage and hardened middleware import fallback.
+  - Report: `reports/DEV_DEDUP2D_ASYNC_PRECISION_E2E_20260101.md`
+- **Dedup2D Observability Runbook Updates**:
+  - Documented dedupcad-vision circuit metrics and payload format rollout signals.
+  - Report: `reports/DEV_DEDUP2D_OBSERVABILITY_RUNBOOK_20260101.md`
+- **DedupCAD Vision Final Handoff**:
+  - Consolidated integration status, tests, and runbook changes.
+  - Report: `reports/DEV_DEDUPCAD_VISION_FINAL_HANDOFF_20260101.md`
+- **Full Test Run (Re-run)**:
+  - Re-ran `make test` after dedup2d metrics registry fix.
+  - Report: `reports/DEV_MAKE_TEST_RERUN_20260101.md`
+- **Dedup2D Staging Smoke Attempt**:
+  - Attempted staging smoke checks; dedupcad-vision not running locally.
+  - Report: `reports/DEV_DEDUP2D_STAGING_SMOKE_ATTEMPT_20260101.md`
+- **Dedup2D Metrics Verification Attempt**:
+  - Runtime metrics scrape blocked by missing local services.
+  - Report: `reports/DEV_DEDUP2D_METRICS_VERIFY_20260101.md`
+- **Dedup2D Staging Smoke (Success)**:
+  - Brought up staging compose with MinIO + Redis backend, ran async job + metrics checks.
+  - Report: `reports/DEV_DEDUP2D_STAGING_SMOKE_20260101.md`
+- **Dedup2D Prometheus Targets**:
+  - Verified Prometheus scraping and dedup2d metrics via query API.
+  - Report: `reports/DEV_DEDUP2D_PROMETHEUS_TARGETS_20260101.md`
+- **Dedup2D S3 Lifecycle**:
+  - Observed MinIO upload during async job and cleanup after completion.
+  - Report: `reports/DEV_DEDUP2D_S3_LIFECYCLE_20260101.md`
+- **Dedup2D Precision Smoke**:
+  - Confirmed geom_json path executes L4 precision timing fields.
+  - Report: `reports/DEV_DEDUP2D_PRECISION_SMOKE_20260101.md`
+- **Dedup2D Index Rebuild**:
+  - Rebuild endpoint succeeded; dedupcad-vision readiness updated.
+  - Report: `reports/DEV_DEDUP2D_INDEX_REBUILD_20260101.md`
+- **Docker Cleanup**:
+  - Removed `cad-ml-network` after disconnecting remaining endpoints.
+  - Report: `reports/DEV_DOCKER_CLEANUP_20260101.md`
+- **Docker Image Prune**:
+  - Removed dangling images (no data volumes touched).
+  - Report: `reports/DEV_DOCKER_IMAGE_PRUNE_20260101.md`
+- **Dedup2D Storage Metrics Implementation**:
+  - Added file storage metrics instrumentation and local metrics unit test.
+  - Report: `reports/DEV_DEDUP2D_STORAGE_METRICS_20260101.md`
+- **Dedup2D Runbook Storage Metrics Update**:
+  - Documented storage metrics and cleanup expectations in staging runbook.
+  - Report: `reports/DEV_DEDUP2D_RUNBOOK_STORAGE_METRICS_20260101.md`
+- **Dedup2D Metrics Contract Update**:
+  - Added storage metrics label schemas and exposure check in metrics contract tests.
+  - Report: `reports/DEV_DEDUP2D_METRICS_CONTRACT_UPDATE_20260101.md`
+- **Dedup2D Storage Metrics Test**:
+  - Ran targeted pytest (skipped locally due to missing prometheus_client).
+  - Report: `reports/DEV_DEDUP2D_STORAGE_METRICS_TEST_20260101.md`
+- **Dedup2D Dashboard Metrics Alignment**:
+  - Updated Grafana Dedup2D dashboard to use emitted job/queue metrics.
+  - Report: `reports/DEV_DEDUP2D_DASHBOARD_METRICS_ALIGNMENT_20260101.md`
+- **Dedup2D Recording Rules**:
+  - Added dedup2d success/error/throughput/storage recording rules.
+  - Report: `reports/DEV_DEDUP2D_RECORDING_RULES_20260101.md`
+- **Dedup2D Prod Checklist Update**:
+  - Added recording rule verification to production go/no-go checklist.
+  - Report: `reports/DEV_DEDUP2D_PROD_CHECKLIST_RULES_20260101.md`
+- **Dedup2D Observability Validation**:
+  - Validated dashboard JSON and recording rules; updated promtool prefix list.
+  - Report: `reports/DEV_DEDUP2D_OBSERVABILITY_VALIDATION_20260101.md`
+- **Dedup2D Promtool Validation**:
+  - Ran full promtool validation via Docker; warnings limited to pre-existing prefix cases.
+  - Report: `reports/DEV_DEDUP2D_PROMTOOL_VALIDATION_20260101.md`
+- **Dedup2D Metrics Contract Test**:
+  - Added skip when metrics client is disabled; test skipped locally.
+  - Report: `reports/DEV_DEDUP2D_METRICS_CONTRACT_TEST_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

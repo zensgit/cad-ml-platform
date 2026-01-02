@@ -25,7 +25,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union,
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -203,14 +202,16 @@ class DocConfig:
     logo_url: str = ""
     theme: str = "default"
     custom_css: str = ""
-    sections: List[DocSection] = field(default_factory=lambda: [
-        DocSection.OVERVIEW,
-        DocSection.INSTALLATION,
-        DocSection.QUICKSTART,
-        DocSection.API_REFERENCE,
-        DocSection.EXAMPLES,
-        DocSection.CHANGELOG
-    ])
+    sections: List[DocSection] = field(
+        default_factory=lambda: [
+            DocSection.OVERVIEW,
+            DocSection.INSTALLATION,
+            DocSection.QUICKSTART,
+            DocSection.API_REFERENCE,
+            DocSection.EXAMPLES,
+            DocSection.CHANGELOG,
+        ]
+    )
 
 
 @dataclass
@@ -226,7 +227,8 @@ class GeneratedDoc:
     def __post_init__(self):
         if not self.checksum:
             import hashlib
-            self.checksum = hashlib.md5(self.content.encode()).hexdigest()
+
+            self.checksum = hashlib.sha256(self.content.encode()).hexdigest()
 
 
 @dataclass
@@ -261,7 +263,7 @@ class DocstringParser:
             "params": [],
             "returns": None,
             "raises": [],
-            "examples": []
+            "examples": [],
         }
 
         # Get summary (first line)
@@ -294,7 +296,10 @@ class DocstringParser:
                 self._save_param(current_param, result)
                 current_param = None
                 if current_section == "returns" and current_content:
-                    result["returns"] = {"type": "", "description": "\n".join(current_content).strip()}
+                    result["returns"] = {
+                        "type": "",
+                        "description": "\n".join(current_content).strip(),
+                    }
                 current_section = "raises"
                 current_content = []
                 continue
@@ -309,22 +314,21 @@ class DocstringParser:
             # Process content based on section
             if current_section == "params":
                 # Check for new param (name: description format)
-                param_match = re.match(r'(\w+)\s*(?:\([^)]+\))?\s*:\s*(.*)', stripped)
+                param_match = re.match(r"(\w+)\s*(?:\([^)]+\))?\s*:\s*(.*)", stripped)
                 if param_match and not stripped.startswith(" "):
                     self._save_param(current_param, result)
                     current_param = {
                         "name": param_match.group(1),
-                        "description": param_match.group(2)
+                        "description": param_match.group(2),
                     }
                 elif current_param and stripped:
                     current_param["description"] += " " + stripped
             elif current_section == "raises":
-                exc_match = re.match(r'(\w+)\s*:\s*(.*)', stripped)
+                exc_match = re.match(r"(\w+)\s*:\s*(.*)", stripped)
                 if exc_match:
-                    result["raises"].append({
-                        "type": exc_match.group(1),
-                        "description": exc_match.group(2)
-                    })
+                    result["raises"].append(
+                        {"type": exc_match.group(1), "description": exc_match.group(2)}
+                    )
             else:
                 if stripped or current_content:
                     current_content.append(stripped)
@@ -341,11 +345,7 @@ class DocstringParser:
 
         return result
 
-    def _save_param(
-        self,
-        param: Optional[Dict[str, Any]],
-        result: Dict[str, Any]
-    ) -> None:
+    def _save_param(self, param: Optional[Dict[str, Any]], result: Dict[str, Any]) -> None:
         """Save parameter to result."""
         if param:
             result["params"].append(param)
@@ -363,7 +363,7 @@ class CodeExtractor:
         doc = ModuleDoc(
             name=module.__name__,
             summary=self._get_summary(module.__doc__),
-            description=self._get_description(module.__doc__)
+            description=self._get_description(module.__doc__),
         )
 
         # Extract classes
@@ -388,7 +388,7 @@ class CodeExtractor:
             name=cls.__name__,
             summary=parsed["summary"],
             description=parsed["description"],
-            parent_classes=[base.__name__ for base in cls.__bases__ if base != object]
+            parent_classes=[base.__name__ for base in cls.__bases__ if base != object],
         )
 
         # Extract methods
@@ -410,9 +410,7 @@ class CodeExtractor:
         parsed = self._parser.parse(method.__doc__)
 
         doc = MethodDoc(
-            name=method.__name__,
-            summary=parsed["summary"],
-            description=parsed["description"]
+            name=method.__name__, summary=parsed["summary"], description=parsed["description"]
         )
 
         # Extract parameters
@@ -421,17 +419,14 @@ class CodeExtractor:
             if param_name in ("self", "cls"):
                 continue
 
-            param_info = next(
-                (p for p in parsed["params"] if p["name"] == param_name),
-                {}
-            )
+            param_info = next((p for p in parsed["params"] if p["name"] == param_name), {})
 
             param_doc = ParameterDoc(
                 name=param_name,
                 param_type=self._get_param_type(param),
                 description=param_info.get("description", ""),
                 required=param.default == inspect.Parameter.empty,
-                default=None if param.default == inspect.Parameter.empty else param.default
+                default=None if param.default == inspect.Parameter.empty else param.default,
             )
             doc.parameters.append(param_doc)
 
@@ -439,15 +434,14 @@ class CodeExtractor:
         if parsed["returns"]:
             doc.returns = ReturnDoc(
                 return_type=parsed["returns"].get("type", "Any"),
-                description=parsed["returns"].get("description", "")
+                description=parsed["returns"].get("description", ""),
             )
 
         # Extract exceptions
         for exc in parsed["raises"]:
-            doc.exceptions.append(ExceptionDoc(
-                exception_type=exc["type"],
-                description=exc["description"]
-            ))
+            doc.exceptions.append(
+                ExceptionDoc(exception_type=exc["type"], description=exc["description"])
+            )
 
         return doc
 
@@ -455,9 +449,7 @@ class CodeExtractor:
         """Extract documentation from a property."""
         doc_str = prop.fget.__doc__ if prop.fget else ""
         return ParameterDoc(
-            name=name,
-            param_type=ParameterType.ANY,
-            description=self._get_summary(doc_str)
+            name=name, param_type=ParameterType.ANY, description=self._get_summary(doc_str)
         )
 
     def _get_summary(self, docstring: Optional[str]) -> str:
@@ -504,11 +496,7 @@ class DocumentGenerator(ABC):
     """Abstract base class for document generators."""
 
     @abstractmethod
-    def generate(
-        self,
-        doc: Union[ModuleDoc, ClassDoc, MethodDoc],
-        config: DocConfig
-    ) -> str:
+    def generate(self, doc: Union[ModuleDoc, ClassDoc, MethodDoc], config: DocConfig) -> str:
         """Generate documentation output."""
         pass
 
@@ -516,11 +504,7 @@ class DocumentGenerator(ABC):
 class MarkdownGenerator(DocumentGenerator):
     """Markdown documentation generator."""
 
-    def generate(
-        self,
-        doc: Union[ModuleDoc, ClassDoc, MethodDoc],
-        config: DocConfig
-    ) -> str:
+    def generate(self, doc: Union[ModuleDoc, ClassDoc, MethodDoc], config: DocConfig) -> str:
         """Generate Markdown documentation."""
         if isinstance(doc, ModuleDoc):
             return self._generate_module(doc, config)
@@ -617,12 +601,7 @@ class MarkdownGenerator(DocumentGenerator):
 
         return "\n".join(lines)
 
-    def _generate_method(
-        self,
-        doc: MethodDoc,
-        config: DocConfig,
-        heading_level: int = 3
-    ) -> str:
+    def _generate_method(self, doc: MethodDoc, config: DocConfig, heading_level: int = 3) -> str:
         """Generate method documentation."""
         heading = "#" * heading_level
         lines = [
@@ -633,10 +612,9 @@ class MarkdownGenerator(DocumentGenerator):
         ]
 
         if doc.deprecated:
-            lines.extend([
-                f"> **Deprecated:** {doc.deprecation_message or 'This method is deprecated.'}",
-                ""
-            ])
+            lines.extend(
+                [f"> **Deprecated:** {doc.deprecation_message or 'This method is deprecated.'}", ""]
+            )
 
         if doc.description:
             lines.extend([doc.description, ""])
@@ -648,12 +626,7 @@ class MarkdownGenerator(DocumentGenerator):
             for p in doc.parameters
         )
         return_str = f" -> {doc.returns.return_type}" if doc.returns else ""
-        lines.extend([
-            "```python",
-            f"def {doc.name}({params_str}){return_str}",
-            "```",
-            ""
-        ])
+        lines.extend(["```python", f"def {doc.name}({params_str}){return_str}", "```", ""])
 
         # Parameters
         if doc.parameters:
@@ -661,17 +634,21 @@ class MarkdownGenerator(DocumentGenerator):
             for param in doc.parameters:
                 req = " *(required)*" if param.required else ""
                 default = f" (default: `{param.default!r}`)" if param.default is not None else ""
-                lines.append(f"- `{param.name}` ({param.param_type.value}){req}: {param.description}{default}")
+                lines.append(
+                    f"- `{param.name}` ({param.param_type.value}){req}: {param.description}{default}"
+                )
             lines.append("")
 
         # Returns
         if doc.returns:
-            lines.extend([
-                "**Returns:**",
-                "",
-                f"- `{doc.returns.return_type}`: {doc.returns.description}",
-                ""
-            ])
+            lines.extend(
+                [
+                    "**Returns:**",
+                    "",
+                    f"- `{doc.returns.return_type}`: {doc.returns.description}",
+                    "",
+                ]
+            )
 
         # Exceptions
         if doc.exceptions:
@@ -690,7 +667,12 @@ class MarkdownGenerator(DocumentGenerator):
 
     def generate_changelog(self, changelog: ChangeLog, config: DocConfig) -> str:
         """Generate changelog documentation."""
-        lines = ["# Changelog", "", "All notable changes to this project will be documented in this file.", ""]
+        lines = [
+            "# Changelog",
+            "",
+            "All notable changes to this project will be documented in this file.",
+            "",
+        ]
 
         # Unreleased
         if changelog.unreleased:
@@ -736,11 +718,7 @@ class MarkdownGenerator(DocumentGenerator):
 class HTMLGenerator(DocumentGenerator):
     """HTML documentation generator."""
 
-    def generate(
-        self,
-        doc: Union[ModuleDoc, ClassDoc, MethodDoc],
-        config: DocConfig
-    ) -> str:
+    def generate(self, doc: Union[ModuleDoc, ClassDoc, MethodDoc], config: DocConfig) -> str:
         """Generate HTML documentation."""
         # Generate markdown first, then convert to HTML
         md_gen = MarkdownGenerator()
@@ -753,56 +731,56 @@ class HTMLGenerator(DocumentGenerator):
 
         # Convert headers
         for i in range(6, 0, -1):
-            pattern = r'^' + '#' * i + r'\s+(.+)$'
-            html = re.sub(pattern, f'<h{i}>\\1</h{i}>', html, flags=re.MULTILINE)
+            pattern = r"^" + "#" * i + r"\s+(.+)$"
+            html = re.sub(pattern, f"<h{i}>\\1</h{i}>", html, flags=re.MULTILINE)
 
         # Convert code blocks
         html = re.sub(
-            r'```(\w+)?\n(.*?)\n```',
+            r"```(\w+)?\n(.*?)\n```",
             r'<pre><code class="\1">\2</code></pre>',
             html,
-            flags=re.DOTALL
+            flags=re.DOTALL,
         )
 
         # Convert inline code
-        html = re.sub(r'`([^`]+)`', r'<code>\1</code>', html)
+        html = re.sub(r"`([^`]+)`", r"<code>\1</code>", html)
 
         # Convert bold
-        html = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', html)
+        html = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", html)
 
         # Convert italic
-        html = re.sub(r'\*(.+?)\*', r'<em>\1</em>', html)
+        html = re.sub(r"\*(.+?)\*", r"<em>\1</em>", html)
 
         # Convert links
-        html = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', html)
+        html = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', html)
 
         # Convert lists
-        lines = html.split('\n')
+        lines = html.split("\n")
         in_list = False
         result_lines = []
 
         for line in lines:
-            if line.strip().startswith('- '):
+            if line.strip().startswith("- "):
                 if not in_list:
-                    result_lines.append('<ul>')
+                    result_lines.append("<ul>")
                     in_list = True
-                result_lines.append(f'<li>{line.strip()[2:]}</li>')
+                result_lines.append(f"<li>{line.strip()[2:]}</li>")
             else:
                 if in_list:
-                    result_lines.append('</ul>')
+                    result_lines.append("</ul>")
                     in_list = False
                 result_lines.append(line)
 
         if in_list:
-            result_lines.append('</ul>')
+            result_lines.append("</ul>")
 
-        html = '\n'.join(result_lines)
+        html = "\n".join(result_lines)
 
         # Convert paragraphs
-        html = re.sub(r'\n\n+', '</p>\n<p>', html)
+        html = re.sub(r"\n\n+", "</p>\n<p>", html)
 
         # Wrap in template
-        template = f'''<!DOCTYPE html>
+        template = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -823,7 +801,7 @@ class HTMLGenerator(DocumentGenerator):
 <body>
 <p>{html}</p>
 </body>
-</html>'''
+</html>"""
 
         return template
 
@@ -847,11 +825,7 @@ class DocumentationGenerator:
         self._changelog = ChangeLog()
         self._generation_history: List[DocGenerationResult] = []
 
-    def register_generator(
-        self,
-        format: DocFormat,
-        generator: DocumentGenerator
-    ) -> None:
+    def register_generator(self, format: DocFormat, generator: DocumentGenerator) -> None:
         """Register a document generator."""
         with self._lock:
             self._generators[format] = generator
@@ -861,16 +835,13 @@ class DocumentationGenerator:
         return self._extractor.extract_module(module)
 
     def generate(
-        self,
-        doc: Union[ModuleDoc, ClassDoc, MethodDoc],
-        config: DocConfig
+        self, doc: Union[ModuleDoc, ClassDoc, MethodDoc], config: DocConfig
     ) -> DocGenerationResult:
         """Generate documentation."""
         generator = self._generators.get(config.format)
         if not generator:
             return DocGenerationResult(
-                success=False,
-                errors=[f"No generator for format: {config.format}"]
+                success=False, errors=[f"No generator for format: {config.format}"]
             )
 
         try:
@@ -881,49 +852,44 @@ class DocumentationGenerator:
             # Generate main documentation
             content = generator.generate(doc, config)
 
-            ext = {
-                DocFormat.MARKDOWN: ".md",
-                DocFormat.HTML: ".html",
-                DocFormat.RST: ".rst"
-            }.get(config.format, ".txt")
+            ext = {DocFormat.MARKDOWN: ".md", DocFormat.HTML: ".html", DocFormat.RST: ".rst"}.get(
+                config.format, ".txt"
+            )
 
-            docs.append(GeneratedDoc(
-                path=f"{config.output_dir}/{doc.name}{ext}",
-                content=content,
-                format=config.format,
-                section=DocSection.API_REFERENCE
-            ))
+            docs.append(
+                GeneratedDoc(
+                    path=f"{config.output_dir}/{doc.name}{ext}",
+                    content=content,
+                    format=config.format,
+                    section=DocSection.API_REFERENCE,
+                )
+            )
 
             # Generate changelog if enabled
             if config.include_changelog and self._changelog.entries:
                 if isinstance(generator, MarkdownGenerator):
                     changelog_content = generator.generate_changelog(self._changelog, config)
-                    docs.append(GeneratedDoc(
-                        path=f"{config.output_dir}/CHANGELOG{ext}",
-                        content=changelog_content,
-                        format=config.format,
-                        section=DocSection.CHANGELOG
-                    ))
+                    docs.append(
+                        GeneratedDoc(
+                            path=f"{config.output_dir}/CHANGELOG{ext}",
+                            content=changelog_content,
+                            format=config.format,
+                            section=DocSection.CHANGELOG,
+                        )
+                    )
 
             stats = {
                 "total_files": len(docs),
                 "total_size": sum(len(d.content) for d in docs),
-                "format": config.format.value
+                "format": config.format.value,
             }
 
             result = DocGenerationResult(
-                success=True,
-                docs=docs,
-                errors=errors,
-                warnings=warnings,
-                stats=stats
+                success=True, docs=docs, errors=errors, warnings=warnings, stats=stats
             )
 
         except Exception as e:
-            result = DocGenerationResult(
-                success=False,
-                errors=[str(e)]
-            )
+            result = DocGenerationResult(success=False, errors=[str(e)])
 
         with self._lock:
             self._generation_history.append(result)
@@ -937,7 +903,7 @@ class DocumentationGenerator:
         description: str,
         date: Optional[str] = None,
         breaking: bool = False,
-        issue_refs: Optional[List[str]] = None
+        issue_refs: Optional[List[str]] = None,
     ) -> None:
         """Add a changelog entry."""
         entry = ChangeLogEntry(
@@ -946,7 +912,7 @@ class DocumentationGenerator:
             change_type=change_type,
             description=description,
             breaking=breaking,
-            issue_refs=issue_refs or []
+            issue_refs=issue_refs or [],
         )
 
         with self._lock:
@@ -965,11 +931,7 @@ class DocumentationGenerator:
         with self._lock:
             return list(self._generation_history)
 
-    def generate_api_reference(
-        self,
-        modules: List[Any],
-        config: DocConfig
-    ) -> DocGenerationResult:
+    def generate_api_reference(self, modules: List[Any], config: DocConfig) -> DocGenerationResult:
         """Generate API reference for multiple modules."""
         all_docs: List[GeneratedDoc] = []
         errors: List[str] = []
@@ -991,21 +953,21 @@ class DocumentationGenerator:
         index_content = self._generate_index(modules, config)
         ext = {DocFormat.MARKDOWN: ".md", DocFormat.HTML: ".html"}.get(config.format, ".txt")
 
-        all_docs.insert(0, GeneratedDoc(
-            path=f"{config.output_dir}/index{ext}",
-            content=index_content,
-            format=config.format,
-            section=DocSection.OVERVIEW
-        ))
+        all_docs.insert(
+            0,
+            GeneratedDoc(
+                path=f"{config.output_dir}/index{ext}",
+                content=index_content,
+                format=config.format,
+                section=DocSection.OVERVIEW,
+            ),
+        )
 
         return DocGenerationResult(
             success=len(errors) == 0,
             docs=all_docs,
             errors=errors,
-            stats={
-                "modules_processed": len(modules),
-                "total_files": len(all_docs)
-            }
+            stats={"modules_processed": len(modules), "total_files": len(all_docs)},
         )
 
     def _generate_index(self, modules: List[Any], config: DocConfig) -> str:
@@ -1018,7 +980,7 @@ class DocumentationGenerator:
             f"**Version:** {config.version}",
             "",
             "## Modules",
-            ""
+            "",
         ]
 
         for module in modules:
@@ -1038,9 +1000,7 @@ class DocumentedVisionProvider(VisionProvider):
     """Vision provider with documentation capabilities."""
 
     def __init__(
-        self,
-        base_provider: VisionProvider,
-        doc_generator: Optional[DocumentationGenerator] = None
+        self, base_provider: VisionProvider, doc_generator: Optional[DocumentationGenerator] = None
     ):
         """Initialize documented vision provider."""
         self._base_provider = base_provider
@@ -1052,38 +1012,23 @@ class DocumentedVisionProvider(VisionProvider):
         return f"documented_{self._base_provider.provider_name}"
 
     async def analyze_image(
-        self,
-        image_data: bytes,
-        include_description: bool = True,
-        **kwargs: Any
+        self, image_data: bytes, include_description: bool = True, **kwargs: Any
     ) -> VisionDescription:
         """Analyze image with documentation support."""
         return await self._base_provider.analyze_image(
-            image_data,
-            include_description=include_description,
-            **kwargs
+            image_data, include_description=include_description, **kwargs
         )
 
-    def generate_documentation(
-        self,
-        module: Any,
-        config: DocConfig
-    ) -> DocGenerationResult:
+    def generate_documentation(self, module: Any, config: DocConfig) -> DocGenerationResult:
         """Generate documentation for a module."""
         module_doc = self._doc_generator.extract_documentation(module)
         return self._doc_generator.generate(module_doc, config)
 
     def add_changelog_entry(
-        self,
-        version: str,
-        change_type: ChangeType,
-        description: str,
-        **kwargs: Any
+        self, version: str, change_type: ChangeType, description: str, **kwargs: Any
     ) -> None:
         """Add changelog entry."""
-        self._doc_generator.add_changelog_entry(
-            version, change_type, description, **kwargs
-        )
+        self._doc_generator.add_changelog_entry(version, change_type, description, **kwargs)
 
 
 # ========================
@@ -1117,8 +1062,7 @@ def create_docstring_parser() -> DocstringParser:
 
 
 def create_documented_provider(
-    base_provider: VisionProvider,
-    doc_generator: Optional[DocumentationGenerator] = None
+    base_provider: VisionProvider, doc_generator: Optional[DocumentationGenerator] = None
 ) -> DocumentedVisionProvider:
     """Create a documented vision provider."""
     return DocumentedVisionProvider(base_provider, doc_generator)

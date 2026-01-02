@@ -17,7 +17,6 @@ from typing import Any, Callable, Dict, List, Optional, Pattern, Set, Tuple
 
 from .base import VisionDescription, VisionProvider
 
-
 # ============================================================================
 # Enums and Types
 # ============================================================================
@@ -209,9 +208,27 @@ class HeuristicPIIDetector(PIIDetector):
         # Common name prefixes and patterns
         self._name_prefixes = {"mr", "mrs", "ms", "dr", "prof", "sir", "lady"}
         self._address_keywords = {
-            "street", "st", "avenue", "ave", "road", "rd", "boulevard",
-            "blvd", "drive", "dr", "lane", "ln", "way", "court", "ct",
-            "apartment", "apt", "suite", "ste", "floor", "fl",
+            "street",
+            "st",
+            "avenue",
+            "ave",
+            "road",
+            "rd",
+            "boulevard",
+            "blvd",
+            "drive",
+            "dr",
+            "lane",
+            "ln",
+            "way",
+            "court",
+            "ct",
+            "apartment",
+            "apt",
+            "suite",
+            "ste",
+            "floor",
+            "fl",
         }
 
     def detect(self, text: str) -> List[PIIMatch]:
@@ -312,7 +329,7 @@ class PartialMasker(DataMasker):
 
         # Default: mask all but last N characters
         masked_len = len(value) - self._show_chars
-        return self._mask_char * masked_len + value[-self._show_chars:]
+        return self._mask_char * masked_len + value[-self._show_chars :]
 
 
 class HashMasker(DataMasker):
@@ -379,9 +396,7 @@ class PseudonymizeMasker(DataMasker):
                     self._counters[pii_type] = 0
                 self._counters[pii_type] += 1
 
-                template = self._templates.get(
-                    pii_type, f"{pii_type.value}_{{:04d}}"
-                )
+                template = self._templates.get(pii_type, f"{pii_type.value}_{{:04d}}")
                 pseudonym = template.format(self._counters[pii_type])
                 self._pseudonym_map[value] = pseudonym
 
@@ -490,7 +505,7 @@ class MaskingEngine:
                 masked_text = (
                     masked_text[: detection.start_pos]
                     + masked_value
-                    + masked_text[detection.end_pos:]
+                    + masked_text[detection.end_pos :]
                 )
                 masks_applied += 1
 

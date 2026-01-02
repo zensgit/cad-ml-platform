@@ -9,12 +9,12 @@ Tests cover:
 """
 
 import asyncio
-import pytest
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.core.vision.base import VisionDescription, VisionProvider
+import pytest
 
+from src.core.vision.base import VisionDescription, VisionProvider
 
 # ============================================================================
 # Mock Provider for Testing
@@ -107,7 +107,7 @@ class TestServiceMesh:
 
     def test_service_registry_register(self):
         """Test ServiceRegistry registration."""
-        from src.core.vision.service_mesh import ServiceRegistry, ServiceInstance
+        from src.core.vision.service_mesh import ServiceInstance, ServiceRegistry
 
         registry = ServiceRegistry()
 
@@ -126,7 +126,7 @@ class TestServiceMesh:
 
     def test_service_registry_deregister(self):
         """Test ServiceRegistry deregistration."""
-        from src.core.vision.service_mesh import ServiceRegistry, ServiceInstance
+        from src.core.vision.service_mesh import ServiceInstance, ServiceRegistry
 
         registry = ServiceRegistry()
 
@@ -146,7 +146,7 @@ class TestServiceMesh:
 
     def test_service_registry_heartbeat(self):
         """Test ServiceRegistry heartbeat."""
-        from src.core.vision.service_mesh import ServiceRegistry, ServiceInstance
+        from src.core.vision.service_mesh import ServiceInstance, ServiceRegistry
 
         registry = ServiceRegistry()
 
@@ -164,15 +164,12 @@ class TestServiceMesh:
 
     def test_load_balancer_round_robin(self):
         """Test LoadBalancer round robin."""
-        from src.core.vision.service_mesh import (
-            LoadBalancer, LoadBalancerPolicy, ServiceInstance
-        )
+        from src.core.vision.service_mesh import LoadBalancer, LoadBalancerPolicy, ServiceInstance
 
         lb = LoadBalancer(policy=LoadBalancerPolicy.ROUND_ROBIN)
 
         instances = [
-            ServiceInstance(f"inst-{i}", "vision", "localhost", 8080 + i)
-            for i in range(3)
+            ServiceInstance(f"inst-{i}", "vision", "localhost", 8080 + i) for i in range(3)
         ]
 
         selected = []
@@ -185,15 +182,12 @@ class TestServiceMesh:
 
     def test_load_balancer_least_connections(self):
         """Test LoadBalancer least connections."""
-        from src.core.vision.service_mesh import (
-            LoadBalancer, LoadBalancerPolicy, ServiceInstance
-        )
+        from src.core.vision.service_mesh import LoadBalancer, LoadBalancerPolicy, ServiceInstance
 
         lb = LoadBalancer(policy=LoadBalancerPolicy.LEAST_CONNECTIONS)
 
         instances = [
-            ServiceInstance(f"inst-{i}", "vision", "localhost", 8080 + i)
-            for i in range(3)
+            ServiceInstance(f"inst-{i}", "vision", "localhost", 8080 + i) for i in range(3)
         ]
 
         instances[0].active_connections = 5
@@ -328,7 +322,7 @@ class TestDistributedTracing:
 
     def test_span_context_creation(self):
         """Test SpanContext creation."""
-        from src.core.vision.distributed_tracing import SpanContext, TraceId, SpanId
+        from src.core.vision.distributed_tracing import SpanContext, SpanId, TraceId
 
         context = SpanContext(
             trace_id=TraceId(),
@@ -341,7 +335,11 @@ class TestDistributedTracing:
     def test_tracing_span_creation(self):
         """Test TracingSpan creation."""
         from src.core.vision.distributed_tracing import (
-            TracingSpan, SpanContext, TraceId, SpanId, SpanKind
+            SpanContext,
+            SpanId,
+            SpanKind,
+            TraceId,
+            TracingSpan,
         )
 
         context = SpanContext(trace_id=TraceId(), span_id=SpanId())
@@ -356,9 +354,7 @@ class TestDistributedTracing:
 
     def test_tracing_span_attributes(self):
         """Test TracingSpan attributes."""
-        from src.core.vision.distributed_tracing import (
-            TracingSpan, SpanContext, TraceId, SpanId
-        )
+        from src.core.vision.distributed_tracing import SpanContext, SpanId, TraceId, TracingSpan
 
         context = SpanContext(trace_id=TraceId(), span_id=SpanId())
         span = TracingSpan(name="test-span", context=context)
@@ -372,9 +368,7 @@ class TestDistributedTracing:
 
     def test_tracing_span_events(self):
         """Test TracingSpan events."""
-        from src.core.vision.distributed_tracing import (
-            TracingSpan, SpanContext, TraceId, SpanId
-        )
+        from src.core.vision.distributed_tracing import SpanContext, SpanId, TraceId, TracingSpan
 
         context = SpanContext(trace_id=TraceId(), span_id=SpanId())
         span = TracingSpan(name="test-span", context=context)
@@ -386,9 +380,7 @@ class TestDistributedTracing:
 
     def test_tracing_span_end(self):
         """Test TracingSpan end."""
-        from src.core.vision.distributed_tracing import (
-            TracingSpan, SpanContext, TraceId, SpanId
-        )
+        from src.core.vision.distributed_tracing import SpanContext, SpanId, TraceId, TracingSpan
 
         context = SpanContext(trace_id=TraceId(), span_id=SpanId())
         span = TracingSpan(name="test-span", context=context)
@@ -400,9 +392,7 @@ class TestDistributedTracing:
 
     def test_always_on_sampler(self):
         """Test AlwaysOnSampler."""
-        from src.core.vision.distributed_tracing import (
-            AlwaysOnSampler, TraceId, SamplingDecision
-        )
+        from src.core.vision.distributed_tracing import AlwaysOnSampler, SamplingDecision, TraceId
 
         sampler = AlwaysOnSampler()
         decision = sampler.should_sample(None, TraceId(), "test", {})
@@ -411,9 +401,7 @@ class TestDistributedTracing:
 
     def test_always_off_sampler(self):
         """Test AlwaysOffSampler."""
-        from src.core.vision.distributed_tracing import (
-            AlwaysOffSampler, TraceId, SamplingDecision
-        )
+        from src.core.vision.distributed_tracing import AlwaysOffSampler, SamplingDecision, TraceId
 
         sampler = AlwaysOffSampler()
         decision = sampler.should_sample(None, TraceId(), "test", {})
@@ -423,7 +411,9 @@ class TestDistributedTracing:
     def test_trace_id_ratio_sampler(self):
         """Test TraceIdRatioSampler."""
         from src.core.vision.distributed_tracing import (
-            TraceIdRatioSampler, TraceId, SamplingDecision
+            SamplingDecision,
+            TraceId,
+            TraceIdRatioSampler,
         )
 
         sampler = TraceIdRatioSampler(ratio=1.0)
@@ -437,7 +427,11 @@ class TestDistributedTracing:
     def test_in_memory_span_exporter(self):
         """Test InMemorySpanExporter."""
         from src.core.vision.distributed_tracing import (
-            InMemorySpanExporter, TracingSpan, SpanContext, TraceId, SpanId
+            InMemorySpanExporter,
+            SpanContext,
+            SpanId,
+            TraceId,
+            TracingSpan,
         )
 
         exporter = InMemorySpanExporter()
@@ -454,7 +448,10 @@ class TestDistributedTracing:
     def test_w3c_trace_context_propagator(self):
         """Test W3CTraceContextPropagator."""
         from src.core.vision.distributed_tracing import (
-            W3CTraceContextPropagator, SpanContext, TraceId, SpanId
+            SpanContext,
+            SpanId,
+            TraceId,
+            W3CTraceContextPropagator,
         )
 
         propagator = W3CTraceContextPropagator()
@@ -477,9 +474,7 @@ class TestDistributedTracing:
 
     def test_b3_propagator(self):
         """Test B3Propagator."""
-        from src.core.vision.distributed_tracing import (
-            B3Propagator, SpanContext, TraceId, SpanId
-        )
+        from src.core.vision.distributed_tracing import B3Propagator, SpanContext, SpanId, TraceId
 
         propagator = B3Propagator()
 
@@ -500,7 +495,7 @@ class TestDistributedTracing:
 
     def test_tracer_provider(self):
         """Test TracerProvider."""
-        from src.core.vision.distributed_tracing import TracerProvider, TracerConfig
+        from src.core.vision.distributed_tracing import TracerConfig, TracerProvider
 
         config = TracerConfig(service_name="test-service")
         provider = TracerProvider(config=config)
@@ -511,9 +506,7 @@ class TestDistributedTracing:
 
     def test_distributed_tracer_start_span(self):
         """Test DistributedTracer start span."""
-        from src.core.vision.distributed_tracing import (
-            TracerProvider, SpanKind
-        )
+        from src.core.vision.distributed_tracing import SpanKind, TracerProvider
 
         provider = TracerProvider()
         tracer = provider.get_tracer("test")
@@ -563,7 +556,7 @@ class TestConfigurationManagement:
 
     def test_config_value_creation(self):
         """Test ConfigValue creation."""
-        from src.core.vision.config_management import ConfigValue, ConfigSource
+        from src.core.vision.config_management import ConfigSource, ConfigValue
 
         value = ConfigValue(
             key="test.key",
@@ -637,12 +630,7 @@ class TestConfigurationManagement:
         """Test DictConfigProvider."""
         from src.core.vision.config_management import DictConfigProvider
 
-        config = {
-            "level1": {
-                "level2": "value"
-            },
-            "simple": "direct"
-        }
+        config = {"level1": {"level2": "value"}, "simple": "direct"}
 
         provider = DictConfigProvider(config)
 
@@ -663,9 +651,7 @@ class TestConfigurationManagement:
 
     def test_configuration_manager_with_provider(self):
         """Test ConfigurationManager with provider."""
-        from src.core.vision.config_management import (
-            ConfigurationManager, DictConfigProvider
-        )
+        from src.core.vision.config_management import ConfigurationManager, DictConfigProvider
 
         manager = ConfigurationManager()
         manager.add_provider(DictConfigProvider({"key1": "value1"}))
@@ -675,9 +661,7 @@ class TestConfigurationManagement:
 
     def test_configuration_manager_override(self):
         """Test ConfigurationManager override."""
-        from src.core.vision.config_management import (
-            ConfigurationManager, DictConfigProvider
-        )
+        from src.core.vision.config_management import ConfigurationManager, DictConfigProvider
 
         manager = ConfigurationManager()
         manager.add_provider(DictConfigProvider({"key1": "value1"}))
@@ -720,7 +704,9 @@ class TestConfigurationManagement:
     def test_config_profile(self):
         """Test ConfigProfile."""
         from src.core.vision.config_management import (
-            ConfigurationManager, ConfigProfile, ProfileManager
+            ConfigProfile,
+            ConfigurationManager,
+            ProfileManager,
         )
 
         manager = ConfigurationManager()
@@ -739,9 +725,7 @@ class TestConfigurationManagement:
 
     def test_config_snapshot(self):
         """Test ConfigSnapshot."""
-        from src.core.vision.config_management import (
-            ConfigurationManager, ConfigSnapshotManager
-        )
+        from src.core.vision.config_management import ConfigSnapshotManager, ConfigurationManager
 
         manager = ConfigurationManager()
         manager.set("key1", "value1")
@@ -822,7 +806,7 @@ class TestFeatureFlags:
 
     def test_targeting_rule_creation(self):
         """Test TargetingRule creation."""
-        from src.core.vision.feature_flags import TargetingRule, TargetingOperator
+        from src.core.vision.feature_flags import TargetingOperator, TargetingRule
 
         rule = TargetingRule(
             rule_id="r1",
@@ -837,7 +821,7 @@ class TestFeatureFlags:
 
     def test_targeting_rule_evaluation(self):
         """Test TargetingRule evaluation."""
-        from src.core.vision.feature_flags import TargetingRule, TargetingOperator
+        from src.core.vision.feature_flags import TargetingOperator, TargetingRule
 
         rule = TargetingRule(
             rule_id="r1",
@@ -852,7 +836,7 @@ class TestFeatureFlags:
 
     def test_targeting_rule_in_operator(self):
         """Test TargetingRule IN operator."""
-        from src.core.vision.feature_flags import TargetingRule, TargetingOperator
+        from src.core.vision.feature_flags import TargetingOperator, TargetingRule
 
         rule = TargetingRule(
             rule_id="r1",
@@ -867,9 +851,7 @@ class TestFeatureFlags:
 
     def test_feature_flag_creation(self):
         """Test FeatureFlag creation."""
-        from src.core.vision.feature_flags import (
-            FeatureFlag, FlagType, FlagVariation, FlagStatus
-        )
+        from src.core.vision.feature_flags import FeatureFlag, FlagStatus, FlagType, FlagVariation
 
         flag = FeatureFlag(
             flag_key="test-flag",
@@ -888,7 +870,10 @@ class TestFeatureFlags:
     def test_in_memory_flag_store(self):
         """Test InMemoryFlagStore."""
         from src.core.vision.feature_flags import (
-            InMemoryFlagStore, FeatureFlag, FlagType, FlagVariation
+            FeatureFlag,
+            FlagType,
+            FlagVariation,
+            InMemoryFlagStore,
         )
 
         store = InMemoryFlagStore()
@@ -912,7 +897,11 @@ class TestFeatureFlags:
     def test_flag_evaluator_basic(self):
         """Test FlagEvaluator basic evaluation."""
         from src.core.vision.feature_flags import (
-            FlagEvaluator, InMemoryFlagStore, FeatureFlag, FlagType, FlagVariation
+            FeatureFlag,
+            FlagEvaluator,
+            FlagType,
+            FlagVariation,
+            InMemoryFlagStore,
         )
 
         store = InMemoryFlagStore()
@@ -936,8 +925,14 @@ class TestFeatureFlags:
     def test_flag_evaluator_with_targeting(self):
         """Test FlagEvaluator with targeting rules."""
         from src.core.vision.feature_flags import (
-            FlagEvaluator, InMemoryFlagStore, FeatureFlag, FlagType,
-            FlagVariation, TargetingRule, TargetingOperator, EvaluationContext
+            EvaluationContext,
+            FeatureFlag,
+            FlagEvaluator,
+            FlagType,
+            FlagVariation,
+            InMemoryFlagStore,
+            TargetingOperator,
+            TargetingRule,
         )
 
         store = InMemoryFlagStore()
@@ -1015,9 +1010,7 @@ class TestFeatureFlags:
     @pytest.mark.asyncio
     async def test_feature_flag_vision_provider_disabled(self):
         """Test FeatureFlagVisionProvider when disabled."""
-        from src.core.vision.feature_flags import (
-            create_feature_flag_provider, FeatureFlagManager
-        )
+        from src.core.vision.feature_flags import FeatureFlagManager, create_feature_flag_provider
 
         manager = FeatureFlagManager()
         manager.create_boolean_flag("vision.enabled", default_value=False)
@@ -1112,7 +1105,10 @@ class TestGracefulDegradation:
     def test_degradation_policy_normal(self):
         """Test DegradationPolicy returns normal state."""
         from src.core.vision.graceful_degradation import (
-            DegradationPolicy, DegradationMetrics, DegradationState, DegradationLevel
+            DegradationLevel,
+            DegradationMetrics,
+            DegradationPolicy,
+            DegradationState,
         )
 
         policy = DegradationPolicy()
@@ -1129,8 +1125,11 @@ class TestGracefulDegradation:
     def test_degradation_policy_consecutive_failures(self):
         """Test DegradationPolicy with consecutive failures."""
         from src.core.vision.graceful_degradation import (
-            DegradationPolicy, DegradationMetrics, DegradationState,
-            DegradationLevel, DegradationThresholds
+            DegradationLevel,
+            DegradationMetrics,
+            DegradationPolicy,
+            DegradationState,
+            DegradationThresholds,
         )
 
         thresholds = DegradationThresholds(consecutive_failures=3)
@@ -1147,9 +1146,7 @@ class TestGracefulDegradation:
 
     def test_static_fallback_provider(self):
         """Test StaticFallbackProvider."""
-        from src.core.vision.graceful_degradation import (
-            StaticFallbackProvider, DegradationLevel
-        )
+        from src.core.vision.graceful_degradation import DegradationLevel, StaticFallbackProvider
 
         provider = StaticFallbackProvider(
             default_summary="Fallback response",
@@ -1163,9 +1160,7 @@ class TestGracefulDegradation:
 
     def test_degradation_manager_record_success(self):
         """Test DegradationManager record success."""
-        from src.core.vision.graceful_degradation import (
-            DegradationManager, DegradationLevel
-        )
+        from src.core.vision.graceful_degradation import DegradationLevel, DegradationManager
 
         manager = DegradationManager()
         manager.record_success(100.0)
@@ -1186,9 +1181,7 @@ class TestGracefulDegradation:
 
     def test_degradation_manager_force_degradation(self):
         """Test DegradationManager force degradation."""
-        from src.core.vision.graceful_degradation import (
-            DegradationManager, DegradationLevel
-        )
+        from src.core.vision.graceful_degradation import DegradationLevel, DegradationManager
 
         manager = DegradationManager()
         manager.force_degradation(DegradationLevel.OFFLINE, "Manual maintenance")
@@ -1197,9 +1190,7 @@ class TestGracefulDegradation:
 
     def test_degradation_manager_force_recovery(self):
         """Test DegradationManager force recovery."""
-        from src.core.vision.graceful_degradation import (
-            DegradationManager, DegradationLevel
-        )
+        from src.core.vision.graceful_degradation import DegradationLevel, DegradationManager
 
         manager = DegradationManager()
         manager.force_degradation(DegradationLevel.OFFLINE)
@@ -1233,9 +1224,7 @@ class TestGracefulDegradation:
     @pytest.mark.asyncio
     async def test_fallback_chain_fallback(self):
         """Test FallbackChain with fallback."""
-        from src.core.vision.graceful_degradation import (
-            FallbackChain, StaticFallbackProvider
-        )
+        from src.core.vision.graceful_degradation import FallbackChain, StaticFallbackProvider
 
         chain = FallbackChain()
         chain.add_provider(MockVisionProvider("provider1", fail=True))
@@ -1258,9 +1247,7 @@ class TestGracefulDegradation:
     @pytest.mark.asyncio
     async def test_graceful_degradation_provider_degraded(self):
         """Test GracefulDegradationVisionProvider in degraded mode."""
-        from src.core.vision.graceful_degradation import (
-            create_graceful_provider, DegradationLevel
-        )
+        from src.core.vision.graceful_degradation import DegradationLevel, create_graceful_provider
 
         mock_provider = MockVisionProvider(fail=True)
         provider = create_graceful_provider(mock_provider)
@@ -1284,10 +1271,8 @@ class TestPhase8Integration:
     @pytest.mark.asyncio
     async def test_mesh_with_tracing(self):
         """Test service mesh with distributed tracing."""
+        from src.core.vision.distributed_tracing import TracerProvider, create_tracing_provider
         from src.core.vision.service_mesh import ServiceMesh, create_mesh_provider
-        from src.core.vision.distributed_tracing import (
-            TracerProvider, create_tracing_provider
-        )
 
         mock_provider = MockVisionProvider()
         mesh = ServiceMesh()
@@ -1307,11 +1292,10 @@ class TestPhase8Integration:
     async def test_config_with_feature_flags(self):
         """Test configuration with feature flags."""
         from src.core.vision.config_management import (
-            ConfigurationManager, create_configurable_provider
+            ConfigurationManager,
+            create_configurable_provider,
         )
-        from src.core.vision.feature_flags import (
-            FeatureFlagManager, create_feature_flag_provider
-        )
+        from src.core.vision.feature_flags import FeatureFlagManager, create_feature_flag_provider
 
         mock_provider = MockVisionProvider()
 
@@ -1353,13 +1337,11 @@ class TestPhase8Integration:
     @pytest.mark.asyncio
     async def test_full_phase8_stack(self):
         """Test full Phase 8 stack integration."""
-        from src.core.vision.service_mesh import ServiceMesh, create_mesh_provider
-        from src.core.vision.distributed_tracing import create_tracing_provider
         from src.core.vision.config_management import create_configurable_provider
-        from src.core.vision.feature_flags import (
-            FeatureFlagManager, create_feature_flag_provider
-        )
+        from src.core.vision.distributed_tracing import create_tracing_provider
+        from src.core.vision.feature_flags import FeatureFlagManager, create_feature_flag_provider
         from src.core.vision.graceful_degradation import create_graceful_provider
+        from src.core.vision.service_mesh import ServiceMesh, create_mesh_provider
 
         # Base provider
         mock_provider = MockVisionProvider()
@@ -1378,9 +1360,7 @@ class TestPhase8Integration:
         # Layer 4: Feature Flags
         flag_manager = FeatureFlagManager()
         flag_manager.create_boolean_flag("vision.enabled", True)
-        flag_provider = create_feature_flag_provider(
-            config_provider, flag_manager=flag_manager
-        )
+        flag_provider = create_feature_flag_provider(config_provider, flag_manager=flag_manager)
 
         # Layer 5: Graceful Degradation
         final_provider = create_graceful_provider(flag_provider)

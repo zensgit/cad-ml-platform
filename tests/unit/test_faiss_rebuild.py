@@ -1,7 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
-from src.main import app
+
 from src.core.similarity import FaissVectorStore, register_vector
+from src.main import app
 
 client = TestClient(app)
 
@@ -12,7 +13,9 @@ def test_faiss_rebuild_skipped_when_not_backend(monkeypatch):
     assert resp.status_code == 200
     data = resp.json()
     # Response may have status key or be a different structure
-    assert data.get("status") == "skipped" or "skipped" in str(data).lower() or resp.status_code == 200
+    assert (
+        data.get("status") == "skipped" or "skipped" in str(data).lower() or resp.status_code == 200
+    )
 
 
 def test_faiss_rebuild_flow_unavailable(monkeypatch):

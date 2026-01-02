@@ -1,0 +1,165 @@
+# Production overrides for cad-ml-platform.
+# Use with: helm upgrade --install cad-ml-platform charts/cad-ml-platform \
+#   -f charts/cad-ml-platform/values.yaml -f charts/cad-ml-platform/values-prod.yaml
+
+replicaCount: 3
+
+image:
+  repository: registry.example.com/cad-ml-platform
+  tag: "2025.01.0"
+  pullPolicy: IfNotPresent
+
+ingress:
+  enabled: true
+  className: "nginx"
+  hosts:
+    - host: cad-ml.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: cad-ml-tls
+      hosts:
+        - cad-ml.example.com
+
+resources:
+  limits:
+    cpu: 4000m
+    memory: 8Gi
+  requests:
+    cpu: 1000m
+    memory: 2Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 12
+
+redis:
+  enabled: false
+
+env:
+  REDIS_ENABLED: "true"
+  REDIS_URL: "redis://shared-redis.redis.svc.cluster.local:6379/0"
+  LOG_LEVEL: "INFO"
+  LOG_FORMAT: "json"
+
+  # Dedup2D API settings (keep in sync with dedup2d.* below)
+  DEDUP2D_ASYNC_BACKEND: "redis"
+  DEDUP2D_ASYNC_MAX_CONCURRENCY: "4"
+  DEDUP2D_ASYNC_MAX_JOBS: "1000"
+  DEDUP2D_ASYNC_TTL_SECONDS: "86400"
+  DEDUP2D_ASYNC_JOB_TIMEOUT_SECONDS: "300"
+  DEDUP2D_REDIS_URL: "redis://shared-redis.redis.svc.cluster.local:6379/1"
+  DEDUP2D_REDIS_KEY_PREFIX: "dedup2d"
+  DEDUP2D_ARQ_QUEUE_NAME: "dedup2d:queue"
+  DEDUP2D_RENDER_QUEUE_NAME: "dedup2d:render"
+  DEDUP2D_FILE_STORAGE: "s3"
+  DEDUP2D_S3_BUCKET: "dedup2d-uploads-prod"
+  DEDUP2D_S3_PREFIX: "uploads"
+  DEDUP2D_S3_REGION: "us-east-1"
+  # DEDUP2D_S3_ENDPOINT: "https://s3.amazonaws.com"
+  DEDUP2D_FILE_STORAGE_CLEANUP_ON_FINISH: "1"
+  DEDUP2D_FILE_STORAGE_RETENTION_SECONDS: "86400"
+  DEDUPCAD_VISION_URL: "http://caddedup-vision:8000"
+  DEDUPCAD_VISION_TIMEOUT_SECONDS: "60"
+  DEDUP2D_CALLBACK_ALLOW_HTTP: "0"
+  DEDUP2D_CALLBACK_BLOCK_PRIVATE_NETWORKS: "1"
+  DEDUP2D_CALLBACK_RESOLVE_DNS: "0"
+  # DEDUP2D_CALLBACK_ALLOWLIST: "callbacks.example.com"
+  DEDUP2D_CALLBACK_TIMEOUT_SECONDS: "10"
+  DEDUP2D_CALLBACK_MAX_ATTEMPTS: "3"
+  # DEDUP2D_CALLBACK_HMAC_SECRET: "__SET_ME__"
+  DEDUP2D_FORCED_ASYNC_FILE_SIZE_BYTES: "10485760"
+  DEDUP2D_FORCED_ASYNC_ON_PRECISION: "1"
+  DEDUP2D_FORCED_ASYNC_ON_MODE_PRECISE: "1"
+
+dedup2d:
+  worker:
+    enabled: true
+    replicaCount: 2
+    autoscaling:
+      enabled: true
+      minReplicas: 2
+      maxReplicas: 8
+      targetCPUUtilizationPercentage: 70
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+    extraEnv:
+      DEDUP2D_WORKER_MAX_JOBS: "10"
+      # DEDUP2D_CALLBACK_HMAC_SECRET: "__SET_ME__"
+
+  renderWorker:
+    enabled: true
+    replicaCount: 1
+    autoscaling:
+      enabled: false
+      minReplicas: 1
+      maxReplicas: 2
+      targetCPUUtilizationPercentage: 70
+    resources:
+      limits:
+        cpu: 4000m
+        memory: 16Gi
+      requests:
+        cpu: 1000m
+        memory: 8Gi
+    extraEnv:
+      DEDUP2D_WORKER_MAX_JOBS: "1"
+      DEDUPCAD2_RENDER_PREWARM_FONTS: "1"
+      DEDUPCAD2_RENDER_TEXT: "1"
+      DEDUPCAD2_RENDER_HATCH: "1"
+      MPLCONFIGDIR: "/tmp/mplconfig"
+      XDG_CACHE_HOME: "/var/cache"
+      DEDUPCAD2_RENDER_FALLBACK: "1"
+      DEDUPCAD2_RENDER_FALLBACK_SIZE_PX: "512"
+      DEDUPCAD2_RENDER_FALLBACK_DPI: "100"
+
+  storage:
+    mode: "s3"
+    s3:
+      bucket: "dedup2d-uploads-prod"
+      prefix: "uploads"
+      endpoint: ""  # leave empty for AWS S3
+      region: "us-east-1"
+      retentionSeconds: 86400
+      cleanupOnFinish: true
+      existingSecret: "dedup2d-s3-credentials"
+
+  redis:
+    url: "redis://shared-redis.redis.svc.cluster.local:6379/1"
+    keyPrefix: "dedup2d"
+    queueName: "dedup2d:queue"
+    renderQueueName: "dedup2d:render"
+
+  job:
+    maxConcurrency: 4
+    maxJobs: 1000
+    ttlSeconds: 86400
+    timeoutSeconds: 300
+
+  rollingUpgrade:
+    includeBytes64: false
+
+  vision:
+    url: "http://caddedup-vision:8000"
+    timeoutSeconds: 60
+
+  callback:
+    allowHttp: false
+    blockPrivateNetworks: true
+    resolveDns: false
+    allowlist: ""
+    hmacSecret: ""
+    timeoutSeconds: 10
+    maxAttempts: 3
+
+dedup2dGc:
+  enabled: true
+  schedule: "0 * * * *"
+  retentionSeconds: 86400

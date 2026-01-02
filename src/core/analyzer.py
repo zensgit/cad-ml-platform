@@ -7,12 +7,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
-from src.models.cad_document import CadDocument
 from src.core.process_rules import recommend as recommend_process_rules
+from src.models.cad_document import CadDocument
 
 
 class CADAnalyzer:
-    async def classify_part(self, doc: CadDocument, features: Dict[str, List[Any]]) -> Dict[str, Any]:
+    async def classify_part(
+        self, doc: CadDocument, features: Dict[str, List[Any]]
+    ) -> Dict[str, Any]:
         geometric = features.get("geometric", [])
         semantic = features.get("semantic", [])
         entity_count = geometric[0] if len(geometric) > 0 else doc.entity_count()
@@ -37,7 +39,9 @@ class CADAnalyzer:
             "rule_version": __import__("os").getenv("CLASSIFICATION_RULE_VERSION", "v1"),
         }
 
-    async def check_quality(self, doc: CadDocument, features: Dict[str, List[Any]]) -> Dict[str, Any]:
+    async def check_quality(
+        self, doc: CadDocument, features: Dict[str, List[Any]]
+    ) -> Dict[str, Any]:
         geometric = features.get("geometric", [])
         semantic = features.get("semantic", [])
         entity_count = geometric[0] if geometric else doc.entity_count()
@@ -52,7 +56,9 @@ class CADAnalyzer:
         score = max(0.0, 1.0 - (0.05 * len(issues)))
         return {"score": round(score, 2), "issues": issues, "suggestions": suggestions}
 
-    async def recommend_process(self, doc: CadDocument, features: Dict[str, List[Any]]) -> Dict[str, Any]:
+    async def recommend_process(
+        self, doc: CadDocument, features: Dict[str, List[Any]]
+    ) -> Dict[str, Any]:
         geometric = features.get("geometric", [])
         volume = geometric[4] if len(geometric) > 4 else doc.bounding_box.volume_estimate
         entity_count = geometric[0] if geometric else doc.entity_count()

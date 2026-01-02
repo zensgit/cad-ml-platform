@@ -18,7 +18,21 @@ from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Deque, Dict, Generic, Iterator, List, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Deque,
+    Dict,
+    Generic,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 from .base import VisionDescription, VisionProvider
 
@@ -337,12 +351,14 @@ class FlatMapOperator(StreamOperator[T]):
         try:
             results = self._func(event.data)
             for result in results:
-                self._pending.append(StreamEvent(
-                    event_id=str(uuid.uuid4()),
-                    data=result,
-                    timestamp=event.timestamp,
-                    key=event.key,
-                ))
+                self._pending.append(
+                    StreamEvent(
+                        event_id=str(uuid.uuid4()),
+                        data=result,
+                        timestamp=event.timestamp,
+                        key=event.key,
+                    )
+                )
             if self._pending:
                 return self._pending.pop(0)
         except Exception:
@@ -776,12 +792,14 @@ class StreamingVisionProvider(VisionProvider):
         result = await self._provider.analyze_image(image_data, include_description)
 
         # Emit to stream
-        self._stream.emit({
-            "summary": result.summary,
-            "details": result.details,
-            "confidence": result.confidence,
-            "timestamp": datetime.now().isoformat(),
-        })
+        self._stream.emit(
+            {
+                "summary": result.summary,
+                "details": result.details,
+                "confidence": result.confidence,
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
 
         return result
 

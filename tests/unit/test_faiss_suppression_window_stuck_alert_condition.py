@@ -1,4 +1,5 @@
 import time
+
 from src.core import similarity
 
 
@@ -22,4 +23,3 @@ def test_faiss_suppression_window_stuck_simulation(monkeypatch):
     remaining_second = similarity._FAISS_SUPPRESS_UNTIL_TS - now  # type: ignore
     assert remaining_second == remaining_initial
     # This mirrors alert condition: increase(faiss_recovery_suppression_remaining_seconds[10m]) == 0 while value >0
-

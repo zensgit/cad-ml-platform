@@ -1,4 +1,4 @@
-from src.core.feature_extractor import FeatureExtractor, SLOTS_V1, SLOTS_V2, SLOTS_V3, SLOTS_V4
+from src.core.feature_extractor import SLOTS_V1, SLOTS_V2, SLOTS_V3, SLOTS_V4, FeatureExtractor
 
 
 def make_len(version: str) -> int:
@@ -23,13 +23,13 @@ def test_upgrade_downgrade_cycles_v4():
     v4_vec2 = fx_v4.upgrade_vector(v2_vec)
     assert len(v4_vec2) == make_len("v4")
     # New tail should be zero padded
-    assert v4_vec2[-len(SLOTS_V4):] == [0.0] * len(SLOTS_V4)
+    assert v4_vec2[-len(SLOTS_V4) :] == [0.0] * len(SLOTS_V4)
 
 
 def test_upgrade_error_on_invalid_length():
     invalid = [0.0] * (make_len("v1") + 3)  # not matching any expected set
     fx = FeatureExtractor(feature_version="v4")
     import pytest
+
     with pytest.raises(ValueError):
         fx.upgrade_vector(invalid)
-

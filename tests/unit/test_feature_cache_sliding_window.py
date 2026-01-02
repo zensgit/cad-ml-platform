@@ -1,5 +1,6 @@
 import json
 import time
+
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -26,7 +27,11 @@ def test_feature_cache_sliding_window_metrics(monkeypatch):
     )
     assert resp2.status_code == 200
     # Access metrics objects
-    from src.utils.analysis_metrics import feature_cache_hits_last_hour, feature_cache_miss_last_hour
+    from src.utils.analysis_metrics import (
+        feature_cache_hits_last_hour,
+        feature_cache_miss_last_hour,
+    )
+
     # Validate that gauges updated (best-effort attributes exist)
     assert hasattr(feature_cache_hits_last_hour, "_value") or hasattr(
         feature_cache_hits_last_hour, "_metrics"
@@ -34,4 +39,3 @@ def test_feature_cache_sliding_window_metrics(monkeypatch):
     assert hasattr(feature_cache_miss_last_hour, "_value") or hasattr(
         feature_cache_miss_last_hour, "_metrics"
     )
-

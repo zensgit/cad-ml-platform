@@ -42,6 +42,8 @@
   - [ ] High error rate alert
   - [ ] Provider timeout alert
   - [ ] SLO violation alert
+  - [ ] Compare failure rate alert
+  - [ ] Compare not_found dominance alert
 
 ### ✅ Grafana Setup
 - [ ] **Dashboard Import**
@@ -83,6 +85,8 @@
 - [ ] **Runbooks Available**
   - [ ] `docs/runbooks/provider_timeout.md` - Timeout response procedures
   - [ ] `docs/runbooks/model_load_error.md` - Model loading issues
+  - [ ] `docs/runbooks/compare_failure_rate.md` - Compare failure response procedures
+  - [ ] `docs/runbooks/compare_not_found.md` - Compare not_found response procedures
   - [ ] Team trained on runbook procedures
   - [ ] Runbooks linked in monitoring alerts
 

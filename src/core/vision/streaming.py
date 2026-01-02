@@ -14,14 +14,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import (
-    Any,
-    AsyncGenerator,
-    Callable,
-    Dict,
-    List,
-    Optional,
-)
+from typing import Any, AsyncGenerator, Callable, Dict, List, Optional
 
 from .base import VisionDescription, VisionProvider, VisionProviderError
 
@@ -133,9 +126,7 @@ class StreamingVisionProvider:
         )
 
         # Start heartbeat task
-        heartbeat_task = asyncio.create_task(
-            self._heartbeat_generator()
-        )
+        heartbeat_task = asyncio.create_task(self._heartbeat_generator())
 
         try:
             # Emit progress: analyzing
@@ -302,46 +293,45 @@ class BatchStreamProcessor:
             async with self._semaphore:
                 item_start = time.time()
                 try:
-                    result = await self._provider.analyze_image(
-                        image, include_description
-                    )
+                    result = await self._provider.analyze_image(image, include_description)
                     completed += 1
                     sequence += 1
 
-                    await results_queue.put(StreamEvent(
-                        event_type=StreamEventType.COMPLETE,
-                        data={
-                            "index": index,
-                            "result": {
-                                "summary": result.summary,
-                                "details": result.details,
-                                "confidence": result.confidence,
+                    await results_queue.put(
+                        StreamEvent(
+                            event_type=StreamEventType.COMPLETE,
+                            data={
+                                "index": index,
+                                "result": {
+                                    "summary": result.summary,
+                                    "details": result.details,
+                                    "confidence": result.confidence,
+                                },
+                                "elapsed_ms": (time.time() - item_start) * 1000,
+                                "progress": (completed + failed) / total,
                             },
-                            "elapsed_ms": (time.time() - item_start) * 1000,
-                            "progress": (completed + failed) / total,
-                        },
-                        sequence=sequence,
-                    ))
+                            sequence=sequence,
+                        )
+                    )
 
                 except Exception as e:
                     failed += 1
                     sequence += 1
 
-                    await results_queue.put(StreamEvent(
-                        event_type=StreamEventType.ERROR,
-                        data={
-                            "index": index,
-                            "error": str(e),
-                            "progress": (completed + failed) / total,
-                        },
-                        sequence=sequence,
-                    ))
+                    await results_queue.put(
+                        StreamEvent(
+                            event_type=StreamEventType.ERROR,
+                            data={
+                                "index": index,
+                                "error": str(e),
+                                "progress": (completed + failed) / total,
+                            },
+                            sequence=sequence,
+                        )
+                    )
 
         # Start all tasks
-        tasks = [
-            asyncio.create_task(process_single(i, img))
-            for i, img in enumerate(images)
-        ]
+        tasks = [asyncio.create_task(process_single(i, img)) for i, img in enumerate(images)]
 
         # Yield results as they complete
         pending_results = total

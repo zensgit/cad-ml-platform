@@ -1,4 +1,4 @@
-from src.core.similarity import register_vector, _VECTOR_META  # type: ignore
+from src.core.similarity import _VECTOR_META, register_vector  # type: ignore
 from src.utils.analysis_metrics import material_drift_ratio
 
 

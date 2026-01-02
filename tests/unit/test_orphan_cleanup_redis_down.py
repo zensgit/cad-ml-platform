@@ -6,8 +6,9 @@ orphan vector cleanup operations.
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -47,10 +48,7 @@ def mock_redis_partial_failure():
 def test_orphan_cleanup_redis_connection_failure(mock_redis_unavailable):
     """Test orphan cleanup when Redis connection fails completely."""
     # Attempt cleanup
-    response = client.delete(
-        "/api/v1/maintenance/orphans",
-        headers={"X-API-Key": "test"}
-    )
+    response = client.delete("/api/v1/maintenance/orphans", headers={"X-API-Key": "test"})
 
     # Should return structured error SERVICE_UNAVAILABLE or succeed with fallback
     assert response.status_code in (200, 503, 500)
@@ -64,7 +62,11 @@ def test_orphan_cleanup_redis_connection_failure(mock_redis_unavailable):
 
         if "code" in data:
             # build_error format
-            assert data["code"] in ["SERVICE_UNAVAILABLE", "REDIS_CONNECTION_FAILED", "BACKEND_UNAVAILABLE"]
+            assert data["code"] in [
+                "SERVICE_UNAVAILABLE",
+                "REDIS_CONNECTION_FAILED",
+                "BACKEND_UNAVAILABLE",
+            ]
             assert data.get("stage") in ["orphan_cleanup", "maintenance", "vector_store"]
             assert "message" in data
             assert isinstance(data["message"], str)
@@ -78,10 +80,7 @@ def test_orphan_cleanup_redis_connection_failure(mock_redis_unavailable):
 
 def test_orphan_cleanup_redis_timeout(mock_redis_timeout):
     """Test orphan cleanup when Redis times out."""
-    response = client.delete(
-        "/api/v1/maintenance/orphans",
-        headers={"X-API-Key": "test"}
-    )
+    response = client.delete("/api/v1/maintenance/orphans", headers={"X-API-Key": "test"})
 
     # Should handle timeout gracefully
     assert response.status_code in (200, 503, 504)
@@ -97,10 +96,7 @@ def test_orphan_cleanup_redis_timeout(mock_redis_timeout):
 
 def test_orphan_cleanup_redis_partial_failure(mock_redis_partial_failure):
     """Test orphan cleanup when Redis partially fails during operation."""
-    response = client.delete(
-        "/api/v1/maintenance/orphans",
-        headers={"X-API-Key": "test"}
-    )
+    response = client.delete("/api/v1/maintenance/orphans", headers={"X-API-Key": "test"})
 
     # Should handle partial failures
     assert response.status_code in (200, 207, 500, 503)
@@ -120,10 +116,7 @@ def test_orphan_cleanup_error_response_structure():
     with patch("src.utils.cache.get_client") as mock_get_client:
         mock_get_client.side_effect = ConnectionError("Connection refused")
 
-        response = client.delete(
-            "/api/v1/maintenance/orphans",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.delete("/api/v1/maintenance/orphans", headers={"X-API-Key": "test"})
 
         if response.status_code >= 400:
             data = response.json()
@@ -152,10 +145,7 @@ def test_orphan_cleanup_suggestion_in_error():
     with patch("src.utils.cache.get_client") as mock_get_client:
         mock_get_client.side_effect = ConnectionError("Connection refused")
 
-        response = client.delete(
-            "/api/v1/maintenance/orphans",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.delete("/api/v1/maintenance/orphans", headers={"X-API-Key": "test"})
 
         if response.status_code >= 400:
             data = response.json()
@@ -168,13 +158,18 @@ def test_orphan_cleanup_suggestion_in_error():
                     suggestion = data["context"]["suggestion"]
                     has_suggestion = True
                     # Should mention what to do
-                    assert any(word in suggestion.lower() for word in ["check", "verify", "ensure", "redis"])
+                    assert any(
+                        word in suggestion.lower()
+                        for word in ["check", "verify", "ensure", "redis"]
+                    )
 
             if not has_suggestion and "message" in data:
                 # Suggestion might be in message
                 message = data["message"].lower()
                 # Should have actionable guidance
-                assert any(word in message for word in ["check", "verify", "ensure", "redis", "backend"])
+                assert any(
+                    word in message for word in ["check", "verify", "ensure", "redis", "backend"]
+                )
 
 
 def test_orphan_cleanup_metric_on_redis_failure():
@@ -182,10 +177,7 @@ def test_orphan_cleanup_metric_on_redis_failure():
     with patch("src.utils.cache.get_client") as mock_get_client:
         mock_get_client.side_effect = ConnectionError("Redis down")
 
-        response = client.delete(
-            "/api/v1/maintenance/orphans",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.delete("/api/v1/maintenance/orphans", headers={"X-API-Key": "test"})
 
         # Endpoint should be callable
         assert response.status_code in (200, 500, 503)
@@ -203,20 +195,14 @@ def test_orphan_cleanup_redis_recovery():
     with patch("src.utils.cache.get_client") as mock_get_client:
         mock_get_client.side_effect = ConnectionError("Redis down")
 
-        response1 = client.delete(
-            "/api/v1/maintenance/orphans",
-            headers={"X-API-Key": "test"}
-        )
+        response1 = client.delete("/api/v1/maintenance/orphans", headers={"X-API-Key": "test"})
 
         # Should fail or use fallback
         assert response1.status_code in (200, 500, 503)
 
     # Second call: Redis supposedly back (no patching)
     # In real tests, this would verify reconnection logic
-    response2 = client.delete(
-        "/api/v1/maintenance/orphans",
-        headers={"X-API-Key": "test"}
-    )
+    response2 = client.delete("/api/v1/maintenance/orphans", headers={"X-API-Key": "test"})
 
     # Should work (or fail gracefully if no Redis available in test env)
     assert response2.status_code in (200, 404, 500, 503)

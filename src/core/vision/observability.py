@@ -19,6 +19,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, Generic, Iterator, List, Optional, Set, TypeVar, Union
 
 from .base import VisionDescription, VisionProvider
+from src.utils.safe_eval import safe_eval
 
 
 class MetricType(Enum):
@@ -358,9 +359,7 @@ class MetricsCollector:
         label_str = ",".join(f"{k}={v}" for k, v in sorted(labels.items()))
         return f"{name}{{{label_str}}}"
 
-    def get_metric(
-        self, name: str, labels: Optional[Dict[str, str]] = None
-    ) -> List[MetricValue]:
+    def get_metric(self, name: str, labels: Optional[Dict[str, str]] = None) -> List[MetricValue]:
         """Get metric values.
 
         Args:
@@ -665,7 +664,7 @@ class AlertManager:
         try:
             # Simple expression evaluation
             # In production, use a proper expression parser
-            result = eval(condition, {"__builtins__": {}}, metrics)
+            result = safe_eval(condition, metrics)
             return bool(result)
         except Exception:
             return False
@@ -865,11 +864,7 @@ class SLOMonitor:
         with self._lock:
             names = list(self._slos.keys())
 
-        return {
-            name: status
-            for name in names
-            if (status := self.get_slo_status(name)) is not None
-        }
+        return {name: status for name in names if (status := self.get_slo_status(name)) is not None}
 
 
 class ObservabilityContext:
@@ -960,9 +955,7 @@ class ObservableVisionProvider(VisionProvider):
         start_time = time.time()
 
         try:
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
 
             latency_ms = (time.time() - start_time) * 1000
 
@@ -1040,11 +1033,7 @@ class ObservableVisionProvider(VisionProvider):
         Returns:
             Metrics summary
         """
-        error_rate = (
-            self._error_count / self._request_count
-            if self._request_count > 0
-            else 0.0
-        )
+        error_rate = self._error_count / self._request_count if self._request_count > 0 else 0.0
 
         return {
             "total_requests": self._request_count,

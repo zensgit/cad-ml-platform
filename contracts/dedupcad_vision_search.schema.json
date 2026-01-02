@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DedupCAD Vision Search Response",
+  "type": "object",
+  "required": [
+    "success",
+    "total_matches",
+    "duplicates",
+    "similar",
+    "final_level",
+    "timing",
+    "level_stats",
+    "warnings",
+    "error"
+  ],
+  "properties": {
+    "success": {
+      "type": "boolean"
+    },
+    "total_matches": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "duplicates": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "similar": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "final_level": {
+      "type": "integer"
+    },
+    "timing": {
+      "type": "object",
+      "required": ["total_ms", "l1_ms", "l2_ms", "l3_ms", "l4_ms"],
+      "properties": {
+        "total_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "l1_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "l2_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "l3_ms": {
+          "type": "number",
+          "minimum": 0
+        },
+        "l4_ms": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    },
+    "level_stats": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "passed": {
+            "type": "number",
+            "minimum": 0
+          },
+          "filtered": {
+            "type": "number",
+            "minimum": 0
+          },
+          "time_ms": {
+            "type": "number",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "warnings": {
+      "type": "array"
+    },
+    "error": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "additionalProperties": true
+}

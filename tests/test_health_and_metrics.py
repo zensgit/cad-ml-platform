@@ -1,9 +1,14 @@
+import base64
+
 from fastapi.testclient import TestClient
 
 from src.core.errors import ErrorCode  # noqa: F401 (referenced if extending tests)
 from src.main import app
 
 client = TestClient(app)
+_SAMPLE_PNG_BYTES = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z/C/HwAFgwJ/lb9a0QAAAABJRU5ErkJggg=="
+)
 
 
 def test_health_contains_runtime_info():
@@ -22,7 +27,7 @@ def test_health_contains_runtime_info():
     client.post(
         "/api/v1/vision/analyze", json={"image_base64": "aGVsbG8=", "include_description": False}
     )
-    files = {"file": ("fake.txt", b"not_an_image", "text/plain")}
+    files = {"file": ("fake.png", _SAMPLE_PNG_BYTES, "image/png")}
     client.post("/api/v1/ocr/extract", files=files)
     data2 = client.get("/health").json()
     assert "ocr" in data2["runtime"]["error_rate_ema"]
@@ -32,8 +37,8 @@ def test_health_contains_runtime_info():
 def test_metrics_has_vision_and_ocr_counters():
     payload = {"image_base64": "aGVsbG8=", "include_description": False, "include_ocr": False}
     client.post("/api/v1/vision/analyze", json=payload)
-    # OCR extract with a valid file (text/plain is accepted by the validator)
-    files = {"file": ("fake.txt", b"not_an_image", "text/plain")}
+    # OCR extract with a valid PNG to ensure provider metrics register
+    files = {"file": ("fake.png", _SAMPLE_PNG_BYTES, "image/png")}
     client.post("/api/v1/ocr/extract", files=files)
     metrics_resp = client.get("/metrics")
     if metrics_resp.status_code != 200:

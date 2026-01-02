@@ -35,6 +35,7 @@ This release (v2.0.1) marks the completion of the "Metric Learning & Resilience 
 - **Manual Verification**: Verified critical paths (Federated aggregation, Feature extraction v4, Scipy dependency) via code review and static analysis.
 - **Documentation**: Verified `FINAL_HANDOVER_PACKAGE.md` and `PROJECT_COMPLETION_REPORT.md` are up-to-date.
 - **Observability**: Grafana dashboards and Prometheus rules are configured and verified.
+- **Post-Release (2025-12-22)**: CAD render autostart + token rotation validated with Athena smoke test; one-command update + auto-rollback documented and verified. See `FINAL_VERIFICATION_LOG.md` and `reports/CAD_RENDER_AUTOSTART_TOKEN_ROTATION.md`.
 
 ## 4. Next Steps for Deployment
 1. **Deploy**: Push the v2.0.1 release to the staging environment.

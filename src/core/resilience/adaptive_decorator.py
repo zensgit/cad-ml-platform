@@ -3,29 +3,28 @@ Adaptive Rate Limiting Decorator
 自适应限流装饰器 - 简化集成到Vision/OCR管理器
 """
 
-import functools
-import time
 import asyncio
-from typing import Callable, Optional, TypeVar
-from dataclasses import dataclass
+import functools
 import logging
 import os
+import time
+from dataclasses import dataclass
+from typing import Callable, Optional, TypeVar
 
-from src.core.resilience.adaptive_rate_limiter import (
-    AdaptiveConfig,
-    adaptive_manager
-)
+from src.core.resilience.adaptive_rate_limiter import AdaptiveConfig, adaptive_manager
+
 # 注意：避免在模块导入时引入 src.api 包以防循环依赖。
 # 需要注册到健康收集器时，改为在运行时惰性导入。
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 @dataclass
 class AdaptiveDecoratorConfig:
     """自适应装饰器配置"""
+
     service_name: str
     endpoint_name: str
 
@@ -53,7 +52,7 @@ def adaptive_rate_limit(
     service: str = None,
     endpoint: str = None,
     config: Optional[AdaptiveDecoratorConfig] = None,
-    **kwargs
+    **kwargs,
 ) -> Callable:
     """
     自适应限流装饰器
@@ -67,9 +66,10 @@ def adaptive_rate_limit(
     async def analyze_vision(image):
         return await vision_provider.analyze(image)
     """
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         # 获取服务和端点名称
-        service_name = service or func.__module__.split('.')[-1]
+        service_name = service or func.__module__.split(".")[-1]
         endpoint_name = endpoint or func.__name__
 
         # 创建配置
@@ -77,9 +77,7 @@ def adaptive_rate_limit(
             decorator_config = config
         else:
             decorator_config = AdaptiveDecoratorConfig(
-                service_name=service_name,
-                endpoint_name=endpoint_name,
-                **kwargs
+                service_name=service_name, endpoint_name=endpoint_name, **kwargs
             )
 
         # 检查是否强制禁用
@@ -106,15 +104,11 @@ def adaptive_rate_limit(
             recover_step=decorator_config.recover_step,
             error_alpha=decorator_config.error_alpha,
             max_failure_streak=decorator_config.max_failure_streak,
-            max_adjustments_per_minute=decorator_config.max_adjustments_per_minute
+            max_adjustments_per_minute=decorator_config.max_adjustments_per_minute,
         )
 
         # 获取或创建限流器
-        limiter = adaptive_manager.get_or_create(
-            service_name,
-            endpoint_name,
-            adaptive_config
-        )
+        limiter = adaptive_manager.get_or_create(service_name, endpoint_name, adaptive_config)
 
         # 设置基线
         limiter.set_baseline(decorator_config.baseline_p95_ms)
@@ -130,6 +124,7 @@ def adaptive_rate_limit(
             if not _registered["done"]:
                 try:
                     from src.api.health_resilience import resilience_collector  # local import
+
                     resilience_collector.register_adaptive_rate_limiter(
                         f"{service_name}:{endpoint_name}", limiter
                     )
@@ -173,6 +168,7 @@ def adaptive_rate_limit(
             if not _registered["done"]:
                 try:
                     from src.api.health_resilience import resilience_collector  # local import
+
                     resilience_collector.register_adaptive_rate_limiter(
                         f"{service_name}:{endpoint_name}", limiter
                     )
@@ -231,7 +227,7 @@ def adaptive_ocr(func: Callable) -> Callable:
         endpoint=func.__name__,
         base_rate=50.0,
         error_threshold=0.03,
-        baseline_p95_ms=2000.0
+        baseline_p95_ms=2000.0,
     )(func)
 
 
@@ -242,7 +238,7 @@ def adaptive_vision(func: Callable) -> Callable:
         endpoint=func.__name__,
         base_rate=100.0,
         error_threshold=0.02,
-        baseline_p95_ms=1500.0
+        baseline_p95_ms=1500.0,
     )(func)
 
 
@@ -253,7 +249,7 @@ def adaptive_api(func: Callable) -> Callable:
         endpoint=func.__name__,
         base_rate=200.0,
         error_threshold=0.01,
-        baseline_p95_ms=500.0
+        baseline_p95_ms=500.0,
     )(func)
 
 

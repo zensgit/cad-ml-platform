@@ -14,7 +14,7 @@ import pickle
 import tempfile
 from pathlib import Path
 from typing import Generator
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -52,6 +52,7 @@ def create_model_file(model: object, path: Path, protocol: int = 4) -> str:
         SHA256 hash prefix (16 chars) of the file
     """
     import hashlib
+
     with path.open("wb") as f:
         pickle.dump(model, f, protocol=protocol)
 
@@ -275,7 +276,9 @@ class TestLevel3Rollback:
         assert clf._MODEL == v0_model
         assert clf._MODEL.name == "v0"
 
-    def test_level3_rollback_after_consecutive_failures(self, temp_model_dir, reset_classifier_state):
+    def test_level3_rollback_after_consecutive_failures(
+        self, temp_model_dir, reset_classifier_state
+    ):
         """Test level 3 rollback after 3 consecutive reload failures.
 
         The shifting happens before each reload attempt, so we track the chain
@@ -503,8 +506,9 @@ class TestRollbackLogging:
 
         Setup: PREV2=v0 will become PREV3 after shifting.
         """
-        import src.ml.classifier as clf
         import logging
+
+        import src.ml.classifier as clf
 
         v0_model = MockValidModel("v0")
         # Setup so PREV2 becomes PREV3 after shifting

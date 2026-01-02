@@ -81,6 +81,7 @@ class TestAutoRefreshLogic:
         """Test auto-refresh enabled from env."""
         with patch.dict("os.environ", {"DRIFT_BASELINE_AUTO_REFRESH": "1"}):
             import os
+
             auto_refresh_enabled = os.getenv("DRIFT_BASELINE_AUTO_REFRESH", "1") == "1"
             assert auto_refresh_enabled is True
 
@@ -88,6 +89,7 @@ class TestAutoRefreshLogic:
         """Test auto-refresh disabled from env."""
         with patch.dict("os.environ", {"DRIFT_BASELINE_AUTO_REFRESH": "0"}):
             import os
+
             auto_refresh_enabled = os.getenv("DRIFT_BASELINE_AUTO_REFRESH", "1") == "1"
             assert auto_refresh_enabled is False
 
@@ -447,6 +449,7 @@ class TestEnvVarDefaults:
     def test_min_count_default(self):
         """Test DRIFT_BASELINE_MIN_COUNT default."""
         import os
+
         with patch.dict("os.environ", {}, clear=True):
             min_count = int(os.getenv("DRIFT_BASELINE_MIN_COUNT", "100"))
             assert min_count == 100
@@ -454,6 +457,7 @@ class TestEnvVarDefaults:
     def test_min_count_override(self):
         """Test DRIFT_BASELINE_MIN_COUNT override."""
         import os
+
         with patch.dict("os.environ", {"DRIFT_BASELINE_MIN_COUNT": "50"}):
             min_count = int(os.getenv("DRIFT_BASELINE_MIN_COUNT", "100"))
             assert min_count == 50
@@ -461,6 +465,7 @@ class TestEnvVarDefaults:
     def test_max_age_default(self):
         """Test DRIFT_BASELINE_MAX_AGE_SECONDS default."""
         import os
+
         with patch.dict("os.environ", {}, clear=True):
             max_age = int(os.getenv("DRIFT_BASELINE_MAX_AGE_SECONDS", "86400"))
             assert max_age == 86400
@@ -468,6 +473,7 @@ class TestEnvVarDefaults:
     def test_max_age_override(self):
         """Test DRIFT_BASELINE_MAX_AGE_SECONDS override."""
         import os
+
         with patch.dict("os.environ", {"DRIFT_BASELINE_MAX_AGE_SECONDS": "43200"}):
             max_age = int(os.getenv("DRIFT_BASELINE_MAX_AGE_SECONDS", "86400"))
             assert max_age == 43200
@@ -592,9 +598,15 @@ class TestDriftMetricsIntegration:
         from src.utils.analysis_metrics import drift_baseline_refresh_total
 
         # Test label combinations
-        labeled_material_stale = drift_baseline_refresh_total.labels(type="material", trigger="stale")
-        labeled_prediction_manual = drift_baseline_refresh_total.labels(type="prediction", trigger="manual")
-        labeled_material_startup = drift_baseline_refresh_total.labels(type="material", trigger="startup")
+        labeled_material_stale = drift_baseline_refresh_total.labels(
+            type="material", trigger="stale"
+        )
+        labeled_prediction_manual = drift_baseline_refresh_total.labels(
+            type="prediction", trigger="manual"
+        )
+        labeled_material_startup = drift_baseline_refresh_total.labels(
+            type="material", trigger="startup"
+        )
 
         assert labeled_material_stale is not None
         assert labeled_prediction_manual is not None

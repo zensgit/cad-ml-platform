@@ -164,10 +164,7 @@ class FailoverManager:
         available = self.get_healthy_endpoints()
         if not available:
             # Try to use degraded endpoints
-            available = [
-                ep for ep in self._endpoints
-                if ep.health != ProviderHealth.UNHEALTHY
-            ]
+            available = [ep for ep in self._endpoints if ep.health != ProviderHealth.UNHEALTHY]
             if not available:
                 return None
 
@@ -178,9 +175,7 @@ class FailoverManager:
 
         elif self._config.strategy == FailoverStrategy.ROUND_ROBIN:
             async with self._lock:
-                self._round_robin_index = (
-                    self._round_robin_index % len(available)
-                )
+                self._round_robin_index = self._round_robin_index % len(available)
                 selected = available[self._round_robin_index]
                 self._round_robin_index += 1
                 return selected
@@ -193,6 +188,7 @@ class FailoverManager:
         elif self._config.strategy == FailoverStrategy.WEIGHTED:
             # Weighted random selection
             import random
+
             total_weight = sum(ep.weight for ep in available)
             if total_weight == 0:
                 return available[0]
@@ -237,7 +233,8 @@ class FailoverManager:
             if provider_name in tried_providers:
                 # Try to find another endpoint
                 available = [
-                    ep for ep in self.get_healthy_endpoints()
+                    ep
+                    for ep in self.get_healthy_endpoints()
                     if ep.provider.provider_name not in tried_providers
                 ]
                 if available:
@@ -250,18 +247,14 @@ class FailoverManager:
             request_start = time.time()
 
             try:
-                result = await endpoint.provider.analyze_image(
-                    image_data, include_description
-                )
+                result = await endpoint.provider.analyze_image(image_data, include_description)
                 latency_ms = (time.time() - request_start) * 1000
                 endpoint.record_success(latency_ms)
 
                 attempts.append((provider_name, None))
                 total_time_ms = (time.time() - start_time) * 1000
 
-                logger.info(
-                    f"Failover success: {provider_name} on attempt {attempt + 1}"
-                )
+                logger.info(f"Failover success: {provider_name} on attempt {attempt + 1}")
 
                 return FailoverResult(
                     success=True,
@@ -274,9 +267,7 @@ class FailoverManager:
             except Exception as e:
                 endpoint.record_failure()
                 attempts.append((provider_name, str(e)))
-                logger.warning(
-                    f"Failover attempt {attempt + 1} failed for {provider_name}: {e}"
-                )
+                logger.warning(f"Failover attempt {attempt + 1} failed for {provider_name}: {e}")
 
                 # Wait before retry
                 if attempt < self._config.max_retries - 1:
@@ -330,9 +321,7 @@ class FailoverManager:
     async def check_all_endpoints(self) -> Dict[str, ProviderHealth]:
         """Check health of all endpoints."""
         results: Dict[str, ProviderHealth] = {}
-        tasks = [
-            self.health_check(ep) for ep in self._endpoints
-        ]
+        tasks = [self.health_check(ep) for ep in self._endpoints]
         healths = await asyncio.gather(*tasks, return_exceptions=True)
 
         for ep, health in zip(self._endpoints, healths):
@@ -354,12 +343,8 @@ class FailoverManager:
                     "health": ep.health.value,
                     "consecutive_failures": ep.consecutive_failures,
                     "avg_latency_ms": ep.avg_latency_ms,
-                    "last_success": (
-                        ep.last_success.isoformat() if ep.last_success else None
-                    ),
-                    "last_failure": (
-                        ep.last_failure.isoformat() if ep.last_failure else None
-                    ),
+                    "last_success": (ep.last_success.isoformat() if ep.last_success else None),
+                    "last_failure": (ep.last_failure.isoformat() if ep.last_failure else None),
                 }
                 for ep in self._endpoints
             ],
@@ -406,17 +391,13 @@ class FailoverVisionProvider:
         Raises:
             VisionProviderError: If all providers fail
         """
-        result = await self._manager.analyze_with_failover(
-            image_data, include_description
-        )
+        result = await self._manager.analyze_with_failover(image_data, include_description)
 
         if result.success and result.result:
             return result.result
 
         # All providers failed
-        error_msg = "; ".join(
-            f"{p}: {e}" for p, e in result.attempts if e
-        )
+        error_msg = "; ".join(f"{p}: {e}" for p, e in result.attempts if e)
         raise VisionProviderError(
             "failover",
             f"All providers failed: {error_msg}",

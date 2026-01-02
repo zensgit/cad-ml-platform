@@ -195,9 +195,7 @@ class AuditLogger:
         """
         self._events: List[AuditEvent] = []
         self._max_events = max_events
-        self._retention = retention or DataRetentionConfig(
-            policy=RetentionPolicy.MEDIUM_TERM
-        )
+        self._retention = retention or DataRetentionConfig(policy=RetentionPolicy.MEDIUM_TERM)
         self._handlers: List[Callable[[AuditEvent], None]] = []
         self._lock = threading.Lock()
         self._event_counter = 0
@@ -249,7 +247,7 @@ class AuditLogger:
         with self._lock:
             self._events.append(event)
             if len(self._events) > self._max_events:
-                self._events = self._events[-self._max_events:]
+                self._events = self._events[-self._max_events :]
 
         for handler in self._handlers:
             try:
@@ -448,11 +446,13 @@ class PIIDetector:
             if matches:
                 detected_types.append(pii_type)
                 for match in matches:
-                    locations.append({
-                        "type": pii_type,
-                        "start": match.start(),
-                        "end": match.end(),
-                    })
+                    locations.append(
+                        {
+                            "type": pii_type,
+                            "start": match.start(),
+                            "end": match.end(),
+                        }
+                    )
 
         return PIIDetectionResult(
             detected=len(detected_types) > 0,
@@ -614,9 +614,7 @@ class ComplianceManager:
             "compliant_count": len(compliant),
             "non_compliant_count": len(non_compliant),
             "compliance_percentage": (
-                len(compliant) / len(requirements) * 100
-                if requirements
-                else 100.0
+                len(compliant) / len(requirements) * 100 if requirements else 100.0
             ),
             "compliant_requirements": compliant,
             "non_compliant_requirements": non_compliant,
@@ -689,9 +687,7 @@ class DataRetentionManager:
         Args:
             default_retention: Default retention config
         """
-        self._default = default_retention or DataRetentionConfig(
-            policy=RetentionPolicy.MEDIUM_TERM
-        )
+        self._default = default_retention or DataRetentionConfig(policy=RetentionPolicy.MEDIUM_TERM)
         self._configs: Dict[str, DataRetentionConfig] = {}
         self._data_registry: Dict[str, Dict[str, Any]] = {}
         self._lock = threading.Lock()
@@ -831,9 +827,7 @@ class ComplianceVisionProvider(VisionProvider):
 
         # Check for PII in image metadata (simplified)
         if self._enable_pii_detection:
-            pii_result = self._compliance.get_pii_detector().detect(
-                {"size": len(image_data)}
-            )
+            pii_result = self._compliance.get_pii_detector().detect({"size": len(image_data)})
             if pii_result.detected:
                 audit.log(
                     event_type=AuditEventType.DATA_ACCESS,
@@ -847,9 +841,7 @@ class ComplianceVisionProvider(VisionProvider):
         start_time = time.time()
 
         try:
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
 
             latency_ms = (time.time() - start_time) * 1000
 
@@ -889,7 +881,7 @@ def create_compliant_provider(
     """
     compliance = ComplianceManager()
 
-    for standard in (standards or []):
+    for standard in standards or []:
         compliance.enable_standard(standard)
 
     return ComplianceVisionProvider(

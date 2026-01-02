@@ -114,9 +114,20 @@ class TestOrphanCleanupLogic:
 
     def test_verbose_mode_sample_ids(self):
         """Test verbose mode returns sample IDs."""
-        orphan_ids = ["id1", "id2", "id3", "id4", "id5",
-                      "id6", "id7", "id8", "id9", "id10",
-                      "id11", "id12"]
+        orphan_ids = [
+            "id1",
+            "id2",
+            "id3",
+            "id4",
+            "id5",
+            "id6",
+            "id7",
+            "id8",
+            "id9",
+            "id10",
+            "id11",
+            "id12",
+        ]
         verbose = True
 
         sample_ids = orphan_ids[:10] if verbose else None
@@ -199,10 +210,7 @@ class TestCacheClearLogic:
         matching_keys = []
 
         if not matching_keys:
-            response = {
-                "deleted_count": 0,
-                "message": "No keys matching pattern: nonexistent_*"
-            }
+            response = {"deleted_count": 0, "message": "No keys matching pattern: nonexistent_*"}
 
         assert response["deleted_count"] == 0
 
@@ -213,18 +221,9 @@ class TestMaintenanceStatsLogic:
     def test_stats_structure(self):
         """Test stats response structure."""
         stats = {
-            "vector_store": {
-                "total_vectors": 100,
-                "metadata_entries": 95
-            },
-            "cache": {
-                "available": True,
-                "size": 1024000
-            },
-            "maintenance": {
-                "orphan_check_available": True,
-                "last_cleanup": None
-            }
+            "vector_store": {"total_vectors": 100, "metadata_entries": 95},
+            "cache": {"available": True, "size": 1024000},
+            "maintenance": {"orphan_check_available": True, "last_cleanup": None},
         }
 
         assert "vector_store" in stats
@@ -234,12 +233,7 @@ class TestMaintenanceStatsLogic:
 
     def test_stats_cache_unavailable(self):
         """Test stats when cache is unavailable."""
-        stats = {
-            "cache": {
-                "available": False,
-                "size": 0
-            }
-        }
+        stats = {"cache": {"available": False, "size": 0}}
 
         assert stats["cache"]["available"] is False
         assert stats["cache"]["size"] == 0
@@ -248,12 +242,7 @@ class TestMaintenanceStatsLogic:
         """Test orphan check availability depends on cache."""
         cache_available = True
 
-        stats = {
-            "maintenance": {
-                "orphan_check_available": cache_available,
-                "last_cleanup": None
-            }
-        }
+        stats = {"maintenance": {"orphan_check_available": cache_available, "last_cleanup": None}}
 
         assert stats["maintenance"]["orphan_check_available"] is True
 
@@ -308,7 +297,7 @@ class TestOrphanCleanupResponse:
             "deleted_count": 0,
             "sample_ids": None,
             "status": "skipped",
-            "message": "Orphan count 5 below threshold 10"
+            "message": "Orphan count 5 below threshold 10",
         }
 
         assert response["status"] == "skipped"
@@ -322,7 +311,7 @@ class TestOrphanCleanupResponse:
             "deleted_count": 0,
             "sample_ids": ["id1", "id2"],
             "status": "dry_run",
-            "message": "Would delete 15 orphan vectors"
+            "message": "Would delete 15 orphan vectors",
         }
 
         assert response["status"] == "dry_run"
@@ -336,7 +325,7 @@ class TestOrphanCleanupResponse:
             "deleted_count": 15,
             "sample_ids": None,
             "status": "ok",
-            "message": "Successfully deleted 15 orphan vectors"
+            "message": "Successfully deleted 15 orphan vectors",
         }
 
         assert response["status"] == "ok"
@@ -355,7 +344,7 @@ class TestErrorHandlingLogic:
         error = {
             "code": error_type,
             "stage": stage,
-            "message": "Redis connection failed during orphan cleanup"
+            "message": "Redis connection failed during orphan cleanup",
         }
 
         assert error["code"] == "SERVICE_UNAVAILABLE"
@@ -369,7 +358,7 @@ class TestErrorHandlingLogic:
             error = {
                 "code": "SERVICE_UNAVAILABLE",
                 "stage": "cache_clear",
-                "message": "Cache client not available"
+                "message": "Cache client not available",
             }
 
         assert error["code"] == "SERVICE_UNAVAILABLE"
@@ -379,7 +368,7 @@ class TestErrorHandlingLogic:
         error = {
             "code": "INTERNAL_ERROR",
             "stage": "cache_clear",
-            "message": "Failed to clear cache"
+            "message": "Failed to clear cache",
         }
 
         assert error["code"] == "INTERNAL_ERROR"
@@ -389,7 +378,7 @@ class TestErrorHandlingLogic:
         error = {
             "code": "INTERNAL_ERROR",
             "stage": "maintenance_stats",
-            "message": "Failed to read vector store stats"
+            "message": "Failed to read vector store stats",
         }
 
         assert error["code"] == "INTERNAL_ERROR"
@@ -433,20 +422,14 @@ class TestVectorStoreReloadResponse:
 
     def test_reload_response_ok(self):
         """Test reload response with ok status."""
-        response = {
-            "status": "ok",
-            "backend": "memory"
-        }
+        response = {"status": "ok", "backend": "memory"}
 
         assert response["status"] == "ok"
         assert response["backend"] == "memory"
 
     def test_reload_response_faiss_backend(self):
         """Test reload response with faiss backend."""
-        response = {
-            "status": "ok",
-            "backend": "faiss"
-        }
+        response = {"status": "ok", "backend": "faiss"}
 
         assert response["backend"] == "faiss"
 

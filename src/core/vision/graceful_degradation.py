@@ -196,7 +196,9 @@ class StaticFallbackProvider(FallbackProvider):
             default_details: Default details
         """
         self._default_summary = default_summary
-        self._default_details = default_details if default_details is not None else ["Please try again later"]
+        self._default_details = (
+            default_details if default_details is not None else ["Please try again later"]
+        )
         self._responses: Dict[DegradationLevel, FallbackResponse] = {}
 
     def set_response(
@@ -266,7 +268,8 @@ class CachedFallbackProvider(FallbackProvider):
     ) -> FallbackResponse:
         """Get fallback from cache."""
         import hashlib
-        image_hash = hashlib.md5(image_data).hexdigest()
+
+        image_hash = hashlib.sha256(image_data).hexdigest()
 
         with self._lock:
             if image_hash in self._cache:
@@ -537,10 +540,12 @@ class DegradationManager:
                     self._recovery.record_recovery_attempt(True)
 
                     if self._recovery.should_recover():
-                        self._update_state(DegradationState(
-                            level=DegradationLevel.NORMAL,
-                            reason=DegradationReason.NONE,
-                        ))
+                        self._update_state(
+                            DegradationState(
+                                level=DegradationLevel.NORMAL,
+                                reason=DegradationReason.NONE,
+                            )
+                        )
                         self._recovery.reset()
 
     def record_failure(self) -> None:
@@ -568,20 +573,24 @@ class DegradationManager:
             reason: Reason for degradation
         """
         with self._lock:
-            self._update_state(DegradationState(
-                level=level,
-                reason=DegradationReason.MANUAL,
-                started_at=datetime.now(),
-                message=reason,
-            ))
+            self._update_state(
+                DegradationState(
+                    level=level,
+                    reason=DegradationReason.MANUAL,
+                    started_at=datetime.now(),
+                    message=reason,
+                )
+            )
 
     def force_recovery(self) -> None:
         """Force recovery to normal state."""
         with self._lock:
-            self._update_state(DegradationState(
-                level=DegradationLevel.NORMAL,
-                reason=DegradationReason.NONE,
-            ))
+            self._update_state(
+                DegradationState(
+                    level=DegradationLevel.NORMAL,
+                    reason=DegradationReason.NONE,
+                )
+            )
             self._recovery.reset()
             self._metrics.reset()
 
@@ -689,9 +698,7 @@ class GracefulDegradationVisionProvider(VisionProvider):
         start_time = time.time()
 
         try:
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
 
             latency_ms = (time.time() - start_time) * 1000
             self._degradation.record_success(latency_ms)
@@ -759,9 +766,7 @@ class FallbackChain:
 
         for provider in self._providers:
             try:
-                return await provider.analyze_image(
-                    image_data, include_description
-                )
+                return await provider.analyze_image(image_data, include_description)
             except Exception as e:
                 last_error = e
                 continue
@@ -862,8 +867,10 @@ def create_fallback_chain(
     for provider in providers:
         chain.add_provider(provider)
 
-    chain.set_fallback(StaticFallbackProvider(
-        default_summary=fallback_message,
-    ))
+    chain.set_fallback(
+        StaticFallbackProvider(
+            default_summary=fallback_message,
+        )
+    )
 
     return FallbackChainVisionProvider(chain)

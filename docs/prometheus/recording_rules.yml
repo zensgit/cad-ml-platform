@@ -204,6 +204,86 @@ groups:
           sum(rate(ocr_requests_total[5m]))
           * 100
 
+  - name: cad_ml_dedup2d
+    interval: 30s
+    rules:
+      # Dedup2D job success rate (%)
+      - record: dedup2d_job_success_rate
+        expr: |
+          (
+            sum(rate(dedup2d_jobs_total{status="completed"}[5m]))
+            /
+            sum(rate(dedup2d_jobs_total{status=~"completed|failed|canceled"}[5m]))
+          ) * 100
+
+      # Dedup2D job error rate (%)
+      - record: dedup2d_job_error_rate
+        expr: |
+          (
+            sum(rate(dedup2d_jobs_total{status=~"failed|canceled"}[5m]))
+            /
+            sum(rate(dedup2d_jobs_total{status=~"completed|failed|canceled"}[5m]))
+          ) * 100
+
+      # Dedup2D submission and completion throughput (per minute)
+      - record: dedup2d_jobs_submitted_per_min
+        expr: |
+          sum(rate(dedup2d_jobs_total{status="pending"}[5m])) * 60
+
+      - record: dedup2d_jobs_completed_per_min
+        expr: |
+          sum(rate(dedup2d_jobs_total{status="completed"}[5m])) * 60
+
+      # Dedup2D storage error rates (%)
+      - record: dedup2d_storage_upload_error_rate
+        expr: |
+          (
+            sum(rate(dedup2d_file_uploads_total{status="error"}[5m]))
+            /
+            sum(rate(dedup2d_file_uploads_total[5m]))
+          ) * 100
+
+      - record: dedup2d_storage_download_error_rate
+        expr: |
+          (
+            sum(rate(dedup2d_file_downloads_total{status="error"}[5m]))
+            /
+            sum(rate(dedup2d_file_downloads_total[5m]))
+          ) * 100
+
+      - record: dedup2d_storage_delete_error_rate
+        expr: |
+          (
+            sum(rate(dedup2d_file_deletes_total{status="error"}[5m]))
+            /
+            sum(rate(dedup2d_file_deletes_total[5m]))
+          ) * 100
+
+      # Dedup2D storage latency P95 (seconds)
+      - record: dedup2d_storage_p95_upload_latency_seconds
+        expr: |
+          histogram_quantile(0.95,
+            sum by(backend, le) (
+              rate(dedup2d_file_operation_duration_seconds_bucket{operation="upload"}[5m])
+            )
+          )
+
+      - record: dedup2d_storage_p95_download_latency_seconds
+        expr: |
+          histogram_quantile(0.95,
+            sum by(backend, le) (
+              rate(dedup2d_file_operation_duration_seconds_bucket{operation="download"}[5m])
+            )
+          )
+
+      - record: dedup2d_storage_p95_delete_latency_seconds
+        expr: |
+          histogram_quantile(0.95,
+            sum by(backend, le) (
+              rate(dedup2d_file_operation_duration_seconds_bucket{operation="delete"}[5m])
+            )
+          )
+
   - name: cad_ml_slo
     interval: 1m
     rules:

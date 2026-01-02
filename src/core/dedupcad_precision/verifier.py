@@ -4,8 +4,7 @@ import hashlib
 import json
 import logging
 import os
-from dataclasses import dataclass
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from typing import Any, Dict, Literal, Optional
 
 from .vendor.config import Settings

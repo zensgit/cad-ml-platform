@@ -11,20 +11,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Set,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import Any, Callable, Dict, Generic, List, Optional, Set, Type, TypeVar, Union
 
-from .base import VisionProvider, VisionDescription
+from .base import VisionDescription, VisionProvider
 
 T = TypeVar("T")
 E = TypeVar("E", bound="Event")
@@ -167,17 +156,13 @@ class EventBus:
             self._handlers[event_type] = []
         self._handlers[event_type].append(handler)
 
-    def subscribe_all(
-        self, handler: Union[EventHandler, Callable[[Event], Any]]
-    ) -> None:
+    def subscribe_all(self, handler: Union[EventHandler, Callable[[Event], Any]]) -> None:
         """Subscribe a handler to all events."""
         if callable(handler) and not isinstance(handler, EventHandler):
             handler = FunctionEventHandler(handler)
         self._global_handlers.append(handler)
 
-    def unsubscribe(
-        self, event_type: str, handler: EventHandler
-    ) -> bool:
+    def unsubscribe(self, event_type: str, handler: EventHandler) -> bool:
         """Unsubscribe a handler from an event type."""
         if event_type in self._handlers:
             try:
@@ -240,9 +225,7 @@ class EventBus:
         """Get event history."""
         history = self._event_history
         if event_type:
-            history = [
-                e for e in history if e.event.event_type == event_type
-            ]
+            history = [e for e in history if e.event.event_type == event_type]
         return history[-limit:]
 
     def get_handler_count(self, event_type: Optional[str] = None) -> int:
@@ -272,12 +255,14 @@ class EventRouter:
         priority: int = 0,
     ) -> None:
         """Add a routing rule."""
-        self._routes.append({
-            "name": name,
-            "predicate": predicate,
-            "target": target,
-            "priority": priority,
-        })
+        self._routes.append(
+            {
+                "name": name,
+                "predicate": predicate,
+                "target": target,
+                "priority": priority,
+            }
+        )
         self._routes.sort(key=lambda r: r["priority"], reverse=True)
 
     def remove_route(self, name: str) -> bool:
@@ -348,14 +333,10 @@ class EventStore:
     ) -> List[Event]:
         """Get all events, optionally from a timestamp."""
         if from_timestamp:
-            return [
-                e for e in self._all_events if e.timestamp >= from_timestamp
-            ]
+            return [e for e in self._all_events if e.timestamp >= from_timestamp]
         return self._all_events.copy()
 
-    def save_snapshot(
-        self, aggregate_id: str, state: Dict[str, Any], version: int
-    ) -> None:
+    def save_snapshot(self, aggregate_id: str, state: Dict[str, Any], version: int) -> None:
         """Save a snapshot of aggregate state."""
         self._snapshots[aggregate_id] = {
             "state": state,
@@ -363,9 +344,7 @@ class EventStore:
             "timestamp": datetime.utcnow(),
         }
 
-    def get_snapshot(
-        self, aggregate_id: str
-    ) -> Optional[Dict[str, Any]]:
+    def get_snapshot(self, aggregate_id: str) -> Optional[Dict[str, Any]]:
         """Get the latest snapshot for an aggregate."""
         return self._snapshots.get(aggregate_id)
 
@@ -413,9 +392,7 @@ class EventAggregator:
         """Subscribe to aggregated events."""
         self._aggregated_bus.subscribe(event_type, handler)
 
-    def subscribe_all(
-        self, handler: Union[EventHandler, Callable[[Event], Any]]
-    ) -> None:
+    def subscribe_all(self, handler: Union[EventHandler, Callable[[Event], Any]]) -> None:
         """Subscribe to all aggregated events."""
         self._aggregated_bus.subscribe_all(handler)
 
@@ -431,9 +408,7 @@ class CommandBus:
         self._handlers: Dict[str, Callable[..., Any]] = {}
         self._middleware: List[Callable[..., Any]] = []
 
-    def register(
-        self, command_type: str, handler: Callable[..., Any]
-    ) -> None:
+    def register(self, command_type: str, handler: Callable[..., Any]) -> None:
         """Register a command handler."""
         self._handlers[command_type] = handler
 
@@ -441,9 +416,7 @@ class CommandBus:
         """Add middleware for command processing."""
         self._middleware.append(middleware)
 
-    async def dispatch(
-        self, command_type: str, data: Dict[str, Any]
-    ) -> Any:
+    async def dispatch(self, command_type: str, data: Dict[str, Any]) -> Any:
         """Dispatch a command to its handler."""
         handler = self._handlers.get(command_type)
         if not handler:
@@ -475,9 +448,7 @@ class QueryBus:
         self._cache: Dict[str, Dict[str, Any]] = {}
         self._cache_ttl: float = 60.0  # seconds
 
-    def register(
-        self, query_type: str, handler: Callable[..., Any]
-    ) -> None:
+    def register(self, query_type: str, handler: Callable[..., Any]) -> None:
         """Register a query handler."""
         self._handlers[query_type] = handler
 
@@ -518,9 +489,7 @@ class QueryBus:
     def invalidate_cache(self, query_type: Optional[str] = None) -> int:
         """Invalidate cached queries."""
         if query_type:
-            keys_to_remove = [
-                k for k in self._cache if k.startswith(f"{query_type}:")
-            ]
+            keys_to_remove = [k for k in self._cache if k.startswith(f"{query_type}:")]
             for key in keys_to_remove:
                 del self._cache[key]
             return len(keys_to_remove)
@@ -545,9 +514,7 @@ class EventDrivenVisionProvider(VisionProvider):
     def provider_name(self) -> str:
         return f"event_{self._base.provider_name}"
 
-    async def analyze_image(
-        self, image_data: bytes, **kwargs: Any
-    ) -> VisionDescription:
+    async def analyze_image(self, image_data: bytes, **kwargs: Any) -> VisionDescription:
         """Analyze image and emit events."""
         correlation_id = str(uuid.uuid4())
 

@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DedupCAD Vision Health Response",
+  "type": "object",
+  "required": ["status"],
+  "properties": {
+    "status": {
+      "type": "string"
+    },
+    "service": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "indexes": {
+      "type": "object"
+    },
+    "details": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

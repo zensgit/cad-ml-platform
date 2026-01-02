@@ -9,4 +9,3 @@ def test_process_rules_default_steel_low_volume():
 def test_process_rules_fallback():
     r = recommend(material="unknown_material", complexity="low", volume=1e9)
     assert r["primary"] == "cnc_machining" or r["primary"] == "casting"
-

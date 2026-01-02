@@ -11,11 +11,11 @@ This module provides priority queue and request scheduling capabilities includin
 import asyncio
 import heapq
 import time
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum, IntEnum
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-from abc import ABC, abstractmethod
 
 from .base import VisionDescription, VisionProvider
 
@@ -382,9 +382,7 @@ class RequestScheduler:
         # Update stats
         self._stats.total_enqueued += 1
         self._stats.current_size = self._queue.size()
-        self._stats.max_size_reached = max(
-            self._stats.max_size_reached, self._stats.current_size
-        )
+        self._stats.max_size_reached = max(self._stats.max_size_reached, self._stats.current_size)
         self._stats.requests_by_priority[priority] = (
             self._stats.requests_by_priority.get(priority, 0) + 1
         )
@@ -524,9 +522,7 @@ class PrioritizedVisionProvider(VisionProvider):
             default_priority: Default request priority
         """
         self._provider = provider
-        self._queue = MultiLevelQueue(
-            strategy=strategy, max_size_per_level=max_queue_size
-        )
+        self._queue = MultiLevelQueue(strategy=strategy, max_size_per_level=max_queue_size)
         self._scheduler = RequestScheduler(provider, self._queue)
         self._default_priority = default_priority
 
@@ -549,9 +545,7 @@ class PrioritizedVisionProvider(VisionProvider):
         Returns:
             Vision analysis description
         """
-        return await self.analyze_with_priority(
-            image_data, self._default_priority
-        )
+        return await self.analyze_with_priority(image_data, self._default_priority)
 
     async def analyze_with_priority(
         self,

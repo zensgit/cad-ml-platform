@@ -18,7 +18,6 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, TypeVar
 
 from .base import VisionDescription, VisionProvider
 
-
 # Context variable for request context
 _request_context: contextvars.ContextVar["RequestContext"] = contextvars.ContextVar(
     "request_context"
@@ -61,11 +60,13 @@ class ContextSpan:
 
     def add_event(self, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
         """Add event to span."""
-        self.events.append({
-            "name": name,
-            "timestamp": datetime.now().isoformat(),
-            "attributes": attributes or {},
-        })
+        self.events.append(
+            {
+                "name": name,
+                "timestamp": datetime.now().isoformat(),
+                "attributes": attributes or {},
+            }
+        )
 
     @property
     def duration_ms(self) -> Optional[float]:
@@ -321,9 +322,7 @@ class ContextManager:
                 return True
             return False
 
-    def get_by_correlation_id(
-        self, correlation_id: str
-    ) -> List[RequestContext]:
+    def get_by_correlation_id(self, correlation_id: str) -> List[RequestContext]:
         """Get contexts by correlation ID.
 
         Args:
@@ -333,10 +332,7 @@ class ContextManager:
             List of contexts
         """
         with self._lock:
-            return [
-                ctx for ctx in self._contexts.values()
-                if ctx.correlation_id == correlation_id
-            ]
+            return [ctx for ctx in self._contexts.values() if ctx.correlation_id == correlation_id]
 
     def cleanup_expired(self, max_age_seconds: float = 3600) -> int:
         """Remove expired contexts.
@@ -496,14 +492,15 @@ class ContextAwareVisionProvider(VisionProvider):
                     },
                 )
 
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
 
             if context:
-                span.add_event("analysis_complete", {
-                    "confidence": result.confidence,
-                })
+                span.add_event(
+                    "analysis_complete",
+                    {
+                        "confidence": result.confidence,
+                    },
+                )
                 context.end_span()
 
             return result

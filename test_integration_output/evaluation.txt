@@ -13,9 +13,9 @@ Step 3/3: Calculating combined score...
 
 Effective Weights: vision=0.50, ocr=0.50 (normalized)
 
-Timestamp: 2025-11-19 09:37:22
-Git Branch: main
-Git Commit: 031a204
+Timestamp: 2025-12-27 14:44:45
+Git Branch: feat/dedup2d-phase4-production-ready
+Git Commit: e3b54dd
 
 --- Vision Module ---
   AVG_HIT_RATE:  66.7%
