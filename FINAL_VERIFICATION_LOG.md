@@ -479,6 +479,12 @@
 - **Dedup2D Observability Validation**:
   - Validated dashboard JSON and recording rules; updated promtool prefix list.
   - Report: `reports/DEV_DEDUP2D_OBSERVABILITY_VALIDATION_20260101.md`
+- **Dedup2D Promtool Validation**:
+  - Ran full promtool validation via Docker; warnings limited to pre-existing prefix cases.
+  - Report: `reports/DEV_DEDUP2D_PROMTOOL_VALIDATION_20260101.md`
+- **Dedup2D Metrics Contract Test**:
+  - Added skip when metrics client is disabled; test skipped locally.
+  - Report: `reports/DEV_DEDUP2D_METRICS_CONTRACT_TEST_20260101.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

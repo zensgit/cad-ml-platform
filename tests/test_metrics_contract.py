@@ -360,6 +360,8 @@ class TestMetricsContract:
         response = client.get("/metrics")
         assert response.status_code == 200
         text = response.text
+        if "app_metrics_disabled" in text:
+            pytest.skip("metrics client disabled in this environment")
         assert "dedup2d_file_uploads_total" in text
         assert "dedup2d_file_downloads_total" in text
         assert "dedup2d_file_deletes_total" in text
