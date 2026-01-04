@@ -184,3 +184,13 @@
 
 ### Notes
 - Warnings were DeprecationWarning from SwigPyPacked/SwigPyObject/swigvarlink in vision integration tests.
+
+## Update (DeprecationWarning error probe)
+### Command
+- .venv/bin/python -m pytest tests/integration/test_vision_api_integration.py -k test_analyze_with_stub_provider -v -W error::DeprecationWarning -s
+
+### Result
+- FAILED: fatal Python segmentation fault while importing `faiss` (swigfaiss).
+
+### Notes
+- Crash occurred during faiss import in `src/core/similarity.py` while bringing up the test client.
