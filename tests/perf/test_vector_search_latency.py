@@ -1,10 +1,27 @@
+import os
 import statistics
+import subprocess
+import sys
 import time
 
 import numpy as np
 import pytest
 
 from src.core.similarity import FaissVectorStore, InMemoryVectorStore
+
+
+def _faiss_import_ok() -> tuple[bool, str | None]:
+    result = subprocess.run(
+        [sys.executable, "-c", "import faiss"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        message = (result.stderr or result.stdout).strip()
+        if not message:
+            message = f"exit code {result.returncode}"
+        return False, message
+    return True, None
 
 
 @pytest.mark.asyncio
@@ -23,14 +40,18 @@ async def test_vector_search_latency():
 
     # Test both backends if available
     stores = [InMemoryVectorStore()]
-    try:
-        faiss_store = FaissVectorStore()
-        if faiss_store._available:
-            stores.append(faiss_store)
-        else:
-            print("FaissVectorStore not available")
-    except Exception as e:
-        print(f"FaissVectorStore init failed: {e}")
+    if os.getenv("RUN_FAISS_PERF_TESTS", "0") == "1":
+        ok, reason = _faiss_import_ok()
+        if not ok:
+            pytest.skip(f"Faiss perf tests requested but faiss import failed: {reason}")
+        try:
+            faiss_store = FaissVectorStore()
+            if faiss_store._available:
+                stores.append(faiss_store)
+            else:
+                pytest.skip("Faiss perf tests requested but faiss is unavailable")
+        except Exception as e:
+            pytest.skip(f"FaissVectorStore init failed: {e}")
 
     for store in stores:
         backend_name = store.__class__.__name__
