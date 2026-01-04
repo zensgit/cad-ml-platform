@@ -10,7 +10,7 @@ Validates:
 import base64
 import json
 import re
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 import pytest
 from fastapi.testclient import TestClient
@@ -202,6 +202,28 @@ def extract_base_metric_name(full_name: str) -> str:
         ):
             return full_name.replace(suffix, "")
     return full_name
+
+
+def _ensure_metric_present(metric_name: str, trigger: Callable[[], None]) -> None:
+    parsed = parse_metrics_exposition(client.get("/metrics").text)
+    if parsed.get(metric_name):
+        return
+
+    trigger()
+    parsed = parse_metrics_exposition(client.get("/metrics").text)
+    if not parsed.get(metric_name):
+        pytest.fail(f"{metric_name} still missing after strict-mode trigger")
+
+
+def _providers_for_metric(
+    parsed: Dict[str, List[Dict[str, str]]], metric_name: str
+) -> Set[str]:
+    providers: Set[str] = set()
+    for instance in parsed.get(metric_name, []):
+        provider = instance.get("provider")
+        if provider:
+            providers.add(provider)
+    return providers
 
 
 class TestMetricsEndpoint:
@@ -554,8 +576,17 @@ class TestMetricsContractStrictMode:
     @pytest.mark.skipif(not strict_enabled, reason="Strict metrics mode not enabled")
     def test_minimum_error_counters(self):
         """In strict mode, verify minimum error counter thresholds."""
-        response = client.get("/metrics")
-        parsed = parse_metrics_exposition(response.text)
+        def trigger_ocr_error() -> None:
+            files = {"file": ("test.png", _SAMPLE_PNG_BYTES, "image/png")}
+            client.post("/api/v1/ocr/extract", params={"provider": "unknown"}, files=files)
+
+        def trigger_vision_error() -> None:
+            client.post("/api/v1/vision/analyze", json={})
+
+        _ensure_metric_present("ocr_errors_total", trigger_ocr_error)
+        _ensure_metric_present("vision_errors_total", trigger_vision_error)
+
+        parsed = parse_metrics_exposition(client.get("/metrics").text)
 
         # Check that we have at least some error metrics initialized
         ocr_errors = parsed.get("ocr_errors_total", [])
@@ -570,18 +601,24 @@ class TestMetricsContractStrictMode:
         response = client.get("/metrics")
         parsed = parse_metrics_exposition(response.text)
 
-        # Get all unique providers from metrics
-        providers = set()
-        for full_name, instances in parsed.items():
-            for instance in instances:
-                if "provider" in instance:
-                    providers.add(instance["provider"])
+        from src.api.v1.ocr import get_manager as get_ocr_manager
+        from src.api.v1.vision import get_vision_manager
 
-        # Should have at least paddle and deepseek_hf
-        expected_providers = {"paddle", "deepseek_hf", "deepseek_stub"}
-        missing = expected_providers - providers
+        ocr_manager = get_ocr_manager()
+        expected_ocr_providers = set(ocr_manager.providers.keys())
+        ocr_loaded_providers = _providers_for_metric(parsed, "ocr_model_loaded")
+        missing_ocr = expected_ocr_providers - ocr_loaded_providers
 
-        assert len(missing) == 0, f"Missing metrics for providers: {missing}"
+        vision_provider = get_vision_manager().vision_provider.provider_name
+        vision_request_providers = _providers_for_metric(parsed, "vision_requests_total")
+
+        assert (
+            len(missing_ocr) == 0
+        ), f"OCR providers missing model-loaded metrics: {missing_ocr}"
+
+        assert (
+            vision_provider in vision_request_providers
+        ), f"Vision provider '{vision_provider}' missing request metrics"
 
 
 def pytest_addoption(parser):

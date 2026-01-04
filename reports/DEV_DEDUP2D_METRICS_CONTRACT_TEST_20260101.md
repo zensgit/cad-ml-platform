@@ -41,3 +41,16 @@ python -m pytest tests/test_metrics_contract.py -k metrics -v
 
 ### Notes
 - Metrics enabled via `prometheus_client` installed in `.venv-metrics`.
+
+## Update (strict metrics)
+### Command
+```bash
+source .venv-metrics/bin/activate
+STRICT_METRICS=1 python -m pytest tests/test_metrics_contract.py -k strict -v
+```
+
+### Result
+- `2 passed, 20 deselected`
+
+### Notes
+- Strict checks now trigger error metrics on demand and verify active provider coverage.
