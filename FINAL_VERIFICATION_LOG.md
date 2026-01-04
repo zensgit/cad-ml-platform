@@ -509,6 +509,7 @@
   - Attempted DeprecationWarning error probe on vision integration test; Python segfault in faiss import (swigfaiss).
   - Re-attempted probe with `VECTOR_STORE_BACKEND=memory`; faiss import still triggered via recovery loop and segfaulted.
   - Re-attempted probe with `FAISS_RECOVERY_STATE_PATH` override + `VECTOR_STORE_BACKEND=memory`; test passed without faiss import.
+  - Added integration fixture to isolate `FAISS_RECOVERY_STATE_PATH`; DeprecationWarning probe passes without faiss import.
   - Report: `reports/DEV_MAKE_TEST_20260104.md`
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.

@@ -216,3 +216,13 @@
 
 ### Notes
 - Clean recovery state avoided faiss import, so the DeprecationWarning probe completed without segfault.
+
+## Update (integration recovery-state fixture)
+### Command
+- .venv/bin/python -m pytest tests/integration/test_vision_api_integration.py -k test_analyze_with_stub_provider -v -W error::DeprecationWarning -s
+
+### Result
+- 1 passed, 13 deselected
+
+### Notes
+- Added integration fixture to set `FAISS_RECOVERY_STATE_PATH` per test, preventing stale degraded state from triggering faiss import.
