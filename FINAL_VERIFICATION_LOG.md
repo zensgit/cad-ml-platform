@@ -485,6 +485,7 @@
 - **Dedup2D Metrics Contract Test**:
   - Added metrics-enabled guard via `/health` with `/metrics` fallback; fallback metrics check passes when disabled.
   - Ran metrics contract suite (8 passed, 14 skipped) in disabled runtime.
+  - Ran metrics contract suite (19 passed, 3 skipped) with `prometheus_client` enabled.
   - Report: `reports/DEV_DEDUP2D_METRICS_CONTRACT_TEST_20260101.md`
 
 ---

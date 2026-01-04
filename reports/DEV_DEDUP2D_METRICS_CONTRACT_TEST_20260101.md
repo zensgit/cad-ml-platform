@@ -28,3 +28,16 @@ pytest tests/test_metrics_contract.py -k metrics -v
 
 ### Notes
 - Metrics contract tests now gate on `/health` `metrics_enabled` (with `/metrics` fallback).
+
+## Update (metrics enabled)
+### Command
+```bash
+source .venv-metrics/bin/activate
+python -m pytest tests/test_metrics_contract.py -k metrics -v
+```
+
+### Result
+- `19 passed, 3 skipped` (fallback test skipped; strict mode tests skipped).
+
+### Notes
+- Metrics enabled via `prometheus_client` installed in `.venv-metrics`.
