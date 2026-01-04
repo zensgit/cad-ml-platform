@@ -99,3 +99,21 @@
 
 ### Notes
 - Initial attempt used `tests/test_ocr_endpoint.py` (not found); reran with `tests/ocr/test_ocr_endpoint.py`.
+
+## Update (targeted warning isolation with asyncio debug)
+### Commands
+- PYTHONASYNCIODEBUG=1 PYTHONWARNINGS=default .venv/bin/python -m pytest tests/test_metrics_contract.py -v -s -W error::pytest.PytestUnraisableExceptionWarning
+- PYTHONASYNCIODEBUG=1 PYTHONWARNINGS=default .venv/bin/python -m pytest tests/test_provider_timeout_simulation.py -v -s -W error::pytest.PytestUnraisableExceptionWarning
+- PYTHONASYNCIODEBUG=1 PYTHONWARNINGS=default .venv/bin/python -m pytest tests/unit/test_adapter_factory_coverage.py -v -s -W error::pytest.PytestUnraisableExceptionWarning
+- PYTHONASYNCIODEBUG=1 PYTHONWARNINGS=default .venv/bin/python -m pytest tests/unit/test_cache_coverage.py -v -s -W error::pytest.PytestUnraisableExceptionWarning
+- PYTHONASYNCIODEBUG=1 PYTHONWARNINGS=default .venv/bin/python -m pytest tests/unit/test_dedup2d_file_storage_s3.py -v -s -W error::pytest.PytestUnraisableExceptionWarning
+
+### Results
+- tests/test_metrics_contract.py: 19 passed, 3 skipped, 1 warning (ResourceWarning: unclosed event loop in test_rejection_reasons_valid; debug=True).
+- tests/test_provider_timeout_simulation.py: 13 passed, 1 warning (ResourceWarning: unclosed event loop in test_high_load_timeout_behavior; debug=True).
+- tests/unit/test_adapter_factory_coverage.py: 38 passed, 3 warnings (ResourceWarning in test_dxf_adapter_parse_with_ezdxf, test_stl_adapter_parse_without_trimesh, test_step_adapter_parse_without_occ; debug=True; extra warning printed after summary).
+- tests/unit/test_cache_coverage.py: 23 passed, 2 warnings (ResourceWarning in test_redis_healthy_when_connected, test_redis_module_available_check; debug=True).
+- tests/unit/test_dedup2d_file_storage_s3.py: 16 passed, 1 warning (ResourceWarning in test_create_s3_storage; debug=True).
+
+### Notes
+- Warnings remain unclosed event loop warnings even with asyncio debug enabled.

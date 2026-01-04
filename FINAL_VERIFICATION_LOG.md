@@ -499,6 +499,7 @@
   - Attempted PytestUnraisableExceptionWarning filter without module path (failed parsing).
   - Re-ran with pytest.PytestUnraisableExceptionWarning filter: 3993 passed, 21 skipped, 170 warnings; duration 106.79s.
   - Targeted warning isolation runs identified ResourceWarning hot spots in metrics_contract, provider_timeout_simulation, adapter_factory_coverage, cache_coverage, dedup2d_file_storage_s3.
+  - Targeted asyncio-debug isolation confirmed unclosed event loop warnings with debug enabled in the same hotspots.
   - Report: `reports/DEV_MAKE_TEST_20260104.md`
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
