@@ -204,3 +204,15 @@
 
 ### Notes
 - `VECTOR_STORE_BACKEND=memory` did not prevent faiss recovery import; crash still occurs in `src/core/similarity.py` recovery loop.
+
+## Update (DeprecationWarning probe with clean recovery state)
+### Command
+- FAISS_RECOVERY_STATE_PATH=/tmp/faiss_recovery_state.json VECTOR_STORE_BACKEND=memory \
+  .venv/bin/python -m pytest tests/integration/test_vision_api_integration.py \
+  -k test_analyze_with_stub_provider -v -W error::DeprecationWarning -s
+
+### Result
+- 1 passed, 13 deselected
+
+### Notes
+- Clean recovery state avoided faiss import, so the DeprecationWarning probe completed without segfault.
