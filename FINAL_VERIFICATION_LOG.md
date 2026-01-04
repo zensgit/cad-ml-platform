@@ -488,6 +488,7 @@
   - Ran metrics contract suite (19 passed, 3 skipped) with `prometheus_client` enabled.
   - Ran strict mode metrics contract (2 passed) with on-demand error triggers.
   - Re-ran metrics contract suite post strict-mode fix (19 passed, 3 skipped).
+  - Re-ran tracemalloc isolation (1 passed, 21 deselected) with `.venv` metrics enabled.
   - Report: `reports/DEV_DEDUP2D_METRICS_CONTRACT_TEST_20260101.md`
 - **make test**:
   - Ran full test suite with coverage using project venv.
@@ -502,6 +503,7 @@
   - Targeted asyncio-debug isolation confirmed unclosed event loop warnings with debug enabled in the same hotspots.
   - Tracemalloc + asyncio debug reruns did not reproduce ResourceWarnings in the targeted suites.
   - Tracemalloc full-file cache coverage failed 2 tests (test_get_cache_from_redis, test_set_cache_to_redis); dedup2d_file_storage_s3 skipped (0 collected).
+  - Re-ran tracemalloc cache tests using `.venv`; redis path tests passed (2 passed, 21 deselected), confirming prior failures were due to missing optional dependencies in system Python.
   - Report: `reports/DEV_MAKE_TEST_20260104.md`
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.

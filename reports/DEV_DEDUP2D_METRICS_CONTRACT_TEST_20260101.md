@@ -64,3 +64,16 @@ STRICT_METRICS=1 python -m pytest tests/test_metrics_contract.py -k strict -v
 
 ### Notes
 - Strict checks now trigger error metrics on demand and verify active provider coverage.
+
+## Update (tracemalloc, metrics enabled)
+### Command
+```bash
+PYTHONASYNCIODEBUG=1 PYTHONTRACEMALLOC=1 .venv/bin/python -m pytest \
+  tests/test_metrics_contract.py -k test_rejection_reasons_valid -v -s
+```
+
+### Result
+- `1 passed, 21 deselected`
+
+### Notes
+- Metrics enabled via `prometheus_client` in `.venv`; no ResourceWarning observed in this run.

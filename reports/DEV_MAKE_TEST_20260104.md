@@ -147,3 +147,16 @@
 - Tracemalloc runs did not reproduce the unclosed event loop warnings seen in prior isolation runs.
 - test_get_cache_from_redis returned None instead of the mocked payload.
 - test_set_cache_to_redis did not call mock_client.setex.
+
+## Update (tracemalloc with venv)
+### Commands
+- PYTHONASYNCIODEBUG=1 PYTHONTRACEMALLOC=1 .venv/bin/python -m pytest tests/test_metrics_contract.py -k test_rejection_reasons_valid -v -s
+- PYTHONASYNCIODEBUG=1 PYTHONTRACEMALLOC=1 .venv/bin/python -m pytest tests/unit/test_cache_coverage.py -k "test_get_cache_from_redis or test_set_cache_to_redis" -v -s
+
+### Results
+- tests/test_metrics_contract.py: 1 passed, 21 deselected.
+- tests/unit/test_cache_coverage.py: 2 passed, 21 deselected.
+
+### Notes
+- `.venv` has `prometheus_client` and `redis` available; metrics enabled and redis paths execute normally.
+- The earlier tracemalloc failures under system Python 3.13 were due to missing optional dependencies.
