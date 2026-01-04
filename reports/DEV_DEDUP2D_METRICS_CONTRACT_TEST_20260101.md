@@ -42,6 +42,16 @@ python -m pytest tests/test_metrics_contract.py -k metrics -v
 ### Notes
 - Metrics enabled via `prometheus_client` installed in `.venv-metrics`.
 
+## Update (metrics enabled, post-strict fix)
+### Command
+```bash
+source .venv-metrics/bin/activate
+python -m pytest tests/test_metrics_contract.py -k metrics -v
+```
+
+### Result
+- `19 passed, 3 skipped` (fallback test skipped; strict mode tests skipped).
+
 ## Update (strict metrics)
 ### Command
 ```bash
