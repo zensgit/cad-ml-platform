@@ -483,7 +483,8 @@
   - Ran full promtool validation via Docker; warnings limited to pre-existing prefix cases.
   - Report: `reports/DEV_DEDUP2D_PROMTOOL_VALIDATION_20260101.md`
 - **Dedup2D Metrics Contract Test**:
-  - Added skip when metrics client is disabled; test skipped locally.
+  - Added metrics-enabled guard via `/health` with `/metrics` fallback; fallback metrics check passes when disabled.
+  - Ran metrics contract suite (8 passed, 14 skipped) in disabled runtime.
   - Report: `reports/DEV_DEDUP2D_METRICS_CONTRACT_TEST_20260101.md`
 
 ---

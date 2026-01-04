@@ -25,13 +25,59 @@ _SAMPLE_PNG_BYTES = base64.b64decode(
 )
 
 
+def _metrics_enabled_from_health() -> Optional[bool]:
+    response = client.get("/health")
+    if response.status_code != 200:
+        return None
+
+    try:
+        health_data = response.json()
+    except ValueError:
+        return None
+
+    runtime_enabled = health_data.get("runtime", {}).get("metrics_enabled")
+    if runtime_enabled is not None:
+        return bool(runtime_enabled)
+
+    monitoring_enabled = (
+        health_data.get("config", {}).get("monitoring", {}).get("metrics_enabled")
+    )
+    if monitoring_enabled is not None:
+        return bool(monitoring_enabled)
+
+    return None
+
+
+@pytest.fixture(scope="module")
+def metrics_enabled_flag() -> bool:
+    enabled = _metrics_enabled_from_health()
+    if enabled is not None:
+        return enabled
+
+    response = client.get("/metrics")
+    if response.status_code != 200:
+        return True
+
+    return "app_metrics_disabled" not in response.text
+
+
+@pytest.fixture(scope="module")
+def require_metrics(metrics_enabled_flag: bool) -> None:
+    if not metrics_enabled_flag:
+        pytest.skip("metrics client disabled in this environment")
+
+
 @pytest.fixture(scope="module", autouse=True)
-def trigger_metrics_registration():
+def trigger_metrics_registration(metrics_enabled_flag: bool) -> None:
     """Trigger metrics registration by making OCR and Vision calls.
 
     Prometheus counters only appear in output after they've been incremented,
     so we need to make sample calls to ensure all metrics are registered.
     """
+    if not metrics_enabled_flag:
+        yield
+        return
+
     # Trigger OCR metrics
     files = {"file": ("test.png", _SAMPLE_PNG_BYTES, "image/png")}
     client.post("/api/v1/ocr/extract", files=files)
@@ -158,8 +204,8 @@ def extract_base_metric_name(full_name: str) -> str:
     return full_name
 
 
-class TestMetricsContract:
-    """Test metrics contract compliance."""
+class TestMetricsEndpoint:
+    """Test metrics endpoint availability and fallback behavior."""
 
     def test_metrics_endpoint_available(self):
         """Verify /metrics endpoint is accessible."""
@@ -169,6 +215,20 @@ class TestMetricsContract:
         assert content_type.startswith(
             "text/plain; version=0.0.4"
         ), f"Metrics should use Prometheus text format, got: {content_type}"
+
+    def test_metrics_fallback_when_disabled(self, metrics_enabled_flag: bool) -> None:
+        """Verify fallback metrics are exposed when client is disabled."""
+        if metrics_enabled_flag:
+            pytest.skip("metrics client enabled in this environment")
+
+        response = client.get("/metrics")
+        assert response.status_code == 200
+        assert "app_metrics_disabled" in response.text
+
+
+@pytest.mark.usefixtures("require_metrics")
+class TestMetricsContract:
+    """Test metrics contract compliance."""
 
     def test_required_metrics_present(self):
         """Verify all required metrics are present."""
@@ -360,8 +420,6 @@ class TestMetricsContract:
         response = client.get("/metrics")
         assert response.status_code == 200
         text = response.text
-        if "app_metrics_disabled" in text:
-            pytest.skip("metrics client disabled in this environment")
         assert "dedup2d_file_uploads_total" in text
         assert "dedup2d_file_downloads_total" in text
         assert "dedup2d_file_deletes_total" in text
@@ -484,6 +542,7 @@ class TestMetricsContract:
         assert len(missing_variants) == 0, f"Missing histogram variants: {missing_variants}"
 
 
+@pytest.mark.usefixtures("require_metrics")
 class TestMetricsContractStrictMode:
     """Additional strict mode tests when SELF_CHECK_STRICT_METRICS=1."""
 
