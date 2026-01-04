@@ -14,10 +14,16 @@ from __future__ import annotations
 
 import json
 import time
+from types import ModuleType
 from typing import Any, Tuple
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+
+def _require_redis_module(cache_module: ModuleType) -> None:
+    if cache_module.redis is None:
+        pytest.skip("redis.asyncio not available in this environment")
 
 
 class TestInitRedis:
@@ -159,6 +165,7 @@ class TestGetCache:
         """Test get_cache retrieves from Redis."""
         from src.utils import cache
 
+        _require_redis_module(cache)
         original_client = cache._redis_client
         try:
             mock_client = MagicMock()
@@ -262,6 +269,7 @@ class TestSetCache:
         """Test set_cache stores to Redis."""
         from src.utils import cache
 
+        _require_redis_module(cache)
         original_client = cache._redis_client
         try:
             mock_client = MagicMock()

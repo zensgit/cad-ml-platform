@@ -160,3 +160,15 @@
 ### Notes
 - `.venv` has `prometheus_client` and `redis` available; metrics enabled and redis paths execute normally.
 - The earlier tracemalloc failures under system Python 3.13 were due to missing optional dependencies.
+
+## Update (cache redis-path skip guard)
+### Commands
+- pytest tests/unit/test_cache_coverage.py -k "test_get_cache_from_redis or test_set_cache_to_redis" -v
+- .venv/bin/python -m pytest tests/unit/test_cache_coverage.py -k "test_get_cache_from_redis or test_set_cache_to_redis" -v
+
+### Results
+- System Python: 2 skipped, 21 deselected (redis.asyncio not available).
+- `.venv`: 2 passed, 21 deselected.
+
+### Notes
+- Added skip guard so redis-path cache tests only run when redis.asyncio is installed.
