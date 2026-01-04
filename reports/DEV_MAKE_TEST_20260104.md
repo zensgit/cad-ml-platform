@@ -249,3 +249,13 @@
 
 ### Notes
 - Warnings were DeprecationWarning from SwigPyPacked/SwigPyObject/swigvarlink in `tests/perf/test_vector_search_latency.py`.
+
+## Update (DeprecationWarning error probe on perf test)
+### Command
+- FAISS_RECOVERY_STATE_PATH=/tmp/faiss_recovery_state.json VECTOR_STORE_BACKEND=faiss .venv/bin/python -m pytest tests/perf/test_vector_search_latency.py -v -W error::DeprecationWarning -s
+
+### Result
+- FAILED: fatal Python segmentation fault while importing `faiss` (swigfaiss).
+
+### Notes
+- Crash occurred during faiss import in `src/core/similarity.py` when `tests/perf/test_vector_search_latency.py` initializes `FaissVectorStore`.

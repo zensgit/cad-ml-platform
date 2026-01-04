@@ -512,6 +512,7 @@
   - Added integration fixture to isolate `FAISS_RECOVERY_STATE_PATH`; DeprecationWarning probe passes without faiss import.
   - Moved recovery-state isolation to global test fixture and guarded faiss recovery loop to only start for faiss backend.
   - Re-ran `make test` after faiss guard: 3993 passed, 21 skipped, 3 warnings; duration 139.52s.
+  - Attempted DeprecationWarning error probe on `tests/perf/test_vector_search_latency.py` with `FAISS_RECOVERY_STATE_PATH` + `VECTOR_STORE_BACKEND=faiss`; Python segfault in faiss import (swigfaiss).
   - Report: `reports/DEV_MAKE_TEST_20260104.md`
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
