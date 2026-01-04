@@ -71,3 +71,31 @@
 
 ### Notes
 - Warnings still surfaced; filter did not convert them into errors.
+
+## Update (targeted warning isolation)
+### Commands
+- PYTHONWARNINGS=default .venv/bin/python -m pytest tests/test_metrics_contract.py -v -W error::pytest.PytestUnraisableExceptionWarning
+- PYTHONWARNINGS=default .venv/bin/python -m pytest tests/test_provider_timeout_simulation.py -v -W error::pytest.PytestUnraisableExceptionWarning
+- PYTHONWARNINGS=default .venv/bin/python -m pytest tests/test_render.py -v -W error::pytest.PytestUnraisableExceptionWarning
+- PYTHONWARNINGS=default .venv/bin/python -m pytest tests/ocr/test_dimension_matching.py -v -W error::pytest.PytestUnraisableExceptionWarning
+- PYTHONWARNINGS=default .venv/bin/python -m pytest tests/ocr/test_fallback.py -v -W error::pytest.PytestUnraisableExceptionWarning
+- PYTHONWARNINGS=default .venv/bin/python -m pytest tests/ocr/test_ocr_endpoint.py -v -W error::pytest.PytestUnraisableExceptionWarning
+- PYTHONWARNINGS=default .venv/bin/python -m pytest tests/resilience/test_adaptive_rate_limiter.py -v -W error::pytest.PytestUnraisableExceptionWarning
+- PYTHONWARNINGS=default .venv/bin/python -m pytest tests/unit/test_adapter_factory_coverage.py -v -W error::pytest.PytestUnraisableExceptionWarning
+- PYTHONWARNINGS=default .venv/bin/python -m pytest tests/unit/test_cache_coverage.py -v -W error::pytest.PytestUnraisableExceptionWarning
+- PYTHONWARNINGS=default .venv/bin/python -m pytest tests/unit/test_dedup2d_file_storage_s3.py -v -W error::pytest.PytestUnraisableExceptionWarning
+
+### Results
+- tests/test_metrics_contract.py: 19 passed, 3 skipped, 1 warning (ResourceWarning: unclosed event loop in test_rejection_reasons_valid).
+- tests/test_provider_timeout_simulation.py: 13 passed, 1 warning (ResourceWarning: unclosed event loop in test_high_load_timeout_behavior).
+- tests/test_render.py: 3 passed, 0 warnings.
+- tests/ocr/test_dimension_matching.py: 30 passed, 0 warnings.
+- tests/ocr/test_fallback.py: 18 passed, 0 warnings.
+- tests/ocr/test_ocr_endpoint.py: 1 passed, 0 warnings.
+- tests/resilience/test_adaptive_rate_limiter.py: 21 passed, 0 warnings.
+- tests/unit/test_adapter_factory_coverage.py: 38 passed, 3 warnings (ResourceWarning: unclosed event loop).
+- tests/unit/test_cache_coverage.py: 23 passed, 1 warning (ResourceWarning: unclosed event loop; extra warning emitted after summary).
+- tests/unit/test_dedup2d_file_storage_s3.py: 16 passed, 1 warning (ResourceWarning: unclosed event loop).
+
+### Notes
+- Initial attempt used `tests/test_ocr_endpoint.py` (not found); reran with `tests/ocr/test_ocr_endpoint.py`.
