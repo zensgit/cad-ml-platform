@@ -194,3 +194,13 @@
 
 ### Notes
 - Crash occurred during faiss import in `src/core/similarity.py` while bringing up the test client.
+
+## Update (DeprecationWarning probe with memory backend)
+### Command
+- VECTOR_STORE_BACKEND=memory .venv/bin/python -m pytest tests/integration/test_vision_api_integration.py -k test_analyze_with_stub_provider -v -W error::DeprecationWarning -s
+
+### Result
+- FAILED: fatal Python segmentation fault while importing `faiss` (swigfaiss).
+
+### Notes
+- `VECTOR_STORE_BACKEND=memory` did not prevent faiss recovery import; crash still occurs in `src/core/similarity.py` recovery loop.
