@@ -489,6 +489,10 @@
   - Ran strict mode metrics contract (2 passed) with on-demand error triggers.
   - Re-ran metrics contract suite post strict-mode fix (19 passed, 3 skipped).
   - Report: `reports/DEV_DEDUP2D_METRICS_CONTRACT_TEST_20260101.md`
+- **make test**:
+  - Ran full test suite with coverage using project venv.
+  - Result: 3993 passed, 21 skipped, 3 warnings; coverage 71%; duration 153.86s.
+  - Report: `reports/DEV_MAKE_TEST_20260104.md`
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
 
