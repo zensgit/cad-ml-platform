@@ -117,3 +117,33 @@
 
 ### Notes
 - Warnings remain unclosed event loop warnings even with asyncio debug enabled.
+
+## Update (tracemalloc + asyncio debug)
+### Targeted Commands
+- PYTHONASYNCIODEBUG=1 PYTHONTRACEMALLOC=1 pytest tests/test_metrics_contract.py -k test_rejection_reasons_valid -v -s
+- PYTHONASYNCIODEBUG=1 PYTHONTRACEMALLOC=1 pytest tests/test_provider_timeout_simulation.py -k test_high_load_timeout_behavior -v -s
+- PYTHONASYNCIODEBUG=1 PYTHONTRACEMALLOC=1 pytest tests/unit/test_adapter_factory_coverage.py -k "dxf_adapter_parse_without_ezdxf or stl_adapter_parse_without_trimesh or step_adapter_parse_without_occ" -v -s
+- PYTHONASYNCIODEBUG=1 PYTHONTRACEMALLOC=1 pytest tests/unit/test_cache_coverage.py -k "redis_healthy_when_connected or redis_module_available_check" -v -s
+- PYTHONASYNCIODEBUG=1 PYTHONTRACEMALLOC=1 pytest tests/unit/test_dedup2d_file_storage_s3.py -k test_create_s3_storage -v -s
+
+### Full-file Commands
+- PYTHONASYNCIODEBUG=1 PYTHONTRACEMALLOC=1 pytest tests/test_provider_timeout_simulation.py -v -s
+- PYTHONASYNCIODEBUG=1 PYTHONTRACEMALLOC=1 pytest tests/unit/test_adapter_factory_coverage.py -v -s
+- PYTHONASYNCIODEBUG=1 PYTHONTRACEMALLOC=1 pytest tests/unit/test_cache_coverage.py -v -s
+- PYTHONASYNCIODEBUG=1 PYTHONTRACEMALLOC=1 pytest tests/unit/test_dedup2d_file_storage_s3.py -v -s
+
+### Results
+- tests/test_metrics_contract.py (targeted): 1 skipped, 21 deselected (metrics disabled), no warnings.
+- tests/test_provider_timeout_simulation.py (targeted): 1 passed, 12 deselected, no warnings.
+- tests/unit/test_adapter_factory_coverage.py (targeted): 3 passed, 35 deselected, no warnings.
+- tests/unit/test_cache_coverage.py (targeted): 2 passed, 21 deselected, no warnings.
+- tests/unit/test_dedup2d_file_storage_s3.py (targeted): 1 skipped (0 collected), no warnings.
+- tests/test_provider_timeout_simulation.py (full): 13 passed, no warnings.
+- tests/unit/test_adapter_factory_coverage.py (full): 38 passed, no warnings.
+- tests/unit/test_cache_coverage.py (full): FAILED 2 tests (test_get_cache_from_redis, test_set_cache_to_redis).
+- tests/unit/test_dedup2d_file_storage_s3.py (full): 1 skipped (0 collected), no warnings.
+
+### Notes
+- Tracemalloc runs did not reproduce the unclosed event loop warnings seen in prior isolation runs.
+- test_get_cache_from_redis returned None instead of the mocked payload.
+- test_set_cache_to_redis did not call mock_client.setex.
