@@ -489,6 +489,8 @@
   - Ran strict mode metrics contract (2 passed) with on-demand error triggers.
   - Re-ran metrics contract suite post strict-mode fix (19 passed, 3 skipped).
   - Report: `reports/DEV_DEDUP2D_METRICS_CONTRACT_TEST_20260101.md`
+- **PR Template**:
+  - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
