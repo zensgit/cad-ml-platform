@@ -494,6 +494,8 @@
   - Result: 3993 passed, 21 skipped, 3 warnings; coverage 71%; duration 153.86s.
   - Re-ran with warnings enabled: 3993 passed, 21 skipped, 170 warnings; duration 105.37s.
   - Warning summary: ResourceWarning for unclosed event loop (multiple tests).
+  - Re-ran with ResourceWarning treated as error: 3993 passed, 21 skipped, 158 warnings; duration 104.37s.
+  - Re-ran with PYTHONASYNCIODEBUG=1: 3993 passed, 21 skipped, 180 warnings; coverage 72%; duration 110.02s.
   - Report: `reports/DEV_MAKE_TEST_20260104.md`
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
