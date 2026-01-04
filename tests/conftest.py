@@ -1,4 +1,6 @@
 import os
+from pathlib import Path
+from typing import Iterator
 
 import pytest
 
@@ -40,6 +42,16 @@ def env_isolation():
                 os.environ.pop(k, None)
             else:
                 os.environ[k] = v
+
+
+@pytest.fixture(autouse=True)
+def faiss_recovery_state_isolation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, env_isolation: None
+) -> Iterator[None]:
+    """Ensure faiss recovery state does not persist across tests."""
+    recovery_path = tmp_path / "faiss_recovery_state.json"
+    monkeypatch.setenv("FAISS_RECOVERY_STATE_PATH", str(recovery_path))
+    yield
 
 
 @pytest.fixture(autouse=True)

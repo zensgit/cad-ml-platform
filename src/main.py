@@ -142,11 +142,14 @@ async def lifespan(app: FastAPI):
 
     _faiss_age_handle = __import__("asyncio").create_task(_faiss_age_loop())
 
-    # Faiss auto recovery loop
+    # Faiss auto recovery loop (only when faiss backend requested)
     try:
-        from src.core.similarity import faiss_recovery_loop
+        if __import__("os").getenv("VECTOR_STORE_BACKEND", "memory") == "faiss":
+            from src.core.similarity import faiss_recovery_loop
 
-        _faiss_recovery_handle = asyncio.create_task(faiss_recovery_loop())
+            _faiss_recovery_handle = asyncio.create_task(faiss_recovery_loop())
+        else:
+            _faiss_recovery_handle = None
     except Exception:
         _faiss_recovery_handle = None
 

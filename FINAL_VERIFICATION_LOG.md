@@ -510,6 +510,7 @@
   - Re-attempted probe with `VECTOR_STORE_BACKEND=memory`; faiss import still triggered via recovery loop and segfaulted.
   - Re-attempted probe with `FAISS_RECOVERY_STATE_PATH` override + `VECTOR_STORE_BACKEND=memory`; test passed without faiss import.
   - Added integration fixture to isolate `FAISS_RECOVERY_STATE_PATH`; DeprecationWarning probe passes without faiss import.
+  - Moved recovery-state isolation to global test fixture and guarded faiss recovery loop to only start for faiss backend.
   - Report: `reports/DEV_MAKE_TEST_20260104.md`
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.

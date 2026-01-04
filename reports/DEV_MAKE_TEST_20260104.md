@@ -226,3 +226,14 @@
 
 ### Notes
 - Added integration fixture to set `FAISS_RECOVERY_STATE_PATH` per test, preventing stale degraded state from triggering faiss import.
+
+## Update (global recovery-state isolation + recovery loop guard)
+### Command
+- .venv/bin/python -m pytest tests/integration/test_vision_api_integration.py -k test_analyze_with_stub_provider -v -W error::DeprecationWarning -s
+
+### Result
+- 1 passed, 13 deselected
+
+### Notes
+- Moved recovery-state isolation to `tests/conftest.py` for all tests.
+- Guarded faiss recovery loop to only start when `VECTOR_STORE_BACKEND=faiss`.
