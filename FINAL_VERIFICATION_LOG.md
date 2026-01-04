@@ -492,6 +492,8 @@
 - **make test**:
   - Ran full test suite with coverage using project venv.
   - Result: 3993 passed, 21 skipped, 3 warnings; coverage 71%; duration 153.86s.
+  - Re-ran with warnings enabled: 3993 passed, 21 skipped, 170 warnings; duration 105.37s.
+  - Warning summary: ResourceWarning for unclosed event loop (multiple tests).
   - Report: `reports/DEV_MAKE_TEST_20260104.md`
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
