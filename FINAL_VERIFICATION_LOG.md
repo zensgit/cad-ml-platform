@@ -505,6 +505,7 @@
   - Tracemalloc full-file cache coverage failed 2 tests (test_get_cache_from_redis, test_set_cache_to_redis); dedup2d_file_storage_s3 skipped (0 collected).
   - Re-ran tracemalloc cache tests using `.venv`; redis path tests passed (2 passed, 21 deselected), confirming prior failures were due to missing optional dependencies in system Python.
   - Added redis-path cache test skip guard; system Python run skipped both tests, `.venv` run passed.
+  - Re-ran `make test` after redis-path skip guard: 3993 passed, 21 skipped, 3 warnings; duration 115.44s.
   - Report: `reports/DEV_MAKE_TEST_20260104.md`
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.

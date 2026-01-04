@@ -172,3 +172,15 @@
 
 ### Notes
 - Added skip guard so redis-path cache tests only run when redis.asyncio is installed.
+
+## Update (make test rerun after redis guard)
+### Command
+- make test
+
+### Result
+- 3993 passed, 21 skipped, 3 warnings
+- Coverage: 71% (htmlcov generated)
+- Duration: 115.44s
+
+### Notes
+- Warnings were DeprecationWarning from SwigPyPacked/SwigPyObject/swigvarlink in vision integration tests.
