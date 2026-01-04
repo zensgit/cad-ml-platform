@@ -49,3 +49,25 @@
 
 ### Notes
 - ResourceWarning for unclosed event loop remains the dominant warning.
+
+## Update (PytestUnraisableExceptionWarning filter attempt)
+### Command
+- PYTHONWARNINGS=default .venv/bin/python -m pytest tests -v --cov=src --cov-report=term-missing --cov-report=html -W error::PytestUnraisableExceptionWarning
+
+### Result
+- FAILED: pytest could not resolve `PytestUnraisableExceptionWarning` without module qualification.
+
+### Notes
+- Error: `AttributeError: module 'builtins' has no attribute 'PytestUnraisableExceptionWarning'`.
+
+## Update (PytestUnraisableExceptionWarning filter qualified)
+### Command
+- PYTHONWARNINGS=default .venv/bin/python -m pytest tests -v --cov=src --cov-report=term-missing --cov-report=html -W error::pytest.PytestUnraisableExceptionWarning
+
+### Result
+- 3993 passed, 21 skipped, 170 warnings
+- Coverage: 71% (htmlcov generated)
+- Duration: 106.79s
+
+### Notes
+- Warnings still surfaced; filter did not convert them into errors.
