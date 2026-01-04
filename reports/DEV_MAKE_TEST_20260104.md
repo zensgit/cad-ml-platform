@@ -237,3 +237,15 @@
 ### Notes
 - Moved recovery-state isolation to `tests/conftest.py` for all tests.
 - Guarded faiss recovery loop to only start when `VECTOR_STORE_BACKEND=faiss`.
+
+## Update (make test after faiss guard)
+### Command
+- make test
+
+### Result
+- 3993 passed, 21 skipped, 3 warnings
+- Coverage: 71% (htmlcov generated)
+- Duration: 139.52s
+
+### Notes
+- Warnings were DeprecationWarning from SwigPyPacked/SwigPyObject/swigvarlink in `tests/perf/test_vector_search_latency.py`.
