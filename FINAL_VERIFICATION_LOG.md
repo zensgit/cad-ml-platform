@@ -528,6 +528,7 @@
   - Documented faiss perf test gating and strict-warning caveat in `README.md`.
   - Added faiss perf test gating notes in `docs/OPERATIONAL_RUNBOOK.md`.
   - Added faiss perf gating reference in `docs/CI_OPTIMIZATION_SUMMARY.md`.
+  - Added faiss perf gating commands to `docs/TEST_MAP.md`.
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
 

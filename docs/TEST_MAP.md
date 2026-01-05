@@ -152,6 +152,12 @@ pytest tests/ocr/test_idempotency.py -v
 
 # 性能相关
 pytest tests/ocr/test_fallback.py::TestFallbackStrategy::test_fallback_performance -v
+
+# Faiss 性能测试（可选；默认只跑内存后端）
+RUN_FAISS_PERF_TESTS=1 pytest tests/perf/test_vector_search_latency.py -v
+REQUIRE_FAISS_PERF=1 RUN_FAISS_PERF_TESTS=1 pytest tests/perf/test_vector_search_latency.py -v
+# 注意：部分环境在 PYTHONWARNINGS=error::DeprecationWarning 下导入 faiss 会 segfault；
+# 测试已通过子进程隔离并过滤 swig DeprecationWarning
 ```
 
 ### 快速健康检查
