@@ -112,6 +112,9 @@ class MetricsContract:
         "ocr_stage_duration_seconds": {"provider", "stage"},  # Stage timing
         "vision_errors_total": {"provider", "code"},  # Only on errors
         "vision_input_rejected_total": {"reason"},  # Only on rejection
+        "analysis_result_cleanup_total": {"status"},
+        "analysis_result_cleanup_deleted_total": set(),
+        "analysis_result_store_files": set(),
         "circuit_breaker_state": {"circuit"},  # Only when circuit breaker is registered
         "rate_limiter_allowed_total": {"key"},  # Only when rate limiter is used
         "rate_limiter_rejected_total": {"key"},  # Only when rate limiter rejects

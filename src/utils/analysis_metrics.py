@@ -383,6 +383,19 @@ vector_orphan_total = Counter(
     "vector_orphan_total",
     "Vectors without corresponding cached analysis result detected",
 )
+analysis_result_cleanup_total = Counter(
+    "analysis_result_cleanup_total",
+    "Analysis result cleanup attempts",
+    ["status"],  # ok|dry_run|skipped|disabled
+)
+analysis_result_cleanup_deleted_total = Counter(
+    "analysis_result_cleanup_deleted_total",
+    "Analysis result cleanup deletions",
+)
+analysis_result_store_files = Gauge(
+    "analysis_result_store_files",
+    "Analysis result store file count",
+)
 
 # === New metrics (drift / reload / pruning / diff) ===
 classification_prediction_drift_score = Histogram(

@@ -70,6 +70,22 @@ def _format_mtime(ts: Optional[float]) -> Optional[str]:
     return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
 
 
+def _record_cleanup_metrics(status: str, *, deleted: int, total_files: int) -> None:
+    try:
+        from src.utils.analysis_metrics import (
+            analysis_result_cleanup_deleted_total,
+            analysis_result_cleanup_total,
+            analysis_result_store_files,
+        )
+
+        analysis_result_cleanup_total.labels(status=status).inc()
+        if deleted:
+            analysis_result_cleanup_deleted_total.inc(deleted)
+        analysis_result_store_files.set(max(total_files - deleted, 0))
+    except Exception:
+        pass
+
+
 def _list_result_files(store_dir: Path) -> list[tuple[str, Path, float]]:
     entries: list[tuple[str, Path, float]] = []
     for path in store_dir.glob("*.json"):
@@ -155,7 +171,7 @@ async def cleanup_analysis_results(
 ) -> dict[str, Any]:
     store_dir = _get_store_dir(create=False)
     if store_dir is None:
-        return {
+        result = {
             "status": "disabled",
             "total_files": 0,
             "eligible_count": 0,
@@ -167,6 +183,8 @@ async def cleanup_analysis_results(
             "sample_ids": [],
             "message": "ANALYSIS_RESULT_STORE_DIR not configured",
         }
+        _record_cleanup_metrics(result["status"], deleted=0, total_files=0)
+        return result
 
     effective_age = max_age_seconds if max_age_seconds is not None else _get_env_int(_STORE_TTL_ENV)
     effective_max_files = (
@@ -177,7 +195,7 @@ async def cleanup_analysis_results(
     total_files = len(files)
 
     if effective_age is None and effective_max_files is None:
-        return {
+        result = {
             "status": "skipped",
             "total_files": total_files,
             "eligible_count": 0,
@@ -189,6 +207,8 @@ async def cleanup_analysis_results(
             "sample_ids": [],
             "message": "No cleanup policy configured",
         }
+        _record_cleanup_metrics(result["status"], deleted=0, total_files=total_files)
+        return result
 
     candidates, expired_count, overflow_count = _select_candidates(
         files, effective_age, effective_max_files
@@ -197,7 +217,7 @@ async def cleanup_analysis_results(
     sample_ids = [item[0] for item in candidates[:sample_limit]] if sample_limit else []
 
     if eligible_count == 0:
-        return {
+        result = {
             "status": "dry_run" if dry_run else "ok",
             "total_files": total_files,
             "eligible_count": 0,
@@ -209,9 +229,11 @@ async def cleanup_analysis_results(
             "sample_ids": sample_ids,
             "message": "No analysis results eligible for cleanup",
         }
+        _record_cleanup_metrics(result["status"], deleted=0, total_files=total_files)
+        return result
 
     if dry_run:
-        return {
+        result = {
             "status": "dry_run",
             "total_files": total_files,
             "eligible_count": eligible_count,
@@ -223,6 +245,8 @@ async def cleanup_analysis_results(
             "sample_ids": sample_ids,
             "message": f"Would delete {eligible_count} analysis results",
         }
+        _record_cleanup_metrics(result["status"], deleted=0, total_files=total_files)
+        return result
 
     deleted_count = 0
     for _, path, _ in candidates:
@@ -235,7 +259,7 @@ async def cleanup_analysis_results(
                 extra={"error": str(exc)},
             )
 
-    return {
+    result = {
         "status": "ok",
         "total_files": total_files,
         "eligible_count": eligible_count,
@@ -247,6 +271,8 @@ async def cleanup_analysis_results(
         "sample_ids": sample_ids,
         "message": f"Deleted {deleted_count} analysis results",
     }
+    _record_cleanup_metrics(result["status"], deleted=deleted_count, total_files=total_files)
+    return result
 
 
 def get_analysis_result_store_stats() -> dict[str, Any]:
@@ -270,6 +296,12 @@ def get_analysis_result_store_stats() -> dict[str, Any]:
     mtimes = [item[2] for item in files]
     oldest_ts = min(mtimes) if mtimes else None
     newest_ts = max(mtimes) if mtimes else None
+    try:
+        from src.utils.analysis_metrics import analysis_result_store_files
+
+        analysis_result_store_files.set(total_files)
+    except Exception:
+        pass
 
     return {
         "enabled": True,
