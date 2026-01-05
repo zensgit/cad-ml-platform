@@ -302,3 +302,14 @@
 
 ### Notes
 - Faiss perf subprocess failures now skip the test unless `REQUIRE_FAISS_PERF=1` is set.
+
+## Update (faiss perf forced)
+### Command
+- RUN_FAISS_PERF_TESTS=1 REQUIRE_FAISS_PERF=1 FAISS_RECOVERY_STATE_PATH=/tmp/faiss_recovery_state.json .venv/bin/python -m pytest tests/perf/test_vector_search_latency.py -v -s
+
+### Result
+- 1 passed
+- Duration: 7.31s
+
+### Notes
+- Faiss perf ran successfully in subprocess with `REQUIRE_FAISS_PERF=1`.
