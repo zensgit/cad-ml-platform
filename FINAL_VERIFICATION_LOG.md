@@ -533,6 +533,7 @@
   - Added faiss perf gating note in `docs/TRAINING_GUIDE.md`.
 - **Tooling**:
   - Added metrics consistency check to `make verify-metrics`.
+  - Ran `make verify-metrics`; metrics consistency/export checks passed.
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
 
