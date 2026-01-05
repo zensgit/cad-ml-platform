@@ -337,3 +337,15 @@
 
 ### Notes
 - No newer faiss-cpu version is available via pip; downgrade did not resolve strict-warning segfault.
+
+## Update (Python 3.12 faiss import check)
+### Command
+- python3.12 -m venv /tmp/faiss-py312-venv.iUnWFt
+- /tmp/faiss-py312-venv.iUnWFt/bin/python -m pip install faiss-cpu
+- PYTHONWARNINGS=error::DeprecationWarning /tmp/faiss-py312-venv.iUnWFt/bin/python -X faulthandler -c "import faiss; print(faiss.__version__)"
+
+### Result
+- FAILED: fatal Python segmentation fault while importing `faiss` (swigfaiss).
+
+### Notes
+- faiss-cpu 1.13.2 installed with numpy 2.4.0 in the Python 3.12 venv.
