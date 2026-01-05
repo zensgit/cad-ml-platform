@@ -19,6 +19,7 @@ class JsonFormatter(logging.Formatter):
             "latency_ms",
             "fallback_level",
             "error_code",
+            "error",
             "stage",
             "trace_id",
             "extraction_mode",

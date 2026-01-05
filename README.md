@@ -825,6 +825,10 @@ Grafana 面板示例：见 `docs/grafana/observability_dashboard.json`（导入�
 - `TELEMETRY_MQTT_ENABLED`：是否启用 MQTT 遥测接入（默认 false）。
 - `MQTT_HOST`/`MQTT_PORT`/`MQTT_TOPIC`：MQTT Broker 连接参数。
 - `TELEMETRY_STORE_BACKEND`：遥测存储后端（memory|influx|timescale|none）。
+- `ANALYSIS_RESULT_STORE_DIR`：分析结果落盘目录（可选；启用后历史查询在缓存 miss 时回读）。
+- `ANALYSIS_RESULT_STORE_TTL_SECONDS`：分析结果落盘保留时长（秒，<=0 表示不启用）。
+- `ANALYSIS_RESULT_STORE_MAX_FILES`：分析结果落盘最大保留数量（<=0 表示不启用）。
+- `ANALYSIS_RESULT_CLEANUP_INTERVAL_SECONDS`：分析结果定时清理间隔（秒，0=关闭）。
 
 ### 可选模块：Digital Twin / Telemetry
 

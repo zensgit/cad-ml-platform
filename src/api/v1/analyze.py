@@ -48,6 +48,7 @@ from src.utils.analysis_metrics import (
     process_rule_version_total,
     vector_store_material_total,
 )
+from src.utils.analysis_result_store import load_analysis_result, store_analysis_result
 from src.utils.cache import cache_result, get_cached_result, set_cache
 
 logger = logging.getLogger(__name__)
@@ -1088,6 +1089,7 @@ async def analyze_cad_file(
         await cache_result(analysis_cache_key, results, ttl=3600)
         # Persist full result by analysis id for retrieval endpoint
         await set_cache(f"analysis_result:{analysis_id}", results, ttl_seconds=3600)
+        await store_analysis_result(analysis_id, results)
 
         # 计算处理时间
         processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
@@ -2099,9 +2101,14 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
 @router.get("/{analysis_id}")
 async def get_analysis_result(analysis_id: str, api_key: str = Depends(get_api_key)):
     """获取分析结果"""
-    # TODO: 从数据库或缓存获取历史分析结果
+    # 从缓存或落盘存储获取历史分析结果
     cache_key = f"analysis_result:{analysis_id}"
     result = await get_cached_result(cache_key)
+
+    if not result:
+        result = await load_analysis_result(analysis_id)
+        if result:
+            await set_cache(cache_key, result, ttl_seconds=3600)
 
     if not result:
         raise HTTPException(status_code=404, detail="Analysis not found")

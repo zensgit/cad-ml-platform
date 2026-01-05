@@ -189,6 +189,32 @@ async def lifespan(app: FastAPI):
     # Orphan scan task
     orphan_handle = asyncio.create_task(orphan_scan_loop())
 
+    # Analysis result cleanup task (optional)
+    cleanup_interval = float(
+        __import__("os").getenv("ANALYSIS_RESULT_CLEANUP_INTERVAL_SECONDS", "0")
+    )
+    if cleanup_interval > 0:
+        from src.utils.analysis_result_store import cleanup_analysis_results
+
+        async def _analysis_result_cleanup_loop() -> None:
+            while True:
+                try:
+                    result = await cleanup_analysis_results(dry_run=False, sample_limit=0)
+                    if result.get("status") == "ok" and result.get("deleted_count", 0) > 0:
+                        logger.info(
+                            "analysis_result_cleanup status=%s deleted=%s eligible=%s",
+                            result.get("status"),
+                            result.get("deleted_count"),
+                            result.get("eligible_count"),
+                        )
+                except Exception:
+                    logger.warning("analysis_result_cleanup_failed", exc_info=True)
+                await asyncio.sleep(cleanup_interval)
+
+        _analysis_result_cleanup_handle = asyncio.create_task(_analysis_result_cleanup_loop())
+    else:
+        _analysis_result_cleanup_handle = None
+
     yield
 
     # 关闭时
@@ -213,6 +239,11 @@ async def lifespan(app: FastAPI):
         pass
     try:
         orphan_handle.cancel()
+    except Exception:
+        pass
+    try:
+        if _analysis_result_cleanup_handle:
+            _analysis_result_cleanup_handle.cancel()
     except Exception:
         pass
 

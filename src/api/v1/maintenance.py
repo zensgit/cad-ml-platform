@@ -9,11 +9,16 @@ import logging
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.params import Query as QueryParam
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key
 from src.core.errors_extended import ErrorCode, build_error
 from src.utils.analysis_metrics import vector_cold_pruned_total, vector_orphan_total
+from src.utils.analysis_result_store import (
+    cleanup_analysis_results,
+    get_analysis_result_store_stats,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -46,6 +51,21 @@ class KnowledgeStatusResponse(BaseModel):
     by_category: Dict[str, int] = Field(..., description="按类别统计")
 
 
+class AnalysisResultCleanupResponse(BaseModel):
+    """分析结果落盘清理响应"""
+
+    status: str = Field(..., description="状态: ok/dry_run/skipped/disabled")
+    total_files: int = Field(..., description="分析结果文件总数")
+    eligible_count: int = Field(..., description="符合清理条件的文件数")
+    expired_count: int = Field(..., description="超过 TTL 的文件数")
+    overflow_count: int = Field(..., description="超出最大保留数量的文件数")
+    deleted_count: int = Field(..., description="已删除文件数")
+    max_age_seconds: Optional[int] = Field(None, description="生存时间阈值 (秒)")
+    max_files: Optional[int] = Field(None, description="最大保留文件数")
+    sample_ids: Optional[List[str]] = Field(None, description="样例分析ID (verbose)")
+    message: str = Field(..., description="操作消息")
+
+
 @router.post("/knowledge/reload", response_model=KnowledgeReloadResponse)
 async def reload_knowledge(api_key: str = Depends(get_api_key)):
     """手动触发知识库热加载"""
@@ -71,6 +91,61 @@ async def reload_knowledge(api_key: str = Depends(get_api_key)):
         )
         raise HTTPException(status_code=500, detail=err)
 
+
+@router.delete("/analysis-results", response_model=AnalysisResultCleanupResponse)
+async def cleanup_analysis_result_store(
+    max_age_seconds: Optional[int] = Query(
+        None, description="清理超过该年龄的分析结果 (秒)"
+    ),
+    max_files: Optional[int] = Query(
+        None, description="保留的最大分析结果文件数量"
+    ),
+    threshold: int = Query(0, description="低于该数量则跳过清理"),
+    dry_run: bool = Query(False, description="仅统计不执行删除"),
+    verbose: bool = Query(False, description="返回样例分析ID"),
+    api_key: str = Depends(get_api_key),
+):
+    """清理落盘的分析结果文件。"""
+    if isinstance(max_age_seconds, QueryParam):
+        max_age_seconds = max_age_seconds.default
+    if isinstance(max_files, QueryParam):
+        max_files = max_files.default
+    if isinstance(threshold, QueryParam):
+        threshold = threshold.default
+    if isinstance(dry_run, QueryParam):
+        dry_run = dry_run.default
+    if isinstance(verbose, QueryParam):
+        verbose = verbose.default
+
+    sample_limit = 10 if verbose else 0
+    preview = await cleanup_analysis_results(
+        max_age_seconds=max_age_seconds,
+        max_files=max_files,
+        dry_run=True,
+        sample_limit=sample_limit,
+    )
+
+    if preview["status"] in {"disabled", "skipped"}:
+        return AnalysisResultCleanupResponse(**preview)
+
+    if preview["eligible_count"] < threshold and not dry_run:
+        preview["status"] = "skipped"
+        preview["message"] = (
+            f"Eligible count {preview['eligible_count']} below threshold {threshold}"
+        )
+        preview["deleted_count"] = 0
+        return AnalysisResultCleanupResponse(**preview)
+
+    if dry_run:
+        return AnalysisResultCleanupResponse(**preview)
+
+    result = await cleanup_analysis_results(
+        max_age_seconds=max_age_seconds,
+        max_files=max_files,
+        dry_run=False,
+        sample_limit=sample_limit,
+    )
+    return AnalysisResultCleanupResponse(**result)
 
 @router.get("/knowledge/status", response_model=KnowledgeStatusResponse)
 async def knowledge_status(api_key: str = Depends(get_api_key)):
@@ -328,6 +403,7 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
         "vector_store": {"total_vectors": total_vectors, "metadata_entries": metadata_entries},
         "cache": {"available": False, "size": 0},
         "maintenance": {"orphan_check_available": False, "last_cleanup": None},
+        "analysis_result_store": {},
     }
 
     # Check cache stats
@@ -347,6 +423,12 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
                 logger.warning(f"Could not get cache stats: {e}")
     except Exception as e:
         logger.warning(f"Could not initialize cache client: {e}")
+
+    try:
+        stats["analysis_result_store"] = get_analysis_result_store_stats()
+    except Exception as e:
+        logger.warning(f"Could not get analysis result store stats: {e}")
+        stats["analysis_result_store"] = {"enabled": False, "error": str(e)}
 
     return stats
 

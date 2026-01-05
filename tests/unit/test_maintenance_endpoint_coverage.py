@@ -10,7 +10,9 @@ Covers:
 
 from __future__ import annotations
 
+import os
 import threading
+import time
 from typing import Any, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -499,6 +501,43 @@ class TestOrphanCleanupResponseModel:
         )
 
         assert response.sample_ids is None
+
+
+class TestCleanupAnalysisResultStoreEndpoint:
+    """Tests for cleanup_analysis_result_store endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_cleanup_analysis_results_disabled(self, monkeypatch: pytest.MonkeyPatch):
+        from src.api.v1.maintenance import cleanup_analysis_result_store
+
+        monkeypatch.delenv("ANALYSIS_RESULT_STORE_DIR", raising=False)
+        result = await cleanup_analysis_result_store(api_key="test")
+        assert result.status == "disabled"
+
+    @pytest.mark.asyncio
+    async def test_cleanup_analysis_results_threshold_skip(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ):
+        from src.api.v1.maintenance import cleanup_analysis_result_store
+        from src.utils.analysis_result_store import store_analysis_result
+
+        monkeypatch.setenv("ANALYSIS_RESULT_STORE_DIR", str(tmp_path))
+        await store_analysis_result("old", {"status": "old"})
+        old_path = tmp_path / "old.json"
+        now = time.time()
+        os.utime(old_path, (now - 3600, now - 3600))
+
+        result = await cleanup_analysis_result_store(
+            max_age_seconds=60,
+            threshold=2,
+            dry_run=False,
+            verbose=False,
+            api_key="test",
+        )
+
+        assert result.status == "skipped"
+        assert result.deleted_count == 0
+        assert old_path.exists()
 
 
 class TestVectorStoreReloadResponseModel:

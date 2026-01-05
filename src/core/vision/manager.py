@@ -9,6 +9,7 @@ Responsibilities:
 
 from __future__ import annotations
 
+import logging
 import time
 from typing import Optional
 
@@ -34,6 +35,8 @@ from .base import (
     VisionProvider,
     VisionProviderError,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class VisionManager:
@@ -361,11 +364,13 @@ class VisionManager:
         except Exception as e:
             # Log error but don't fail entire request (graceful degradation)
             # Vision description will still be returned even if OCR fails
-            # TODO: Add proper structured logging
-            import logging
-
-            logging.getLogger(__name__).warning(
+            logger.warning(
                 "vision.ocr_extract_failed",
-                extra={"error": str(e)},
+                extra={
+                    "provider": provider,
+                    "stage": "ocr_extract",
+                    "error_code": ErrorCode.INTERNAL_ERROR.value,
+                    "error": str(e),
+                },
             )
             return None
