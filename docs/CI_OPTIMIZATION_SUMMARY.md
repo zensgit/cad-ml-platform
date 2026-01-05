@@ -177,6 +177,8 @@ permissions + login; the stub remains a local fallback.
    ```bash
    make eval-e2e           # End-to-end workflow
    ```
+   Optional: faiss perf tests are gated behind env vars; see `README.md` and
+   `docs/OPERATIONAL_RUNBOOK.md` for strict-warning caveats.
 
 ### Git Hook Installation (Optional)
 ```bash
