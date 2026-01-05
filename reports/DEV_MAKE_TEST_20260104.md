@@ -280,3 +280,14 @@
 
 ### Notes
 - Crash occurred during faiss import in `src/core/similarity.py` while initializing `FaissVectorStore`.
+
+## Update (faiss perf subprocess isolation + DeprecationWarning error)
+### Command
+- RUN_FAISS_PERF_TESTS=1 FAISS_RECOVERY_STATE_PATH=/tmp/faiss_recovery_state.json .venv/bin/python -m pytest tests/perf/test_vector_search_latency.py -v -W error::DeprecationWarning -s
+
+### Result
+- FAILED: faiss perf subprocess exited with code -11 (segfault).
+- Duration: 37.13s
+
+### Notes
+- Faiss perf now runs in a subprocess to prevent a segfault from killing the pytest process.
