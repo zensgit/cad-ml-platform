@@ -324,3 +324,16 @@
 
 ### Notes
 - Added subprocess warning filter for SwigPyPacked/SwigPyObject/swigvarlink DeprecationWarning to avoid strict-warning crashes.
+
+## Update (faiss-cpu downgrade check)
+### Command
+- .venv/bin/python -m pip install faiss-cpu==1.12.0
+- PYTHONWARNINGS=error::DeprecationWarning .venv/bin/python -X faulthandler -c "import faiss; print('ok')"
+- .venv/bin/python -m pip install faiss-cpu==1.13.2
+
+### Result
+- Import still segfaulted with faiss-cpu 1.12.0 under DeprecationWarning-as-error.
+- Restored faiss-cpu 1.13.2 after the check.
+
+### Notes
+- No newer faiss-cpu version is available via pip; downgrade did not resolve strict-warning segfault.

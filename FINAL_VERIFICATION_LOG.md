@@ -520,6 +520,7 @@
   - Changed faiss perf subprocess failures to skip unless `REQUIRE_FAISS_PERF=1`; rerun skipped in strict warning mode.
   - Forced faiss perf run with `REQUIRE_FAISS_PERF=1`; 1 passed.
   - Added SwigPyPacked/SwigPyObject/swigvarlink DeprecationWarning filter in faiss subprocess; strict warning rerun passed.
+  - Tested faiss-cpu 1.12.0 import under DeprecationWarning-as-error; still segfaulted, restored faiss-cpu 1.13.2.
   - Report: `reports/DEV_MAKE_TEST_20260104.md`
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
