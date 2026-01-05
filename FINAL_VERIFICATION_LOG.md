@@ -522,6 +522,7 @@
   - Added SwigPyPacked/SwigPyObject/swigvarlink DeprecationWarning filter in faiss subprocess; strict warning rerun passed.
   - Tested faiss-cpu 1.12.0 import under DeprecationWarning-as-error; still segfaulted, restored faiss-cpu 1.13.2.
   - Tested faiss-cpu 1.13.2 import in Python 3.12 venv with DeprecationWarning-as-error; segfaulted in swigfaiss.
+  - Tested conda-forge faiss-cpu (1.9.0) in a micromamba Python 3.11 env with DeprecationWarning-as-error; segfaulted in swigfaiss.
   - Report: `reports/DEV_MAKE_TEST_20260104.md`
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.

@@ -349,3 +349,15 @@
 
 ### Notes
 - faiss-cpu 1.13.2 installed with numpy 2.4.0 in the Python 3.12 venv.
+
+## Update (conda-forge faiss import check)
+### Command
+- curl -Ls https://micro.mamba.pm/api/micromamba/osx-arm64/latest | tar -xvj bin/micromamba
+- /tmp/micromamba.bRC6/bin/micromamba create -y -p /tmp/faiss-conda-venv.Q5KE -c conda-forge python=3.11 faiss-cpu
+- PYTHONWARNINGS=error::DeprecationWarning /tmp/faiss-conda-venv.Q5KE/bin/python -X faulthandler -c "import faiss; print(faiss.__version__)"
+
+### Result
+- FAILED: fatal Python segmentation fault while importing `faiss` (swigfaiss).
+
+### Notes
+- conda-forge resolved faiss 1.9.0 with python 3.11.14 in the temp environment.
