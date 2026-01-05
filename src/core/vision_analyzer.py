@@ -5,7 +5,9 @@
 
 import base64
 import io
+import json
 import logging
+import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
@@ -354,23 +356,240 @@ class VisionAnalyzer:
 
     def _extract_objects(self, text: str) -> List[Dict]:
         """从文本中提取对象信息"""
-        # TODO: 实现JSON解析逻辑
-        return []
+        payload = self._extract_json_payload(text)
+        objects = self._extract_objects_from_payload(payload)
+        if objects:
+            return objects
+        return self._extract_objects_from_text(text)
 
     def _extract_text(self, text: str) -> str:
         """提取OCR文本"""
-        # TODO: 实现文本提取逻辑
-        return ""
+        payload = self._extract_json_payload(text)
+        extracted = self._extract_text_from_payload(payload)
+        if extracted:
+            return extracted
+        match = re.search(r"(?:text|ocr)\s*[:：]\s*(.+)", text, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+        return text.strip()
 
     def _extract_cad_elements(self, text: str) -> Dict:
         """提取CAD元素"""
-        # TODO: 实现CAD元素提取
-        return {}
+        payload = self._extract_json_payload(text)
+        elements = self._extract_cad_elements_from_payload(payload)
+        return elements or {}
 
     def _extract_dimensions(self, text: str) -> Dict:
         """提取尺寸信息"""
-        # TODO: 实现尺寸提取
+        payload = self._extract_json_payload(text)
+        dimensions = self._extract_dimensions_from_payload(payload)
+        if dimensions:
+            return dimensions
+        values = []
+        for match in re.finditer(r"(\d+(?:\.\d+)?)\s*(mm|cm|in|inch)\b", text, re.IGNORECASE):
+            values.append({"value": float(match.group(1)), "unit": match.group(2).lower()})
+        tolerances = [
+            float(val) for val in re.findall(r"\+/-\s*(\d+(?:\.\d+)?)", text)
+        ]
+        if values or tolerances:
+            return {"values": values, "tolerances": tolerances}
         return {}
+
+    def _extract_json_payload(self, text: str) -> Optional[Any]:
+        if not text:
+            return None
+        candidate = text.strip()
+        try:
+            return json.loads(candidate)
+        except Exception:
+            pass
+        for match in re.finditer(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE):
+            block = match.group(1).strip()
+            if not block:
+                continue
+            try:
+                return json.loads(block)
+            except Exception:
+                continue
+        snippet = self._find_json_snippet(text)
+        if snippet:
+            try:
+                return json.loads(snippet)
+            except Exception:
+                pass
+        return None
+
+    def _find_json_snippet(self, text: str) -> Optional[str]:
+        for idx, ch in enumerate(text):
+            if ch not in "{[":
+                continue
+            snippet = self._match_brackets(text, idx)
+            if snippet:
+                return snippet
+        return None
+
+    def _match_brackets(self, text: str, start: int) -> Optional[str]:
+        opener = text[start]
+        if opener not in "{[":
+            return None
+        stack = [opener]
+        in_string = False
+        escape = False
+        for idx in range(start + 1, len(text)):
+            ch = text[idx]
+            if escape:
+                escape = False
+                continue
+            if ch == "\\":
+                escape = True
+                continue
+            if ch == "\"":
+                in_string = not in_string
+                continue
+            if in_string:
+                continue
+            if ch in "{[":
+                stack.append(ch)
+            elif ch in "}]":
+                if not stack:
+                    return None
+                last = stack.pop()
+                if (last == "{" and ch != "}") or (last == "[" and ch != "]"):
+                    return None
+                if not stack:
+                    return text[start : idx + 1]
+        return None
+
+    def _extract_objects_from_payload(self, payload: Any) -> List[Dict[str, Any]]:
+        if isinstance(payload, list):
+            return self._normalize_objects(payload)
+        if isinstance(payload, dict):
+            for key in (
+                "objects",
+                "components",
+                "parts",
+                "entities",
+                "symbols",
+                "annotations",
+            ):
+                value = payload.get(key)
+                if value is not None:
+                    return self._normalize_objects(value)
+            for key in ("result", "results", "data"):
+                nested = payload.get(key)
+                if isinstance(nested, dict):
+                    extracted = self._extract_objects_from_payload(nested)
+                    if extracted:
+                        return extracted
+            if any(k in payload for k in ("name", "type", "class", "label")):
+                return [payload]
+        return []
+
+    def _normalize_objects(self, value: Any) -> List[Dict[str, Any]]:
+        if value is None:
+            return []
+        if isinstance(value, list):
+            normalized: List[Dict[str, Any]] = []
+            for item in value:
+                if isinstance(item, dict):
+                    normalized.append(item)
+                elif isinstance(item, str):
+                    normalized.append({"name": item})
+                else:
+                    normalized.append({"value": item})
+            return normalized
+        if isinstance(value, dict):
+            return [value]
+        if isinstance(value, str):
+            return [{"name": value}]
+        return []
+
+    def _extract_objects_from_text(self, text: str) -> List[Dict[str, Any]]:
+        objects: List[Dict[str, Any]] = []
+        for line in text.splitlines():
+            candidate = line.strip()
+            if not candidate:
+                continue
+            if candidate.startswith(("-", "*")):
+                name = candidate.lstrip("-* ").strip()
+                if name:
+                    objects.append({"name": name})
+            else:
+                match = re.match(r"^\d+[\).\s]+(.+)$", candidate)
+                if match:
+                    name = match.group(1).strip()
+                    if name:
+                        objects.append({"name": name})
+            if len(objects) >= 50:
+                break
+        return objects
+
+    def _extract_text_from_payload(self, payload: Any) -> Optional[str]:
+        if payload is None:
+            return None
+        if isinstance(payload, str):
+            return payload
+        if isinstance(payload, list):
+            for item in payload:
+                extracted = self._extract_text_from_payload(item)
+                if extracted:
+                    return extracted
+            return None
+        if isinstance(payload, dict):
+            for key in ("text", "ocr_text", "recognized_text", "raw_text", "extracted_text"):
+                value = payload.get(key)
+                if isinstance(value, str):
+                    return value
+                if isinstance(value, list):
+                    joined = " ".join([item for item in value if isinstance(item, str)])
+                    if joined:
+                        return joined
+            if "ocr" in payload:
+                return self._extract_text_from_payload(payload.get("ocr"))
+        return None
+
+    def _extract_cad_elements_from_payload(self, payload: Any) -> Optional[Dict[str, Any]]:
+        if isinstance(payload, dict):
+            for key in ("cad_elements", "drawings", "elements", "geometry", "features"):
+                value = payload.get(key)
+                if isinstance(value, dict):
+                    return value
+                if isinstance(value, list):
+                    return {"items": self._normalize_objects(value)}
+            for key in ("result", "results", "data"):
+                nested = payload.get(key)
+                if isinstance(nested, dict):
+                    extracted = self._extract_cad_elements_from_payload(nested)
+                    if extracted:
+                        return extracted
+        return None
+
+    def _extract_dimensions_from_payload(self, payload: Any) -> Optional[Dict[str, Any]]:
+        if isinstance(payload, dict):
+            for key in ("dimensions", "dimension", "sizes", "tolerances"):
+                value = payload.get(key)
+                if value is None:
+                    continue
+                if isinstance(value, dict):
+                    return value
+                if isinstance(value, list):
+                    return {"items": value}
+                if isinstance(value, str):
+                    return {"raw": value}
+                if isinstance(value, (int, float)):
+                    return {"value": value}
+            for key in ("result", "results", "data", "drawings"):
+                nested = payload.get(key)
+                if isinstance(nested, dict):
+                    extracted = self._extract_dimensions_from_payload(nested)
+                    if extracted:
+                        return extracted
+        if isinstance(payload, list):
+            for item in payload:
+                extracted = self._extract_dimensions_from_payload(item)
+                if extracted:
+                    return extracted
+        return None
 
     def _generate_description(self, objects: List[Dict], text: str, features: Dict) -> str:
         """生成综合描述"""
