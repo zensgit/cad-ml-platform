@@ -1447,6 +1447,13 @@ DEDUPCAD_VISION_URL=http://localhost:58001 make test-dedupcad-vision
 
 # 生成覆盖率报告
 pytest --cov=src --cov-report=html
+
+# Faiss 性能测试（默认只跑内存后端）
+RUN_FAISS_PERF_TESTS=1 pytest tests/perf/test_vector_search_latency.py -v
+# 如需强制失败（faiss 子进程崩溃时不跳过）
+REQUIRE_FAISS_PERF=1 RUN_FAISS_PERF_TESTS=1 pytest tests/perf/test_vector_search_latency.py -v
+# 注意：部分环境在 PYTHONWARNINGS=error::DeprecationWarning 下导入 faiss 会触发 segfault；
+# 测试已在子进程中隔离并过滤 swig 的 DeprecationWarning
 ```
 
 ---
