@@ -23,6 +23,7 @@ def _run_faiss_perf_subprocess(
 import json
 import statistics
 import time
+import warnings
 
 import numpy as np
 
@@ -34,6 +35,12 @@ iterations = {iterations}
 
 vectors = np.random.rand(count, dim).astype(np.float32)
 ids = ["vec_{{}}".format(i) for i in range(count)]
+
+warnings.filterwarnings(
+    "ignore",
+    message=r"builtin type (SwigPyPacked|SwigPyObject|swigvarlink) has no __module__ attribute",
+    category=DeprecationWarning,
+)
 
 store = FaissVectorStore()
 if not store._available:

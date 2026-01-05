@@ -313,3 +313,14 @@
 
 ### Notes
 - Faiss perf ran successfully in subprocess with `REQUIRE_FAISS_PERF=1`.
+
+## Update (faiss perf strict warnings with swig filter)
+### Command
+- RUN_FAISS_PERF_TESTS=1 REQUIRE_FAISS_PERF=1 FAISS_RECOVERY_STATE_PATH=/tmp/faiss_recovery_state.json .venv/bin/python -m pytest tests/perf/test_vector_search_latency.py -v -W error::DeprecationWarning -s
+
+### Result
+- 1 passed
+- Duration: 8.00s
+
+### Notes
+- Added subprocess warning filter for SwigPyPacked/SwigPyObject/swigvarlink DeprecationWarning to avoid strict-warning crashes.
