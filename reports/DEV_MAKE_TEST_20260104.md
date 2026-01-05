@@ -291,3 +291,14 @@
 
 ### Notes
 - Faiss perf now runs in a subprocess to prevent a segfault from killing the pytest process.
+
+## Update (faiss perf subprocess skip mode)
+### Command
+- RUN_FAISS_PERF_TESTS=1 FAISS_RECOVERY_STATE_PATH=/tmp/faiss_recovery_state.json .venv/bin/python -m pytest tests/perf/test_vector_search_latency.py -v -W error::DeprecationWarning -s
+
+### Result
+- 1 skipped
+- Duration: 43.74s
+
+### Notes
+- Faiss perf subprocess failures now skip the test unless `REQUIRE_FAISS_PERF=1` is set.

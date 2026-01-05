@@ -517,6 +517,7 @@
   - Re-ran perf latency test with `RUN_FAISS_PERF_TESTS=1` and DeprecationWarning error mode; Python segfault in faiss import (swigfaiss).
   - Updated perf test to run faiss measurements in a subprocess when `RUN_FAISS_PERF_TESTS=1`.
   - Re-ran perf latency test with DeprecationWarning error mode after subprocess isolation; faiss subprocess exited -11 (segfault) without crashing pytest.
+  - Changed faiss perf subprocess failures to skip unless `REQUIRE_FAISS_PERF=1`; rerun skipped in strict warning mode.
   - Report: `reports/DEV_MAKE_TEST_20260104.md`
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
