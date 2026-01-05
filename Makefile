@@ -135,6 +135,7 @@ self-check-enhanced: ## Run comprehensive self-check
 
 verify-metrics: ## Verify required metrics are exported
 	@echo "$(GREEN)Verifying metrics export...$(NC)"
+	$(PYTHON) scripts/check_metrics_consistency.py
 	$(PYTHON) scripts/verify_metrics_export.py
 	@echo "$(GREEN)Metrics export verification passed!$(NC)"
 

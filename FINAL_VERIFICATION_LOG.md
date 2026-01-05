@@ -531,6 +531,8 @@
   - Added faiss perf gating commands to `docs/TEST_MAP.md`.
   - Added faiss perf gating reminder in `docs/DEVELOPMENT_PLAN_SUMMARY.md`.
   - Added faiss perf gating note in `docs/TRAINING_GUIDE.md`.
+- **Tooling**:
+  - Added metrics consistency check to `make verify-metrics`.
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
 
