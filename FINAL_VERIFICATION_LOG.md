@@ -526,6 +526,7 @@
   - Report: `reports/DEV_MAKE_TEST_20260104.md`
 - **Documentation**:
   - Documented faiss perf test gating and strict-warning caveat in `README.md`.
+  - Added faiss perf test gating notes in `docs/OPERATIONAL_RUNBOOK.md`.
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
 
