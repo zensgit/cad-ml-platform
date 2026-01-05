@@ -529,6 +529,7 @@
   - Added faiss perf test gating notes in `docs/OPERATIONAL_RUNBOOK.md`.
   - Added faiss perf gating reference in `docs/CI_OPTIMIZATION_SUMMARY.md`.
   - Added faiss perf gating commands to `docs/TEST_MAP.md`.
+  - Added faiss perf gating reminder in `docs/DEVELOPMENT_PLAN_SUMMARY.md`.
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
 
