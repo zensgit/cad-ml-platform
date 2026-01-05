@@ -388,9 +388,23 @@ class VisionAnalyzer:
         values = []
         for match in re.finditer(r"(\d+(?:\.\d+)?)\s*(mm|cm|in|inch)\b", text, re.IGNORECASE):
             values.append({"value": float(match.group(1)), "unit": match.group(2).lower()})
-        tolerances = [
-            float(val) for val in re.findall(r"\+/-\s*(\d+(?:\.\d+)?)", text)
-        ]
+        for match in re.finditer(r"[Ø∅]\s*(\d+(?:\.\d+)?)", text):
+            values.append({"value": float(match.group(1)), "unit": None, "type": "diameter"})
+        tolerances = []
+        for val in re.findall(r"\+/-\s*(\d+(?:\.\d+)?)", text):
+            tolerances.append({"type": "plus_minus", "value": float(val)})
+        for val in re.findall(r"[±]\s*(\d+(?:\.\d+)?)", text):
+            tolerances.append({"type": "plus_minus", "value": float(val)})
+        for match in re.finditer(
+            r"\+(\d+(?:\.\d+)?)\s*/\s*-(\d+(?:\.\d+)?)", text
+        ):
+            tolerances.append(
+                {
+                    "type": "asymmetric",
+                    "plus": float(match.group(1)),
+                    "minus": float(match.group(2)),
+                }
+            )
         if values or tolerances:
             return {"values": values, "tolerances": tolerances}
         return {}

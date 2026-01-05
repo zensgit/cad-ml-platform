@@ -40,4 +40,16 @@ def test_extracts_from_plain_text() -> None:
     assert objects[0]["name"] == "bracket"
     dimensions = analyzer._extract_dimensions(text)
     assert dimensions["values"][0]["value"] == 10.0
-    assert dimensions["tolerances"][0] == 0.1
+    assert dimensions["tolerances"][0]["value"] == 0.1
+
+
+def test_extracts_symbol_tolerances_and_diameters() -> None:
+    analyzer = VisionAnalyzer()
+    text = "Ø10 ±0.05 and 20 mm +0.1/-0.05"
+
+    dimensions = analyzer._extract_dimensions(text)
+    values = dimensions["values"]
+    assert any(item.get("type") == "diameter" for item in values)
+    tolerances = dimensions["tolerances"]
+    assert any(item.get("type") == "plus_minus" for item in tolerances)
+    assert any(item.get("type") == "asymmetric" for item in tolerances)
