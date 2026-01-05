@@ -259,3 +259,14 @@
 
 ### Notes
 - Crash occurred during faiss import in `src/core/similarity.py` when `tests/perf/test_vector_search_latency.py` initializes `FaissVectorStore`.
+
+## Update (perf run with faiss gate enabled)
+### Command
+- RUN_FAISS_PERF_TESTS=1 FAISS_RECOVERY_STATE_PATH=/tmp/faiss_recovery_state.json .venv/bin/python -m pytest tests/perf/test_vector_search_latency.py -v -s
+
+### Result
+- 1 passed, 3 warnings
+- Duration: 41.62s
+
+### Notes
+- DeprecationWarning emitted for SwigPyPacked/SwigPyObject/swigvarlink during faiss import.
