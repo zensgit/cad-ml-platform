@@ -711,6 +711,10 @@
   - Added YAML example file and documented PyYAML requirement.
   - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_YAML_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_YAML_VALIDATION_20260106.md`
+- **Vision CAD Feature Threshold File Variants Doc**:
+  - Added README usage for list-style threshold variants.
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_VARIANTS_DOC_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_VARIANTS_DOC_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

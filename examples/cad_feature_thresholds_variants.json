@@ -1,0 +1,12 @@
+[
+  {
+    "min_area": 12,
+    "line_aspect": 4,
+    "arc_fill_min": 0.05
+  },
+  {
+    "min_area": 24,
+    "line_aspect": 6,
+    "arc_fill_min": 0.08
+  }
+]
