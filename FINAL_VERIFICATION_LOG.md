@@ -867,6 +867,10 @@
   - Ran a 100-sample grid compare/export workflow for stability checks.
   - Design: `docs/VISION_CAD_FEATURE_GRID_COMPARE_EXPORT_RUN_100_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_COMPARE_EXPORT_RUN_100_VALIDATION_20260106.md`
+- **Vision CAD Feature Grid Baseline Report Run 100**:
+  - Generated a markdown summary report for the 100-sample grid baseline run.
+  - Design: `docs/VISION_CAD_FEATURE_GRID_BASELINE_REPORT_RUN_100_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_BASELINE_REPORT_RUN_100_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
