@@ -34,6 +34,35 @@ from a compare JSON into JSON/CSV for analysis.
 Use `--combo-index` to filter a single grid combo when needed.
 If no output files are provided, the script prints JSON to stdout.
 
+## End-to-End Workflow
+```
+# Baseline (grid sweep)
+python3 scripts/vision_cad_feature_benchmark.py \
+  --no-clients \
+  --input-dir /path/to/cad_images \
+  --max-samples 20 \
+  --threshold-file examples/cad_feature_thresholds.json \
+  --output-json /tmp/cad_grid_baseline.json
+
+# Compare (override a threshold, export summary CSV)
+python3 scripts/vision_cad_feature_benchmark.py \
+  --no-clients \
+  --input-dir /path/to/cad_images \
+  --max-samples 20 \
+  --threshold-file examples/cad_feature_thresholds.json \
+  --threshold min_area=24 \
+  --output-json /tmp/cad_grid_compare.json \
+  --compare-json /tmp/cad_grid_baseline.json \
+  --output-compare-csv /tmp/cad_grid_compare_summary.csv
+
+# Export top sample deltas
+python3 scripts/vision_cad_feature_compare_export.py \
+  --input-json /tmp/cad_grid_compare.json \
+  --output-json /tmp/cad_grid_compare_top.json \
+  --output-csv /tmp/cad_grid_compare_top.csv \
+  --top-samples 10
+```
+
 ## Example
 ```
 python3 scripts/vision_cad_feature_benchmark.py \
