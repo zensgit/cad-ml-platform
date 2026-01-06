@@ -780,6 +780,11 @@
   - Documented combo-index filtering for compare export outputs.
   - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_COMBO_FILTER_DOCS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_COMBO_FILTER_DOCS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare CSV Multi Combo Tests**:
+  - Added coverage for multi-combo compare summary CSV output.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_compare_csv.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_CSV_MULTI_COMBO_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_CSV_MULTI_COMBO_TESTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

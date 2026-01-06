@@ -109,3 +109,34 @@ def test_compare_csv_missing_baseline(tmp_path: Path) -> None:
     assert len(rows) == 1
     assert rows[0]["combo_index"] == "1"
     assert rows[0]["status"] == "missing_baseline"
+
+
+def test_compare_csv_multi_combo(tmp_path: Path) -> None:
+    threshold_file = tmp_path / "thresholds.json"
+    threshold_file.write_text(
+        '{"thresholds": {"min_area": 12}, "grid": {"line_aspect": [4, 6]}}'
+    )
+    baseline_json = tmp_path / "baseline.json"
+    tuned_json = tmp_path / "tuned.json"
+    compare_csv = tmp_path / "compare.csv"
+
+    _run_benchmark(baseline_json, ["--threshold-file", str(threshold_file)])
+    _run_benchmark(
+        tuned_json,
+        [
+            "--threshold-file",
+            str(threshold_file),
+            "--compare-json",
+            str(baseline_json),
+            "--output-compare-csv",
+            str(compare_csv),
+        ],
+    )
+
+    with compare_csv.open(newline="") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+
+    assert len(rows) == 2
+    assert {row["combo_index"] for row in rows} == {"1", "2"}
+    assert all(row["status"] == "ok" for row in rows)
