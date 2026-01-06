@@ -825,6 +825,10 @@
   - Added compare report command to the end-to-end tuning workflow docs.
   - Design: `docs/VISION_CAD_FEATURE_TUNING_WORKFLOW_REPORT_STEP_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_WORKFLOW_REPORT_STEP_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Compare Report Run**:
+  - Generated a markdown summary report for the tuned compare run.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_COMPARE_REPORT_RUN_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_COMPARE_REPORT_RUN_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
