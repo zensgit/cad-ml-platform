@@ -12,6 +12,7 @@ The metadata includes a `cad_feature_stats` object with:
 - `line_angle_bins` (0-30, 30-60, 60-90, 90-120, 120-150, 150-180)
 - `line_angle_avg`
 - `arc_sweep_avg`
+- `arc_sweep_bins` (0-90, 90-180, 180-270, 270-360)
 
 ## Notes
 - Values are derived from the heuristic CAD feature extractor.

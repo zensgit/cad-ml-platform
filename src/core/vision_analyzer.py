@@ -863,6 +863,13 @@ class VisionAnalyzer:
 
         line_angle_avg = round(sum(line_angles) / len(line_angles), 1) if line_angles else None
         arc_sweep_avg = round(sum(arc_sweeps) / len(arc_sweeps), 1) if arc_sweeps else None
+        arc_labels = ["0-90", "90-180", "180-270", "270-360"]
+        arc_bins = {label: 0 for label in arc_labels}
+        for sweep in arc_sweeps:
+            if sweep is None or sweep < 0:
+                continue
+            bucket = min(int(sweep // 90), len(arc_labels) - 1)
+            arc_bins[arc_labels[bucket]] += 1
 
         return {
             "line_count": len(lines),
@@ -871,6 +878,7 @@ class VisionAnalyzer:
             "line_angle_bins": angle_bins,
             "line_angle_avg": line_angle_avg,
             "arc_sweep_avg": arc_sweep_avg,
+            "arc_sweep_bins": arc_bins,
         }
 
 

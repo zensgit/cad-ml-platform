@@ -139,6 +139,7 @@ def test_vision_analyze_includes_cad_stats(sample_image_base64):
     assert stats["circle_count"] == 0
     assert stats["arc_count"] == 0
     assert sum(stats["line_angle_bins"].values()) == 0
+    assert sum(stats["arc_sweep_bins"].values()) == 0
     assert stats["line_angle_avg"] is None
     assert stats["arc_sweep_avg"] is None
 

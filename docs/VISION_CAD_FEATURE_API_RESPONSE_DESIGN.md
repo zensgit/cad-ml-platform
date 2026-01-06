@@ -14,6 +14,7 @@ requested by the client.
   - `line_angle_bins`
   - `line_angle_avg`
   - `arc_sweep_avg`
+  - `arc_sweep_bins`
 
 ## Notes
 - When `include_cad_stats` is false, the field is omitted (null).

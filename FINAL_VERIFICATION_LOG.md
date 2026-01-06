@@ -589,6 +589,11 @@
   - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (12 passed).
   - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_EFFECT_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_EFFECT_VALIDATION_20260105.md`
+- **Vision CAD Feature Sweep Bins**:
+  - Added arc sweep bin summary to CAD feature metadata and API response.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (12 passed).
+  - Design: `docs/VISION_CAD_FEATURE_METADATA_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_SWEEP_BINS_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
