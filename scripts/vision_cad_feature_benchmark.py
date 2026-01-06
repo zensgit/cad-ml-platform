@@ -39,6 +39,91 @@ def _parse_grid(raw_items: List[str]) -> Dict[str, List[float]]:
     return grid
 
 
+def _coerce_threshold_mapping(raw: object, context: str) -> Dict[str, float]:
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError(f"{context} must be a mapping of numeric values")
+    thresholds: Dict[str, float] = {}
+    for key, value in raw.items():
+        if not isinstance(value, (int, float)):
+            raise ValueError(f"{context}[{key}] must be numeric")
+        thresholds[str(key)] = float(value)
+    return thresholds
+
+
+def _coerce_grid_mapping(raw: object) -> Dict[str, List[float]]:
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError("grid must be a mapping of numeric lists")
+    grid: Dict[str, List[float]] = {}
+    for key, value in raw.items():
+        values: List[float]
+        if isinstance(value, (int, float)):
+            values = [float(value)]
+        elif isinstance(value, list):
+            if not value:
+                raise ValueError(f"grid[{key}] must not be empty")
+            values = []
+            for item in value:
+                if not isinstance(item, (int, float)):
+                    raise ValueError(f"grid[{key}] values must be numeric")
+                values.append(float(item))
+        else:
+            raise ValueError(f"grid[{key}] must be a list of numeric values")
+        grid[str(key)] = values
+    return grid
+
+
+def _load_threshold_file(
+    path: Path,
+) -> tuple[Dict[str, float], Dict[str, List[float]], List[Dict[str, float]]]:
+    if not path.exists():
+        raise FileNotFoundError(f"threshold file not found: {path}")
+    if path.suffix.lower() in {".yaml", ".yml"}:
+        try:
+            import yaml  # type: ignore
+        except ImportError as exc:
+            raise ValueError("PyYAML is required to load YAML threshold files") from exc
+        payload = yaml.safe_load(path.read_text())
+    else:
+        payload = json.loads(path.read_text())
+
+    if payload is None:
+        return {}, {}, []
+    if isinstance(payload, list):
+        variants = [
+            _coerce_threshold_mapping(item, f"variants[{idx}]")
+            for idx, item in enumerate(payload)
+        ]
+        return {}, {}, variants
+    if not isinstance(payload, dict):
+        raise ValueError("threshold file must be a mapping or list of mappings")
+
+    variants_raw = payload.get("variants")
+    grid_raw = payload.get("grid")
+    thresholds_raw = payload.get("thresholds")
+    if thresholds_raw is None:
+        thresholds_raw = {
+            key: value
+            for key, value in payload.items()
+            if key not in {"grid", "variants"}
+        }
+
+    thresholds = _coerce_threshold_mapping(thresholds_raw, "thresholds")
+    grid = _coerce_grid_mapping(grid_raw)
+    variants: List[Dict[str, float]] = []
+    if variants_raw is not None:
+        if not isinstance(variants_raw, list):
+            raise ValueError("variants must be a list of mappings")
+        variants = [
+            _coerce_threshold_mapping(item, f"variants[{idx}]")
+            for idx, item in enumerate(variants_raw)
+        ]
+    return thresholds, grid, variants
+
+
 def _build_synthetic_samples() -> List[Tuple[str, Image.Image]]:
     samples: List[Tuple[str, Image.Image]] = []
 
@@ -257,6 +342,11 @@ def main() -> None:
     parser.add_argument("--output-json", type=Path, help="Optional JSON output file")
     parser.add_argument("--output-csv", type=Path, help="Optional CSV output file")
     parser.add_argument("--compare-json", type=Path, help="Baseline JSON to compare against")
+    parser.add_argument(
+        "--threshold-file",
+        type=Path,
+        help="JSON/YAML file with thresholds, grid, or variants",
+    )
     parser.add_argument("--max-samples", type=int, help="Limit number of samples loaded")
     parser.add_argument(
         "--no-clients",
@@ -277,8 +367,18 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    thresholds = _parse_thresholds(args.threshold)
-    grid = _parse_grid(args.grid)
+    file_thresholds: Dict[str, float] = {}
+    file_grid: Dict[str, List[float]] = {}
+    file_variants: List[Dict[str, float]] = []
+    if args.threshold_file:
+        file_thresholds, file_grid, file_variants = _load_threshold_file(
+            args.threshold_file
+        )
+
+    cli_thresholds = _parse_thresholds(args.threshold)
+    cli_grid = _parse_grid(args.grid)
+    thresholds = {**file_thresholds, **cli_thresholds}
+    grid = {**file_grid, **cli_grid}
     if args.input_dir:
         samples = _load_images(args.input_dir, args.max_samples)
     else:
@@ -286,7 +386,20 @@ def main() -> None:
         if args.max_samples:
             samples = samples[: args.max_samples]
 
-    variants = _build_grid_variants(thresholds, grid)
+    if file_variants:
+        if grid:
+            print(
+                "note: ignoring grid overrides because threshold-file provides variants",
+                file=sys.stderr,
+            )
+        variants = []
+        for variant in file_variants:
+            merged = dict(file_thresholds)
+            merged.update(variant)
+            merged.update(cli_thresholds)
+            variants.append(merged)
+    else:
+        variants = _build_grid_variants(thresholds, grid)
     grid_results = []
     for idx, variant in enumerate(variants, start=1):
         results = asyncio.run(_run(samples, variant, initialize_clients=not args.no_clients))

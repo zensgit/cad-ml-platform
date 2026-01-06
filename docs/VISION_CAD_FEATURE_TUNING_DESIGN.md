@@ -11,6 +11,7 @@ threshold overrides without adding heavy dependencies.
 ## Inputs
 - `--input-dir`: directory of raster images (png/jpg/bmp/tif).
 - `--max-samples`: limit the number of images.
+- `--threshold-file`: JSON/YAML file with thresholds, grid, or variants.
 - `--threshold key=value`: override heuristic defaults.
 - `--grid key=v1,v2,...`: sweep threshold values across combinations.
 - `--output-json`: optional JSON export with thresholds and results.

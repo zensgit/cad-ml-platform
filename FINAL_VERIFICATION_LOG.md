@@ -676,6 +676,18 @@
   - Documented benchmark baseline/compare usage in README.
   - Design: `docs/VISION_CAD_FEATURE_README_BENCHMARK_USAGE_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_README_BENCHMARK_USAGE_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Impact Summary**:
+  - Summarized baseline vs tuned deltas for the stricter threshold run.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_IMPACT_SUMMARY_20260106.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_IMPACT_SUMMARY_VALIDATION_20260106.md`
+- **Vision CAD Feature Threshold File**:
+  - Added `--threshold-file` support for JSON/YAML presets.
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Report**:
+  - Added markdown report generation for benchmark comparison JSON.
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_REPORT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_REPORT_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
