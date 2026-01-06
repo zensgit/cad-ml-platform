@@ -991,6 +991,20 @@ python3 scripts/vision_cad_feature_benchmark.py \
   --compare-json /tmp/cad_baseline.json
 ```
 
+阈值文件与对比报告：
+```bash
+# 从文件加载阈值/网格组合
+python3 scripts/vision_cad_feature_benchmark.py \
+  --no-clients \
+  --threshold-file examples/cad_feature_thresholds.json \
+  --output-json /tmp/cad_grid.json
+
+# 生成对比摘要
+python3 scripts/vision_cad_feature_compare_report.py \
+  --input-json /tmp/cad_tuned.json \
+  --output-md /tmp/cad_tuned_report.md
+```
+
 ### Vision 错误响应规范
 所有 Vision 分析请求无论成功或失败返回 HTTP 200：
 ```json
