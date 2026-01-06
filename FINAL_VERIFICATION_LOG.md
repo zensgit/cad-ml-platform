@@ -888,6 +888,11 @@
   - Documented baseline report usage in the README benchmark section.
   - Design: `docs/VISION_CAD_FEATURE_README_BASELINE_REPORT_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_README_BASELINE_REPORT_VALIDATION_20260106.md`
+- **Vision CAD Feature Unit Tests Run (Baseline Report README)**:
+  - Re-ran CAD feature unit tests after the baseline report README update.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_* -v` (33 passed).
+  - Design: `docs/VISION_CAD_FEATURE_UNIT_TESTS_RUN_BASELINE_REPORT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_UNIT_TESTS_RUN_BASELINE_REPORT_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
