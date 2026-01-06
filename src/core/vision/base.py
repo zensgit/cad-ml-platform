@@ -64,6 +64,8 @@ class VisionAnalyzeRequest(BaseModel):
         for key, val in value.items():
             if not isinstance(val, (int, float)):
                 raise ValueError(f"cad_feature_thresholds[{key}] must be numeric")
+            if val <= 0:
+                raise ValueError(f"cad_feature_thresholds[{key}] must be > 0")
         return value
 
     model_config = {

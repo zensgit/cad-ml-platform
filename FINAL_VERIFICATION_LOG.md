@@ -580,6 +580,10 @@
   - Validated request threshold keys and numeric values.
   - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (10 passed).
   - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_VALIDATION_20260105.md`
+- **Vision CAD Feature Threshold Range Validation**:
+  - Enforced positive-only threshold values.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (11 passed).
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_RANGE_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
