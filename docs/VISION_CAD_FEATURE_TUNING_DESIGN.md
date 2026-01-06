@@ -12,11 +12,14 @@ threshold overrides without adding heavy dependencies.
 - `--input-dir`: directory of raster images (png/jpg/bmp/tif).
 - `--max-samples`: limit the number of images.
 - `--threshold key=value`: override heuristic defaults.
+- `--grid key=v1,v2,...`: sweep threshold values across combinations.
+- `--output-csv`: optional CSV export for grid results.
 - If `--input-dir` is omitted, the script generates synthetic samples.
 
 ## Outputs
 - Console summary per image: counts for lines, circles, arcs, and ink ratio.
 - Optional JSON payload with thresholds and results (`--output-json`).
+- Optional CSV export with per-sample rows for each grid combination.
 
 ## Example
 ```
@@ -24,6 +27,15 @@ python3 scripts/vision_cad_feature_benchmark.py \
   --input-dir examples/cad_samples \
   --threshold line_aspect=5.0 \
   --threshold arc_fill_min=0.08
+```
+
+### Grid Sweep Example
+```
+python3 scripts/vision_cad_feature_benchmark.py \
+  --grid line_aspect=4,5 \
+  --grid arc_fill_min=0.05,0.08 \
+  --output-json /tmp/cad_grid.json \
+  --output-csv /tmp/cad_grid.csv
 ```
 
 ## Notes

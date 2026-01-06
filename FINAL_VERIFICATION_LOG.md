@@ -561,6 +561,11 @@
   - Tests: `pytest tests/unit/test_vision_api_coverage.py -v` (19 passed).
   - Design: `docs/VISION_CAD_FEATURE_API_TUNING_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_API_TUNING_VALIDATION_20260105.md`
+- **Vision CAD Feature Grid Sweep**:
+  - Added grid sweep and CSV export support to the tuning script.
+  - Validation: `python3 scripts/vision_cad_feature_benchmark.py --max-samples 4 --grid line_aspect=4,5 --grid arc_fill_min=0.05,0.08 --output-json /tmp/cad_grid.json --output-csv /tmp/cad_grid.csv`.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_GRID_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
