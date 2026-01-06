@@ -695,9 +695,14 @@
   - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_TESTS_VALIDATION_20260106.md`
 - **Vision CAD Feature Threshold File List Tests**:
   - Added coverage for list-style threshold file payloads.
-  - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_threshold_file.py -v` (3 passed).
+  - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_threshold_file.py -v` (4 passed).
   - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_LIST_TESTS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_LIST_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Threshold File Override Tests**:
+  - Added coverage for CLI overrides on threshold files.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_threshold_file.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_OVERRIDE_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_OVERRIDE_TESTS_VALIDATION_20260106.md`
 - **Vision CAD Feature README Threshold File**:
   - Added threshold-file and compare report usage in README.
   - Design: `docs/VISION_CAD_FEATURE_README_THRESHOLD_FILE_DESIGN.md`

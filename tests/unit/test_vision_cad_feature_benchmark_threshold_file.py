@@ -11,10 +11,13 @@ SCRIPT_PATH = (
 )
 
 
-def _run_benchmark(tmp_path: Path, payload: dict) -> dict:
+def _run_benchmark(
+    tmp_path: Path, payload: dict, extra_args: list[str] | None = None
+) -> dict:
     threshold_file = tmp_path / "thresholds.json"
     threshold_file.write_text(json.dumps(payload))
     output_json = tmp_path / "out.json"
+    extra_args = extra_args or []
 
     subprocess.run(
         [
@@ -25,6 +28,7 @@ def _run_benchmark(tmp_path: Path, payload: dict) -> dict:
             "1",
             "--threshold-file",
             str(threshold_file),
+            *extra_args,
             "--output-json",
             str(output_json),
         ],
@@ -68,3 +72,10 @@ def test_threshold_file_list_variants(tmp_path: Path) -> None:
 
     assert len(data["results"]) == 2
     assert data["results"][0]["thresholds"]["min_area"] == 12
+
+
+def test_threshold_file_cli_override(tmp_path: Path) -> None:
+    payload = {"thresholds": {"min_area": 12, "line_aspect": 4}}
+    data = _run_benchmark(tmp_path, payload, ["--threshold", "min_area=24"])
+
+    assert data["results"][0]["thresholds"]["min_area"] == 24
