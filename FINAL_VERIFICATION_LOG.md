@@ -808,6 +808,10 @@
   - Documented an end-to-end baseline/compare/export workflow example.
   - Design: `docs/VISION_CAD_FEATURE_TUNING_WORKFLOW_DOCS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_WORKFLOW_DOCS_VALIDATION_20260106.md`
+- **Vision CAD Feature Grid Compare Export Run**:
+  - Ran a multi-combo grid compare and exported summary/top-sample outputs.
+  - Design: `docs/VISION_CAD_FEATURE_GRID_COMPARE_EXPORT_RUN_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_COMPARE_EXPORT_RUN_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
