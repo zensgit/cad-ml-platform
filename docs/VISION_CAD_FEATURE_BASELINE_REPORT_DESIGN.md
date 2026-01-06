@@ -13,3 +13,4 @@ baseline JSON results into per-combo summary tables.
 
 ## Output
 - Markdown report with thresholds and summary metrics per combo.
+- If `--output-md` is omitted, the report prints to stdout.
