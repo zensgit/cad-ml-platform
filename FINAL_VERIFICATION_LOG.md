@@ -771,6 +771,11 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_compare_export.py -v` (4 passed).
   - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_COMBO_FILTER_TESTS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_COMBO_FILTER_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Unit Tests Run**:
+  - Ran full CAD feature unit test suite after compare CSV/export updates.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_* -v` (26 passed).
+  - Design: `docs/VISION_CAD_FEATURE_UNIT_TESTS_RUN_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_UNIT_TESTS_RUN_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
