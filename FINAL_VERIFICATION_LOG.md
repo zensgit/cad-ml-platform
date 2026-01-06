@@ -834,6 +834,10 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_* -v` (30 passed).
   - Design: `docs/VISION_CAD_FEATURE_UNIT_TESTS_RUN_TUNED_REPORT_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_UNIT_TESTS_RUN_TUNED_REPORT_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Artifacts Summary**:
+  - Added an artifacts summary table to the tuning guide.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_ARTIFACTS_SUMMARY_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_ARTIFACTS_SUMMARY_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

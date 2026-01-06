@@ -69,6 +69,16 @@ python3 scripts/vision_cad_feature_compare_export.py \
   --top-samples 10
 ```
 
+## Artifacts Summary
+| Artifact | Description |
+| --- | --- |
+| `/tmp/cad_grid_baseline.json` | Baseline grid results (threshold sweep). |
+| `/tmp/cad_grid_compare.json` | Compare run with overrides and comparison block. |
+| `/tmp/cad_grid_compare_summary.csv` | Summary deltas per combo (CSV). |
+| `/tmp/cad_grid_compare_report.md` | Markdown compare report for deltas. |
+| `/tmp/cad_grid_compare_top.json` | Top sample deltas (JSON). |
+| `/tmp/cad_grid_compare_top.csv` | Top sample deltas (CSV). |
+
 ## Example
 ```
 python3 scripts/vision_cad_feature_benchmark.py \
