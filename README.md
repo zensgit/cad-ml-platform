@@ -958,6 +958,20 @@ Vision 请求可携带 `include_cad_stats` 与 `cad_feature_thresholds`：
 - `arc_fill_min` (默认 0.05): 弧线填充比最小值
 - `arc_fill_max` (默认 0.3): 弧线填充比最大值
 
+#### cad_feature_thresholds 调优方向
+| 参数 | 调高效果 | 调低效果 |
+|------|---------|---------|
+| `max_dim` | 更多细节、计算成本提升 | 更快但细节减少 |
+| `ink_threshold` | 更多像素被视为线条 | 更少像素被视为线条 |
+| `min_area` | 更少小噪声、可能漏检细线 | 更容易捕获细线、噪声增加 |
+| `line_aspect` | 更严格的线条判定 | 更容易把细长形状判为线 |
+| `line_elongation` | 更严格的延展判定 | 更容易判为线 |
+| `circle_aspect` | 更严格的圆形判定 | 更容易判为圆 |
+| `circle_fill_min` | 更少圆形（更保守） | 更容易判为圆 |
+| `arc_aspect` | 更严格的弧线判定 | 更容易判为弧 |
+| `arc_fill_min` | 更少弧线（更保守） | 更容易判为弧 |
+| `arc_fill_max` | 更严格限制弧线填充比 | 更宽松的弧线范围 |
+
 ### Vision 错误响应规范
 所有 Vision 分析请求无论成功或失败返回 HTTP 200：
 ```json

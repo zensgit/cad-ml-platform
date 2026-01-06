@@ -615,6 +615,9 @@
 - **Vision CAD Feature Threshold Defaults Doc**:
   - Documented default values for `cad_feature_thresholds`.
   - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_DEFAULTS_DOC_20260105.md`
+- **Vision CAD Feature Tuning Guide Doc**:
+  - Added tuning direction guidance for `cad_feature_thresholds`.
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_GUIDE_DOC_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
