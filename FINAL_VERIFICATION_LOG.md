@@ -799,6 +799,11 @@
   - Documented stdout output behavior for compare export runs.
   - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_STDOUT_DOCS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_STDOUT_DOCS_VALIDATION_20260106.md`
+- **Vision CAD Feature Unit Tests Run (Stdout Docs)**:
+  - Re-ran full CAD feature unit test suite after stdout doc updates.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_* -v` (29 passed).
+  - Design: `docs/VISION_CAD_FEATURE_UNIT_TESTS_RUN_STDOUT_DOCS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_UNIT_TESTS_RUN_STDOUT_DOCS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
