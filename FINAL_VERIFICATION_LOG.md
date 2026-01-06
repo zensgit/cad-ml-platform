@@ -785,6 +785,11 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_compare_csv.py -v` (4 passed).
   - Design: `docs/VISION_CAD_FEATURE_COMPARE_CSV_MULTI_COMBO_TESTS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_CSV_MULTI_COMBO_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export Invalid Index Tests**:
+  - Added coverage for invalid `--combo-index` handling in compare export outputs.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_export.py -v` (5 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_INVALID_INDEX_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_INVALID_INDEX_TESTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

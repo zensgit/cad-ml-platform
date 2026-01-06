@@ -164,6 +164,31 @@ def test_compare_export_missing_baseline(tmp_path: Path) -> None:
     assert rows[0]["sample"] == ""
 
 
+def test_compare_export_invalid_combo_index(tmp_path: Path) -> None:
+    payload = {
+        "results": [{"thresholds": {"min_area": 12}}],
+        "comparison": {"combo_deltas": [{"summary_delta": {}, "sample_deltas": []}]},
+    }
+    input_json = tmp_path / "input.json"
+    input_json.write_text(json.dumps(payload))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--input-json",
+            str(input_json),
+            "--combo-index",
+            "0",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "combo index must be >= 1" in result.stderr.lower()
+
+
 def test_compare_export_combo_filter(tmp_path: Path) -> None:
     payload = {
         "results": [{"thresholds": {"min_area": 12}}, {"thresholds": {"min_area": 24}}],
