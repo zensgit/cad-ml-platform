@@ -584,6 +584,10 @@
   - Enforced positive-only threshold values.
   - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (11 passed).
   - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_RANGE_VALIDATION_20260105.md`
+- **Vision CAD Feature Threshold Effect**:
+  - Added coverage to confirm threshold overrides change returned stats.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (12 passed).
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_EFFECT_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

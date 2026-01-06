@@ -7,11 +7,19 @@ Tests:
 """
 
 import base64
+import io
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image, ImageDraw
 
 # ========== Test Fixtures ==========
+
+
+def _encode_image_base64(image: Image.Image) -> str:
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return base64.b64encode(buffer.getvalue()).decode("utf-8")
 
 
 @pytest.fixture(autouse=True)
@@ -179,6 +187,49 @@ def test_vision_analyze_invalid_cad_threshold_value(sample_image_base64):
     response = client.post("/api/v1/vision/analyze", json=request_data)
 
     assert response.status_code == 422
+
+
+def test_vision_analyze_thresholds_change_stats(sample_image_base64):
+    """Test /api/v1/vision/analyze returns different stats with thresholds."""
+    from fastapi import FastAPI
+
+    from src.api.v1.vision import router
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1/vision")
+    client = TestClient(app)
+
+    image = Image.new("L", (120, 80), color=255)
+    draw = ImageDraw.Draw(image)
+    draw.line((10, 10, 110, 10), fill=0, width=3)
+    line_image_base64 = _encode_image_base64(image)
+
+    request_base = {
+        "image_base64": line_image_base64,
+        "include_description": True,
+        "include_ocr": False,
+        "include_cad_stats": True,
+    }
+
+    default_response = client.post("/api/v1/vision/analyze", json=request_base)
+    assert default_response.status_code == 200
+    default_stats = default_response.json()["cad_feature_stats"]
+
+    strict_response = client.post(
+        "/api/v1/vision/analyze",
+        json={
+            **request_base,
+            "cad_feature_thresholds": {"min_area": 1000000},
+        },
+    )
+    assert strict_response.status_code == 200
+    strict_stats = strict_response.json()["cad_feature_stats"]
+
+    assert default_stats["line_count"] >= 1
+    assert strict_stats["line_count"] == 0
+    assert strict_stats["circle_count"] == 0
+    assert strict_stats["arc_count"] == 0
+    assert strict_stats != default_stats
 
 
 def test_vision_analyze_missing_image_error():
