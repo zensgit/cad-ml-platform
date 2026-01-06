@@ -262,6 +262,35 @@ def _write_csv(
                 writer.writerow(row)
 
 
+def _write_compare_csv(output_path: Path, comparison: Dict) -> None:
+    fieldnames = [
+        "combo_index",
+        "status",
+        "total_lines_delta",
+        "total_circles_delta",
+        "total_arcs_delta",
+        "avg_ink_ratio_delta",
+        "avg_components_delta",
+    ]
+    with output_path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for combo in comparison.get("combo_deltas", []):
+            status = "missing_baseline" if combo.get("missing_baseline") else "ok"
+            summary_delta = combo.get("summary_delta", {}) if status == "ok" else {}
+            writer.writerow(
+                {
+                    "combo_index": combo.get("combo_index"),
+                    "status": status,
+                    "total_lines_delta": summary_delta.get("total_lines"),
+                    "total_circles_delta": summary_delta.get("total_circles"),
+                    "total_arcs_delta": summary_delta.get("total_arcs"),
+                    "avg_ink_ratio_delta": summary_delta.get("avg_ink_ratio"),
+                    "avg_components_delta": summary_delta.get("avg_components"),
+                }
+            )
+
+
 def _compare_results(current: List[Dict], baseline: List[Dict]) -> Dict:
     comparison: Dict[str, List[Dict]] = {"combo_deltas": []}
     for idx, entry in enumerate(current, start=1):
@@ -341,6 +370,11 @@ def main() -> None:
     parser.add_argument("--input-dir", type=Path, help="Directory with raster CAD images")
     parser.add_argument("--output-json", type=Path, help="Optional JSON output file")
     parser.add_argument("--output-csv", type=Path, help="Optional CSV output file")
+    parser.add_argument(
+        "--output-compare-csv",
+        type=Path,
+        help="Optional CSV output for compare summary deltas (requires --compare-json)",
+    )
     parser.add_argument("--compare-json", type=Path, help="Baseline JSON to compare against")
     parser.add_argument(
         "--threshold-file",
@@ -366,6 +400,10 @@ def main() -> None:
         help="Grid overrides, e.g. line_aspect=4,5,6 (repeatable)",
     )
     args = parser.parse_args()
+
+    if args.output_compare_csv and not args.compare_json:
+        print("error: --output-compare-csv requires --compare-json", file=sys.stderr)
+        sys.exit(1)
 
     file_thresholds: Dict[str, float] = {}
     file_grid: Dict[str, List[float]] = {}
@@ -434,6 +472,8 @@ def main() -> None:
     if args.output_csv:
         grid_keys = sorted(grid.keys())
         _write_csv(args.output_csv, grid_results, grid_keys)
+    if args.output_compare_csv and comparison is not None:
+        _write_compare_csv(args.output_compare_csv, comparison)
 
 
 if __name__ == "__main__":
