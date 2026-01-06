@@ -42,3 +42,4 @@ python3 scripts/vision_cad_feature_benchmark.py \
 - Thresholds map to the `cad_feature_thresholds` dict used in the analyzer.
 - Synthetic samples provide a fast smoke check when real CAD renders are not
   available locally.
+- API usage example: see README `Vision 分析响应（可选 CAD 特征统计）` section.

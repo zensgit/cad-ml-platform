@@ -606,6 +606,9 @@
 - **Vision README Update**:
   - Documented `include_cad_stats` request flag and `cad_feature_stats` response fields.
   - Report: `reports/DEV_VISION_CAD_FEATURE_README_VALIDATION_20260105.md`
+- **Vision CAD Feature Tuning Doc Link**:
+  - Linked tuning documentation to the README API usage example.
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_DOC_LINK_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
