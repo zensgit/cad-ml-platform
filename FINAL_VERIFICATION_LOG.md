@@ -638,6 +638,11 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_golden_stats.py -v` (3 passed).
   - Design: `docs/VISION_CAD_FEATURE_GOLDEN_STATS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_GOLDEN_STATS_VALIDATION_20260105.md`
+- **Vision CAD Feature Threshold Relation**:
+  - Enforced `arc_fill_min < arc_fill_max` when both overrides are provided.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (14 passed).
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_RELATION_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_RELATION_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

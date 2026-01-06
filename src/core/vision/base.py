@@ -66,6 +66,14 @@ class VisionAnalyzeRequest(BaseModel):
                 raise ValueError(f"cad_feature_thresholds[{key}] must be numeric")
             if val <= 0:
                 raise ValueError(f"cad_feature_thresholds[{key}] must be > 0")
+        arc_fill_min = value.get("arc_fill_min")
+        arc_fill_max = value.get("arc_fill_max")
+        if arc_fill_min is not None and arc_fill_max is not None:
+            if arc_fill_min >= arc_fill_max:
+                raise ValueError(
+                    "cad_feature_thresholds[arc_fill_min] must be < "
+                    "cad_feature_thresholds[arc_fill_max]"
+                )
         return value
 
     model_config = {
