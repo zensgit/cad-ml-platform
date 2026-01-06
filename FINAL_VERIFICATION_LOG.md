@@ -594,6 +594,11 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_extraction.py -v` (7 passed).
   - Design: `docs/VISION_CAD_FEATURE_METADATA_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_SWEEP_BINS_VALIDATION_20260105.md`
+- **Vision CAD Feature Sweep Bins API**:
+  - Added API test coverage for `arc_sweep_bins` in vision responses.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (13 passed).
+  - Design: `docs/VISION_CAD_FEATURE_API_RESPONSE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_SWEEP_BINS_API_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

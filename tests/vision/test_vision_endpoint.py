@@ -233,6 +233,44 @@ def test_vision_analyze_thresholds_change_stats(sample_image_base64):
     assert strict_stats != default_stats
 
 
+def test_vision_analyze_arc_sweep_bins(sample_image_base64):
+    """Test /api/v1/vision/analyze returns arc sweep bins."""
+    from fastapi import FastAPI
+
+    from src.api.v1.vision import router
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1/vision")
+    client = TestClient(app)
+
+    image = Image.new("L", (120, 120), color=255)
+    draw = ImageDraw.Draw(image)
+    draw.arc((20, 20, 100, 100), start=0, end=180, fill=0, width=4)
+    arc_image_base64 = _encode_image_base64(image)
+
+    response = client.post(
+        "/api/v1/vision/analyze",
+        json={
+            "image_base64": arc_image_base64,
+            "include_description": True,
+            "include_ocr": False,
+            "include_cad_stats": True,
+            "cad_feature_thresholds": {
+                "arc_fill_min": 0.001,
+                "min_area": 1,
+                "circle_fill_min": 2.0,
+                "line_aspect": 100.0,
+                "line_elongation": 100.0,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    stats = response.json()["cad_feature_stats"]
+    assert stats is not None
+    assert stats["arc_sweep_bins"]["180-270"] >= 1
+
+
 def test_vision_analyze_missing_image_error():
     """
     Test /api/v1/vision/analyze with missing image data.
