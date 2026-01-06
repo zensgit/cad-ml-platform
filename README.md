@@ -972,6 +972,25 @@ Vision 请求可携带 `include_cad_stats` 与 `cad_feature_thresholds`：
 | `arc_fill_min` | 更少弧线（更保守） | 更容易判为弧 |
 | `arc_fill_max` | 更严格限制弧线填充比 | 更宽松的弧线范围 |
 
+#### CAD 特征基准对比（benchmark）
+使用 `scripts/vision_cad_feature_benchmark.py` 评估阈值调整影响：
+```bash
+# 基准（建议加 --no-clients 避免外部依赖告警）
+python3 scripts/vision_cad_feature_benchmark.py \
+  --no-clients \
+  --input-dir /path/to/cad_images \
+  --output-json /tmp/cad_baseline.json
+
+# 对比（输出 comparison 区块）
+python3 scripts/vision_cad_feature_benchmark.py \
+  --no-clients \
+  --input-dir /path/to/cad_images \
+  --threshold line_aspect=6 \
+  --threshold min_area=24 \
+  --output-json /tmp/cad_tuned.json \
+  --compare-json /tmp/cad_baseline.json
+```
+
 ### Vision 错误响应规范
 所有 Vision 分析请求无论成功或失败返回 HTTP 200：
 ```json
