@@ -63,3 +63,30 @@ async def test_cad_feature_golden_arc_stats() -> None:
     assert sum(stats["arc_sweep_bins"].values()) == 1
     assert stats["arc_sweep_avg"] is not None
     assert 220.0 <= stats["arc_sweep_avg"] <= 260.0
+
+
+@pytest.mark.asyncio
+async def test_cad_feature_golden_diagonal_line_stats() -> None:
+    stats = await _extract_stats("cad_line_diagonal.png")
+
+    assert stats["line_count"] == 1
+    assert stats["circle_count"] == 0
+    assert stats["arc_count"] == 0
+    assert stats["line_angle_bins"]["120-150"] == 1
+    assert sum(stats["line_angle_bins"].values()) == 1
+    assert stats["line_angle_avg"] == 135.0
+
+
+@pytest.mark.asyncio
+async def test_cad_feature_golden_mid_arc_stats() -> None:
+    stats = await _extract_stats("cad_arc_mid.png")
+
+    assert stats["line_count"] == 0
+    assert stats["circle_count"] == 0
+    assert stats["arc_count"] == 1
+    assert sum(stats["line_angle_bins"].values()) == 0
+    assert stats["line_angle_avg"] is None
+    assert stats["arc_sweep_bins"]["90-180"] == 1
+    assert sum(stats["arc_sweep_bins"].values()) == 1
+    assert stats["arc_sweep_avg"] is not None
+    assert 160.0 <= stats["arc_sweep_avg"] <= 180.0

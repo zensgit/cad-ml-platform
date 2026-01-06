@@ -643,6 +643,11 @@
   - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (14 passed).
   - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_RELATION_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_RELATION_VALIDATION_20260105.md`
+- **Vision CAD Feature Golden Stats Extension**:
+  - Added diagonal line and mid-arc fixtures to cover additional bins.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_golden_stats.py -v` (5 passed).
+  - Design: `docs/VISION_CAD_FEATURE_GOLDEN_STATS_EXTENSION_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GOLDEN_STATS_EXTENSION_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
