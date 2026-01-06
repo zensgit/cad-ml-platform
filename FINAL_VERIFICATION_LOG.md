@@ -587,6 +587,7 @@
 - **Vision CAD Feature Threshold Effect**:
   - Added coverage to confirm threshold overrides change returned stats.
   - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (12 passed).
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_EFFECT_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_EFFECT_VALIDATION_20260105.md`
 
 ---
