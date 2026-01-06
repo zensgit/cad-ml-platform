@@ -742,6 +742,10 @@
   - Added JSON/CSV export for top sample deltas from compare runs.
   - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export Docs**:
+  - Documented compare summary CSV and export utility usage.
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_DOCS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_DOCS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

@@ -988,6 +988,7 @@ python3 scripts/vision_cad_feature_benchmark.py \
   --threshold line_aspect=6 \
   --threshold min_area=24 \
   --output-json /tmp/cad_tuned.json \
+  --output-compare-csv /tmp/cad_tuned_compare_summary.csv \
   --compare-json /tmp/cad_baseline.json
 ```
 
@@ -1015,6 +1016,13 @@ python3 scripts/vision_cad_feature_benchmark.py \
 python3 scripts/vision_cad_feature_compare_report.py \
   --input-json /tmp/cad_tuned.json \
   --output-md /tmp/cad_tuned_report.md
+
+# 导出对比差异（JSON/CSV）
+python3 scripts/vision_cad_feature_compare_export.py \
+  --input-json /tmp/cad_tuned.json \
+  --output-json /tmp/cad_tuned_top.json \
+  --output-csv /tmp/cad_tuned_top.csv \
+  --top-samples 10
 ```
 
 ### Vision 错误响应规范

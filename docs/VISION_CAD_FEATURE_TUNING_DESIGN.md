@@ -17,6 +17,7 @@ threshold overrides without adding heavy dependencies.
 - `--output-json`: optional JSON export with thresholds and results.
 - `--output-csv`: optional CSV export for grid results.
 - `--compare-json`: baseline JSON to compare against.
+- `--output-compare-csv`: optional summary CSV for comparison deltas.
 - `--no-clients`: skip external client initialization during benchmarking.
 - If `--input-dir` is omitted, the script generates synthetic samples.
 
@@ -25,6 +26,11 @@ threshold overrides without adding heavy dependencies.
 - Optional JSON payload with thresholds and results (`--output-json`).
 - Optional `comparison` block when `--compare-json` is supplied.
 - Optional CSV export with per-sample rows for each grid combination.
+- Optional summary CSV for comparison deltas (`--output-compare-csv`).
+
+## Compare Export
+Use `scripts/vision_cad_feature_compare_export.py` to extract top sample deltas
+from a compare JSON into JSON/CSV for analysis.
 
 ## Example
 ```
