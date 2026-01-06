@@ -633,6 +633,11 @@
   - Command: `python3 scripts/vision_cad_feature_benchmark.py --input-dir data/train_artifacts_subset5 --output-json reports/vision_cad_feature_baseline_20260105.json --output-csv reports/vision_cad_feature_baseline_20260105.csv`
   - Design: `docs/VISION_CAD_FEATURE_BASELINE_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_BASELINE_VALIDATION_20260105.md`
+- **Vision CAD Feature Golden Stats**:
+  - Added golden fixtures and regression tests for CAD feature stats.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_golden_stats.py -v` (3 passed).
+  - Design: `docs/VISION_CAD_FEATURE_GOLDEN_STATS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GOLDEN_STATS_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
