@@ -31,6 +31,7 @@ threshold overrides without adding heavy dependencies.
 ## Compare Export
 Use `scripts/vision_cad_feature_compare_export.py` to extract top sample deltas
 from a compare JSON into JSON/CSV for analysis.
+Use `--combo-index` to filter a single grid combo when needed.
 
 ## Example
 ```

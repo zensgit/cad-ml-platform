@@ -1023,6 +1023,13 @@ python3 scripts/vision_cad_feature_compare_export.py \
   --output-json /tmp/cad_tuned_top.json \
   --output-csv /tmp/cad_tuned_top.csv \
   --top-samples 10
+
+# Filter a single combo index
+python3 scripts/vision_cad_feature_compare_export.py \
+  --input-json /tmp/cad_tuned.json \
+  --combo-index 2 \
+  --output-json /tmp/cad_tuned_combo2.json \
+  --output-csv /tmp/cad_tuned_combo2.csv
 ```
 
 ### Vision 错误响应规范
