@@ -34,6 +34,10 @@ from a compare JSON into JSON/CSV for analysis.
 Use `--combo-index` to filter a single grid combo when needed.
 If no output files are provided, the script prints JSON to stdout.
 
+## Baseline Report
+Use `scripts/vision_cad_feature_baseline_report.py` to summarize baseline JSON
+results into a markdown report.
+
 ## End-to-End Workflow
 ```
 # Baseline (grid sweep)
@@ -43,6 +47,11 @@ python3 scripts/vision_cad_feature_benchmark.py \
   --max-samples 20 \
   --threshold-file examples/cad_feature_thresholds.json \
   --output-json /tmp/cad_grid_baseline.json
+
+# Baseline report
+python3 scripts/vision_cad_feature_baseline_report.py \
+  --input-json /tmp/cad_grid_baseline.json \
+  --output-md /tmp/cad_grid_baseline_report.md
 
 # Compare (override a threshold, export summary CSV)
 python3 scripts/vision_cad_feature_benchmark.py \
@@ -73,6 +82,7 @@ python3 scripts/vision_cad_feature_compare_export.py \
 | Artifact | Description |
 | --- | --- |
 | `/tmp/cad_grid_baseline.json` | Baseline grid results (threshold sweep). |
+| `/tmp/cad_grid_baseline_report.md` | Markdown baseline report for summary metrics. |
 | `/tmp/cad_grid_compare.json` | Compare run with overrides and comparison block. |
 | `/tmp/cad_grid_compare_summary.csv` | Summary deltas per combo (CSV). |
 | `/tmp/cad_grid_compare_report.md` | Markdown compare report for deltas. |

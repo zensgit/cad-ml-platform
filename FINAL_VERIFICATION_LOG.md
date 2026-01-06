@@ -880,6 +880,10 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_baseline_report.py -v` (3 passed).
   - Design: `docs/VISION_CAD_FEATURE_BASELINE_REPORT_TESTS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_BASELINE_REPORT_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Baseline Report Step**:
+  - Documented the baseline report command in the tuning workflow.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_BASELINE_REPORT_STEP_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_BASELINE_REPORT_STEP_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
