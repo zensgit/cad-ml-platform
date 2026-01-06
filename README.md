@@ -999,6 +999,12 @@ python3 scripts/vision_cad_feature_benchmark.py \
   --threshold-file examples/cad_feature_thresholds.json \
   --output-json /tmp/cad_grid.json
 
+# YAML 文件同样支持（需要安装 PyYAML）
+python3 scripts/vision_cad_feature_benchmark.py \
+  --no-clients \
+  --threshold-file examples/cad_feature_thresholds.yaml \
+  --output-json /tmp/cad_grid.yaml.json
+
 # 生成对比摘要
 python3 scripts/vision_cad_feature_compare_report.py \
   --input-json /tmp/cad_tuned.json \

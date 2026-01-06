@@ -702,6 +702,10 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_compare_report.py -v` (1 passed).
   - Design: `docs/VISION_CAD_FEATURE_COMPARE_REPORT_TESTS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_REPORT_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Threshold File YAML**:
+  - Added YAML example file and documented PyYAML requirement.
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_YAML_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_YAML_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
