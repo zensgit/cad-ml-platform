@@ -69,3 +69,23 @@ def test_compare_report_generation(tmp_path: Path) -> None:
     assert "## Combo 1" in content
     assert "| total_lines | -5 |" in content
     assert "| sample-a | -2 | 0 | 0 | -2 |" in content
+
+
+def test_compare_report_missing_comparison(tmp_path: Path) -> None:
+    payload = {"results": [{"thresholds": {"min_area": 12}}]}
+    input_json = tmp_path / "input.json"
+    input_json.write_text(json.dumps(payload))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--input-json",
+            str(input_json),
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "comparison" in result.stderr.lower()
