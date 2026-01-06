@@ -100,6 +100,20 @@ class OcrResult(BaseModel):
     confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
 
 
+class CadFeatureStats(BaseModel):
+    """Summary stats for heuristic CAD feature extraction."""
+
+    line_count: int = Field(..., ge=0, description="Number of detected line segments")
+    circle_count: int = Field(..., ge=0, description="Number of detected circles")
+    arc_count: int = Field(..., ge=0, description="Number of detected arcs")
+    line_angle_bins: Dict[str, int] = Field(..., description="Line angle histogram buckets")
+    line_angle_avg: Optional[float] = Field(None, description="Average line angle in degrees")
+    arc_sweep_avg: Optional[float] = Field(None, description="Average arc sweep in degrees")
+    arc_sweep_bins: Dict[str, int] = Field(..., description="Arc sweep histogram buckets")
+
+    model_config = {"extra": "allow"}
+
+
 class VisionAnalyzeResponse(BaseModel):
     """Response model for vision analysis."""
 
@@ -114,7 +128,7 @@ class VisionAnalyzeResponse(BaseModel):
     ocr: Optional[OcrResult] = Field(None, description="OCR extraction results")
 
     # CAD feature stats
-    cad_feature_stats: Optional[Dict[str, Any]] = Field(
+    cad_feature_stats: Optional[CadFeatureStats] = Field(
         None, description="CAD feature heuristic summary stats"
     )
 
@@ -157,6 +171,7 @@ class VisionAnalyzeResponse(BaseModel):
                     "line_angle_bins": {"0-30": 2, "30-60": 0, "60-90": 0, "90-120": 0, "120-150": 0, "150-180": 0},
                     "line_angle_avg": 12.5,
                     "arc_sweep_avg": None,
+                    "arc_sweep_bins": {"0-90": 0, "90-180": 0, "180-270": 0, "270-360": 0},
                 },
                 "provider": "deepseek_stub",
                 "processing_time_ms": 234.5,

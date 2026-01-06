@@ -296,6 +296,7 @@ from .automl_engine import (
     create_search_config,
 )
 from .base import (
+    CadFeatureStats,
     OcrResult,
     VisionAnalyzeRequest,
     VisionAnalyzeResponse,
@@ -2055,6 +2056,7 @@ __all__ = [
     "VisionAnalyzeResponse",
     "VisionDescription",
     "OcrResult",
+    "CadFeatureStats",
     # Base classes
     "VisionProvider",
     # Manager

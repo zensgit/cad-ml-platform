@@ -142,7 +142,8 @@ async def analyze_vision(
             "arc_count": 0,
             "line_angle_bins": {"0-30": 1, "30-60": 0, "60-90": 0, "90-120": 0, "120-150": 0, "150-180": 0},
             "line_angle_avg": 5.0,
-            "arc_sweep_avg": null
+            "arc_sweep_avg": null,
+            "arc_sweep_bins": {"0-90": 0, "90-180": 0, "180-270": 0, "270-360": 0}
         },
         "provider": "openai",
         "processing_time_ms": 1234.5

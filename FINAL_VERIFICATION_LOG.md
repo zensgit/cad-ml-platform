@@ -618,6 +618,16 @@
 - **Vision CAD Feature Tuning Guide Doc**:
   - Added tuning direction guidance for `cad_feature_thresholds`.
   - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_GUIDE_DOC_20260105.md`
+- **Vision CAD Feature Stats Model**:
+  - Added typed `CadFeatureStats` for `cad_feature_stats` and updated response examples.
+  - Tests: `pytest tests/test_contract_schema.py -v` (1 passed).
+  - Design: `docs/VISION_CAD_FEATURE_STATS_MODEL_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_STATS_MODEL_VALIDATION_20260105.md`
+- **Vision CAD Feature API Example Alignment**:
+  - Updated vision analyze endpoint example to include `arc_sweep_bins`.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (13 passed).
+  - Design: `docs/VISION_CAD_FEATURE_API_EXAMPLE_ALIGNMENT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_API_EXAMPLE_ALIGNMENT_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
