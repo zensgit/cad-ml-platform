@@ -48,9 +48,13 @@ class VisionAnalyzer:
     支持多种AI视觉服务
     """
 
-    def __init__(self, provider: VisionProvider = VisionProvider.OPENAI):
+    def __init__(
+        self,
+        provider: VisionProvider = VisionProvider.OPENAI,
+        initialize_clients: bool = True,
+    ):
         self.provider = provider
-        self.clients = self._initialize_clients()
+        self.clients = self._initialize_clients() if initialize_clients else {}
 
     def _initialize_clients(self) -> Dict:
         """初始化各种视觉服务客户端"""

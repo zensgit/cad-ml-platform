@@ -121,6 +121,7 @@ async def analyze_vision(
         "include_description": true,
         "include_ocr": true,
         "ocr_provider": "auto",
+        "include_cad_stats": true,
         "cad_feature_thresholds": {"line_aspect": 5.0, "arc_fill_min": 0.08}
     }
     ```
@@ -135,6 +136,14 @@ async def analyze_vision(
             "confidence": 0.92
         },
         "ocr": null,
+        "cad_feature_stats": {
+            "line_count": 1,
+            "circle_count": 0,
+            "arc_count": 0,
+            "line_angle_bins": {"0-30": 1, "30-60": 0, "60-90": 0, "90-120": 0, "120-150": 0, "150-180": 0},
+            "line_angle_avg": 5.0,
+            "arc_sweep_avg": null
+        },
         "provider": "openai",
         "processing_time_ms": 1234.5
     }

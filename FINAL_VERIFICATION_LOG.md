@@ -571,6 +571,11 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_extraction.py -v` (6 passed).
   - Design: `docs/VISION_CAD_FEATURE_METADATA_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_METADATA_VALIDATION_20260105.md`
+- **Vision CAD Feature API Response**:
+  - Exposed `cad_feature_stats` in the vision analyze response with opt-in request flag.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (9 passed).
+  - Design: `docs/VISION_CAD_FEATURE_API_RESPONSE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_API_RESPONSE_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

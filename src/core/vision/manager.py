@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import src.core.config as config
 from src.core.errors import ErrorCode
@@ -138,6 +138,11 @@ class VisionManager:
                 ocr_result = await self._extract_ocr(
                     image_bytes=image_bytes, provider=request.ocr_provider
                 )
+            cad_feature_stats: Optional[Dict[str, Any]] = None
+            if request.include_cad_stats:
+                cad_feature_stats = await self._extract_cad_feature_stats(
+                    image_bytes, request.cad_feature_thresholds
+                )
             processing_time_ms = (time.time() - start_time) * 1000
             safe_inc(vision_requests_total, provider=provider_name, status="success")
             safe_observe(
@@ -150,6 +155,7 @@ class VisionManager:
                 success=True,
                 description=description,
                 ocr=ocr_result,
+                cad_feature_stats=cad_feature_stats,
                 provider=provider_name,
                 processing_time_ms=processing_time_ms,
             )
@@ -372,5 +378,39 @@ class VisionManager:
                     "error_code": ErrorCode.INTERNAL_ERROR.value,
                     "error": str(e),
                 },
+            )
+            return None
+
+    async def _extract_cad_feature_stats(
+        self,
+        image_bytes: bytes,
+        thresholds: Optional[Dict[str, float]],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            import io
+
+            from PIL import Image
+
+            from src.core.vision_analyzer import VisionAnalyzer
+            from src.core.vision_analyzer import VisionProvider as AnalyzerProvider
+        except Exception as e:
+            logger.warning(
+                "vision.cad_feature_stats_unavailable",
+                extra={"error": str(e)},
+            )
+            return None
+
+        try:
+            image = Image.open(io.BytesIO(image_bytes))
+            analyzer = VisionAnalyzer(
+                provider=AnalyzerProvider.LOCAL,
+                initialize_clients=False,
+            )
+            features = await analyzer._extract_cad_features(image, thresholds)
+            return analyzer._summarize_cad_features(features)
+        except Exception as e:
+            logger.warning(
+                "vision.cad_feature_stats_failed",
+                extra={"error": str(e)},
             )
             return None

@@ -103,6 +103,38 @@ def test_vision_analyze_with_base64_happy_path(sample_image_base64):
     assert data["processing_time_ms"] > 0
 
 
+def test_vision_analyze_includes_cad_stats(sample_image_base64):
+    """Test /api/v1/vision/analyze returns cad_feature_stats when requested."""
+    from fastapi import FastAPI
+
+    from src.api.v1.vision import router
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1/vision")
+    client = TestClient(app)
+
+    request_data = {
+        "image_base64": sample_image_base64,
+        "include_description": True,
+        "include_ocr": False,
+        "include_cad_stats": True,
+    }
+
+    response = client.post("/api/v1/vision/analyze", json=request_data)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    stats = data.get("cad_feature_stats")
+    assert stats is not None
+    assert stats["line_count"] == 0
+    assert stats["circle_count"] == 0
+    assert stats["arc_count"] == 0
+    assert sum(stats["line_angle_bins"].values()) == 0
+    assert stats["line_angle_avg"] is None
+    assert stats["arc_sweep_avg"] is None
+
+
 def test_vision_analyze_missing_image_error():
     """
     Test /api/v1/vision/analyze with missing image data.

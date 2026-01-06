@@ -27,6 +27,9 @@ class VisionAnalyzeRequest(BaseModel):
     # Vision-specific options
     include_description: bool = Field(True, description="Include natural language description")
     include_ocr: bool = Field(True, description="Include OCR dimension/symbol extraction")
+    include_cad_stats: bool = Field(
+        False, description="Include CAD feature heuristic summary stats"
+    )
 
     # OCR provider routing (passed to OCRManager if include_ocr=True)
     ocr_provider: str = Field("auto", description="OCR provider: auto|paddle|deepseek")
@@ -41,6 +44,7 @@ class VisionAnalyzeRequest(BaseModel):
                 "include_description": True,
                 "include_ocr": True,
                 "ocr_provider": "auto",
+                "include_cad_stats": False,
                 "cad_feature_thresholds": {"line_aspect": 5.0, "arc_fill_min": 0.08},
             }
         }
@@ -78,6 +82,11 @@ class VisionAnalyzeResponse(BaseModel):
     # OCR outputs
     ocr: Optional[OcrResult] = Field(None, description="OCR extraction results")
 
+    # CAD feature stats
+    cad_feature_stats: Optional[Dict[str, Any]] = Field(
+        None, description="CAD feature heuristic summary stats"
+    )
+
     # Metadata
     provider: str = Field(..., description="Vision provider used (e.g., deepseek_stub)")
     processing_time_ms: float = Field(..., description="Total processing time in milliseconds")
@@ -109,6 +118,14 @@ class VisionAnalyzeResponse(BaseModel):
                     "title_block": {"drawing_number": "CAD-2025-001", "material": "Aluminum 6061"},
                     "fallback_level": "json_strict",
                     "confidence": 0.95,
+                },
+                "cad_feature_stats": {
+                    "line_count": 2,
+                    "circle_count": 1,
+                    "arc_count": 0,
+                    "line_angle_bins": {"0-30": 2, "30-60": 0, "60-90": 0, "90-120": 0, "120-150": 0, "150-180": 0},
+                    "line_angle_avg": 12.5,
+                    "arc_sweep_avg": None,
                 },
                 "provider": "deepseek_stub",
                 "processing_time_ms": 234.5,
