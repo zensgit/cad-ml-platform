@@ -599,6 +599,10 @@
   - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (13 passed).
   - Design: `docs/VISION_CAD_FEATURE_API_RESPONSE_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_SWEEP_BINS_API_VALIDATION_20260105.md`
+- **Vision Contract Schema Update**:
+  - Updated vision analyze contract schema to include `cad_feature_stats`.
+  - Tests: `pytest tests/test_contract_schema.py -v` (1 passed).
+  - Report: `reports/DEV_VISION_CONTRACT_SCHEMA_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

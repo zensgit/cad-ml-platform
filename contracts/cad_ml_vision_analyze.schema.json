@@ -10,7 +10,8 @@
     "provider": { "type": "string" },
     "processing_time_ms": { "type": "number", "minimum": 0 },
     "error": { "type": ["string", "null"] },
-    "code": { "type": ["string", "null"] }
+    "code": { "type": ["string", "null"] },
+    "cad_feature_stats": { "$ref": "#/definitions/cad_feature_stats" }
   },
   "additionalProperties": true,
   "definitions": {
@@ -42,6 +43,28 @@
         "title_block": { "type": "object" },
         "fallback_level": { "type": ["string", "null"] },
         "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "cad_feature_stats": {
+      "type": ["object", "null"],
+      "required": [
+        "line_count",
+        "circle_count",
+        "arc_count",
+        "line_angle_bins",
+        "line_angle_avg",
+        "arc_sweep_avg",
+        "arc_sweep_bins"
+      ],
+      "properties": {
+        "line_count": { "type": "integer", "minimum": 0 },
+        "circle_count": { "type": "integer", "minimum": 0 },
+        "arc_count": { "type": "integer", "minimum": 0 },
+        "line_angle_bins": { "type": "object" },
+        "line_angle_avg": { "type": ["number", "null"] },
+        "arc_sweep_avg": { "type": ["number", "null"] },
+        "arc_sweep_bins": { "type": "object" }
       },
       "additionalProperties": true
     }
