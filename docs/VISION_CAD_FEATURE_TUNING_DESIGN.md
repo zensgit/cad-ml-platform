@@ -13,12 +13,16 @@ threshold overrides without adding heavy dependencies.
 - `--max-samples`: limit the number of images.
 - `--threshold key=value`: override heuristic defaults.
 - `--grid key=v1,v2,...`: sweep threshold values across combinations.
+- `--output-json`: optional JSON export with thresholds and results.
 - `--output-csv`: optional CSV export for grid results.
+- `--compare-json`: baseline JSON to compare against.
+- `--no-clients`: skip external client initialization during benchmarking.
 - If `--input-dir` is omitted, the script generates synthetic samples.
 
 ## Outputs
 - Console summary per image: counts for lines, circles, arcs, and ink ratio.
 - Optional JSON payload with thresholds and results (`--output-json`).
+- Optional `comparison` block when `--compare-json` is supplied.
 - Optional CSV export with per-sample rows for each grid combination.
 
 ## Example

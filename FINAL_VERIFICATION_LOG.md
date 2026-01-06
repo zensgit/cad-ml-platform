@@ -658,6 +658,15 @@
   - Command: `python3 scripts/vision_cad_feature_benchmark.py --no-clients --max-samples 1`
   - Design: `docs/VISION_CAD_FEATURE_BENCHMARK_NO_CLIENTS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_BENCHMARK_NO_CLIENTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Large Dataset Compare**:
+  - Captured a larger baseline and compare run over 20 real CAD images.
+  - Commands: `python3 scripts/vision_cad_feature_benchmark.py --no-clients --input-dir data/dedup_report_train_local_version_profile_spatial_full_package/assets/images --max-samples 20 --output-json reports/vision_cad_feature_baseline_spatial_20260106.json`, `python3 scripts/vision_cad_feature_benchmark.py --no-clients --input-dir data/dedup_report_train_local_version_profile_spatial_full_package/assets/images --max-samples 20 --output-json reports/vision_cad_feature_baseline_spatial_compare_20260106.json --compare-json reports/vision_cad_feature_baseline_spatial_20260106.json`
+  - Design: `docs/VISION_CAD_FEATURE_LARGE_DATASET_COMPARE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_LARGE_DATASET_COMPARE_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Docs Update**:
+  - Documented `--compare-json` and `--no-clients` in the tuning guide.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_DOCS_UPDATE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_DOCS_UPDATE_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
