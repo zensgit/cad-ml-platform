@@ -89,3 +89,27 @@ def test_compare_report_missing_comparison(tmp_path: Path) -> None:
 
     assert result.returncode != 0
     assert "comparison" in result.stderr.lower()
+
+
+def test_compare_report_missing_baseline(tmp_path: Path) -> None:
+    payload = {"results": [], "comparison": {"combo_deltas": [{"missing_baseline": True}]}}
+    input_json = tmp_path / "input.json"
+    output_md = tmp_path / "report.md"
+    input_json.write_text(json.dumps(payload))
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--input-json",
+            str(input_json),
+            "--output-md",
+            str(output_md),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    content = output_md.read_text()
+    assert "Baseline entry missing" in content
