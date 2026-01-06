@@ -21,7 +21,9 @@ async def test_extract_cad_features_detects_line_and_circle() -> None:
     assert len(features["drawings"]["lines"]) >= 1
     assert len(features["drawings"]["circles"]) >= 1
     assert features["stats"]["components"] == (
-        len(features["drawings"]["lines"]) + len(features["drawings"]["circles"])
+        len(features["drawings"]["lines"])
+        + len(features["drawings"]["circles"])
+        + len(features["drawings"]["arcs"])
     )
 
 
@@ -34,5 +36,30 @@ async def test_extract_cad_features_handles_blank_image() -> None:
 
     assert features["drawings"]["lines"] == []
     assert features["drawings"]["circles"] == []
+    assert features["drawings"]["arcs"] == []
     assert features["stats"]["ink_ratio"] == 0.0
     assert features["stats"]["components"] == 0
+
+
+@pytest.mark.asyncio
+async def test_extract_cad_features_detects_diagonal_line() -> None:
+    image = Image.new("L", (100, 100), color=255)
+    draw = ImageDraw.Draw(image)
+    draw.line((10, 90, 90, 10), fill=0, width=3)
+
+    analyzer = VisionAnalyzer()
+    features = await analyzer._extract_cad_features(image)
+
+    assert len(features["drawings"]["lines"]) >= 1
+
+
+@pytest.mark.asyncio
+async def test_extract_cad_features_detects_arc() -> None:
+    image = Image.new("L", (100, 100), color=255)
+    draw = ImageDraw.Draw(image)
+    draw.arc((20, 20, 80, 80), start=0, end=180, fill=0, width=4)
+
+    analyzer = VisionAnalyzer()
+    features = await analyzer._extract_cad_features(image)
+
+    assert len(features["drawings"]["arcs"]) >= 1

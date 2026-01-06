@@ -7,6 +7,7 @@ import base64
 import io
 import json
 import logging
+import math
 import re
 from dataclasses import dataclass
 from enum import Enum
@@ -363,6 +364,7 @@ class VisionAnalyzer:
         visited = np.zeros_like(ink, dtype=bool)
         lines: List[Dict[str, Any]] = []
         circles: List[Dict[str, Any]] = []
+        arcs: List[Dict[str, Any]] = []
 
         def _push_neighbors(stack, r, c):
             if r > 0 and ink[r - 1, c] and not visited[r - 1, c]:
@@ -387,10 +389,20 @@ class VisionAnalyzer:
                 min_r = max_r = r
                 min_c = max_c = c
                 area = 0
+                sum_r = 0.0
+                sum_c = 0.0
+                sum_rr = 0.0
+                sum_cc = 0.0
+                sum_rc = 0.0
 
                 while stack:
                     cr, cc = stack.pop()
                     area += 1
+                    sum_r += cr
+                    sum_c += cc
+                    sum_rr += cr * cr
+                    sum_cc += cc * cc
+                    sum_rc += cr * cc
                     if cr < min_r:
                         min_r = cr
                     if cr > max_r:
@@ -410,8 +422,23 @@ class VisionAnalyzer:
                     continue
                 aspect = max(comp_width, comp_height) / max(1, min(comp_width, comp_height))
                 fill_ratio = area / float(comp_width * comp_height)
+                mean_r = sum_r / area
+                mean_c = sum_c / area
+                var_r = max(0.0, sum_rr / area - mean_r * mean_r)
+                var_c = max(0.0, sum_cc / area - mean_c * mean_c)
+                cov_rc = sum_rc / area - mean_r * mean_c
+                trace = var_r + var_c
+                det = var_r * var_c - cov_rc * cov_rc
+                term = max(0.0, (trace * 0.5) ** 2 - det)
+                eig_max = trace * 0.5 + math.sqrt(term)
+                eig_min = trace * 0.5 - math.sqrt(term)
+                elongation = (eig_max + 1e-6) / (eig_min + 1e-6)
 
-                if aspect >= 4.0:
+                line_like = aspect >= 4.0 or elongation >= 6.0
+                circle_like = aspect <= 1.3 and fill_ratio >= 0.3
+                arc_like = aspect <= 2.5 and 0.05 <= fill_ratio < 0.3
+
+                if line_like:
                     lines.append(
                         {
                             "bbox": [int(min_c), int(min_r), int(max_c), int(max_r)],
@@ -419,9 +446,18 @@ class VisionAnalyzer:
                             "fill_ratio": round(fill_ratio, 4),
                         }
                     )
-                elif aspect <= 1.3 and fill_ratio >= 0.3:
+                elif circle_like:
                     radius = (comp_width + comp_height) / 4.0
                     circles.append(
+                        {
+                            "bbox": [int(min_c), int(min_r), int(max_c), int(max_r)],
+                            "radius": round(radius, 2),
+                            "fill_ratio": round(fill_ratio, 4),
+                        }
+                    )
+                elif arc_like:
+                    radius = (comp_width + comp_height) / 4.0
+                    arcs.append(
                         {
                             "bbox": [int(min_c), int(min_r), int(max_c), int(max_r)],
                             "radius": round(radius, 2),
@@ -431,9 +467,10 @@ class VisionAnalyzer:
 
         features["drawings"]["lines"] = lines
         features["drawings"]["circles"] = circles
+        features["drawings"]["arcs"] = arcs
         features["stats"] = {
             "ink_ratio": round(ink_ratio, 4),
-            "components": int(len(lines) + len(circles)),
+            "components": int(len(lines) + len(circles) + len(arcs)),
         }
 
         return features
