@@ -648,6 +648,11 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_golden_stats.py -v` (5 passed).
   - Design: `docs/VISION_CAD_FEATURE_GOLDEN_STATS_EXTENSION_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_GOLDEN_STATS_EXTENSION_VALIDATION_20260106.md`
+- **Vision CAD Feature Benchmark Compare**:
+  - Added `--compare-json` mode for benchmark delta reporting.
+  - Command: `python3 scripts/vision_cad_feature_benchmark.py --input-dir data/train_artifacts_subset5 --output-json reports/vision_cad_feature_baseline_compare_20260106.json --compare-json reports/vision_cad_feature_baseline_20260105.json`
+  - Design: `docs/VISION_CAD_FEATURE_BENCHMARK_COMPARE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BENCHMARK_COMPARE_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

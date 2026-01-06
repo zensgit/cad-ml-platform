@@ -173,11 +173,86 @@ def _write_csv(
                 writer.writerow(row)
 
 
+def _compare_results(current: List[Dict], baseline: List[Dict]) -> Dict:
+    comparison: Dict[str, List[Dict]] = {"combo_deltas": []}
+    for idx, entry in enumerate(current, start=1):
+        baseline_entry = baseline[idx - 1] if idx - 1 < len(baseline) else None
+        if baseline_entry is None:
+            comparison["combo_deltas"].append(
+                {"combo_index": idx, "missing_baseline": True}
+            )
+            continue
+
+        summary_delta: Dict[str, float] = {}
+        for key, value in entry.get("summary", {}).items():
+            base_value = baseline_entry.get("summary", {}).get(key)
+            if isinstance(value, (int, float)) and isinstance(base_value, (int, float)):
+                delta = value - base_value
+                summary_delta[key] = round(delta, 4)
+
+        base_samples = {
+            sample.get("name"): sample for sample in baseline_entry.get("samples", [])
+        }
+        sample_deltas: List[Dict[str, float]] = []
+        missing_samples: List[str] = []
+        for sample in entry.get("samples", []):
+            name = sample.get("name")
+            base = base_samples.get(name)
+            if base is None:
+                if name:
+                    missing_samples.append(name)
+                continue
+            sample_deltas.append(
+                {
+                    "name": name,
+                    "lines_delta": sample.get("lines", 0) - base.get("lines", 0),
+                    "circles_delta": sample.get("circles", 0) - base.get("circles", 0),
+                    "arcs_delta": sample.get("arcs", 0) - base.get("arcs", 0),
+                    "ink_ratio_delta": round(
+                        sample.get("ink_ratio", 0.0) - base.get("ink_ratio", 0.0), 4
+                    ),
+                    "components_delta": sample.get("components", 0)
+                    - base.get("components", 0),
+                }
+            )
+
+        comparison["combo_deltas"].append(
+            {
+                "combo_index": idx,
+                "summary_delta": summary_delta,
+                "sample_deltas": sample_deltas,
+                "missing_samples": missing_samples,
+            }
+        )
+
+    return comparison
+
+
+def _print_comparison(comparison: Dict) -> None:
+    for combo in comparison.get("combo_deltas", []):
+        index = combo.get("combo_index")
+        if combo.get("missing_baseline"):
+            print(f"compare combo={index}: missing baseline")
+            continue
+        print(f"compare combo={index} summary_delta={combo.get('summary_delta')}")
+        for sample in combo.get("sample_deltas", []):
+            print(
+                "  compare sample={name} lines={lines_delta} circles={circles_delta} "
+                "arcs={arcs_delta} ink_ratio={ink_ratio_delta} components={components_delta}".format(
+                    **sample
+                )
+            )
+        missing = combo.get("missing_samples") or []
+        if missing:
+            print(f"  compare missing_samples={missing}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark CAD feature heuristics.")
     parser.add_argument("--input-dir", type=Path, help="Directory with raster CAD images")
     parser.add_argument("--output-json", type=Path, help="Optional JSON output file")
     parser.add_argument("--output-csv", type=Path, help="Optional CSV output file")
+    parser.add_argument("--compare-json", type=Path, help="Baseline JSON to compare against")
     parser.add_argument("--max-samples", type=int, help="Limit number of samples loaded")
     parser.add_argument(
         "--threshold",
@@ -219,12 +294,20 @@ def main() -> None:
         print(f"  summary={grid_results[-1]['summary']}")
     print(f"total_samples={len(samples)} total_combos={len(variants)}")
 
+    comparison = None
+    if args.compare_json:
+        compare_payload = json.loads(args.compare_json.read_text())
+        comparison = _compare_results(grid_results, compare_payload.get("results", []))
+        _print_comparison(comparison)
+
     if args.output_json:
         payload = {
             "base_thresholds": thresholds,
             "grid": grid,
             "results": grid_results,
         }
+        if comparison is not None:
+            payload["comparison"] = comparison
         args.output_json.write_text(json.dumps(payload, indent=2))
     if args.output_csv:
         grid_keys = sorted(grid.keys())
