@@ -536,6 +536,11 @@
   - Ran `make verify-metrics`; metrics consistency/export checks passed.
 - **PR Template**:
   - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
+- **Vision CAD Feature Extraction**:
+  - Added heuristic line/circle extraction with stats in `src/core/vision_analyzer.py`.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_extraction.py -v` (2 passed).
+  - Design: `docs/VISION_CAD_FEATURE_EXTRACTION_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_EXTRACTION_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

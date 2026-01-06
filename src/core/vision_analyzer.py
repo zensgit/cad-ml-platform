@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
-import numpy as np  # noqa: F401 (reserved for future numeric processing)
-from PIL import Image  # noqa: F401 (image loading)
+import numpy as np
+from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -326,15 +326,115 @@ class VisionAnalyzer:
             return ""
 
     async def _extract_cad_features(self, image: Image.Image) -> Dict:
-        """提取CAD特征（使用自定义CNN）"""
-        # 这里需要训练专门的CAD特征提取模型
-        # 示例结构
+        """提取CAD特征（轻量级图像启发式）"""
+        # 这里使用轻量级图像启发式来补足基础信息（避免依赖重型模型）
         features = {
             "drawings": {"lines": [], "circles": [], "arcs": [], "dimensions": []},
             "dimensions": {"overall_width": None, "overall_height": None, "tolerances": []},
         }
 
-        # TODO: 实现实际的特征提取
+        try:
+            gray = image.convert("L")
+        except Exception:
+            return features
+
+        orig_width, orig_height = gray.size
+        features["dimensions"]["overall_width"] = orig_width
+        features["dimensions"]["overall_height"] = orig_height
+
+        max_dim = 256
+        if max(gray.size) > max_dim:
+            scale = max_dim / max(gray.size)
+            resized = (max(1, int(gray.size[0] * scale)), max(1, int(gray.size[1] * scale)))
+            gray = gray.resize(resized, Image.BILINEAR)
+
+        arr = np.array(gray)
+        if arr.size == 0:
+            return features
+
+        # Simple binary mask for ink pixels (CAD lines tend to be darker)
+        threshold = 200
+        ink = arr < threshold
+        total_pixels = ink.size
+        ink_pixels = int(ink.sum())
+        ink_ratio = ink_pixels / total_pixels if total_pixels else 0.0
+
+        height, width = ink.shape
+        visited = np.zeros_like(ink, dtype=bool)
+        lines: List[Dict[str, Any]] = []
+        circles: List[Dict[str, Any]] = []
+
+        def _push_neighbors(stack, r, c):
+            if r > 0 and ink[r - 1, c] and not visited[r - 1, c]:
+                visited[r - 1, c] = True
+                stack.append((r - 1, c))
+            if r + 1 < height and ink[r + 1, c] and not visited[r + 1, c]:
+                visited[r + 1, c] = True
+                stack.append((r + 1, c))
+            if c > 0 and ink[r, c - 1] and not visited[r, c - 1]:
+                visited[r, c - 1] = True
+                stack.append((r, c - 1))
+            if c + 1 < width and ink[r, c + 1] and not visited[r, c + 1]:
+                visited[r, c + 1] = True
+                stack.append((r, c + 1))
+
+        for r in range(height):
+            for c in range(width):
+                if not ink[r, c] or visited[r, c]:
+                    continue
+                visited[r, c] = True
+                stack = [(r, c)]
+                min_r = max_r = r
+                min_c = max_c = c
+                area = 0
+
+                while stack:
+                    cr, cc = stack.pop()
+                    area += 1
+                    if cr < min_r:
+                        min_r = cr
+                    if cr > max_r:
+                        max_r = cr
+                    if cc < min_c:
+                        min_c = cc
+                    if cc > max_c:
+                        max_c = cc
+                    _push_neighbors(stack, cr, cc)
+
+                if area < 12:
+                    continue
+
+                comp_width = max_c - min_c + 1
+                comp_height = max_r - min_r + 1
+                if comp_width <= 0 or comp_height <= 0:
+                    continue
+                aspect = max(comp_width, comp_height) / max(1, min(comp_width, comp_height))
+                fill_ratio = area / float(comp_width * comp_height)
+
+                if aspect >= 4.0:
+                    lines.append(
+                        {
+                            "bbox": [int(min_c), int(min_r), int(max_c), int(max_r)],
+                            "length": float(max(comp_width, comp_height)),
+                            "fill_ratio": round(fill_ratio, 4),
+                        }
+                    )
+                elif aspect <= 1.3 and fill_ratio >= 0.3:
+                    radius = (comp_width + comp_height) / 4.0
+                    circles.append(
+                        {
+                            "bbox": [int(min_c), int(min_r), int(max_c), int(max_r)],
+                            "radius": round(radius, 2),
+                            "fill_ratio": round(fill_ratio, 4),
+                        }
+                    )
+
+        features["drawings"]["lines"] = lines
+        features["drawings"]["circles"] = circles
+        features["stats"] = {
+            "ink_ratio": round(ink_ratio, 4),
+            "components": int(len(lines) + len(circles)),
+        }
 
         return features
 
