@@ -628,6 +628,11 @@
   - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (13 passed).
   - Design: `docs/VISION_CAD_FEATURE_API_EXAMPLE_ALIGNMENT_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_API_EXAMPLE_ALIGNMENT_VALIDATION_20260105.md`
+- **Vision CAD Feature Baseline Benchmark**:
+  - Captured default-threshold baseline over real CAD raster samples.
+  - Command: `python3 scripts/vision_cad_feature_benchmark.py --input-dir data/train_artifacts_subset5 --output-json reports/vision_cad_feature_baseline_20260105.json --output-csv reports/vision_cad_feature_baseline_20260105.csv`
+  - Design: `docs/VISION_CAD_FEATURE_BASELINE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BASELINE_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
