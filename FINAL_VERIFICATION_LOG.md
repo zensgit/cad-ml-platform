@@ -871,6 +871,15 @@
   - Generated a markdown summary report for the 100-sample grid baseline run.
   - Design: `docs/VISION_CAD_FEATURE_GRID_BASELINE_REPORT_RUN_100_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_BASELINE_REPORT_RUN_100_VALIDATION_20260106.md`
+- **Vision CAD Feature Baseline Report**:
+  - Added markdown report generation for benchmark baseline JSON.
+  - Design: `docs/VISION_CAD_FEATURE_BASELINE_REPORT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BASELINE_REPORT_VALIDATION_20260106.md`
+- **Vision CAD Feature Baseline Report Tests**:
+  - Added unit coverage for baseline report markdown output.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_baseline_report.py -v` (3 passed).
+  - Design: `docs/VISION_CAD_FEATURE_BASELINE_REPORT_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BASELINE_REPORT_TESTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
