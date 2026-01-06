@@ -653,6 +653,11 @@
   - Command: `python3 scripts/vision_cad_feature_benchmark.py --input-dir data/train_artifacts_subset5 --output-json reports/vision_cad_feature_baseline_compare_20260106.json --compare-json reports/vision_cad_feature_baseline_20260105.json`
   - Design: `docs/VISION_CAD_FEATURE_BENCHMARK_COMPARE_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_BENCHMARK_COMPARE_VALIDATION_20260106.md`
+- **Vision CAD Feature Benchmark No-Clients**:
+  - Added `--no-clients` to skip external client initialization during benchmarking.
+  - Command: `python3 scripts/vision_cad_feature_benchmark.py --no-clients --max-samples 1`
+  - Design: `docs/VISION_CAD_FEATURE_BENCHMARK_NO_CLIENTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BENCHMARK_NO_CLIENTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

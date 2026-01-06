@@ -78,8 +78,12 @@ def _load_images(input_dir: Path, max_samples: int | None) -> List[Tuple[str, Im
     return samples
 
 
-async def _run(samples: List[Tuple[str, Image.Image]], thresholds: Dict[str, float]) -> List[Dict]:
-    analyzer = VisionAnalyzer()
+async def _run(
+    samples: List[Tuple[str, Image.Image]],
+    thresholds: Dict[str, float],
+    initialize_clients: bool = True,
+) -> List[Dict]:
+    analyzer = VisionAnalyzer(initialize_clients=initialize_clients)
     results = []
     for name, image in samples:
         features = await analyzer._extract_cad_features(image, thresholds)
@@ -255,6 +259,11 @@ def main() -> None:
     parser.add_argument("--compare-json", type=Path, help="Baseline JSON to compare against")
     parser.add_argument("--max-samples", type=int, help="Limit number of samples loaded")
     parser.add_argument(
+        "--no-clients",
+        action="store_true",
+        help="Skip initializing external vision clients during benchmarking",
+    )
+    parser.add_argument(
         "--threshold",
         action="append",
         default=[],
@@ -280,7 +289,7 @@ def main() -> None:
     variants = _build_grid_variants(thresholds, grid)
     grid_results = []
     for idx, variant in enumerate(variants, start=1):
-        results = asyncio.run(_run(samples, variant))
+        results = asyncio.run(_run(samples, variant, initialize_clients=not args.no_clients))
         grid_results.append(
             {"thresholds": variant, "samples": results, "summary": _summarize(results)}
         )
