@@ -1024,6 +1024,11 @@ python3 scripts/vision_cad_feature_compare_export.py \
   --output-csv /tmp/cad_tuned_top.csv \
   --top-samples 10
 
+# 若不指定输出文件，将输出 JSON 到 stdout
+python3 scripts/vision_cad_feature_compare_export.py \
+  --input-json /tmp/cad_tuned.json \
+  --top-samples 5
+
 # Filter a single combo index
 python3 scripts/vision_cad_feature_compare_export.py \
   --input-json /tmp/cad_tuned.json \

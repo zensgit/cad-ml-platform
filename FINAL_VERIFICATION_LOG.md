@@ -795,6 +795,10 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_compare_export.py -v` (6 passed).
   - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_STDOUT_TESTS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_STDOUT_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export Stdout Docs**:
+  - Documented stdout output behavior for compare export runs.
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_STDOUT_DOCS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_STDOUT_DOCS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
