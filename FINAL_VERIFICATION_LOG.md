@@ -859,6 +859,10 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_* -v` (30 passed).
   - Design: `docs/VISION_CAD_FEATURE_UNIT_TESTS_RUN_TUNED_REPORT_50_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_UNIT_TESTS_RUN_TUNED_REPORT_50_VALIDATION_20260106.md`
+- **Vision CAD Feature 50 Sample Artifacts README**:
+  - Documented the 50-sample artifact list in the README.
+  - Design: `docs/VISION_CAD_FEATURE_50_SAMPLE_ARTIFACTS_README_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_50_SAMPLE_ARTIFACTS_README_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

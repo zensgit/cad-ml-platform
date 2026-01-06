@@ -1037,6 +1037,19 @@ python3 scripts/vision_cad_feature_compare_export.py \
   --output-csv /tmp/cad_tuned_combo2.csv
 ```
 
+50 样本产物（示例）:
+- `reports/vision_cad_feature_grid_baseline_20260106_50.json`
+- `reports/vision_cad_feature_grid_compare_20260106_50.json`
+- `reports/vision_cad_feature_grid_compare_summary_20260106_50.csv`
+- `reports/vision_cad_feature_grid_compare_report_20260106_50.md`
+- `reports/vision_cad_feature_grid_compare_top_20260106_50.json`
+- `reports/vision_cad_feature_grid_compare_top_20260106_50.csv`
+- `reports/vision_cad_feature_tuning_compare_20260106_50.json`
+- `reports/vision_cad_feature_tuning_compare_summary_20260106_50.csv`
+- `reports/vision_cad_feature_tuning_compare_report_20260106_50.md`
+- `reports/vision_cad_feature_tuning_compare_top_20260106_50.json`
+- `reports/vision_cad_feature_tuning_compare_top_20260106_50.csv`
+
 ### Vision 错误响应规范
 所有 Vision 分析请求无论成功或失败返回 HTTP 200：
 ```json
