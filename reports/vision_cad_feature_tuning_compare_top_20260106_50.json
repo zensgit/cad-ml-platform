@@ -1,0 +1,65 @@
+{
+  "top_samples": 5,
+  "combo_exports": [
+    {
+      "combo_index": 1,
+      "status": "ok",
+      "thresholds": {
+        "min_area": 24.0,
+        "line_aspect": 6.0,
+        "line_elongation": 8.0,
+        "circle_fill_min": 0.4,
+        "arc_fill_min": 0.08
+      },
+      "summary_delta": {
+        "total_lines": -156,
+        "total_circles": -41,
+        "total_arcs": 10,
+        "avg_ink_ratio": 0.0,
+        "avg_components": -3.74
+      },
+      "top_samples": [
+        {
+          "name": "BTJ14240301522-00\u9632\u7206\u89c6\u706f\u7ec4\u4ef6v1__4e552f9c.png",
+          "lines_delta": -7,
+          "circles_delta": -3,
+          "arcs_delta": 0,
+          "ink_ratio_delta": 0.0,
+          "components_delta": -10
+        },
+        {
+          "name": "BTJ14240301522-00\u9632\u7206\u89c6\u706f\u7ec4\u4ef6v2__17e347e5.png",
+          "lines_delta": -7,
+          "circles_delta": -3,
+          "arcs_delta": 0,
+          "ink_ratio_delta": 0.0,
+          "components_delta": -10
+        },
+        {
+          "name": "J0224014-09\u6db2\u538b\u5f00\u76d6\u7ec4\u4ef6v1__6286fef0.png",
+          "lines_delta": -5,
+          "circles_delta": -4,
+          "arcs_delta": 0,
+          "ink_ratio_delta": 0.0,
+          "components_delta": -9
+        },
+        {
+          "name": "J0224014-09\u6db2\u538b\u5f00\u76d6\u7ec4\u4ef6v2__e202134c.png",
+          "lines_delta": -5,
+          "circles_delta": -4,
+          "arcs_delta": 0,
+          "ink_ratio_delta": 0.0,
+          "components_delta": -9
+        },
+        {
+          "name": "BTJ01230901522-00\u6c7d\u6c34\u5206\u79bb\u5668v1__f36cd05a.png",
+          "lines_delta": -5,
+          "circles_delta": -3,
+          "arcs_delta": 0,
+          "ink_ratio_delta": 0.0,
+          "components_delta": -8
+        }
+      ]
+    }
+  ]
+}
