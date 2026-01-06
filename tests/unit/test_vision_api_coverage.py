@@ -148,6 +148,40 @@ class TestAnalyzeVisionEndpoint:
             assert result.provider == "stub"
 
     @pytest.mark.asyncio
+    async def test_passes_cad_feature_thresholds(self):
+        """Test analyze_vision passes CAD threshold overrides to the manager."""
+        from src.api.v1.vision import analyze_vision
+        from src.core.vision import VisionAnalyzeRequest, VisionAnalyzeResponse
+
+        request = VisionAnalyzeRequest(
+            image_base64="dGVzdGltYWdl",
+            include_description=True,
+            cad_feature_thresholds={"line_aspect": 5.0, "arc_fill_min": 0.08},
+        )
+
+        mock_response = VisionAnalyzeResponse(
+            success=True,
+            description={"summary": "Test image", "details": [], "confidence": 0.9},
+            ocr=None,
+            provider="stub",
+            processing_time_ms=100.0,
+        )
+
+        with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+            mock_manager = MagicMock()
+            mock_manager.analyze = AsyncMock(return_value=mock_response)
+            mock_get_manager.return_value = mock_manager
+
+            result = await analyze_vision(request, provider=None)
+
+            assert result.success is True
+            passed_request = mock_manager.analyze.call_args[0][0]
+            assert passed_request.cad_feature_thresholds == {
+                "line_aspect": 5.0,
+                "arc_fill_min": 0.08,
+            }
+
+    @pytest.mark.asyncio
     async def test_failed_analysis_returns_error_response(self):
         """Test analyze_vision returns error response on failure."""
         from src.api.v1.vision import analyze_vision

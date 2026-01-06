@@ -556,6 +556,11 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_extraction.py -v` (5 passed).
   - Design: `docs/VISION_CAD_FEATURE_TUNING_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_VALIDATION_20260105.md`
+- **Vision CAD Feature API Tuning**:
+  - Added `cad_feature_thresholds` request field and API coverage.
+  - Tests: `pytest tests/unit/test_vision_api_coverage.py -v` (19 passed).
+  - Design: `docs/VISION_CAD_FEATURE_API_TUNING_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_API_TUNING_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

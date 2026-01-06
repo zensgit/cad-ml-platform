@@ -30,6 +30,9 @@ class VisionAnalyzeRequest(BaseModel):
 
     # OCR provider routing (passed to OCRManager if include_ocr=True)
     ocr_provider: str = Field("auto", description="OCR provider: auto|paddle|deepseek")
+    cad_feature_thresholds: Optional[Dict[str, float]] = Field(
+        None, description="Overrides for CAD feature heuristic thresholds"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -38,6 +41,7 @@ class VisionAnalyzeRequest(BaseModel):
                 "include_description": True,
                 "include_ocr": True,
                 "ocr_provider": "auto",
+                "cad_feature_thresholds": {"line_aspect": 5.0, "arc_fill_min": 0.08},
             }
         }
     }

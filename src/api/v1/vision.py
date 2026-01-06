@@ -120,7 +120,8 @@ async def analyze_vision(
         "image_base64": "iVBORw0KGgoAAAANS...",
         "include_description": true,
         "include_ocr": true,
-        "ocr_provider": "auto"
+        "ocr_provider": "auto",
+        "cad_feature_thresholds": {"line_aspect": 5.0, "arc_fill_min": 0.08}
     }
     ```
 
