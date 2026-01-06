@@ -838,6 +838,10 @@
   - Added an artifacts summary table to the tuning guide.
   - Design: `docs/VISION_CAD_FEATURE_TUNING_ARTIFACTS_SUMMARY_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_ARTIFACTS_SUMMARY_VALIDATION_20260106.md`
+- **Vision CAD Feature Grid Compare Export Run 50**:
+  - Ran a 50-sample grid compare/export workflow for stability checks.
+  - Design: `docs/VISION_CAD_FEATURE_GRID_COMPARE_EXPORT_RUN_50_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_COMPARE_EXPORT_RUN_50_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
