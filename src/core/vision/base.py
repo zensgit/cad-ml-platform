@@ -9,9 +9,9 @@ Provides:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from src.core.errors import ErrorCode
 
@@ -36,6 +36,35 @@ class VisionAnalyzeRequest(BaseModel):
     cad_feature_thresholds: Optional[Dict[str, float]] = Field(
         None, description="Overrides for CAD feature heuristic thresholds"
     )
+
+    @field_validator("cad_feature_thresholds")
+    @classmethod
+    def _validate_cad_feature_thresholds(
+        cls, value: Optional[Dict[str, float]]
+    ) -> Optional[Dict[str, float]]:
+        if value is None:
+            return None
+        if not isinstance(value, dict):
+            raise ValueError("cad_feature_thresholds must be a dict of numeric values")
+        allowed: Set[str] = {
+            "max_dim",
+            "ink_threshold",
+            "min_area",
+            "line_aspect",
+            "line_elongation",
+            "circle_aspect",
+            "circle_fill_min",
+            "arc_aspect",
+            "arc_fill_min",
+            "arc_fill_max",
+        }
+        unknown = set(value.keys()) - allowed
+        if unknown:
+            raise ValueError(f"cad_feature_thresholds has unsupported keys: {sorted(unknown)}")
+        for key, val in value.items():
+            if not isinstance(val, (int, float)):
+                raise ValueError(f"cad_feature_thresholds[{key}] must be numeric")
+        return value
 
     model_config = {
         "json_schema_extra": {

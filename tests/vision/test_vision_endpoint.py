@@ -135,6 +135,29 @@ def test_vision_analyze_includes_cad_stats(sample_image_base64):
     assert stats["arc_sweep_avg"] is None
 
 
+def test_vision_analyze_invalid_cad_threshold_key(sample_image_base64):
+    """Test /api/v1/vision/analyze rejects unknown CAD threshold keys."""
+    from fastapi import FastAPI
+
+    from src.api.v1.vision import router
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1/vision")
+    client = TestClient(app)
+
+    request_data = {
+        "image_base64": sample_image_base64,
+        "include_description": True,
+        "include_ocr": False,
+        "include_cad_stats": True,
+        "cad_feature_thresholds": {"unknown_key": 1.0},
+    }
+
+    response = client.post("/api/v1/vision/analyze", json=request_data)
+
+    assert response.status_code == 422
+
+
 def test_vision_analyze_missing_image_error():
     """
     Test /api/v1/vision/analyze with missing image data.
