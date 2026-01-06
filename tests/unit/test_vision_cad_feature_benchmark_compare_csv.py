@@ -78,3 +78,34 @@ def test_compare_csv_requires_baseline(tmp_path: Path) -> None:
 
     assert result.returncode != 0
     assert "requires --compare-json" in result.stderr
+
+
+def test_compare_csv_missing_baseline(tmp_path: Path) -> None:
+    baseline_json = tmp_path / "baseline.json"
+    compare_csv = tmp_path / "compare.csv"
+    baseline_json.write_text("{\"results\": []}")
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--no-clients",
+            "--max-samples",
+            "1",
+            "--compare-json",
+            str(baseline_json),
+            "--output-compare-csv",
+            str(compare_csv),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    with compare_csv.open(newline="") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+
+    assert len(rows) == 1
+    assert rows[0]["combo_index"] == "1"
+    assert rows[0]["status"] == "missing_baseline"

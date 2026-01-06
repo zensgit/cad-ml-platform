@@ -756,6 +756,11 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_compare_export.py -v` (2 passed).
   - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_TESTS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare CSV Missing Baseline Tests**:
+  - Added coverage for missing baseline status in compare summary CSV output.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_compare_csv.py -v` (3 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_CSV_MISSING_BASELINE_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_CSV_MISSING_BASELINE_TESTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
