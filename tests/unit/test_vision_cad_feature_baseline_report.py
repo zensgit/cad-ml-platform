@@ -53,6 +53,34 @@ def test_baseline_report_generation(tmp_path: Path) -> None:
     assert "| total_lines | 5 |" in content
 
 
+def test_baseline_report_stdout_output(tmp_path: Path) -> None:
+    payload = {
+        "results": [
+            {
+                "thresholds": {"min_area": 12},
+                "summary": {"total_lines": 5},
+            }
+        ]
+    }
+    input_json = tmp_path / "input.json"
+    input_json.write_text(json.dumps(payload))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--input-json",
+            str(input_json),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert "# CAD Feature Benchmark Baseline Summary" in result.stdout
+    assert "## Combo 1" in result.stdout
+
+
 def test_baseline_report_missing_results(tmp_path: Path) -> None:
     payload = {"base_thresholds": {"min_area": 12}}
     input_json = tmp_path / "input.json"

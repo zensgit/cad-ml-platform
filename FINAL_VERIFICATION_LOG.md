@@ -893,6 +893,11 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_* -v` (33 passed).
   - Design: `docs/VISION_CAD_FEATURE_UNIT_TESTS_RUN_BASELINE_REPORT_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_UNIT_TESTS_RUN_BASELINE_REPORT_VALIDATION_20260106.md`
+- **Vision CAD Feature Baseline Report Stdout Tests**:
+  - Added coverage for baseline report stdout output when no file is provided.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_baseline_report.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_BASELINE_REPORT_STDOUT_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BASELINE_REPORT_STDOUT_TESTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
