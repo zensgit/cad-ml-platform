@@ -766,6 +766,11 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_compare_export.py -v` (3 passed).
   - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_MISSING_BASELINE_TESTS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_MISSING_BASELINE_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export Combo Filter Tests**:
+  - Added coverage for `--combo-index` filtering in compare export outputs.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_export.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_COMBO_FILTER_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_COMBO_FILTER_TESTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

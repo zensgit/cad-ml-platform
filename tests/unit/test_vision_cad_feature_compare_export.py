@@ -162,3 +162,76 @@ def test_compare_export_missing_baseline(tmp_path: Path) -> None:
     assert len(rows) == 1
     assert rows[0]["status"] == "missing_baseline"
     assert rows[0]["sample"] == ""
+
+
+def test_compare_export_combo_filter(tmp_path: Path) -> None:
+    payload = {
+        "results": [{"thresholds": {"min_area": 12}}, {"thresholds": {"min_area": 24}}],
+        "comparison": {
+            "combo_deltas": [
+                {
+                    "summary_delta": {"total_lines": -1},
+                    "sample_deltas": [
+                        {
+                            "name": "sample-a",
+                            "lines_delta": -1,
+                            "circles_delta": 0,
+                            "arcs_delta": 0,
+                            "ink_ratio_delta": 0.0,
+                            "components_delta": -1,
+                        }
+                    ],
+                },
+                {
+                    "summary_delta": {"total_lines": -2},
+                    "sample_deltas": [
+                        {
+                            "name": "sample-b",
+                            "lines_delta": -2,
+                            "circles_delta": 0,
+                            "arcs_delta": 0,
+                            "ink_ratio_delta": 0.0,
+                            "components_delta": -2,
+                        }
+                    ],
+                },
+            ]
+        },
+    }
+    input_json = tmp_path / "input.json"
+    output_json = tmp_path / "out.json"
+    output_csv = tmp_path / "out.csv"
+    input_json.write_text(json.dumps(payload))
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--input-json",
+            str(input_json),
+            "--output-json",
+            str(output_json),
+            "--output-csv",
+            str(output_csv),
+            "--combo-index",
+            "2",
+            "--top-samples",
+            "1",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    data = json.loads(output_json.read_text())
+    assert len(data["combo_exports"]) == 1
+    export = data["combo_exports"][0]
+    assert export["combo_index"] == 2
+    assert export["top_samples"][0]["name"] == "sample-b"
+
+    with output_csv.open(newline="") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+
+    assert len(rows) == 1
+    assert rows[0]["sample"] == "sample-b"
