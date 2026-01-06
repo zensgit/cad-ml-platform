@@ -990,6 +990,11 @@ python3 scripts/vision_cad_feature_benchmark.py \
   --output-json /tmp/cad_tuned.json \
   --output-compare-csv /tmp/cad_tuned_compare_summary.csv \
   --compare-json /tmp/cad_baseline.json
+
+# 基准报告
+python3 scripts/vision_cad_feature_baseline_report.py \
+  --input-json /tmp/cad_baseline.json \
+  --output-md /tmp/cad_baseline_report.md
 ```
 
 阈值文件与对比报告：

@@ -884,6 +884,10 @@
   - Documented the baseline report command in the tuning workflow.
   - Design: `docs/VISION_CAD_FEATURE_TUNING_BASELINE_REPORT_STEP_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_BASELINE_REPORT_STEP_VALIDATION_20260106.md`
+- **Vision CAD Feature README Baseline Report**:
+  - Documented baseline report usage in the README benchmark section.
+  - Design: `docs/VISION_CAD_FEATURE_README_BASELINE_REPORT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_README_BASELINE_REPORT_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
