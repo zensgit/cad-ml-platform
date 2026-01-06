@@ -245,6 +245,23 @@ def has_vector(doc_id: str) -> bool:
         return doc_id in _VECTOR_STORE
 
 
+def get_vector(doc_id: str) -> List[float] | None:
+    """Retrieve a vector by doc_id from memory or Redis backend."""
+    with _VECTOR_LOCK:
+        if doc_id in _VECTOR_STORE:
+            return list(_VECTOR_STORE[doc_id])
+    if _BACKEND == "redis":
+        client = get_sync_client()
+        if client is not None:
+            try:
+                raw = client.hget(f"vector:{doc_id}", "v")
+                if raw:
+                    return [float(x) for x in raw.split(",") if x]
+            except Exception:
+                return None
+    return None
+
+
 def _cosine(a: List[float], b: List[float]) -> float:
     if not a or not b or len(a) != len(b):
         return 0.0

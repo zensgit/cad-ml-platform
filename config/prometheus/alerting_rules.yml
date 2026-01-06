@@ -127,6 +127,40 @@ groups:
           runbook_url: "https://docs.example.com/runbooks/cache_hit_rate_low"
           feature_version: "${FEATURE_VERSION}"  # annotate current feature version for correlation
 
+      # Analysis Result Store Alerts
+      - alert: AnalysisResultStoreGrowing
+        expr: analysis_result_store_files > 10000
+        for: 30m
+        labels:
+          severity: warning
+          component: maintenance
+        annotations:
+          summary: "Analysis result store size high"
+          description: "analysis_result_store_files={{ $value }} (>10000)."
+          runbook_url: "docs/runbooks/analysis_result_store_cleanup.md"
+
+      - alert: AnalysisResultCleanupDisabled
+        expr: analysis_result_store_files > 0 and increase(analysis_result_cleanup_total{status="disabled"}[1h]) > 0
+        for: 30m
+        labels:
+          severity: warning
+          component: maintenance
+        annotations:
+          summary: "Analysis result cleanup disabled"
+          description: "Cleanup attempted while ANALYSIS_RESULT_STORE_DIR is not configured."
+          runbook_url: "docs/runbooks/analysis_result_store_cleanup.md"
+
+      - alert: AnalysisResultCleanupSkipped
+        expr: analysis_result_store_files > 0 and increase(analysis_result_cleanup_total{status="skipped"}[1h]) > 0
+        for: 30m
+        labels:
+          severity: info
+          component: maintenance
+        annotations:
+          summary: "Analysis result cleanup skipped"
+          description: "Cleanup ran without an active retention policy."
+          runbook_url: "docs/runbooks/analysis_result_store_cleanup.md"
+
       # Compare Fallback Alerts
       - alert: CompareRequestFailureRateHigh
         expr: |

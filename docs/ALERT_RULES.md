@@ -138,6 +138,42 @@ This document includes sample Prometheus alerting rules for OCR/Vision services.
         summary: "Compare not_found dominates"
         description: "More than 50% of /api/compare requests are not_found over 10m."
         runbook_url: https://example.org/runbooks/compare_not_found
+
+    # 11) Analysis result store size high
+    - alert: AnalysisResultStoreGrowing
+      expr: analysis_result_store_files > 10000
+      for: 30m
+      labels:
+        severity: warning
+        team: maintenance
+      annotations:
+        summary: "Analysis result store size high"
+        description: "analysis_result_store_files={{ $value }} (>10000)."
+        runbook_url: https://example.org/runbooks/analysis_result_store_cleanup
+
+    # 12) Analysis result cleanup disabled
+    - alert: AnalysisResultCleanupDisabled
+      expr: analysis_result_store_files > 0 and increase(analysis_result_cleanup_total{status="disabled"}[1h]) > 0
+      for: 30m
+      labels:
+        severity: warning
+        team: maintenance
+      annotations:
+        summary: "Analysis result cleanup disabled"
+        description: "Cleanup attempted while ANALYSIS_RESULT_STORE_DIR is not configured."
+        runbook_url: https://example.org/runbooks/analysis_result_store_cleanup
+
+    # 13) Analysis result cleanup skipped
+    - alert: AnalysisResultCleanupSkipped
+      expr: analysis_result_store_files > 0 and increase(analysis_result_cleanup_total{status="skipped"}[1h]) > 0
+      for: 30m
+      labels:
+        severity: info
+        team: maintenance
+      annotations:
+        summary: "Analysis result cleanup skipped"
+        description: "Cleanup ran without an active retention policy."
+        runbook_url: https://example.org/runbooks/analysis_result_store_cleanup
 ```
 
 Notes:

@@ -812,6 +812,7 @@ Grafana 面板示例：见 `docs/grafana/observability_dashboard.json`（导入�
   - 输入拒绝激增：`docs/runbooks/input_rejections_spike.md`
   - Provider 宕机：`docs/runbooks/provider_down.md`
   - 熔断器打开：`docs/runbooks/circuit_open.md`
+  - 分析结果落盘清理：`docs/runbooks/analysis_result_store_cleanup.md`
 
 ### ⚙️ 配置速查表（.env）
 

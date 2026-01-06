@@ -391,18 +391,44 @@ class VisionAnalyzer:
         for match in re.finditer(r"[Ø∅]\s*(\d+(?:\.\d+)?)", text):
             values.append({"value": float(match.group(1)), "unit": None, "type": "diameter"})
         tolerances = []
-        for val in re.findall(r"\+/-\s*(\d+(?:\.\d+)?)", text):
-            tolerances.append({"type": "plus_minus", "value": float(val)})
-        for val in re.findall(r"[±]\s*(\d+(?:\.\d+)?)", text):
-            tolerances.append({"type": "plus_minus", "value": float(val)})
-        for match in re.finditer(
-            r"\+(\d+(?:\.\d+)?)\s*/\s*-(\d+(?:\.\d+)?)", text
+        for match in re.findall(
+            r"\+/-\s*(\d+(?:\.\d+)?)(?:\s*(mm|cm|in|inch))?",
+            text,
+            re.IGNORECASE,
         ):
+            value, unit = match
+            tolerances.append(
+                {"type": "plus_minus", "value": float(value), "unit": unit.lower() if unit else None}
+            )
+        for match in re.findall(
+            r"[±]\s*(\d+(?:\.\d+)?)(?:\s*(mm|cm|in|inch))?",
+            text,
+            re.IGNORECASE,
+        ):
+            value, unit = match
+            tolerances.append(
+                {"type": "plus_minus", "value": float(value), "unit": unit.lower() if unit else None}
+            )
+        for match in re.finditer(
+            r"\+(\d+(?:\.\d+)?)(?:\s*(mm|cm|in|inch))?\s*/\s*-(\d+(?:\.\d+)?)(?:\s*(mm|cm|in|inch))?",
+            text,
+            re.IGNORECASE,
+        ):
+            plus_value, plus_unit, minus_value, minus_unit = match.groups()
+            unit = None
+            if plus_unit and minus_unit:
+                if plus_unit.lower() == minus_unit.lower():
+                    unit = plus_unit.lower()
+            elif plus_unit:
+                unit = plus_unit.lower()
+            elif minus_unit:
+                unit = minus_unit.lower()
             tolerances.append(
                 {
                     "type": "asymmetric",
-                    "plus": float(match.group(1)),
-                    "minus": float(match.group(2)),
+                    "plus": float(plus_value),
+                    "minus": float(minus_value),
+                    "unit": unit,
                 }
             )
         if values or tolerances:

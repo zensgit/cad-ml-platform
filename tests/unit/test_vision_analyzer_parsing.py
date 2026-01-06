@@ -53,3 +53,15 @@ def test_extracts_symbol_tolerances_and_diameters() -> None:
     tolerances = dimensions["tolerances"]
     assert any(item.get("type") == "plus_minus" for item in tolerances)
     assert any(item.get("type") == "asymmetric" for item in tolerances)
+
+
+def test_extracts_compact_tolerances() -> None:
+    analyzer = VisionAnalyzer()
+    text = "Ø10±0.05mm and (+0.1/-0.02)"
+
+    dimensions = analyzer._extract_dimensions(text)
+    tolerances = dimensions["tolerances"]
+    assert any(
+        item.get("type") == "plus_minus" and item.get("unit") == "mm" for item in tolerances
+    )
+    assert any(item.get("type") == "asymmetric" for item in tolerances)
