@@ -57,3 +57,14 @@ def test_threshold_file_variants(tmp_path: Path) -> None:
 
     assert len(data["results"]) == 2
     assert data["results"][1]["thresholds"]["min_area"] == 24
+
+
+def test_threshold_file_list_variants(tmp_path: Path) -> None:
+    payload = [
+        {"min_area": 12, "line_aspect": 4},
+        {"min_area": 24, "line_aspect": 6},
+    ]
+    data = _run_benchmark(tmp_path, payload)
+
+    assert len(data["results"]) == 2
+    assert data["results"][0]["thresholds"]["min_area"] == 12
