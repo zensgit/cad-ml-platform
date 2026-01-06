@@ -1,13 +1,13 @@
 # DEV_VISION_CAD_FEATURE_SWEEP_BINS_VALIDATION_20260105
 
 ## Scope
-Validate arc sweep bin exposure in CAD feature stats.
+Validate arc sweep bin bucketing in CAD feature stats.
 
 ## Command
-- `pytest tests/vision/test_vision_endpoint.py -v`
+- `pytest tests/unit/test_vision_cad_feature_extraction.py -v`
 
 ## Results
-- `12 passed`
+- `7 passed`
 
 ## Notes
-- Added `arc_sweep_bins` assertions for API response stats.
+- Added synthetic sweep cases to cover 0-90 and 90-180 bins.

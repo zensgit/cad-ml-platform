@@ -35,8 +35,8 @@ rasterized drawings and records basic drawing stats.
    - Circle: aspect ratio <= 1.3 and fill ratio >= 0.3.
    - Arc: aspect ratio <= 2.5 and fill ratio in [0.05, 0.3).
 9. For line components, compute the dominant axis orientation in degrees.
-10. For arc components, estimate sweep angle by measuring angular coverage
-    around the component's bbox center.
+10. For arc components, estimate sweep angle using a least-squares circle fit
+    (fallback to bbox-center sweep if fit fails).
 
 ## Outputs
 - `drawings.lines`: list of `{bbox, length, fill_ratio, angle_degrees}`.

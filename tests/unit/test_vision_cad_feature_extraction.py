@@ -71,7 +71,7 @@ async def test_extract_cad_features_detects_arc() -> None:
 
     assert len(features["drawings"]["arcs"]) >= 1
     sweeps = [arc["sweep_angle_degrees"] for arc in features["drawings"]["arcs"]]
-    assert any(sweep is not None and 120.0 <= sweep <= 240.0 for sweep in sweeps)
+    assert any(sweep is not None and 150.0 <= sweep <= 210.0 for sweep in sweeps)
 
 
 @pytest.mark.asyncio
@@ -110,3 +110,21 @@ async def test_local_cad_analysis_metadata_stats(monkeypatch: pytest.MonkeyPatch
     assert stats["line_angle_bins"]["0-30"] >= 1
     assert stats["line_angle_avg"] is not None
     assert stats["arc_sweep_avg"] is not None
+
+
+def test_summarize_cad_features_arc_sweep_bins() -> None:
+    analyzer = VisionAnalyzer(initialize_clients=False)
+    features = {
+        "drawings": {
+            "lines": [],
+            "circles": [],
+            "arcs": [
+                {"sweep_angle_degrees": 45.0},
+                {"sweep_angle_degrees": 135.0},
+            ],
+        }
+    }
+    stats = analyzer._summarize_cad_features(features)
+
+    assert stats["arc_sweep_bins"]["0-90"] == 1
+    assert stats["arc_sweep_bins"]["90-180"] == 1

@@ -491,24 +491,49 @@ class VisionAnalyzer:
                     radius = (comp_width + comp_height) / 4.0
                     sweep_angle = None
                     if component_pixels:
-                        center_r = (min_r + max_r) / 2.0
-                        center_c = (min_c + max_c) / 2.0
-                        angles = []
-                        for pr, pc in component_pixels:
-                            angle = math.atan2(pr - center_r, pc - center_c)
-                            if angle < 0:
-                                angle += 2.0 * math.pi
-                            angles.append(angle)
-                        angles.sort()
-                        max_gap = 0.0
-                        for idx in range(1, len(angles)):
-                            gap = angles[idx] - angles[idx - 1]
-                            if gap > max_gap:
-                                max_gap = gap
-                        wrap_gap = 2.0 * math.pi - angles[-1] + angles[0]
-                        if wrap_gap > max_gap:
-                            max_gap = wrap_gap
-                        sweep_angle = math.degrees(2.0 * math.pi - max_gap)
+                        sample = component_pixels
+                        if len(sample) > 2000:
+                            stride = max(1, len(sample) // 2000)
+                            sample = sample[::stride]
+
+                        def _sweep_for_center(center_r: float, center_c: float) -> Optional[float]:
+                            angles = []
+                            for pr, pc in sample:
+                                angle = math.atan2(pr - center_r, pc - center_c)
+                                if angle < 0:
+                                    angle += 2.0 * math.pi
+                                angles.append(angle)
+                            if not angles:
+                                return None
+                            angles.sort()
+                            max_gap = 0.0
+                            for idx in range(1, len(angles)):
+                                gap = angles[idx] - angles[idx - 1]
+                                if gap > max_gap:
+                                    max_gap = gap
+                            wrap_gap = 2.0 * math.pi - angles[-1] + angles[0]
+                            if wrap_gap > max_gap:
+                                max_gap = wrap_gap
+                            return math.degrees(2.0 * math.pi - max_gap)
+
+                        try:
+                            coords = np.array(sample, dtype=float)
+                            xs = coords[:, 1]
+                            ys = coords[:, 0]
+                            A = np.column_stack([2 * xs, 2 * ys, np.ones(len(xs))])
+                            b_vec = xs * xs + ys * ys
+                            sol, _, _, _ = np.linalg.lstsq(A, b_vec, rcond=None)
+                            center_x, center_y, c_val = sol
+                            radius_sq = center_x * center_x + center_y * center_y + c_val
+                            if radius_sq > 0:
+                                sweep_angle = _sweep_for_center(center_y, center_x)
+                        except Exception:
+                            sweep_angle = None
+
+                        if sweep_angle is None:
+                            center_r = (min_r + max_r) / 2.0
+                            center_c = (min_c + max_c) / 2.0
+                            sweep_angle = _sweep_for_center(center_r, center_c)
                     arcs.append(
                         {
                             "bbox": [int(min_c), int(min_r), int(max_c), int(max_r)],
