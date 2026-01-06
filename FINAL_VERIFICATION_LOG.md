@@ -688,6 +688,11 @@
   - Added markdown report generation for benchmark comparison JSON.
   - Design: `docs/VISION_CAD_FEATURE_COMPARE_REPORT_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_REPORT_VALIDATION_20260106.md`
+- **Vision CAD Feature Threshold File Tests**:
+  - Added unit coverage for threshold-file grid and variants handling.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_threshold_file.py -v` (2 passed).
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_TESTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
