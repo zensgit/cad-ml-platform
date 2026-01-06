@@ -854,6 +854,11 @@
   - Generated a markdown summary report for the 50-sample tuned compare run.
   - Design: `docs/VISION_CAD_FEATURE_TUNING_COMPARE_REPORT_RUN_50_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_COMPARE_REPORT_RUN_50_VALIDATION_20260106.md`
+- **Vision CAD Feature Unit Tests Run (Tuned Report 50)**:
+  - Re-ran full CAD feature unit test suite after the 50-sample tuned compare report.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_* -v` (30 passed).
+  - Design: `docs/VISION_CAD_FEATURE_UNIT_TESTS_RUN_TUNED_REPORT_50_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_UNIT_TESTS_RUN_TUNED_REPORT_50_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
