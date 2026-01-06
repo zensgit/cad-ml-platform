@@ -697,6 +697,11 @@
   - Added threshold-file and compare report usage in README.
   - Design: `docs/VISION_CAD_FEATURE_README_THRESHOLD_FILE_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_README_THRESHOLD_FILE_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Report Tests**:
+  - Added unit coverage for compare report markdown output.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_report.py -v` (1 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_REPORT_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_REPORT_TESTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
