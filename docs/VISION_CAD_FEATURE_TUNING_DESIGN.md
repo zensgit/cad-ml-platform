@@ -55,6 +55,12 @@ python3 scripts/vision_cad_feature_benchmark.py \
   --compare-json /tmp/cad_grid_baseline.json \
   --output-compare-csv /tmp/cad_grid_compare_summary.csv
 
+# Compare report
+python3 scripts/vision_cad_feature_compare_report.py \
+  --input-json /tmp/cad_grid_compare.json \
+  --output-md /tmp/cad_grid_compare_report.md \
+  --top-samples 10
+
 # Export top sample deltas
 python3 scripts/vision_cad_feature_compare_export.py \
   --input-json /tmp/cad_grid_compare.json \
