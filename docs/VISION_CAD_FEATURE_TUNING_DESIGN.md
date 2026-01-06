@@ -1,0 +1,32 @@
+# Vision CAD Feature Tuning Design
+
+## Overview
+Provide a lightweight benchmark script to evaluate heuristic CAD feature
+extraction against a small image set. This enables manual tuning of the
+threshold overrides without adding heavy dependencies.
+
+## Script
+- `scripts/vision_cad_feature_benchmark.py`
+
+## Inputs
+- `--input-dir`: directory of raster images (png/jpg/bmp/tif).
+- `--max-samples`: limit the number of images.
+- `--threshold key=value`: override heuristic defaults.
+- If `--input-dir` is omitted, the script generates synthetic samples.
+
+## Outputs
+- Console summary per image: counts for lines, circles, arcs, and ink ratio.
+- Optional JSON payload with thresholds and results (`--output-json`).
+
+## Example
+```
+python3 scripts/vision_cad_feature_benchmark.py \
+  --input-dir examples/cad_samples \
+  --threshold line_aspect=5.0 \
+  --threshold arc_fill_min=0.08
+```
+
+## Notes
+- Thresholds map to the `cad_feature_thresholds` dict used in the analyzer.
+- Synthetic samples provide a fast smoke check when real CAD renders are not
+  available locally.

@@ -7,6 +7,19 @@ rasterized drawings and records basic drawing stats.
 
 ## Inputs
 - PIL image from the Vision analyzer workflow.
+- Optional `cad_feature_thresholds` dict to override heuristic defaults.
+
+### Threshold Overrides
+- `max_dim` (256)
+- `ink_threshold` (200)
+- `min_area` (12)
+- `line_aspect` (4.0)
+- `line_elongation` (6.0)
+- `circle_aspect` (1.3)
+- `circle_fill_min` (0.3)
+- `arc_aspect` (2.5)
+- `arc_fill_min` (0.05)
+- `arc_fill_max` (0.3)
 
 ## Processing
 1. Convert the image to grayscale.

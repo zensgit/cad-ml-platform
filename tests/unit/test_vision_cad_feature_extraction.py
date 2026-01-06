@@ -69,3 +69,17 @@ async def test_extract_cad_features_detects_arc() -> None:
     assert len(features["drawings"]["arcs"]) >= 1
     sweeps = [arc["sweep_angle_degrees"] for arc in features["drawings"]["arcs"]]
     assert any(sweep is not None and 120.0 <= sweep <= 240.0 for sweep in sweeps)
+
+
+@pytest.mark.asyncio
+async def test_extract_cad_features_respects_threshold_overrides() -> None:
+    image = Image.new("L", (120, 80), color=255)
+    draw = ImageDraw.Draw(image)
+    draw.line((10, 10, 110, 10), fill=0, width=3)
+
+    analyzer = VisionAnalyzer()
+    features = await analyzer._extract_cad_features(
+        image, {"line_aspect": 1000000.0, "line_elongation": 1000000.0}
+    )
+
+    assert features["drawings"]["lines"] == []

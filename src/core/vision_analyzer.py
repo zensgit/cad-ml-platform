@@ -266,7 +266,10 @@ class VisionAnalyzer:
         text = await self._extract_text_ocr(image)
 
         # 3. 使用自定义CNN分析图纸特征
-        features = await self._extract_cad_features(image)
+        cad_thresholds = None
+        if options and isinstance(options, dict):
+            cad_thresholds = options.get("cad_feature_thresholds")
+        features = await self._extract_cad_features(image, cad_thresholds)
 
         # 4. 综合分析
         description = self._generate_description(objects, text, features)
@@ -326,13 +329,28 @@ class VisionAnalyzer:
             logger.warning("Tesseract not available, skipping OCR")
             return ""
 
-    async def _extract_cad_features(self, image: Image.Image) -> Dict:
+    async def _extract_cad_features(
+        self, image: Image.Image, thresholds: Optional[Dict[str, float]] = None
+    ) -> Dict:
         """提取CAD特征（轻量级图像启发式）"""
         # 这里使用轻量级图像启发式来补足基础信息（避免依赖重型模型）
         features = {
             "drawings": {"lines": [], "circles": [], "arcs": [], "dimensions": []},
             "dimensions": {"overall_width": None, "overall_height": None, "tolerances": []},
         }
+
+        thresholds = thresholds or {}
+        max_dim = int(thresholds.get("max_dim", 256))
+        max_dim = max(1, max_dim)
+        ink_threshold = int(thresholds.get("ink_threshold", 200))
+        min_area = int(thresholds.get("min_area", 12))
+        line_aspect = float(thresholds.get("line_aspect", 4.0))
+        line_elongation = float(thresholds.get("line_elongation", 6.0))
+        circle_aspect = float(thresholds.get("circle_aspect", 1.3))
+        circle_fill_min = float(thresholds.get("circle_fill_min", 0.3))
+        arc_aspect = float(thresholds.get("arc_aspect", 2.5))
+        arc_fill_min = float(thresholds.get("arc_fill_min", 0.05))
+        arc_fill_max = float(thresholds.get("arc_fill_max", 0.3))
 
         try:
             gray = image.convert("L")
@@ -343,7 +361,6 @@ class VisionAnalyzer:
         features["dimensions"]["overall_width"] = orig_width
         features["dimensions"]["overall_height"] = orig_height
 
-        max_dim = 256
         if max(gray.size) > max_dim:
             scale = max_dim / max(gray.size)
             resized = (max(1, int(gray.size[0] * scale)), max(1, int(gray.size[1] * scale)))
@@ -354,8 +371,7 @@ class VisionAnalyzer:
             return features
 
         # Simple binary mask for ink pixels (CAD lines tend to be darker)
-        threshold = 200
-        ink = arr < threshold
+        ink = arr < ink_threshold
         total_pixels = ink.size
         ink_pixels = int(ink.sum())
         ink_ratio = ink_pixels / total_pixels if total_pixels else 0.0
@@ -415,7 +431,7 @@ class VisionAnalyzer:
                         max_c = cc
                     _push_neighbors(stack, cr, cc)
 
-                if area < 12:
+                if area < min_area:
                     continue
 
                 comp_width = max_c - min_c + 1
@@ -436,9 +452,9 @@ class VisionAnalyzer:
                 eig_min = trace * 0.5 - math.sqrt(term)
                 elongation = (eig_max + 1e-6) / (eig_min + 1e-6)
 
-                line_like = aspect >= 4.0 or elongation >= 6.0
-                circle_like = aspect <= 1.3 and fill_ratio >= 0.3
-                arc_like = aspect <= 2.5 and 0.05 <= fill_ratio < 0.3
+                line_like = aspect >= line_aspect or elongation >= line_elongation
+                circle_like = aspect <= circle_aspect and fill_ratio >= circle_fill_min
+                arc_like = aspect <= arc_aspect and arc_fill_min <= fill_ratio < arc_fill_max
 
                 if line_like:
                     orientation_rad = 0.5 * math.atan2(2.0 * cov_rc, var_c - var_r)
