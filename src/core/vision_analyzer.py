@@ -274,6 +274,7 @@ class VisionAnalyzer:
         # 4. 综合分析
         description = self._generate_description(objects, text, features)
 
+        cad_feature_stats = self._summarize_cad_features(features)
         return VisionResult(
             description=description,
             objects=objects,
@@ -281,7 +282,11 @@ class VisionAnalyzer:
             drawings=features.get("drawings"),
             dimensions=features.get("dimensions"),
             confidence=0.85,
-            metadata={"provider": "local", "models": ["yolo", "tesseract", "custom"]},
+            metadata={
+                "provider": "local",
+                "models": ["yolo", "tesseract", "custom"],
+                "cad_feature_stats": cad_feature_stats,
+            },
         )
 
     async def _detect_objects(self, image: Image.Image) -> List[Dict]:
@@ -826,6 +831,43 @@ class VisionAnalyzer:
             description += "提取到CAD特征\n"
 
         return description
+
+    def _summarize_cad_features(self, features: Dict[str, Any]) -> Dict[str, Any]:
+        drawings = features.get("drawings") if isinstance(features, dict) else {}
+        lines = drawings.get("lines") if isinstance(drawings, dict) else []
+        circles = drawings.get("circles") if isinstance(drawings, dict) else []
+        arcs = drawings.get("arcs") if isinstance(drawings, dict) else []
+
+        line_angles = [
+            item.get("angle_degrees")
+            for item in lines
+            if isinstance(item, dict) and isinstance(item.get("angle_degrees"), (int, float))
+        ]
+        angle_labels = ["0-30", "30-60", "60-90", "90-120", "120-150", "150-180"]
+        angle_bins = {label: 0 for label in angle_labels}
+        for angle in line_angles:
+            if angle is None or angle < 0:
+                continue
+            bucket = min(int(angle // 30), len(angle_labels) - 1)
+            angle_bins[angle_labels[bucket]] += 1
+
+        arc_sweeps = [
+            item.get("sweep_angle_degrees")
+            for item in arcs
+            if isinstance(item, dict) and isinstance(item.get("sweep_angle_degrees"), (int, float))
+        ]
+
+        line_angle_avg = round(sum(line_angles) / len(line_angles), 1) if line_angles else None
+        arc_sweep_avg = round(sum(arc_sweeps) / len(arc_sweeps), 1) if arc_sweeps else None
+
+        return {
+            "line_count": len(lines),
+            "circle_count": len(circles),
+            "arc_count": len(arcs),
+            "line_angle_bins": angle_bins,
+            "line_angle_avg": line_angle_avg,
+            "arc_sweep_avg": arc_sweep_avg,
+        }
 
 
 class CADImageProcessor:

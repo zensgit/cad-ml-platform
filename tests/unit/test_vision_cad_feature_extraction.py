@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import io
+from unittest.mock import AsyncMock
+
 from PIL import Image, ImageDraw
 import pytest
 
-from src.core.vision_analyzer import VisionAnalyzer
+from src.core.vision_analyzer import VisionAnalyzer, VisionProvider
 
 
 @pytest.mark.asyncio
@@ -83,3 +86,27 @@ async def test_extract_cad_features_respects_threshold_overrides() -> None:
     )
 
     assert features["drawings"]["lines"] == []
+
+
+@pytest.mark.asyncio
+async def test_local_cad_analysis_metadata_stats(monkeypatch: pytest.MonkeyPatch) -> None:
+    image = Image.new("L", (120, 80), color=255)
+    draw = ImageDraw.Draw(image)
+    draw.line((10, 10, 110, 10), fill=0, width=3)
+    draw.arc((20, 20, 80, 80), start=0, end=180, fill=0, width=4)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+
+    analyzer = VisionAnalyzer(provider=VisionProvider.LOCAL)
+    monkeypatch.setattr(analyzer, "_detect_objects", AsyncMock(return_value=[]))
+    monkeypatch.setattr(analyzer, "_extract_text_ocr", AsyncMock(return_value=""))
+
+    result = await analyzer._local_cad_analysis(buffer.getvalue())
+    stats = result.metadata.get("cad_feature_stats")
+
+    assert stats is not None
+    assert stats["line_count"] >= 1
+    assert stats["arc_count"] >= 1
+    assert stats["line_angle_bins"]["0-30"] >= 1
+    assert stats["line_angle_avg"] is not None
+    assert stats["arc_sweep_avg"] is not None
