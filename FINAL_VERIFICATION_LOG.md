@@ -746,6 +746,11 @@
   - Documented compare summary CSV and export utility usage.
   - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_DOCS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_DOCS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare CSV Tests**:
+  - Added unit coverage for compare summary CSV output and baseline requirement.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_compare_csv.py -v` (2 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_CSV_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_CSV_TESTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
