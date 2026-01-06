@@ -790,6 +790,11 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_compare_export.py -v` (5 passed).
   - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_INVALID_INDEX_TESTS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_INVALID_INDEX_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export Stdout Tests**:
+  - Added coverage for compare export JSON output when writing to stdout.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_export.py -v` (6 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_STDOUT_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_STDOUT_TESTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

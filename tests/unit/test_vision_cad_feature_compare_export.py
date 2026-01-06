@@ -260,3 +260,46 @@ def test_compare_export_combo_filter(tmp_path: Path) -> None:
 
     assert len(rows) == 1
     assert rows[0]["sample"] == "sample-b"
+
+
+def test_compare_export_stdout_output(tmp_path: Path) -> None:
+    payload = {
+        "results": [{"thresholds": {"min_area": 12}}],
+        "comparison": {
+            "combo_deltas": [
+                {
+                    "summary_delta": {"total_lines": -1},
+                    "sample_deltas": [
+                        {
+                            "name": "sample-a",
+                            "lines_delta": -1,
+                            "circles_delta": 0,
+                            "arcs_delta": 0,
+                            "ink_ratio_delta": 0.0,
+                            "components_delta": -1,
+                        }
+                    ],
+                }
+            ]
+        },
+    }
+    input_json = tmp_path / "input.json"
+    input_json.write_text(json.dumps(payload))
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--input-json",
+            str(input_json),
+            "--top-samples",
+            "1",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    output = json.loads(result.stdout)
+    assert output["top_samples"] == 1
+    assert len(output["combo_exports"]) == 1
