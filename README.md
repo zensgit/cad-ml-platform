@@ -947,16 +947,16 @@ Vision 请求可携带 `include_cad_stats` 与 `cad_feature_thresholds`：
 ```
 
 #### cad_feature_thresholds 快速参考
-- `max_dim`: 下采样最大边长（像素）
-- `ink_threshold`: 像素阈值（灰度 < 阈值视为线条）
-- `min_area`: 连通域最小面积
-- `line_aspect`: 线条长宽比阈值
-- `line_elongation`: 线条延展比阈值（基于协方差特征）
-- `circle_aspect`: 圆形长宽比阈值
-- `circle_fill_min`: 圆形填充比最小值
-- `arc_aspect`: 弧线长宽比阈值
-- `arc_fill_min`: 弧线填充比最小值
-- `arc_fill_max`: 弧线填充比最大值
+- `max_dim` (默认 256): 下采样最大边长（像素）
+- `ink_threshold` (默认 200): 像素阈值（灰度 < 阈值视为线条）
+- `min_area` (默认 12): 连通域最小面积
+- `line_aspect` (默认 4.0): 线条长宽比阈值
+- `line_elongation` (默认 6.0): 线条延展比阈值（基于协方差特征）
+- `circle_aspect` (默认 1.3): 圆形长宽比阈值
+- `circle_fill_min` (默认 0.3): 圆形填充比最小值
+- `arc_aspect` (默认 2.5): 弧线长宽比阈值
+- `arc_fill_min` (默认 0.05): 弧线填充比最小值
+- `arc_fill_max` (默认 0.3): 弧线填充比最大值
 
 ### Vision 错误响应规范
 所有 Vision 分析请求无论成功或失败返回 HTTP 200：
