@@ -609,6 +609,9 @@
 - **Vision CAD Feature Tuning Doc Link**:
   - Linked tuning documentation to the README API usage example.
   - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_DOC_LINK_20260105.md`
+- **Vision CAD Feature Threshold Keys Doc**:
+  - Added README quick reference for `cad_feature_thresholds` keys.
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_KEYS_DOC_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
