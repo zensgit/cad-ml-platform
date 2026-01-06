@@ -124,3 +124,41 @@ def test_compare_export_combo_out_of_range(tmp_path: Path) -> None:
 
     assert result.returncode != 0
     assert "combo index out of range" in result.stderr.lower()
+
+
+def test_compare_export_missing_baseline(tmp_path: Path) -> None:
+    payload = {"results": [], "comparison": {"combo_deltas": [{"missing_baseline": True}]}}
+    input_json = tmp_path / "input.json"
+    output_json = tmp_path / "out.json"
+    output_csv = tmp_path / "out.csv"
+    input_json.write_text(json.dumps(payload))
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT_PATH),
+            "--input-json",
+            str(input_json),
+            "--output-json",
+            str(output_json),
+            "--output-csv",
+            str(output_csv),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    data = json.loads(output_json.read_text())
+    assert len(data["combo_exports"]) == 1
+    export = data["combo_exports"][0]
+    assert export["status"] == "missing_baseline"
+    assert export["top_samples"] == []
+
+    with output_csv.open(newline="") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+
+    assert len(rows) == 1
+    assert rows[0]["status"] == "missing_baseline"
+    assert rows[0]["sample"] == ""
