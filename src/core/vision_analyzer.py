@@ -394,6 +394,7 @@ class VisionAnalyzer:
                 sum_rr = 0.0
                 sum_cc = 0.0
                 sum_rc = 0.0
+                component_pixels: List[tuple[int, int]] = []
 
                 while stack:
                     cr, cc = stack.pop()
@@ -403,6 +404,7 @@ class VisionAnalyzer:
                     sum_rr += cr * cr
                     sum_cc += cc * cc
                     sum_rc += cr * cc
+                    component_pixels.append((cr, cc))
                     if cr < min_r:
                         min_r = cr
                     if cr > max_r:
@@ -439,11 +441,16 @@ class VisionAnalyzer:
                 arc_like = aspect <= 2.5 and 0.05 <= fill_ratio < 0.3
 
                 if line_like:
+                    orientation_rad = 0.5 * math.atan2(2.0 * cov_rc, var_c - var_r)
+                    orientation_deg = math.degrees(orientation_rad)
+                    if orientation_deg < 0:
+                        orientation_deg += 180.0
                     lines.append(
                         {
                             "bbox": [int(min_c), int(min_r), int(max_c), int(max_r)],
                             "length": float(max(comp_width, comp_height)),
                             "fill_ratio": round(fill_ratio, 4),
+                            "angle_degrees": round(orientation_deg, 1),
                         }
                     )
                 elif circle_like:
@@ -457,11 +464,32 @@ class VisionAnalyzer:
                     )
                 elif arc_like:
                     radius = (comp_width + comp_height) / 4.0
+                    sweep_angle = None
+                    if component_pixels:
+                        center_r = (min_r + max_r) / 2.0
+                        center_c = (min_c + max_c) / 2.0
+                        angles = []
+                        for pr, pc in component_pixels:
+                            angle = math.atan2(pr - center_r, pc - center_c)
+                            if angle < 0:
+                                angle += 2.0 * math.pi
+                            angles.append(angle)
+                        angles.sort()
+                        max_gap = 0.0
+                        for idx in range(1, len(angles)):
+                            gap = angles[idx] - angles[idx - 1]
+                            if gap > max_gap:
+                                max_gap = gap
+                        wrap_gap = 2.0 * math.pi - angles[-1] + angles[0]
+                        if wrap_gap > max_gap:
+                            max_gap = wrap_gap
+                        sweep_angle = math.degrees(2.0 * math.pi - max_gap)
                     arcs.append(
                         {
                             "bbox": [int(min_c), int(min_r), int(max_c), int(max_r)],
                             "radius": round(radius, 2),
                             "fill_ratio": round(fill_ratio, 4),
+                            "sweep_angle_degrees": round(sweep_angle, 1) if sweep_angle else None,
                         }
                     )
 

@@ -20,6 +20,8 @@ async def test_extract_cad_features_detects_line_and_circle() -> None:
     assert features["dimensions"]["overall_height"] == 80
     assert len(features["drawings"]["lines"]) >= 1
     assert len(features["drawings"]["circles"]) >= 1
+    primary_line = features["drawings"]["lines"][0]
+    assert 0.0 <= primary_line["angle_degrees"] <= 10.0
     assert features["stats"]["components"] == (
         len(features["drawings"]["lines"])
         + len(features["drawings"]["circles"])
@@ -51,6 +53,8 @@ async def test_extract_cad_features_detects_diagonal_line() -> None:
     features = await analyzer._extract_cad_features(image)
 
     assert len(features["drawings"]["lines"]) >= 1
+    angles = [line["angle_degrees"] for line in features["drawings"]["lines"]]
+    assert any(110.0 <= angle <= 160.0 for angle in angles)
 
 
 @pytest.mark.asyncio
@@ -63,3 +67,5 @@ async def test_extract_cad_features_detects_arc() -> None:
     features = await analyzer._extract_cad_features(image)
 
     assert len(features["drawings"]["arcs"]) >= 1
+    sweeps = [arc["sweep_angle_degrees"] for arc in features["drawings"]["arcs"]]
+    assert any(sweep is not None and 120.0 <= sweep <= 240.0 for sweep in sweeps)

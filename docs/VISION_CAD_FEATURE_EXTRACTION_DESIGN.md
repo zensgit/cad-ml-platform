@@ -21,11 +21,14 @@ rasterized drawings and records basic drawing stats.
    - Line: aspect ratio >= 4.0 or elongation >= 6.0.
    - Circle: aspect ratio <= 1.3 and fill ratio >= 0.3.
    - Arc: aspect ratio <= 2.5 and fill ratio in [0.05, 0.3).
+9. For line components, compute the dominant axis orientation in degrees.
+10. For arc components, estimate sweep angle by measuring angular coverage
+    around the component's bbox center.
 
 ## Outputs
-- `drawings.lines`: list of `{bbox, length, fill_ratio}`.
+- `drawings.lines`: list of `{bbox, length, fill_ratio, angle_degrees}`.
 - `drawings.circles`: list of `{bbox, radius, fill_ratio}`.
-- `drawings.arcs`: list of `{bbox, radius, fill_ratio}`.
+- `drawings.arcs`: list of `{bbox, radius, fill_ratio, sweep_angle_degrees}`.
 - `dimensions.overall_width`, `dimensions.overall_height`.
 - `stats.ink_ratio`, `stats.components`.
 

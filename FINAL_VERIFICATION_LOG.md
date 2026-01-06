@@ -546,6 +546,11 @@
   - Tests: `pytest tests/unit/test_vision_cad_feature_extraction.py -v` (4 passed).
   - Design: `docs/VISION_CAD_FEATURE_EXTRACTION_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_EXTRACTION_V2_VALIDATION_20260105.md`
+- **Vision CAD Feature Extraction (Orientation/Sweep)**:
+  - Added line orientation and arc sweep angle estimates for heuristic components.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_extraction.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_EXTRACTION_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_EXTRACTION_V3_VALIDATION_20260105.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
