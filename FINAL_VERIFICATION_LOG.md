@@ -816,6 +816,11 @@
   - Generated a markdown summary report for the grid compare run.
   - Design: `docs/VISION_CAD_FEATURE_GRID_COMPARE_REPORT_RUN_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_COMPARE_REPORT_RUN_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Report Multi Combo Tests**:
+  - Added coverage for multi-combo compare report output.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_report.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_REPORT_MULTI_COMBO_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_REPORT_MULTI_COMBO_TESTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
