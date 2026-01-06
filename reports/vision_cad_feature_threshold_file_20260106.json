@@ -4,7 +4,9 @@
     "line_aspect": 4
   },
   "grid": {
-    "arc_fill_min": [0.05, 0.08],
-    "circle_fill_min": [0.3, 0.4]
+    "arc_fill_min": [
+      0.05,
+      0.08
+    ]
   }
 }

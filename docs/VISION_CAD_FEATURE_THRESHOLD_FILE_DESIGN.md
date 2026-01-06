@@ -16,6 +16,7 @@ If the payload is a list, it is treated as `variants`.
 - CLI `--threshold` overrides values from the file.
 - CLI `--grid` values merge with file `grid` (CLI wins on key conflicts).
 - If `variants` are provided, grid sweeps are ignored.
+- YAML files require PyYAML.
 
 ## Example
 ```json
