@@ -16,6 +16,12 @@ from src.main import app
 client = TestClient(app)
 
 
+def _extract_error_payload(payload: dict) -> dict:
+    if isinstance(payload, dict) and isinstance(payload.get("detail"), dict):
+        return payload["detail"]
+    return payload
+
+
 @pytest.fixture
 def mock_redis_unavailable():
     """Mock Redis connection failure."""
@@ -54,22 +60,27 @@ def test_orphan_cleanup_redis_connection_failure(mock_redis_unavailable):
     assert response.status_code in (200, 503, 500)
 
     data = response.json()
+    error_payload = _extract_error_payload(data)
 
     # Check for structured error format or fallback indication
     if response.status_code >= 400:
         # Should have structured error
-        assert "code" in data or "detail" in data
+        assert "code" in error_payload or "detail" in data
 
-        if "code" in data:
+        if "code" in error_payload:
             # build_error format
-            assert data["code"] in [
+            assert error_payload["code"] in [
                 "SERVICE_UNAVAILABLE",
                 "REDIS_CONNECTION_FAILED",
                 "BACKEND_UNAVAILABLE",
             ]
-            assert data.get("stage") in ["orphan_cleanup", "maintenance", "vector_store"]
-            assert "message" in data
-            assert isinstance(data["message"], str)
+            assert error_payload.get("stage") in ["orphan_cleanup", "maintenance", "vector_store"]
+            assert "message" in error_payload
+            assert isinstance(error_payload["message"], str)
+            context = error_payload.get("context", {})
+            if isinstance(context, dict):
+                assert context.get("operation") == "cleanup_orphan_vectors"
+                assert context.get("resource_id") == "vector_store"
     else:
         # Succeeded with fallback
         assert "status" in data
@@ -120,24 +131,27 @@ def test_orphan_cleanup_error_response_structure():
 
         if response.status_code >= 400:
             data = response.json()
+            error_payload = _extract_error_payload(data)
 
             # Check for structured error format
-            if "code" in data:
+            if "code" in error_payload:
                 # build_error format
-                assert isinstance(data["code"], str)
-                assert data["code"].isupper()  # SCREAMING_SNAKE_CASE
-                assert "_" in data["code"]
+                assert isinstance(error_payload["code"], str)
+                assert error_payload["code"].isupper()  # SCREAMING_SNAKE_CASE
+                assert "_" in error_payload["code"]
 
-                assert "stage" in data
-                assert isinstance(data["stage"], str)
+                assert "stage" in error_payload
+                assert isinstance(error_payload["stage"], str)
 
-                assert "message" in data
-                assert isinstance(data["message"], str)
-                assert len(data["message"]) > 0
+                assert "message" in error_payload
+                assert isinstance(error_payload["message"], str)
+                assert len(error_payload["message"]) > 0
 
                 # Context should be dict if present
-                if "context" in data:
-                    assert isinstance(data["context"], dict)
+                if "context" in error_payload:
+                    assert isinstance(error_payload["context"], dict)
+                    assert error_payload["context"].get("operation") == "cleanup_orphan_vectors"
+                    assert error_payload["context"].get("resource_id") == "vector_store"
 
 
 def test_orphan_cleanup_suggestion_in_error():
@@ -174,13 +188,21 @@ def test_orphan_cleanup_suggestion_in_error():
 
 def test_orphan_cleanup_metric_on_redis_failure():
     """Test that vector_orphan_total metric behavior is consistent on Redis failure."""
+    from src.utils.analysis_metrics import vector_orphan_total
+
+    if not hasattr(vector_orphan_total, "_value"):
+        pytest.skip("prometheus_client not available")
+
     with patch("src.utils.cache.get_client") as mock_get_client:
         mock_get_client.side_effect = ConnectionError("Redis down")
 
+        before = vector_orphan_total._value.get()
         response = client.delete("/api/v1/maintenance/orphans", headers={"X-API-Key": "test"})
+        after = vector_orphan_total._value.get()
 
         # Endpoint should be callable
         assert response.status_code in (200, 500, 503)
+        assert after > before
 
         # Verify structured error if failure
         if response.status_code >= 500:

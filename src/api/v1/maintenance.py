@@ -216,6 +216,8 @@ async def cleanup_orphan_vectors(
             stage="orphan_cleanup",
             message="Redis connection failed during orphan cleanup",
             detail=str(e),
+            operation="cleanup_orphan_vectors",
+            resource_id="vector_store",
             suggestion="Check Redis connectivity and retry",
         )
         vector_orphan_total.inc()  # Track the attempt
@@ -248,8 +250,11 @@ async def cleanup_orphan_vectors(
                         message="Redis connection unstable, aborting orphan cleanup",
                         checked_count=len(keys_snapshot),
                         error_count=redis_errors,
+                        operation="cleanup_orphan_vectors",
+                        resource_id="vector_store",
                         suggestion="Check Redis health before retrying",
                     )
+                    vector_orphan_total.inc()
                     raise HTTPException(status_code=503, detail=err)
                 continue
             except Exception as e:

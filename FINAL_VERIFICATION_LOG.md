@@ -910,6 +910,11 @@
   - Documented stdout behavior for the baseline report generator.
   - Design: `docs/VISION_CAD_FEATURE_BASELINE_REPORT_STDOUT_DOCS_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_BASELINE_REPORT_STDOUT_DOCS_VALIDATION_20260106.md`
+- **Maintenance Orphan Cleanup Redis Down Error Context**:
+  - Added error context fields for Redis-down orphan cleanup and verified handling.
+  - Tests: `pytest tests/unit/test_orphan_cleanup_redis_down.py -v` (6 passed, 1 skipped).
+  - Design: `docs/MAINTENANCE_ORPHAN_CLEANUP_REDIS_DOWN_ERROR_CONTEXT_DESIGN.md`
+  - Report: `reports/DEV_MAINTENANCE_ORPHAN_CLEANUP_REDIS_DOWN_ERROR_CONTEXT_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
