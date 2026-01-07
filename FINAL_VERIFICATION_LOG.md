@@ -930,6 +930,11 @@
   - Tests: `pytest tests/unit/test_maintenance_endpoint_coverage.py -v` (32 passed).
   - Design: `docs/MAINTENANCE_KNOWLEDGE_ERROR_CONTEXT_TESTS_DESIGN.md`
   - Report: `reports/DEV_MAINTENANCE_KNOWLEDGE_ERROR_CONTEXT_TESTS_VALIDATION_20260106.md`
+- **Model Rollback Health Metrics Tests**:
+  - Verified model health metrics increment for ok and rollback statuses.
+  - Tests: `pytest tests/unit/test_model_rollback_health.py -v` (8 passed).
+  - Design: `docs/MODEL_ROLLBACK_HEALTH_METRICS_TESTS_DESIGN.md`
+  - Report: `reports/DEV_MODEL_ROLLBACK_HEALTH_METRICS_TESTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

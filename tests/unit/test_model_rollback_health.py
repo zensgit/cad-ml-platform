@@ -16,6 +16,13 @@ from src.main import app
 client = TestClient(app)
 
 
+def _read_metric(counter) -> int | None:
+    try:
+        return int(counter._value.get())  # type: ignore[attr-defined]
+    except Exception:
+        return None
+
+
 @pytest.fixture
 def mock_model_info_no_rollback():
     """Mock get_model_info returning normal state (no rollback)."""
@@ -172,6 +179,11 @@ def test_model_health_metric_recording():
     """Test that health checks record correct metric labels."""
     from src.utils.analysis_metrics import model_health_checks_total
 
+    ok_counter = model_health_checks_total.labels(status="ok")
+    rollback_counter = model_health_checks_total.labels(status="rollback")
+    before_ok = _read_metric(ok_counter)
+    before_rollback = _read_metric(rollback_counter)
+
     with patch("src.ml.classifier.get_model_info") as mock_info:
         # Test "ok" status metric
         mock_info.return_value = {
@@ -191,6 +203,9 @@ def test_model_health_metric_recording():
 
         assert response.status_code == 200
         # Metric should be recorded with status="ok"
+        if before_ok is not None:
+            after_ok = _read_metric(ok_counter)
+            assert after_ok == before_ok + 1
 
         # Test "rollback" status metric
         mock_info.return_value["rollback_level"] = 1
@@ -201,6 +216,9 @@ def test_model_health_metric_recording():
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "rollback"
+        if before_rollback is not None:
+            after_rollback = _read_metric(rollback_counter)
+            assert after_rollback == before_rollback + 1
 
 
 def test_model_health_rollback_clear_after_recovery():
