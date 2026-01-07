@@ -915,6 +915,11 @@
   - Tests: `pytest tests/unit/test_orphan_cleanup_redis_down.py -v` (6 passed, 1 skipped).
   - Design: `docs/MAINTENANCE_ORPHAN_CLEANUP_REDIS_DOWN_ERROR_CONTEXT_DESIGN.md`
   - Report: `reports/DEV_MAINTENANCE_ORPHAN_CLEANUP_REDIS_DOWN_ERROR_CONTEXT_VALIDATION_20260106.md`
+- **Maintenance Endpoint Error Context**:
+  - Standardized maintenance error context fields and structured cleanup errors.
+  - Tests: `pytest tests/unit/test_maintenance_endpoint_coverage.py -v` (30 passed).
+  - Design: `docs/MAINTENANCE_ENDPOINT_ERROR_CONTEXT_DESIGN.md`
+  - Report: `reports/DEV_MAINTENANCE_ENDPOINT_ERROR_CONTEXT_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

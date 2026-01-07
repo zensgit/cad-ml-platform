@@ -88,6 +88,9 @@ async def reload_knowledge(api_key: str = Depends(get_api_key)):
             stage="knowledge_reload",
             message="Knowledge reload failed",
             detail=str(e),
+            operation="knowledge_reload",
+            resource_id="knowledge_manager",
+            suggestion="Verify knowledge sources and retry",
         )
         raise HTTPException(status_code=500, detail=err)
 
@@ -117,35 +120,47 @@ async def cleanup_analysis_result_store(
     if isinstance(verbose, QueryParam):
         verbose = verbose.default
 
-    sample_limit = 10 if verbose else 0
-    preview = await cleanup_analysis_results(
-        max_age_seconds=max_age_seconds,
-        max_files=max_files,
-        dry_run=True,
-        sample_limit=sample_limit,
-    )
-
-    if preview["status"] in {"disabled", "skipped"}:
-        return AnalysisResultCleanupResponse(**preview)
-
-    if preview["eligible_count"] < threshold and not dry_run:
-        preview["status"] = "skipped"
-        preview["message"] = (
-            f"Eligible count {preview['eligible_count']} below threshold {threshold}"
+    try:
+        sample_limit = 10 if verbose else 0
+        preview = await cleanup_analysis_results(
+            max_age_seconds=max_age_seconds,
+            max_files=max_files,
+            dry_run=True,
+            sample_limit=sample_limit,
         )
-        preview["deleted_count"] = 0
-        return AnalysisResultCleanupResponse(**preview)
 
-    if dry_run:
-        return AnalysisResultCleanupResponse(**preview)
+        if preview["status"] in {"disabled", "skipped"}:
+            return AnalysisResultCleanupResponse(**preview)
 
-    result = await cleanup_analysis_results(
-        max_age_seconds=max_age_seconds,
-        max_files=max_files,
-        dry_run=False,
-        sample_limit=sample_limit,
-    )
-    return AnalysisResultCleanupResponse(**result)
+        if preview["eligible_count"] < threshold and not dry_run:
+            preview["status"] = "skipped"
+            preview["message"] = (
+                f"Eligible count {preview['eligible_count']} below threshold {threshold}"
+            )
+            preview["deleted_count"] = 0
+            return AnalysisResultCleanupResponse(**preview)
+
+        if dry_run:
+            return AnalysisResultCleanupResponse(**preview)
+
+        result = await cleanup_analysis_results(
+            max_age_seconds=max_age_seconds,
+            max_files=max_files,
+            dry_run=False,
+            sample_limit=sample_limit,
+        )
+        return AnalysisResultCleanupResponse(**result)
+    except Exception as e:
+        err = build_error(
+            ErrorCode.INTERNAL_ERROR,
+            stage="analysis_result_cleanup",
+            message="Analysis result cleanup failed",
+            detail=str(e),
+            operation="cleanup_analysis_result_store",
+            resource_id="analysis_result_store",
+            suggestion="Check analysis result store permissions and retry",
+        )
+        raise HTTPException(status_code=500, detail=err)
 
 @router.get("/knowledge/status", response_model=KnowledgeStatusResponse)
 async def knowledge_status(api_key: str = Depends(get_api_key)):
@@ -173,6 +188,9 @@ async def knowledge_status(api_key: str = Depends(get_api_key)):
             stage="knowledge_status",
             message="Knowledge status query failed",
             detail=str(e),
+            operation="knowledge_status",
+            resource_id="knowledge_manager",
+            suggestion="Verify knowledge sources and retry",
         )
         raise HTTPException(status_code=500, detail=err)
 
@@ -348,6 +366,8 @@ async def clear_cache(
             stage="cache_clear",
             message="Cache client not available",
             reason="redis_not_configured",
+            operation="clear_cache",
+            resource_id="cache",
             suggestion="Configure Redis connection or use alternative caching",
         )
         raise HTTPException(status_code=503, detail=err)
@@ -375,6 +395,8 @@ async def clear_cache(
             message="Failed to clear cache",
             pattern=pattern,
             detail=str(e),
+            operation="clear_cache",
+            resource_id="cache",
             suggestion="Check Redis connection and retry",
         )
         raise HTTPException(status_code=500, detail=err)
@@ -401,6 +423,9 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
             stage="maintenance_stats",
             message="Failed to read vector store stats",
             detail=str(e),
+            operation="get_maintenance_stats",
+            resource_id="vector_store",
+            suggestion="Verify vector store initialization and retry",
         )
         raise HTTPException(status_code=500, detail=err)
 
@@ -463,6 +488,8 @@ async def reload_vector_backend(api_key: str = Depends(get_api_key)):
                 stage="backend_reload",
                 message="Vector store backend reload failed",
                 backend=backend,
+                operation="reload_vector_backend",
+                resource_id="vector_store",
                 suggestion="Check backend configuration and logs",
             )
             raise HTTPException(status_code=500, detail=err)
@@ -477,6 +504,8 @@ async def reload_vector_backend(api_key: str = Depends(get_api_key)):
             stage="backend_reload",
             message="Exception during backend reload",
             detail=str(e),
+            operation="reload_vector_backend",
+            resource_id="vector_store",
             suggestion="Check system logs and backend availability",
         )
         raise HTTPException(status_code=500, detail=err)

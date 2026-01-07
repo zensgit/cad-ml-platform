@@ -20,6 +20,16 @@ import pytest
 from fastapi import HTTPException
 
 
+def _assert_error_context(exc: HTTPException, operation: str, resource_id: str) -> None:
+    detail = exc.detail
+    assert isinstance(detail, dict)
+    context = detail.get("context")
+    assert isinstance(context, dict)
+    assert context.get("operation") == operation
+    assert context.get("resource_id") == resource_id
+    assert "suggestion" in context
+
+
 class TestCleanupOrphanVectorsEndpoint:
     """Tests for cleanup_orphan_vectors endpoint."""
 
@@ -234,6 +244,7 @@ class TestClearCacheEndpoint:
                 await clear_cache(pattern="*", api_key="test")
 
             assert exc_info.value.status_code == 503
+            _assert_error_context(exc_info.value, "clear_cache", "cache")
 
     @pytest.mark.asyncio
     async def test_clear_cache_no_matching_keys(self):
@@ -429,6 +440,7 @@ class TestGetMaintenanceStatsEndpoint:
                         await get_maintenance_stats(api_key="test")
 
                     assert exc_info.value.status_code == 500
+                    _assert_error_context(exc_info.value, "get_maintenance_stats", "vector_store")
 
 
 class TestReloadVectorBackendEndpoint:
@@ -457,6 +469,7 @@ class TestReloadVectorBackendEndpoint:
                     await reload_vector_backend(api_key="test")
 
                 assert exc_info.value.status_code == 500
+                _assert_error_context(exc_info.value, "reload_vector_backend", "vector_store")
 
     @pytest.mark.asyncio
     async def test_reload_backend_exception(self):
@@ -470,6 +483,7 @@ class TestReloadVectorBackendEndpoint:
                 await reload_vector_backend(api_key="test")
 
             assert exc_info.value.status_code == 500
+            _assert_error_context(exc_info.value, "reload_vector_backend", "vector_store")
 
 
 class TestOrphanCleanupResponseModel:
@@ -538,6 +552,22 @@ class TestCleanupAnalysisResultStoreEndpoint:
         assert result.status == "skipped"
         assert result.deleted_count == 0
         assert old_path.exists()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_analysis_results_error_context(self):
+        from src.api.v1.maintenance import cleanup_analysis_result_store
+
+        with patch(
+            "src.api.v1.maintenance.cleanup_analysis_results",
+            new=AsyncMock(side_effect=Exception("cleanup failed")),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await cleanup_analysis_result_store(api_key="test")
+
+            assert exc_info.value.status_code == 500
+            _assert_error_context(
+                exc_info.value, "cleanup_analysis_result_store", "analysis_result_store"
+            )
 
 
 class TestVectorStoreReloadResponseModel:
