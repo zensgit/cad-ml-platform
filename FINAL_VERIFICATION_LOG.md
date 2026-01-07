@@ -863,6 +863,10 @@
   - Documented the 50-sample artifact list in the README.
   - Design: `docs/VISION_CAD_FEATURE_50_SAMPLE_ARTIFACTS_README_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_50_SAMPLE_ARTIFACTS_README_VALIDATION_20260106.md`
+- **Vision CAD Feature 50 Sample Baseline Report README**:
+  - Added the 50-sample baseline report artifact to the README list.
+  - Design: `docs/VISION_CAD_FEATURE_50_SAMPLE_BASELINE_REPORT_README_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_50_SAMPLE_BASELINE_REPORT_README_VALIDATION_20260106.md`
 - **Vision CAD Feature Grid Compare Export Run 100**:
   - Ran a 100-sample grid compare/export workflow for stability checks.
   - Design: `docs/VISION_CAD_FEATURE_GRID_COMPARE_EXPORT_RUN_100_DESIGN.md`

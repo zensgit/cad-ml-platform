@@ -1044,6 +1044,7 @@ python3 scripts/vision_cad_feature_compare_export.py \
 
 50 样本产物（示例）:
 - `reports/vision_cad_feature_grid_baseline_20260106_50.json`
+- `reports/vision_cad_feature_grid_baseline_report_20260106_50.md`
 - `reports/vision_cad_feature_grid_compare_20260106_50.json`
 - `reports/vision_cad_feature_grid_compare_summary_20260106_50.csv`
 - `reports/vision_cad_feature_grid_compare_report_20260106_50.md`
