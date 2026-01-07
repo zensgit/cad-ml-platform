@@ -20,6 +20,13 @@ from src.main import app
 client = TestClient(app)
 
 
+def _read_metric(counter):
+    try:
+        return int(counter._value.get())  # type: ignore[attr-defined]
+    except Exception:
+        return None
+
+
 class TestBatchSimilarityEmptyResults:
     """Test batch similarity empty result handling and metrics."""
 
@@ -87,6 +94,11 @@ class TestBatchSimilarityEmptyResults:
         """Test that batch_empty_results metric increments when all results empty."""
         from src.utils.analysis_metrics import analysis_rejections_total
 
+        counter = analysis_rejections_total.labels(reason="batch_empty_results")
+        before = _read_metric(counter)
+        if before is None:
+            pytest.skip("prometheus_client not available")
+
         response = client.post(
             "/api/v1/vectors/similarity/batch",
             json={
@@ -106,9 +118,8 @@ class TestBatchSimilarityEmptyResults:
             # High min_score with orthogonal vectors = no matches
             assert len(item.get("similar", [])) == 0
 
-        # The metric should have been incremented
-        # Note: We can't easily check the metric value in tests without
-        # more complex setup, but the code path is exercised
+        after = _read_metric(counter)
+        assert after == before + 1
 
     def test_response_200_not_error_on_empty_results(self):
         """Test that empty results return 200, not an error status."""
