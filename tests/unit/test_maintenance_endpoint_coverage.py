@@ -570,6 +570,38 @@ class TestCleanupAnalysisResultStoreEndpoint:
             )
 
 
+class TestKnowledgeMaintenanceEndpoint:
+    """Tests for knowledge maintenance endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_knowledge_reload_error_context(self):
+        from src.api.v1.maintenance import reload_knowledge
+
+        with patch(
+            "src.core.knowledge.dynamic.manager.get_knowledge_manager",
+            side_effect=Exception("knowledge unavailable"),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await reload_knowledge(api_key="test")
+
+            assert exc_info.value.status_code == 500
+            _assert_error_context(exc_info.value, "knowledge_reload", "knowledge_manager")
+
+    @pytest.mark.asyncio
+    async def test_knowledge_status_error_context(self):
+        from src.api.v1.maintenance import knowledge_status
+
+        with patch(
+            "src.core.knowledge.dynamic.manager.get_knowledge_manager",
+            side_effect=Exception("knowledge unavailable"),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await knowledge_status(api_key="test")
+
+            assert exc_info.value.status_code == 500
+            _assert_error_context(exc_info.value, "knowledge_status", "knowledge_manager")
+
+
 class TestVectorStoreReloadResponseModel:
     """Tests for VectorStoreReloadResponse model."""
 

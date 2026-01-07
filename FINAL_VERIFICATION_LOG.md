@@ -925,6 +925,11 @@
   - Tests: `pytest tests/unit/test_faiss_degraded_batch.py -v` (8 passed, 1 skipped).
   - Design: `docs/FAISS_BATCH_SIMILARITY_DEGRADED_TESTS_DESIGN.md`
   - Report: `reports/DEV_FAISS_BATCH_SIMILARITY_DEGRADED_TESTS_VALIDATION_20260106.md`
+- **Maintenance Knowledge Error Context Tests**:
+  - Added coverage for knowledge maintenance endpoint error context.
+  - Tests: `pytest tests/unit/test_maintenance_endpoint_coverage.py -v` (32 passed).
+  - Design: `docs/MAINTENANCE_KNOWLEDGE_ERROR_CONTEXT_TESTS_DESIGN.md`
+  - Report: `reports/DEV_MAINTENANCE_KNOWLEDGE_ERROR_CONTEXT_TESTS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
