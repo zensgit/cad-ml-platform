@@ -871,6 +871,10 @@
   - Generated a markdown summary report for the 100-sample grid baseline run.
   - Design: `docs/VISION_CAD_FEATURE_GRID_BASELINE_REPORT_RUN_100_DESIGN.md`
   - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_BASELINE_REPORT_RUN_100_VALIDATION_20260106.md`
+- **Vision CAD Feature Grid Baseline Report Run 50**:
+  - Generated a markdown summary report for the 50-sample grid baseline run.
+  - Design: `docs/VISION_CAD_FEATURE_GRID_BASELINE_REPORT_RUN_50_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_BASELINE_REPORT_RUN_50_VALIDATION_20260106.md`
 - **Vision CAD Feature Baseline Report**:
   - Added markdown report generation for benchmark baseline JSON.
   - Design: `docs/VISION_CAD_FEATURE_BASELINE_REPORT_DESIGN.md`
