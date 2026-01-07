@@ -500,7 +500,7 @@ model_security_fail_total = Counter(
 vector_store_reload_total = Counter(
     "vector_store_reload_total",
     "Vector store backend reload requests",
-    ["status"],  # success|error
+    ["status", "reason"],  # success|error, reason: ok|invalid_backend|auth_failed|init_error
 )
 
 # Model health check requests

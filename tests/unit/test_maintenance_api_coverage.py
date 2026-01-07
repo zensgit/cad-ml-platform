@@ -410,8 +410,8 @@ class TestMetricsIntegration:
         """Test vector_store_reload_total supports required labels."""
         from src.utils.analysis_metrics import vector_store_reload_total
 
-        labeled_success = vector_store_reload_total.labels(status="success")
-        labeled_error = vector_store_reload_total.labels(status="error")
+        labeled_success = vector_store_reload_total.labels(status="success", reason="ok")
+        labeled_error = vector_store_reload_total.labels(status="error", reason="init_error")
 
         assert labeled_success is not None
         assert labeled_error is not None

@@ -7,7 +7,7 @@ import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Header
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_admin_token, get_api_key
@@ -21,6 +21,22 @@ from src.core.vector_layouts import (
 from src.utils.cache import get_client
 
 router = APIRouter()
+
+
+async def _vector_reload_admin_token(
+    x_admin_token: str = Header(default="", alias="X-Admin-Token"),
+) -> str:
+    """Admin token dependency that records auth failures for reload metrics."""
+    from src.utils.analysis_metrics import vector_store_reload_total
+
+    try:
+        return await get_admin_token(x_admin_token)
+    except HTTPException:
+        try:
+            vector_store_reload_total.labels(status="error", reason="auth_failed").inc()
+        except Exception:
+            pass
+        raise
 
 if TYPE_CHECKING:
     from src.core.feature_extractor import FeatureExtractor
@@ -1243,7 +1259,7 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
 async def reload_vector_backend(
     backend: Optional[str] = None,
     api_key: str = Depends(get_api_key),
-    admin_token: str = Depends(get_admin_token),
+    admin_token: str = Depends(_vector_reload_admin_token),
 ):
     """Reload vector store backend (admin token required)."""
     import os
@@ -1255,7 +1271,7 @@ async def reload_vector_backend(
     if backend is not None:
         backend = backend.strip().lower()
         if backend not in allowed:
-            vector_store_reload_total.labels(status="error").inc()
+            vector_store_reload_total.labels(status="error", reason="invalid_backend").inc()
             err = build_error(
                 ErrorCode.INPUT_VALIDATION_FAILED,
                 stage="backend_reload",
@@ -1267,8 +1283,22 @@ async def reload_vector_backend(
         os.environ["VECTOR_STORE_BACKEND"] = backend
 
     effective_backend = backend or os.getenv("VECTOR_STORE_BACKEND", "memory")
-    ok = reload_vector_store_backend()
-    vector_store_reload_total.labels(status="success" if ok else "error").inc()
+    try:
+        ok = reload_vector_store_backend()
+    except Exception as e:
+        vector_store_reload_total.labels(status="error", reason="init_error").inc()
+        err = build_error(
+            ErrorCode.INTERNAL_ERROR,
+            stage="backend_reload",
+            message="Exception during backend reload",
+            backend=effective_backend,
+            detail=str(e),
+        )
+        raise HTTPException(status_code=500, detail=err)
+    vector_store_reload_total.labels(
+        status="success" if ok else "error",
+        reason="ok" if ok else "init_error",
+    ).inc()
     if not ok:
         err = build_error(
             ErrorCode.INTERNAL_ERROR,

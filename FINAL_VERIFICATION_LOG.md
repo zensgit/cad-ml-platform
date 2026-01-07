@@ -935,6 +935,11 @@
   - Tests: `pytest tests/unit/test_model_rollback_health.py -v` (8 passed).
   - Design: `docs/MODEL_ROLLBACK_HEALTH_METRICS_TESTS_DESIGN.md`
   - Report: `reports/DEV_MODEL_ROLLBACK_HEALTH_METRICS_TESTS_VALIDATION_20260106.md`
+- **Vector Backend Reload Reason Labels**:
+  - Added reason labels for backend reload metrics and updated failure coverage.
+  - Tests: `pytest tests/unit/test_backend_reload_failures.py tests/unit/test_vector_backend_reload_failure.py tests/unit/test_maintenance_api_coverage.py -v` (53 passed).
+  - Design: `docs/VECTOR_BACKEND_RELOAD_REASON_LABELS_DESIGN.md`
+  - Report: `reports/DEV_VECTOR_BACKEND_RELOAD_REASON_LABELS_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

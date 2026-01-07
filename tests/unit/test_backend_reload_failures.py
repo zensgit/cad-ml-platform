@@ -20,6 +20,13 @@ client = TestClient(app)
 _original_getenv = os.getenv
 
 
+def _read_metric(counter):
+    try:
+        return int(counter._value.get())  # type: ignore[attr-defined]
+    except Exception:
+        return None
+
+
 def make_getenv_side_effect(backend_value: str):
     """Create a getenv side_effect that only overrides VECTOR_STORE_BACKEND."""
 
@@ -138,6 +145,11 @@ def test_backend_reload_metric_recording():
     """Test that reload failures record metrics with proper labels."""
     from src.utils.analysis_metrics import vector_store_reload_total
 
+    success_counter = vector_store_reload_total.labels(status="success", reason="ok")
+    error_counter = vector_store_reload_total.labels(status="error", reason="init_error")
+    before_success = _read_metric(success_counter)
+    before_error = _read_metric(error_counter)
+
     with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
         # Test success metric
         mock_reload.return_value = True
@@ -151,6 +163,9 @@ def test_backend_reload_metric_recording():
 
             assert response.status_code == 200
             # Metric should be recorded with status="success"
+            if before_success is not None:
+                after_success = _read_metric(success_counter)
+                assert after_success == before_success + 1
 
         # Test error metric
         mock_reload.side_effect = Exception("Test error")
@@ -161,6 +176,9 @@ def test_backend_reload_metric_recording():
 
         assert response.status_code == 500
         # Metric should be recorded with status="error"
+        if before_error is not None:
+            after_error = _read_metric(error_counter)
+            assert after_error == before_error + 1
 
 
 def test_backend_reload_returns_current_backend():

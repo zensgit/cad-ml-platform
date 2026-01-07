@@ -13,6 +13,13 @@ from src.main import app
 client = TestClient(app)
 
 
+def _read_metric(counter):
+    try:
+        return int(counter._value.get())  # type: ignore[attr-defined]
+    except Exception:
+        return None
+
+
 def test_vector_backend_reload_failure_keeps_original_backend() -> None:
     original_backend = os.environ.get("VECTOR_STORE_BACKEND")
     os.environ["VECTOR_STORE_BACKEND"] = "memory"
@@ -40,9 +47,17 @@ def test_vector_backend_reload_failure_keeps_original_backend() -> None:
 
 
 def test_vector_backend_reload_missing_admin_token() -> None:
+    from src.utils.analysis_metrics import vector_store_reload_total
+
+    counter = vector_store_reload_total.labels(status="error", reason="auth_failed")
+    before = _read_metric(counter)
+
     response = client.post("/api/v1/vectors/backend/reload")
     assert response.status_code == 401
     data = response.json()
     assert "detail" in data
     detail = data["detail"]
     assert detail["code"] == ErrorCode.AUTHORIZATION_FAILED.value
+    if before is not None:
+        after = _read_metric(counter)
+        assert after == before + 1

@@ -479,7 +479,10 @@ async def reload_vector_backend(api_key: str = Depends(get_api_key)):
     try:
         ok = reload_vector_store_backend()
         backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
-        vector_store_reload_total.labels(status="success" if ok else "error").inc()
+        vector_store_reload_total.labels(
+            status="success" if ok else "error",
+            reason="ok" if ok else "init_error",
+        ).inc()
 
         if not ok:
             # Reload failed but didn't throw exception
@@ -498,7 +501,7 @@ async def reload_vector_backend(api_key: str = Depends(get_api_key)):
     except HTTPException:
         raise
     except Exception as e:
-        vector_store_reload_total.labels(status="error").inc()
+        vector_store_reload_total.labels(status="error", reason="init_error").inc()
         err = build_error(
             ErrorCode.INTERNAL_ERROR,
             stage="backend_reload",
