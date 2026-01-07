@@ -190,24 +190,26 @@ def test_batch_similarity_faiss_partial_failure(mock_faiss_partial_failure):
         assert "success" in statuses or "error" in statuses
 
 
-def test_batch_similarity_fallback_metric_recording():
+def test_batch_similarity_fallback_metric_recording(monkeypatch: pytest.MonkeyPatch):
     """Test that fallback to memory store is properly recorded in metrics."""
     from src.utils.analysis_metrics import vector_query_backend_total
+
+    if not hasattr(vector_query_backend_total, "_value"):
+        pytest.skip("prometheus_client not available")
 
     with patch("src.core.similarity.get_vector_store") as mock_factory:
         # Mock factory to return memory store
         from src.core.similarity import InMemoryVectorStore
 
         memory_store = InMemoryVectorStore()
+        memory_store._fallback_from = "faiss"
+        memory_store._requested_backend = "faiss"
+        memory_store._available = False
+        monkeypatch.setenv("VECTOR_STORE_BACKEND", "faiss")
         mock_factory.return_value = memory_store
 
         # Get initial count
-        try:
-            initial_count = vector_query_backend_total.labels(
-                backend="memory_fallback"
-            )._value.get()
-        except Exception:
-            initial_count = 0
+        initial_count = vector_query_backend_total.labels(backend="memory_fallback")._value.get()
 
         # Execute batch query
         response = client.post(
@@ -219,12 +221,12 @@ def test_batch_similarity_fallback_metric_recording():
         # Should complete (success or not_found acceptable)
         assert response.status_code in (200, 404)
 
-        # Verify metric behavior (may or may not increment depending on implementation)
-        try:
-            final_count = vector_query_backend_total.labels(backend="memory_fallback")._value.get()
-            assert final_count >= initial_count  # Should not decrease
-        except Exception:
-            pass  # Metric might not be available
+        if response.status_code == 200:
+            data = response.json()
+            assert data.get("fallback") is True
+
+        final_count = vector_query_backend_total.labels(backend="memory_fallback")._value.get()
+        assert final_count > initial_count
 
 
 def test_batch_similarity_fallback_response_structure():
