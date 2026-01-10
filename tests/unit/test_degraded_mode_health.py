@@ -1,4 +1,5 @@
 import time
+
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -24,4 +25,3 @@ def test_manual_recover_toggles_flag_and_health_reports():
     h = client.get("/api/v1/health/faiss/health", headers={"X-API-Key": "test"})
     assert h.status_code == 200
     assert h.json().get("manual_recovery_in_progress") is False
-

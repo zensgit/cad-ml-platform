@@ -8,14 +8,12 @@ Tests cover:
 - Feature extraction pipeline
 """
 
-import pytest
-import numpy as np
 from unittest.mock import MagicMock, patch
 
-from src.core.geometry import (
-    GeometricFeatures,
-    OPEN3D_AVAILABLE,
-)
+import numpy as np
+import pytest
+
+from src.core.geometry import OPEN3D_AVAILABLE, GeometricFeatures
 
 
 class TestGeometricFeatures:
@@ -108,12 +106,14 @@ class TestFallbackExtractor:
 
         # Create mock mesh
         mock_mesh = MagicMock()
-        mock_mesh.vertices = np.array([
-            [0, 0, 0],
-            [1, 0, 0],
-            [0, 1, 0],
-            [0, 0, 1],
-        ])
+        mock_mesh.vertices = np.array(
+            [
+                [0, 0, 0],
+                [1, 0, 0],
+                [0, 1, 0],
+                [0, 0, 1],
+            ]
+        )
         mock_mesh.area = 6.0
         mock_mesh.volume = 1.0
 
@@ -169,6 +169,7 @@ class TestGeometricFeatureExtractor:
     def extractor(self):
         """Create a GeometricFeatureExtractor instance."""
         from src.core.geometry import GeometricFeatureExtractor
+
         return GeometricFeatureExtractor(num_points=512)
 
     @pytest.fixture
@@ -176,12 +177,14 @@ class TestGeometricFeatureExtractor:
         """Create a sample mesh for testing."""
         # Simple tetrahedron
         mock_mesh = MagicMock()
-        mock_mesh.vertices = np.array([
-            [0, 0, 0],
-            [1, 0, 0],
-            [0.5, 1, 0],
-            [0.5, 0.5, 1],
-        ])
+        mock_mesh.vertices = np.array(
+            [
+                [0, 0, 0],
+                [1, 0, 0],
+                [0.5, 1, 0],
+                [0.5, 0.5, 1],
+            ]
+        )
         mock_mesh.area = 2.5
         mock_mesh.volume = 0.16
         return mock_mesh

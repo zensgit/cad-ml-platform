@@ -36,6 +36,7 @@ class TestDriftEndpointLogic:
     def test_drift_status_empty_state_baseline_pending(self, mock_drift_state):
         """Test drift status with empty state returns baseline_pending."""
         from collections import Counter
+
         from src.utils.drift import compute_drift
 
         min_count = 100
@@ -75,8 +76,7 @@ class TestDriftEndpointLogic:
         mock_drift_state["baseline_materials"] = ["steel"] * 50 + ["aluminum"] * 50
 
         mat_score = compute_drift(
-            mock_drift_state["materials"],
-            mock_drift_state["baseline_materials"]
+            mock_drift_state["materials"], mock_drift_state["baseline_materials"]
         )
 
         assert mat_score is not None
@@ -120,7 +120,11 @@ class TestDriftEndpointLogic:
         material_age = int(time.time() - mock_drift_state["baseline_materials_ts"])
 
         # Simulate auto-refresh
-        if auto_refresh_enabled and material_age > max_age and len(mock_drift_state["materials"]) >= min_count:
+        if (
+            auto_refresh_enabled
+            and material_age > max_age
+            and len(mock_drift_state["materials"]) >= min_count
+        ):
             mock_drift_state["baseline_materials"] = list(mock_drift_state["materials"])
             mock_drift_state["baseline_materials_ts"] = time.time()
 
@@ -287,5 +291,3 @@ class TestDriftMetricsIntegration:
 
         labeled = drift_baseline_refresh_total.labels(type="material", trigger="startup")
         assert labeled is not None
-
-

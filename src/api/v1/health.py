@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Optional, List, Dict
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from src.api.dependencies import get_api_key, get_admin_token
+from src.api.dependencies import get_admin_token, get_api_key
+from src.api.health_utils import build_health_payload
 
 router = APIRouter()
 
@@ -24,6 +26,7 @@ class FeatureCacheStatsResponse(BaseModel):
 
 class CacheTuningRecommendation(BaseModel):
     """缓存调优建议"""
+
     recommended_capacity: int = Field(description="推荐的缓存容量")
     recommended_ttl_seconds: int = Field(description="推荐的TTL秒数")
     current_capacity: int = Field(description="当前容量")
@@ -72,12 +75,16 @@ class FaissHealthResponse(BaseModel):
     manual_recovery_in_progress: bool = False
 
 
+@router.get("/health")
+async def health_alias() -> Dict[str, Any]:
+    """Alias `/api/v1/health` to the root `/health` endpoint."""
+    return build_health_payload()
+
+
 @router.get("/features/cache", response_model=FeatureCacheStatsResponse)
 async def feature_cache_stats(api_key: str = Depends(get_api_key)):
     from src.core.feature_cache import get_feature_cache
-    from src.utils.analysis_metrics import (
-        feature_cache_size,
-    )
+    from src.utils.analysis_metrics import feature_cache_size
 
     cache = get_feature_cache()
     size = cache.size()
@@ -146,11 +153,15 @@ async def cache_tuning_recommendation(api_key: str = Depends(get_api_key)):
     if usage_ratio > 0.9 and eviction_ratio > 0.05:
         # High usage + high evictions -> increase capacity
         recommended_capacity = int(capacity * 1.5)
-        reasons.append(f"High cache usage ({usage_ratio:.1%}) with evictions ({eviction_ratio:.1%}) - increase capacity")
+        reasons.append(
+            f"High cache usage ({usage_ratio:.1%}) with evictions ({eviction_ratio:.1%}) - increase capacity"
+        )
     elif usage_ratio < 0.3 and eviction_ratio < 0.01:
         # Low usage + low evictions -> decrease capacity
         recommended_capacity = max(int(capacity * 0.7), 100)
-        reasons.append(f"Low cache usage ({usage_ratio:.1%}) with minimal evictions - reduce capacity to save memory")
+        reasons.append(
+            f"Low cache usage ({usage_ratio:.1%}) with minimal evictions - reduce capacity to save memory"
+        )
     elif eviction_ratio > 0.15:
         # Very high evictions -> aggressive increase
         recommended_capacity = int(capacity * 2.0)
@@ -160,23 +171,46 @@ async def cache_tuning_recommendation(api_key: str = Depends(get_api_key)):
     if hit_ratio < 0.5 and eviction_ratio < 0.05:
         # Low hit ratio but low evictions -> entries may be stale
         recommended_ttl = max(int(ttl_seconds * 0.7), 60)
-        reasons.append(f"Low hit ratio ({hit_ratio:.1%}) with low evictions - reduce TTL to refresh entries faster")
+        reasons.append(
+            f"Low hit ratio ({hit_ratio:.1%}) with low evictions - reduce TTL to refresh entries faster"
+        )
     elif hit_ratio > 0.8 and eviction_ratio < 0.02:
         # High hit ratio + low evictions -> can extend TTL
         recommended_ttl = int(ttl_seconds * 1.3)
-        reasons.append(f"High hit ratio ({hit_ratio:.1%}) with low evictions - extend TTL for efficiency")
+        reasons.append(
+            f"High hit ratio ({hit_ratio:.1%}) with low evictions - extend TTL for efficiency"
+        )
     elif eviction_ratio > 0.1 and usage_ratio > 0.8:
         # High evictions + high usage -> reduce TTL to free space faster
         recommended_ttl = max(int(ttl_seconds * 0.8), 60)
-        reasons.append(f"High evictions ({eviction_ratio:.1%}) with high usage - reduce TTL to free entries")
+        reasons.append(
+            f"High evictions ({eviction_ratio:.1%}) with high usage - reduce TTL to free entries"
+        )
 
     # Add default message if no changes
     if recommended_capacity == capacity and recommended_ttl == ttl_seconds:
         reasons.append("Current cache settings are optimal based on observed metrics")
 
     # Calculate change percentages
-    capacity_change_pct = ((recommended_capacity - capacity) / capacity * 100) if capacity > 0 else 0.0
-    ttl_change_pct = ((recommended_ttl - ttl_seconds) / ttl_seconds * 100) if ttl_seconds > 0 else 0.0
+    capacity_change_pct = (
+        ((recommended_capacity - capacity) / capacity * 100) if capacity > 0 else 0.0
+    )
+    ttl_change_pct = (
+        ((recommended_ttl - ttl_seconds) / ttl_seconds * 100) if ttl_seconds > 0 else 0.0
+    )
+
+    try:
+        from src.utils.analysis_metrics import (
+            feature_cache_tuning_recommended_capacity,
+            feature_cache_tuning_recommended_ttl_seconds,
+            feature_cache_tuning_requests_total,
+        )
+
+        feature_cache_tuning_recommended_capacity.set(recommended_capacity)
+        feature_cache_tuning_recommended_ttl_seconds.set(recommended_ttl)
+        feature_cache_tuning_requests_total.labels(status="ok").inc()
+    except Exception:
+        pass
 
     return CacheTuningRecommendation(
         recommended_capacity=recommended_capacity,
@@ -192,7 +226,7 @@ async def cache_tuning_recommendation(api_key: str = Depends(get_api_key)):
             "eviction_ratio": round(eviction_ratio, 3),
             "total_requests": total_requests,
             "current_size": size,
-        }
+        },
     )
 
 
@@ -203,6 +237,7 @@ async def cache_apply(
     admin_token: str = Depends(get_admin_token),
 ):
     from src.core.feature_cache import apply_cache_settings
+
     result = apply_cache_settings(req.capacity, req.ttl_seconds)
     return CacheApplyResponse(
         status=result.get("status", "error"),
@@ -237,6 +272,7 @@ async def cache_rollback(
     admin_token: str = Depends(get_admin_token),
 ):
     from src.core.feature_cache import rollback_cache_settings
+
     result = rollback_cache_settings()
     return CacheRollbackResponse(
         status=result.get("status", "error"),
@@ -261,6 +297,7 @@ async def cache_prewarm(
     admin_token: str = Depends(get_admin_token),
 ):
     from src.core.feature_cache import prewarm_cache
+
     result = prewarm_cache(strategy=strategy, limit=limit)
     return result
 
@@ -277,20 +314,21 @@ async def cache_prewarm_health_alias(
 
 @router.get("/faiss/health", response_model=FaissHealthResponse)
 async def faiss_health(api_key: str = Depends(get_api_key)):
+    import time
+
     from src.core.similarity import (
         _FAISS_AVAILABLE,
-        _FAISS_INDEX,
         _FAISS_DIM,
-        _FAISS_PENDING_DELETE,
-        _FAISS_MAX_PENDING_DELETE,
-        FaissVectorStore,
+        _FAISS_INDEX,
         _FAISS_LAST_EXPORT_TS,
         _FAISS_LAST_IMPORT,
-        get_degraded_mode_info,
-        _FAISS_NEXT_RECOVERY_TS,
         _FAISS_MANUAL_RECOVERY_IN_PROGRESS,
+        _FAISS_MAX_PENDING_DELETE,
+        _FAISS_NEXT_RECOVERY_TS,
+        _FAISS_PENDING_DELETE,
+        FaissVectorStore,
+        get_degraded_mode_info,
     )
-    import time
 
     available = bool(_FAISS_AVAILABLE)
     size = None
@@ -331,12 +369,14 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
             next_recovery_eta = int(_FAISS_NEXT_RECOVERY_TS)
             try:
                 from src.utils.analysis_metrics import faiss_next_recovery_eta_seconds
+
                 faiss_next_recovery_eta_seconds.set(next_recovery_eta)
             except Exception:
                 pass
         else:
             try:
                 from src.utils.analysis_metrics import faiss_next_recovery_eta_seconds
+
                 faiss_next_recovery_eta_seconds.set(0)
             except Exception:
                 pass
@@ -373,6 +413,7 @@ async def faiss_health_alias(api_key: str = Depends(get_api_key)):
 async def faiss_manual_recover(api_key: str = Depends(get_api_key)):
     """Manually trigger a Faiss recovery attempt (respects backoff)."""
     from src.core.similarity import attempt_faiss_recovery
+
     # Mark manual recovery in progress to coordinate with background loop
     try:
         globals()["_FAISS_MANUAL_RECOVERY_IN_PROGRESS"] = True
@@ -405,9 +446,11 @@ class ModelHealthResponse(BaseModel):
 
 @router.get("/health/model", response_model=ModelHealthResponse)
 async def model_health(api_key: str = Depends(get_api_key)):
+    import time
+
     from src.ml.classifier import get_model_info
     from src.utils.analysis_metrics import model_health_checks_total
-    import time
+
     info = get_model_info()
 
     # Determine status based on loaded state and rollback level
@@ -420,6 +463,22 @@ async def model_health(api_key: str = Depends(get_api_key)):
         status = "ok"
 
     model_health_checks_total.labels(status=status).inc()
+    try:
+        from src.utils.analysis_metrics import model_rollback_level, model_snapshots_available
+
+        snapshots_available = sum(
+            1
+            for flag in (
+                info.get("has_prev"),
+                info.get("has_prev2"),
+                info.get("has_prev3"),
+            )
+            if flag
+        )
+        model_rollback_level.set(rollback_level)
+        model_snapshots_available.set(snapshots_available)
+    except Exception:
+        pass
 
     uptime = None
     if info.get("loaded_at"):

@@ -1,0 +1,72 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CAD ML Platform Vision Analyze Response",
+  "type": "object",
+  "required": ["success", "provider", "processing_time_ms"],
+  "properties": {
+    "success": { "type": "boolean" },
+    "description": { "$ref": "#/definitions/description" },
+    "ocr": { "$ref": "#/definitions/ocr" },
+    "provider": { "type": "string" },
+    "processing_time_ms": { "type": "number", "minimum": 0 },
+    "error": { "type": ["string", "null"] },
+    "code": { "type": ["string", "null"] },
+    "cad_feature_stats": { "$ref": "#/definitions/cad_feature_stats" }
+  },
+  "additionalProperties": true,
+  "definitions": {
+    "description": {
+      "type": ["object", "null"],
+      "required": ["summary", "details", "confidence"],
+      "properties": {
+        "summary": { "type": "string" },
+        "details": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "ocr": {
+      "type": ["object", "null"],
+      "required": ["dimensions", "symbols", "title_block"],
+      "properties": {
+        "dimensions": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "symbols": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "title_block": { "type": "object" },
+        "fallback_level": { "type": ["string", "null"] },
+        "confidence": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": true
+    },
+    "cad_feature_stats": {
+      "type": ["object", "null"],
+      "required": [
+        "line_count",
+        "circle_count",
+        "arc_count",
+        "line_angle_bins",
+        "line_angle_avg",
+        "arc_sweep_avg",
+        "arc_sweep_bins"
+      ],
+      "properties": {
+        "line_count": { "type": "integer", "minimum": 0 },
+        "circle_count": { "type": "integer", "minimum": 0 },
+        "arc_count": { "type": "integer", "minimum": 0 },
+        "line_angle_bins": { "type": "object" },
+        "line_angle_avg": { "type": ["number", "null"] },
+        "arc_sweep_avg": { "type": ["number", "null"] },
+        "arc_sweep_bins": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

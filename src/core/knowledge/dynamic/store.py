@@ -118,9 +118,7 @@ class JSONKnowledgeStore(KnowledgeStore):
                             rule = create_rule_from_dict(rule_data)
                             self._rules[rule.id] = rule
 
-                        logger.info(
-                            f"Loaded {len(data.get('rules', []))} rules from {file_path}"
-                        )
+                        logger.info(f"Loaded {len(data.get('rules', []))} rules from {file_path}")
                     except Exception as e:
                         logger.error(f"Error loading {file_path}: {e}")
 
@@ -131,11 +129,7 @@ class JSONKnowledgeStore(KnowledgeStore):
         """Save rules for a specific category."""
         file_path = self._get_file_path(category)
 
-        rules = [
-            rule.to_dict()
-            for rule in self._rules.values()
-            if rule.category == category
-        ]
+        rules = [rule.to_dict() for rule in self._rules.values() if rule.category == category]
 
         data = {
             "version": self._version,
@@ -236,12 +230,14 @@ class JSONKnowledgeStore(KnowledgeStore):
                     continue
 
                 # Search in name, chinese_name, description, keywords
-                searchable = " ".join([
-                    rule.name,
-                    rule.chinese_name,
-                    rule.description,
-                    " ".join(rule.keywords),
-                ]).lower()
+                searchable = " ".join(
+                    [
+                        rule.name,
+                        rule.chinese_name,
+                        rule.description,
+                        " ".join(rule.keywords),
+                    ]
+                ).lower()
 
                 if query_lower in searchable:
                     results.append(rule)
@@ -266,11 +262,7 @@ class JSONKnowledgeStore(KnowledgeStore):
             categories_data = {}
 
             for category in KnowledgeCategory:
-                rules = [
-                    r.to_dict()
-                    for r in self._rules.values()
-                    if r.category == category
-                ]
+                rules = [r.to_dict() for r in self._rules.values() if r.category == category]
                 categories_data[category.value] = {
                     "count": len(rules),
                     "rules": rules,
@@ -321,13 +313,9 @@ class JSONKnowledgeStore(KnowledgeStore):
             }
 
             for category in KnowledgeCategory:
-                count = sum(
-                    1 for r in self._rules.values()
-                    if r.category == category
-                )
+                count = sum(1 for r in self._rules.values() if r.category == category)
                 enabled = sum(
-                    1 for r in self._rules.values()
-                    if r.category == category and r.enabled
+                    1 for r in self._rules.values() if r.category == category and r.enabled
                 )
                 stats["categories"][category.value] = {  # type: ignore[index]
                     "total": count,
@@ -384,12 +372,14 @@ class InMemoryKnowledgeStore(KnowledgeStore):
                 if category and rule.category != category:
                     continue
 
-                searchable = " ".join([
-                    rule.name,
-                    rule.chinese_name,
-                    rule.description,
-                    " ".join(rule.keywords),
-                ]).lower()
+                searchable = " ".join(
+                    [
+                        rule.name,
+                        rule.chinese_name,
+                        rule.description,
+                        " ".join(rule.keywords),
+                    ]
+                ).lower()
 
                 if query_lower in searchable:
                     results.append(rule)

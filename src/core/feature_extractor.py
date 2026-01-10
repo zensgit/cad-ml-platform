@@ -41,12 +41,16 @@ def compute_shape_entropy(type_counts: Dict[str, int]) -> float:
     if K == 1:
         return 0.0  # Single type → no uncertainty
 
-    # Laplace smoothed probabilities
-    probs = [(c + 1) / (N + K) for c in type_counts.values()]
+    denom = N + K
+    inv_denom = 1.0 / denom
+    log = math.log
 
-    # Shannon entropy with natural log
-    H = -sum(p * math.log(p) for p in probs)
-    max_H = math.log(K)  # Maximum entropy for uniform distribution
+    # Shannon entropy with natural log, computed in a single pass
+    H = 0.0
+    for count in type_counts.values():
+        p = (count + 1) * inv_denom
+        H -= p * log(p)
+    max_H = log(K)  # Maximum entropy for uniform distribution
 
     return H / max_H if max_H > 0 else 0.0
 
@@ -85,6 +89,7 @@ def compute_surface_count(doc: "CadDocument") -> int:
     # Priority 4: Fallback heuristic (solids approximation)
     solids = doc.metadata.get("solids") or 0
     return int(solids)
+
 
 # Stable slot declarations per version for dynamic introspection
 SLOTS_V1 = [
@@ -134,8 +139,10 @@ class FeatureExtractor:
             feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
         self.feature_version = feature_version
 
-    def upgrade_vector(self, existing: List[float]) -> List[float]:
-        """Upgrade an existing geometric+semantic combined vector to target version.
+    def upgrade_vector(
+        self, existing: List[float], current_version: str | None = None
+    ) -> List[float]:
+        """Upgrade an existing combined vector to target version.
 
         This is a best-effort transformation when original document context is
         unavailable. Strategy:
@@ -154,17 +161,29 @@ class FeatureExtractor:
         expected_v2 = base_len + v2_len
         expected_v3 = base_len + v2_len + v3_len
         expected_v4 = base_len + v2_len + v3_len + v4_len
-        current_version = "v1"
+        inferred_version = "v1"
         if cur_len >= expected_v4:
-            current_version = "v4"
+            inferred_version = "v4"
         elif cur_len >= expected_v3:
-            current_version = "v3"
+            inferred_version = "v3"
         elif cur_len >= expected_v2:
-            current_version = "v2"
-        # Validate length (must be one of expected set); if not, raise to allow caller to mark error
-        if cur_len not in {expected_v1, expected_v2, expected_v3, expected_v4}:
+            inferred_version = "v2"
+
+        if current_version not in {"v1", "v2", "v3", "v4"}:
+            current_version = inferred_version
+
+        expected_map = {
+            "v1": expected_v1,
+            "v2": expected_v2,
+            "v3": expected_v3,
+            "v4": expected_v4,
+        }
+        expected_len = expected_map.get(current_version, expected_v1)
+
+        # Validate length (must match expected); if not, raise to allow caller to mark error
+        if cur_len != expected_len:
             raise ValueError(
-                f"Unsupported existing vector length {cur_len}; expected one of {expected_v1},{expected_v2},{expected_v3},{expected_v4}"
+                f"Unsupported existing vector length {cur_len}; expected {expected_len} for {current_version}"
             )
         # Downgrade
         if version == "v1":
@@ -197,83 +216,160 @@ class FeatureExtractor:
         # Unknown target version -> return as-is
         return existing
 
-    async def extract(self, doc: CadDocument) -> Dict[str, List[Any]]:  # legacy shape
+    async def extract(self, doc: CadDocument) -> Dict[str, Any]:
+        """
+        Extract features from CAD document.
+        """
         import time
+
         from src.utils.analysis_metrics import feature_extraction_latency_seconds
+
         start = time.time()
+        entity_count = doc.entity_count()
         bbox = doc.bounding_box
+        width = bbox.width
+        height = bbox.height
+        depth = bbox.depth
+        volume = bbox.volume_estimate
+
+        # Count entities by kind for downstream features
+        counts: Dict[str, int] = {}
+        for entity in doc.entities:
+            kind = str(entity.kind).upper()
+            counts[kind] = counts.get(kind, 0) + 1
+
+        # Base v1 geometric features
         geometric: List[float] = [
-            doc.entity_count(),
-            bbox.width,
-            bbox.height,
-            bbox.depth,
-            bbox.volume_estimate,
+            float(entity_count),
+            float(width),
+            float(height),
+            float(depth),
+            float(volume),
         ]
-        semantic: List[float] = [len(doc.layers), 1 if doc.complexity_bucket() == "high" else 0]
-        version = self.feature_version
 
-        # v2 & above normalized dims + aspect ratios
-        if version in {"v2", "v3", "v4"}:
-            max_edge = max(bbox.width or 1.0, bbox.height or 1.0, bbox.depth or 1.0)
-            norm_width = (bbox.width / max_edge) if max_edge else 0.0
-            norm_height = (bbox.height / max_edge) if max_edge else 0.0
-            norm_depth = (bbox.depth / max_edge) if max_edge else 0.0
-            geometric.extend([
-                round(norm_width, 5),
-                round(norm_height, 5),
-                round(norm_depth, 5),
-                round((bbox.width / (bbox.height or 1.0)), 5),
-                round((bbox.width / (bbox.depth or 1.0)), 5),
-            ])
+        # Base v1 semantic features
+        layers = doc.layers
+        try:
+            layer_count = len(layers) if layers is not None else 0
+        except TypeError:
+            layer_count = len(list(layers))
+        complexity_flag = 1.0 if doc.complexity_bucket() == "high" else 0.0
+        semantic: List[float] = [float(layer_count), float(complexity_flag)]
 
-        # v3 & above geometry enrichment + entity kind frequencies
-        if version in {"v3", "v4"}:
-            solids = doc.metadata.get("solids") or 0
-            facets = doc.metadata.get("facets") or 0
-            entity_count = doc.entity_count() or 1
-            volume = bbox.volume_estimate or 0.0
-            geometric.extend([
-                float(solids),
-                float(facets),
-                round(volume / entity_count, 5),
-                round((solids / entity_count) if entity_count else 0.0, 5),
-                round((facets / entity_count) if entity_count else 0.0, 5),
-            ])
-            kind_counts: Dict[str, int] = {}
-            for e in doc.entities:
-                kind_counts[e.kind] = kind_counts.get(e.kind, 0) + 1
-            top_k = sorted(kind_counts.items(), key=lambda x: (-x[1], x[0]))[:5]
-            total_entities = doc.entity_count() or 1
-            for _, cnt in top_k:
-                geometric.append(round(cnt / total_entities, 5))
-            if len(top_k) < 5:
-                geometric.extend([0.0] * (5 - len(top_k)))
+        if self.feature_version in {"v2", "v3", "v4"}:
+            max_dim = max(width, height, depth, 0.0)
+            if max_dim > 0:
+                norm_width = width / max_dim
+                norm_height = height / max_dim
+                norm_depth = depth / max_dim
+            else:
+                norm_width = norm_height = norm_depth = 0.0
+            width_height_ratio = width / height if height > 0 else 0.0
+            width_depth_ratio = width / depth if depth > 0 else 0.0
+            geometric.extend(
+                [
+                    float(norm_width),
+                    float(norm_height),
+                    float(norm_depth),
+                    float(width_height_ratio),
+                    float(width_depth_ratio),
+                ]
+            )
 
-        # v4 real features: surface_count and shape_entropy (Phase 1A)
-        if version == "v4":
-            # Surface count: from entities or metadata
-            surface_count = float(compute_surface_count(doc))
+        if self.feature_version in {"v3", "v4"}:
+            solids = int(doc.metadata.get("solids") or 0)
+            facets = int(doc.metadata.get("facets") or 0)
+            avg_volume_per_entity = volume / entity_count if entity_count > 0 else 0.0
+            solids_ratio = solids / entity_count if entity_count > 0 else 0.0
+            facets_ratio = facets / entity_count if entity_count > 0 else 0.0
 
-            # Shape entropy: entity type distribution with Laplace smoothing
-            kind_counts: Dict[str, int] = {}
-            for e in doc.entities:
-                kind_counts[e.kind] = kind_counts.get(e.kind, 0) + 1
-            shape_entropy = compute_shape_entropy(kind_counts)
+            total = entity_count if entity_count > 0 else 1
+            top_counts = sorted(counts.values(), reverse=True)
+            top_freqs = [count / total for count in top_counts[:5]]
+            while len(top_freqs) < 5:
+                top_freqs.append(0.0)
 
-            geometric.extend([surface_count, round(shape_entropy, 5)])
+            geometric.extend(
+                [
+                    float(solids),
+                    float(facets),
+                    float(avg_volume_per_entity),
+                    float(solids_ratio),
+                    float(facets_ratio),
+                ]
+                + [float(freq) for freq in top_freqs]
+            )
 
-        out = {"geometric": geometric, "semantic": semantic}
+        if self.feature_version == "v4":
+            surface_count = compute_surface_count(doc)
+            shape_entropy = compute_shape_entropy(counts)
+            try:
+                from src.utils.analysis_metrics import v4_shape_entropy, v4_surface_count
+
+                v4_surface_count.observe(surface_count)
+                v4_shape_entropy.observe(shape_entropy)
+            except Exception:
+                pass
+            geometric.extend([float(surface_count), float(shape_entropy)])
+
         try:
             dur = time.time() - start
-            feature_extraction_latency_seconds.labels(version=version).observe(dur)
+            feature_extraction_latency_seconds.labels(version=self.feature_version).observe(dur)
         except Exception:
             pass
-        return out
+
+        return {
+            "geometric": geometric,
+            "semantic": semantic,
+            "entity_counts": counts,
+        }
+
+    def flatten(self, features: Dict[str, Any]) -> List[float]:
+        """Flatten features into canonical vector order.
+
+        Order: base geometric (5) + semantic (2) + geometric extensions (v2/v3/v4).
+        """
+        geometric = [float(x) for x in features.get("geometric", [])]
+        semantic = [float(x) for x in features.get("semantic", [])]
+        base_geometric_len = 5
+        base_geom = geometric[:base_geometric_len]
+        ext_geom = geometric[base_geometric_len:]
+        return base_geom + semantic + ext_geom
+
+    def expected_dim(self, version: str) -> int:
+        """Return expected vector length for a given feature version."""
+        total = len(SLOTS_V1)
+        if version in {"v2", "v3", "v4"}:
+            total += len(SLOTS_V2)
+        if version in {"v3", "v4"}:
+            total += len(SLOTS_V3)
+        if version == "v4":
+            total += len(SLOTS_V4)
+        return total
+
+    def reorder_legacy_vector(self, combined: List[float], version: str) -> List[float]:
+        """Convert legacy layout (geom_all + semantic) into canonical layout.
+
+        Canonical order: base geometric (5) + semantic (2) + geometric extensions.
+        """
+        expected_len = self.expected_dim(version)
+        if len(combined) != expected_len:
+            raise ValueError(
+                f"Unsupported existing vector length {len(combined)}; expected {expected_len} for {version}"
+            )
+        base_geometric_len = 5
+        semantic_len = 2
+        geom_len = expected_len - semantic_len
+        geom_all = combined[:geom_len]
+        semantic = combined[geom_len:]
+        base_geom = geom_all[:base_geometric_len]
+        ext_geom = geom_all[base_geometric_len:]
+        return base_geom + semantic + ext_geom
 
     def rehydrate(self, combined: List[float], version: str) -> Dict[str, List[Any]]:
         """Rehydrate combined cached vector back into geometric/semantic components.
 
-        Assumes ordering identical to extract(): first base geometric slots, then semantic slots, then version extensions.
+        Assumes combined order: base geometric slots, semantic slots, then version extensions.
         """
         # Base lengths
         base_geometric_len = 5

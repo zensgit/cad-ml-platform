@@ -27,7 +27,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -231,7 +230,7 @@ class UptimeTracker:
         check_id: str,
         status: UptimeStatus,
         response_time_ms: float = 0.0,
-        error: Optional[str] = None
+        error: Optional[str] = None,
     ) -> UptimeRecord:
         """Record an uptime check result."""
         record = UptimeRecord(
@@ -239,7 +238,7 @@ class UptimeTracker:
             timestamp=datetime.now(),
             status=status,
             response_time_ms=response_time_ms,
-            error=error
+            error=error,
         )
 
         with self._lock:
@@ -256,7 +255,7 @@ class UptimeTracker:
                         check_id=check_id,
                         start_time=datetime.now(),
                         status=status,
-                        error_message=error or ""
+                        error_message=error or "",
                     )
                     self._incidents[check_id].append(incident)
 
@@ -276,7 +275,7 @@ class UptimeTracker:
         self,
         check_id: str,
         start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        end_time: Optional[datetime] = None,
     ) -> Optional[UptimeSummary]:
         """Get uptime summary for a check."""
         with self._lock:
@@ -323,7 +322,7 @@ class UptimeTracker:
             total_checks=len(records),
             successful_checks=successful,
             failed_checks=failed,
-            avg_response_time_ms=statistics.mean(response_times) if response_times else 0.0
+            avg_response_time_ms=statistics.mean(response_times) if response_times else 0.0,
         )
 
     def get_current_status(self, check_id: str) -> UptimeStatus:
@@ -332,9 +331,7 @@ class UptimeTracker:
             return self._current_status.get(check_id, UptimeStatus.UNKNOWN)
 
     def get_incidents(
-        self,
-        check_id: Optional[str] = None,
-        start_time: Optional[datetime] = None
+        self, check_id: Optional[str] = None, start_time: Optional[datetime] = None
     ) -> List[IncidentRecord]:
         """Get incident records."""
         with self._lock:
@@ -394,7 +391,7 @@ class SLATracker:
         sla_id: str,
         value: float,
         sample_count: int = 1,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> Optional[SLAMeasurement]:
         """Record an SLA measurement."""
         with self._lock:
@@ -410,7 +407,7 @@ class SLATracker:
             value=value,
             status=status,
             sample_count=sample_count,
-            metadata=metadata or {}
+            metadata=metadata or {},
         )
 
         with self._lock:
@@ -422,11 +419,7 @@ class SLATracker:
 
         return measurement
 
-    def _evaluate_status(
-        self,
-        value: float,
-        definition: SLADefinition
-    ) -> SLAStatus:
+    def _evaluate_status(self, value: float, definition: SLADefinition) -> SLAStatus:
         """Evaluate SLA status based on value."""
         # For availability/throughput: higher is better
         # For latency/error_rate: lower is better
@@ -446,11 +439,7 @@ class SLATracker:
             else:
                 return SLAStatus.BREACHED
 
-    def _create_alert(
-        self,
-        measurement: SLAMeasurement,
-        definition: SLADefinition
-    ) -> SLAAlert:
+    def _create_alert(self, measurement: SLAMeasurement, definition: SLADefinition) -> SLAAlert:
         """Create an SLA alert."""
         alert = SLAAlert(
             alert_id=f"sla_alert_{int(time.time() * 1000)}",
@@ -460,7 +449,7 @@ class SLATracker:
             current_value=measurement.value,
             target_value=definition.target_value,
             message=f"SLA '{definition.name}' is {measurement.status.value}: "
-                    f"current={measurement.value:.2f}, target={definition.target_value:.2f}"
+            f"current={measurement.value:.2f}, target={definition.target_value:.2f}",
         )
 
         with self._lock:
@@ -472,7 +461,7 @@ class SLATracker:
         self,
         sla_id: str,
         period_start: Optional[datetime] = None,
-        period_end: Optional[datetime] = None
+        period_end: Optional[datetime] = None,
     ) -> Optional[SLAComplianceReport]:
         """Get SLA compliance report."""
         with self._lock:
@@ -518,7 +507,7 @@ class SLATracker:
             compliance_percentage=compliance_percentage,
             status=overall_status,
             breach_count=breach_count,
-            total_measurements=len(measurements)
+            total_measurements=len(measurements),
         )
 
     def get_current_status(self, sla_id: str) -> SLAStatus:
@@ -532,9 +521,7 @@ class SLATracker:
         return measurements[-1].status
 
     def get_alerts(
-        self,
-        sla_id: Optional[str] = None,
-        acknowledged: Optional[bool] = None
+        self, sla_id: Optional[str] = None, acknowledged: Optional[bool] = None
     ) -> List[SLAAlert]:
         """Get SLA alerts."""
         with self._lock:
@@ -576,10 +563,7 @@ class SLAReporter:
         self._sla_tracker = sla_tracker
         self._uptime_tracker = uptime_tracker
 
-    def generate_summary_report(
-        self,
-        period: ReportPeriod = ReportPeriod.DAILY
-    ) -> Dict[str, Any]:
+    def generate_summary_report(self, period: ReportPeriod = ReportPeriod.DAILY) -> Dict[str, Any]:
         """Generate a summary report."""
         now = datetime.now()
 
@@ -596,19 +580,19 @@ class SLAReporter:
 
         sla_reports = []
         for sla in self._sla_tracker.get_all_slas():
-            report = self._sla_tracker.get_compliance_report(
-                sla.sla_id, start_time, now
-            )
+            report = self._sla_tracker.get_compliance_report(sla.sla_id, start_time, now)
             if report:
-                sla_reports.append({
-                    "sla_id": report.sla_id,
-                    "name": report.name,
-                    "status": report.status.value,
-                    "compliance_percentage": report.compliance_percentage,
-                    "target_value": report.target_value,
-                    "actual_value": report.actual_value,
-                    "breach_count": report.breach_count
-                })
+                sla_reports.append(
+                    {
+                        "sla_id": report.sla_id,
+                        "name": report.name,
+                        "status": report.status.value,
+                        "compliance_percentage": report.compliance_percentage,
+                        "target_value": report.target_value,
+                        "actual_value": report.actual_value,
+                        "breach_count": report.breach_count,
+                    }
+                )
 
         return {
             "period": period.value,
@@ -619,14 +603,10 @@ class SLAReporter:
             "total_slas": len(sla_reports),
             "compliant_slas": sum(1 for r in sla_reports if r["status"] == "compliant"),
             "at_risk_slas": sum(1 for r in sla_reports if r["status"] == "at_risk"),
-            "breached_slas": sum(1 for r in sla_reports if r["status"] == "breached")
+            "breached_slas": sum(1 for r in sla_reports if r["status"] == "breached"),
         }
 
-    def export_report(
-        self,
-        report: Dict[str, Any],
-        format: str = "json"
-    ) -> str:
+    def export_report(self, report: Dict[str, Any], format: str = "json") -> str:
         """Export report to specified format."""
         if format == "json":
             return json.dumps(report, indent=2, default=str)
@@ -652,7 +632,7 @@ class SLAReporter:
             f"## SLA Details",
             f"",
             f"| SLA | Status | Compliance | Target | Actual |",
-            f"|-----|--------|------------|--------|--------|"
+            f"|-----|--------|------------|--------|--------|",
         ]
 
         for sla in report.get("sla_summary", []):
@@ -688,7 +668,7 @@ class SLAMonitor:
         sla_type: SLAType,
         target_value: float,
         warning_threshold: float,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> SLADefinition:
         """Define a new SLA."""
         definition = SLADefinition(
@@ -697,16 +677,13 @@ class SLAMonitor:
             sla_type=sla_type,
             target_value=target_value,
             warning_threshold=warning_threshold,
-            **kwargs
+            **kwargs,
         )
         self._sla_tracker.register_sla(definition)
         return definition
 
     def record_sla_metric(
-        self,
-        sla_id: str,
-        value: float,
-        **metadata: Any
+        self, sla_id: str, value: float, **metadata: Any
     ) -> Optional[SLAMeasurement]:
         """Record an SLA metric."""
         return self._sla_tracker.record_measurement(sla_id, value, metadata=metadata)
@@ -719,7 +696,7 @@ class SLAMonitor:
         self,
         sla_id: str,
         start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        end_time: Optional[datetime] = None,
     ) -> Optional[SLAComplianceReport]:
         """Get SLA compliance report."""
         return self._sla_tracker.get_compliance_report(sla_id, start_time, end_time)
@@ -732,7 +709,7 @@ class SLAMonitor:
         name: str,
         target: str,
         check_type: CheckType = CheckType.HTTP,
-        interval_seconds: int = 60
+        interval_seconds: int = 60,
     ) -> UptimeCheck:
         """Register an uptime check."""
         check = UptimeCheck(
@@ -740,7 +717,7 @@ class SLAMonitor:
             name=name,
             check_type=check_type,
             target=target,
-            interval=timedelta(seconds=interval_seconds)
+            interval=timedelta(seconds=interval_seconds),
         )
         self._uptime_tracker.register_check(check)
         return check
@@ -750,44 +727,33 @@ class SLAMonitor:
         check_id: str,
         status: UptimeStatus,
         response_time_ms: float = 0.0,
-        error: Optional[str] = None
+        error: Optional[str] = None,
     ) -> UptimeRecord:
         """Record an uptime check result."""
-        return self._uptime_tracker.record_check(
-            check_id, status, response_time_ms, error
-        )
+        return self._uptime_tracker.record_check(check_id, status, response_time_ms, error)
 
     def get_uptime_summary(
         self,
         check_id: str,
         start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        end_time: Optional[datetime] = None,
     ) -> Optional[UptimeSummary]:
         """Get uptime summary."""
         return self._uptime_tracker.get_uptime_summary(check_id, start_time, end_time)
 
     def get_incidents(
-        self,
-        check_id: Optional[str] = None,
-        start_time: Optional[datetime] = None
+        self, check_id: Optional[str] = None, start_time: Optional[datetime] = None
     ) -> List[IncidentRecord]:
         """Get incident records."""
         return self._uptime_tracker.get_incidents(check_id, start_time)
 
     # Reporting
 
-    def generate_report(
-        self,
-        period: ReportPeriod = ReportPeriod.DAILY
-    ) -> Dict[str, Any]:
+    def generate_report(self, period: ReportPeriod = ReportPeriod.DAILY) -> Dict[str, Any]:
         """Generate SLA report."""
         return self._reporter.generate_summary_report(period)
 
-    def export_report(
-        self,
-        period: ReportPeriod = ReportPeriod.DAILY,
-        format: str = "json"
-    ) -> str:
+    def export_report(self, period: ReportPeriod = ReportPeriod.DAILY, format: str = "json") -> str:
         """Export SLA report."""
         report = self.generate_report(period)
         return self._reporter.export_report(report, format)
@@ -811,11 +777,7 @@ class SLAMonitor:
 class SLAMonitorVisionProvider(VisionProvider):
     """Vision provider with SLA monitoring integration."""
 
-    def __init__(
-        self,
-        base_provider: VisionProvider,
-        sla_monitor: Optional[SLAMonitor] = None
-    ):
+    def __init__(self, base_provider: VisionProvider, sla_monitor: Optional[SLAMonitor] = None):
         self._base_provider = base_provider
         self._sla_monitor = sla_monitor or SLAMonitor()
         self._request_count = 0
@@ -832,7 +794,7 @@ class SLAMonitorVisionProvider(VisionProvider):
             sla_type=SLAType.AVAILABILITY,
             target_value=99.9,
             warning_threshold=99.5,
-            service=self.provider_name
+            service=self.provider_name,
         )
 
         # Latency SLA: P95 < 2000ms
@@ -842,7 +804,7 @@ class SLAMonitorVisionProvider(VisionProvider):
             sla_type=SLAType.LATENCY,
             target_value=2000.0,
             warning_threshold=3000.0,
-            service=self.provider_name
+            service=self.provider_name,
         )
 
         # Error rate SLA: < 1%
@@ -852,14 +814,14 @@ class SLAMonitorVisionProvider(VisionProvider):
             sla_type=SLAType.ERROR_RATE,
             target_value=1.0,
             warning_threshold=2.0,
-            service=self.provider_name
+            service=self.provider_name,
         )
 
         # Register uptime check
         self._sla_monitor.register_uptime_check(
             check_id="vision_health",
             name="Vision Health Check",
-            target=f"{self._base_provider.provider_name}/health"
+            target=f"{self._base_provider.provider_name}/health",
         )
 
     @property
@@ -867,9 +829,7 @@ class SLAMonitorVisionProvider(VisionProvider):
         return f"sla_monitor_{self._base_provider.provider_name}"
 
     async def analyze_image(
-        self,
-        image_data: bytes,
-        context: Optional[Dict[str, Any]] = None
+        self, image_data: bytes, context: Optional[Dict[str, Any]] = None
     ) -> VisionDescription:
         """Analyze image with SLA tracking."""
         self._request_count += 1
@@ -893,11 +853,7 @@ class SLAMonitorVisionProvider(VisionProvider):
             self._sla_monitor.record_sla_metric("vision_error_rate", error_rate)
 
             # Record uptime check
-            self._sla_monitor.record_uptime_check(
-                "vision_health",
-                UptimeStatus.UP,
-                latency_ms
-            )
+            self._sla_monitor.record_uptime_check("vision_health", UptimeStatus.UP, latency_ms)
 
             return result
 
@@ -907,10 +863,7 @@ class SLAMonitorVisionProvider(VisionProvider):
 
             # Record failure
             self._sla_monitor.record_uptime_check(
-                "vision_health",
-                UptimeStatus.DOWN,
-                latency_ms,
-                str(e)
+                "vision_health", UptimeStatus.DOWN, latency_ms, str(e)
             )
 
             raise
@@ -936,7 +889,7 @@ def create_sla_definition(
     sla_type: SLAType,
     target_value: float,
     warning_threshold: float,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> SLADefinition:
     """Create an SLA definition."""
     return SLADefinition(
@@ -945,28 +898,19 @@ def create_sla_definition(
         sla_type=sla_type,
         target_value=target_value,
         warning_threshold=warning_threshold,
-        **kwargs
+        **kwargs,
     )
 
 
 def create_uptime_check(
-    check_id: str,
-    name: str,
-    target: str,
-    check_type: CheckType = CheckType.HTTP
+    check_id: str, name: str, target: str, check_type: CheckType = CheckType.HTTP
 ) -> UptimeCheck:
     """Create an uptime check configuration."""
-    return UptimeCheck(
-        check_id=check_id,
-        name=name,
-        check_type=check_type,
-        target=target
-    )
+    return UptimeCheck(check_id=check_id, name=name, check_type=check_type, target=target)
 
 
 def create_sla_monitor_provider(
-    base_provider: VisionProvider,
-    sla_monitor: Optional[SLAMonitor] = None
+    base_provider: VisionProvider, sla_monitor: Optional[SLAMonitor] = None
 ) -> SLAMonitorVisionProvider:
     """Create an SLA monitor vision provider."""
     return SLAMonitorVisionProvider(base_provider, sla_monitor)

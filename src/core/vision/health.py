@@ -141,10 +141,7 @@ class HealthDashboard:
         return {
             "generated_at": self.generated_at.isoformat(),
             "overall_status": self.overall_status.value,
-            "providers": {
-                name: metrics.to_dict()
-                for name, metrics in self.providers.items()
-            },
+            "providers": {name: metrics.to_dict() for name, metrics in self.providers.items()},
             "active_alerts": [alert.to_dict() for alert in self.active_alerts],
             "summary": self.summary,
         }
@@ -361,10 +358,7 @@ class HealthMonitor:
         Returns:
             Dictionary of provider name to HealthMetrics
         """
-        tasks = [
-            self.check_provider(name)
-            for name in self._providers.keys()
-        ]
+        tasks = [self.check_provider(name) for name in self._providers.keys()]
         await asyncio.gather(*tasks, return_exceptions=True)
         return dict(self._metrics)
 
@@ -427,9 +421,7 @@ class HealthMonitor:
             except Exception as e:
                 logger.error(f"Alert callback error: {e}")
 
-        logger.warning(
-            f"Health alert: {alert.severity.value} - {alert.message}"
-        )
+        logger.warning(f"Health alert: {alert.severity.value} - {alert.message}")
 
     def _generate_alert_message(
         self,
@@ -439,10 +431,7 @@ class HealthMonitor:
         """Generate alert message for status change."""
         if metrics.status == HealthStatus.UNHEALTHY:
             if metrics.error_message:
-                return (
-                    f"Provider {metrics.provider} is UNHEALTHY: "
-                    f"{metrics.error_message}"
-                )
+                return f"Provider {metrics.provider} is UNHEALTHY: " f"{metrics.error_message}"
             return (
                 f"Provider {metrics.provider} is UNHEALTHY: "
                 f"{metrics.consecutive_failures} consecutive failures"
@@ -544,25 +533,21 @@ class HealthMonitor:
 
         # Calculate summary
         total_providers = len(self._metrics)
-        healthy_count = sum(
-            1 for m in self._metrics.values()
-            if m.status == HealthStatus.HEALTHY
-        )
+        healthy_count = sum(1 for m in self._metrics.values() if m.status == HealthStatus.HEALTHY)
         avg_success_rate = (
             sum(m.success_rate for m in self._metrics.values()) / total_providers
-            if total_providers > 0 else 0
+            if total_providers > 0
+            else 0
         )
 
         summary = {
             "total_providers": total_providers,
             "healthy_count": healthy_count,
             "degraded_count": sum(
-                1 for m in self._metrics.values()
-                if m.status == HealthStatus.DEGRADED
+                1 for m in self._metrics.values() if m.status == HealthStatus.DEGRADED
             ),
             "unhealthy_count": sum(
-                1 for m in self._metrics.values()
-                if m.status == HealthStatus.UNHEALTHY
+                1 for m in self._metrics.values() if m.status == HealthStatus.UNHEALTHY
             ),
             "avg_success_rate": avg_success_rate,
             "active_alerts": len(active_alerts),
@@ -625,9 +610,7 @@ class HealthAwareVisionProvider:
         metrics.total_checks += 1
 
         try:
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
             latency_ms = (time.time() - start_time) * 1000
 
             # Record success
@@ -670,9 +653,7 @@ class HealthAwareVisionProvider:
 
             # Generate alert if status changed
             if old_status != metrics.status:
-                asyncio.create_task(
-                    self._monitor._handle_status_change(metrics, old_status)
-                )
+                asyncio.create_task(self._monitor._handle_status_change(metrics, old_status))
 
             raise
 

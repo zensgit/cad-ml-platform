@@ -194,10 +194,12 @@ class TracingSpan:
         attributes: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Add event to span."""
-        self.events.append(SpanEvent(
-            name=name,
-            attributes=attributes or {},
-        ))
+        self.events.append(
+            SpanEvent(
+                name=name,
+                attributes=attributes or {},
+            )
+        )
 
     def add_link(
         self,
@@ -205,10 +207,12 @@ class TracingSpan:
         attributes: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Add link to another span."""
-        self.links.append(SpanLink(
-            context=context,
-            attributes=attributes or {},
-        ))
+        self.links.append(
+            SpanLink(
+                context=context,
+                attributes=attributes or {},
+            )
+        )
 
     def set_status(
         self,
@@ -381,9 +385,7 @@ class ParentBasedSampler(Sampler):
                 )
         else:
             if parent_context.is_sampled:
-                return self._local_sampled.should_sample(
-                    parent_context, trace_id, name, attributes
-                )
+                return self._local_sampled.should_sample(parent_context, trace_id, name, attributes)
             else:
                 return self._local_not_sampled.should_sample(
                     parent_context, trace_id, name, attributes
@@ -449,7 +451,9 @@ class ConsoleSpanExporter(SpanExporter):
             print(f"[SPAN] {span.name}")
             print(f"  Trace ID: {span.context.trace_id}")
             print(f"  Span ID: {span.context.span_id}")
-            print(f"  Duration: {span.duration_ms:.2f}ms" if span.duration_ms else "  Duration: N/A")
+            print(
+                f"  Duration: {span.duration_ms:.2f}ms" if span.duration_ms else "  Duration: N/A"
+            )
             print(f"  Status: {span.status.value}")
             if span.attributes:
                 print(f"  Attributes: {span.attributes}")
@@ -504,8 +508,8 @@ class BatchSpanProcessor:
         if not self._queue:
             return
 
-        batch = self._queue[:self._batch_size]
-        self._queue = self._queue[self._batch_size:]
+        batch = self._queue[: self._batch_size]
+        self._queue = self._queue[self._batch_size :]
 
         try:
             self._exporter.export(batch)
@@ -626,9 +630,7 @@ class TracerProvider:
         Returns:
             Sampling decision
         """
-        return self._sampler.should_sample(
-            parent_context, trace_id, name, attributes
-        )
+        return self._sampler.should_sample(parent_context, trace_id, name, attributes)
 
     def shutdown(self) -> None:
         """Shutdown provider."""
@@ -685,9 +687,7 @@ class DistributedTracer:
         span_id = SpanId()
 
         # Check sampling
-        decision = self._provider.should_sample(
-            parent, trace_id, name, attributes or {}
-        )
+        decision = self._provider.should_sample(parent, trace_id, name, attributes or {})
 
         trace_flags = 1 if decision == SamplingDecision.RECORD_AND_SAMPLE else 0
 
@@ -793,10 +793,13 @@ class trace_span:
         if self._span:
             if exc_type:
                 self._span.set_status(SpanStatus.ERROR, str(exc_val))
-                self._span.add_event("exception", {
-                    "type": exc_type.__name__ if exc_type else None,
-                    "message": str(exc_val),
-                })
+                self._span.add_event(
+                    "exception",
+                    {
+                        "type": exc_type.__name__ if exc_type else None,
+                        "message": str(exc_val),
+                    },
+                )
             else:
                 self._span.set_status(SpanStatus.OK)
 
@@ -847,13 +850,13 @@ class W3CTraceContextPropagator(Propagator):
         carrier: Dict[str, str],
     ) -> None:
         """Inject context using W3C format."""
-        traceparent = f"00-{context.trace_id.value}-{context.span_id.value}-{context.trace_flags:02x}"
+        traceparent = (
+            f"00-{context.trace_id.value}-{context.span_id.value}-{context.trace_flags:02x}"
+        )
         carrier[self.TRACEPARENT_HEADER] = traceparent
 
         if context.trace_state:
-            tracestate = ",".join(
-                f"{k}={v}" for k, v in context.trace_state.items()
-            )
+            tracestate = ",".join(f"{k}={v}" for k, v in context.trace_state.items())
             carrier[self.TRACESTATE_HEADER] = tracestate
 
     def extract(self, carrier: Dict[str, str]) -> Optional[SpanContext]:
@@ -1024,14 +1027,14 @@ class TracingVisionProvider(VisionProvider):
         try:
             span.add_event("request_started")
 
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
 
-            span.set_attributes({
-                "vision.confidence": result.confidence,
-                "vision.summary_length": len(result.summary),
-            })
+            span.set_attributes(
+                {
+                    "vision.confidence": result.confidence,
+                    "vision.summary_length": len(result.summary),
+                }
+            )
             span.add_event("request_completed")
             span.set_status(SpanStatus.OK)
 
@@ -1040,10 +1043,13 @@ class TracingVisionProvider(VisionProvider):
         except Exception as e:
             self._stats.error_spans += 1
             span.set_status(SpanStatus.ERROR, str(e))
-            span.add_event("exception", {
-                "type": type(e).__name__,
-                "message": str(e),
-            })
+            span.add_event(
+                "exception",
+                {
+                    "type": type(e).__name__,
+                    "message": str(e),
+                },
+            )
             raise
 
         finally:
@@ -1071,9 +1077,7 @@ def create_tracing_provider(
         TracingVisionProvider instance
     """
     if tracer_provider is None:
-        tracer_provider = TracerProvider(
-            config=TracerConfig(service_name=service_name)
-        )
+        tracer_provider = TracerProvider(config=TracerConfig(service_name=service_name))
         exporter = InMemorySpanExporter()
         processor = BatchSpanProcessor(exporter)
         tracer_provider.add_processor(processor)

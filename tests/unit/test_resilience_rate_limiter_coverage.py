@@ -12,8 +12,8 @@ Covers:
 
 from __future__ import annotations
 
-import time
 import threading
+import time
 from datetime import datetime
 from unittest.mock import MagicMock
 
@@ -71,7 +71,7 @@ class TestRateLimiterStats:
             rejected_count=10,
             total_requests=110,
             last_rejection_time=now,
-            current_rate=9.09
+            current_rate=9.09,
         )
 
         assert stats.allowed_count == 100
@@ -358,7 +358,7 @@ class TestRateLimiter:
 
     def test_init_leaky_bucket_algorithm(self):
         """Test RateLimiter with leaky_bucket algorithm."""
-        from src.core.resilience.rate_limiter import RateLimiter, LeakyBucket
+        from src.core.resilience.rate_limiter import LeakyBucket, RateLimiter
 
         limiter = RateLimiter(name="test", rate=10.0, algorithm="leaky_bucket")
 
@@ -747,7 +747,7 @@ class TestRateLimitDecorator:
 
     def test_decorator_raises_on_limit(self):
         """Test decorated function raises when rate limited."""
-        from src.core.resilience.rate_limiter import rate_limit, RateLimitError
+        from src.core.resilience.rate_limiter import RateLimitError, rate_limit
 
         @rate_limit(rate=10.0, burst=1)
         def test_func():
@@ -799,7 +799,7 @@ class TestRateLimitDecorator:
 
     def test_decorator_exposes_rate_limiter(self):
         """Test decorated function has rate_limiter attribute."""
-        from src.core.resilience.rate_limiter import rate_limit, RateLimiter
+        from src.core.resilience.rate_limiter import RateLimiter, rate_limit
 
         @rate_limit(rate=10.0, burst=5)
         def test_func():
@@ -836,7 +836,7 @@ class TestRateLimitDecorator:
 
     def test_decorator_wait_time_in_error(self):
         """Test error message includes wait time."""
-        from src.core.resilience.rate_limiter import rate_limit, RateLimitError
+        from src.core.resilience.rate_limiter import RateLimitError, rate_limit
 
         @rate_limit(rate=10.0, burst=1)
         def test_func():
@@ -947,14 +947,12 @@ class TestAlgorithmComparison:
 
     def test_all_algorithms_share_interface(self):
         """Test all algorithms implement the same interface."""
-        from src.core.resilience.rate_limiter import (
-            TokenBucket, SlidingWindowLog, LeakyBucket
-        )
+        from src.core.resilience.rate_limiter import LeakyBucket, SlidingWindowLog, TokenBucket
 
         algorithms = [
             TokenBucket(rate=10.0, capacity=5),
             SlidingWindowLog(rate=5, window_size=1),
-            LeakyBucket(rate=10.0, capacity=5)
+            LeakyBucket(rate=10.0, capacity=5),
         ]
 
         for algo in algorithms:
@@ -965,14 +963,12 @@ class TestAlgorithmComparison:
 
     def test_algorithms_return_bool_for_allow(self):
         """Test all algorithms return bool from allow_request."""
-        from src.core.resilience.rate_limiter import (
-            TokenBucket, SlidingWindowLog, LeakyBucket
-        )
+        from src.core.resilience.rate_limiter import LeakyBucket, SlidingWindowLog, TokenBucket
 
         algorithms = [
             TokenBucket(rate=10.0, capacity=5),
             SlidingWindowLog(rate=5, window_size=1),
-            LeakyBucket(rate=10.0, capacity=5)
+            LeakyBucket(rate=10.0, capacity=5),
         ]
 
         for algo in algorithms:
@@ -981,14 +977,12 @@ class TestAlgorithmComparison:
 
     def test_algorithms_return_float_for_wait_time(self):
         """Test all algorithms return float from get_wait_time."""
-        from src.core.resilience.rate_limiter import (
-            TokenBucket, SlidingWindowLog, LeakyBucket
-        )
+        from src.core.resilience.rate_limiter import LeakyBucket, SlidingWindowLog, TokenBucket
 
         algorithms = [
             TokenBucket(rate=10.0, capacity=5),
             SlidingWindowLog(rate=5, window_size=1),
-            LeakyBucket(rate=10.0, capacity=5)
+            LeakyBucket(rate=10.0, capacity=5),
         ]
 
         for algo in algorithms:

@@ -3,22 +3,23 @@ Circuit Breaker Pattern Implementation
 熔断器模式 - 防止级联故障和资源耗尽
 """
 
-import time
+import logging
 import threading
-from enum import Enum
-from typing import Callable, Optional, Any, Dict
+import time
 from dataclasses import dataclass, field
 from datetime import datetime
-import logging
+from enum import Enum
+from typing import Any, Callable, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class CircuitState(Enum):
     """熔断器状态"""
-    CLOSED = "closed"       # 正常状态，允许请求通过
-    OPEN = "open"           # 熔断状态，阻止请求
-    HALF_OPEN = "half_open" # 半开状态，允许有限请求进行测试
+
+    CLOSED = "closed"  # 正常状态，允许请求通过
+    OPEN = "open"  # 熔断状态，阻止请求
+    HALF_OPEN = "half_open"  # 半开状态，允许有限请求进行测试
 
 
 class CircuitBreakerError(Exception):
@@ -28,6 +29,7 @@ class CircuitBreakerError(Exception):
 @dataclass
 class CircuitBreakerStats:
     """熔断器统计信息"""
+
     success_count: int = 0
     failure_count: int = 0
     consecutive_failures: int = 0
@@ -57,7 +59,7 @@ class CircuitBreaker:
         expected_exception: type = Exception,
         half_open_max_calls: int = 3,
         success_threshold: int = 2,
-        metrics_callback: Optional[Callable] = None
+        metrics_callback: Optional[Callable] = None,
     ):
         """
         初始化熔断器
@@ -202,8 +204,9 @@ class CircuitBreaker:
 
         # 记录错误分布
         error_type = type(exception).__name__
-        self._stats.error_distribution[error_type] = \
+        self._stats.error_distribution[error_type] = (
             self._stats.error_distribution.get(error_type, 0) + 1
+        )
 
         if self._state == CircuitState.CLOSED:
             if self._stats.consecutive_failures >= self.failure_threshold:
@@ -222,7 +225,7 @@ class CircuitBreaker:
         transition = {
             "timestamp": datetime.now().isoformat(),
             "from": from_state.value,
-            "to": to_state.value
+            "to": to_state.value,
         }
         self._stats.state_transitions.append(transition)
         self._emit_metrics("state_change", 0, f"{from_state.value}_to_{to_state.value}")
@@ -235,14 +238,16 @@ class CircuitBreaker:
     def _emit_metrics(self, event_type: str, duration: float = 0, detail: str = ""):
         """发送指标"""
         if self.metrics_callback:
-            self.metrics_callback({
-                "circuit_breaker": self.name,
-                "state": self._state.value,
-                "event": event_type,
-                "duration": duration,
-                "detail": detail,
-                "timestamp": datetime.now().isoformat()
-            })
+            self.metrics_callback(
+                {
+                    "circuit_breaker": self.name,
+                    "state": self._state.value,
+                    "event": event_type,
+                    "duration": duration,
+                    "detail": detail,
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
     def reset(self):
         """手动重置熔断器"""
@@ -262,18 +267,21 @@ class CircuitBreaker:
                 "total_calls": self._stats.total_calls,
                 "failure_rate": (
                     self._stats.failure_count / self._stats.total_calls
-                    if self._stats.total_calls > 0 else 0
+                    if self._stats.total_calls > 0
+                    else 0
                 ),
                 "last_failure": (
                     self._stats.last_failure_time.isoformat()
-                    if self._stats.last_failure_time else None
+                    if self._stats.last_failure_time
+                    else None
                 ),
                 "last_success": (
                     self._stats.last_success_time.isoformat()
-                    if self._stats.last_success_time else None
+                    if self._stats.last_success_time
+                    else None
                 ),
                 "error_distribution": self._stats.error_distribution,
-                "recent_transitions": self._stats.state_transitions[-5:]
+                "recent_transitions": self._stats.state_transitions[-5:],
             }
 
 
@@ -281,7 +289,7 @@ def circuit_breaker(
     name: Optional[str] = None,
     failure_threshold: int = 5,
     recovery_timeout: int = 60,
-    expected_exception: type = Exception
+    expected_exception: type = Exception,
 ):
     """
     熔断器装饰器
@@ -292,13 +300,14 @@ def circuit_breaker(
             # API call logic
             pass
     """
+
     def decorator(func: Callable) -> Callable:
         breaker_name = name or f"{func.__module__}.{func.__name__}"
         breaker = CircuitBreaker(
             name=breaker_name,
             failure_threshold=failure_threshold,
             recovery_timeout=recovery_timeout,
-            expected_exception=expected_exception
+            expected_exception=expected_exception,
         )
 
         def wrapper(*args, **kwargs):

@@ -128,9 +128,7 @@ class PredictionModel(ABC):
         pass
 
     @abstractmethod
-    def predict(
-        self, horizon: int, confidence_level: float = 0.95
-    ) -> List[PredictionResult]:
+    def predict(self, horizon: int, confidence_level: float = 0.95) -> List[PredictionResult]:
         """Make predictions for the given horizon."""
         pass
 
@@ -155,9 +153,7 @@ class MovingAverageModel(PredictionModel):
         self._trained = True
         self._last_trained = datetime.now()
 
-    def predict(
-        self, horizon: int, confidence_level: float = 0.95
-    ) -> List[PredictionResult]:
+    def predict(self, horizon: int, confidence_level: float = 0.95) -> List[PredictionResult]:
         """Predict using moving average."""
         if not self._trained or len(self._data) < self.window_size:
             return []
@@ -229,26 +225,20 @@ class ExponentialSmoothingModel(PredictionModel):
         # Apply smoothing
         for i in range(1, len(values)):
             prev_level = self._level
-            self._level = self.alpha * values[i] + (1 - self.alpha) * (
-                self._level + self._trend
-            )
+            self._level = self.alpha * values[i] + (1 - self.alpha) * (self._level + self._trend)
             self._trend = self.beta * (self._level - prev_level) + (1 - self.beta) * self._trend
 
         self._trained = True
         self._last_trained = datetime.now()
 
-    def predict(
-        self, horizon: int, confidence_level: float = 0.95
-    ) -> List[PredictionResult]:
+    def predict(self, horizon: int, confidence_level: float = 0.95) -> List[PredictionResult]:
         """Predict using exponential smoothing."""
         if not self._trained:
             return []
 
         predictions = []
         values = [d.value for d in self._data]
-        std_dev = (
-            sum((v - sum(values) / len(values)) ** 2 for v in values) / len(values)
-        ) ** 0.5
+        std_dev = (sum((v - sum(values) / len(values)) ** 2 for v in values) / len(values)) ** 0.5
 
         z_score = 1.96 if confidence_level >= 0.95 else 1.645
 
@@ -583,15 +573,11 @@ class DemandPredictor:
         if not success:
             self.engine.record_metric(f"errors_{provider}", 1.0, ts)
 
-    def predict_demand(
-        self, provider: str, horizon_hours: int = 24
-    ) -> Optional[ForecastResult]:
+    def predict_demand(self, provider: str, horizon_hours: int = 24) -> Optional[ForecastResult]:
         """Predict demand for a provider."""
         return self.engine.forecast(f"requests_{provider}", horizon_hours)
 
-    def predict_latency(
-        self, provider: str, horizon: int = 10
-    ) -> Optional[ForecastResult]:
+    def predict_latency(self, provider: str, horizon: int = 10) -> Optional[ForecastResult]:
         """Predict latency for a provider."""
         return self.engine.forecast(f"latency_{provider}", horizon)
 
@@ -617,23 +603,17 @@ class AnomalyPredictor:
             return 0.0
 
         hist_mean = sum(historical) / len(historical)
-        hist_std = (
-            sum((v - hist_mean) ** 2 for v in historical) / len(historical)
-        ) ** 0.5
+        hist_std = (sum((v - hist_mean) ** 2 for v in historical) / len(historical)) ** 0.5
 
         if hist_std == 0:
             return 0.0
 
         # Check how many recent points are anomalous
-        anomalous = sum(
-            1 for v in recent if abs(v - hist_mean) > self.threshold * hist_std
-        )
+        anomalous = sum(1 for v in recent if abs(v - hist_mean) > self.threshold * hist_std)
 
         return anomalous / len(recent)
 
-    def get_anomaly_forecast(
-        self, metric_name: str
-    ) -> Dict[str, Any]:
+    def get_anomaly_forecast(self, metric_name: str) -> Dict[str, Any]:
         """Get anomaly forecast."""
         probability = self.predict_anomaly_probability(metric_name)
         trend = self.engine.analyze_trend(metric_name)
@@ -645,9 +625,7 @@ class AnomalyPredictor:
             "recommendation": self._get_recommendation(probability, trend),
         }
 
-    def _get_recommendation(
-        self, probability: float, trend: Optional[TrendAnalysis]
-    ) -> str:
+    def _get_recommendation(self, probability: float, trend: Optional[TrendAnalysis]) -> str:
         """Get recommendation based on prediction."""
         if probability > 0.7:
             return "High anomaly probability - investigate immediately"
@@ -686,9 +664,7 @@ class PredictiveVisionProvider(VisionProvider):
         success = True
 
         try:
-            result = await self._wrapped.analyze_image(
-                image_data, include_description, **kwargs
-            )
+            result = await self._wrapped.analyze_image(image_data, include_description, **kwargs)
             return result
         except Exception as e:
             success = False
@@ -703,15 +679,11 @@ class PredictiveVisionProvider(VisionProvider):
 
     def get_demand_forecast(self, horizon_hours: int = 24) -> Optional[ForecastResult]:
         """Get demand forecast."""
-        return self._demand_predictor.predict_demand(
-            self._wrapped.provider_name, horizon_hours
-        )
+        return self._demand_predictor.predict_demand(self._wrapped.provider_name, horizon_hours)
 
     def get_latency_forecast(self, horizon: int = 10) -> Optional[ForecastResult]:
         """Get latency forecast."""
-        return self._demand_predictor.predict_latency(
-            self._wrapped.provider_name, horizon
-        )
+        return self._demand_predictor.predict_latency(self._wrapped.provider_name, horizon)
 
     def get_anomaly_forecast(self) -> Dict[str, Any]:
         """Get anomaly forecast."""

@@ -11,9 +11,9 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Generic
+from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar
 
-from .base import VisionProvider, VisionDescription
+from .base import VisionDescription, VisionProvider
 
 T = TypeVar("T")
 
@@ -208,9 +208,7 @@ class SagaOrchestrator:
 
             step.completed_at = datetime.utcnow()
 
-    async def _execute_step(
-        self, step: SagaStep, context: SagaContext
-    ) -> Any:
+    async def _execute_step(self, step: SagaStep, context: SagaContext) -> Any:
         """Execute a single step with retry logic."""
         last_error: Optional[Exception] = None
 
@@ -218,16 +216,12 @@ class SagaOrchestrator:
             try:
                 step.retries = attempt
                 if asyncio.iscoroutinefunction(step.action):
-                    result = await asyncio.wait_for(
-                        step.action(context), timeout=step.timeout
-                    )
+                    result = await asyncio.wait_for(step.action(context), timeout=step.timeout)
                 else:
                     result = step.action(context)
                 return result
             except asyncio.TimeoutError:
-                last_error = TimeoutError(
-                    f"Step '{step.name}' timed out after {step.timeout}s"
-                )
+                last_error = TimeoutError(f"Step '{step.name}' timed out after {step.timeout}s")
             except Exception as e:
                 last_error = e
 
@@ -238,9 +232,7 @@ class SagaOrchestrator:
 
     async def _compensate(self, execution: SagaExecution) -> None:
         """Run compensation for completed steps in reverse order."""
-        completed_steps = [
-            s for s in execution.steps if s.status == StepStatus.COMPLETED
-        ]
+        completed_steps = [s for s in execution.steps if s.status == StepStatus.COMPLETED]
 
         for step in reversed(completed_steps):
             if step.compensation:
@@ -260,9 +252,7 @@ class SagaOrchestrator:
         """Get a saga execution by ID."""
         return self._executions.get(saga_id)
 
-    def list_executions(
-        self, status: Optional[SagaStatus] = None
-    ) -> List[SagaExecution]:
+    def list_executions(self, status: Optional[SagaStatus] = None) -> List[SagaExecution]:
         """List all executions, optionally filtered by status."""
         executions = list(self._executions.values())
         if status:
@@ -277,9 +267,7 @@ class CompensationManager:
         self._compensations: Dict[str, List[Callable[..., Any]]] = {}
         self._executed: Dict[str, List[Callable[..., Any]]] = {}
 
-    def register(
-        self, transaction_id: str, compensation: Callable[..., Any]
-    ) -> None:
+    def register(self, transaction_id: str, compensation: Callable[..., Any]) -> None:
         """Register a compensation operation."""
         if transaction_id not in self._compensations:
             self._compensations[transaction_id] = []
@@ -328,9 +316,7 @@ class TransactionCoordinator:
         self._transaction_states[tx_id] = "active"
         return tx_id
 
-    def register_participant(
-        self, tx_id: str, participant: "TransactionParticipant"
-    ) -> None:
+    def register_participant(self, tx_id: str, participant: "TransactionParticipant") -> None:
         """Register a participant in the transaction."""
         if tx_id not in self._participants:
             raise ValueError(f"Transaction {tx_id} not found")
@@ -492,9 +478,7 @@ class ChoreographySaga:
 
         return results
 
-    async def _compensate_event(
-        self, event_type: str, data: Any = None
-    ) -> None:
+    async def _compensate_event(self, event_type: str, data: Any = None) -> None:
         """Run compensation for an event."""
         compensation = self._compensation_handlers.get(event_type)
         if compensation:
@@ -580,17 +564,13 @@ class SagaVisionProvider(VisionProvider):
     def provider_name(self) -> str:
         return f"saga_{self._base.provider_name}"
 
-    async def analyze_image(
-        self, image_data: bytes, **kwargs: Any
-    ) -> VisionDescription:
+    async def analyze_image(self, image_data: bytes, **kwargs: Any) -> VisionDescription:
         """Analyze image using saga pattern."""
         context = SagaContext()
         context.set("image_data", image_data)
         context.set("kwargs", kwargs)
 
-        execution = await self._orchestrator.execute(
-            self._analysis_saga_name, context
-        )
+        execution = await self._orchestrator.execute(self._analysis_saga_name, context)
 
         if execution.status == SagaStatus.COMPLETED:
             result = execution.context.get_step_result("analyze")

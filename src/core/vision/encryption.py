@@ -126,7 +126,9 @@ class EncryptedData:
             "algorithm": self.algorithm.value,
             "nonce": base64.b64encode(self.nonce).decode() if self.nonce else None,
             "tag": base64.b64encode(self.tag).decode() if self.tag else None,
-            "associated_data": base64.b64encode(self.associated_data).decode() if self.associated_data else None,
+            "associated_data": base64.b64encode(self.associated_data).decode()
+            if self.associated_data
+            else None,
             "timestamp": self.timestamp.isoformat(),
         }
 
@@ -139,7 +141,9 @@ class EncryptedData:
             algorithm=EncryptionAlgorithm(data["algorithm"]),
             nonce=base64.b64decode(data["nonce"]) if data.get("nonce") else None,
             tag=base64.b64decode(data["tag"]) if data.get("tag") else None,
-            associated_data=base64.b64decode(data["associated_data"]) if data.get("associated_data") else None,
+            associated_data=base64.b64decode(data["associated_data"])
+            if data.get("associated_data")
+            else None,
             timestamp=datetime.fromisoformat(data["timestamp"]),
         )
 
@@ -217,7 +221,9 @@ class Encryptor(ABC):
     """Abstract encryptor."""
 
     @abstractmethod
-    def encrypt(self, plaintext: bytes, key: bytes, associated_data: Optional[bytes] = None) -> EncryptedData:
+    def encrypt(
+        self, plaintext: bytes, key: bytes, associated_data: Optional[bytes] = None
+    ) -> EncryptedData:
         """Encrypt data."""
         pass
 
@@ -239,7 +245,9 @@ class SimpleAESEncryptor(Encryptor):
         """Set key ID for encrypted data."""
         self._key_id = key_id
 
-    def encrypt(self, plaintext: bytes, key: bytes, associated_data: Optional[bytes] = None) -> EncryptedData:
+    def encrypt(
+        self, plaintext: bytes, key: bytes, associated_data: Optional[bytes] = None
+    ) -> EncryptedData:
         """Encrypt data using simple XOR (demonstration only)."""
         # Generate nonce
         nonce = secrets.token_bytes(12)
@@ -624,10 +632,7 @@ class SecureStorage:
     def list_keys(self) -> List[str]:
         """List all keys."""
         with self._lock:
-            return [
-                k for k, v in self._storage.items()
-                if not v.is_expired()
-            ]
+            return [k for k, v in self._storage.items() if not v.is_expired()]
 
 
 class EncryptedVisionProvider(VisionProvider):
@@ -672,11 +677,13 @@ class EncryptedVisionProvider(VisionProvider):
 
         # Store encrypted output if enabled
         if self._encrypt_output:
-            output_data = json.dumps({
-                "summary": result.summary,
-                "details": result.details,
-                "confidence": result.confidence,
-            }).encode()
+            output_data = json.dumps(
+                {
+                    "summary": result.summary,
+                    "details": result.details,
+                    "confidence": result.confidence,
+                }
+            ).encode()
             self._secure_storage.store(
                 f"output_{request_id}" if self._encrypt_input else f"output_{uuid.uuid4()}",
                 output_data,

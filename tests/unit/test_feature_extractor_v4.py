@@ -1,4 +1,4 @@
-from src.core.feature_extractor import FeatureExtractor, SLOTS_V4, SLOTS_V3, SLOTS_V2, SLOTS_V1
+from src.core.feature_extractor import SLOTS_V1, SLOTS_V2, SLOTS_V3, SLOTS_V4, FeatureExtractor
 
 
 class DummyBBox:
@@ -35,7 +35,9 @@ def test_feature_extractor_v4_basic():
     geometric = data["geometric"]
     semantic = data["semantic"]
     # Use actual slot lengths from module
-    expected_geometric = len(SLOTS_V1) + len(SLOTS_V2) + len(SLOTS_V3) + len(SLOTS_V4) - 2  # subtract semantic slots
+    expected_geometric = (
+        len(SLOTS_V1) + len(SLOTS_V2) + len(SLOTS_V3) + len(SLOTS_V4) - 2
+    )  # subtract semantic slots
     # The geometric vector should contain all non-semantic features
     assert len(geometric) >= len(SLOTS_V1) - 2  # at least base geometric
     assert len(semantic) == 2
@@ -80,6 +82,7 @@ def test_rehydrate_v4_vector():
     fx = FeatureExtractor(feature_version="v4")
     rehydrated = fx.rehydrate(vec, "v4")
     # Total should equal geometric + semantic (both come from total_len input)
-    assert len(rehydrated["geometric"]) + len(rehydrated["semantic"]) >= total_len - 2  # allow for 2 semantic slots
+    assert (
+        len(rehydrated["geometric"]) + len(rehydrated["semantic"]) >= total_len - 2
+    )  # allow for 2 semantic slots
     assert len(rehydrated["semantic"]) == 2
-

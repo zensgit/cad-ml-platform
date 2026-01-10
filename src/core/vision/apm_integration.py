@@ -31,7 +31,6 @@ from typing import Any, Callable, Dict, Generator, List, Optional, Set, Tuple, T
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -244,7 +243,7 @@ class SpanTracker:
         trace_id: str,
         kind: SpanKind = SpanKind.INTERNAL,
         parent_span_id: Optional[str] = None,
-        attributes: Optional[Dict[str, Any]] = None
+        attributes: Optional[Dict[str, Any]] = None,
     ) -> Span:
         """Start a new span."""
         span = Span(
@@ -254,7 +253,7 @@ class SpanTracker:
             kind=kind,
             start_time=datetime.now(),
             parent_span_id=parent_span_id,
-            attributes=attributes or {}
+            attributes=attributes or {},
         )
 
         with self._lock:
@@ -263,10 +262,7 @@ class SpanTracker:
         return span
 
     def end_span(
-        self,
-        span: Span,
-        status: SpanStatus = SpanStatus.OK,
-        error: Optional[str] = None
+        self, span: Span, status: SpanStatus = SpanStatus.OK, error: Optional[str] = None
     ) -> None:
         """End a span."""
         span.end_time = datetime.now()
@@ -282,11 +278,9 @@ class SpanTracker:
 
     def add_event(self, span: Span, name: str, attributes: Optional[Dict[str, Any]] = None) -> None:
         """Add an event to a span."""
-        span.events.append({
-            "name": name,
-            "timestamp": datetime.now().isoformat(),
-            "attributes": attributes or {}
-        })
+        span.events.append(
+            {"name": name, "timestamp": datetime.now().isoformat(), "attributes": attributes or {}}
+        )
 
     def get_active_spans(self, trace_id: Optional[str] = None) -> List[Span]:
         """Get active spans."""
@@ -296,11 +290,7 @@ class SpanTracker:
             spans = [s for s in spans if s.trace_id == trace_id]
         return spans
 
-    def get_completed_spans(
-        self,
-        trace_id: Optional[str] = None,
-        limit: int = 100
-    ) -> List[Span]:
+    def get_completed_spans(self, trace_id: Optional[str] = None, limit: int = 100) -> List[Span]:
         """Get completed spans."""
         with self._lock:
             spans = list(self._completed_spans)
@@ -327,7 +317,7 @@ class TransactionTracker:
         self,
         name: str,
         transaction_type: TransactionType = TransactionType.REQUEST,
-        attributes: Optional[Dict[str, Any]] = None
+        attributes: Optional[Dict[str, Any]] = None,
     ) -> Transaction:
         """Start a new transaction."""
         transaction = Transaction(
@@ -335,7 +325,7 @@ class TransactionTracker:
             name=name,
             transaction_type=transaction_type,
             start_time=datetime.now(),
-            attributes=attributes or {}
+            attributes=attributes or {},
         )
 
         with self._lock:
@@ -347,7 +337,7 @@ class TransactionTracker:
         self,
         transaction: Transaction,
         status: SpanStatus = SpanStatus.OK,
-        error: Optional[str] = None
+        error: Optional[str] = None,
     ) -> None:
         """End a transaction."""
         transaction.end_time = datetime.now()
@@ -355,9 +345,7 @@ class TransactionTracker:
         transaction.error = error
 
         # Collect spans for this transaction
-        spans = self._span_tracker.get_completed_spans(
-            trace_id=transaction.transaction_id
-        )
+        spans = self._span_tracker.get_completed_spans(trace_id=transaction.transaction_id)
         transaction.spans = spans
 
         with self._lock:
@@ -391,10 +379,7 @@ class PerformanceAnalyzer:
     def __init__(self, apdex_threshold_ms: float = 500.0):
         self._apdex_threshold = apdex_threshold_ms
 
-    def analyze_transactions(
-        self,
-        transactions: List[Transaction]
-    ) -> PerformanceMetrics:
+    def analyze_transactions(self, transactions: List[Transaction]) -> PerformanceMetrics:
         """Analyze transaction performance."""
         if not transactions:
             return PerformanceMetrics()
@@ -405,7 +390,7 @@ class PerformanceAnalyzer:
         metrics = PerformanceMetrics(
             total_transactions=len(transactions),
             error_count=error_count,
-            error_rate=error_count / len(transactions) if transactions else 0.0
+            error_rate=error_count / len(transactions) if transactions else 0.0,
         )
 
         if durations:
@@ -447,8 +432,7 @@ class PerformanceAnalyzer:
 
         satisfied = sum(1 for d in durations if d <= self._apdex_threshold)
         tolerating = sum(
-            1 for d in durations
-            if self._apdex_threshold < d <= self._apdex_threshold * 4
+            1 for d in durations if self._apdex_threshold < d <= self._apdex_threshold * 4
         )
 
         return (satisfied + tolerating / 2) / len(durations)
@@ -472,7 +456,7 @@ class ErrorTracker:
         error: Exception,
         transaction_id: Optional[str] = None,
         span_id: Optional[str] = None,
-        attributes: Optional[Dict[str, Any]] = None
+        attributes: Optional[Dict[str, Any]] = None,
     ) -> ErrorInfo:
         """Track an error."""
         error_type = type(error).__name__
@@ -480,9 +464,7 @@ class ErrorTracker:
         stack_trace = traceback.format_exc()
 
         # Create fingerprint for deduplication
-        fingerprint = hashlib.md5(
-            f"{error_type}:{message}".encode()
-        ).hexdigest()[:12]
+        fingerprint = hashlib.sha256(f"{error_type}:{message}".encode()).hexdigest()[:12]
 
         now = datetime.now()
 
@@ -503,7 +485,7 @@ class ErrorTracker:
                 span_id=span_id,
                 attributes=attributes or {},
                 first_seen=now,
-                last_seen=now
+                last_seen=now,
             )
 
             self._errors[fingerprint] = error_info
@@ -515,7 +497,7 @@ class ErrorTracker:
         self,
         start_time: Optional[datetime] = None,
         error_type: Optional[str] = None,
-        limit: int = 100
+        limit: int = 100,
     ) -> List[ErrorInfo]:
         """Get tracked errors."""
         with self._lock:
@@ -549,12 +531,7 @@ class DependencyTracker:
         self._lock = threading.Lock()
 
     def record_call(
-        self,
-        name: str,
-        dependency_type: str,
-        target: str,
-        duration_ms: float,
-        success: bool = True
+        self, name: str, dependency_type: str, target: str, duration_ms: float, success: bool = True
     ) -> None:
         """Record a dependency call."""
         key = f"{name}:{target}"
@@ -562,9 +539,7 @@ class DependencyTracker:
         with self._lock:
             if key not in self._dependencies:
                 self._dependencies[key] = DependencyInfo(
-                    name=name,
-                    dependency_type=dependency_type,
-                    target=target
+                    name=name, dependency_type=dependency_type, target=target
                 )
 
             dep = self._dependencies[key]
@@ -615,19 +590,17 @@ class APMManager:
         self,
         name: str,
         transaction_type: TransactionType = TransactionType.REQUEST,
-        **attributes: Any
+        **attributes: Any,
     ) -> Transaction:
         """Start a new transaction."""
         attrs = {**self._config.custom_tags, **attributes}
-        return self._transaction_tracker.start_transaction(
-            name, transaction_type, attrs
-        )
+        return self._transaction_tracker.start_transaction(name, transaction_type, attrs)
 
     def end_transaction(
         self,
         transaction: Transaction,
         status: SpanStatus = SpanStatus.OK,
-        error: Optional[str] = None
+        error: Optional[str] = None,
     ) -> None:
         """End a transaction."""
         self._transaction_tracker.end_transaction(transaction, status, error)
@@ -640,7 +613,7 @@ class APMManager:
         transaction: Transaction,
         kind: SpanKind = SpanKind.INTERNAL,
         parent_span: Optional[Span] = None,
-        **attributes: Any
+        **attributes: Any,
     ) -> Span:
         """Start a new span."""
         return self._span_tracker.start_span(
@@ -648,14 +621,11 @@ class APMManager:
             trace_id=transaction.transaction_id,
             kind=kind,
             parent_span_id=parent_span.span_id if parent_span else None,
-            attributes=attributes
+            attributes=attributes,
         )
 
     def end_span(
-        self,
-        span: Span,
-        status: SpanStatus = SpanStatus.OK,
-        error: Optional[str] = None
+        self, span: Span, status: SpanStatus = SpanStatus.OK, error: Optional[str] = None
     ) -> None:
         """End a span."""
         self._span_tracker.end_span(span, status, error)
@@ -667,37 +637,28 @@ class APMManager:
         error: Exception,
         transaction: Optional[Transaction] = None,
         span: Optional[Span] = None,
-        **attributes: Any
+        **attributes: Any,
     ) -> ErrorInfo:
         """Capture an error."""
         return self._error_tracker.track_error(
             error,
             transaction_id=transaction.transaction_id if transaction else None,
             span_id=span.span_id if span else None,
-            attributes=attributes
+            attributes=attributes,
         )
 
     # Dependency tracking
 
     def record_dependency(
-        self,
-        name: str,
-        dependency_type: str,
-        target: str,
-        duration_ms: float,
-        success: bool = True
+        self, name: str, dependency_type: str, target: str, duration_ms: float, success: bool = True
     ) -> None:
         """Record a dependency call."""
-        self._dependency_tracker.record_call(
-            name, dependency_type, target, duration_ms, success
-        )
+        self._dependency_tracker.record_call(name, dependency_type, target, duration_ms, success)
 
     # Analytics
 
     def get_performance_metrics(
-        self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
     ) -> PerformanceMetrics:
         """Get performance metrics."""
         transactions = self._transaction_tracker.get_recent_transactions(10000)
@@ -732,7 +693,7 @@ class APMManager:
         self,
         name: str,
         transaction_type: TransactionType = TransactionType.REQUEST,
-        **attributes: Any
+        **attributes: Any,
     ) -> Generator[Transaction, None, None]:
         """Context manager for transactions."""
         transaction = self.start_transaction(name, transaction_type, **attributes)
@@ -750,7 +711,7 @@ class APMManager:
         name: str,
         transaction: Transaction,
         kind: SpanKind = SpanKind.INTERNAL,
-        **attributes: Any
+        **attributes: Any,
     ) -> Generator[Span, None, None]:
         """Context manager for spans."""
         span = self.start_span(name, transaction, kind, **attributes)
@@ -770,11 +731,7 @@ class APMManager:
 class APMVisionProvider(VisionProvider):
     """Vision provider with APM integration."""
 
-    def __init__(
-        self,
-        base_provider: VisionProvider,
-        apm_manager: Optional[APMManager] = None
-    ):
+    def __init__(self, base_provider: VisionProvider, apm_manager: Optional[APMManager] = None):
         self._base_provider = base_provider
         self._apm = apm_manager or APMManager()
 
@@ -783,29 +740,19 @@ class APMVisionProvider(VisionProvider):
         return f"apm_{self._base_provider.provider_name}"
 
     async def analyze_image(
-        self,
-        image_data: bytes,
-        context: Optional[Dict[str, Any]] = None
+        self, image_data: bytes, context: Optional[Dict[str, Any]] = None
     ) -> VisionDescription:
         """Analyze image with APM tracking."""
         with self._apm.transaction_context(
             f"vision.analyze.{self._base_provider.provider_name}",
             TransactionType.REQUEST,
-            image_size=len(image_data)
+            image_size=len(image_data),
         ) as transaction:
-
-            with self._apm.span_context(
-                "analyze_image",
-                transaction,
-                SpanKind.INTERNAL
-            ) as span:
-
+            with self._apm.span_context("analyze_image", transaction, SpanKind.INTERNAL) as span:
                 start_time = time.time()
 
                 try:
-                    result = await self._base_provider.analyze_image(
-                        image_data, context
-                    )
+                    result = await self._base_provider.analyze_image(image_data, context)
 
                     duration_ms = (time.time() - start_time) * 1000
 
@@ -815,7 +762,7 @@ class APMVisionProvider(VisionProvider):
                         dependency_type="vision_provider",
                         target="analyze_image",
                         duration_ms=duration_ms,
-                        success=True
+                        success=True,
                     )
 
                     return result
@@ -828,7 +775,7 @@ class APMVisionProvider(VisionProvider):
                         dependency_type="vision_provider",
                         target="analyze_image",
                         duration_ms=duration_ms,
-                        success=False
+                        success=False,
                     )
 
                     raise
@@ -849,7 +796,7 @@ T = TypeVar("T")
 def apm_traced(
     apm_manager: APMManager,
     name: Optional[str] = None,
-    transaction_type: TransactionType = TransactionType.REQUEST
+    transaction_type: TransactionType = TransactionType.REQUEST,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator to trace functions with APM."""
 
@@ -858,16 +805,12 @@ def apm_traced(
 
         @functools.wraps(func)
         def sync_wrapper(*args: Any, **kwargs: Any) -> T:
-            with apm_manager.transaction_context(
-                span_name, transaction_type
-            ) as transaction:
+            with apm_manager.transaction_context(span_name, transaction_type) as transaction:
                 return func(*args, **kwargs)
 
         @functools.wraps(func)
         async def async_wrapper(*args: Any, **kwargs: Any) -> T:
-            with apm_manager.transaction_context(
-                span_name, transaction_type
-            ) as transaction:
+            with apm_manager.transaction_context(span_name, transaction_type) as transaction:
                 return await func(*args, **kwargs)
 
         if asyncio.iscoroutinefunction(func):
@@ -885,33 +828,24 @@ def apm_traced(
 def create_apm_manager(
     service_name: str = "vision-service",
     environment: str = "production",
-    apdex_threshold_ms: float = 500.0
+    apdex_threshold_ms: float = 500.0,
 ) -> APMManager:
     """Create a new APM manager."""
     config = APMConfig(
-        service_name=service_name,
-        environment=environment,
-        apdex_threshold_ms=apdex_threshold_ms
+        service_name=service_name, environment=environment, apdex_threshold_ms=apdex_threshold_ms
     )
     return APMManager(config)
 
 
 def create_apm_config(
-    provider: APMProvider = APMProvider.CUSTOM,
-    service_name: str = "vision-service",
-    **kwargs: Any
+    provider: APMProvider = APMProvider.CUSTOM, service_name: str = "vision-service", **kwargs: Any
 ) -> APMConfig:
     """Create APM configuration."""
-    return APMConfig(
-        provider=provider,
-        service_name=service_name,
-        **kwargs
-    )
+    return APMConfig(provider=provider, service_name=service_name, **kwargs)
 
 
 def create_apm_provider(
-    base_provider: VisionProvider,
-    apm_manager: Optional[APMManager] = None
+    base_provider: VisionProvider, apm_manager: Optional[APMManager] = None
 ) -> APMVisionProvider:
     """Create an APM vision provider."""
     return APMVisionProvider(base_provider, apm_manager)

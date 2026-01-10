@@ -1,6 +1,8 @@
-import os
 import asyncio
+import os
+
 from fastapi.testclient import TestClient
+
 from src.main import app
 
 
@@ -26,7 +28,9 @@ def test_parse_timeout(monkeypatch):
     monkeypatch.setattr(factory, "AdapterFactory", MockAdapterFactory)
     client = TestClient(app)
     files = {"file": ("test.step", b"STEP DATA")}
-    r = client.post("/api/v1/analyze/", files=files, data={"options": "{}"}, headers={"api-key": "test"})
+    r = client.post(
+        "/api/v1/analyze/", files=files, data={"options": "{}"}, headers={"api-key": "test"}
+    )
     # Expect timeout 504 or graceful fallback depending on environment; assert structured error if timeout
     if r.status_code == 504:
         body = r.json()
@@ -34,4 +38,3 @@ def test_parse_timeout(monkeypatch):
     else:
         # If environment prevents monkeypatch from taking effect, ensure request processed
         assert r.status_code in (200, 504)
-

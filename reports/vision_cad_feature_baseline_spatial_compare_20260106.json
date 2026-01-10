@@ -1,0 +1,355 @@
+{
+  "base_thresholds": {},
+  "grid": {},
+  "results": [
+    {
+      "thresholds": {},
+      "samples": [
+        {
+          "name": "BTJ01230901522-00\u6c7d\u6c34\u5206\u79bb\u5668v1__f36cd05a.png",
+          "lines": 13,
+          "circles": 3,
+          "arcs": 0,
+          "ink_ratio": 0.0238,
+          "components": 16
+        },
+        {
+          "name": "BTJ01230901522-00\u6c7d\u6c34\u5206\u79bb\u5668v2__9f41a97f.png",
+          "lines": 13,
+          "circles": 3,
+          "arcs": 0,
+          "ink_ratio": 0.0238,
+          "components": 16
+        },
+        {
+          "name": "BTJ01231101522-00\u81ea\u52a8\u8fdb\u6599\u88c5\u7f6ev1__ed0666ed.png",
+          "lines": 10,
+          "circles": 0,
+          "arcs": 0,
+          "ink_ratio": 0.0157,
+          "components": 10
+        },
+        {
+          "name": "BTJ01231101522-00\u81ea\u52a8\u8fdb\u6599\u88c5\u7f6ev2__e0007441.png",
+          "lines": 10,
+          "circles": 0,
+          "arcs": 0,
+          "ink_ratio": 0.0157,
+          "components": 10
+        },
+        {
+          "name": "BTJ01231201522-00\u62d6\u8f66DN1500v1__367bd8de.png",
+          "lines": 2,
+          "circles": 3,
+          "arcs": 0,
+          "ink_ratio": 0.008,
+          "components": 5
+        },
+        {
+          "name": "BTJ01231201522-00\u62d6\u8f66DN1500v2__6da497fb.png",
+          "lines": 2,
+          "circles": 3,
+          "arcs": 0,
+          "ink_ratio": 0.008,
+          "components": 5
+        },
+        {
+          "name": "BTJ01231301522-00\u8717\u8f6e\u8717\u6746\u4f20\u52a8\u51fa\u6599\u673a\u6784v1__89176167.png",
+          "lines": 4,
+          "circles": 3,
+          "arcs": 0,
+          "ink_ratio": 0.0143,
+          "components": 7
+        },
+        {
+          "name": "BTJ01231301522-00\u8717\u8f6e\u8717\u6746\u4f20\u52a8\u51fa\u6599\u673a\u6784v2__0bd0b61f.png",
+          "lines": 4,
+          "circles": 3,
+          "arcs": 0,
+          "ink_ratio": 0.0143,
+          "components": 7
+        },
+        {
+          "name": "BTJ01231301522-00\u8717\u8f6e\u8717\u6746\u4f20\u52a8\u51fa\u6599\u673a\u6784v3__a0178782.png",
+          "lines": 4,
+          "circles": 3,
+          "arcs": 0,
+          "ink_ratio": 0.0143,
+          "components": 7
+        },
+        {
+          "name": "BTJ01231301522-01\u8f74\u5411\u5b9a\u4f4d\u8f74\u627fv1__3d251799.png",
+          "lines": 10,
+          "circles": 0,
+          "arcs": 0,
+          "ink_ratio": 0.0217,
+          "components": 10
+        },
+        {
+          "name": "BTJ01231301522-01\u8f74\u5411\u5b9a\u4f4d\u8f74\u627fv2__0c88289b.png",
+          "lines": 10,
+          "circles": 0,
+          "arcs": 0,
+          "ink_ratio": 0.0217,
+          "components": 10
+        },
+        {
+          "name": "BTJ01231501522-00\u77ed\u8f74\u627f\u5ea7(\u76d6)v1__d80be3da.png",
+          "lines": 15,
+          "circles": 2,
+          "arcs": 2,
+          "ink_ratio": 0.0306,
+          "components": 19
+        },
+        {
+          "name": "BTJ01231501522-00\u77ed\u8f74\u627f\u5ea7(\u76d6)v2__923f3197.png",
+          "lines": 14,
+          "circles": 3,
+          "arcs": 2,
+          "ink_ratio": 0.0303,
+          "components": 19
+        },
+        {
+          "name": "BTJ01231501522-00\u77ed\u8f74\u627f\u5ea7(\u76d6)v3__42db91c9.png",
+          "lines": 14,
+          "circles": 3,
+          "arcs": 2,
+          "ink_ratio": 0.0303,
+          "components": 19
+        },
+        {
+          "name": "BTJ01232801522-01\u7535\u52a0\u70ed\u7bb1v1__d5549abb.png",
+          "lines": 7,
+          "circles": 1,
+          "arcs": 0,
+          "ink_ratio": 0.0156,
+          "components": 8
+        },
+        {
+          "name": "BTJ01232801522-01\u7535\u52a0\u70ed\u7bb1v2__b8a6335f.png",
+          "lines": 7,
+          "circles": 1,
+          "arcs": 0,
+          "ink_ratio": 0.0156,
+          "components": 8
+        },
+        {
+          "name": "BTJ01239601522-03\u626d\u8f6c\u5f39\u7c27v1__c9712988.png",
+          "lines": 6,
+          "circles": 0,
+          "arcs": 0,
+          "ink_ratio": 0.0206,
+          "components": 6
+        },
+        {
+          "name": "BTJ01239601522-03\u626d\u8f6c\u5f39\u7c27v2__d4055527.png",
+          "lines": 6,
+          "circles": 0,
+          "arcs": 0,
+          "ink_ratio": 0.0206,
+          "components": 6
+        },
+        {
+          "name": "BTJ01239601522-03\u626d\u8f6c\u5f39\u7c27v3__97695b78.png",
+          "lines": 6,
+          "circles": 0,
+          "arcs": 0,
+          "ink_ratio": 0.0206,
+          "components": 6
+        },
+        {
+          "name": "BTJ01239901522-00\u62d6\u8f6e\u7ec4\u4ef6v1__f953a9aa.png",
+          "lines": 8,
+          "circles": 5,
+          "arcs": 0,
+          "ink_ratio": 0.0237,
+          "components": 13
+        }
+      ],
+      "summary": {
+        "total_lines": 165,
+        "total_circles": 36,
+        "total_arcs": 6,
+        "avg_ink_ratio": 0.0195,
+        "avg_components": 10.35
+      }
+    }
+  ],
+  "comparison": {
+    "combo_deltas": [
+      {
+        "combo_index": 1,
+        "summary_delta": {
+          "total_lines": 0,
+          "total_circles": 0,
+          "total_arcs": 0,
+          "avg_ink_ratio": 0.0,
+          "avg_components": 0.0
+        },
+        "sample_deltas": [
+          {
+            "name": "BTJ01230901522-00\u6c7d\u6c34\u5206\u79bb\u5668v1__f36cd05a.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01230901522-00\u6c7d\u6c34\u5206\u79bb\u5668v2__9f41a97f.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01231101522-00\u81ea\u52a8\u8fdb\u6599\u88c5\u7f6ev1__ed0666ed.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01231101522-00\u81ea\u52a8\u8fdb\u6599\u88c5\u7f6ev2__e0007441.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01231201522-00\u62d6\u8f66DN1500v1__367bd8de.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01231201522-00\u62d6\u8f66DN1500v2__6da497fb.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01231301522-00\u8717\u8f6e\u8717\u6746\u4f20\u52a8\u51fa\u6599\u673a\u6784v1__89176167.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01231301522-00\u8717\u8f6e\u8717\u6746\u4f20\u52a8\u51fa\u6599\u673a\u6784v2__0bd0b61f.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01231301522-00\u8717\u8f6e\u8717\u6746\u4f20\u52a8\u51fa\u6599\u673a\u6784v3__a0178782.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01231301522-01\u8f74\u5411\u5b9a\u4f4d\u8f74\u627fv1__3d251799.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01231301522-01\u8f74\u5411\u5b9a\u4f4d\u8f74\u627fv2__0c88289b.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01231501522-00\u77ed\u8f74\u627f\u5ea7(\u76d6)v1__d80be3da.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01231501522-00\u77ed\u8f74\u627f\u5ea7(\u76d6)v2__923f3197.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01231501522-00\u77ed\u8f74\u627f\u5ea7(\u76d6)v3__42db91c9.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01232801522-01\u7535\u52a0\u70ed\u7bb1v1__d5549abb.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01232801522-01\u7535\u52a0\u70ed\u7bb1v2__b8a6335f.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01239601522-03\u626d\u8f6c\u5f39\u7c27v1__c9712988.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01239601522-03\u626d\u8f6c\u5f39\u7c27v2__d4055527.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01239601522-03\u626d\u8f6c\u5f39\u7c27v3__97695b78.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          },
+          {
+            "name": "BTJ01239901522-00\u62d6\u8f6e\u7ec4\u4ef6v1__f953a9aa.png",
+            "lines_delta": 0,
+            "circles_delta": 0,
+            "arcs_delta": 0,
+            "ink_ratio_delta": 0.0,
+            "components_delta": 0
+          }
+        ],
+        "missing_samples": []
+      }
+    ]
+  }
+}

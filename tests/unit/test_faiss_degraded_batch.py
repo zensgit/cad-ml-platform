@@ -6,8 +6,9 @@ batch similarity queries, ensuring graceful degradation to in-memory store.
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -77,10 +78,7 @@ def test_batch_similarity_faiss_unavailable(mock_faiss_unavailable):
     response = client.post(
         "/api/v1/vectors/similarity/batch",
         headers={"X-API-Key": "test"},
-        json={
-            "ids": ["test1", "test2"],
-            "top_k": 5
-        }
+        json={"ids": ["test1", "test2"], "top_k": 5},
     )
 
     # Should succeed with fallback or return structured error
@@ -113,10 +111,7 @@ def test_batch_similarity_faiss_init_failure(mock_faiss_init_failure):
     response = client.post(
         "/api/v1/vectors/similarity/batch",
         headers={"X-API-Key": "test"},
-        json={
-            "ids": ["test1"],
-            "top_k": 3
-        }
+        json={"ids": ["test1"], "top_k": 3},
     )
 
     # Should handle initialization failure gracefully
@@ -133,7 +128,7 @@ def test_batch_similarity_faiss_init_failure(mock_faiss_init_failure):
                 "SERVICE_UNAVAILABLE",
                 "BACKEND_UNAVAILABLE",
                 "INTERNAL_ERROR",
-                "DATA_NOT_FOUND"
+                "DATA_NOT_FOUND",
             ]
     else:
         # Succeeded with fallback
@@ -145,10 +140,7 @@ def test_batch_similarity_faiss_query_exception(mock_faiss_query_exception):
     response = client.post(
         "/api/v1/vectors/similarity/batch",
         headers={"X-API-Key": "test"},
-        json={
-            "ids": ["test1", "test2", "test3"],
-            "top_k": 5
-        }
+        json={"ids": ["test1", "test2", "test3"], "top_k": 5},
     )
 
     # Should handle query exceptions
@@ -175,10 +167,7 @@ def test_batch_similarity_faiss_partial_failure(mock_faiss_partial_failure):
     response = client.post(
         "/api/v1/vectors/similarity/batch",
         headers={"X-API-Key": "test"},
-        json={
-            "ids": ["vec1", "vec2", "vec3"],
-            "top_k": 5
-        }
+        json={"ids": ["vec1", "vec2", "vec3"], "top_k": 5},
     )
 
     # Should handle partial failures
@@ -201,41 +190,43 @@ def test_batch_similarity_faiss_partial_failure(mock_faiss_partial_failure):
         assert "success" in statuses or "error" in statuses
 
 
-def test_batch_similarity_fallback_metric_recording():
+def test_batch_similarity_fallback_metric_recording(monkeypatch: pytest.MonkeyPatch):
     """Test that fallback to memory store is properly recorded in metrics."""
     from src.utils.analysis_metrics import vector_query_backend_total
+
+    if not hasattr(vector_query_backend_total, "_value"):
+        pytest.skip("prometheus_client not available")
 
     with patch("src.core.similarity.get_vector_store") as mock_factory:
         # Mock factory to return memory store
         from src.core.similarity import InMemoryVectorStore
+
         memory_store = InMemoryVectorStore()
+        memory_store._fallback_from = "faiss"
+        memory_store._requested_backend = "faiss"
+        memory_store._available = False
+        monkeypatch.setenv("VECTOR_STORE_BACKEND", "faiss")
         mock_factory.return_value = memory_store
 
         # Get initial count
-        try:
-            initial_count = vector_query_backend_total.labels(backend="memory_fallback")._value.get()
-        except Exception:
-            initial_count = 0
+        initial_count = vector_query_backend_total.labels(backend="memory_fallback")._value.get()
 
         # Execute batch query
         response = client.post(
             "/api/v1/vectors/similarity/batch",
             headers={"X-API-Key": "test"},
-            json={
-                "ids": ["test1"],
-                "top_k": 5
-            }
+            json={"ids": ["test1"], "top_k": 5},
         )
 
         # Should complete (success or not_found acceptable)
         assert response.status_code in (200, 404)
 
-        # Verify metric behavior (may or may not increment depending on implementation)
-        try:
-            final_count = vector_query_backend_total.labels(backend="memory_fallback")._value.get()
-            assert final_count >= initial_count  # Should not decrease
-        except Exception:
-            pass  # Metric might not be available
+        if response.status_code == 200:
+            data = response.json()
+            assert data.get("fallback") is True
+
+        final_count = vector_query_backend_total.labels(backend="memory_fallback")._value.get()
+        assert final_count > initial_count
 
 
 def test_batch_similarity_fallback_response_structure():
@@ -250,11 +241,7 @@ def test_batch_similarity_fallback_response_structure():
         response = client.post(
             "/api/v1/vectors/similarity/batch",
             headers={"X-API-Key": "test"},
-            json={
-                "ids": ["test1", "test2"],
-                "top_k": 3,
-                "material": "steel"
-            }
+            json={"ids": ["test1", "test2"], "top_k": 3, "material": "steel"},
         )
 
         # Should return valid response structure
@@ -301,8 +288,8 @@ def test_batch_similarity_fallback_with_filters():
                 "material": "aluminum",
                 "complexity": "high",
                 "format": "STEP",
-                "min_score": 0.7
-            }
+                "min_score": 0.7,
+            },
         )
 
         # Should handle filters properly even with fallback
@@ -335,10 +322,7 @@ def test_batch_similarity_performance_acceptable_with_fallback():
         response = client.post(
             "/api/v1/vectors/similarity/batch",
             headers={"X-API-Key": "test"},
-            json={
-                "ids": ["test1", "test2", "test3", "test4", "test5"],
-                "top_k": 10
-            }
+            json={"ids": ["test1", "test2", "test3", "test4", "test5"], "top_k": 10},
         )
         duration = time.time() - start
 
@@ -365,10 +349,7 @@ def test_batch_similarity_faiss_recovery():
         response1 = client.post(
             "/api/v1/vectors/similarity/batch",
             headers={"X-API-Key": "test"},
-            json={
-                "ids": ["test1"],
-                "top_k": 5
-            }
+            json={"ids": ["test1"], "top_k": 5},
         )
 
         # Should use fallback
@@ -378,10 +359,7 @@ def test_batch_similarity_faiss_recovery():
     response2 = client.post(
         "/api/v1/vectors/similarity/batch",
         headers={"X-API-Key": "test"},
-        json={
-            "ids": ["test1"],
-            "top_k": 5
-        }
+        json={"ids": ["test1"], "top_k": 5},
     )
 
     # Should work or fail gracefully

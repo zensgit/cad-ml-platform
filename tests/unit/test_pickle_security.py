@@ -9,23 +9,24 @@ Verifies that:
 
 from __future__ import annotations
 
-import pickle
 import io
 import os
-import pytest
+import pickle
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from src.core.pickle_security import (
-    OpcodeMode,
     DANGEROUS_OPCODES,
     SAFE_OPCODES,
-    scan_pickle_opcodes,
-    validate_pickle_file,
+    OpcodeMode,
+    audit_pickle_directory,
     get_opcode_mode_from_env,
     get_security_config,
-    audit_pickle_directory,
+    scan_pickle_opcodes,
+    validate_pickle_file,
 )
 
 
@@ -101,9 +102,7 @@ class TestSafePickleScanning:
 
     def test_positions_included_when_requested(self, safe_pickle_data):
         """Test position info included when requested."""
-        result = scan_pickle_opcodes(
-            safe_pickle_data, include_positions=True
-        )
+        result = scan_pickle_opcodes(safe_pickle_data, include_positions=True)
 
         assert "positions" in result
         assert len(result["positions"]) > 0
@@ -121,6 +120,7 @@ class TestDangerousPickleScanning:
         Note: Actually creating dangerous pickles is complex; we create
         a simple pickle and verify the scanning logic works.
         """
+
         # This creates a pickle with REDUCE opcode (via __reduce__)
         class DangerousClass:
             def __reduce__(self):
@@ -191,9 +191,7 @@ class TestFileValidation:
     @pytest.fixture
     def temp_pickle_file(self):
         """Create a temporary safe pickle file."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".pkl", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".pkl", delete=False) as f:
             data = {"test": "data", "value": 123}
             pickle.dump(data, f)
             temp_path = f.name
@@ -225,9 +223,7 @@ class TestFileValidation:
 
     def test_validate_with_mode_override(self, temp_pickle_file):
         """Test validating with explicit mode."""
-        result = validate_pickle_file(
-            temp_pickle_file, mode=OpcodeMode.WHITELIST
-        )
+        result = validate_pickle_file(temp_pickle_file, mode=OpcodeMode.WHITELIST)
 
         assert result["mode"] == "whitelist"
         # Safe pickle should pass whitelist too
@@ -397,7 +393,7 @@ class TestErrorHandling:
     def test_scan_truncated_pickle(self):
         """Test scanning truncated pickle data."""
         valid_data = pickle.dumps({"test": "data"})
-        truncated = valid_data[:len(valid_data) // 2]
+        truncated = valid_data[: len(valid_data) // 2]
 
         result = scan_pickle_opcodes(truncated)
 
@@ -428,9 +424,7 @@ class TestModeBehavior:
 
     def test_blocklist_mode_only_checks_dangerous(self, mixed_pickle_data):
         """Test blocklist mode only blocks dangerous opcodes."""
-        result = scan_pickle_opcodes(
-            mixed_pickle_data, mode=OpcodeMode.BLOCKLIST
-        )
+        result = scan_pickle_opcodes(mixed_pickle_data, mode=OpcodeMode.BLOCKLIST)
 
         # Safe data should pass
         assert result["safe"] is True
@@ -441,9 +435,7 @@ class TestModeBehavior:
 
     def test_whitelist_mode_is_strictest(self, mixed_pickle_data):
         """Test whitelist mode is the strictest."""
-        result = scan_pickle_opcodes(
-            mixed_pickle_data, mode=OpcodeMode.WHITELIST
-        )
+        result = scan_pickle_opcodes(mixed_pickle_data, mode=OpcodeMode.WHITELIST)
 
         # Simple data should still pass whitelist
         assert result["safe"] is True

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # CAD ML Platform主服务
   cad-ml-api:
@@ -9,12 +7,25 @@ services:
     image: cad-ml-platform:latest
     container_name: cad-ml-api
     ports:
-      - "8000:8000"  # API端口
-      - "9090:9090"  # Prometheus metrics端口
+      - "${CAD_ML_API_PORT:-8000}:8000"  # API端口
+      - "${CAD_ML_API_METRICS_PORT:-9090}:9090"  # Prometheus metrics端口
     environment:
       - LOG_LEVEL=INFO
       - REDIS_URL=redis://redis:6379/0
-      - WORKERS=4
+      - VECTOR_STORE_BACKEND=redis
+      # 2D dedup async backend (required when WORKERS>1)
+      - DEDUP2D_ASYNC_BACKEND=redis
+      - DEDUP2D_REDIS_URL=redis://redis:6379/0
+      - DEDUP2D_REDIS_KEY_PREFIX=dedup2d
+      - DEDUP2D_ARQ_QUEUE_NAME=dedup2d:queue
+      # Store uploaded file outside Redis (Phase 2.5)
+      - DEDUP2D_FILE_STORAGE=local
+      - DEDUP2D_FILE_STORAGE_DIR=data/dedup2d_uploads
+      - DEDUP2D_FILE_STORAGE_CLEANUP_ON_FINISH=1
+      # Point to dedupcad-vision (run it separately, or change this to your service DNS)
+      - DEDUPCAD_VISION_URL=${DEDUPCAD_VISION_URL:-http://host.docker.internal:58001}
+      - DEDUPCAD_VISION_TIMEOUT_SECONDS=60
+      - WORKERS=1
       - HOST=0.0.0.0
       - PORT=8000
       - CORS_ORIGINS=["http://localhost:3000", "http://localhost:8080"]
@@ -22,11 +33,42 @@ services:
       - ../../models:/app/models:ro
       - ../../knowledge_base:/app/knowledge_base:ro
       - ../../config:/app/config:ro
+      - cad-ml-data:/app/data
       - cad-ml-logs:/var/log/cad-ml
     depends_on:
       - redis
     networks:
       - cad-ml-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # 2D Dedup worker (ARQ)
+  dedup2d-worker:
+    image: cad-ml-platform:latest
+    container_name: cad-ml-dedup2d-worker
+    command: ["arq", "src.core.dedupcad_2d_worker.WorkerSettings"]
+    environment:
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://redis:6379/0
+      - DEDUP2D_REDIS_URL=redis://redis:6379/0
+      - DEDUP2D_REDIS_KEY_PREFIX=dedup2d
+      - DEDUP2D_ARQ_QUEUE_NAME=dedup2d:queue
+      - DEDUP2D_FILE_STORAGE=local
+      - DEDUP2D_FILE_STORAGE_DIR=data/dedup2d_uploads
+      - DEDUP2D_FILE_STORAGE_CLEANUP_ON_FINISH=1
+      - DEDUPCAD_VISION_URL=${DEDUPCAD_VISION_URL:-http://host.docker.internal:58001}
+      - DEDUPCAD_VISION_TIMEOUT_SECONDS=60
+    volumes:
+      - cad-ml-data:/app/data
+    depends_on:
+      - redis
+    networks:
+      - cad-ml-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      disable: true
     restart: unless-stopped
 
   # Redis缓存服务
@@ -34,7 +76,7 @@ services:
     image: redis:7-alpine
     container_name: cad-ml-redis
     ports:
-      - "6379:6379"
+      - "${CAD_ML_REDIS_PORT:-16379}:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes --maxmemory 1gb --maxmemory-policy allkeys-lru
@@ -47,13 +89,29 @@ services:
     image: prom/prometheus:latest
     container_name: cad-ml-prometheus
     ports:
-      - "9091:9090"
+      - "${CAD_ML_PROMETHEUS_PORT:-9091}:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../../prometheus/rules:/etc/prometheus/rules:ro
+      - ../../prometheus/alerts:/etc/prometheus/alerts:ro
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
+    networks:
+      - cad-ml-network
+    restart: unless-stopped
+
+  # Alertmanager (Prometheus alert routing)
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: cad-ml-alertmanager
+    ports:
+      - "${CAD_ML_ALERTMANAGER_PORT:-9093}:9093"
+    volumes:
+      - ../../config/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
     networks:
       - cad-ml-network
     restart: unless-stopped
@@ -63,14 +121,14 @@ services:
     image: grafana/grafana:latest
     container_name: cad-ml-grafana
     ports:
-      - "3001:3000"
+      - "${CAD_ML_GRAFANA_PORT:-3001}:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_INSTALL_PLUGINS=redis-datasource
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
-      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ../../grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ../../grafana/datasources:/etc/grafana/provisioning/datasources:ro
     depends_on:
       - prometheus
     networks:
@@ -98,10 +156,9 @@ services:
 # 网络配置
 networks:
   cad-ml-network:
+    name: cad-ml-network
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/24
+    # Avoid hard-coded subnets: can overlap with existing Docker networks.
 
 # 数据卷
 volumes:
@@ -110,6 +167,8 @@ volumes:
   prometheus-data:
     driver: local
   grafana-data:
+    driver: local
+  cad-ml-data:
     driver: local
   cad-ml-logs:
     driver: local

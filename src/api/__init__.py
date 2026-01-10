@@ -3,6 +3,7 @@ from fastapi import APIRouter
 
 # Import critical routers first (health). Other routers are imported best-effort
 from src.api.v1 import health
+
 try:
     from src.api.v1 import analyze  # type: ignore
 except Exception:
@@ -44,6 +45,26 @@ try:
     from src.api.v1 import dedup  # type: ignore
 except Exception:
     dedup = None  # type: ignore
+try:
+    from src.api.v1 import feedback  # type: ignore
+except Exception:
+    feedback = None  # type: ignore
+try:
+    from src.api.v1 import render  # type: ignore
+except Exception:
+    render = None  # type: ignore
+try:
+    from src.api.v1 import active_learning  # type: ignore
+except Exception:
+    active_learning = None  # type: ignore
+try:
+    from src.api.v1 import compare  # type: ignore
+except Exception:
+    compare = None  # type: ignore
+try:
+    from src.api.v1 import twin  # type: ignore
+except Exception:
+    twin = None  # type: ignore
 
 api_router = APIRouter()
 
@@ -57,6 +78,8 @@ if drift is not None:
     v1_router.include_router(drift.router, prefix="/analyze", tags=["漂移"])  # type: ignore
 if analyze is not None:
     v1_router.include_router(analyze.router, prefix="/analyze", tags=["分析"])  # type: ignore
+if compare is not None:
+    v1_router.include_router(compare.router, prefix="/compare", tags=["对比"])  # type: ignore
 
 # 向量相关模块
 if vectors is not None:
@@ -89,7 +112,21 @@ if ocr is not None:
     v1_router.include_router(ocr.router, prefix="/ocr", tags=["OCR"])  # type: ignore
 if dedup is not None:
     v1_router.include_router(dedup.router, prefix="/dedup", tags=["查重"])  # type: ignore
+if feedback is not None:
+    v1_router.include_router(feedback.router, prefix="/feedback", tags=["反馈"])  # type: ignore
+if render is not None:
+    v1_router.include_router(render.router, prefix="/render", tags=["渲染"])  # type: ignore
+if active_learning is not None:
+    v1_router.include_router(
+        active_learning.router, prefix="/active-learning", tags=["主动学习"]
+    )  # type: ignore
+if twin is not None:
+    v1_router.include_router(twin.router, prefix="/twin", tags=["数字孪生"])  # type: ignore
 
 api_router.include_router(v1_router)
+if compare is not None:
+    api_router.include_router(
+        compare.router, prefix="/compare", tags=["对比"], include_in_schema=False
+    )  # type: ignore
 
 __all__ = ["api_router"]

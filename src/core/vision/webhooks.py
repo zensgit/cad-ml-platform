@@ -78,9 +78,7 @@ class WebhookConfig:
 
     url: str
     secret: Optional[str] = None  # For signature verification
-    events: List[WebhookEventType] = field(
-        default_factory=lambda: list(WebhookEventType)
-    )
+    events: List[WebhookEventType] = field(default_factory=lambda: list(WebhookEventType))
     max_retries: int = 3
     retry_delay: float = 1.0  # Base delay in seconds
     timeout: float = 30.0
@@ -131,9 +129,7 @@ class WebhookManager:
             delivery_concurrency: Max concurrent deliveries
         """
         self._webhooks: Dict[str, WebhookConfig] = {}
-        self._queue: asyncio.Queue[WebhookEvent] = asyncio.Queue(
-            maxsize=max_queue_size
-        )
+        self._queue: asyncio.Queue[WebhookEvent] = asyncio.Queue(maxsize=max_queue_size)
         self._delivery_semaphore = asyncio.Semaphore(delivery_concurrency)
         self._delivery_history: List[DeliveryResult] = []
         self._running = False
@@ -243,9 +239,7 @@ class WebhookManager:
         """Deliver an event to all matching webhooks."""
         for webhook_id, config in self._webhooks.items():
             if config.should_deliver(event.event_type):
-                asyncio.create_task(
-                    self._deliver_to_webhook(event, webhook_id, config)
-                )
+                asyncio.create_task(self._deliver_to_webhook(event, webhook_id, config))
 
     async def _deliver_to_webhook(
         self,
@@ -266,18 +260,14 @@ class WebhookManager:
 
                     if result.success:
                         self._delivery_history.append(result)
-                        logger.debug(
-                            f"Webhook delivered: {event.event_id} -> {webhook_id}"
-                        )
+                        logger.debug(f"Webhook delivered: {event.event_id} -> {webhook_id}")
                         return result
 
                     last_error = result.error or f"HTTP {result.status_code}"
 
                 except Exception as e:
                     last_error = str(e)
-                    logger.warning(
-                        f"Webhook delivery failed (attempt {attempt}): {e}"
-                    )
+                    logger.warning(f"Webhook delivery failed (attempt {attempt}): {e}")
 
                 # Exponential backoff
                 if attempt < config.max_retries:
@@ -461,9 +451,7 @@ class WebhookVisionProvider:
         )
 
         try:
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
             elapsed_ms = (time.time() - start_time) * 1000
 
             # Emit completed event

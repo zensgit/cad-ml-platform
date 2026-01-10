@@ -21,7 +21,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from .base import VisionDescription, VisionProvider
 
-
 # ============================================================================
 # Enums and Types
 # ============================================================================
@@ -323,9 +322,7 @@ class EncryptedKeyStore(KeyStore):
 
     def _encrypt(self, data: bytes) -> bytes:
         """Simple XOR encryption (use proper encryption in production)."""
-        key_extended = (self._master_key * ((len(data) // len(self._master_key)) + 1))[
-            : len(data)
-        ]
+        key_extended = (self._master_key * ((len(data) // len(self._master_key)) + 1))[: len(data)]
         return bytes(a ^ b for a, b in zip(data, key_extended))
 
     def _decrypt(self, data: bytes) -> bytes:
@@ -456,9 +453,7 @@ class SecretsVault:
 
     def _encrypt(self, data: bytes) -> bytes:
         """Encrypt data."""
-        key = (self._encryption_key * ((len(data) // len(self._encryption_key)) + 1))[
-            : len(data)
-        ]
+        key = (self._encryption_key * ((len(data) // len(self._encryption_key)) + 1))[: len(data)]
         return bytes(a ^ b for a, b in zip(data, key))
 
     def _decrypt(self, data: bytes) -> bytes:
@@ -635,9 +630,7 @@ class KeyManager:
     ) -> bytes:
         """Derive a key from master key."""
         salt = hashlib.sha256(context.encode()).digest()
-        return self._generator.derive_key(
-            self._master_key, salt, context, length
-        )
+        return self._generator.derive_key(self._master_key, salt, context, length)
 
     def generate_api_key(self, prefix: str = "sk") -> str:
         """Generate an API key."""
@@ -708,9 +701,7 @@ class KeyManagedVisionProvider(VisionProvider):
 
     def get_signing_key(self) -> Optional[CryptoKey]:
         """Get the signing key."""
-        return self._key_manager.get_active_key(
-            KeyType.SIGNING_KEY, KeyAlgorithm.HMAC_SHA256
-        )
+        return self._key_manager.get_active_key(KeyType.SIGNING_KEY, KeyAlgorithm.HMAC_SHA256)
 
 
 # ============================================================================

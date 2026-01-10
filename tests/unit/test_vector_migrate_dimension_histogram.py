@@ -9,15 +9,22 @@ Verifies that:
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch, MagicMock
-from fastapi.testclient import TestClient
+from unittest.mock import MagicMock, patch
+
 import numpy as np
+import pytest
+from fastapi.testclient import TestClient
 
 from src.main import app
 
-
 client = TestClient(app)
+
+
+def _histogram_count(metric) -> float:
+    for sample in metric.collect()[0].samples:
+        if sample.name.endswith("_count"):
+            return sample.value
+    return 0.0
 
 
 class TestVectorMigrateDimensionHistogram:
@@ -32,32 +39,43 @@ class TestVectorMigrateDimensionHistogram:
         original_meta = sim_module._VECTOR_META.copy()
 
         # Create test vectors with different dimensions
-        sim_module._VECTOR_STORE.update({
-            # v1 vectors (5 dimensions)
-            "dim-v1-001": np.random.rand(5).tolist(),
-            "dim-v1-002": np.random.rand(5).tolist(),
-            # v2 vectors (10 dimensions)
-            "dim-v2-001": np.random.rand(10).tolist(),
-            "dim-v2-002": np.random.rand(10).tolist(),
-            # v3 vectors (15 dimensions)
-            "dim-v3-001": np.random.rand(15).tolist(),
-            # v4 vectors (20 dimensions)
-            "dim-v4-001": np.random.rand(20).tolist(),
-        })
+        sim_module._VECTOR_STORE.update(
+            {
+                # v1 vectors (5 dimensions)
+                "dim-v1-001": np.random.rand(5).tolist(),
+                "dim-v1-002": np.random.rand(5).tolist(),
+                # v2 vectors (10 dimensions)
+                "dim-v2-001": np.random.rand(10).tolist(),
+                "dim-v2-002": np.random.rand(10).tolist(),
+                # v3 vectors (15 dimensions)
+                "dim-v3-001": np.random.rand(15).tolist(),
+                # v4 vectors (20 dimensions)
+                "dim-v4-001": np.random.rand(20).tolist(),
+            }
+        )
 
-        sim_module._VECTOR_META.update({
-            "dim-v1-001": {"feature_version": "v1"},
-            "dim-v1-002": {"feature_version": "v1"},
-            "dim-v2-001": {"feature_version": "v2"},
-            "dim-v2-002": {"feature_version": "v2"},
-            "dim-v3-001": {"feature_version": "v3"},
-            "dim-v4-001": {"feature_version": "v4"},
-        })
+        sim_module._VECTOR_META.update(
+            {
+                "dim-v1-001": {"feature_version": "v1"},
+                "dim-v1-002": {"feature_version": "v1"},
+                "dim-v2-001": {"feature_version": "v2"},
+                "dim-v2-002": {"feature_version": "v2"},
+                "dim-v3-001": {"feature_version": "v3"},
+                "dim-v4-001": {"feature_version": "v4"},
+            }
+        )
 
         yield
 
         # Cleanup
-        for key in ["dim-v1-001", "dim-v1-002", "dim-v2-001", "dim-v2-002", "dim-v3-001", "dim-v4-001"]:
+        for key in [
+            "dim-v1-001",
+            "dim-v1-002",
+            "dim-v2-001",
+            "dim-v2-002",
+            "dim-v3-001",
+            "dim-v4-001",
+        ]:
             sim_module._VECTOR_STORE.pop(key, None)
             sim_module._VECTOR_META.pop(key, None)
 
@@ -70,6 +88,28 @@ class TestVectorMigrateDimensionHistogram:
 
         assert vector_migrate_dimension_delta is not None
 
+    def test_dimension_histogram_records_observation(self):
+        """Test histogram count increases after a migration."""
+        from src.utils.analysis_metrics import vector_migrate_dimension_delta
+
+        if not hasattr(vector_migrate_dimension_delta, "collect"):
+            pytest.skip("prometheus client disabled in this environment")
+
+        before = _histogram_count(vector_migrate_dimension_delta)
+        with patch("src.core.feature_extractor.FeatureExtractor.upgrade_vector") as mock_upgrade:
+            mock_upgrade.return_value = np.random.rand(20).tolist()
+
+            response = client.post(
+                "/api/v1/vectors/migrate",
+                json={"ids": ["dim-v1-001"], "to_version": "v4", "dry_run": False},
+                headers={"X-API-Key": "test"},
+            )
+
+            assert response.status_code == 200
+
+        after = _histogram_count(vector_migrate_dimension_delta)
+        assert after > before, "dimension delta histogram should increment"
+
     def test_positive_dimension_delta_upgrade(self):
         """Test positive dimension delta when upgrading (v1 -> v2)."""
         with patch("src.core.feature_extractor.FeatureExtractor.upgrade_vector") as mock_upgrade:
@@ -78,12 +118,8 @@ class TestVectorMigrateDimensionHistogram:
 
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["dim-v1-001"],
-                    "to_version": "v2",
-                    "dry_run": False
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["dim-v1-001"], "to_version": "v2", "dry_run": False},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -102,12 +138,8 @@ class TestVectorMigrateDimensionHistogram:
 
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["dim-v4-001"],
-                    "to_version": "v2",
-                    "dry_run": False
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["dim-v4-001"], "to_version": "v2", "dry_run": False},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -129,9 +161,9 @@ class TestVectorMigrateDimensionHistogram:
                 json={
                     "ids": ["dim-v2-001"],
                     "to_version": "v3",  # Hypothetically same dimension
-                    "dry_run": False
+                    "dry_run": False,
                 },
-                headers={"X-API-Key": "test"}
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -153,9 +185,9 @@ class TestVectorMigrateDimensionHistogram:
                 json={
                     "ids": ["dim-v1-001", "dim-v2-001", "dim-v4-001"],
                     "to_version": "v3",
-                    "dry_run": False
+                    "dry_run": False,
                 },
-                headers={"X-API-Key": "test"}
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -177,12 +209,8 @@ class TestVectorMigrateDimensionHistogram:
 
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["dim-v1-001"],
-                    "to_version": "v4",
-                    "dry_run": True
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["dim-v1-001"], "to_version": "v4", "dry_run": True},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -202,12 +230,8 @@ class TestVectorMigrateDimensionHistogram:
 
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["dim-v1-001"],
-                    "to_version": "v4",
-                    "dry_run": False
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["dim-v1-001"], "to_version": "v4", "dry_run": False},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -226,12 +250,8 @@ class TestVectorMigrateDimensionHistogram:
 
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["dim-v4-001"],
-                    "to_version": "v1",
-                    "dry_run": False
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["dim-v4-001"], "to_version": "v1", "dry_run": False},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -290,12 +310,8 @@ class TestMigrationResponseDimensions:
 
             response = client.post(
                 "/api/v1/vectors/migrate",
-                json={
-                    "ids": ["response-test-001"],
-                    "to_version": "v4",
-                    "dry_run": False
-                },
-                headers={"X-API-Key": "test"}
+                json={"ids": ["response-test-001"], "to_version": "v4", "dry_run": False},
+                headers={"X-API-Key": "test"},
             )
 
             assert response.status_code == 200
@@ -309,22 +325,21 @@ class TestMigrationResponseDimensions:
     def test_downgraded_status_has_dimensions(self):
         """Test that downgraded status includes dimension info."""
         from src.core import similarity as sim_module
+
         # Add v4 vector for downgrade test
         sim_module._VECTOR_STORE["downgrade-dim-001"] = np.random.rand(20).tolist()
         sim_module._VECTOR_META["downgrade-dim-001"] = {"feature_version": "v4"}
 
         try:
-            with patch("src.core.feature_extractor.FeatureExtractor.upgrade_vector") as mock_upgrade:
+            with patch(
+                "src.core.feature_extractor.FeatureExtractor.upgrade_vector"
+            ) as mock_upgrade:
                 mock_upgrade.return_value = np.random.rand(10).tolist()
 
                 response = client.post(
                     "/api/v1/vectors/migrate",
-                    json={
-                        "ids": ["downgrade-dim-001"],
-                        "to_version": "v2",
-                        "dry_run": False
-                    },
-                    headers={"X-API-Key": "test"}
+                    json={"ids": ["downgrade-dim-001"], "to_version": "v2", "dry_run": False},
+                    headers={"X-API-Key": "test"},
                 )
 
                 assert response.status_code == 200
@@ -345,9 +360,9 @@ class TestMigrationResponseDimensions:
             json={
                 "ids": ["response-test-001"],
                 "to_version": "v2",  # Same as current version
-                "dry_run": False
+                "dry_run": False,
             },
-            headers={"X-API-Key": "test"}
+            headers={"X-API-Key": "test"},
         )
 
         assert response.status_code == 200
@@ -362,12 +377,8 @@ class TestMigrationResponseDimensions:
         """Test that not_found status has no dimension info."""
         response = client.post(
             "/api/v1/vectors/migrate",
-            json={
-                "ids": ["nonexistent-vector-xyz"],
-                "to_version": "v4",
-                "dry_run": False
-            },
-            headers={"X-API-Key": "test"}
+            json={"ids": ["nonexistent-vector-xyz"], "to_version": "v4", "dry_run": False},
+            headers={"X-API-Key": "test"},
         )
 
         assert response.status_code == 200

@@ -16,7 +16,20 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, Generic, List, Optional, Pattern, Set, Tuple, Type, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Pattern,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 from .base import VisionDescription, VisionProvider
 
@@ -117,7 +130,9 @@ class ValidationResult:
         """Merge with another result."""
         return ValidationResult(
             valid=self.valid and other.valid,
-            status=ValidationStatus.INVALID if not (self.valid and other.valid) else ValidationStatus.VALID,
+            status=ValidationStatus.INVALID
+            if not (self.valid and other.valid)
+            else ValidationStatus.VALID,
             errors=self.errors + other.errors,
             warnings=self.warnings + other.warnings,
             metadata={**self.metadata, **other.metadata},
@@ -164,14 +179,16 @@ class TypeValidator(Validator):
             return ValidationResult(
                 valid=False,
                 status=ValidationStatus.INVALID,
-                errors=[ValidationError(
-                    error_id=str(uuid.uuid4()),
-                    field=field_name,
-                    message=f"Expected {self._expected_type.value}, got {type(value).__name__}",
-                    code="TYPE_MISMATCH",
-                    value=value,
-                    constraint=f"type={self._expected_type.value}",
-                )],
+                errors=[
+                    ValidationError(
+                        error_id=str(uuid.uuid4()),
+                        field=field_name,
+                        message=f"Expected {self._expected_type.value}, got {type(value).__name__}",
+                        code="TYPE_MISMATCH",
+                        value=value,
+                        constraint=f"type={self._expected_type.value}",
+                    )
+                ],
             )
 
         return ValidationResult(valid=True, status=ValidationStatus.VALID)
@@ -186,13 +203,15 @@ class RequiredValidator(Validator):
             return ValidationResult(
                 valid=False,
                 status=ValidationStatus.INVALID,
-                errors=[ValidationError(
-                    error_id=str(uuid.uuid4()),
-                    field=field_name,
-                    message=f"Field '{field_name}' is required",
-                    code="REQUIRED",
-                    constraint="required=true",
-                )],
+                errors=[
+                    ValidationError(
+                        error_id=str(uuid.uuid4()),
+                        field=field_name,
+                        message=f"Field '{field_name}' is required",
+                        code="REQUIRED",
+                        constraint="required=true",
+                    )
+                ],
             )
         return ValidationResult(valid=True, status=ValidationStatus.VALID)
 
@@ -219,13 +238,15 @@ class RangeValidator(Validator):
             return ValidationResult(
                 valid=False,
                 status=ValidationStatus.INVALID,
-                errors=[ValidationError(
-                    error_id=str(uuid.uuid4()),
-                    field=field_name,
-                    message=f"Value must be numeric for range validation",
-                    code="TYPE_ERROR",
-                    value=value,
-                )],
+                errors=[
+                    ValidationError(
+                        error_id=str(uuid.uuid4()),
+                        field=field_name,
+                        message=f"Value must be numeric for range validation",
+                        code="TYPE_ERROR",
+                        value=value,
+                    )
+                ],
             )
 
         errors = []
@@ -233,46 +254,54 @@ class RangeValidator(Validator):
         if self._min_value is not None:
             if self._exclusive_min:
                 if value <= self._min_value:
-                    errors.append(ValidationError(
-                        error_id=str(uuid.uuid4()),
-                        field=field_name,
-                        message=f"Value must be greater than {self._min_value}",
-                        code="MIN_EXCLUSIVE",
-                        value=value,
-                        constraint=f"min>{self._min_value}",
-                    ))
+                    errors.append(
+                        ValidationError(
+                            error_id=str(uuid.uuid4()),
+                            field=field_name,
+                            message=f"Value must be greater than {self._min_value}",
+                            code="MIN_EXCLUSIVE",
+                            value=value,
+                            constraint=f"min>{self._min_value}",
+                        )
+                    )
             else:
                 if value < self._min_value:
-                    errors.append(ValidationError(
-                        error_id=str(uuid.uuid4()),
-                        field=field_name,
-                        message=f"Value must be at least {self._min_value}",
-                        code="MIN_VALUE",
-                        value=value,
-                        constraint=f"min>={self._min_value}",
-                    ))
+                    errors.append(
+                        ValidationError(
+                            error_id=str(uuid.uuid4()),
+                            field=field_name,
+                            message=f"Value must be at least {self._min_value}",
+                            code="MIN_VALUE",
+                            value=value,
+                            constraint=f"min>={self._min_value}",
+                        )
+                    )
 
         if self._max_value is not None:
             if self._exclusive_max:
                 if value >= self._max_value:
-                    errors.append(ValidationError(
-                        error_id=str(uuid.uuid4()),
-                        field=field_name,
-                        message=f"Value must be less than {self._max_value}",
-                        code="MAX_EXCLUSIVE",
-                        value=value,
-                        constraint=f"max<{self._max_value}",
-                    ))
+                    errors.append(
+                        ValidationError(
+                            error_id=str(uuid.uuid4()),
+                            field=field_name,
+                            message=f"Value must be less than {self._max_value}",
+                            code="MAX_EXCLUSIVE",
+                            value=value,
+                            constraint=f"max<{self._max_value}",
+                        )
+                    )
             else:
                 if value > self._max_value:
-                    errors.append(ValidationError(
-                        error_id=str(uuid.uuid4()),
-                        field=field_name,
-                        message=f"Value must be at most {self._max_value}",
-                        code="MAX_VALUE",
-                        value=value,
-                        constraint=f"max<={self._max_value}",
-                    ))
+                    errors.append(
+                        ValidationError(
+                            error_id=str(uuid.uuid4()),
+                            field=field_name,
+                            message=f"Value must be at most {self._max_value}",
+                            code="MAX_VALUE",
+                            value=value,
+                            constraint=f"max<={self._max_value}",
+                        )
+                    )
 
         if errors:
             return ValidationResult(valid=False, status=ValidationStatus.INVALID, errors=errors)
@@ -298,37 +327,43 @@ class LengthValidator(Validator):
             return ValidationResult(
                 valid=False,
                 status=ValidationStatus.INVALID,
-                errors=[ValidationError(
-                    error_id=str(uuid.uuid4()),
-                    field=field_name,
-                    message="Value must have length for length validation",
-                    code="TYPE_ERROR",
-                    value=value,
-                )],
+                errors=[
+                    ValidationError(
+                        error_id=str(uuid.uuid4()),
+                        field=field_name,
+                        message="Value must have length for length validation",
+                        code="TYPE_ERROR",
+                        value=value,
+                    )
+                ],
             )
 
         length = len(value)
         errors = []
 
         if self._min_length is not None and length < self._min_length:
-            errors.append(ValidationError(
-                error_id=str(uuid.uuid4()),
-                field=field_name,
-                message=f"Length must be at least {self._min_length}, got {length}",
-                code="MIN_LENGTH",
-                value=value,
-                constraint=f"min_length={self._min_length}",
-            ))
+            errors.append(
+                ValidationError(
+                    error_id=str(uuid.uuid4()),
+                    field=field_name,
+                    message=f"Length must be at least {self._min_length}, got {length}",
+                    code="MIN_LENGTH",
+                    value=value,
+                    constraint=f"min_length={self._min_length}",
+                )
+            )
 
         if self._max_length is not None and length > self._max_length:
-            errors.append(ValidationError(
-                error_id=str(uuid.uuid4()),
-                field=field_name,
-                message=f"Length must be at most {self._max_length}, got {length}",
-                code="MAX_LENGTH",
-                value=value,
-                constraint=f"max_length={self._max_length}",
-            ))
+            errors.append(
+                ValidationError(
+                    error_id=str(uuid.uuid4()),
+                    field=field_name,
+                    message=f"Length must be at most {self._max_length}, got {length}",
+                    code="MAX_LENGTH",
+                    value=value,
+                    constraint=f"max_length={self._max_length}",
+                )
+            )
 
         if errors:
             return ValidationResult(valid=False, status=ValidationStatus.INVALID, errors=errors)
@@ -350,27 +385,31 @@ class PatternValidator(Validator):
             return ValidationResult(
                 valid=False,
                 status=ValidationStatus.INVALID,
-                errors=[ValidationError(
-                    error_id=str(uuid.uuid4()),
-                    field=field_name,
-                    message="Value must be string for pattern validation",
-                    code="TYPE_ERROR",
-                    value=value,
-                )],
+                errors=[
+                    ValidationError(
+                        error_id=str(uuid.uuid4()),
+                        field=field_name,
+                        message="Value must be string for pattern validation",
+                        code="TYPE_ERROR",
+                        value=value,
+                    )
+                ],
             )
 
         if not self._pattern.match(value):
             return ValidationResult(
                 valid=False,
                 status=ValidationStatus.INVALID,
-                errors=[ValidationError(
-                    error_id=str(uuid.uuid4()),
-                    field=field_name,
-                    message=f"Value does not match pattern: {self._pattern_str}",
-                    code="PATTERN_MISMATCH",
-                    value=value,
-                    constraint=f"pattern={self._pattern_str}",
-                )],
+                errors=[
+                    ValidationError(
+                        error_id=str(uuid.uuid4()),
+                        field=field_name,
+                        message=f"Value does not match pattern: {self._pattern_str}",
+                        code="PATTERN_MISMATCH",
+                        value=value,
+                        constraint=f"pattern={self._pattern_str}",
+                    )
+                ],
             )
 
         return ValidationResult(valid=True, status=ValidationStatus.VALID)
@@ -389,14 +428,16 @@ class EnumValidator(Validator):
             return ValidationResult(
                 valid=False,
                 status=ValidationStatus.INVALID,
-                errors=[ValidationError(
-                    error_id=str(uuid.uuid4()),
-                    field=field_name,
-                    message=f"Value must be one of: {list(self._allowed_values)}",
-                    code="ENUM_MISMATCH",
-                    value=value,
-                    constraint=f"enum={list(self._allowed_values)}",
-                )],
+                errors=[
+                    ValidationError(
+                        error_id=str(uuid.uuid4()),
+                        field=field_name,
+                        message=f"Value must be one of: {list(self._allowed_values)}",
+                        code="ENUM_MISMATCH",
+                        value=value,
+                        constraint=f"enum={list(self._allowed_values)}",
+                    )
+                ],
             )
 
         return ValidationResult(valid=True, status=ValidationStatus.VALID)
@@ -425,25 +466,29 @@ class CustomValidator(Validator):
                 return ValidationResult(
                     valid=False,
                     status=ValidationStatus.INVALID,
-                    errors=[ValidationError(
-                        error_id=str(uuid.uuid4()),
-                        field=field_name,
-                        message=self._error_message,
-                        code=self._error_code,
-                        value=value,
-                    )],
+                    errors=[
+                        ValidationError(
+                            error_id=str(uuid.uuid4()),
+                            field=field_name,
+                            message=self._error_message,
+                            code=self._error_code,
+                            value=value,
+                        )
+                    ],
                 )
         except Exception as e:
             return ValidationResult(
                 valid=False,
                 status=ValidationStatus.INVALID,
-                errors=[ValidationError(
-                    error_id=str(uuid.uuid4()),
-                    field=field_name,
-                    message=f"Validation error: {str(e)}",
-                    code="VALIDATION_ERROR",
-                    value=value,
-                )],
+                errors=[
+                    ValidationError(
+                        error_id=str(uuid.uuid4()),
+                        field=field_name,
+                        message=f"Validation error: {str(e)}",
+                        code="VALIDATION_ERROR",
+                        value=value,
+                    )
+                ],
             )
 
 
@@ -553,12 +598,14 @@ class Schema:
             return ValidationResult(
                 valid=False,
                 status=ValidationStatus.INVALID,
-                errors=[ValidationError(
-                    error_id=str(uuid.uuid4()),
-                    field="",
-                    message="Data must be a dictionary",
-                    code="TYPE_ERROR",
-                )],
+                errors=[
+                    ValidationError(
+                        error_id=str(uuid.uuid4()),
+                        field="",
+                        message="Data must be a dictionary",
+                        code="TYPE_ERROR",
+                    )
+                ],
             )
 
         results: List[ValidationResult] = []
@@ -573,23 +620,35 @@ class Schema:
         if not self.allow_extra_fields:
             extra_fields = set(data.keys()) - field_names
             if extra_fields:
-                results.append(ValidationResult(
-                    valid=not self.strict,
-                    status=ValidationStatus.WARNING if not self.strict else ValidationStatus.INVALID,
-                    errors=[] if not self.strict else [ValidationError(
-                        error_id=str(uuid.uuid4()),
-                        field=", ".join(extra_fields),
-                        message=f"Unexpected fields: {extra_fields}",
-                        code="EXTRA_FIELDS",
-                    )],
-                    warnings=[ValidationError(
-                        error_id=str(uuid.uuid4()),
-                        field=", ".join(extra_fields),
-                        message=f"Unexpected fields: {extra_fields}",
-                        code="EXTRA_FIELDS",
-                        severity=ValidationSeverity.WARNING,
-                    )] if not self.strict else [],
-                ))
+                results.append(
+                    ValidationResult(
+                        valid=not self.strict,
+                        status=ValidationStatus.WARNING
+                        if not self.strict
+                        else ValidationStatus.INVALID,
+                        errors=[]
+                        if not self.strict
+                        else [
+                            ValidationError(
+                                error_id=str(uuid.uuid4()),
+                                field=", ".join(extra_fields),
+                                message=f"Unexpected fields: {extra_fields}",
+                                code="EXTRA_FIELDS",
+                            )
+                        ],
+                        warnings=[
+                            ValidationError(
+                                error_id=str(uuid.uuid4()),
+                                field=", ".join(extra_fields),
+                                message=f"Unexpected fields: {extra_fields}",
+                                code="EXTRA_FIELDS",
+                                severity=ValidationSeverity.WARNING,
+                            )
+                        ]
+                        if not self.strict
+                        else [],
+                    )
+                )
 
         # Merge results
         final = ValidationResult(valid=True, status=ValidationStatus.VALID)
@@ -619,14 +678,16 @@ class SchemaBuilder:
         description: str = "",
     ) -> "SchemaBuilder":
         """Add field."""
-        self._fields.append(FieldSchema(
-            name=name,
-            data_type=data_type,
-            required=required,
-            validators=validators or [],
-            default=default,
-            description=description,
-        ))
+        self._fields.append(
+            FieldSchema(
+                name=name,
+                data_type=data_type,
+                required=required,
+                validators=validators or [],
+                default=default,
+                description=description,
+            )
+        )
         return self
 
     def string_field(
@@ -739,24 +800,26 @@ class DataQualityChecker:
                 else:
                     results["failed"] += 1
 
-                results["checks"].append({
-                    "name": name,
-                    "passed": passed,
-                    "description": description,
-                })
+                results["checks"].append(
+                    {
+                        "name": name,
+                        "passed": passed,
+                        "description": description,
+                    }
+                )
             except Exception as e:
                 results["failed"] += 1
-                results["checks"].append({
-                    "name": name,
-                    "passed": False,
-                    "error": str(e),
-                    "description": description,
-                })
+                results["checks"].append(
+                    {
+                        "name": name,
+                        "passed": False,
+                        "error": str(e),
+                        "description": description,
+                    }
+                )
 
         results["quality_score"] = (
-            results["passed"] / results["total_checks"]
-            if results["total_checks"] > 0
-            else 0.0
+            results["passed"] / results["total_checks"] if results["total_checks"] > 0 else 0.0
         )
 
         with self._lock:
@@ -808,11 +871,13 @@ class ValidatedVisionProvider(VisionProvider):
             input_result = self._input_schema.validate(input_data)
             if not input_result.valid:
                 with self._lock:
-                    self._validation_history.append({
-                        "request_id": request_id,
-                        "type": "input",
-                        "result": input_result.to_dict(),
-                    })
+                    self._validation_history.append(
+                        {
+                            "request_id": request_id,
+                            "type": "input",
+                            "result": input_result.to_dict(),
+                        }
+                    )
                 raise ValueError(f"Input validation failed: {input_result.errors}")
 
         # Analyze
@@ -828,11 +893,13 @@ class ValidatedVisionProvider(VisionProvider):
             output_result = self._output_schema.validate(output_data)
 
             with self._lock:
-                self._validation_history.append({
-                    "request_id": request_id,
-                    "type": "output",
-                    "result": output_result.to_dict(),
-                })
+                self._validation_history.append(
+                    {
+                        "request_id": request_id,
+                        "type": "output",
+                        "result": output_result.to_dict(),
+                    }
+                )
 
             if not output_result.valid:
                 raise ValueError(f"Output validation failed: {output_result.errors}")

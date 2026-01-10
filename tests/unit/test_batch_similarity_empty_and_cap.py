@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import os
+
 from fastapi.testclient import TestClient
 
 from src.main import app
-
 
 client = TestClient(app)
 
@@ -31,6 +31,7 @@ def test_batch_similarity_empty_results(monkeypatch):
     monkeypatch.setenv("BATCH_SIMILARITY_MAX_IDS", "10")
     # Inject a minimal in-memory vector store scenario
     from src.core import similarity as sim
+
     sim._VECTOR_STORE.clear()  # type: ignore
     sim._VECTOR_META.clear()  # type: ignore
     # Create two vectors sufficiently orthogonal so min_score filters everything

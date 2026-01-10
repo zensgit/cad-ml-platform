@@ -11,6 +11,7 @@ import json
 import time
 from typing import Dict, Optional
 
+from src.core.resilience.adaptive_decorator import adaptive_rate_limit
 from src.utils.cache import get_cache, set_cache
 from src.utils.circuit_breaker import CircuitBreaker, CircuitConfig
 from src.utils.metrics import (
@@ -33,7 +34,6 @@ from .base import DimensionType, OcrClient, OcrResult, SymbolType
 from .calibration import MultiEvidenceCalibrator
 from .config import DATASET_VERSION, PROMPT_VERSION
 from .exceptions import OcrError
-from src.core.resilience.adaptive_decorator import adaptive_rate_limit
 
 # Versions centralized in config.
 

@@ -119,9 +119,7 @@ class LoggingConfig:
     track_percentiles: bool = True
 
     # Destinations
-    destinations: List[LogDestination] = field(
-        default_factory=lambda: [LogDestination.CONSOLE]
-    )
+    destinations: List[LogDestination] = field(default_factory=lambda: [LogDestination.CONSOLE])
 
     # File logging
     log_file_path: Optional[str] = None
@@ -314,20 +312,14 @@ class PerformanceMetrics:
             return 0.0
         return self.successful_requests / self.total_requests
 
-    def record(
-        self, success: bool, response_time_ms: float, is_slow: bool = False
-    ) -> None:
+    def record(self, success: bool, response_time_ms: float, is_slow: bool = False) -> None:
         """Record a request result."""
         self.total_requests += 1
         if success:
             self.successful_requests += 1
             self.total_response_time_ms += response_time_ms
-            self.min_response_time_ms = min(
-                self.min_response_time_ms, response_time_ms
-            )
-            self.max_response_time_ms = max(
-                self.max_response_time_ms, response_time_ms
-            )
+            self.min_response_time_ms = min(self.min_response_time_ms, response_time_ms)
+            self.max_response_time_ms = max(self.max_response_time_ms, response_time_ms)
             self._response_times.append(response_time_ms)
             # Keep only last 1000 samples for percentiles
             if len(self._response_times) > 1000:
@@ -356,9 +348,7 @@ class PerformanceMetrics:
             "success_rate": self.success_rate,
             "avg_response_time_ms": self.avg_response_time_ms,
             "min_response_time_ms": (
-                self.min_response_time_ms
-                if self.min_response_time_ms != float("inf")
-                else 0.0
+                self.min_response_time_ms if self.min_response_time_ms != float("inf") else 0.0
             ),
             "max_response_time_ms": self.max_response_time_ms,
             "slow_requests": self.slow_requests,
@@ -543,9 +533,7 @@ class LoggingMiddleware:
         """Get all metrics as dictionary."""
         return {
             "global": self._global_metrics.to_dict(),
-            "by_provider": {
-                name: metrics.to_dict() for name, metrics in self._metrics.items()
-            },
+            "by_provider": {name: metrics.to_dict() for name, metrics in self._metrics.items()},
         }
 
     def reset_metrics(self) -> None:
@@ -612,9 +600,7 @@ class LoggingVisionProvider:
 
         start_time = time.time()
         try:
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
             response_time_ms = (time.time() - start_time) * 1000
 
             # Log successful response

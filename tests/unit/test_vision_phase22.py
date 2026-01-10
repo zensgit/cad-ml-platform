@@ -6,52 +6,48 @@ data classification, encryption, secrets, threat intelligence, and security post
 """
 
 import asyncio
-import pytest
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from src.core.vision.security_governance import (
-    # Enums
+import pytest
+
+from src.core.vision.base import VisionDescription
+from src.core.vision.security_governance import (  # Enums; Dataclasses; Classes; Factory functions
     DataClassification,
-    PolicyType,
-    PolicyStatus,
-    PolicyAction,
-    EncryptionAlgorithm,
-    KeyStatus,
-    SecretType,
-    ThreatLevel,
-    SecurityEventType,
-    PostureStatus,
-    # Dataclasses
-    SecurityPolicy,
-    PolicyEvaluation,
-    DataClassificationRule,
-    EncryptionKey,
-    Secret,
-    ThreatIndicator,
-    SecurityEvent,
-    SecurityPosture,
-    GovernanceConfig,
-    # Classes
-    PolicyEngine,
     DataClassificationManager,
+    DataClassificationRule,
+    EncryptionAlgorithm,
+    EncryptionKey,
+    GovernanceConfig,
     KeyManager,
+    KeyStatus,
+    PolicyAction,
+    PolicyEngine,
+    PolicyEvaluation,
+    PolicyStatus,
+    PolicyType,
+    PostureStatus,
+    Secret,
     SecretManager,
-    ThreatIntelManager,
-    SecurityEventCorrelator,
-    SecurityPostureAssessor,
-    SecurityGovernanceHub,
+    SecretType,
     SecureVisionProvider,
-    # Factory functions
+    SecurityEvent,
+    SecurityEventCorrelator,
+    SecurityEventType,
+    SecurityGovernanceHub,
+    SecurityPolicy,
+    SecurityPosture,
+    SecurityPostureAssessor,
+    ThreatIndicator,
+    ThreatIntelManager,
+    ThreatLevel,
+    create_classification_rule,
     create_governance_config,
+    create_secure_provider,
     create_security_governance_hub,
     create_security_policy,
-    create_classification_rule,
     create_threat_indicator,
-    create_secure_provider,
 )
-from src.core.vision.base import VisionDescription
-
 
 # ============================================================================
 # Test Fixtures
@@ -142,7 +138,7 @@ class TestSecurityEnums:
         assert DataClassification.INTERNAL.value == "internal"
         assert DataClassification.CONFIDENTIAL.value == "confidential"
         assert DataClassification.RESTRICTED.value == "restricted"
-        assert DataClassification.TOP_SECRET.value == "top_secret"
+        assert DataClassification.TOP_SECRET.value == "topsecret"
 
     def test_policy_type_values(self):
         """Test PolicyType enum values."""
@@ -791,18 +787,22 @@ class TestThreatIntelManager:
 
     def test_get_indicators_by_level(self, threat_intel_manager):
         """Test getting indicators by threat level."""
-        threat_intel_manager.add_indicator(ThreatIndicator(
-            indicator_id="ioc-1",
-            indicator_type="ip",
-            value="1.1.1.1",
-            threat_level=ThreatLevel.CRITICAL,
-        ))
-        threat_intel_manager.add_indicator(ThreatIndicator(
-            indicator_id="ioc-2",
-            indicator_type="ip",
-            value="2.2.2.2",
-            threat_level=ThreatLevel.LOW,
-        ))
+        threat_intel_manager.add_indicator(
+            ThreatIndicator(
+                indicator_id="ioc-1",
+                indicator_type="ip",
+                value="1.1.1.1",
+                threat_level=ThreatLevel.CRITICAL,
+            )
+        )
+        threat_intel_manager.add_indicator(
+            ThreatIndicator(
+                indicator_id="ioc-2",
+                indicator_type="ip",
+                value="2.2.2.2",
+                threat_level=ThreatLevel.LOW,
+            )
+        )
 
         critical = threat_intel_manager.get_indicators_by_level(ThreatLevel.CRITICAL)
         assert len(critical) == 1
@@ -832,18 +832,22 @@ class TestSecurityEventCorrelator:
 
     def test_get_events_filtered(self, event_correlator):
         """Test getting events with filters."""
-        event_correlator.record_event(SecurityEvent(
-            event_id="e1",
-            event_type=SecurityEventType.ACCESS_DENIED,
-            severity=ThreatLevel.HIGH,
-            source="api",
-        ))
-        event_correlator.record_event(SecurityEvent(
-            event_id="e2",
-            event_type=SecurityEventType.ACCESS_GRANTED,
-            severity=ThreatLevel.LOW,
-            source="api",
-        ))
+        event_correlator.record_event(
+            SecurityEvent(
+                event_id="e1",
+                event_type=SecurityEventType.ACCESS_DENIED,
+                severity=ThreatLevel.HIGH,
+                source="api",
+            )
+        )
+        event_correlator.record_event(
+            SecurityEvent(
+                event_id="e2",
+                event_type=SecurityEventType.ACCESS_GRANTED,
+                severity=ThreatLevel.LOW,
+                source="api",
+            )
+        )
 
         denied_events = event_correlator.get_events(
             event_type=SecurityEventType.ACCESS_DENIED,

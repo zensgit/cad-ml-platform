@@ -10,7 +10,7 @@ Covers:
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -21,7 +21,7 @@ class TestModelReloadSuccess:
     @pytest.mark.asyncio
     async def test_model_reload_success(self):
         """Test successful model reload."""
-        from src.api.v1.model import model_reload, ModelReloadRequest
+        from src.api.v1.model import ModelReloadRequest, model_reload
 
         payload = ModelReloadRequest(path="/path/to/model.pkl", force=False)
 
@@ -46,7 +46,7 @@ class TestModelReloadNotFound:
     @pytest.mark.asyncio
     async def test_model_reload_not_found(self):
         """Test model reload when file not found."""
-        from src.api.v1.model import model_reload, ModelReloadRequest
+        from src.api.v1.model import ModelReloadRequest, model_reload
 
         payload = ModelReloadRequest(path="/nonexistent/model.pkl")
 
@@ -67,7 +67,7 @@ class TestModelReloadVersionMismatch:
     @pytest.mark.asyncio
     async def test_model_reload_version_mismatch(self):
         """Test model reload with version mismatch."""
-        from src.api.v1.model import model_reload, ModelReloadRequest
+        from src.api.v1.model import ModelReloadRequest, model_reload
 
         payload = ModelReloadRequest(
             path="/path/to/model.pkl",
@@ -91,7 +91,7 @@ class TestModelReloadSizeExceeded:
     @pytest.mark.asyncio
     async def test_model_reload_size_exceeded(self):
         """Test model reload when size limit exceeded."""
-        from src.api.v1.model import model_reload, ModelReloadRequest
+        from src.api.v1.model import ModelReloadRequest, model_reload
 
         payload = ModelReloadRequest(path="/path/to/large_model.pkl")
 
@@ -114,7 +114,7 @@ class TestModelReloadSecurityErrors:
     @pytest.mark.asyncio
     async def test_model_reload_magic_invalid(self):
         """Test model reload with invalid magic bytes."""
-        from src.api.v1.model import model_reload, ModelReloadRequest
+        from src.api.v1.model import ModelReloadRequest, model_reload
 
         payload = ModelReloadRequest(path="/path/to/bad_model.pkl")
 
@@ -130,7 +130,7 @@ class TestModelReloadSecurityErrors:
     @pytest.mark.asyncio
     async def test_model_reload_hash_mismatch(self):
         """Test model reload with hash mismatch."""
-        from src.api.v1.model import model_reload, ModelReloadRequest
+        from src.api.v1.model import ModelReloadRequest, model_reload
 
         payload = ModelReloadRequest(path="/path/to/tampered_model.pkl")
 
@@ -146,7 +146,7 @@ class TestModelReloadSecurityErrors:
     @pytest.mark.asyncio
     async def test_model_reload_opcode_blocked(self):
         """Test model reload with blocked opcode."""
-        from src.api.v1.model import model_reload, ModelReloadRequest
+        from src.api.v1.model import ModelReloadRequest, model_reload
 
         payload = ModelReloadRequest(path="/path/to/malicious_model.pkl")
 
@@ -162,7 +162,7 @@ class TestModelReloadSecurityErrors:
     @pytest.mark.asyncio
     async def test_model_reload_opcode_scan_error(self):
         """Test model reload with opcode scan error."""
-        from src.api.v1.model import model_reload, ModelReloadRequest
+        from src.api.v1.model import ModelReloadRequest, model_reload
 
         payload = ModelReloadRequest(path="/path/to/model.pkl")
 
@@ -182,7 +182,7 @@ class TestModelReloadRollback:
     @pytest.mark.asyncio
     async def test_model_reload_rollback(self):
         """Test model reload triggers rollback."""
-        from src.api.v1.model import model_reload, ModelReloadRequest
+        from src.api.v1.model import ModelReloadRequest, model_reload
 
         payload = ModelReloadRequest(path="/path/to/broken_model.pkl")
 
@@ -207,7 +207,7 @@ class TestModelReloadUnknownStatus:
     @pytest.mark.asyncio
     async def test_model_reload_unknown_status(self):
         """Test model reload with unknown status."""
-        from src.api.v1.model import model_reload, ModelReloadRequest
+        from src.api.v1.model import ModelReloadRequest, model_reload
 
         payload = ModelReloadRequest(path="/path/to/model.pkl")
 

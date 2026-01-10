@@ -6,6 +6,7 @@ from pathlib import Path
 
 METRICS_FILE = Path("src/utils/analysis_metrics.py")
 DASHBOARDS = [
+    Path("config/grafana/dashboard_main.json"),
     Path("grafana/dashboards/observability.json"),
     Path("grafana/dashboards/observability_eta_suppression.json"),
 ]
@@ -50,6 +51,7 @@ def extract_metric_names_from_expr(expr: str) -> set[str]:
         "max_over_time", "min_over_time",
         # Common PromQL keywords
         "by", "without", "and", "or", "unless", "bool",
+        "interval",
     }
     return {m for m in candidates if m not in ignore}
 
@@ -95,4 +97,3 @@ def main() -> int:
 
 if __name__ == '__main__':
     sys.exit(main())
-

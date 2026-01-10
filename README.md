@@ -152,6 +152,17 @@ python src/main.py
 kubectl apply -f deployments/kubernetes/
 ```
 
+### 相关文档
+
+- 2D 标准库: `docs/STANDARDS_LIBRARY.md`
+- 基线评测: `docs/BASELINE_EVALUATION.md`
+- 知识库运维: `docs/KNOWLEDGE_RULES_OPERATIONS.md`
+- 主动学习: `docs/ACTIVE_LEARNING_OPERATIONS.md`
+- 3D 训练: `docs/TRAINING_3D_PIPELINE.md`
+- 发布流程: `docs/RELEASE_PLAYBOOK.md`
+- 制造决策输出: `docs/MANUFACTURING_DECISION_OUTPUT.md`
+- 回放验证: `docs/REPLAY_VALIDATION.md`
+
 ---
 
 ## 🔬 评估与可观测性
@@ -403,6 +414,7 @@ python3 scripts/run_full_integration_test.py
 {"code":"INPUT_VALIDATION_FAILED","stage":"batch_similarity","message":"Batch size exceeds limit","batch_size":350,"max_batch":200}
 ```
 指标：`vector_query_batch_latency_seconds{batch_size_range="small|medium|large"}`，`analysis_rejections_total{reason="batch_too_large"}`，`analysis_rejections_total{reason="batch_empty_results"}`。
+响应字段：`fallback` 表示向量后端降级 (Faiss 不可用或处于 degraded)，与 `degraded` 一致。
 
 ### 🔄 向量迁移摘要
 `GET /api/v1/vectors/migrate/summary`
@@ -800,6 +812,7 @@ Grafana 面板示例：见 `docs/grafana/observability_dashboard.json`（导入�
   - 输入拒绝激增：`docs/runbooks/input_rejections_spike.md`
   - Provider 宕机：`docs/runbooks/provider_down.md`
   - 熔断器打开：`docs/runbooks/circuit_open.md`
+  - 分析结果落盘清理：`docs/runbooks/analysis_result_store_cleanup.md`
 
 ### ⚙️ 配置速查表（.env）
 
@@ -807,6 +820,23 @@ Grafana 面板示例：见 `docs/grafana/observability_dashboard.json`（导入�
 - `ERROR_EMA_ALPHA`：错误率 EMA 平滑因子（0<alpha<=1，默认 0.2）。
 - `OCR_MAX_PDF_PAGES`：OCR PDF 最大页数（默认 20）。
 - `OCR_MAX_FILE_MB`：OCR 上传文件大小上限（MB，默认 50）。
+- `DEEPSEEK_HF_REVISION`：DeepSeek HF 模型固定版本（提交哈希，>=7 位十六进制）。
+- `DEEPSEEK_HF_ALLOW_UNPINNED`：允许未固定版本下载（1=允许；默认禁用）。
+- `DEEPSEEK_HF_MODEL`：DeepSeek HF 模型仓库名（例如 `deepseek-ai/DeepSeek-OCR`）。
+- `TELEMETRY_MQTT_ENABLED`：是否启用 MQTT 遥测接入（默认 false）。
+- `MQTT_HOST`/`MQTT_PORT`/`MQTT_TOPIC`：MQTT Broker 连接参数。
+- `TELEMETRY_STORE_BACKEND`：遥测存储后端（memory|influx|timescale|none）。
+- `ANALYSIS_RESULT_STORE_DIR`：分析结果落盘目录（可选；启用后历史查询在缓存 miss 时回读）。
+- `ANALYSIS_RESULT_STORE_TTL_SECONDS`：分析结果落盘保留时长（秒，<=0 表示不启用）。
+- `ANALYSIS_RESULT_STORE_MAX_FILES`：分析结果落盘最大保留数量（<=0 表示不启用）。
+- `ANALYSIS_RESULT_CLEANUP_INTERVAL_SECONDS`：分析结果定时清理间隔（秒，0=关闭）。
+
+### 可选模块：Digital Twin / Telemetry
+
+`/api/v1/twin/*` 路由默认挂载，MQTT 接入与存储后端为可选能力：
+
+1. 配置上面的 Telemetry 环境变量，确保存储后端可用。
+2. 若启用 MQTT，请确保 Broker 可连接（测试依赖 `aiomqtt`）。
 
 ### 基础端点
 
@@ -880,6 +910,151 @@ Content-Type: application/json
   "threshold": 0.75
 }
 ```
+
+### Vision 分析响应（可选 CAD 特征统计）
+Vision 请求可携带 `include_cad_stats` 与 `cad_feature_thresholds`：
+```json
+{
+  "image_base64": "iVBORw0KGgoAAAANS...",
+  "include_description": true,
+  "include_ocr": false,
+  "include_cad_stats": true,
+  "cad_feature_thresholds": {"line_aspect": 5.0, "arc_fill_min": 0.08}
+}
+```
+
+启用后响应将包含 `cad_feature_stats`：
+```json
+{
+  "success": true,
+  "provider": "deepseek_stub",
+  "processing_time_ms": 12.3,
+  "description": {
+    "summary": "Mechanical part with cylindrical features",
+    "details": ["Main diameter: 20mm"],
+    "confidence": 0.9
+  },
+  "cad_feature_stats": {
+    "line_count": 1,
+    "circle_count": 0,
+    "arc_count": 1,
+    "line_angle_bins": {"0-30": 1, "30-60": 0, "60-90": 0, "90-120": 0, "120-150": 0, "150-180": 0},
+    "line_angle_avg": 12.5,
+    "arc_sweep_avg": 180.0,
+    "arc_sweep_bins": {"0-90": 0, "90-180": 0, "180-270": 1, "270-360": 0}
+  }
+}
+```
+
+#### cad_feature_thresholds 快速参考
+- `max_dim` (默认 256): 下采样最大边长（像素）
+- `ink_threshold` (默认 200): 像素阈值（灰度 < 阈值视为线条）
+- `min_area` (默认 12): 连通域最小面积
+- `line_aspect` (默认 4.0): 线条长宽比阈值
+- `line_elongation` (默认 6.0): 线条延展比阈值（基于协方差特征）
+- `circle_aspect` (默认 1.3): 圆形长宽比阈值
+- `circle_fill_min` (默认 0.3): 圆形填充比最小值
+- `arc_aspect` (默认 2.5): 弧线长宽比阈值
+- `arc_fill_min` (默认 0.05): 弧线填充比最小值
+- `arc_fill_max` (默认 0.3): 弧线填充比最大值
+
+#### cad_feature_thresholds 调优方向
+| 参数 | 调高效果 | 调低效果 |
+|------|---------|---------|
+| `max_dim` | 更多细节、计算成本提升 | 更快但细节减少 |
+| `ink_threshold` | 更多像素被视为线条 | 更少像素被视为线条 |
+| `min_area` | 更少小噪声、可能漏检细线 | 更容易捕获细线、噪声增加 |
+| `line_aspect` | 更严格的线条判定 | 更容易把细长形状判为线 |
+| `line_elongation` | 更严格的延展判定 | 更容易判为线 |
+| `circle_aspect` | 更严格的圆形判定 | 更容易判为圆 |
+| `circle_fill_min` | 更少圆形（更保守） | 更容易判为圆 |
+| `arc_aspect` | 更严格的弧线判定 | 更容易判为弧 |
+| `arc_fill_min` | 更少弧线（更保守） | 更容易判为弧 |
+| `arc_fill_max` | 更严格限制弧线填充比 | 更宽松的弧线范围 |
+
+#### CAD 特征基准对比（benchmark）
+使用 `scripts/vision_cad_feature_benchmark.py` 评估阈值调整影响：
+```bash
+# 基准（建议加 --no-clients 避免外部依赖告警）
+python3 scripts/vision_cad_feature_benchmark.py \
+  --no-clients \
+  --input-dir /path/to/cad_images \
+  --output-json /tmp/cad_baseline.json
+
+# 对比（输出 comparison 区块）
+python3 scripts/vision_cad_feature_benchmark.py \
+  --no-clients \
+  --input-dir /path/to/cad_images \
+  --threshold line_aspect=6 \
+  --threshold min_area=24 \
+  --output-json /tmp/cad_tuned.json \
+  --output-compare-csv /tmp/cad_tuned_compare_summary.csv \
+  --compare-json /tmp/cad_baseline.json
+
+# 基准报告
+python3 scripts/vision_cad_feature_baseline_report.py \
+  --input-json /tmp/cad_baseline.json \
+  --output-md /tmp/cad_baseline_report.md
+```
+
+阈值文件与对比报告：
+```bash
+# 从文件加载阈值/网格组合
+python3 scripts/vision_cad_feature_benchmark.py \
+  --no-clients \
+  --threshold-file examples/cad_feature_thresholds.json \
+  --output-json /tmp/cad_grid.json
+
+# 列表格式（variants）会按顺序运行
+python3 scripts/vision_cad_feature_benchmark.py \
+  --no-clients \
+  --threshold-file examples/cad_feature_thresholds_variants.json \
+  --output-json /tmp/cad_variants.json
+
+# YAML 文件同样支持（需要安装 PyYAML）
+python3 scripts/vision_cad_feature_benchmark.py \
+  --no-clients \
+  --threshold-file examples/cad_feature_thresholds.yaml \
+  --output-json /tmp/cad_grid.yaml.json
+
+# 生成对比摘要
+python3 scripts/vision_cad_feature_compare_report.py \
+  --input-json /tmp/cad_tuned.json \
+  --output-md /tmp/cad_tuned_report.md
+
+# 导出对比差异（JSON/CSV）
+python3 scripts/vision_cad_feature_compare_export.py \
+  --input-json /tmp/cad_tuned.json \
+  --output-json /tmp/cad_tuned_top.json \
+  --output-csv /tmp/cad_tuned_top.csv \
+  --top-samples 10
+
+# 若不指定输出文件，将输出 JSON 到 stdout
+python3 scripts/vision_cad_feature_compare_export.py \
+  --input-json /tmp/cad_tuned.json \
+  --top-samples 5
+
+# Filter a single combo index
+python3 scripts/vision_cad_feature_compare_export.py \
+  --input-json /tmp/cad_tuned.json \
+  --combo-index 2 \
+  --output-json /tmp/cad_tuned_combo2.json \
+  --output-csv /tmp/cad_tuned_combo2.csv
+```
+
+50 样本产物（示例）:
+- `reports/vision_cad_feature_grid_baseline_20260106_50.json`
+- `reports/vision_cad_feature_grid_baseline_report_20260106_50.md`
+- `reports/vision_cad_feature_grid_compare_20260106_50.json`
+- `reports/vision_cad_feature_grid_compare_summary_20260106_50.csv`
+- `reports/vision_cad_feature_grid_compare_report_20260106_50.md`
+- `reports/vision_cad_feature_grid_compare_top_20260106_50.json`
+- `reports/vision_cad_feature_grid_compare_top_20260106_50.csv`
+- `reports/vision_cad_feature_tuning_compare_20260106_50.json`
+- `reports/vision_cad_feature_tuning_compare_summary_20260106_50.csv`
+- `reports/vision_cad_feature_tuning_compare_report_20260106_50.md`
+- `reports/vision_cad_feature_tuning_compare_top_20260106_50.json`
+- `reports/vision_cad_feature_tuning_compare_top_20260106_50.csv`
 
 ### Vision 错误响应规范
 所有 Vision 分析请求无论成功或失败返回 HTTP 200：
@@ -1409,8 +1584,26 @@ pytest tests/integration/
 # 运行端到端测试
 pytest tests/e2e/
 
+# 运行 E2E smoke（需服务已启动；可设置 API_BASE_URL、DEDUPCAD_VISION_URL）
+make e2e-smoke
+# 使用本地 stub（本地/离线开发备用）：python scripts/dedupcad_vision_stub.py
+# CI 默认使用 pinned GHCR 镜像，可覆盖：
+# DEDUPCAD_VISION_IMAGE=ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251
+# GHCR 需 public 或 CI 开启 packages:read 权限
+# 若保持私有，建议 GHCR_TOKEN 仅授予 read:packages
+
+# 运行全量测试（需 DedupCAD Vision 服务已启动）
+DEDUPCAD_VISION_URL=http://localhost:58001 make test-dedupcad-vision
+
 # 生成覆盖率报告
 pytest --cov=src --cov-report=html
+
+# Faiss 性能测试（默认只跑内存后端）
+RUN_FAISS_PERF_TESTS=1 pytest tests/perf/test_vector_search_latency.py -v
+# 如需强制失败（faiss 子进程崩溃时不跳过）
+REQUIRE_FAISS_PERF=1 RUN_FAISS_PERF_TESTS=1 pytest tests/perf/test_vector_search_latency.py -v
+# 注意：部分环境在 PYTHONWARNINGS=error::DeprecationWarning 下导入 faiss 会触发 segfault；
+# 测试已在子进程中隔离并过滤 swig 的 DeprecationWarning
 ```
 
 ---
@@ -1826,6 +2019,9 @@ export ANALYSIS_VECTOR_DIM_CHECK=1       # 开启向量维度一致性检查 (�
 export CLASSIFICATION_RULE_VERSION=v1    # 分类规则版本标记 (观测变更影响)
 export VECTOR_STORE_BACKEND=memory       # 向量存储后端 memory|redis
 export VECTOR_TTL_SECONDS=0              # 向量TTL(秒) 0表示禁用
+export VECTOR_LIST_LIMIT=200             # 向量列表接口最大返回数量
+export VECTOR_LIST_SCAN_LIMIT=5000       # 列表 Redis 扫描上限 (0=无限制)
+export VECTOR_STATS_SCAN_LIMIT=5000      # 统计 Redis 扫描上限 (0=无限制)
 export VECTOR_PRUNE_INTERVAL_SECONDS=30  # 后台清理间隔(秒)
 export PROCESS_RULE_VERSION=v1           # 工艺规则版本 (Prometheus计数 + 响应暴露)
 export ENABLE_PROCESS_AUDIT_ENDPOINT=1   # 开启 /api/v1/analyze/process/rules/audit 审计端点 (默认开启)

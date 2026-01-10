@@ -1,0 +1,124 @@
+groups:
+  - name: dedup2d
+    rules:
+      # Job processing alerts
+      - alert: Dedup2DHighErrorRate
+        expr: dedup2d_error_rate_ema > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dedup2D error rate is high"
+          description: "Dedup2D job error rate EMA is {{ $value | humanizePercentage }} (threshold: 10%)"
+
+      - alert: Dedup2DVeryHighErrorRate
+        expr: dedup2d_error_rate_ema > 0.25
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dedup2D error rate is critically high"
+          description: "Dedup2D job error rate EMA is {{ $value | humanizePercentage }} (threshold: 25%)"
+
+      - alert: Dedup2DJobQueueBacklog
+        expr: sum(dedup2d_jobs_queued) > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dedup2D job queue is backing up"
+          description: "{{ $value }} jobs are queued (threshold: 50)"
+
+      - alert: Dedup2DJobQueueCritical
+        expr: sum(dedup2d_jobs_queued) > 200
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dedup2D job queue is critically full"
+          description: "{{ $value }} jobs are queued (threshold: 200)"
+
+      - alert: Dedup2DSlowJobs
+        expr: histogram_quantile(0.95, sum(rate(dedup2d_job_duration_seconds_bucket[5m])) by (le)) > 120
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dedup2D jobs are running slowly"
+          description: "P95 job duration is {{ $value | humanizeDuration }} (threshold: 2m)"
+
+      # File storage alerts
+      - alert: Dedup2DFileUploadErrors
+        expr: sum(rate(dedup2d_file_uploads_total{status="error"}[5m])) / sum(rate(dedup2d_file_uploads_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dedup2D file upload error rate is high"
+          description: "File upload error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      - alert: Dedup2DFileDownloadErrors
+        expr: sum(rate(dedup2d_file_downloads_total{status="error"}[5m])) / sum(rate(dedup2d_file_downloads_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dedup2D file download error rate is high"
+          description: "File download error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      - alert: Dedup2DStorageLatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(dedup2d_file_operation_duration_seconds_bucket{operation="upload"}[5m])) by (le, backend)) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dedup2D file storage latency is high"
+          description: "P95 upload latency for {{ $labels.backend }} is {{ $value | humanizeDuration }} (threshold: 5s)"
+
+      # Callback alerts
+      - alert: Dedup2DCallbackFailures
+        expr: sum(rate(dedup2d_callbacks_total{status="error"}[5m])) / sum(rate(dedup2d_callbacks_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dedup2D callback failure rate is high"
+          description: "Callback failure rate is {{ $value | humanizePercentage }} (threshold: 10%)"
+
+      - alert: Dedup2DCallbackBlocked
+        expr: sum(increase(dedup2d_callback_blocked_total[1h])) > 10
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Dedup2D callbacks are being blocked"
+          description: "{{ $value }} callbacks were blocked in the last hour"
+
+      # GC alerts
+      - alert: Dedup2DGCFailing
+        expr: sum(increase(dedup2d_gc_runs_total{status="error"}[1h])) > 2
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dedup2D GC is failing"
+          description: "{{ $value }} GC runs failed in the last hour"
+
+      - alert: Dedup2DGCNotRunning
+        expr: sum(increase(dedup2d_gc_runs_total[2h])) == 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dedup2D GC has not run recently"
+          description: "No GC runs detected in the last 2 hours"
+
+      # Worker health alerts
+      - alert: Dedup2DNoActiveWorkers
+        expr: sum(dedup2d_jobs_active) == 0 and sum(dedup2d_jobs_queued) > 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No Dedup2D workers are processing jobs"
+          description: "{{ $value }} jobs are queued but no workers are active"

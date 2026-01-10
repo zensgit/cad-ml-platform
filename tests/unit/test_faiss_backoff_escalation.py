@@ -1,5 +1,5 @@
-import time
 import importlib
+import time
 
 from src.core import similarity
 
@@ -35,7 +35,9 @@ def test_faiss_backoff_escalation(monkeypatch):
     backoffs = []
     base = time.time()
     for i in range(4):
-        monkeypatch.setattr(time, "time", lambda b=base, i=i: b + i)  # deterministic time progression
+        monkeypatch.setattr(
+            time, "time", lambda b=base, i=i: b + i
+        )  # deterministic time progression
         similarity.attempt_faiss_recovery(now=base + i)
         if similarity._FAISS_NEXT_RECOVERY_TS:  # type: ignore
             backoffs.append(round(similarity._FAISS_NEXT_RECOVERY_TS - (base + i), 2))  # type: ignore

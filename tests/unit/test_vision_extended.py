@@ -9,43 +9,39 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.core.vision import (
-    VisionDescription,
-    VisionProviderError,
-)
-from src.core.vision.streaming import (
-    StreamingVisionProvider,
-    StreamEvent,
-    StreamEventType,
-    StreamConfig,
-    BatchStreamProcessor,
-    stream_analysis,
-    create_streaming_provider,
+from src.core.vision import VisionDescription, VisionProviderError
+from src.core.vision.cost_tracker import (
+    BudgetConfig,
+    CostTrackedVisionProvider,
+    CostTracker,
+    PricingTier,
+    create_cost_tracked_provider,
 )
 from src.core.vision.prompts import (
+    BUILTIN_TEMPLATES,
+    PromptConfig,
     PromptManager,
     PromptTemplate,
-    PromptConfig,
     PromptType,
     get_prompts,
     register_custom_template,
-    BUILTIN_TEMPLATES,
 )
-from src.core.vision.cost_tracker import (
-    CostTracker,
-    CostTrackedVisionProvider,
-    PricingTier,
-    BudgetConfig,
-    create_cost_tracked_provider,
+from src.core.vision.streaming import (
+    BatchStreamProcessor,
+    StreamConfig,
+    StreamEvent,
+    StreamEventType,
+    StreamingVisionProvider,
+    create_streaming_provider,
+    stream_analysis,
 )
 from src.core.vision.webhooks import (
-    WebhookManager,
-    WebhookVisionProvider,
     WebhookConfig,
     WebhookEventType,
+    WebhookManager,
+    WebhookVisionProvider,
     create_webhook_provider,
 )
-
 
 # Sample image data
 SAMPLE_PNG = (
@@ -182,9 +178,7 @@ class TestBatchStreamProcessor:
 
         # Should have start, per-item events, and final complete
         start_events = [e for e in events if e.event_type == StreamEventType.START]
-        complete_events = [
-            e for e in events if e.event_type == StreamEventType.COMPLETE
-        ]
+        complete_events = [e for e in events if e.event_type == StreamEventType.COMPLETE]
 
         assert len(start_events) >= 1
         assert len(complete_events) >= 1

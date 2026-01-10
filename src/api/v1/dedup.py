@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import anyio
 import httpx
@@ -20,15 +21,164 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Upl
 from pydantic import BaseModel, Field, model_validator
 
 from src.api.dependencies import get_admin_token, get_api_key
-from src.core.dedupcad_precision import GeomJsonStore, PrecisionVerifier
+from src.core.dedupcad_2d_jobs import (
+    Dedup2DJob,
+    Dedup2DJobStatus,
+    JobForbiddenError,
+    JobNotFoundError,
+    JobQueueFullError,
+    get_dedup2d_job_store,
+    set_dedup2d_job_metrics_callback,
+)
+from src.core.dedupcad_2d_jobs_redis import Dedup2DRedisJobConfig
+from src.core.dedupcad_2d_jobs_redis import (
+    cancel_dedup2d_job_for_tenant as cancel_dedup2d_job_for_tenant_redis,
+)
+from src.core.dedupcad_2d_jobs_redis import (
+    get_dedup2d_job_for_tenant as get_dedup2d_job_for_tenant_redis,
+)
+from src.core.dedupcad_2d_jobs_redis import get_dedup2d_queue_depth as get_dedup2d_queue_depth_redis
+from src.core.dedupcad_2d_jobs_redis import get_dedup2d_redis_pool
+from src.core.dedupcad_2d_jobs_redis import (
+    list_dedup2d_jobs_for_tenant as list_dedup2d_jobs_for_tenant_redis,
+)
+from src.core.dedupcad_2d_jobs_redis import submit_dedup2d_job as submit_dedup2d_job_redis
+from src.core.dedupcad_2d_pipeline import run_dedup_2d_pipeline
+from src.core.dedupcad_precision import GeomJsonStoreProtocol, PrecisionVerifier, create_geom_store
 from src.core.dedupcad_precision.vendor.json_diff import compare_json
 from src.core.dedupcad_tenant_config import TenantDedup2DConfigStore
-from src.core.dedupcad_vision import DedupCadVisionClient
-from src.core.dedupcad_2d_jobs import Dedup2DJobStatus, get_dedup2d_job_store
+from src.core.dedupcad_vision import DedupCadVisionCircuitOpen, DedupCadVisionClient
+from src.utils.analysis_metrics import (
+    dedup2d_cancel_total,
+    dedup2d_job_duration_seconds,
+    dedup2d_job_queue_depth,
+    dedup2d_jobs_total,
+    dedup2d_queue_full_total,
+    dedup2d_search_mode_total,
+    dedup2d_tenant_access_denied_total,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+# =============================================================================
+# Phase 1: Metrics Callback for Job Completion/Failure
+# =============================================================================
+
+
+class _Dedup2DJobMetricsCallback:
+    """Callback to update Prometheus metrics when jobs complete/fail."""
+
+    def on_job_completed(self, job: Dedup2DJob, duration_seconds: float) -> None:
+        dedup2d_jobs_total.labels(status="completed").inc()
+        dedup2d_job_duration_seconds.labels(status="completed").observe(duration_seconds)
+
+    def on_job_failed(self, job: Dedup2DJob, duration_seconds: float) -> None:
+        dedup2d_jobs_total.labels(status="failed").inc()
+        dedup2d_job_duration_seconds.labels(status="failed").observe(duration_seconds)
+
+    def on_job_canceled(self, job: Dedup2DJob) -> None:
+        dedup2d_jobs_total.labels(status="canceled").inc()
+        try:
+            finished_at = float(job.finished_at or time.time())
+            started_at = float(job.started_at or job.created_at)
+            duration = max(0.0, finished_at - started_at)
+            dedup2d_job_duration_seconds.labels(status="canceled").observe(duration)
+        except Exception:
+            logger.debug("dedup2d_job_duration_observe_failed", exc_info=True)
+
+    def on_queue_depth_changed(self, depth: int) -> None:
+        dedup2d_job_queue_depth.set(depth)
+
+
+def register_dedup2d_job_metrics() -> None:
+    """Register metrics callback for job completion/failure events.
+
+    Call this once during application startup to enable accurate metrics
+    for job duration histograms and completion counters.
+    """
+    set_dedup2d_job_metrics_callback(_Dedup2DJobMetricsCallback())
+    logger.info("dedup2d_job_metrics_registered")
+
+
+def _get_dedup2d_async_backend() -> str:
+    return os.getenv("DEDUP2D_ASYNC_BACKEND", "inprocess").strip().lower() or "inprocess"
+
+
+# =============================================================================
+# Phase 4 Day 6: Forced Async Configuration
+# =============================================================================
+
+
+def _get_int_env(name: str, *, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = raw.strip()
+    if value == "":
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        logger.warning("invalid_int_env", extra={"name": name, "value": raw})
+        return default
+
+
+def _get_bool_env(name: str, *, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    if value == "":
+        return default
+    if value in {"1", "true", "yes", "y", "on"}:
+        return True
+    if value in {"0", "false", "no", "n", "off"}:
+        return False
+    logger.warning("invalid_bool_env", extra={"name": name, "value": raw})
+    return default
+
+
+def _check_forced_async(
+    file_size: int,
+    enable_precision: bool,
+    mode: str,
+    query_geom: Optional[Dict[str, Any]],
+) -> Optional[str]:
+    """Check if the request should be forced to async mode.
+
+    Returns:
+        forced_async_reason if async should be forced, None otherwise.
+    """
+    forced_async_file_size_bytes = _get_int_env(
+        "DEDUP2D_FORCED_ASYNC_FILE_SIZE_BYTES",
+        default=5 * 1024 * 1024,  # 5MB
+    )
+    forced_async_enable_precision = _get_bool_env(
+        "DEDUP2D_FORCED_ASYNC_ON_PRECISION",
+        default=True,
+    )
+    forced_async_mode_precise = _get_bool_env(
+        "DEDUP2D_FORCED_ASYNC_ON_MODE_PRECISE",
+        default=True,
+    )
+
+    # Check file size threshold
+    if forced_async_file_size_bytes > 0 and file_size > forced_async_file_size_bytes:
+        mb = max(1, forced_async_file_size_bytes // (1024 * 1024))
+        return f"file_size>{mb}MB"
+
+    # Check precision verification (slow operation)
+    if forced_async_enable_precision and enable_precision and query_geom is not None:
+        return "enable_precision_with_geom_json"
+
+    # Check precise mode
+    if forced_async_mode_precise and mode == "precise":
+        return "mode=precise"
+
+    return None
 
 
 _SEARCH_PRESETS: Dict[str, Dict[str, Any]] = {
@@ -95,8 +245,8 @@ def get_dedupcad_vision_client() -> DedupCadVisionClient:
     return DedupCadVisionClient()
 
 
-def get_geom_store() -> GeomJsonStore:
-    return GeomJsonStore()
+def get_geom_store() -> GeomJsonStoreProtocol:
+    return create_geom_store()
 
 
 def get_precision_verifier() -> PrecisionVerifier:
@@ -187,7 +337,7 @@ def _apply_precision_l4(
     response: Dict[str, Any],
     query_geom: Dict[str, Any],
     query_file_name: Optional[str],
-    geom_store: GeomJsonStore,
+    geom_store: GeomJsonStoreProtocol,
     precision_verifier: PrecisionVerifier,
     max_results: int,
     precision_profile: Optional[str],
@@ -423,7 +573,7 @@ def _apply_precision_l4(
 async def _run_dedup_2d_pipeline(
     *,
     client: DedupCadVisionClient,
-    geom_store: GeomJsonStore,
+    geom_store: GeomJsonStoreProtocol,
     precision_verifier: PrecisionVerifier,
     file_name: str,
     file_bytes: bytes,
@@ -538,20 +688,29 @@ class Dedup2DSearchAsyncResponse(BaseModel):
     job_id: str
     status: Dedup2DJobStatus
     poll_url: str
+    forced_async_reason: Optional[str] = None  # Phase 1: explain why async was forced
 
 
 class Dedup2DSearchJobResponse(BaseModel):
     job_id: str
+    tenant_id: str  # Phase 1: tenant isolation
     status: Dedup2DJobStatus
     created_at: float
     started_at: Optional[float] = None
     finished_at: Optional[float] = None
     result: Optional[Dedup2DSearchResponse] = None
     error: Optional[str] = None
+    # Phase 3 (optional): webhook callback status (redis backend only)
+    callback_status: Optional[str] = None  # pending|success|failed|skipped
+    callback_attempts: Optional[int] = None
+    callback_http_status: Optional[int] = None
+    callback_finished_at: Optional[float] = None
+    callback_last_error: Optional[str] = None
 
 
 class Dedup2DJobCancelResponse(BaseModel):
     job_id: str
+    tenant_id: str  # Phase 1: tenant isolation
     canceled: bool
 
 
@@ -613,6 +772,25 @@ class Dedup2DTenantConfigResponse(BaseModel):
     config: Dedup2DTenantConfig
 
 
+class Dedup2DJobListItem(BaseModel):
+    """Job item for list endpoint (excludes result to reduce payload size)."""
+
+    job_id: str
+    tenant_id: str
+    status: Dedup2DJobStatus
+    created_at: float
+    started_at: Optional[float] = None
+    finished_at: Optional[float] = None
+    error: Optional[str] = None
+
+
+class Dedup2DJobListResponse(BaseModel):
+    """Response for job list endpoint."""
+
+    jobs: List[Dedup2DJobListItem] = Field(default_factory=list)
+    total: int = 0
+
+
 @router.get("/2d/health", response_model=Dedup2DHealthResponse)
 async def dedup_2d_health(
     api_key: str = Depends(get_api_key),
@@ -621,6 +799,13 @@ async def dedup_2d_health(
     """Proxy dedupcad-vision health for operational visibility."""
     try:
         return await client.health()
+    except DedupCadVisionCircuitOpen as e:
+        logger.warning("dedupcad_vision_circuit_open", extra={"error": str(e)})
+        raise HTTPException(
+            status_code=503,
+            detail="dedupcad-vision circuit open",
+            headers={"Retry-After": "5"},
+        ) from e
     except httpx.RequestError as e:
         logger.warning("dedupcad_vision_unavailable", extra={"error": str(e)})
         raise HTTPException(status_code=503, detail="dedupcad-vision unavailable") from e
@@ -641,6 +826,13 @@ async def dedup_2d_index_rebuild(
     """Trigger a rebuild of dedupcad-vision L1/L2 indexes (batch-friendly)."""
     try:
         return await client.rebuild_indexes()
+    except DedupCadVisionCircuitOpen as e:
+        logger.warning("dedupcad_vision_circuit_open", extra={"error": str(e)})
+        raise HTTPException(
+            status_code=503,
+            detail="dedupcad-vision circuit open",
+            headers={"Retry-After": "5"},
+        ) from e
     except httpx.RequestError as e:
         logger.warning("dedupcad_vision_unavailable", extra={"error": str(e)})
         raise HTTPException(status_code=503, detail="dedupcad-vision unavailable") from e
@@ -759,7 +951,7 @@ async def dedup_2d_precision_compare(
 async def dedup_2d_geom_exists(
     file_hash: str,
     api_key: str = Depends(get_api_key),
-    geom_store: GeomJsonStore = Depends(get_geom_store),
+    geom_store: GeomJsonStoreProtocol = Depends(get_geom_store),
 ):
     """Check whether a candidate v2 JSON exists locally for a given `file_hash`."""
     try:
@@ -769,7 +961,7 @@ async def dedup_2d_geom_exists(
     return Dedup2DGeomExistsResponse(file_hash=file_hash, exists=exists)
 
 
-@router.post("/2d/search", response_model=Dedup2DSearchResponse | Dedup2DSearchAsyncResponse)
+@router.post("/2d/search", response_model=Union[Dedup2DSearchResponse, Dedup2DSearchAsyncResponse])
 async def dedup_2d_search(
     request: Request,
     file: UploadFile = File(..., description="2D drawing image/PDF (PNG/JPG/PDF)"),
@@ -780,6 +972,13 @@ async def dedup_2d_search(
         default=False,
         alias="async",
         description="Return job_id immediately and poll /api/v1/dedup/2d/jobs/{job_id} for results",
+    ),
+    callback_url: Optional[str] = Query(
+        default=None,
+        description=(
+            "Optional webhook URL to notify when an async job finishes "
+            "(requires DEDUP2D_ASYNC_BACKEND=redis)"
+        ),
     ),
     mode: str = "balanced",
     max_results: int = 50,
@@ -800,7 +999,7 @@ async def dedup_2d_search(
     similar_threshold: float = 0.80,
     api_key: str = Depends(get_api_key),
     client: DedupCadVisionClient = Depends(get_dedupcad_vision_client),
-    geom_store: GeomJsonStore = Depends(get_geom_store),
+    geom_store: GeomJsonStoreProtocol = Depends(get_geom_store),
     precision_verifier: PrecisionVerifier = Depends(get_precision_verifier),
     tenant_store: TenantDedup2DConfigStore = Depends(get_tenant_config_store),
 ):
@@ -854,11 +1053,96 @@ async def dedup_2d_search(
         duplicate_threshold = float(effective["duplicate_threshold"])
         similar_threshold = float(effective["similar_threshold"])
 
-        if async_request:
+        # Phase 4 Day 6: Check if request should be forced to async mode
+        forced_async_reason = _check_forced_async(
+            file_size=len(content),
+            enable_precision=enable_precision,
+            mode=mode,
+            query_geom=query_geom,
+        )
+
+        if async_request or forced_async_reason:
+            tenant_id = tenant_store.tenant_id(api_key)
+            backend = _get_dedup2d_async_backend()
+
+            if callback_url and backend != "redis":
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error": "CALLBACK_UNSUPPORTED",
+                        "message": "callback_url requires DEDUP2D_ASYNC_BACKEND=redis",
+                    },
+                ) from None
+
+            if backend == "redis":
+                request_params = {
+                    "mode": mode,
+                    "max_results": max_results,
+                    "compute_diff": compute_diff,
+                    "enable_ml": enable_ml,
+                    "enable_geometric": enable_geometric,
+                    "enable_precision": enable_precision,
+                    "precision_profile": precision_profile,
+                    "version_gate": version_gate,
+                    "precision_top_n": precision_top_n,
+                    "precision_visual_weight": precision_visual_weight,
+                    "precision_geom_weight": precision_geom_weight,
+                    "precision_compute_diff": precision_compute_diff,
+                    "precision_diff_top_n": precision_diff_top_n,
+                    "precision_diff_max_paths": precision_diff_max_paths,
+                    "duplicate_threshold": duplicate_threshold,
+                    "similar_threshold": similar_threshold,
+                }
+
+                try:
+                    job = await submit_dedup2d_job_redis(
+                        tenant_id=tenant_id,
+                        file_name=file.filename or "unknown",
+                        file_bytes=content,
+                        content_type=content_type,
+                        query_geom=query_geom,
+                        request_params=request_params,
+                        callback_url=callback_url,
+                    )
+                    dedup2d_jobs_total.labels(status="pending").inc()
+                    dedup2d_search_mode_total.labels(mode=mode).inc()
+                    try:
+                        dedup2d_job_queue_depth.set(await get_dedup2d_queue_depth_redis())
+                    except Exception:
+                        logger.debug("dedup2d_queue_depth_fetch_failed", exc_info=True)
+                except ValueError as e:
+                    raise HTTPException(
+                        status_code=400,
+                        detail={
+                            "error": "CALLBACK_URL_INVALID",
+                            "message": str(e),
+                        },
+                    ) from None
+                except JobQueueFullError as e:
+                    dedup2d_queue_full_total.inc()
+                    raise HTTPException(
+                        status_code=429,
+                        detail={
+                            "error": "JOB_QUEUE_FULL",
+                            "message": str(e),
+                            "max_jobs": e.max_jobs,
+                            "current_jobs": e.current_jobs,
+                        },
+                        headers={"Retry-After": "5"},
+                    ) from e
+
+                return Dedup2DSearchAsyncResponse(
+                    job_id=job.job_id,
+                    status=job.status,
+                    poll_url=f"/api/v1/dedup/2d/jobs/{job.job_id}",
+                    forced_async_reason=forced_async_reason,
+                )
+
+            # Default backend: in-process
             store = get_dedup2d_job_store()
 
             async def _runner() -> Dict[str, Any]:
-                return await _run_dedup_2d_pipeline(
+                return await run_dedup_2d_pipeline(
                     client=client,
                     geom_store=geom_store,
                     precision_verifier=precision_verifier,
@@ -884,24 +1168,44 @@ async def dedup_2d_search(
                     similar_threshold=similar_threshold,
                 )
 
-            job = await store.submit(
-                _runner,
-                meta={
-                    "mode": mode,
-                    "max_results": max_results,
-                    "enable_ml": enable_ml,
-                    "enable_geometric": enable_geometric,
-                    "enable_precision": enable_precision,
-                },
-            )
+            try:
+                job = await store.submit(
+                    _runner,
+                    tenant_id=tenant_id,
+                    meta={
+                        "mode": mode,
+                        "max_results": max_results,
+                        "enable_ml": enable_ml,
+                        "enable_geometric": enable_geometric,
+                        "enable_precision": enable_precision,
+                    },
+                )
+                # Phase 1: Record metrics
+                dedup2d_jobs_total.labels(status="pending").inc()
+                dedup2d_search_mode_total.labels(mode=mode).inc()
+                dedup2d_job_queue_depth.set(store.get_queue_depth())
+            except JobQueueFullError as e:
+                dedup2d_queue_full_total.inc()
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "error": "JOB_QUEUE_FULL",
+                        "message": str(e),
+                        "max_jobs": e.max_jobs,
+                        "current_jobs": e.current_jobs,
+                    },
+                    headers={"Retry-After": "5"},  # Suggest retry in 5 seconds
+                ) from e
+
             return Dedup2DSearchAsyncResponse(
                 job_id=job.job_id,
                 status=job.status,
                 poll_url=f"/api/v1/dedup/2d/jobs/{job.job_id}",
+                forced_async_reason=forced_async_reason,
             )
 
         try:
-            return await _run_dedup_2d_pipeline(
+            return await run_dedup_2d_pipeline(
                 client=client,
                 geom_store=geom_store,
                 precision_verifier=precision_verifier,
@@ -928,6 +1232,13 @@ async def dedup_2d_search(
             )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from e
+    except DedupCadVisionCircuitOpen as e:
+        logger.warning("dedupcad_vision_circuit_open", extra={"error": str(e), "mode": mode})
+        raise HTTPException(
+            status_code=503,
+            detail="dedupcad-vision circuit open",
+            headers={"Retry-After": "5"},
+        ) from e
     except httpx.RequestError as e:
         logger.warning("dedupcad_vision_unavailable", extra={"error": str(e), "mode": mode})
         raise HTTPException(status_code=503, detail="dedupcad-vision unavailable") from e
@@ -944,25 +1255,89 @@ async def dedup_2d_search(
 async def dedup_2d_job_status(
     job_id: str,
     api_key: str = Depends(get_api_key),
+    tenant_store: TenantDedup2DConfigStore = Depends(get_tenant_config_store),
 ):
-    """Get async 2D dedup job status and (when ready) the final result."""
-    store = get_dedup2d_job_store()
-    job = await store.get(job_id)
-    if job is None:
-        raise HTTPException(status_code=404, detail="Job not found") from None
+    """Get async 2D dedup job status and (when ready) the final result.
+
+    Phase 1: Tenant isolation - only the tenant who created the job can view it.
+    """
+    tenant_id = tenant_store.tenant_id(api_key)
+    backend = _get_dedup2d_async_backend()
+
+    try:
+        if backend == "redis":
+            job = await get_dedup2d_job_for_tenant_redis(job_id, tenant_id)
+        else:
+            store = get_dedup2d_job_store()
+            job = await store.get_for_tenant(job_id, tenant_id)
+    except JobNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "JOB_NOT_FOUND", "job_id": job_id},
+        ) from None
+    except JobForbiddenError:
+        dedup2d_tenant_access_denied_total.labels(operation="get").inc()
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "JOB_FORBIDDEN", "job_id": job_id},
+        ) from None
+
+    if backend == "redis" and job.is_finished():
+        cfg = Dedup2DRedisJobConfig.from_env()
+        try:
+            pool = await get_dedup2d_redis_pool(cfg)
+            claimed = await pool.hsetnx(f"{cfg.key_prefix}:job:{job_id}", "metrics_recorded", "1")
+        except Exception:
+            claimed = False
+        if claimed:
+            duration = max(
+                0.0,
+                float((job.finished_at or time.time()) - (job.started_at or job.created_at)),
+            )
+            status_label = job.status.value
+            dedup2d_jobs_total.labels(status=status_label).inc()
+            if status_label in {"completed", "failed", "canceled"}:
+                dedup2d_job_duration_seconds.labels(status=status_label).observe(duration)
+            try:
+                dedup2d_job_queue_depth.set(await get_dedup2d_queue_depth_redis())
+            except Exception:
+                logger.debug("dedup2d_queue_depth_fetch_failed", exc_info=True)
 
     result_model: Optional[Dedup2DSearchResponse] = None
     if job.result is not None:
         result_model = Dedup2DSearchResponse(**job.result)
 
+    callback_status: Optional[str] = None
+    callback_attempts: Optional[int] = None
+    callback_http_status: Optional[int] = None
+    callback_finished_at: Optional[float] = None
+    callback_last_error: Optional[str] = None
+    try:
+        callback_status = str(job.meta.get("callback_status") or "").strip() or None
+        callback_last_error = str(job.meta.get("callback_last_error") or "").strip() or None
+        attempts_raw = str(job.meta.get("callback_attempts") or "").strip()
+        callback_attempts = int(attempts_raw) if attempts_raw else None
+        http_raw = str(job.meta.get("callback_http_status") or "").strip()
+        callback_http_status = int(http_raw) if http_raw else None
+        finished_raw = str(job.meta.get("callback_finished_at") or "").strip()
+        callback_finished_at = float(finished_raw) if finished_raw else None
+    except Exception:
+        logger.debug("dedup2d_callback_meta_parse_failed", exc_info=True)
+
     return Dedup2DSearchJobResponse(
         job_id=job.job_id,
+        tenant_id=job.tenant_id,
         status=job.status,
         created_at=job.created_at,
         started_at=job.started_at,
         finished_at=job.finished_at,
         result=result_model,
         error=job.error,
+        callback_status=callback_status,
+        callback_attempts=callback_attempts,
+        callback_http_status=callback_http_status,
+        callback_finished_at=callback_finished_at,
+        callback_last_error=callback_last_error,
     )
 
 
@@ -970,13 +1345,104 @@ async def dedup_2d_job_status(
 async def dedup_2d_job_cancel(
     job_id: str,
     api_key: str = Depends(get_api_key),
+    tenant_store: TenantDedup2DConfigStore = Depends(get_tenant_config_store),
 ):
-    """Cancel an async 2D dedup job (best-effort)."""
-    store = get_dedup2d_job_store()
-    canceled = await store.cancel(job_id)
-    if not canceled:
-        raise HTTPException(status_code=404, detail="Job not found") from None
-    return Dedup2DJobCancelResponse(job_id=job_id, canceled=True)
+    """Cancel an async 2D dedup job (best-effort).
+
+    Phase 1: Tenant isolation - only the tenant who created the job can cancel it.
+    """
+    tenant_id = tenant_store.tenant_id(api_key)
+    backend = _get_dedup2d_async_backend()
+
+    try:
+        if backend == "redis":
+            await cancel_dedup2d_job_for_tenant_redis(job_id, tenant_id)
+            dedup2d_cancel_total.labels(result="success").inc()
+            try:
+                dedup2d_job_queue_depth.set(await get_dedup2d_queue_depth_redis())
+            except Exception:
+                logger.debug("dedup2d_queue_depth_fetch_failed", exc_info=True)
+        else:
+            store = get_dedup2d_job_store()
+            await store.cancel_for_tenant(job_id, tenant_id)
+            dedup2d_cancel_total.labels(result="success").inc()
+            dedup2d_job_queue_depth.set(store.get_queue_depth())
+    except JobNotFoundError:
+        dedup2d_cancel_total.labels(result="not_found").inc()
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "JOB_NOT_FOUND", "job_id": job_id},
+        ) from None
+    except JobForbiddenError:
+        dedup2d_cancel_total.labels(result="forbidden").inc()
+        dedup2d_tenant_access_denied_total.labels(operation="cancel").inc()
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "JOB_FORBIDDEN", "job_id": job_id},
+        ) from None
+
+    return Dedup2DJobCancelResponse(job_id=job_id, tenant_id=tenant_id, canceled=True)
+
+
+@router.get("/2d/jobs", response_model=Dedup2DJobListResponse)
+async def dedup_2d_job_list(
+    status: Optional[str] = Query(
+        default=None,
+        description="Filter by job status (pending, in_progress, completed, failed, canceled)",
+    ),
+    limit: int = Query(default=50, ge=1, le=200, description="Maximum number of jobs to return"),
+    api_key: str = Depends(get_api_key),
+    tenant_store: TenantDedup2DConfigStore = Depends(get_tenant_config_store),
+):
+    """List async 2D dedup jobs for the current tenant.
+
+    Phase 4 Day 6: API usability - allows tenants to view all their jobs.
+    Returns jobs sorted by created_at descending (newest first).
+    Only returns active jobs (pending/in_progress) and recently finished jobs within TTL.
+    """
+    tenant_id = tenant_store.tenant_id(api_key)
+    backend = _get_dedup2d_async_backend()
+
+    # Parse status filter
+    status_filter: Optional[Dedup2DJobStatus] = None
+    if status is not None:
+        status_value = status.strip().lower()
+        try:
+            status_filter = Dedup2DJobStatus(status_value)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "INVALID_STATUS_FILTER",
+                    "message": (
+                        f"Invalid status: {status}. Valid values: pending, in_progress, "
+                        "completed, failed, canceled"
+                    ),
+                },
+            ) from None
+
+    if backend == "redis":
+        jobs = await list_dedup2d_jobs_for_tenant_redis(
+            tenant_id, status=status_filter, limit=limit
+        )
+    else:
+        store = get_dedup2d_job_store()
+        jobs = await store.list_for_tenant(tenant_id, status=status_filter, limit=limit)
+
+    items = [
+        Dedup2DJobListItem(
+            job_id=job.job_id,
+            tenant_id=job.tenant_id,
+            status=job.status,
+            created_at=job.created_at,
+            started_at=job.started_at,
+            finished_at=job.finished_at,
+            error=job.error,
+        )
+        for job in jobs
+    ]
+
+    return Dedup2DJobListResponse(jobs=items, total=len(items))
 
 
 @router.post("/2d/index/add", response_model=Dedup2DIndexAddResponse)
@@ -990,7 +1456,7 @@ async def dedup_2d_index_add(
     upload_to_s3: bool = True,
     api_key: str = Depends(get_api_key),
     client: DedupCadVisionClient = Depends(get_dedupcad_vision_client),
-    geom_store: GeomJsonStore = Depends(get_geom_store),
+    geom_store: GeomJsonStoreProtocol = Depends(get_geom_store),
     precision_verifier: PrecisionVerifier = Depends(get_precision_verifier),
 ):
     """Index a 2D drawing into dedupcad-vision (for future searches)."""
@@ -1029,6 +1495,13 @@ async def dedup_2d_index_add(
         except Exception:
             pass
         return response
+    except DedupCadVisionCircuitOpen as e:
+        logger.warning("dedupcad_vision_circuit_open", extra={"error": str(e)})
+        raise HTTPException(
+            status_code=503,
+            detail="dedupcad-vision circuit open",
+            headers={"Retry-After": "5"},
+        ) from e
     except httpx.RequestError as e:
         logger.warning("dedupcad_vision_unavailable", extra={"error": str(e)})
         raise HTTPException(status_code=503, detail="dedupcad-vision unavailable") from e

@@ -156,10 +156,7 @@ class BatchProcessor:
         progress = BatchProgress(total=total)
 
         # Create batch items
-        items = [
-            BatchItem(image_data=img, index=i)
-            for i, img in enumerate(images)
-        ]
+        items = [BatchItem(image_data=img, index=i) for i, img in enumerate(images)]
 
         # Process concurrently
         tasks = [

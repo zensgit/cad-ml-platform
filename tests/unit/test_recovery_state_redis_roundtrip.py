@@ -5,8 +5,10 @@ import types
 class FakeRedis:
     def __init__(self):
         self._store = {}
+
     def get(self, key):
         return self._store.get(key)
+
     def set(self, key, val):
         self._store[key] = val
 
@@ -15,6 +17,7 @@ def test_recovery_state_roundtrip_with_fake_redis(monkeypatch):
     # Force backend to redis and inject fake client
     monkeypatch.setenv("FAISS_RECOVERY_STATE_BACKEND", "redis")
     from src.core import similarity
+
     fake = FakeRedis()
     monkeypatch.setattr(similarity, "get_client", lambda: fake)
 
@@ -24,6 +27,7 @@ def test_recovery_state_roundtrip_with_fake_redis(monkeypatch):
     similarity._VECTOR_DEGRADED = True
     similarity._VECTOR_DEGRADED_REASON = "test"
     import time
+
     similarity._VECTOR_DEGRADED_AT = time.time()
 
     similarity._persist_recovery_state()

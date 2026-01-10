@@ -123,9 +123,7 @@ class ProviderComparator:
         results = await asyncio.gather(*tasks)
 
         # Build results dictionary
-        provider_results = {
-            r.provider_name: r for r in results
-        }
+        provider_results = {r.provider_name: r for r in results}
 
         # Select best result
         selected_result, selected_provider = self._select_result(provider_results)
@@ -203,10 +201,7 @@ class ProviderComparator:
         results: Dict[str, ProviderResult],
     ) -> tuple[Optional[VisionDescription], Optional[str]]:
         """Select best result based on strategy."""
-        successful = {
-            name: r for name, r in results.items()
-            if r.success and r.result
-        }
+        successful = {name: r for name, r in results.items() if r.success and r.result}
 
         if not successful:
             return None, None
@@ -247,11 +242,14 @@ class ProviderComparator:
             best_result = successful[best_name].result
             avg_confidence = total_weight / len(successful)
 
-            return VisionDescription(
-                summary=best_result.summary,  # type: ignore
-                details=best_result.details,  # type: ignore
-                confidence=avg_confidence,
-            ), best_name
+            return (
+                VisionDescription(
+                    summary=best_result.summary,  # type: ignore
+                    details=best_result.details,  # type: ignore
+                    confidence=avg_confidence,
+                ),
+                best_name,
+            )
 
         return None, None
 
@@ -261,9 +259,7 @@ class ProviderComparator:
     ) -> Optional[str]:
         """Aggregate summaries from all successful providers."""
         summaries = [
-            f"[{name}] {r.result.summary}"
-            for name, r in results.items()
-            if r.success and r.result
+            f"[{name}] {r.result.summary}" for name, r in results.items() if r.success and r.result
         ]
 
         if not summaries:

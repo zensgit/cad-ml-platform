@@ -3,16 +3,18 @@ Test Adaptive Rate Limiter
 自适应限流器测试
 """
 
-import pytest
-import time
 import threading
+import time
 from unittest.mock import MagicMock, patch
+
+import pytest
+
 from src.core.resilience.adaptive_rate_limiter import (
-    AdaptiveRateLimiter,
     AdaptiveConfig,
     AdaptivePhase,
+    AdaptiveRateLimiter,
     AdaptiveRateLimiterManager,
-    AdjustmentRecord
+    AdjustmentRecord,
 )
 
 
@@ -50,11 +52,7 @@ class TestAdaptiveRateLimiter:
 
     def test_adaptive_no_adjust_under_threshold(self):
         """测试低于阈值时不调整"""
-        config = AdaptiveConfig(
-            base_rate=100.0,
-            error_threshold=0.02,
-            adjust_min_interval_ms=100
-        )
+        config = AdaptiveConfig(base_rate=100.0, error_threshold=0.02, adjust_min_interval_ms=100)
         limiter = AdaptiveRateLimiter("test", "endpoint", config)
 
         # 记录少量错误
@@ -77,7 +75,7 @@ class TestAdaptiveRateLimiter:
             base_rate=100.0,
             error_threshold=0.02,
             error_alpha=0.5,  # 更高的alpha使其对新值更敏感
-            adjust_min_interval_ms=100
+            adjust_min_interval_ms=100,
         )
         limiter = AdaptiveRateLimiter("test", "endpoint", config)
 
@@ -106,7 +104,7 @@ class TestAdaptiveRateLimiter:
             min_rate_ratio=0.15,
             error_threshold=0.01,
             error_alpha=0.9,
-            adjust_min_interval_ms=50
+            adjust_min_interval_ms=50,
         )
         limiter = AdaptiveRateLimiter("test", "endpoint", config)
 
@@ -132,7 +130,7 @@ class TestAdaptiveRateLimiter:
             error_threshold=0.02,
             recover_threshold=0.008,
             recover_step=0.1,  # 每次恢复10%
-            adjust_min_interval_ms=50
+            adjust_min_interval_ms=50,
         )
         limiter = AdaptiveRateLimiter("test", "endpoint", config)
 
@@ -164,9 +162,7 @@ class TestAdaptiveRateLimiter:
     def test_adaptive_latency_trigger_without_errors(self):
         """测试延迟触发（无错误）"""
         config = AdaptiveConfig(
-            base_rate=100.0,
-            latency_p95_threshold_multiplier=1.3,
-            adjust_min_interval_ms=50
+            base_rate=100.0, latency_p95_threshold_multiplier=1.3, adjust_min_interval_ms=50
         )
         limiter = AdaptiveRateLimiter("test", "endpoint", config)
         limiter.set_baseline(1000.0)  # 基线1秒
@@ -189,9 +185,7 @@ class TestAdaptiveRateLimiter:
     def test_adaptive_adjustment_interval_respected(self):
         """测试调整间隔限制"""
         config = AdaptiveConfig(
-            base_rate=100.0,
-            adjust_min_interval_ms=1000,  # 1秒间隔
-            error_threshold=0.01
+            base_rate=100.0, adjust_min_interval_ms=1000, error_threshold=0.01  # 1秒间隔
         )
         limiter = AdaptiveRateLimiter("test", "endpoint", config)
 
@@ -223,16 +217,16 @@ class TestAdaptiveRateLimiter:
             jitter_detection_window=3,
             jitter_threshold=0.5,
             cooldown_duration_ms=1000,
-            adjust_min_interval_ms=50
+            adjust_min_interval_ms=50,
         )
         limiter = AdaptiveRateLimiter("test", "endpoint", config)
 
         # 创建抖动模式：上下上下
         patterns = [
-            (True, 10, 1),    # 错误多 -> 降低
-            (False, 1, 10),   # 成功多 -> 提高
-            (True, 10, 1),    # 错误多 -> 降低
-            (False, 1, 10),   # 成功多 -> 应该触发抖动检测
+            (True, 10, 1),  # 错误多 -> 降低
+            (False, 1, 10),  # 成功多 -> 提高
+            (True, 10, 1),  # 错误多 -> 降低
+            (False, 1, 10),  # 成功多 -> 应该触发抖动检测
         ]
 
         for should_fail, errors, successes in patterns:
@@ -265,11 +259,7 @@ class TestAdaptiveRateLimiter:
 
     def test_adaptive_failure_streak_triggers(self):
         """测试连续失败触发"""
-        config = AdaptiveConfig(
-            base_rate=100.0,
-            max_failure_streak=3,
-            adjust_min_interval_ms=50
-        )
+        config = AdaptiveConfig(base_rate=100.0, max_failure_streak=3, adjust_min_interval_ms=50)
         limiter = AdaptiveRateLimiter("test", "endpoint", config)
 
         # 记录连续失败
@@ -426,11 +416,7 @@ class TestIntegrationScenarios:
 
     def test_normal_load_no_adjustment(self):
         """测试正常负载不调整"""
-        config = AdaptiveConfig(
-            base_rate=100.0,
-            error_threshold=0.02,
-            adjust_min_interval_ms=100
-        )
+        config = AdaptiveConfig(base_rate=100.0, error_threshold=0.02, adjust_min_interval_ms=100)
         limiter = AdaptiveRateLimiter("test", "endpoint", config)
 
         # 模拟正常负载（1%错误率）
@@ -457,7 +443,7 @@ class TestIntegrationScenarios:
             error_threshold=0.02,
             recover_threshold=0.008,
             recover_step=0.2,
-            adjust_min_interval_ms=100
+            adjust_min_interval_ms=100,
         )
         limiter = AdaptiveRateLimiter("test", "endpoint", config)
         limiter.set_baseline(1000.0)
@@ -513,7 +499,7 @@ class TestIntegrationScenarios:
             error_threshold=0.02,
             latency_p95_threshold_multiplier=1.3,
             error_alpha=0.25,
-            adjust_min_interval_ms=100
+            adjust_min_interval_ms=100,
         )
         limiter = AdaptiveRateLimiter("test", "endpoint", config)
         limiter.set_baseline(1000.0)
@@ -532,7 +518,9 @@ class TestIntegrationScenarios:
         # 应该调整但保守
         if adjustment:
             # 降级幅度应该较小
-            rate_reduction = (limiter.state.base_rate - limiter.state.current_rate) / limiter.state.base_rate
+            rate_reduction = (
+                limiter.state.base_rate - limiter.state.current_rate
+            ) / limiter.state.base_rate
             assert rate_reduction < 0.5  # 降幅小于50%
 
     def test_sustained_jitter_triggers_cooldown(self):
@@ -543,7 +531,7 @@ class TestIntegrationScenarios:
             jitter_threshold=0.5,
             cooldown_duration_ms=500,
             adjust_min_interval_ms=50,
-            error_alpha=0.9  # 高alpha使EMA快速响应
+            error_alpha=0.9,  # 高alpha使EMA快速响应
         )
         limiter = AdaptiveRateLimiter("test", "endpoint", config)
 

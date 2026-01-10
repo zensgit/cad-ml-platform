@@ -156,9 +156,7 @@ def with_retry(
             async def async_wrapper(*args: Any, **kwargs: Any) -> T:
                 async for attempt in AsyncRetrying(
                     stop=stop_after_attempt(max_attempts),
-                    wait=wait_exponential(
-                        multiplier=multiplier, min=min_wait, max=max_wait
-                    ),
+                    wait=wait_exponential(multiplier=multiplier, min=min_wait, max=max_wait),
                     retry=retry_if_exception_type(retry_exceptions),
                     before_sleep=before_sleep_log(logger, logging.WARNING),
                     reraise=reraise,
@@ -173,9 +171,7 @@ def with_retry(
             def sync_wrapper(*args: Any, **kwargs: Any) -> T:
                 for attempt in Retrying(
                     stop=stop_after_attempt(max_attempts),
-                    wait=wait_exponential(
-                        multiplier=multiplier, min=min_wait, max=max_wait
-                    ),
+                    wait=wait_exponential(multiplier=multiplier, min=min_wait, max=max_wait),
                     retry=retry_if_exception_type(retry_exceptions),
                     before_sleep=before_sleep_log(logger, logging.WARNING),
                     reraise=reraise,

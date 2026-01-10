@@ -701,6 +701,11 @@ make test          # Run all tests
 make test-fast     # Run fast tests only
 make lint          # Run linters
 make typecheck     # Run type checking
+# Faiss perf tests (optional)
+RUN_FAISS_PERF_TESTS=1 pytest tests/perf/test_vector_search_latency.py -v
+REQUIRE_FAISS_PERF=1 RUN_FAISS_PERF_TESTS=1 pytest tests/perf/test_vector_search_latency.py -v
+# Note: some environments segfault on faiss import with PYTHONWARNINGS=error::DeprecationWarning.
+# The perf test runs faiss in a subprocess and filters swig DeprecationWarning to isolate this.
 
 # Monitoring
 make metrics-export  # Export metrics to Prometheus

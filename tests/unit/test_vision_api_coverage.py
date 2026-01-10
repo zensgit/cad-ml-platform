@@ -148,11 +148,45 @@ class TestAnalyzeVisionEndpoint:
             assert result.provider == "stub"
 
     @pytest.mark.asyncio
+    async def test_passes_cad_feature_thresholds(self):
+        """Test analyze_vision passes CAD threshold overrides to the manager."""
+        from src.api.v1.vision import analyze_vision
+        from src.core.vision import VisionAnalyzeRequest, VisionAnalyzeResponse
+
+        request = VisionAnalyzeRequest(
+            image_base64="dGVzdGltYWdl",
+            include_description=True,
+            cad_feature_thresholds={"line_aspect": 5.0, "arc_fill_min": 0.08},
+        )
+
+        mock_response = VisionAnalyzeResponse(
+            success=True,
+            description={"summary": "Test image", "details": [], "confidence": 0.9},
+            ocr=None,
+            provider="stub",
+            processing_time_ms=100.0,
+        )
+
+        with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
+            mock_manager = MagicMock()
+            mock_manager.analyze = AsyncMock(return_value=mock_response)
+            mock_get_manager.return_value = mock_manager
+
+            result = await analyze_vision(request, provider=None)
+
+            assert result.success is True
+            passed_request = mock_manager.analyze.call_args[0][0]
+            assert passed_request.cad_feature_thresholds == {
+                "line_aspect": 5.0,
+                "arc_fill_min": 0.08,
+            }
+
+    @pytest.mark.asyncio
     async def test_failed_analysis_returns_error_response(self):
         """Test analyze_vision returns error response on failure."""
         from src.api.v1.vision import analyze_vision
-        from src.core.vision import VisionAnalyzeRequest, VisionAnalyzeResponse
         from src.core.errors import ErrorCode
+        from src.core.vision import VisionAnalyzeRequest, VisionAnalyzeResponse
 
         request = VisionAnalyzeRequest(
             image_base64="dGVzdGltYWdl",
@@ -183,8 +217,8 @@ class TestAnalyzeVisionEndpoint:
     async def test_vision_input_error(self):
         """Test analyze_vision handles VisionInputError."""
         from src.api.v1.vision import analyze_vision
-        from src.core.vision import VisionAnalyzeRequest, VisionInputError
         from src.core.errors import ErrorCode
+        from src.core.vision import VisionAnalyzeRequest, VisionInputError
 
         request = VisionAnalyzeRequest(
             image_base64="invalid",
@@ -206,8 +240,8 @@ class TestAnalyzeVisionEndpoint:
     async def test_vision_provider_error(self):
         """Test analyze_vision handles VisionProviderError."""
         from src.api.v1.vision import analyze_vision
-        from src.core.vision import VisionAnalyzeRequest
         from src.core.errors import ErrorCode
+        from src.core.vision import VisionAnalyzeRequest
 
         # Create a custom exception class that matches VisionProviderError interface
         class MockVisionProviderError(Exception):
@@ -225,10 +259,7 @@ class TestAnalyzeVisionEndpoint:
         with patch("src.api.v1.vision.VisionProviderError", MockVisionProviderError):
             with patch("src.api.v1.vision.get_vision_manager") as mock_get_manager:
                 mock_manager = MagicMock()
-                error = MockVisionProviderError(
-                    message="Provider timeout",
-                    provider="openai"
-                )
+                error = MockVisionProviderError(message="Provider timeout", provider="openai")
                 mock_manager.analyze = AsyncMock(side_effect=error)
                 mock_get_manager.return_value = mock_manager
 
@@ -242,8 +273,8 @@ class TestAnalyzeVisionEndpoint:
     async def test_generic_exception(self):
         """Test analyze_vision handles generic exceptions."""
         from src.api.v1.vision import analyze_vision
-        from src.core.vision import VisionAnalyzeRequest
         from src.core.errors import ErrorCode
+        from src.core.vision import VisionAnalyzeRequest
 
         request = VisionAnalyzeRequest(
             image_base64="dGVzdGltYWdl",

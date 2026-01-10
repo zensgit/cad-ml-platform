@@ -210,9 +210,7 @@ class ScalingPredictor:
 
             return 0.5
 
-    def predict_capacity_needed(
-        self, current_capacity: int, hours_ahead: int = 1
-    ) -> int:
+    def predict_capacity_needed(self, current_capacity: int, hours_ahead: int = 1) -> int:
         """Predict capacity needed in the future."""
         predicted_utilization = self.predict_utilization(hours_ahead)
 
@@ -241,7 +239,9 @@ class ReactiveScaler:
                 self.config.max_capacity,
             )
             return ScalingDecision(
-                direction=ScalingDirection.SCALE_UP if target > current_capacity else ScalingDirection.NO_CHANGE,
+                direction=ScalingDirection.SCALE_UP
+                if target > current_capacity
+                else ScalingDirection.NO_CHANGE,
                 current_capacity=current_capacity,
                 target_capacity=target,
                 reason=f"Utilization {metrics.current_utilization:.2%} exceeds threshold {self.config.scale_up_threshold:.2%}",
@@ -256,7 +256,9 @@ class ReactiveScaler:
                 self.config.min_capacity,
             )
             return ScalingDecision(
-                direction=ScalingDirection.SCALE_DOWN if target < current_capacity else ScalingDirection.NO_CHANGE,
+                direction=ScalingDirection.SCALE_DOWN
+                if target < current_capacity
+                else ScalingDirection.NO_CHANGE,
                 current_capacity=current_capacity,
                 target_capacity=target,
                 reason=f"Utilization {metrics.current_utilization:.2%} below threshold {self.config.scale_down_threshold:.2%}",
@@ -291,15 +293,15 @@ class PredictiveScaler:
         self.predictor.record_observation(metrics.current_utilization, datetime.now())
 
         # Predict future need
-        predicted_capacity = self.predictor.predict_capacity_needed(
-            current_capacity, hours_ahead
-        )
+        predicted_capacity = self.predictor.predict_capacity_needed(current_capacity, hours_ahead)
         predicted_utilization = self.predictor.predict_utilization(hours_ahead)
 
         if predicted_capacity > current_capacity:
             target = min(predicted_capacity, self.config.max_capacity)
             return ScalingDecision(
-                direction=ScalingDirection.SCALE_UP if target > current_capacity else ScalingDirection.NO_CHANGE,
+                direction=ScalingDirection.SCALE_UP
+                if target > current_capacity
+                else ScalingDirection.NO_CHANGE,
                 current_capacity=current_capacity,
                 target_capacity=target,
                 reason=f"Predicted utilization {predicted_utilization:.2%} in {hours_ahead}h",
@@ -311,7 +313,9 @@ class PredictiveScaler:
         elif predicted_capacity < current_capacity:
             target = max(predicted_capacity, self.config.min_capacity)
             return ScalingDecision(
-                direction=ScalingDirection.SCALE_DOWN if target < current_capacity else ScalingDirection.NO_CHANGE,
+                direction=ScalingDirection.SCALE_DOWN
+                if target < current_capacity
+                else ScalingDirection.NO_CHANGE,
                 current_capacity=current_capacity,
                 target_capacity=target,
                 reason=f"Predicted lower demand in {hours_ahead}h",
@@ -461,19 +465,13 @@ class AutoScaler:
         decisions: List[ScalingDecision] = []
 
         if self.policy in (ScalingPolicy.REACTIVE, ScalingPolicy.HYBRID):
-            decisions.append(
-                self._reactive_scaler.evaluate(metrics, self._current_capacity)
-            )
+            decisions.append(self._reactive_scaler.evaluate(metrics, self._current_capacity))
 
         if self.policy in (ScalingPolicy.PREDICTIVE, ScalingPolicy.HYBRID):
-            decisions.append(
-                self._predictive_scaler.evaluate(metrics, self._current_capacity)
-            )
+            decisions.append(self._predictive_scaler.evaluate(metrics, self._current_capacity))
 
         if self.policy in (ScalingPolicy.SCHEDULED, ScalingPolicy.HYBRID):
-            decisions.append(
-                self._scheduled_scaler.evaluate(self._current_capacity)
-            )
+            decisions.append(self._scheduled_scaler.evaluate(self._current_capacity))
 
         # Select best decision
         return self._select_decision(decisions, metrics)
@@ -620,9 +618,7 @@ class AutoScaledVisionProvider(VisionProvider):
         start_time = time.time()
 
         try:
-            result = await self._provider.analyze_image(
-                image_data, include_description, **kwargs
-            )
+            result = await self._provider.analyze_image(image_data, include_description, **kwargs)
             return result
         except Exception as e:
             with self._lock:
@@ -643,15 +639,9 @@ class AutoScaledVisionProvider(VisionProvider):
             capacity = self.auto_scaler.get_current_capacity()
             utilization = self._active_requests / capacity if capacity > 0 else 0
             avg_latency = (
-                self._total_latency / self._request_count
-                if self._request_count > 0
-                else 0
+                self._total_latency / self._request_count if self._request_count > 0 else 0
             )
-            error_rate = (
-                self._errors / self._request_count
-                if self._request_count > 0
-                else 0
-            )
+            error_rate = self._errors / self._request_count if self._request_count > 0 else 0
 
         metrics = ScalingMetrics(
             current_utilization=min(1.0, utilization),

@@ -1,7 +1,8 @@
+import pytest
 from fastapi.testclient import TestClient
+
 from src.main import app
 from src.utils.analysis_metrics import vector_migrate_total
-
 
 client = TestClient(app)
 
@@ -18,8 +19,11 @@ def _counter_values(counter):
 
 
 def test_vector_migrate_metrics_all_statuses(monkeypatch):
+    if not hasattr(vector_migrate_total, "collect"):
+        pytest.skip("prometheus client disabled in this environment")
     # Prepare in-memory vectors with different feature versions
     from src.core import similarity
+
     similarity._VECTOR_STORE.clear()  # type: ignore
     similarity._VECTOR_META.clear()  # type: ignore
 
@@ -38,12 +42,13 @@ def test_vector_migrate_metrics_all_statuses(monkeypatch):
 
     # Monkeypatch upgrade_vector to raise for length 999
     from src.core.feature_extractor import FeatureExtractor as FE
+
     original_upgrade = FE.upgrade_vector
 
-    def faulty(self, existing):  # type: ignore
+    def faulty(self, existing, current_version=None):  # type: ignore
         if len(existing) == 999:
             raise Exception("upgrade_failed")
-        return original_upgrade(self, existing)
+        return original_upgrade(self, existing, current_version=current_version)
 
     monkeypatch.setattr(FE, "upgrade_vector", faulty)
 
@@ -77,7 +82,34 @@ def test_vector_migrate_metrics_all_statuses(monkeypatch):
     values = _counter_values(vector_migrate_total)
     # Ensure each status had at least one increment
     for status in ["dry_run", "skipped", "not_found", "error", "migrated"]:
-        assert status in values and values[status] > 0, f"Missing counter for {status}" 
+        assert status in values and values[status] > 0, f"Missing counter for {status}"
+
+
+def test_vector_migrate_metrics_downgraded_status():
+    if not hasattr(vector_migrate_total, "collect"):
+        pytest.skip("prometheus client disabled in this environment")
+    from src.core import similarity
+    from src.core.feature_extractor import FeatureExtractor
+
+    similarity._VECTOR_STORE.clear()  # type: ignore
+    similarity._VECTOR_META.clear()  # type: ignore
+
+    extractor = FeatureExtractor(feature_version="v4")
+    v4_dim = extractor.expected_dim("v4")
+    similarity._VECTOR_STORE["v4_downgrade"] = [0.9] * v4_dim
+    similarity._VECTOR_META["v4_downgrade"] = {"feature_version": "v4"}
+
+    before = _counter_values(vector_migrate_total).get("downgraded", 0)
+    response = client.post(
+        "/api/v1/vectors/migrate",
+        json={"ids": ["v4_downgrade"], "to_version": "v3", "dry_run": False},
+        headers={"x-api-key": "test"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["items"][0]["status"] == "downgraded"
+    after = _counter_values(vector_migrate_total).get("downgraded", 0)
+    assert after > before, "downgraded counter should increment"
 
 
 def test_vector_migrate_invalid_version():

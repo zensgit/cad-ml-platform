@@ -29,7 +29,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
-
+from .feature_store import TransformationType
 
 # ========================
 # Enums
@@ -107,19 +107,6 @@ class CatalogEntryType(str, Enum):
     FILE = "file"
     API = "api"
     MODEL = "model"
-
-
-class TransformationType(str, Enum):
-    """Types of data transformations."""
-
-    FILTER = "filter"
-    MAP = "map"
-    AGGREGATE = "aggregate"
-    JOIN = "join"
-    SORT = "sort"
-    DEDUPLICATE = "deduplicate"
-    ENRICH = "enrich"
-    NORMALIZE = "normalize"
 
 
 class AccessLevel(str, Enum):
@@ -410,17 +397,13 @@ class VersionManager:
                 return self.get_version(asset_id, version_id)
             return None
 
-    def get_version_history(
-        self, asset_id: str, limit: int = 100
-    ) -> List[DataVersion]:
+    def get_version_history(self, asset_id: str, limit: int = 100) -> List[DataVersion]:
         """Get version history."""
         with self._lock:
             versions = self._versions.get(asset_id, [])
             return versions[-limit:]
 
-    def rollback_to_version(
-        self, asset_id: str, version_id: str
-    ) -> Optional[DataVersion]:
+    def rollback_to_version(self, asset_id: str, version_id: str) -> Optional[DataVersion]:
         """Rollback to a specific version."""
         with self._lock:
             version = self.get_version(asset_id, version_id)
@@ -585,8 +568,10 @@ class LineageTracker:
             center = self._nodes.get(node_id)
 
             relevant_edges = [
-                e for e in self._edges
-                if e.source_id == node_id or e.target_id == node_id
+                e
+                for e in self._edges
+                if e.source_id == node_id
+                or e.target_id == node_id
                 or any(n.node_id in (e.source_id, e.target_id) for n in upstream + downstream)
             ]
 
@@ -636,9 +621,7 @@ class QualityManager:
         with self._lock:
             return self._rules.get(rule_id)
 
-    def list_rules(
-        self, dimension: Optional[QualityDimension] = None
-    ) -> List[QualityRule]:
+    def list_rules(self, dimension: Optional[QualityDimension] = None) -> List[QualityRule]:
         """List rules, optionally filtered by dimension."""
         with self._lock:
             rules = list(self._rules.values())
@@ -695,9 +678,7 @@ class QualityManager:
                 if not result.passed:
                     rule = self._rules.get(result.rule_id)
                     if rule:
-                        recommendations.append(
-                            f"Fix {rule.dimension.value}: {rule.description}"
-                        )
+                        recommendations.append(f"Fix {rule.dimension.value}: {rule.description}")
 
             report = QualityReport(
                 report_id=str(uuid.uuid4()),
@@ -710,9 +691,7 @@ class QualityManager:
             self._reports.append(report)
             return report
 
-    def get_reports(
-        self, data_id: Optional[str] = None, limit: int = 100
-    ) -> List[QualityReport]:
+    def get_reports(self, data_id: Optional[str] = None, limit: int = 100) -> List[QualityReport]:
         """Get quality reports."""
         with self._lock:
             reports = self._reports
@@ -754,9 +733,7 @@ class RetentionManager:
         with self._lock:
             return list(self._policies.values())
 
-    def evaluate_asset(
-        self, asset: DataAsset
-    ) -> Tuple[RetentionAction, Optional[RetentionPolicy]]:
+    def evaluate_asset(self, asset: DataAsset) -> Tuple[RetentionAction, Optional[RetentionPolicy]]:
         """Evaluate which retention action applies to an asset."""
         with self._lock:
             # Sort by priority (higher first)
@@ -878,19 +855,16 @@ class DataCatalog:
             if query:
                 query_lower = query.lower()
                 results = [
-                    e for e in results
-                    if query_lower in e.name.lower()
-                    or query_lower in e.description.lower()
+                    e
+                    for e in results
+                    if query_lower in e.name.lower() or query_lower in e.description.lower()
                 ]
 
             if entry_type:
                 results = [e for e in results if e.entry_type == entry_type]
 
             if tags:
-                results = [
-                    e for e in results
-                    if any(t in e.tags for t in tags)
-                ]
+                results = [e for e in results if any(t in e.tags for t in tags)]
 
             if owner:
                 results = [e for e in results if e.owner == owner]
@@ -974,16 +948,12 @@ class TransformationTracker:
             self._records.append(record)
             return record
 
-    def get_transformations_for_output(
-        self, output_id: str
-    ) -> List[TransformationRecord]:
+    def get_transformations_for_output(self, output_id: str) -> List[TransformationRecord]:
         """Get transformations that produced an output."""
         with self._lock:
             return [r for r in self._records if r.output_id == output_id]
 
-    def get_transformations_from_input(
-        self, input_id: str
-    ) -> List[TransformationRecord]:
+    def get_transformations_from_input(self, input_id: str) -> List[TransformationRecord]:
         """Get transformations that used an input."""
         with self._lock:
             return [r for r in self._records if input_id in r.input_ids]
@@ -1085,9 +1055,7 @@ class DataLifecycleHub:
                 tags=tags or [],
                 access_level=access_level,
                 expires_at=(
-                    datetime.now() + timedelta(days=expires_in_days)
-                    if expires_in_days
-                    else None
+                    datetime.now() + timedelta(days=expires_in_days) if expires_in_days else None
                 ),
             )
             self._assets[asset.asset_id] = asset
@@ -1098,9 +1066,7 @@ class DataLifecycleHub:
         with self._lock:
             return self._assets.get(asset_id)
 
-    def update_asset_state(
-        self, asset_id: str, new_state: DataState
-    ) -> Optional[DataAsset]:
+    def update_asset_state(self, asset_id: str, new_state: DataState) -> Optional[DataAsset]:
         """Update asset state."""
         with self._lock:
             asset = self._assets.get(asset_id)
@@ -1134,9 +1100,7 @@ class DataLifecycleHub:
             return {
                 "total_assets": len(self._assets),
                 "assets_by_state": dict(assets_by_state),
-                "total_versions": sum(
-                    len(v) for v in self._version_manager._versions.values()
-                ),
+                "total_versions": sum(len(v) for v in self._version_manager._versions.values()),
                 "lineage_nodes": len(self._lineage_tracker._nodes),
                 "quality_rules": len(self._quality_manager._rules),
                 "retention_policies": len(self._retention_manager._policies),
@@ -1186,9 +1150,7 @@ class ManagedVisionProvider(VisionProvider):
         )
 
         try:
-            result = await self._base_provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._base_provider.analyze_image(image_data, include_description)
 
             # Create version for result
             if self._hub._config.enable_versioning:

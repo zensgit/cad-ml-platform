@@ -10,13 +10,13 @@ Provides multiple vision provider implementations:
 - DoubaoVisionProvider: ByteDance Doubao Vision (豆包视觉) - Cost-effective China option
 """
 
-from .deepseek_stub import DeepSeekStubProvider, create_stub_provider
-from .deepseek import DeepSeekVisionProvider, create_deepseek_provider
-from .openai import OpenAIVisionProvider, create_openai_provider
 from .anthropic import AnthropicVisionProvider, create_anthropic_provider
-from .qwen_vl import QwenVLProvider, create_qwen_vl_provider
-from .glm4v import GLM4VProvider, create_glm4v_provider
+from .deepseek import DeepSeekVisionProvider, create_deepseek_provider
+from .deepseek_stub import DeepSeekStubProvider, create_stub_provider
 from .doubao import DoubaoVisionProvider, create_doubao_provider
+from .glm4v import GLM4VProvider, create_glm4v_provider
+from .openai import OpenAIVisionProvider, create_openai_provider
+from .qwen_vl import QwenVLProvider, create_qwen_vl_provider
 
 __all__ = [
     # Stub provider

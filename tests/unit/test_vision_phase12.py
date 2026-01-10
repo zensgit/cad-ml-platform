@@ -15,7 +15,6 @@ import pytest
 
 from src.core.vision.base import VisionDescription, VisionProvider
 
-
 # ============================================================================
 # Mock Provider
 # ============================================================================
@@ -67,7 +66,7 @@ class TestMLIntegration:
 
     def test_model_metadata(self) -> None:
         """Test ModelMetadata creation."""
-        from src.core.vision.ml_integration import ModelMetadata, ModelType, ModelStatus
+        from src.core.vision.ml_integration import ModelMetadata, ModelStatus, ModelType
 
         metadata = ModelMetadata(
             model_id="model1",
@@ -92,11 +91,7 @@ class TestMLIntegration:
 
     def test_in_memory_model_store(self) -> None:
         """Test InMemoryModelStore."""
-        from src.core.vision.ml_integration import (
-            InMemoryModelStore,
-            ModelMetadata,
-            ModelType,
-        )
+        from src.core.vision.ml_integration import InMemoryModelStore, ModelMetadata, ModelType
 
         store = InMemoryModelStore()
         metadata = ModelMetadata(
@@ -127,10 +122,7 @@ class TestMLIntegration:
 
     def test_simple_classifier(self) -> None:
         """Test SimpleClassifier."""
-        from src.core.vision.ml_integration import (
-            SimpleClassifier,
-            FeatureVector,
-        )
+        from src.core.vision.ml_integration import FeatureVector, SimpleClassifier
 
         rules = {
             "large": lambda f: f.get("size", 0) > 100,
@@ -145,10 +137,7 @@ class TestMLIntegration:
 
     def test_model_registry(self) -> None:
         """Test ModelRegistry."""
-        from src.core.vision.ml_integration import (
-            ModelRegistry,
-            SimpleClassifier,
-        )
+        from src.core.vision.ml_integration import ModelRegistry, SimpleClassifier
 
         registry = ModelRegistry()
         classifier = SimpleClassifier(
@@ -165,11 +154,11 @@ class TestMLIntegration:
     def test_inference_engine(self) -> None:
         """Test InferenceEngine."""
         from src.core.vision.ml_integration import (
-            ModelRegistry,
-            InferenceEngine,
-            SimpleClassifier,
-            InferenceRequest,
             FeatureVector,
+            InferenceEngine,
+            InferenceRequest,
+            ModelRegistry,
+            SimpleClassifier,
         )
 
         registry = ModelRegistry()
@@ -190,11 +179,7 @@ class TestMLIntegration:
 
     def test_ensemble_model(self) -> None:
         """Test EnsembleModel."""
-        from src.core.vision.ml_integration import (
-            EnsembleModel,
-            SimpleClassifier,
-            FeatureVector,
-        )
+        from src.core.vision.ml_integration import EnsembleModel, FeatureVector, SimpleClassifier
 
         clf1 = SimpleClassifier("c1", {"a": lambda f: True})
         clf2 = SimpleClassifier("c2", {"a": lambda f: True, "b": lambda f: True})
@@ -334,10 +319,10 @@ class TestRecommendations:
     def test_recommendation_engine(self) -> None:
         """Test RecommendationEngine."""
         from src.core.vision.recommendations import (
-            RecommendationEngine,
-            Item,
             Interaction,
             InteractionType,
+            Item,
+            RecommendationEngine,
             RecommendationRequest,
         )
 
@@ -366,7 +351,7 @@ class TestRecommendations:
 
     def test_similar_items(self) -> None:
         """Test getting similar items."""
-        from src.core.vision.recommendations import RecommendationEngine, Item
+        from src.core.vision.recommendations import Item, RecommendationEngine
 
         engine = RecommendationEngine()
         engine.add_item(Item(item_id="i1", name="Item 1", tags=["a", "b", "c"]))
@@ -381,7 +366,10 @@ class TestRecommendations:
     @pytest.mark.asyncio
     async def test_recommendation_vision_provider(self) -> None:
         """Test RecommendationVisionProvider."""
-        from src.core.vision.recommendations import create_recommendation_provider, RecommendationEngine
+        from src.core.vision.recommendations import (
+            RecommendationEngine,
+            create_recommendation_provider,
+        )
 
         engine = RecommendationEngine()
         base = MockVisionProvider()
@@ -427,7 +415,7 @@ class TestAnomalyDetection:
 
     def test_threshold(self) -> None:
         """Test Threshold."""
-        from src.core.vision.anomaly_detection import Threshold, AlertSeverity
+        from src.core.vision.anomaly_detection import AlertSeverity, Threshold
 
         threshold = Threshold(
             name="high_temp",
@@ -440,7 +428,7 @@ class TestAnomalyDetection:
 
     def test_zscore_detector(self) -> None:
         """Test ZScoreDetector."""
-        from src.core.vision.anomaly_detection import ZScoreDetector, DataPoint
+        from src.core.vision.anomaly_detection import DataPoint, ZScoreDetector
 
         detector = ZScoreDetector(threshold=2.0)
 
@@ -454,7 +442,7 @@ class TestAnomalyDetection:
 
     def test_iqr_detector(self) -> None:
         """Test IQRDetector."""
-        from src.core.vision.anomaly_detection import IQRDetector, DataPoint
+        from src.core.vision.anomaly_detection import DataPoint, IQRDetector
 
         detector = IQRDetector(multiplier=1.5)
 
@@ -468,10 +456,10 @@ class TestAnomalyDetection:
     def test_threshold_detector(self) -> None:
         """Test ThresholdDetector."""
         from src.core.vision.anomaly_detection import (
-            ThresholdDetector,
-            Threshold,
-            DataPoint,
             AlertSeverity,
+            DataPoint,
+            Threshold,
+            ThresholdDetector,
         )
 
         thresholds = [
@@ -488,7 +476,7 @@ class TestAnomalyDetection:
 
     def test_moving_average_detector(self) -> None:
         """Test MovingAverageDetector."""
-        from src.core.vision.anomaly_detection import MovingAverageDetector, DataPoint
+        from src.core.vision.anomaly_detection import DataPoint, MovingAverageDetector
 
         detector = MovingAverageDetector(window_size=5, threshold=2.0)
 
@@ -503,9 +491,9 @@ class TestAnomalyDetection:
         """Test AlertManager."""
         from src.core.vision.anomaly_detection import (
             AlertManager,
+            AlertSeverity,
             Anomaly,
             AnomalyType,
-            AlertSeverity,
         )
 
         manager = AlertManager()
@@ -527,10 +515,10 @@ class TestAnomalyDetection:
         """Test alert acknowledge and resolve."""
         from src.core.vision.anomaly_detection import (
             AlertManager,
-            Anomaly,
-            AnomalyType,
             AlertSeverity,
             AlertStatus,
+            Anomaly,
+            AnomalyType,
         )
 
         manager = AlertManager()
@@ -661,12 +649,11 @@ class TestReporting:
 
     def test_report_builder(self) -> None:
         """Test ReportBuilder."""
-        from src.core.vision.reporting import ReportBuilder, ReportType, ReportFormat
+        from src.core.vision.reporting import ReportBuilder, ReportFormat, ReportType
 
         builder = ReportBuilder("r1", "Test Report")
         config = (
-            builder
-            .report_type(ReportType.SUMMARY)
+            builder.report_type(ReportType.SUMMARY)
             .format(ReportFormat.JSON)
             .add_section("s1", "Section 1", "Content here")
             .build()
@@ -678,13 +665,9 @@ class TestReporting:
 
     def test_json_formatter(self) -> None:
         """Test JSONFormatter."""
-        from src.core.vision.reporting import (
-            JSONFormatter,
-            Report,
-            ReportType,
-            ReportStatus,
-        )
         import json
+
+        from src.core.vision.reporting import JSONFormatter, Report, ReportStatus, ReportType
 
         report = Report(
             report_id="r1",
@@ -701,20 +684,13 @@ class TestReporting:
 
     def test_markdown_formatter(self) -> None:
         """Test MarkdownFormatter."""
-        from src.core.vision.reporting import (
-            MarkdownFormatter,
-            Report,
-            ReportType,
-            ReportSection,
-        )
+        from src.core.vision.reporting import MarkdownFormatter, Report, ReportSection, ReportType
 
         report = Report(
             report_id="r1",
             name="Test Report",
             report_type=ReportType.SUMMARY,
-            sections=[
-                ReportSection(section_id="s1", title="Overview", content="Test content")
-            ],
+            sections=[ReportSection(section_id="s1", title="Overview", content="Test content")],
         )
 
         formatter = MarkdownFormatter()
@@ -725,11 +701,7 @@ class TestReporting:
 
     def test_html_formatter(self) -> None:
         """Test HTMLFormatter."""
-        from src.core.vision.reporting import (
-            HTMLFormatter,
-            Report,
-            ReportType,
-        )
+        from src.core.vision.reporting import HTMLFormatter, Report, ReportType
 
         report = Report(
             report_id="r1",
@@ -745,12 +717,7 @@ class TestReporting:
 
     def test_csv_formatter(self) -> None:
         """Test CSVFormatter."""
-        from src.core.vision.reporting import (
-            CSVFormatter,
-            Report,
-            ReportType,
-            ReportSection,
-        )
+        from src.core.vision.reporting import CSVFormatter, Report, ReportSection, ReportType
 
         report = Report(
             report_id="r1",
@@ -773,11 +740,7 @@ class TestReporting:
 
     def test_report_generator(self) -> None:
         """Test ReportGenerator."""
-        from src.core.vision.reporting import (
-            ReportGenerator,
-            ReportBuilder,
-            ReportStatus,
-        )
+        from src.core.vision.reporting import ReportBuilder, ReportGenerator, ReportStatus
 
         generator = ReportGenerator()
         builder = ReportBuilder("r1", "Test Report")
@@ -790,11 +753,7 @@ class TestReporting:
 
     def test_report_export(self) -> None:
         """Test report export."""
-        from src.core.vision.reporting import (
-            ReportGenerator,
-            ReportBuilder,
-            ReportFormat,
-        )
+        from src.core.vision.reporting import ReportBuilder, ReportFormat, ReportGenerator
 
         generator = ReportGenerator()
         builder = ReportBuilder("r1", "Test")
@@ -830,9 +789,9 @@ class TestReporting:
     def test_report_scheduler(self) -> None:
         """Test ReportScheduler."""
         from src.core.vision.reporting import (
-            ReportScheduler,
-            ReportGenerator,
             ReportBuilder,
+            ReportGenerator,
+            ReportScheduler,
             ScheduleFrequency,
         )
 
@@ -849,9 +808,9 @@ class TestReporting:
     def test_schedule_disable_enable(self) -> None:
         """Test schedule disable/enable."""
         from src.core.vision.reporting import (
-            ReportScheduler,
-            ReportGenerator,
             ReportBuilder,
+            ReportGenerator,
+            ReportScheduler,
             ScheduleFrequency,
         )
 
@@ -872,7 +831,7 @@ class TestReporting:
     @pytest.mark.asyncio
     async def test_reporting_vision_provider(self) -> None:
         """Test ReportingVisionProvider."""
-        from src.core.vision.reporting import create_reporting_provider, ReportType
+        from src.core.vision.reporting import ReportType, create_reporting_provider
 
         base = MockVisionProvider()
         provider = create_reporting_provider(base)
@@ -899,12 +858,12 @@ class TestPhase12Integration:
     @pytest.mark.asyncio
     async def test_ml_with_anomaly_detection(self) -> None:
         """Test ML provider with anomaly detection."""
+        from src.core.vision.anomaly_detection import create_anomaly_provider
         from src.core.vision.ml_integration import (
             ModelRegistry,
             SimpleClassifier,
             create_ml_provider,
         )
-        from src.core.vision.anomaly_detection import create_anomaly_provider
 
         # Create ML provider
         registry = ModelRegistry()
@@ -924,8 +883,8 @@ class TestPhase12Integration:
     async def test_recommendation_with_reporting(self) -> None:
         """Test recommendation provider with reporting."""
         from src.core.vision.recommendations import (
-            create_recommendation_provider,
             RecommendationEngine,
+            create_recommendation_provider,
         )
         from src.core.vision.reporting import create_reporting_provider
 
@@ -945,14 +904,8 @@ class TestPhase12Integration:
 
     def test_full_analytics_pipeline(self) -> None:
         """Test full analytics pipeline."""
-        from src.core.vision.anomaly_detection import (
-            AnomalyDetectionEngine,
-            DataPoint,
-        )
-        from src.core.vision.reporting import (
-            ReportGenerator,
-            ReportBuilder,
-        )
+        from src.core.vision.anomaly_detection import AnomalyDetectionEngine, DataPoint
+        from src.core.vision.reporting import ReportBuilder, ReportGenerator
 
         # Detect anomalies
         engine = AnomalyDetectionEngine()
@@ -961,14 +914,11 @@ class TestPhase12Integration:
 
         # Generate report
         generator = ReportGenerator()
-        builder = (
-            ReportBuilder("analytics_report", "Analytics Report")
-            .add_section(
-                "anomalies",
-                "Anomaly Detection",
-                f"Found {detection_result.anomalies_found} anomalies",
-                data={"count": detection_result.anomalies_found},
-            )
+        builder = ReportBuilder("analytics_report", "Analytics Report").add_section(
+            "anomalies",
+            "Anomaly Detection",
+            f"Found {detection_result.anomalies_found} anomalies",
+            data={"count": detection_result.anomalies_found},
         )
         config = builder.build()
         report = generator.generate(config)
@@ -988,13 +938,13 @@ class TestPhase12Imports:
     def test_ml_integration_imports(self) -> None:
         """Test ML integration imports."""
         from src.core.vision import (
-            ModelRegistry,
-            MLVisionProvider,
             InferenceEngine,
-            ModelType,
+            MLVisionProvider,
+            ModelRegistry,
             ModelStatus,
-            create_model_registry,
+            ModelType,
             create_ml_provider,
+            create_model_registry,
         )
 
         assert ModelRegistry is not None
@@ -1005,9 +955,9 @@ class TestPhase12Imports:
         """Test recommendation imports."""
         from src.core.vision import (
             RecommendationEngine,
+            RecommendationType,
             RecommendationVisionProvider,
             SimilarityCalculator,
-            RecommendationType,
             SimilarityMetric,
             create_recommendation_engine,
             create_recommendation_provider,
@@ -1022,10 +972,10 @@ class TestPhase12Imports:
         from src.core.vision import (
             AnomalyDetectionEngine,
             AnomalyDetectionVisionProvider,
-            ZScoreDetector,
-            IQRDetector,
             AnomalyType,
             DetectionMethod,
+            IQRDetector,
+            ZScoreDetector,
             create_anomaly_engine,
             create_anomaly_provider,
         )
@@ -1037,15 +987,15 @@ class TestPhase12Imports:
     def test_reporting_imports(self) -> None:
         """Test reporting imports."""
         from src.core.vision import (
-            ReportGenerator,
-            ReportBuilder,
-            ReportingVisionProvider,
-            DashboardManager,
-            ReportType,
-            ReportFormat,
             ChartType,
-            create_report_generator,
+            DashboardManager,
+            ReportBuilder,
+            ReportFormat,
+            ReportGenerator,
+            ReportingVisionProvider,
+            ReportType,
             create_report_builder,
+            create_report_generator,
             create_reporting_provider,
         )
 

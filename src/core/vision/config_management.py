@@ -111,20 +111,14 @@ class ConfigSchema:
 
         # Choices check
         if self.choices and value not in self.choices:
-            errors.append(
-                f"Config '{self.key}' value '{value}' not in choices: {self.choices}"
-            )
+            errors.append(f"Config '{self.key}' value '{value}' not in choices: {self.choices}")
 
         # Range check
         if self.min_value is not None and value < self.min_value:
-            errors.append(
-                f"Config '{self.key}' value {value} below minimum {self.min_value}"
-            )
+            errors.append(f"Config '{self.key}' value {value} below minimum {self.min_value}")
 
         if self.max_value is not None and value > self.max_value:
-            errors.append(
-                f"Config '{self.key}' value {value} above maximum {self.max_value}"
-            )
+            errors.append(f"Config '{self.key}' value {value} above maximum {self.max_value}")
 
         # Custom validators
         for validator in self.validators:
@@ -253,7 +247,7 @@ class EnvironmentConfigProvider(ConfigProvider):
 
             config_key = key
             if prefix:
-                config_key = key[len(prefix):]
+                config_key = key[len(prefix) :]
             config_key = config_key.lower().replace(self._separator, ".")
 
             try:
@@ -315,7 +309,7 @@ class FileConfigProvider(ConfigProvider):
 
             if "=" in line:
                 key, value = line.split("=", 1)
-                result[key.strip()] = value.strip().strip('"\'')
+                result[key.strip()] = value.strip().strip("\"'")
 
         return result
 
@@ -971,9 +965,7 @@ class ConfigurableVisionProvider(VisionProvider):
         if len(image_data) > max_image_size:
             raise ValueError(f"Image size {len(image_data)} exceeds maximum {max_image_size}")
 
-        return await self._provider.analyze_image(
-            image_data, include_description
-        )
+        return await self._provider.analyze_image(image_data, include_description)
 
 
 def create_configurable_provider(

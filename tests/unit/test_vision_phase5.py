@@ -16,70 +16,70 @@ import pytest
 
 from src.core.vision import VisionDescription
 from src.core.vision.ab_testing import (
-    ExperimentManager,
     ABTestingVisionProvider,
-    ExperimentConfig,
-    ExperimentStatus,
-    ExperimentResult,
-    ExperimentAnalysis,
-    Variant,
-    VariantType,
-    VariantStats,
     AllocationStrategy,
+    ExperimentAnalysis,
+    ExperimentConfig,
+    ExperimentManager,
+    ExperimentResult,
+    ExperimentStatus,
     StatisticalMethod,
+    Variant,
+    VariantStats,
+    VariantType,
     create_ab_testing_provider,
 )
-from src.core.vision.validation import (
-    ResponseValidator,
-    ValidatingVisionProvider,
-    ValidationSchema,
-    ValidationRule,
-    ValidationResult,
-    ValidationIssue,
-    ValidationSeverity,
-    ValidationRuleType,
-    ValidationStats,
-    ValidationError,
-    STANDARD_SCHEMA,
-    STRICT_SCHEMA,
-    OCR_SCHEMA,
-    create_validating_provider,
-)
 from src.core.vision.audit import (
-    AuditLogger,
-    AuditingVisionProvider,
-    AuditEntry,
-    AuditContext,
     AuditConfig,
+    AuditContext,
+    AuditEntry,
     AuditEventType,
+    AuditingVisionProvider,
     AuditLevel,
+    AuditLogger,
     InMemoryAuditStorage,
     RetentionPolicy,
     create_auditing_provider,
 )
 from src.core.vision.multiregion import (
-    RegionRouter,
+    LatencyMeasurer,
     MultiRegionVisionProvider,
     Region,
     RegionConfig,
     RegionHealth,
+    RegionRouter,
     RegionStatus,
     RoutingStrategy,
-    LatencyMeasurer,
     create_multiregion_provider,
 )
 from src.core.vision.priority import (
-    RequestScheduler,
-    PrioritizedVisionProvider,
     HeapPriorityQueue,
     MultiLevelQueue,
-    Priority,
-    QueueStrategy,
-    RequestStatus,
     PrioritizedRequest,
-    QueueStats,
+    PrioritizedVisionProvider,
+    Priority,
     QueueFullError,
+    QueueStats,
+    QueueStrategy,
+    RequestScheduler,
+    RequestStatus,
     create_prioritized_provider,
+)
+from src.core.vision.validation import (
+    OCR_SCHEMA,
+    STANDARD_SCHEMA,
+    STRICT_SCHEMA,
+    ResponseValidator,
+    ValidatingVisionProvider,
+    ValidationError,
+    ValidationIssue,
+    ValidationResult,
+    ValidationRule,
+    ValidationRuleType,
+    ValidationSchema,
+    ValidationSeverity,
+    ValidationStats,
+    create_validating_provider,
 )
 
 
@@ -438,16 +438,20 @@ class TestInMemoryAuditStorage:
         """Test querying by event type."""
         storage = InMemoryAuditStorage()
 
-        storage.store(AuditEntry(
-            entry_id="1",
-            timestamp=datetime.now(),
-            event_type=AuditEventType.REQUEST_STARTED,
-        ))
-        storage.store(AuditEntry(
-            entry_id="2",
-            timestamp=datetime.now(),
-            event_type=AuditEventType.REQUEST_COMPLETED,
-        ))
+        storage.store(
+            AuditEntry(
+                entry_id="1",
+                timestamp=datetime.now(),
+                event_type=AuditEventType.REQUEST_STARTED,
+            )
+        )
+        storage.store(
+            AuditEntry(
+                entry_id="2",
+                timestamp=datetime.now(),
+                event_type=AuditEventType.REQUEST_COMPLETED,
+            )
+        )
 
         results = storage.query(event_types=[AuditEventType.REQUEST_STARTED])
         assert len(results) == 1
@@ -568,10 +572,12 @@ class TestRegionRouter:
         router = RegionRouter()
         provider = create_mock_provider()
 
-        router.add_region(RegionConfig(
-            region=Region.US_EAST,
-            provider=provider,
-        ))
+        router.add_region(
+            RegionConfig(
+                region=Region.US_EAST,
+                provider=provider,
+            )
+        )
 
         available = router.get_available_regions()
         assert Region.US_EAST in available
@@ -581,10 +587,12 @@ class TestRegionRouter:
         router = RegionRouter(strategy=RoutingStrategy.LATENCY)
 
         for region in [Region.US_EAST, Region.EU_WEST]:
-            router.add_region(RegionConfig(
-                region=region,
-                provider=create_mock_provider(),
-            ))
+            router.add_region(
+                RegionConfig(
+                    region=region,
+                    provider=create_mock_provider(),
+                )
+            )
 
         # Record latencies
         router.record_result(Region.US_EAST, True, 100.0)
@@ -597,10 +605,12 @@ class TestRegionRouter:
         """Test blocking regions."""
         router = RegionRouter(blocked_regions=[Region.US_EAST])
 
-        router.add_region(RegionConfig(
-            region=Region.US_EAST,
-            provider=create_mock_provider(),
-        ))
+        router.add_region(
+            RegionConfig(
+                region=Region.US_EAST,
+                provider=create_mock_provider(),
+            )
+        )
 
         available = router.get_available_regions()
         assert Region.US_EAST not in available
@@ -711,22 +721,26 @@ class TestHeapPriorityQueue:
         queue = HeapPriorityQueue(max_size=2)
 
         for i in range(2):
-            queue.enqueue(PrioritizedRequest(
-                priority_value=Priority.NORMAL.value,
-                sequence=i,
-                request_id=f"req{i}",
-                priority=Priority.NORMAL,
-                image_data=b"image",
-            ))
+            queue.enqueue(
+                PrioritizedRequest(
+                    priority_value=Priority.NORMAL.value,
+                    sequence=i,
+                    request_id=f"req{i}",
+                    priority=Priority.NORMAL,
+                    image_data=b"image",
+                )
+            )
 
         with pytest.raises(QueueFullError):
-            queue.enqueue(PrioritizedRequest(
-                priority_value=Priority.NORMAL.value,
-                sequence=3,
-                request_id="req3",
-                priority=Priority.NORMAL,
-                image_data=b"image",
-            ))
+            queue.enqueue(
+                PrioritizedRequest(
+                    priority_value=Priority.NORMAL.value,
+                    sequence=3,
+                    request_id="req3",
+                    priority=Priority.NORMAL,
+                    image_data=b"image",
+                )
+            )
 
 
 class TestMultiLevelQueue:
@@ -762,21 +776,25 @@ class TestMultiLevelQueue:
         queue = MultiLevelQueue()
 
         for _ in range(3):
-            queue.enqueue(PrioritizedRequest(
-                priority_value=Priority.HIGH.value,
-                sequence=0,
-                request_id="high",
-                priority=Priority.HIGH,
-                image_data=b"image",
-            ))
+            queue.enqueue(
+                PrioritizedRequest(
+                    priority_value=Priority.HIGH.value,
+                    sequence=0,
+                    request_id="high",
+                    priority=Priority.HIGH,
+                    image_data=b"image",
+                )
+            )
         for _ in range(2):
-            queue.enqueue(PrioritizedRequest(
-                priority_value=Priority.LOW.value,
-                sequence=0,
-                request_id="low",
-                priority=Priority.LOW,
-                image_data=b"image",
-            ))
+            queue.enqueue(
+                PrioritizedRequest(
+                    priority_value=Priority.LOW.value,
+                    sequence=0,
+                    request_id="low",
+                    priority=Priority.LOW,
+                    image_data=b"image",
+                )
+            )
 
         sizes = queue.size_by_priority()
         assert sizes[Priority.HIGH] == 3
@@ -832,9 +850,7 @@ class TestPrioritizedVisionProvider:
         mock_provider = create_mock_provider()
         wrapper = PrioritizedVisionProvider(mock_provider)
 
-        result = await wrapper.analyze_with_priority(
-            b"image", Priority.CRITICAL
-        )
+        result = await wrapper.analyze_with_priority(b"image", Priority.CRITICAL)
 
         assert isinstance(result, VisionDescription)
         # Critical should go directly, not through queue

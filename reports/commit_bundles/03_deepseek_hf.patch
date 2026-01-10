@@ -1,0 +1,104 @@
+diff --git a/.env.example b/.env.example
+index 8070a6d..cf3d38f 100644
+--- a/.env.example
++++ b/.env.example
+@@ -40,6 +40,10 @@ ERROR_EMA_ALPHA=0.2
+ OCR_MAX_PDF_PAGES=20
+ # OCR max file size in MB (override internal constant). Suggest <=50
+ OCR_MAX_FILE_MB=50
++# DeepSeek HF model pinning
++DEEPSEEK_HF_MODEL=deepseek-ai/DeepSeek-OCR
++DEEPSEEK_HF_REVISION=9f30c71f441d010e5429c532364a86705536c53a
++DEEPSEEK_HF_ALLOW_UNPINNED=0
+ 
+ # Vector Store
+ VECTOR_STORE_BACKEND=memory  # Options: memory, faiss, redis
+diff --git a/README.md b/README.md
+index 0ccb92f..e99a183 100644
+--- a/README.md
++++ b/README.md
+@@ -819,6 +819,9 @@ Grafana 面板示例：见 `docs/grafana/observability_dashboard.json`（导入
+ - `ERROR_EMA_ALPHA`：错误率 EMA 平滑因子（0<alpha<=1，默认 0.2）。
+ - `OCR_MAX_PDF_PAGES`：OCR PDF 最大页数（默认 20）。
+ - `OCR_MAX_FILE_MB`：OCR 上传文件大小上限（MB，默认 50）。
++- `DEEPSEEK_HF_REVISION`：DeepSeek HF 模型固定版本（提交哈希，>=7 位十六进制）。
++- `DEEPSEEK_HF_ALLOW_UNPINNED`：允许未固定版本下载（1=允许；默认禁用）。
++- `DEEPSEEK_HF_MODEL`：DeepSeek HF 模型仓库名（例如 `deepseek-ai/DeepSeek-OCR`）。
+ - `TELEMETRY_MQTT_ENABLED`：是否启用 MQTT 遥测接入（默认 false）。
+ - `MQTT_HOST`/`MQTT_PORT`/`MQTT_TOPIC`：MQTT Broker 连接参数。
+ - `TELEMETRY_STORE_BACKEND`：遥测存储后端（memory|influx|timescale|none）。
+diff --git a/src/core/ocr/providers/deepseek_hf.py b/src/core/ocr/providers/deepseek_hf.py
+index 7395eeb..9cd8a74 100644
+--- a/src/core/ocr/providers/deepseek_hf.py
++++ b/src/core/ocr/providers/deepseek_hf.py
+@@ -7,6 +7,7 @@ from __future__ import annotations
+ 
+ import asyncio
+ import logging
++import os
+ import time
+ 
+ """DeepSeek HF OCR provider stub."""
+@@ -44,6 +45,10 @@ except Exception:
+ logger = logging.getLogger(__name__)
+ 
+ 
++def _is_commit_hash(value: str) -> bool:
++    return len(value) >= 7 and all(c in "0123456789abcdefABCDEF" for c in value)
++
++
+ class DeepSeekHfProvider(OcrClient):
+     name = "deepseek_hf"
+ 
+@@ -57,7 +62,9 @@ class DeepSeekHfProvider(OcrClient):
+         self._tokenizer = None
+         self._lock = asyncio.Lock()
+         self.timeout_ms = timeout_ms
+-        self.model_name = model_name
++        self.model_name = os.getenv("DEEPSEEK_HF_MODEL", model_name)
++        self._revision = os.getenv("DEEPSEEK_HF_REVISION", "").strip()
++        self._allow_unpinned = os.getenv("DEEPSEEK_HF_ALLOW_UNPINNED", "0") == "1"
+         self._parser = FallbackParser()
+         self._align_with_paddle = align_with_paddle
+         self._paddle = None
+@@ -85,8 +92,38 @@ class DeepSeekHfProvider(OcrClient):
+ 
+                 try:
+                     start = time.time()
+-                    self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+-                    self._model = AutoModelForCausalLM.from_pretrained(self.model_name)
++                    if not self._revision:
++                        if not self._allow_unpinned:
++                            ocr_errors_total.labels(
++                                provider=self.name,
++                                code=ErrorCode.MODEL_LOAD_ERROR.value,
++                                stage="load",
++                            ).inc()
++                            logger.error("DEEPSEEK_HF_REVISION not set; refusing unpinned load")
++                            self._model = "stub"
++                            return
++                        self._revision = "main"
++                    if not _is_commit_hash(self._revision) and not self._allow_unpinned:
++                        ocr_errors_total.labels(
++                            provider=self.name,
++                            code=ErrorCode.MODEL_LOAD_ERROR.value,
++                            stage="load",
++                        ).inc()
++                        logger.error("DEEPSEEK_HF_REVISION is not a commit hash; refusing load")
++                        self._model = "stub"
++                        return
++                    if not _is_commit_hash(self._revision):
++                        logger.warning(
++                            "DEEPSEEK_HF_REVISION is not a commit hash; using unpinned revision"
++                        )
++                    self._tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
++                        self.model_name,
++                        revision=self._revision,
++                    )
++                    self._model = AutoModelForCausalLM.from_pretrained(  # nosec B615
++                        self.model_name,
++                        revision=self._revision,
++                    )
+                     ocr_cold_start_seconds.labels(provider=self.name).set(time.time() - start)
+                 except MemoryError as e:
+                     ocr_errors_total.labels(

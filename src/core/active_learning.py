@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import tempfile
 import uuid
 from datetime import datetime
 from enum import Enum
@@ -51,7 +52,11 @@ class ActiveLearner:
 
     def __init__(self) -> None:
         self._samples: Dict[str, ActiveLearningSample] = {}
-        self._data_dir = Path(os.environ.get("ACTIVE_LEARNING_DATA_DIR", "/tmp/active_learning"))
+        data_dir_env = os.environ.get("ACTIVE_LEARNING_DATA_DIR")
+        if data_dir_env:
+            self._data_dir = Path(data_dir_env)
+        else:
+            self._data_dir = Path(tempfile.gettempdir()) / "active_learning"
         self._store_type = os.environ.get("ACTIVE_LEARNING_STORE", "memory")
         self._retrain_threshold = int(os.environ.get("ACTIVE_LEARNING_RETRAIN_THRESHOLD", "10"))
 
@@ -137,9 +142,7 @@ class ActiveLearner:
 
     def check_retrain_threshold(self) -> Dict[str, Any]:
         """Check if retrain threshold is reached."""
-        labeled_count = sum(
-            1 for s in self._samples.values() if s.status == SampleStatus.LABELED
-        )
+        labeled_count = sum(1 for s in self._samples.values() if s.status == SampleStatus.LABELED)
         return {
             "ready": labeled_count >= self._retrain_threshold,
             "labeled_samples": labeled_count,

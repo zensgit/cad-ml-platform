@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+
 from src.main import app
 
 
@@ -11,4 +12,3 @@ def test_drift_reset_endpoint():
     data = r.json()
     assert data["status"] == "ok"
     assert "reset_material" in data and "reset_predictions" in data
-

@@ -137,7 +137,7 @@ class ExponentialBackoff(BackoffCalculator):
         config: RetryPolicyConfig,
     ) -> float:
         """Calculate exponential delay."""
-        delay = config.initial_delay_seconds * (config.backoff_multiplier ** attempt)
+        delay = config.initial_delay_seconds * (config.backoff_multiplier**attempt)
         return min(delay, config.max_delay_seconds)
 
 
@@ -482,10 +482,9 @@ class RetryVisionProvider(VisionProvider):
         Returns:
             Vision analysis description
         """
+
         async def operation() -> VisionDescription:
-            return await self._provider.analyze_image(
-                image_data, include_description
-            )
+            return await self._provider.analyze_image(image_data, include_description)
 
         return await self._policy.execute_with_retry(operation)
 

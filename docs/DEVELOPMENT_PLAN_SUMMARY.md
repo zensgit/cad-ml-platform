@@ -109,6 +109,8 @@ git status  # 应该clean或有未提交的Day 1 AM代码
 
 # 2. 运行基线测试
 make test
+# 可选：Faiss 性能测试（默认不跑；详见 README.md）
+# RUN_FAISS_PERF_TESTS=1 pytest tests/perf/test_vector_search_latency.py -v
 
 # 3. 确认工具可用
 which python3  # ≥3.10

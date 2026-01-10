@@ -1,9 +1,10 @@
 import os
+
 from fastapi.testclient import TestClient
-from src.main import app
+
 from src.core import similarity
 from src.core.similarity import FaissVectorStore
-
+from src.main import app
 
 client = TestClient(app)
 

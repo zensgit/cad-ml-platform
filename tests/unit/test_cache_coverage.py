@@ -14,10 +14,16 @@ from __future__ import annotations
 
 import json
 import time
+from types import ModuleType
 from typing import Any, Tuple
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+
+def _require_redis_module(cache_module: ModuleType) -> None:
+    if cache_module.redis is None:
+        pytest.skip("redis.asyncio not available in this environment")
 
 
 class TestInitRedis:
@@ -159,6 +165,7 @@ class TestGetCache:
         """Test get_cache retrieves from Redis."""
         from src.utils import cache
 
+        _require_redis_module(cache)
         original_client = cache._redis_client
         try:
             mock_client = MagicMock()
@@ -262,6 +269,7 @@ class TestSetCache:
         """Test set_cache stores to Redis."""
         from src.utils import cache
 
+        _require_redis_module(cache)
         original_client = cache._redis_client
         try:
             mock_client = MagicMock()
@@ -340,7 +348,9 @@ class TestCompatibilityWrappers:
         """Test get_cached_result calls get_cache."""
         from src.utils.cache import get_cached_result
 
-        with patch("src.utils.cache.get_cache", new_callable=AsyncMock, return_value={"cached": True}) as mock_get:
+        with patch(
+            "src.utils.cache.get_cache", new_callable=AsyncMock, return_value={"cached": True}
+        ) as mock_get:
             result = await get_cached_result("key")
 
             assert result == {"cached": True}
@@ -354,7 +364,7 @@ class TestLocalCacheLogic:
         """Test local cache stores tuple of value and expire time."""
         value = {"test": "data"}
         expire_time = time.time() + 3600
-        
+
         entry: Tuple[Any, float] = (value, expire_time)
 
         assert entry[0] == value

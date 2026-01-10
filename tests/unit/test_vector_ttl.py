@@ -1,12 +1,13 @@
 import os
 import time
 import uuid
-from fastapi.testclient import TestClient
 from unittest.mock import patch
 
-from src.main import app
+from fastapi.testclient import TestClient
+
 from src.core import similarity
-from src.core.similarity import register_vector, InMemoryVectorStore
+from src.core.similarity import InMemoryVectorStore, register_vector
+from src.main import app
 
 client = TestClient(app)
 

@@ -14,7 +14,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TypeVar
 
 from .base import VisionDescription, VisionProvider
 
-
 T = TypeVar("T")
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -77,11 +76,7 @@ class SemanticVersion:
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, SemanticVersion):
             return False
-        return (
-            self.major == other.major
-            and self.minor == other.minor
-            and self.patch == other.patch
-        )
+        return self.major == other.major and self.minor == other.minor and self.patch == other.patch
 
     def __hash__(self) -> int:
         return hash((self.major, self.minor, self.patch))
@@ -195,7 +190,8 @@ class VersionRegistry:
         """Get all supported versions."""
         with self._lock:
             return [
-                v for v in self._versions.values()
+                v
+                for v in self._versions.values()
                 if v.status in (VersionStatus.CURRENT, VersionStatus.SUPPORTED)
             ]
 
@@ -273,9 +269,7 @@ class DeprecationManager:
         with self._lock:
             return list(self._deprecations.values())
 
-    def add_callback(
-        self, callback: Callable[[DeprecationWarning], None]
-    ) -> None:
+    def add_callback(self, callback: Callable[[DeprecationWarning], None]) -> None:
         """Add a callback for deprecation events."""
         with self._lock:
             self._callbacks.append(callback)
@@ -351,9 +345,7 @@ class VersionNegotiator:
 
         return versions
 
-    def get_compatibility(
-        self, v1: SemanticVersion, v2: SemanticVersion
-    ) -> CompatibilityLevel:
+    def get_compatibility(self, v1: SemanticVersion, v2: SemanticVersion) -> CompatibilityLevel:
         """Get compatibility level between two versions."""
         if v1 == v2:
             return CompatibilityLevel.FULL
@@ -578,6 +570,7 @@ def version_deprecated(
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             import warnings
+
             warnings.warn(
                 f"{func.__name__} is deprecated since {deprecated_in}: {message}",
                 DeprecationWarning,
@@ -630,14 +623,13 @@ class VersionedVisionProvider(VisionProvider):
         # Check for deprecation warnings
         if version_info and version_info.status == VersionStatus.DEPRECATED:
             import warnings
+
             warnings.warn(
                 f"API version {version_info.version} is deprecated",
                 DeprecationWarning,
             )
 
-        return await self._wrapped.analyze_image(
-            image_data, include_description, **kwargs
-        )
+        return await self._wrapped.analyze_image(image_data, include_description, **kwargs)
 
     def get_api_version(self) -> str:
         """Get current API version."""
@@ -660,9 +652,7 @@ def create_versioned_provider(
     return VersionedVisionProvider(provider, version_manager, default_version)
 
 
-def create_semantic_version(
-    major: int, minor: int, patch: int
-) -> SemanticVersion:
+def create_semantic_version(major: int, minor: int, patch: int) -> SemanticVersion:
     """Create a semantic version."""
     return SemanticVersion(major, minor, patch)
 

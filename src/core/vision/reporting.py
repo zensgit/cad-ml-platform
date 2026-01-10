@@ -5,15 +5,14 @@ Provides report generation capabilities including dashboard data,
 export functionality, visualization support, and scheduled reports.
 """
 
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar, Union
-import json
 
-from .base import VisionProvider, VisionDescription
-
+from .base import VisionDescription, VisionProvider
 
 # ============================================================================
 # Enums
@@ -322,8 +321,7 @@ class JSONFormatter(ReportFormatter):
                             "type": c.chart_type.value,
                             "title": c.title,
                             "series": [
-                                {"name": ser.name, "values": ser.values}
-                                for ser in c.series
+                                {"name": ser.name, "values": ser.values} for ser in c.series
                             ],
                         }
                         for c in s.charts
@@ -583,9 +581,7 @@ class DashboardManager:
         """Remove a widget from a dashboard."""
         dashboard = self._dashboards.get(dashboard_id)
         if dashboard:
-            dashboard.widgets = [
-                w for w in dashboard.widgets if w.widget_id != widget_id
-            ]
+            dashboard.widgets = [w for w in dashboard.widgets if w.widget_id != widget_id]
             dashboard.updated_at = datetime.utcnow()
             return True
         return False
@@ -723,12 +719,14 @@ class ReportingVisionProvider(VisionProvider):
         result = await self._provider.analyze_image(image_data, prompt, **kwargs)
 
         # Record analysis
-        self._analysis_history.append({
-            "timestamp": datetime.utcnow().isoformat(),
-            "confidence": result.confidence,
-            "summary_length": len(result.summary),
-            "detail_count": len(result.details),
-        })
+        self._analysis_history.append(
+            {
+                "timestamp": datetime.utcnow().isoformat(),
+                "confidence": result.confidence,
+                "summary_length": len(result.summary),
+                "detail_count": len(result.details),
+            }
+        )
 
         return result
 
@@ -740,9 +738,7 @@ class ReportingVisionProvider(VisionProvider):
         # Add summary section
         total = len(self._analysis_history)
         avg_confidence = (
-            sum(h["confidence"] for h in self._analysis_history) / total
-            if total > 0
-            else 0
+            sum(h["confidence"] for h in self._analysis_history) / total if total > 0 else 0
         )
 
         builder.add_section(

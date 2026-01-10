@@ -276,7 +276,7 @@ class TrafficRouter:
         if not self._versions:
             return None
 
-        hash_val = int(hashlib.md5(key.encode()).hexdigest(), 16)
+        hash_val = int(hashlib.sha256(key.encode()).hexdigest(), 16)
         total_weight = sum(self._weights.values())
 
         if total_weight == 0:
@@ -310,9 +310,7 @@ class DeploymentManager:
         Args:
             config: Deployment configuration
         """
-        self._config = config or DeploymentConfig(
-            strategy=DeploymentStrategy.CANARY
-        )
+        self._config = config or DeploymentConfig(strategy=DeploymentStrategy.CANARY)
         self._versions: Dict[str, DeploymentVersion] = {}
         self._active_version: Optional[str] = None
         self._state = DeploymentState()

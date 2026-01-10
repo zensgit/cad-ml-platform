@@ -18,7 +18,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, Generic, Iterator, List, Optional, Set, TypeVar, Union
 
-
 from .base import VisionDescription, VisionProvider
 
 
@@ -169,7 +168,7 @@ class PercentageRollout:
 
         # Generate consistent bucket
         hash_input = f"{self.rollout_id}:{bucket_value}"
-        hash_value = int(hashlib.md5(hash_input.encode()).hexdigest()[:8], 16)
+        hash_value = int(hashlib.sha256(hash_input.encode()).hexdigest()[:8], 16)
         bucket = hash_value % 100
 
         # Find variation based on weight
@@ -423,7 +422,7 @@ class FlagEvaluationCache:
             Cache key
         """
         ctx_str = str(sorted(context.to_dict().items()))
-        return f"{flag_key}:{hashlib.md5(ctx_str.encode()).hexdigest()}"
+        return f"{flag_key}:{hashlib.sha256(ctx_str.encode()).hexdigest()}"
 
 
 class FlagEvaluator:
@@ -866,9 +865,7 @@ class FeatureFlagVisionProvider(VisionProvider):
                 f"Vision provider disabled by feature flag: {self._feature_flag_key}"
             )
 
-        return await self._provider.analyze_image(
-            image_data, include_description
-        )
+        return await self._provider.analyze_image(image_data, include_description)
 
 
 def create_feature_flag_provider(

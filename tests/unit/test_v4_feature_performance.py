@@ -13,20 +13,27 @@ import asyncio
 import math
 import time
 from typing import Dict, List
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.core.feature_extractor import (
-    FeatureExtractor,
-    compute_shape_entropy,
-    compute_surface_count,
     SLOTS_V1,
     SLOTS_V2,
     SLOTS_V3,
     SLOTS_V4,
+    FeatureExtractor,
+    compute_shape_entropy,
+    compute_surface_count,
 )
-from src.models.cad_document import CadDocument, CadEntity, BoundingBox
+from src.models.cad_document import BoundingBox, CadDocument, CadEntity
+
+
+def _histogram_count(metric) -> float:
+    for sample in metric.collect()[0].samples:
+        if sample.name.endswith("_count"):
+            return sample.value
+    return 0.0
 
 
 def create_mock_document(
@@ -50,9 +57,7 @@ def create_mock_document(
         file_name="test.step",
         format="STEP",
         entities=entities,
-        bounding_box=BoundingBox(
-            min_x=0, max_x=100, min_y=0, max_y=100, min_z=0, max_z=100
-        ),
+        bounding_box=BoundingBox(min_x=0, max_x=100, min_y=0, max_y=100, min_z=0, max_z=100),
         metadata=metadata,
         layers={"layer1": 5, "layer2": 5},
     )
@@ -192,6 +197,32 @@ class TestComputeSurfaceCount:
         assert compute_surface_count(doc) == 0
 
 
+class TestV4FeatureMetrics:
+    """Test v4 surface/entropy metrics are recorded."""
+
+    @pytest.mark.asyncio
+    async def test_v4_metrics_observed(self):
+        """V4 extraction should record surface_count and shape_entropy histograms."""
+        from src.utils.analysis_metrics import v4_shape_entropy, v4_surface_count
+
+        if not hasattr(v4_shape_entropy, "collect"):
+            pytest.skip("prometheus client disabled in this environment")
+
+        doc = create_mock_document(entity_count=4, entity_types=["BOX", "CYLINDER"])
+        extractor = FeatureExtractor(feature_version="v4")
+
+        before_surface = _histogram_count(v4_surface_count)
+        before_entropy = _histogram_count(v4_shape_entropy)
+
+        await extractor.extract(doc)
+
+        after_surface = _histogram_count(v4_surface_count)
+        after_entropy = _histogram_count(v4_shape_entropy)
+
+        assert after_surface > before_surface
+        assert after_entropy > before_entropy
+
+
 class TestV4FeatureExtraction:
     """Test v4 feature extraction."""
 
@@ -310,12 +341,19 @@ class TestV4PerformanceComparison:
         v4_time = time.perf_counter() - v4_start
 
         # Calculate overhead
-        overhead = (v4_time - v3_time) / v3_time
+        delta = v4_time - v3_time
+        overhead = delta / v3_time if v3_time > 0 else 0.0
+        per_iter_overhead = delta / iterations if iterations > 0 else 0.0
 
         # V4 adds additional computations, so some overhead is expected.
-        # CI runners can be slower and have high variability, so use 100% limit.
-        # The key metric is absolute performance (tested separately).
-        assert overhead < 1.0, f"V4 overhead {overhead:.1%} exceeds 100% limit"
+        # When the baseline is extremely small, ratio-based checks are unstable.
+        # Use absolute overhead per extraction for low-baseline runs.
+        if v3_time >= 0.05:
+            assert overhead < 1.0, f"V4 overhead {overhead:.1%} exceeds 100% limit"
+        else:
+            assert per_iter_overhead < 0.005, (
+                f"V4 overhead {per_iter_overhead * 1000:.2f}ms per extraction exceeds 5ms limit"
+            )
 
     @pytest.mark.asyncio
     async def test_v4_absolute_performance(self, mock_metrics):

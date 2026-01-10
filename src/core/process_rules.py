@@ -16,19 +16,31 @@ DEFAULT_RULES = {
     "steel": {
         "low": [
             {"max_volume": 1e4, "primary": "cnc_machining", "alternatives": ["sheet_metal"]},
-            {"max_volume": 5e5, "primary": "cnc_machining", "alternatives": ["casting", "additive"]},
+            {
+                "max_volume": 5e5,
+                "primary": "cnc_machining",
+                "alternatives": ["casting", "additive"],
+            },
         ],
         "medium": [
             {"max_volume": 1e6, "primary": "casting", "alternatives": ["cnc_finish", "additive"]},
         ],
         "high": [
-            {"max_volume": math.inf, "primary": "casting", "alternatives": ["additive", "cnc_finish"]},
+            {
+                "max_volume": math.inf,
+                "primary": "casting",
+                "alternatives": ["additive", "cnc_finish"],
+            },
         ],
     },
     "aluminum": {
         "low": [
             {"max_volume": 5e4, "primary": "cnc_machining", "alternatives": ["die_casting"]},
-            {"max_volume": 2e5, "primary": "die_casting", "alternatives": ["cnc_finish", "additive"]},
+            {
+                "max_volume": 2e5,
+                "primary": "die_casting",
+                "alternatives": ["cnc_finish", "additive"],
+            },
         ],
         "medium": [
             {"max_volume": 1e6, "primary": "die_casting", "alternatives": ["cnc_finish"]},

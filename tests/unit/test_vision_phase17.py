@@ -9,8 +9,8 @@ This module tests:
 """
 
 from datetime import datetime, timedelta
-import pytest
 
+import pytest
 
 # =============================================================================
 # Metrics Dashboard Tests
@@ -133,9 +133,9 @@ class TestMetricsDashboard:
     def test_metric_collector_with_definition(self) -> None:
         """Test registering metrics with collector using MetricDefinition."""
         from src.core.vision.metrics_dashboard import (
-            create_metric_collector,
             MetricDefinition,
             MetricType,
+            create_metric_collector,
         )
 
         collector = create_metric_collector()
@@ -161,8 +161,8 @@ class TestMetricsDashboard:
     def test_create_metric_streamer(self) -> None:
         """Test metric streamer factory function."""
         from src.core.vision.metrics_dashboard import (
-            create_metric_streamer,
             create_metric_collector,
+            create_metric_streamer,
         )
 
         collector = create_metric_collector()
@@ -492,7 +492,7 @@ class TestSLAMonitor:
 
     def test_uptime_check_creation(self) -> None:
         """Test UptimeCheck dataclass."""
-        from src.core.vision.sla_monitor import UptimeCheck, CheckType
+        from src.core.vision.sla_monitor import CheckType, UptimeCheck
 
         check = UptimeCheck(
             check_id="check-1",
@@ -522,58 +522,53 @@ class TestPhase17Integration:
 
     def test_all_phase17_exports_available(self) -> None:
         """Test that all Phase 17 exports are available."""
-        from src.core.vision import (
-            # Metrics Dashboard
-            MetricCollector,
-            MetricsDashboardManager,
-            MetricStreamer,
-            CustomMetricBuilder,
-            MetricsDashboardVisionProvider,
-            DashboardMetricType,
+        from src.core.vision import (  # Metrics Dashboard; Alert Manager; Log Aggregator; APM Integration; SLA Monitor
             AggregationType,
-            WidgetType,
-            TimeRange,
-            RefreshInterval,
-            # Alert Manager
-            Phase17AlertManager,
+            AggregatorLogLevel,
+            AggregatorLogStore,
             AlertEvaluator,
             AlertManagerVisionProvider,
-            Phase17AlertSeverity,
             AlertState,
-            NotificationChannel,
-            ComparisonOperator,
-            EscalationAction,
-            # Log Aggregator
-            LogAggregator,
-            AggregatorLogStore,
-            LogCorrelator,
-            PatternDetector,
-            LogAggregatorVisionProvider,
-            AggregatorLogLevel,
-            LogSource,
-            ParserType,
-            # APM Integration
             APMManager,
-            SpanTracker,
-            TransactionTracker,
-            PerformanceAnalyzer,
-            ErrorTracker,
-            DependencyTracker,
-            APMVisionProvider,
-            TransactionType,
             APMSpanKind,
             APMSpanStatus,
-            # SLA Monitor
-            SLAMonitor,
-            SLATracker,
-            UptimeTracker,
-            SLAReporter,
-            SLAMonitorVisionProvider,
-            SLAType,
-            SLAStatus,
-            UptimeStatus,
-            ReportPeriod,
+            APMVisionProvider,
             CheckType,
+            ComparisonOperator,
+            CustomMetricBuilder,
+            DashboardMetricType,
+            DependencyTracker,
+            ErrorTracker,
+            EscalationAction,
+            LogAggregator,
+            LogAggregatorVisionProvider,
+            LogCorrelator,
+            LogSource,
+            MetricCollector,
+            MetricsDashboardManager,
+            MetricsDashboardVisionProvider,
+            MetricStreamer,
+            NotificationChannel,
+            ParserType,
+            PatternDetector,
+            PerformanceAnalyzer,
+            Phase17AlertManager,
+            Phase17AlertSeverity,
+            RefreshInterval,
+            ReportPeriod,
+            SLAMonitor,
+            SLAMonitorVisionProvider,
+            SLAReporter,
+            SLAStatus,
+            SLATracker,
+            SLAType,
+            SpanTracker,
+            TimeRange,
+            TransactionTracker,
+            TransactionType,
+            UptimeStatus,
+            UptimeTracker,
+            WidgetType,
         )
 
         # All imports should succeed without errors
@@ -586,14 +581,14 @@ class TestPhase17Integration:
     def test_factory_functions_available(self) -> None:
         """Test that all factory functions are available."""
         from src.core.vision import (
-            create_metric_collector,
-            create_metrics_dashboard_manager,
-            create_metric_streamer,
-            create_custom_metric_builder,
-            create_phase17_alert_manager,
-            create_log_aggregator,
-            create_apm_manager,
             create_apm_config,
+            create_apm_manager,
+            create_custom_metric_builder,
+            create_log_aggregator,
+            create_metric_collector,
+            create_metric_streamer,
+            create_metrics_dashboard_manager,
+            create_phase17_alert_manager,
             create_sla_monitor,
         )
 
@@ -610,20 +605,20 @@ class TestPhase17Integration:
     def test_dataclasses_available(self) -> None:
         """Test that all dataclasses are available."""
         from src.core.vision import (
-            MetricDefinition,
-            MetricDataPoint,
-            TimeSeriesData,
-            Phase17AlertRule,
+            AggregatorLogEntry,
             AlertCondition,
             AlertInstance,
-            AggregatorLogEntry,
-            LogFilter,
-            CorrelationResult,
-            Transaction,
-            APMSpan,
             APMConfig,
+            APMSpan,
+            CorrelationResult,
+            LogFilter,
+            MetricDataPoint,
+            MetricDefinition,
+            Phase17AlertRule,
             SLADefinition,
             SLAMeasurement,
+            TimeSeriesData,
+            Transaction,
             UptimeCheck,
         )
 

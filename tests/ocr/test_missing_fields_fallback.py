@@ -50,6 +50,7 @@ class DeepSeekStub:
 @pytest.mark.asyncio
 async def test_missing_fields_triggers_fallback(monkeypatch):
     import uuid
+
     # Use unique image bytes to avoid cache hits
     unique_img = f"missing_fields_test_{uuid.uuid4()}".encode()
     mgr = OcrManager(confidence_fallback=0.85)

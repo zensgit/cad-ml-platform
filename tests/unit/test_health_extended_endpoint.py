@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+
 from src.main import app
 
 client = TestClient(app)
@@ -16,4 +17,3 @@ def test_health_extended_basic():
     assert "enabled" in faiss
     # if enabled, imported flag should be boolean
     assert isinstance(faiss.get("enabled"), bool)
-

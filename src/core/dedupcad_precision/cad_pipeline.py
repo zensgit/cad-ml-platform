@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+import shlex
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -78,14 +79,15 @@ def render_dxf_to_png(
         import matplotlib
 
         matplotlib.use("Agg", force=True)
-        import matplotlib.pyplot as plt  # type: ignore
         import ezdxf  # type: ignore
+        import matplotlib.pyplot as plt  # type: ignore
         from ezdxf import bbox  # type: ignore
         from ezdxf.addons.drawing import Frontend  # type: ignore
         from ezdxf.addons.drawing.config import (  # type: ignore
             BackgroundPolicy,
             ColorPolicy,
             Configuration,
+            HatchPolicy,
             ProxyGraphicPolicy,
             TextPolicy,
         )
@@ -96,9 +98,25 @@ def render_dxf_to_png(
 
     doc = ezdxf.readfile(str(dxf_path))
     msp = doc.modelspace()
+    render_text = os.getenv("DEDUPCAD2_RENDER_TEXT", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
+    render_hatch = os.getenv("DEDUPCAD2_RENDER_HATCH", "1").strip().lower() not in {
+        "0",
+        "false",
+        "no",
+    }
     # Extents computation may fail on some DXFs (e.g., broken proxy-graphics).
     # Best-effort: compute extents while skipping known-problematic entities.
-    entities_for_bbox = [e for e in msp if e.dxftype() not in {"ACAD_PROXY_ENTITY", "PROXY_ENTITY"}]
+    text_types = {"TEXT", "MTEXT", "ATTRIB", "ATTDEF"}
+    excluded_types = {"ACAD_PROXY_ENTITY", "PROXY_ENTITY"}
+    if not render_text:
+        excluded_types = excluded_types | text_types
+    if not render_hatch:
+        excluded_types.add("HATCH")
+    entities_for_bbox = [e for e in msp if e.dxftype() not in excluded_types]
     try:
         ext = bbox.extents(entities_for_bbox or msp)
         xmin, ymin, _ = ext.extmin
@@ -130,24 +148,42 @@ def render_dxf_to_png(
     ax.set_ylim(float(ymin) - margin, float(ymax) + margin)
     ax.axis("off")
 
+    text_policy_default = getattr(TextPolicy, "ACCURATE", TextPolicy.FILLING)
     base_render_cfg = Configuration(
         color_policy=ColorPolicy.MONOCHROME,
         background_policy=BackgroundPolicy.WHITE,
     ).with_changes(
         # Avoid hard failures on invalid proxy-graphics (common in DWG->DXF flows).
         proxy_graphic_policy=ProxyGraphicPolicy.IGNORE,
+        hatch_policy=HatchPolicy.IGNORE if not render_hatch else HatchPolicy.NORMAL,
+        # Optionally skip text rendering to avoid font issues in minimal containers.
+        text_policy=TextPolicy.IGNORE if not render_text else text_policy_default,
     )
     ctx = RenderContext(doc, export_mode=True)
     ctx.set_current_layout(msp)
     backend = MatplotlibBackend(ax)
+
+    def filter_entities(entity: Any) -> bool:
+        dxftype = entity.dxftype()
+        if dxftype in {"ACAD_PROXY_ENTITY", "PROXY_ENTITY"}:
+            return False
+        if not render_text and dxftype in text_types:
+            return False
+        if not render_hatch and dxftype == "HATCH":
+            return False
+        return True
+
     try:
-        Frontend(ctx, backend, config=base_render_cfg).draw_layout(msp)
+        Frontend(ctx, backend, config=base_render_cfg).draw_layout(msp, filter_func=filter_entities)
     except Exception as e:
         # Fallback: some MTEXT variants trigger layout errors in ezdxf's renderer.
         # For dedup rendering, a text-less thumbnail is preferable to a hard failure.
         try:
             fallback_cfg = base_render_cfg.with_changes(text_policy=TextPolicy.IGNORE)
-            Frontend(ctx, backend, config=fallback_cfg).draw_layout(msp)
+            Frontend(ctx, backend, config=fallback_cfg).draw_layout(
+                msp,
+                filter_func=filter_entities,
+            )
         except Exception:
             raise RuntimeError(f"DXF render failed: {e}") from e
     fig.savefig(str(out_png_path), dpi=cfg.dpi, facecolor="white")
@@ -229,14 +265,87 @@ def convert_dwg_to_dxf_cmd(dwg_path: Path, out_dxf_path: Path, *, cmd_template: 
     out_dxf_path.parent.mkdir(parents=True, exist_ok=True)
 
     cmd = cmd_template.format(input=str(dwg_path), output=str(out_dxf_path))
-    subprocess.run(cmd, check=True, shell=True)
+    cmd_parts = shlex.split(cmd, posix=os.name != "nt")
+    if not cmd_parts:
+        raise ValueError("DWG->DXF command template resolved to empty command")
+    subprocess.run(cmd_parts, check=True)
     if not out_dxf_path.exists():
         raise RuntimeError("DWG->DXF command finished but output missing")
 
 
+def _default_oda_candidates() -> list[Path]:
+    candidates = [
+        Path("/Applications/ODAFileConverter.app/Contents/MacOS/ODAFileConverter"),
+        Path("/opt/ODAFileConverter/ODAFileConverter"),
+    ]
+    program_files = os.getenv("ProgramFiles")
+    if program_files:
+        candidates.append(Path(program_files) / "ODA" / "ODAFileConverter" / "ODAFileConverter.exe")
+    program_files_x86 = os.getenv("ProgramFiles(x86)")
+    if program_files_x86:
+        candidates.append(
+            Path(program_files_x86) / "ODA" / "ODAFileConverter" / "ODAFileConverter.exe"
+        )
+    return candidates
+
+
 def resolve_oda_exe_from_env() -> Optional[Path]:
-    v = os.getenv("ODA_FILE_CONVERTER_EXE")
-    if not v:
-        return None
-    p = Path(v)
-    return p if p.exists() else None
+    v = os.getenv("ODA_FILE_CONVERTER_EXE", "").strip()
+    if v:
+        p = Path(v)
+        return p if p.exists() else None
+    for candidate in _default_oda_candidates():
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def resolve_dwg_converter() -> str:
+    return (os.getenv("DWG_CONVERTER", "auto") or "auto").strip().lower()
+
+
+def resolve_dwg_cmd_template(converter: str) -> str:
+    env_map = {
+        "cmd": "DWG_TO_DXF_CMD",
+        "autocad": "DWG_AUTOCAD_CMD",
+        "bricscad": "DWG_BRICSCAD_CMD",
+        "draftsight": "DWG_DRAFTSIGHT_CMD",
+    }
+    if converter == "auto":
+        for key in env_map.values():
+            value = os.getenv(key, "").strip()
+            if value:
+                return value
+        return ""
+    env_key = env_map.get(converter, "DWG_TO_DXF_CMD")
+    return os.getenv(env_key, "").strip()
+
+
+def convert_dwg_to_dxf(dwg_path: Path, out_dxf_path: Path) -> None:
+    converter = resolve_dwg_converter()
+    if converter in {"auto", "oda"}:
+        oda_exe = resolve_oda_exe_from_env()
+        if oda_exe is not None:
+            convert_dwg_to_dxf_oda(
+                dwg_path,
+                out_dxf_path,
+                cfg=OdaConverterConfig(
+                    exe_path=oda_exe,
+                    output_version=os.getenv("ODA_OUTPUT_VERSION", "ACAD2018"),
+                ),
+            )
+            return
+        if converter == "oda":
+            raise RuntimeError("ODA converter not found: set ODA_FILE_CONVERTER_EXE")
+
+    cmd_template = resolve_dwg_cmd_template(converter)
+    if cmd_template:
+        convert_dwg_to_dxf_cmd(dwg_path, out_dxf_path, cmd_template=cmd_template)
+        return
+
+    if converter == "auto":
+        raise RuntimeError(
+            "DWG conversion unavailable: set ODA_FILE_CONVERTER_EXE, DWG_TO_DXF_CMD, "
+            "DWG_AUTOCAD_CMD, DWG_BRICSCAD_CMD, or DWG_DRAFTSIGHT_CMD"
+        )
+    raise RuntimeError(f"DWG conversion unavailable for converter '{converter}'")

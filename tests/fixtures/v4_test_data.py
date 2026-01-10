@@ -3,13 +3,14 @@
 Provides various CAD document test cases for v4 feature validation.
 """
 
-from typing import Dict, Any, List
 from dataclasses import dataclass
+from typing import Any, Dict, List
 
 
 @dataclass
 class MockEntity:
     """Mock CAD entity for testing."""
+
     type: str
     id: str
     properties: Dict[str, Any]
@@ -18,6 +19,7 @@ class MockEntity:
 @dataclass
 class MockCadDocument:
     """Mock CAD document for testing."""
+
     entities: List[MockEntity]
     format: str = "DXF"
     metadata: Dict[str, Any] = None
@@ -63,11 +65,7 @@ def create_complex_document() -> MockCadDocument:
     for i, entity_type in enumerate(types):
         for j in range(3):  # 每种类型3个实体
             entities.append(
-                MockEntity(
-                    type=entity_type,
-                    id=f"{entity_type.lower()}_{i}_{j}",
-                    properties={}
-                )
+                MockEntity(type=entity_type, id=f"{entity_type.lower()}_{i}_{j}", properties={})
             )
 
     return MockCadDocument(entities=entities, format="DWG")
@@ -81,11 +79,7 @@ def create_uniform_document() -> MockCadDocument:
     for entity_type in types:
         for i in range(5):
             entities.append(
-                MockEntity(
-                    type=entity_type,
-                    id=f"{entity_type.lower()}_{i}",
-                    properties={}
-                )
+                MockEntity(type=entity_type, id=f"{entity_type.lower()}_{i}", properties={})
             )
 
     return MockCadDocument(entities=entities, format="DXF")
@@ -95,9 +89,7 @@ def create_single_type_document() -> MockCadDocument:
     """单一类型文档 - 熵值应为0."""
     entities = []
     for i in range(10):
-        entities.append(
-            MockEntity(type="LINE", id=f"line_{i}", properties={})
-        )
+        entities.append(MockEntity(type="LINE", id=f"line_{i}", properties={}))
 
     return MockCadDocument(entities=entities, format="DXF")
 

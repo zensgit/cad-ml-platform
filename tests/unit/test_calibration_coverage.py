@@ -36,7 +36,7 @@ class TestEvidenceWeightsDataclass:
             w_completeness=0.2,
             w_item_mean=0.1,
             w_fallback_recent=0.05,
-            w_parse_error=0.05
+            w_parse_error=0.05,
         )
 
         assert weights.w_raw == 0.6
@@ -48,11 +48,11 @@ class TestEvidenceWeightsDataclass:
 
         weights = EvidenceWeights()
         total = (
-            weights.w_raw +
-            weights.w_completeness +
-            weights.w_item_mean +
-            weights.w_fallback_recent +
-            weights.w_parse_error
+            weights.w_raw
+            + weights.w_completeness
+            + weights.w_item_mean
+            + weights.w_fallback_recent
+            + weights.w_parse_error
         )
 
         assert total == 1.0
@@ -71,7 +71,7 @@ class TestMultiEvidenceCalibratorInit:
 
     def test_custom_weights(self):
         """Test calibrator with custom weights."""
-        from src.core.ocr.calibration import MultiEvidenceCalibrator, EvidenceWeights
+        from src.core.ocr.calibration import EvidenceWeights, MultiEvidenceCalibrator
 
         custom_weights = EvidenceWeights(w_raw=0.7)
         calibrator = MultiEvidenceCalibrator(weights=custom_weights)
@@ -98,10 +98,7 @@ class TestCalibrateMethod:
         from src.core.ocr.calibration import MultiEvidenceCalibrator
 
         calibrator = MultiEvidenceCalibrator()
-        result = calibrator.calibrate(
-            raw_confidence=0.8,
-            completeness=0.9
-        )
+        result = calibrator.calibrate(raw_confidence=0.8, completeness=0.9)
 
         assert result is not None
         # Weighted average: (0.8 * 0.5 + 0.9 * 0.25) / (0.5 + 0.25)
@@ -118,7 +115,7 @@ class TestCalibrateMethod:
             completeness=0.9,
             item_mean=0.85,
             fallback_recent=0.1,  # Penalized
-            parse_error_rate=0.05  # Penalized
+            parse_error_rate=0.05,  # Penalized
         )
 
         assert result is not None
@@ -129,11 +126,7 @@ class TestCalibrateMethod:
         from src.core.ocr.calibration import MultiEvidenceCalibrator
 
         calibrator = MultiEvidenceCalibrator()
-        result = calibrator.calibrate(
-            raw_confidence=None,
-            completeness=None,
-            item_mean=None
-        )
+        result = calibrator.calibrate(raw_confidence=None, completeness=None, item_mean=None)
 
         assert result is None
 
@@ -147,7 +140,7 @@ class TestCalibrateMethod:
             completeness=None,  # Skipped
             item_mean=0.85,
             fallback_recent=None,  # Skipped
-            parse_error_rate=None  # Skipped
+            parse_error_rate=None,  # Skipped
         )
 
         assert result is not None
@@ -161,16 +154,12 @@ class TestCalibrateMethod:
 
         # Low fallback rate
         result_low = calibrator.calibrate(
-            raw_confidence=0.8,
-            completeness=None,
-            fallback_recent=0.1
+            raw_confidence=0.8, completeness=None, fallback_recent=0.1
         )
 
         # High fallback rate
         result_high = calibrator.calibrate(
-            raw_confidence=0.8,
-            completeness=None,
-            fallback_recent=0.9
+            raw_confidence=0.8, completeness=None, fallback_recent=0.9
         )
 
         # Higher fallback rate should result in lower score
@@ -184,16 +173,12 @@ class TestCalibrateMethod:
 
         # Low error rate
         result_low = calibrator.calibrate(
-            raw_confidence=0.8,
-            completeness=None,
-            parse_error_rate=0.1
+            raw_confidence=0.8, completeness=None, parse_error_rate=0.1
         )
 
         # High error rate
         result_high = calibrator.calibrate(
-            raw_confidence=0.8,
-            completeness=None,
-            parse_error_rate=0.9
+            raw_confidence=0.8, completeness=None, parse_error_rate=0.9
         )
 
         # Higher error rate should result in lower score
@@ -220,19 +205,11 @@ class TestCalibrateMethod:
         calibrator = MultiEvidenceCalibrator()
 
         # Fallback > 1 should be clamped
-        result = calibrator.calibrate(
-            raw_confidence=0.8,
-            completeness=None,
-            fallback_recent=1.5
-        )
+        result = calibrator.calibrate(raw_confidence=0.8, completeness=None, fallback_recent=1.5)
         assert result is not None
 
         # Fallback < 0 should be clamped
-        result = calibrator.calibrate(
-            raw_confidence=0.8,
-            completeness=None,
-            fallback_recent=-0.5
-        )
+        result = calibrator.calibrate(raw_confidence=0.8, completeness=None, fallback_recent=-0.5)
         assert result is not None
 
 
@@ -245,9 +222,9 @@ class TestAdaptiveReweight:
 
         calibrator = MultiEvidenceCalibrator()
         initial_completeness = calibrator.weights.w_completeness
-        
+
         calibrator.adaptive_reweight(observed_brier=0.35)
-        
+
         assert calibrator.weights.w_completeness > initial_completeness
 
     def test_poor_brier_increases_item_mean(self):
@@ -256,9 +233,9 @@ class TestAdaptiveReweight:
 
         calibrator = MultiEvidenceCalibrator()
         initial_item_mean = calibrator.weights.w_item_mean
-        
+
         calibrator.adaptive_reweight(observed_brier=0.35)
-        
+
         assert calibrator.weights.w_item_mean > initial_item_mean
 
     def test_poor_brier_decreases_raw(self):
@@ -267,9 +244,9 @@ class TestAdaptiveReweight:
 
         calibrator = MultiEvidenceCalibrator()
         initial_raw = calibrator.weights.w_raw
-        
+
         calibrator.adaptive_reweight(observed_brier=0.35)
-        
+
         assert calibrator.weights.w_raw < initial_raw
 
     def test_good_brier_increases_raw(self):
@@ -278,9 +255,9 @@ class TestAdaptiveReweight:
 
         calibrator = MultiEvidenceCalibrator()
         initial_raw = calibrator.weights.w_raw
-        
+
         calibrator.adaptive_reweight(observed_brier=0.1)
-        
+
         assert calibrator.weights.w_raw > initial_raw
 
     def test_good_brier_decreases_completeness(self):
@@ -289,9 +266,9 @@ class TestAdaptiveReweight:
 
         calibrator = MultiEvidenceCalibrator()
         initial_completeness = calibrator.weights.w_completeness
-        
+
         calibrator.adaptive_reweight(observed_brier=0.1)
-        
+
         assert calibrator.weights.w_completeness < initial_completeness
 
     def test_moderate_brier_no_change(self):
@@ -301,9 +278,9 @@ class TestAdaptiveReweight:
         calibrator = MultiEvidenceCalibrator()
         initial_raw = calibrator.weights.w_raw
         initial_completeness = calibrator.weights.w_completeness
-        
+
         calibrator.adaptive_reweight(observed_brier=0.2)  # Between 0.15 and 0.3
-        
+
         assert calibrator.weights.w_raw == initial_raw
         assert calibrator.weights.w_completeness == initial_completeness
 
@@ -312,11 +289,11 @@ class TestAdaptiveReweight:
         from src.core.ocr.calibration import MultiEvidenceCalibrator
 
         calibrator = MultiEvidenceCalibrator()
-        
+
         # Apply poor Brier multiple times
         for _ in range(20):
             calibrator.adaptive_reweight(observed_brier=0.5)
-        
+
         # Weights should be capped
         assert calibrator.weights.w_completeness <= 0.35
         assert calibrator.weights.w_item_mean <= 0.25
@@ -327,11 +304,11 @@ class TestAdaptiveReweight:
         from src.core.ocr.calibration import MultiEvidenceCalibrator
 
         calibrator = MultiEvidenceCalibrator()
-        
+
         # Apply good Brier multiple times
         for _ in range(20):
             calibrator.adaptive_reweight(observed_brier=0.05)
-        
+
         # Weights should be capped
         assert calibrator.weights.w_raw <= 0.6
         assert calibrator.weights.w_completeness >= 0.2
@@ -346,11 +323,7 @@ class TestEdgeCases:
         from src.core.ocr.calibration import MultiEvidenceCalibrator
 
         calibrator = MultiEvidenceCalibrator()
-        result = calibrator.calibrate(
-            raw_confidence=0.0,
-            completeness=0.0,
-            item_mean=0.0
-        )
+        result = calibrator.calibrate(raw_confidence=0.0, completeness=0.0, item_mean=0.0)
 
         assert result == 0.0
 
@@ -364,7 +337,7 @@ class TestEdgeCases:
             completeness=1.0,
             item_mean=1.0,
             fallback_recent=0.0,  # No penalty
-            parse_error_rate=0.0  # No penalty
+            parse_error_rate=0.0,  # No penalty
         )
 
         assert result == 1.0
@@ -390,12 +363,9 @@ class TestEdgeCases:
         from src.core.ocr.calibration import MultiEvidenceCalibrator
 
         calibrator = MultiEvidenceCalibrator()
-        
+
         # Only completeness
-        result = calibrator.calibrate(
-            raw_confidence=None,
-            completeness=0.9
-        )
+        result = calibrator.calibrate(raw_confidence=None, completeness=0.9)
 
         assert result == 0.9  # Full weight to single evidence
 
@@ -408,24 +378,16 @@ class TestCalibratorIntegration:
         from src.core.ocr.calibration import MultiEvidenceCalibrator
 
         calibrator = MultiEvidenceCalibrator()
-        
+
         # Initial calibration
-        score1 = calibrator.calibrate(
-            raw_confidence=0.8,
-            completeness=0.9,
-            item_mean=0.85
-        )
-        
+        score1 = calibrator.calibrate(raw_confidence=0.8, completeness=0.9, item_mean=0.85)
+
         # Simulate poor performance, adjust weights
         calibrator.adaptive_reweight(observed_brier=0.35)
-        
+
         # Recalibrate with same inputs
-        score2 = calibrator.calibrate(
-            raw_confidence=0.8,
-            completeness=0.9,
-            item_mean=0.85
-        )
-        
+        score2 = calibrator.calibrate(raw_confidence=0.8, completeness=0.9, item_mean=0.85)
+
         # Scores should differ due to weight adjustment
         assert score1 != score2
 

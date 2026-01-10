@@ -9,16 +9,13 @@ Tests cover:
 - Error handling and fallback behavior
 """
 
-import pytest
-from unittest.mock import MagicMock, patch, AsyncMock
 from dataclasses import dataclass
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # Test the module's conditional import handling
-from src.core.vector_stores.qdrant_store import (
-    QdrantConfig,
-    VectorSearchResult,
-    QDRANT_AVAILABLE,
-)
+from src.core.vector_stores.qdrant_store import QDRANT_AVAILABLE, QdrantConfig, VectorSearchResult
 
 
 class TestQdrantConfig:
@@ -333,7 +330,7 @@ class TestVectorStoreFactory:
 
     def test_factory_with_faiss_backend(self):
         """Test factory with FAISS backend (graceful handling if unavailable)."""
-        from src.core.vector_stores import get_vector_store, VectorStoreError
+        from src.core.vector_stores import VectorStoreError, get_vector_store
 
         try:
             store = get_vector_store(backend="faiss")
@@ -345,7 +342,7 @@ class TestVectorStoreFactory:
     @patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "faiss"})
     def test_factory_respects_env_var(self):
         """Test factory respects environment variable."""
-        from src.core.vector_stores import get_vector_store, VectorStoreError
+        from src.core.vector_stores import VectorStoreError, get_vector_store
 
         try:
             store = get_vector_store()

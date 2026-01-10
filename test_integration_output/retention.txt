@@ -1,6 +1,6 @@
-Found 8 evaluation files
+Found 9 evaluation files
 
-Processing main/combined (7 files):
+Processing main/combined (8 files):
 
 Processing main/ocr (1 files):
 
@@ -9,16 +9,16 @@ RETENTION POLICY REPORT
 ============================================================
 
 Statistics:
-  Total files: 8
-  Files to keep: 8
-  Files to delete: 0
-  Space to reclaim: 0.0 KB
+  Total files: 9
+  Files to keep: 2
+  Files to delete: 7
+  Space to reclaim: 4.9 KB
 
 Age Distribution:
-  full       (all       ):   8 files
+  weekly     (weekly    ):   9 files
 
 Branch Breakdown:
-  main                 Keep:   8  Delete:   0
+  main                 Keep:   2  Delete:   7
 
 ============================================================
 

@@ -483,6 +483,7 @@ class ProjectionManager:
 
 # CQRS Command types
 
+
 @dataclass
 class Command:
     """Base command."""
@@ -563,6 +564,7 @@ class AnalyzeImageCommandHandler(CommandHandler):
         aggregate = VisionRequestAggregate(request_id)
 
         import hashlib
+
         image_hash = hashlib.sha256(command.image_data).hexdigest()[:16]
         aggregate.start_analysis(image_hash, self._provider.provider_name)
 
@@ -655,15 +657,14 @@ class EventSourcedVisionProvider(VisionProvider):
     ) -> VisionDescription:
         """Analyze image with event sourcing."""
         import hashlib
+
         request_id = str(uuid.uuid4())
         image_hash = hashlib.sha256(image_data).hexdigest()[:16]
 
         start_time = time.time()
 
         try:
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
 
             latency_ms = (time.time() - start_time) * 1000
 
@@ -712,7 +713,7 @@ class EventSourcedVisionProvider(VisionProvider):
         return {
             "request_count": self._projection_manager.get_state("request_count"),
             "latency": self._projection_manager.get_state("latency"),
-            "event_count": self._event_store.count() if hasattr(self._event_store, 'count') else 0,
+            "event_count": self._event_store.count() if hasattr(self._event_store, "count") else 0,
         }
 
     def replay_events(self) -> None:

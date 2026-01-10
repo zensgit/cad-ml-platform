@@ -1,7 +1,8 @@
-from pathlib import Path
-import pickle
-import pytest
 import os
+import pickle
+from pathlib import Path
+
+import pytest
 
 from src.ml.classifier import reload_model
 
@@ -35,7 +36,13 @@ def test_opcode_block_detection(tmp_path, monkeypatch, strict):
     path = create_pickle_with_global(Path(tmp_path))
     res = reload_model(str(path))
     # In some environments protocol may not emit blocked opcode; allow success fallback
-    assert res["status"] in {"success", "security_blocked", "opcode_blocked", "rollback", "rollback_level2"}
+    assert res["status"] in {
+        "success",
+        "security_blocked",
+        "opcode_blocked",
+        "rollback",
+        "rollback_level2",
+    }
     if res["status"] == "security_blocked":
         assert "opcode" in res and "blocked_set" in res
 
@@ -48,4 +55,3 @@ def test_opcode_scan_error_on_corrupt_pickle(tmp_path, monkeypatch):
     assert res["status"] in {"opcode_scan_error", "security_scan_error", "magic_invalid"}
     if res["status"] in {"opcode_scan_error", "security_scan_error"}:
         assert "error" in res
-

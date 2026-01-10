@@ -10,12 +10,24 @@ Covers:
 
 from __future__ import annotations
 
+import os
 import threading
+import time
 from typing import Any, Dict, List
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
+
+
+def _assert_error_context(exc: HTTPException, operation: str, resource_id: str) -> None:
+    detail = exc.detail
+    assert isinstance(detail, dict)
+    context = detail.get("context")
+    assert isinstance(context, dict)
+    assert context.get("operation") == operation
+    assert context.get("resource_id") == resource_id
+    assert "suggestion" in context
 
 
 class TestCleanupOrphanVectorsEndpoint:
@@ -50,11 +62,7 @@ class TestCleanupOrphanVectorsEndpoint:
                 with patch.object(similarity, "_VECTOR_LOCK", test_lock):
                     with patch.object(similarity, "_VECTOR_META", test_vector_meta):
                         result = await cleanup_orphan_vectors(
-                            threshold=0,
-                            force=True,
-                            dry_run=False,
-                            verbose=True,
-                            api_key="test"
+                            threshold=0, force=True, dry_run=False, verbose=True, api_key="test"
                         )
 
                         assert result.status == "ok"
@@ -80,7 +88,7 @@ class TestCleanupOrphanVectorsEndpoint:
                         force=False,
                         dry_run=False,
                         verbose=True,
-                        api_key="test"
+                        api_key="test",
                     )
 
                     assert result.status == "skipped"
@@ -102,11 +110,7 @@ class TestCleanupOrphanVectorsEndpoint:
             with patch.object(similarity, "_VECTOR_STORE", test_vector_store):
                 with patch.object(similarity, "_VECTOR_LOCK", test_lock):
                     result = await cleanup_orphan_vectors(
-                        threshold=0,
-                        force=True,
-                        dry_run=True,
-                        verbose=True,
-                        api_key="test"
+                        threshold=0, force=True, dry_run=True, verbose=True, api_key="test"
                     )
 
                     assert result.status == "dry_run"
@@ -132,11 +136,7 @@ class TestCleanupOrphanVectorsEndpoint:
                 with patch.object(similarity, "_VECTOR_LOCK", test_lock):
                     with patch.object(similarity, "_VECTOR_META", test_vector_meta):
                         result = await cleanup_orphan_vectors(
-                            threshold=0,
-                            force=True,
-                            dry_run=False,
-                            verbose=False,
-                            api_key="test"
+                            threshold=0, force=True, dry_run=False, verbose=False, api_key="test"
                         )
 
                         assert result.status == "ok"
@@ -168,11 +168,7 @@ class TestCleanupOrphanVectorsEndpoint:
                 with patch.object(similarity, "_VECTOR_LOCK", test_lock):
                     with patch.object(similarity, "_VECTOR_META", test_vector_meta):
                         result = await cleanup_orphan_vectors(
-                            threshold=0,
-                            force=True,
-                            dry_run=False,
-                            verbose=True,
-                            api_key="test"
+                            threshold=0, force=True, dry_run=False, verbose=True, api_key="test"
                         )
 
                         # Only v2 should be orphan
@@ -197,11 +193,7 @@ class TestCleanupOrphanVectorsEndpoint:
                 with patch.object(similarity, "_VECTOR_LOCK", test_lock):
                     with pytest.raises(HTTPException) as exc_info:
                         await cleanup_orphan_vectors(
-                            threshold=0,
-                            force=True,
-                            dry_run=False,
-                            verbose=False,
-                            api_key="test"
+                            threshold=0, force=True, dry_run=False, verbose=False, api_key="test"
                         )
 
                     assert exc_info.value.status_code == 503
@@ -232,11 +224,7 @@ class TestCleanupOrphanVectorsEndpoint:
                 with patch.object(similarity, "_VECTOR_LOCK", test_lock):
                     with patch.object(similarity, "_VECTOR_META", test_vector_meta):
                         result = await cleanup_orphan_vectors(
-                            threshold=0,
-                            force=True,
-                            dry_run=False,
-                            verbose=False,
-                            api_key="test"
+                            threshold=0, force=True, dry_run=False, verbose=False, api_key="test"
                         )
 
                         # Should continue and handle 1 orphan (v2)
@@ -256,6 +244,7 @@ class TestClearCacheEndpoint:
                 await clear_cache(pattern="*", api_key="test")
 
             assert exc_info.value.status_code == 503
+            _assert_error_context(exc_info.value, "clear_cache", "cache")
 
     @pytest.mark.asyncio
     async def test_clear_cache_no_matching_keys(self):
@@ -451,6 +440,7 @@ class TestGetMaintenanceStatsEndpoint:
                         await get_maintenance_stats(api_key="test")
 
                     assert exc_info.value.status_code == 500
+                    _assert_error_context(exc_info.value, "get_maintenance_stats", "vector_store")
 
 
 class TestReloadVectorBackendEndpoint:
@@ -479,17 +469,21 @@ class TestReloadVectorBackendEndpoint:
                     await reload_vector_backend(api_key="test")
 
                 assert exc_info.value.status_code == 500
+                _assert_error_context(exc_info.value, "reload_vector_backend", "vector_store")
 
     @pytest.mark.asyncio
     async def test_reload_backend_exception(self):
         """Test backend reload throws exception."""
         from src.api.v1.maintenance import reload_vector_backend
 
-        with patch("src.core.similarity.reload_vector_store_backend", side_effect=Exception("Reload error")):
+        with patch(
+            "src.core.similarity.reload_vector_store_backend", side_effect=Exception("Reload error")
+        ):
             with pytest.raises(HTTPException) as exc_info:
                 await reload_vector_backend(api_key="test")
 
             assert exc_info.value.status_code == 500
+            _assert_error_context(exc_info.value, "reload_vector_backend", "vector_store")
 
 
 class TestOrphanCleanupResponseModel:
@@ -504,7 +498,7 @@ class TestOrphanCleanupResponseModel:
             deleted_count=8,
             sample_ids=["v1", "v2"],
             status="ok",
-            message="Cleaned successfully"
+            message="Cleaned successfully",
         )
 
         assert response.orphan_count == 10
@@ -517,14 +511,95 @@ class TestOrphanCleanupResponseModel:
         from src.api.v1.maintenance import OrphanCleanupResponse
 
         response = OrphanCleanupResponse(
-            orphan_count=5,
-            deleted_count=5,
-            sample_ids=None,
-            status="ok",
-            message="Done"
+            orphan_count=5, deleted_count=5, sample_ids=None, status="ok", message="Done"
         )
 
         assert response.sample_ids is None
+
+
+class TestCleanupAnalysisResultStoreEndpoint:
+    """Tests for cleanup_analysis_result_store endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_cleanup_analysis_results_disabled(self, monkeypatch: pytest.MonkeyPatch):
+        from src.api.v1.maintenance import cleanup_analysis_result_store
+
+        monkeypatch.delenv("ANALYSIS_RESULT_STORE_DIR", raising=False)
+        result = await cleanup_analysis_result_store(api_key="test")
+        assert result.status == "disabled"
+
+    @pytest.mark.asyncio
+    async def test_cleanup_analysis_results_threshold_skip(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ):
+        from src.api.v1.maintenance import cleanup_analysis_result_store
+        from src.utils.analysis_result_store import store_analysis_result
+
+        monkeypatch.setenv("ANALYSIS_RESULT_STORE_DIR", str(tmp_path))
+        await store_analysis_result("old", {"status": "old"})
+        old_path = tmp_path / "old.json"
+        now = time.time()
+        os.utime(old_path, (now - 3600, now - 3600))
+
+        result = await cleanup_analysis_result_store(
+            max_age_seconds=60,
+            threshold=2,
+            dry_run=False,
+            verbose=False,
+            api_key="test",
+        )
+
+        assert result.status == "skipped"
+        assert result.deleted_count == 0
+        assert old_path.exists()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_analysis_results_error_context(self):
+        from src.api.v1.maintenance import cleanup_analysis_result_store
+
+        with patch(
+            "src.api.v1.maintenance.cleanup_analysis_results",
+            new=AsyncMock(side_effect=Exception("cleanup failed")),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await cleanup_analysis_result_store(api_key="test")
+
+            assert exc_info.value.status_code == 500
+            _assert_error_context(
+                exc_info.value, "cleanup_analysis_result_store", "analysis_result_store"
+            )
+
+
+class TestKnowledgeMaintenanceEndpoint:
+    """Tests for knowledge maintenance endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_knowledge_reload_error_context(self):
+        from src.api.v1.maintenance import reload_knowledge
+
+        with patch(
+            "src.core.knowledge.dynamic.manager.get_knowledge_manager",
+            side_effect=Exception("knowledge unavailable"),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await reload_knowledge(api_key="test")
+
+            assert exc_info.value.status_code == 500
+            _assert_error_context(exc_info.value, "knowledge_reload", "knowledge_manager")
+
+    @pytest.mark.asyncio
+    async def test_knowledge_status_error_context(self):
+        from src.api.v1.maintenance import knowledge_status
+
+        with patch(
+            "src.core.knowledge.dynamic.manager.get_knowledge_manager",
+            side_effect=Exception("knowledge unavailable"),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                await knowledge_status(api_key="test")
+
+            assert exc_info.value.status_code == 500
+            _assert_error_context(exc_info.value, "knowledge_status", "knowledge_manager")
 
 
 class TestVectorStoreReloadResponseModel:
@@ -534,10 +609,7 @@ class TestVectorStoreReloadResponseModel:
         """Test VectorStoreReloadResponse model creation."""
         from src.api.v1.maintenance import VectorStoreReloadResponse
 
-        response = VectorStoreReloadResponse(
-            status="ok",
-            backend="memory"
-        )
+        response = VectorStoreReloadResponse(status="ok", backend="memory")
 
         assert response.status == "ok"
         assert response.backend == "memory"
@@ -546,10 +618,7 @@ class TestVectorStoreReloadResponseModel:
         """Test VectorStoreReloadResponse with None backend."""
         from src.api.v1.maintenance import VectorStoreReloadResponse
 
-        response = VectorStoreReloadResponse(
-            status="error",
-            backend=None
-        )
+        response = VectorStoreReloadResponse(status="error", backend=None)
 
         assert response.backend is None
 

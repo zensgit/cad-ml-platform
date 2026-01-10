@@ -17,7 +17,20 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Callable, Dict, Generic, Iterator, List, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 from .base import VisionDescription, VisionProvider
 
@@ -449,11 +462,13 @@ class Pipeline:
 
                 except Exception as e:
                     result.failed_records += 1
-                    result.errors.append({
-                        "record_id": record.record_id,
-                        "error": str(e),
-                        "timestamp": datetime.now().isoformat(),
-                    })
+                    result.errors.append(
+                        {
+                            "record_id": record.record_id,
+                            "error": str(e),
+                            "timestamp": datetime.now().isoformat(),
+                        }
+                    )
 
                     if self._config.error_handling == "stop":
                         break
@@ -467,11 +482,13 @@ class Pipeline:
         except Exception as e:
             with self._lock:
                 self._status = PipelineStatus.FAILED
-            result.errors.append({
-                "error": str(e),
-                "type": "pipeline_error",
-                "timestamp": datetime.now().isoformat(),
-            })
+            result.errors.append(
+                {
+                    "error": str(e),
+                    "type": "pipeline_error",
+                    "timestamp": datetime.now().isoformat(),
+                }
+            )
 
         result.end_time = datetime.now()
         return result
@@ -519,10 +536,12 @@ class Pipeline:
 
                     except Exception as e:
                         result.failed_records += 1
-                        result.errors.append({
-                            "record_id": record.record_id,
-                            "error": str(e),
-                        })
+                        result.errors.append(
+                            {
+                                "record_id": record.record_id,
+                                "error": str(e),
+                            }
+                        )
 
             if self._sink:
                 self._sink.flush()
@@ -723,10 +742,12 @@ class ETLPipeline:
 
                 except Exception as e:
                     result.failed_records += 1
-                    result.errors.append({
-                        "error": str(e),
-                        "data": str(data)[:100],
-                    })
+                    result.errors.append(
+                        {
+                            "error": str(e),
+                            "data": str(data)[:100],
+                        }
+                    )
 
             self._status = PipelineStatus.COMPLETED
 
@@ -775,7 +796,7 @@ class BatchProcessor:
         """Process all items in batches."""
         results = []
         for i in range(0, len(items), self._batch_size):
-            batch = items[i:i + self._batch_size]
+            batch = items[i : i + self._batch_size]
             batch_results = self._processor(batch)
             results.extend(batch_results)
         return results

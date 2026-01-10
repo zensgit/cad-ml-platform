@@ -9,10 +9,13 @@ Responsibilities:
 
 from __future__ import annotations
 
+import logging
 import time
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import src.core.config as config
+from src.core.errors import ErrorCode
+from src.core.resilience.adaptive_decorator import adaptive_rate_limit
 from src.utils.metrics import (
     update_vision_error_ema,
     vision_errors_total,
@@ -30,8 +33,10 @@ from .base import (
     VisionDescription,
     VisionInputError,
     VisionProvider,
+    VisionProviderError,
 )
-from src.core.resilience.adaptive_decorator import adaptive_rate_limit
+
+logger = logging.getLogger(__name__)
 
 
 class VisionManager:
@@ -84,7 +89,11 @@ class VisionManager:
             image_bytes = await self._load_image(request)
         except VisionInputError:
             safe_inc(vision_requests_total, provider=provider_name, status="input_error")
-            safe_inc(vision_errors_total, provider=provider_name, code="input_error")
+            safe_inc(
+                vision_errors_total,
+                provider=provider_name,
+                code=ErrorCode.INPUT_ERROR.value,
+            )
             update_vision_error_ema(True)
             raise
         except Exception:
@@ -97,7 +106,11 @@ class VisionManager:
                     processing_time_ms / 1000.0,
                     provider=provider_name,
                 )
-                safe_inc(vision_errors_total, provider=provider_name, code="internal")
+                safe_inc(
+                    vision_errors_total,
+                    provider=provider_name,
+                    code=ErrorCode.INTERNAL_ERROR.value,
+                )
                 update_vision_error_ema(True)
             except Exception:
                 pass
@@ -116,10 +129,19 @@ class VisionManager:
                 description = await self.vision_provider.analyze_image(
                     image_data=image_bytes, include_description=True
                 )
+            elif request.include_ocr:
+                description = await self.vision_provider.analyze_image(
+                    image_data=image_bytes, include_description=False
+                )
             ocr_result: Optional[OcrResult] = None
             if request.include_ocr and self.ocr_manager:
                 ocr_result = await self._extract_ocr(
                     image_bytes=image_bytes, provider=request.ocr_provider
+                )
+            cad_feature_stats: Optional[Dict[str, Any]] = None
+            if request.include_cad_stats:
+                cad_feature_stats = await self._extract_cad_feature_stats(
+                    image_bytes, request.cad_feature_thresholds
                 )
             processing_time_ms = (time.time() - start_time) * 1000
             safe_inc(vision_requests_total, provider=provider_name, status="success")
@@ -133,9 +155,28 @@ class VisionManager:
                 success=True,
                 description=description,
                 ocr=ocr_result,
+                cad_feature_stats=cad_feature_stats,
                 provider=provider_name,
                 processing_time_ms=processing_time_ms,
             )
+        except VisionProviderError:
+            try:
+                processing_time_ms = (time.time() - start_time) * 1000
+                safe_inc(vision_requests_total, provider=provider_name, status="error")
+                safe_observe(
+                    vision_processing_duration_seconds,
+                    processing_time_ms / 1000.0,
+                    provider=provider_name,
+                )
+                safe_inc(
+                    vision_errors_total,
+                    provider=provider_name,
+                    code=ErrorCode.EXTERNAL_SERVICE_ERROR.value,
+                )
+                update_vision_error_ema(True)
+            except Exception:
+                pass
+            raise
         except Exception:
             # Propagate unexpected errors; API layer will standardize response
             try:
@@ -146,7 +187,11 @@ class VisionManager:
                     processing_time_ms / 1000.0,
                     provider=provider_name,
                 )
-                safe_inc(vision_errors_total, provider=provider_name, code="internal")
+                safe_inc(
+                    vision_errors_total,
+                    provider=provider_name,
+                    code=ErrorCode.INTERNAL_ERROR.value,
+                )
                 update_vision_error_ema(True)
             except Exception:
                 pass
@@ -325,11 +370,47 @@ class VisionManager:
         except Exception as e:
             # Log error but don't fail entire request (graceful degradation)
             # Vision description will still be returned even if OCR fails
-            # TODO: Add proper structured logging
-            import logging
-
-            logging.getLogger(__name__).warning(
+            logger.warning(
                 "vision.ocr_extract_failed",
+                extra={
+                    "provider": provider,
+                    "stage": "ocr_extract",
+                    "error_code": ErrorCode.INTERNAL_ERROR.value,
+                    "error": str(e),
+                },
+            )
+            return None
+
+    async def _extract_cad_feature_stats(
+        self,
+        image_bytes: bytes,
+        thresholds: Optional[Dict[str, float]],
+    ) -> Optional[Dict[str, Any]]:
+        try:
+            import io
+
+            from PIL import Image
+
+            from src.core.vision_analyzer import VisionAnalyzer
+            from src.core.vision_analyzer import VisionProvider as AnalyzerProvider
+        except Exception as e:
+            logger.warning(
+                "vision.cad_feature_stats_unavailable",
+                extra={"error": str(e)},
+            )
+            return None
+
+        try:
+            image = Image.open(io.BytesIO(image_bytes))
+            analyzer = VisionAnalyzer(
+                provider=AnalyzerProvider.LOCAL,
+                initialize_clients=False,
+            )
+            features = await analyzer._extract_cad_features(image, thresholds)
+            return analyzer._summarize_cad_features(features)
+        except Exception as e:
+            logger.warning(
+                "vision.cad_feature_stats_failed",
                 extra={"error": str(e)},
             )
             return None

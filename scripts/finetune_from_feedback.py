@@ -19,7 +19,7 @@ import argparse
 import numpy as np
 from pathlib import Path
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -34,87 +34,60 @@ logging.basicConfig(
 )
 logger = logging.getLogger("finetune")
 
-def load_training_data(file_path: str) -> tuple[np.ndarray, np.ndarray]:
-    """Load training data from JSONL export."""
-    vectors = []
-    labels = []
-    
+def _load_samples(file_path: str) -> Tuple[List[str], List[str]]:
+    doc_ids: List[str] = []
+    labels: List[str] = []
     with open(file_path, "r") as f:
         for line in f:
+            if not line.strip():
+                continue
             data = json.loads(line)
-            # We need the feature vector. 
-            # The export contains doc_id, but not the vector itself.
-            # We need to fetch the vector from the feature cache or store.
-            # For this script, we'll assume we can fetch it.
-            # In a real scenario, the export might need to include the vector 
-            # or we fetch it here.
-            
-            # TODO: Fetch vector from FeatureVectorCache using doc_id
-            # For now, we'll skip this step as we can't easily mock the cache 
-            # without a running system or mocked data.
-            # We will simulate data loading for the purpose of this script structure.
-            pass
-            
-    # Mock data for demonstration if file is empty or we can't fetch vectors
-    # In production, this would fetch real vectors
-    logger.warning("Real vector fetching not implemented in this script version.")
-    logger.warning("Using mock data for demonstration.")
-    
-    X = np.random.rand(10, 32) # 32-dim vectors
-    y = np.array(["bolt", "nut", "washer", "bracket", "gear"] * 2)
-    
-    return X, y
+            doc_id = data.get("doc_id")
+            label = data.get("true_type")
+            if doc_id and label:
+                doc_ids.append(doc_id)
+                labels.append(label)
+    return doc_ids, labels
 
-def fetch_vectors_for_samples(samples_file: str) -> tuple[np.ndarray, np.ndarray]:
-    """
-    Load samples and fetch their vectors from the feature store/cache.
-    """
-    from src.core.cache import get_feature_cache
-    import asyncio
-    
-    # We need an async loop to fetch from cache
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    feature_cache = get_feature_cache()
-    
-    doc_ids = []
-    labels = []
-    
-    with open(samples_file, "r") as f:
-        for line in f:
-            data = json.loads(line)
-            doc_ids.append(data["doc_id"])
-            labels.append(data["true_type"])
-            
+def fetch_vectors_for_samples(doc_ids: List[str], labels: List[str]) -> tuple[np.ndarray, np.ndarray]:
+    """Fetch vectors for the given doc_ids from the vector store."""
+    from src.core.similarity import get_vector
+
     if not doc_ids:
         return np.array([]), np.array([])
-        
-    # Fetch vectors
-    # Note: This assumes the cache is populated. In a real cold-start, 
-    # we might need to re-extract features from files.
-    # For this script, we'll try cache, else fail/skip.
-    
-    async def fetch():
-        return await feature_cache.get_batch(doc_ids)
-    
-    vectors_map = loop.run_until_complete(fetch())
-    loop.close()
-    
+
     X_list = []
     y_list = []
-    
+
     for doc_id, label in zip(doc_ids, labels):
-        vec = vectors_map.get(doc_id)
+        vec = get_vector(doc_id)
         if vec:
             X_list.append(vec)
             y_list.append(label)
         else:
             logger.warning(f"Vector not found for {doc_id}, skipping")
-            
+
     if not X_list:
         return np.array([]), np.array([])
-        
+
     return np.array(X_list), np.array(y_list)
+
+
+def load_training_data(file_path: str) -> tuple[np.ndarray, np.ndarray]:
+    """Load training data from JSONL export."""
+    doc_ids, labels = _load_samples(file_path)
+    X, y = fetch_vectors_for_samples(doc_ids, labels)
+
+    if len(X) > 0:
+        return X, y
+
+    logger.warning("No vectors found for training samples.")
+    logger.warning("Using mock data for demonstration.")
+
+    X = np.random.rand(10, 32)  # 32-dim vectors
+    y = np.array(["bolt", "nut", "washer", "bracket", "gear"] * 2)
+
+    return X, y
 
 def train_model(X: np.ndarray, y: np.ndarray, base_model_path: str = None):
     """Train or fine-tune the model."""
@@ -175,13 +148,9 @@ def main():
     data_file = export_result["file"]
     logger.info(f"Exported training data to {data_file}")
     
-    # 2. Load vectors (Mocking this part as we don't have a running cache/store in this env)
-    # In a real run, we would use fetch_vectors_for_samples(data_file)
-    # But since we can't connect to Redis here, we'll generate dummy data
-    # to demonstrate the pipeline flow.
+    # 2. Load vectors
     logger.info("Loading training vectors...")
-    # X, y = fetch_vectors_for_samples(data_file) 
-    X, y = load_training_data(data_file) # Uses mock data
+    X, y = load_training_data(data_file)
     
     if len(X) == 0:
         logger.error("No vectors found for training samples")

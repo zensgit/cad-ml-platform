@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -498,9 +498,9 @@ class TestCircuitBreakerUtilsMetrics:
         with patch("src.utils.circuit_breaker.ocr_circuit_state") as mock_metric:
             mock_labels = MagicMock()
             mock_metric.labels.return_value = mock_labels
-            
+
             CircuitBreaker("test")
-            
+
             mock_metric.labels.assert_called_with(key="ocr:cb:test")
             mock_labels.set.assert_called_with(0)
 
@@ -514,8 +514,8 @@ class TestCircuitBreakerUtilsMetrics:
             mock_metric.labels.return_value = mock_labels
             with patch("src.utils.circuit_breaker.get_client", return_value=None):
                 cb = CircuitBreaker("test")
-                
+
                 await cb._set_state(2)
-                
+
                 # Called during init (0) and during _set_state (2)
                 assert mock_labels.set.call_count == 2

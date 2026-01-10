@@ -52,8 +52,1074 @@
   - Implemented basic PDF validation (page count, forbidden tokens).
   - Verified `OCR_PROVIDER_DOWN` and `INPUT_ERROR` handling.
 - **Test Suite**:
-  - Refactored tests to use `TestClient` context manager for proper lifespan event handling.
-  - All tests passed (including `tests/test_metrics_contract.py` and `tests/test_ocr_*.py`).
+- Refactored tests to use `TestClient` context manager for proper lifespan event handling.
+- All tests passed (including `tests/test_metrics_contract.py` and `tests/test_ocr_*.py`).
+
+## 7. Post-Release Verification (2025-12-22)
+- **CAD Render Autostart + Token Rotation**:
+  - LaunchAgent moved to runtime path outside `~/Downloads` (macOS TCC-safe).
+  - Token rotated and verified with authorized render calls.
+  - End-to-end Athena preview smoke test passed.
+  - One-command update script with auto-rollback: `scripts/update_cad_render_runtime.sh`.
+  - Reports:
+    - `reports/CAD_RENDER_AUTOSTART_TOKEN_ROTATION.md`
+    - `reports/CAD_RENDER_UPDATE_RUN_20251222_114125.md`
+    - `reports/CAD_RENDER_UPDATE_RUN_20251222_130125.md`
+
+## 8. Post-Release Verification (2025-12-27)
+- **Full Regression**:
+  - `make test` completed successfully.
+  - Coverage: 71% (htmlcov generated).
+  - Results: 3952 passed, 28 skipped.
+- **Production Verification Plan**:
+  - `PRODUCTION_VERIFICATION_PLAN.md` marked completed.
+- **Memory Stability (1h)**:
+  - Sustained load test with stable memory usage.
+  - Report: `reports/DEV_MEMORY_STABILITY_1H_20251227.md`
+- **Alerting Pipeline**:
+  - Prometheus → Alertmanager chain verified.
+  - Report: `reports/DEV_ALERT_CHAIN_20251227.md`
+- **DedupCAD Vision Integration**:
+  - Contract + E2E smoke tests passed.
+  - Report: `reports/DEV_DEDUPCAD_VISION_INTEGRATION_20251227.md`
+- **CI DedupCAD Vision Traceability**:
+  - Image pull + digest recorded in e2e-smoke job.
+  - Report: `reports/DEV_CI_DEDUPCAD_VISION_E2E_20251227.md`
+- **DedupCAD Vision Contract Schema**:
+  - Health/search payloads validated against JSON schemas.
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_SCHEMA_20251227.md`
+- **DedupCAD Vision Resilience**:
+  - Retry/backoff + circuit breaker + metrics added for dedupcad-vision client.
+  - Report: `reports/DEV_DEDUPCAD_VISION_RESILIENCE_20251227.md`
+- **Dedup2D Load Test**:
+  - 5-minute load test against `/api/v1/dedup/2d/search` completed.
+  - Report: `reports/DEV_DEDUPCAD_VISION_LOAD_20251227.md`
+- **DedupCAD Vision Docs**:
+  - Documented retry/circuit breaker env vars.
+  - Report: `reports/DEV_DEDUPCAD_VISION_DOCS_20251227.md`
+- **Security Runtime**:
+  - Admin token rotation + opcode blocking verified.
+  - Report: `reports/DEV_SECURITY_TOKEN_OPCODE_20251227.md`
+- **Backup & Recovery**:
+  - Redis backup and crash recovery verified.
+  - Reports:
+    - `reports/DEV_REDIS_BACKUP_RECOVERY_20251227.md`
+    - `reports/DEV_DISASTER_RECOVERY_20251227.md`
+
+## 9. Post-Release Verification (2025-12-28)
+- **Dedup2D Load Test (High QPS)**:
+  - 5-minute load test with raised rate limit; circuit breaker mapped to 503.
+  - Report: `reports/DEV_DEDUPCAD_VISION_LOAD_HIGH_QPS_20251228.md`
+- **Dedup2D Async Queue Load**:
+  - 5-minute async load test; queue backpressure observed via JOB_QUEUE_FULL.
+  - Report: `reports/DEV_DEDUP2D_ASYNC_QUEUE_LOAD_20251228.md`
+- **Health Alias Refactor**:
+  - Shared health payload builder; OCR metrics test now uses valid PNG fixture.
+  - Report: `reports/DEV_HEALTH_ALIAS_REFACTOR_20251228.md`
+- **Full Test Run**:
+  - `make test` completed (full pytest suite).
+  - Report: `reports/DEV_MAKE_TEST_20251228.md`
+- **Metrics Contract Test**:
+  - `tests/test_metrics_contract.py` executed.
+  - Report: `reports/DEV_METRICS_CONTRACT_20251228.md`
+- **Lint**:
+  - `make lint` completed after line-length fixes.
+  - Report: `reports/DEV_LINT_20251228.md`
+- **Type Check**:
+  - `make type-check` completed.
+  - Report: `reports/DEV_TYPECHECK_20251228.md`
+- **DedupCAD Vision Contract + E2E**:
+  - Live `dedupcad-vision` contract + E2E smoke against localhost service.
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_E2E_20251228.md`
+- **Integration Suite (DedupCAD Vision)**:
+  - `tests/integration` executed against live `dedupcad-vision`.
+  - Report: `reports/DEV_INTEGRATION_FULL_DEDUPCAD_VISION_20251228.md`
+- **DedupCAD Vision Repo Quality**:
+  - `ruff`, `pytest`, and `mypy` executed in local `dedupcad-vision`.
+  - Report: `reports/DEV_DEDUPCAD_VISION_REPO_QUALITY_20251228.md`
+- **DedupCAD Vision Contract + E2E (Re-Run)**:
+  - Re-verified after `dedupcad-vision` updates.
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_E2E_RERUN_20251228.md`
+- **DedupCAD Vision Integration (Re-Run)**:
+  - Full `tests/integration` executed against live `dedupcad-vision`.
+  - Report: `reports/DEV_INTEGRATION_FULL_DEDUPCAD_VISION_RERUN_20251228.md`
+- **Full Test Run (DedupCAD Vision Required)**:
+  - `make test` executed with live `dedupcad-vision`.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_RERUN_20251228.md`
+- **Make Target (DedupCAD Vision Required)**:
+  - `make test-dedupcad-vision` executed with live `dedupcad-vision`.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_TARGET_20251228.md`
+
+## 10. Post-Release Verification (2025-12-29)
+- **Batch Similarity Degraded Flag**:
+  - Attached store backend metadata and normalized fallback detection for Faiss-unavailable batch similarity.
+  - Report: `reports/DEV_BATCH_SIMILARITY_FAISS_UNAVAILABLE_DEGRADED_FLAG_FIX_20251229.md`
+- **CI Re-Run (Batch Similarity Fallback)**:
+  - Workflow re-run after fallback test stabilization.
+  - Report: `reports/DEV_CI_BATCH_SIMILARITY_FAISS_FALLBACK_20251229.md`
+- **Full Test Run**:
+  - `make test` completed (full pytest suite).
+  - Report: `reports/DEV_MAKE_TEST_20251229.md`
+- **Lint**:
+  - `make lint` completed.
+  - Report: `reports/DEV_LINT_20251229.md`
+- **Type Check**:
+  - `make type-check` completed.
+  - Report: `reports/DEV_TYPECHECK_20251229.md`
+- **Pre-Commit Soft Validation**:
+  - `make pre-commit` completed (integrity, schema validation, health check).
+  - Report: `reports/DEV_PRE_COMMIT_20251229.md`
+- **Prometheus Rules Validation**:
+  - `scripts/validate_prom_rules.py --skip-promtool` completed (promtool deferred; Docker CLI unresponsive).
+  - Report: `reports/DEV_PROM_VALIDATE_20251229.md`
+- **Metrics Contract Validation**:
+  - `make metrics-validate` completed (metrics contract + provider error mapping).
+  - Report: `reports/DEV_METRICS_VALIDATE_20251229.md`
+- **Security Audit**:
+  - pip-audit + bandit executed; `scripts/security_audit.py --severity medium` summarized findings.
+  - Report: `reports/DEV_SECURITY_AUDIT_20251229.md`
+
+## 11. Post-Release Verification (2025-12-30)
+- **Security Audit (Post-Hardening)**:
+  - bandit: 0 high (10 medium, 315 low); pip-audit: 1 vulnerability (ecdsa 0.19.1, CVE-2024-23342).
+  - Report: `reports/DEV_SECURITY_AUDIT_20251230.md`
+- **Integration Auth JWT Update**:
+  - Replaced python-jose with PyJWT; pip-audit clean (0 vulnerabilities).
+  - Report: `reports/DEV_ECDSA_REMOVAL_20251230.md`
+- **DeepSeek HF Revision Pinning**:
+  - Added model/revision env defaults and verified provider metrics tests.
+  - Report: `reports/DEV_DEEPSEEK_HF_REVISION_20251230.md`
+- **Full Test Run (Post-JWT)**:
+  - `make test` completed (full pytest suite).
+  - Report: `reports/DEV_MAKE_TEST_20251230_POST_JWT.md`
+- **Security Audit (Medium Cleared)**:
+  - pip-audit: 0 vulnerabilities; bandit: 0 medium/high (315 low).
+  - Report: `reports/DEV_SECURITY_AUDIT_20251230_POST_MEDIUM.md`
+- **Safe Eval Unit Tests**:
+  - Added/validated restricted expression evaluator.
+  - Report: `reports/DEV_SAFE_EVAL_TEST_20251230.md`
+- **Lint**:
+  - `make lint` completed.
+  - Report: `reports/DEV_LINT_20251230.md`
+- **Type Check**:
+  - `make type-check` completed.
+  - Report: `reports/DEV_TYPECHECK_20251230.md`
+- **Type Check (CI Fix)**:
+  - `make type-check` completed after mypy fix in dedupcad 2D pipeline.
+  - Report: `reports/DEV_TYPECHECK_20251230_CI_FIX.md`
+- **Full Test Run (DedupCAD Vision Required)**:
+  - `make test-dedupcad-vision` completed.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251230.md`
+- **Hash Compatibility Assessment**:
+  - MD5/SHA1 → SHA256 impact analysis for caches and IDs.
+  - Report: `reports/DEV_HASH_COMPAT_20251230.md`
+- **Regression Validation**:
+  - Stateless execution regression suite ran 3x.
+  - Report: `reports/DEV_REGRESSION_VALIDATION_20251230.md`
+- **Metrics Consistency Check**:
+  - `scripts/check_metrics_consistency.py` validated all metric exports.
+  - Report: `reports/DEV_METRICS_CONSISTENCY_20251230.md`
+- **Performance Baseline Capture**:
+  - `scripts/performance_baseline.py` executed to refresh Day 0 baseline.
+  - Report: `reports/DEV_PERFORMANCE_BASELINE_20251230.md`
+  - Snapshot: `reports/performance_baseline_day0_20251230.json`
+- **Performance Baseline Comparison**:
+  - Compared Day 0 vs Day 6 p95 latencies (synthetic baseline).
+  - Report: `reports/DEV_PERFORMANCE_BASELINE_COMPARE_20251230.md`
+- **Prometheus Rules Validation**:
+  - promtool 2.49.1 executed via Docker; recording and alert rules validated.
+  - Report: `reports/DEV_PROMTOOL_RULES_VALIDATE_20251230.md`
+- **Full Test Run (Full Coverage)**:
+  - `make test` completed (full pytest suite with coverage).
+  - Report: `reports/DEV_MAKE_TEST_20251230_FULL.md`
+- **Full Test Run**:
+  - `make test` completed (full pytest suite).
+  - Report: `reports/DEV_MAKE_TEST_20251230.md`
+
+## 12. Post-Release Verification (2025-12-30)
+- **CI Workflow Hardening**:
+  - Adjusted workflow permissions/guards and fixed SBOM diff command.
+  - Report: `reports/DEV_CI_WORKFLOW_FIX_20251230.md`
+- **Metrics Budget Check Fix**:
+  - Added missing `os` import in metrics analysis helper script.
+  - Report: `reports/DEV_METRICS_BUDGET_FIX_20251230.md`
+
+## 13. Post-Release Verification (2025-12-31)
+- **V4 Performance Test Stabilization**:
+  - Switched to absolute overhead threshold for low-baseline runs.
+  - Report: `reports/DEV_CI_TEST_FIX_20251231.md`
+- **CI Workflow Verification**:
+  - PR workflows re-run after verification log update; all completed successfully.
+  - Report: `reports/DEV_CI_WORKFLOW_VERIFY_20251231.md`
+- **Full Test Run**:
+  - `make test` completed (full pytest suite with coverage).
+  - Report: `reports/DEV_MAKE_TEST_20251231.md`
+- **Render + Feedback Endpoint Tests**:
+  - Added targeted tests for render + feedback APIs.
+  - Report: `reports/DEV_RENDER_FEEDBACK_TESTS_20251231.md`
+- **Active Learning API Coverage**:
+  - Added API tests for pending/feedback/stats/export and corrected feedback error code.
+  - Report: `reports/DEV_ACTIVE_LEARNING_API_TESTS_20251231.md`
+- **DedupCAD Vision Required Test Run**:
+  - `make test-dedupcad-vision` completed against live dedupcad-vision + local API.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231.md`
+- **DedupCAD Vision Contract Audit**:
+  - Contract doc aligned with live dedupcad-vision endpoints (health/search/index).
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_AUDIT_20251231.md`
+- **DedupCAD Vision ML Platform Audit**:
+  - Verified L3 requires CAD source path; PNG/JPG inputs are unsupported by `/api/v1/analyze`.
+  - Report: `reports/DEV_DEDUPCAD_VISION_MLPLATFORM_AUDIT_20251231.md`
+- **DedupCAD Vision Field Compatibility Audit**:
+  - Verified vector register/search payloads and documented `/api/compare` fallback gap.
+  - Report: `reports/DEV_DEDUPCAD_VISION_FIELD_COMPAT_AUDIT_20251231.md`
+- **DedupCAD Vision Required Test Run (Re-run)**:
+  - `make test-dedupcad-vision` completed against live dedupcad-vision + local API.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231_RERUN.md`
+- **DedupCAD Vision /api/compare Compatibility**:
+  - Added `/api/compare` fallback endpoint (alias `/api/v1/compare`) with unit tests.
+  - Report: `reports/DEV_DEDUPCAD_VISION_COMPARE_ENDPOINT_20251231.md`
+- **DedupCAD Vision /api/compare Fallback E2E**:
+  - Verified ML client fallback to `/api/compare` when vector search misses candidate hash.
+  - Report: `reports/DEV_DEDUPCAD_VISION_COMPARE_FALLBACK_E2E_20251231.md`
+- **DedupCAD Vision Vector ID Alignment Review**:
+  - Confirmed `candidate_hash` must match vector id; documented hash→id alignment requirement.
+  - Report: `reports/DEV_DEDUPCAD_VISION_VECTOR_ID_ALIGNMENT_20251231.md`
+- **Compare Endpoint Redirect Fix**:
+  - Bound `/api/compare` without trailing slash to avoid 307 redirects.
+  - Report: `reports/DEV_COMPARE_ENDPOINT_NO_REDIRECT_20251231.md`
+- **Compare Endpoint Metrics**:
+  - Added `compare_requests_total` counter for `/api/compare`.
+  - Report: `reports/DEV_COMPARE_ENDPOINT_METRICS_20251231.md`
+- **Compare Requests Grafana Panel**:
+  - Added dashboard panel for `compare_requests_total` rates by status.
+  - Report: `reports/DEV_COMPARE_DASHBOARD_PANEL_20251231.md`
+- **Compare Alert Rules**:
+  - Added alerting rules for compare failure rate and not_found dominance.
+  - Report: `reports/DEV_COMPARE_ALERT_RULES_20251231.md`
+- **Compare Alert Runbooks**:
+  - Added runbooks for compare failure rate and not_found dominance.
+  - Report: `reports/DEV_COMPARE_RUNBOOKS_20251231.md`
+- **Compare Alert Rules Docs**:
+  - Documented compare alert examples in `docs/ALERT_RULES.md`.
+  - Report: `reports/DEV_COMPARE_ALERT_RULES_DOC_20251231.md`
+- **Compare Observability Checklist**:
+  - Added compare alert/runbook items to `docs/OBSERVABILITY_CHECKLIST.md`.
+  - Report: `reports/DEV_COMPARE_OBSERVABILITY_CHECKLIST_20251231.md`
+- **Compare Operations Manual**:
+  - Added compare alert response workflow and runbook directory entries.
+  - Report: `reports/DEV_COMPARE_OPERATIONS_MANUAL_20251231.md`
+- **E2E Smoke Search Filter Fix**:
+  - Stabilized vector search in E2E smoke by applying unique material/complexity filters.
+  - Report: `reports/DEV_E2E_API_SMOKE_SEARCH_FILTER_FIX_20251231.md`
+- **Full Test Run (Re-run)**:
+  - `make test` completed (full pytest suite with coverage).
+  - Report: `reports/DEV_MAKE_TEST_20251231_RERUN.md`
+- **CI Type-Check Fix (Compare Endpoint)**:
+  - Added missing type annotations to resolve mypy failures.
+  - Report: `reports/DEV_CI_TYPECHECK_COMPARE_FIX_20251231.md`
+- **Type Check Run**:
+  - `make type-check` completed.
+  - Report: `reports/DEV_MAKE_TYPE_CHECK_20251231.md`
+- **CI Workflow Run**:
+  - `CI` workflow completed successfully (post type-check fix).
+  - Report: `reports/DEV_CI_WORKFLOW_RUN_20251231.md`
+- **DedupCAD Vision Stub Alignment**:
+  - Updated dedupcad-vision stub `level_stats` schema for contract compatibility.
+  - Report: `reports/DEV_DEDUPCAD_VISION_STUB_SCHEMA_ALIGN_20251231.md`
+- **DedupCAD Vision Required Test Run (Stub)**:
+  - `make test-dedupcad-vision` completed against local stub + local API.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231_STUB.md`
+- **Redis/FAISS E2E Smoke**:
+  - Ran `make e2e-smoke` against a Redis-enabled API (FAISS backend requested).
+  - Report: `reports/DEV_E2E_SMOKE_REDIS_FAISS_20251231.md`
+- **FAISS Installation**:
+  - Installed `faiss-cpu` and reconciled numpy compatibility for local FAISS validation.
+  - Report: `reports/DEV_FAISS_INSTALL_20251231.md`
+- **Redis/FAISS E2E Smoke (Real FAISS)**:
+  - Ran `make e2e-smoke` with FAISS loaded and Redis enabled.
+  - Report: `reports/DEV_E2E_SMOKE_REDIS_FAISS_REAL_20251231.md`
+- **DedupCAD Vision Required Test Run (Real Service)**:
+  - `make test-dedupcad-vision` completed against live dedupcad-vision container + local API.
+  - Report: `reports/DEV_MAKE_TEST_DEDUPCAD_VISION_20251231_REAL.md`
+- **Dedup2D Webhook E2E Smoke**:
+  - `scripts/e2e_dedup2d_webhook.py` completed (callback signature verified).
+  - Report: `reports/DEV_E2E_DEDUP2D_WEBHOOK_20251231.md`
+- **Dedup2D Webhook E2E Smoke (MinIO)**:
+  - `scripts/e2e_dedup2d_webhook_minio.py` completed (callback + MinIO cleanup verified).
+  - Report: `reports/DEV_E2E_DEDUP2D_WEBHOOK_MINIO_20251231.md`
+- **Dedup2D Secure Callback E2E Smoke**:
+  - `make dedup2d-secure-smoke` completed with host DedupCAD Vision.
+  - Report: `reports/DEV_DEDUP2D_SECURE_CALLBACK_E2E_20260101.md`
+- **Lint Run**:
+  - `make lint` completed.
+  - Report: `reports/DEV_MAKE_LINT_20260101.md`
+- **Metrics Export Verification**:
+  - `make verify-metrics` completed.
+  - Report: `reports/DEV_VERIFY_METRICS_20260101.md`
+- **Prometheus Rules Validation**:
+  - `make prom-validate` completed (promtool check rules succeeded).
+  - Report: `reports/DEV_PROM_VALIDATE_20260101.md`
+- **Dedup2D Go/No-Go Local Checks**:
+  - Validated vision health, job list, dedup2d metrics, and worker status.
+  - Report: `reports/DEV_DEDUP2D_GO_NO_GO_LOCAL_20260101.md`
+- **Prometheus Rules Validation (Promtool All)**:
+  - `make promtool-validate-all` completed for alerting + recording rules.
+  - Report: `reports/DEV_PROMTOOL_VALIDATE_ALL_20260101.md`
+- **Dedup2D Observability Local Checks**:
+  - Verified Prometheus alert rules API and Grafana dashboard presence.
+  - Report: `reports/DEV_DEDUP2D_OBSERVABILITY_LOCAL_20260101.md`
+- **Observability Test Suite**:
+  - `make observability-test` completed (21 tests).
+  - Report: `reports/DEV_OBSERVABILITY_TEST_20260101.md`
+- **Self-Check**:
+  - `make self-check` completed.
+  - Report: `reports/DEV_SELF_CHECK_20260101.md`
+- **Enhanced Self-Check**:
+  - `make self-check-enhanced` completed after aligning checks with repo targets.
+  - Report: `reports/DEV_SELF_CHECK_ENHANCED_20260101.md`
+- **Security Audit**:
+  - `make security-audit` completed with 0 vulnerabilities after remediation.
+  - Report: `reports/DEV_SECURITY_AUDIT_20260101.md`
+- **Metrics Cardinality Check**:
+  - Ran cardinality audit against local Prometheus (9091) and saved JSON report.
+  - Report: `reports/DEV_CARDINALITY_CHECK_20260101.md`
+- **Targeted FAISS Tests**:
+  - `make test-targeted` completed (3 tests, SWIG warnings only).
+  - Report: `reports/DEV_TEST_TARGETED_20260101.md`
+- **Metrics Cardinality Audit (Markdown)**:
+  - Generated `reports/cardinality_audit_20260101.md` from Prometheus (9091).
+  - Report: `reports/DEV_METRICS_AUDIT_MARKDOWN_20260101.md`
+- **E2E Smoke Tests**:
+  - `make e2e-smoke` completed with DedupCAD Vision on localhost:8100.
+  - Report: `reports/DEV_E2E_SMOKE_20260101.md`
+- **Full Test Run**:
+  - `make test` completed (3985 passed, 19 skipped).
+  - Report: `reports/DEV_MAKE_TEST_20260101.md`
+- **Docker Compose Down**:
+  - Stopped cad-ml compose services after validation runs.
+  - Report: `reports/DEV_DOCKER_COMPOSE_DOWN_20260101.md`
+- **Compose/Prometheus Maintenance**:
+  - Removed compose `version` fields; added `PROMETHEUS_URL` default for cardinality audits.
+  - Report: `reports/DEV_MAINTENANCE_COMPOSE_PROM_URL_20260101.md`
+- **DedupCAD Vision Integration Inventory**:
+  - Mapped cad-ml ↔ dedupcad-vision integration paths/configs.
+  - Report: `reports/DEV_DEDUPCAD_VISION_INTEGRATION_INVENTORY_20260101.md`
+- **DedupCAD Vision Contract Matrix**:
+  - Documented endpoint mapping and error passthrough behavior.
+  - Report: `reports/DEV_DEDUPCAD_VISION_CONTRACT_MATRIX_20260101.md`
+- **DedupCAD Vision Vector/Hash Compatibility**:
+  - Verified feature vector ordering and compare fallback expectations.
+  - Report: `reports/DEV_DEDUPCAD_VISION_VECTOR_HASH_COMPAT_20260101.md`
+- **DedupCAD Vision Compatibility & Fallback Metrics**:
+  - Added payload format + legacy fallback metrics and guarded worker imports.
+  - Report: `reports/DEV_DEDUPCAD_VISION_COMPAT_FALLBACK_20260101.md`
+- **DedupCAD Vision Reliability Tests**:
+  - Added retry/timeout/circuit-open coverage for dedupcad-vision client.
+  - Report: `reports/DEV_DEDUPCAD_VISION_RELIABILITY_20260101.md`
+- **Dedup2D Async Precision Overlay Test**:
+  - Added async precision overlay coverage and hardened middleware import fallback.
+  - Report: `reports/DEV_DEDUP2D_ASYNC_PRECISION_E2E_20260101.md`
+- **Dedup2D Observability Runbook Updates**:
+  - Documented dedupcad-vision circuit metrics and payload format rollout signals.
+  - Report: `reports/DEV_DEDUP2D_OBSERVABILITY_RUNBOOK_20260101.md`
+- **DedupCAD Vision Final Handoff**:
+  - Consolidated integration status, tests, and runbook changes.
+  - Report: `reports/DEV_DEDUPCAD_VISION_FINAL_HANDOFF_20260101.md`
+- **Full Test Run (Re-run)**:
+  - Re-ran `make test` after dedup2d metrics registry fix.
+  - Report: `reports/DEV_MAKE_TEST_RERUN_20260101.md`
+- **Dedup2D Staging Smoke Attempt**:
+  - Attempted staging smoke checks; dedupcad-vision not running locally.
+  - Report: `reports/DEV_DEDUP2D_STAGING_SMOKE_ATTEMPT_20260101.md`
+- **Dedup2D Metrics Verification Attempt**:
+  - Runtime metrics scrape blocked by missing local services.
+  - Report: `reports/DEV_DEDUP2D_METRICS_VERIFY_20260101.md`
+- **Dedup2D Staging Smoke (Success)**:
+  - Brought up staging compose with MinIO + Redis backend, ran async job + metrics checks.
+  - Report: `reports/DEV_DEDUP2D_STAGING_SMOKE_20260101.md`
+- **Dedup2D Prometheus Targets**:
+  - Verified Prometheus scraping and dedup2d metrics via query API.
+  - Report: `reports/DEV_DEDUP2D_PROMETHEUS_TARGETS_20260101.md`
+- **Dedup2D S3 Lifecycle**:
+  - Observed MinIO upload during async job and cleanup after completion.
+  - Report: `reports/DEV_DEDUP2D_S3_LIFECYCLE_20260101.md`
+- **Dedup2D Precision Smoke**:
+  - Confirmed geom_json path executes L4 precision timing fields.
+  - Report: `reports/DEV_DEDUP2D_PRECISION_SMOKE_20260101.md`
+- **Dedup2D Index Rebuild**:
+  - Rebuild endpoint succeeded; dedupcad-vision readiness updated.
+  - Report: `reports/DEV_DEDUP2D_INDEX_REBUILD_20260101.md`
+- **Docker Cleanup**:
+  - Removed `cad-ml-network` after disconnecting remaining endpoints.
+  - Report: `reports/DEV_DOCKER_CLEANUP_20260101.md`
+- **Docker Image Prune**:
+  - Removed dangling images (no data volumes touched).
+  - Report: `reports/DEV_DOCKER_IMAGE_PRUNE_20260101.md`
+- **Dedup2D Storage Metrics Implementation**:
+  - Added file storage metrics instrumentation and local metrics unit test.
+  - Report: `reports/DEV_DEDUP2D_STORAGE_METRICS_20260101.md`
+- **Dedup2D Runbook Storage Metrics Update**:
+  - Documented storage metrics and cleanup expectations in staging runbook.
+  - Report: `reports/DEV_DEDUP2D_RUNBOOK_STORAGE_METRICS_20260101.md`
+- **Dedup2D Metrics Contract Update**:
+  - Added storage metrics label schemas and exposure check in metrics contract tests.
+  - Report: `reports/DEV_DEDUP2D_METRICS_CONTRACT_UPDATE_20260101.md`
+- **Dedup2D Storage Metrics Test**:
+  - Ran targeted pytest (skipped locally due to missing prometheus_client).
+  - Report: `reports/DEV_DEDUP2D_STORAGE_METRICS_TEST_20260101.md`
+- **Dedup2D Dashboard Metrics Alignment**:
+  - Updated Grafana Dedup2D dashboard to use emitted job/queue metrics.
+  - Report: `reports/DEV_DEDUP2D_DASHBOARD_METRICS_ALIGNMENT_20260101.md`
+- **Dedup2D Recording Rules**:
+  - Added dedup2d success/error/throughput/storage recording rules.
+  - Report: `reports/DEV_DEDUP2D_RECORDING_RULES_20260101.md`
+- **Dedup2D Prod Checklist Update**:
+  - Added recording rule verification to production go/no-go checklist.
+  - Report: `reports/DEV_DEDUP2D_PROD_CHECKLIST_RULES_20260101.md`
+- **Dedup2D Observability Validation**:
+  - Validated dashboard JSON and recording rules; updated promtool prefix list.
+  - Report: `reports/DEV_DEDUP2D_OBSERVABILITY_VALIDATION_20260101.md`
+- **Dedup2D Promtool Validation**:
+  - Ran full promtool validation via Docker; warnings limited to pre-existing prefix cases.
+  - Report: `reports/DEV_DEDUP2D_PROMTOOL_VALIDATION_20260101.md`
+- **Dedup2D Metrics Contract Test**:
+  - Added metrics-enabled guard via `/health` with `/metrics` fallback; fallback metrics check passes when disabled.
+  - Ran metrics contract suite (8 passed, 14 skipped) in disabled runtime.
+  - Ran metrics contract suite (19 passed, 3 skipped) with `prometheus_client` enabled.
+  - Ran strict mode metrics contract (2 passed) with on-demand error triggers.
+  - Re-ran metrics contract suite post strict-mode fix (19 passed, 3 skipped).
+  - Re-ran tracemalloc isolation (1 passed, 21 deselected) with `.venv` metrics enabled.
+  - Report: `reports/DEV_DEDUP2D_METRICS_CONTRACT_TEST_20260101.md`
+- **make test**:
+  - Ran full test suite with coverage using project venv.
+  - Result: 3993 passed, 21 skipped, 3 warnings; coverage 71%; duration 153.86s.
+  - Re-ran with warnings enabled: 3993 passed, 21 skipped, 170 warnings; duration 105.37s.
+  - Warning summary: ResourceWarning for unclosed event loop (multiple tests).
+  - Re-ran with ResourceWarning treated as error: 3993 passed, 21 skipped, 158 warnings; duration 104.37s.
+  - Re-ran with PYTHONASYNCIODEBUG=1: 3993 passed, 21 skipped, 180 warnings; coverage 72%; duration 110.02s.
+  - Attempted PytestUnraisableExceptionWarning filter without module path (failed parsing).
+  - Re-ran with pytest.PytestUnraisableExceptionWarning filter: 3993 passed, 21 skipped, 170 warnings; duration 106.79s.
+  - Targeted warning isolation runs identified ResourceWarning hot spots in metrics_contract, provider_timeout_simulation, adapter_factory_coverage, cache_coverage, dedup2d_file_storage_s3.
+  - Targeted asyncio-debug isolation confirmed unclosed event loop warnings with debug enabled in the same hotspots.
+  - Tracemalloc + asyncio debug reruns did not reproduce ResourceWarnings in the targeted suites.
+  - Tracemalloc full-file cache coverage failed 2 tests (test_get_cache_from_redis, test_set_cache_to_redis); dedup2d_file_storage_s3 skipped (0 collected).
+  - Re-ran tracemalloc cache tests using `.venv`; redis path tests passed (2 passed, 21 deselected), confirming prior failures were due to missing optional dependencies in system Python.
+  - Added redis-path cache test skip guard; system Python run skipped both tests, `.venv` run passed.
+  - Re-ran `make test` after redis-path skip guard: 3993 passed, 21 skipped, 3 warnings; duration 115.44s.
+  - Attempted DeprecationWarning error probe on vision integration test; Python segfault in faiss import (swigfaiss).
+  - Re-attempted probe with `VECTOR_STORE_BACKEND=memory`; faiss import still triggered via recovery loop and segfaulted.
+  - Re-attempted probe with `FAISS_RECOVERY_STATE_PATH` override + `VECTOR_STORE_BACKEND=memory`; test passed without faiss import.
+  - Added integration fixture to isolate `FAISS_RECOVERY_STATE_PATH`; DeprecationWarning probe passes without faiss import.
+  - Moved recovery-state isolation to global test fixture and guarded faiss recovery loop to only start for faiss backend.
+  - Re-ran `make test` after faiss guard: 3993 passed, 21 skipped, 3 warnings; duration 139.52s.
+  - Attempted DeprecationWarning error probe on `tests/perf/test_vector_search_latency.py` with `FAISS_RECOVERY_STATE_PATH` + `VECTOR_STORE_BACKEND=faiss`; Python segfault in faiss import (swigfaiss).
+  - Re-ran perf latency test with `RUN_FAISS_PERF_TESTS=1` and recovery-state override: 1 passed, 3 DeprecationWarning (SwigPyPacked/SwigPyObject/swigvarlink); duration 41.62s.
+  - Re-ran perf latency test with `RUN_FAISS_PERF_TESTS=1` and DeprecationWarning error mode; Python segfault in faiss import (swigfaiss).
+  - Updated perf test to run faiss measurements in a subprocess when `RUN_FAISS_PERF_TESTS=1`.
+  - Re-ran perf latency test with DeprecationWarning error mode after subprocess isolation; faiss subprocess exited -11 (segfault) without crashing pytest.
+  - Changed faiss perf subprocess failures to skip unless `REQUIRE_FAISS_PERF=1`; rerun skipped in strict warning mode.
+  - Forced faiss perf run with `REQUIRE_FAISS_PERF=1`; 1 passed.
+  - Added SwigPyPacked/SwigPyObject/swigvarlink DeprecationWarning filter in faiss subprocess; strict warning rerun passed.
+  - Tested faiss-cpu 1.12.0 import under DeprecationWarning-as-error; still segfaulted, restored faiss-cpu 1.13.2.
+  - Tested faiss-cpu 1.13.2 import in Python 3.12 venv with DeprecationWarning-as-error; segfaulted in swigfaiss.
+  - Tested conda-forge faiss-cpu (1.9.0) in a micromamba Python 3.11 env with DeprecationWarning-as-error; segfaulted in swigfaiss.
+  - Report: `reports/DEV_MAKE_TEST_20260104.md`
+- **Documentation**:
+  - Documented faiss perf test gating and strict-warning caveat in `README.md`.
+  - Added faiss perf test gating notes in `docs/OPERATIONAL_RUNBOOK.md`.
+  - Added faiss perf gating reference in `docs/CI_OPTIMIZATION_SUMMARY.md`.
+  - Added faiss perf gating commands to `docs/TEST_MAP.md`.
+  - Added faiss perf gating reminder in `docs/DEVELOPMENT_PLAN_SUMMARY.md`.
+  - Added faiss perf gating note in `docs/TRAINING_GUIDE.md`.
+- **Tooling**:
+  - Added metrics consistency check to `make verify-metrics`.
+  - Ran `make verify-metrics`; metrics consistency/export checks passed.
+- **PR Template**:
+  - Added standard pull request template at `.github/PULL_REQUEST_TEMPLATE.md`.
+- **Vision CAD Feature Extraction**:
+  - Added heuristic line/circle extraction with stats in `src/core/vision_analyzer.py`.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_extraction.py -v` (2 passed).
+  - Design: `docs/VISION_CAD_FEATURE_EXTRACTION_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_EXTRACTION_VALIDATION_20260105.md`
+- **Vision CAD Feature Extraction (Arc/Diagonal)**:
+  - Expanded heuristics with diagonal line detection (elongation) and arc classification.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_extraction.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_EXTRACTION_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_EXTRACTION_V2_VALIDATION_20260105.md`
+- **Vision CAD Feature Extraction (Orientation/Sweep)**:
+  - Added line orientation and arc sweep angle estimates for heuristic components.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_extraction.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_EXTRACTION_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_EXTRACTION_V3_VALIDATION_20260105.md`
+- **Vision CAD Feature Tuning**:
+  - Added threshold overrides for CAD feature heuristics and a benchmark script.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_extraction.py -v` (5 passed).
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_VALIDATION_20260105.md`
+- **Vision CAD Feature API Tuning**:
+  - Added `cad_feature_thresholds` request field and API coverage.
+  - Tests: `pytest tests/unit/test_vision_api_coverage.py -v` (19 passed).
+  - Design: `docs/VISION_CAD_FEATURE_API_TUNING_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_API_TUNING_VALIDATION_20260105.md`
+- **Vision CAD Feature Grid Sweep**:
+  - Added grid sweep and CSV export support to the tuning script.
+  - Validation: `python3 scripts/vision_cad_feature_benchmark.py --max-samples 4 --grid line_aspect=4,5 --grid arc_fill_min=0.05,0.08 --output-json /tmp/cad_grid.json --output-csv /tmp/cad_grid.csv`.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_GRID_VALIDATION_20260105.md`
+- **Vision CAD Feature Metadata**:
+  - Added metadata summary for line/arc counts and angles in local CAD analysis.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_extraction.py -v` (6 passed).
+  - Design: `docs/VISION_CAD_FEATURE_METADATA_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_METADATA_VALIDATION_20260105.md`
+- **Vision CAD Feature API Response**:
+  - Exposed `cad_feature_stats` in the vision analyze response with opt-in request flag.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (9 passed).
+  - Design: `docs/VISION_CAD_FEATURE_API_RESPONSE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_API_RESPONSE_VALIDATION_20260105.md`
+- **Vision CAD Feature Threshold Validation**:
+  - Validated request threshold keys and numeric values.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (10 passed).
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_VALIDATION_20260105.md`
+- **Vision CAD Feature Threshold Range Validation**:
+  - Enforced positive-only threshold values.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (11 passed).
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_RANGE_VALIDATION_20260105.md`
+- **Vision CAD Feature Threshold Effect**:
+  - Added coverage to confirm threshold overrides change returned stats.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (12 passed).
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_EFFECT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_EFFECT_VALIDATION_20260105.md`
+- **Vision CAD Feature Sweep Bins**:
+  - Added arc sweep bin summary to CAD feature metadata and API response.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_extraction.py -v` (7 passed).
+  - Design: `docs/VISION_CAD_FEATURE_METADATA_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_SWEEP_BINS_VALIDATION_20260105.md`
+- **Vision CAD Feature Sweep Bins API**:
+  - Added API test coverage for `arc_sweep_bins` in vision responses.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (13 passed).
+  - Design: `docs/VISION_CAD_FEATURE_API_RESPONSE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_SWEEP_BINS_API_VALIDATION_20260105.md`
+- **Vision Contract Schema Update**:
+  - Updated vision analyze contract schema to include `cad_feature_stats`.
+  - Tests: `pytest tests/test_contract_schema.py -v` (1 passed).
+  - Report: `reports/DEV_VISION_CONTRACT_SCHEMA_VALIDATION_20260105.md`
+- **Vision README Update**:
+  - Documented `include_cad_stats` request flag and `cad_feature_stats` response fields.
+  - Report: `reports/DEV_VISION_CAD_FEATURE_README_VALIDATION_20260105.md`
+- **Vision CAD Feature Tuning Doc Link**:
+  - Linked tuning documentation to the README API usage example.
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_DOC_LINK_20260105.md`
+- **Vision CAD Feature Threshold Keys Doc**:
+  - Added README quick reference for `cad_feature_thresholds` keys.
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_KEYS_DOC_20260105.md`
+- **Vision CAD Feature Threshold Defaults Doc**:
+  - Documented default values for `cad_feature_thresholds`.
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_DEFAULTS_DOC_20260105.md`
+- **Vision CAD Feature Tuning Guide Doc**:
+  - Added tuning direction guidance for `cad_feature_thresholds`.
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_GUIDE_DOC_20260105.md`
+- **Vision CAD Feature Stats Model**:
+  - Added typed `CadFeatureStats` for `cad_feature_stats` and updated response examples.
+  - Tests: `pytest tests/test_contract_schema.py -v` (1 passed).
+  - Design: `docs/VISION_CAD_FEATURE_STATS_MODEL_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_STATS_MODEL_VALIDATION_20260105.md`
+- **Vision CAD Feature API Example Alignment**:
+  - Updated vision analyze endpoint example to include `arc_sweep_bins`.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (13 passed).
+  - Design: `docs/VISION_CAD_FEATURE_API_EXAMPLE_ALIGNMENT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_API_EXAMPLE_ALIGNMENT_VALIDATION_20260105.md`
+- **Vision CAD Feature Baseline Benchmark**:
+  - Captured default-threshold baseline over real CAD raster samples.
+  - Command: `python3 scripts/vision_cad_feature_benchmark.py --input-dir data/train_artifacts_subset5 --output-json reports/vision_cad_feature_baseline_20260105.json --output-csv reports/vision_cad_feature_baseline_20260105.csv`
+  - Design: `docs/VISION_CAD_FEATURE_BASELINE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BASELINE_VALIDATION_20260105.md`
+- **Vision CAD Feature Golden Stats**:
+  - Added golden fixtures and regression tests for CAD feature stats.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_golden_stats.py -v` (3 passed).
+  - Design: `docs/VISION_CAD_FEATURE_GOLDEN_STATS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GOLDEN_STATS_VALIDATION_20260105.md`
+- **Vision CAD Feature Threshold Relation**:
+  - Enforced `arc_fill_min < arc_fill_max` when both overrides are provided.
+  - Tests: `pytest tests/vision/test_vision_endpoint.py -v` (14 passed).
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_RELATION_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_RELATION_VALIDATION_20260105.md`
+- **Vision CAD Feature Golden Stats Extension**:
+  - Added diagonal line and mid-arc fixtures to cover additional bins.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_golden_stats.py -v` (5 passed).
+  - Design: `docs/VISION_CAD_FEATURE_GOLDEN_STATS_EXTENSION_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GOLDEN_STATS_EXTENSION_VALIDATION_20260106.md`
+- **Vision CAD Feature Benchmark Compare**:
+  - Added `--compare-json` mode for benchmark delta reporting.
+  - Command: `python3 scripts/vision_cad_feature_benchmark.py --input-dir data/train_artifacts_subset5 --output-json reports/vision_cad_feature_baseline_compare_20260106.json --compare-json reports/vision_cad_feature_baseline_20260105.json`
+  - Design: `docs/VISION_CAD_FEATURE_BENCHMARK_COMPARE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BENCHMARK_COMPARE_VALIDATION_20260106.md`
+- **Vision CAD Feature Benchmark No-Clients**:
+  - Added `--no-clients` to skip external client initialization during benchmarking.
+  - Command: `python3 scripts/vision_cad_feature_benchmark.py --no-clients --max-samples 1`
+  - Design: `docs/VISION_CAD_FEATURE_BENCHMARK_NO_CLIENTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BENCHMARK_NO_CLIENTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Large Dataset Compare**:
+  - Captured a larger baseline and compare run over 20 real CAD images.
+  - Commands: `python3 scripts/vision_cad_feature_benchmark.py --no-clients --input-dir data/dedup_report_train_local_version_profile_spatial_full_package/assets/images --max-samples 20 --output-json reports/vision_cad_feature_baseline_spatial_20260106.json`, `python3 scripts/vision_cad_feature_benchmark.py --no-clients --input-dir data/dedup_report_train_local_version_profile_spatial_full_package/assets/images --max-samples 20 --output-json reports/vision_cad_feature_baseline_spatial_compare_20260106.json --compare-json reports/vision_cad_feature_baseline_spatial_20260106.json`
+  - Design: `docs/VISION_CAD_FEATURE_LARGE_DATASET_COMPARE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_LARGE_DATASET_COMPARE_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Docs Update**:
+  - Documented `--compare-json` and `--no-clients` in the tuning guide.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_DOCS_UPDATE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_DOCS_UPDATE_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Impact**:
+  - Ran a stricter-threshold benchmark and captured delta vs baseline.
+  - Command: `python3 scripts/vision_cad_feature_benchmark.py --no-clients --input-dir data/dedup_report_train_local_version_profile_spatial_full_package/assets/images --max-samples 20 --threshold min_area=24 --threshold line_aspect=6 --threshold line_elongation=8 --threshold circle_fill_min=0.4 --threshold arc_fill_min=0.08 --output-json reports/vision_cad_feature_tuning_compare_20260106.json --output-csv reports/vision_cad_feature_tuning_compare_20260106.csv --compare-json reports/vision_cad_feature_baseline_spatial_20260106.json`
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_IMPACT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_IMPACT_VALIDATION_20260106.md`
+- **Vision CAD Feature README Benchmark Usage**:
+  - Documented benchmark baseline/compare usage in README.
+  - Design: `docs/VISION_CAD_FEATURE_README_BENCHMARK_USAGE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_README_BENCHMARK_USAGE_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Impact Summary**:
+  - Summarized baseline vs tuned deltas for the stricter threshold run.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_IMPACT_SUMMARY_20260106.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_IMPACT_SUMMARY_VALIDATION_20260106.md`
+- **Vision CAD Feature Threshold File**:
+  - Added `--threshold-file` support for JSON/YAML presets.
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Report**:
+  - Added markdown report generation for benchmark comparison JSON.
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_REPORT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_REPORT_VALIDATION_20260106.md`
+- **Vision CAD Feature Threshold File Tests**:
+  - Added unit coverage for threshold-file grid and variants handling.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_threshold_file.py -v` (3 passed).
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Threshold File List Tests**:
+  - Added coverage for list-style threshold file payloads.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_threshold_file.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_LIST_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_LIST_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Threshold File Override Tests**:
+  - Added coverage for CLI overrides on threshold files.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_threshold_file.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_OVERRIDE_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_OVERRIDE_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature README Threshold File**:
+  - Added threshold-file and compare report usage in README.
+  - Design: `docs/VISION_CAD_FEATURE_README_THRESHOLD_FILE_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_README_THRESHOLD_FILE_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Report Tests**:
+  - Added unit coverage for compare report markdown output.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_report.py -v` (2 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_REPORT_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_REPORT_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Report Error Tests**:
+  - Added coverage for missing comparison data handling.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_report.py -v` (3 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_REPORT_ERROR_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_REPORT_ERROR_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Report Missing Baseline Tests**:
+  - Added coverage for missing baseline combos in compare reports.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_report.py -v` (3 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_REPORT_MISSING_BASELINE_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_REPORT_MISSING_BASELINE_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Threshold File YAML**:
+  - Added YAML example file and documented PyYAML requirement.
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_YAML_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_YAML_VALIDATION_20260106.md`
+- **Vision CAD Feature Threshold File Variants Doc**:
+  - Added README usage for list-style threshold variants.
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_VARIANTS_DOC_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_VARIANTS_DOC_VALIDATION_20260106.md`
+- **Vision CAD Feature Threshold File YAML Run**:
+  - Validated YAML threshold file parsing via the benchmark script.
+  - Design: `docs/VISION_CAD_FEATURE_THRESHOLD_FILE_YAML_RUN_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_THRESHOLD_FILE_YAML_RUN_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Summary CSV**:
+  - Added summary CSV output for benchmark comparison deltas.
+  - Design: `docs/VISION_CAD_FEATURE_BENCHMARK_COMPARE_CSV_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BENCHMARK_COMPARE_CSV_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export**:
+  - Added JSON/CSV export for top sample deltas from compare runs.
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export Docs**:
+  - Documented compare summary CSV and export utility usage.
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_DOCS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_DOCS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare CSV Tests**:
+  - Added unit coverage for compare summary CSV output and baseline requirement.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_compare_csv.py -v` (2 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_CSV_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_CSV_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export Tests**:
+  - Added unit coverage for compare export JSON/CSV outputs and combo index validation.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_export.py -v` (2 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare CSV Missing Baseline Tests**:
+  - Added coverage for missing baseline status in compare summary CSV output.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_compare_csv.py -v` (3 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_CSV_MISSING_BASELINE_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_CSV_MISSING_BASELINE_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export Missing Baseline Tests**:
+  - Added coverage for missing baseline status in compare export outputs.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_export.py -v` (3 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_MISSING_BASELINE_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_MISSING_BASELINE_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export Combo Filter Tests**:
+  - Added coverage for `--combo-index` filtering in compare export outputs.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_export.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_COMBO_FILTER_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_COMBO_FILTER_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Unit Tests Run**:
+  - Ran full CAD feature unit test suite after compare CSV/export updates.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_* -v` (26 passed).
+  - Design: `docs/VISION_CAD_FEATURE_UNIT_TESTS_RUN_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_UNIT_TESTS_RUN_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export Combo Filter Docs**:
+  - Documented combo-index filtering for compare export outputs.
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_COMBO_FILTER_DOCS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_COMBO_FILTER_DOCS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare CSV Multi Combo Tests**:
+  - Added coverage for multi-combo compare summary CSV output.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_benchmark_compare_csv.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_CSV_MULTI_COMBO_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_CSV_MULTI_COMBO_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export Invalid Index Tests**:
+  - Added coverage for invalid `--combo-index` handling in compare export outputs.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_export.py -v` (5 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_INVALID_INDEX_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_INVALID_INDEX_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export Stdout Tests**:
+  - Added coverage for compare export JSON output when writing to stdout.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_export.py -v` (6 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_STDOUT_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_STDOUT_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Export Stdout Docs**:
+  - Documented stdout output behavior for compare export runs.
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_EXPORT_STDOUT_DOCS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_EXPORT_STDOUT_DOCS_VALIDATION_20260106.md`
+- **Vision CAD Feature Unit Tests Run (Stdout Docs)**:
+  - Re-ran full CAD feature unit test suite after stdout doc updates.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_* -v` (29 passed).
+  - Design: `docs/VISION_CAD_FEATURE_UNIT_TESTS_RUN_STDOUT_DOCS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_UNIT_TESTS_RUN_STDOUT_DOCS_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Workflow Docs**:
+  - Documented an end-to-end baseline/compare/export workflow example.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_WORKFLOW_DOCS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_WORKFLOW_DOCS_VALIDATION_20260106.md`
+- **Vision CAD Feature Grid Compare Export Run**:
+  - Ran a multi-combo grid compare and exported summary/top-sample outputs.
+  - Design: `docs/VISION_CAD_FEATURE_GRID_COMPARE_EXPORT_RUN_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_COMPARE_EXPORT_RUN_VALIDATION_20260106.md`
+- **Vision CAD Feature Grid Compare Report Run**:
+  - Generated a markdown summary report for the grid compare run.
+  - Design: `docs/VISION_CAD_FEATURE_GRID_COMPARE_REPORT_RUN_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_COMPARE_REPORT_RUN_VALIDATION_20260106.md`
+- **Vision CAD Feature Compare Report Multi Combo Tests**:
+  - Added coverage for multi-combo compare report output.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_compare_report.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_COMPARE_REPORT_MULTI_COMBO_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_COMPARE_REPORT_MULTI_COMBO_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Workflow Report Step**:
+  - Added compare report command to the end-to-end tuning workflow docs.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_WORKFLOW_REPORT_STEP_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_WORKFLOW_REPORT_STEP_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Compare Report Run**:
+  - Generated a markdown summary report for the tuned compare run.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_COMPARE_REPORT_RUN_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_COMPARE_REPORT_RUN_VALIDATION_20260106.md`
+- **Vision CAD Feature Unit Tests Run (Tuned Report)**:
+  - Re-ran full CAD feature unit test suite after the tuned compare report update.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_* -v` (30 passed).
+  - Design: `docs/VISION_CAD_FEATURE_UNIT_TESTS_RUN_TUNED_REPORT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_UNIT_TESTS_RUN_TUNED_REPORT_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Artifacts Summary**:
+  - Added an artifacts summary table to the tuning guide.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_ARTIFACTS_SUMMARY_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_ARTIFACTS_SUMMARY_VALIDATION_20260106.md`
+- **Vision CAD Feature Grid Compare Export Run 50**:
+  - Ran a 50-sample grid compare/export workflow for stability checks.
+  - Design: `docs/VISION_CAD_FEATURE_GRID_COMPARE_EXPORT_RUN_50_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_COMPARE_EXPORT_RUN_50_VALIDATION_20260106.md`
+- **Vision CAD Feature Grid Compare Report Run 50**:
+  - Generated a markdown summary report for the 50-sample grid compare run.
+  - Design: `docs/VISION_CAD_FEATURE_GRID_COMPARE_REPORT_RUN_50_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_COMPARE_REPORT_RUN_50_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Compare Run 50**:
+  - Ran a 50-sample tuned compare workflow with export outputs.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_COMPARE_RUN_50_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_COMPARE_RUN_50_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Compare Report Run 50**:
+  - Generated a markdown summary report for the 50-sample tuned compare run.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_COMPARE_REPORT_RUN_50_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_COMPARE_REPORT_RUN_50_VALIDATION_20260106.md`
+- **Vision CAD Feature Unit Tests Run (Tuned Report 50)**:
+  - Re-ran full CAD feature unit test suite after the 50-sample tuned compare report.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_* -v` (30 passed).
+  - Design: `docs/VISION_CAD_FEATURE_UNIT_TESTS_RUN_TUNED_REPORT_50_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_UNIT_TESTS_RUN_TUNED_REPORT_50_VALIDATION_20260106.md`
+- **Vision CAD Feature 50 Sample Artifacts README**:
+  - Documented the 50-sample artifact list in the README.
+  - Design: `docs/VISION_CAD_FEATURE_50_SAMPLE_ARTIFACTS_README_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_50_SAMPLE_ARTIFACTS_README_VALIDATION_20260106.md`
+- **Vision CAD Feature 50 Sample Baseline Report README**:
+  - Added the 50-sample baseline report artifact to the README list.
+  - Design: `docs/VISION_CAD_FEATURE_50_SAMPLE_BASELINE_REPORT_README_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_50_SAMPLE_BASELINE_REPORT_README_VALIDATION_20260106.md`
+- **Vision CAD Feature Grid Compare Export Run 100**:
+  - Ran a 100-sample grid compare/export workflow for stability checks.
+  - Design: `docs/VISION_CAD_FEATURE_GRID_COMPARE_EXPORT_RUN_100_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_COMPARE_EXPORT_RUN_100_VALIDATION_20260106.md`
+- **Vision CAD Feature Grid Baseline Report Run 100**:
+  - Generated a markdown summary report for the 100-sample grid baseline run.
+  - Design: `docs/VISION_CAD_FEATURE_GRID_BASELINE_REPORT_RUN_100_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_BASELINE_REPORT_RUN_100_VALIDATION_20260106.md`
+- **Vision CAD Feature Grid Baseline Report Run 50**:
+  - Generated a markdown summary report for the 50-sample grid baseline run.
+  - Design: `docs/VISION_CAD_FEATURE_GRID_BASELINE_REPORT_RUN_50_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_GRID_BASELINE_REPORT_RUN_50_VALIDATION_20260106.md`
+- **Vision CAD Feature Baseline Report**:
+  - Added markdown report generation for benchmark baseline JSON.
+  - Design: `docs/VISION_CAD_FEATURE_BASELINE_REPORT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BASELINE_REPORT_VALIDATION_20260106.md`
+- **Vision CAD Feature Baseline Report Tests**:
+  - Added unit coverage for baseline report markdown output.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_baseline_report.py -v` (3 passed).
+  - Design: `docs/VISION_CAD_FEATURE_BASELINE_REPORT_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BASELINE_REPORT_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Tuning Baseline Report Step**:
+  - Documented the baseline report command in the tuning workflow.
+  - Design: `docs/VISION_CAD_FEATURE_TUNING_BASELINE_REPORT_STEP_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_TUNING_BASELINE_REPORT_STEP_VALIDATION_20260106.md`
+- **Vision CAD Feature README Baseline Report**:
+  - Documented baseline report usage in the README benchmark section.
+  - Design: `docs/VISION_CAD_FEATURE_README_BASELINE_REPORT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_README_BASELINE_REPORT_VALIDATION_20260106.md`
+- **Vision CAD Feature Unit Tests Run (Baseline Report README)**:
+  - Re-ran CAD feature unit tests after the baseline report README update.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_* -v` (33 passed).
+  - Design: `docs/VISION_CAD_FEATURE_UNIT_TESTS_RUN_BASELINE_REPORT_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_UNIT_TESTS_RUN_BASELINE_REPORT_VALIDATION_20260106.md`
+- **Vision CAD Feature Baseline Report Stdout Tests**:
+  - Added coverage for baseline report stdout output when no file is provided.
+  - Tests: `pytest tests/unit/test_vision_cad_feature_baseline_report.py -v` (4 passed).
+  - Design: `docs/VISION_CAD_FEATURE_BASELINE_REPORT_STDOUT_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BASELINE_REPORT_STDOUT_TESTS_VALIDATION_20260106.md`
+- **Vision CAD Feature Baseline Report Stdout Docs**:
+  - Documented stdout behavior for the baseline report generator.
+  - Design: `docs/VISION_CAD_FEATURE_BASELINE_REPORT_STDOUT_DOCS_DESIGN.md`
+  - Report: `reports/DEV_VISION_CAD_FEATURE_BASELINE_REPORT_STDOUT_DOCS_VALIDATION_20260106.md`
+- **Maintenance Orphan Cleanup Redis Down Error Context**:
+  - Added error context fields for Redis-down orphan cleanup and verified handling.
+  - Tests: `pytest tests/unit/test_orphan_cleanup_redis_down.py -v` (6 passed, 1 skipped).
+  - Design: `docs/MAINTENANCE_ORPHAN_CLEANUP_REDIS_DOWN_ERROR_CONTEXT_DESIGN.md`
+  - Report: `reports/DEV_MAINTENANCE_ORPHAN_CLEANUP_REDIS_DOWN_ERROR_CONTEXT_VALIDATION_20260106.md`
+- **Maintenance Endpoint Error Context**:
+  - Standardized maintenance error context fields and structured cleanup errors.
+  - Tests: `pytest tests/unit/test_maintenance_endpoint_coverage.py -v` (30 passed).
+  - Design: `docs/MAINTENANCE_ENDPOINT_ERROR_CONTEXT_DESIGN.md`
+  - Report: `reports/DEV_MAINTENANCE_ENDPOINT_ERROR_CONTEXT_VALIDATION_20260106.md`
+- **Faiss Batch Similarity Degraded Tests**:
+  - Strengthened fallback metric coverage and response flag checks for batch similarity.
+  - Tests: `pytest tests/unit/test_faiss_degraded_batch.py -v` (8 passed, 1 skipped).
+  - Design: `docs/FAISS_BATCH_SIMILARITY_DEGRADED_TESTS_DESIGN.md`
+  - Report: `reports/DEV_FAISS_BATCH_SIMILARITY_DEGRADED_TESTS_VALIDATION_20260106.md`
+- **Maintenance Knowledge Error Context Tests**:
+  - Added coverage for knowledge maintenance endpoint error context.
+  - Tests: `pytest tests/unit/test_maintenance_endpoint_coverage.py -v` (32 passed).
+  - Design: `docs/MAINTENANCE_KNOWLEDGE_ERROR_CONTEXT_TESTS_DESIGN.md`
+  - Report: `reports/DEV_MAINTENANCE_KNOWLEDGE_ERROR_CONTEXT_TESTS_VALIDATION_20260106.md`
+- **Model Rollback Health Metrics Tests**:
+  - Verified model health metrics increment for ok and rollback statuses.
+  - Tests: `pytest tests/unit/test_model_rollback_health.py -v` (8 passed).
+  - Design: `docs/MODEL_ROLLBACK_HEALTH_METRICS_TESTS_DESIGN.md`
+  - Report: `reports/DEV_MODEL_ROLLBACK_HEALTH_METRICS_TESTS_VALIDATION_20260106.md`
+- **Vector Backend Reload Reason Labels**:
+  - Added reason labels for backend reload metrics and updated failure coverage.
+  - Tests: `pytest tests/unit/test_backend_reload_failures.py tests/unit/test_vector_backend_reload_failure.py tests/unit/test_maintenance_api_coverage.py -v` (53 passed).
+  - Design: `docs/VECTOR_BACKEND_RELOAD_REASON_LABELS_DESIGN.md`
+  - Report: `reports/DEV_VECTOR_BACKEND_RELOAD_REASON_LABELS_VALIDATION_20260106.md`
+- **Batch Similarity Empty Results Metrics Tests**:
+  - Asserted batch empty-results rejection metric increments when available.
+  - Tests: `pytest tests/unit/test_batch_similarity_empty_results.py -v` (10 passed, 1 skipped).
+  - Design: `docs/BATCH_SIMILARITY_EMPTY_RESULTS_METRICS_TESTS_DESIGN.md`
+  - Report: `reports/DEV_BATCH_SIMILARITY_EMPTY_RESULTS_METRICS_TESTS_VALIDATION_20260106.md`
+- **Vector Migrate Downgrade Metrics Tests**:
+  - Added downgrade counter assertion for vector migration metrics.
+  - Tests: `pytest tests/unit/test_vector_migrate_metrics.py -v` (1 passed, 2 skipped).
+  - Design: `docs/VECTOR_MIGRATE_DOWNGRADE_METRICS_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VECTOR_MIGRATE_DOWNGRADE_METRICS_TESTS_VALIDATION_20260106.md`
+- **Vector Migrate Dimension Histogram Count**:
+  - Verified histogram count increases after a migration observation.
+  - Tests: `pytest tests/unit/test_vector_migrate_dimension_histogram.py -v` (14 passed, 1 skipped).
+  - Design: `docs/VECTOR_MIGRATE_DIMENSION_HISTOGRAM_COUNT_DESIGN.md`
+  - Report: `reports/DEV_VECTOR_MIGRATE_DIMENSION_HISTOGRAM_COUNT_VALIDATION_20260106.md`
+- **Feature Cache Tuning POST Endpoint**:
+  - Added POST cache tuning endpoint with request metric and boundary tests.
+  - Tests: `pytest tests/unit/test_cache_tuning.py -v` (6 passed, 1 skipped).
+  - Design: `docs/FEATURE_CACHE_TUNING_POST_ENDPOINT_DESIGN.md`
+  - Report: `reports/DEV_FEATURE_CACHE_TUNING_POST_ENDPOINT_VALIDATION_20260106.md`
+- **Feature Cache Tuning Metrics Contract**:
+  - Added cache tuning request metric and recommendation gauges to contract and registration trigger.
+  - Tests: `pytest tests/test_metrics_contract.py -k metric_label_schemas -v` (1 skipped); `.venv/bin/python -m pytest tests/test_metrics_contract.py -k metric_label_schemas -v` (1 passed).
+  - Design: `docs/FEATURE_CACHE_TUNING_METRICS_CONTRACT_DESIGN.md`
+  - Report: `reports/DEV_FEATURE_CACHE_TUNING_METRICS_CONTRACT_VALIDATION_20260106.md`
+- **Metrics Contract Full Suite**:
+  - Ran full metrics contract validation with metrics enabled.
+  - Tests: `.venv/bin/python -m pytest tests/test_metrics_contract.py -v` (19 passed, 3 skipped).
+  - Report: `reports/DEV_METRICS_CONTRACT_FULL_VALIDATION_20260106.md`
+- **Model Opcode Mode Gauge**:
+  - Added gauge for opcode validation mode and verified update during reload.
+  - Tests: `pytest tests/unit/test_model_opcode_modes.py -v` (4 passed, 1 skipped).
+  - Design: `docs/MODEL_OPCODE_MODE_GAUGE_DESIGN.md`
+  - Report: `reports/DEV_MODEL_OPCODE_MODE_GAUGE_VALIDATION_20260106.md`
+- **Feature Cache Tuning Recommendation Gauges**:
+  - Added gauges for recommended capacity/TTL and aligned dashboard panel.
+  - Tests: `pytest tests/unit/test_cache_tuning.py -v` (6 passed, 1 skipped).
+  - Design: `docs/FEATURE_CACHE_TUNING_RECOMMENDATION_GAUGES_DESIGN.md`
+  - Report: `reports/DEV_FEATURE_CACHE_TUNING_RECOMMENDATION_GAUGES_VALIDATION_20260106.md`
+- **Metrics Unit Subset Validation**:
+  - Re-ran cache tuning, opcode mode, and v4 feature metrics unit coverage.
+  - Tests: `pytest tests/unit/test_cache_tuning.py tests/unit/test_model_opcode_modes.py tests/unit/test_v4_feature_performance.py -v` (39 passed, 4 skipped).
+  - Design: `docs/FEATURE_CACHE_TUNING_RECOMMENDATION_GAUGES_DESIGN.md`, `docs/MODEL_OPCODE_MODE_GAUGE_DESIGN.md`, `docs/V4_FEATURE_METRICS_HISTOGRAM_COUNT_DESIGN.md`
+  - Report: `reports/DEV_METRICS_UNIT_SUBSET_VALIDATION_20260106.md`
+- **Metrics Unit Subset (.venv)**:
+  - Re-ran cache tuning, opcode mode, and v4 feature metrics unit coverage with metrics enabled.
+  - Tests: `.venv/bin/python -m pytest tests/unit/test_cache_tuning.py tests/unit/test_model_opcode_modes.py tests/unit/test_v4_feature_performance.py -v` (43 passed).
+  - Design: `docs/FEATURE_CACHE_TUNING_RECOMMENDATION_GAUGES_DESIGN.md`, `docs/MODEL_OPCODE_MODE_GAUGE_DESIGN.md`, `docs/V4_FEATURE_METRICS_HISTOGRAM_COUNT_DESIGN.md`
+  - Report: `reports/DEV_METRICS_UNIT_SUBSET_VENV_VALIDATION_20260106.md`
+- **Metrics Unit Security/Rollback/Vector (.venv)**:
+  - Validated model security/rollback metrics plus vector migrate metrics with metrics enabled.
+  - Tests: `.venv/bin/python -m pytest tests/unit/test_model_security_validation.py tests/unit/test_model_rollback_health.py tests/unit/test_model_rollback_level3.py tests/unit/test_vector_migrate_metrics.py tests/unit/test_vector_migrate_dimension_histogram.py -v` (61 passed).
+  - Design: `docs/MODEL_INTERFACE_VALIDATION_METRICS_DESIGN.md`, `docs/DASHBOARD_METRICS_ALIGNMENT_SECURITY_ROLLBACK_V4_DESIGN.md`, `docs/VECTOR_MIGRATE_DOWNGRADE_METRICS_TESTS_DESIGN.md`, `docs/VECTOR_MIGRATE_DIMENSION_HISTOGRAM_COUNT_DESIGN.md`
+  - Report: `reports/DEV_METRICS_UNIT_SECURITY_ROLLBACK_VECTOR_VENV_VALIDATION_20260106.md`
+- **Metrics Unit Filter (.venv)**:
+  - Ran `-k metrics` unit test filter with metrics enabled.
+  - Tests: `.venv/bin/python -m pytest tests/unit -k metrics -v` (223 passed, 3500 deselected).
+  - Report: `reports/DEV_METRICS_UNIT_FILTER_VENV_VALIDATION_20260106.md`
+- **Dashboard Metrics Alignment (Security/Rollback/v4)**:
+  - Added missing observability metrics and aligned dashboard queries to exported names.
+  - Tests: `python3 scripts/validate_dashboard_metrics.py` (pass); `pytest tests/unit/test_model_rollback_health.py tests/unit/test_model_rollback_level3.py tests/unit/test_model_opcode_modes.py tests/unit/test_v4_feature_performance.py -v` (59 passed, 4 skipped).
+  - Design: `docs/DASHBOARD_METRICS_ALIGNMENT_SECURITY_ROLLBACK_V4_DESIGN.md`
+  - Report: `reports/DEV_DASHBOARD_METRICS_ALIGNMENT_SECURITY_ROLLBACK_V4_VALIDATION_20260106.md`
+- **Dashboard Metrics Revalidation**:
+  - Re-ran dashboard metrics validation after metrics-enabled test runs.
+  - Tests: `python3 scripts/validate_dashboard_metrics.py` (pass).
+  - Report: `reports/DEV_DASHBOARD_METRICS_REVALIDATION_20260106.md`
+- **Metrics Handoff Summary**:
+  - Summarized key metrics changes and validation coverage.
+  - Report: `reports/DEV_METRICS_HANDOFF_SUMMARY_20260106.md`
+- **Metrics Delivery Index**:
+  - Indexed all design docs and validation reports for the metrics workstream.
+  - Report: `reports/DEV_METRICS_DELIVERY_INDEX_20260106.md`
+- **Metrics PR Summary**:
+  - Prepared PR-ready summary of metrics changes and validation.
+  - Report: `reports/DEV_METRICS_PR_SUMMARY_20260106.md`
+- **Metrics Delivery Checklist**:
+  - Captured design docs, validation reports, and test commands for handoff.
+  - Report: `reports/DEV_METRICS_DELIVERY_CHECKLIST_20260106.md`
+- **Metrics Final Delivery Summary**:
+  - Produced final delivery summary with validation highlights and artifact references.
+  - Report: `reports/DEV_METRICS_FINAL_DELIVERY_SUMMARY_20260106.md`
+- **Metrics Delivery Index Refresh**:
+  - Added updated handoff doc list and planning reports to the delivery index.
+  - Report: `reports/DEV_METRICS_DELIVERY_INDEX_20260106.md`
+- **Metrics Delivery Checklist Refresh**:
+  - Added updated handoff doc list and planning reports to the delivery checklist.
+  - Report: `reports/DEV_METRICS_DELIVERY_CHECKLIST_20260106.md`
+- **Metrics Handoff Summary Refresh**:
+  - Added updated handoff docs and additional reports to the handoff summary.
+  - Report: `reports/DEV_METRICS_HANDOFF_SUMMARY_20260106.md`
+- **Final Validation Report Addendum**:
+  - Added metrics delivery addendum to the top-level validation report.
+  - Report: `FINAL_VALIDATION_REPORT.md`
+- **Project Handover Addendum**:
+  - Added metrics delivery addendum to the project handover document.
+  - Report: `PROJECT_HANDOVER.md`
+- **Final Handover Package Addendum**:
+  - Added metrics delivery addendum to the v3 handover package.
+  - Report: `FINAL_HANDOVER_PACKAGE_V3.md`
+- **Final Summary Addendum**:
+  - Added metrics delivery addendum to the final summary document.
+  - Report: `FINAL_SUMMARY.md`
+- **Project Completion Report Addendum**:
+  - Added metrics delivery addendum to the completion report.
+  - Report: `PROJECT_COMPLETION_REPORT.md`
+- **Phase 8 Handover Addendum**:
+  - Added metrics delivery addendum to the phase 8 handover document.
+  - Report: `PROJECT_HANDOVER_PHASE8.md`
+- **Phase 5 Handover Addendum**:
+  - Added metrics delivery addendum to the phase 5 handover document.
+  - Report: `PROJECT_HANDOVER_PHASE5.md`
+- **Deliverables Summary Addendum**:
+  - Added metrics delivery addendum to the deliverables summary.
+  - Report: `DELIVERABLES_SUMMARY.md`
+- **Design Summary Addendum**:
+  - Added metrics delivery addendum to the design summary.
+  - Report: `DESIGN_SUMMARY.md`
+- **Phase 5 V2 Completion Addendum**:
+  - Added metrics delivery addendum to the phase 5 v2 completion report.
+  - Report: `PHASE5_V2_COMPLETION_REPORT.md`
+- **Phase 3 V2 Completion Addendum**:
+  - Added metrics delivery addendum to the phase 3 v2 completion report.
+  - Report: `PHASE3_V2_COMPLETION_REPORT.md`
+- **Phase 2 Enhancement Summary Addendum**:
+  - Added metrics delivery addendum to the phase 2 enhancement summary.
+  - Report: `PHASE2_ENHANCEMENT_SUMMARY.md`
+- **Production Verification Plan Addendum**:
+  - Added metrics delivery addendum to the production verification plan.
+  - Report: `PRODUCTION_VERIFICATION_PLAN.md`
+- **Development Summary Addendum**:
+  - Added metrics delivery addendum to the development summary.
+  - Report: `DEVELOPMENT_SUMMARY.md`
+- **Metrics Commit Plan**:
+  - Drafted commit breakdown plan for the metrics workstream.
+  - Report: `reports/DEV_METRICS_COMMIT_PLAN_20260106.md`
+- **Metrics Changed Files Report**:
+  - Captured modified/new files for the metrics workstream.
+  - Report: `reports/DEV_METRICS_CHANGED_FILES_20260106.md`
+- **Development Summary Final Addendum**:
+  - Added metrics delivery addendum to the final development summary.
+  - Report: `docs/DEVELOPMENT_SUMMARY_FINAL.md`
+- **Development Report Final Addendum**:
+  - Added metrics delivery addendum to the final development report.
+  - Report: `docs/DEVELOPMENT_REPORT_FINAL.md`
+- **Implementation Summary Addendum**:
+  - Added metrics delivery addendum to the implementation summary.
+  - Report: `docs/IMPLEMENTATION_SUMMARY.md`
+- **Final Implementation Checklist Addendum**:
+  - Added metrics delivery addendum to the final implementation checklist.
+  - Report: `docs/FINAL_IMPLEMENTATION_CHECKLIST.md`
+- **Metrics Development Report**:
+  - Summarized implementation scope and primary files for the metrics workstream.
+  - Report: `reports/DEV_METRICS_DEVELOPMENT_REPORT_20260106.md`
+- **Metrics Verification Report**:
+  - Captured metrics-enabled and metrics-disabled validation results.
+  - Report: `reports/DEV_METRICS_VERIFICATION_REPORT_20260106.md`
+- **Metrics Changed Files Report**:
+  - Captured modified/new files for the metrics workstream.
+  - Report: `reports/DEV_METRICS_CHANGED_FILES_20260106.md`
+- **Implementation Results Addendum**:
+  - Added 2026-01-06 metrics validation entry to implementation results.
+  - Report: `IMPLEMENTATION_RESULTS.md`
+- **Phase 7 Implementation Log Addendum**:
+  - Added metrics delivery addendum to the phase 7 implementation log.
+  - Report: `PHASE7_IMPLEMENTATION_LOG.md`
+- **Model Interface Validation Metrics**:
+  - Integrated interface validation into model reloads and recorded failure reasons.
+  - Tests: `pytest tests/unit/test_model_security_validation.py -k interface_validation_missing_predict -v` (1 passed).
+  - Design: `docs/MODEL_INTERFACE_VALIDATION_METRICS_DESIGN.md`
+  - Report: `reports/DEV_MODEL_INTERFACE_VALIDATION_METRICS_VALIDATION_20260106.md`
+- **V4 Feature Metrics Histogram Count**:
+  - Ensured v4 surface/entropy histogram tests assert the _count samples.
+  - Tests: `pytest tests/unit/test_v4_feature_performance.py::TestV4FeatureMetrics::test_v4_metrics_observed -v` (1 skipped).
+  - Design: `docs/V4_FEATURE_METRICS_HISTOGRAM_COUNT_DESIGN.md`
+  - Report: `reports/DEV_V4_FEATURE_METRICS_HISTOGRAM_COUNT_VALIDATION_20260106.md`
+- **GitHub Docker Staging Workflow**:
+  - Added Docker Compose smoke workflow for CI staging without a dedicated environment.
+  - Design: `docs/GITHUB_DOCKER_STAGING_WORKFLOW_DESIGN.md`
+  - Report: `reports/DEV_GITHUB_DOCKER_STAGING_WORKFLOW_VALIDATION_20260110.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

@@ -1,8 +1,8 @@
 [0;32mQuick health summary...[0m 
 python3 scripts/quick_health.py
 === Quick Health Summary ===
-Timestamp: 2025-11-19T01:37:25Z (UTC)
-Git: main @ 031a204 (ocr-week1-mvp)
+Timestamp: 2025-12-27T06:45:37Z (UTC)
+Git: feat/dedup2d-phase4-production-ready @ e3b54dd
 
 API Hints:
 - Local: http://localhost:8000/health | /metrics | /docs
@@ -10,8 +10,6 @@ API Hints:
 
 Latest Combined Eval:
   COMBINED SCORE: 0.821 (weights: v=0.50, o=0.50)
-  Timestamp: 2025-11-17T15:53:35Z
-  File: reports/eval_history/20251117_235335_main_031a204_combined.json
+  Timestamp: 2025-11-19T03:30:18Z
+  File: reports/eval_history/20251119_113018_main_031a204_combined.json
 
-/Users/huazhou/Insync/hua.chau@outlook.com/OneDrive/应用/GitHub/cad-ml-platform/scripts/quick_health.py:82: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-  print(f"Timestamp: {datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')} (UTC)")

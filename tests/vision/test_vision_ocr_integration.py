@@ -6,13 +6,16 @@ Tests the integration between VisionManager and OCRManager:
 3. include_ocr=False doesn't trigger OCR call
 """
 
-import pytest
 import base64
 from unittest.mock import AsyncMock, MagicMock
-from src.core.vision import VisionManager, VisionAnalyzeRequest, create_stub_provider
-from src.core.ocr.base import OcrResult as OcrCoreResult, DimensionInfo, SymbolInfo, TitleBlock, DimensionType, SymbolType
-from src.core.ocr.exceptions import OcrError
 
+import pytest
+
+from src.core.ocr.base import DimensionInfo, DimensionType
+from src.core.ocr.base import OcrResult as OcrCoreResult
+from src.core.ocr.base import SymbolInfo, SymbolType, TitleBlock
+from src.core.ocr.exceptions import OcrError
+from src.core.vision import VisionAnalyzeRequest, VisionManager, create_stub_provider
 
 # ========== Test Fixtures ==========
 

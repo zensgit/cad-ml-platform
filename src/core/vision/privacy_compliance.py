@@ -213,9 +213,7 @@ class InMemoryConsentStore(ConsentStore):
     def get_consents_for_subject(self, subject_id: str) -> List[Consent]:
         """Get all consents for a data subject."""
         consent_ids = self._subject_consents.get(subject_id, set())
-        return [
-            self._consents[cid] for cid in consent_ids if cid in self._consents
-        ]
+        return [self._consents[cid] for cid in consent_ids if cid in self._consents]
 
     def withdraw_consent(self, consent_id: str) -> bool:
         """Withdraw a consent."""
@@ -304,9 +302,7 @@ class ConsentManager:
     ) -> bool:
         """Check if subject has valid consent for a specific type."""
         consents = self._store.get_consents_for_subject(subject_id)
-        return any(
-            c.consent_type == consent_type and c.is_valid() for c in consents
-        )
+        return any(c.consent_type == consent_type and c.is_valid() for c in consents)
 
     def get_consent_status(self, subject_id: str) -> Dict[ConsentType, bool]:
         """Get consent status for all types for a subject."""
@@ -424,8 +420,7 @@ class DataSubjectRequestHandler:
         return [
             r
             for r in self._requests.values()
-            if r.status in (RequestStatus.PENDING, RequestStatus.IN_PROGRESS)
-            and now > r.deadline
+            if r.status in (RequestStatus.PENDING, RequestStatus.IN_PROGRESS) and now > r.deadline
         ]
 
 
@@ -434,7 +429,9 @@ class DataRetentionManager:
 
     def __init__(self) -> None:
         self._policies: Dict[str, DataRetentionPolicy] = {}
-        self._data_records: Dict[str, Dict[str, datetime]] = {}  # subject -> {category -> timestamp}
+        self._data_records: Dict[
+            str, Dict[str, datetime]
+        ] = {}  # subject -> {category -> timestamp}
         self._lock = Lock()
 
     def add_policy(self, policy: DataRetentionPolicy) -> None:
@@ -454,13 +451,9 @@ class DataRetentionManager:
         """Get a specific policy."""
         return self._policies.get(policy_id)
 
-    def get_policies_for_category(
-        self, data_category: str
-    ) -> List[DataRetentionPolicy]:
+    def get_policies_for_category(self, data_category: str) -> List[DataRetentionPolicy]:
         """Get all policies for a data category."""
-        return [
-            p for p in self._policies.values() if p.data_category == data_category
-        ]
+        return [p for p in self._policies.values() if p.data_category == data_category]
 
     def record_data_collection(
         self,
@@ -487,9 +480,7 @@ class DataRetentionManager:
                         if policy.auto_delete:
                             expiry = collected_at + policy.retention_period
                             if now > expiry:
-                                to_delete.append(
-                                    (subject_id, category, policy.policy_id)
-                                )
+                                to_delete.append((subject_id, category, policy.policy_id))
 
         return to_delete
 
@@ -542,15 +533,11 @@ class ProcessingActivityLog:
 
         return activity
 
-    def get_activities_for_subject(
-        self, subject_id: str
-    ) -> List[ProcessingActivity]:
+    def get_activities_for_subject(self, subject_id: str) -> List[ProcessingActivity]:
         """Get all processing activities for a subject."""
         return [a for a in self._activities if a.subject_id == subject_id]
 
-    def get_activities_by_type(
-        self, activity_type: str
-    ) -> List[ProcessingActivity]:
+    def get_activities_by_type(self, activity_type: str) -> List[ProcessingActivity]:
         """Get activities by type."""
         return [a for a in self._activities if a.activity_type == activity_type]
 
@@ -682,15 +669,11 @@ class PrivacyComplianceManager:
 
         # Delete consents
         deleted_consents = self._consent_manager.delete_all_consents(subject_id)
-        results["actions"].append(
-            {"type": "consent_deletion", "count": deleted_consents}
-        )
+        results["actions"].append({"type": "consent_deletion", "count": deleted_consents})
 
         # Note: In a real implementation, this would trigger data deletion
         # across all systems. Here we just log the request.
-        results["actions"].append(
-            {"type": "data_deletion_initiated", "status": "pending"}
-        )
+        results["actions"].append({"type": "data_deletion_initiated", "status": "pending"})
 
         return results
 
@@ -716,9 +699,7 @@ class PrivacyComplianceManager:
         ]
 
         # Get processing activities
-        results["data"]["processing_activities"] = self._activity_log.export_for_subject(
-            subject_id
-        )
+        results["data"]["processing_activities"] = self._activity_log.export_for_subject(subject_id)
 
         return results
 
@@ -760,9 +741,7 @@ class PrivacyComplianceManager:
         assessment.review_date = datetime.now() + timedelta(days=review_days)
         return True
 
-    def get_assessment(
-        self, assessment_id: str
-    ) -> Optional[PrivacyImpactAssessment]:
+    def get_assessment(self, assessment_id: str) -> Optional[PrivacyImpactAssessment]:
         """Get a Privacy Impact Assessment."""
         return self._assessments.get(assessment_id)
 
@@ -847,9 +826,7 @@ class PrivacyComplianceVisionProvider(VisionProvider):
         )
 
         # Perform actual analysis
-        return await self._provider.analyze_image(
-            image_data, include_description, **kwargs
-        )
+        return await self._provider.analyze_image(image_data, include_description, **kwargs)
 
 
 # Factory functions

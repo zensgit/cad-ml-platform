@@ -7,10 +7,7 @@ import asyncio
 
 import pytest
 
-from src.core.vision import (
-    VisionDescription,
-    VisionProviderError,
-)
+from src.core.vision import VisionDescription, VisionProviderError
 from src.core.vision.resilience import (
     CircuitBreakerConfig,
     CircuitOpenError,
@@ -20,7 +17,6 @@ from src.core.vision.resilience import (
     RetryConfig,
     create_resilient_provider,
 )
-
 
 # Sample image data
 SAMPLE_PNG = (

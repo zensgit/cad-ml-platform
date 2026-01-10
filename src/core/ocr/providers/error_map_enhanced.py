@@ -6,15 +6,10 @@ Enhanced Error Mapping for OCR Providers
 import asyncio
 import logging
 import re
-from typing import Optional, Dict, Any, Tuple
 from dataclasses import dataclass
+from typing import Any, Dict, Optional, Tuple
 
-from src.core.errors_extended import (
-    ErrorCode,
-    ErrorSource,
-    ErrorSeverity,
-    ExtendedError,
-)
+from src.core.errors_extended import ErrorCode, ErrorSeverity, ErrorSource, ExtendedError
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +17,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ErrorPattern:
     """错误模式定义"""
+
     pattern: re.Pattern
     error_code: ErrorCode
     source: ErrorSource
@@ -35,127 +31,121 @@ ERROR_PATTERNS = [
         re.compile(r"connection\s+(refused|reset|aborted)", re.IGNORECASE),
         ErrorCode.CONNECTION_REFUSED,
         ErrorSource.NETWORK,
-        ErrorSeverity.ERROR
+        ErrorSeverity.ERROR,
     ),
     ErrorPattern(
         re.compile(r"(dns|hostname|resolve)\s+.*\s+(fail|error)", re.IGNORECASE),
         ErrorCode.DNS_RESOLUTION_FAILED,
         ErrorSource.NETWORK,
-        ErrorSeverity.ERROR
+        ErrorSeverity.ERROR,
     ),
     ErrorPattern(
         re.compile(r"ssl|tls|certificate", re.IGNORECASE),
         ErrorCode.SSL_ERROR,
         ErrorSource.NETWORK,
-        ErrorSeverity.ERROR
+        ErrorSeverity.ERROR,
     ),
-
     # 超时相关
     ErrorPattern(
         re.compile(r"read\s+timeout", re.IGNORECASE),
         ErrorCode.READ_TIMEOUT,
         ErrorSource.PROVIDER,
-        ErrorSeverity.WARNING
+        ErrorSeverity.WARNING,
     ),
     ErrorPattern(
         re.compile(r"write\s+timeout", re.IGNORECASE),
         ErrorCode.WRITE_TIMEOUT,
         ErrorSource.PROVIDER,
-        ErrorSeverity.WARNING
+        ErrorSeverity.WARNING,
     ),
     ErrorPattern(
         re.compile(r"connect\s+timeout", re.IGNORECASE),
         ErrorCode.CONNECT_TIMEOUT,
         ErrorSource.NETWORK,
-        ErrorSeverity.WARNING
+        ErrorSeverity.WARNING,
     ),
-
     # 限流相关
     ErrorPattern(
         re.compile(r"(rate|quota)\s+limit", re.IGNORECASE),
         ErrorCode.UPSTREAM_RATE_LIMIT,
         ErrorSource.PROVIDER,
-        ErrorSeverity.WARNING
+        ErrorSeverity.WARNING,
     ),
     ErrorPattern(
         re.compile(r"too\s+many\s+requests", re.IGNORECASE),
         ErrorCode.UPSTREAM_RATE_LIMIT,
         ErrorSource.PROVIDER,
-        ErrorSeverity.WARNING
+        ErrorSeverity.WARNING,
     ),
     ErrorPattern(
         re.compile(r"daily\s+limit", re.IGNORECASE),
         ErrorCode.DAILY_LIMIT_EXCEEDED,
         ErrorSource.PROVIDER,
-        ErrorSeverity.WARNING
+        ErrorSeverity.WARNING,
     ),
-
     # 认证相关
     ErrorPattern(
         re.compile(r"api\s+key\s+(invalid|expired)", re.IGNORECASE),
         ErrorCode.API_KEY_INVALID,
         ErrorSource.SECURITY,
-        ErrorSeverity.ERROR
+        ErrorSeverity.ERROR,
     ),
     ErrorPattern(
         re.compile(r"(unauthorized|forbidden|401|403)", re.IGNORECASE),
         ErrorCode.UNAUTHORIZED,
         ErrorSource.SECURITY,
-        ErrorSeverity.ERROR
+        ErrorSeverity.ERROR,
     ),
     ErrorPattern(
         re.compile(r"permission\s+denied", re.IGNORECASE),
         ErrorCode.PERMISSION_DENIED,
         ErrorSource.SECURITY,
-        ErrorSeverity.ERROR
+        ErrorSeverity.ERROR,
     ),
-
     # 资源相关
     ErrorPattern(
         re.compile(r"out\s+of\s+memory|oom", re.IGNORECASE),
         ErrorCode.MEMORY_ERROR,
         ErrorSource.RESOURCE,
-        ErrorSeverity.CRITICAL
+        ErrorSeverity.CRITICAL,
     ),
     ErrorPattern(
         re.compile(r"disk\s+(full|space)", re.IGNORECASE),
         ErrorCode.DISK_FULL,
         ErrorSource.RESOURCE,
-        ErrorSeverity.CRITICAL
+        ErrorSeverity.CRITICAL,
     ),
     ErrorPattern(
         re.compile(r"cpu\s+limit", re.IGNORECASE),
         ErrorCode.CPU_LIMIT_EXCEEDED,
         ErrorSource.RESOURCE,
-        ErrorSeverity.ERROR
+        ErrorSeverity.ERROR,
     ),
-
     # 解析相关
     ErrorPattern(
         re.compile(r"json\s+(parse|decode|invalid)", re.IGNORECASE),
         ErrorCode.JSON_PARSE_ERROR,
         ErrorSource.SYSTEM,
-        ErrorSeverity.ERROR
+        ErrorSeverity.ERROR,
     ),
     ErrorPattern(
         re.compile(r"(malformed|corrupt)\s+(response|data)", re.IGNORECASE),
         ErrorCode.RESPONSE_MALFORMED,
         ErrorSource.PROVIDER,
-        ErrorSeverity.ERROR
+        ErrorSeverity.ERROR,
     ),
-
     # 模型相关
     ErrorPattern(
         re.compile(r"model\s+not\s+found", re.IGNORECASE),
         ErrorCode.MODEL_NOT_FOUND,
         ErrorSource.PROVIDER,
-        ErrorSeverity.ERROR
+        ErrorSeverity.ERROR,
     ),
     ErrorPattern(
         re.compile(r"model\s+(load|init)", re.IGNORECASE),
         ErrorCode.MODEL_LOAD_ERROR,
         ErrorSource.PROVIDER,
-        ErrorSeverity.ERROR
+        ErrorSeverity.ERROR,
     ),
 ]
 
@@ -176,7 +166,6 @@ EXCEPTION_TYPE_MAPPING: Dict[type, ErrorCode] = {
     AttributeError: ErrorCode.PARSE_FAILED,
     OSError: ErrorCode.SYSTEM,
     IOError: ErrorCode.NETWORK_ERROR,
-
     # Asyncio 异常
     asyncio.TimeoutError: ErrorCode.TIMEOUT,
     asyncio.CancelledError: ErrorCode.INTERNAL_ERROR,
@@ -195,7 +184,7 @@ class EnhancedErrorMapper:
         exc: Exception,
         provider: Optional[str] = None,
         stage: Optional[str] = None,
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
     ) -> ExtendedError:
         """
         将异常映射到扩展错误
@@ -223,9 +212,7 @@ class EnhancedErrorMapper:
 
         # 3. 检查提供商特定映射
         if provider and provider in self.provider_specific_patterns:
-            provider_code = self._check_provider_patterns(
-                provider, exc, str(exc)
-            )
+            provider_code = self._check_provider_patterns(provider, exc, str(exc))
             if provider_code:
                 error_code = provider_code
 
@@ -237,7 +224,7 @@ class EnhancedErrorMapper:
             message=str(exc),
             provider=provider,
             stage=stage,
-            context=context or {}
+            context=context or {},
         )
 
         # 5. 添加额外信息并记录
@@ -278,8 +265,7 @@ class EnhancedErrorMapper:
         return ErrorCode.INTERNAL_ERROR
 
     def _map_by_message_pattern(
-        self,
-        error_message: str
+        self, error_message: str
     ) -> Tuple[ErrorCode, ErrorSource, ErrorSeverity]:
         """根据错误消息模式映射"""
         for pattern in ERROR_PATTERNS:
@@ -290,10 +276,7 @@ class EnhancedErrorMapper:
         return ErrorCode.INTERNAL_ERROR, ErrorSource.SYSTEM, ErrorSeverity.ERROR
 
     def _check_provider_patterns(
-        self,
-        provider: str,
-        exc: Exception,
-        error_message: str
+        self, provider: str, exc: Exception, error_message: str
     ) -> Optional[ErrorCode]:
         """检查提供商特定模式"""
         if provider not in self.provider_specific_patterns:
@@ -313,15 +296,12 @@ class EnhancedErrorMapper:
         if error.code in [
             ErrorCode.PROVIDER_TIMEOUT,
             ErrorCode.NETWORK_ERROR,
-            ErrorCode.CONNECTION_REFUSED
+            ErrorCode.CONNECTION_REFUSED,
         ]:
             error.retry_after = 5  # 5秒后重试
             error.fallback_available = True
 
-        elif error.code in [
-            ErrorCode.UPSTREAM_RATE_LIMIT,
-            ErrorCode.QUOTA_EXCEEDED
-        ]:
+        elif error.code in [ErrorCode.UPSTREAM_RATE_LIMIT, ErrorCode.QUOTA_EXCEEDED]:
             error.retry_after = 60  # 60秒后重试
             error.fallback_available = False
 
@@ -351,12 +331,7 @@ class EnhancedErrorMapper:
         else:
             logger.info(log_message)
 
-    def register_provider_pattern(
-        self,
-        provider: str,
-        pattern: Any,
-        error_code: ErrorCode
-    ):
+    def register_provider_pattern(self, provider: str, pattern: Any, error_code: ErrorCode):
         """注册提供商特定模式"""
         if provider not in self.provider_specific_patterns:
             self.provider_specific_patterns[provider] = []
@@ -377,23 +352,16 @@ def map_exception_enhanced(
     exc: Exception,
     provider: Optional[str] = None,
     stage: Optional[str] = None,
-    context: Optional[Dict[str, Any]] = None
+    context: Optional[Dict[str, Any]] = None,
 ) -> ExtendedError:
     """映射异常到扩展错误（便利函数）"""
     return error_mapper.map_exception(exc, provider, stage, context)
 
 
-def handle_provider_error(
-    exc: Exception,
-    provider: str,
-    stage: str = "unknown"
-) -> ExtendedError:
+def handle_provider_error(exc: Exception, provider: str, stage: str = "unknown") -> ExtendedError:
     """处理提供商错误"""
     return map_exception_enhanced(
-        exc,
-        provider=provider,
-        stage=stage,
-        context={"provider_error": True}
+        exc, provider=provider, stage=stage, context={"provider_error": True}
     )
 
 
@@ -403,26 +371,22 @@ def register_deepseek_patterns():
     error_mapper.register_provider_pattern(
         "deepseek",
         re.compile(r"deepseek.*rate.*limit", re.IGNORECASE),
-        ErrorCode.UPSTREAM_RATE_LIMIT
+        ErrorCode.UPSTREAM_RATE_LIMIT,
     )
     error_mapper.register_provider_pattern(
         "deepseek",
         re.compile(r"deepseek.*model.*not.*available", re.IGNORECASE),
-        ErrorCode.MODEL_NOT_FOUND
+        ErrorCode.MODEL_NOT_FOUND,
     )
 
 
 def register_openai_patterns():
     """注册 OpenAI 特定错误模式"""
     error_mapper.register_provider_pattern(
-        "openai",
-        re.compile(r"insufficient_quota", re.IGNORECASE),
-        ErrorCode.QUOTA_EXCEEDED
+        "openai", re.compile(r"insufficient_quota", re.IGNORECASE), ErrorCode.QUOTA_EXCEEDED
     )
     error_mapper.register_provider_pattern(
-        "openai",
-        re.compile(r"invalid_api_key", re.IGNORECASE),
-        ErrorCode.API_KEY_INVALID
+        "openai", re.compile(r"invalid_api_key", re.IGNORECASE), ErrorCode.API_KEY_INVALID
     )
 
 

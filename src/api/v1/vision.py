@@ -14,6 +14,7 @@ from fastapi import APIRouter, Query
 
 from src.core.errors import ErrorCode
 from src.core.vision import (
+    ResilientVisionProvider,
     VisionAnalyzeRequest,
     VisionAnalyzeResponse,
     VisionInputError,
@@ -21,7 +22,6 @@ from src.core.vision import (
     VisionProviderError,
     create_vision_provider,
     get_available_providers,
-    ResilientVisionProvider,
 )
 
 router = APIRouter(tags=["vision"])
@@ -120,7 +120,9 @@ async def analyze_vision(
         "image_base64": "iVBORw0KGgoAAAANS...",
         "include_description": true,
         "include_ocr": true,
-        "ocr_provider": "auto"
+        "ocr_provider": "auto",
+        "include_cad_stats": true,
+        "cad_feature_thresholds": {"line_aspect": 5.0, "arc_fill_min": 0.08}
     }
     ```
 
@@ -134,6 +136,15 @@ async def analyze_vision(
             "confidence": 0.92
         },
         "ocr": null,
+        "cad_feature_stats": {
+            "line_count": 1,
+            "circle_count": 0,
+            "arc_count": 0,
+            "line_angle_bins": {"0-30": 1, "30-60": 0, "60-90": 0, "90-120": 0, "120-150": 0, "150-180": 0},
+            "line_angle_avg": 5.0,
+            "arc_sweep_avg": null,
+            "arc_sweep_bins": {"0-90": 0, "90-180": 0, "180-270": 0, "270-360": 0}
+        },
         "provider": "openai",
         "processing_time_ms": 1234.5
     }

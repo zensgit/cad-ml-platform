@@ -7,18 +7,19 @@ Ensures that:
 4. Error counters increment correctly for specific exceptions
 """
 
-import pytest
-from unittest.mock import Mock, AsyncMock, patch, MagicMock
 import asyncio
 import base64
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
+import pytest
 
 from src.core.errors import ErrorCode
 from src.core.ocr.exceptions import OcrError
-from src.core.ocr.providers.paddle import PaddleOcrProvider
 from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
+from src.core.ocr.providers.paddle import PaddleOcrProvider
+from src.core.vision.base import VisionAnalyzeRequest
 from src.core.vision.manager import VisionManager
 from src.core.vision.providers.deepseek_stub import DeepSeekStubProvider
-from src.core.vision.base import VisionAnalyzeRequest
 
 
 class TestErrorCodeConsistency:
@@ -69,9 +70,7 @@ class TestPaddleProviderMetrics:
 
                 # Verify the correct ErrorCode was used
                 mock_metrics.assert_called_with(
-                    provider="paddle",
-                    code=ErrorCode.RESOURCE_EXHAUSTED.value,
-                    stage="init"
+                    provider="paddle", code=ErrorCode.RESOURCE_EXHAUSTED.value, stage="init"
                 )
                 mock_counter.inc.assert_called_once()
 
@@ -97,9 +96,7 @@ class TestPaddleProviderMetrics:
 
             # Verify the correct ErrorCode was used
             mock_metrics.assert_called_with(
-                provider="paddle",
-                code=ErrorCode.PROVIDER_TIMEOUT.value,
-                stage="infer"
+                provider="paddle", code=ErrorCode.PROVIDER_TIMEOUT.value, stage="infer"
             )
             mock_counter.inc.assert_called_once()
 
@@ -123,7 +120,8 @@ class TestPaddleProviderMetrics:
             # Check if PARSE_FAILED was used for any parsing issues
             calls = mock_metrics.call_args_list
             parse_failed_calls = [
-                call for call in calls
+                call
+                for call in calls
                 if len(call) > 1 and call[1].get("code") == ErrorCode.PARSE_FAILED.value
             ]
 
@@ -154,9 +152,7 @@ class TestDeepSeekHfProviderMetrics:
 
                 # Verify the correct ErrorCode was used
                 mock_metrics.assert_called_with(
-                    provider="deepseek_hf",
-                    code=ErrorCode.MODEL_LOAD_ERROR.value,
-                    stage="load"
+                    provider="deepseek_hf", code=ErrorCode.MODEL_LOAD_ERROR.value, stage="load"
                 )
                 mock_counter.inc.assert_called_once()
 
@@ -166,13 +162,12 @@ class TestDeepSeekHfProviderMetrics:
         provider = DeepSeekHfProvider(timeout_ms=100)
         provider._model = "stub"  # Use stub mode
 
-        # Patch the inner _infer function to simulate slow response
-        async def slow_infer():
-            await asyncio.sleep(1)  # Longer than timeout
-            return ""
+        async def fake_wait_for(coro, timeout):
+            coro.close()
+            raise asyncio.TimeoutError
 
         # Need to patch at module level where it's defined
-        with patch("asyncio.wait_for", side_effect=asyncio.TimeoutError):
+        with patch("asyncio.wait_for", new=fake_wait_for):
             with patch("src.utils.metrics.ocr_errors_total.labels") as mock_metrics:
                 mock_counter = Mock()
                 mock_metrics.return_value = mock_counter
@@ -182,9 +177,7 @@ class TestDeepSeekHfProviderMetrics:
 
                 # Verify timeout was recorded
                 mock_metrics.assert_any_call(
-                    provider="deepseek_hf",
-                    code=ErrorCode.PROVIDER_TIMEOUT.value,
-                    stage="infer"
+                    provider="deepseek_hf", code=ErrorCode.PROVIDER_TIMEOUT.value, stage="infer"
                 )
 
 
@@ -210,10 +203,7 @@ class TestVisionManagerMetrics:
                 large_data = b"x" * 200
                 large_base64 = base64.b64encode(large_data).decode()
 
-                request = VisionAnalyzeRequest(
-                    image_base64=large_base64,
-                    include_description=True
-                )
+                request = VisionAnalyzeRequest(image_base64=large_base64, include_description=True)
 
                 from src.core.vision.base import VisionInputError
 
@@ -234,6 +224,7 @@ class TestVisionManagerMetrics:
             mock_client_class.return_value.__aenter__.return_value = mock_client
 
             import httpx
+
             mock_client.get.side_effect = httpx.TimeoutException("Timeout")
 
             with patch("src.utils.metrics.vision_input_rejected_total.labels") as mock_rejected:
@@ -241,8 +232,7 @@ class TestVisionManagerMetrics:
                 mock_rejected.return_value = mock_counter
 
                 request = VisionAnalyzeRequest(
-                    image_url="http://example.com/image.png",
-                    include_description=True
+                    image_url="http://example.com/image.png", include_description=True
                 )
 
                 from src.core.vision.base import VisionInputError
@@ -265,25 +255,21 @@ class TestMetricsLabelContract:
 
             # Simulate an error from provider
             error = OcrError(
-                ErrorCode.NETWORK_ERROR,
-                "Network failed",
-                provider="test_provider",
-                stage="infer"
+                ErrorCode.NETWORK_ERROR, "Network failed", provider="test_provider", stage="infer"
             )
 
             # Record the error (simulating what providers do)
             from src.utils.metrics import ocr_errors_total
+
             ocr_errors_total.labels(
                 provider=error.provider,
                 code=error.code if isinstance(error.code, str) else error.code.value,
-                stage=error.stage
+                stage=error.stage,
             ).inc()
 
             # Verify label names are correct
             mock_labels.assert_called_with(
-                provider="test_provider",
-                code=ErrorCode.NETWORK_ERROR.value,
-                stage="infer"
+                provider="test_provider", code=ErrorCode.NETWORK_ERROR.value, stage="infer"
             )
 
     def test_vision_errors_total_label_contract(self):
@@ -293,20 +279,20 @@ class TestMetricsLabelContract:
             mock_labels.return_value = mock_counter
 
             from src.utils.metrics import vision_errors_total
+
             vision_errors_total.labels(
-                provider="deepseek_stub",
-                code="input_error"
+                provider="deepseek_stub", code=ErrorCode.INPUT_ERROR.value
             ).inc()
 
             # Verify label names are correct
             mock_labels.assert_called_with(
-                provider="deepseek_stub",
-                code="input_error"
+                provider="deepseek_stub", code=ErrorCode.INPUT_ERROR.value
             )
 
     def test_stage_values_consistency(self):
         """Verify stage values are consistent across providers."""
         import os
+
         expected_stages = {"init", "load", "preprocess", "infer", "parse", "align", "postprocess"}
 
         # These are the stages we've seen in the code
@@ -358,6 +344,7 @@ class TestErrorPropagation:
     def test_error_code_in_api_response(self):
         """Verify ErrorCode appears in API error responses."""
         from fastapi.testclient import TestClient
+
         from src.main import app
 
         client = TestClient(app)
@@ -365,10 +352,7 @@ class TestErrorPropagation:
         # Send invalid base64 to trigger INPUT_ERROR
         response = client.post(
             "/api/v1/vision/analyze",
-            json={
-                "image_base64": "not-valid-base64!!!",
-                "include_description": True
-            }
+            json={"image_base64": "not-valid-base64!!!", "include_description": True},
         )
 
         assert response.status_code == 200  # API returns 200 with success=false

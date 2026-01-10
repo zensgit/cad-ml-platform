@@ -1,15 +1,15 @@
-Note: Install 'jsonschema' package for enhanced validation (pip install jsonschema)
-Found 8 JSON files in reports/eval_history
+Found 9 JSON files in reports/eval_history
 ------------------------------------------------------------
 ✓ VALID: 20251117_215815_main_031a204_combined.json (v1.0.0)
 ✓ VALID: 20251117_221004_main_031a204_combined.json (v1.0.0)
 ✓ VALID: 20251117_214845_main_031a204_combined.json (v1.0.0)
 ✓ VALID: 20251117_205534_main_031a204.json (v1.0.0)
 ✓ VALID: 20251117_235335_main_031a204_combined.json (v1.0.0)
+✓ VALID: 20251119_113018_main_031a204_combined.json (v1.0.0)
 ✓ VALID: 20251117_235250_main_031a204_combined.json (v1.0.0)
 ✓ VALID: 20251117_235314_main_031a204_combined.json (v1.0.0)
 ✓ VALID: 20251117_215840_main_031a204_combined.json (v1.0.0)
 ------------------------------------------------------------
-Summary: 8 valid, 0 invalid, 0 legacy
+Summary: 9 valid, 0 invalid, 0 legacy
 
 All files validated successfully!

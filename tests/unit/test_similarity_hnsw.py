@@ -5,20 +5,18 @@ in similarity.py, verifying index creation, configuration, and search behavior.
 """
 
 import os
-import pytest
 from unittest.mock import patch
 
-from src.core.similarity import (
-    FaissVectorStore,
-    reset_default_store,
-    get_vector_store,
-)
+import pytest
+
+from src.core.similarity import FaissVectorStore, get_vector_store, reset_default_store
 
 
 @pytest.fixture(autouse=True)
 def reset_faiss_state():
     """Reset Faiss global state before each test."""
     import src.core.similarity as sim
+
     sim._FAISS_INDEX = None
     sim._FAISS_DIM = None
     sim._FAISS_ID_MAP = {}
@@ -90,11 +88,10 @@ class TestHNSWIndexCreation:
 class TestHNSWParameters:
     """Tests for HNSW parameter configuration."""
 
-    @patch.dict(os.environ, {
-        "FAISS_INDEX_TYPE": "hnsw",
-        "FAISS_HNSW_M": "64",
-        "FAISS_HNSW_EF_CONSTRUCTION": "100"
-    })
+    @patch.dict(
+        os.environ,
+        {"FAISS_INDEX_TYPE": "hnsw", "FAISS_HNSW_M": "64", "FAISS_HNSW_EF_CONSTRUCTION": "100"},
+    )
     def test_hnsw_m_parameter(self):
         """Test that FAISS_HNSW_M parameter is applied."""
         try:
@@ -114,11 +111,10 @@ class TestHNSWParameters:
         # efConstruction should be set
         assert index.hnsw.efConstruction == 100
 
-    @patch.dict(os.environ, {
-        "FAISS_INDEX_TYPE": "hnsw",
-        "FAISS_HNSW_M": "32",
-        "FAISS_HNSW_EF_CONSTRUCTION": "40"
-    })
+    @patch.dict(
+        os.environ,
+        {"FAISS_INDEX_TYPE": "hnsw", "FAISS_HNSW_M": "32", "FAISS_HNSW_EF_CONSTRUCTION": "40"},
+    )
     def test_hnsw_ef_construction_default(self):
         """Test default efConstruction value."""
         try:
@@ -139,12 +135,15 @@ class TestHNSWParameters:
 class TestHNSWSearch:
     """Tests for HNSW search functionality."""
 
-    @patch.dict(os.environ, {
-        "FAISS_INDEX_TYPE": "hnsw",
-        "FAISS_HNSW_M": "32",
-        "FAISS_HNSW_EF_CONSTRUCTION": "40",
-        "FAISS_HNSW_EF_SEARCH": "64"
-    })
+    @patch.dict(
+        os.environ,
+        {
+            "FAISS_INDEX_TYPE": "hnsw",
+            "FAISS_HNSW_M": "32",
+            "FAISS_HNSW_EF_CONSTRUCTION": "40",
+            "FAISS_HNSW_EF_SEARCH": "64",
+        },
+    )
     def test_hnsw_ef_search_applied(self):
         """Test that efSearch is applied during query."""
         try:

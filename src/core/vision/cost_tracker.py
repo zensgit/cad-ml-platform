@@ -246,9 +246,7 @@ class CostTracker:
             date_key = now.strftime("%Y-%m-%d")
             month_key = now.strftime("%Y-%m")
             self._daily_costs[date_key] = self._daily_costs.get(date_key, 0.0) + cost
-            self._monthly_costs[month_key] = (
-                self._monthly_costs.get(month_key, 0.0) + cost
-            )
+            self._monthly_costs[month_key] = self._monthly_costs.get(month_key, 0.0) + cost
 
             # Check budget alerts
             await self._check_budget_alerts(date_key, month_key)
@@ -347,9 +345,9 @@ class CostTracker:
 
         # Filter records
         records = [
-            r for r in self._usage_history
-            if start <= r.timestamp <= end
-            and (provider is None or r.provider == provider)
+            r
+            for r in self._usage_history
+            if start <= r.timestamp <= end and (provider is None or r.provider == provider)
         ]
 
         if not records:
@@ -411,9 +409,7 @@ class CostTracker:
         """Get cost breakdown by provider."""
         breakdown: Dict[str, float] = {}
         for record in self._usage_history:
-            breakdown[record.provider] = (
-                breakdown.get(record.provider, 0.0) + record.cost_usd
-            )
+            breakdown[record.provider] = breakdown.get(record.provider, 0.0) + record.cost_usd
         return breakdown
 
     def clear_history(self, before: Optional[datetime] = None) -> int:
@@ -434,10 +430,7 @@ class CostTracker:
             return count
 
         original_count = len(self._usage_history)
-        self._usage_history = [
-            r for r in self._usage_history
-            if r.timestamp >= before
-        ]
+        self._usage_history = [r for r in self._usage_history if r.timestamp >= before]
         return original_count - len(self._usage_history)
 
     def update_pricing(self, provider: str, pricing: PricingTier) -> None:
@@ -508,9 +501,7 @@ class CostTrackedVisionProvider:
                 )
 
         try:
-            result = await self._provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._provider.analyze_image(image_data, include_description)
             latency_ms = (time.time() - start_time) * 1000
 
             # Estimate output tokens from result

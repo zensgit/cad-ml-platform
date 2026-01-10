@@ -9,19 +9,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.core.vision.providers.doubao import (
-    DoubaoVisionProvider,
-    create_doubao_provider,
-    DEFAULT_SYSTEM_PROMPT,
-    DEFAULT_SYSTEM_PROMPT_EN,
-)
 from src.core.vision.base import VisionDescription, VisionProviderError
 from src.core.vision.factory import (
+    FACTORY_REGISTRY,
+    PROVIDER_REGISTRY,
+    _auto_detect_provider,
     create_vision_provider,
     get_available_providers,
-    _auto_detect_provider,
-    PROVIDER_REGISTRY,
-    FACTORY_REGISTRY,
+)
+from src.core.vision.providers.doubao import (
+    DEFAULT_SYSTEM_PROMPT,
+    DEFAULT_SYSTEM_PROMPT_EN,
+    DoubaoVisionProvider,
+    create_doubao_provider,
 )
 
 
@@ -125,11 +125,13 @@ class TestDoubaoVisionProviderAnalyze:
             "choices": [
                 {
                     "message": {
-                        "content": json.dumps({
-                            "summary": "机械零件图纸",
-                            "details": ["尺寸: 100x50mm", "公差: ±0.1"],
-                            "confidence": 0.95
-                        })
+                        "content": json.dumps(
+                            {
+                                "summary": "机械零件图纸",
+                                "details": ["尺寸: 100x50mm", "公差: ±0.1"],
+                                "confidence": 0.95,
+                            }
+                        )
                     }
                 }
             ]
@@ -229,15 +231,7 @@ class TestDoubaoVisionProviderAnalyze:
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "choices": [
-                {
-                    "message": {
-                        "content": json.dumps({
-                            "概述": "零件图",
-                            "详细信息": ["尺寸信息"],
-                            "置信度": 0.9
-                        })
-                    }
-                }
+                {"message": {"content": json.dumps({"概述": "零件图", "详细信息": ["尺寸信息"], "置信度": 0.9})}}
             ]
         }
 
@@ -381,9 +375,18 @@ class TestFactoryIntegration:
         """Test auto-detection with ARK_API_KEY."""
         with patch.dict(os.environ, {"ARK_API_KEY": "test-key"}, clear=True):
             # Clear other keys
-            for key in ["VOLCENGINE_API_KEY", "DOUBAO_API_KEY", "DASHSCOPE_API_KEY", "QWEN_API_KEY",
-                       "ZHIPUAI_API_KEY", "GLM_API_KEY", "ZHIPU_API_KEY",
-                       "DEEPSEEK_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"]:
+            for key in [
+                "VOLCENGINE_API_KEY",
+                "DOUBAO_API_KEY",
+                "DASHSCOPE_API_KEY",
+                "QWEN_API_KEY",
+                "ZHIPUAI_API_KEY",
+                "GLM_API_KEY",
+                "ZHIPU_API_KEY",
+                "DEEPSEEK_API_KEY",
+                "OPENAI_API_KEY",
+                "ANTHROPIC_API_KEY",
+            ]:
                 os.environ.pop(key, None)
             detected = _auto_detect_provider()
             assert detected == "doubao"
@@ -392,35 +395,52 @@ class TestFactoryIntegration:
         """Test auto-detection with VOLCENGINE_API_KEY."""
         with patch.dict(os.environ, {"VOLCENGINE_API_KEY": "test-key"}, clear=True):
             # Clear other keys
-            for key in ["ARK_API_KEY", "DOUBAO_API_KEY", "DASHSCOPE_API_KEY", "QWEN_API_KEY",
-                       "ZHIPUAI_API_KEY", "GLM_API_KEY", "ZHIPU_API_KEY",
-                       "DEEPSEEK_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"]:
+            for key in [
+                "ARK_API_KEY",
+                "DOUBAO_API_KEY",
+                "DASHSCOPE_API_KEY",
+                "QWEN_API_KEY",
+                "ZHIPUAI_API_KEY",
+                "GLM_API_KEY",
+                "ZHIPU_API_KEY",
+                "DEEPSEEK_API_KEY",
+                "OPENAI_API_KEY",
+                "ANTHROPIC_API_KEY",
+            ]:
                 os.environ.pop(key, None)
             detected = _auto_detect_provider()
             assert detected == "doubao"
 
     def test_qwen_takes_priority_over_doubao(self) -> None:
         """Test that Qwen-VL takes priority over Doubao Vision in auto-detection."""
-        with patch.dict(os.environ, {
-            "DASHSCOPE_API_KEY": "qwen-key",
-            "ARK_API_KEY": "doubao-key"
-        }, clear=True):
+        with patch.dict(
+            os.environ, {"DASHSCOPE_API_KEY": "qwen-key", "ARK_API_KEY": "doubao-key"}, clear=True
+        ):
             # Clear other keys
-            for key in ["ZHIPUAI_API_KEY", "GLM_API_KEY", "DEEPSEEK_API_KEY",
-                       "OPENAI_API_KEY", "ANTHROPIC_API_KEY"]:
+            for key in [
+                "ZHIPUAI_API_KEY",
+                "GLM_API_KEY",
+                "DEEPSEEK_API_KEY",
+                "OPENAI_API_KEY",
+                "ANTHROPIC_API_KEY",
+            ]:
                 os.environ.pop(key, None)
             detected = _auto_detect_provider()
             assert detected == "qwen_vl"  # Qwen should take priority
 
     def test_glm_takes_priority_over_doubao(self) -> None:
         """Test that GLM-4V takes priority over Doubao Vision in auto-detection."""
-        with patch.dict(os.environ, {
-            "ZHIPUAI_API_KEY": "glm-key",
-            "ARK_API_KEY": "doubao-key"
-        }, clear=True):
+        with patch.dict(
+            os.environ, {"ZHIPUAI_API_KEY": "glm-key", "ARK_API_KEY": "doubao-key"}, clear=True
+        ):
             # Clear other keys
-            for key in ["DASHSCOPE_API_KEY", "QWEN_API_KEY", "DEEPSEEK_API_KEY",
-                       "OPENAI_API_KEY", "ANTHROPIC_API_KEY"]:
+            for key in [
+                "DASHSCOPE_API_KEY",
+                "QWEN_API_KEY",
+                "DEEPSEEK_API_KEY",
+                "OPENAI_API_KEY",
+                "ANTHROPIC_API_KEY",
+            ]:
                 os.environ.pop(key, None)
             detected = _auto_detect_provider()
             assert detected == "glm4v"  # GLM should take priority

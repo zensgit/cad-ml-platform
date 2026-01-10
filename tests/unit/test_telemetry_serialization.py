@@ -1,5 +1,6 @@
-from src.core.twin.connectivity import TelemetryFrame
 import pytest
+
+from src.core.twin.connectivity import TelemetryFrame
 
 
 def test_telemetry_roundtrip_serialization():

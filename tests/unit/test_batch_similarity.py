@@ -11,7 +11,8 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def reset_vector_store():
     """Reset vector store before each test."""
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META
+    from src.core.similarity import _VECTOR_META, _VECTOR_STORE
+
     _VECTOR_STORE.clear()
     _VECTOR_META.clear()
     yield
@@ -22,7 +23,7 @@ def reset_vector_store():
 @pytest.fixture
 def sample_vectors():
     """Create sample vectors for testing."""
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META
+    from src.core.similarity import _VECTOR_META, _VECTOR_STORE
 
     # Create 5 test vectors with varying similarity
     vectors = {
@@ -54,11 +55,8 @@ def test_batch_similarity_success(sample_vectors):
 
     response = client.post(
         "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": ["vec1", "vec3"],
-            "top_k": 3
-        },
-        headers={"X-API-Key": "test"}
+        json={"ids": ["vec1", "vec3"], "top_k": 3},
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200
@@ -83,11 +81,8 @@ def test_batch_similarity_not_found(sample_vectors):
     """Test batch similarity with non-existent vectors."""
     response = client.post(
         "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": ["vec1", "nonexistent", "vec2"],
-            "top_k": 3
-        },
-        headers={"X-API-Key": "test"}
+        json={"ids": ["vec1", "nonexistent", "vec2"], "top_k": 3},
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200
@@ -107,12 +102,8 @@ def test_batch_similarity_with_material_filter(sample_vectors):
     """Test batch similarity with material filter."""
     response = client.post(
         "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": ["vec1"],
-            "top_k": 5,
-            "material": "steel"
-        },
-        headers={"X-API-Key": "test"}
+        json={"ids": ["vec1"], "top_k": 5, "material": "steel"},
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200
@@ -130,12 +121,8 @@ def test_batch_similarity_with_complexity_filter(sample_vectors):
     """Test batch similarity with complexity filter."""
     response = client.post(
         "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": ["vec1"],
-            "top_k": 5,
-            "complexity": "high"
-        },
-        headers={"X-API-Key": "test"}
+        json={"ids": ["vec1"], "top_k": 5, "complexity": "high"},
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200
@@ -153,12 +140,8 @@ def test_batch_similarity_with_min_score(sample_vectors):
     """Test batch similarity with minimum score threshold."""
     response = client.post(
         "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": ["vec1"],
-            "top_k": 5,
-            "min_score": 0.8
-        },
-        headers={"X-API-Key": "test"}
+        json={"ids": ["vec1"], "top_k": 5, "min_score": 0.8},
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200
@@ -181,9 +164,9 @@ def test_batch_similarity_multiple_filters(sample_vectors):
             "top_k": 5,
             "material": "steel",
             "complexity": "high",
-            "format": "step"
+            "format": "step",
         },
-        headers={"X-API-Key": "test"}
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200
@@ -203,11 +186,8 @@ def test_batch_similarity_empty_ids():
     """Test batch similarity with empty IDs list."""
     response = client.post(
         "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": [],
-            "top_k": 3
-        },
-        headers={"X-API-Key": "test"}
+        json={"ids": [], "top_k": 3},
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200
@@ -224,22 +204,16 @@ def test_batch_similarity_top_k_validation():
     # Test top_k = 0 (invalid)
     response = client.post(
         "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": ["vec1"],
-            "top_k": 0
-        },
-        headers={"X-API-Key": "test"}
+        json={"ids": ["vec1"], "top_k": 0},
+        headers={"X-API-Key": "test"},
     )
     assert response.status_code == 422  # Validation error
 
     # Test top_k > 50 (invalid)
     response = client.post(
         "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": ["vec1"],
-            "top_k": 51
-        },
-        headers={"X-API-Key": "test"}
+        json={"ids": ["vec1"], "top_k": 51},
+        headers={"X-API-Key": "test"},
     )
     assert response.status_code == 422
 
@@ -249,22 +223,16 @@ def test_batch_similarity_min_score_validation():
     # Test min_score < 0
     response = client.post(
         "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": ["vec1"],
-            "min_score": -0.1
-        },
-        headers={"X-API-Key": "test"}
+        json={"ids": ["vec1"], "min_score": -0.1},
+        headers={"X-API-Key": "test"},
     )
     assert response.status_code == 422
 
     # Test min_score > 1
     response = client.post(
         "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": ["vec1"],
-            "min_score": 1.1
-        },
-        headers={"X-API-Key": "test"}
+        json={"ids": ["vec1"], "min_score": 1.1},
+        headers={"X-API-Key": "test"},
     )
     assert response.status_code == 422
 
@@ -274,11 +242,8 @@ def test_batch_similarity_large_batch(sample_vectors):
     # Query all 5 vectors
     response = client.post(
         "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": ["vec1", "vec2", "vec3", "vec4", "vec5"],
-            "top_k": 2
-        },
-        headers={"X-API-Key": "test"}
+        json={"ids": ["vec1", "vec2", "vec3", "vec4", "vec5"], "top_k": 2},
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200
@@ -293,11 +258,8 @@ def test_batch_similarity_response_structure(sample_vectors):
     """Test batch similarity response has correct structure."""
     response = client.post(
         "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": ["vec1"],
-            "top_k": 3
-        },
-        headers={"X-API-Key": "test"}
+        json={"ids": ["vec1"], "top_k": 3},
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200
@@ -334,13 +296,7 @@ def test_batch_similarity_no_api_key():
     Note: In test environment, get_api_key has a default value of "test",
     so requests without explicit API key will still succeed.
     """
-    response = client.post(
-        "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": ["vec1"],
-            "top_k": 3
-        }
-    )
+    response = client.post("/api/v1/vectors/similarity/batch", json={"ids": ["vec1"], "top_k": 3})
 
     # In test environment, default API key is used, so request succeeds
     assert response.status_code == 200
@@ -350,11 +306,8 @@ def test_batch_similarity_mixed_success_failure(sample_vectors):
     """Test batch similarity with mix of successful and failed queries."""
     response = client.post(
         "/api/v1/vectors/similarity/batch",
-        json={
-            "ids": ["vec1", "nonexistent1", "vec2", "nonexistent2"],
-            "top_k": 2
-        },
-        headers={"X-API-Key": "test"}
+        json={"ids": ["vec1", "nonexistent1", "vec2", "nonexistent2"], "top_k": 2},
+        headers={"X-API-Key": "test"},
     )
 
     assert response.status_code == 200

@@ -1,5 +1,6 @@
 import pytest
 
+
 def test_v4_latency_metric_exported_and_observable():
     # Import metric from analysis_metrics and ensure it supports version label and observe
     from src.utils.analysis_metrics import feature_extraction_latency_seconds
@@ -11,4 +12,3 @@ def test_v4_latency_metric_exported_and_observable():
 
     # If we reach here without exceptions, the metric is properly configured
     assert True
-

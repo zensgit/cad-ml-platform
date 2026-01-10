@@ -1,0 +1,13 @@
+apiVersion: 1
+
+providers:
+  - name: "cad-ml-platform"
+    orgId: 1
+    folder: "cad-ml-platform"
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: false
+

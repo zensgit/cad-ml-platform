@@ -8,13 +8,13 @@ This module provides comprehensive audit trail capabilities including:
 - Audit log export
 """
 
-import json
 import hashlib
+import json
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Union
-from abc import ABC, abstractmethod
 
 from .base import VisionDescription, VisionProvider
 
@@ -187,7 +187,7 @@ class InMemoryAuditStorage(AuditStorage):
 
         # Trim if exceeding max
         if len(self._entries) > self._max_entries:
-            self._entries = self._entries[-self._max_entries:]
+            self._entries = self._entries[-self._max_entries :]
 
     def query(
         self,
@@ -213,7 +213,7 @@ class InMemoryAuditStorage(AuditStorage):
         if request_id:
             results = [e for e in results if e.request_id == request_id]
 
-        return results[offset:offset + limit]
+        return results[offset : offset + limit]
 
     def count(
         self,
@@ -454,8 +454,15 @@ class AuditLogger:
                 return ""
 
             headers = [
-                "entry_id", "timestamp", "event_type", "provider_name",
-                "user_id", "action", "resource", "outcome", "duration_ms"
+                "entry_id",
+                "timestamp",
+                "event_type",
+                "provider_name",
+                "user_id",
+                "action",
+                "resource",
+                "outcome",
+                "duration_ms",
             ]
             lines = [",".join(headers)]
 

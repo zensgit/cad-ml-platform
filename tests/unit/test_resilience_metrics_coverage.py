@@ -53,8 +53,8 @@ class TestMetricSummaryDataclass:
         assert summary.name == "test_metric"
         assert summary.count == 0
         assert summary.sum == 0.0
-        assert summary.min == float('inf')
-        assert summary.max == float('-inf')
+        assert summary.min == float("inf")
+        assert summary.max == float("-inf")
         assert summary.avg == 0.0
         assert summary.p50 == 0.0
         assert summary.p95 == 0.0
@@ -65,15 +65,7 @@ class TestMetricSummaryDataclass:
         from src.core.resilience.metrics import MetricSummary
 
         summary = MetricSummary(
-            name="test",
-            count=100,
-            sum=500.0,
-            min=1.0,
-            max=10.0,
-            avg=5.0,
-            p50=4.5,
-            p95=9.0,
-            p99=9.9
+            name="test", count=100, sum=500.0, min=1.0, max=10.0, avg=5.0, p50=4.5, p95=9.0, p99=9.9
         )
 
         assert summary.count == 100
@@ -117,11 +109,7 @@ class TestRecordCircuitBreakerEvent:
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
-        event = {
-            "event": "state_change",
-            "circuit_breaker": "test_cb",
-            "state": "open"
-        }
+        event = {"event": "state_change", "circuit_breaker": "test_cb", "state": "open"}
 
         metrics.record_circuit_breaker_event(event)
 
@@ -137,7 +125,7 @@ class TestRecordCircuitBreakerEvent:
             "event": "success",
             "circuit_breaker": "test_cb",
             "state": "closed",
-            "duration": 0.5
+            "duration": 0.5,
         }
 
         metrics.record_circuit_breaker_event(event)
@@ -150,11 +138,7 @@ class TestRecordCircuitBreakerEvent:
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
-        event = {
-            "event": "rejected",
-            "circuit_breaker": "test_cb",
-            "state": "open"
-        }
+        event = {"event": "rejected", "circuit_breaker": "test_cb", "state": "open"}
 
         metrics.record_circuit_breaker_event(event)
         metrics.record_circuit_breaker_event(event)
@@ -172,11 +156,7 @@ class TestRecordRateLimiterEvent:
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
-        event = {
-            "event": "allowed",
-            "rate_limiter": "api_limiter",
-            "identifier": "user_123"
-        }
+        event = {"event": "allowed", "rate_limiter": "api_limiter", "identifier": "user_123"}
 
         metrics.record_rate_limiter_event(event)
 
@@ -188,10 +168,7 @@ class TestRecordRateLimiterEvent:
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
-        event = {
-            "event": "rejected",
-            "rate_limiter": "api_limiter"
-        }
+        event = {"event": "rejected", "rate_limiter": "api_limiter"}
 
         metrics.record_rate_limiter_event(event)
 
@@ -208,12 +185,7 @@ class TestRecordRetryEvent:
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
-        event = {
-            "event": "retry",
-            "retry_policy": "default_retry",
-            "attempt": 2,
-            "delay": 1.5
-        }
+        event = {"event": "retry", "retry_policy": "default_retry", "attempt": 2, "delay": 1.5}
 
         metrics.record_retry_event(event)
 
@@ -226,11 +198,7 @@ class TestRecordRetryEvent:
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
-        event = {
-            "event": "success",
-            "retry_policy": "default_retry",
-            "attempt": 1
-        }
+        event = {"event": "success", "retry_policy": "default_retry", "attempt": 1}
 
         metrics.record_retry_event(event)
 
@@ -242,10 +210,7 @@ class TestRecordRetryEvent:
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
-        event = {
-            "event": "exhausted",
-            "retry_policy": "default_retry"
-        }
+        event = {"event": "exhausted", "retry_policy": "default_retry"}
 
         metrics.record_retry_event(event)
 
@@ -261,12 +226,7 @@ class TestRecordBulkheadEvent:
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
-        event = {
-            "event": "success",
-            "bulkhead": "api_bulkhead",
-            "active_calls": 5,
-            "duration": 0.3
-        }
+        event = {"event": "success", "bulkhead": "api_bulkhead", "active_calls": 5, "duration": 0.3}
 
         metrics.record_bulkhead_event(event)
 
@@ -278,11 +238,7 @@ class TestRecordBulkheadEvent:
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
-        event = {
-            "event": "rejected",
-            "bulkhead": "api_bulkhead",
-            "active_calls": 10
-        }
+        event = {"event": "rejected", "bulkhead": "api_bulkhead", "active_calls": 10}
 
         metrics.record_bulkhead_event(event)
 
@@ -312,15 +268,10 @@ class TestGetSummary:
         metrics = ResilienceMetrics()
 
         # Record some events
-        metrics.record_circuit_breaker_event({
-            "event": "success",
-            "circuit_breaker": "cb1",
-            "state": "closed"
-        })
-        metrics.record_rate_limiter_event({
-            "event": "allowed",
-            "rate_limiter": "rl1"
-        })
+        metrics.record_circuit_breaker_event(
+            {"event": "success", "circuit_breaker": "cb1", "state": "closed"}
+        )
+        metrics.record_rate_limiter_event({"event": "allowed", "rate_limiter": "rl1"})
 
         summary = metrics.get_summary()
 
@@ -339,11 +290,9 @@ class TestSummarizeCircuitBreakers:
 
         # Record various events
         for event_type in ["success", "success", "failure", "rejected", "state_change"]:
-            metrics.record_circuit_breaker_event({
-                "event": event_type,
-                "circuit_breaker": "test_cb",
-                "state": "closed"
-            })
+            metrics.record_circuit_breaker_event(
+                {"event": event_type, "circuit_breaker": "test_cb", "state": "closed"}
+            )
 
         summary = metrics.get_summary()
         cb_summary = summary["circuit_breakers"]["test_cb"]
@@ -366,14 +315,8 @@ class TestSummarizeRateLimiters:
 
         # 3 allowed, 1 rejected = 25% rejection rate
         for _ in range(3):
-            metrics.record_rate_limiter_event({
-                "event": "allowed",
-                "rate_limiter": "test_rl"
-            })
-        metrics.record_rate_limiter_event({
-            "event": "rejected",
-            "rate_limiter": "test_rl"
-        })
+            metrics.record_rate_limiter_event({"event": "allowed", "rate_limiter": "test_rl"})
+        metrics.record_rate_limiter_event({"event": "rejected", "rate_limiter": "test_rl"})
 
         summary = metrics.get_summary()
         rl_summary = summary["rate_limiters"]["test_rl"]
@@ -393,20 +336,9 @@ class TestSummarizeRetryPolicies:
 
         metrics = ResilienceMetrics()
 
-        metrics.record_retry_event({
-            "event": "retry",
-            "retry_policy": "test_policy",
-            "delay": 1.0
-        })
-        metrics.record_retry_event({
-            "event": "retry",
-            "retry_policy": "test_policy",
-            "delay": 2.0
-        })
-        metrics.record_retry_event({
-            "event": "success",
-            "retry_policy": "test_policy"
-        })
+        metrics.record_retry_event({"event": "retry", "retry_policy": "test_policy", "delay": 1.0})
+        metrics.record_retry_event({"event": "retry", "retry_policy": "test_policy", "delay": 2.0})
+        metrics.record_retry_event({"event": "success", "retry_policy": "test_policy"})
 
         summary = metrics.get_summary()
         retry_summary = summary["retry_policies"]["test_policy"]
@@ -427,12 +359,14 @@ class TestSummarizeBulkheads:
         metrics = ResilienceMetrics()
 
         for i in range(5):
-            metrics.record_bulkhead_event({
-                "event": "success",
-                "bulkhead": "test_bh",
-                "active_calls": i + 1,
-                "duration": 0.1 * (i + 1)
-            })
+            metrics.record_bulkhead_event(
+                {
+                    "event": "success",
+                    "bulkhead": "test_bh",
+                    "active_calls": i + 1,
+                    "duration": 0.1 * (i + 1),
+                }
+            )
 
         summary = metrics.get_summary()
         bh_summary = summary["bulkheads"]["test_bh"]
@@ -451,11 +385,9 @@ class TestGetCounterSummary:
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
-        metrics.record_circuit_breaker_event({
-            "event": "success",
-            "circuit_breaker": "cb1",
-            "state": "closed"
-        })
+        metrics.record_circuit_breaker_event(
+            {"event": "success", "circuit_breaker": "cb1", "state": "closed"}
+        )
 
         summary = metrics.get_summary()
         counter_summary = summary["counters"]
@@ -478,12 +410,14 @@ class TestGetHistogramSummary:
 
         # Add values to histogram
         for i in range(10):
-            metrics.record_circuit_breaker_event({
-                "event": "success",
-                "circuit_breaker": "cb1",
-                "state": "closed",
-                "duration": float(i + 1)
-            })
+            metrics.record_circuit_breaker_event(
+                {
+                    "event": "success",
+                    "circuit_breaker": "cb1",
+                    "state": "closed",
+                    "duration": float(i + 1),
+                }
+            )
 
         summary = metrics.get_summary()
         hist_summary = summary["histograms"]["circuit_breaker_duration_seconds"]
@@ -553,11 +487,9 @@ class TestExportPrometheus:
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
-        metrics.record_circuit_breaker_event({
-            "event": "success",
-            "circuit_breaker": "cb1",
-            "state": "closed"
-        })
+        metrics.record_circuit_breaker_event(
+            {"event": "success", "circuit_breaker": "cb1", "state": "closed"}
+        )
 
         output = metrics.export_prometheus()
 
@@ -568,12 +500,9 @@ class TestExportPrometheus:
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
-        metrics.record_circuit_breaker_event({
-            "event": "success",
-            "circuit_breaker": "cb1",
-            "state": "closed",
-            "duration": 1.5
-        })
+        metrics.record_circuit_breaker_event(
+            {"event": "success", "circuit_breaker": "cb1", "state": "closed", "duration": 1.5}
+        )
 
         output = metrics.export_prometheus()
 
@@ -592,11 +521,9 @@ class TestClearOldMetrics:
         metrics = ResilienceMetrics(window_size=60)
 
         # Record an event
-        metrics.record_circuit_breaker_event({
-            "event": "success",
-            "circuit_breaker": "cb1",
-            "state": "closed"
-        })
+        metrics.record_circuit_breaker_event(
+            {"event": "success", "circuit_breaker": "cb1", "state": "closed"}
+        )
 
         # Manually set old timestamp
         old_time = datetime.now() - timedelta(seconds=200)
@@ -618,18 +545,12 @@ class TestReset:
         metrics = ResilienceMetrics()
 
         # Add various metrics
-        metrics.record_circuit_breaker_event({
-            "event": "success", "circuit_breaker": "cb1", "state": "closed"
-        })
-        metrics.record_rate_limiter_event({
-            "event": "allowed", "rate_limiter": "rl1"
-        })
-        metrics.record_retry_event({
-            "event": "retry", "retry_policy": "rp1"
-        })
-        metrics.record_bulkhead_event({
-            "event": "success", "bulkhead": "bh1"
-        })
+        metrics.record_circuit_breaker_event(
+            {"event": "success", "circuit_breaker": "cb1", "state": "closed"}
+        )
+        metrics.record_rate_limiter_event({"event": "allowed", "rate_limiter": "rl1"})
+        metrics.record_retry_event({"event": "retry", "retry_policy": "rp1"})
+        metrics.record_bulkhead_event({"event": "success", "bulkhead": "bh1"})
 
         metrics.reset()
 
@@ -647,6 +568,7 @@ class TestThreadSafety:
     def test_concurrent_recording(self):
         """Test concurrent event recording."""
         import threading
+
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
@@ -655,11 +577,13 @@ class TestThreadSafety:
         def record_events():
             try:
                 for i in range(100):
-                    metrics.record_circuit_breaker_event({
-                        "event": "success",
-                        "circuit_breaker": f"cb_{threading.current_thread().name}",
-                        "state": "closed"
-                    })
+                    metrics.record_circuit_breaker_event(
+                        {
+                            "event": "success",
+                            "circuit_breaker": f"cb_{threading.current_thread().name}",
+                            "state": "closed",
+                        }
+                    )
             except Exception as e:
                 errors.append(e)
 
@@ -674,6 +598,7 @@ class TestThreadSafety:
     def test_concurrent_summary(self):
         """Test concurrent summary generation."""
         import threading
+
         from src.core.resilience.metrics import ResilienceMetrics
 
         metrics = ResilienceMetrics()
@@ -681,11 +606,9 @@ class TestThreadSafety:
 
         # Pre-populate with some data
         for i in range(10):
-            metrics.record_circuit_breaker_event({
-                "event": "success",
-                "circuit_breaker": "cb1",
-                "state": "closed"
-            })
+            metrics.record_circuit_breaker_event(
+                {"event": "success", "circuit_breaker": "cb1", "state": "closed"}
+            )
 
         def get_summaries():
             try:

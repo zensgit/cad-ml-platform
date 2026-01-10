@@ -11,47 +11,45 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.adapters.factory import AdapterFactory
 from src.api.dependencies import get_api_key
 from src.core.analyzer import CADAnalyzer
+from src.core.errors_extended import (
+    ErrorCode,
+    build_error,
+    create_extended_error,
+    create_migration_error,
+)
 from src.core.feature_extractor import FeatureExtractor
 from src.core.ocr.manager import OcrManager
 from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
 from src.core.ocr.providers.paddle import PaddleOcrProvider
-from src.utils.cache import cache_result, get_cached_result, set_cache
-from src.core.similarity import (
-    register_vector,
-    compute_similarity,
-    has_vector,
-    FaissVectorStore,
-)
+from src.core.similarity import FaissVectorStore, compute_similarity, has_vector, register_vector
 from src.models.cad_document import CadDocument
 from src.utils.analysis_metrics import (
-    analysis_requests_total,
-    analysis_stage_duration_seconds,
+    analysis_error_code_total,
     analysis_errors_total,
     analysis_feature_vector_dimension,
     analysis_material_usage_total,
-    analysis_rejections_total,
-    analysis_error_code_total,
-    analysis_parse_latency_budget_ratio,
-    process_rule_version_total,
-    classification_latency_seconds,
-    process_recommend_latency_seconds,
-    vector_store_material_total,
     analysis_parallel_enabled,
+    analysis_parse_latency_budget_ratio,
+    analysis_rejections_total,
+    analysis_requests_total,
+    analysis_stage_duration_seconds,
+    classification_latency_seconds,
     classification_prediction_drift_score,
+    cost_estimation_latency_seconds,
+    dfm_analysis_latency_seconds,
     material_distribution_drift_score,
+    process_recommend_latency_seconds,
+    process_rule_version_total,
+    vector_store_material_total,
 )
-from src.core.errors_extended import (
-    create_migration_error,
-    build_error,
-    ErrorCode,
-    create_extended_error,
-)
+from src.utils.analysis_result_store import load_analysis_result, store_analysis_result
+from src.utils.cache import cache_result, get_cached_result, set_cache
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +75,7 @@ class AnalysisOptions(BaseModel):
     reference_id: Optional[str] = Field(default=None, description="参考文件ID")
     quality_check: bool = Field(default=True, description="是否质量检查")
     process_recommendation: bool = Field(default=False, description="是否推荐工艺")
+    estimate_cost: bool = Field(default=False, description="是否估算成本 (L4)")
     enable_ocr: bool = Field(default=False, description="是否启用OCR解析 (默认关闭保障向后兼容)")
     ocr_provider: str = Field(default="auto", description="OCR provider策略 auto|paddle|deepseek_hf")
 
@@ -162,12 +161,8 @@ class VectorListResponse(BaseModel):  # deprecated moved to vectors.py
 
 class VectorUpdateRequest(BaseModel):
     id: str = Field(description="要更新的向量分析ID")
-    replace: Optional[list[float]] = Field(
-        default=None, description="新的向量 (维度需与原向量一致)"
-    )
-    append: Optional[list[float]] = Field(
-        default=None, description="追加的向量片段 (若提供 replace 则忽略)"
-    )
+    replace: Optional[list[float]] = Field(default=None, description="新的向量 (维度需与原向量一致)")
+    append: Optional[list[float]] = Field(default=None, description="追加的向量片段 (若提供 replace 则忽略)")
     material: Optional[str] = Field(default=None, description="更新材料元数据")
     complexity: Optional[str] = Field(default=None, description="更新复杂度元数据")
     format: Optional[str] = Field(default=None, description="更新格式元数据")
@@ -272,6 +267,7 @@ async def analyze_cad_file(
 
     stage_times: Dict[str, float] = {}
     import time
+
     started = time.time()
     try:
         # 解析选项
@@ -279,6 +275,7 @@ async def analyze_cad_file(
 
         # 计算内容哈希用于更精确缓存键 (避免同名不同内容误命中)
         import hashlib
+
         content_peek = await file.read()  # read for hash then reset below
         file.file.seek(0)
         content_hash = hashlib.sha256(content_peek).hexdigest()[:16]
@@ -287,12 +284,15 @@ async def analyze_cad_file(
         if cached:
             logger.info(f"Cache hit for {file.filename}")
             from src.utils.analysis_metrics import analysis_cache_hits_total
+
             analysis_cache_hits_total.inc()
             # sliding window update (best-effort)
             try:
-                from time import time as _t_now
                 from collections import deque
+                from time import time as _t_now
+
                 from src.utils.analysis_metrics import feature_cache_hits_last_hour
+
                 _CACHE_HIT_EVENTS = globals().setdefault("_CACHE_HIT_EVENTS", deque())
                 now = _t_now()
                 _CACHE_HIT_EVENTS.append(now)
@@ -316,11 +316,14 @@ async def analyze_cad_file(
             )
         else:
             from src.utils.analysis_metrics import analysis_cache_miss_total
+
             analysis_cache_miss_total.inc()
             try:
-                from time import time as _t_now
                 from collections import deque
+                from time import time as _t_now
+
                 from src.utils.analysis_metrics import feature_cache_miss_last_hour
+
                 _CACHE_MISS_EVENTS = globals().setdefault("_CACHE_MISS_EVENTS", deque())
                 now = _t_now()
                 _CACHE_MISS_EVENTS.append(now)
@@ -333,7 +336,13 @@ async def analyze_cad_file(
         # 读取文件内容
         content = await file.read()
         # MIME sniff (best-effort); reject if clearly unsupported
-        from src.security.input_validator import sniff_mime, is_supported_mime, verify_signature, deep_format_validate
+        from src.security.input_validator import (
+            deep_format_validate,
+            is_supported_mime,
+            sniff_mime,
+            verify_signature,
+        )
+
         mime, reliable = sniff_mime(content[:4096])  # peek first 4KB
         if reliable and not is_supported_mime(mime):
             analysis_rejections_total.labels(reason="mime_mismatch").inc()
@@ -390,9 +399,11 @@ async def analyze_cad_file(
         # Parse with timeout protection
         parse_timeout = float(os.getenv("PARSE_TIMEOUT_SECONDS", "10"))
         import time as _t
+
         _parse_start = _t.time()
         try:
             import asyncio
+
             doc: CadDocument
             if hasattr(adapter, "parse"):
                 # adapter.parse may be async; wrap with wait_for
@@ -411,6 +422,7 @@ async def analyze_cad_file(
             unified_data = doc.to_unified_dict()
         except asyncio.TimeoutError:
             from src.utils.analysis_metrics import parse_timeout_total
+
             parse_timeout_total.inc()
             analysis_errors_total.labels(stage="parse", code="timeout").inc()
             # ErrorCode and build_error imported at module level
@@ -427,6 +439,7 @@ async def analyze_cad_file(
             unified_data = doc.to_unified_dict()
         try:
             from src.utils.analysis_metrics import parse_stage_latency_seconds
+
             parse_stage_latency_seconds.labels(format=file_format).observe(_t.time() - _parse_start)
         except Exception:
             pass
@@ -434,10 +447,12 @@ async def analyze_cad_file(
         valid_sig, expectation = verify_signature(content[:256], file_format)
         if not valid_sig:
             from src.utils.analysis_metrics import signature_validation_fail_total
+
             signature_validation_fail_total.labels(format=file_format).inc()
             analysis_rejections_total.labels(reason="signature_mismatch").inc()
             # ErrorCode and build_error imported at module level
             from src.security.input_validator import signature_hex_prefix
+
             err = build_error(
                 ErrorCode.INPUT_FORMAT_INVALID,
                 stage="input",
@@ -450,7 +465,8 @@ async def analyze_cad_file(
 
         # Deep format validation (strict mode optional) + matrix validation
         strict_mode = os.getenv("FORMAT_STRICT_MODE", "0") == "1"
-        from src.utils.analysis_metrics import strict_mode_enabled, format_validation_fail_total
+        from src.utils.analysis_metrics import format_validation_fail_total, strict_mode_enabled
+
         if strict_mode:
             strict_mode_enabled.set(1)
             ok_deep, reason_deep = deep_format_validate(content[:2048], file_format)
@@ -469,6 +485,7 @@ async def analyze_cad_file(
                 raise HTTPException(status_code=415, detail=err)
             # matrix validation
             from src.security.input_validator import matrix_validate
+
             ok_matrix, reason_matrix = matrix_validate(content[:4096], file_format, project_id)
             if not ok_matrix:
                 format_validation_fail_total.labels(format=file_format, reason=reason_matrix).inc()
@@ -517,77 +534,186 @@ async def analyze_cad_file(
         # 创建分析器
         analyzer = CADAnalyzer()
         results: Dict[str, Any] = {}
-        features: Dict[str, Any] = {"geometric": [], "semantic": []}  # ensure defined even if skipped
+        features: Dict[str, Any] = {
+            "geometric": [],
+            "semantic": [],
+        }  # ensure defined even if skipped
 
         # 执行分析 (带特征缓存)
         if analysis_options.extract_features:
             import hashlib as _hl
+
             from src.core.feature_cache import get_feature_cache
+
             feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
             # Use full content bytes for cache key
             content_hash_full = _hl.sha256(content).hexdigest()
-            cache_key = f"{content_hash_full}:{feature_version}"
-            from src.utils.analysis_metrics import feature_cache_hits_total, feature_cache_miss_total, feature_cache_size
+            cache_key = f"{content_hash_full}:{feature_version}:layout_v2"
+            from src.utils.analysis_metrics import (
+                feature_cache_hits_total,
+                feature_cache_miss_total,
+                feature_cache_size,
+            )
+
             feature_cache = get_feature_cache()
             # Measure lookup latency
             import time as _t
+
             _lk_start = _t.time()
             cached_vector = feature_cache.get(cache_key)
             try:
                 from src.utils.analysis_metrics import feature_cache_lookup_seconds
+
                 feature_cache_lookup_seconds.observe(_t.time() - _lk_start)
             except Exception:
                 pass
             extractor = FeatureExtractor()
+            combined_vec: list[float] | None = None
             if cached_vector is not None:
                 feature_cache_hits_total.inc()
                 # rehydrate cached vector into geometric/semantic split
                 features = extractor.rehydrate(cached_vector, version=feature_version)
+                combined_vec = cached_vector
             else:
                 feature_cache_miss_total.inc()
                 features = await extractor.extract(doc)
                 try:
-                    combined_vec = [
-                        *[float(x) for x in features.get("geometric", [])],
-                        *[float(x) for x in features.get("semantic", [])],
-                    ]
+                    combined_vec = extractor.flatten(features)
                     feature_cache.set(cache_key, combined_vec)
                     feature_cache_size.set(feature_cache.size())
                 except Exception:
                     pass
+            if combined_vec is None:
+                try:
+                    combined_vec = extractor.flatten(features)
+                except Exception:
+                    combined_vec = []
             feature_slots = extractor.slots(feature_version)
             results["features"] = {
                 "geometric": [float(x) for x in features["geometric"]],
                 "semantic": [float(x) for x in features["semantic"]],
+                "combined": [float(x) for x in combined_vec],
                 "dimension": len(features["geometric"]) + len(features["semantic"]),
                 "feature_version": feature_version,
                 "feature_slots": feature_slots,
                 "cache_hit": cached_vector is not None,
             }
             stage_times["features"] = time.time() - started - sum(stage_times.values())
-            analysis_stage_duration_seconds.labels(stage="features").observe(stage_times["features"])
+            analysis_stage_duration_seconds.labels(stage="features").observe(
+                stage_times["features"]
+            )
+
+        # L3: 3D Feature Extraction
+        features_3d: Dict[str, Any] = {}
+        if analysis_options.extract_features and file_format in ["step", "stp", "iges", "igs"]:
+            try:
+                # Lazy import to avoid startup overhead if not used
+                from src.core.geometry.cache import get_feature_cache
+                from src.core.geometry.engine import get_geometry_engine
+                from src.ml.vision_3d import get_3d_encoder
+
+                _geo_start = time.time()
+
+                # Check Cache
+                f_cache = get_feature_cache()
+                # Use feature version from env or default
+                f_ver = "l4_v1"
+                cache_key = f_cache.generate_key(content, f_ver)
+                cached_3d = f_cache.get(cache_key)
+
+                if cached_3d:
+                    features_3d = cached_3d
+                    logger.info(f"3D Feature Cache HIT for {file.filename}")
+                else:
+                    geo_engine = get_geometry_engine()
+                    # Parse 3D content
+                    shape = geo_engine.load_step(content, file_name=file.filename)
+                    if shape:
+                        features_3d = geo_engine.extract_brep_features(shape)
+                        # L4: Extract DFM features (Wall thickness, etc.)
+                        dfm_feats = geo_engine.extract_dfm_features(shape)
+                        features_3d.update(dfm_feats)
+
+                        # Deep Learning Embedding
+                        encoder = get_3d_encoder()
+                        embedding_3d = encoder.encode(features_3d)
+                        features_3d["embedding_vector"] = embedding_3d
+
+                        # Save to Cache
+                        f_cache.set(cache_key, features_3d)
+
+                # Add to result payload for debugging/inspection
+                if "embedding_vector" in features_3d:
+                    results["features_3d"] = {
+                        k: v for k, v in features_3d.items() if k != "embedding_vector"
+                    }
+                    results["features_3d"]["embedding_dim"] = len(features_3d["embedding_vector"])
+
+                stage_times["features_3d"] = time.time() - _geo_start
+            except Exception as e:
+                logger.error(f"L3 Analysis failed: {e}")
 
         # Parallelize classification / quality / process recommendation if multiple enabled
         import asyncio
+
         parallel_tasks = []
         if analysis_options.classify_parts:
+
             async def _run_classify():
                 t0 = time.time()
-                classification = await analyzer.classify_part(doc, features)
+
+                # Check if we can use L3 Fusion
+                if features_3d:
+                    try:
+                        from src.core.knowledge.fusion import get_fusion_classifier
+
+                        fusion = get_fusion_classifier()
+
+                        # Build entity counts for Fusion
+                        ent_counts = {}
+                        for e in doc.entities:
+                            ent_counts[e.kind] = ent_counts.get(e.kind, 0) + 1
+
+                        # Perform fused classification
+                        fused_result = fusion.classify(
+                            text_signals=str(doc.metadata.get("text", "")),
+                            features_2d={"geometric_features": {}, "entity_counts": ent_counts},
+                            features_3d=features_3d,
+                        )
+
+                        classification = {
+                            "type": fused_result["type"],
+                            "confidence": fused_result["confidence"],
+                            "sub_type": None,
+                            "characteristics": [],
+                            "rule_version": "L3-Fusion-v1",
+                            "alternatives": fused_result.get("alternatives", []),
+                            "confidence_breakdown": fused_result.get("fusion_breakdown"),
+                        }
+                    except Exception as e:
+                        logger.error(f"Fusion failed, falling back to L1: {e}")
+                        classification = await analyzer.classify_part(doc, features)
+                else:
+                    classification = await analyzer.classify_part(doc, features)
+
                 cls_payload = {
                     "part_type": classification["type"],
                     "confidence": classification["confidence"],
                     "sub_type": classification.get("sub_type"),
                     "characteristics": classification.get("characteristics", []),
                     "rule_version": classification.get("rule_version"),
+                    "alternatives": classification.get("alternatives", []),
+                    "confidence_breakdown": classification.get("confidence_breakdown"),
                 }
+                rule_version = str(cls_payload.get("rule_version") or "")
+                cls_payload["confidence_source"] = (
+                    "fusion" if rule_version.startswith("L3-Fusion") else "rules"
+                )
                 # Attempt ML classification overlay
                 try:
                     from src.ml.classifier import predict
-                    vec_for_model = [
-                        *[float(x) for x in features.get("geometric", [])],
-                        *[float(x) for x in features.get("semantic", [])],
-                    ]
+
+                    vec_for_model = FeatureExtractor().flatten(features)
                     ml_result = predict(vec_for_model)
                     if ml_result.get("predicted_type"):
                         cls_payload["ml_predicted_type"] = ml_result["predicted_type"]
@@ -597,39 +723,154 @@ async def analyze_cad_file(
                 except Exception:
                     cls_payload["model_version"] = "ml_error"
                 results["classification"] = cls_payload
+                # Active learning: flag low-confidence samples for review
+                try:
+                    enabled = (
+                        __import__("os").getenv("ACTIVE_LEARNING_ENABLED", "false").lower()
+                        == "true"
+                    )
+                    threshold = float(
+                        __import__("os").getenv("ACTIVE_LEARNING_CONFIDENCE_THRESHOLD", "0.6")
+                    )
+                    if enabled and float(cls_payload.get("confidence", 1.0)) < threshold:
+                        from src.core.active_learning import get_active_learner
+
+                        learner = get_active_learner()
+                        learner.flag_for_review(
+                            doc_id=analysis_id,
+                            predicted_type=str(cls_payload.get("part_type", "unknown")),
+                            confidence=float(cls_payload.get("confidence", 0.0)),
+                            alternatives=cls_payload.get("alternatives", []),
+                            score_breakdown={
+                                "rule_version": cls_payload.get("rule_version"),
+                                "model_version": cls_payload.get("model_version"),
+                                "confidence_source": cls_payload.get("confidence_source"),
+                                "confidence_breakdown": cls_payload.get("confidence_breakdown"),
+                            },
+                            uncertainty_reason="low_confidence",
+                        )
+                except Exception as e:
+                    logger.warning(f"Active learning flag failed: {e}")
                 dur = time.time() - t0
                 classification_latency_seconds.observe(dur)
                 return ("classify", dur)
+
             parallel_tasks.append(_run_classify())
 
         if analysis_options.quality_check:
+
             async def _run_quality():
                 t0 = time.time()
-                quality = await analyzer.check_quality(doc, features)
-                results["quality"] = {
-                    "score": quality["score"],
-                    "issues": quality.get("issues", []),
-                    "suggestions": quality.get("suggestions", []),
-                }
+                # L4 DFM Check
+                if "features_3d" in locals() and features_3d:
+                    try:
+                        dfm_start = time.time()
+                        # Extract extra DFM features if not already done
+                        if "thin_walls_detected" not in features_3d:
+                            from src.core.geometry.engine import get_geometry_engine
+
+                            geo = get_geometry_engine()
+                            # Re-load shape from cache or content not ideal here,
+                            # but for prototype we assume features_3d already has what we need
+                            # OR we enhanced extract_brep_features to include DFM.
+                            # Let's assume we call extract_dfm_features here if shape is available:
+                            # shape = geo.load_step(...)  # Expensive, in prod pass shape around
+                            pass
+
+                        from src.core.dfm.analyzer import get_dfm_analyzer
+
+                        dfm = get_dfm_analyzer()
+                        # Use classified type or unknown
+                        ptype = results.get("classification", {}).get("part_type", "unknown")
+                        dfm_result = dfm.analyze(features_3d, ptype)
+                        dfm_analysis_latency_seconds.observe(time.time() - dfm_start)
+
+                        results["quality"] = {
+                            "mode": "L4_DFM",
+                            "score": dfm_result["dfm_score"],
+                            "issues": dfm_result["issues"],
+                            "manufacturability": dfm_result["manufacturability"],
+                        }
+                    except Exception as e:
+                        logger.error(f"DFM check failed: {e}")
+                        # Fallback
+                        quality = await analyzer.check_quality(doc, features)
+                        results["quality"] = quality
+                else:
+                    quality = await analyzer.check_quality(doc, features)
+                    results["quality"] = {
+                        "score": quality["score"],
+                        "issues": quality.get("issues", []),
+                        "suggestions": quality.get("suggestions", []),
+                    }
                 return ("quality", time.time() - t0)
+
             parallel_tasks.append(_run_quality())
 
         if analysis_options.process_recommendation:
+
             async def _run_process():
                 t0 = time.time()
-                process = await analyzer.recommend_process(doc, features)
-                if isinstance(process, dict) and process.get("rule_version"):
-                    process_rule_version_total.labels(version=str(process.get("rule_version"))).inc()
-                results["process"] = process
+                # L4 AI Process Recommendation
+                proc_result = None
+                if "features_3d" in locals() and features_3d:
+                    try:
+                        from src.core.process.ai_recommender import get_process_recommender
+
+                        recommender = get_process_recommender()
+                        ptype = results.get("classification", {}).get("part_type", "unknown")
+                        mat = material or "steel"  # Default
+
+                        proc_result = recommender.recommend(features_3d, ptype, mat)
+                        results["process"] = proc_result
+                    except Exception as e:
+                        logger.error(f"AI Process failed: {e}")
+                        process = await analyzer.recommend_process(doc, features)
+                        results["process"] = process
+                        proc_result = process if isinstance(process, dict) else {}
+                else:
+                    process = await analyzer.recommend_process(doc, features)
+                    if isinstance(process, dict) and process.get("rule_version"):
+                        process_rule_version_total.labels(
+                            version=str(process.get("rule_version"))
+                        ).inc()
+                    results["process"] = process
+                    proc_result = process if isinstance(process, dict) else {}
+
+                # L4 Cost Estimation (Chained after Process)
+                if analysis_options.estimate_cost and "features_3d" in locals() and features_3d:
+                    try:
+                        from src.core.cost.estimator import get_cost_estimator
+
+                        estimator = get_cost_estimator()
+                        # Use primary recommendation if available
+                        primary_proc = proc_result.get("primary_recommendation", {})
+                        if not primary_proc and "process" in proc_result:
+                            # Fallback to legacy rule structure
+                            primary_proc = {
+                                "process": proc_result.get("process"),
+                                "method": "standard",
+                            }
+                        cost_start = time.time()
+                        cost_est = estimator.estimate(
+                            features_3d, primary_proc, material=material or "steel"
+                        )
+                        results["cost_estimation"] = cost_est
+                        cost_estimation_latency_seconds.observe(time.time() - cost_start)
+                    except Exception as e:
+                        logger.error(f"Cost estimation failed: {e}")
+
                 dur = time.time() - t0
                 process_recommend_latency_seconds.observe(dur)
                 return ("process", dur)
+
             parallel_tasks.append(_run_process())
 
         if parallel_tasks:
             analysis_parallel_enabled.set(1)
             # gather returns (stage_name, duration)
             import time as _t_parallel
+
             _wall_start = _t_parallel.time()
             stage_results = await asyncio.gather(*parallel_tasks)
             _wall_total = _t_parallel.time() - _wall_start
@@ -640,6 +881,7 @@ async def analyze_cad_file(
                 analysis_stage_duration_seconds.labels(stage=stage_name).observe(indiv_dur)
             # Savings = sum of individual durations - wall time (non-negative)
             from src.utils.analysis_metrics import analysis_parallel_savings_seconds
+
             savings = serial_sum - _wall_total
             if savings < 0:
                 savings = 0.0
@@ -647,19 +889,71 @@ async def analyze_cad_file(
         else:
             analysis_parallel_enabled.set(0)
 
+        # Manufacturing decision summary (quality + process + cost)
+        try:
+            quality = results.get("quality", {}) if isinstance(results, dict) else {}
+            process = results.get("process", {}) if isinstance(results, dict) else {}
+            cost = results.get("cost_estimation", {}) if isinstance(results, dict) else {}
+
+            primary_proc = {}
+            if isinstance(process, dict):
+                primary_proc = process.get("primary_recommendation", {})
+                if not primary_proc and "process" in process:
+                    primary_proc = {
+                        "process": process.get("process"),
+                        "method": process.get("method"),
+                    }
+
+            total_cost = None
+            if isinstance(cost, dict):
+                total_cost = cost.get("total_unit_cost")
+
+            cost_range = None
+            if isinstance(total_cost, (int, float)):
+                cost_range = {
+                    "low": round(total_cost * 0.9, 2),
+                    "high": round(total_cost * 1.1, 2),
+                }
+
+            if quality or process or cost:
+                results["manufacturing_decision"] = {
+                    "feasibility": quality.get("manufacturability")
+                    if isinstance(quality, dict)
+                    else None,
+                    "risks": quality.get("issues", []) if isinstance(quality, dict) else [],
+                    "process": primary_proc or None,
+                    "cost_estimate": cost if isinstance(cost, dict) else None,
+                    "cost_range": cost_range,
+                    "currency": cost.get("currency") if isinstance(cost, dict) else None,
+                }
+        except Exception as e:
+            logger.warning(f"Manufacturing decision summary failed: {e}")
+
         # Drift metrics (executed once per analysis after classification if present)
         try:
             from src.utils.drift import compute_drift
+
             # Material drift: compare current material tag vs baseline (simple ring buffer)
             _DRIFT_STATE = __import__("src.api.v1.analyze", fromlist=["_DRIFT_STATE"])
         except Exception:
             _DRIFT_STATE = None  # type: ignore
         try:
             if _DRIFT_STATE is not None:
-                st = getattr(_DRIFT_STATE, "_DRIFT_STATE", {"materials": [], "predictions": [], "baseline_materials": [], "baseline_predictions": []})
+                st = getattr(
+                    _DRIFT_STATE,
+                    "_DRIFT_STATE",
+                    {
+                        "materials": [],
+                        "predictions": [],
+                        "baseline_materials": [],
+                        "baseline_predictions": [],
+                    },
+                )
                 m_used = material or "unknown"
                 st["materials"].append(m_used)
-                pred_label = results.get("classification", {}).get("type") or results.get("classification", {}).get("ml_predicted_type")
+                pred_label = results.get("classification", {}).get("type") or results.get(
+                    "classification", {}
+                ).get("ml_predicted_type")
                 if pred_label:
                     st["predictions"].append(str(pred_label))
                 # establish baselines once minimum count reached
@@ -670,8 +964,8 @@ async def analyze_cad_file(
                     try:
                         client = __import__("src.utils.cache", fromlist=["get_client"]).get_client()
                         if client is not None:
-                            client.set("baseline:material", json.dumps(st["baseline_materials"]))  # type: ignore[attr-defined]
-                            client.set("baseline:material:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
+                            await client.set("baseline:material", json.dumps(st["baseline_materials"]))  # type: ignore[attr-defined]
+                            await client.set("baseline:material:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
                     except Exception:
                         pass
                 if len(st["baseline_predictions"]) == 0 and len(st["predictions"]) >= min_count:
@@ -679,8 +973,8 @@ async def analyze_cad_file(
                     try:
                         client = __import__("src.utils.cache", fromlist=["get_client"]).get_client()
                         if client is not None:
-                            client.set("baseline:class", json.dumps(st["baseline_predictions"]))  # type: ignore[attr-defined]
-                            client.set("baseline:class:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
+                            await client.set("baseline:class", json.dumps(st["baseline_predictions"]))  # type: ignore[attr-defined]
+                            await client.set("baseline:class:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
                     except Exception:
                         pass
                 if st["baseline_materials"]:
@@ -693,21 +987,39 @@ async def analyze_cad_file(
         except Exception:
             pass
 
-        # Register vector for later similarity queries (use geometric+semantic concatenation)
+        # Register vector for later similarity queries (use geometric+semantic concatenation + L3 embedding)
         try:
-            feature_vector: list[float] = [
-                *[float(x) for x in features.get("geometric", [])],
-                *[float(x) for x in features.get("semantic", [])],
-            ]
+            from src.core.vector_layouts import VECTOR_LAYOUT_BASE, VECTOR_LAYOUT_L3
+
+            feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
+            feature_vector: list[float] = FeatureExtractor().flatten(features)
+            vector_layout = VECTOR_LAYOUT_BASE
+            l3_dim: int | None = None
+
+            # L3 Integration: Append 3D embedding if available
+            if "features_3d" in locals() and "embedding_vector" in features_3d:
+                l3_dim = len(features_3d["embedding_vector"])
+                feature_vector.extend([float(x) for x in features_3d["embedding_vector"]])
+                vector_layout = VECTOR_LAYOUT_L3
+
             m_used = material or "unknown"
+            meta = {
+                "material": m_used,
+                "complexity": doc.complexity_bucket(),
+                "format": doc.format,
+                "feature_version": feature_version,
+                "vector_layout": vector_layout,
+                "geometric_dim": str(len(features.get("geometric", []))),
+                "semantic_dim": str(len(features.get("semantic", []))),
+                "total_dim": str(len(feature_vector)),
+            }
+            if l3_dim is not None:
+                meta["l3_3d_dim"] = str(l3_dim)
+
             accepted = register_vector(
                 analysis_id,
                 feature_vector,
-                meta={
-                    "material": m_used,
-                    "complexity": doc.complexity_bucket(),
-                    "format": doc.format,
-                },
+                meta=meta,
             )
             if accepted:
                 vector_store_material_total.labels(material=m_used).inc()
@@ -722,12 +1034,7 @@ async def analyze_cad_file(
                 # enrich meta with dimension breakdown for future migrations
                 try:
                     _VECTOR_META = __import__("src.core.similarity", fromlist=["_VECTOR_META"])._VECTOR_META  # type: ignore
-                    _VECTOR_META[analysis_id].update({
-                        "geometric_dim": str(len(features.get("geometric", []))),
-                        "semantic_dim": str(len(features.get("semantic", []))),
-                        "total_dim": str(len(feature_vector)),
-                        "feature_version": feature_version,
-                    })
+                    _VECTOR_META[analysis_id].update(meta)
                 except Exception:
                     pass
         except Exception:
@@ -743,7 +1050,9 @@ async def analyze_cad_file(
             }
         if "similarity" in results:
             stage_times["similarity"] = time.time() - started - sum(stage_times.values())
-            analysis_stage_duration_seconds.labels(stage="similarity").observe(stage_times["similarity"])
+            analysis_stage_duration_seconds.labels(stage="similarity").observe(
+                stage_times["similarity"]
+            )
 
         # 可选 OCR 集成 (向后兼容: 默认不启用)
         if analysis_options.enable_ocr:
@@ -780,6 +1089,7 @@ async def analyze_cad_file(
         await cache_result(analysis_cache_key, results, ttl=3600)
         # Persist full result by analysis id for retrieval endpoint
         await set_cache(f"analysis_result:{analysis_id}", results, ttl_seconds=3600)
+        await store_analysis_result(analysis_id, results)
 
         # 计算处理时间
         processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
@@ -791,7 +1101,7 @@ async def analyze_cad_file(
                 "analysis_id": analysis_id,
                 "processing_time_s": round(processing_time, 4),
                 "stages": stage_times,
-                "feature_vector_dim": len(feature_vector) if 'feature_vector' in locals() else 0,
+                "feature_vector_dim": len(feature_vector) if "feature_vector" in locals() else 0,
                 "material": material,
                 "complexity": unified_data.get("complexity"),
             },
@@ -811,7 +1121,9 @@ async def analyze_cad_file(
                 "file_name": doc.file_name,
                 "format": doc.format,
                 "entity_count": doc.entity_count(),
-                "entities": [e.model_dump() for e in doc.entities[:200]],  # limit entities for payload size
+                "entities": [
+                    e.model_dump() for e in doc.entities[:200]
+                ],  # limit entities for payload size
                 "layers": doc.layers,
                 "bounding_box": doc.bounding_box.model_dump(),
                 "complexity": doc.complexity_bucket(),
@@ -826,7 +1138,9 @@ async def analyze_cad_file(
         analysis_errors_total.labels(stage="options", code="json_decode").inc()
         analysis_error_code_total.labels(code=ErrorCode.JSON_PARSE_ERROR.value).inc()
         # ErrorCode and build_error imported at module level
-        err = build_error(ErrorCode.JSON_PARSE_ERROR, stage="options", message="Invalid options JSON format")
+        err = build_error(
+            ErrorCode.JSON_PARSE_ERROR, stage="options", message="Invalid options JSON format"
+        )
         raise HTTPException(status_code=400, detail=err)
     except HTTPException as he:
         # If detail is already structured keep it, otherwise wrap
@@ -849,11 +1163,13 @@ async def analyze_cad_file(
         raise HTTPException(status_code=he.status_code, detail=err)
     except Exception as e:
         analysis_requests_total.labels(status="error").inc()
-        analysis_errors_total.labels(stage="general", code="internal").inc()
+        analysis_errors_total.labels(stage="general", code=ErrorCode.INTERNAL_ERROR.value).inc()
         analysis_error_code_total.labels(code=ErrorCode.INTERNAL_ERROR.value).inc()
         logger.error(f"Analysis failed for {file.filename}: {str(e)}")
         # ErrorCode and build_error imported at module level
-        err = build_error(ErrorCode.INTERNAL_ERROR, stage="analysis", message=f"Analysis failed: {str(e)}")
+        err = build_error(
+            ErrorCode.INTERNAL_ERROR, stage="analysis", message=f"Analysis failed: {str(e)}"
+        )
         raise HTTPException(status_code=500, detail=err)
 
 
@@ -959,10 +1275,13 @@ async def similarity_query(payload: SimilarityQuery, api_key: str = Depends(get_
 async def similarity_topk(payload: SimilarityTopKQuery, api_key: str = Depends(get_api_key)):
     """基于已存储向量的 Top-K 相似检索。"""
     from src.core.similarity import InMemoryVectorStore  # type: ignore
+
     store = InMemoryVectorStore()
     if not store.exists(payload.target_id):
         # create_extended_error and ErrorCode imported at module level
-        ext = create_extended_error(ErrorCode.DATA_NOT_FOUND, "Target vector not found", stage="similarity")
+        ext = create_extended_error(
+            ErrorCode.DATA_NOT_FOUND, "Target vector not found", stage="similarity"
+        )
         analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
         return SimilarityTopKResponse(
             target_id=payload.target_id,
@@ -976,6 +1295,7 @@ async def similarity_topk(payload: SimilarityTopKQuery, api_key: str = Depends(g
     # Choose backend dynamically
     backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
     import time as _time
+
     t0 = _time.time()
     if backend == "faiss":
         fstore = FaissVectorStore()
@@ -987,10 +1307,12 @@ async def similarity_topk(payload: SimilarityTopKQuery, api_key: str = Depends(g
     else:
         raw = store.query(base_vec, top_k=max(1, payload.k + payload.offset))
     from src.utils.analysis_metrics import vector_query_latency_seconds
+
     vector_query_latency_seconds.labels(backend=backend).observe(_time.time() - t0)
     items: list[SimilarityTopKItem] = []
     sliced = raw[payload.offset : payload.offset + payload.k]
     from src.core.similarity import InMemoryVectorStore  # type: ignore
+
     meta_store = InMemoryVectorStore()
     for vid, score in sliced:
         if payload.exclude_self and vid == payload.target_id:
@@ -1024,8 +1346,8 @@ async def vector_distribution_deprecated(api_key: str = Depends(get_api_key)):
         detail=create_migration_error(
             old_path="/api/v1/analyze/vectors/distribution",
             new_path="/api/v1/vectors_stats/distribution",
-            method="GET"
-        )
+            method="GET",
+        ),
     )
 
 
@@ -1037,8 +1359,8 @@ async def delete_vector(payload: VectorDeleteRequest, api_key: str = Depends(get
         detail=create_migration_error(
             old_path="/api/v1/analyze/vectors/delete",
             new_path="/api/v1/vectors/delete",
-            method="POST"
-        )
+            method="POST",
+        ),
     )
 
 
@@ -1048,10 +1370,8 @@ async def list_vectors(api_key: str = Depends(get_api_key)):
     raise HTTPException(
         status_code=410,
         detail=create_migration_error(
-            old_path="/api/v1/analyze/vectors",
-            new_path="/api/v1/vectors",
-            method="GET"
-        )
+            old_path="/api/v1/analyze/vectors", new_path="/api/v1/vectors", method="GET"
+        ),
     )
 
 
@@ -1063,15 +1383,18 @@ async def vector_stats(api_key: str = Depends(get_api_key)):
         detail=create_migration_error(
             old_path="/api/v1/analyze/vectors/stats",
             new_path="/api/v1/vectors_stats/stats",
-            method="GET"
-        )
+            method="GET",
+        ),
     )
 
 
 @router.get("/process/rules/audit", response_model=ProcessRulesAuditResponse)
 async def process_rules_audit(raw: bool = True, api_key: str = Depends(get_api_key)):
+    import hashlib
+    import os
+
     from src.core.process_rules import load_rules
-    import os, hashlib
+
     path = os.getenv("PROCESS_RULES_FILE", "config/process_rules.yaml")
     rules = load_rules(force_reload=True)
     version = rules.get("__meta__", {}).get("version", "v1")
@@ -1104,6 +1427,7 @@ async def faiss_rebuild(api_key: str = Depends(get_api_key)):
     if os.getenv("VECTOR_STORE_BACKEND", "memory") != "faiss":
         return {"rebuilt": False, "reason": "backend_not_faiss"}
     from src.core.similarity import FaissVectorStore  # type: ignore
+
     store = FaissVectorStore()
     ok = store.rebuild()  # type: ignore[attr-defined]
     return {"rebuilt": ok, "message": "Index rebuilt successfully" if ok else "Rebuild failed"}
@@ -1111,11 +1435,15 @@ async def faiss_rebuild(api_key: str = Depends(get_api_key)):
 
 @router.post("/vectors/update", response_model=VectorUpdateResponse)
 async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get_api_key)):
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
+    from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+
     # create_extended_error and ErrorCode imported at module level
     from src.utils.analysis_metrics import analysis_error_code_total
+
     if payload.id not in _VECTOR_STORE:
-        ext = create_extended_error(ErrorCode.DATA_NOT_FOUND, "Vector not found", stage="vector_update", id=payload.id)
+        ext = create_extended_error(
+            ErrorCode.DATA_NOT_FOUND, "Vector not found", stage="vector_update", id=payload.id
+        )
         analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
         return VectorUpdateResponse(id=payload.id, status="not_found", error=ext.to_dict())
     vec = _VECTOR_STORE[payload.id]
@@ -1137,13 +1465,21 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
                     )
                     analysis_error_code_total.labels(code=ErrorCode.DIMENSION_MISMATCH.value).inc()
                     from src.utils.analysis_metrics import vector_dimension_rejections_total
-                    vector_dimension_rejections_total.labels(reason="dimension_mismatch_replace").inc()
+
+                    vector_dimension_rejections_total.labels(
+                        reason="dimension_mismatch_replace"
+                    ).inc()
                     raise HTTPException(status_code=409, detail=err)
                 return VectorUpdateResponse(
                     id=payload.id,
                     status="dimension_mismatch",
                     dimension=original_dim,
-                    error={"code": ErrorCode.DIMENSION_MISMATCH.value, "expected": original_dim, "found": len(payload.replace), "id": payload.id},
+                    error={
+                        "code": ErrorCode.DIMENSION_MISMATCH.value,
+                        "expected": original_dim,
+                        "found": len(payload.replace),
+                        "id": payload.id,
+                    },
                 )
             _VECTOR_STORE[payload.id] = [float(x) for x in payload.replace]
         elif payload.append is not None:
@@ -1161,7 +1497,10 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
                     )
                     analysis_error_code_total.labels(code=ErrorCode.DIMENSION_MISMATCH.value).inc()
                     from src.utils.analysis_metrics import vector_dimension_rejections_total
-                    vector_dimension_rejections_total.labels(reason="dimension_mismatch_append").inc()
+
+                    vector_dimension_rejections_total.labels(
+                        reason="dimension_mismatch_append"
+                    ).inc()
                     raise HTTPException(status_code=409, detail=err)
             _VECTOR_STORE[payload.id] = vec + [float(float(x)) for x in payload.append]
         # update meta
@@ -1188,10 +1527,11 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
 @router.post("/vectors/migrate", response_model=VectorMigrateResponse)
 async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(get_api_key)):
     """在线迁移指定向量到目标特征版本 (重算特征并替换)."""
-    from src.core.similarity import _VECTOR_STORE, _VECTOR_META  # type: ignore
-    from src.models.cad_document import CadDocument
     from src.core.feature_extractor import FeatureExtractor
+    from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+    from src.models.cad_document import CadDocument
     from src.utils.cache import get_cached_result
+
     items: list[VectorMigrateItem] = []
     migrated = 0
     skipped = 0
@@ -1202,23 +1542,49 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
     for vid in payload.ids:
         meta = _VECTOR_META.get(vid, {})
         if vid not in _VECTOR_STORE:
-            items.append(VectorMigrateItem(id=vid, status="not_found", to_version=payload.to_version, error="vector_missing"))
+            items.append(
+                VectorMigrateItem(
+                    id=vid,
+                    status="not_found",
+                    to_version=payload.to_version,
+                    error="vector_missing",
+                )
+            )
             skipped += 1
             continue
         from_version = meta.get("feature_version", default_version)
         original_dim = len(_VECTOR_STORE[vid])
         if from_version == payload.to_version:
-            items.append(VectorMigrateItem(id=vid, status="skipped", from_version=from_version, to_version=payload.to_version, dimension_before=original_dim, dimension_after=original_dim))
+            items.append(
+                VectorMigrateItem(
+                    id=vid,
+                    status="skipped",
+                    from_version=from_version,
+                    to_version=payload.to_version,
+                    dimension_before=original_dim,
+                    dimension_after=original_dim,
+                )
+            )
             skipped += 1
             continue
         cached = await get_cached_result(f"analysis_result:{vid}")
         if not cached:
-            items.append(VectorMigrateItem(id=vid, status="skipped", from_version=from_version, to_version=payload.to_version, error="cached_result_missing"))
+            items.append(
+                VectorMigrateItem(
+                    id=vid,
+                    status="skipped",
+                    from_version=from_version,
+                    to_version=payload.to_version,
+                    error="cached_result_missing",
+                )
+            )
             skipped += 1
             continue
         stats = cached.get("statistics", {})
         bbox = stats.get("bounding_box", {})
-        doc = CadDocument(file_name=cached.get("file_name", vid), format=cached.get("file_format", "unknown"))
+        doc = CadDocument(
+            file_name=cached.get("file_name", vid), format=cached.get("file_format", "unknown")
+        )
         doc.bounding_box.min_x = bbox.get("min_x", 0.0)
         doc.bounding_box.min_y = bbox.get("min_y", 0.0)
         doc.bounding_box.min_z = bbox.get("min_z", 0.0)
@@ -1229,27 +1595,60 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
         extractor = FeatureExtractor(feature_version=payload.to_version)
         try:
             new_features = await extractor.extract(doc)
-            new_vector = [*new_features.get("geometric", []), *new_features.get("semantic", [])]
+            new_vector = extractor.flatten(new_features)
             if payload.dry_run:
-                items.append(VectorMigrateItem(id=vid, status="dry_run", from_version=from_version, to_version=payload.to_version, dimension_before=original_dim, dimension_after=len(new_vector)))
+                items.append(
+                    VectorMigrateItem(
+                        id=vid,
+                        status="dry_run",
+                        from_version=from_version,
+                        to_version=payload.to_version,
+                        dimension_before=original_dim,
+                        dimension_after=len(new_vector),
+                    )
+                )
                 skipped += 1
                 dry_run_total += 1
             else:
+                from src.core.vector_layouts import VECTOR_LAYOUT_BASE
+
                 _VECTOR_STORE[vid] = [float(x) for x in new_vector]
-                meta.update({
-                    "feature_version": payload.to_version,
-                    "geometric_dim": str(len(new_features.get("geometric", []))),
-                    "semantic_dim": str(len(new_features.get("semantic", []))),
-                    "total_dim": str(len(new_vector)),
-                })
-                items.append(VectorMigrateItem(id=vid, status="migrated", from_version=from_version, to_version=payload.to_version, dimension_before=original_dim, dimension_after=len(new_vector)))
+                meta.update(
+                    {
+                        "feature_version": payload.to_version,
+                        "geometric_dim": str(len(new_features.get("geometric", []))),
+                        "semantic_dim": str(len(new_features.get("semantic", []))),
+                        "total_dim": str(len(new_vector)),
+                        "vector_layout": VECTOR_LAYOUT_BASE,
+                    }
+                )
+                meta.pop("l3_3d_dim", None)
+                items.append(
+                    VectorMigrateItem(
+                        id=vid,
+                        status="migrated",
+                        from_version=from_version,
+                        to_version=payload.to_version,
+                        dimension_before=original_dim,
+                        dimension_after=len(new_vector),
+                    )
+                )
                 migrated += 1
         except Exception as e:
-            items.append(VectorMigrateItem(id=vid, status="error", from_version=from_version, to_version=payload.to_version, error=str(e)))
+            items.append(
+                VectorMigrateItem(
+                    id=vid,
+                    status="error",
+                    from_version=from_version,
+                    to_version=payload.to_version,
+                    error=str(e),
+                )
+            )
             skipped += 1
     finished_at = datetime.now(timezone.utc)
     try:
         import src.core.similarity as _sim  # type: ignore
+
         if not hasattr(_sim, "_MIGRATION_STATUS"):
             _sim._MIGRATION_STATUS = {}
         hist = _sim._MIGRATION_STATUS.get("history", [])
@@ -1295,11 +1694,13 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
 async def vector_migration_status(api_key: str = Depends(get_api_key)):
     import src.core.similarity as _sim  # type: ignore
     from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+
     versions: Dict[str, int] = {}
     for meta in _VECTOR_META.values():
         ver = meta.get("feature_version", "unknown")
         versions[ver] = versions.get(ver, 0) + 1
     st = getattr(_sim, "_MIGRATION_STATUS", {})
+
     def _dt(val: Optional[str]):
         if not val:
             return None
@@ -1307,6 +1708,7 @@ async def vector_migration_status(api_key: str = Depends(get_api_key)):
             return datetime.fromisoformat(val)
         except Exception:
             return None
+
     return VectorMigrationStatusResponse(
         last_migration_id=st.get("last_migration_id"),
         last_started_at=_dt(st.get("last_started_at")),
@@ -1318,6 +1720,8 @@ async def vector_migration_status(api_key: str = Depends(get_api_key)):
         feature_versions=versions,
         history=st.get("history"),
     )
+
+
 class FeaturesDiffResponse(BaseModel):
     id_a: str
     id_b: str
@@ -1325,16 +1729,16 @@ class FeaturesDiffResponse(BaseModel):
     diffs: list[Dict[str, Any]]
     status: str
     error: Optional[Dict[str, Any]] = None
+
+
 @router.get("/features/diff", response_model=FeaturesDiffResponse, deprecated=True)
 async def features_diff_deprecated(id_a: str, id_b: str, api_key: str = Depends(get_api_key)):
     """Deprecated: moved to /api/v1/features/diff"""
     raise HTTPException(
         status_code=410,
         detail=create_migration_error(
-            old_path="/api/v1/analyze/features/diff",
-            new_path="/api/v1/features/diff",
-            method="GET"
-        )
+            old_path="/api/v1/analyze/features/diff", new_path="/api/v1/features/diff", method="GET"
+        ),
     )
 
 
@@ -1350,6 +1754,8 @@ class ModelReloadResponse(BaseModel):
     hash: Optional[str] = None
     error: Optional[Dict[str, Any]] = None
 
+    model_config = ConfigDict(protected_namespaces=())
+
 
 @router.post("/model/reload", response_model=ModelReloadResponse, deprecated=True)
 async def model_reload_deprecated(payload: ModelReloadRequest, api_key: str = Depends(get_api_key)):
@@ -1357,10 +1763,8 @@ async def model_reload_deprecated(payload: ModelReloadRequest, api_key: str = De
     raise HTTPException(
         status_code=410,
         detail=create_migration_error(
-            old_path="/api/v1/analyze/model/reload",
-            new_path="/api/v1/model/reload",
-            method="POST"
-        )
+            old_path="/api/v1/analyze/model/reload", new_path="/api/v1/model/reload", method="POST"
+        ),
     )
 
 
@@ -1385,8 +1789,8 @@ async def cleanup_orphan_vectors_deprecated(
         detail=create_migration_error(
             old_path="/api/v1/analyze/vectors/orphans",
             new_path="/api/v1/maintenance/orphans",
-            method="DELETE"
-        )
+            method="DELETE",
+        ),
     )
 
 
@@ -1407,6 +1811,7 @@ class DriftStatusResponse(BaseModel):
     baseline_prediction_created_at: Optional[datetime] = None
     stale: Optional[bool] = None
 
+
 class DriftResetResponse(BaseModel):
     status: str
     reset_material: bool
@@ -1415,19 +1820,42 @@ class DriftResetResponse(BaseModel):
 
 @router.get("/drift", response_model=DriftStatusResponse)
 async def drift_status(api_key: str = Depends(get_api_key)):
+    import os
     import time
     from collections import Counter
-    import os
+
     min_count = int(os.getenv("DRIFT_BASELINE_MIN_COUNT", "100"))
+    max_age = int(os.getenv("DRIFT_BASELINE_MAX_AGE_SECONDS", "86400"))
+    auto_refresh_enabled = os.getenv("DRIFT_BASELINE_AUTO_REFRESH", "1") == "1"
     mats = _DRIFT_STATE["materials"]
     preds = _DRIFT_STATE["predictions"]
     material_current_counts = dict(Counter(mats))
     prediction_current_counts = dict(Counter(preds))
-    material_baseline_counts = dict(Counter(_DRIFT_STATE["baseline_materials"])) if _DRIFT_STATE["baseline_materials"] else None
-    prediction_baseline_counts = dict(Counter(_DRIFT_STATE["baseline_predictions"])) if _DRIFT_STATE["baseline_predictions"] else None
+    material_baseline_counts = (
+        dict(Counter(_DRIFT_STATE["baseline_materials"]))
+        if _DRIFT_STATE["baseline_materials"]
+        else None
+    )
+    prediction_baseline_counts = (
+        dict(Counter(_DRIFT_STATE["baseline_predictions"]))
+        if _DRIFT_STATE["baseline_predictions"]
+        else None
+    )
     from src.utils.drift import compute_drift
+
     mat_score = None
     if material_baseline_counts:
+        material_age = int(time.time() - _DRIFT_STATE.get("baseline_materials_ts", 0))
+        if auto_refresh_enabled and material_age > max_age and len(mats) >= min_count:
+            _DRIFT_STATE["baseline_materials"] = list(mats)
+            _DRIFT_STATE["baseline_materials_ts"] = time.time()
+            try:
+                from src.utils.analysis_metrics import drift_baseline_refresh_total
+
+                drift_baseline_refresh_total.labels(type="material", trigger="stale").inc()
+            except Exception:
+                pass
+            material_baseline_counts = dict(Counter(mats))
         mat_score = compute_drift(mats, _DRIFT_STATE["baseline_materials"])  # type: ignore
     else:
         # establish baseline when threshold met
@@ -1436,11 +1864,23 @@ async def drift_status(api_key: str = Depends(get_api_key)):
             _DRIFT_STATE["baseline_materials_ts"] = time.time()
             try:
                 from src.utils.analysis_metrics import drift_baseline_created_total
+
                 drift_baseline_created_total.labels(type="material").inc()
             except Exception:
                 pass
     pred_score = None
     if prediction_baseline_counts:
+        prediction_age = int(time.time() - _DRIFT_STATE.get("baseline_predictions_ts", 0))
+        if auto_refresh_enabled and prediction_age > max_age and len(preds) >= min_count:
+            _DRIFT_STATE["baseline_predictions"] = list(preds)
+            _DRIFT_STATE["baseline_predictions_ts"] = time.time()
+            try:
+                from src.utils.analysis_metrics import drift_baseline_refresh_total
+
+                drift_baseline_refresh_total.labels(type="prediction", trigger="stale").inc()
+            except Exception:
+                pass
+            prediction_baseline_counts = dict(Counter(preds))
         pred_score = compute_drift(preds, _DRIFT_STATE["baseline_predictions"])  # type: ignore
     else:
         if len(preds) >= min_count:
@@ -1448,6 +1888,7 @@ async def drift_status(api_key: str = Depends(get_api_key)):
             _DRIFT_STATE["baseline_predictions_ts"] = time.time()
             try:
                 from src.utils.analysis_metrics import drift_baseline_created_total
+
                 drift_baseline_created_total.labels(type="prediction").inc()
             except Exception:
                 pass
@@ -1456,36 +1897,63 @@ async def drift_status(api_key: str = Depends(get_api_key)):
     baseline_prediction_age = None
     # Use first timestamp index to approximate age (list length as proxy)
     if _DRIFT_STATE["baseline_materials_ts"]:
-        baseline_material_age = int(time.time() - _DRIFT_STATE["baseline_materials_ts"])  # seconds since baseline snapshot
+        baseline_material_age = int(
+            time.time() - _DRIFT_STATE["baseline_materials_ts"]
+        )  # seconds since baseline snapshot
         try:
             from src.utils.analysis_metrics import baseline_material_age_seconds
+
             baseline_material_age_seconds.set(baseline_material_age)
         except Exception:
             pass
     if _DRIFT_STATE["baseline_predictions_ts"]:
-        baseline_prediction_age = int(time.time() - _DRIFT_STATE["baseline_predictions_ts"])  # seconds since baseline snapshot
+        baseline_prediction_age = int(
+            time.time() - _DRIFT_STATE["baseline_predictions_ts"]
+        )  # seconds since baseline snapshot
         try:
             from src.utils.analysis_metrics import baseline_prediction_age_seconds
+
             baseline_prediction_age_seconds.set(baseline_prediction_age)
         except Exception:
             pass
     stale_flag = None
     try:
-        max_age = int(os.getenv("DRIFT_BASELINE_MAX_AGE_SECONDS", "86400"))  # default 24h
-        if baseline_material_age and baseline_material_age > max_age:
+        if baseline_material_age is not None and baseline_material_age > max_age:
             stale_flag = True
-        if baseline_prediction_age and baseline_prediction_age > max_age:
-            stale_flag = True if stale_flag is None else stale_flag or True
-        if stale_flag is None and (baseline_material_age or baseline_prediction_age):
+        if baseline_prediction_age is not None and baseline_prediction_age > max_age:
+            stale_flag = True
+        if stale_flag is None and (
+            baseline_material_age is not None or baseline_prediction_age is not None
+        ):
             stale_flag = False
     except Exception:
         pass
     baseline_material_created_at = None
     baseline_prediction_created_at = None
     if _DRIFT_STATE.get("baseline_materials_ts"):
-        baseline_material_created_at = datetime.fromtimestamp(_DRIFT_STATE["baseline_materials_ts"], tz=timezone.utc)
+        baseline_material_created_at = datetime.fromtimestamp(
+            _DRIFT_STATE["baseline_materials_ts"], tz=timezone.utc
+        )
+        if _DRIFT_STATE.get("baseline_materials_startup_mark") is None:
+            try:
+                from src.utils.analysis_metrics import drift_baseline_refresh_total
+
+                drift_baseline_refresh_total.labels(type="material", trigger="startup").inc()
+            except Exception:
+                pass
+            _DRIFT_STATE["baseline_materials_startup_mark"] = True
     if _DRIFT_STATE.get("baseline_predictions_ts"):
-        baseline_prediction_created_at = datetime.fromtimestamp(_DRIFT_STATE["baseline_predictions_ts"], tz=timezone.utc)
+        baseline_prediction_created_at = datetime.fromtimestamp(
+            _DRIFT_STATE["baseline_predictions_ts"], tz=timezone.utc
+        )
+        if _DRIFT_STATE.get("baseline_predictions_startup_mark") is None:
+            try:
+                from src.utils.analysis_metrics import drift_baseline_refresh_total
+
+                drift_baseline_refresh_total.labels(type="prediction", trigger="startup").inc()
+            except Exception:
+                pass
+            _DRIFT_STATE["baseline_predictions_startup_mark"] = True
     return DriftStatusResponse(
         material_current=material_current_counts,
         material_baseline=material_baseline_counts,
@@ -1518,11 +1986,13 @@ async def drift_reset(api_key: str = Depends(get_api_key)):
     try:
         client = __import__("src.utils.cache", fromlist=["get_client"]).get_client()
         if client is not None:
-            client.delete("baseline:material")  # type: ignore[attr-defined]
-            client.delete("baseline:class")  # type: ignore[attr-defined]
+            await client.delete("baseline:material")  # type: ignore[attr-defined]
+            await client.delete("baseline:class")  # type: ignore[attr-defined]
     except Exception:
         pass
-    return DriftResetResponse(status="ok", reset_material=reset_material, reset_predictions=reset_predictions)
+    return DriftResetResponse(
+        status="ok", reset_material=reset_material, reset_predictions=reset_predictions
+    )
 
 
 class DriftBaselineStatusResponse(BaseModel):
@@ -1537,6 +2007,7 @@ class DriftBaselineStatusResponse(BaseModel):
 
 class FeatureCacheStatsResponse(BaseModel):
     """(Deprecated location) Moved to health.py"""
+
     status: str
     size: int
     capacity: int
@@ -1549,6 +2020,7 @@ class FeatureCacheStatsResponse(BaseModel):
 
 class FaissHealthResponse(BaseModel):
     """(Deprecated location) Moved to health.py"""
+
     available: bool
     index_size: Optional[int]
     dim: Optional[int]
@@ -1567,14 +2039,16 @@ async def feature_cache_stats(api_key: str = Depends(get_api_key)):
         detail=create_migration_error(
             old_path="/api/v1/analyze/features/cache",
             new_path="/api/v1/health/features/cache",
-            method="GET"
-        )
+            method="GET",
+        ),
     )
 
 
 @router.get("/drift/baseline/status", response_model=DriftBaselineStatusResponse)
 async def drift_baseline_status(api_key: str = Depends(get_api_key)):
-    import os, time
+    import os
+    import time
+
     max_age = int(os.getenv("DRIFT_BASELINE_MAX_AGE_SECONDS", "86400"))
     material_age = None
     prediction_age = None
@@ -1582,10 +2056,14 @@ async def drift_baseline_status(api_key: str = Depends(get_api_key)):
     prediction_created_at = None
     if _DRIFT_STATE.get("baseline_materials_ts"):
         material_age = int(time.time() - _DRIFT_STATE["baseline_materials_ts"])
-        material_created_at = datetime.fromtimestamp(_DRIFT_STATE["baseline_materials_ts"], tz=timezone.utc)
+        material_created_at = datetime.fromtimestamp(
+            _DRIFT_STATE["baseline_materials_ts"], tz=timezone.utc
+        )
     if _DRIFT_STATE.get("baseline_predictions_ts"):
         prediction_age = int(time.time() - _DRIFT_STATE["baseline_predictions_ts"])
-        prediction_created_at = datetime.fromtimestamp(_DRIFT_STATE["baseline_predictions_ts"], tz=timezone.utc)
+        prediction_created_at = datetime.fromtimestamp(
+            _DRIFT_STATE["baseline_predictions_ts"], tz=timezone.utc
+        )
     stale_flag = None
     if material_age and material_age > max_age:
         stale_flag = True
@@ -1613,10 +2091,8 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
     raise HTTPException(
         status_code=410,
         detail=create_migration_error(
-            old_path="/api/v1/analyze/faiss/health",
-            new_path="/api/v1/health/faiss",
-            method="GET"
-        )
+            old_path="/api/v1/analyze/faiss/health", new_path="/api/v1/health/faiss", method="GET"
+        ),
     )
 
 
@@ -1625,9 +2101,14 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
 @router.get("/{analysis_id}")
 async def get_analysis_result(analysis_id: str, api_key: str = Depends(get_api_key)):
     """获取分析结果"""
-    # TODO: 从数据库或缓存获取历史分析结果
+    # 从缓存或落盘存储获取历史分析结果
     cache_key = f"analysis_result:{analysis_id}"
     result = await get_cached_result(cache_key)
+
+    if not result:
+        result = await load_analysis_result(analysis_id)
+        if result:
+            await set_cache(cache_key, result, ttl_seconds=3600)
 
     if not result:
         raise HTTPException(status_code=404, detail="Analysis not found")

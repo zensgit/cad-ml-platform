@@ -195,9 +195,7 @@ class QuotaManager:
                 cost_pct = 0.0
 
                 if limit.max_tokens and estimated_tokens:
-                    token_pct = (
-                        usage.tokens_used + estimated_tokens
-                    ) / limit.max_tokens
+                    token_pct = (usage.tokens_used + estimated_tokens) / limit.max_tokens
 
                 if limit.max_cost and estimated_cost:
                     cost_pct = (usage.cost_used + estimated_cost) / limit.max_cost
@@ -207,9 +205,7 @@ class QuotaManager:
 
                 # Check for warnings
                 if usage_pct >= limit.warning_threshold:
-                    warnings.append(
-                        f"{limit.period.value}: {usage_pct:.1%} of quota used"
-                    )
+                    warnings.append(f"{limit.period.value}: {usage_pct:.1%} of quota used")
 
                 # Check if exceeded
                 if usage_pct >= 1.0:
@@ -257,9 +253,7 @@ class QuotaManager:
         """Get current usage for a provider."""
         return self._usage.get(provider_id, {})
 
-    def reset_usage(
-        self, provider_id: str, period: Optional[QuotaPeriod] = None
-    ) -> None:
+    def reset_usage(self, provider_id: str, period: Optional[QuotaPeriod] = None) -> None:
         """Reset usage for a provider."""
         usage_dict = self._usage.get(provider_id, {})
 
@@ -270,9 +264,7 @@ class QuotaManager:
             for usage in usage_dict.values():
                 usage.reset()
 
-    def get_remaining(
-        self, provider_id: str
-    ) -> Dict[QuotaPeriod, Dict[str, Union[int, float]]]:
+    def get_remaining(self, provider_id: str) -> Dict[QuotaPeriod, Dict[str, Union[int, float]]]:
         """Get remaining quota for each period."""
         limits = self._limits.get(provider_id, [])
         usage_dict = self._usage.get(provider_id, {})
@@ -285,15 +277,11 @@ class QuotaManager:
 
             period_remaining: Dict[str, Union[int, float]] = {
                 "requests": max(0, limit.max_requests - usage.requests_used),
-                "seconds_until_reset": max(
-                    0, (usage.period_end - datetime.now()).total_seconds()
-                ),
+                "seconds_until_reset": max(0, (usage.period_end - datetime.now()).total_seconds()),
             }
 
             if limit.max_tokens:
-                period_remaining["tokens"] = max(
-                    0, limit.max_tokens - usage.tokens_used
-                )
+                period_remaining["tokens"] = max(0, limit.max_tokens - usage.tokens_used)
 
             if limit.max_cost:
                 period_remaining["cost"] = max(0, limit.max_cost - usage.cost_used)
@@ -345,9 +333,7 @@ class Throttler:
         if not self._state.recent_latencies:
             return self._config.min_delay_ms / 1000.0
 
-        avg_latency = sum(self._state.recent_latencies) / len(
-            self._state.recent_latencies
-        )
+        avg_latency = sum(self._state.recent_latencies) / len(self._state.recent_latencies)
         target = self._config.adaptive_target_latency_ms
 
         if avg_latency > target:
@@ -399,9 +385,7 @@ class Throttler:
         window_start = now - 1.0  # 1 second window
 
         # Remove old requests
-        self._state.window_requests = [
-            t for t in self._state.window_requests if t > window_start
-        ]
+        self._state.window_requests = [t for t in self._state.window_requests if t > window_start]
 
         if len(self._state.window_requests) < self._config.requests_per_second:
             self._state.window_requests.append(now)
@@ -444,9 +428,7 @@ class QuotaVisionProvider:
         quota_manager: QuotaManager,
         throttler: Optional[Throttler] = None,
         provider_id: Optional[str] = None,
-        on_quota_exceeded: Optional[
-            Callable[[QuotaCheckResult], None]
-        ] = None,
+        on_quota_exceeded: Optional[Callable[[QuotaCheckResult], None]] = None,
         fallback_provider: Optional[VisionProvider] = None,
     ) -> None:
         """Initialize quota-managed provider."""
@@ -680,9 +662,7 @@ def create_quota_provider(
     quota_preset: str = "standard",
     throttle_preset: str = "moderate",
     fallback_provider: Optional[VisionProvider] = None,
-    on_quota_exceeded: Optional[
-        Callable[[QuotaCheckResult], None]
-    ] = None,
+    on_quota_exceeded: Optional[Callable[[QuotaCheckResult], None]] = None,
 ) -> QuotaVisionProvider:
     """Create a quota-managed vision provider.
 

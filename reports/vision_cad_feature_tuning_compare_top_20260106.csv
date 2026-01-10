@@ -1,0 +1,11 @@
+combo_index,status,sample,lines_delta,circles_delta,arcs_delta,ink_ratio_delta,components_delta,thresholds
+1,ok,BTJ01231501522-00短轴承座(盖)v1__d80be3da.png,-8,-1,0,0.0,-9,"arc_fill_min=0.08, circle_fill_min=0.4, line_aspect=6.0, line_elongation=8.0, min_area=24.0"
+1,ok,BTJ01231501522-00短轴承座(盖)v2__923f3197.png,-8,-1,0,0.0,-9,"arc_fill_min=0.08, circle_fill_min=0.4, line_aspect=6.0, line_elongation=8.0, min_area=24.0"
+1,ok,BTJ01231501522-00短轴承座(盖)v3__42db91c9.png,-8,-1,0,0.0,-9,"arc_fill_min=0.08, circle_fill_min=0.4, line_aspect=6.0, line_elongation=8.0, min_area=24.0"
+1,ok,BTJ01230901522-00汽水分离器v1__f36cd05a.png,-5,-3,0,0.0,-8,"arc_fill_min=0.08, circle_fill_min=0.4, line_aspect=6.0, line_elongation=8.0, min_area=24.0"
+1,ok,BTJ01230901522-00汽水分离器v2__9f41a97f.png,-5,-3,0,0.0,-8,"arc_fill_min=0.08, circle_fill_min=0.4, line_aspect=6.0, line_elongation=8.0, min_area=24.0"
+1,ok,BTJ01231101522-00自动进料装置v1__ed0666ed.png,-7,0,1,0.0,-6,"arc_fill_min=0.08, circle_fill_min=0.4, line_aspect=6.0, line_elongation=8.0, min_area=24.0"
+1,ok,BTJ01231101522-00自动进料装置v2__e0007441.png,-7,0,1,0.0,-6,"arc_fill_min=0.08, circle_fill_min=0.4, line_aspect=6.0, line_elongation=8.0, min_area=24.0"
+1,ok,BTJ01239901522-00拖轮组件v1__f953a9aa.png,-6,-1,1,0.0,-6,"arc_fill_min=0.08, circle_fill_min=0.4, line_aspect=6.0, line_elongation=8.0, min_area=24.0"
+1,ok,BTJ01231201522-00拖车DN1500v1__367bd8de.png,-2,-3,0,0.0,-5,"arc_fill_min=0.08, circle_fill_min=0.4, line_aspect=6.0, line_elongation=8.0, min_area=24.0"
+1,ok,BTJ01231201522-00拖车DN1500v2__6da497fb.png,-2,-3,0,0.0,-5,"arc_fill_min=0.08, circle_fill_min=0.4, line_aspect=6.0, line_elongation=8.0, min_area=24.0"

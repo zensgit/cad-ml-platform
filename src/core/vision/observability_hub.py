@@ -178,11 +178,13 @@ class Span:
 
     def log(self, message: str, **kwargs: Any) -> None:
         """Add a log entry to the span."""
-        self.logs.append({
-            "timestamp": datetime.now().isoformat(),
-            "message": message,
-            **kwargs,
-        })
+        self.logs.append(
+            {
+                "timestamp": datetime.now().isoformat(),
+                "message": message,
+                **kwargs,
+            }
+        )
 
 
 @dataclass
@@ -331,7 +333,9 @@ class MetricsCollector:
         """Record a timer value."""
         self.histogram(name, duration_ms, labels)
 
-    def get_metric(self, name: str, labels: Optional[Dict[str, str]] = None) -> Optional[MetricSeries]:
+    def get_metric(
+        self, name: str, labels: Optional[Dict[str, str]] = None
+    ) -> Optional[MetricSeries]:
         """Get a metric series."""
         key = self._make_key(name, labels)
         with self._lock:
@@ -515,6 +519,7 @@ class TraceManager:
     def _should_sample(self) -> bool:
         """Determine if a trace should be sampled."""
         import random
+
         return random.random() < self._config.trace_sample_rate
 
 
@@ -966,8 +971,7 @@ class ObservabilityHub:
             "health": {
                 "overall": self._health.get_overall_status().value,
                 "checks": {
-                    name: result.status.value
-                    for name, result in self._health._results.items()
+                    name: result.status.value for name, result in self._health._results.items()
                 },
             },
             "metrics": {
@@ -979,9 +983,7 @@ class ObservabilityHub:
             },
             "alerts": {
                 "firing": len(self._alerts.get_firing_alerts()),
-                "critical": len(
-                    self._alerts.get_alerts_by_severity(AlertSeverity.CRITICAL)
-                ),
+                "critical": len(self._alerts.get_alerts_by_severity(AlertSeverity.CRITICAL)),
             },
             "slos": {
                 slo.name: self._slo_tracker.get_slo_status(slo.slo_id)
@@ -1055,9 +1057,7 @@ class ObservableVisionProvider(VisionProvider):
         start_time = time.time()
 
         try:
-            result = await self._base_provider.analyze_image(
-                image_data, include_description
-            )
+            result = await self._base_provider.analyze_image(image_data, include_description)
 
             duration_ms = (time.time() - start_time) * 1000
 

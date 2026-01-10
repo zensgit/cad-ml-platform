@@ -5,12 +5,12 @@ Phase 8: Real-time Sync
 import logging
 from typing import Any, Dict
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
+from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 
-from src.core.twin.sync import twin_sync
-from src.core.twin.ingest import get_ingestor, get_store
-from src.core.twin.connectivity import TelemetryFrame
 from src.api.dependencies import get_api_key
+from src.core.twin.connectivity import TelemetryFrame
+from src.core.twin.ingest import get_ingestor, get_store
+from src.core.twin.sync import twin_sync
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -50,14 +50,13 @@ async def websocket_endpoint(websocket: WebSocket, asset_id: str) -> None:
 
             # Echo back current state
             state = twin_sync.get_state(asset_id)
-            await websocket.send_json({
-                "type": "state_snapshot",
-                "asset_id": asset_id,
-                "state": state
-            })
+            await websocket.send_json(
+                {"type": "state_snapshot", "asset_id": asset_id, "state": state}
+            )
 
     except WebSocketDisconnect:
         logger.info(f"Client disconnected from twin {asset_id}")
+
 
 @router.post("/{asset_id}/telemetry")
 async def ingest_telemetry(asset_id: str, telemetry: Dict[str, Any]) -> Dict[str, Any]:
@@ -78,6 +77,7 @@ async def ingest_telemetry(asset_id: str, telemetry: Dict[str, Any]) -> Dict[str
     )
     result = await ingestor.handle_payload(frame, topic=f"http/{asset_id}")
     return {"status": "accepted", "ingest": result}
+
 
 @router.get("/{asset_id}/state")
 async def get_twin_state(asset_id: str) -> Dict[str, Any]:

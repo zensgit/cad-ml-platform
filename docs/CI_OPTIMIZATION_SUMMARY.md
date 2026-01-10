@@ -116,12 +116,19 @@ env:
 # Complete E2E workflow
 make eval-e2e         # Full end-to-end evaluation
 make eval-full        # Alias for eval-e2e
+make e2e-smoke        # API + dedupcad-vision smoke regression
+# Override image (CI): DEDUPCAD_VISION_IMAGE=ghcr.io/zensgit/dedupcad-vision@sha256:9f7f567e3b0c1c882f9a363f1b1cb095d30d9e9b184e582d6b19ec7446a86251
 
 # Workflow steps:
 1. Run combined evaluation
 2. Generate trend charts
 3. Generate interactive report
 4. Run validation
+
+**CI note**: the `e2e-smoke` job starts a pinned GHCR `dedupcad-vision` image
+(override via `DEDUPCAD_VISION_IMAGE`) and enforces contract tests
+(`DEDUPCAD_VISION_REQUIRED=1`). GHCR requires public access or `packages:read`
+permissions + login; the stub remains a local fallback.
 ```
 
 ### 5. Workflow Improvements ✅
@@ -170,6 +177,8 @@ make eval-full        # Alias for eval-e2e
    ```bash
    make eval-e2e           # End-to-end workflow
    ```
+   Optional: faiss perf tests are gated behind env vars; see `README.md` and
+   `docs/OPERATIONAL_RUNBOOK.md` for strict-warning caveats.
 
 ### Git Hook Installation (Optional)
 ```bash

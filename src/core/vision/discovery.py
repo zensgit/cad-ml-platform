@@ -162,9 +162,7 @@ class CapabilityDiscovery:
     def __init__(self) -> None:
         """Initialize capability discovery."""
         self._providers: Dict[str, ProviderCapabilities] = {}
-        self._capability_tests: Dict[
-            Capability, Callable[[VisionProvider], bool]
-        ] = {}
+        self._capability_tests: Dict[Capability, Callable[[VisionProvider], bool]] = {}
 
     def register_provider(
         self,
@@ -193,9 +191,7 @@ class CapabilityDiscovery:
         """Unregister a provider."""
         self._providers.pop(provider_name, None)
 
-    def get_provider_capabilities(
-        self, provider_name: str
-    ) -> Optional[ProviderCapabilities]:
+    def get_provider_capabilities(self, provider_name: str) -> Optional[ProviderCapabilities]:
         """Get capabilities for a provider."""
         return self._providers.get(provider_name)
 
@@ -211,9 +207,7 @@ class CapabilityDiscovery:
         if provider_name not in self._providers:
             self.register_provider(provider_name)
 
-        self._providers[provider_name].add_capability(
-            capability, status, version, limits
-        )
+        self._providers[provider_name].add_capability(capability, status, version, limits)
 
     def register_capability_test(
         self,
@@ -343,15 +337,9 @@ class CapabilityDiscovery:
         results.sort(key=lambda r: r.score, reverse=True)
         return results
 
-    def get_providers_with_capability(
-        self, capability: Capability
-    ) -> List[str]:
+    def get_providers_with_capability(self, capability: Capability) -> List[str]:
         """Get providers with a specific capability."""
-        return [
-            name
-            for name, caps in self._providers.items()
-            if caps.has_capability(capability)
-        ]
+        return [name for name, caps in self._providers.items() if caps.has_capability(capability)]
 
     def get_all_providers(self) -> List[str]:
         """Get all registered providers."""

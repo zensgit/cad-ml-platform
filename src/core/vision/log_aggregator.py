@@ -28,7 +28,6 @@ from typing import Any, Callable, Dict, List, Optional, Pattern, Set, Tuple, Typ
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -227,10 +226,7 @@ class JSONLogParser(LogParser):
             timestamp_field = self._config.field_mappings.get("timestamp", "timestamp")
             timestamp_str = data.get(timestamp_field, "")
             try:
-                timestamp = datetime.strptime(
-                    timestamp_str,
-                    self._config.timestamp_format
-                )
+                timestamp = datetime.strptime(timestamp_str, self._config.timestamp_format)
             except (ValueError, TypeError):
                 timestamp = datetime.now()
 
@@ -252,10 +248,12 @@ class JSONLogParser(LogParser):
                 host=data.get("host", ""),
                 trace_id=data.get("trace_id"),
                 span_id=data.get("span_id"),
-                fields={k: v for k, v in data.items() if k not in [
-                    timestamp_field, level_field, message_field
-                ]},
-                raw=raw_log
+                fields={
+                    k: v
+                    for k, v in data.items()
+                    if k not in [timestamp_field, level_field, message_field]
+                },
+                raw=raw_log,
             )
 
         except json.JSONDecodeError:
@@ -283,10 +281,7 @@ class RegexLogParser(LogParser):
         # Extract timestamp
         timestamp_str = groups.get("timestamp", "")
         try:
-            timestamp = datetime.strptime(
-                timestamp_str,
-                self._config.timestamp_format
-            )
+            timestamp = datetime.strptime(timestamp_str, self._config.timestamp_format)
         except (ValueError, TypeError):
             timestamp = datetime.now()
 
@@ -301,9 +296,8 @@ class RegexLogParser(LogParser):
             message=groups.get("message", raw_log),
             service=groups.get("service", ""),
             host=groups.get("host", ""),
-            fields={k: v for k, v in groups.items()
-                    if k not in ["timestamp", "level", "message"]},
-            raw=raw_log
+            fields={k: v for k, v in groups.items() if k not in ["timestamp", "level", "message"]},
+            raw=raw_log,
         )
 
 
@@ -349,7 +343,7 @@ class SyslogParser(LogParser):
             source=LogSource.SYSTEM,
             host=groups.get("host", ""),
             fields={"tag": groups.get("tag", "")},
-            raw=raw_log
+            raw=raw_log,
         )
 
 
@@ -427,9 +421,7 @@ class LogStore:
             return sorted(entries, key=lambda x: x.timestamp)
 
     def get_stats(
-        self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
     ) -> LogStats:
         """Get log statistics."""
         with self._lock:
@@ -516,19 +508,17 @@ class LogCorrelator:
             start_time=start_time,
             end_time=end_time,
             services=services,
-            error_count=error_count
+            error_count=error_count,
         )
 
     def find_related_errors(
-        self,
-        error_entry: LogEntry,
-        time_window: timedelta = timedelta(minutes=5)
+        self, error_entry: LogEntry, time_window: timedelta = timedelta(minutes=5)
     ) -> List[LogEntry]:
         """Find related errors within a time window."""
         filter = LogFilter(
             levels=[LogLevel.ERROR, LogLevel.FATAL],
             start_time=error_entry.timestamp - time_window,
-            end_time=error_entry.timestamp + time_window
+            end_time=error_entry.timestamp + time_window,
         )
 
         return self._store.query(filter)
@@ -550,7 +540,7 @@ class PatternDetector:
         """Process a log entry and detect patterns."""
         # Create a simplified pattern by replacing variables
         pattern = self._simplify_message(entry.message)
-        pattern_id = hashlib.md5(pattern.encode()).hexdigest()[:12]
+        pattern_id = hashlib.sha256(pattern.encode()).hexdigest()[:12]
 
         with self._lock:
             if pattern_id in self._patterns:
@@ -567,7 +557,7 @@ class PatternDetector:
                     sample_message=entry.message,
                     count=1,
                     level=entry.level,
-                    services={entry.service} if entry.service else set()
+                    services={entry.service} if entry.service else set(),
                 )
                 self._patterns[pattern_id] = new_pattern
                 return new_pattern
@@ -575,22 +565,18 @@ class PatternDetector:
     def _simplify_message(self, message: str) -> str:
         """Simplify message to detect patterns."""
         # Replace numbers
-        pattern = re.sub(r'\d+', '<NUM>', message)
+        pattern = re.sub(r"\d+", "<NUM>", message)
         # Replace UUIDs
         pattern = re.sub(
-            r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
-            '<UUID>',
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+            "<UUID>",
             pattern,
-            flags=re.IGNORECASE
+            flags=re.IGNORECASE,
         )
         # Replace IPs
-        pattern = re.sub(r'\d+\.\d+\.\d+\.\d+', '<IP>', pattern)
+        pattern = re.sub(r"\d+\.\d+\.\d+\.\d+", "<IP>", pattern)
         # Replace timestamps
-        pattern = re.sub(
-            r'\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}',
-            '<TIMESTAMP>',
-            pattern
-        )
+        pattern = re.sub(r"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}", "<TIMESTAMP>", pattern)
         return pattern
 
     def get_top_patterns(self, limit: int = 10) -> List[LogPattern]:
@@ -603,8 +589,7 @@ class PatternDetector:
         """Get error patterns."""
         with self._lock:
             return [
-                p for p in self._patterns.values()
-                if p.level in (LogLevel.ERROR, LogLevel.FATAL)
+                p for p in self._patterns.values() if p.level in (LogLevel.ERROR, LogLevel.FATAL)
             ]
 
 
@@ -645,7 +630,7 @@ class LogAggregator:
         self,
         raw_log: str,
         parser_id: Optional[str] = None,
-        source: LogSource = LogSource.APPLICATION
+        source: LogSource = LogSource.APPLICATION,
     ) -> Optional[LogEntry]:
         """Ingest a raw log line."""
         entry = None
@@ -674,7 +659,7 @@ class LogAggregator:
                 level=LogLevel.INFO,
                 message=raw_log,
                 source=source,
-                raw=raw_log
+                raw=raw_log,
             )
 
         entry.source = source
@@ -697,9 +682,7 @@ class LogAggregator:
         return self._correlator.correlate_by_trace(trace_id)
 
     def get_stats(
-        self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        self, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None
     ) -> LogStats:
         """Get log statistics."""
         return self._store.get_stats(start_time, end_time)
@@ -713,22 +696,13 @@ class LogAggregator:
         return self._pattern_detector.get_error_patterns()
 
     def aggregate(
-        self,
-        field: str,
-        mode: AggregationMode,
-        filter: Optional[LogFilter] = None,
-        limit: int = 10
+        self, field: str, mode: AggregationMode, filter: Optional[LogFilter] = None, limit: int = 10
     ) -> LogAggregation:
         """Aggregate logs by field."""
         entries = self._store.query(filter or LogFilter(), limit=100000)
 
         if mode == AggregationMode.COUNT:
-            return LogAggregation(
-                mode=mode,
-                field=field,
-                value=len(entries),
-                count=len(entries)
-            )
+            return LogAggregation(mode=mode, field=field, value=len(entries), count=len(entries))
 
         elif mode == AggregationMode.TOP_VALUES:
             counter: Dict[str, int] = defaultdict(int)
@@ -747,7 +721,7 @@ class LogAggregator:
                 field=field,
                 value=buckets[0]["value"] if buckets else None,
                 count=len(entries),
-                buckets=buckets
+                buckets=buckets,
             )
 
         return LogAggregation(mode=mode, field=field, value=None)
@@ -782,11 +756,7 @@ class LogAggregator:
 class LogAggregatorVisionProvider(VisionProvider):
     """Vision provider with log aggregation integration."""
 
-    def __init__(
-        self,
-        base_provider: VisionProvider,
-        aggregator: Optional[LogAggregator] = None
-    ):
+    def __init__(self, base_provider: VisionProvider, aggregator: Optional[LogAggregator] = None):
         self._base_provider = base_provider
         self._aggregator = aggregator or LogAggregator()
         self._request_id = 0
@@ -796,9 +766,7 @@ class LogAggregatorVisionProvider(VisionProvider):
         return f"log_aggregator_{self._base_provider.provider_name}"
 
     async def analyze_image(
-        self,
-        image_data: bytes,
-        context: Optional[Dict[str, Any]] = None
+        self, image_data: bytes, context: Optional[Dict[str, Any]] = None
     ) -> VisionDescription:
         """Analyze image with logging."""
         self._request_id += 1
@@ -806,52 +774,49 @@ class LogAggregatorVisionProvider(VisionProvider):
         trace_id = trace_id or f"trace_{self._request_id}"
 
         # Log request start
-        self._aggregator.ingest_entry(LogEntry(
-            log_id=f"log_{int(time.time() * 1000000)}",
-            timestamp=datetime.now(),
-            level=LogLevel.INFO,
-            message=f"Starting vision analysis request",
-            service=self.provider_name,
-            trace_id=trace_id,
-            fields={
-                "image_size": len(image_data),
-                "request_id": self._request_id
-            }
-        ))
+        self._aggregator.ingest_entry(
+            LogEntry(
+                log_id=f"log_{int(time.time() * 1000000)}",
+                timestamp=datetime.now(),
+                level=LogLevel.INFO,
+                message=f"Starting vision analysis request",
+                service=self.provider_name,
+                trace_id=trace_id,
+                fields={"image_size": len(image_data), "request_id": self._request_id},
+            )
+        )
 
         try:
             result = await self._base_provider.analyze_image(image_data, context)
 
             # Log success
-            self._aggregator.ingest_entry(LogEntry(
-                log_id=f"log_{int(time.time() * 1000000)}",
-                timestamp=datetime.now(),
-                level=LogLevel.INFO,
-                message=f"Vision analysis completed successfully",
-                service=self.provider_name,
-                trace_id=trace_id,
-                fields={
-                    "confidence": result.confidence,
-                    "request_id": self._request_id
-                }
-            ))
+            self._aggregator.ingest_entry(
+                LogEntry(
+                    log_id=f"log_{int(time.time() * 1000000)}",
+                    timestamp=datetime.now(),
+                    level=LogLevel.INFO,
+                    message=f"Vision analysis completed successfully",
+                    service=self.provider_name,
+                    trace_id=trace_id,
+                    fields={"confidence": result.confidence, "request_id": self._request_id},
+                )
+            )
 
             return result
 
         except Exception as e:
             # Log error
-            self._aggregator.ingest_entry(LogEntry(
-                log_id=f"log_{int(time.time() * 1000000)}",
-                timestamp=datetime.now(),
-                level=LogLevel.ERROR,
-                message=f"Vision analysis failed: {str(e)}",
-                service=self.provider_name,
-                trace_id=trace_id,
-                fields={
-                    "error_type": type(e).__name__,
-                    "request_id": self._request_id
-                }
-            ))
+            self._aggregator.ingest_entry(
+                LogEntry(
+                    log_id=f"log_{int(time.time() * 1000000)}",
+                    timestamp=datetime.now(),
+                    level=LogLevel.ERROR,
+                    message=f"Vision analysis failed: {str(e)}",
+                    service=self.provider_name,
+                    trace_id=trace_id,
+                    fields={"error_type": type(e).__name__, "request_id": self._request_id},
+                )
+            )
             raise
 
     def get_aggregator(self) -> LogAggregator:
@@ -870,24 +835,19 @@ def create_log_aggregator(max_entries: int = 100000) -> LogAggregator:
 
 
 def create_json_parser(
-    parser_id: str,
-    name: str,
-    timestamp_format: str = "%Y-%m-%dT%H:%M:%S"
+    parser_id: str, name: str, timestamp_format: str = "%Y-%m-%dT%H:%M:%S"
 ) -> ParserConfig:
     """Create a JSON parser configuration."""
     return ParserConfig(
         parser_id=parser_id,
         parser_type=ParserType.JSON,
         name=name,
-        timestamp_format=timestamp_format
+        timestamp_format=timestamp_format,
     )
 
 
 def create_regex_parser(
-    parser_id: str,
-    name: str,
-    pattern: str,
-    timestamp_format: str = "%Y-%m-%d %H:%M:%S"
+    parser_id: str, name: str, pattern: str, timestamp_format: str = "%Y-%m-%d %H:%M:%S"
 ) -> ParserConfig:
     """Create a regex parser configuration."""
     return ParserConfig(
@@ -895,28 +855,24 @@ def create_regex_parser(
         parser_type=ParserType.REGEX,
         name=name,
         pattern=pattern,
-        timestamp_format=timestamp_format
+        timestamp_format=timestamp_format,
     )
 
 
 def create_retention_policy(
-    policy_id: str,
-    name: str,
-    max_age_days: int = 30,
-    archive_enabled: bool = False
+    policy_id: str, name: str, max_age_days: int = 30, archive_enabled: bool = False
 ) -> RetentionPolicy:
     """Create a retention policy."""
     return RetentionPolicy(
         policy_id=policy_id,
         name=name,
         max_age=timedelta(days=max_age_days),
-        archive_enabled=archive_enabled
+        archive_enabled=archive_enabled,
     )
 
 
 def create_log_aggregator_provider(
-    base_provider: VisionProvider,
-    aggregator: Optional[LogAggregator] = None
+    base_provider: VisionProvider, aggregator: Optional[LogAggregator] = None
 ) -> LogAggregatorVisionProvider:
     """Create a log aggregator vision provider."""
     return LogAggregatorVisionProvider(base_provider, aggregator)

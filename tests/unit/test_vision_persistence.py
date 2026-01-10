@@ -8,46 +8,45 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.core.vision.base import VisionDescription, VisionProvider
-from src.core.vision.persistence import (
-    AnalysisRecord,
-    InMemoryStorage,
-    QueryFilter,
-    ResultPersistence,
-    PersistentVisionProvider,
-    create_persistent_provider,
-)
 from src.core.vision.analytics import (
-    VisionAnalytics,
+    AnalyticsReport,
     ProviderStats,
     TimeBucket,
-    TrendData,
     TimeGranularity,
-    AnalyticsReport,
+    TrendData,
+    VisionAnalytics,
     create_analytics,
 )
+from src.core.vision.base import VisionDescription, VisionProvider
 from src.core.vision.failover import (
+    FailoverConfig,
     FailoverManager,
+    FailoverResult,
+    FailoverStrategy,
     FailoverVisionProvider,
     ProviderEndpoint,
     ProviderHealth,
-    FailoverStrategy,
-    FailoverConfig,
-    FailoverResult,
     create_failover_provider,
 )
 from src.core.vision.health import (
-    HealthMonitor,
-    HealthAwareVisionProvider,
-    HealthMetrics,
-    HealthStatus,
-    HealthAlert,
     AlertSeverity,
+    HealthAlert,
+    HealthAwareVisionProvider,
     HealthCheckConfig,
     HealthDashboard,
+    HealthMetrics,
+    HealthMonitor,
+    HealthStatus,
     create_health_aware_provider,
 )
-
+from src.core.vision.persistence import (
+    AnalysisRecord,
+    InMemoryStorage,
+    PersistentVisionProvider,
+    QueryFilter,
+    ResultPersistence,
+    create_persistent_provider,
+)
 
 # ============================================================================
 # Test Fixtures
@@ -59,11 +58,13 @@ def mock_provider():
     """Create a mock VisionProvider."""
     provider = MagicMock(spec=VisionProvider)
     provider.provider_name = "test_provider"
-    provider.analyze_image = AsyncMock(return_value=VisionDescription(
-        summary="Test summary",
-        details=["Detail 1", "Detail 2"],
-        confidence=0.95,
-    ))
+    provider.analyze_image = AsyncMock(
+        return_value=VisionDescription(
+            summary="Test summary",
+            details=["Detail 1", "Detail 2"],
+            confidence=0.95,
+        )
+    )
     return provider
 
 
@@ -317,8 +318,11 @@ class TestVisionAnalytics:
         # Add some records
         for _ in range(5):
             await persistence.save_result(
-                sample_image, "openai", sample_result,
-                processing_time_ms=100.0, cost_usd=0.01,
+                sample_image,
+                "openai",
+                sample_result,
+                processing_time_ms=100.0,
+                cost_usd=0.01,
             )
 
         analytics = VisionAnalytics(persistence)
@@ -352,10 +356,16 @@ class TestVisionAnalytics:
 
         # Add records with tags
         await persistence.save_result(
-            sample_image, "openai", sample_result, tags=["circuit", "pcb"],
+            sample_image,
+            "openai",
+            sample_result,
+            tags=["circuit", "pcb"],
         )
         await persistence.save_result(
-            sample_image, "openai", sample_result, tags=["circuit", "schematic"],
+            sample_image,
+            "openai",
+            sample_result,
+            tags=["circuit", "schematic"],
         )
 
         analytics = VisionAnalytics(persistence)
@@ -611,10 +621,12 @@ class TestHealthMonitor:
     @pytest.mark.asyncio
     async def test_check_provider_failure(self, mock_failing_provider):
         """Test failed health check."""
-        monitor = HealthMonitor(config=HealthCheckConfig(
-            failure_threshold=1,
-            degraded_threshold=1,
-        ))
+        monitor = HealthMonitor(
+            config=HealthCheckConfig(
+                failure_threshold=1,
+                degraded_threshold=1,
+            )
+        )
         monitor.register_provider(mock_failing_provider)
 
         metrics = await monitor.check_provider(mock_failing_provider.provider_name)
@@ -627,15 +639,23 @@ class TestHealthMonitor:
         """Test checking all providers."""
         provider1 = MagicMock(spec=VisionProvider)
         provider1.provider_name = "provider1"
-        provider1.analyze_image = AsyncMock(return_value=VisionDescription(
-            summary="Test", details=[], confidence=0.9,
-        ))
+        provider1.analyze_image = AsyncMock(
+            return_value=VisionDescription(
+                summary="Test",
+                details=[],
+                confidence=0.9,
+            )
+        )
 
         provider2 = MagicMock(spec=VisionProvider)
         provider2.provider_name = "provider2"
-        provider2.analyze_image = AsyncMock(return_value=VisionDescription(
-            summary="Test", details=[], confidence=0.9,
-        ))
+        provider2.analyze_image = AsyncMock(
+            return_value=VisionDescription(
+                summary="Test",
+                details=[],
+                confidence=0.9,
+            )
+        )
 
         monitor = HealthMonitor()
         monitor.register_provider(provider1)
@@ -667,10 +687,12 @@ class TestHealthMonitor:
         def callback(alert):
             alerts_received.append(alert)
 
-        monitor = HealthMonitor(config=HealthCheckConfig(
-            failure_threshold=1,
-            degraded_threshold=1,
-        ))
+        monitor = HealthMonitor(
+            config=HealthCheckConfig(
+                failure_threshold=1,
+                degraded_threshold=1,
+            )
+        )
         monitor.register_provider(mock_failing_provider)
         monitor.add_alert_callback(callback)
 
@@ -683,10 +705,12 @@ class TestHealthMonitor:
     @pytest.mark.asyncio
     async def test_acknowledge_alert(self, mock_failing_provider):
         """Test acknowledging an alert."""
-        monitor = HealthMonitor(config=HealthCheckConfig(
-            failure_threshold=1,
-            degraded_threshold=1,
-        ))
+        monitor = HealthMonitor(
+            config=HealthCheckConfig(
+                failure_threshold=1,
+                degraded_threshold=1,
+            )
+        )
         monitor.register_provider(mock_failing_provider)
 
         await monitor.check_provider(mock_failing_provider.provider_name)
@@ -715,14 +739,14 @@ class TestHealthAwareVisionProvider:
         assert health.status == HealthStatus.HEALTHY
 
     @pytest.mark.asyncio
-    async def test_analyze_failure_updates_metrics(
-        self, mock_failing_provider, sample_image
-    ):
+    async def test_analyze_failure_updates_metrics(self, mock_failing_provider, sample_image):
         """Test that failed analysis updates health metrics."""
-        monitor = HealthMonitor(config=HealthCheckConfig(
-            failure_threshold=1,
-            degraded_threshold=1,
-        ))
+        monitor = HealthMonitor(
+            config=HealthCheckConfig(
+                failure_threshold=1,
+                degraded_threshold=1,
+            )
+        )
         aware_provider = HealthAwareVisionProvider(mock_failing_provider, monitor)
 
         with pytest.raises(Exception):
@@ -758,19 +782,23 @@ class TestIntegration:
         # Create providers
         provider1 = MagicMock(spec=VisionProvider)
         provider1.provider_name = "provider1"
-        provider1.analyze_image = AsyncMock(return_value=VisionDescription(
-            summary="Provider 1 result",
-            details=[],
-            confidence=0.95,
-        ))
+        provider1.analyze_image = AsyncMock(
+            return_value=VisionDescription(
+                summary="Provider 1 result",
+                details=[],
+                confidence=0.95,
+            )
+        )
 
         provider2 = MagicMock(spec=VisionProvider)
         provider2.provider_name = "provider2"
-        provider2.analyze_image = AsyncMock(return_value=VisionDescription(
-            summary="Provider 2 result",
-            details=[],
-            confidence=0.90,
-        ))
+        provider2.analyze_image = AsyncMock(
+            return_value=VisionDescription(
+                summary="Provider 2 result",
+                details=[],
+                confidence=0.90,
+            )
+        )
 
         # Create failover provider
         failover = create_failover_provider([provider1, provider2])

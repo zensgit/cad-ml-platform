@@ -9,9 +9,9 @@ Provides:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from src.core.errors import ErrorCode
 
@@ -27,9 +27,54 @@ class VisionAnalyzeRequest(BaseModel):
     # Vision-specific options
     include_description: bool = Field(True, description="Include natural language description")
     include_ocr: bool = Field(True, description="Include OCR dimension/symbol extraction")
+    include_cad_stats: bool = Field(
+        False, description="Include CAD feature heuristic summary stats"
+    )
 
     # OCR provider routing (passed to OCRManager if include_ocr=True)
     ocr_provider: str = Field("auto", description="OCR provider: auto|paddle|deepseek")
+    cad_feature_thresholds: Optional[Dict[str, float]] = Field(
+        None, description="Overrides for CAD feature heuristic thresholds"
+    )
+
+    @field_validator("cad_feature_thresholds")
+    @classmethod
+    def _validate_cad_feature_thresholds(
+        cls, value: Optional[Dict[str, float]]
+    ) -> Optional[Dict[str, float]]:
+        if value is None:
+            return None
+        if not isinstance(value, dict):
+            raise ValueError("cad_feature_thresholds must be a dict of numeric values")
+        allowed: Set[str] = {
+            "max_dim",
+            "ink_threshold",
+            "min_area",
+            "line_aspect",
+            "line_elongation",
+            "circle_aspect",
+            "circle_fill_min",
+            "arc_aspect",
+            "arc_fill_min",
+            "arc_fill_max",
+        }
+        unknown = set(value.keys()) - allowed
+        if unknown:
+            raise ValueError(f"cad_feature_thresholds has unsupported keys: {sorted(unknown)}")
+        for key, val in value.items():
+            if not isinstance(val, (int, float)):
+                raise ValueError(f"cad_feature_thresholds[{key}] must be numeric")
+            if val <= 0:
+                raise ValueError(f"cad_feature_thresholds[{key}] must be > 0")
+        arc_fill_min = value.get("arc_fill_min")
+        arc_fill_max = value.get("arc_fill_max")
+        if arc_fill_min is not None and arc_fill_max is not None:
+            if arc_fill_min >= arc_fill_max:
+                raise ValueError(
+                    "cad_feature_thresholds[arc_fill_min] must be < "
+                    "cad_feature_thresholds[arc_fill_max]"
+                )
+        return value
 
     model_config = {
         "json_schema_extra": {
@@ -38,6 +83,8 @@ class VisionAnalyzeRequest(BaseModel):
                 "include_description": True,
                 "include_ocr": True,
                 "ocr_provider": "auto",
+                "include_cad_stats": False,
+                "cad_feature_thresholds": {"line_aspect": 5.0, "arc_fill_min": 0.08},
             }
         }
     }
@@ -61,6 +108,20 @@ class OcrResult(BaseModel):
     confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
 
 
+class CadFeatureStats(BaseModel):
+    """Summary stats for heuristic CAD feature extraction."""
+
+    line_count: int = Field(..., ge=0, description="Number of detected line segments")
+    circle_count: int = Field(..., ge=0, description="Number of detected circles")
+    arc_count: int = Field(..., ge=0, description="Number of detected arcs")
+    line_angle_bins: Dict[str, int] = Field(..., description="Line angle histogram buckets")
+    line_angle_avg: Optional[float] = Field(None, description="Average line angle in degrees")
+    arc_sweep_avg: Optional[float] = Field(None, description="Average arc sweep in degrees")
+    arc_sweep_bins: Dict[str, int] = Field(..., description="Arc sweep histogram buckets")
+
+    model_config = {"extra": "allow"}
+
+
 class VisionAnalyzeResponse(BaseModel):
     """Response model for vision analysis."""
 
@@ -73,6 +134,11 @@ class VisionAnalyzeResponse(BaseModel):
 
     # OCR outputs
     ocr: Optional[OcrResult] = Field(None, description="OCR extraction results")
+
+    # CAD feature stats
+    cad_feature_stats: Optional[CadFeatureStats] = Field(
+        None, description="CAD feature heuristic summary stats"
+    )
 
     # Metadata
     provider: str = Field(..., description="Vision provider used (e.g., deepseek_stub)")
@@ -105,6 +171,15 @@ class VisionAnalyzeResponse(BaseModel):
                     "title_block": {"drawing_number": "CAD-2025-001", "material": "Aluminum 6061"},
                     "fallback_level": "json_strict",
                     "confidence": 0.95,
+                },
+                "cad_feature_stats": {
+                    "line_count": 2,
+                    "circle_count": 1,
+                    "arc_count": 0,
+                    "line_angle_bins": {"0-30": 2, "30-60": 0, "60-90": 0, "90-120": 0, "120-150": 0, "150-180": 0},
+                    "line_angle_avg": 12.5,
+                    "arc_sweep_avg": None,
+                    "arc_sweep_bins": {"0-90": 0, "90-180": 0, "180-270": 0, "270-360": 0},
                 },
                 "provider": "deepseek_stub",
                 "processing_time_ms": 234.5,

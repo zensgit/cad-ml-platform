@@ -12,20 +12,20 @@ from typing import Any, Dict, Optional
 
 from .base import VisionProvider, VisionProviderError
 from .providers import (
+    AnthropicVisionProvider,
     DeepSeekStubProvider,
     DeepSeekVisionProvider,
-    OpenAIVisionProvider,
-    AnthropicVisionProvider,
-    QwenVLProvider,
-    GLM4VProvider,
     DoubaoVisionProvider,
-    create_stub_provider,
-    create_deepseek_provider,
-    create_openai_provider,
+    GLM4VProvider,
+    OpenAIVisionProvider,
+    QwenVLProvider,
     create_anthropic_provider,
-    create_qwen_vl_provider,
-    create_glm4v_provider,
+    create_deepseek_provider,
     create_doubao_provider,
+    create_glm4v_provider,
+    create_openai_provider,
+    create_qwen_vl_provider,
+    create_stub_provider,
 )
 
 logger = logging.getLogger(__name__)

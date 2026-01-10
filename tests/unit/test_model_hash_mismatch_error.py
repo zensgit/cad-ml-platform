@@ -16,6 +16,7 @@ import pytest
 class DummyModel:
     def __init__(self, marker: str):
         self.marker = marker
+
     def predict(self, X):
         return [self.marker] * len(X)
 
@@ -31,7 +32,8 @@ def temp_model_file():
 
 def test_model_reload_hash_mismatch_sets_last_error(temp_model_file, monkeypatch):
     from src.ml import classifier
-    from src.ml.classifier import reload_model, get_model_info
+    from src.ml.classifier import get_model_info, reload_model
+
     # Disable opcode scan for this test
     monkeypatch.setenv("MODEL_OPCODE_SCAN", "0")
     classifier._MODEL = None  # type: ignore

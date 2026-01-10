@@ -27,7 +27,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -219,11 +218,7 @@ class NotificationHandler(ABC):
     """Abstract base class for notification handlers."""
 
     @abstractmethod
-    async def send(
-        self,
-        alert: Alert,
-        config: NotificationConfig
-    ) -> NotificationResult:
+    async def send(self, alert: Alert, config: NotificationConfig) -> NotificationResult:
         """Send notification for an alert."""
         pass
 
@@ -231,11 +226,7 @@ class NotificationHandler(ABC):
 class EmailNotificationHandler(NotificationHandler):
     """Email notification handler."""
 
-    async def send(
-        self,
-        alert: Alert,
-        config: NotificationConfig
-    ) -> NotificationResult:
+    async def send(self, alert: Alert, config: NotificationConfig) -> NotificationResult:
         """Send email notification."""
         # Simulated email sending
         recipients = config.config.get("recipients", [])
@@ -243,65 +234,47 @@ class EmailNotificationHandler(NotificationHandler):
         return NotificationResult(
             channel_id=config.channel_id,
             success=True,
-            message=f"Email sent to {len(recipients)} recipients"
+            message=f"Email sent to {len(recipients)} recipients",
         )
 
 
 class SlackNotificationHandler(NotificationHandler):
     """Slack notification handler."""
 
-    async def send(
-        self,
-        alert: Alert,
-        config: NotificationConfig
-    ) -> NotificationResult:
+    async def send(self, alert: Alert, config: NotificationConfig) -> NotificationResult:
         """Send Slack notification."""
         webhook_url = config.config.get("webhook_url", "")
         channel = config.config.get("channel", "#alerts")
 
         # Simulated Slack message
         return NotificationResult(
-            channel_id=config.channel_id,
-            success=True,
-            message=f"Slack message sent to {channel}"
+            channel_id=config.channel_id, success=True, message=f"Slack message sent to {channel}"
         )
 
 
 class WebhookNotificationHandler(NotificationHandler):
     """Webhook notification handler."""
 
-    async def send(
-        self,
-        alert: Alert,
-        config: NotificationConfig
-    ) -> NotificationResult:
+    async def send(self, alert: Alert, config: NotificationConfig) -> NotificationResult:
         """Send webhook notification."""
         url = config.config.get("url", "")
 
         # Simulated webhook call
         return NotificationResult(
-            channel_id=config.channel_id,
-            success=True,
-            message=f"Webhook sent to {url}"
+            channel_id=config.channel_id, success=True, message=f"Webhook sent to {url}"
         )
 
 
 class PagerDutyNotificationHandler(NotificationHandler):
     """PagerDuty notification handler."""
 
-    async def send(
-        self,
-        alert: Alert,
-        config: NotificationConfig
-    ) -> NotificationResult:
+    async def send(self, alert: Alert, config: NotificationConfig) -> NotificationResult:
         """Send PagerDuty notification."""
         service_key = config.config.get("service_key", "")
 
         # Simulated PagerDuty event
         return NotificationResult(
-            channel_id=config.channel_id,
-            success=True,
-            message="PagerDuty incident created"
+            channel_id=config.channel_id, success=True, message="PagerDuty incident created"
         )
 
 
@@ -382,8 +355,7 @@ class AlertManager:
     """Main alert manager coordinating all alerting operations."""
 
     def __init__(
-        self,
-        metric_getter: Optional[Callable[[str, Dict[str, str]], Optional[float]]] = None
+        self, metric_getter: Optional[Callable[[str, Dict[str, str]], Optional[float]]] = None
     ):
         self._rules: Dict[str, AlertRule] = {}
         self._alerts: Dict[str, Alert] = {}
@@ -545,10 +517,7 @@ class AlertManager:
                     if existing_alert.state != AlertState.FIRING:
                         continue
 
-                    if not self._matches_labels(
-                        existing_alert.labels,
-                        inhibition.source_matchers
-                    ):
+                    if not self._matches_labels(existing_alert.labels, inhibition.source_matchers):
                         continue
 
                     # Check equal labels
@@ -560,11 +529,7 @@ class AlertManager:
 
             return False
 
-    def _matches_labels(
-        self,
-        alert_labels: Dict[str, str],
-        matchers: Dict[str, str]
-    ) -> bool:
+    def _matches_labels(self, alert_labels: Dict[str, str], matchers: Dict[str, str]) -> bool:
         """Check if alert labels match matchers."""
         for key, value in matchers.items():
             if alert_labels.get(key) != value:
@@ -642,7 +607,7 @@ class AlertManager:
 
     def _create_alert(self, rule: AlertRule, value: Optional[float]) -> Alert:
         """Create an alert from a rule."""
-        fingerprint = hashlib.md5(
+        fingerprint = hashlib.sha256(
             f"{rule.rule_id}:{json.dumps(rule.labels, sort_keys=True)}".encode()
         ).hexdigest()
 
@@ -657,7 +622,7 @@ class AlertManager:
             labels=rule.labels.copy(),
             annotations=rule.annotations.copy(),
             value=value,
-            fingerprint=fingerprint
+            fingerprint=fingerprint,
         )
 
     async def _send_notifications(self, alert: Alert, rule: AlertRule) -> None:
@@ -698,9 +663,7 @@ class AlertManager:
             return None
 
     def list_alerts(
-        self,
-        state: Optional[AlertState] = None,
-        severity: Optional[AlertSeverity] = None
+        self, state: Optional[AlertState] = None, severity: Optional[AlertSeverity] = None
     ) -> List[Alert]:
         """List alerts with optional filters."""
         with self._lock:
@@ -717,7 +680,7 @@ class AlertManager:
         self,
         rule_id: Optional[str] = None,
         start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None
+        end_time: Optional[datetime] = None,
     ) -> List[Alert]:
         """Get alert history."""
         with self._lock:
@@ -751,11 +714,7 @@ class AlertManager:
 class AlertManagerVisionProvider(VisionProvider):
     """Vision provider with alert management integration."""
 
-    def __init__(
-        self,
-        base_provider: VisionProvider,
-        alert_manager: Optional[AlertManager] = None
-    ):
+    def __init__(self, base_provider: VisionProvider, alert_manager: Optional[AlertManager] = None):
         self._base_provider = base_provider
         self._alert_manager = alert_manager or AlertManager()
         self._error_count = 0
@@ -766,9 +725,7 @@ class AlertManagerVisionProvider(VisionProvider):
         return f"alert_manager_{self._base_provider.provider_name}"
 
     async def analyze_image(
-        self,
-        image_data: bytes,
-        context: Optional[Dict[str, Any]] = None
+        self, image_data: bytes, context: Optional[Dict[str, Any]] = None
     ) -> VisionDescription:
         """Analyze image with alert monitoring."""
         self._request_count += 1
@@ -813,36 +770,24 @@ def create_alert_rule(
     operator: ComparisonOperator,
     threshold: float,
     severity: AlertSeverity = AlertSeverity.MEDIUM,
-    notify_channels: Optional[List[str]] = None
+    notify_channels: Optional[List[str]] = None,
 ) -> AlertRule:
     """Create an alert rule with a single condition."""
     return AlertRule(
         rule_id=rule_id,
         name=name,
-        conditions=[
-            AlertCondition(
-                metric=metric,
-                operator=operator,
-                threshold=threshold
-            )
-        ],
+        conditions=[AlertCondition(metric=metric, operator=operator, threshold=threshold)],
         severity=severity,
-        notify_channels=notify_channels or []
+        notify_channels=notify_channels or [],
     )
 
 
 def create_notification_channel(
-    channel_id: str,
-    channel_type: NotificationChannel,
-    name: str,
-    **config: Any
+    channel_id: str, channel_type: NotificationChannel, name: str, **config: Any
 ) -> NotificationConfig:
     """Create a notification channel."""
     return NotificationConfig(
-        channel_id=channel_id,
-        channel_type=channel_type,
-        name=name,
-        config=config
+        channel_id=channel_id, channel_type=channel_type, name=name, config=config
     )
 
 
@@ -851,7 +796,7 @@ def create_silence(
     matchers: Dict[str, str],
     duration: timedelta,
     created_by: str,
-    comment: str = ""
+    comment: str = "",
 ) -> SilenceRule:
     """Create a silence rule."""
     now = datetime.now()
@@ -861,26 +806,19 @@ def create_silence(
         starts_at=now,
         ends_at=now + duration,
         created_by=created_by,
-        comment=comment
+        comment=comment,
     )
 
 
 def create_escalation_policy(
-    policy_id: str,
-    name: str,
-    steps: List[EscalationStep]
+    policy_id: str, name: str, steps: List[EscalationStep]
 ) -> EscalationPolicy:
     """Create an escalation policy."""
-    return EscalationPolicy(
-        policy_id=policy_id,
-        name=name,
-        steps=steps
-    )
+    return EscalationPolicy(policy_id=policy_id, name=name, steps=steps)
 
 
 def create_alert_manager_provider(
-    base_provider: VisionProvider,
-    alert_manager: Optional[AlertManager] = None
+    base_provider: VisionProvider, alert_manager: Optional[AlertManager] = None
 ) -> AlertManagerVisionProvider:
     """Create an alert manager vision provider."""
     return AlertManagerVisionProvider(base_provider, alert_manager)

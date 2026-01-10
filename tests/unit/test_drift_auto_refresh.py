@@ -3,6 +3,7 @@
 import os
 import time
 from unittest.mock import patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -15,6 +16,7 @@ client = TestClient(app)
 def reset_drift_state():
     """Reset drift state before each test."""
     from src.api.v1 import analyze as analyze_module
+
     _DRIFT_STATE = analyze_module._DRIFT_STATE  # type: ignore
 
     # Save original state
@@ -46,10 +48,10 @@ def reset_drift_state():
     _DRIFT_STATE["baseline_predictions_ts"] = original_state["baseline_predictions_ts"]
 
 
-@pytest.mark.skip(reason="Auto-refresh feature not yet implemented")
 def test_drift_auto_refresh_when_stale():
     """Test baseline is automatically refreshed when age exceeds threshold."""
     from src.api.v1 import analyze as analyze_module
+
     _DRIFT_STATE = analyze_module._DRIFT_STATE  # type: ignore
 
     # Set up initial data (>= min_count)
@@ -65,11 +67,14 @@ def test_drift_auto_refresh_when_stale():
     _DRIFT_STATE["baseline_predictions_ts"] = old_timestamp
 
     # Call drift endpoint with auto-refresh enabled and short max_age
-    with patch.dict(os.environ, {
-        "DRIFT_BASELINE_MAX_AGE_SECONDS": "3600",  # 1 hour
-        "DRIFT_BASELINE_AUTO_REFRESH": "1",
-        "DRIFT_BASELINE_MIN_COUNT": "100"
-    }):
+    with patch.dict(
+        os.environ,
+        {
+            "DRIFT_BASELINE_MAX_AGE_SECONDS": "3600",  # 1 hour
+            "DRIFT_BASELINE_AUTO_REFRESH": "1",
+            "DRIFT_BASELINE_MIN_COUNT": "100",
+        },
+    ):
         response = client.get("/api/v1/analyze/drift", headers={"X-API-Key": "test"})
 
     assert response.status_code == 200
@@ -84,6 +89,7 @@ def test_drift_auto_refresh_when_stale():
 def test_drift_auto_refresh_disabled():
     """Test baseline is NOT refreshed when auto-refresh is disabled."""
     from src.api.v1 import analyze as analyze_module
+
     _DRIFT_STATE = analyze_module._DRIFT_STATE  # type: ignore
 
     # Set up initial data
@@ -97,11 +103,14 @@ def test_drift_auto_refresh_disabled():
     _DRIFT_STATE["baseline_materials_ts"] = old_timestamp
 
     # Disable auto-refresh
-    with patch.dict(os.environ, {
-        "DRIFT_BASELINE_MAX_AGE_SECONDS": "3600",
-        "DRIFT_BASELINE_AUTO_REFRESH": "0",  # Disabled
-        "DRIFT_BASELINE_MIN_COUNT": "100"
-    }):
+    with patch.dict(
+        os.environ,
+        {
+            "DRIFT_BASELINE_MAX_AGE_SECONDS": "3600",
+            "DRIFT_BASELINE_AUTO_REFRESH": "0",  # Disabled
+            "DRIFT_BASELINE_MIN_COUNT": "100",
+        },
+    ):
         response = client.get("/api/v1/analyze/drift", headers={"X-API-Key": "test"})
 
     assert response.status_code == 200
@@ -115,6 +124,7 @@ def test_drift_auto_refresh_disabled():
 def test_drift_auto_refresh_insufficient_data():
     """Test baseline is NOT refreshed when current data < min_count."""
     from src.api.v1 import analyze as analyze_module
+
     _DRIFT_STATE = analyze_module._DRIFT_STATE  # type: ignore
 
     # Set up insufficient data (< min_count)
@@ -126,11 +136,14 @@ def test_drift_auto_refresh_insufficient_data():
     _DRIFT_STATE["baseline_materials"] = ["aluminum"] * 100
     _DRIFT_STATE["baseline_materials_ts"] = old_timestamp
 
-    with patch.dict(os.environ, {
-        "DRIFT_BASELINE_MAX_AGE_SECONDS": "3600",
-        "DRIFT_BASELINE_AUTO_REFRESH": "1",
-        "DRIFT_BASELINE_MIN_COUNT": "100"
-    }):
+    with patch.dict(
+        os.environ,
+        {
+            "DRIFT_BASELINE_MAX_AGE_SECONDS": "3600",
+            "DRIFT_BASELINE_AUTO_REFRESH": "1",
+            "DRIFT_BASELINE_MIN_COUNT": "100",
+        },
+    ):
         response = client.get("/api/v1/analyze/drift", headers={"X-API-Key": "test"})
 
     assert response.status_code == 200
@@ -144,6 +157,7 @@ def test_drift_auto_refresh_insufficient_data():
 def test_drift_manual_reset_records_metric():
     """Test manual reset records drift_baseline_refresh_total metric."""
     from src.api.v1 import analyze as analyze_module
+
     _DRIFT_STATE = analyze_module._DRIFT_STATE  # type: ignore
 
     # Create baseline
@@ -168,10 +182,10 @@ def test_drift_manual_reset_records_metric():
     assert _DRIFT_STATE["baseline_predictions_ts"] is None
 
 
-@pytest.mark.skip(reason="Auto-refresh feature not yet implemented")
 def test_drift_auto_refresh_updates_baseline_content():
     """Test auto-refresh updates baseline to current distribution."""
     from src.api.v1 import analyze as analyze_module
+
     _DRIFT_STATE = analyze_module._DRIFT_STATE  # type: ignore
 
     # Set up current data with different distribution
@@ -184,11 +198,14 @@ def test_drift_auto_refresh_updates_baseline_content():
     _DRIFT_STATE["baseline_materials"] = ["aluminum"] * 100
     _DRIFT_STATE["baseline_materials_ts"] = old_timestamp
 
-    with patch.dict(os.environ, {
-        "DRIFT_BASELINE_MAX_AGE_SECONDS": "3600",
-        "DRIFT_BASELINE_AUTO_REFRESH": "1",
-        "DRIFT_BASELINE_MIN_COUNT": "100"
-    }):
+    with patch.dict(
+        os.environ,
+        {
+            "DRIFT_BASELINE_MAX_AGE_SECONDS": "3600",
+            "DRIFT_BASELINE_AUTO_REFRESH": "1",
+            "DRIFT_BASELINE_MIN_COUNT": "100",
+        },
+    ):
         response = client.get("/api/v1/analyze/drift", headers={"X-API-Key": "test"})
 
     assert response.status_code == 200
@@ -200,10 +217,10 @@ def test_drift_auto_refresh_updates_baseline_content():
     assert data["material_drift_score"] == 0.0
 
 
-@pytest.mark.skip(reason="Auto-refresh feature not yet implemented")
 def test_drift_auto_refresh_only_refreshes_stale_baselines():
     """Test only stale baselines are refreshed, not fresh ones."""
     from src.api.v1 import analyze as analyze_module
+
     _DRIFT_STATE = analyze_module._DRIFT_STATE  # type: ignore
 
     # Set up data
@@ -221,11 +238,14 @@ def test_drift_auto_refresh_only_refreshes_stale_baselines():
     _DRIFT_STATE["baseline_predictions"] = ["plate"] * 100
     _DRIFT_STATE["baseline_predictions_ts"] = fresh_timestamp
 
-    with patch.dict(os.environ, {
-        "DRIFT_BASELINE_MAX_AGE_SECONDS": "3600",
-        "DRIFT_BASELINE_AUTO_REFRESH": "1",
-        "DRIFT_BASELINE_MIN_COUNT": "100"
-    }):
+    with patch.dict(
+        os.environ,
+        {
+            "DRIFT_BASELINE_MAX_AGE_SECONDS": "3600",
+            "DRIFT_BASELINE_AUTO_REFRESH": "1",
+            "DRIFT_BASELINE_MIN_COUNT": "100",
+        },
+    ):
         response = client.get("/api/v1/analyze/drift", headers={"X-API-Key": "test"})
 
     assert response.status_code == 200
@@ -242,6 +262,7 @@ def test_drift_auto_refresh_only_refreshes_stale_baselines():
 def test_drift_status_response_structure():
     """Test drift status response includes all required fields."""
     from src.api.v1 import analyze as analyze_module
+
     _DRIFT_STATE = analyze_module._DRIFT_STATE  # type: ignore
 
     # Setup minimal data

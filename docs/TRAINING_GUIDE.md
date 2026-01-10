@@ -464,6 +464,8 @@ make validate
 
 # 2. Run tests
 make test
+# Optional: Faiss perf tests are gated (see README.md / docs/OPERATIONAL_RUNBOOK.md)
+# RUN_FAISS_PERF_TESTS=1 pytest tests/perf/test_vector_search_latency.py -v
 
 # 3. Check current state
 kubectl get all -n cad-ml-platform

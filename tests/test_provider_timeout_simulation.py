@@ -13,19 +13,21 @@ Provider 超时模拟测试 - 测试系统在各种超时场景下的行为
 """
 
 import asyncio
-import pytest
-import time
-from unittest.mock import Mock, patch, AsyncMock
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass
-from datetime import datetime, timedelta
 import random
 import statistics
+import time
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
 
 
 @dataclass
 class TimeoutScenario:
     """超时场景配置"""
+
     name: str
     providers: List[str]
     timeout_pattern: str  # fixed, random, increasing, burst
@@ -45,7 +47,7 @@ class ProviderTimeoutSimulator:
             "timeouts": 0,
             "recoveries": 0,
             "response_times": [],
-            "cascade_failures": 0
+            "cascade_failures": 0,
         }
 
     def _define_scenarios(self) -> List[TimeoutScenario]:
@@ -58,27 +60,27 @@ class ProviderTimeoutSimulator:
                 providers=["deepseek"],
                 timeout_pattern="fixed",
                 timeout_duration=0.05,  # 原30.0，缩短为50ms
-                recovery_time=0.1,      # 原60.0，缩短为100ms
+                recovery_time=0.1,  # 原60.0，缩短为100ms
                 failure_rate=1.0,
-                description="单个 Provider 完全超时"
+                description="单个 Provider 完全超时",
             ),
             TimeoutScenario(
                 name="cascading_timeout",
                 providers=["deepseek", "assemblyai", "glm4v"],
                 timeout_pattern="increasing",
                 timeout_duration=0.02,  # 原10.0，缩短为20ms
-                recovery_time=0.2,      # 原120.0，缩短为200ms
+                recovery_time=0.2,  # 原120.0，缩短为200ms
                 failure_rate=1.0,
-                description="多个 Provider 级联超时"
+                description="多个 Provider 级联超时",
             ),
             TimeoutScenario(
                 name="partial_timeout",
                 providers=["deepseek"],
                 timeout_pattern="random",
                 timeout_duration=0.03,  # 原15.0，缩短为30ms
-                recovery_time=0.05,     # 原30.0，缩短为50ms
+                recovery_time=0.05,  # 原30.0，缩短为50ms
                 failure_rate=0.3,
-                description="30% 的请求超时"
+                description="30% 的请求超时",
             ),
             TimeoutScenario(
                 name="slow_response",
@@ -87,33 +89,30 @@ class ProviderTimeoutSimulator:
                 timeout_duration=0.05,  # 原25.0，缩短为50ms
                 recovery_time=0.0,
                 failure_rate=0.0,
-                description="慢响应但不超时"
+                description="慢响应但不超时",
             ),
             TimeoutScenario(
                 name="intermittent_timeout",
                 providers=["glm4v"],
                 timeout_pattern="burst",
                 timeout_duration=0.06,  # 原35.0，缩短为60ms
-                recovery_time=0.08,     # 原45.0，缩短为80ms
+                recovery_time=0.08,  # 原45.0，缩短为80ms
                 failure_rate=0.5,
-                description="间歇性超时突发"
+                description="间歇性超时突发",
             ),
             TimeoutScenario(
                 name="gradual_degradation",
                 providers=["deepseek", "assemblyai"],
                 timeout_pattern="increasing",
                 timeout_duration=0.01,  # 原5.0，缩短为10ms
-                recovery_time=0.15,     # 原90.0，缩短为150ms
+                recovery_time=0.15,  # 原90.0，缩短为150ms
                 failure_rate=0.7,
-                description="逐渐恶化的超时情况"
-            )
+                description="逐渐恶化的超时情况",
+            ),
         ]
 
     async def simulate_provider_call(
-        self,
-        provider: str,
-        scenario: TimeoutScenario,
-        request_num: int
+        self, provider: str, scenario: TimeoutScenario, request_num: int
     ) -> Dict[str, Any]:
         """模拟 Provider 调用"""
         start_time = time.time()
@@ -125,17 +124,13 @@ class ProviderTimeoutSimulator:
 
             if should_timeout:
                 # 计算超时持续时间
-                timeout_duration = self._calculate_timeout_duration(
-                    scenario, request_num
-                )
+                timeout_duration = self._calculate_timeout_duration(scenario, request_num)
 
                 # 模拟超时
                 await asyncio.sleep(timeout_duration)
                 self.metrics["timeouts"] += 1
 
-                raise asyncio.TimeoutError(
-                    f"Provider {provider} timeout after {timeout_duration}s"
-                )
+                raise asyncio.TimeoutError(f"Provider {provider} timeout after {timeout_duration}s")
 
             else:
                 # 正常响应（可能慢）
@@ -155,7 +150,7 @@ class ProviderTimeoutSimulator:
                     "provider": provider,
                     "status": "success",
                     "response_time": elapsed,
-                    "request_num": request_num
+                    "request_num": request_num,
                 }
 
         except asyncio.TimeoutError as e:
@@ -165,7 +160,7 @@ class ProviderTimeoutSimulator:
                 "status": "timeout",
                 "error": str(e),
                 "response_time": elapsed,
-                "request_num": request_num
+                "request_num": request_num,
             }
 
     def _should_timeout(self, scenario: TimeoutScenario, request_num: int) -> bool:
@@ -183,11 +178,7 @@ class ProviderTimeoutSimulator:
 
         return random.random() < scenario.failure_rate
 
-    def _calculate_timeout_duration(
-        self,
-        scenario: TimeoutScenario,
-        request_num: int
-    ) -> float:
+    def _calculate_timeout_duration(self, scenario: TimeoutScenario, request_num: int) -> float:
         """计算超时持续时间"""
         base_duration = scenario.timeout_duration
 
@@ -215,16 +206,21 @@ class ProviderTimeoutSimulator:
             p99_response = 0
         else:
             avg_response = statistics.mean(self.metrics["response_times"])
-            p95_response = statistics.quantiles(
-                self.metrics["response_times"], n=20
-            )[18] if len(self.metrics["response_times"]) > 1 else avg_response
-            p99_response = statistics.quantiles(
-                self.metrics["response_times"], n=100
-            )[98] if len(self.metrics["response_times"]) > 1 else avg_response
+            p95_response = (
+                statistics.quantiles(self.metrics["response_times"], n=20)[18]
+                if len(self.metrics["response_times"]) > 1
+                else avg_response
+            )
+            p99_response = (
+                statistics.quantiles(self.metrics["response_times"], n=100)[98]
+                if len(self.metrics["response_times"]) > 1
+                else avg_response
+            )
 
         timeout_rate = (
             self.metrics["timeouts"] / self.metrics["total_requests"]
-            if self.metrics["total_requests"] > 0 else 0
+            if self.metrics["total_requests"] > 0
+            else 0
         )
 
         return {
@@ -235,13 +231,14 @@ class ProviderTimeoutSimulator:
             "p95_response_time": p95_response,
             "p99_response_time": p99_response,
             "cascade_failures": self.metrics["cascade_failures"],
-            "recoveries": self.metrics["recoveries"]
+            "recoveries": self.metrics["recoveries"],
         }
 
 
 # ============================================================================
 # Test Cases
 # ============================================================================
+
 
 @pytest.fixture
 def simulator():
@@ -252,19 +249,16 @@ def simulator():
 @pytest.fixture
 def mock_resilience_layer():
     """模拟 resilience layer"""
-    with patch('src.core.resilience.circuit_breaker.CircuitBreaker') as mock_cb, \
-         patch('src.core.resilience.retry_policy.RetryPolicy') as mock_retry:
-
+    with patch("src.core.resilience.circuit_breaker.CircuitBreaker") as mock_cb, patch(
+        "src.core.resilience.retry_policy.RetryPolicy"
+    ) as mock_retry:
         mock_cb_instance = Mock()
         mock_retry_instance = Mock()
 
         mock_cb.return_value = mock_cb_instance
         mock_retry.return_value = mock_retry_instance
 
-        yield {
-            "circuit_breaker": mock_cb_instance,
-            "retry_policy": mock_retry_instance
-        }
+        yield {"circuit_breaker": mock_cb_instance, "retry_policy": mock_retry_instance}
 
 
 @pytest.mark.asyncio
@@ -275,9 +269,7 @@ async def test_single_provider_timeout(simulator):
     results = []
     for i in range(10):
         result = await simulator.simulate_provider_call(
-            provider=scenario.providers[0],
-            scenario=scenario,
-            request_num=i
+            provider=scenario.providers[0], scenario=scenario, request_num=i
         )
         results.append(result)
 
@@ -299,9 +291,7 @@ async def test_cascading_timeout(simulator):
 
     for provider in scenario.providers:
         result = await simulator.simulate_provider_call(
-            provider=provider,
-            scenario=scenario,
-            request_num=0
+            provider=provider, scenario=scenario, request_num=0
         )
 
         if result["status"] == "timeout":
@@ -321,9 +311,7 @@ async def test_partial_timeout(simulator):
     results = []
     for i in range(100):  # 运行足够多的请求以获得统计意义
         result = await simulator.simulate_provider_call(
-            provider=scenario.providers[0],
-            scenario=scenario,
-            request_num=i
+            provider=scenario.providers[0], scenario=scenario, request_num=i
         )
         results.append(result)
 
@@ -342,9 +330,7 @@ async def test_slow_response_detection(simulator):
     results = []
     for i in range(5):
         result = await simulator.simulate_provider_call(
-            provider=scenario.providers[0],
-            scenario=scenario,
-            request_num=i
+            provider=scenario.providers[0], scenario=scenario, request_num=i
         )
         results.append(result)
 
@@ -367,9 +353,7 @@ async def test_intermittent_timeout(simulator):
 
     for i in range(30):
         result = await simulator.simulate_provider_call(
-            provider=scenario.providers[0],
-            scenario=scenario,
-            request_num=i
+            provider=scenario.providers[0], scenario=scenario, request_num=i
         )
 
         # 根据突发模式分组结果
@@ -379,13 +363,17 @@ async def test_intermittent_timeout(simulator):
             normal_results.append(result)
 
     # 验证突发期间有更高的超时率
-    burst_timeout_rate = sum(
-        1 for r in burst_results if r["status"] == "timeout"
-    ) / len(burst_results) if burst_results else 0
+    burst_timeout_rate = (
+        sum(1 for r in burst_results if r["status"] == "timeout") / len(burst_results)
+        if burst_results
+        else 0
+    )
 
-    normal_timeout_rate = sum(
-        1 for r in normal_results if r["status"] == "timeout"
-    ) / len(normal_results) if normal_results else 0
+    normal_timeout_rate = (
+        sum(1 for r in normal_results if r["status"] == "timeout") / len(normal_results)
+        if normal_results
+        else 0
+    )
 
     assert burst_timeout_rate > normal_timeout_rate
 
@@ -398,18 +386,16 @@ async def test_timeout_recovery(simulator):
         providers=["test_provider"],
         timeout_pattern="fixed",
         timeout_duration=0.02,  # 原10.0，缩短为20ms
-        recovery_time=0.01,     # 原5.0，缩短为10ms
+        recovery_time=0.01,  # 原5.0，缩短为10ms
         failure_rate=1.0,
-        description="测试恢复机制"
+        description="测试恢复机制",
     )
 
     # 第一阶段：超时
     timeout_results = []
     for i in range(5):
         result = await simulator.simulate_provider_call(
-            provider=scenario.providers[0],
-            scenario=scenario,
-            request_num=i
+            provider=scenario.providers[0], scenario=scenario, request_num=i
         )
         timeout_results.append(result)
 
@@ -424,9 +410,7 @@ async def test_timeout_recovery(simulator):
     recovery_results = []
     for i in range(5, 10):
         result = await simulator.simulate_provider_call(
-            provider=scenario.providers[0],
-            scenario=scenario,
-            request_num=i
+            provider=scenario.providers[0], scenario=scenario, request_num=i
         )
         recovery_results.append(result)
 
@@ -446,9 +430,7 @@ async def test_gradual_degradation(simulator):
 
     for i in range(20):
         result = await simulator.simulate_provider_call(
-            provider=scenario.providers[0],
-            scenario=scenario,
-            request_num=i
+            provider=scenario.providers[0], scenario=scenario, request_num=i
         )
 
         if result["status"] == "timeout":
@@ -481,9 +463,7 @@ async def test_circuit_breaker_integration(simulator, mock_resilience_layer):
 
     for i in range(10):
         result = await simulator.simulate_provider_call(
-            provider=scenario.providers[0],
-            scenario=scenario,
-            request_num=i
+            provider=scenario.providers[0], scenario=scenario, request_num=i
         )
 
         if result["status"] == "timeout":
@@ -506,9 +486,9 @@ async def test_retry_policy_with_timeout(simulator, mock_resilience_layer):
         providers=["test_provider"],
         timeout_pattern="random",
         timeout_duration=0.01,  # 原5.0，缩短为10ms
-        recovery_time=0.002,    # 原1.0，缩短为2ms
+        recovery_time=0.002,  # 原1.0，缩短为2ms
         failure_rate=0.5,
-        description="测试重试机制"
+        description="测试重试机制",
     )
 
     max_retries = 3
@@ -518,9 +498,7 @@ async def test_retry_policy_with_timeout(simulator, mock_resilience_layer):
     for retry in range(max_retries):
         attempts += 1
         result = await simulator.simulate_provider_call(
-            provider=scenario.providers[0],
-            scenario=scenario,
-            request_num=retry
+            provider=scenario.providers[0], scenario=scenario, request_num=retry
         )
 
         if result["status"] == "success":
@@ -528,7 +506,7 @@ async def test_retry_policy_with_timeout(simulator, mock_resilience_layer):
             break
 
         # 模拟指数退避（缩短时间）
-        await asyncio.sleep(0.001 * (2 ** retry))
+        await asyncio.sleep(0.001 * (2**retry))
 
     # 统计重试效果
     print(f"Retry attempts: {attempts}, Successful: {successful}")
@@ -547,30 +525,23 @@ async def test_multi_provider_fallback(simulator):
             providers=[provider],
             timeout_pattern="random",
             timeout_duration=0.02,  # 原10.0，缩短为20ms
-            recovery_time=0.01,     # 原5.0，缩短为10ms
+            recovery_time=0.01,  # 原5.0，缩短为10ms
             failure_rate=0.7 - idx * 0.2,  # 递减的失败率
-            description=f"Fallback test for {provider}"
+            description=f"Fallback test for {provider}",
         )
 
         result = await simulator.simulate_provider_call(
-            provider=provider,
-            scenario=scenario,
-            request_num=0
+            provider=provider, scenario=scenario, request_num=0
         )
 
-        fallback_chain.append({
-            "provider": provider,
-            "result": result,
-            "order": idx + 1
-        })
+        fallback_chain.append({"provider": provider, "result": result, "order": idx + 1})
 
         if result["status"] == "success":
             break
 
     # 分析故障转移链
     successful_provider = next(
-        (f["provider"] for f in fallback_chain if f["result"]["status"] == "success"),
-        None
+        (f["provider"] for f in fallback_chain if f["result"]["status"] == "success"), None
     )
 
     print(f"Fallback chain: {[f['provider'] for f in fallback_chain]}")
@@ -585,7 +556,7 @@ def test_timeout_metrics_calculation(simulator):
         "timeouts": 25,
         "recoveries": 3,
         "response_times": [1.5, 2.3, 3.1, 4.5, 5.2, 8.9, 12.3, 15.6, 22.1, 28.5],
-        "cascade_failures": 5
+        "cascade_failures": 5,
     }
 
     analysis = simulator.analyze_metrics()
@@ -603,6 +574,7 @@ def test_timeout_metrics_calculation(simulator):
 # Performance and Stress Tests
 # ============================================================================
 
+
 @pytest.mark.asyncio
 @pytest.mark.performance
 async def test_high_load_timeout_behavior(simulator):
@@ -612,9 +584,9 @@ async def test_high_load_timeout_behavior(simulator):
         providers=["test_provider"],
         timeout_pattern="random",
         timeout_duration=0.01,  # 原5.0，缩短为10ms
-        recovery_time=0.002,    # 原1.0，缩短为2ms
+        recovery_time=0.002,  # 原1.0，缩短为2ms
         failure_rate=0.2,
-        description="高负载测试"
+        description="高负载测试",
     )
 
     # 并发请求
@@ -623,9 +595,7 @@ async def test_high_load_timeout_behavior(simulator):
 
     for i in range(concurrent_requests):
         task = simulator.simulate_provider_call(
-            provider=scenario.providers[0],
-            scenario=scenario,
-            request_num=i
+            provider=scenario.providers[0], scenario=scenario, request_num=i
         )
         tasks.append(task)
 
@@ -633,14 +603,8 @@ async def test_high_load_timeout_behavior(simulator):
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     # 分析结果
-    timeout_count = sum(
-        1 for r in results
-        if isinstance(r, dict) and r.get("status") == "timeout"
-    )
-    success_count = sum(
-        1 for r in results
-        if isinstance(r, dict) and r.get("status") == "success"
-    )
+    timeout_count = sum(1 for r in results if isinstance(r, dict) and r.get("status") == "timeout")
+    success_count = sum(1 for r in results if isinstance(r, dict) and r.get("status") == "success")
 
     print(f"High load test results:")
     print(f"  Total: {concurrent_requests}")
@@ -654,10 +618,7 @@ async def test_high_load_timeout_behavior(simulator):
 @pytest.mark.asyncio
 async def test_timeout_scenario_report(simulator):
     """生成超时场景测试报告"""
-    report = {
-        "test_time": datetime.now().isoformat(),
-        "scenarios": []
-    }
+    report = {"test_time": datetime.now().isoformat(), "scenarios": []}
 
     for scenario in simulator.scenarios:
         # 重置指标
@@ -666,24 +627,20 @@ async def test_timeout_scenario_report(simulator):
             "timeouts": 0,
             "recoveries": 0,
             "response_times": [],
-            "cascade_failures": 0
+            "cascade_failures": 0,
         }
 
         # 运行场景测试
         for i in range(10):
             await simulator.simulate_provider_call(
-                provider=scenario.providers[0],
-                scenario=scenario,
-                request_num=i
+                provider=scenario.providers[0], scenario=scenario, request_num=i
             )
 
         # 收集指标
         metrics = simulator.analyze_metrics()
-        report["scenarios"].append({
-            "name": scenario.name,
-            "description": scenario.description,
-            "metrics": metrics
-        })
+        report["scenarios"].append(
+            {"name": scenario.name, "description": scenario.description, "metrics": metrics}
+        )
 
     # 打印报告
     print("\n" + "=" * 60)

@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -470,6 +470,7 @@ class TestContextManagerProtocol:
 
     def test_sync_context_manager_pattern(self):
         """Test sync context manager pattern."""
+
         class MockStore:
             def __init__(self):
                 self._client = MagicMock()
@@ -495,6 +496,7 @@ class TestContextManagerProtocol:
 
     def test_async_context_manager_pattern(self):
         """Test async context manager pattern structure."""
+
         class MockAsyncStore:
             def __init__(self):
                 self._client = MagicMock()
@@ -525,6 +527,7 @@ class TestHealthCheck:
 
     def test_health_check_success(self):
         """Test health check returns True on success."""
+
         def get_collections():
             return {"collections": []}
 
@@ -538,6 +541,7 @@ class TestHealthCheck:
 
     def test_health_check_failure(self):
         """Test health check returns False on exception."""
+
         def get_collections():
             raise ConnectionError("Connection refused")
 
@@ -563,6 +567,7 @@ class TestVectorIdHandling:
     def test_uuid_id_conversion(self):
         """Test UUID converted to string."""
         import uuid as uuid_module
+
         hit_id = uuid_module.UUID("12345678-1234-1234-1234-123456789012")
         result_id = str(hit_id)
 
@@ -633,9 +638,7 @@ class TestRetrieveResult:
 
     def test_retrieve_found(self):
         """Test retrieve when vector found."""
-        results = [
-            {"id": "vec-1", "payload": {"material": "steel"}, "vector": [0.1, 0.2, 0.3]}
-        ]
+        results = [{"id": "vec-1", "payload": {"material": "steel"}, "vector": [0.1, 0.2, 0.3]}]
 
         if results:
             point = results[0]
@@ -678,8 +681,7 @@ class TestCountFiltering:
         filter_conditions = {"material": "steel"}
 
         must_conditions = [
-            {"key": key, "match": {"value": value}}
-            for key, value in filter_conditions.items()
+            {"key": key, "match": {"value": value}} for key, value in filter_conditions.items()
         ]
         query_filter = {"must": must_conditions}
 
@@ -693,8 +695,7 @@ class TestCountFiltering:
         query_filter = None
         if filter_conditions:
             must_conditions = [
-                {"key": key, "match": {"value": value}}
-                for key, value in filter_conditions.items()
+                {"key": key, "match": {"value": value}} for key, value in filter_conditions.items()
             ]
             query_filter = {"must": must_conditions}
 

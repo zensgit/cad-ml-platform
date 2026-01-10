@@ -16,12 +16,8 @@ import threading
 import time
 from typing import Any, Callable, Dict, List, Optional
 
-from src.core.knowledge.dynamic.models import (
-    KnowledgeCategory,
-    KnowledgeEntry,
-    GeometryPattern,
-)
-from src.core.knowledge.dynamic.store import KnowledgeStore, JSONKnowledgeStore
+from src.core.knowledge.dynamic.models import GeometryPattern, KnowledgeCategory, KnowledgeEntry
+from src.core.knowledge.dynamic.store import JSONKnowledgeStore, KnowledgeStore
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +120,7 @@ class KnowledgeManager:
                     self._pattern_cache[pattern].append(rule)
 
                 # Geometry patterns
-                if isinstance(rule, GeometryPattern):
+                if isinstance(rule, GeometryPattern) and rule.conditions:
                     self._geometry_patterns.append(rule)
 
             logger.debug(
@@ -136,6 +132,7 @@ class KnowledgeManager:
 
     def _start_auto_reload(self) -> None:
         """Start the auto-reload background thread."""
+
         def reload_loop() -> None:
             while not self._stop_reload.is_set():
                 time.sleep(self._auto_reload_interval)
@@ -194,9 +191,7 @@ class KnowledgeManager:
 
     # ==================== Query Methods ====================
 
-    def get_rules_by_category(
-        self, category: KnowledgeCategory
-    ) -> List[KnowledgeEntry]:
+    def get_rules_by_category(self, category: KnowledgeCategory) -> List[KnowledgeEntry]:
         """Get all enabled rules for a category."""
         with self._cache_lock:
             return self._category_cache.get(category, []).copy()

@@ -1,10 +1,25 @@
-import pytest
+import re
+
 from fastapi.testclient import TestClient
 
 from src.core.errors import ErrorCode
 from src.main import app
 
 client = TestClient(app)
+
+
+def _metrics_text_if_enabled() -> str | None:
+    response = client.get("/metrics")
+    if response.status_code != 200:
+        return None
+    if "app_metrics_disabled" in response.text:
+        return None
+    return response.text
+
+
+def _assert_rejection_metric(metrics_text: str, reason: str) -> None:
+    pattern = rf'ocr_input_rejected_total(_total)?\{{[^}}]*reason="{reason}"'
+    assert re.search(pattern, metrics_text)
 
 
 def _make_pdf(pages: int, forbidden: bool = False) -> bytes:
@@ -18,9 +33,7 @@ def _make_pdf(pages: int, forbidden: bool = False) -> bytes:
     return header + body + b"%%EOF"
 
 
-@pytest.mark.skip(reason="PDF page count validation not yet implemented in validate_and_read()")
 def test_ocr_pdf_pages_exceed():
-    # TODO: Implement PDF page count validation in src/security/input_validator.py
     pdf_bytes = _make_pdf(25)  # exceeds default 20
     files = {"file": ("large.pdf", pdf_bytes, "application/pdf")}
     resp = client.post("/api/v1/ocr/extract", files=files)
@@ -28,14 +41,13 @@ def test_ocr_pdf_pages_exceed():
     assert resp.status_code == 200
     assert data["success"] is False
     assert data.get("code") == ErrorCode.INPUT_ERROR
-    metrics_resp = client.get("/metrics")
-    if metrics_resp.status_code == 200:
-        assert "pdf_pages_exceed" in metrics_resp.text
+    assert "page count" in (data.get("error") or "").lower()
+    metrics_text = _metrics_text_if_enabled()
+    if metrics_text:
+        _assert_rejection_metric(metrics_text, "pdf_pages_exceed")
 
 
-@pytest.mark.skip(reason="PDF forbidden token validation not yet implemented in validate_and_read()")
 def test_ocr_pdf_forbidden_token():
-    # TODO: Implement PDF forbidden token validation in src/security/input_validator.py
     pdf_bytes = _make_pdf(2, forbidden=True)
     files = {"file": ("bad.pdf", pdf_bytes, "application/pdf")}
     resp = client.post("/api/v1/ocr/extract", files=files)
@@ -43,6 +55,7 @@ def test_ocr_pdf_forbidden_token():
     assert resp.status_code == 200
     assert data["success"] is False
     assert data.get("code") == ErrorCode.INPUT_ERROR
-    metrics_resp = client.get("/metrics")
-    if metrics_resp.status_code == 200:
-        assert "pdf_forbidden_token" in metrics_resp.text
+    assert "forbidden token" in (data.get("error") or "").lower()
+    metrics_text = _metrics_text_if_enabled()
+    if metrics_text:
+        _assert_rejection_metric(metrics_text, "pdf_forbidden_token")

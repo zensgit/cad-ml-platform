@@ -1,7 +1,8 @@
 from fastapi.testclient import TestClient
-from src.main import app
+
 from src.core import similarity
 from src.core.similarity import register_vector  # type: ignore
+from src.main import app
 
 client = TestClient(app)
 
@@ -33,4 +34,3 @@ def test_vector_migration_status_flow(monkeypatch):
     assert data2.get("last_migration_id") == mig.get("migration_id")
     assert data2.get("last_total") == 2
     assert data2.get("last_skipped") >= 1  # dry-run counts as skipped
-

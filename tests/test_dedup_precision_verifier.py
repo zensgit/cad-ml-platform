@@ -77,6 +77,7 @@ def test_precision_verifier_self_match_returns_one():
 
 def test_version_profile_entities_spatial_signature_reduces_false_positive():
     """Version profile should not rely on pure bag-of-features when layouts differ."""
+
     def square_lines(x0: float, y0: float, *, size: float = 1.0, segments: int = 4):
         seg = max(1, int(segments))
         step = size / seg
@@ -84,7 +85,12 @@ def test_version_profile_entities_spatial_signature_reduces_false_positive():
         # bottom
         for i in range(seg):
             lines.append(
-                {"type": "LINE", "layer": "0", "start": [x0 + i * step, y0], "end": [x0 + (i + 1) * step, y0]}
+                {
+                    "type": "LINE",
+                    "layer": "0",
+                    "start": [x0 + i * step, y0],
+                    "end": [x0 + (i + 1) * step, y0],
+                }
             )
         # right
         for i in range(seg):

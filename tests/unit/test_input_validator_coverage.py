@@ -13,8 +13,9 @@ Covers:
 
 from __future__ import annotations
 
+import base64
 import os
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -299,7 +300,9 @@ class TestMatrixValidate:
         """Test returns True when no spec for format."""
         from src.security.input_validator import matrix_validate
 
-        with patch("src.security.input_validator.load_validation_matrix", return_value={"formats": {}}):
+        with patch(
+            "src.security.input_validator.load_validation_matrix", return_value={"formats": {}}
+        ):
             valid, reason = matrix_validate(b"data", "xyz")
 
         assert valid is True
@@ -436,17 +439,25 @@ class TestValidateAndRead:
 
     @pytest.mark.asyncio
     async def test_validate_and_read(self):
-        """Test validate_and_read reads file and sniffs MIME."""
+        """Test validate_and_read reads file and resolves MIME."""
         from src.security.input_validator import validate_and_read
 
+        sample_png = base64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z/C/HwAFgwJ/lb9a0QAAAABJRU5ErkJggg=="
+        )
         mock_file = MagicMock()
-        mock_file.read = AsyncMock(return_value=b"file content")
+        mock_file.read = AsyncMock(return_value=sample_png)
+        mock_file.content_type = "image/png"
+        mock_file.filename = "sample.png"
 
-        with patch("src.security.input_validator.sniff_mime", return_value=("text/plain", True)):
+        with patch(
+            "src.security.input_validator.sniff_mime",
+            return_value=("application/octet-stream", True),
+        ):
             data, mime = await validate_and_read(mock_file)
 
-        assert data == b"file content"
-        assert mime == "text/plain"
+        assert data == sample_png
+        assert mime == "image/png"
 
 
 class TestSignatureConstants:

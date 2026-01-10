@@ -1,0 +1,12 @@
+{
+  "thresholds": {
+    "min_area": 12,
+    "line_aspect": 4
+  },
+  "grid": {
+    "arc_fill_min": [
+      0.05,
+      0.08
+    ]
+  }
+}

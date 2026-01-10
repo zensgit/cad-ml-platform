@@ -1,21 +1,28 @@
 # CAD ML Platform - Makefile
 # 统一的开发工作流
 
-.PHONY: help install dev test lint format type-check clean run docs docker eval-history health-check eval-trend \
+.PHONY: help install dev test test-dedupcad-vision lint format type-check clean run docs docker eval-history health-check eval-trend \
 	observability-up observability-down observability-status self-check metrics-validate prom-validate \
-	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted
+	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted e2e-smoke \
+	dedup2d-secure-smoke
 
 # 默认目标
 .DEFAULT_GOAL := help
 
 # 变量定义
-PYTHON := python3
+# Prefer project venv or newer Python when available to match 3.10+ requirement.
+PYTHON ?= $(shell if [ -x .venv/bin/python ]; then echo .venv/bin/python; \
+	elif command -v python3.11 >/dev/null 2>&1; then command -v python3.11; \
+	elif command -v python3.10 >/dev/null 2>&1; then command -v python3.10; \
+	elif command -v python3 >/dev/null 2>&1; then command -v python3; \
+	else echo python3; fi)
 PIP := $(PYTHON) -m pip
 PYTEST := $(PYTHON) -m pytest
 BLACK := $(PYTHON) -m black
 ISORT := $(PYTHON) -m isort
 MYPY := $(PYTHON) -m mypy
 FLAKE8 := $(PYTHON) -m flake8
+PROMETHEUS_URL ?= http://localhost:9091
 
 # 项目路径
 SRC_DIR := src
@@ -50,6 +57,14 @@ dev: ## 设置开发环境
 
 test: ## 运行测试
 	@echo "$(GREEN)Running tests...$(NC)"
+	$(PYTEST) $(TEST_DIR) -v --cov=$(SRC_DIR) --cov-report=term-missing --cov-report=html
+
+test-dedupcad-vision: ## 运行测试（依赖 DedupCAD Vision 已启动）
+	@echo "$(GREEN)Running tests with DedupCAD Vision required...$(NC)"
+	@echo "$(YELLOW)Ensure dedupcad-vision is running at $${DEDUPCAD_VISION_URL:-http://localhost:58001}$(NC)"
+	DEDUPCAD_VISION_REQUIRED=1 \
+	PYTHONPATH=$(PWD) \
+	DEDUPCAD_VISION_URL=$${DEDUPCAD_VISION_URL:-http://localhost:58001} \
 	$(PYTEST) $(TEST_DIR) -v --cov=$(SRC_DIR) --cov-report=term-missing --cov-report=html
 
 test-assembly: ## 运行装配模块测试
@@ -120,6 +135,7 @@ self-check-enhanced: ## Run comprehensive self-check
 
 verify-metrics: ## Verify required metrics are exported
 	@echo "$(GREEN)Verifying metrics export...$(NC)"
+	$(PYTHON) scripts/check_metrics_consistency.py
 	$(PYTHON) scripts/verify_metrics_export.py
 	@echo "$(GREEN)Metrics export verification passed!$(NC)"
 
@@ -129,6 +145,19 @@ test-targeted: ## Run targeted tests (Faiss health/ETA scheduling)
 		tests/unit/test_faiss_health_response.py \
 		tests/unit/test_faiss_eta_schedules_on_failed_recovery.py -q || true
 	@echo "$(GREEN)Targeted tests completed (allowing skips).$(NC)"
+
+e2e-smoke: ## Run E2E smoke tests against running services
+	@echo "$(GREEN)Running E2E smoke tests...$(NC)"
+	API_BASE_URL=$${API_BASE_URL:-http://localhost:8000} \
+	DEDUPCAD_VISION_URL=$${DEDUPCAD_VISION_URL:-http://localhost:58001} \
+	$(PYTEST) tests/integration/test_e2e_api_smoke.py \
+		tests/integration/test_dedupcad_vision_contract.py -v -rs
+
+dedup2d-secure-smoke: ## Run Dedup2D secure callback smoke test
+	@echo "$(GREEN)Running Dedup2D secure callback smoke test...$(NC)"
+	DEDUPCAD_VISION_START=$${DEDUPCAD_VISION_START:-0} \
+	DEDUP2D_SECURE_SMOKE_CLEANUP=$${DEDUP2D_SECURE_SMOKE_CLEANUP:-1} \
+		scripts/e2e_dedup2d_secure_callback.sh
 
 docker-build: ## 构建Docker镜像
 	@echo "$(GREEN)Building Docker image...$(NC)"
@@ -208,9 +237,9 @@ prom-validate: ## 验证Prometheus录制规则
 	$(PYTHON) scripts/validate_prom_rules.py --skip-promtool
 	@echo ""
 	@echo "$(YELLOW)Validating with promtool (Docker)...$(NC)"
-	@docker run --rm -v $(PWD)/docs/prometheus:/rules:ro \
+	@docker run --rm --entrypoint promtool -v $(PWD)/docs/prometheus:/rules:ro \
 		prom/prometheus:latest \
-		promtool check rules /rules/recording_rules.yml || echo "$(YELLOW)Promtool not available$(NC)"
+		check rules /rules/recording_rules.yml || echo "$(YELLOW)Promtool not available$(NC)"
 
 promtool-validate-all: ## 使用 promtool 验证所有规则文件
 	@echo "$(GREEN)Validating all Prometheus rules with promtool...$(NC)"
@@ -222,17 +251,6 @@ dashboard-import: ## 导入Grafana仪表板
 	@echo "Login with admin/admin and import the dashboard from:"
 	@echo "  docs/grafana/observability_dashboard.json"
 	@open http://localhost:3000/dashboard/import || echo "Open http://localhost:3000/dashboard/import manually"
-
-security-audit: ## 运行安全审计
-	@echo "$(GREEN)Running security audit...$(NC)"
-	@echo "$(YELLOW)Checking dependencies with pip-audit...$(NC)"
-	-pip-audit
-	@echo ""
-	@echo "$(YELLOW)Checking with safety...$(NC)"
-	-safety check
-	@echo ""
-	@echo "$(YELLOW)Running bandit security scan...$(NC)"
-	-bandit -r $(SRC_DIR) -f json -o security-report.json
 
 observability-test: ## 运行可观测性测试套件
 	@echo "$(GREEN)Running observability test suite...$(NC)"
@@ -256,13 +274,13 @@ observability-clean: ## 清理可观测性数据
 
 metrics-audit: ## 运行指标基数审计
 	@echo "$(GREEN)Running metrics cardinality audit...$(NC)"
-	$(PYTHON) scripts/cardinality_audit.py --format markdown
+	$(PYTHON) scripts/cardinality_audit.py --prometheus-url $(PROMETHEUS_URL) --format markdown
 	@echo "$(GREEN)Audit complete!$(NC)"
 
 cardinality-check: ## 检查指标基数并生成报告
 	@echo "$(GREEN)Checking metrics cardinality...$(NC)"
 	$(PYTHON) scripts/cardinality_audit.py \
-		--prometheus-url http://localhost:9090 \
+		--prometheus-url $(PROMETHEUS_URL) \
 		--warning-threshold 100 \
 		--critical-threshold 1000 \
 		--format json \
@@ -273,7 +291,7 @@ metrics-audit-watch: ## 持续监控指标基数
 	@echo "$(GREEN)Starting continuous cardinality monitoring...$(NC)"
 	@while true; do \
 		clear; \
-		$(PYTHON) scripts/cardinality_audit.py --format markdown; \
+		$(PYTHON) scripts/cardinality_audit.py --prometheus-url $(PROMETHEUS_URL) --format markdown; \
 		sleep 60; \
 	done
 
@@ -532,7 +550,7 @@ metrics-serve: ## 启动指标服务器 (端口 8000)
 
 metrics-push: ## 推送指标到 Prometheus Gateway
 	@echo "$(GREEN)Pushing metrics to Prometheus Gateway...$(NC)"
-	$(PYTHON) scripts/export_eval_metrics.py --push-gateway http://localhost:9091
+	$(PYTHON) scripts/export_eval_metrics.py --push-gateway $${PUSHGATEWAY_URL:-http://localhost:9091}
 
 security-audit: ## 运行安全审计
 	@echo "$(YELLOW)Running security audit...$(NC)"

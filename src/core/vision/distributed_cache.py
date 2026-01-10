@@ -5,17 +5,16 @@ Provides distributed caching capabilities including cache consistency,
 TTL management, cache sharding, and invalidation strategies.
 """
 
+import hashlib
+import threading
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Any, Callable, Dict, Generic, List, Optional, Set, TypeVar, Union
-import hashlib
-import threading
-import time
 
-from .base import VisionProvider, VisionDescription
-
+from .base import VisionDescription, VisionProvider
 
 # ============================================================================
 # Enums
@@ -240,6 +239,7 @@ class CacheShard:
                 del self._entries[oldest.key]
         else:  # RANDOM
             import random
+
             key = random.choice(list(self._entries.keys()))
             del self._entries[key]
 
@@ -310,7 +310,7 @@ class ConsistentHashRing:
 
     def _hash(self, key: str) -> int:
         """Hash a key to an integer."""
-        return int(hashlib.md5(key.encode()).hexdigest(), 16)
+        return int(hashlib.sha256(key.encode()).hexdigest(), 16)
 
     def get_nodes(self) -> Set[str]:
         """Get all nodes."""
@@ -389,10 +389,7 @@ class DistributedCache:
         count = 0
         for shard in self._shards.values():
             with shard._lock:
-                keys_to_delete = [
-                    k for k in shard._entries.keys()
-                    if pattern in k
-                ]
+                keys_to_delete = [k for k in shard._entries.keys() if pattern in k]
                 for key in keys_to_delete:
                     del shard._entries[key]
                     count += 1
@@ -509,10 +506,7 @@ class CacheManager:
 
     def get_all_stats(self) -> Dict[str, CacheStats]:
         """Get statistics for all caches."""
-        return {
-            cache_id: cache.get_stats()
-            for cache_id, cache in self._caches.items()
-        }
+        return {cache_id: cache.get_stats() for cache_id, cache in self._caches.items()}
 
 
 # ============================================================================
@@ -546,7 +540,7 @@ class DistributedCacheVisionProvider(VisionProvider):
     ) -> VisionDescription:
         """Analyze image with distributed caching."""
         # Generate cache key
-        cache_key = hashlib.md5(image_data).hexdigest()
+        cache_key = hashlib.sha256(image_data).hexdigest()
 
         # Check cache
         cached = self._cache.get(cache_key)

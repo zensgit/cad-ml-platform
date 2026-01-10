@@ -6,6 +6,42 @@
 
 ---
 
+## 🧾 最新验证记录 (2026-01-06)
+
+- ✅ Metrics contract 全量验证通过（19 passed / 3 skipped）（`reports/DEV_METRICS_CONTRACT_FULL_VALIDATION_20260106.md`）
+- ✅ Metrics 单测筛选（-k metrics）通过：223 passed（`reports/DEV_METRICS_UNIT_FILTER_VENV_VALIDATION_20260106.md`）
+- ✅ 缓存调优 + Opcode 模式 + v4 指标单测通过：43 passed（`reports/DEV_METRICS_UNIT_SUBSET_VENV_VALIDATION_20260106.md`）
+- ✅ 安全/回滚/向量迁移指标单测通过：61 passed（`reports/DEV_METRICS_UNIT_SECURITY_ROLLBACK_VECTOR_VENV_VALIDATION_20260106.md`）
+- ✅ Dashboard 指标校验通过（`reports/DEV_DASHBOARD_METRICS_REVALIDATION_20260106.md`）
+
+---
+
+## 🧾 最新验证记录 (2025-12-30)
+
+- ✅ 全量测试通过：3961 passed / 29 skipped，覆盖率 71%（`reports/DEV_MAKE_TEST_20251230_FULL.md`）
+- ✅ Prometheus 规则校验通过（promtool via Docker）：recording 46 / alerting 47（`reports/DEV_PROMTOOL_RULES_VALIDATE_20251230.md`）
+- ✅ 回归套件无序依赖验证通过（3次运行）（`reports/DEV_REGRESSION_VALIDATION_20251230.md`, `reports/regression_validation.md`）
+- ✅ Metrics 导出一致性验证通过（`reports/DEV_METRICS_CONSISTENCY_20251230.md`）
+- ✅ 性能基线已生成并更新对比（`reports/DEV_PERFORMANCE_BASELINE_20251230.md`, `reports/DEV_PERFORMANCE_BASELINE_COMPARE_20251230.md`）
+
+---
+
+## 🧾 最新验证记录 (2025-02-14)
+
+- ✅ Self-check 严格模式通过（`reports/SELF_CHECK.md`）
+- ✅ 全量测试通过：3628 passed / 42 skipped（`reports/FULL_TESTS.md`）
+- ✅ Metrics 导出一致性验证通过（`reports/METRICS_CONSISTENCY.md`）
+- ✅ Prometheus 规则静态校验通过（`reports/PROM_RULES_VALIDATION.md`）
+- ✅ Day 6 性能基线已生成并对比 Day 0（`reports/performance_baseline_day6.json`, `reports/performance_baseline.md`）
+- ✅ 可选任务已完成：Drift baseline export/import + 向量后端 reload 管理员校验（`reports/OPTIONAL_TASKS_DAY6.md`）
+- ✅ 特征向量顺序一致性修复完成（`reports/FEATURE_VECTOR_LAYOUT_ALIGNMENT.md`）
+- ✅ 向量存量审计与迁移建议已生成（`reports/VECTOR_STORE_LAYOUT_AUDIT.md`）
+- ✅ 向量布局迁移脚本与验证报告已生成（`reports/VECTOR_LAYOUT_MIGRATION_TOOL.md`）
+- ✅ 开发环境服务冒烟验证通过（`reports/DEV_SERVICE_SMOKE.md`）
+- ✅ 开发环境扩展冒烟已完成（`reports/DEV_SERVICE_SMOKE_EXTENDED.md`）
+
+---
+
 ## 📋 执行概览
 
 ### 整体策略

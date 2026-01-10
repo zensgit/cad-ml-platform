@@ -143,9 +143,7 @@ class ResilientVisionProvider(VisionProvider):
         last_exception = None
         for attempt in range(self._retry_config.max_retries + 1):
             try:
-                result = await self._provider.analyze_image(
-                    image_data, include_description
-                )
+                result = await self._provider.analyze_image(image_data, include_description)
 
                 # Success - update metrics and circuit
                 latency_ms = (time.time() - start_time) * 1000
@@ -177,8 +175,7 @@ class ResilientVisionProvider(VisionProvider):
         # All retries exhausted
         raise VisionProviderError(
             self.provider_name,
-            f"Failed after {self._retry_config.max_retries + 1} attempts: "
-            f"{last_exception}",
+            f"Failed after {self._retry_config.max_retries + 1} attempts: " f"{last_exception}",
         )
 
     @property
@@ -200,9 +197,7 @@ class ResilientVisionProvider(VisionProvider):
         """Calculate delay with exponential backoff and jitter."""
         import random
 
-        delay = self._retry_config.base_delay * (
-            self._retry_config.exponential_base ** attempt
-        )
+        delay = self._retry_config.base_delay * (self._retry_config.exponential_base**attempt)
         delay = min(delay, self._retry_config.max_delay)
         # Add jitter (±20%)
         jitter = delay * 0.2 * (2 * random.random() - 1)

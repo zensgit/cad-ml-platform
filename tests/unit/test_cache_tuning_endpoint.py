@@ -10,12 +10,12 @@ Tests cover:
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
 from src.main import app
-
 
 client = TestClient(app)
 
@@ -25,19 +25,13 @@ class TestCacheTuningEndpoint:
 
     def test_cache_tuning_endpoint_returns_200(self):
         """Test that cache tuning endpoint returns 200 OK."""
-        response = client.get(
-            "/api/v1/features/cache/tuning",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/features/cache/tuning", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
 
     def test_cache_tuning_response_structure(self):
         """Test response structure of cache tuning endpoint."""
-        response = client.get(
-            "/api/v1/features/cache/tuning",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/features/cache/tuning", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -60,10 +54,7 @@ class TestCacheTuningEndpoint:
 
     def test_cache_tuning_metrics_summary_structure(self):
         """Test metrics_summary structure in response."""
-        response = client.get(
-            "/api/v1/features/cache/tuning",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/features/cache/tuning", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -77,10 +68,7 @@ class TestCacheTuningEndpoint:
 
     def test_cache_tuning_health_alias_endpoint(self):
         """Test /health/features/cache/tuning alias endpoint."""
-        response = client.get(
-            "/api/v1/health/features/cache/tuning",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/features/cache/tuning", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -114,10 +102,7 @@ class TestCacheTuningLogic:
             }
             mock_get_cache.return_value = cache
 
-            response = client.get(
-                "/api/v1/features/cache/tuning",
-                headers={"X-API-Key": "test"}
-            )
+            response = client.get("/api/v1/features/cache/tuning", headers={"X-API-Key": "test"})
 
             assert response.status_code == 200
             data = response.json()
@@ -142,10 +127,7 @@ class TestCacheTuningLogic:
             }
             mock_get_cache.return_value = cache
 
-            response = client.get(
-                "/api/v1/features/cache/tuning",
-                headers={"X-API-Key": "test"}
-            )
+            response = client.get("/api/v1/features/cache/tuning", headers={"X-API-Key": "test"})
 
             assert response.status_code == 200
             data = response.json()
@@ -170,10 +152,7 @@ class TestCacheTuningLogic:
             }
             mock_get_cache.return_value = cache
 
-            response = client.get(
-                "/api/v1/features/cache/tuning",
-                headers={"X-API-Key": "test"}
-            )
+            response = client.get("/api/v1/features/cache/tuning", headers={"X-API-Key": "test"})
 
             assert response.status_code == 200
             data = response.json()
@@ -196,10 +175,7 @@ class TestCacheTuningLogic:
             }
             mock_get_cache.return_value = cache
 
-            response = client.get(
-                "/api/v1/features/cache/tuning",
-                headers={"X-API-Key": "test"}
-            )
+            response = client.get("/api/v1/features/cache/tuning", headers={"X-API-Key": "test"})
 
             assert response.status_code == 200
             data = response.json()
@@ -224,10 +200,7 @@ class TestCacheTuningLogic:
             }
             mock_get_cache.return_value = cache
 
-            response = client.get(
-                "/api/v1/features/cache/tuning",
-                headers={"X-API-Key": "test"}
-            )
+            response = client.get("/api/v1/features/cache/tuning", headers={"X-API-Key": "test"})
 
             assert response.status_code == 200
             data = response.json()
@@ -252,10 +225,7 @@ class TestCacheTuningLogic:
             }
             mock_get_cache.return_value = cache
 
-            response = client.get(
-                "/api/v1/features/cache/tuning",
-                headers={"X-API-Key": "test"}
-            )
+            response = client.get("/api/v1/features/cache/tuning", headers={"X-API-Key": "test"})
 
             assert response.status_code == 200
             data = response.json()
@@ -286,10 +256,7 @@ class TestCacheTuningEdgeCases:
             }
             mock_get_cache.return_value = cache
 
-            response = client.get(
-                "/api/v1/features/cache/tuning",
-                headers={"X-API-Key": "test"}
-            )
+            response = client.get("/api/v1/features/cache/tuning", headers={"X-API-Key": "test"})
 
             assert response.status_code == 200
             data = response.json()
@@ -314,10 +281,7 @@ class TestCacheTuningEdgeCases:
             }
             mock_get_cache.return_value = cache
 
-            response = client.get(
-                "/api/v1/features/cache/tuning",
-                headers={"X-API-Key": "test"}
-            )
+            response = client.get("/api/v1/features/cache/tuning", headers={"X-API-Key": "test"})
 
             assert response.status_code == 200
             data = response.json()
@@ -339,10 +303,7 @@ class TestCacheTuningEdgeCases:
             }
             mock_get_cache.return_value = cache
 
-            response = client.get(
-                "/api/v1/features/cache/tuning",
-                headers={"X-API-Key": "test"}
-            )
+            response = client.get("/api/v1/features/cache/tuning", headers={"X-API-Key": "test"})
 
             assert response.status_code == 200
             data = response.json()
@@ -364,10 +325,7 @@ class TestCacheTuningEdgeCases:
             }
             mock_get_cache.return_value = cache
 
-            response = client.get(
-                "/api/v1/features/cache/tuning",
-                headers={"X-API-Key": "test"}
-            )
+            response = client.get("/api/v1/features/cache/tuning", headers={"X-API-Key": "test"})
 
             assert response.status_code == 200
             data = response.json()
@@ -375,7 +333,8 @@ class TestCacheTuningEdgeCases:
             # Verify change percentage calculation
             expected_capacity_change = (
                 (data["recommended_capacity"] - data["current_capacity"])
-                / data["current_capacity"] * 100
+                / data["current_capacity"]
+                * 100
             )
             assert abs(data["capacity_change_pct"] - expected_capacity_change) < 0.2
 
@@ -388,7 +347,7 @@ class TestCacheApplyEndpoint:
         response = client.post(
             "/api/v1/features/cache/apply",
             json={"capacity": 2000, "ttl_seconds": 7200},
-            headers={"X-API-Key": "test"}  # No admin token
+            headers={"X-API-Key": "test"},  # No admin token
         )
 
         # Should require admin token
@@ -405,10 +364,7 @@ class TestCacheApplyEndpoint:
             response = client.post(
                 "/api/v1/features/cache/apply",
                 json={"capacity": 2000, "ttl_seconds": 7200},
-                headers={
-                    "X-API-Key": "test",
-                    "X-Admin-Token": "test-admin"
-                }
+                headers={"X-API-Key": "test", "X-Admin-Token": "test-admin"},
             )
 
             # In test env, admin auth may reject - 200 or 403 both valid
@@ -421,8 +377,7 @@ class TestCacheRollbackEndpoint:
     def test_cache_rollback_requires_admin_token(self):
         """Test that cache rollback requires admin token."""
         response = client.post(
-            "/api/v1/features/cache/rollback",
-            headers={"X-API-Key": "test"}  # No admin token
+            "/api/v1/features/cache/rollback", headers={"X-API-Key": "test"}  # No admin token
         )
 
         # Should require admin token
@@ -438,10 +393,7 @@ class TestCacheRollbackEndpoint:
 
             response = client.post(
                 "/api/v1/features/cache/rollback",
-                headers={
-                    "X-API-Key": "test",
-                    "X-Admin-Token": "test-admin"
-                }
+                headers={"X-API-Key": "test", "X-Admin-Token": "test-admin"},
             )
 
             # In test env, admin auth may reject - 200 or 403 both valid

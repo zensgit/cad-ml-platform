@@ -28,7 +28,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .base import VisionDescription, VisionProvider
 
-
 # ========================
 # Enums
 # ========================
@@ -236,9 +235,7 @@ class KeyGenerator:
         key_size = key_sizes.get(algorithm, 32)
         key_material = secrets.token_bytes(key_size)
 
-        key_id = hashlib.sha256(
-            f"{time.time()}:{secrets.token_hex(8)}".encode()
-        ).hexdigest()[:16]
+        key_id = hashlib.sha256(f"{time.time()}:{secrets.token_hex(8)}".encode()).hexdigest()[:16]
 
         return EncryptionKey(
             key_id=key_id,
@@ -263,9 +260,7 @@ class KeyGenerator:
         key_size = key_sizes.get(hash_algorithm, 32)
         key_material = secrets.token_bytes(key_size)
 
-        key_id = hashlib.sha256(
-            f"{time.time()}:{secrets.token_hex(8)}".encode()
-        ).hexdigest()[:16]
+        key_id = hashlib.sha256(f"{time.time()}:{secrets.token_hex(8)}".encode()).hexdigest()[:16]
 
         return EncryptionKey(
             key_id=key_id,
@@ -290,9 +285,7 @@ class KeyGenerator:
             hashlib.sha256,
         ).digest()
 
-        key_id = hashlib.sha256(
-            f"{master_key.key_id}:{context.hex()}".encode()
-        ).hexdigest()[:16]
+        key_id = hashlib.sha256(f"{master_key.key_id}:{context.hex()}".encode()).hexdigest()[:16]
 
         return EncryptionKey(
             key_id=key_id,
@@ -424,7 +417,7 @@ class KeyRotationManager:
 
         # Record rotation event
         event = KeyRotationEvent(
-            event_id=hashlib.md5(f"{old_key_id}:{new_key.key_id}".encode()).hexdigest()[:8],
+            event_id=hashlib.sha256(f"{old_key_id}:{new_key.key_id}".encode()).hexdigest()[:8],
             old_key_id=old_key_id,
             new_key_id=new_key.key_id,
             reason=reason,
@@ -440,8 +433,7 @@ class KeyRotationManager:
         """Get rotation history for a key."""
         with self._lock:
             return [
-                e for e in self._rotation_events
-                if e.old_key_id == key_id or e.new_key_id == key_id
+                e for e in self._rotation_events if e.old_key_id == key_id or e.new_key_id == key_id
             ]
 
     def check_rotation_needed(self, key: EncryptionKey, policy: KeyPolicy) -> bool:

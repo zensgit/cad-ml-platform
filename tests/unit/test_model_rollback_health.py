@@ -6,13 +6,21 @@ when model reloading fails and triggers automatic rollback to previous versions.
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
 from src.main import app
 
 client = TestClient(app)
+
+
+def _read_metric(counter) -> int | None:
+    try:
+        return int(counter._value.get())  # type: ignore[attr-defined]
+    except Exception:
+        return None
 
 
 @pytest.fixture
@@ -88,10 +96,7 @@ def test_model_health_no_rollback(mock_model_info_no_rollback):
     with patch("src.ml.classifier.get_model_info") as mock_info:
         mock_info.return_value = mock_model_info_no_rollback
 
-        response = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -113,10 +118,7 @@ def test_model_health_rollback_level1(mock_model_info_rollback_level1):
     with patch("src.ml.classifier.get_model_info") as mock_info:
         mock_info.return_value = mock_model_info_rollback_level1
 
-        response = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -137,10 +139,7 @@ def test_model_health_rollback_level2(mock_model_info_rollback_level2):
     with patch("src.ml.classifier.get_model_info") as mock_info:
         mock_info.return_value = mock_model_info_rollback_level2
 
-        response = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -161,10 +160,7 @@ def test_model_health_absent(mock_model_info_absent):
     with patch("src.ml.classifier.get_model_info") as mock_info:
         mock_info.return_value = mock_model_info_absent
 
-        response = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
@@ -183,6 +179,11 @@ def test_model_health_metric_recording():
     """Test that health checks record correct metric labels."""
     from src.utils.analysis_metrics import model_health_checks_total
 
+    ok_counter = model_health_checks_total.labels(status="ok")
+    rollback_counter = model_health_checks_total.labels(status="rollback")
+    before_ok = _read_metric(ok_counter)
+    before_rollback = _read_metric(rollback_counter)
+
     with patch("src.ml.classifier.get_model_info") as mock_info:
         # Test "ok" status metric
         mock_info.return_value = {
@@ -198,26 +199,26 @@ def test_model_health_metric_recording():
             "has_prev2": False,
         }
 
-        response = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         # Metric should be recorded with status="ok"
+        if before_ok is not None:
+            after_ok = _read_metric(ok_counter)
+            assert after_ok == before_ok + 1
 
         # Test "rollback" status metric
         mock_info.return_value["rollback_level"] = 1
         mock_info.return_value["rollback_reason"] = "Test rollback"
 
-        response = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "rollback"
+        if before_rollback is not None:
+            after_rollback = _read_metric(rollback_counter)
+            assert after_rollback == before_rollback + 1
 
 
 def test_model_health_rollback_clear_after_recovery():
@@ -237,10 +238,7 @@ def test_model_health_rollback_clear_after_recovery():
             "has_prev2": False,
         }
 
-        response1 = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response1 = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response1.status_code == 200
         data1 = response1.json()
@@ -261,10 +259,7 @@ def test_model_health_rollback_clear_after_recovery():
             "has_prev2": False,
         }
 
-        response2 = client.get(
-            "/api/v1/health/model",
-            headers={"X-API-Key": "test"}
-        )
+        response2 = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
         assert response2.status_code == 200
         data2 = response2.json()
@@ -303,20 +298,19 @@ def test_model_health_consecutive_failures():
 
         for state in states:
             # Add common fields
-            state.update({
-                "hash": "test",
-                "path": "/test.pkl",
-                "loaded_at": 1700000000.0,
-                "last_error": None,
-                "has_prev": True,
-                "has_prev2": True,
-            })
+            state.update(
+                {
+                    "hash": "test",
+                    "path": "/test.pkl",
+                    "loaded_at": 1700000000.0,
+                    "last_error": None,
+                    "has_prev": True,
+                    "has_prev2": True,
+                }
+            )
             mock_info.return_value = state
 
-            response = client.get(
-                "/api/v1/health/model",
-                headers={"X-API-Key": "test"}
-            )
+            response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
 
             assert response.status_code == 200
             data = response.json()
@@ -390,3 +384,45 @@ def test_model_load_seq_increments():
         assert data1["load_seq"] == 0
         assert data2["load_seq"] == 1
         assert data3["load_seq"] == 2
+
+
+def _read_gauge_value(gauge, name: str) -> float | None:
+    if not hasattr(gauge, "collect"):
+        return None
+    for sample in gauge.collect()[0].samples:
+        if sample.name == name:
+            return sample.value
+    return None
+
+
+def test_model_health_updates_rollback_gauges():
+    """Test that rollback gauges are updated by the health endpoint."""
+    from src.utils.analysis_metrics import model_rollback_level, model_snapshots_available
+
+    if not hasattr(model_rollback_level, "collect"):
+        pytest.skip("prometheus client disabled in this environment")
+
+    with patch("src.ml.classifier.get_model_info") as mock_info:
+        mock_info.return_value = {
+            "version": "v0.8.0",
+            "hash": "ghi789",
+            "path": "/models/classifier_v0.8.pkl",
+            "loaded": True,
+            "loaded_at": 1700000200.0,
+            "rollback_level": 2,
+            "last_error": "Consecutive reload failures",
+            "rollback_reason": "Rolled back to level 2 snapshot after consecutive failures",
+            "has_prev": True,
+            "has_prev2": True,
+            "has_prev3": False,
+        }
+
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
+        assert response.status_code == 200
+
+    rollback_value = _read_gauge_value(model_rollback_level, "model_rollback_level")
+    snapshot_value = _read_gauge_value(
+        model_snapshots_available, "model_snapshots_available"
+    )
+    assert rollback_value == 2
+    assert snapshot_value == 2

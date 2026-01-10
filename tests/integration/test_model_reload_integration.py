@@ -72,7 +72,7 @@ def temp_model_files():
 
 def test_reload_model_increments_load_seq(temp_model_files, disable_opcode_scan):
     """Test that load_seq increments on successive successful reloads."""
-    from src.ml.classifier import reload_model, get_model_info
+    from src.ml.classifier import get_model_info, reload_model
 
     # Initial state
     info0 = get_model_info()
@@ -108,7 +108,7 @@ def test_reload_model_increments_load_seq(temp_model_files, disable_opcode_scan)
 
 def test_reload_model_rollback_preserves_seq(temp_model_files, disable_opcode_scan):
     """Test that rollback preserves load_seq of rolled-back model."""
-    from src.ml.classifier import reload_model, get_model_info
+    from src.ml.classifier import get_model_info, reload_model
 
     # Load v1 successfully
     result1 = reload_model(str(temp_model_files["v1"]), expected_version="v1")
@@ -138,7 +138,7 @@ def test_reload_model_rollback_preserves_seq(temp_model_files, disable_opcode_sc
 
 def test_reload_model_invalid_magic_sets_error(temp_model_files):
     """Test that invalid pickle magic sets last_error."""
-    from src.ml.classifier import reload_model, get_model_info
+    from src.ml.classifier import get_model_info, reload_model
 
     # First establish a good model
     reload_model(str(temp_model_files["v1"]), expected_version="v1")
@@ -155,7 +155,7 @@ def test_reload_model_invalid_magic_sets_error(temp_model_files):
 
 def test_reload_model_size_limit(temp_model_files):
     """Test that oversized model is rejected with proper error."""
-    from src.ml.classifier import reload_model, get_model_info
+    from src.ml.classifier import get_model_info, reload_model
 
     # Set extremely low size limit
     original_limit = os.getenv("MODEL_MAX_MB")
@@ -178,9 +178,10 @@ def test_reload_model_size_limit(temp_model_files):
 
 def test_reload_model_thread_safety_concurrent(disable_opcode_scan):
     """Test that concurrent reloads are serialized by lock."""
-    from src.ml.classifier import reload_model, get_model_info
     import threading
     import time
+
+    from src.ml.classifier import get_model_info, reload_model
 
     # Create a simple test model
     with tempfile.NamedTemporaryFile(suffix=".pkl", delete=False) as f:
@@ -228,7 +229,7 @@ def test_reload_model_thread_safety_concurrent(disable_opcode_scan):
 
 def test_reload_model_clears_error_on_success(temp_model_files, disable_opcode_scan):
     """Test that successful reload clears previous error."""
-    from src.ml.classifier import reload_model, get_model_info
+    from src.ml.classifier import get_model_info, reload_model
 
     # First establish a good model
     reload_model(str(temp_model_files["v1"]), expected_version="v1")

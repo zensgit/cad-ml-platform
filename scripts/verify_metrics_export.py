@@ -25,14 +25,23 @@ REQUIRED = {
     "model_opcode_whitelist_violations_total",
 }
 
-def load_exports() -> set[str]:
-    txt = Path("src/utils/analysis_metrics.py").read_text(encoding="utf-8")
+def _load_module_exports(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    txt = path.read_text(encoding="utf-8")
     m = re.search(r"__all__\s*=\s*\[(.*?)\]", txt, re.S)
     if not m:
-        raise SystemExit("__all__ not found in analysis_metrics.py")
+        raise SystemExit(f"__all__ not found in {path}")
     items = re.findall(r"'([^']+)'|\"([^\"]+)\"", m.group(1))
-    names = {a or b for a, b in items}
-    return names
+    return {a or b for a, b in items}
+
+
+def load_exports() -> set[str]:
+    return _load_module_exports(Path("src/utils/analysis_metrics.py"))
+
+
+def load_dedup2d_exports() -> set[str]:
+    return _load_module_exports(Path("src/core/dedup2d_metrics.py"))
 
 def _extract_metrics(expr: str) -> set[str]:
     """Extract metric names from PromQL expressions.
@@ -85,7 +94,7 @@ def parse_json_metrics(path: Path) -> set[str]:
     return names
 
 def main() -> None:
-    exports = load_exports()
+    exports = load_exports() | load_dedup2d_exports()
     missing = REQUIRED - exports
     if missing:
         raise SystemExit(f"Missing required exports: {sorted(missing)}")

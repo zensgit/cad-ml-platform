@@ -1,4 +1,5 @@
 import json
+
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -9,6 +10,7 @@ def test_drift_baseline_timestamp_persistence(monkeypatch):
     # Trigger drift status to potentially establish baseline (threshold may be high; simulate state)
     # Directly patch internal state for test determinism
     from src.api.v1 import analyze as analyze_module
+
     mats = ["steel"] * 120
     preds = ["part"] * 120
     analyze_module._DRIFT_STATE["materials"] = mats

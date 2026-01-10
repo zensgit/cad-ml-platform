@@ -7,11 +7,20 @@ Tests:
 """
 
 import base64
+import io
 
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image, ImageDraw
 
 # ========== Test Fixtures ==========
+
+
+def _encode_image_base64(image: Image.Image) -> str:
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return base64.b64encode(buffer.getvalue()).decode("utf-8")
+
 
 @pytest.fixture(autouse=True)
 def _force_stub_provider(monkeypatch):
@@ -100,6 +109,189 @@ def test_vision_analyze_with_base64_happy_path(sample_image_base64):
     assert 0.0 < data["description"]["confidence"] <= 1.0
     assert data["ocr"] is None  # Not yet connected
     assert data["processing_time_ms"] > 0
+
+
+def test_vision_analyze_includes_cad_stats(sample_image_base64):
+    """Test /api/v1/vision/analyze returns cad_feature_stats when requested."""
+    from fastapi import FastAPI
+
+    from src.api.v1.vision import router
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1/vision")
+    client = TestClient(app)
+
+    request_data = {
+        "image_base64": sample_image_base64,
+        "include_description": True,
+        "include_ocr": False,
+        "include_cad_stats": True,
+    }
+
+    response = client.post("/api/v1/vision/analyze", json=request_data)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    stats = data.get("cad_feature_stats")
+    assert stats is not None
+    assert stats["line_count"] == 0
+    assert stats["circle_count"] == 0
+    assert stats["arc_count"] == 0
+    assert sum(stats["line_angle_bins"].values()) == 0
+    assert sum(stats["arc_sweep_bins"].values()) == 0
+    assert stats["line_angle_avg"] is None
+    assert stats["arc_sweep_avg"] is None
+
+
+def test_vision_analyze_invalid_cad_threshold_key(sample_image_base64):
+    """Test /api/v1/vision/analyze rejects unknown CAD threshold keys."""
+    from fastapi import FastAPI
+
+    from src.api.v1.vision import router
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1/vision")
+    client = TestClient(app)
+
+    request_data = {
+        "image_base64": sample_image_base64,
+        "include_description": True,
+        "include_ocr": False,
+        "include_cad_stats": True,
+        "cad_feature_thresholds": {"unknown_key": 1.0},
+    }
+
+    response = client.post("/api/v1/vision/analyze", json=request_data)
+
+    assert response.status_code == 422
+
+
+def test_vision_analyze_invalid_cad_threshold_value(sample_image_base64):
+    """Test /api/v1/vision/analyze rejects invalid threshold values."""
+    from fastapi import FastAPI
+
+    from src.api.v1.vision import router
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1/vision")
+    client = TestClient(app)
+
+    request_data = {
+        "image_base64": sample_image_base64,
+        "include_description": True,
+        "include_ocr": False,
+        "include_cad_stats": True,
+        "cad_feature_thresholds": {"line_aspect": 0},
+    }
+
+    response = client.post("/api/v1/vision/analyze", json=request_data)
+
+    assert response.status_code == 422
+
+
+def test_vision_analyze_invalid_arc_fill_range(sample_image_base64):
+    """Test /api/v1/vision/analyze rejects invalid arc fill ranges."""
+    from fastapi import FastAPI
+
+    from src.api.v1.vision import router
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1/vision")
+    client = TestClient(app)
+
+    request_data = {
+        "image_base64": sample_image_base64,
+        "include_description": True,
+        "include_ocr": False,
+        "include_cad_stats": True,
+        "cad_feature_thresholds": {"arc_fill_min": 0.3, "arc_fill_max": 0.1},
+    }
+
+    response = client.post("/api/v1/vision/analyze", json=request_data)
+
+    assert response.status_code == 422
+
+
+def test_vision_analyze_thresholds_change_stats(sample_image_base64):
+    """Test /api/v1/vision/analyze returns different stats with thresholds."""
+    from fastapi import FastAPI
+
+    from src.api.v1.vision import router
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1/vision")
+    client = TestClient(app)
+
+    image = Image.new("L", (120, 80), color=255)
+    draw = ImageDraw.Draw(image)
+    draw.line((10, 10, 110, 10), fill=0, width=3)
+    line_image_base64 = _encode_image_base64(image)
+
+    request_base = {
+        "image_base64": line_image_base64,
+        "include_description": True,
+        "include_ocr": False,
+        "include_cad_stats": True,
+    }
+
+    default_response = client.post("/api/v1/vision/analyze", json=request_base)
+    assert default_response.status_code == 200
+    default_stats = default_response.json()["cad_feature_stats"]
+
+    strict_response = client.post(
+        "/api/v1/vision/analyze",
+        json={
+            **request_base,
+            "cad_feature_thresholds": {"min_area": 1000000},
+        },
+    )
+    assert strict_response.status_code == 200
+    strict_stats = strict_response.json()["cad_feature_stats"]
+
+    assert default_stats["line_count"] >= 1
+    assert strict_stats["line_count"] == 0
+    assert strict_stats["circle_count"] == 0
+    assert strict_stats["arc_count"] == 0
+    assert strict_stats != default_stats
+
+
+def test_vision_analyze_arc_sweep_bins(sample_image_base64):
+    """Test /api/v1/vision/analyze returns arc sweep bins."""
+    from fastapi import FastAPI
+
+    from src.api.v1.vision import router
+
+    app = FastAPI()
+    app.include_router(router, prefix="/api/v1/vision")
+    client = TestClient(app)
+
+    image = Image.new("L", (120, 120), color=255)
+    draw = ImageDraw.Draw(image)
+    draw.arc((20, 20, 100, 100), start=0, end=180, fill=0, width=4)
+    arc_image_base64 = _encode_image_base64(image)
+
+    response = client.post(
+        "/api/v1/vision/analyze",
+        json={
+            "image_base64": arc_image_base64,
+            "include_description": True,
+            "include_ocr": False,
+            "include_cad_stats": True,
+            "cad_feature_thresholds": {
+                "arc_fill_min": 0.001,
+                "min_area": 1,
+                "circle_fill_min": 2.0,
+                "line_aspect": 100.0,
+                "line_elongation": 100.0,
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    stats = response.json()["cad_feature_stats"]
+    assert stats is not None
+    assert stats["arc_sweep_bins"]["180-270"] >= 1
 
 
 def test_vision_analyze_missing_image_error():

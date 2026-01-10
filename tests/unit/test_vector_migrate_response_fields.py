@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
-from src.main import app
+
 from src.core.similarity import register_vector  # type: ignore
+from src.main import app
 
 client = TestClient(app)
 

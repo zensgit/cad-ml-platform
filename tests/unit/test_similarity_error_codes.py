@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+
 from src.main import app
 
 client = TestClient(app)
@@ -35,6 +36,7 @@ def test_similarity_dimension_mismatch():
     id2 = r2.json()["id"]
     # Directly mutate global store to force mismatch
     from src.core import similarity
+
     similarity._VECTOR_STORE[id2] = similarity._VECTOR_STORE[id2] + [999.0]  # extend vector
     rq = client.post(
         "/api/v1/analyze/similarity",

@@ -12,10 +12,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from src.core.knowledge.dynamic.manager import KnowledgeManager, get_knowledge_manager
-from src.core.knowledge.dynamic.models import (
-    KnowledgeCategory,
-    KnowledgeEntry,
-)
+from src.core.knowledge.dynamic.models import KnowledgeCategory, KnowledgeEntry
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +56,7 @@ class DynamicKnowledgeBase:
             from src.core.knowledge.material_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
                 MaterialKnowledgeBase,
             )
+
             self._static_material_kb = MaterialKnowledgeBase()
         return self._static_material_kb
 
@@ -68,6 +66,7 @@ class DynamicKnowledgeBase:
             from src.core.knowledge.precision_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
                 PrecisionKnowledgeBase,
             )
+
             self._static_precision_kb = PrecisionKnowledgeBase()
         return self._static_precision_kb
 
@@ -77,6 +76,7 @@ class DynamicKnowledgeBase:
             from src.core.knowledge.standards_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
                 StandardsKnowledgeBase,
             )
+
             self._static_standards_kb = StandardsKnowledgeBase()
         return self._static_standards_kb
 
@@ -86,6 +86,7 @@ class DynamicKnowledgeBase:
             from src.core.knowledge.functional_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
                 FunctionalKnowledgeBase,
             )
+
             self._static_functional_kb = FunctionalKnowledgeBase()
         return self._static_functional_kb
 
@@ -95,6 +96,7 @@ class DynamicKnowledgeBase:
             from src.core.knowledge.assembly_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
                 AssemblyKnowledgeBase,
             )
+
             self._static_assembly_kb = AssemblyKnowledgeBase()
         return self._static_assembly_kb
 
@@ -104,6 +106,7 @@ class DynamicKnowledgeBase:
             from src.core.knowledge.manufacturing_knowledge import (  # type: ignore[import-not-found]  # noqa: E501
                 ManufacturingKnowledgeBase,
             )
+
             self._static_manufacturing_kb = ManufacturingKnowledgeBase()
         return self._static_manufacturing_kb
 
@@ -386,10 +389,10 @@ class DynamicKnowledgeBase:
         # Curved vs straight ratios
         if "curved_ratio" not in features:
             curved = (
-                entity_counts.get("CIRCLE", 0) +
-                entity_counts.get("ARC", 0) +
-                entity_counts.get("ELLIPSE", 0) +
-                entity_counts.get("SPLINE", 0)
+                entity_counts.get("CIRCLE", 0)
+                + entity_counts.get("ARC", 0)
+                + entity_counts.get("ELLIPSE", 0)
+                + entity_counts.get("SPLINE", 0)
             )
             features["curved_ratio"] = curved / total_entities
 
@@ -408,43 +411,36 @@ class DynamicKnowledgeBase:
         # Compute derived shape type indicators
         # Rotational symmetry indicator
         if "rotational_symmetry" not in features:
-            features["rotational_symmetry"] = (
-                circle_ratio * (1.0 - min(aspect_variance, 1.0))
-            )
+            features["rotational_symmetry"] = circle_ratio * (1.0 - min(aspect_variance, 1.0))
 
         # Cylindrical shape indicator (shaft-like)
         if "cylindrical_indicator" not in features:
             features["cylindrical_indicator"] = (
-                sphericity * aspect_variance
-                if aspect_variance > 0.15 else 0.0
+                sphericity * aspect_variance if aspect_variance > 0.15 else 0.0
             )
 
         # Disk shape indicator (bearing/gear-like)
         if "disk_indicator" not in features:
             features["disk_indicator"] = (
                 sphericity * (1.0 - aspect_variance)
-                if sphericity > 0.5 and aspect_variance < 0.2 else 0.0
+                if sphericity > 0.5 and aspect_variance < 0.2
+                else 0.0
             )
 
         # Tooth pattern indicator (gear-like)
         if "tooth_pattern" not in features:
-            features["tooth_pattern"] = (
-                arc_ratio * circle_ratio
-                if arc_ratio > 0.15 else 0.0
-            )
+            features["tooth_pattern"] = arc_ratio * circle_ratio if arc_ratio > 0.15 else 0.0
 
         # Multi-hole pattern indicator (flange-like)
         if "multi_hole_pattern" not in features:
             features["multi_hole_pattern"] = (
-                circle_ratio * math.log1p(circle_count)
-                if circle_count > 5 else 0.0
+                circle_ratio * math.log1p(circle_count) if circle_count > 5 else 0.0
             )
 
         # Box/housing indicator
         if "box_indicator" not in features:
             features["box_indicator"] = (
-                (1.0 - sphericity) * complexity_score
-                if complexity_score > 0.3 else 0.0
+                (1.0 - sphericity) * complexity_score if complexity_score > 0.3 else 0.0
             )
 
         # Elongation and flatness (from bounding box ratios if available)

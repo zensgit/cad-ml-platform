@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 try:
-    from prometheus_client import (  # type: ignore
-        Counter as _Counter, Histogram as _Histogram, Gauge as _Gauge, REGISTRY
-    )
+    from prometheus_client import REGISTRY
+    from prometheus_client import Counter as _Counter  # type: ignore
+    from prometheus_client import Gauge as _Gauge
+    from prometheus_client import Histogram as _Histogram
 
     # Cache for already-registered metrics (avoids registry lookup overhead)
     _METRIC_CACHE = {}
@@ -21,13 +22,18 @@ try:
         except ValueError:
             # Already registered - find in registry by checking collectors
             for collector in list(REGISTRY._names_to_collectors.values()):
-                if hasattr(collector, '_name') and collector._name == name:
+                if hasattr(collector, "_name") and collector._name == name:
                     _METRIC_CACHE[name] = collector
                     return collector
+
             # Fallback: return dummy if not found (should not happen)
             class _FallbackDummy:
-                def labels(self, *a, **kw): return self
-                def inc(self, *a, **kw): pass
+                def labels(self, *a, **kw):
+                    return self
+
+                def inc(self, *a, **kw):
+                    pass
+
             return _FallbackDummy()
 
     def _safe_histogram(name, *args, **kwargs):
@@ -40,12 +46,17 @@ try:
             return m
         except ValueError:
             for collector in list(REGISTRY._names_to_collectors.values()):
-                if hasattr(collector, '_name') and collector._name == name:
+                if hasattr(collector, "_name") and collector._name == name:
                     _METRIC_CACHE[name] = collector
                     return collector
+
             class _FallbackDummy:
-                def labels(self, *a, **kw): return self
-                def observe(self, *a, **kw): pass
+                def labels(self, *a, **kw):
+                    return self
+
+                def observe(self, *a, **kw):
+                    pass
+
             return _FallbackDummy()
 
     def _safe_gauge(name, *args, **kwargs):
@@ -58,12 +69,17 @@ try:
             return m
         except ValueError:
             for collector in list(REGISTRY._names_to_collectors.values()):
-                if hasattr(collector, '_name') and collector._name == name:
+                if hasattr(collector, "_name") and collector._name == name:
                     _METRIC_CACHE[name] = collector
                     return collector
+
             class _FallbackDummy:
-                def labels(self, *a, **kw): return self
-                def set(self, *a, **kw): pass
+                def labels(self, *a, **kw):
+                    return self
+
+                def set(self, *a, **kw):
+                    pass
+
             return _FallbackDummy()
 
     Counter = _safe_counter
@@ -71,28 +87,36 @@ try:
     Gauge = _safe_gauge
 
 except Exception:  # pragma: no cover - fallback dummy
+
     class _Dummy:
         def labels(self, *a, **kw):
             return self
+
         def inc(self, *a, **kw):
             pass
+
         def observe(self, *a, **kw):
             pass
+
         def set(self, *a, **kw):
             pass
+
     def Counter(*a, **kw):  # type: ignore
         return _Dummy()
+
     def Histogram(*a, **kw):  # type: ignore
         return _Dummy()
+
     def Gauge(*a, **kw):  # type: ignore
         return _Dummy()
 
 
-analysis_requests_total = Counter(
-    "analysis_requests_total", "CAD analysis requests", ["status"]
-)
-analysis_errors_total = Counter(
-    "analysis_errors_total", "CAD analysis errors", ["stage", "code"]
+analysis_requests_total = Counter("analysis_requests_total", "CAD analysis requests", ["status"])
+analysis_errors_total = Counter("analysis_errors_total", "CAD analysis errors", ["stage", "code"])
+compare_requests_total = Counter(
+    "compare_requests_total",
+    "Feature compare requests",
+    ["status"],
 )
 analysis_stage_duration_seconds = Histogram(
     "analysis_stage_duration_seconds",
@@ -119,6 +143,16 @@ feature_extraction_latency_seconds = Histogram(
     "Latency of feature extraction by version",
     ["version"],
     buckets=[0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0],
+)
+v4_surface_count = Histogram(
+    "v4_surface_count",
+    "Surface count distribution for v4 feature extraction",
+    buckets=[0, 1, 5, 10, 20, 50, 100, 200, 500, 1000],
+)
+v4_shape_entropy = Histogram(
+    "v4_shape_entropy",
+    "Shape entropy distribution for v4 feature extraction",
+    buckets=[0.0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0],
 )
 analysis_material_usage_total = Counter(
     "analysis_material_usage_total",
@@ -179,9 +213,21 @@ classification_latency_seconds = Histogram(
     buckets=[0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
 )
 
+dfm_analysis_latency_seconds = Histogram(
+    "dfm_analysis_latency_seconds",
+    "Latency of DFM analysis stage (wall clock seconds)",
+    buckets=[0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
+)
+
 process_recommend_latency_seconds = Histogram(
     "process_recommend_latency_seconds",
     "Latency of process recommendation stage (wall clock seconds)",
+    buckets=[0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
+)
+
+cost_estimation_latency_seconds = Histogram(
+    "cost_estimation_latency_seconds",
+    "Latency of cost estimation stage (wall clock seconds)",
     buckets=[0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
 )
 
@@ -347,6 +393,19 @@ vector_orphan_total = Counter(
     "vector_orphan_total",
     "Vectors without corresponding cached analysis result detected",
 )
+analysis_result_cleanup_total = Counter(
+    "analysis_result_cleanup_total",
+    "Analysis result cleanup attempts",
+    ["status"],  # ok|dry_run|skipped|disabled
+)
+analysis_result_cleanup_deleted_total = Counter(
+    "analysis_result_cleanup_deleted_total",
+    "Analysis result cleanup deletions",
+)
+analysis_result_store_files = Gauge(
+    "analysis_result_store_files",
+    "Analysis result store file count",
+)
 
 # === New metrics (drift / reload / pruning / diff) ===
 classification_prediction_drift_score = Histogram(
@@ -417,6 +476,19 @@ feature_cache_prewarm_total = Counter(
     "Feature cache prewarm attempts",
     ["result"],  # ok|error
 )
+feature_cache_tuning_requests_total = Counter(
+    "feature_cache_tuning_requests_total",
+    "Feature cache tuning recommendation requests",
+    ["status"],
+)
+feature_cache_tuning_recommended_capacity = Gauge(
+    "feature_cache_tuning_recommended_capacity",
+    "Recommended feature cache capacity from tuning requests",
+)
+feature_cache_tuning_recommended_ttl_seconds = Gauge(
+    "feature_cache_tuning_recommended_ttl_seconds",
+    "Recommended feature cache TTL (seconds) from tuning requests",
+)
 faiss_index_age_seconds = Gauge(
     "faiss_index_age_seconds",
     "Seconds since last Faiss index export/import",
@@ -451,7 +523,7 @@ model_security_fail_total = Counter(
 vector_store_reload_total = Counter(
     "vector_store_reload_total",
     "Vector store backend reload requests",
-    ["status"],  # success|error
+    ["status", "reason"],  # success|error, reason: ok|invalid_backend|auth_failed|init_error
 )
 
 # Model health check requests
@@ -459,6 +531,24 @@ model_health_checks_total = Counter(
     "model_health_checks_total",
     "Model health endpoint requests",
     ["status"],  # ok|absent|rollback|error
+)
+model_interface_validation_fail_total = Counter(
+    "model_interface_validation_fail_total",
+    "Model interface validation failures",
+    ["reason"],  # missing_required_methods|large_attribute_graph|suspicious_methods_found|invalid_signature
+)
+model_rollback_total = Counter(
+    "model_rollback_total",
+    "Model rollback events by rollback level",
+    ["level"],  # 1|2|3
+)
+model_rollback_level = Gauge(
+    "model_rollback_level",
+    "Current model rollback level (0=none, 1-3=rollback depth)",
+)
+model_snapshots_available = Gauge(
+    "model_snapshots_available",
+    "Number of model snapshots available for rollback",
 )
 
 # Similarity degraded / restored events (Faiss fallback lifecycle)
@@ -507,6 +597,7 @@ process_start_time_seconds = Gauge(
 )
 try:
     import time as _t
+
     process_start_time_seconds.set(_t.time())
 except Exception:
     pass
@@ -517,10 +608,23 @@ model_opcode_audit_total = Counter(
     "Observed pickle opcodes during model reload scans",
     ["opcode"],
 )
+model_opcode_scans_total = Counter(
+    "model_opcode_scans_total",
+    "Total opcode scans performed during model reloads",
+)
+model_opcode_blocked_total = Counter(
+    "model_opcode_blocked_total",
+    "Blocked opcode occurrences during model reload",
+    ["opcode"],
+)
 model_opcode_whitelist_violations_total = Counter(
     "model_opcode_whitelist_violations_total",
     "Whitelist violations (disallowed opcodes) during model reload",
     ["opcode"],
+)
+model_opcode_mode = Gauge(
+    "model_opcode_mode",
+    "Current opcode validation mode (0=audit, 1=blocklist, 2=whitelist)",
 )
 
 # Recovery state backend label for observability (file|redis)
@@ -530,12 +634,97 @@ faiss_recovery_state_backend = Gauge(
     ["backend"],
 )
 
+# ============================================================================
+# Phase 1: 2D Dedup Job Metrics (no tenant_id label to avoid high cardinality)
+# ============================================================================
+
+dedup2d_jobs_total = Counter(
+    "dedup2d_jobs_total",
+    "Total 2D dedup async jobs created",
+    ["status"],  # pending|in_progress|completed|failed|canceled
+)
+
+dedup2d_job_duration_seconds = Histogram(
+    "dedup2d_job_duration_seconds",
+    "Duration of 2D dedup async jobs (seconds)",
+    ["status"],  # completed|failed|canceled
+    buckets=[0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0],
+)
+
+dedup2d_job_queue_depth = Gauge(
+    "dedup2d_job_queue_depth",
+    "Current number of pending/running 2D dedup jobs",
+)
+
+dedup2d_cancel_total = Counter(
+    "dedup2d_cancel_total",
+    "Total 2D dedup job cancellation requests",
+    ["result"],  # success|not_found|forbidden
+)
+
+dedup2d_queue_full_total = Counter(
+    "dedup2d_queue_full_total",
+    "Total 2D dedup job submissions rejected due to queue full",
+)
+
+dedup2d_tenant_access_denied_total = Counter(
+    "dedup2d_tenant_access_denied_total",
+    "Total cross-tenant job access attempts blocked",
+    ["operation"],  # get|cancel
+)
+
+dedup2d_search_mode_total = Counter(
+    "dedup2d_search_mode_total",
+    "2D dedup search requests by mode",
+    ["mode"],  # fast|balanced|precise
+)
+
+dedup2d_async_backend = Gauge(
+    "dedup2d_async_backend",
+    "Active async backend (1=inprocess, 2=redis)",
+    ["backend"],  # inprocess|redis
+)
+
+dedupcad_vision_requests_total = Counter(
+    "dedupcad_vision_requests_total",
+    "Total requests from cad-ml-platform to dedupcad-vision",
+    ["endpoint", "status"],  # success|error|circuit_open
+)
+
+dedupcad_vision_request_duration_seconds = Histogram(
+    "dedupcad_vision_request_duration_seconds",
+    "Latency of dedupcad-vision requests (seconds)",
+    ["endpoint", "status"],
+    buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
+)
+
+dedupcad_vision_errors_total = Counter(
+    "dedupcad_vision_errors_total",
+    "Dedupcad-vision request errors",
+    ["endpoint", "error"],
+)
+
+dedupcad_vision_retry_total = Counter(
+    "dedupcad_vision_retry_total",
+    "Dedupcad-vision retry attempts",
+    ["endpoint", "reason"],
+)
+
+dedupcad_vision_circuit_state = Gauge(
+    "dedupcad_vision_circuit_state",
+    "Circuit breaker state for dedupcad-vision (0=closed, 1=open, 2=half_open)",
+    ["endpoint"],
+)
+
 __all__ = [
     "analysis_requests_total",
     "analysis_errors_total",
+    "compare_requests_total",
     "analysis_stage_duration_seconds",
     "analysis_feature_vector_dimension",
     "feature_extraction_latency_seconds",
+    "v4_surface_count",
+    "v4_shape_entropy",
     "analysis_material_usage_total",
     "analysis_rejections_total",
     "analysis_error_code_total",
@@ -544,7 +733,9 @@ __all__ = [
     "vector_stats_requests_total",
     "process_rule_version_total",
     "classification_latency_seconds",
+    "dfm_analysis_latency_seconds",
     "process_recommend_latency_seconds",
+    "cost_estimation_latency_seconds",
     "vector_store_material_total",
     "vector_dimension_rejections_total",
     "analysis_parallel_enabled",
@@ -593,6 +784,9 @@ __all__ = [
     "feature_cache_size",
     "feature_cache_lookup_seconds",
     "feature_cache_prewarm_total",
+    "feature_cache_tuning_requests_total",
+    "feature_cache_tuning_recommended_capacity",
+    "feature_cache_tuning_recommended_ttl_seconds",
     "feature_cache_hits_last_hour",
     "feature_cache_miss_last_hour",
     "faiss_index_age_seconds",
@@ -602,6 +796,10 @@ __all__ = [
     "drift_baseline_refresh_total",
     "model_security_fail_total",
     "model_health_checks_total",
+    "model_interface_validation_fail_total",
+    "model_rollback_total",
+    "model_rollback_level",
+    "model_snapshots_available",
     "vector_store_reload_total",
     "similarity_degraded_total",
     "faiss_recovery_attempts_total",
@@ -611,6 +809,23 @@ __all__ = [
     "faiss_recovery_suppression_remaining_seconds",
     "process_start_time_seconds",
     "model_opcode_audit_total",
+    "model_opcode_scans_total",
+    "model_opcode_blocked_total",
+    "model_opcode_mode",
     "model_opcode_whitelist_violations_total",
     "faiss_recovery_state_backend",
+    # Phase 1: 2D Dedup Job Metrics
+    "dedup2d_jobs_total",
+    "dedup2d_job_duration_seconds",
+    "dedup2d_job_queue_depth",
+    "dedup2d_cancel_total",
+    "dedup2d_queue_full_total",
+    "dedup2d_tenant_access_denied_total",
+    "dedup2d_search_mode_total",
+    "dedup2d_async_backend",
+    "dedupcad_vision_requests_total",
+    "dedupcad_vision_request_duration_seconds",
+    "dedupcad_vision_errors_total",
+    "dedupcad_vision_retry_total",
+    "dedupcad_vision_circuit_state",
 ]

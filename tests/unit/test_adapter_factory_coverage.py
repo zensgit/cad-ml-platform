@@ -14,7 +14,7 @@ Covers:
 from __future__ import annotations
 
 from typing import Dict
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -42,11 +42,14 @@ class TestBaseAdapter:
     async def test_base_adapter_convert_calls_parse(self):
         """Test _BaseAdapter.convert calls parse and to_unified_dict."""
         from src.adapters.factory import _BaseAdapter
-        from src.models.cad_document import CadDocument
 
         adapter = _BaseAdapter()
-        mock_doc = MagicMock(spec=CadDocument)
-        mock_doc.to_unified_dict.return_value = {"key": "value"}
+
+        class DummyDoc:
+            def to_unified_dict(self):
+                return {"key": "value"}
+
+        mock_doc = DummyDoc()
 
         with patch.object(adapter, "parse", new_callable=AsyncMock, return_value=mock_doc):
             result = await adapter.convert(b"data", file_name="test.file")
@@ -137,18 +140,16 @@ class TestStlAdapter:
     @pytest.mark.asyncio
     async def test_stl_adapter_parse_with_trimesh(self):
         """Test StlAdapter.parse with mocked trimesh."""
-        from src.adapters.factory import StlAdapter
         import numpy as np
+
+        from src.adapters.factory import StlAdapter
 
         adapter = StlAdapter()
 
         # Create mock trimesh
         mock_mesh = MagicMock()
         mock_mesh.faces = [[0, 1, 2], [3, 4, 5]]  # 2 facets
-        mock_mesh.bounds = [
-            np.array([0.0, 0.0, 0.0]),
-            np.array([10.0, 10.0, 10.0])
-        ]
+        mock_mesh.bounds = [np.array([0.0, 0.0, 0.0]), np.array([10.0, 10.0, 10.0])]
 
         mock_trimesh = MagicMock()
         mock_trimesh.load.return_value = mock_mesh
@@ -318,7 +319,7 @@ class TestCadDocumentModels:
 
     def test_cad_document_creation(self):
         """Test CadDocument can be created."""
-        from src.models.cad_document import CadDocument, BoundingBox
+        from src.models.cad_document import BoundingBox, CadDocument
 
         doc = CadDocument(
             file_name="test.dxf",
@@ -334,7 +335,7 @@ class TestCadDocumentModels:
 
     def test_cad_document_to_unified_dict(self):
         """Test CadDocument.to_unified_dict method."""
-        from src.models.cad_document import CadDocument, BoundingBox
+        from src.models.cad_document import BoundingBox, CadDocument
 
         doc = CadDocument(
             file_name="test.dxf",
@@ -357,7 +358,7 @@ class TestBoundingBoxLogic:
         from src.models.cad_document import BoundingBox
 
         bbox = BoundingBox()
-        
+
         # Simulate updating bbox
         test_coords = [
             (0.0, 0.0),

@@ -1,13 +1,16 @@
+import io
 import os
 import pickle
-import io
+
 import pytest
+
 from src.ml.classifier import reload_model
 
 
 def forge_pickle_with_global():
     # Create a pickle stream containing a GLOBAL opcode by pickling a function reference
     import math
+
     data = pickle.dumps(math.sin)  # contains GLOBAL opcode
     return data
 

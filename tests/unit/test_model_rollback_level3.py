@@ -14,7 +14,7 @@ import pickle
 import tempfile
 from pathlib import Path
 from typing import Generator
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -52,6 +52,7 @@ def create_model_file(model: object, path: Path, protocol: int = 4) -> str:
         SHA256 hash prefix (16 chars) of the file
     """
     import hashlib
+
     with path.open("wb") as f:
         pickle.dump(model, f, protocol=protocol)
 
@@ -65,6 +66,15 @@ def create_invalid_pickle(path: Path) -> None:
     invalid_model = {"data": "invalid", "no_predict": True}
     with path.open("wb") as f:
         pickle.dump(invalid_model, f, protocol=4)
+
+
+def _counter_value(counter, level: str) -> float | None:
+    if not hasattr(counter, "collect"):
+        return None
+    for sample in counter.collect()[0].samples:
+        if sample.labels.get("level") == level:
+            return sample.value
+    return None
 
 
 @pytest.fixture
@@ -269,13 +279,21 @@ class TestLevel3Rollback:
         invalid_path = temp_model_dir / "invalid.pkl"
         create_invalid_pickle(invalid_path)
 
+        from src.utils.analysis_metrics import model_rollback_total
+
+        before = _counter_value(model_rollback_total, "3")
         result = clf.reload_model(str(invalid_path), expected_version="vX")
 
         assert result["status"] == "rollback_level3"
         assert clf._MODEL == v0_model
         assert clf._MODEL.name == "v0"
+        if before is not None:
+            after = _counter_value(model_rollback_total, "3")
+            assert after is not None and after > before
 
-    def test_level3_rollback_after_consecutive_failures(self, temp_model_dir, reset_classifier_state):
+    def test_level3_rollback_after_consecutive_failures(
+        self, temp_model_dir, reset_classifier_state
+    ):
         """Test level 3 rollback after 3 consecutive reload failures.
 
         The shifting happens before each reload attempt, so we track the chain
@@ -503,8 +521,9 @@ class TestRollbackLogging:
 
         Setup: PREV2=v0 will become PREV3 after shifting.
         """
-        import src.ml.classifier as clf
         import logging
+
+        import src.ml.classifier as clf
 
         v0_model = MockValidModel("v0")
         # Setup so PREV2 becomes PREV3 after shifting

@@ -24,6 +24,7 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+      statuses: write
 
     steps:
       - name: Checkout code
@@ -34,7 +35,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.10'
 
       - name: Cache Python dependencies
         uses: actions/cache@v4
@@ -111,7 +112,7 @@ jobs:
             --output-file risk_report.md
 
       - name: Comment PR with Risk Report
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -153,22 +154,26 @@ jobs:
               comment.body.includes('Release Risk Assessment')
             );
 
-            if (botComment) {
-              // 更新现有评论
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: botComment.id,
-                body: commentBody
-              });
-            } else {
-              // 创建新评论
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: commentBody
-              });
+            try {
+              if (botComment) {
+                // 更新现有评论
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body: commentBody
+                });
+              } else {
+                // 创建新评论
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: commentBody
+                });
+              }
+            } catch (error) {
+              console.log(`Failed to post PR comment: ${error.message}`);
             }
 
             // 添加或更新标签
@@ -232,7 +237,7 @@ jobs:
           exit 1
 
       - name: Post status check
-        if: always()
+        if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -256,16 +261,20 @@ jobs:
               description = `极高风险 (${score}/100) - 发布已阻断`;
             }
 
-            // 创建状态检查
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: context.sha,
-              state: state,
-              target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              description: description,
-              context: 'Release Risk Assessment'
-            });
+            // 创建状态检查（在权限不足时仅记录警告）
+            try {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: context.sha,
+                state: state,
+                target_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                description: description,
+                context: 'Release Risk Assessment'
+              });
+            } catch (error) {
+              console.log(`Failed to create commit status: ${error.message}`);
+            }
 
       - name: Summary
         if: always()

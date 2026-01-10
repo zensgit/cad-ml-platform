@@ -15,94 +15,91 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.core.vision import (
-    VisionDescription,
-    VisionProvider,
+from src.core.vision import VisionDescription, VisionProvider
+from src.core.vision.auto_scaling import (
+    AutoScaledVisionProvider,
+    AutoScaler,
+    CapacityPlan,
+    MetricsCollector,
+    PredictiveScaler,
+    ReactiveScaler,
+    ScalingConfig,
+    ScalingDirection,
+    ScalingMetrics,
+    ScalingPolicy,
+    ScalingPredictor,
+    ScalingState,
+    ScheduledScaler,
+    create_auto_scaler,
+    create_capacity_plan,
+    create_scaling_config,
+)
+from src.core.vision.intelligent_routing import (
+    AdaptiveRouter,
+    ContentAnalyzer,
+    IntelligentRouter,
+    LoadBalancer,
+    ProviderCapability,
+    ProviderConfig,
+    RequestPriority,
+    RoutedVisionProvider,
+    RoutingContext,
+    RoutingStrategy,
+    create_intelligent_router,
+    create_provider_config,
+    create_routed_provider,
+    create_routing_context,
+)
+from src.core.vision.knowledge_base import (
+    Entity,
+    EntityType,
+    KnowledgeBase,
+    KnowledgeEnhancedVisionProvider,
+    KnowledgeEntry,
+    KnowledgeGraph,
+    KnowledgeStore,
+    Relationship,
+    RelationType,
+    SearchStrategy,
+    SemanticIndex,
+    create_entity,
+    create_knowledge_base,
+    create_knowledge_graph,
+    create_relationship,
 )
 from src.core.vision.predictive_analytics import (
+    AnomalyPredictor,
+    DataPoint,
+    DemandPredictor,
+    ExponentialSmoothingModel,
+    ForecastHorizon,
+    ModelType,
+    MovingAverageModel,
+    PredictionType,
     PredictiveEngine,
     PredictiveVisionProvider,
-    DemandPredictor,
-    AnomalyPredictor,
     TimeSeriesStore,
     TrendAnalyzer,
-    MovingAverageModel,
-    ExponentialSmoothingModel,
-    PredictionType,
-    ModelType,
-    ForecastHorizon,
     TrendDirection,
-    DataPoint,
     create_predictive_engine,
     create_predictive_provider,
 )
-from src.core.vision.intelligent_routing import (
-    IntelligentRouter,
-    RoutedVisionProvider,
-    LoadBalancer,
-    AdaptiveRouter,
-    ContentAnalyzer,
-    RoutingStrategy,
-    ProviderCapability,
-    RequestPriority,
-    ProviderConfig,
-    RoutingContext,
-    create_intelligent_router,
-    create_routed_provider,
-    create_provider_config,
-    create_routing_context,
-)
-from src.core.vision.auto_scaling import (
-    AutoScaler,
-    AutoScaledVisionProvider,
-    MetricsCollector,
-    ScalingPredictor,
-    ReactiveScaler,
-    PredictiveScaler,
-    ScheduledScaler,
-    ScalingDirection,
-    ScalingPolicy,
-    ScalingState,
-    ScalingConfig,
-    ScalingMetrics,
-    CapacityPlan,
-    create_scaling_config,
-    create_auto_scaler,
-    create_capacity_plan,
-)
 from src.core.vision.self_healing import (
-    SelfHealingEngine,
-    SelfHealingVisionProvider,
+    HealthCheck,
     HealthMonitor,
-    IssueDetector,
-    RecoveryPlanner,
-    RecoveryExecutor,
     HealthStatus,
+    Issue,
+    IssueDetector,
     IssueType,
     RecoveryAction,
+    RecoveryExecutor,
+    RecoveryPlanner,
     RecoveryStatus,
-    HealthCheck,
-    Issue,
+    SelfHealingEngine,
+    SelfHealingVisionProvider,
+    create_health_check,
     create_health_monitor,
     create_self_healing_engine,
-    create_health_check,
-)
-from src.core.vision.knowledge_base import (
-    KnowledgeBase,
-    KnowledgeEnhancedVisionProvider,
-    KnowledgeGraph,
-    SemanticIndex,
-    KnowledgeStore,
-    EntityType,
-    RelationType,
-    SearchStrategy,
-    Entity,
-    Relationship,
-    KnowledgeEntry,
-    create_knowledge_graph,
-    create_knowledge_base,
-    create_entity,
-    create_relationship,
 )
 
 
@@ -655,6 +652,7 @@ class TestRecoveryExecutor:
         )
 
         from src.core.vision.self_healing import RecoveryPlan
+
         plan = RecoveryPlan(
             plan_id="test_plan",
             issue=issue,
@@ -757,16 +755,20 @@ class TestKnowledgeGraph:
         """Test name-based search."""
         graph = KnowledgeGraph()
 
-        graph.add_entity(Entity(
-            entity_id="e1",
-            entity_type=EntityType.CONCEPT,
-            name="Machine Learning",
-        ))
-        graph.add_entity(Entity(
-            entity_id="e2",
-            entity_type=EntityType.CONCEPT,
-            name="Deep Learning",
-        ))
+        graph.add_entity(
+            Entity(
+                entity_id="e1",
+                entity_type=EntityType.CONCEPT,
+                name="Machine Learning",
+            )
+        )
+        graph.add_entity(
+            Entity(
+                entity_id="e2",
+                entity_type=EntityType.CONCEPT,
+                name="Deep Learning",
+            )
+        )
 
         results = graph.search_by_name("Learning")
         assert len(results) == 2
@@ -777,18 +779,22 @@ class TestKnowledgeGraph:
 
         # Create a simple graph
         for i in range(5):
-            graph.add_entity(Entity(
-                entity_id=f"e{i}",
-                entity_type=EntityType.CONCEPT,
-                name=f"Entity{i}",
-            ))
+            graph.add_entity(
+                Entity(
+                    entity_id=f"e{i}",
+                    entity_type=EntityType.CONCEPT,
+                    name=f"Entity{i}",
+                )
+            )
 
         for i in range(4):
-            graph.add_relationship(Relationship(
-                source_id=f"e{i}",
-                target_id=f"e{i+1}",
-                relation_type=RelationType.RELATED_TO,
-            ))
+            graph.add_relationship(
+                Relationship(
+                    source_id=f"e{i}",
+                    target_id=f"e{i+1}",
+                    relation_type=RelationType.RELATED_TO,
+                )
+            )
 
         results = graph.traverse("e0", max_depth=2)
         assert len(results) >= 1
@@ -833,12 +839,14 @@ class TestKnowledgeStore:
         """Test content-based search."""
         store = KnowledgeStore()
 
-        store.add_entry(KnowledgeEntry(
-            entry_id="k1",
-            title="Python Guide",
-            content="A comprehensive guide to Python programming",
-            tags=["python"],
-        ))
+        store.add_entry(
+            KnowledgeEntry(
+                entry_id="k1",
+                title="Python Guide",
+                content="A comprehensive guide to Python programming",
+                tags=["python"],
+            )
+        )
 
         results = store.search_by_content("Python")
         assert len(results) == 1
