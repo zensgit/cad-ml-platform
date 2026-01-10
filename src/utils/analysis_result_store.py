@@ -7,7 +7,7 @@ import re
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, cast
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +124,7 @@ def _select_candidates(
     return expired + overflow, len(expired), len(overflow)
 
 
-async def store_analysis_result(analysis_id: str, result: dict) -> bool:
+async def store_analysis_result(analysis_id: str, result: dict[str, Any]) -> bool:
     path = _resolve_path(analysis_id, create=True)
     if path is None:
         return False
@@ -153,7 +153,7 @@ async def load_analysis_result(analysis_id: str) -> Optional[dict[str, Any]]:
         return None
     try:
         with open(path, "r", encoding="utf-8") as handle:
-            return json.load(handle)
+            return cast(dict[str, Any], json.load(handle))
     except Exception as exc:
         logger.warning(
             "analysis_result_store_read_failed",
@@ -171,8 +171,9 @@ async def cleanup_analysis_results(
 ) -> dict[str, Any]:
     store_dir = _get_store_dir(create=False)
     if store_dir is None:
+        status = "disabled"
         result = {
-            "status": "disabled",
+            "status": status,
             "total_files": 0,
             "eligible_count": 0,
             "expired_count": 0,
@@ -183,7 +184,7 @@ async def cleanup_analysis_results(
             "sample_ids": [],
             "message": "ANALYSIS_RESULT_STORE_DIR not configured",
         }
-        _record_cleanup_metrics(result["status"], deleted=0, total_files=0)
+        _record_cleanup_metrics(status, deleted=0, total_files=0)
         return result
 
     effective_age = max_age_seconds if max_age_seconds is not None else _get_env_int(_STORE_TTL_ENV)
@@ -195,8 +196,9 @@ async def cleanup_analysis_results(
     total_files = len(files)
 
     if effective_age is None and effective_max_files is None:
+        status = "skipped"
         result = {
-            "status": "skipped",
+            "status": status,
             "total_files": total_files,
             "eligible_count": 0,
             "expired_count": 0,
@@ -207,7 +209,7 @@ async def cleanup_analysis_results(
             "sample_ids": [],
             "message": "No cleanup policy configured",
         }
-        _record_cleanup_metrics(result["status"], deleted=0, total_files=total_files)
+        _record_cleanup_metrics(status, deleted=0, total_files=total_files)
         return result
 
     candidates, expired_count, overflow_count = _select_candidates(
@@ -217,8 +219,9 @@ async def cleanup_analysis_results(
     sample_ids = [item[0] for item in candidates[:sample_limit]] if sample_limit else []
 
     if eligible_count == 0:
+        status = "dry_run" if dry_run else "ok"
         result = {
-            "status": "dry_run" if dry_run else "ok",
+            "status": status,
             "total_files": total_files,
             "eligible_count": 0,
             "expired_count": expired_count,
@@ -229,12 +232,13 @@ async def cleanup_analysis_results(
             "sample_ids": sample_ids,
             "message": "No analysis results eligible for cleanup",
         }
-        _record_cleanup_metrics(result["status"], deleted=0, total_files=total_files)
+        _record_cleanup_metrics(status, deleted=0, total_files=total_files)
         return result
 
     if dry_run:
+        status = "dry_run"
         result = {
-            "status": "dry_run",
+            "status": status,
             "total_files": total_files,
             "eligible_count": eligible_count,
             "expired_count": expired_count,
@@ -245,7 +249,7 @@ async def cleanup_analysis_results(
             "sample_ids": sample_ids,
             "message": f"Would delete {eligible_count} analysis results",
         }
-        _record_cleanup_metrics(result["status"], deleted=0, total_files=total_files)
+        _record_cleanup_metrics(status, deleted=0, total_files=total_files)
         return result
 
     deleted_count = 0
@@ -259,8 +263,9 @@ async def cleanup_analysis_results(
                 extra={"error": str(exc)},
             )
 
+    status = "ok"
     result = {
-        "status": "ok",
+        "status": status,
         "total_files": total_files,
         "eligible_count": eligible_count,
         "expired_count": expired_count,
@@ -271,7 +276,7 @@ async def cleanup_analysis_results(
         "sample_ids": sample_ids,
         "message": f"Deleted {deleted_count} analysis results",
     }
-    _record_cleanup_metrics(result["status"], deleted=deleted_count, total_files=total_files)
+    _record_cleanup_metrics(status, deleted=deleted_count, total_files=total_files)
     return result
 
 
