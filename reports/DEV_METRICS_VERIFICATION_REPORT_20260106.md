@@ -22,6 +22,7 @@ Capture validation results for the 2026-01-06 metrics workstream.
 - Re-run failed on `urllib3==2.1.0`; pinned to `urllib3==2.0.7`.
 - Re-run failed on `urllib3==2.0.7`; pinned to `urllib3==1.26.20` and re-run pending.
 - Re-run failed on `pythonocc-core>=7.7.0` (no wheel for Python 3.9); update Docker base to `python:3.10-slim` and re-run pending.
+- Re-run still failed on `pythonocc-core`; staging workflow now skips L3 deps via `INSTALL_L3_DEPS=0` and re-run pending.
 - Report: `reports/DEV_GITHUB_DOCKER_STAGING_WORKFLOW_VALIDATION_20260110.md`
 
 ## Notes

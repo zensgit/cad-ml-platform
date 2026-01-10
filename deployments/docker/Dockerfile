@@ -25,9 +25,12 @@ COPY requirements.txt .
 COPY requirements-l3.txt .
 
 # 安装Python依赖
-# Install L3 dependencies first to allow caching
+# Install L3 dependencies optionally to keep staging builds lightweight
+ARG INSTALL_L3_DEPS=1
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir -r requirements-l3.txt
+    if [ "$INSTALL_L3_DEPS" = "1" ]; then \
+        pip install --no-cache-dir -r requirements-l3.txt; \
+    fi
 
 # 复制源代码
 COPY src/ ./src/
