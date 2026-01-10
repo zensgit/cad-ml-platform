@@ -29,6 +29,13 @@ from src.core.feature_extractor import (
 from src.models.cad_document import BoundingBox, CadDocument, CadEntity
 
 
+def _histogram_count(metric) -> float:
+    for sample in metric.collect()[0].samples:
+        if sample.name.endswith("_count"):
+            return sample.value
+    return 0.0
+
+
 def create_mock_document(
     entity_count: int = 10,
     entity_types: List[str] | None = None,
@@ -188,6 +195,32 @@ class TestComputeSurfaceCount:
             layers={},
         )
         assert compute_surface_count(doc) == 0
+
+
+class TestV4FeatureMetrics:
+    """Test v4 surface/entropy metrics are recorded."""
+
+    @pytest.mark.asyncio
+    async def test_v4_metrics_observed(self):
+        """V4 extraction should record surface_count and shape_entropy histograms."""
+        from src.utils.analysis_metrics import v4_shape_entropy, v4_surface_count
+
+        if not hasattr(v4_shape_entropy, "collect"):
+            pytest.skip("prometheus client disabled in this environment")
+
+        doc = create_mock_document(entity_count=4, entity_types=["BOX", "CYLINDER"])
+        extractor = FeatureExtractor(feature_version="v4")
+
+        before_surface = _histogram_count(v4_surface_count)
+        before_entropy = _histogram_count(v4_shape_entropy)
+
+        await extractor.extract(doc)
+
+        after_surface = _histogram_count(v4_surface_count)
+        after_entropy = _histogram_count(v4_shape_entropy)
+
+        assert after_surface > before_surface
+        assert after_entropy > before_entropy
 
 
 class TestV4FeatureExtraction:

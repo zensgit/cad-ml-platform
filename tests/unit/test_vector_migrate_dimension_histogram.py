@@ -20,6 +20,13 @@ from src.main import app
 client = TestClient(app)
 
 
+def _histogram_count(metric) -> float:
+    for sample in metric.collect()[0].samples:
+        if sample.name.endswith("_count"):
+            return sample.value
+    return 0.0
+
+
 class TestVectorMigrateDimensionHistogram:
     """Test dimension delta histogram during vector migration."""
 
@@ -80,6 +87,28 @@ class TestVectorMigrateDimensionHistogram:
         from src.utils.analysis_metrics import vector_migrate_dimension_delta
 
         assert vector_migrate_dimension_delta is not None
+
+    def test_dimension_histogram_records_observation(self):
+        """Test histogram count increases after a migration."""
+        from src.utils.analysis_metrics import vector_migrate_dimension_delta
+
+        if not hasattr(vector_migrate_dimension_delta, "collect"):
+            pytest.skip("prometheus client disabled in this environment")
+
+        before = _histogram_count(vector_migrate_dimension_delta)
+        with patch("src.core.feature_extractor.FeatureExtractor.upgrade_vector") as mock_upgrade:
+            mock_upgrade.return_value = np.random.rand(20).tolist()
+
+            response = client.post(
+                "/api/v1/vectors/migrate",
+                json={"ids": ["dim-v1-001"], "to_version": "v4", "dry_run": False},
+                headers={"X-API-Key": "test"},
+            )
+
+            assert response.status_code == 200
+
+        after = _histogram_count(vector_migrate_dimension_delta)
+        assert after > before, "dimension delta histogram should increment"
 
     def test_positive_dimension_delta_upgrade(self):
         """Test positive dimension delta when upgrading (v1 -> v2)."""

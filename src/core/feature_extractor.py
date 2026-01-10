@@ -303,6 +303,13 @@ class FeatureExtractor:
         if self.feature_version == "v4":
             surface_count = compute_surface_count(doc)
             shape_entropy = compute_shape_entropy(counts)
+            try:
+                from src.utils.analysis_metrics import v4_shape_entropy, v4_surface_count
+
+                v4_surface_count.observe(surface_count)
+                v4_shape_entropy.observe(shape_entropy)
+            except Exception:
+                pass
             geometric.extend([float(surface_count), float(shape_entropy)])
 
         try:

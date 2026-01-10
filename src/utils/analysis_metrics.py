@@ -144,6 +144,16 @@ feature_extraction_latency_seconds = Histogram(
     ["version"],
     buckets=[0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0],
 )
+v4_surface_count = Histogram(
+    "v4_surface_count",
+    "Surface count distribution for v4 feature extraction",
+    buckets=[0, 1, 5, 10, 20, 50, 100, 200, 500, 1000],
+)
+v4_shape_entropy = Histogram(
+    "v4_shape_entropy",
+    "Shape entropy distribution for v4 feature extraction",
+    buckets=[0.0, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0],
+)
 analysis_material_usage_total = Counter(
     "analysis_material_usage_total",
     "Material field usage counts",
@@ -713,6 +723,8 @@ __all__ = [
     "analysis_stage_duration_seconds",
     "analysis_feature_vector_dimension",
     "feature_extraction_latency_seconds",
+    "v4_surface_count",
+    "v4_shape_entropy",
     "analysis_material_usage_total",
     "analysis_rejections_total",
     "analysis_error_code_total",
