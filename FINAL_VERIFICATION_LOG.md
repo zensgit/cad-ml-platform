@@ -1143,6 +1143,11 @@
   - CI runs failed on dependency constraints, `pythonocc-core`, curl resets, and missing cache tuning metrics; pinned dependencies, updated Docker base, skip L3 deps, added retry/backoff + metrics snapshot logging, readiness wait, DEBUG=false in compose, and fixed `/metrics` redirect handling; GitHub Actions staging smoke now passes and local docker compose smoke succeeded.
   - Design: `docs/GITHUB_DOCKER_STAGING_WORKFLOW_DESIGN.md`
   - Report: `reports/DEV_GITHUB_DOCKER_STAGING_WORKFLOW_VALIDATION_20260110.md`
+- **Metrics Consistency and Counter Fixes**:
+  - Exported analysis result store cleanup metrics, ignored `_created` samples in vector migrate counter tests, and tightened analysis result store typing to satisfy lint/type checks.
+  - Tests: `python3 scripts/check_metrics_consistency.py`, `python3 -m pytest tests/unit/test_vector_migrate_metrics.py -k downgraded -v`, `python3 -m mypy src/utils/analysis_result_store.py`, `python3 -m flake8 src`.
+  - Design: `docs/METRICS_CONSISTENCY_COUNTER_FIXES_DESIGN.md`
+  - Revalidation: `reports/DEV_METRICS_CONSISTENCY_COUNTER_FIXES_REVALIDATION_20260110.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
