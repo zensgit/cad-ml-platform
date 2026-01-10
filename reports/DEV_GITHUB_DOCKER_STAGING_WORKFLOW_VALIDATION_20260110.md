@@ -71,6 +71,8 @@ Validate the GitHub Docker staging workflow smoke script against the local Docke
 
 ## Artifacts
 - `artifacts/docker-staging/health.json`
+- `artifacts/docker-staging/cache_tuning.json`
+- `artifacts/docker-staging/metrics.txt`
 - `artifacts/docker-staging/compose.log`
 
 ## Follow-up
