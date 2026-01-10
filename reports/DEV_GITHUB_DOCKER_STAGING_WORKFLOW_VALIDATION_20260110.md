@@ -57,6 +57,10 @@ Validate the GitHub Docker staging workflow smoke script against the local Docke
 - Workflow: `.github/workflows/docker-staging-smoke.yml` on `main`
 - Result: Cache tuning metrics still missing after retries; added readiness wait and absolute artifact paths, and disabled DEBUG in compose.
 
+## Attempt 12 (GitHub Actions metrics redirect)
+- Workflow: `.github/workflows/docker-staging-smoke.yml` on `main`
+- Result: `/metrics` returned 307 redirect; metrics file empty. Updated smoke script to request `/metrics/` and follow redirects.
+
 ## Artifacts
 - `artifacts/docker-staging/health.json`
 - `artifacts/docker-staging/compose.log`
