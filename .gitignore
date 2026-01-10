@@ -55,6 +55,7 @@ temp/
 cache/
 logs/
 *.log
+artifacts/
 
 # Model files (keep structure but not actual models)
 models/*.pkl
