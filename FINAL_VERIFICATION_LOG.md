@@ -957,11 +957,13 @@
   - Tests: `pytest tests/unit/test_vector_migrate_metrics.py -v` (1 passed, 2 skipped).
   - Design: `docs/VECTOR_MIGRATE_DOWNGRADE_METRICS_TESTS_DESIGN.md`
   - Report: `reports/DEV_VECTOR_MIGRATE_DOWNGRADE_METRICS_TESTS_VALIDATION_20260106.md`
+  - Revalidation: `reports/DEV_VECTOR_MIGRATE_REVALIDATION_20260110.md`
 - **Vector Migrate Dimension Histogram Count**:
   - Verified histogram count increases after a migration observation.
   - Tests: `pytest tests/unit/test_vector_migrate_dimension_histogram.py -v` (14 passed, 1 skipped).
   - Design: `docs/VECTOR_MIGRATE_DIMENSION_HISTOGRAM_COUNT_DESIGN.md`
   - Report: `reports/DEV_VECTOR_MIGRATE_DIMENSION_HISTOGRAM_COUNT_VALIDATION_20260106.md`
+  - Revalidation: `reports/DEV_VECTOR_MIGRATE_REVALIDATION_20260110.md`
 - **Feature Cache Tuning POST Endpoint**:
   - Added POST cache tuning endpoint with request metric and boundary tests.
   - Tests: `pytest tests/unit/test_cache_tuning.py -v` (6 passed, 1 skipped).
