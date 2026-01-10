@@ -27,6 +27,7 @@ Capture validation results for the 2026-01-06 metrics workstream.
 - Re-run still failed on missing cache tuning metrics; staging script now logs metrics snapshots for debugging.
 - Added readiness wait, absolute artifact paths, and DEBUG=false in compose; re-run pending.
 - Identified `/metrics` redirect; updated staging script to request `/metrics/` with redirect follow.
+- Re-run succeeded; GitHub Actions staging smoke workflow passed after redirect fix.
 - Report: `reports/DEV_GITHUB_DOCKER_STAGING_WORKFLOW_VALIDATION_20260110.md`
 
 ## Notes

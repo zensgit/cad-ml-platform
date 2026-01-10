@@ -61,11 +61,14 @@ Validate the GitHub Docker staging workflow smoke script against the local Docke
 - Workflow: `.github/workflows/docker-staging-smoke.yml` on `main`
 - Result: `/metrics` returned 307 redirect; metrics file empty. Updated smoke script to request `/metrics/` and follow redirects.
 
+## Attempt 13 (GitHub Actions success)
+- Workflow: `.github/workflows/docker-staging-smoke.yml` on `main`
+- Result: Workflow succeeded; smoke and dashboard metrics validations passed.
+
 ## Artifacts
 - `artifacts/docker-staging/health.json`
 - `artifacts/docker-staging/compose.log`
 
 ## Follow-up
-- Rebuild the image once Docker Hub access is available (`docker compose -f deployments/docker/docker-compose.yml build`).
-- Re-run `scripts/ci/docker_staging_smoke.sh` to capture full metrics validation.
-- Alternatively, run the GitHub Actions workflow `.github/workflows/docker-staging-smoke.yml` to build in CI.
+- GitHub Actions staging smoke now passes after the `/metrics/` redirect fix.
+- Rebuild the image once Docker Hub access is available (`docker compose -f deployments/docker/docker-compose.yml build`) for local validation as needed.
