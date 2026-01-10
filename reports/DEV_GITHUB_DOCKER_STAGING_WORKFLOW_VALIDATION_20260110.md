@@ -49,6 +49,10 @@ Validate the GitHub Docker staging workflow smoke script against the local Docke
 - Result: Stack started, but curl connection resets during `/health` and missing cache tuning metrics caused the smoke check to exit.
 - Follow-up: Add retry logic for POST/metrics and require cache tuning metrics with backoff.
 
+## Attempt 10 (GitHub Actions with retries)
+- Workflow: `.github/workflows/docker-staging-smoke.yml` on `main`
+- Result: Cache tuning metrics still missing after retries; added metrics snapshot logging for debugging.
+
 ## Artifacts
 - `artifacts/docker-staging/health.json`
 - `artifacts/docker-staging/compose.log`
