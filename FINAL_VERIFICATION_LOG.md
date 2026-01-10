@@ -945,6 +945,177 @@
   - Tests: `pytest tests/unit/test_batch_similarity_empty_results.py -v` (10 passed, 1 skipped).
   - Design: `docs/BATCH_SIMILARITY_EMPTY_RESULTS_METRICS_TESTS_DESIGN.md`
   - Report: `reports/DEV_BATCH_SIMILARITY_EMPTY_RESULTS_METRICS_TESTS_VALIDATION_20260106.md`
+- **Vector Migrate Downgrade Metrics Tests**:
+  - Added downgrade counter assertion for vector migration metrics.
+  - Tests: `pytest tests/unit/test_vector_migrate_metrics.py -v` (1 passed, 2 skipped).
+  - Design: `docs/VECTOR_MIGRATE_DOWNGRADE_METRICS_TESTS_DESIGN.md`
+  - Report: `reports/DEV_VECTOR_MIGRATE_DOWNGRADE_METRICS_TESTS_VALIDATION_20260106.md`
+- **Vector Migrate Dimension Histogram Count**:
+  - Verified histogram count increases after a migration observation.
+  - Tests: `pytest tests/unit/test_vector_migrate_dimension_histogram.py -v` (14 passed, 1 skipped).
+  - Design: `docs/VECTOR_MIGRATE_DIMENSION_HISTOGRAM_COUNT_DESIGN.md`
+  - Report: `reports/DEV_VECTOR_MIGRATE_DIMENSION_HISTOGRAM_COUNT_VALIDATION_20260106.md`
+- **Feature Cache Tuning POST Endpoint**:
+  - Added POST cache tuning endpoint with request metric and boundary tests.
+  - Tests: `pytest tests/unit/test_cache_tuning.py -v` (6 passed, 1 skipped).
+  - Design: `docs/FEATURE_CACHE_TUNING_POST_ENDPOINT_DESIGN.md`
+  - Report: `reports/DEV_FEATURE_CACHE_TUNING_POST_ENDPOINT_VALIDATION_20260106.md`
+- **Feature Cache Tuning Metrics Contract**:
+  - Added cache tuning request metric and recommendation gauges to contract and registration trigger.
+  - Tests: `pytest tests/test_metrics_contract.py -k metric_label_schemas -v` (1 skipped); `.venv/bin/python -m pytest tests/test_metrics_contract.py -k metric_label_schemas -v` (1 passed).
+  - Design: `docs/FEATURE_CACHE_TUNING_METRICS_CONTRACT_DESIGN.md`
+  - Report: `reports/DEV_FEATURE_CACHE_TUNING_METRICS_CONTRACT_VALIDATION_20260106.md`
+- **Metrics Contract Full Suite**:
+  - Ran full metrics contract validation with metrics enabled.
+  - Tests: `.venv/bin/python -m pytest tests/test_metrics_contract.py -v` (19 passed, 3 skipped).
+  - Report: `reports/DEV_METRICS_CONTRACT_FULL_VALIDATION_20260106.md`
+- **Model Opcode Mode Gauge**:
+  - Added gauge for opcode validation mode and verified update during reload.
+  - Tests: `pytest tests/unit/test_model_opcode_modes.py -v` (4 passed, 1 skipped).
+  - Design: `docs/MODEL_OPCODE_MODE_GAUGE_DESIGN.md`
+  - Report: `reports/DEV_MODEL_OPCODE_MODE_GAUGE_VALIDATION_20260106.md`
+- **Feature Cache Tuning Recommendation Gauges**:
+  - Added gauges for recommended capacity/TTL and aligned dashboard panel.
+  - Tests: `pytest tests/unit/test_cache_tuning.py -v` (6 passed, 1 skipped).
+  - Design: `docs/FEATURE_CACHE_TUNING_RECOMMENDATION_GAUGES_DESIGN.md`
+  - Report: `reports/DEV_FEATURE_CACHE_TUNING_RECOMMENDATION_GAUGES_VALIDATION_20260106.md`
+- **Metrics Unit Subset Validation**:
+  - Re-ran cache tuning, opcode mode, and v4 feature metrics unit coverage.
+  - Tests: `pytest tests/unit/test_cache_tuning.py tests/unit/test_model_opcode_modes.py tests/unit/test_v4_feature_performance.py -v` (39 passed, 4 skipped).
+  - Design: `docs/FEATURE_CACHE_TUNING_RECOMMENDATION_GAUGES_DESIGN.md`, `docs/MODEL_OPCODE_MODE_GAUGE_DESIGN.md`, `docs/V4_FEATURE_METRICS_HISTOGRAM_COUNT_DESIGN.md`
+  - Report: `reports/DEV_METRICS_UNIT_SUBSET_VALIDATION_20260106.md`
+- **Metrics Unit Subset (.venv)**:
+  - Re-ran cache tuning, opcode mode, and v4 feature metrics unit coverage with metrics enabled.
+  - Tests: `.venv/bin/python -m pytest tests/unit/test_cache_tuning.py tests/unit/test_model_opcode_modes.py tests/unit/test_v4_feature_performance.py -v` (43 passed).
+  - Design: `docs/FEATURE_CACHE_TUNING_RECOMMENDATION_GAUGES_DESIGN.md`, `docs/MODEL_OPCODE_MODE_GAUGE_DESIGN.md`, `docs/V4_FEATURE_METRICS_HISTOGRAM_COUNT_DESIGN.md`
+  - Report: `reports/DEV_METRICS_UNIT_SUBSET_VENV_VALIDATION_20260106.md`
+- **Metrics Unit Security/Rollback/Vector (.venv)**:
+  - Validated model security/rollback metrics plus vector migrate metrics with metrics enabled.
+  - Tests: `.venv/bin/python -m pytest tests/unit/test_model_security_validation.py tests/unit/test_model_rollback_health.py tests/unit/test_model_rollback_level3.py tests/unit/test_vector_migrate_metrics.py tests/unit/test_vector_migrate_dimension_histogram.py -v` (61 passed).
+  - Design: `docs/MODEL_INTERFACE_VALIDATION_METRICS_DESIGN.md`, `docs/DASHBOARD_METRICS_ALIGNMENT_SECURITY_ROLLBACK_V4_DESIGN.md`, `docs/VECTOR_MIGRATE_DOWNGRADE_METRICS_TESTS_DESIGN.md`, `docs/VECTOR_MIGRATE_DIMENSION_HISTOGRAM_COUNT_DESIGN.md`
+  - Report: `reports/DEV_METRICS_UNIT_SECURITY_ROLLBACK_VECTOR_VENV_VALIDATION_20260106.md`
+- **Metrics Unit Filter (.venv)**:
+  - Ran `-k metrics` unit test filter with metrics enabled.
+  - Tests: `.venv/bin/python -m pytest tests/unit -k metrics -v` (223 passed, 3500 deselected).
+  - Report: `reports/DEV_METRICS_UNIT_FILTER_VENV_VALIDATION_20260106.md`
+- **Dashboard Metrics Alignment (Security/Rollback/v4)**:
+  - Added missing observability metrics and aligned dashboard queries to exported names.
+  - Tests: `python3 scripts/validate_dashboard_metrics.py` (pass); `pytest tests/unit/test_model_rollback_health.py tests/unit/test_model_rollback_level3.py tests/unit/test_model_opcode_modes.py tests/unit/test_v4_feature_performance.py -v` (59 passed, 4 skipped).
+  - Design: `docs/DASHBOARD_METRICS_ALIGNMENT_SECURITY_ROLLBACK_V4_DESIGN.md`
+  - Report: `reports/DEV_DASHBOARD_METRICS_ALIGNMENT_SECURITY_ROLLBACK_V4_VALIDATION_20260106.md`
+- **Dashboard Metrics Revalidation**:
+  - Re-ran dashboard metrics validation after metrics-enabled test runs.
+  - Tests: `python3 scripts/validate_dashboard_metrics.py` (pass).
+  - Report: `reports/DEV_DASHBOARD_METRICS_REVALIDATION_20260106.md`
+- **Metrics Handoff Summary**:
+  - Summarized key metrics changes and validation coverage.
+  - Report: `reports/DEV_METRICS_HANDOFF_SUMMARY_20260106.md`
+- **Metrics Delivery Index**:
+  - Indexed all design docs and validation reports for the metrics workstream.
+  - Report: `reports/DEV_METRICS_DELIVERY_INDEX_20260106.md`
+- **Metrics PR Summary**:
+  - Prepared PR-ready summary of metrics changes and validation.
+  - Report: `reports/DEV_METRICS_PR_SUMMARY_20260106.md`
+- **Metrics Delivery Checklist**:
+  - Captured design docs, validation reports, and test commands for handoff.
+  - Report: `reports/DEV_METRICS_DELIVERY_CHECKLIST_20260106.md`
+- **Metrics Final Delivery Summary**:
+  - Produced final delivery summary with validation highlights and artifact references.
+  - Report: `reports/DEV_METRICS_FINAL_DELIVERY_SUMMARY_20260106.md`
+- **Metrics Delivery Index Refresh**:
+  - Added updated handoff doc list and planning reports to the delivery index.
+  - Report: `reports/DEV_METRICS_DELIVERY_INDEX_20260106.md`
+- **Metrics Delivery Checklist Refresh**:
+  - Added updated handoff doc list and planning reports to the delivery checklist.
+  - Report: `reports/DEV_METRICS_DELIVERY_CHECKLIST_20260106.md`
+- **Metrics Handoff Summary Refresh**:
+  - Added updated handoff docs and additional reports to the handoff summary.
+  - Report: `reports/DEV_METRICS_HANDOFF_SUMMARY_20260106.md`
+- **Final Validation Report Addendum**:
+  - Added metrics delivery addendum to the top-level validation report.
+  - Report: `FINAL_VALIDATION_REPORT.md`
+- **Project Handover Addendum**:
+  - Added metrics delivery addendum to the project handover document.
+  - Report: `PROJECT_HANDOVER.md`
+- **Final Handover Package Addendum**:
+  - Added metrics delivery addendum to the v3 handover package.
+  - Report: `FINAL_HANDOVER_PACKAGE_V3.md`
+- **Final Summary Addendum**:
+  - Added metrics delivery addendum to the final summary document.
+  - Report: `FINAL_SUMMARY.md`
+- **Project Completion Report Addendum**:
+  - Added metrics delivery addendum to the completion report.
+  - Report: `PROJECT_COMPLETION_REPORT.md`
+- **Phase 8 Handover Addendum**:
+  - Added metrics delivery addendum to the phase 8 handover document.
+  - Report: `PROJECT_HANDOVER_PHASE8.md`
+- **Phase 5 Handover Addendum**:
+  - Added metrics delivery addendum to the phase 5 handover document.
+  - Report: `PROJECT_HANDOVER_PHASE5.md`
+- **Deliverables Summary Addendum**:
+  - Added metrics delivery addendum to the deliverables summary.
+  - Report: `DELIVERABLES_SUMMARY.md`
+- **Design Summary Addendum**:
+  - Added metrics delivery addendum to the design summary.
+  - Report: `DESIGN_SUMMARY.md`
+- **Phase 5 V2 Completion Addendum**:
+  - Added metrics delivery addendum to the phase 5 v2 completion report.
+  - Report: `PHASE5_V2_COMPLETION_REPORT.md`
+- **Phase 3 V2 Completion Addendum**:
+  - Added metrics delivery addendum to the phase 3 v2 completion report.
+  - Report: `PHASE3_V2_COMPLETION_REPORT.md`
+- **Phase 2 Enhancement Summary Addendum**:
+  - Added metrics delivery addendum to the phase 2 enhancement summary.
+  - Report: `PHASE2_ENHANCEMENT_SUMMARY.md`
+- **Production Verification Plan Addendum**:
+  - Added metrics delivery addendum to the production verification plan.
+  - Report: `PRODUCTION_VERIFICATION_PLAN.md`
+- **Development Summary Addendum**:
+  - Added metrics delivery addendum to the development summary.
+  - Report: `DEVELOPMENT_SUMMARY.md`
+- **Metrics Commit Plan**:
+  - Drafted commit breakdown plan for the metrics workstream.
+  - Report: `reports/DEV_METRICS_COMMIT_PLAN_20260106.md`
+- **Metrics Changed Files Report**:
+  - Captured modified/new files for the metrics workstream.
+  - Report: `reports/DEV_METRICS_CHANGED_FILES_20260106.md`
+- **Development Summary Final Addendum**:
+  - Added metrics delivery addendum to the final development summary.
+  - Report: `docs/DEVELOPMENT_SUMMARY_FINAL.md`
+- **Development Report Final Addendum**:
+  - Added metrics delivery addendum to the final development report.
+  - Report: `docs/DEVELOPMENT_REPORT_FINAL.md`
+- **Implementation Summary Addendum**:
+  - Added metrics delivery addendum to the implementation summary.
+  - Report: `docs/IMPLEMENTATION_SUMMARY.md`
+- **Final Implementation Checklist Addendum**:
+  - Added metrics delivery addendum to the final implementation checklist.
+  - Report: `docs/FINAL_IMPLEMENTATION_CHECKLIST.md`
+- **Metrics Development Report**:
+  - Summarized implementation scope and primary files for the metrics workstream.
+  - Report: `reports/DEV_METRICS_DEVELOPMENT_REPORT_20260106.md`
+- **Metrics Verification Report**:
+  - Captured metrics-enabled and metrics-disabled validation results.
+  - Report: `reports/DEV_METRICS_VERIFICATION_REPORT_20260106.md`
+- **Metrics Changed Files Report**:
+  - Captured modified/new files for the metrics workstream.
+  - Report: `reports/DEV_METRICS_CHANGED_FILES_20260106.md`
+- **Implementation Results Addendum**:
+  - Added 2026-01-06 metrics validation entry to implementation results.
+  - Report: `IMPLEMENTATION_RESULTS.md`
+- **Phase 7 Implementation Log Addendum**:
+  - Added metrics delivery addendum to the phase 7 implementation log.
+  - Report: `PHASE7_IMPLEMENTATION_LOG.md`
+- **Model Interface Validation Metrics**:
+  - Integrated interface validation into model reloads and recorded failure reasons.
+  - Tests: `pytest tests/unit/test_model_security_validation.py -k interface_validation_missing_predict -v` (1 passed).
+  - Design: `docs/MODEL_INTERFACE_VALIDATION_METRICS_DESIGN.md`
+  - Report: `reports/DEV_MODEL_INTERFACE_VALIDATION_METRICS_VALIDATION_20260106.md`
+- **V4 Feature Metrics Histogram Count**:
+  - Ensured v4 surface/entropy histogram tests assert the _count samples.
+  - Tests: `pytest tests/unit/test_v4_feature_performance.py::TestV4FeatureMetrics::test_v4_metrics_observed -v` (1 skipped).
+  - Design: `docs/V4_FEATURE_METRICS_HISTOGRAM_COUNT_DESIGN.md`
+  - Report: `reports/DEV_V4_FEATURE_METRICS_HISTOGRAM_COUNT_VALIDATION_20260106.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

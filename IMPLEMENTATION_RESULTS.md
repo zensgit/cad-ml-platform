@@ -6,6 +6,16 @@
 
 ---
 
+## 🧾 最新验证记录 (2026-01-06)
+
+- ✅ Metrics contract 全量验证通过（19 passed / 3 skipped）（`reports/DEV_METRICS_CONTRACT_FULL_VALIDATION_20260106.md`）
+- ✅ Metrics 单测筛选（-k metrics）通过：223 passed（`reports/DEV_METRICS_UNIT_FILTER_VENV_VALIDATION_20260106.md`）
+- ✅ 缓存调优 + Opcode 模式 + v4 指标单测通过：43 passed（`reports/DEV_METRICS_UNIT_SUBSET_VENV_VALIDATION_20260106.md`）
+- ✅ 安全/回滚/向量迁移指标单测通过：61 passed（`reports/DEV_METRICS_UNIT_SECURITY_ROLLBACK_VECTOR_VENV_VALIDATION_20260106.md`）
+- ✅ Dashboard 指标校验通过（`reports/DEV_DASHBOARD_METRICS_REVALIDATION_20260106.md`）
+
+---
+
 ## 🧾 最新验证记录 (2025-12-30)
 
 - ✅ 全量测试通过：3961 passed / 29 skipped，覆盖率 71%（`reports/DEV_MAKE_TEST_20251230_FULL.md`）
