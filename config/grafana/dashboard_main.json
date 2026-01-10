@@ -602,8 +602,8 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "pickle_opcode_mode",
-          "legendFormat": "{{mode}}",
+          "expr": "model_opcode_mode",
+          "legendFormat": "mode",
           "refId": "A"
         }
       ],
@@ -630,7 +630,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum(increase(pickle_opcode_scans_total[$interval]))",
+          "expr": "sum(increase(model_opcode_scans_total[$interval]))",
           "refId": "A"
         }
       ],
@@ -640,12 +640,12 @@
     {
       "id": 33,
       "type": "piechart",
-      "title": "Model Interface Validation Failures",
-      "description": "Distribution of interface validation failure reasons",
+      "title": "Model Security Failures",
+      "description": "Distribution of model security failure reasons",
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum by (reason) (rate(model_interface_validation_fail_total[$interval]))",
+          "expr": "sum by (reason) (rate(model_security_fail_total[$interval]))",
           "legendFormat": "{{reason}}",
           "refId": "A"
         }
@@ -653,10 +653,10 @@
       "options": {"legend": {"displayMode": "table", "placement": "right"}},
       "fieldConfig": {
         "overrides": [
-          {"matcher": {"id": "byName", "options": "missing_required_methods"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]},
-          {"matcher": {"id": "byName", "options": "large_attribute_graph"}, "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}]},
-          {"matcher": {"id": "byName", "options": "suspicious_methods_found"}, "properties": [{"id": "color", "value": {"fixedColor": "purple", "mode": "fixed"}}]},
-          {"matcher": {"id": "byName", "options": "invalid_signature"}, "properties": [{"id": "color", "value": {"fixedColor": "yellow", "mode": "fixed"}}]}
+          {"matcher": {"id": "byName", "options": "hash_mismatch"}, "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "magic_number_invalid"}, "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "opcode_blocked"}, "properties": [{"id": "color", "value": {"fixedColor": "purple", "mode": "fixed"}}]},
+          {"matcher": {"id": "byName", "options": "opcode_scan_error"}, "properties": [{"id": "color", "value": {"fixedColor": "yellow", "mode": "fixed"}}]}
         ]
       },
       "gridPos": {"x": 12, "y": 43, "w": 6, "h": 6}
@@ -669,7 +669,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "sum by (opcode) (rate(pickle_dangerous_opcode_total[$interval]))",
+          "expr": "sum by (opcode) (rate(model_opcode_blocked_total[$interval]))",
           "legendFormat": "{{opcode}}",
           "refId": "A"
         }
@@ -720,13 +720,13 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "drift_score",
-          "legendFormat": "Drift Score",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(material_distribution_drift_score_bucket[$interval])))",
+          "legendFormat": "Material Drift p95",
           "refId": "A"
         },
         {
-          "expr": "drift_threshold",
-          "legendFormat": "Threshold",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(classification_prediction_drift_score_bucket[$interval])))",
+          "legendFormat": "Prediction Drift p95",
           "refId": "B"
         }
       ],
@@ -735,9 +735,7 @@
           "unit": "short",
           "custom": {"lineWidth": 2}
         },
-        "overrides": [
-          {"matcher": {"id": "byName", "options": "Threshold"}, "properties": [{"id": "custom.lineStyle", "value": {"fill": "dash"}}]}
-        ]
+        "overrides": []
       },
       "gridPos": {"x": 6, "y": 50, "w": 6, "h": 6}
     },
@@ -749,14 +747,14 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "cache_tuning_recommended_capacity",
+          "expr": "feature_cache_tuning_recommended_capacity",
           "format": "table",
           "instant": true,
           "legendFormat": "Capacity",
           "refId": "A"
         },
         {
-          "expr": "cache_tuning_recommended_ttl",
+          "expr": "feature_cache_tuning_recommended_ttl_seconds",
           "format": "table",
           "instant": true,
           "legendFormat": "TTL",
@@ -773,7 +771,7 @@
       "datasource": "Prometheus",
       "targets": [
         {
-          "expr": "(time() - drift_baseline_timestamp) / 3600",
+          "expr": "max(baseline_material_age_seconds, baseline_prediction_age_seconds) / 3600",
           "refId": "A"
         }
       ],
