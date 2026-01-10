@@ -981,6 +981,7 @@
   - Tests: `pytest tests/unit/test_model_opcode_modes.py -v` (4 passed, 1 skipped).
   - Design: `docs/MODEL_OPCODE_MODE_GAUGE_DESIGN.md`
   - Report: `reports/DEV_MODEL_OPCODE_MODE_GAUGE_VALIDATION_20260106.md`
+  - Revalidation: `reports/DEV_MODEL_OPCODE_MODE_REVALIDATION_20260110.md`
 - **Feature Cache Tuning Recommendation Gauges**:
   - Added gauges for recommended capacity/TTL and aligned dashboard panel.
   - Tests: `pytest tests/unit/test_cache_tuning.py -v` (6 passed, 1 skipped).
