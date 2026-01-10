@@ -1129,6 +1129,7 @@
   - Tests: `pytest tests/unit/test_v4_feature_performance.py::TestV4FeatureMetrics::test_v4_metrics_observed -v` (1 skipped).
   - Design: `docs/V4_FEATURE_METRICS_HISTOGRAM_COUNT_DESIGN.md`
   - Report: `reports/DEV_V4_FEATURE_METRICS_HISTOGRAM_COUNT_VALIDATION_20260106.md`
+  - Revalidation: `reports/DEV_V4_FEATURE_PERFORMANCE_REVALIDATION_20260110.md`
 - **GitHub Docker Staging Workflow**:
   - Added Docker Compose smoke workflow for CI staging without a dedicated environment.
   - CI runs failed on dependency constraints, `pythonocc-core`, curl resets, and missing cache tuning metrics; pinned dependencies, updated Docker base, skip L3 deps, added retry/backoff + metrics snapshot logging, readiness wait, DEBUG=false in compose, and fixed `/metrics` redirect handling; GitHub Actions staging smoke now passes and local docker compose smoke succeeded.
