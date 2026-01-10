@@ -10,6 +10,7 @@ Provide a GitHub Actions workflow and local smoke script that simulate a staging
 
 ## Smoke Checks
 - `/health` returns 200 and reports `metrics_enabled=true`.
+- `/ready` returns 200 to confirm readiness before smoke requests.
 - `POST /api/v1/features/cache/tuning` returns a recommendation payload.
 - `/metrics` exposes cache tuning metrics:
   - `feature_cache_tuning_requests_total`

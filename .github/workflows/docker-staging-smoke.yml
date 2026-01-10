@@ -26,7 +26,7 @@ jobs:
         env:
           CAD_ML_API_PORT: ${{ inputs.api_port }}
           API_PORT: ${{ inputs.api_port }}
-          ARTIFACT_DIR: artifacts/docker-staging
+          ARTIFACT_DIR: ${{ github.workspace }}/artifacts/docker-staging
           INSTALL_L3_DEPS: "0"
         run: |
           bash scripts/ci/docker_staging_smoke.sh
@@ -40,7 +40,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: docker-staging-smoke
-          path: artifacts/docker-staging
+          path: ${{ github.workspace }}/artifacts/docker-staging
 
       - name: Summary
         if: always()

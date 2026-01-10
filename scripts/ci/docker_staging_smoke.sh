@@ -111,6 +111,9 @@ if metrics_enabled is not True:
     raise SystemExit("metrics_enabled is false in /health payload")
 PY
 
+echo "Waiting for readiness endpoint at $API_URL/ready"
+wait_for_url "$API_URL/ready" 24 5
+
 echo "Posting cache tuning payload"
 curl -fsS --retry 3 --retry-delay 2 --retry-connrefused -X POST "$API_URL/api/v1/features/cache/tuning" \
     -H "Content-Type: application/json" \
