@@ -22,6 +22,7 @@ Provide a GitHub Actions workflow and local smoke script that simulate a staging
 - `CAD_ML_API_PORT` and `API_PORT` are passed to the script.
 - `API_KEY` defaults to `test` for the X-API-Key header.
 - `SKIP_BUILD=1` can be set when a local `cad-ml-platform:latest` image already exists to avoid rebuilding.
+- `INSTALL_L3_DEPS=0` skips heavy L3 dependencies (e.g., `pythonocc-core`) for staging smoke builds.
 
 ## Artifacts
 - `artifacts/docker-staging/health.json`

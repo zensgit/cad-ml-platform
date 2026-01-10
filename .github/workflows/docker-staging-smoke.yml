@@ -27,6 +27,7 @@ jobs:
           CAD_ML_API_PORT: ${{ inputs.api_port }}
           API_PORT: ${{ inputs.api_port }}
           ARTIFACT_DIR: artifacts/docker-staging
+          INSTALL_L3_DEPS: "0"
         run: |
           bash scripts/ci/docker_staging_smoke.sh
 

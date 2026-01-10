@@ -13,6 +13,7 @@ API_KEY="${API_KEY:-test}"
 ARTIFACT_DIR="${ARTIFACT_DIR:-$PROJECT_ROOT/artifacts/docker-staging}"
 REPORT_PATH="${REPORT_PATH:-}"
 SKIP_BUILD="${SKIP_BUILD:-}"
+INSTALL_L3_DEPS="${INSTALL_L3_DEPS:-}"
 
 mkdir -p "$ARTIFACT_DIR"
 
@@ -53,6 +54,11 @@ wait_for_url() {
 cd "$PROJECT_ROOT"
 
 echo "Starting docker compose from $COMPOSE_FILE"
+if [ -n "$INSTALL_L3_DEPS" ]; then
+    docker compose -f "$COMPOSE_FILE" build --build-arg "INSTALL_L3_DEPS=$INSTALL_L3_DEPS"
+    SKIP_BUILD=1
+fi
+
 compose_args=(-f "$COMPOSE_FILE" up -d)
 if [ "$SKIP_BUILD" != "1" ]; then
     compose_args+=(--build)

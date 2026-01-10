@@ -39,6 +39,11 @@ Validate the GitHub Docker staging workflow smoke script against the local Docke
 - Result: Docker build failed because `pythonocc-core>=7.7.0` has no matching wheel for Python 3.9.
 - Follow-up: Update the Docker base image to `python:3.10-slim` and re-run the workflow.
 
+## Attempt 8 (GitHub Actions after Python 3.10 base)
+- Workflow: `.github/workflows/docker-staging-smoke.yml` on `main`
+- Result: Docker build still failed on `pythonocc-core>=7.7.0` wheel availability.
+- Follow-up: Add `INSTALL_L3_DEPS=0` to the staging workflow to skip L3-only dependencies.
+
 ## Artifacts
 - `artifacts/docker-staging/health.json`
 - `artifacts/docker-staging/compose.log`
