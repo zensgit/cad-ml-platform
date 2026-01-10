@@ -29,6 +29,11 @@ Validate the GitHub Docker staging workflow smoke script against the local Docke
 - Result: Docker build still failed on dependency resolution with `urllib3==2.1.0`.
 - Follow-up: Pin `urllib3` to `2.0.7` and re-run the workflow.
 
+## Attempt 6 (GitHub Actions after urllib3 2.0.7)
+- Workflow: `.github/workflows/docker-staging-smoke.yml` on `main`
+- Result: Docker build still failed on dependency resolution with `urllib3==2.0.7`.
+- Follow-up: Pin `urllib3` to `1.26.20` and re-run the workflow.
+
 ## Artifacts
 - `artifacts/docker-staging/health.json`
 - `artifacts/docker-staging/compose.log`
