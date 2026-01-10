@@ -16,6 +16,7 @@ SKIP_BUILD="${SKIP_BUILD:-}"
 INSTALL_L3_DEPS="${INSTALL_L3_DEPS:-}"
 
 mkdir -p "$ARTIFACT_DIR"
+echo "Artifacts dir: $ARTIFACT_DIR"
 
 COMPOSE_STARTED=0
 
@@ -51,6 +52,28 @@ wait_for_url() {
     return 1
 }
 
+fetch_metrics_with_retries() {
+    local attempts="${1:-5}"
+    local delay="${2:-3}"
+    local count=1
+
+    while [ "$count" -le "$attempts" ]; do
+        if curl -fsS --retry 3 --retry-delay 2 --retry-connrefused "$METRICS_URL" \
+            -o "$ARTIFACT_DIR/metrics.txt"; then
+            if grep -q "feature_cache_tuning_requests_total" "$ARTIFACT_DIR/metrics.txt" && \
+                grep -q "feature_cache_tuning_recommended_capacity" "$ARTIFACT_DIR/metrics.txt" && \
+                grep -q "feature_cache_tuning_recommended_ttl_seconds" "$ARTIFACT_DIR/metrics.txt"; then
+                return 0
+            fi
+        fi
+        sleep "$delay"
+        count=$((count + 1))
+    done
+
+    echo "Cache tuning metrics not found after $attempts attempts" >&2
+    return 1
+}
+
 cd "$PROJECT_ROOT"
 
 echo "Starting docker compose from $COMPOSE_FILE"
@@ -83,7 +106,7 @@ if metrics_enabled is not True:
 PY
 
 echo "Posting cache tuning payload"
-curl -fsS -X POST "$API_URL/api/v1/features/cache/tuning" \
+curl -fsS --retry 3 --retry-delay 2 --retry-connrefused -X POST "$API_URL/api/v1/features/cache/tuning" \
     -H "Content-Type: application/json" \
     -H "X-API-Key: $API_KEY" \
     -d '{"hit_rate":0.32,"capacity":1200,"ttl":3600,"window_hours":6}' \
@@ -104,11 +127,7 @@ PY
 
 echo "Fetching metrics from $METRICS_URL"
 wait_for_url "$METRICS_URL" 24 5
-curl -fsS "$METRICS_URL" -o "$ARTIFACT_DIR/metrics.txt"
-
-grep -q "feature_cache_tuning_requests_total" "$ARTIFACT_DIR/metrics.txt"
-grep -q "feature_cache_tuning_recommended_capacity" "$ARTIFACT_DIR/metrics.txt"
-grep -q "feature_cache_tuning_recommended_ttl_seconds" "$ARTIFACT_DIR/metrics.txt"
+fetch_metrics_with_retries 5 3
 
 echo "Docker staging smoke check completed"
 

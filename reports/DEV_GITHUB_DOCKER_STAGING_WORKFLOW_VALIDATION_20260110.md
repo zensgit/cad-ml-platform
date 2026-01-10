@@ -44,6 +44,11 @@ Validate the GitHub Docker staging workflow smoke script against the local Docke
 - Result: Docker build still failed on `pythonocc-core>=7.7.0` wheel availability.
 - Follow-up: Add `INSTALL_L3_DEPS=0` to the staging workflow to skip L3-only dependencies.
 
+## Attempt 9 (GitHub Actions with L3 deps skipped)
+- Workflow: `.github/workflows/docker-staging-smoke.yml` on `main`
+- Result: Stack started, but curl connection resets during `/health` and missing cache tuning metrics caused the smoke check to exit.
+- Follow-up: Add retry logic for POST/metrics and require cache tuning metrics with backoff.
+
 ## Artifacts
 - `artifacts/docker-staging/health.json`
 - `artifacts/docker-staging/compose.log`
