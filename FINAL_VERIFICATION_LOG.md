@@ -1015,6 +1015,10 @@
   - Tests: `python3 scripts/validate_dashboard_metrics.py` (pass).
   - Report: `reports/DEV_DASHBOARD_METRICS_REVALIDATION_20260106.md`
   - Revalidation: `reports/DEV_DASHBOARD_METRICS_REVALIDATION_20260110.md`
+- **Prometheus Rules Revalidation**:
+  - promtool validation re-run for recording + alerting rules; existing naming warnings for `cad:`-prefixed recording rules remain.
+  - Tests: `python3 scripts/validate_prom_rules.py --rules-file config/prometheus/recording_rules.yml`, `python3 scripts/validate_prom_rules.py --rules-file config/prometheus/alerting_rules.yml` (pass).
+  - Report: `reports/DEV_PROMETHEUS_RULES_REVALIDATION_20260110.md`
 - **Metrics Handoff Summary**:
   - Summarized key metrics changes and validation coverage.
   - Report: `reports/DEV_METRICS_HANDOFF_SUMMARY_20260106.md`
