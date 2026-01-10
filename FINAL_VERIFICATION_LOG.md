@@ -987,6 +987,7 @@
   - Tests: `pytest tests/unit/test_cache_tuning.py -v` (6 passed, 1 skipped).
   - Design: `docs/FEATURE_CACHE_TUNING_RECOMMENDATION_GAUGES_DESIGN.md`
   - Report: `reports/DEV_FEATURE_CACHE_TUNING_RECOMMENDATION_GAUGES_VALIDATION_20260106.md`
+  - Revalidation: `reports/DEV_CACHE_TUNING_REVALIDATION_20260110.md`
 - **Metrics Unit Subset Validation**:
   - Re-ran cache tuning, opcode mode, and v4 feature metrics unit coverage.
   - Tests: `pytest tests/unit/test_cache_tuning.py tests/unit/test_model_opcode_modes.py tests/unit/test_v4_feature_performance.py -v` (39 passed, 4 skipped).
