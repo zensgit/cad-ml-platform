@@ -14,6 +14,11 @@ Validate the GitHub Docker staging workflow smoke script against the local Docke
   - `POST /api/v1/features/cache/tuning` returned 405, indicating the running `cad-ml-platform:latest` image does not include the latest POST route.
   - Metrics checks did not run because the POST failed.
 
+## Attempt 3 (GitHub Actions)
+- Workflow: `.github/workflows/docker-staging-smoke.yml` on `main`
+- Result: Failed during Docker build because `filelock==3.20.1` was not available on PyPI for the Python 3.9 base image.
+- Follow-up: Pin `filelock` to `3.19.1` in `requirements.txt` and re-run the workflow.
+
 ## Artifacts
 - `artifacts/docker-staging/health.json`
 - `artifacts/docker-staging/compose.log`

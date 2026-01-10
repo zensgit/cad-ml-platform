@@ -19,7 +19,7 @@ This update expands observability coverage across cache tuning, model security/r
 - `.venv/bin/python -m pytest tests/unit/test_model_security_validation.py tests/unit/test_model_rollback_health.py tests/unit/test_model_rollback_level3.py tests/unit/test_vector_migrate_metrics.py tests/unit/test_vector_migrate_dimension_histogram.py -v` (61 passed)
 - `.venv/bin/python -m pytest tests/unit -k metrics -v` (223 passed, 3500 deselected)
 - `python3 scripts/validate_dashboard_metrics.py` (pass)
-- `bash scripts/ci/docker_staging_smoke.sh` (blocked by Docker Hub pull; see staging report)
+- `bash scripts/ci/docker_staging_smoke.sh` (local build blocked by Docker Hub pull; CI run failed on filelock pin; see staging report)
 
 ## Notes / Risks
 - Metrics-dependent tests may skip under system Python if `prometheus_client` is unavailable; use `.venv` runs above for full coverage.
