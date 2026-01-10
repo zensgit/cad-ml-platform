@@ -25,6 +25,7 @@ Summarize cache tuning endpoint/metrics, model security + rollback metrics, v4 f
 
 ## Validation (docker staging smoke)
 - `SKIP_BUILD=1 bash scripts/ci/docker_staging_smoke.sh` (POST cache tuning returned 405 due to stale image; see report).
+- GitHub Actions run failed on `filelock==3.20.1` during Docker build; pinned to `3.19.1` and re-run pending.
 
 ## Notes
 - Some metrics tests skip when `prometheus_client` is unavailable; use `.venv` runs above for full coverage.
