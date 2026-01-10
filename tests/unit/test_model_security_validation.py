@@ -234,16 +234,26 @@ def test_model_size_limit_validation(tmp_path):
 def test_model_interface_validation_missing_predict(tmp_path):
     """Test model reload fails if model lacks predict method."""
     from src.ml.classifier import reload_model
+    from src.utils.analysis_metrics import model_interface_validation_fail_total
 
     # Create model without predict method
     bad_model = tmp_path / "no_predict.pkl"
     with bad_model.open("wb") as f:
         pickle.dump({"invalid": "object"}, f, protocol=4)
 
+    counter = model_interface_validation_fail_total.labels(reason="missing_required_methods")
+    try:
+        before = int(counter._value.get())  # type: ignore[attr-defined]
+    except Exception:
+        before = None
+
     result = reload_model(str(bad_model), force=True)
 
     # Should fail or rollback (missing predict method)
     assert result["status"] in ("rollback", "error", "rollback_level2")
+    if before is not None:
+        after = int(counter._value.get())  # type: ignore[attr-defined]
+        assert after == before + 1
 
 
 def test_model_get_info():

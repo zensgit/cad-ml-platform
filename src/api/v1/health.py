@@ -463,6 +463,22 @@ async def model_health(api_key: str = Depends(get_api_key)):
         status = "ok"
 
     model_health_checks_total.labels(status=status).inc()
+    try:
+        from src.utils.analysis_metrics import model_rollback_level, model_snapshots_available
+
+        snapshots_available = sum(
+            1
+            for flag in (
+                info.get("has_prev"),
+                info.get("has_prev2"),
+                info.get("has_prev3"),
+            )
+            if flag
+        )
+        model_rollback_level.set(rollback_level)
+        model_snapshots_available.set(snapshots_available)
+    except Exception:
+        pass
 
     uptime = None
     if info.get("loaded_at"):

@@ -522,6 +522,24 @@ model_health_checks_total = Counter(
     "Model health endpoint requests",
     ["status"],  # ok|absent|rollback|error
 )
+model_interface_validation_fail_total = Counter(
+    "model_interface_validation_fail_total",
+    "Model interface validation failures",
+    ["reason"],  # missing_required_methods|large_attribute_graph|suspicious_methods_found|invalid_signature
+)
+model_rollback_total = Counter(
+    "model_rollback_total",
+    "Model rollback events by rollback level",
+    ["level"],  # 1|2|3
+)
+model_rollback_level = Gauge(
+    "model_rollback_level",
+    "Current model rollback level (0=none, 1-3=rollback depth)",
+)
+model_snapshots_available = Gauge(
+    "model_snapshots_available",
+    "Number of model snapshots available for rollback",
+)
 
 # Similarity degraded / restored events (Faiss fallback lifecycle)
 similarity_degraded_total = Counter(
@@ -580,10 +598,23 @@ model_opcode_audit_total = Counter(
     "Observed pickle opcodes during model reload scans",
     ["opcode"],
 )
+model_opcode_scans_total = Counter(
+    "model_opcode_scans_total",
+    "Total opcode scans performed during model reloads",
+)
+model_opcode_blocked_total = Counter(
+    "model_opcode_blocked_total",
+    "Blocked opcode occurrences during model reload",
+    ["opcode"],
+)
 model_opcode_whitelist_violations_total = Counter(
     "model_opcode_whitelist_violations_total",
     "Whitelist violations (disallowed opcodes) during model reload",
     ["opcode"],
+)
+model_opcode_mode = Gauge(
+    "model_opcode_mode",
+    "Current opcode validation mode (0=audit, 1=blocklist, 2=whitelist)",
 )
 
 # Recovery state backend label for observability (file|redis)
@@ -753,6 +784,10 @@ __all__ = [
     "drift_baseline_refresh_total",
     "model_security_fail_total",
     "model_health_checks_total",
+    "model_interface_validation_fail_total",
+    "model_rollback_total",
+    "model_rollback_level",
+    "model_snapshots_available",
     "vector_store_reload_total",
     "similarity_degraded_total",
     "faiss_recovery_attempts_total",
@@ -762,6 +797,9 @@ __all__ = [
     "faiss_recovery_suppression_remaining_seconds",
     "process_start_time_seconds",
     "model_opcode_audit_total",
+    "model_opcode_scans_total",
+    "model_opcode_blocked_total",
+    "model_opcode_mode",
     "model_opcode_whitelist_violations_total",
     "faiss_recovery_state_backend",
     # Phase 1: 2D Dedup Job Metrics

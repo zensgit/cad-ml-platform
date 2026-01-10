@@ -384,3 +384,45 @@ def test_model_load_seq_increments():
         assert data1["load_seq"] == 0
         assert data2["load_seq"] == 1
         assert data3["load_seq"] == 2
+
+
+def _read_gauge_value(gauge, name: str) -> float | None:
+    if not hasattr(gauge, "collect"):
+        return None
+    for sample in gauge.collect()[0].samples:
+        if sample.name == name:
+            return sample.value
+    return None
+
+
+def test_model_health_updates_rollback_gauges():
+    """Test that rollback gauges are updated by the health endpoint."""
+    from src.utils.analysis_metrics import model_rollback_level, model_snapshots_available
+
+    if not hasattr(model_rollback_level, "collect"):
+        pytest.skip("prometheus client disabled in this environment")
+
+    with patch("src.ml.classifier.get_model_info") as mock_info:
+        mock_info.return_value = {
+            "version": "v0.8.0",
+            "hash": "ghi789",
+            "path": "/models/classifier_v0.8.pkl",
+            "loaded": True,
+            "loaded_at": 1700000200.0,
+            "rollback_level": 2,
+            "last_error": "Consecutive reload failures",
+            "rollback_reason": "Rolled back to level 2 snapshot after consecutive failures",
+            "has_prev": True,
+            "has_prev2": True,
+            "has_prev3": False,
+        }
+
+        response = client.get("/api/v1/health/model", headers={"X-API-Key": "test"})
+        assert response.status_code == 200
+
+    rollback_value = _read_gauge_value(model_rollback_level, "model_rollback_level")
+    snapshot_value = _read_gauge_value(
+        model_snapshots_available, "model_snapshots_available"
+    )
+    assert rollback_value == 2
+    assert snapshot_value == 2

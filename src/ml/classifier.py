@@ -333,6 +333,13 @@ def _reload_model_impl(
         candidate_hash = hashlib.sha256(data).hexdigest()[:16]
         # Optional opcode security scan before full load (lightweight heuristic)
         opcode_mode = os.getenv("MODEL_OPCODE_MODE", "blacklist")  # blacklist|audit|whitelist
+        try:
+            from src.utils.analysis_metrics import model_opcode_mode
+
+            mode_map = {"audit": 0, "blocklist": 1, "blacklist": 1, "whitelist": 2}
+            model_opcode_mode.set(mode_map.get(opcode_mode, 1))
+        except Exception:
+            pass
         scan_enabled = os.getenv("MODEL_OPCODE_SCAN", "1") == "1"
         audit_set = set()
         audit_count = {}
@@ -346,9 +353,12 @@ def _reload_model_impl(
             try:
                 from src.utils.analysis_metrics import (
                     model_opcode_audit_total,
+                    model_opcode_blocked_total,
+                    model_opcode_scans_total,
                     model_opcode_whitelist_violations_total,
                 )
 
+                model_opcode_scans_total.inc()
                 for op, arg, pos in pickletools.genops(data):  # type: ignore
                     # Audit collection (all modes when scan enabled)
                     audit_set.add(op.name)
@@ -381,6 +391,7 @@ def _reload_model_impl(
                         if op.name not in allowed:
                             error_msg = f"Disallowed opcode (whitelist) {op.name} at position {pos}"
                             _MODEL_LAST_ERROR = error_msg
+                            model_opcode_blocked_total.labels(opcode=op.name).inc()
                             model_opcode_whitelist_violations_total.labels(opcode=op.name).inc()
                             model_security_fail_total.labels(
                                 reason="opcode_whitelist_violation"
@@ -417,6 +428,7 @@ def _reload_model_impl(
                             },
                         )
 
+                        model_opcode_blocked_total.labels(opcode=op.name).inc()
                         model_security_fail_total.labels(reason="opcode_blocked").inc()
                         model_reload_total.labels(
                             status="opcode_blocked", version=str(expected_version or _MODEL_VERSION)
@@ -455,8 +467,22 @@ def _reload_model_impl(
                     return {"status": "opcode_scan_error", "error": err.to_dict()}
         # Trusted model payload after opcode scan + hash validation.
         obj = pickle.loads(data)  # nosec B301
-        if not hasattr(obj, "predict"):
-            raise ValueError("Model missing predict method")
+        try:
+            from src.core.model_interface_validation import validate_model_interface
+            from src.utils.analysis_metrics import model_interface_validation_fail_total
+
+            validation = validate_model_interface(obj)
+            if not validation.valid:
+                reason = validation.reason or "unknown"
+                metric_reason = reason.split(":", 1)[0]
+                model_interface_validation_fail_total.labels(reason=metric_reason).inc()
+                raise ValueError(f"Model interface validation failed: {reason}")
+        except Exception as validation_err:
+            if isinstance(validation_err, ValueError):
+                raise
+            # If validation cannot be performed, continue with legacy behavior.
+            if not hasattr(obj, "predict"):
+                raise ValueError("Model missing predict method")
         new_version = expected_version or _MODEL_VERSION
 
         # Whitelist check BEFORE committing the model (check candidate_hash before assignment)
@@ -540,6 +566,12 @@ def _reload_model_impl(
             model_reload_total.labels(
                 status="rollback", version=str(expected_version or _MODEL_VERSION)
             ).inc()
+            try:
+                from src.utils.analysis_metrics import model_rollback_total
+
+                model_rollback_total.labels(level="1").inc()
+            except Exception:
+                pass
             err = create_extended_error(
                 ErrorCode.MODEL_ROLLBACK,
                 "Model loading failed, rolled back to previous version",
@@ -580,6 +612,12 @@ def _reload_model_impl(
             model_reload_total.labels(
                 status="rollback_level2", version=str(expected_version or _MODEL_VERSION)
             ).inc()
+            try:
+                from src.utils.analysis_metrics import model_rollback_total
+
+                model_rollback_total.labels(level="2").inc()
+            except Exception:
+                pass
             err = create_extended_error(
                 ErrorCode.MODEL_ROLLBACK,
                 "Rolled back to level 2 snapshot after consecutive failures",
@@ -621,6 +659,12 @@ def _reload_model_impl(
             model_reload_total.labels(
                 status="rollback_level3", version=str(expected_version or _MODEL_VERSION)
             ).inc()
+            try:
+                from src.utils.analysis_metrics import model_rollback_total
+
+                model_rollback_total.labels(level="3").inc()
+            except Exception:
+                pass
             err = create_extended_error(
                 ErrorCode.MODEL_ROLLBACK,
                 "Rolled back to level 3 snapshot (deepest recovery) after multiple failures",

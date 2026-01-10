@@ -2,9 +2,15 @@ import os
 import pickle
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from src.main import app
+from src.utils.analysis_metrics import (
+    model_opcode_blocked_total,
+    model_opcode_mode,
+    model_opcode_scans_total,
+)
 
 client = TestClient(app)
 
@@ -106,3 +112,57 @@ def test_opcode_audit_counts_increment(tmp_path):
     audit = audit_resp.json()
     assert "GLOBAL" in audit["opcodes"] or len(audit["opcodes"]) > 0
     assert audit["total_samples"] >= 1
+
+
+def test_opcode_mode_gauge_updates(tmp_path):
+    if not hasattr(model_opcode_mode, "collect"):
+        pytest.skip("prometheus client disabled in this environment")
+
+    os.environ["MODEL_OPCODE_MODE"] = "whitelist"
+    os.environ["MODEL_OPCODE_SCAN"] = "1"
+    target = tmp_path / "mode.pkl"
+    _write_model(target, unsafe_function)
+    client.post(
+        "/api/v1/model/reload",
+        headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
+        json={"path": str(target)},
+    )
+    gauge_value = None
+    for sample in model_opcode_mode.collect()[0].samples:
+        if sample.name == "model_opcode_mode":
+            gauge_value = sample.value
+            break
+    assert gauge_value == 2
+
+
+def _counter_sum(counter, name: str) -> float:
+    total = 0.0
+    for sample in counter.collect()[0].samples:
+        if sample.name == name:
+            total += sample.value
+    return total
+
+
+def test_opcode_scan_counters_increment(tmp_path):
+    if not hasattr(model_opcode_scans_total, "collect"):
+        pytest.skip("prometheus client disabled in this environment")
+
+    os.environ["MODEL_OPCODE_MODE"] = "blacklist"
+    os.environ["MODEL_OPCODE_SCAN"] = "1"
+    target = tmp_path / "scan.pkl"
+    _write_model(target, unsafe_function)
+
+    before_scans = _counter_sum(model_opcode_scans_total, "model_opcode_scans_total")
+    before_blocked = _counter_sum(model_opcode_blocked_total, "model_opcode_blocked_total")
+
+    client.post(
+        "/api/v1/model/reload",
+        headers={"X-API-Key": "test", "X-Admin-Token": "secret"},
+        json={"path": str(target)},
+    )
+
+    after_scans = _counter_sum(model_opcode_scans_total, "model_opcode_scans_total")
+    after_blocked = _counter_sum(model_opcode_blocked_total, "model_opcode_blocked_total")
+
+    assert after_scans > before_scans
+    assert after_blocked > before_blocked

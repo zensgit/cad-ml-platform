@@ -68,6 +68,15 @@ def create_invalid_pickle(path: Path) -> None:
         pickle.dump(invalid_model, f, protocol=4)
 
 
+def _counter_value(counter, level: str) -> float | None:
+    if not hasattr(counter, "collect"):
+        return None
+    for sample in counter.collect()[0].samples:
+        if sample.labels.get("level") == level:
+            return sample.value
+    return None
+
+
 @pytest.fixture
 def temp_model_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for test model files."""
@@ -270,11 +279,17 @@ class TestLevel3Rollback:
         invalid_path = temp_model_dir / "invalid.pkl"
         create_invalid_pickle(invalid_path)
 
+        from src.utils.analysis_metrics import model_rollback_total
+
+        before = _counter_value(model_rollback_total, "3")
         result = clf.reload_model(str(invalid_path), expected_version="vX")
 
         assert result["status"] == "rollback_level3"
         assert clf._MODEL == v0_model
         assert clf._MODEL.name == "v0"
+        if before is not None:
+            after = _counter_value(model_rollback_total, "3")
+            assert after is not None and after > before
 
     def test_level3_rollback_after_consecutive_failures(
         self, temp_model_dir, reset_classifier_state
