@@ -998,6 +998,7 @@
   - Tests: `pytest tests/unit/test_cache_tuning.py tests/unit/test_model_opcode_modes.py tests/unit/test_v4_feature_performance.py -v` (39 passed, 4 skipped).
   - Design: `docs/FEATURE_CACHE_TUNING_RECOMMENDATION_GAUGES_DESIGN.md`, `docs/MODEL_OPCODE_MODE_GAUGE_DESIGN.md`, `docs/V4_FEATURE_METRICS_HISTOGRAM_COUNT_DESIGN.md`
   - Report: `reports/DEV_METRICS_UNIT_SUBSET_VALIDATION_20260106.md`
+  - Revalidation: `reports/DEV_METRICS_UNIT_SUBSET_REVALIDATION_20260110.md`
 - **Metrics Unit Subset (.venv)**:
   - Re-ran cache tuning, opcode mode, and v4 feature metrics unit coverage with metrics enabled.
   - Tests: `.venv/bin/python -m pytest tests/unit/test_cache_tuning.py tests/unit/test_model_opcode_modes.py tests/unit/test_v4_feature_performance.py -v` (43 passed).

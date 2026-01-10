@@ -11,6 +11,8 @@ def _counter_values(counter):
     # Extract labeled values from prometheus client Counter
     data = {}
     for sample in counter.collect()[0].samples:
+        if sample.name.endswith("_created"):
+            continue
         # sample.name like vector_migrate_total, labels in sample.labels
         status = sample.labels.get("status")
         if status:

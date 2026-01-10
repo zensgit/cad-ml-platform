@@ -535,7 +535,9 @@ model_health_checks_total = Counter(
 model_interface_validation_fail_total = Counter(
     "model_interface_validation_fail_total",
     "Model interface validation failures",
-    ["reason"],  # missing_required_methods|large_attribute_graph|suspicious_methods_found|invalid_signature
+    # reason: missing_required_methods|large_attribute_graph|suspicious_methods_found
+    #         |invalid_signature
+    ["reason"],
 )
 model_rollback_total = Counter(
     "model_rollback_total",
@@ -742,6 +744,9 @@ __all__ = [
     "analysis_parallel_savings_seconds",
     "analysis_cache_hits_total",
     "analysis_cache_miss_total",
+    "analysis_result_cleanup_total",
+    "analysis_result_cleanup_deleted_total",
+    "analysis_result_store_files",
     "material_drift_ratio",
     "signature_validation_fail_total",
     "faiss_index_size",
