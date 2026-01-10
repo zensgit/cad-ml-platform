@@ -88,6 +88,13 @@ def trigger_metrics_registration(metrics_enabled_flag: bool) -> None:
         "/api/v1/vision/analyze", json={"image_base64": small_image, "include_description": False}
     )
 
+    # Trigger cache tuning metrics
+    client.post(
+        "/api/v1/features/cache/tuning",
+        json={"hit_rate": 0.55, "capacity": 200, "ttl": 300, "window_hours": 2},
+        headers={"X-API-Key": "test"},
+    )
+
     yield
 
 
@@ -123,6 +130,9 @@ class MetricsContract:
         "dedup2d_file_deletes_total": {"backend", "status"},
         "dedup2d_file_upload_bytes": {"backend"},
         "dedup2d_file_operation_duration_seconds": {"backend", "operation"},
+        "feature_cache_tuning_requests_total": {"status"},
+        "feature_cache_tuning_recommended_capacity": set(),
+        "feature_cache_tuning_recommended_ttl_seconds": set(),
     }
 
     # All metrics for label validation (when they do appear)

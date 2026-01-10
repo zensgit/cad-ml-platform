@@ -466,6 +466,19 @@ feature_cache_prewarm_total = Counter(
     "Feature cache prewarm attempts",
     ["result"],  # ok|error
 )
+feature_cache_tuning_requests_total = Counter(
+    "feature_cache_tuning_requests_total",
+    "Feature cache tuning recommendation requests",
+    ["status"],
+)
+feature_cache_tuning_recommended_capacity = Gauge(
+    "feature_cache_tuning_recommended_capacity",
+    "Recommended feature cache capacity from tuning requests",
+)
+feature_cache_tuning_recommended_ttl_seconds = Gauge(
+    "feature_cache_tuning_recommended_ttl_seconds",
+    "Recommended feature cache TTL (seconds) from tuning requests",
+)
 faiss_index_age_seconds = Gauge(
     "faiss_index_age_seconds",
     "Seconds since last Faiss index export/import",
@@ -728,6 +741,9 @@ __all__ = [
     "feature_cache_size",
     "feature_cache_lookup_seconds",
     "feature_cache_prewarm_total",
+    "feature_cache_tuning_requests_total",
+    "feature_cache_tuning_recommended_capacity",
+    "feature_cache_tuning_recommended_ttl_seconds",
     "feature_cache_hits_last_hour",
     "feature_cache_miss_last_hour",
     "faiss_index_age_seconds",

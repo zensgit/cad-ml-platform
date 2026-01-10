@@ -10,11 +10,16 @@ import os
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.dependencies import get_api_key
 from src.core.errors_extended import ErrorCode, build_error, create_extended_error
-from src.utils.analysis_metrics import features_diff_requests_total
+from src.utils.analysis_metrics import (
+    feature_cache_tuning_recommended_capacity,
+    feature_cache_tuning_recommended_ttl_seconds,
+    feature_cache_tuning_requests_total,
+    features_diff_requests_total,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -161,6 +166,105 @@ async def feature_slots(version: str = "v1", api_key: str = Depends(get_api_key)
 class FeatureVersionsResponse(BaseModel):
     versions: List[Dict[str, Any]]
     status: str
+
+
+class CacheTuningRequest(BaseModel):
+    """Cache tuning input payload."""
+
+    hit_rate: float = Field(..., ge=0.0, le=1.0, description="Cache hit ratio (0-1)")
+    capacity: int = Field(..., gt=0, description="Current cache capacity")
+    ttl_seconds: int = Field(..., gt=0, alias="ttl", description="Current cache TTL in seconds")
+    window_hours: float = Field(24.0, gt=0.0, description="Observation window in hours")
+
+    model_config = ConfigDict(validate_by_name=True)
+
+
+class CacheTuningRecommendation(BaseModel):
+    """Cache tuning recommendation response."""
+
+    recommended_capacity: int = Field(..., description="Recommended cache capacity")
+    recommended_ttl: int = Field(..., description="Recommended cache TTL in seconds")
+    confidence: float = Field(..., ge=0.0, le=1.0, description="Recommendation confidence")
+    reasoning: List[str] = Field(default_factory=list, description="Recommendation reasoning")
+    experimental: bool = Field(True, description="Recommendation is experimental")
+
+
+def _adjust_ttl(ttl_seconds: int, window_hours: float) -> int:
+    """Adjust TTL based on access window heuristics."""
+    if window_hours <= 1:
+        return max(int(ttl_seconds * 0.5), 60)
+    if window_hours <= 6:
+        return max(int(ttl_seconds * 0.8), 60)
+    if window_hours >= 24:
+        return int(ttl_seconds * 1.2)
+    return ttl_seconds
+
+
+@router.post("/cache/tuning", response_model=CacheTuningRecommendation)
+async def cache_tuning(
+    payload: CacheTuningRequest, api_key: str = Depends(get_api_key)
+):
+    """Generate cache tuning recommendations from supplied metrics."""
+    try:
+        if payload.capacity <= 0 or payload.ttl_seconds <= 0 or payload.window_hours <= 0:
+            feature_cache_tuning_requests_total.labels(status="invalid").inc()
+            err = build_error(
+                ErrorCode.INPUT_VALIDATION_FAILED,
+                stage="cache_tuning",
+                message="Capacity, ttl, and window_hours must be positive",
+                capacity=payload.capacity,
+                ttl=payload.ttl_seconds,
+                window_hours=payload.window_hours,
+            )
+            raise HTTPException(status_code=422, detail=err)
+
+        recommended_capacity = payload.capacity
+        recommended_ttl = payload.ttl_seconds
+        reasoning: List[str] = []
+        confidence = 0.5
+
+        if payload.hit_rate < 0.4:
+            recommended_capacity = max(int(round(payload.capacity * 1.5)), payload.capacity + 1)
+            reasoning.append("Low hit rate suggests insufficient capacity")
+            confidence = 0.75
+        elif payload.hit_rate < 0.7:
+            recommended_ttl = _adjust_ttl(payload.ttl_seconds, payload.window_hours)
+            reasoning.append("Moderate hit rate, optimize TTL")
+            confidence = 0.6
+        elif payload.hit_rate > 0.85:
+            recommended_capacity = max(int(round(payload.capacity * 0.8)), 1)
+            reasoning.append("High hit rate, capacity can be reduced")
+            confidence = 0.7
+        else:
+            reasoning.append("Hit rate within target band; keep current settings")
+            confidence = 0.55
+
+        try:
+            feature_cache_tuning_recommended_capacity.set(recommended_capacity)
+            feature_cache_tuning_recommended_ttl_seconds.set(recommended_ttl)
+        except Exception:
+            pass
+
+        feature_cache_tuning_requests_total.labels(status="ok").inc()
+        return CacheTuningRecommendation(
+            recommended_capacity=recommended_capacity,
+            recommended_ttl=recommended_ttl,
+            confidence=round(confidence, 2),
+            reasoning=reasoning,
+            experimental=True,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        feature_cache_tuning_requests_total.labels(status="error").inc()
+        logger.exception("Cache tuning recommendation failed")
+        err = build_error(
+            ErrorCode.INTERNAL_ERROR,
+            stage="cache_tuning",
+            message="Cache tuning recommendation failed",
+            error=str(exc),
+        )
+        raise HTTPException(status_code=500, detail=err)
 
 
 @router.get("/versions", response_model=FeatureVersionsResponse)

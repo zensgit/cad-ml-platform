@@ -199,6 +199,19 @@ async def cache_tuning_recommendation(api_key: str = Depends(get_api_key)):
         ((recommended_ttl - ttl_seconds) / ttl_seconds * 100) if ttl_seconds > 0 else 0.0
     )
 
+    try:
+        from src.utils.analysis_metrics import (
+            feature_cache_tuning_recommended_capacity,
+            feature_cache_tuning_recommended_ttl_seconds,
+            feature_cache_tuning_requests_total,
+        )
+
+        feature_cache_tuning_recommended_capacity.set(recommended_capacity)
+        feature_cache_tuning_recommended_ttl_seconds.set(recommended_ttl)
+        feature_cache_tuning_requests_total.labels(status="ok").inc()
+    except Exception:
+        pass
+
     return CacheTuningRecommendation(
         recommended_capacity=recommended_capacity,
         recommended_ttl_seconds=recommended_ttl,
