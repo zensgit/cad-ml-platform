@@ -71,6 +71,12 @@ fetch_metrics_with_retries() {
     done
 
     echo "Cache tuning metrics not found after $attempts attempts" >&2
+    if [ -f "$ARTIFACT_DIR/metrics.txt" ]; then
+        echo "Metrics snapshot (first 50 lines):" >&2
+        head -n 50 "$ARTIFACT_DIR/metrics.txt" >&2 || true
+        echo "Cache tuning metrics grep:" >&2
+        grep -n "cache_tuning" "$ARTIFACT_DIR/metrics.txt" >&2 || true
+    fi
     return 1
 }
 

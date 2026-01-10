@@ -32,6 +32,7 @@ Summarize cache tuning endpoint/metrics, model security + rollback metrics, v4 f
 - Re-run failed on `pythonocc-core>=7.7.0` (Python 3.9 base image); update Docker base to `python:3.10-slim` and re-run pending.
 - Re-run still failed on `pythonocc-core`; staging workflow now skips L3 deps via `INSTALL_L3_DEPS=0` and re-run pending.
 - Re-run failed on curl connection resets / missing cache tuning metrics; staging smoke script now retries POST + metrics fetch.
+- Re-run still failed on missing cache tuning metrics; staging script logs metrics snapshots for debugging.
 
 ## Notes
 - Some metrics tests skip when `prometheus_client` is unavailable; use `.venv` runs above for full coverage.
