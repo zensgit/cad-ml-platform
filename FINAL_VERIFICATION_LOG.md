@@ -975,6 +975,7 @@
   - Tests: `pytest tests/test_metrics_contract.py -k metric_label_schemas -v` (1 skipped); `.venv/bin/python -m pytest tests/test_metrics_contract.py -k metric_label_schemas -v` (1 passed).
   - Design: `docs/FEATURE_CACHE_TUNING_METRICS_CONTRACT_DESIGN.md`
   - Report: `reports/DEV_FEATURE_CACHE_TUNING_METRICS_CONTRACT_VALIDATION_20260106.md`
+  - Revalidation: `reports/DEV_METRICS_CONTRACT_LABEL_SCHEMAS_REVALIDATION_20260110.md`
 - **Metrics Contract Full Suite**:
   - Ran full metrics contract validation with metrics enabled.
   - Tests: `.venv/bin/python -m pytest tests/test_metrics_contract.py -v` (19 passed, 3 skipped).
