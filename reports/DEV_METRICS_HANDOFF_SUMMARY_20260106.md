@@ -36,6 +36,7 @@ Summarize cache tuning endpoint/metrics, model security + rollback metrics, v4 f
 - Added readiness wait, absolute artifact paths, and DEBUG=false in compose; re-run pending.
 - Identified `/metrics` redirect; staging script now requests `/metrics/` and follows redirects.
 - Re-run succeeded; GitHub Actions staging smoke passed after redirect fix.
+- Local `bash scripts/ci/docker_staging_smoke.sh` run succeeded; artifacts captured under `artifacts/docker-staging/`.
 
 ## Notes
 - Some metrics tests skip when `prometheus_client` is unavailable; use `.venv` runs above for full coverage.

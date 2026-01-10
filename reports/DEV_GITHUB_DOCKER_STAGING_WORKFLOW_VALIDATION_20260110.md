@@ -65,6 +65,10 @@ Validate the GitHub Docker staging workflow smoke script against the local Docke
 - Workflow: `.github/workflows/docker-staging-smoke.yml` on `main`
 - Result: Workflow succeeded; smoke and dashboard metrics validations passed.
 
+## Attempt 14 (Local Docker Compose)
+- Command: `bash scripts/ci/docker_staging_smoke.sh`
+- Result: Local build and compose smoke checks passed (health, readiness, cache tuning, metrics).
+
 ## Artifacts
 - `artifacts/docker-staging/health.json`
 - `artifacts/docker-staging/compose.log`
