@@ -11,6 +11,7 @@ services:
       - "${CAD_ML_API_METRICS_PORT:-9090}:9090"  # Prometheus metrics端口
     environment:
       - LOG_LEVEL=INFO
+      - DEBUG=false
       - REDIS_URL=redis://redis:6379/0
       - VECTOR_STORE_BACKEND=redis
       # 2D dedup async backend (required when WORKERS>1)
