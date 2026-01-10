@@ -35,6 +35,7 @@ Summarize cache tuning endpoint/metrics, model security + rollback metrics, v4 f
 - Re-run still failed on missing cache tuning metrics; staging script logs metrics snapshots for debugging.
 - Added readiness wait, absolute artifact paths, and DEBUG=false in compose; re-run pending.
 - Identified `/metrics` redirect; staging script now requests `/metrics/` and follows redirects.
+- Re-run succeeded; GitHub Actions staging smoke passed after redirect fix.
 
 ## Notes
 - Some metrics tests skip when `prometheus_client` is unavailable; use `.venv` runs above for full coverage.
