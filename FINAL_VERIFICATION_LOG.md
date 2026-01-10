@@ -953,6 +953,7 @@
   - Tests: `pytest tests/unit/test_batch_similarity_empty_results.py -v` (10 passed, 1 skipped).
   - Design: `docs/BATCH_SIMILARITY_EMPTY_RESULTS_METRICS_TESTS_DESIGN.md`
   - Report: `reports/DEV_BATCH_SIMILARITY_EMPTY_RESULTS_METRICS_TESTS_VALIDATION_20260106.md`
+  - Revalidation: `reports/DEV_BATCH_SIMILARITY_EMPTY_RESULTS_REVALIDATION_20260110.md`
 - **Vector Migrate Downgrade Metrics Tests**:
   - Added downgrade counter assertion for vector migration metrics.
   - Tests: `pytest tests/unit/test_vector_migrate_metrics.py -v` (1 passed, 2 skipped).
