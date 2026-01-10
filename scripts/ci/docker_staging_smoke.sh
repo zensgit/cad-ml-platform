@@ -8,7 +8,7 @@ COMPOSE_FILE="${COMPOSE_FILE:-$PROJECT_ROOT/deployments/docker/docker-compose.ym
 API_HOST="${API_HOST:-localhost}"
 API_PORT="${API_PORT:-${CAD_ML_API_PORT:-8000}}"
 API_URL="${API_URL:-http://${API_HOST}:${API_PORT}}"
-METRICS_URL="${METRICS_URL:-${API_URL}/metrics}"
+METRICS_URL="${METRICS_URL:-${API_URL}/metrics/}"
 API_KEY="${API_KEY:-test}"
 ARTIFACT_DIR="${ARTIFACT_DIR:-$PROJECT_ROOT/artifacts/docker-staging}"
 REPORT_PATH="${REPORT_PATH:-}"
@@ -58,7 +58,7 @@ fetch_metrics_with_retries() {
     local count=1
 
     while [ "$count" -le "$attempts" ]; do
-        if curl -fsS --retry 3 --retry-delay 2 --retry-connrefused "$METRICS_URL" \
+        if curl -fsSL --retry 3 --retry-delay 2 --retry-connrefused "$METRICS_URL" \
             -o "$ARTIFACT_DIR/metrics.txt"; then
             if grep -q "feature_cache_tuning_requests_total" "$ARTIFACT_DIR/metrics.txt" && \
                 grep -q "feature_cache_tuning_recommended_capacity" "$ARTIFACT_DIR/metrics.txt" && \
