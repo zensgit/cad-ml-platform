@@ -1118,7 +1118,7 @@
   - Report: `reports/DEV_V4_FEATURE_METRICS_HISTOGRAM_COUNT_VALIDATION_20260106.md`
 - **GitHub Docker Staging Workflow**:
   - Added Docker Compose smoke workflow for CI staging without a dedicated environment.
-  - CI runs failed on `filelock` and `urllib3` dependency constraints; pinned to compatible versions and re-run pending.
+  - CI runs failed on `filelock`/`urllib3` constraints and `pythonocc-core` (Python 3.9); pinned dependencies and updated Docker base to 3.10, re-run pending.
   - Design: `docs/GITHUB_DOCKER_STAGING_WORKFLOW_DESIGN.md`
   - Report: `reports/DEV_GITHUB_DOCKER_STAGING_WORKFLOW_VALIDATION_20260110.md`
 
