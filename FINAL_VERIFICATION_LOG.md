@@ -1129,6 +1129,7 @@
   - Tests: `pytest tests/unit/test_model_security_validation.py -k interface_validation_missing_predict -v` (1 passed).
   - Design: `docs/MODEL_INTERFACE_VALIDATION_METRICS_DESIGN.md`
   - Report: `reports/DEV_MODEL_INTERFACE_VALIDATION_METRICS_VALIDATION_20260106.md`
+  - Revalidation: `reports/DEV_MODEL_INTERFACE_VALIDATION_REVALIDATION_20260110.md`
 - **V4 Feature Metrics Histogram Count**:
   - Ensured v4 surface/entropy histogram tests assert the _count samples.
   - Tests: `pytest tests/unit/test_v4_feature_performance.py::TestV4FeatureMetrics::test_v4_metrics_observed -v` (1 skipped).
