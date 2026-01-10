@@ -940,6 +940,7 @@
   - Tests: `pytest tests/unit/test_backend_reload_failures.py tests/unit/test_vector_backend_reload_failure.py tests/unit/test_maintenance_api_coverage.py -v` (53 passed).
   - Design: `docs/VECTOR_BACKEND_RELOAD_REASON_LABELS_DESIGN.md`
   - Report: `reports/DEV_VECTOR_BACKEND_RELOAD_REASON_LABELS_VALIDATION_20260106.md`
+  - Revalidation: `reports/DEV_VECTOR_BACKEND_RELOAD_REVALIDATION_20260110.md`
 - **Batch Similarity Empty Results Metrics Tests**:
   - Asserted batch empty-results rejection metric increments when available.
   - Tests: `pytest tests/unit/test_batch_similarity_empty_results.py -v` (10 passed, 1 skipped).
