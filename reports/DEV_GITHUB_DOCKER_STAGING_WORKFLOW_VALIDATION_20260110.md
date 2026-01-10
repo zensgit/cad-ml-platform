@@ -24,6 +24,11 @@ Validate the GitHub Docker staging workflow smoke script against the local Docke
 - Result: Docker build failed on dependency resolution: `urllib3==2.6.0` conflicts with `botocore` constraints.
 - Follow-up: Pin `urllib3` to `2.1.0` and re-run the workflow.
 
+## Attempt 5 (GitHub Actions after urllib3 pin)
+- Workflow: `.github/workflows/docker-staging-smoke.yml` on `main`
+- Result: Docker build still failed on dependency resolution with `urllib3==2.1.0`.
+- Follow-up: Pin `urllib3` to `2.0.7` and re-run the workflow.
+
 ## Artifacts
 - `artifacts/docker-staging/health.json`
 - `artifacts/docker-staging/compose.log`
