@@ -1116,6 +1116,10 @@
   - Tests: `pytest tests/unit/test_v4_feature_performance.py::TestV4FeatureMetrics::test_v4_metrics_observed -v` (1 skipped).
   - Design: `docs/V4_FEATURE_METRICS_HISTOGRAM_COUNT_DESIGN.md`
   - Report: `reports/DEV_V4_FEATURE_METRICS_HISTOGRAM_COUNT_VALIDATION_20260106.md`
+- **GitHub Docker Staging Workflow**:
+  - Added Docker Compose smoke workflow for CI staging without a dedicated environment.
+  - Design: `docs/GITHUB_DOCKER_STAGING_WORKFLOW_DESIGN.md`
+  - Report: `reports/DEV_GITHUB_DOCKER_STAGING_WORKFLOW_VALIDATION_20260110.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

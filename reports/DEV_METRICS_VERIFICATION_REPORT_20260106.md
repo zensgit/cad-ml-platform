@@ -14,5 +14,10 @@ Capture validation results for the 2026-01-06 metrics workstream.
 - `pytest tests/test_metrics_contract.py -k metric_label_schemas -v` (skipped: metrics disabled).
 - `pytest tests/unit/test_cache_tuning.py tests/unit/test_model_opcode_modes.py tests/unit/test_v4_feature_performance.py -v` (39 passed, 4 skipped).
 
+## Docker Staging Smoke
+- `bash scripts/ci/docker_staging_smoke.sh` (build blocked while pulling `python:3.9-slim`; aborted).
+- `SKIP_BUILD=1 bash scripts/ci/docker_staging_smoke.sh` (POST cache tuning returned 405 with stale image).
+- Report: `reports/DEV_GITHUB_DOCKER_STAGING_WORKFLOW_VALIDATION_20260110.md`
+
 ## Notes
 - Use `.venv` results above for full metrics coverage when `prometheus_client` is available.

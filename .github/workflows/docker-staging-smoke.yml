@@ -1,0 +1,51 @@
+name: Docker Staging Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_port:
+        description: "API port exposed by docker-compose"
+        required: false
+        default: "8000"
+
+jobs:
+  docker-staging-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Run docker staging smoke
+        env:
+          CAD_ML_API_PORT: ${{ inputs.api_port }}
+          API_PORT: ${{ inputs.api_port }}
+          ARTIFACT_DIR: artifacts/docker-staging
+        run: |
+          bash scripts/ci/docker_staging_smoke.sh
+
+      - name: Validate dashboard metrics
+        run: |
+          python3 scripts/validate_dashboard_metrics.py
+
+      - name: Upload smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-staging-smoke
+          path: artifacts/docker-staging
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Docker staging smoke" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- Compose: deployments/docker/docker-compose.yml" >> $GITHUB_STEP_SUMMARY
+          echo "- API URL: http://localhost:${{ inputs.api_port }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Artifacts: artifacts/docker-staging" >> $GITHUB_STEP_SUMMARY

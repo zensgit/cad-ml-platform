@@ -52,6 +52,11 @@ List of modified and new files related to the 2026-01-06 metrics workstream.
 - docs/V4_FEATURE_METRICS_HISTOGRAM_COUNT_DESIGN.md
 - docs/VECTOR_MIGRATE_DIMENSION_HISTOGRAM_COUNT_DESIGN.md
 - docs/VECTOR_MIGRATE_DOWNGRADE_METRICS_TESTS_DESIGN.md
+- docs/GITHUB_DOCKER_STAGING_WORKFLOW_DESIGN.md
+
+## New Workflows / Scripts
+- .github/workflows/docker-staging-smoke.yml
+- scripts/ci/docker_staging_smoke.sh
 
 ## New Reports
 - reports/DEV_DASHBOARD_METRICS_ALIGNMENT_SECURITY_ROLLBACK_V4_VALIDATION_20260106.md
@@ -78,3 +83,4 @@ List of modified and new files related to the 2026-01-06 metrics workstream.
 - reports/DEV_V4_FEATURE_METRICS_HISTOGRAM_COUNT_VALIDATION_20260106.md
 - reports/DEV_VECTOR_MIGRATE_DIMENSION_HISTOGRAM_COUNT_VALIDATION_20260106.md
 - reports/DEV_VECTOR_MIGRATE_DOWNGRADE_METRICS_TESTS_VALIDATION_20260106.md
+- reports/DEV_GITHUB_DOCKER_STAGING_WORKFLOW_VALIDATION_20260110.md

@@ -11,6 +11,7 @@ Delivered expanded observability across cache tuning, model security/rollback, v
 - Model interface validation failure counter.
 - Vector migrate downgrade counters + dimension-delta histogram.
 - Dashboard query alignment with exported metrics and drift histogram quantiles.
+- Docker Compose staging smoke workflow + script for CI when staging is unavailable.
 
 ## Validation Highlights
 - `.venv/bin/python -m pytest tests/test_metrics_contract.py -v` (19 passed, 3 skipped)
@@ -18,6 +19,7 @@ Delivered expanded observability across cache tuning, model security/rollback, v
 - `.venv/bin/python -m pytest tests/unit/test_model_security_validation.py tests/unit/test_model_rollback_health.py tests/unit/test_model_rollback_level3.py tests/unit/test_vector_migrate_metrics.py tests/unit/test_vector_migrate_dimension_histogram.py -v` (61 passed)
 - `.venv/bin/python -m pytest tests/unit -k metrics -v` (223 passed, 3500 deselected)
 - `python3 scripts/validate_dashboard_metrics.py` (pass)
+- `bash scripts/ci/docker_staging_smoke.sh` (blocked by Docker Hub pull; see staging report)
 
 ## Artifacts
 - Design docs: `docs/` entries listed in `reports/DEV_METRICS_DELIVERY_INDEX_20260106.md`

@@ -11,6 +11,7 @@ Summarize cache tuning endpoint/metrics, model security + rollback metrics, v4 f
 - Added model interface validation failure metric during model reload.
 - Added vector migrate downgrade metrics and dimension-delta histogram.
 - Aligned Grafana dashboard queries with exported metric names and drift histogram quantiles.
+- Added GitHub Actions Docker staging smoke workflow and local script for compose-based validation.
 
 ## Validation (metrics enabled via .venv)
 - `.venv/bin/python -m pytest tests/test_metrics_contract.py -v` (19 passed, 3 skipped).
@@ -21,6 +22,9 @@ Summarize cache tuning endpoint/metrics, model security + rollback metrics, v4 f
 ## Validation (system Python, metrics disabled)
 - `pytest tests/test_metrics_contract.py -k metric_label_schemas -v` (skipped: metrics disabled).
 - `pytest tests/unit/test_cache_tuning.py tests/unit/test_model_opcode_modes.py tests/unit/test_v4_feature_performance.py -v` (39 passed, 4 skipped).
+
+## Validation (docker staging smoke)
+- `SKIP_BUILD=1 bash scripts/ci/docker_staging_smoke.sh` (POST cache tuning returned 405 due to stale image; see report).
 
 ## Notes
 - Some metrics tests skip when `prometheus_client` is unavailable; use `.venv` runs above for full coverage.
@@ -35,6 +39,7 @@ Summarize cache tuning endpoint/metrics, model security + rollback metrics, v4 f
 - docs/V4_FEATURE_METRICS_HISTOGRAM_COUNT_DESIGN.md
 - docs/VECTOR_MIGRATE_DOWNGRADE_METRICS_TESTS_DESIGN.md
 - docs/VECTOR_MIGRATE_DIMENSION_HISTOGRAM_COUNT_DESIGN.md
+- docs/GITHUB_DOCKER_STAGING_WORKFLOW_DESIGN.md
 
 ## Validation Reports
 - reports/DEV_FEATURE_CACHE_TUNING_POST_ENDPOINT_VALIDATION_20260106.md
@@ -52,6 +57,7 @@ Summarize cache tuning endpoint/metrics, model security + rollback metrics, v4 f
 - reports/DEV_METRICS_UNIT_SUBSET_VENV_VALIDATION_20260106.md
 - reports/DEV_METRICS_UNIT_SECURITY_ROLLBACK_VECTOR_VENV_VALIDATION_20260106.md
 - reports/DEV_METRICS_UNIT_FILTER_VENV_VALIDATION_20260106.md
+- reports/DEV_GITHUB_DOCKER_STAGING_WORKFLOW_VALIDATION_20260110.md
 
 ## Updated Handoff Docs
 - FINAL_VALIDATION_REPORT.md

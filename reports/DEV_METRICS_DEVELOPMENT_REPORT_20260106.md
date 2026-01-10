@@ -12,6 +12,7 @@ Summarize the 2026-01-06 metrics workstream development across cache tuning, mod
 - Added vector migrate downgrade counters and dimension-delta histogram.
 - Aligned Grafana dashboard queries with exported metric names and drift histogram quantiles.
 - Synced metrics addendum across top-level handoff and summary docs.
+- Added GitHub Actions Docker staging smoke workflow and local compose validation script.
 
 ## Key Implementation Files
 - src/api/v1/features.py
@@ -21,6 +22,9 @@ Summarize the 2026-01-06 metrics workstream development across cache tuning, mod
 - src/utils/analysis_metrics.py
 - config/grafana/dashboard_main.json
 - scripts/validate_dashboard_metrics.py
+- .github/workflows/docker-staging-smoke.yml
+- scripts/ci/docker_staging_smoke.sh
+- docs/GITHUB_DOCKER_STAGING_WORKFLOW_DESIGN.md
 - tests/test_metrics_contract.py
 - tests/unit/test_cache_tuning.py
 - tests/unit/test_model_opcode_modes.py

@@ -31,6 +31,11 @@ Provide a clean, review-friendly commit plan for the 2026-01-06 metrics updates.
    - Files: `FINAL_VALIDATION_REPORT.md`, `PROJECT_HANDOVER.md`, `FINAL_HANDOVER_PACKAGE_V3.md`, `FINAL_SUMMARY.md`, `PROJECT_COMPLETION_REPORT.md`, `PROJECT_HANDOVER_PHASE8.md`, `PROJECT_HANDOVER_PHASE5.md`, `DELIVERABLES_SUMMARY.md`, `DESIGN_SUMMARY.md`, `PRODUCTION_VERIFICATION_PLAN.md`, `DEVELOPMENT_SUMMARY.md`, `PHASE5_V2_COMPLETION_REPORT.md`, `PHASE3_V2_COMPLETION_REPORT.md`, `PHASE2_ENHANCEMENT_SUMMARY.md`, `PHASE7_IMPLEMENTATION_LOG.md`, `IMPLEMENTATION_RESULTS.md`, `FINAL_VERIFICATION_LOG.md`, `docs/DEVELOPMENT_SUMMARY_FINAL.md`, `docs/DEVELOPMENT_REPORT_FINAL.md`, `docs/IMPLEMENTATION_SUMMARY.md`, `docs/FINAL_IMPLEMENTATION_CHECKLIST.md`
    - Validation: `reports/DEV_METRICS_HANDOFF_SUMMARY_20260106.md`, `reports/DEV_METRICS_DELIVERY_INDEX_20260106.md`, `reports/DEV_METRICS_PR_SUMMARY_20260106.md`, `reports/DEV_METRICS_DELIVERY_CHECKLIST_20260106.md`, `reports/DEV_METRICS_FINAL_DELIVERY_SUMMARY_20260106.md`, `reports/DEV_METRICS_COMMIT_PLAN_20260106.md`, `reports/DEV_METRICS_CHANGED_FILES_20260106.md`, `reports/DEV_METRICS_DEVELOPMENT_REPORT_20260106.md`, `reports/DEV_METRICS_VERIFICATION_REPORT_20260106.md`
 
+7. ci(metrics): docker staging smoke workflow
+   - Files: `.github/workflows/docker-staging-smoke.yml`, `scripts/ci/docker_staging_smoke.sh`
+   - Design: `docs/GITHUB_DOCKER_STAGING_WORKFLOW_DESIGN.md`
+   - Validation: `reports/DEV_GITHUB_DOCKER_STAGING_WORKFLOW_VALIDATION_20260110.md`
+
 ## Notes
 - Use `.venv` test results for metrics-enabled validation.
 - Keep commit messages conventional: `feat:`, `test:`, `chore:`, `docs:`.

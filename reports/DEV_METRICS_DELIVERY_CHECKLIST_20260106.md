@@ -13,6 +13,7 @@ Delivery checklist for metrics-related changes, design docs, validation reports,
 - docs/V4_FEATURE_METRICS_HISTOGRAM_COUNT_DESIGN.md
 - docs/VECTOR_MIGRATE_DOWNGRADE_METRICS_TESTS_DESIGN.md
 - docs/VECTOR_MIGRATE_DIMENSION_HISTOGRAM_COUNT_DESIGN.md
+- docs/GITHUB_DOCKER_STAGING_WORKFLOW_DESIGN.md
 
 ## Updated Handoff Docs
 - FINAL_VALIDATION_REPORT.md
@@ -53,6 +54,7 @@ Delivery checklist for metrics-related changes, design docs, validation reports,
 - reports/DEV_METRICS_UNIT_SUBSET_VENV_VALIDATION_20260106.md
 - reports/DEV_METRICS_UNIT_SECURITY_ROLLBACK_VECTOR_VENV_VALIDATION_20260106.md
 - reports/DEV_METRICS_UNIT_FILTER_VENV_VALIDATION_20260106.md
+- reports/DEV_GITHUB_DOCKER_STAGING_WORKFLOW_VALIDATION_20260110.md
 
 ## Handoff + Planning Reports
 - reports/DEV_METRICS_FINAL_DELIVERY_SUMMARY_20260106.md
@@ -71,6 +73,7 @@ Delivery checklist for metrics-related changes, design docs, validation reports,
 - `.venv/bin/python -m pytest tests/unit/test_model_security_validation.py tests/unit/test_model_rollback_health.py tests/unit/test_model_rollback_level3.py tests/unit/test_vector_migrate_metrics.py tests/unit/test_vector_migrate_dimension_histogram.py -v`
 - `.venv/bin/python -m pytest tests/unit -k metrics -v`
 - `python3 scripts/validate_dashboard_metrics.py`
+- `bash scripts/ci/docker_staging_smoke.sh` (set `SKIP_BUILD=1` to reuse a cached image)
 
 ## Log Updates
 - FINAL_VERIFICATION_LOG.md (entries for all validations and summaries above)

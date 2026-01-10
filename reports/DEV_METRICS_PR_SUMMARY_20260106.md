@@ -11,6 +11,7 @@ This update expands observability coverage across cache tuning, model security/r
 - Added model interface validation failure counter during reload.
 - Added vector migrate downgrade counters and dimension-delta histogram.
 - Aligned Grafana dashboard panel queries with exported metric names and drift histogram quantiles.
+- Added GitHub Actions Docker staging smoke workflow + local compose validation script.
 
 ## Validation
 - `.venv/bin/python -m pytest tests/test_metrics_contract.py -v` (19 passed, 3 skipped)
@@ -18,6 +19,7 @@ This update expands observability coverage across cache tuning, model security/r
 - `.venv/bin/python -m pytest tests/unit/test_model_security_validation.py tests/unit/test_model_rollback_health.py tests/unit/test_model_rollback_level3.py tests/unit/test_vector_migrate_metrics.py tests/unit/test_vector_migrate_dimension_histogram.py -v` (61 passed)
 - `.venv/bin/python -m pytest tests/unit -k metrics -v` (223 passed, 3500 deselected)
 - `python3 scripts/validate_dashboard_metrics.py` (pass)
+- `bash scripts/ci/docker_staging_smoke.sh` (blocked by Docker Hub pull; see staging report)
 
 ## Notes / Risks
 - Metrics-dependent tests may skip under system Python if `prometheus_client` is unavailable; use `.venv` runs above for full coverage.
