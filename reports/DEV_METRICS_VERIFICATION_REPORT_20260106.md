@@ -18,7 +18,8 @@ Capture validation results for the 2026-01-06 metrics workstream.
 - `bash scripts/ci/docker_staging_smoke.sh` (build blocked while pulling `python:3.9-slim`; aborted).
 - `SKIP_BUILD=1 bash scripts/ci/docker_staging_smoke.sh` (POST cache tuning returned 405 with stale image).
 - GitHub Actions `docker-staging-smoke.yml` failed on `filelock==3.20.1` during Docker build (fixed by pinning `filelock==3.19.1`).
-- Re-run failed on `urllib3==2.6.0` conflicting with `botocore` constraints; pinned to `urllib3==2.1.0` and re-run pending.
+- Re-run failed on `urllib3==2.6.0` conflicting with `botocore` constraints; pinned to `urllib3==2.1.0`.
+- Re-run failed on `urllib3==2.1.0`; pinned to `urllib3==2.0.7` and re-run pending.
 - Report: `reports/DEV_GITHUB_DOCKER_STAGING_WORKFLOW_VALIDATION_20260110.md`
 
 ## Notes
