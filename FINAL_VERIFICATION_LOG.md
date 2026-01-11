@@ -1148,6 +1148,11 @@
   - Tests: `python3 scripts/check_metrics_consistency.py`, `python3 -m pytest tests/unit/test_vector_migrate_metrics.py -k downgraded -v`, `python3 -m mypy src/utils/analysis_result_store.py`, `python3 -m flake8 src`.
   - Design: `docs/METRICS_CONSISTENCY_COUNTER_FIXES_DESIGN.md`
   - Revalidation: `reports/DEV_METRICS_CONSISTENCY_COUNTER_FIXES_REVALIDATION_20260110.md`
+- **Adaptive Rate Limit PR Comment Hardening**:
+  - Added permissions and JSON parse guards to prevent PR comment job failures when artifacts are invalid.
+  - Tests: `python3 - <<'PY' ... yaml.safe_load(...)`
+  - Design: `docs/ADAPTIVE_RATE_LIMIT_PR_COMMENT_HARDENING_DESIGN.md`
+  - Report: `reports/DEV_ADAPTIVE_RATE_LIMIT_PR_COMMENT_HARDENING_VALIDATION_20260110.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

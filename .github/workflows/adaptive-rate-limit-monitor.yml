@@ -377,6 +377,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: [analyze-traffic-patterns, check-performance-impact]
     if: github.event_name == 'pull_request'
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: write
 
     steps:
       - name: Download artifacts
@@ -388,24 +393,33 @@ jobs:
           echo "" >> pr_comment.md
 
           # 流量分析
-          if [ -f "traffic-analysis/traffic_analysis.json" ]; then
-            pattern=$(jq -r '.pattern' traffic-analysis/traffic_analysis.json)
-            confidence=$(jq -r '.confidence' traffic-analysis/traffic_analysis.json)
+          if [ -f "traffic-analysis/traffic_analysis.json" ] && jq -e . traffic-analysis/traffic_analysis.json >/dev/null 2>&1; then
+            pattern=$(jq -r '.pattern // "unknown"' traffic-analysis/traffic_analysis.json)
+            confidence=$(jq -r '.confidence // "unknown"' traffic-analysis/traffic_analysis.json)
             echo "### 📊 流量模式" >> pr_comment.md
             echo "- **模式**: $pattern" >> pr_comment.md
             echo "- **置信度**: $confidence" >> pr_comment.md
             echo "" >> pr_comment.md
+          else
+            echo "### 📊 流量模式" >> pr_comment.md
+            echo "- **模式**: unavailable" >> pr_comment.md
+            echo "- **置信度**: unavailable" >> pr_comment.md
+            echo "" >> pr_comment.md
           fi
 
           # 性能影响
-          if [ -f "performance-report/sla_check.json" ]; then
-            compliance=$(jq -r '.compliance_status' performance-report/sla_check.json)
+          if [ -f "performance-report/sla_check.json" ] && jq -e . performance-report/sla_check.json >/dev/null 2>&1; then
+            compliance=$(jq -r '.compliance_status // "unknown"' performance-report/sla_check.json)
             echo "### 📈 SLA合规性" >> pr_comment.md
             echo "- **状态**: $compliance" >> pr_comment.md
 
             if [ "$compliance" != "compliant" ]; then
               echo "⚠️ **警告**: 此更改可能影响SLA合规性" >> pr_comment.md
             fi
+            echo "" >> pr_comment.md
+          else
+            echo "### 📈 SLA合规性" >> pr_comment.md
+            echo "- **状态**: unavailable" >> pr_comment.md
             echo "" >> pr_comment.md
           fi
 
