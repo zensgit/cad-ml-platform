@@ -211,6 +211,19 @@ vision_error_rate_ema = Gauge(
     "Exponential moving average of Vision error rate (0..1)",
 )
 
+# Health endpoints ( /health, /health/extended, /ready )
+health_requests_total = Counter(
+    "health_requests_total",
+    "Health endpoint requests",
+    ["endpoint", "status"],
+)
+health_request_duration_seconds = Histogram(
+    "health_request_duration_seconds",
+    "Health endpoint request duration seconds",
+    ["endpoint"],
+    buckets=[0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0],
+)
+
 # Simple in-process EMA trackers; callers should update on success/error events.
 _EMA_ALPHA = float(get_settings().ERROR_EMA_ALPHA)
 _ocr_error_rate_value = 0.0

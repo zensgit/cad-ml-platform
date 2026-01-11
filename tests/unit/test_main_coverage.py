@@ -16,6 +16,7 @@ from typing import Dict
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import Response
 
 
 class TestRootEndpoint:
@@ -178,40 +179,64 @@ class TestReadinessCheck:
 
         with patch("src.main.settings", MagicMock(REDIS_ENABLED=False)):
             with patch("src.models.loader.models_loaded", return_value=True):
-                result = await readiness_check()
+                response = Response()
+                result = await readiness_check(response)
 
+        assert response.status_code == 200
         assert result["status"] == "ready"
 
     @pytest.mark.asyncio
     async def test_readiness_models_not_loaded(self):
         """Test readiness check when models not loaded."""
-        from fastapi import HTTPException
-
         from src.main import readiness_check
 
         with patch("src.main.settings", MagicMock(REDIS_ENABLED=False)):
             with patch("src.models.loader.models_loaded", return_value=False):
-                with pytest.raises(HTTPException) as exc_info:
-                    await readiness_check()
+                response = Response()
+                result = await readiness_check(response)
 
-        assert exc_info.value.status_code == 503
-        # Generic error message is used
-        assert "not ready" in str(exc_info.value.detail).lower()
+        assert response.status_code == 503
+        assert result["status"] == "not_ready"
+        assert result["checks"]["models_loaded"]["status"] == "not_ready"
 
     @pytest.mark.asyncio
     async def test_readiness_redis_not_ready(self):
         """Test readiness check when Redis not ready."""
-        from fastapi import HTTPException
-
         from src.main import readiness_check
 
         with patch("src.main.settings", MagicMock(REDIS_ENABLED=True)):
             with patch("src.models.loader.models_loaded", return_value=True):
                 with patch("src.utils.cache.redis_healthy", AsyncMock(return_value=False)):
-                    with pytest.raises(HTTPException) as exc_info:
-                        await readiness_check()
+                    response = Response()
+                    result = await readiness_check(response)
 
-        assert exc_info.value.status_code == 503
+        assert response.status_code == 503
+        assert result["status"] == "not_ready"
+        assert result["checks"]["redis"]["status"] == "not_ready"
+
+    @pytest.mark.asyncio
+    async def test_readiness_redis_timeout(self):
+        """Test readiness check timeout path."""
+        import asyncio
+
+        from src.main import readiness_check
+
+        async def slow_redis() -> bool:
+            await asyncio.sleep(0.05)
+            return True
+
+        with patch("src.main.READINESS_CHECK_TIMEOUT_SECONDS", 0.01):
+            with patch("src.main.settings", MagicMock(REDIS_ENABLED=True)):
+                with patch("src.models.loader.models_loaded", return_value=True):
+                    with patch(
+                        "src.utils.cache.redis_healthy",
+                        AsyncMock(side_effect=slow_redis),
+                    ):
+                        response = Response()
+                        result = await readiness_check(response)
+
+        assert response.status_code == 503
+        assert result["checks"]["redis"]["timed_out"] is True
 
 
 class TestMetricsEndpoint:

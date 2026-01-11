@@ -3,17 +3,28 @@ CAD ML Platform - 主服务入口
 智能CAD分析微服务平台
 """
 
+import asyncio
+import inspect
 import logging
+import os
+import time
 from contextlib import asynccontextmanager
+from typing import Any, Callable
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import PlainTextResponse
 import uvicorn
 
 from src.api import api_router
-from src.api.health_utils import build_health_payload, metrics_enabled
+from src.api.health_models import (
+    ExtendedHealthResponse,
+    HealthResponse,
+    ReadinessCheck,
+    ReadinessResponse,
+)
+from src.api.health_utils import build_health_payload, metrics_enabled, record_health_request
 from src.api.middleware.integration_auth import IntegrationAuthMiddleware
 from src.core.config import get_settings
 from src.core.similarity import (  # type: ignore
@@ -36,6 +47,7 @@ logger = logging.getLogger(__name__)
 
 # 加载配置
 settings = get_settings()
+READINESS_CHECK_TIMEOUT_SECONDS = float(os.getenv("READINESS_CHECK_TIMEOUT_SECONDS", "0.5"))
 
 
 @asynccontextmanager
@@ -306,18 +318,21 @@ async def root():
     }
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 async def health_check():
     """健康检查（附加运行时与指标状态）"""
-    return build_health_payload(metrics_enabled_override=_metrics_enabled)
+    start = time.perf_counter()
+    payload = build_health_payload(metrics_enabled_override=_metrics_enabled)
+    record_health_request(
+        "health", payload.get("status", "unknown"), time.perf_counter() - start
+    )
+    return payload
 
 
-@app.get("/health/extended")
+@app.get("/health/extended", response_model=ExtendedHealthResponse)
 async def extended_health():
     """扩展健康检查: 包含向量与特征版本分布、Faiss索引状态、缓存命中情况等。"""
-    import os
-    import time
-
+    start = time.perf_counter()
     from src.core.similarity import (  # type: ignore
         _FAISS_IMPORTED,
         _FAISS_LAST_EXPORT_SIZE,
@@ -326,6 +341,7 @@ async def extended_health():
         _VECTOR_STORE,
     )
 
+    base_payload = build_health_payload(metrics_enabled_override=_metrics_enabled)
     vector_total = len(_VECTOR_STORE)
     versions: dict[str, int] = {}
     for meta in _VECTOR_META.values():
@@ -335,8 +351,8 @@ async def extended_health():
     last_export_age = None
     if _FAISS_LAST_EXPORT_TS is not None:
         last_export_age = round(time.time() - _FAISS_LAST_EXPORT_TS, 2)
-    return {
-        "status": "healthy",
+    payload = {
+        **base_payload,
         "vector_store": {
             "total": vector_total,
             "versions": versions,
@@ -349,30 +365,89 @@ async def extended_health():
         },
         "feature_version_env": os.environ.get("FEATURE_VERSION", "v1"),
     }
+    record_health_request(
+        "health_extended", payload.get("status", "unknown"), time.perf_counter() - start
+    )
+    return payload
 
 
-@app.get("/ready")
-async def readiness_check():
-    """就绪检查"""
-    # 检查所有依赖服务
+async def _run_readiness_check(
+    check: Callable[[], Any],
+    enabled: bool,
+    timeout_seconds: float,
+) -> ReadinessCheck:
+    if not enabled:
+        return ReadinessCheck(status="disabled", detail="disabled by config")
+
+    start = time.perf_counter()
     try:
-        # 检查模型是否加载
-        from src.models.loader import models_loaded
+        result = check()
+        if inspect.isawaitable(result):
+            result = await asyncio.wait_for(result, timeout=timeout_seconds)
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        if result:
+            return ReadinessCheck(status="ready", duration_ms=duration_ms)
+        return ReadinessCheck(
+            status="not_ready",
+            detail="check returned false",
+            duration_ms=duration_ms,
+        )
+    except asyncio.TimeoutError:
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        return ReadinessCheck(
+            status="not_ready",
+            detail=f"timeout after {timeout_seconds}s",
+            duration_ms=duration_ms,
+            timed_out=True,
+        )
+    except Exception as exc:
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        return ReadinessCheck(
+            status="not_ready",
+            detail=f"{type(exc).__name__}: {exc}",
+            duration_ms=duration_ms,
+        )
 
-        if not models_loaded():
-            raise HTTPException(status_code=503, detail="Models not loaded")
 
-        # 检查Redis连接
-        if settings.REDIS_ENABLED:
-            from src.utils.cache import redis_healthy
+@app.get("/ready", response_model=ReadinessResponse)
+async def readiness_check(response: Response):
+    """就绪检查"""
+    start = time.perf_counter()
+    from src.models.loader import models_loaded
+    from src.utils.cache import redis_healthy
 
-            if not await redis_healthy():
-                raise HTTPException(status_code=503, detail="Redis not ready")
+    checks = {
+        "models_loaded": await _run_readiness_check(
+            models_loaded,
+            True,
+            READINESS_CHECK_TIMEOUT_SECONDS,
+        ),
+        "redis": await _run_readiness_check(
+            redis_healthy,
+            settings.REDIS_ENABLED,
+            READINESS_CHECK_TIMEOUT_SECONDS,
+        ),
+    }
 
-        return {"status": "ready"}
-    except Exception as e:
-        logger.error(f"Readiness check failed: {e}")
-        raise HTTPException(status_code=503, detail="Service not ready")
+    ready = all(check.status in {"ready", "disabled"} for check in checks.values())
+    status = "ready" if ready else "not_ready"
+    if not ready:
+        response.status_code = 503
+        failures = {
+            name: check.detail or check.status
+            for name, check in checks.items()
+            if check.status != "ready"
+        }
+        logger.error("Readiness check failed: %s", failures)
+
+    payload = ReadinessResponse(
+        status=status,
+        ready=ready,
+        timestamp=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        checks=checks,
+    ).model_dump()
+    record_health_request("ready", status, time.perf_counter() - start)
+    return payload
 
 
 if __name__ == "__main__":

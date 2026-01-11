@@ -1153,6 +1153,25 @@
   - Tests: `python3 - <<'PY' ... yaml.safe_load(...)`
   - Design: `docs/ADAPTIVE_RATE_LIMIT_PR_COMMENT_HARDENING_DESIGN.md`
   - Report: `reports/DEV_ADAPTIVE_RATE_LIMIT_PR_COMMENT_HARDENING_VALIDATION_20260110.md`
+- **Health Response Schema Unification**:
+  - Added Pydantic health response models and aligned `/health/extended` with the base payload.
+  - Tests: `python3 -m pytest tests/unit/test_main_coverage.py -k health_check -v`, `python3 -m pytest tests/unit/test_main_coverage.py -k "readiness or extended_health" -v`, `python3 -m pytest tests/unit/test_health_extended_endpoint.py -v`
+  - Design: `docs/HEALTH_RESPONSE_SCHEMA_UNIFICATION_DESIGN.md`
+  - Report: `reports/DEV_HEALTH_RESPONSE_SCHEMA_UNIFICATION_VALIDATION_20260111.md`
+- **Readiness Timeout Hardening**:
+  - Added timeout-safe readiness checks with structured payloads and 503 on failure.
+  - Tests: `python3 -m pytest tests/unit/test_main_coverage.py -k readiness -v`
+  - Design: `docs/READINESS_TIMEOUT_HARDENING_DESIGN.md`
+  - Report: `reports/DEV_READINESS_TIMEOUT_HARDENING_VALIDATION_20260111.md`
+- **Health Endpoint Metrics**:
+  - Added health request counter/histogram metrics and wired them into `/health`, `/health/extended`, `/ready`.
+  - Tests: `python3 -m pytest tests/test_metrics_contract.py -k "required_metrics_present or metric_label_schemas or histogram_metrics_have_buckets" -v`
+  - Design: `docs/HEALTH_ENDPOINT_METRICS_DESIGN.md`
+  - Report: `reports/DEV_HEALTH_ENDPOINT_METRICS_VALIDATION_20260111.md`
+- **Health Docs and Verification**:
+  - Updated health and metrics documentation for the unified payload and new metrics.
+  - Design: `docs/HEALTH_DOCS_VERIFICATION_DESIGN.md`
+  - Report: `reports/DEV_HEALTH_DOCS_VERIFICATION_20260111.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

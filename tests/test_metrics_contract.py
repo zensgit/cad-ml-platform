@@ -95,6 +95,11 @@ def trigger_metrics_registration(metrics_enabled_flag: bool) -> None:
         headers={"X-API-Key": "test"},
     )
 
+    # Trigger health endpoint metrics
+    client.get("/health")
+    client.get("/health/extended")
+    client.get("/ready")
+
     yield
 
 
@@ -110,6 +115,8 @@ class MetricsContract:
         "vision_requests_total": {"provider", "status"},
         "vision_processing_duration_seconds": {"provider"},
         "vision_image_size_bytes": set(),  # Histogram
+        "health_requests_total": {"endpoint", "status"},
+        "health_request_duration_seconds": {"endpoint"},
     }
 
     # Metrics that only appear under specific conditions (optional)
@@ -554,6 +561,7 @@ class TestMetricsContract:
             "ocr_stage_duration_seconds",
             "ocr_confidence_distribution",
             "vision_image_size_bytes",
+            "health_request_duration_seconds",
         ]
 
         missing_variants = []

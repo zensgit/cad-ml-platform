@@ -55,6 +55,8 @@ This document lists all Prometheus metrics exposed by the CAD ML Platform at the
 
 | Metric Name | Type | Description | Labels |
 |-------------|------|-------------|--------|
+| `health_requests_total` | Counter | Health endpoint requests | `endpoint`, `status` |
+| `health_request_duration_seconds` | Histogram | Health endpoint request duration seconds | `endpoint` |
 | `process_start_time_seconds` | Gauge | Process start time epoch seconds | - |
 | `process_rules_audit_requests_total` | Counter | Process rules audit requests | `status` |
 | `drift_baseline_created_total` | Counter | Drift baseline creation events | `type` |
