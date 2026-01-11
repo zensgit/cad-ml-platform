@@ -6,8 +6,10 @@ import sys
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from src.api.health_models import HealthResponse
 from src.api.health_resilience import get_resilience_health
 from src.core.config import get_settings
+from src.utils.metrics import health_request_duration_seconds, health_requests_total
 from src.utils.metrics import get_ocr_error_rate_ema, get_vision_error_rate_ema
 
 try:
@@ -22,6 +24,15 @@ def metrics_enabled() -> bool:
     return _METRICS_ENABLED
 
 
+def record_health_request(endpoint: str, status: str, duration_seconds: float) -> None:
+    try:
+        health_requests_total.labels(endpoint=endpoint, status=status).inc()
+        health_request_duration_seconds.labels(endpoint=endpoint).observe(duration_seconds)
+    except Exception:
+        # Metrics collection should never block health responses.
+        pass
+
+
 def build_health_payload(metrics_enabled_override: Optional[bool] = None) -> Dict[str, Any]:
     """Build health payload shared by /health and /api/v1/health."""
     metrics_enabled = (
@@ -29,7 +40,7 @@ def build_health_payload(metrics_enabled_override: Optional[bool] = None) -> Dic
     )
     current_settings = get_settings()
 
-    base = {
+    base: Dict[str, Any] = {
         "status": "healthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "services": {
@@ -75,9 +86,13 @@ def build_health_payload(metrics_enabled_override: Optional[bool] = None) -> Dic
         },
     }
 
+    resilience_payload = None
     try:
-        base.update(get_resilience_health())
+        resilience_payload = get_resilience_health().get("resilience")
     except Exception:
-        pass
+        resilience_payload = None
 
-    return base
+    if resilience_payload is not None:
+        base["resilience"] = resilience_payload
+
+    return HealthResponse(**base).model_dump()

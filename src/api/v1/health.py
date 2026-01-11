@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_admin_token, get_api_key
+from src.api.health_models import HealthResponse
 from src.api.health_utils import build_health_payload
 
 router = APIRouter()
@@ -75,7 +76,7 @@ class FaissHealthResponse(BaseModel):
     manual_recovery_in_progress: bool = False
 
 
-@router.get("/health")
+@router.get("/health", response_model=HealthResponse)
 async def health_alias() -> Dict[str, Any]:
     """Alias `/api/v1/health` to the root `/health` endpoint."""
     return build_health_payload()

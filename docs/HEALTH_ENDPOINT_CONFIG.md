@@ -10,6 +10,7 @@ The `/health` endpoint has been enhanced to provide comprehensive configuration 
 **Response**: JSON with system health and configuration
 
 Note: `timestamp` is an ISO 8601, timezone-aware UTC value (e.g., `2025-11-19T10:00:00+00:00`).
+Related: `GET /health/extended` includes the same base payload plus vector store and Faiss details.
 
 ## Response Structure
 
