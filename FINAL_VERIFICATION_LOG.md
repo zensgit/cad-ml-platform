@@ -1165,7 +1165,7 @@
   - Report: `reports/DEV_READINESS_TIMEOUT_HARDENING_VALIDATION_20260111.md`
 - **Health Endpoint Metrics**:
   - Added health request counter/histogram metrics and wired them into `/health`, `/health/extended`, `/ready`.
-  - Tests: `python3 -m pytest tests/test_metrics_contract.py -k "required_metrics_present or metric_label_schemas or histogram_metrics_have_buckets" -v`
+  - Tests: `python3 -m pytest tests/test_metrics_contract.py -k "required_metrics_present or metric_label_schemas or histogram_metrics_have_buckets" -v`, `python3 -m pytest tests/test_metrics_contract.py -v`
   - Design: `docs/HEALTH_ENDPOINT_METRICS_DESIGN.md`
   - Report: `reports/DEV_HEALTH_ENDPOINT_METRICS_VALIDATION_20260111.md`
 - **Health Docs and Verification**:
