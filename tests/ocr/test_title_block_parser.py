@@ -53,3 +53,14 @@ def test_parse_title_block_with_confidence() -> None:
     assert confidences["drawing_number"] == 0.91
     assert values["scale"] == "1:2"
     assert confidences["scale"] == 0.8
+
+
+def test_parse_title_block_aliases() -> None:
+    text = "DWG# X-42 REV. C DESC: Bracket MATL: Steel SHT 2 of 4 WT 1.2kg"
+    parsed = parse_title_block(text)
+    assert parsed["drawing_number"] == "X-42"
+    assert parsed["revision"] == "C"
+    assert parsed["part_name"] == "Bracket"
+    assert parsed["material"] == "Steel"
+    assert parsed["sheet"] == "2/4"
+    assert parsed["weight"] == "1.2kg"

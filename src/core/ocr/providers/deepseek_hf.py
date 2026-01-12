@@ -197,8 +197,14 @@ class DeepSeekHfProvider(OcrClient):
         dimensions = []
         symbols = []
         title_block_data = {}
+        title_block_confidence = {}
         if parsed.success and parsed.data:
             title_block_data = parsed.data.get("title_block", {}) or {}
+            candidate_confidence = parsed.data.get("title_block_confidence", {}) or {}
+            if isinstance(candidate_confidence, dict):
+                for key, value in candidate_confidence.items():
+                    if isinstance(value, (int, float)):
+                        title_block_confidence[key] = float(value)
             for d in parsed.data.get("dimensions", []):
                 try:
                     dimensions.append(
@@ -278,6 +284,7 @@ class DeepSeekHfProvider(OcrClient):
             dimensions=dimensions,
             symbols=symbols,
             title_block=title_block,
+            title_block_confidence=title_block_confidence,
             confidence=0.9,
             fallback_level=parsed.fallback_level.value,
             processing_time_ms=int((time.time() - start) * 1000),

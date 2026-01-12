@@ -85,6 +85,7 @@ class OcrResult(BaseModel):
     dimensions: List[DimensionInfo] = Field(default_factory=list)
     symbols: List[SymbolInfo] = Field(default_factory=list)
     title_block: TitleBlock = Field(default_factory=TitleBlock)
+    title_block_confidence: Dict[str, float] = Field(default_factory=dict)
     confidence: Optional[float] = None
     calibrated_confidence: Optional[float] = None
     completeness: Optional[float] = None  # parsing coverage ratio

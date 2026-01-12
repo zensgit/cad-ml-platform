@@ -53,16 +53,26 @@ class DrawingRecognitionResponse(BaseModel):
     code: Optional[ErrorCode] = None
 
 
-def _build_fields(title_block: TitleBlock, confidence: Optional[float]) -> List[DrawingField]:
+def _build_fields(
+    title_block: TitleBlock,
+    confidence: Optional[float],
+    field_confidence: Optional[Dict[str, float]] = None,
+) -> List[DrawingField]:
     fields: List[DrawingField] = []
     for key, label in FIELD_LABELS.items():
         value = getattr(title_block, key, None)
+        field_score = None
+        if value is not None:
+            if field_confidence and key in field_confidence:
+                field_score = field_confidence[key]
+            else:
+                field_score = confidence
         fields.append(
             DrawingField(
                 key=key,
                 label=label,
                 value=value,
-                confidence=confidence if value is not None else None,
+                confidence=field_score,
             )
         )
     return fields
@@ -176,7 +186,7 @@ async def recognize_drawing(
         provider=result.provider or provider,
         confidence=confidence,
         processing_time_ms=result.processing_time_ms,
-        fields=_build_fields(result.title_block, confidence),
+        fields=_build_fields(result.title_block, confidence, result.title_block_confidence),
         dimensions=[d.model_dump() for d in result.dimensions],
         symbols=[s.model_dump() for s in result.symbols],
     )

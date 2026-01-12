@@ -10,9 +10,10 @@
    - English title block extraction (drawing number, revision, scale, sheet, date, etc.).
    - Chinese title block extraction (图号, 材料, 比例, 页, 日期, 重量, 投影).
    - Confidence capture from OCR line scores.
+   - Alias coverage (`DWG#`, `REV.`, `SHT`, `MATL`, `WT`).
 
 2. `tests/ocr/test_drawing_endpoint.py`
-   - Uses a dummy OCR manager to verify response fields and dimensions without external dependencies.
+   - Uses a dummy OCR manager to verify response fields, per-field confidence, and dimensions without external dependencies.
 
 3. `tests/test_routes_smoke.py`
    - Route existence check for `/api/v1/drawing/recognize` in the main FastAPI app.

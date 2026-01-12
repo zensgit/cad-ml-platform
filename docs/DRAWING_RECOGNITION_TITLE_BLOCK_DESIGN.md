@@ -23,6 +23,16 @@ This update expands title block support for drawing recognition by extending the
 - `sheet` values normalize `"1 of 3"` to `"1/3"`.
 - `parse_title_block_with_confidence` captures per-line confidence when OCR lines include scores.
 
+## Pattern Expansion
+- Added label aliases for common title block variations:
+  - Drawing number: `DWG#`, `Drawing ID`, `Part No`, `图纸代号`, `零件号`.
+  - Revision: `REV.`, `版本号`.
+  - Part name: `DESC`, `Description`.
+  - Material: `MATL`, `材质`.
+  - Sheet: `SHT`, `Sheet No`.
+  - Weight: `WT`, `Mass`.
+  - Projection: `First/Third Angle` and Chinese variants.
+
 ## Provider Integration
 - Fallback parser now calls the shared title block parser for text regex extraction.
 - Paddle provider extracts title block fields from OCR lines (confidence-aware), then merges from full text.

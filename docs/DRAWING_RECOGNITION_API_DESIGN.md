@@ -35,4 +35,5 @@ Title block fields are mapped in a fixed order:
 - Emits structured logs on success and uses existing OCR error counters on input failures.
 
 ## Limitations
-- Per-field confidence uses the overall OCR confidence (no per-field scoring yet).
+- Per-field confidence is only available when OCR line scores are provided.
+- Fields without per-field confidence fall back to overall OCR confidence.

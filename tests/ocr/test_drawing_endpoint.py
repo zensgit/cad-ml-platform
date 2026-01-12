@@ -18,6 +18,7 @@ class DummyManager:
                 scale="1:2",
                 sheet="1/2",
             ),
+            title_block_confidence={"drawing_number": 0.93, "material": 0.71},
             dimensions=[DimensionInfo(type=DimensionType.diameter, value=20.0)],
             symbols=[],
             confidence=0.9,
@@ -39,5 +40,8 @@ def test_drawing_recognize_smoke(monkeypatch) -> None:
     data = resp.json()
     field_map = {field["key"]: field for field in data["fields"]}
     assert field_map["drawing_number"]["value"] == "DWG-123"
+    assert field_map["drawing_number"]["confidence"] == 0.93
+    assert field_map["material"]["confidence"] == 0.71
+    assert field_map["part_name"]["confidence"] == 0.9
     assert field_map["part_name"]["value"] == "Bracket"
     assert data["dimensions"]
