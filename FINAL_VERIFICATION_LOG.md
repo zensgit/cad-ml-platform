@@ -1199,6 +1199,11 @@
   - Tests: `pytest tests -v --cov=src --cov-report=term-missing`
   - Design: `docs/METRICS_DISABLED_GUARDS_FULL_SUITE_DESIGN.md`
   - Report: `reports/DEV_METRICS_DISABLED_GUARDS_FULL_SUITE_20260112.md`
+- **Metrics Enabled Verification**:
+  - Installed prometheus_client and re-ran metrics contract + unit checks.
+  - Tests: `pytest tests/test_metrics_contract.py -v`, `pytest tests/unit/test_drift_startup_trigger.py tests/unit/test_faiss_rebuild_backoff.py tests/unit/test_feature_cache_sliding_window.py tests/unit/test_parallel_execution_metric.py tests/unit/test_parallel_savings_metric.py tests/unit/test_analysis_cache_metrics.py tests/unit/test_similarity_degraded_metrics.py -v`, `pytest tests/unit/test_model_security_validation.py -k "model_security_fail_metric" -v`
+  - Design: `docs/METRICS_ENABLED_VALIDATION_DESIGN.md`
+  - Report: `reports/DEV_METRICS_ENABLED_VALIDATION_20260112.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
