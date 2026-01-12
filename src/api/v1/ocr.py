@@ -175,8 +175,11 @@ async def ocr_extract(
             )
         # Calibrate confidence (single evidence source for now)
         if result.confidence is not None:
-            cal = _calibrator.calibrator.calibrate(result.confidence)
-            result.calibrated_confidence = cal
+            if _calibrator.calibrator is not None:
+                cal = _calibrator.calibrator.calibrate(result.confidence)
+                result.calibrated_confidence = cal
+            else:
+                result.calibrated_confidence = result.confidence
         logger.info(
             "ocr.extract",
             extra={

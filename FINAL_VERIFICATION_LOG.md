@@ -1183,6 +1183,10 @@
   - Guarded metrics assertions when `/metrics` reports `app_metrics_disabled`.
   - Tests: `pytest tests/test_health_and_metrics.py -k "metrics_has_vision_and_ocr_counters or metrics_rejected_counter_for_large_base64" -v`, `pytest tests/test_vision_base64_rejection_reasons.py -v`, `pytest tests/test_ocr_provider_down.py -v`
   - Report: `reports/DEV_METRICS_DISABLED_TEST_GUARDS_20260112.md`
+- **Test Failures Triage (OCR/Metrics)**:
+  - Deferred sklearn calibrator creation when unavailable and added OCR calibration fallback; guarded cache/similarity metrics tests when metrics are disabled.
+  - Tests: `pytest tests/unit/test_confidence_calibrator_coverage.py -v`, `pytest tests/unit/test_ocr_endpoint_coverage.py -v`, `pytest tests/unit/test_analysis_cache_metrics.py -v`, `pytest tests/unit/test_similarity_degraded_metrics.py -v`
+  - Report: `reports/DEV_TEST_FAILURES_TRIAGE_20260112.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

@@ -6,6 +6,15 @@ from fastapi.testclient import TestClient
 from src.main import app
 
 
+def _metrics_text_if_enabled(client: TestClient) -> str | None:
+    response = client.get("/metrics")
+    if response.status_code != 200:
+        return None
+    if "app_metrics_disabled" in response.text:
+        return None
+    return response.text
+
+
 def test_analysis_cache_hit_miss_metrics(monkeypatch):
     """Test analysis cache hit/miss metrics with unique keys per test run."""
     client = TestClient(app)
@@ -40,7 +49,7 @@ def test_analysis_cache_hit_miss_metrics(monkeypatch):
     assert r2.json().get("cache_hit") is True
 
     # Metrics scrape (best-effort; prometheus_client may be absent)
-    m = client.get("/metrics")
-    if m.status_code == 200 and m.text:
-        assert "analysis_cache_hits_total" in m.text
-        assert "analysis_cache_miss_total" in m.text
+    text = _metrics_text_if_enabled(client)
+    if text:
+        assert "analysis_cache_hits_total" in text
+        assert "analysis_cache_miss_total" in text

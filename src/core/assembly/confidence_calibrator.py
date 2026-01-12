@@ -45,11 +45,13 @@ class PlattScaling:
     """Platt校准（Sigmoid校准）"""
 
     def __init__(self):
-        self.calibrator = LogisticRegression()
+        self.calibrator = LogisticRegression() if SKLEARN_AVAILABLE else None
         self.fitted = False
 
     def fit(self, confidence_scores: np.ndarray, true_labels: np.ndarray) -> None:
         """训练校准器"""
+        if self.calibrator is None:
+            raise ImportError("sklearn not available. Cannot fit PlattScaling without sklearn.")
         # 将置信度转换为logit空间
         epsilon = 1e-10
         confidence_scores = np.clip(confidence_scores, epsilon, 1 - epsilon)
@@ -75,11 +77,13 @@ class IsotonicCalibration:
     """保序回归校准"""
 
     def __init__(self):
-        self.calibrator = IsotonicRegression(out_of_bounds="clip")
+        self.calibrator = IsotonicRegression(out_of_bounds="clip") if SKLEARN_AVAILABLE else None
         self.fitted = False
 
     def fit(self, confidence_scores: np.ndarray, true_labels: np.ndarray) -> None:
         """训练校准器"""
+        if self.calibrator is None:
+            raise ImportError("sklearn not available. Cannot fit IsotonicCalibration without sklearn.")
         self.calibrator.fit(confidence_scores, true_labels)
         self.fitted = True
 

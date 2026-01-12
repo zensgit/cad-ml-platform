@@ -33,12 +33,19 @@ def _read_metric_counter(counter) -> int:
             return 0
 
 
+def _skip_if_metrics_disabled(counter) -> None:
+    if not hasattr(counter, "_value"):
+        pytest.skip("Metrics disabled or prometheus_client unavailable")
+
+
 def test_similarity_degraded_metric_increment_on_degrade():
     """Faiss unavailable should increment degraded event metric."""
     from src.core.similarity import get_vector_store
     from src.utils.analysis_metrics import similarity_degraded_total
 
-    before = _read_metric_counter(similarity_degraded_total.labels(event="degraded"))
+    degraded_counter = similarity_degraded_total.labels(event="degraded")
+    _skip_if_metrics_disabled(degraded_counter)
+    before = _read_metric_counter(degraded_counter)
 
     os.environ["VECTOR_STORE_BACKEND"] = "faiss"
     try:
@@ -67,10 +74,12 @@ def test_similarity_restored_metric_increment_on_recovery():
             MockFaiss.return_value = inst
             get_vector_store("faiss")
 
-        degraded_before_restore = _read_metric_counter(
-            similarity_degraded_total.labels(event="degraded")
-        )
-        restored_before = _read_metric_counter(similarity_degraded_total.labels(event="restored"))
+        degraded_counter = similarity_degraded_total.labels(event="degraded")
+        restored_counter = similarity_degraded_total.labels(event="restored")
+        _skip_if_metrics_disabled(degraded_counter)
+        _skip_if_metrics_disabled(restored_counter)
+        degraded_before_restore = _read_metric_counter(degraded_counter)
+        restored_before = _read_metric_counter(restored_counter)
 
         # Now simulate successful availability (restoration)
         with patch("src.core.similarity.FaissVectorStore") as MockFaiss:
@@ -98,7 +107,9 @@ def test_similarity_no_restore_without_previous_degrade():
 
     os.environ["VECTOR_STORE_BACKEND"] = "faiss"
     try:
-        before_restored = _read_metric_counter(similarity_degraded_total.labels(event="restored"))
+        restored_counter = similarity_degraded_total.labels(event="restored")
+        _skip_if_metrics_disabled(restored_counter)
+        before_restored = _read_metric_counter(restored_counter)
         with patch("src.core.similarity.FaissVectorStore") as MockFaiss:
             inst = MagicMock()
             inst._available = True
