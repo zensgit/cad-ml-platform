@@ -11,6 +11,14 @@ def _post(payload):
     return client.post("/api/v1/vision/analyze", json=payload)
 
 
+def _metrics_text_if_enabled() -> str | None:
+    response = client.get("/metrics")
+    if response.status_code != 200:
+        return None
+    if "app_metrics_disabled" in response.text:
+        return None
+    return response.text
+
 def test_vision_base64_invalid_char_reason():
     # Contains non-base64 characters '@'
     resp = _post({"image_base64": "@@@not_base64@@@", "include_description": False})
@@ -18,9 +26,8 @@ def test_vision_base64_invalid_char_reason():
     assert resp.status_code == 200
     assert data["success"] is False
     assert data.get("code") == "INPUT_ERROR"
-    metrics_resp = client.get("/metrics")
-    if metrics_resp.status_code == 200:
-        text = metrics_resp.text
+    text = _metrics_text_if_enabled()
+    if text:
         assert "vision_input_rejected_total" in text
         assert "base64_invalid_char" in text or "base64_decode_error" in text
 
@@ -34,9 +41,8 @@ def test_vision_base64_padding_error_reason():
     assert resp.status_code == 200
     assert data["success"] is False
     assert data.get("code") == "INPUT_ERROR"
-    metrics_resp = client.get("/metrics")
-    if metrics_resp.status_code == 200:
-        text = metrics_resp.text
+    text = _metrics_text_if_enabled()
+    if text:
         assert "vision_input_rejected_total" in text
         # Python's base64 error says "Invalid base64-encoded string" which triggers invalid_char detection
         # Accept any of the base64-related rejection reasons
@@ -54,6 +60,6 @@ def test_vision_base64_too_large_reason():
     data = resp.json()
     assert resp.status_code == 200
     assert data["success"] is False
-    metrics_resp = client.get("/metrics")
-    if metrics_resp.status_code == 200:
-        assert "base64_too_large" in metrics_resp.text
+    text = _metrics_text_if_enabled()
+    if text:
+        assert "base64_too_large" in text

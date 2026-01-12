@@ -1179,6 +1179,10 @@
   - Full test run: `pytest tests -v --cov=src --cov-report=term-missing` (initial failure: missing `jwt` module; rerun after PyJWT install failed with 23 tests).
   - Design: `docs/DRAWING_RECOGNITION_TITLE_BLOCK_DESIGN.md`, `docs/DRAWING_RECOGNITION_API_DESIGN.md`, `docs/DRAWING_RECOGNITION_TEST_PLAN.md`, `docs/DRAWING_RECOGNITION_FIELD_CONFIDENCE_DESIGN.md`
   - Reports: `reports/DEV_DRAWING_RECOGNITION_TITLE_BLOCK_VALIDATION_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_API_VALIDATION_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_TEST_PLAN_VALIDATION_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_VALIDATION_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_FULL_TESTS_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_FULL_TESTS_RERUN_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_FIELD_CONFIDENCE_VALIDATION_20260112.md`
+- **Metrics Disabled Test Guards**:
+  - Guarded metrics assertions when `/metrics` reports `app_metrics_disabled`.
+  - Tests: `pytest tests/test_health_and_metrics.py -k "metrics_has_vision_and_ocr_counters or metrics_rejected_counter_for_large_base64" -v`, `pytest tests/test_vision_base64_rejection_reasons.py -v`, `pytest tests/test_ocr_provider_down.py -v`
+  - Report: `reports/DEV_METRICS_DISABLED_TEST_GUARDS_20260112.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

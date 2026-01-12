@@ -11,6 +11,15 @@ _SAMPLE_PNG_BYTES = base64.b64decode(
 )
 
 
+def _metrics_text_if_enabled() -> str | None:
+    response = client.get("/metrics")
+    if response.status_code != 200:
+        return None
+    if "app_metrics_disabled" in response.text:
+        return None
+    return response.text
+
+
 def test_health_contains_runtime_info():
     resp = client.get("/health")
     assert resp.status_code == 200
@@ -40,10 +49,9 @@ def test_metrics_has_vision_and_ocr_counters():
     # OCR extract with a valid PNG to ensure provider metrics register
     files = {"file": ("fake.png", _SAMPLE_PNG_BYTES, "image/png")}
     client.post("/api/v1/ocr/extract", files=files)
-    metrics_resp = client.get("/metrics")
-    if metrics_resp.status_code != 200:
+    text = _metrics_text_if_enabled()
+    if text is None:
         return
-    text = metrics_resp.text
     assert "vision_requests_total" in text
     # Image size histogram should appear once we observed a payload
     assert "vision_image_size_bytes" in text
@@ -74,8 +82,8 @@ def test_metrics_rejected_counter_for_large_base64():
         "include_ocr": False,
     }
     client.post("/api/v1/vision/analyze", json=payload)
-    metrics_resp = client.get("/metrics")
-    if metrics_resp.status_code != 200:
+    text = _metrics_text_if_enabled()
+    if text is None:
         return
-    assert "vision_input_rejected_total" in metrics_resp.text
-    assert "base64_too_large" in metrics_resp.text
+    assert "vision_input_rejected_total" in text
+    assert "base64_too_large" in text
