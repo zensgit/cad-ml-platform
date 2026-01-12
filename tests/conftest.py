@@ -1,8 +1,11 @@
 import os
 from pathlib import Path
-from typing import Iterator
+from typing import Callable, Iterator, Optional, TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from fastapi.testclient import TestClient
 
 # List of environment variables that may be modified by tests
 _ENV_VARS_TO_ISOLATE = [
@@ -176,6 +179,38 @@ def migration_history_isolation():
             vectors_mod._VECTOR_MIGRATION_HISTORY.clear()
     except (ImportError, AttributeError):
         pass
+
+
+@pytest.fixture
+def require_metrics_enabled() -> None:
+    from src.api.health_utils import metrics_enabled
+
+    if not metrics_enabled():
+        pytest.skip("metrics client disabled in this environment")
+
+
+@pytest.fixture
+def metrics_text() -> Callable[[Optional["TestClient"]], Optional[str]]:
+    def _get(client: Optional["TestClient"] = None) -> Optional[str]:
+        from src.api.health_utils import metrics_enabled
+
+        if not metrics_enabled():
+            return None
+
+        if client is None:
+            from fastapi.testclient import TestClient
+            from src.main import app
+
+            client = TestClient(app)
+
+        response = client.get("/metrics")
+        if response.status_code != 200:
+            return None
+        if "app_metrics_disabled" in response.text:
+            return None
+        return response.text
+
+    return _get
 
 
 @pytest.fixture(autouse=True)

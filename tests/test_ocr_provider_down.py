@@ -6,16 +6,8 @@ from src.main import app
 
 client = TestClient(app)
 
-def _metrics_text_if_enabled() -> str | None:
-    response = client.get("/metrics")
-    if response.status_code != 200:
-        return None
-    if "app_metrics_disabled" in response.text:
-        return None
-    return response.text
 
-
-def test_ocr_provider_down():
+def test_ocr_provider_down(metrics_text):
     manager = get_manager()
     # Remove a provider temporarily
     if "paddle" in manager.providers:
@@ -27,7 +19,7 @@ def test_ocr_provider_down():
     assert data["success"] is False
     # Expect PROVIDER_DOWN when provider missing
     assert data.get("code") == ErrorCode.PROVIDER_DOWN
-    metrics = _metrics_text_if_enabled()
+    metrics = metrics_text(client)
     if metrics:
         # Expect a labeled counter increment: ocr_errors_total{code="provider_down"}
         assert "ocr_errors_total" in metrics

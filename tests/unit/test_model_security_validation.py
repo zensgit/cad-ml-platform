@@ -8,13 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.api.health_utils import metrics_enabled
 from tests.unit.test_model_reload_errors_structured_support import DummyModel, GoodModel
-
-
-def _skip_if_metrics_disabled() -> None:
-    if not metrics_enabled():
-        pytest.skip("metrics client disabled in this environment")
 
 
 def test_model_magic_number_validation_success(tmp_path):
@@ -154,10 +148,8 @@ def test_model_hash_whitelist_multiple_allowed(tmp_path):
     assert result["status"] != "hash_mismatch"
 
 
-def test_model_security_fail_metric_magic_invalid(tmp_path, monkeypatch):
+def test_model_security_fail_metric_magic_invalid(tmp_path, monkeypatch, require_metrics_enabled):
     """Test model_security_fail_total metric increments on magic number failure."""
-    _skip_if_metrics_disabled()
-
     from src.ml.classifier import reload_model
     from src.utils.analysis_metrics import model_security_fail_total
 
@@ -176,10 +168,8 @@ def test_model_security_fail_metric_magic_invalid(tmp_path, monkeypatch):
     assert result["status"] == "magic_invalid"
 
 
-def test_model_security_fail_metric_hash_mismatch(tmp_path):
+def test_model_security_fail_metric_hash_mismatch(tmp_path, require_metrics_enabled):
     """Test model_security_fail_total metric increments on hash mismatch."""
-    _skip_if_metrics_disabled()
-
     from src.ml.classifier import reload_model
     from src.utils.analysis_metrics import model_security_fail_total
 

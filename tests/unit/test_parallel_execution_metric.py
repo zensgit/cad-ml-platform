@@ -1,16 +1,11 @@
 import os
 
-import pytest
 from fastapi.testclient import TestClient
 
-from src.api.health_utils import metrics_enabled
 from src.main import app
 
 
-def test_parallel_execution_gauge(monkeypatch):
-    if not metrics_enabled():
-        pytest.skip("metrics client disabled in this environment")
-
+def test_parallel_execution_gauge(monkeypatch, require_metrics_enabled):
     # Ensure multiple stages enabled to trigger parallel path
     client = TestClient(app)
     # Use small dummy content; rely on stub adapter
