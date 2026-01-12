@@ -1176,9 +1176,9 @@
   - Expanded title block schema and parsing; added drawing recognition endpoint with normalized fields.
   - Added title block alias coverage and per-field confidence mapping for drawing recognition.
   - Tests: `pytest tests/ocr/test_title_block_parser.py -v`, `pytest tests/ocr/test_drawing_endpoint.py -v`, `pytest tests/test_routes_smoke.py -k drawing_recognize_route_exists -v`
-  - Full test run: `pytest tests -v --cov=src --cov-report=term-missing` (failed: missing `jwt` module).
+  - Full test run: `pytest tests -v --cov=src --cov-report=term-missing` (initial failure: missing `jwt` module; rerun after PyJWT install failed with 23 tests).
   - Design: `docs/DRAWING_RECOGNITION_TITLE_BLOCK_DESIGN.md`, `docs/DRAWING_RECOGNITION_API_DESIGN.md`, `docs/DRAWING_RECOGNITION_TEST_PLAN.md`, `docs/DRAWING_RECOGNITION_FIELD_CONFIDENCE_DESIGN.md`
-  - Reports: `reports/DEV_DRAWING_RECOGNITION_TITLE_BLOCK_VALIDATION_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_API_VALIDATION_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_TEST_PLAN_VALIDATION_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_VALIDATION_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_FULL_TESTS_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_FIELD_CONFIDENCE_VALIDATION_20260112.md`
+  - Reports: `reports/DEV_DRAWING_RECOGNITION_TITLE_BLOCK_VALIDATION_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_API_VALIDATION_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_TEST_PLAN_VALIDATION_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_VALIDATION_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_FULL_TESTS_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_FULL_TESTS_RERUN_20260112.md`, `reports/DEV_DRAWING_RECOGNITION_FIELD_CONFIDENCE_VALIDATION_20260112.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
