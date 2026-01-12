@@ -1204,6 +1204,10 @@
   - Tests: `pytest tests/test_metrics_contract.py -v`, `pytest tests/unit/test_drift_startup_trigger.py tests/unit/test_faiss_rebuild_backoff.py tests/unit/test_feature_cache_sliding_window.py tests/unit/test_parallel_execution_metric.py tests/unit/test_parallel_savings_metric.py tests/unit/test_analysis_cache_metrics.py tests/unit/test_similarity_degraded_metrics.py -v`, `pytest tests/unit/test_model_security_validation.py -k "model_security_fail_metric" -v`
   - Design: `docs/METRICS_ENABLED_VALIDATION_DESIGN.md`
   - Report: `reports/DEV_METRICS_ENABLED_VALIDATION_20260112.md`
+- **Metrics Strict Mode Verification**:
+  - Tests: `STRICT_METRICS=1 pytest tests/test_metrics_contract.py -v`
+  - Design: `docs/METRICS_STRICT_MODE_VALIDATION_DESIGN.md`
+  - Report: `reports/DEV_METRICS_STRICT_MODE_VALIDATION_20260112.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
