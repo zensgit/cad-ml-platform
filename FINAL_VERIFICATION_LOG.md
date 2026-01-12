@@ -1208,6 +1208,10 @@
   - Tests: `STRICT_METRICS=1 pytest tests/test_metrics_contract.py -v`
   - Design: `docs/METRICS_STRICT_MODE_VALIDATION_DESIGN.md`
   - Report: `reports/DEV_METRICS_STRICT_MODE_VALIDATION_20260112.md`
+- **Metrics Strict CI Job**:
+  - Added a dedicated CI job to run strict metrics contract tests.
+  - Design: `docs/METRICS_STRICT_CI_JOB_DESIGN.md`
+  - Report: `reports/DEV_METRICS_STRICT_CI_JOB_VALIDATION_20260112.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
