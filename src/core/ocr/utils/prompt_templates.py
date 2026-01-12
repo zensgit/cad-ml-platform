@@ -26,6 +26,8 @@ def deepseek_ocr_json_prompt() -> str:
         "tolerance: number|null, tol_pos: number|null, tol_neg: number|null, "
         'pitch: number|null, unit: "mm"}. '
         "Each symbol: {type: surface_roughness|perpendicularity|parallelism, value: string}. "
+        "title_block may include: drawing_number, revision, part_name, material, scale, "
+        "sheet, date, weight, company, projection. "
         'Example minimal output: {"dimensions":[],"symbols":[],"title_block":{}}. '
         "If the model cannot produce strict JSON, then return a single ```json fenced block containing ONLY the JSON."
     )

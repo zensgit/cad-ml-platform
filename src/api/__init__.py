@@ -14,6 +14,10 @@ except Exception:
     ocr = None  # type: ignore
     vision = None  # type: ignore
 try:
+    from src.api.v1 import drawing  # type: ignore
+except Exception:
+    drawing = None  # type: ignore
+try:
     from src.api.v1 import drift  # type: ignore
 except Exception:
     drift = None  # type: ignore
@@ -110,6 +114,8 @@ if vision is not None:
     v1_router.include_router(vision.router, prefix="/vision", tags=["视觉"])  # type: ignore
 if ocr is not None:
     v1_router.include_router(ocr.router, prefix="/ocr", tags=["OCR"])  # type: ignore
+if drawing is not None:
+    v1_router.include_router(drawing.router, prefix="/drawing", tags=["Drawing"])  # type: ignore
 if dedup is not None:
     v1_router.include_router(dedup.router, prefix="/dedup", tags=["查重"])  # type: ignore
 if feedback is not None:

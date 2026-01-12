@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Optional
 
+from .title_block_parser import parse_title_block
+
 
 class FallbackLevel(str, Enum):
     JSON_STRICT = "json_strict"
@@ -144,16 +146,9 @@ class FallbackParser:
                 data["symbols"].append({"type": sym_type, "value": val})
 
         # Title block (Chinese / English)
-        title_patterns = [
-            (r"(?:图号|Drawing\s*No\.?)[:\s]*([A-Z0-9\-]+)", "drawing_number"),
-            (r"(?:材料|Material)[:\s]*([^\n,]+)", "material"),
-            (r"(?:名称|Part\s*Name)[:\s]*([^\n,]+)", "part_name"),
-            (r"(?:比例|Scale)[:\s]*(\d+:\d+)", "scale"),
-        ]
-        for pattern, field in title_patterns:
-            m = re.search(pattern, raw_output, re.IGNORECASE)
-            if m:
-                data["title_block"][field] = m.group(1).strip()
+        parsed_title = parse_title_block(raw_output)
+        for field, value in parsed_title.items():
+            data["title_block"].setdefault(field, value)
 
         success = bool(data["dimensions"] or data["symbols"] or data["title_block"])
         return ParseResult(

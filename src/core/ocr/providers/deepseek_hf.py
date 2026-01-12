@@ -32,6 +32,7 @@ from ..base import (
 from ..parsing.bbox_mapper import assign_bboxes, polygon_to_bbox
 from ..parsing.dimension_parser import parse_dimensions_and_symbols
 from ..parsing.fallback_parser import FallbackParser
+from ..parsing.title_block_parser import parse_title_block
 from ..preprocessing.image_enhancer import enhance_image_for_ocr
 from ..stage_timer import StageTimer
 from ..utils.prompt_templates import deepseek_ocr_json_prompt
@@ -195,8 +196,9 @@ class DeepSeekHfProvider(OcrClient):
 
         dimensions = []
         symbols = []
-        title_block = TitleBlock()
+        title_block_data = {}
         if parsed.success and parsed.data:
+            title_block_data = parsed.data.get("title_block", {}) or {}
             for d in parsed.data.get("dimensions", []):
                 try:
                     dimensions.append(
@@ -237,6 +239,10 @@ class DeepSeekHfProvider(OcrClient):
             elif not parsed.success:
                 extraction_mode = "regex_only"
         timer.end("parse")
+        if text:
+            for field, value in parse_title_block(text).items():
+                title_block_data.setdefault(field, value)
+        title_block = TitleBlock(**title_block_data)
         # Optional alignment using PaddleOCR for bboxes
         timer.start("align")
         if self._align_with_paddle and self._paddle is None and PaddleOCR:

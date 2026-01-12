@@ -24,3 +24,11 @@ def test_ocr_extract_route_exists():
     resp = client.post("/api/v1/ocr/extract?provider=auto", files=files)
     # Endpoint should exist and not be 404 due to routing
     assert resp.status_code in (200, 400, 415, 500)
+
+
+def test_drawing_recognize_route_exists():
+    # Send a tiny fake image payload
+    files = {"file": ("test.png", b"fake_image_bytes", "image/png")}
+    resp = client.post("/api/v1/drawing/recognize?provider=auto", files=files)
+    # Endpoint should exist and not be 404 due to routing
+    assert resp.status_code in (200, 400, 415, 429, 500)

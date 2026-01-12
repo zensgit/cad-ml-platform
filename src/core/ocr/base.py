@@ -62,9 +62,15 @@ class SymbolInfo(BaseModel):
 
 class TitleBlock(BaseModel):
     drawing_number: Optional[str] = None
+    revision: Optional[str] = None
     material: Optional[str] = None
     part_name: Optional[str] = None
     scale: Optional[str] = None
+    sheet: Optional[str] = None
+    date: Optional[str] = None
+    weight: Optional[str] = None
+    company: Optional[str] = None
+    projection: Optional[str] = None
 
 
 class OcrStage(str, Enum):

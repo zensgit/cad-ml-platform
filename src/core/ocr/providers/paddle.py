@@ -28,6 +28,7 @@ from ..base import (
 )
 from ..parsing.bbox_mapper import assign_bboxes, polygon_to_bbox
 from ..parsing.dimension_parser import parse_dimensions_and_symbols
+from ..parsing.title_block_parser import parse_title_block, parse_title_block_with_confidence
 from ..preprocessing.image_enhancer import enhance_image_for_ocr
 from ..stage_timer import StageTimer
 
@@ -83,7 +84,7 @@ class PaddleOcrProvider(OcrClient):
         text = ""
         dimensions = []
         symbols = []
-        title_block = TitleBlock(drawing_number="PAD-001")
+        title_block_data = {}
         ocr_lines = []
         # Prefer an already-initialized client (including test mocks). If absent, try warmup when PaddleOCR is available.
         if self._ocr is None and PaddleOCR and not self._initialized:
@@ -160,6 +161,11 @@ class PaddleOcrProvider(OcrClient):
         # map bboxes if available
         if ocr_lines and (dimensions or symbols):
             assign_bboxes(dimensions, symbols, ocr_lines)
+        if ocr_lines:
+            title_block_data, _ = parse_title_block_with_confidence(ocr_lines)
+        if text:
+            for field, value in parse_title_block(text).items():
+                title_block_data.setdefault(field, value)
         timer.end("parse")
         timer.start("postprocess")
         stage_latencies = timer.durations_ms()
@@ -170,7 +176,7 @@ class PaddleOcrProvider(OcrClient):
             text=text,
             dimensions=dimensions,
             symbols=symbols,
-            title_block=title_block,
+            title_block=TitleBlock(**title_block_data),
             confidence=0.82,
             processing_time_ms=int((time.time() - start) * 1000),
             extraction_mode=extraction_mode,
