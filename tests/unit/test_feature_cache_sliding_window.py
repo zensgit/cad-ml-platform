@@ -1,12 +1,17 @@
 import json
 import time
 
+import pytest
 from fastapi.testclient import TestClient
 
+from src.api.health_utils import metrics_enabled
 from src.main import app
 
 
 def test_feature_cache_sliding_window_metrics(monkeypatch):
+    if not metrics_enabled():
+        pytest.skip("metrics client disabled in this environment")
+
     client = TestClient(app)
     content = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
     files = {"file": ("sw.dxf", content, "application/octet-stream")}

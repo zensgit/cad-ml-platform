@@ -1,11 +1,16 @@
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
+from src.api.health_utils import metrics_enabled
 from src.main import app
 
 
 def test_parallel_savings_metric_observed(monkeypatch):
+    if not metrics_enabled():
+        pytest.skip("metrics client disabled in this environment")
+
     client = TestClient(app)
     # Craft minimal DXF-like content (adapter should handle or skip gracefully)
     content = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"

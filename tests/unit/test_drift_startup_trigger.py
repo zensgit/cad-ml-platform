@@ -4,14 +4,19 @@ from __future__ import annotations
 
 import time
 
+import pytest
 from fastapi.testclient import TestClient
 
+from src.api.health_utils import metrics_enabled
 from src.main import app
 
 client = TestClient(app)
 
 
 def test_drift_startup_trigger_metric_present() -> None:
+    if not metrics_enabled():
+        pytest.skip("metrics client disabled in this environment")
+
     from src.api.v1 import analyze as analyze_module
 
     drift_state = analyze_module._DRIFT_STATE  # type: ignore

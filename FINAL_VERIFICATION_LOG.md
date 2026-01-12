@@ -1187,6 +1187,18 @@
   - Deferred sklearn calibrator creation when unavailable and added OCR calibration fallback; guarded cache/similarity metrics tests when metrics are disabled.
   - Tests: `pytest tests/unit/test_confidence_calibrator_coverage.py -v`, `pytest tests/unit/test_ocr_endpoint_coverage.py -v`, `pytest tests/unit/test_analysis_cache_metrics.py -v`, `pytest tests/unit/test_similarity_degraded_metrics.py -v`
   - Report: `reports/DEV_TEST_FAILURES_TRIAGE_20260112.md`
+- **Metrics Disabled Unit Test Guards (Phase 2)**:
+  - Added metrics_enabled skips for additional metric-focused unit tests.
+  - Design: `docs/METRICS_DISABLED_UNIT_TEST_GUARDS_DESIGN.md`
+  - Report: `reports/DEV_METRICS_DISABLED_UNIT_TEST_GUARDS_VALIDATION_20260112.md`
+- **Metrics Disabled Guard Targeted Verification**:
+  - Tests: `pytest tests/unit/test_drift_startup_trigger.py tests/unit/test_faiss_rebuild_backoff.py tests/unit/test_feature_cache_sliding_window.py tests/unit/test_parallel_execution_metric.py tests/unit/test_parallel_savings_metric.py -v`, `pytest tests/unit/test_model_security_validation.py -k "model_security_fail_metric" -v`
+  - Design: `docs/METRICS_DISABLED_GUARDS_TARGETED_TESTS_DESIGN.md`
+  - Report: `reports/DEV_METRICS_DISABLED_GUARDS_TARGETED_TESTS_20260112.md`
+- **Metrics Disabled Guard Full Suite Verification**:
+  - Tests: `pytest tests -v --cov=src --cov-report=term-missing`
+  - Design: `docs/METRICS_DISABLED_GUARDS_FULL_SUITE_DESIGN.md`
+  - Report: `reports/DEV_METRICS_DISABLED_GUARDS_FULL_SUITE_20260112.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

@@ -1,12 +1,17 @@
 import os
 import time
 
+import pytest
 from fastapi.testclient import TestClient
 
+from src.api.health_utils import metrics_enabled
 from src.main import app
 
 
 def test_faiss_rebuild_backoff_metric(monkeypatch):
+    if not metrics_enabled():
+        pytest.skip("metrics client disabled in this environment")
+
     # Ensure backend env forces faiss logic path (even if faiss lib absent, should degrade gracefully)
     os.environ["VECTOR_STORE_BACKEND"] = "faiss"
     client = TestClient(app)
