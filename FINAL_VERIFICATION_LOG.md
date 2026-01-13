@@ -1237,6 +1237,11 @@
   - Tests: `pytest tests -v --cov=src --cov-report=term-missing`, `STRICT_METRICS=1 pytest tests/test_metrics_contract.py -v`
   - Design: `docs/METRICS_ENABLED_FULL_SUITE_AND_STRICT_VERIFICATION_DESIGN.md`
   - Report: `reports/DEV_METRICS_ENABLED_FULL_SUITE_AND_STRICT_VERIFICATION_20260112.md`
+- **Quality Gate Lint + Type Check**:
+  - Fixed lint line-length and mypy typing issues in drawing recognition modules.
+  - Tests: `make lint`, `make type-check`
+  - Design: `docs/QUALITY_GATE_LINT_TYPECHECK_DESIGN.md`
+  - Report: `reports/DEV_QUALITY_GATE_LINT_TYPECHECK_20260112.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

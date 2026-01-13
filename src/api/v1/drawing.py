@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
@@ -47,8 +47,8 @@ class DrawingRecognitionResponse(BaseModel):
     confidence: Optional[float] = None
     processing_time_ms: Optional[int] = None
     fields: List[DrawingField] = Field(default_factory=list)
-    dimensions: List[Dict] = Field(default_factory=list)
-    symbols: List[Dict] = Field(default_factory=list)
+    dimensions: List[Dict[str, Any]] = Field(default_factory=list)
+    symbols: List[Dict[str, Any]] = Field(default_factory=list)
     error: Optional[str] = None
     code: Optional[ErrorCode] = None
 
@@ -115,7 +115,7 @@ def _input_error_response(provider: str, detail: str) -> DrawingRecognitionRespo
 async def recognize_drawing(
     file: UploadFile = File(...),
     provider: str = "auto",
-    request: Request = None,
+    request: Optional[Request] = None,
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ) -> DrawingRecognitionResponse:
     trace_id = str(uuid.uuid4())
@@ -183,6 +183,7 @@ async def recognize_drawing(
 
     confidence = result.calibrated_confidence or result.confidence
     response = DrawingRecognitionResponse(
+        success=True,
         provider=result.provider or provider,
         confidence=confidence,
         processing_time_ms=result.processing_time_ms,

@@ -72,26 +72,49 @@ LABEL_TOKENS: Tuple[str, ...] = (
 LABEL_PATTERN = "|".join(LABEL_TOKENS)
 LABEL_BOUNDARY_REGEXES = (
     re.compile(rf"(?:{LABEL_PATTERN})\s*[:：]", re.IGNORECASE),
-    re.compile(r"(?:scale|比例|比例尺)\s*[0-9]", re.IGNORECASE),
-    re.compile(r"(?:sheet|页码|页|sht\.?)\s*[0-9]", re.IGNORECASE),
-    re.compile(r"(?:date|日期|drawn\s*date)\s*[0-9]", re.IGNORECASE),
-    re.compile(r"(?:weight|重量|wt\.?|mass)\s*[0-9]", re.IGNORECASE),
     re.compile(
-        r"(?:projection|投影|first\s*angle|third\s*angle|1st\s*angle|3rd\s*angle)\s*(?:first|1st|third|3rd|第一角|第三角)",
+        r"(?:scale|比例|比例尺)\s*[0-9]",
         re.IGNORECASE,
     ),
-    re.compile(r"(?:company|公司|单位|customer|client)\s*[A-Za-z0-9]", re.IGNORECASE),
-    re.compile(r"(?:rev\.?|revision|ver\.?|version|版本|修订)\s*[A-Za-z0-9]", re.IGNORECASE),
+    re.compile(
+        r"(?:sheet|页码|页|sht\.?)\s*[0-9]",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:date|日期|drawn\s*date)\s*[0-9]",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:weight|重量|wt\.?|mass)\s*[0-9]",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:projection|投影|first\s*angle|third\s*angle|1st\s*angle|3rd\s*angle)\s*"
+        r"(?:first|1st|third|3rd|第一角|第三角)",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:company|公司|单位|customer|client)\s*[A-Za-z0-9]",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:rev\.?|revision|ver\.?|version|版本|修订)\s*[A-Za-z0-9]",
+        re.IGNORECASE,
+    ),
 )
 
 TITLE_BLOCK_PATTERNS: Tuple[Tuple[str, str], ...] = (
     (
         "drawing_number",
-        r"(?:图号|图纸编号|图纸号|图纸代号|图纸代码|零件号|零件编号|part\s*(?:no|number)|drawing\s*(?:no|number|id|#)|drawing#|dwg\s*(?:no|number|id|#)|dwg#)[:：\s]*([A-Z0-9][A-Z0-9\-_/\.]+)",
+        r"(?:图号|图纸编号|图纸号|图纸代号|图纸代码|零件号|零件编号|"
+        r"part\s*(?:no|number)|drawing\s*(?:no|number|id|#)|drawing#|"
+        r"dwg\s*(?:no|number|id|#)|dwg#)[:：\s]*"
+        r"([A-Z0-9][A-Z0-9\-_/\.]+)",
     ),
     (
         "revision",
-        r"(?:版本|版本号|修订|rev\.?|rev(?:ision)?|rev\s*(?:no|#)|ver(?:sion)?)[:：\s]*([A-Z0-9]+)",
+        r"(?:版本|版本号|修订|rev\.?|rev(?:ision)?|rev\s*(?:no|#)|"
+        r"ver(?:sion)?)[:：\s]*([A-Z0-9]+)",
     ),
     (
         "part_name",
@@ -103,15 +126,19 @@ TITLE_BLOCK_PATTERNS: Tuple[Tuple[str, str], ...] = (
     ),
     (
         "scale",
-        r"(?:比例|比例尺|scale)[:：\s]*([0-9]+\s*[:/\-]\s*[0-9]+|[0-9]+(?:\.[0-9]+)?)",
+        r"(?:比例|比例尺|scale)[:：\s]*"
+        r"([0-9]+\s*[:/\-]\s*[0-9]+|[0-9]+(?:\.[0-9]+)?)",
     ),
     (
         "sheet",
-        r"(?:页码|页|sheet\s*(?:no|#)?|sht\.?)[:：\s]*([0-9]+\s*/\s*[0-9]+|[0-9]+\s*of\s*[0-9]+|[0-9]+)",
+        r"(?:页码|页|sheet\s*(?:no|#)?|sht\.?)[:：\s]*"
+        r"([0-9]+\s*/\s*[0-9]+|[0-9]+\s*of\s*[0-9]+|[0-9]+)",
     ),
     (
         "date",
-        r"(?:日期|date|drawn\s*date)[:：\s]*([0-9]{4}[-/.][0-9]{1,2}[-/.][0-9]{1,2}|[0-9]{1,2}[-/.][0-9]{1,2}[-/.][0-9]{2,4})",
+        r"(?:日期|date|drawn\s*date)[:：\s]*"
+        r"([0-9]{4}[-/.][0-9]{1,2}[-/.][0-9]{1,2}|"
+        r"[0-9]{1,2}[-/.][0-9]{1,2}[-/.][0-9]{2,4})",
     ),
     (
         "weight",
@@ -123,7 +150,8 @@ TITLE_BLOCK_PATTERNS: Tuple[Tuple[str, str], ...] = (
     ),
     (
         "projection",
-        r"(?:投影|projection|first\s*angle|third\s*angle|1st\s*angle|3rd\s*angle|第一角法|第三角法)[:：\s]*(first|1st|third|3rd|第一角|第三角)",
+        r"(?:投影|projection|first\s*angle|third\s*angle|1st\s*angle|3rd\s*angle|"
+        r"第一角法|第三角法)[:：\s]*(first|1st|third|3rd|第一角|第三角)",
     ),
 )
 
