@@ -1225,6 +1225,10 @@
   - Ignored local-only external network compose file to avoid accidental commits.
   - Design: `docs/EXTERNAL_DOCKER_NETWORK_GITIGNORE_DESIGN.md`
   - Report: `reports/DEV_EXTERNAL_DOCKER_NETWORK_GITIGNORE_20260112.md`
+- **README Metrics Testing Note**:
+  - Added metrics testing guidance, strict mode command, and fixture references.
+  - Design: `docs/README_METRICS_TESTING_NOTE_DESIGN.md`
+  - Report: `reports/DEV_README_METRICS_TESTING_NOTE_20260112.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

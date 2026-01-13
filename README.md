@@ -1606,6 +1606,13 @@ REQUIRE_FAISS_PERF=1 RUN_FAISS_PERF_TESTS=1 pytest tests/perf/test_vector_search
 # 测试已在子进程中隔离并过滤 swig 的 DeprecationWarning
 ```
 
+#### 指标/metrics 测试说明
+
+- prometheus_client 未安装时，`/metrics` 返回 `app_metrics_disabled`；指标相关测试会自动跳过。
+- 运行指标契约测试：`pytest tests/test_metrics_contract.py -v`
+- 严格模式（检查最小错误计数/Provider 覆盖）：`STRICT_METRICS=1 pytest tests/test_metrics_contract.py -v`
+- 编写指标相关测试时可使用 `require_metrics_enabled` / `metrics_text` fixture（见 `tests/conftest.py`）。
+
 ---
 
 ## 🚢 部署
