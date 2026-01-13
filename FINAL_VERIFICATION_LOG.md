@@ -1229,6 +1229,10 @@
   - Added metrics testing guidance, strict mode command, and fixture references.
   - Design: `docs/README_METRICS_TESTING_NOTE_DESIGN.md`
   - Report: `reports/DEV_README_METRICS_TESTING_NOTE_20260112.md`
+- **Test Map Metrics Fixture Note**:
+  - Documented metrics fixtures usage in the test map guide.
+  - Design: `docs/TEST_MAP_METRICS_FIXTURE_NOTE_DESIGN.md`
+  - Report: `reports/DEV_TEST_MAP_METRICS_FIXTURE_NOTE_20260112.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

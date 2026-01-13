@@ -232,3 +232,8 @@ MIN_COMBINED=0.82 MIN_VISION=0.68 MIN_OCR=0.90 make ci-combined-check
 - 添加新测试文件时
 - 测试覆盖范围显著变化时
 - 重构测试结构时
+
+### Metrics 相关测试规范
+- 若测试依赖 Prometheus 指标，请使用 `require_metrics_enabled` 或 `metrics_text` fixture（定义在 `tests/conftest.py`）。
+- `require_metrics_enabled` 会在 metrics 关闭时跳过测试，避免环境差异导致失败。
+- `metrics_text()` 会在 metrics 可用时返回 `/metrics` 文本；否则返回 `None`。
