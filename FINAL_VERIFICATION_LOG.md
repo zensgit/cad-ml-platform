@@ -1260,6 +1260,11 @@
   - Started GHCR image via compose and validated `/health`, `/ready`, and `/metrics/`.
   - Tests: `docker compose -f deployments/docker/docker-compose.yml -f deployments/docker/docker-compose.ghcr.yml -f deployments/docker/docker-compose.external-network.yml up -d --no-build --pull=never --force-recreate`, `curl -fsS http://localhost:8000/health`, `curl -fsS http://localhost:8000/ready`, `curl -fsS http://localhost:8000/metrics/`
   - Report: `reports/DEV_GHCR_PREPROD_COMPOSE_RUN_20260113.md`
+- **GHCR Preprod Smoke Script**:
+  - Ran docker staging smoke against GHCR image with merged compose config.
+  - Tests: `docker compose -f deployments/docker/docker-compose.yml -f deployments/docker/docker-compose.ghcr.yml -f deployments/docker/docker-compose.external-network.yml config`, `COMPOSE_FILE=/tmp/cadml-ghcr-smoke-compose.yml CAD_ML_IMAGE=ghcr.io/zensgit/cad-ml-platform:main SKIP_BUILD=1 bash scripts/ci/docker_staging_smoke.sh`
+  - Design: `docs/GHCR_PREPROD_SMOKE_VALIDATION_DESIGN.md`
+  - Report: `reports/DEV_GHCR_PREPROD_SMOKE_20260113.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
