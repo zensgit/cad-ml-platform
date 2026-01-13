@@ -43,3 +43,4 @@ curl -fsS http://localhost:9090/metrics | head -n 20
 - Set `DEDUPCAD_VISION_URL` to point at the running dedupcad-vision service.
 - Use `CAD_ML_IMAGE=ghcr.io/<org>/<repo>:sha-<commit>` for pinned rollbacks.
 - Keep GHCR images public or grant `packages:read` to the CI/service account.
+- GHCR builds default to `INSTALL_L3_DEPS=0`. Re-run the workflow with input `install_l3_deps=1` if L3 deps are required.

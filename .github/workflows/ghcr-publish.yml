@@ -5,6 +5,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      install_l3_deps:
+        description: "Install requirements-l3.txt (1=true, 0=false)"
+        required: false
+        default: "0"
 
 permissions:
   contents: read
@@ -13,6 +18,7 @@ permissions:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  INSTALL_L3_DEPS: ${{ inputs.install_l3_deps || '0' }}
 
 jobs:
   build-and-push:
@@ -46,6 +52,8 @@ jobs:
           context: .
           file: deployments/docker/Dockerfile
           push: true
+          build-args: |
+            INSTALL_L3_DEPS=${{ env.INSTALL_L3_DEPS }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache

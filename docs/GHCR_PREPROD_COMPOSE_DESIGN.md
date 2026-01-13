@@ -13,3 +13,4 @@
 - Use `CAD_ML_IMAGE` to pin the image in `docker-compose.ghcr.yml`.
 - Use `--no-build` with the GHCR override to avoid local builds.
 - Validate compose config locally before sharing the workflow.
+- Default GHCR builds skip `requirements-l3.txt` via `INSTALL_L3_DEPS=0` to avoid optional heavy deps.
