@@ -1252,6 +1252,10 @@
   - Tests: `docker compose -f deployments/docker/docker-compose.yml -f deployments/docker/docker-compose.ghcr.yml config`
   - Design: `docs/GHCR_PREPROD_COMPOSE_DESIGN.md`
   - Report: `reports/DEV_GHCR_PREPROD_COMPOSE_20260112.md`
+- **GHCR Publish Workflow Validation**:
+  - Published GHCR image with L3 deps disabled and verified pull on linux/amd64.
+  - Tests: `gh workflow run ghcr-publish.yml`, `gh run watch 20955972127 --exit-status`, `docker pull --platform linux/amd64 ghcr.io/zensgit/cad-ml-platform:main`
+  - Report: `reports/DEV_GHCR_PUBLISH_VALIDATION_20260113.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
