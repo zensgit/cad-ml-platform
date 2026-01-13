@@ -4,7 +4,7 @@ services:
     build:
       context: ../..
       dockerfile: deployments/docker/Dockerfile
-    image: cad-ml-platform:latest
+    image: ${CAD_ML_IMAGE:-cad-ml-platform:latest}
     container_name: cad-ml-api
     ports:
       - "${CAD_ML_API_PORT:-8000}:8000"  # API端口
@@ -46,7 +46,7 @@ services:
 
   # 2D Dedup worker (ARQ)
   dedup2d-worker:
-    image: cad-ml-platform:latest
+    image: ${CAD_ML_IMAGE:-cad-ml-platform:latest}
     container_name: cad-ml-dedup2d-worker
     command: ["arq", "src.core.dedupcad_2d_worker.WorkerSettings"]
     environment:

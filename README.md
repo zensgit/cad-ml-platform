@@ -1642,6 +1642,11 @@ docker-compose logs -f
 
 # 停止服务
 docker-compose down
+
+# 使用 GHCR 预构建镜像（无本地 build）
+CAD_ML_IMAGE=ghcr.io/zensgit/cad-ml-platform:main \\
+  docker compose -f deployments/docker/docker-compose.yml \\
+  -f deployments/docker/docker-compose.ghcr.yml up -d --no-build
 ```
 
 ### Kubernetes部署

@@ -1,0 +1,15 @@
+# GHCR_PREPROD_COMPOSE_DESIGN
+
+## Goal
+- Offer a staging-like deployment path without a staging account by using GHCR images and a compose override.
+
+## Changes
+- Add a GHCR publish workflow for main branch images.
+- Provide a compose override that pulls prebuilt images and disables local builds.
+- Document usage in README and a dedicated staging guide.
+
+## Approach
+- Publish tags `main` and `sha-<commit>` to GHCR for traceable preprod deployments.
+- Use `CAD_ML_IMAGE` to pin the image in `docker-compose.ghcr.yml`.
+- Use `--no-build` with the GHCR override to avoid local builds.
+- Validate compose config locally before sharing the workflow.
