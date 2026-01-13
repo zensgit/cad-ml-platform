@@ -1233,6 +1233,10 @@
   - Documented metrics fixtures usage in the test map guide.
   - Design: `docs/TEST_MAP_METRICS_FIXTURE_NOTE_DESIGN.md`
   - Report: `reports/DEV_TEST_MAP_METRICS_FIXTURE_NOTE_20260112.md`
+- **Metrics Enabled Full Suite + Strict Metrics Verification**:
+  - Tests: `pytest tests -v --cov=src --cov-report=term-missing`, `STRICT_METRICS=1 pytest tests/test_metrics_contract.py -v`
+  - Design: `docs/METRICS_ENABLED_FULL_SUITE_AND_STRICT_VERIFICATION_DESIGN.md`
+  - Report: `reports/DEV_METRICS_ENABLED_FULL_SUITE_AND_STRICT_VERIFICATION_20260112.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
