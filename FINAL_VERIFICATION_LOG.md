@@ -1221,6 +1221,10 @@
   - Verified the latest Observability Checks workflow run including strict metrics job.
   - Design: `docs/OBSERVABILITY_CI_RUN_VALIDATION_DESIGN.md`
   - Report: `reports/DEV_OBSERVABILITY_CI_RUN_VALIDATION_20260112.md`
+- **External Docker Network Ignore**:
+  - Ignored local-only external network compose file to avoid accidental commits.
+  - Design: `docs/EXTERNAL_DOCKER_NETWORK_GITIGNORE_DESIGN.md`
+  - Report: `reports/DEV_EXTERNAL_DOCKER_NETWORK_GITIGNORE_20260112.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

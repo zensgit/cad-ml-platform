@@ -74,6 +74,7 @@ config/secrets.yaml
 
 # Docker
 docker-compose.override.yml
+deployments/docker/docker-compose.external-network.yml
 
 # Data
 data/
