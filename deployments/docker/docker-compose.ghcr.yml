@@ -7,8 +7,10 @@
 services:
   cad-ml-api:
     image: ${CAD_ML_IMAGE:-ghcr.io/zensgit/cad-ml-platform:main}
+    platform: linux/amd64
     pull_policy: always
 
   dedup2d-worker:
     image: ${CAD_ML_IMAGE:-ghcr.io/zensgit/cad-ml-platform:main}
+    platform: linux/amd64
     pull_policy: always

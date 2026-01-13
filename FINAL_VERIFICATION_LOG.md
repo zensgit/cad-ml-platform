@@ -1256,6 +1256,10 @@
   - Published GHCR image with L3 deps disabled and verified pull on linux/amd64.
   - Tests: `gh workflow run ghcr-publish.yml`, `gh run watch 20955972127 --exit-status`, `docker pull --platform linux/amd64 ghcr.io/zensgit/cad-ml-platform:main`
   - Report: `reports/DEV_GHCR_PUBLISH_VALIDATION_20260113.md`
+- **GHCR Preprod Compose Run (Local)**:
+  - Started GHCR image via compose and validated `/health`, `/ready`, and `/metrics/`.
+  - Tests: `docker compose -f deployments/docker/docker-compose.yml -f deployments/docker/docker-compose.ghcr.yml -f deployments/docker/docker-compose.external-network.yml up -d --no-build --pull=never --force-recreate`, `curl -fsS http://localhost:8000/health`, `curl -fsS http://localhost:8000/ready`, `curl -fsS http://localhost:8000/metrics/`
+  - Report: `reports/DEV_GHCR_PREPROD_COMPOSE_RUN_20260113.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

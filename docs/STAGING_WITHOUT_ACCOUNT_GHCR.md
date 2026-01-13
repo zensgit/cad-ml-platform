@@ -22,6 +22,13 @@ docker compose -f deployments/docker/docker-compose.yml \
   -f deployments/docker/docker-compose.ghcr.yml up -d --no-build
 ```
 
+If Docker reports an existing `cad-ml-network` with the wrong label, add the external network override:
+```bash
+docker compose -f deployments/docker/docker-compose.yml \
+  -f deployments/docker/docker-compose.ghcr.yml \
+  -f deployments/docker/docker-compose.external-network.yml up -d --no-build
+```
+
 ## Optional: Dedup2D staging overrides
 ```bash
 export CAD_ML_IMAGE=ghcr.io/zensgit/cad-ml-platform:main
@@ -44,3 +51,4 @@ curl -fsS http://localhost:9090/metrics | head -n 20
 - Use `CAD_ML_IMAGE=ghcr.io/<org>/<repo>:sha-<commit>` for pinned rollbacks.
 - Keep GHCR images public or grant `packages:read` to the CI/service account.
 - GHCR builds default to `INSTALL_L3_DEPS=0`. Re-run the workflow with input `install_l3_deps=1` if L3 deps are required.
+- GHCR images are published as linux/amd64; Docker will use emulation on arm64 hosts.
