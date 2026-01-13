@@ -14,6 +14,8 @@ Provide a lightweight staging-like workflow using prebuilt GHCR images when no s
 
 # Use the prebuilt image
 export CAD_ML_IMAGE=ghcr.io/zensgit/cad-ml-platform:main
+# Optional: override platform when running on arm64 hosts
+# export CAD_ML_PLATFORM=linux/arm64
 
 docker compose -f deployments/docker/docker-compose.yml \
   -f deployments/docker/docker-compose.ghcr.yml pull
@@ -51,4 +53,4 @@ curl -fsS http://localhost:9090/metrics | head -n 20
 - Use `CAD_ML_IMAGE=ghcr.io/<org>/<repo>:sha-<commit>` for pinned rollbacks.
 - Keep GHCR images public or grant `packages:read` to the CI/service account.
 - GHCR builds default to `INSTALL_L3_DEPS=0`. Re-run the workflow with input `install_l3_deps=1` if L3 deps are required.
-- GHCR images are published as linux/amd64; Docker will use emulation on arm64 hosts.
+- GHCR images publish both `linux/amd64` and `linux/arm64`; set `CAD_ML_PLATFORM` to pin the platform if needed.

@@ -1265,6 +1265,11 @@
   - Tests: `docker compose -f deployments/docker/docker-compose.yml -f deployments/docker/docker-compose.ghcr.yml -f deployments/docker/docker-compose.external-network.yml config`, `COMPOSE_FILE=/tmp/cadml-ghcr-smoke-compose.yml CAD_ML_IMAGE=ghcr.io/zensgit/cad-ml-platform:main SKIP_BUILD=1 bash scripts/ci/docker_staging_smoke.sh`
   - Design: `docs/GHCR_PREPROD_SMOKE_VALIDATION_DESIGN.md`
   - Report: `reports/DEV_GHCR_PREPROD_SMOKE_20260113.md`
+- **GHCR Multi-Arch Publish Config**:
+  - Enabled multi-arch publish and platform override for GHCR compose usage.
+  - Tests: `CAD_ML_IMAGE=ghcr.io/zensgit/cad-ml-platform:main CAD_ML_PLATFORM=linux/arm64 docker compose -f deployments/docker/docker-compose.yml -f deployments/docker/docker-compose.ghcr.yml config`
+  - Design: `docs/GHCR_MULTIARCH_PUBLISH_DESIGN.md`
+  - Report: `reports/DEV_GHCR_MULTIARCH_CONFIG_20260113.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

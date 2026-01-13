@@ -1645,6 +1645,7 @@ docker-compose down
 
 # 使用 GHCR 预构建镜像（无本地 build）
 CAD_ML_IMAGE=ghcr.io/zensgit/cad-ml-platform:main \\
+# 可选：arm64 主机使用 CAD_ML_PLATFORM=linux/arm64
   docker compose -f deployments/docker/docker-compose.yml \\
   -f deployments/docker/docker-compose.ghcr.yml up -d --no-build
 ```

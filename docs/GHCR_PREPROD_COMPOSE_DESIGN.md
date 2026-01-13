@@ -14,5 +14,5 @@
 - Use `--no-build` with the GHCR override to avoid local builds.
 - Validate compose config locally before sharing the workflow.
 - Default GHCR builds skip `requirements-l3.txt` via `INSTALL_L3_DEPS=0` to avoid optional heavy deps.
-- GHCR images target linux/amd64; the compose override sets `platform: linux/amd64` for GHCR services.
+- GHCR images publish `linux/amd64` and `linux/arm64`; compose can pin via `CAD_ML_PLATFORM`.
 - Provide an external network override when `cad-ml-network` already exists with mismatched labels.
