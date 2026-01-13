@@ -1270,6 +1270,10 @@
   - Tests: `CAD_ML_IMAGE=ghcr.io/zensgit/cad-ml-platform:main CAD_ML_PLATFORM=linux/arm64 docker compose -f deployments/docker/docker-compose.yml -f deployments/docker/docker-compose.ghcr.yml config`
   - Design: `docs/GHCR_MULTIARCH_PUBLISH_DESIGN.md`
   - Report: `reports/DEV_GHCR_MULTIARCH_CONFIG_20260113.md`
+- **GHCR Multi-Arch Publish Validation**:
+  - Published multi-arch GHCR manifest and validated arm64 pull.
+  - Tests: `gh run watch 20959475194 --exit-status`, `docker buildx imagetools inspect ghcr.io/zensgit/cad-ml-platform:main`, `docker pull --platform linux/arm64 ghcr.io/zensgit/cad-ml-platform:main`
+  - Report: `reports/DEV_GHCR_MULTIARCH_PUBLISH_VALIDATION_20260113.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
