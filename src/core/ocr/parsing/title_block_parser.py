@@ -127,7 +127,8 @@ TITLE_BLOCK_PATTERNS: Tuple[Tuple[str, str], ...] = (
     (
         "scale",
         r"(?:比例|比例尺|scale)[:：\s]*"
-        r"([0-9]+\s*[:/\-]\s*[0-9]+|[0-9]+(?:\.[0-9]+)?)",
+        r"([0-9]+\s*[:/\-]\s*[0-9]+|[0-9]+(?:\.[0-9]+)?|"
+        r"N\.?\s*T\.?\s*S\.?|not\s*to\s*scale)",
     ),
     (
         "sheet",
@@ -178,6 +179,25 @@ def _normalize_sheet(value: str) -> str:
     return value
 
 
+def _normalize_scale(value: str) -> str:
+    normalized = value.strip()
+    if re.fullmatch(r"n\.?\s*t\.?\s*s\.?", normalized, re.IGNORECASE):
+        return "NTS"
+    if re.fullmatch(r"not\s*to\s*scale", normalized, re.IGNORECASE):
+        return "NTS"
+    normalized = re.sub(r"\s*([:/-])\s*", r"\1", normalized)
+    return normalized
+
+
+def _normalize_projection(value: str) -> str:
+    normalized = value.strip().lower()
+    if normalized in {"first", "1st", "第一角"}:
+        return "first"
+    if normalized in {"third", "3rd", "第三角"}:
+        return "third"
+    return value.strip()
+
+
 def parse_title_block(text: str) -> Dict[str, str]:
     values: Dict[str, str] = {}
     if not text:
@@ -191,6 +211,10 @@ def parse_title_block(text: str) -> Dict[str, str]:
             continue
         if field == "sheet":
             value = _normalize_sheet(value)
+        elif field == "scale":
+            value = _normalize_scale(value)
+        elif field == "projection":
+            value = _normalize_projection(value)
         values[field] = value
     return values
 
@@ -216,6 +240,10 @@ def parse_title_block_with_confidence(
                 continue
             if field == "sheet":
                 value = _normalize_sheet(value)
+            elif field == "scale":
+                value = _normalize_scale(value)
+            elif field == "projection":
+                value = _normalize_projection(value)
             values[field] = value
             if isinstance(score, (int, float)):
                 confidences[field] = float(score)

@@ -40,7 +40,7 @@ def test_parse_title_block_chinese() -> None:
     assert parsed["date"] == "2025/01/02"
     assert parsed["weight"] == "3.2kg"
     assert parsed["company"] == "ACME"
-    assert parsed["projection"] == "第三角"
+    assert parsed["projection"] == "third"
 
 
 def test_parse_title_block_with_confidence() -> None:
@@ -64,3 +64,15 @@ def test_parse_title_block_aliases() -> None:
     assert parsed["material"] == "Steel"
     assert parsed["sheet"] == "2/4"
     assert parsed["weight"] == "1.2kg"
+
+
+def test_parse_title_block_scale_nts() -> None:
+    text = "Scale: N.T.S."
+    parsed = parse_title_block(text)
+    assert parsed["scale"] == "NTS"
+
+
+def test_parse_title_block_scale_spacing_normalized() -> None:
+    text = "Scale 1 : 2"
+    parsed = parse_title_block(text)
+    assert parsed["scale"] == "1:2"

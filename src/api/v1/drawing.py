@@ -113,9 +113,9 @@ def _input_error_response(provider: str, detail: str) -> DrawingRecognitionRespo
 
 @router.post("/recognize", response_model=DrawingRecognitionResponse)
 async def recognize_drawing(
+    request: Request,
     file: UploadFile = File(...),
     provider: str = "auto",
-    request: Optional[Request] = None,
     idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ) -> DrawingRecognitionResponse:
     trace_id = str(uuid.uuid4())
@@ -132,8 +132,7 @@ async def recognize_drawing(
             )
             return DrawingRecognitionResponse(**cached_response)
 
-    if request is not None:
-        rate_limit(request)
+    rate_limit(request)
 
     try:
         image_bytes, _ = await validate_and_read(file)

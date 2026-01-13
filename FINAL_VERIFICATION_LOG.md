@@ -1242,6 +1242,11 @@
   - Tests: `make lint`, `make type-check`
   - Design: `docs/QUALITY_GATE_LINT_TYPECHECK_DESIGN.md`
   - Report: `reports/DEV_QUALITY_GATE_LINT_TYPECHECK_20260112.md`
+- **Drawing Recognition Title Block Normalization**:
+  - Normalized scale and projection values for title block parsing.
+  - Tests: `pytest tests/ocr/test_title_block_parser.py tests/ocr/test_drawing_endpoint.py -v`
+  - Design: `docs/DRAWING_RECOGNITION_TITLE_BLOCK_NORMALIZATION_DESIGN.md`
+  - Report: `reports/DEV_DRAWING_RECOGNITION_TITLE_BLOCK_NORMALIZATION_20260112.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
