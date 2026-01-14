@@ -45,6 +45,7 @@ def test_drawing_recognize_smoke(monkeypatch) -> None:
     data = resp.json()
     field_map = {field["key"]: field for field in data["fields"]}
     title_block = data["title_block"]
+    field_confidence = data["field_confidence"]
     assert field_map["drawing_number"]["value"] == "DWG-123"
     assert field_map["drawing_number"]["confidence"] == 0.93
     assert field_map["material"]["confidence"] == 0.71
@@ -52,6 +53,9 @@ def test_drawing_recognize_smoke(monkeypatch) -> None:
     assert field_map["part_name"]["value"] == "Bracket"
     assert title_block["drawing_number"] == "DWG-123"
     assert title_block["material"] == "Aluminum"
+    assert field_confidence["drawing_number"] == 0.93
+    assert field_confidence["material"] == 0.71
+    assert field_confidence["part_name"] == 0.9
     assert data["dimensions"]
 
 

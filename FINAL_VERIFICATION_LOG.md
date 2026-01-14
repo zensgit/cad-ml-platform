@@ -1267,6 +1267,11 @@
   - Tests: `pytest tests/test_routes_smoke.py -v`
   - Design: `docs/OCR_BASE64_DESIGN.md`
   - Report: `reports/DEV_OCR_BASE64_20260113.md`
+- **Drawing Recognition Field Confidence Map**:
+  - Added `field_confidence` map for title block values.
+  - Tests: `pytest tests/ocr/test_drawing_endpoint.py -v`
+  - Design: `docs/DRAWING_RECOGNITION_FIELD_CONFIDENCE_MAP_DESIGN.md`
+  - Report: `reports/DEV_DRAWING_RECOGNITION_FIELD_CONFIDENCE_MAP_20260113.md`
 - **GHCR Preprod Compose Path (No Staging Account)**:
   - Added GHCR image publish workflow and compose override for prebuilt images.
   - Tests: `docker compose -f deployments/docker/docker-compose.yml -f deployments/docker/docker-compose.ghcr.yml config`

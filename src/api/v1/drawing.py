@@ -73,6 +73,7 @@ class DrawingRecognitionResponse(BaseModel):
     confidence: Optional[float] = None
     processing_time_ms: Optional[int] = None
     title_block: Dict[str, Optional[str]] = Field(default_factory=dict)
+    field_confidence: Dict[str, Optional[float]] = Field(default_factory=dict)
     fields: List[DrawingField] = Field(default_factory=list)
     dimensions: List[Dict[str, Any]] = Field(default_factory=list)
     symbols: List[Dict[str, Any]] = Field(default_factory=list)
@@ -105,6 +106,24 @@ def _build_fields(
     return fields
 
 
+def _build_field_confidence(
+    title_block: TitleBlock,
+    confidence: Optional[float],
+    field_confidence: Optional[Dict[str, float]] = None,
+) -> Dict[str, Optional[float]]:
+    result: Dict[str, Optional[float]] = {}
+    for key in FIELD_LABELS:
+        value = getattr(title_block, key, None)
+        if value is None:
+            result[key] = None
+            continue
+        if field_confidence and key in field_confidence:
+            result[key] = field_confidence[key]
+        else:
+            result[key] = confidence
+    return result
+
+
 def _input_error_response(provider: str, detail: str) -> DrawingRecognitionResponse:
     from src.utils.metrics import ocr_errors_total, ocr_input_rejected_total
 
@@ -133,6 +152,7 @@ def _input_error_response(provider: str, detail: str) -> DrawingRecognitionRespo
         confidence=None,
         processing_time_ms=0,
         title_block={},
+        field_confidence={},
         fields=[],
         dimensions=[],
         symbols=[],
@@ -168,6 +188,7 @@ async def _run_recognition(
             confidence=None,
             processing_time_ms=0,
             title_block={},
+            field_confidence={},
             fields=[],
             dimensions=[],
             symbols=[],
@@ -188,6 +209,7 @@ async def _run_recognition(
             confidence=None,
             processing_time_ms=0,
             title_block={},
+            field_confidence={},
             fields=[],
             dimensions=[],
             symbols=[],
@@ -202,6 +224,11 @@ async def _run_recognition(
         confidence=confidence,
         processing_time_ms=result.processing_time_ms,
         title_block=result.title_block.model_dump(),
+        field_confidence=_build_field_confidence(
+            result.title_block,
+            confidence,
+            result.title_block_confidence,
+        ),
         fields=_build_fields(result.title_block, confidence, result.title_block_confidence),
         dimensions=[d.model_dump() for d in result.dimensions],
         symbols=[s.model_dump() for s in result.symbols],
