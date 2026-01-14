@@ -946,6 +946,19 @@ Vision 请求可携带 `include_cad_stats` 与 `cad_feature_thresholds`：
 }
 ```
 
+#### OCR / Drawing Base64 示例
+`image_base64` 支持 data URL 前缀或纯 base64；上传 PDF 可额外传 `content_type`.
+
+```bash
+curl -s http://localhost:8000/api/v1/ocr/extract-base64 \
+  -H "Content-Type: application/json" \
+  -d '{"image_base64":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAkYp9V0AAAAASUVORK5CYII=","provider":"auto","filename":"drawing.png"}' | jq
+
+curl -s http://localhost:8000/api/v1/drawing/recognize-base64 \
+  -H "Content-Type: application/json" \
+  -d '{"image_base64":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAkYp9V0AAAAASUVORK5CYII=","provider":"auto","filename":"drawing.png"}' | jq
+```
+
 #### cad_feature_thresholds 快速参考
 - `max_dim` (默认 256): 下采样最大边长（像素）
 - `ink_threshold` (默认 200): 像素阈值（灰度 < 阈值视为线条）

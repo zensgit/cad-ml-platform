@@ -1272,6 +1272,11 @@
   - Tests: `pytest tests/ocr/test_drawing_endpoint.py -v`
   - Design: `docs/DRAWING_RECOGNITION_FIELD_CONFIDENCE_MAP_DESIGN.md`
   - Report: `reports/DEV_DRAWING_RECOGNITION_FIELD_CONFIDENCE_MAP_20260113.md`
+- **OCR/Drawing Base64 Examples**:
+  - Added README examples for OCR and drawing base64 endpoints.
+  - Tests: Not run (documentation-only update).
+  - Design: `docs/OCR_DRAWING_BASE64_EXAMPLES_DESIGN.md`
+  - Report: `reports/DEV_OCR_DRAWING_BASE64_EXAMPLES_20260113.md`
 - **GHCR Preprod Compose Path (No Staging Account)**:
   - Added GHCR image publish workflow and compose override for prebuilt images.
   - Tests: `docker compose -f deployments/docker/docker-compose.yml -f deployments/docker/docker-compose.ghcr.yml config`
