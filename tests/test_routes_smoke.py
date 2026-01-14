@@ -32,3 +32,8 @@ def test_drawing_recognize_route_exists():
     resp = client.post("/api/v1/drawing/recognize?provider=auto", files=files)
     # Endpoint should exist and not be 404 due to routing
     assert resp.status_code in (200, 400, 415, 429, 500)
+
+
+def test_drawing_fields_route_exists():
+    resp = client.get("/api/v1/drawing/fields")
+    assert resp.status_code == 200

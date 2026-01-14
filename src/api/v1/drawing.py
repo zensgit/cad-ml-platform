@@ -41,11 +41,21 @@ class DrawingField(BaseModel):
     confidence: Optional[float] = None
 
 
+class DrawingFieldDefinition(BaseModel):
+    key: str
+    label: str
+
+
+class DrawingFieldCatalogResponse(BaseModel):
+    fields: List[DrawingFieldDefinition] = Field(default_factory=list)
+
+
 class DrawingRecognitionResponse(BaseModel):
     success: bool = Field(True, description="Whether recognition succeeded")
     provider: str
     confidence: Optional[float] = None
     processing_time_ms: Optional[int] = None
+    title_block: Dict[str, Optional[str]] = Field(default_factory=dict)
     fields: List[DrawingField] = Field(default_factory=list)
     dimensions: List[Dict[str, Any]] = Field(default_factory=list)
     symbols: List[Dict[str, Any]] = Field(default_factory=list)
@@ -103,6 +113,7 @@ def _input_error_response(provider: str, detail: str) -> DrawingRecognitionRespo
         provider=provider,
         confidence=None,
         processing_time_ms=0,
+        title_block={},
         fields=[],
         dimensions=[],
         symbols=[],
@@ -154,6 +165,7 @@ async def recognize_drawing(
             provider=provider,
             confidence=None,
             processing_time_ms=0,
+            title_block={},
             fields=[],
             dimensions=[],
             symbols=[],
@@ -173,6 +185,7 @@ async def recognize_drawing(
             provider=provider,
             confidence=None,
             processing_time_ms=0,
+            title_block={},
             fields=[],
             dimensions=[],
             symbols=[],
@@ -186,6 +199,7 @@ async def recognize_drawing(
         provider=result.provider or provider,
         confidence=confidence,
         processing_time_ms=result.processing_time_ms,
+        title_block=result.title_block.model_dump(),
         fields=_build_fields(result.title_block, confidence, result.title_block_confidence),
         dimensions=[d.model_dump() for d in result.dimensions],
         symbols=[s.model_dump() for s in result.symbols],
@@ -213,3 +227,13 @@ async def recognize_drawing(
         )
 
     return response
+
+
+@router.get("/fields", response_model=DrawingFieldCatalogResponse)
+async def list_drawing_fields() -> DrawingFieldCatalogResponse:
+    return DrawingFieldCatalogResponse(
+        fields=[
+            DrawingFieldDefinition(key=key, label=label)
+            for key, label in FIELD_LABELS.items()
+        ]
+    )

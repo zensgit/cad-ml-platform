@@ -39,9 +39,25 @@ def test_drawing_recognize_smoke(monkeypatch) -> None:
 
     data = resp.json()
     field_map = {field["key"]: field for field in data["fields"]}
+    title_block = data["title_block"]
     assert field_map["drawing_number"]["value"] == "DWG-123"
     assert field_map["drawing_number"]["confidence"] == 0.93
     assert field_map["material"]["confidence"] == 0.71
     assert field_map["part_name"]["confidence"] == 0.9
     assert field_map["part_name"]["value"] == "Bracket"
+    assert title_block["drawing_number"] == "DWG-123"
+    assert title_block["material"] == "Aluminum"
     assert data["dimensions"]
+
+
+def test_drawing_fields_catalog() -> None:
+    app = FastAPI()
+    app.include_router(drawing.router, prefix="/api/v1/drawing")
+    client = TestClient(app)
+
+    resp = client.get("/api/v1/drawing/fields")
+    assert resp.status_code == 200
+    payload = resp.json()
+    field_keys = {field["key"] for field in payload["fields"]}
+    assert "drawing_number" in field_keys
+    assert "revision" in field_keys
