@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import logging
 import uuid
 from typing import Dict, List, Optional
@@ -17,7 +19,7 @@ from src.core.ocr.manager import OcrManager
 from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
 from src.core.ocr.providers.paddle import PaddleOcrProvider
 from src.middleware.rate_limit import rate_limit
-from src.security.input_validator import validate_and_read
+from src.security.input_validator import validate_and_read, validate_bytes
 from src.utils.idempotency import check_idempotency, store_idempotency
 
 logger = logging.getLogger(__name__)
@@ -49,6 +51,13 @@ class OcrResponse(BaseModel):
     title_block: Dict
     error: Optional[str] = None
     code: Optional[ErrorCode] = None
+
+
+class OcrBase64Request(BaseModel):
+    image_base64: str = Field(..., description="Base64-encoded image or PDF bytes")
+    provider: str = Field("auto", description="OCR provider override")
+    filename: Optional[str] = Field(None, description="Optional filename hint")
+    content_type: Optional[str] = Field(None, description="Optional MIME hint")
 
 
 class OcrProviderStatus(BaseModel):
@@ -105,6 +114,125 @@ def summarize_provider_health(statuses: List[OcrProviderStatus]) -> str:
     return "unhealthy"
 
 
+def _input_error_response(provider: str, detail: str) -> OcrResponse:
+    from src.utils.metrics import ocr_errors_total, ocr_input_rejected_total
+
+    detail_lower = detail.lower()
+    if "mime" in detail_lower:
+        reason = "invalid_mime"
+    elif "base64" in detail_lower:
+        reason = "base64_invalid"
+    elif "too large" in detail_lower:
+        reason = "file_too_large"
+    elif "page count" in detail_lower:
+        reason = "pdf_pages_exceed"
+    elif "forbidden token" in detail_lower:
+        reason = "pdf_forbidden_token"
+    else:
+        reason = "validation_failed"
+    ocr_input_rejected_total.labels(reason=reason).inc()
+    ocr_errors_total.labels(
+        provider=provider,
+        code=ErrorCode.INPUT_ERROR.value,
+        stage="preprocess",
+    ).inc()
+    return OcrResponse(
+        success=False,
+        provider=provider,
+        confidence=None,
+        fallback_level=None,
+        processing_time_ms=0,
+        dimensions=[],
+        symbols=[],
+        title_block={},
+        error=detail,
+        code=ErrorCode.INPUT_ERROR,
+    )
+
+
+def _strip_base64_prefix(payload: str) -> str:
+    cleaned = payload.strip()
+    if cleaned.startswith("data:") and "base64," in cleaned:
+        return cleaned.split("base64,", 1)[1]
+    return cleaned
+
+
+async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> OcrResponse:
+    manager = get_manager()
+    try:
+        result = await manager.extract(
+            image_bytes,
+            strategy=provider,
+            trace_id=trace_id,
+        )
+    except OcrError as oe:  # provider down, rate limit, circuit, etc.
+        return OcrResponse(
+            success=False,
+            provider=provider,
+            confidence=None,
+            fallback_level=None,
+            processing_time_ms=0,
+            dimensions=[],
+            symbols=[],
+            title_block={},
+            error=str(oe),
+            code=oe.code if isinstance(oe.code, ErrorCode) else ErrorCode.INTERNAL_ERROR,
+        )
+    except Exception:  # unknown internal error
+        from src.utils.metrics import ocr_errors_total
+
+        ocr_errors_total.labels(
+            provider=provider,
+            code=ErrorCode.INTERNAL_ERROR.value,
+            stage="infer",
+        ).inc()
+        return OcrResponse(
+            success=False,
+            provider=provider,
+            confidence=None,
+            fallback_level=None,
+            processing_time_ms=0,
+            dimensions=[],
+            symbols=[],
+            title_block={},
+            error="OCR extraction failed",
+            code=ErrorCode.INTERNAL_ERROR,
+        )
+
+    # Calibrate confidence (single evidence source for now)
+    if result.confidence is not None:
+        if _calibrator.calibrator is not None:
+            cal = _calibrator.calibrator.calibrate(result.confidence)
+            result.calibrated_confidence = cal
+        else:
+            result.calibrated_confidence = result.confidence
+    logger.info(
+        "ocr.extract",
+        extra={
+            "provider": result.provider or provider,
+            "latency_ms": result.processing_time_ms,
+            "fallback_level": result.fallback_level,
+            "image_hash": result.image_hash,
+            "completeness": result.completeness,
+            "calibrated_confidence": (result.calibrated_confidence or result.confidence),
+            "trace_id": trace_id,
+            "extraction_mode": result.extraction_mode,
+            "dimensions_count": len(result.dimensions),
+            "symbols_count": len(result.symbols),
+            "stages_latency_ms": result.stages_latency_ms,
+        },
+    )
+    return OcrResponse(
+        provider=result.provider or provider,
+        confidence=(result.calibrated_confidence or result.confidence),
+        fallback_level=result.fallback_level,
+        processing_time_ms=result.processing_time_ms,
+        dimensions=[d.model_dump() for d in result.dimensions],
+        symbols=[s.model_dump() for s in result.symbols],
+        title_block=result.title_block.model_dump(),
+    )
+
+
 @router.post("/extract", response_model=OcrResponse)
 async def ocr_extract(
     file: UploadFile = File(...),
@@ -134,136 +262,15 @@ async def ocr_extract(
         rate_limit(request)
     try:
         try:
-            image_bytes, mime = await validate_and_read(file)
+            image_bytes, _ = await validate_and_read(file)
         except HTTPException as ve:
-            from src.utils.metrics import ocr_errors_total, ocr_input_rejected_total
-
-            # Map HTTPException status to reason label when possible
-            detail = str(ve.detail).lower()
-            if "mime" in detail:
-                ocr_input_rejected_total.labels(reason="invalid_mime").inc()
-            elif "too large" in detail:
-                ocr_input_rejected_total.labels(reason="file_too_large").inc()
-            elif "page count" in detail:
-                ocr_input_rejected_total.labels(reason="pdf_pages_exceed").inc()
-            elif "forbidden token" in detail:
-                ocr_input_rejected_total.labels(reason="pdf_forbidden_token").inc()
-            else:
-                ocr_input_rejected_total.labels(reason="validation_failed").inc()
-            ocr_errors_total.labels(
-                provider=provider,
-                code=ErrorCode.INPUT_ERROR.value,
-                stage="preprocess",
-            ).inc()
-            return OcrResponse(
-                success=False,
-                provider=provider,
-                confidence=None,
-                fallback_level=None,
-                processing_time_ms=0,
-                dimensions=[],
-                symbols=[],
-                title_block={},
-                error=str(ve.detail),
-                code=ErrorCode.INPUT_ERROR,
-            )
+            return _input_error_response(provider, str(ve.detail))
         except Exception:
-            from src.utils.metrics import ocr_errors_total, ocr_input_rejected_total
+            return _input_error_response(provider, "Input validation failed")
 
-            ocr_input_rejected_total.labels(reason="validation_failed").inc()
-            ocr_errors_total.labels(
-                provider=provider,
-                code=ErrorCode.INPUT_ERROR.value,
-                stage="preprocess",
-            ).inc()
-            return OcrResponse(
-                success=False,
-                provider=provider,
-                confidence=None,
-                fallback_level=None,
-                processing_time_ms=0,
-                dimensions=[],
-                symbols=[],
-                title_block={},
-                error="Input validation failed",
-                code=ErrorCode.INPUT_ERROR,
-            )
-        manager = get_manager()
-        try:
-            result = await manager.extract(
-                image_bytes,
-                strategy=provider,
-                trace_id=trace_id,
-            )
-        except OcrError as oe:  # provider down, rate limit, circuit, etc.
-            return OcrResponse(
-                success=False,
-                provider=provider,
-                confidence=None,
-                fallback_level=None,
-                processing_time_ms=0,
-                dimensions=[],
-                symbols=[],
-                title_block={},
-                error=str(oe),
-                code=oe.code if isinstance(oe.code, ErrorCode) else ErrorCode.INTERNAL_ERROR,
-            )
-        except Exception:  # unknown internal error
-            from src.utils.metrics import ocr_errors_total
+        response = await _run_ocr_extract(image_bytes, provider, trace_id)
 
-            ocr_errors_total.labels(
-                provider=provider,
-                code=ErrorCode.INTERNAL_ERROR.value,
-                stage="infer",
-            ).inc()
-            return OcrResponse(
-                success=False,
-                provider=provider,
-                confidence=None,
-                fallback_level=None,
-                processing_time_ms=0,
-                dimensions=[],
-                symbols=[],
-                title_block={},
-                error="OCR extraction failed",
-                code=ErrorCode.INTERNAL_ERROR,
-            )
-        # Calibrate confidence (single evidence source for now)
-        if result.confidence is not None:
-            if _calibrator.calibrator is not None:
-                cal = _calibrator.calibrator.calibrate(result.confidence)
-                result.calibrated_confidence = cal
-            else:
-                result.calibrated_confidence = result.confidence
-        logger.info(
-            "ocr.extract",
-            extra={
-                "provider": result.provider or provider,
-                "latency_ms": result.processing_time_ms,
-                "fallback_level": result.fallback_level,
-                "image_hash": result.image_hash,
-                "completeness": result.completeness,
-                "calibrated_confidence": (result.calibrated_confidence or result.confidence),
-                "trace_id": trace_id,
-                "extraction_mode": result.extraction_mode,
-                "dimensions_count": len(result.dimensions),
-                "symbols_count": len(result.symbols),
-                "stages_latency_ms": result.stages_latency_ms,
-                "idempotency_key": idempotency_key,
-            },
-        )
-        response = OcrResponse(
-            provider=result.provider or provider,
-            confidence=(result.calibrated_confidence or result.confidence),
-            fallback_level=result.fallback_level,
-            processing_time_ms=result.processing_time_ms,
-            dimensions=[d.model_dump() for d in result.dimensions],
-            symbols=[s.model_dump() for s in result.symbols],
-            title_block=result.title_block.model_dump(),
-        )
-
-        # Store in idempotency cache if key provided
-        if idempotency_key:
+        if idempotency_key and response.success:
             await store_idempotency(
                 idempotency_key,
                 response.model_dump(),
@@ -316,6 +323,66 @@ async def ocr_extract(
             error="OCR extraction failed",
             code=ErrorCode.INTERNAL_ERROR,
         )
+
+
+@router.post("/extract-base64", response_model=OcrResponse)
+async def ocr_extract_base64(
+    payload: OcrBase64Request,
+    request: Request = None,
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+) -> OcrResponse:
+    trace_id = str(uuid.uuid4())
+    provider = payload.provider
+
+    if idempotency_key:
+        cached_response = await check_idempotency(
+            idempotency_key,
+            endpoint="ocr",
+        )
+        if cached_response:
+            logger.info(
+                "ocr.extract.idempotency_hit",
+                extra={
+                    "idempotency_key": idempotency_key,
+                    "trace_id": trace_id,
+                },
+            )
+            return OcrResponse(**cached_response)
+
+    if request is not None:
+        rate_limit(request)
+
+    try:
+        cleaned = _strip_base64_prefix(payload.image_base64)
+        if not cleaned:
+            return _input_error_response(provider, "Base64 payload empty")
+        image_bytes = base64.b64decode(cleaned, validate=True)
+        if not image_bytes:
+            return _input_error_response(provider, "Base64 payload empty")
+    except (binascii.Error, ValueError) as exc:
+        return _input_error_response(provider, f"Invalid base64 image data: {exc}")
+
+    try:
+        image_bytes, _ = validate_bytes(
+            image_bytes,
+            filename=payload.filename or "",
+            content_type=payload.content_type,
+        )
+    except HTTPException as ve:
+        return _input_error_response(provider, str(ve.detail))
+    except Exception:
+        return _input_error_response(provider, "Input validation failed")
+
+    response = await _run_ocr_extract(image_bytes, provider, trace_id)
+
+    if idempotency_key and response.success:
+        await store_idempotency(
+            idempotency_key,
+            response.model_dump(),
+            endpoint="ocr",
+        )
+
+    return response
 
 
 @router.get("/providers", response_model=OcrProvidersResponse)

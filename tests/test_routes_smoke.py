@@ -26,6 +26,14 @@ def test_ocr_extract_route_exists():
     assert resp.status_code in (200, 400, 415, 500)
 
 
+def test_ocr_extract_base64_route_exists():
+    payload = {
+        "image_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAkYp9V0AAAAASUVORK5CYII="
+    }
+    resp = client.post("/api/v1/ocr/extract-base64", json=payload)
+    assert resp.status_code in (200, 400, 415, 500)
+
+
 def test_drawing_recognize_route_exists():
     # Send a tiny fake image payload
     files = {"file": ("test.png", b"fake_image_bytes", "image/png")}

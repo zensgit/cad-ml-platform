@@ -1262,6 +1262,11 @@
   - Tests: `pytest tests/test_routes_smoke.py -v`
   - Design: `docs/OCR_PROVIDER_HEALTH_DESIGN.md`
   - Report: `reports/DEV_OCR_PROVIDER_HEALTH_20260113.md`
+- **OCR Base64 Input**:
+  - Added base64 JSON endpoint for OCR extraction.
+  - Tests: `pytest tests/test_routes_smoke.py -v`
+  - Design: `docs/OCR_BASE64_DESIGN.md`
+  - Report: `reports/DEV_OCR_BASE64_20260113.md`
 - **GHCR Preprod Compose Path (No Staging Account)**:
   - Added GHCR image publish workflow and compose override for prebuilt images.
   - Tests: `docker compose -f deployments/docker/docker-compose.yml -f deployments/docker/docker-compose.ghcr.yml config`
