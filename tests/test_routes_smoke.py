@@ -37,3 +37,11 @@ def test_drawing_recognize_route_exists():
 def test_drawing_fields_route_exists():
     resp = client.get("/api/v1/drawing/fields")
     assert resp.status_code == 200
+
+
+def test_drawing_recognize_base64_route_exists():
+    payload = {
+        "image_base64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAkYp9V0AAAAASUVORK5CYII="
+    }
+    resp = client.post("/api/v1/drawing/recognize-base64", json=payload)
+    assert resp.status_code == 200

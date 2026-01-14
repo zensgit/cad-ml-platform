@@ -44,6 +44,15 @@ _PDF_FORBIDDEN_TOKENS = (
     b"/OpenAction",
     b"/Launch",
 )
+_IMAGE_SIGNATURES = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+    (b"BM", "image/bmp"),
+    (b"II*\x00", "image/tiff"),
+    (b"MM\x00*", "image/tiff"),
+)
 
 
 def verify_signature(data: bytes, file_format: str) -> Tuple[bool, str]:
@@ -163,6 +172,15 @@ def sniff_mime(data: bytes) -> Tuple[str, bool]:
         return "application/octet-stream", False
 
 
+def _looks_like_image(data: bytes) -> bool:
+    if not data:
+        return False
+    for signature, _mime in _IMAGE_SIGNATURES:
+        if data.startswith(signature):
+            return True
+    return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
+
+
 def is_supported_mime(mime: str) -> bool:
     # Allow common CAD / text / octet-stream placeholders plus known specific MIME types
     allowed_exact = {
@@ -192,6 +210,7 @@ __all__ = [
     "deep_format_validate",
     "load_validation_matrix",
     "matrix_validate",
+    "validate_bytes",
     "validate_and_read",
 ]
 
@@ -213,20 +232,19 @@ def _get_env_float(name: str, default: float) -> float:
 
 
 def _resolve_mime(upload_file: UploadFile, data: bytes) -> str:
+    filename = getattr(upload_file, "filename", "") or ""
+    content_type = getattr(upload_file, "content_type", None)
+    return _resolve_mime_parts(filename, content_type, data)
+
+
+def _resolve_mime_parts(filename: str, content_type: str | None, data: bytes) -> str:
     sniffed_mime, _ = sniff_mime(data)
-    upload_mime = getattr(upload_file, "content_type", None)
-    if isinstance(upload_mime, str):
-        upload_mime = upload_mime.strip()
-    else:
-        upload_mime = ""
+    upload_mime = content_type.strip() if isinstance(content_type, str) else ""
     if upload_mime and upload_mime != "application/octet-stream":
         return upload_mime
     if sniffed_mime and sniffed_mime != "application/octet-stream":
         return sniffed_mime
-    filename = getattr(upload_file, "filename", "") or ""
-    if not isinstance(filename, str):
-        filename = ""
-    ext = os.path.splitext(filename)[1].lower()
+    ext = os.path.splitext(filename or "")[1].lower()
     return _OCR_EXTENSION_MIME_MAP.get(ext, "application/octet-stream")
 
 
@@ -252,13 +270,27 @@ async def validate_and_read(upload_file: UploadFile) -> tuple[bytes, str]:
     Reads file bytes and returns (data, mime). Keeps logic minimal and reuses sniff_mime.
     """
     data = await upload_file.read()
+    filename = upload_file.filename or ""
+    content_type = getattr(upload_file, "content_type", None)
+    return validate_bytes(data, filename=filename, content_type=content_type)
+
+
+def validate_bytes(
+    data: bytes,
+    filename: str = "",
+    content_type: str | None = None,
+) -> tuple[bytes, str]:
     max_mb = _get_env_float("OCR_MAX_FILE_MB", 50.0)
     if max_mb > 0 and len(data) > int(max_mb * 1024 * 1024):
         raise HTTPException(status_code=413, detail="File too large")
-    mime = _resolve_mime(upload_file, data)
-    ext = os.path.splitext(upload_file.filename or "")[1].lower()
+    mime = _resolve_mime_parts(filename, content_type, data)
+    ext = os.path.splitext(filename or "")[1].lower()
     is_pdf = data.startswith(b"%PDF")
-    is_image = mime.startswith("image/") or ext in _OCR_ALLOWED_IMAGE_EXTENSIONS
+    is_image = (
+        mime.startswith("image/")
+        or ext in _OCR_ALLOWED_IMAGE_EXTENSIONS
+        or _looks_like_image(data)
+    )
     if not is_pdf and mime == "application/pdf":
         is_pdf = True
     if not (is_pdf or is_image):

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import logging
 import uuid
 from typing import Any, Dict, List, Optional
@@ -14,7 +16,7 @@ from src.core.errors import ErrorCode
 from src.core.ocr.base import TitleBlock
 from src.core.ocr.exceptions import OcrError
 from src.middleware.rate_limit import rate_limit
-from src.security.input_validator import validate_and_read
+from src.security.input_validator import validate_and_read, validate_bytes
 from src.utils.idempotency import check_idempotency, store_idempotency
 
 logger = logging.getLogger(__name__)
@@ -39,6 +41,13 @@ class DrawingField(BaseModel):
     label: str
     value: Optional[str] = None
     confidence: Optional[float] = None
+
+
+class DrawingRecognitionBase64Request(BaseModel):
+    image_base64: str = Field(..., description="Base64-encoded image or PDF bytes")
+    provider: str = Field("auto", description="OCR provider override")
+    filename: Optional[str] = Field(None, description="Optional filename hint")
+    content_type: Optional[str] = Field(None, description="Optional MIME hint")
 
 
 class DrawingFieldDefinition(BaseModel):
@@ -94,6 +103,8 @@ def _input_error_response(provider: str, detail: str) -> DrawingRecognitionRespo
     detail_lower = detail.lower()
     if "mime" in detail_lower:
         reason = "invalid_mime"
+    elif "base64" in detail_lower:
+        reason = "base64_invalid"
     elif "too large" in detail_lower:
         reason = "file_too_large"
     elif "page count" in detail_lower:
@@ -122,36 +133,19 @@ def _input_error_response(provider: str, detail: str) -> DrawingRecognitionRespo
     )
 
 
-@router.post("/recognize", response_model=DrawingRecognitionResponse)
-async def recognize_drawing(
-    request: Request,
-    file: UploadFile = File(...),
-    provider: str = "auto",
-    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+def _strip_base64_prefix(payload: str) -> str:
+    cleaned = payload.strip()
+    if cleaned.startswith("data:") and "base64," in cleaned:
+        return cleaned.split("base64,", 1)[1]
+    return cleaned
+
+
+async def _run_recognition(
+    image_bytes: bytes,
+    provider: str,
+    trace_id: str,
+    idempotency_key: Optional[str],
 ) -> DrawingRecognitionResponse:
-    trace_id = str(uuid.uuid4())
-
-    if idempotency_key:
-        cached_response = await check_idempotency(idempotency_key, endpoint="drawing")
-        if cached_response:
-            logger.info(
-                "drawing.recognize.idempotency_hit",
-                extra={
-                    "idempotency_key": idempotency_key,
-                    "trace_id": trace_id,
-                },
-            )
-            return DrawingRecognitionResponse(**cached_response)
-
-    rate_limit(request)
-
-    try:
-        image_bytes, _ = await validate_and_read(file)
-    except HTTPException as ve:
-        return _input_error_response(provider, str(ve.detail))
-    except Exception:
-        return _input_error_response(provider, "Input validation failed")
-
     manager = get_manager()
     try:
         result = await manager.extract(
@@ -218,8 +212,98 @@ async def recognize_drawing(
             "idempotency_key": idempotency_key,
         },
     )
+    return response
+
+
+@router.post("/recognize", response_model=DrawingRecognitionResponse)
+async def recognize_drawing(
+    request: Request,
+    file: UploadFile = File(...),
+    provider: str = "auto",
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+) -> DrawingRecognitionResponse:
+    trace_id = str(uuid.uuid4())
 
     if idempotency_key:
+        cached_response = await check_idempotency(idempotency_key, endpoint="drawing")
+        if cached_response:
+            logger.info(
+                "drawing.recognize.idempotency_hit",
+                extra={
+                    "idempotency_key": idempotency_key,
+                    "trace_id": trace_id,
+                },
+            )
+            return DrawingRecognitionResponse(**cached_response)
+
+    rate_limit(request)
+
+    try:
+        image_bytes, _ = await validate_and_read(file)
+    except HTTPException as ve:
+        return _input_error_response(provider, str(ve.detail))
+    except Exception:
+        return _input_error_response(provider, "Input validation failed")
+
+    response = await _run_recognition(image_bytes, provider, trace_id, idempotency_key)
+
+    if idempotency_key and response.success:
+        await store_idempotency(
+            idempotency_key,
+            response.model_dump(),
+            endpoint="drawing",
+        )
+
+    return response
+
+
+@router.post("/recognize-base64", response_model=DrawingRecognitionResponse)
+async def recognize_drawing_base64(
+    payload: DrawingRecognitionBase64Request,
+    request: Request,
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
+) -> DrawingRecognitionResponse:
+    trace_id = str(uuid.uuid4())
+    provider = payload.provider
+
+    if idempotency_key:
+        cached_response = await check_idempotency(idempotency_key, endpoint="drawing")
+        if cached_response:
+            logger.info(
+                "drawing.recognize.idempotency_hit",
+                extra={
+                    "idempotency_key": idempotency_key,
+                    "trace_id": trace_id,
+                },
+            )
+            return DrawingRecognitionResponse(**cached_response)
+
+    rate_limit(request)
+
+    try:
+        cleaned = _strip_base64_prefix(payload.image_base64)
+        if not cleaned:
+            return _input_error_response(provider, "Base64 payload empty")
+        image_bytes = base64.b64decode(cleaned, validate=True)
+        if not image_bytes:
+            return _input_error_response(provider, "Base64 payload empty")
+    except (binascii.Error, ValueError) as exc:
+        return _input_error_response(provider, f"Invalid base64 image data: {exc}")
+
+    try:
+        image_bytes, _ = validate_bytes(
+            image_bytes,
+            filename=payload.filename or "",
+            content_type=payload.content_type,
+        )
+    except HTTPException as ve:
+        return _input_error_response(provider, str(ve.detail))
+    except Exception:
+        return _input_error_response(provider, "Input validation failed")
+
+    response = await _run_recognition(image_bytes, provider, trace_id, idempotency_key)
+
+    if idempotency_key and response.success:
         await store_idempotency(
             idempotency_key,
             response.model_dump(),

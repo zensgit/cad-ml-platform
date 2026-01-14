@@ -6,6 +6,11 @@ from fastapi.testclient import TestClient
 from src.api.v1 import drawing
 from src.core.ocr.base import DimensionInfo, DimensionType, OcrResult, TitleBlock
 
+SAMPLE_BASE64_PNG = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMBAkYp"
+    "9V0AAAAASUVORK5CYII="
+)
+
 
 class DummyManager:
     async def extract(self, image_bytes: bytes, strategy: str = "auto", trace_id: str | None = None) -> OcrResult:
@@ -61,3 +66,19 @@ def test_drawing_fields_catalog() -> None:
     field_keys = {field["key"] for field in payload["fields"]}
     assert "drawing_number" in field_keys
     assert "revision" in field_keys
+
+
+def test_drawing_recognize_base64_smoke(monkeypatch) -> None:
+    monkeypatch.setattr(drawing, "get_manager", lambda: DummyManager())
+
+    app = FastAPI()
+    app.include_router(drawing.router, prefix="/api/v1/drawing")
+    client = TestClient(app)
+
+    payload = {"image_base64": SAMPLE_BASE64_PNG, "provider": "auto"}
+    resp = client.post("/api/v1/drawing/recognize-base64", json=payload)
+    assert resp.status_code == 200
+
+    data = resp.json()
+    assert data["success"] is True
+    assert data["title_block"]["drawing_number"] == "DWG-123"

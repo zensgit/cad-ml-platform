@@ -1252,6 +1252,11 @@
   - Tests: `pytest tests/ocr/test_drawing_endpoint.py tests/test_routes_smoke.py -v`
   - Design: `docs/DRAWING_RECOGNITION_FIELD_CATALOG_DESIGN.md`
   - Report: `reports/DEV_DRAWING_RECOGNITION_FIELD_CATALOG_20260113.md`
+- **Drawing Recognition Base64 Input**:
+  - Added base64 JSON endpoint and byte-level validation helper.
+  - Tests: `pytest tests/ocr/test_drawing_endpoint.py tests/test_routes_smoke.py -v`
+  - Design: `docs/DRAWING_RECOGNITION_BASE64_DESIGN.md`
+  - Report: `reports/DEV_DRAWING_RECOGNITION_BASE64_20260113.md`
 - **GHCR Preprod Compose Path (No Staging Account)**:
   - Added GHCR image publish workflow and compose override for prebuilt images.
   - Tests: `docker compose -f deployments/docker/docker-compose.yml -f deployments/docker/docker-compose.ghcr.yml config`
