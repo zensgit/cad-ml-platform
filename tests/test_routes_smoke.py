@@ -45,3 +45,32 @@ def test_drawing_recognize_base64_route_exists():
     }
     resp = client.post("/api/v1/drawing/recognize-base64", json=payload)
     assert resp.status_code == 200
+
+
+def test_ocr_providers_route_exists():
+    resp = client.get("/api/v1/ocr/providers")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "providers" in data
+
+
+def test_ocr_health_route_exists():
+    resp = client.get("/api/v1/ocr/health")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "status" in data
+    assert "providers" in data
+
+
+def test_drawing_providers_route_exists():
+    resp = client.get("/api/v1/drawing/providers")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "providers" in data
+
+
+def test_drawing_health_route_exists():
+    resp = client.get("/api/v1/drawing/health")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "status" in data

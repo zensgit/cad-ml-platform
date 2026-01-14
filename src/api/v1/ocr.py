@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 from typing import Dict, List, Optional
@@ -48,6 +49,60 @@ class OcrResponse(BaseModel):
     title_block: Dict
     error: Optional[str] = None
     code: Optional[ErrorCode] = None
+
+
+class OcrProviderStatus(BaseModel):
+    name: str
+    ready: bool
+    error: Optional[str] = None
+
+
+class OcrProvidersResponse(BaseModel):
+    providers: List[str] = Field(default_factory=list)
+    default: str
+
+
+class OcrHealthResponse(BaseModel):
+    status: str
+    providers: List[OcrProviderStatus] = Field(default_factory=list)
+
+
+def list_provider_names(manager: OcrManager) -> List[str]:
+    return list(manager.providers.keys())
+
+
+def get_default_provider_name(manager: OcrManager) -> str:
+    providers = list_provider_names(manager)
+    if "paddle" in providers:
+        return "paddle"
+    if "deepseek_hf" in providers:
+        return "deepseek_hf"
+    return providers[0] if providers else "unknown"
+
+
+async def collect_provider_statuses(manager: OcrManager) -> List[OcrProviderStatus]:
+    async def _check(name: str, provider: object) -> OcrProviderStatus:
+        try:
+            ready = await provider.health_check()  # type: ignore[attr-defined]
+            return OcrProviderStatus(name=name, ready=bool(ready))
+        except Exception as exc:
+            return OcrProviderStatus(name=name, ready=False, error=str(exc))
+
+    tasks = [_check(name, provider) for name, provider in manager.providers.items()]
+    if not tasks:
+        return []
+    return list(await asyncio.gather(*tasks))
+
+
+def summarize_provider_health(statuses: List[OcrProviderStatus]) -> str:
+    if not statuses:
+        return "unavailable"
+    ready_count = sum(1 for status in statuses if status.ready)
+    if ready_count == len(statuses):
+        return "healthy"
+    if ready_count > 0:
+        return "degraded"
+    return "unhealthy"
 
 
 @router.post("/extract", response_model=OcrResponse)
@@ -261,3 +316,17 @@ async def ocr_extract(
             error="OCR extraction failed",
             code=ErrorCode.INTERNAL_ERROR,
         )
+
+
+@router.get("/providers", response_model=OcrProvidersResponse)
+async def list_ocr_providers() -> OcrProvidersResponse:
+    manager = get_manager()
+    providers = list_provider_names(manager)
+    return OcrProvidersResponse(providers=providers, default=get_default_provider_name(manager))
+
+
+@router.get("/health", response_model=OcrHealthResponse)
+async def ocr_health() -> OcrHealthResponse:
+    manager = get_manager()
+    statuses = await collect_provider_statuses(manager)
+    return OcrHealthResponse(status=summarize_provider_health(statuses), providers=statuses)

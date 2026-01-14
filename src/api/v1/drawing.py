@@ -11,7 +11,15 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 
-from src.api.v1.ocr import get_manager
+from src.api.v1.ocr import (
+    OcrHealthResponse,
+    OcrProvidersResponse,
+    collect_provider_statuses,
+    get_default_provider_name,
+    get_manager,
+    list_provider_names,
+    summarize_provider_health,
+)
 from src.core.errors import ErrorCode
 from src.core.ocr.base import TitleBlock
 from src.core.ocr.exceptions import OcrError
@@ -321,3 +329,17 @@ async def list_drawing_fields() -> DrawingFieldCatalogResponse:
             for key, label in FIELD_LABELS.items()
         ]
     )
+
+
+@router.get("/providers", response_model=OcrProvidersResponse)
+async def list_drawing_providers() -> OcrProvidersResponse:
+    manager = get_manager()
+    providers = list_provider_names(manager)
+    return OcrProvidersResponse(providers=providers, default=get_default_provider_name(manager))
+
+
+@router.get("/health", response_model=OcrHealthResponse)
+async def drawing_health() -> OcrHealthResponse:
+    manager = get_manager()
+    statuses = await collect_provider_statuses(manager)
+    return OcrHealthResponse(status=summarize_provider_health(statuses), providers=statuses)
