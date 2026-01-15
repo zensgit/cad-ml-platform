@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 try:
     from OCC.Core.Bnd import Bnd_Box
     from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
-    from OCC.Core.BRepBndLib import brepbndlib_Add
-    from OCC.Core.BRepGProp import brepgprop_SurfaceProperties, brepgprop_VolumeProperties
+    from OCC.Core.BRepBndLib import brepbndlib
+    from OCC.Core.BRepGProp import brepgprop
     from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
     from OCC.Core.GeomAbs import (
         GeomAbs_BezierSurface,
@@ -125,10 +125,10 @@ class GeometryEngine:
 
             # Physical properties
             gprops = GProp_GProps()
-            brepgprop_VolumeProperties(shape, gprops)
+            brepgprop.VolumeProperties(shape, gprops)
             features["volume"] = gprops.Mass()
 
-            brepgprop_SurfaceProperties(shape, gprops)
+            brepgprop.SurfaceProperties(shape, gprops)
             features["surface_area"] = gprops.Mass()
 
             # Surface type histogram (Semantic feature)
@@ -136,7 +136,7 @@ class GeometryEngine:
 
             # Bounding box
             bbox = Bnd_Box()
-            brepbndlib_Add(shape, bbox)
+            brepbndlib.Add(shape, bbox)
             xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
             features["bbox"] = {
                 "x": xmax - xmin,
@@ -170,7 +170,7 @@ class GeometryEngine:
         try:
             # 1. Bounding Box Aspect Ratio (Stock size estimation)
             bbox = Bnd_Box()
-            brepbndlib_Add(shape, bbox)
+            brepbndlib.Add(shape, bbox)
             xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
             dims = sorted([xmax - xmin, ymax - ymin, zmax - zmin])
             if dims[0] > 0:
@@ -181,7 +181,7 @@ class GeometryEngine:
             # 2. Volume to BBox Volume Ratio (Material removal rate)
             bbox_vol = dims[0] * dims[1] * dims[2]
             gprops = GProp_GProps()
-            brepgprop_VolumeProperties(shape, gprops)
+            brepgprop.VolumeProperties(shape, gprops)
             actual_vol = gprops.Mass()
 
             if bbox_vol > 0:

@@ -159,7 +159,7 @@ class StepIgesAdapter(_BaseAdapter):
         metadata: Dict[str, Any] = {"parser": "stub"}
         try:
             from OCC.Core.Bnd import Bnd_Box  # type: ignore
-            from OCC.Core.BRepBndLib import brepbndlib_Add  # type: ignore
+            from OCC.Core.BRepBndLib import brepbndlib  # type: ignore
             from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox  # type: ignore
             from OCC.Core.IFSelect import IFSelect_RetDone  # type: ignore
             from OCC.Core.STEPControl import STEPControl_Reader  # type: ignore
@@ -181,7 +181,7 @@ class StepIgesAdapter(_BaseAdapter):
                 reader.TransferRoots()
                 shape = reader.OneShape()
                 box = Bnd_Box()
-                brepbndlib_Add(shape, box)
+                brepbndlib.Add(shape, box)
                 # Approx bbox extraction
                 xmin, ymin, zmin, xmax, ymax, zmax = box.Get()
                 bbox.min_x, bbox.min_y, bbox.min_z = xmin, ymin, zmin
@@ -197,7 +197,7 @@ class StepIgesAdapter(_BaseAdapter):
                 # Synthetic geometry fallback
                 dummy = BRepPrimAPI_MakeBox(10, 10, 10).Shape()
                 box = Bnd_Box()
-                brepbndlib_Add(dummy, box)
+                brepbndlib.Add(dummy, box)
                 xmin, ymin, zmin, xmax, ymax, zmax = box.Get()
                 bbox.min_x, bbox.min_y, bbox.min_z = xmin, ymin, zmin
                 bbox.max_x, bbox.max_y, bbox.max_z = xmax, ymax, zmax
