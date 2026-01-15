@@ -18,3 +18,4 @@ surface counts and entropy for STEP inputs. Confirmed extraction behavior with n
 - B-Rep surface types are preferred for entropy when available.
 - Legacy behavior is preserved when B-Rep data is missing or invalid.
 - `pythonocc-core` is not installed in this environment, so live `/api/v1/analyze` STEP validation was skipped.
+- Attempted `python3 -m pip install pythonocc-core` on arm64/Python 3.13; no matching distribution found.
