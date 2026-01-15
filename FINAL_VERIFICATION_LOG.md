@@ -1321,6 +1321,11 @@
   - Tests: `bash scripts/validate_brep_features_linux_amd64.sh`
   - Design: `docs/L3_BREP_FEATURES_V4_EXTRACTION_DESIGN.md`
   - Report: `reports/DEV_L3_BREP_LINUX_AMD64_VALIDATION_20260115.md`
+- **L3 B-Rep Integration Test (Linux/AMD64)**:
+  - Ran the pythonocc-backed integration test in a linux/amd64 micromamba environment.
+  - Tests: `pytest tests/integration/test_brep_features_v4.py -v`
+  - Report: `reports/DEV_L3_BREP_INTEGRATION_TEST_20260115.md`
+  - Notes: Deprecation warnings from pythonocc-core were observed during the run.
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
