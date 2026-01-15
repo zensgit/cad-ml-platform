@@ -1314,7 +1314,7 @@
   - Tests: `pytest tests/unit/test_feature_extractor_v4_real.py -v`, `pytest tests/unit/test_analyzer_rules.py -v`
   - Design: `docs/L3_BREP_FEATURES_V4_EXTRACTION_DESIGN.md`
   - Report: `reports/DEV_L3_BREP_FEATURES_V4_EXTRACTION_20260115.md`
-  - Notes: `python3 -m pip install pythonocc-core` failed on arm64/Python 3.13; live STEP analyze skipped.
+  - Notes: `python3 -m pip install pythonocc-core` failed on arm64/Python 3.13; `docker build --platform linux/amd64 -f deployments/docker/Dockerfile -t cad-ml-platform:l3 .` failed because `pythonocc-core>=7.7.0` was not available on pip; live STEP analyze skipped.
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

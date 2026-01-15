@@ -19,3 +19,4 @@ surface counts and entropy for STEP inputs. Confirmed extraction behavior with n
 - Legacy behavior is preserved when B-Rep data is missing or invalid.
 - `pythonocc-core` is not installed in this environment, so live `/api/v1/analyze` STEP validation was skipped.
 - Attempted `python3 -m pip install pythonocc-core` on arm64/Python 3.13; no matching distribution found.
+- Attempted `docker build --platform linux/amd64 -f deployments/docker/Dockerfile -t cad-ml-platform:l3 .`; build failed because `pythonocc-core>=7.7.0` had no matching distribution on pip.
