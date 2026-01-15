@@ -1332,6 +1332,12 @@
   - Design: `docs/BREP_PYTHONOCC_API_UPDATE_DESIGN.md`
   - Report: `reports/DEV_BREP_PYTHONOCC_API_UPDATE_20260115.md`
   - Notes: Deprecated BRepGProp/BRepBndLib warnings no longer appear; SWIG warnings remain.
+- **PythonOCC SWIG Warning Filter**:
+  - Added pytest filters for SWIG bootstrap DeprecationWarnings from pythonocc-core.
+  - Tests: `pytest tests/integration/test_brep_features_v4.py -v` (linux/amd64 micromamba)
+  - Design: `docs/BREP_PYTHONOCC_SWIG_WARNING_FILTER_DESIGN.md`
+  - Report: `reports/DEV_BREP_PYTHONOCC_SWIG_WARNING_FILTER_20260115.md`
+  - Notes: B-Rep integration output now runs without SWIG deprecation noise.
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
