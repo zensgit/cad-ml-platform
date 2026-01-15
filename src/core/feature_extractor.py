@@ -12,7 +12,7 @@ v4 features (Phase 1A):
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from src.models.cad_document import CadDocument
 
@@ -55,21 +55,41 @@ def compute_shape_entropy(type_counts: Dict[str, int]) -> float:
     return H / max_H if max_H > 0 else 0.0
 
 
-def compute_surface_count(doc: "CadDocument") -> int:
+def compute_surface_count(doc: "CadDocument", brep_features: Optional[Dict[str, Any]] = None) -> int:
     """Compute total surface/face count from document.
 
     Strategy (in priority order):
-    1. Use explicit 'surfaces' metadata if available
-    2. Use 'facets' metadata (mesh triangles)
+    1. Use external B-Rep features (faces or surface_types) if provided
+    2. Use explicit 'surfaces' metadata if available
     3. Count entities with surface-like kinds (FACE, FACET, SURFACE, PATCH, etc.)
-    4. Fallback to facets + solids heuristic
+    4. Use 'facets' metadata (mesh triangles)
+    5. Fallback to facets + solids heuristic
 
     Args:
         doc: CadDocument instance.
+        brep_features: Optional B-Rep feature dict from geometry engine.
 
     Returns:
         Surface count (non-negative integer).
     """
+    if isinstance(brep_features, dict):
+        if brep_features.get("valid_3d", True):
+            faces = brep_features.get("faces")
+            if isinstance(faces, (int, float)) and faces > 0:
+                return int(faces)
+            surface_count = brep_features.get("surface_count")
+            if isinstance(surface_count, (int, float)) and surface_count > 0:
+                return int(surface_count)
+            surface_types = brep_features.get("surface_types")
+            if isinstance(surface_types, dict):
+                total = sum(
+                    int(value)
+                    for value in surface_types.values()
+                    if isinstance(value, (int, float)) and value > 0
+                )
+                if total > 0:
+                    return int(total)
+
     # Priority 1: Explicit surfaces metadata
     if "surfaces" in doc.metadata and doc.metadata["surfaces"] is not None:
         return int(doc.metadata["surfaces"])
@@ -89,6 +109,19 @@ def compute_surface_count(doc: "CadDocument") -> int:
     # Priority 4: Fallback heuristic (solids approximation)
     solids = doc.metadata.get("solids") or 0
     return int(solids)
+
+
+def _normalize_surface_type_counts(brep_features: Optional[Dict[str, Any]]) -> Dict[str, int]:
+    if not isinstance(brep_features, dict):
+        return {}
+    surface_types = brep_features.get("surface_types")
+    if not isinstance(surface_types, dict):
+        return {}
+    normalized: Dict[str, int] = {}
+    for key, value in surface_types.items():
+        if isinstance(value, (int, float)) and value > 0:
+            normalized[str(key)] = int(value)
+    return normalized
 
 
 # Stable slot declarations per version for dynamic introspection
@@ -216,7 +249,9 @@ class FeatureExtractor:
         # Unknown target version -> return as-is
         return existing
 
-    async def extract(self, doc: CadDocument) -> Dict[str, Any]:
+    async def extract(
+        self, doc: CadDocument, brep_features: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         Extract features from CAD document.
         """
@@ -301,8 +336,10 @@ class FeatureExtractor:
             )
 
         if self.feature_version == "v4":
-            surface_count = compute_surface_count(doc)
-            shape_entropy = compute_shape_entropy(counts)
+            surface_count = compute_surface_count(doc, brep_features=brep_features)
+            surface_type_counts = _normalize_surface_type_counts(brep_features)
+            shape_counts = surface_type_counts or counts
+            shape_entropy = compute_shape_entropy(shape_counts)
             try:
                 from src.utils.analysis_metrics import v4_shape_entropy, v4_surface_count
 

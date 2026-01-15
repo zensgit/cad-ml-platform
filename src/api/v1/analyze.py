@@ -538,73 +538,9 @@ async def analyze_cad_file(
             "geometric": [],
             "semantic": [],
         }  # ensure defined even if skipped
-
-        # 执行分析 (带特征缓存)
-        if analysis_options.extract_features:
-            import hashlib as _hl
-
-            from src.core.feature_cache import get_feature_cache
-
-            feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
-            # Use full content bytes for cache key
-            content_hash_full = _hl.sha256(content).hexdigest()
-            cache_key = f"{content_hash_full}:{feature_version}:layout_v2"
-            from src.utils.analysis_metrics import (
-                feature_cache_hits_total,
-                feature_cache_miss_total,
-                feature_cache_size,
-            )
-
-            feature_cache = get_feature_cache()
-            # Measure lookup latency
-            import time as _t
-
-            _lk_start = _t.time()
-            cached_vector = feature_cache.get(cache_key)
-            try:
-                from src.utils.analysis_metrics import feature_cache_lookup_seconds
-
-                feature_cache_lookup_seconds.observe(_t.time() - _lk_start)
-            except Exception:
-                pass
-            extractor = FeatureExtractor()
-            combined_vec: list[float] | None = None
-            if cached_vector is not None:
-                feature_cache_hits_total.inc()
-                # rehydrate cached vector into geometric/semantic split
-                features = extractor.rehydrate(cached_vector, version=feature_version)
-                combined_vec = cached_vector
-            else:
-                feature_cache_miss_total.inc()
-                features = await extractor.extract(doc)
-                try:
-                    combined_vec = extractor.flatten(features)
-                    feature_cache.set(cache_key, combined_vec)
-                    feature_cache_size.set(feature_cache.size())
-                except Exception:
-                    pass
-            if combined_vec is None:
-                try:
-                    combined_vec = extractor.flatten(features)
-                except Exception:
-                    combined_vec = []
-            feature_slots = extractor.slots(feature_version)
-            results["features"] = {
-                "geometric": [float(x) for x in features["geometric"]],
-                "semantic": [float(x) for x in features["semantic"]],
-                "combined": [float(x) for x in combined_vec],
-                "dimension": len(features["geometric"]) + len(features["semantic"]),
-                "feature_version": feature_version,
-                "feature_slots": feature_slots,
-                "cache_hit": cached_vector is not None,
-            }
-            stage_times["features"] = time.time() - started - sum(stage_times.values())
-            analysis_stage_duration_seconds.labels(stage="features").observe(
-                stage_times["features"]
-            )
-
-        # L3: 3D Feature Extraction
         features_3d: Dict[str, Any] = {}
+
+        # L3: 3D Feature Extraction (run before 2D feature extraction)
         if analysis_options.extract_features and file_format in ["step", "stp", "iges", "igs"]:
             try:
                 # Lazy import to avoid startup overhead if not used
@@ -652,6 +588,70 @@ async def analyze_cad_file(
                 stage_times["features_3d"] = time.time() - _geo_start
             except Exception as e:
                 logger.error(f"L3 Analysis failed: {e}")
+
+        # 执行分析 (带特征缓存)
+        if analysis_options.extract_features:
+            import hashlib as _hl
+
+            from src.core.feature_cache import get_feature_cache
+
+            feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
+            # Use full content bytes for cache key
+            content_hash_full = _hl.sha256(content).hexdigest()
+            cache_key = f"{content_hash_full}:{feature_version}:layout_v2"
+            from src.utils.analysis_metrics import (
+                feature_cache_hits_total,
+                feature_cache_miss_total,
+                feature_cache_size,
+            )
+
+            feature_cache = get_feature_cache()
+            # Measure lookup latency
+            import time as _t
+
+            _lk_start = _t.time()
+            cached_vector = feature_cache.get(cache_key)
+            try:
+                from src.utils.analysis_metrics import feature_cache_lookup_seconds
+
+                feature_cache_lookup_seconds.observe(_t.time() - _lk_start)
+            except Exception:
+                pass
+            extractor = FeatureExtractor()
+            combined_vec: list[float] | None = None
+            if cached_vector is not None:
+                feature_cache_hits_total.inc()
+                # rehydrate cached vector into geometric/semantic split
+                features = extractor.rehydrate(cached_vector, version=feature_version)
+                combined_vec = cached_vector
+            else:
+                feature_cache_miss_total.inc()
+                features = await extractor.extract(doc, brep_features=features_3d)
+                try:
+                    combined_vec = extractor.flatten(features)
+                    feature_cache.set(cache_key, combined_vec)
+                    feature_cache_size.set(feature_cache.size())
+                except Exception:
+                    pass
+            if combined_vec is None:
+                try:
+                    combined_vec = extractor.flatten(features)
+                except Exception:
+                    combined_vec = []
+            feature_slots = extractor.slots(feature_version)
+            results["features"] = {
+                "geometric": [float(x) for x in features["geometric"]],
+                "semantic": [float(x) for x in features["semantic"]],
+                "combined": [float(x) for x in combined_vec],
+                "dimension": len(features["geometric"]) + len(features["semantic"]),
+                "feature_version": feature_version,
+                "feature_slots": feature_slots,
+                "cache_hit": cached_vector is not None,
+            }
+            stage_times["features"] = time.time() - started - sum(stage_times.values())
+            analysis_stage_duration_seconds.labels(stage="features").observe(
+                stage_times["features"]
+            )
 
         # Parallelize classification / quality / process recommendation if multiple enabled
         import asyncio

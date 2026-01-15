@@ -1309,6 +1309,11 @@
   - Published multi-arch GHCR manifest and validated arm64 pull.
   - Tests: `gh run watch 20959475194 --exit-status`, `docker buildx imagetools inspect ghcr.io/zensgit/cad-ml-platform:main`, `docker pull --platform linux/arm64 ghcr.io/zensgit/cad-ml-platform:main`
   - Report: `reports/DEV_GHCR_MULTIARCH_PUBLISH_VALIDATION_20260113.md`
+- **L3 B-Rep Features for V4 Extraction**:
+  - Moved L3 geometry extraction before 2D features and wired B-Rep surface data into v4 entropy/surface metrics.
+  - Tests: `pytest tests/unit/test_feature_extractor_v4_real.py -v`, `pytest tests/unit/test_analyzer_rules.py -v`
+  - Design: `docs/L3_BREP_FEATURES_V4_EXTRACTION_DESIGN.md`
+  - Report: `reports/DEV_L3_BREP_FEATURES_V4_EXTRACTION_20260115.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

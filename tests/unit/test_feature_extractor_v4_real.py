@@ -53,6 +53,22 @@ def test_surface_count_basic():
 
 
 @pytest.mark.asyncio
+async def test_v4_uses_brep_surface_types_for_entropy():
+    doc = CadDocument(file_name="sample.step", format="step", entities=[])
+    extractor = FeatureExtractor(feature_version="v4")
+    brep_features = {
+        "valid_3d": True,
+        "faces": 12,
+        "surface_types": {"plane": 6, "cylinder": 6},
+    }
+    result = await extractor.extract(doc, brep_features=brep_features)
+    geometric = result["geometric"]
+    assert geometric[-2] == 12
+    expected_entropy = compute_shape_entropy({"plane": 6, "cylinder": 6})
+    assert geometric[-1] == pytest.approx(expected_entropy)
+
+
+@pytest.mark.asyncio
 async def test_concurrency_consistency():
     doc = CadDocument(
         file_name="sample.step",
