@@ -1315,6 +1315,12 @@
   - Design: `docs/L3_BREP_FEATURES_V4_EXTRACTION_DESIGN.md`
   - Report: `reports/DEV_L3_BREP_FEATURES_V4_EXTRACTION_20260115.md`
   - Notes: `python3 -m pip install pythonocc-core` failed on arm64/Python 3.13; `docker build --platform linux/amd64 -f deployments/docker/Dockerfile -t cad-ml-platform:l3 .` failed because `pythonocc-core>=7.7.0` was not available on pip; live STEP analyze completed via linux/amd64 micromamba (pythonocc-core 7.9.0) using generated `box.step` (surface_count=6, shape_entropy=0.0) and `cylinder.step` (surface_count=3, shape_entropy=0.9709505944546685); `examples/sample_part.step` failed OCC parse.
+- **L3 B-Rep Linux/AMD64 Validation Harness**:
+  - Added integration coverage for pythonocc-generated STEP fixtures (skips without pythonocc-core).
+  - Added linux/amd64 micromamba validation script and documented macOS arm64 flow.
+  - Tests: `bash scripts/validate_brep_features_linux_amd64.sh`
+  - Design: `docs/L3_BREP_FEATURES_V4_EXTRACTION_DESIGN.md`
+  - Report: `reports/DEV_L3_BREP_LINUX_AMD64_VALIDATION_20260115.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

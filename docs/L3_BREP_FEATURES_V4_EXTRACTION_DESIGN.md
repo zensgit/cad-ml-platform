@@ -41,3 +41,8 @@ Some STEP/IGES inputs have sparse 2D entities, causing v4 features like `surface
 ## Test Plan
 - `pytest tests/unit/test_feature_extractor_v4_real.py -v`
   - New test confirms `surface_count` and `shape_entropy` reflect B-Rep surface types.
+
+## Local Validation (macOS arm64)
+- `pythonocc-core` wheels are not available for macOS arm64; use linux/amd64 via Docker.
+- Run `bash scripts/validate_brep_features_linux_amd64.sh` to provision pythonocc-core,
+  start the API, generate STEP fixtures, and write a validation report.
