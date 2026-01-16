@@ -1343,7 +1343,7 @@
   - Tests: `pytest tests/integration/test_brep_features_v4.py -v` (local macOS run skipped without pythonocc-core)
   - Design: `docs/BREP_V4_INTEGRATION_EXTENDED_SHAPES_DESIGN.md`
   - Report: `reports/DEV_BREP_V4_INTEGRATION_EXTENDED_SHAPES_20260115.md`
-  - Notes: linux/amd64 micromamba validation pending due to Docker CLI timeouts.
+  - Notes: linux/amd64 micromamba validation pending; Docker CLI recovered after restart, but micromamba stalled during conda-forge provisioning.
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
