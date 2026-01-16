@@ -20,4 +20,7 @@ micromamba provisioning stalls inside Docker.
 - Restarted Docker Desktop to recover the CLI and reran the linux/amd64 setup.
 - micromamba encountered conda-forge download issues (SSL error on repodata) and later hung while
   resolving packages; validation was aborted to avoid an indefinite wait.
+- Added `scripts/validate_brep_features_linux_amd64_cached.sh` with a docker volume cache; the
+  micromamba solver still stalled without creating the cadml env, so the follow-on pip install
+  failed with "The given prefix does not exist: /opt/conda/envs/cadml".
 - Rerun in a stable linux/amd64 environment to complete validation.

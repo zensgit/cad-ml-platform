@@ -1344,6 +1344,11 @@
   - Design: `docs/BREP_V4_INTEGRATION_EXTENDED_SHAPES_DESIGN.md`
   - Report: `reports/DEV_BREP_V4_INTEGRATION_EXTENDED_SHAPES_20260115.md`
   - Notes: linux/amd64 micromamba validation pending; Docker CLI recovered after restart, but micromamba stalled during conda-forge provisioning.
+- **L3 B-Rep Linux/AMD64 Cached Validation Attempt**:
+  - Added cached micromamba validation script to reuse conda package downloads.
+  - Tests: `bash scripts/validate_brep_features_linux_amd64_cached.sh` (failed; cadml env not created)
+  - Report: `reports/DEV_L3_BREP_LINUX_AMD64_VALIDATION_20260116.md`
+  - Notes: micromamba solver stalled without writing `/opt/conda/pkgs`, leaving `/opt/conda/envs/cadml` missing.
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
