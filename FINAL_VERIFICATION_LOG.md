@@ -1356,9 +1356,13 @@
   - Report: `reports/DEV_BREP_GRAPH_EXTRACTION_20260117.md`
 - **B-Rep Graph Dataset Output (MVP)**:
   - Added graph output mode to ABC dataset with optional PyG integration and dict fallback.
-  - Tests: `pytest tests/unit/test_graph_dataset_output.py -v` (skipped; torch not installed)
+  - Tests: `pytest tests/unit/test_graph_dataset_output.py -v` (passed in `.venv-graph`)
   - Design: `docs/BREP_GRAPH_DATASET_DESIGN.md`
   - Report: `reports/DEV_BREP_GRAPH_DATASET_20260117.md`
+- **B-Rep Graph Linux/AMD64 Validation Attempt**:
+  - Attempted linux/amd64 pythonocc-core setup to run the graph extraction integration test.
+  - Tests: `pytest tests/integration/test_brep_graph_extraction.py -v` (not run; conda-forge repodata download timeout)
+  - Report: `reports/DEV_BREP_GRAPH_LINUX_AMD64_VALIDATION_20260117.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

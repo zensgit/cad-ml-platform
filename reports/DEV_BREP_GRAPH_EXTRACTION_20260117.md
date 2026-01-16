@@ -18,3 +18,4 @@ features for GNN pipelines.
 ## Notes
 - Graph schema v1 includes surface type one-hot, area, bbox extents, and planar normals.
 - Edge features include approximate dihedral angle and convexity based on planar normals.
+- Linux/amd64 validation attempt recorded in `reports/DEV_BREP_GRAPH_LINUX_AMD64_VALIDATION_20260117.md`.

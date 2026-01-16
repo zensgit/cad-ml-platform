@@ -127,3 +127,4 @@ reports/replay_extended/
 .venv/
 .venv311/
 .venv_run/
+.venv-graph/
