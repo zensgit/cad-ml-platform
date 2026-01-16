@@ -95,6 +95,7 @@ Thumbs.db
 *.bak
 *.swp
 *~
+.cache/
 
 # Test coverage
 coverage.xml

@@ -5,6 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DATE="$(date +%Y%m%d)"
 REPORT_DIR="${ROOT_DIR}/reports"
 REPORT_PATH="${REPORT_DIR}/DEV_L3_BREP_LINUX_AMD64_VALIDATION_${DATE}.md"
+LOG_PATH="${REPORT_DIR}/DEV_L3_BREP_LINUX_AMD64_VALIDATION_${DATE}_micromamba.log"
 TMP_DIR="${ROOT_DIR}/tmp"
 CONTAINER_NAME="cadml-l3-${DATE}-$$"
 CACHE_VOLUME="${CACHE_VOLUME:-cadml-micromamba-cache}"
@@ -48,7 +49,8 @@ export MAMBA_NO_REPODATA_ZST=1
 
 echo "Installing pythonocc-core (conda-forge)..."
 docker exec "${CONTAINER_NAME}" bash -lc \
-  "export MAMBA_NO_REPODATA_ZST=1; micromamba create -y -n cadml -c conda-forge python=3.10 pythonocc-core"
+  "export MAMBA_NO_REPODATA_ZST=1; micromamba create -vvv -y -n cadml -c conda-forge python=3.10 pythonocc-core" \
+  2>&1 | tee "${LOG_PATH}"
 
 echo "Installing Python dependencies..."
 docker exec "${CONTAINER_NAME}" bash -lc \

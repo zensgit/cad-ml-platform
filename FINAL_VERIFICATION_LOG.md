@@ -1348,7 +1348,7 @@
   - Added cached micromamba validation script to reuse conda package downloads.
   - Tests: `bash scripts/validate_brep_features_linux_amd64_cached.sh` (failed; cadml env not created)
   - Report: `reports/DEV_L3_BREP_LINUX_AMD64_VALIDATION_20260116.md`
-  - Notes: micromamba solver stalled without writing `/opt/conda/pkgs`, leaving `/opt/conda/envs/cadml` missing.
+  - Notes: retried with verbose logging; downloads/SSL traces appeared but `/opt/conda/pkgs` stayed empty, so the run was interrupted. Script now captures stderr logs for the next retry.
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

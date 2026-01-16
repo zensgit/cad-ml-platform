@@ -13,12 +13,16 @@ provisioning did not finish, so analysis could not run.
 ## Steps
 - Ran `bash scripts/validate_brep_features_linux_amd64_cached.sh`.
 - Container started with `/opt/conda/pkgs` volume cache and `MAMBA_NO_REPODATA_ZST=1`.
-- Began `micromamba create -n cadml -c conda-forge python=3.10 pythonocc-core`.
+- Began `micromamba create -vvv -n cadml -c conda-forge python=3.10 pythonocc-core`.
 
 ## Results
-- micromamba solver ran for an extended period with no packages written to `/opt/conda/pkgs`.
-- Env `cadml` was not created; `micromamba run -n cadml python -m pip install -r requirements.txt`
-  failed with: `The given prefix does not exist: "/opt/conda/envs/cadml"`.
+- micromamba solver ran for an extended period and produced download/SSL traces, but no packages
+  were written to `/opt/conda/pkgs` before the run was interrupted.
+- Env `cadml` was not created; the follow-on pip install step could not start.
+## Notes
+- The verbose output streamed to the console during the run; the script is now updated to capture
+  stderr via `2>&1 | tee` for future retries.
+- Log path: `reports/DEV_L3_BREP_LINUX_AMD64_VALIDATION_20260116_micromamba.log` (empty for this run).
 
 ## Next Steps
 - Retry on a native linux/amd64 host or allow more time for the solver to finish.
