@@ -1,0 +1,21 @@
+# L4 Graph Neural Network Dependencies
+# Usage: pip install -r requirements-l4-gpu.txt
+
+# Core Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Graph Neural Networks
+# Note: PyG often requires specific CUDA version matches. 
+# For CPU-only dev environments, these standard installs usually work.
+torch-geometric>=2.3.0
+torch-scatter
+torch-sparse
+torch-cluster
+torch-spline-conv
+
+# Utilities
+numpy>=1.21.0
+scikit-learn>=1.0.0
+tqdm>=4.65.0
+pyyaml>=6.0

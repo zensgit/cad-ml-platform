@@ -2,30 +2,31 @@
 3D Vision Module (L3 Capability).
 
 Handles Deep Geometric Learning inference.
-Designed to interface with UV-Net or PointNet++ style models for B-Rep/Mesh embedding.
+Designed to interface with UV-Net Graph Models.
 """
 
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
-# Placeholder for torch
+HAS_TORCH = False
 try:
     import numpy as np
     import torch
 
+    from src.ml.train.model import UVNetGraphModel
+
     HAS_TORCH = True
 except ImportError:
-    HAS_TORCH = False
     logger.warning("Torch not found. 3D Vision module running in mock mode.")
 
 
 class UVNetEncoder:
     """
-    Encoder for 3D B-Rep data using Deep Learning.
+    Encoder for 3D B-Rep data using Deep Learning (GNN).
     Generates semantic embeddings from geometric shapes.
     """
 
@@ -45,96 +46,112 @@ class UVNetEncoder:
             return
 
         if not os.path.exists(self.model_path):
-            logger.warning(
-                "UV-Net model not found at %s. Using fallback mock encoder.",
+            logger.info(
+                "UV-Net model not found at %s. Will use mock encoder until model is trained.",
                 self.model_path,
             )
             return
 
         try:
-            # This assumes a specific model structure.
-            # In a real implementation, you would import the model class definition.
-            # self.model = torch.load(self.model_path, map_location=self.device)
-            # self.model.eval()
+            # Load state dict and config
+            checkpoint = torch.load(self.model_path, map_location=self.device)
+
+            # Initialize model architecture (Config-driven if available)
+            config = checkpoint.get("config", {})
+            self.model = UVNetGraphModel(
+                node_input_dim=config.get("node_input_dim", 12),
+                embedding_dim=config.get("embedding_dim", 1024),
+            )
+            self.model.load_state_dict(checkpoint["model_state_dict"])
+            self.model.to(self.device)
+            self.model.eval()
+
             self._loaded = True
-            logger.info(f"UV-Net model loaded from {self.model_path}")
+            logger.info(f"UV-Net GNN model loaded from {self.model_path}")
         except Exception as e:
             logger.error(f"Failed to load UV-Net model: {e}")
 
-    def encode(self, shape_features: Dict[str, Any]) -> List[float]:
+    def encode(
+        self,
+        data_source: Union[Dict[str, Any], Any],
+    ) -> List[float]:
         """
         Generate an embedding vector for a 3D shape.
 
         Args:
-            shape_features: Dictionary containing 'surface_types' and other B-Rep stats.
-                            In a full implementation, this would accept the raw B-Rep graph or Mesh.
+            data_source: Either:
+                1. A dictionary of legacy features (fallback/mock path).
+                2. A Graph Data dictionary/object with keys 'x' and 'edge_index'.
 
         Returns:
-            List[float]: A normalized embedding vector (e.g., 128 dimensions).
+            List[float]: A normalized embedding vector (e.g., 1024 dimensions).
         """
-        dim = 128
+        dim = 1024
 
-        if not HAS_TORCH or not self._loaded:
-            return self._mock_embedding(shape_features, dim)
+        # 1. Mock Path (If no model loaded or explicit legacy feature dict)
+        if not self._loaded or (isinstance(data_source, dict) and "edge_index" not in data_source):
+            return self._mock_embedding(data_source, dim)
 
-        try:
-            # Real inference logic would go here.
-            # 1. Convert shape to graph/sequence tensor
-            # 2. with torch.no_grad(): output = self.model(input)
-            # 3. return output.tolist()
+        # 2. Inference Path (Graph Data)
+        if HAS_TORCH and self._loaded:
+            try:
+                # Prepare Inputs
+                if isinstance(data_source, dict):
+                    x = data_source["x"]
+                    edge_index = data_source["edge_index"]
+                else:
+                    # Assume PyG Data object
+                    x = data_source.x
+                    edge_index = data_source.edge_index
 
-            # For now, since we don't have the weights file, we fallback to mock
-            return self._mock_embedding(shape_features, dim)
+                # Ensure tensors and device
+                if not isinstance(x, torch.Tensor):
+                    x = torch.tensor(x, dtype=torch.float)
+                if not isinstance(edge_index, torch.Tensor):
+                    edge_index = torch.tensor(edge_index, dtype=torch.long)
 
-        except Exception as e:
-            logger.error(f"Inference failed: {e}")
-            return [0.0] * dim
+                x = x.to(self.device)
+                edge_index = edge_index.to(self.device)
+
+                # Create Batch Index (All 0s for single sample)
+                batch = torch.zeros(x.size(0), dtype=torch.long, device=self.device)
+
+                with torch.no_grad():
+                    _, embedding = self.model(x, edge_index, batch)
+
+                return embedding.cpu().numpy().flatten().tolist()
+
+            except Exception as e:
+                logger.error(f"Inference failed: {e}")
+                # Fallback to zeros on error
+                return [0.0] * dim
+
+        return [0.0] * dim
 
     def _mock_embedding(self, features: Dict[str, Any], dim: int) -> List[float]:
         """
-        Generate a heuristic embedding based on available features.
-        This allows the system to function 'intelligently' even without the Neural Net.
+        Generate a heuristic embedding based on available scalar features.
+        Used when the deep learning model is not available.
         """
-        # Create a deterministic seed based on feature values
-        # This ensures the same part gets the same embedding (Consistency)
-
         seed_val = (
             features.get("faces", 0) * 1000
             + features.get("edges", 0)
             + int(features.get("volume", 0) * 100)
         )
-
-        # Simple heuristic to distinguish broad classes
         vec = [0.0] * dim
 
-        # Dimension 0-10: Surface Type Histogram
-        surfaces = features.get("surface_types", {})
-        vec[0] = surfaces.get("plane", 0) / 100.0
-        vec[1] = surfaces.get("cylinder", 0) / 50.0  # High cylinder count -> Shaft/Bolt
-        vec[2] = surfaces.get("sphere", 0) / 10.0  # High sphere -> Ball bearing
-        vec[3] = surfaces.get("torus", 0) / 5.0  # Torus -> O-ring/Tire
+        # Use legacy scalar mapping for first few dimensions if available
+        if "surface_types" in features:
+            surfaces = features.get("surface_types", {})
+            vec[0] = surfaces.get("plane", 0) / 100.0
+            vec[1] = surfaces.get("cylinder", 0) / 50.0
 
-        # Dimension 11: Complexity
-        vec[11] = features.get("faces", 0) / 200.0
+        # Fill rest with pseudo-random noise
+        import random
 
-        # Dimension 12: Compactness
-        vol = features.get("volume", 1)
-        area = features.get("surface_area", 1)
-        if vol > 0:
-            vec[12] = (area**1.5) / vol  # Shape factor
-
-        # Fill the rest with pseudo-random noise seeded by topology
-        # (simulating a 'fingerprint')
-        if HAS_TORCH:
-            np.random.seed(seed_val % (2**32))
-            noise = np.random.normal(0, 0.1, dim - 20)
-            vec[20:] = noise.tolist()
-        else:
-            import random
-
-            random.seed(seed_val)
-            for i in range(20, dim):
-                vec[i] = random.random() * 0.1
+        random.seed(seed_val)
+        for i in range(10, dim):
+            vec[i] = random.random() * 0.1
 
         # Normalize
         norm = sum(x * x for x in vec) ** 0.5
