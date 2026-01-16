@@ -23,5 +23,6 @@ micromamba provisioning stalls inside Docker.
 - Added `scripts/validate_brep_features_linux_amd64_cached.sh` with a docker volume cache; the
   micromamba solver still stalled without creating the cadml env.
 - Retried with `-vvv` logging; downloads/SSL traces appeared but `/opt/conda/pkgs` remained empty
-  and the run was interrupted. The script now captures stderr logs for the next retry.
+  and the run ended before the env was created. Log captured at
+  `reports/DEV_L3_BREP_LINUX_AMD64_VALIDATION_20260116_micromamba.log`.
 - Rerun in a stable linux/amd64 environment to complete validation.

@@ -17,12 +17,11 @@ provisioning did not finish, so analysis could not run.
 
 ## Results
 - micromamba solver ran for an extended period and produced download/SSL traces, but no packages
-  were written to `/opt/conda/pkgs` before the run was interrupted.
-- Env `cadml` was not created; the follow-on pip install step could not start.
+  were written to `/opt/conda/pkgs` before the run ended.
+- Env `cadml` was not created; the follow-on pip install step did not run.
 ## Notes
-- The verbose output streamed to the console during the run; the script is now updated to capture
-  stderr via `2>&1 | tee` for future retries.
-- Log path: `reports/DEV_L3_BREP_LINUX_AMD64_VALIDATION_20260116_micromamba.log` (empty for this run).
+- The script now captures verbose micromamba output via `2>&1 | tee`.
+- Log path: `reports/DEV_L3_BREP_LINUX_AMD64_VALIDATION_20260116_micromamba.log` (download/SSL traces captured).
 
 ## Next Steps
 - Retry on a native linux/amd64 host or allow more time for the solver to finish.
