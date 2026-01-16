@@ -14,6 +14,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 from src.ml.train.model import UVNetGraphModel
+from src.ml.utils import get_best_device, move_to_device
 
 logger = logging.getLogger(__name__)
 
@@ -54,14 +55,19 @@ class GraphBatchCollate:
                 edge_index = sample["edge_index"]
                 y = sample.get("y", None)
             else:
-                # Assume attribute access (like PyG Data object or tuple)
-                # This depends on how Dataset is implemented.
-                # Assuming Dataset returns (data_dict, label) or similar
+                # Support PyG Data object or tuple from Dataset
                 if isinstance(sample, tuple):
-                    x = sample[0]["x"]
-                    edge_index = sample[0]["edge_index"]
+                    # Sample is (data_obj, label)
+                    data_obj = sample[0]
                     y = sample[1]
+                    if isinstance(data_obj, dict):
+                        x = data_obj["x"]
+                        edge_index = data_obj["edge_index"]
+                    else:
+                        x = data_obj.x
+                        edge_index = data_obj.edge_index
                 else:
+                    # Direct attribute access
                     x = sample.x
                     edge_index = sample.edge_index
                     y = sample.y
@@ -82,7 +88,7 @@ class GraphBatchCollate:
             # Labels
             if y is not None:
                 if isinstance(y, torch.Tensor):
-                    labels.append(y)
+                    labels.append(y.view(-1))
                 else:
                     labels.append(torch.tensor([y], dtype=torch.long))
 
@@ -105,12 +111,17 @@ class UVNetTrainer:
     def __init__(
         self,
         model: UVNetGraphModel,
-        device: str = "cpu",
+        device: Optional[str] = None,
         learning_rate: float = 0.001,
         weight_decay: float = 1e-4,
     ):
-        self.model = model.to(device)
+        if device is None:
+            device = get_best_device()
+        
         self.device = device
+        self.model = model.to(self.device)
+        logger.info(f"Trainer initialized on device: {self.device}")
+        
         self.optimizer = optim.Adam(
             self.model.parameters(), lr=learning_rate, weight_decay=weight_decay
         )
@@ -135,10 +146,12 @@ class UVNetTrainer:
             else:
                 # Custom Collate returns (inputs_dict, labels)
                 inputs, targets = batch_data
-                x = inputs["x"].to(self.device)
-                edge_index = inputs["edge_index"].to(self.device)
-                batch_idx = inputs["batch"].to(self.device)
+                inputs = move_to_device(inputs, self.device)
                 targets = targets.to(self.device)
+                
+                x = inputs["x"]
+                edge_index = inputs["edge_index"]
+                batch_idx = inputs["batch"]
 
             self.optimizer.zero_grad()
 
@@ -180,10 +193,12 @@ class UVNetTrainer:
                     targets = batch_data.y
                 else:
                     inputs, targets = batch_data
-                    x = inputs["x"].to(self.device)
-                    edge_index = inputs["edge_index"].to(self.device)
-                    batch_idx = inputs["batch"].to(self.device)
+                    inputs = move_to_device(inputs, self.device)
                     targets = targets.to(self.device)
+                    
+                    x = inputs["x"]
+                    edge_index = inputs["edge_index"]
+                    batch_idx = inputs["batch"]
 
                 log_probs, _ = self.model(x, edge_index, batch_idx)
                 loss = self.criterion(log_probs, targets)

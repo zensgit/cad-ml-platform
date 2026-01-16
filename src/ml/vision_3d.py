@@ -37,7 +37,12 @@ class UVNetEncoder:
         self._loaded = False
 
         if HAS_TORCH:
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+            if torch.cuda.is_available():
+                self.device = "cuda"
+            elif torch.backends.mps.is_available():
+                self.device = "mps"
+            else:
+                self.device = "cpu"
             self._load_model()
 
     def _load_model(self):
