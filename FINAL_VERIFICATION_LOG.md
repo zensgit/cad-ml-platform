@@ -1338,6 +1338,12 @@
   - Design: `docs/BREP_PYTHONOCC_SWIG_WARNING_FILTER_DESIGN.md`
   - Report: `reports/DEV_BREP_PYTHONOCC_SWIG_WARNING_FILTER_20260115.md`
   - Notes: B-Rep integration output now runs without SWIG deprecation noise.
+- **B-Rep v4 Integration Extended Shapes**:
+  - Added sphere and torus fixtures with bounding-box and surface-type assertions.
+  - Tests: `pytest tests/integration/test_brep_features_v4.py -v` (local macOS run skipped without pythonocc-core)
+  - Design: `docs/BREP_V4_INTEGRATION_EXTENDED_SHAPES_DESIGN.md`
+  - Report: `reports/DEV_BREP_V4_INTEGRATION_EXTENDED_SHAPES_20260115.md`
+  - Notes: linux/amd64 micromamba validation pending due to Docker CLI timeouts.
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
