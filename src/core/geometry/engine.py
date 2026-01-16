@@ -7,6 +7,7 @@ Uses pythonocc-core (OpenCascade) as the kernel.
 
 import io
 import logging
+import math
 import os
 import tempfile
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -33,7 +34,12 @@ try:
     from OCC.Core.IFSelect import IFSelect_RetDone
     from OCC.Core.STEPControl import STEPControl_Reader
     from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_SHELL, TopAbs_SOLID, TopAbs_VERTEX
-    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.TopExp import TopExp, TopExp_Explorer
+    from OCC.Core.TopTools import (
+        TopTools_IndexedDataMapOfShapeListOfShape,
+        TopTools_IndexedMapOfShape,
+        TopTools_ListIteratorOfListOfShape,
+    )
     from OCC.Core.TopoDS import TopoDS_Shape
 
     HAS_OCC = True
@@ -42,6 +48,27 @@ except ImportError:
     logger.warning(
         "pythonocc-core not found. 3D analysis capabilities will be limited to mock/fallback."
     )
+
+
+BREP_GRAPH_NODE_FEATURES = (
+    "plane",
+    "cylinder",
+    "cone",
+    "sphere",
+    "torus",
+    "bezier",
+    "bspline",
+    "other",
+    "area",
+    "bbox_x",
+    "bbox_y",
+    "bbox_z",
+    "normal_x",
+    "normal_y",
+    "normal_z",
+)
+
+BREP_GRAPH_EDGE_FEATURES = ("dihedral_angle", "convexity")
 
 
 class GeometryEngine:
@@ -151,6 +178,69 @@ class GeometryEngine:
 
         return features
 
+    def extract_brep_graph(self, shape: Any) -> Dict[str, Any]:
+        """Extract a face adjacency graph with node and edge features."""
+        graph = {
+            "valid_3d": False,
+            "graph_schema_version": "v1",
+            "node_schema": BREP_GRAPH_NODE_FEATURES,
+            "edge_schema": BREP_GRAPH_EDGE_FEATURES,
+            "node_count": 0,
+            "edge_count": 0,
+            "node_features": [],
+            "edge_index": [],
+            "edge_features": [],
+        }
+
+        if not HAS_OCC or shape is None:
+            return graph
+
+        try:
+            face_map = TopTools_IndexedMapOfShape()
+            TopExp.MapShapes(shape, TopAbs_FACE, face_map)
+            faces = []
+            node_features = []
+            for i in range(1, face_map.Extent() + 1):
+                face = face_map(i)
+                faces.append(face)
+                node_features.append(self._face_feature_vector(face))
+
+            edge_index = []
+            edge_features = []
+            edge_face_map = TopTools_IndexedDataMapOfShapeListOfShape()
+            TopExp.MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, edge_face_map)
+            for i in range(1, edge_face_map.Extent() + 1):
+                face_indices = []
+                face_list = edge_face_map.FindFromIndex(i)
+                it = TopTools_ListIteratorOfListOfShape(face_list)
+                while it.More():
+                    face = it.Value()
+                    face_idx = face_map.FindIndex(face)
+                    if face_idx > 0:
+                        face_indices.append(face_idx - 1)
+                    it.Next()
+
+                if len(face_indices) < 2:
+                    continue
+
+                a_idx, b_idx = face_indices[0], face_indices[1]
+                edge_feat = self._edge_feature_vector(faces[a_idx], faces[b_idx])
+                edge_index.extend([[a_idx, b_idx], [b_idx, a_idx]])
+                edge_features.extend([edge_feat, edge_feat])
+
+            graph["valid_3d"] = True
+            graph["node_features"] = node_features
+            graph["edge_index"] = edge_index
+            graph["edge_features"] = edge_features
+            graph["node_count"] = len(node_features)
+            graph["edge_count"] = len(edge_features)
+
+        except Exception as e:
+            logger.error(f"Error extracting BREP graph: {e}")
+            graph["error"] = str(e)
+
+        return graph
+
     def extract_dfm_features(self, shape: Any) -> Dict[str, Any]:
         """
         Extract features specifically for Design for Manufacturability (DFM) analysis.
@@ -210,6 +300,58 @@ class GeometryEngine:
             logger.error(f"Error extracting DFM features: {e}")
 
         return dfm_features
+
+    def _face_feature_vector(self, face: Any) -> List[float]:
+        surf = BRepAdaptor_Surface(face, True)
+        one_hot = self._surface_type_one_hot(surf.GetType())
+
+        gprops = GProp_GProps()
+        brepgprop.SurfaceProperties(face, gprops)
+        area = gprops.Mass()
+
+        bbox = Bnd_Box()
+        brepbndlib.Add(face, bbox)
+        xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
+        dims = [xmax - xmin, ymax - ymin, zmax - zmin]
+
+        normal = self._face_normal_vector(surf)
+
+        return one_hot + [area] + dims + list(normal)
+
+    def _surface_type_one_hot(self, surface_type: Any) -> List[float]:
+        mapping = {
+            GeomAbs_Plane: 0,
+            GeomAbs_Cylinder: 1,
+            GeomAbs_Cone: 2,
+            GeomAbs_Sphere: 3,
+            GeomAbs_Torus: 4,
+            GeomAbs_BezierSurface: 5,
+            GeomAbs_BSplineSurface: 6,
+        }
+        vector = [0.0] * 8
+        index = mapping.get(surface_type, 7)
+        vector[index] = 1.0
+        return vector
+
+    def _face_normal_vector(self, surf: Any) -> Tuple[float, float, float]:
+        if surf.GetType() != GeomAbs_Plane:
+            return 0.0, 0.0, 0.0
+
+        plane = surf.Plane()
+        direction = plane.Axis().Direction()
+        return direction.X(), direction.Y(), direction.Z()
+
+    def _edge_feature_vector(self, face_a: Any, face_b: Any) -> List[float]:
+        normal_a = self._face_normal_vector(BRepAdaptor_Surface(face_a, True))
+        normal_b = self._face_normal_vector(BRepAdaptor_Surface(face_b, True))
+
+        if normal_a == (0.0, 0.0, 0.0) or normal_b == (0.0, 0.0, 0.0):
+            return [0.0, 0.0]
+
+        dot = max(-1.0, min(1.0, sum(a * b for a, b in zip(normal_a, normal_b))))
+        angle = math.acos(dot)
+        convexity = 1.0 if dot >= 0.0 else -1.0
+        return [angle, convexity]
 
     def _count_subshapes(self, shape: Any, shape_type: Any) -> int:
         count = 0

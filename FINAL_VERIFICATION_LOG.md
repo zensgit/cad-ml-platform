@@ -1349,6 +1349,16 @@
   - Tests: `bash scripts/validate_brep_features_linux_amd64_cached.sh` (failed; cadml env not created)
   - Report: `reports/DEV_L3_BREP_LINUX_AMD64_VALIDATION_20260116.md`
   - Notes: retried with verbose logging; downloads/SSL traces appeared but `/opt/conda/pkgs` stayed empty. Log captured at `reports/DEV_L3_BREP_LINUX_AMD64_VALIDATION_20260116_micromamba.log`.
+- **B-Rep Graph Extraction (MVP)**:
+  - Added face adjacency graph extraction with node/edge features for GNN inputs.
+  - Tests: `pytest tests/integration/test_brep_graph_extraction.py -v` (skipped; pythonocc-core not installed)
+  - Design: `docs/BREP_GRAPH_EXTRACTION_DESIGN.md`
+  - Report: `reports/DEV_BREP_GRAPH_EXTRACTION_20260117.md`
+- **B-Rep Graph Dataset Output (MVP)**:
+  - Added graph output mode to ABC dataset with optional PyG integration and dict fallback.
+  - Tests: `pytest tests/unit/test_graph_dataset_output.py -v` (skipped; torch not installed)
+  - Design: `docs/BREP_GRAPH_DATASET_DESIGN.md`
+  - Report: `reports/DEV_BREP_GRAPH_DATASET_20260117.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
