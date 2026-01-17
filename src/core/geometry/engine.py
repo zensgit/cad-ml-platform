@@ -198,6 +198,15 @@ class GeometryEngine:
             return graph
 
         try:
+            def _map_extent(map_obj: Any) -> int:
+                if hasattr(map_obj, "Extent"):
+                    return map_obj.Extent()
+                if hasattr(map_obj, "Size"):
+                    return map_obj.Size()
+                if hasattr(map_obj, "__len__"):
+                    return len(map_obj)
+                return 0
+
             face_map = TopTools_IndexedMapOfShape()
             if hasattr(TopExp, "MapShapes"):
                 TopExp.MapShapes(shape, TopAbs_FACE, face_map)
@@ -210,7 +219,8 @@ class GeometryEngine:
                     exp.Next()
             faces = []
             node_features = []
-            for i in range(1, face_map.Extent() + 1):
+            face_count = _map_extent(face_map)
+            for i in range(1, face_count + 1):
                 face = face_map(i)
                 faces.append(face)
                 node_features.append(self._face_feature_vector(face))
@@ -220,7 +230,8 @@ class GeometryEngine:
             if hasattr(TopExp, "MapShapesAndAncestors"):
                 edge_face_map = TopTools_IndexedDataMapOfShapeListOfShape()
                 TopExp.MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, edge_face_map)
-                for i in range(1, edge_face_map.Extent() + 1):
+                edge_face_count = _map_extent(edge_face_map)
+                for i in range(1, edge_face_count + 1):
                     face_indices = []
                     face_list = edge_face_map.FindFromIndex(i)
                     it = TopTools_ListIteratorOfListOfShape(face_list)
@@ -241,7 +252,7 @@ class GeometryEngine:
             else:
                 edge_map = TopTools_IndexedMapOfShape()
                 edge_to_faces: Dict[int, set[int]] = {}
-                for face_idx in range(1, face_map.Extent() + 1):
+                for face_idx in range(1, face_count + 1):
                     face = face_map(face_idx)
                     exp_edge = TopExp_Explorer(face, TopAbs_EDGE)
                     while exp_edge.More():
