@@ -710,6 +710,7 @@ async def analyze_cad_file(
                     "fusion" if rule_version.startswith("L3-Fusion") else "rules"
                 )
                 # Attempt ML classification overlay
+                ml_result: Dict[str, Any] | None = None
                 try:
                     from src.ml.classifier import predict
 
@@ -721,7 +722,44 @@ async def analyze_cad_file(
                     else:
                         cls_payload["model_version"] = ml_result.get("status")
                 except Exception:
+                    ml_result = None
                     cls_payload["model_version"] = "ml_error"
+                # Optional FusionAnalyzer (shadow by default)
+                fusion_enabled = os.getenv("FUSION_ANALYZER_ENABLED", "false").lower() == "true"
+                fusion_override = (
+                    os.getenv("FUSION_ANALYZER_OVERRIDE", "false").lower() == "true"
+                )
+                if fusion_enabled:
+                    try:
+                        from src.core.knowledge.fusion_analyzer import (
+                            build_doc_metadata,
+                            build_l2_features,
+                            get_fusion_analyzer,
+                        )
+
+                        l4_prediction = None
+                        if ml_result and ml_result.get("predicted_type"):
+                            l4_prediction = {
+                                "label": ml_result["predicted_type"],
+                                "confidence": 0.0,
+                            }
+
+                        fusion_decision = get_fusion_analyzer().analyze(
+                            doc_metadata=build_doc_metadata(doc),
+                            l2_features=build_l2_features(doc),
+                            l3_features=features_3d or {},
+                            l4_prediction=l4_prediction,
+                        )
+                        cls_payload["fusion_decision"] = fusion_decision.model_dump()
+                        if fusion_override:
+                            cls_payload["part_type"] = fusion_decision.primary_label
+                            cls_payload["confidence"] = fusion_decision.confidence
+                            cls_payload["rule_version"] = (
+                                f"FusionAnalyzer-{fusion_decision.schema_version}"
+                            )
+                            cls_payload["confidence_source"] = "fusion"
+                    except Exception as e:
+                        logger.error(f"FusionAnalyzer failed: {e}")
                 results["classification"] = cls_payload
                 # Active learning: flag low-confidence samples for review
                 try:

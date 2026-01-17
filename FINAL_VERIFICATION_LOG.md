@@ -1368,6 +1368,11 @@
   - Tests: `source .venv-graph/bin/activate && pytest tests/unit/test_fusion_analyzer.py -v`
   - Design: `docs/FUSION_ANALYZER_DESIGN.md`
   - Report: `reports/DEV_FUSION_ANALYZER_MVP_20260117.md`
+- **Fusion Analyzer Integration (Flagged)**:
+  - Added L1/L2 metadata helpers and feature-flagged FusionAnalyzer output in `/api/v1/analyze`.
+  - Tests: `source .venv-graph/bin/activate && pytest tests/unit/test_fusion_analyzer.py -v`
+  - Design: `docs/FUSION_ANALYZER_DESIGN.md`
+  - Report: `reports/DEV_FUSION_ANALYZER_INTEGRATION_20260117.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

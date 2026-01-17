@@ -30,5 +30,9 @@ preserving explainability and deterministic fallback behavior.
 ## Notes
 - This MVP does not yet apply feature normalization; `DEFAULT_NORM_SCHEMA` is reserved for the
   next iteration.
-- `FusionAnalyzer` is not wired into `/api/v1/analyze` yet; it is safe to evolve behind a
-  feature flag when integration starts.
+- `FusionAnalyzer` is wired behind feature flags in `/api/v1/analyze`.
+
+## Integration Flags
+- `FUSION_ANALYZER_ENABLED=true`: compute a fusion decision and attach it to classification output.
+- `FUSION_ANALYZER_OVERRIDE=true`: replace the classification label/confidence with the fusion
+  decision (requires `FUSION_ANALYZER_ENABLED=true`).

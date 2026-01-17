@@ -16,8 +16,39 @@ from src.core.knowledge.fusion_contracts import (
     FUSION_SCHEMA_VERSION
 )
 from src.core.errors_extended import ErrorCode, create_extended_error
+from src.models.cad_document import CadDocument
 
 logger = logging.getLogger(__name__)
+
+
+def build_doc_metadata(doc: CadDocument) -> Dict[str, Any]:
+    valid_format = doc.format in {"dxf", "dwg", "step", "stp", "iges", "igs", "stl"}
+    return {
+        "valid_format": valid_format,
+        "format": doc.format,
+        "entity_count": doc.entity_count(),
+    }
+
+
+def build_l2_features(doc: CadDocument) -> Dict[str, Any]:
+    bbox = doc.bounding_box
+    width = max(bbox.width, 0.0)
+    height = max(bbox.height, 0.0)
+    depth = max(bbox.depth, 0.0)
+
+    min_dim = min(d for d in (width, height) if d > 0.0) if width > 0 and height > 0 else 0.0
+    max_dim = max(width, height)
+    aspect_ratio = max_dim / min_dim if min_dim > 0 else 1.0
+
+    return {
+        "aspect_ratio": aspect_ratio,
+        "complexity_score": float(doc.entity_count()),
+        "hole_count": 0.0,
+        "bbox_width": width,
+        "bbox_height": height,
+        "bbox_depth": depth,
+    }
+
 
 class FusionAnalyzer:
     def __init__(self, ai_confidence_threshold: float = 0.7):
