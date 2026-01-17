@@ -1363,6 +1363,11 @@
   - Attempted linux/amd64 pythonocc-core setup to run the graph extraction integration test.
   - Tests: `pytest tests/integration/test_brep_graph_extraction.py -v` (not run; conda-forge repodata download timeout)
   - Report: `reports/DEV_BREP_GRAPH_LINUX_AMD64_VALIDATION_20260117.md`
+- **Fusion Analyzer MVP**:
+  - Documented the fusion schema and added unit tests for AI vs rule-based fallback paths.
+  - Tests: `source .venv-graph/bin/activate && pytest tests/unit/test_fusion_analyzer.py -v`
+  - Design: `docs/FUSION_ANALYZER_DESIGN.md`
+  - Report: `reports/DEV_FUSION_ANALYZER_MVP_20260117.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
