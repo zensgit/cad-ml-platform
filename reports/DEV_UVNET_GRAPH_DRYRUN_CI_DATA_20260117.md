@@ -11,8 +11,8 @@ failed to find `data/abc_sample` on the runner.
 - Dry-run exited early: `Data directory not found: data/abc_sample`.
 
 ## Fix
-- Workflow now seeds `data/abc_sample` by copying `examples/sample_part.step`
-  before running the dry-run.
+- Added `tests/fixtures/mock_cube.step` and updated the workflow to copy it into
+  `data/abc_sample` before running the dry-run.
 
 ## Notes
 - Re-run the workflow to confirm the forward pass executes against the sample STEP file.

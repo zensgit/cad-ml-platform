@@ -1460,6 +1460,7 @@
   - Report: `reports/DEV_UVNET_GRAPH_DRYRUN_CI_RESULT_20260117.md`
 - **UV-Net Graph Dry-Run CI Data Check**:
   - Workflow ran, but `data/abc_sample` was missing on the runner.
+  - Fix: added `tests/fixtures/mock_cube.step` and seeded `data/abc_sample` in CI.
   - Tests: `gh run view 21096649015 --log`
   - Report: `reports/DEV_UVNET_GRAPH_DRYRUN_CI_DATA_20260117.md`
 - **UV-Net Training Schema Alignment**:
