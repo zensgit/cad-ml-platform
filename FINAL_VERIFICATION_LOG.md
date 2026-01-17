@@ -1381,6 +1381,10 @@
   - Confirmed override behavior with minimum confidence threshold.
   - Tests: `FUSION_ANALYZER_ENABLED=true FUSION_ANALYZER_OVERRIDE=true FUSION_ANALYZER_OVERRIDE_MIN_CONF=0.5 uvicorn src.main:app --port 8001`, `curl -fsS -X POST http://127.0.0.1:8001/api/v1/analyze/ -H 'X-API-Key: test' -F 'file=@examples/sample_part.step' -F 'options={\"extract_features\": false, \"classify_parts\": true, \"quality_check\": false, \"process_recommendation\": false, \"calculate_similarity\": false, \"estimate_cost\": false}'`
   - Report: `reports/DEV_FUSION_ANALYZER_OVERRIDE_20260117.md`
+- **Fusion Analyzer Override Skip Validation**:
+  - Confirmed override is skipped when fused confidence is below the minimum threshold.
+  - Tests: `FUSION_ANALYZER_ENABLED=true FUSION_ANALYZER_OVERRIDE=true FUSION_ANALYZER_OVERRIDE_MIN_CONF=0.8 uvicorn src.main:app --port 8001`, `curl -fsS -X POST http://127.0.0.1:8001/api/v1/analyze/ -H 'X-API-Key: test' -F 'file=@examples/sample_part.step' -F 'options={\"extract_features\": false, \"classify_parts\": true, \"quality_check\": false, \"process_recommendation\": false, \"calculate_similarity\": false, \"estimate_cost\": false}'`
+  - Report: `reports/DEV_FUSION_ANALYZER_OVERRIDE_SKIP_20260117.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
