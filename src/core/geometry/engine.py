@@ -199,7 +199,15 @@ class GeometryEngine:
 
         try:
             face_map = TopTools_IndexedMapOfShape()
-            TopExp.MapShapes(shape, TopAbs_FACE, face_map)
+            if hasattr(TopExp, "MapShapes"):
+                TopExp.MapShapes(shape, TopAbs_FACE, face_map)
+            else:
+                exp = TopExp_Explorer(shape, TopAbs_FACE)
+                while exp.More():
+                    face = exp.Current()
+                    if face_map.FindIndex(face) == 0:
+                        face_map.Add(face)
+                    exp.Next()
             faces = []
             node_features = []
             for i in range(1, face_map.Extent() + 1):
@@ -209,26 +217,52 @@ class GeometryEngine:
 
             edge_index = []
             edge_features = []
-            edge_face_map = TopTools_IndexedDataMapOfShapeListOfShape()
-            TopExp.MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, edge_face_map)
-            for i in range(1, edge_face_map.Extent() + 1):
-                face_indices = []
-                face_list = edge_face_map.FindFromIndex(i)
-                it = TopTools_ListIteratorOfListOfShape(face_list)
-                while it.More():
-                    face = it.Value()
-                    face_idx = face_map.FindIndex(face)
-                    if face_idx > 0:
-                        face_indices.append(face_idx - 1)
-                    it.Next()
+            if hasattr(TopExp, "MapShapesAndAncestors"):
+                edge_face_map = TopTools_IndexedDataMapOfShapeListOfShape()
+                TopExp.MapShapesAndAncestors(shape, TopAbs_EDGE, TopAbs_FACE, edge_face_map)
+                for i in range(1, edge_face_map.Extent() + 1):
+                    face_indices = []
+                    face_list = edge_face_map.FindFromIndex(i)
+                    it = TopTools_ListIteratorOfListOfShape(face_list)
+                    while it.More():
+                        face = it.Value()
+                        face_idx = face_map.FindIndex(face)
+                        if face_idx > 0:
+                            face_indices.append(face_idx - 1)
+                        it.Next()
 
-                if len(face_indices) < 2:
-                    continue
+                    if len(face_indices) < 2:
+                        continue
 
-                a_idx, b_idx = face_indices[0], face_indices[1]
-                edge_feat = self._edge_feature_vector(faces[a_idx], faces[b_idx])
-                edge_index.extend([[a_idx, b_idx], [b_idx, a_idx]])
-                edge_features.extend([edge_feat, edge_feat])
+                    a_idx, b_idx = face_indices[0], face_indices[1]
+                    edge_feat = self._edge_feature_vector(faces[a_idx], faces[b_idx])
+                    edge_index.extend([[a_idx, b_idx], [b_idx, a_idx]])
+                    edge_features.extend([edge_feat, edge_feat])
+            else:
+                edge_map = TopTools_IndexedMapOfShape()
+                edge_to_faces: Dict[int, set[int]] = {}
+                for face_idx in range(1, face_map.Extent() + 1):
+                    face = face_map(face_idx)
+                    exp_edge = TopExp_Explorer(face, TopAbs_EDGE)
+                    while exp_edge.More():
+                        edge = exp_edge.Current()
+                        edge_index_in_map = edge_map.FindIndex(edge)
+                        if edge_index_in_map == 0:
+                            edge_map.Add(edge)
+                            edge_index_in_map = edge_map.FindIndex(edge)
+                        edge_to_faces.setdefault(edge_index_in_map, set()).add(face_idx - 1)
+                        exp_edge.Next()
+
+                for face_indices in edge_to_faces.values():
+                    if len(face_indices) < 2:
+                        continue
+                    face_list = list(face_indices)
+                    for i in range(len(face_list)):
+                        for j in range(i + 1, len(face_list)):
+                            a_idx, b_idx = face_list[i], face_list[j]
+                            edge_feat = self._edge_feature_vector(faces[a_idx], faces[b_idx])
+                            edge_index.extend([[a_idx, b_idx], [b_idx, a_idx]])
+                            edge_features.extend([edge_feat, edge_feat])
 
             graph["valid_3d"] = True
             graph["node_features"] = node_features
