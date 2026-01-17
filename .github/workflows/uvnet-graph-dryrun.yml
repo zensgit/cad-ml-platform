@@ -43,6 +43,10 @@ jobs:
             pythonocc-core
             pytorch
             -c conda-forge
+      - name: Prepare sample data
+        run: |
+          mkdir -p data/abc_sample
+          cp examples/sample_part.step data/abc_sample/sample_part.step
       - name: Run UV-Net graph dry-run
         run: |
           micromamba run -n uvnet python scripts/train_uvnet_graph_dryrun.py --data-dir data/abc_sample | tee uvnet_graph_dryrun.log
