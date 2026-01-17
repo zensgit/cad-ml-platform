@@ -1373,6 +1373,9 @@
   - Tests: `source .venv-graph/bin/activate && pytest tests/unit/test_fusion_analyzer.py -v`
   - Design: `docs/FUSION_ANALYZER_DESIGN.md`
   - Report: `reports/DEV_FUSION_ANALYZER_INTEGRATION_20260117.md`
+- **Fusion Analyzer Runtime Validation**:
+  - Verified `fusion_decision` appears in analyze response when `FUSION_ANALYZER_ENABLED=true`.
+  - Tests: `FUSION_ANALYZER_ENABLED=true uvicorn src.main:app --port 8001`, `curl -fsS http://127.0.0.1:8001/health`, `curl -fsS -X POST http://127.0.0.1:8001/api/v1/analyze/ -H 'X-API-Key: test' -F 'file=@examples/sample_part.step' -F 'options={\"extract_features\": false, \"classify_parts\": true, \"quality_check\": false, \"process_recommendation\": false, \"calculate_similarity\": false, \"estimate_cost\": false}'`\n+  - Report: `reports/DEV_FUSION_ANALYZER_RUNTIME_20260117.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
