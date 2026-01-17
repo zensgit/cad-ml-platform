@@ -31,6 +31,7 @@ preserving explainability and deterministic fallback behavior.
 - This MVP does not yet apply feature normalization; `DEFAULT_NORM_SCHEMA` is reserved for the
   next iteration.
 - `FusionAnalyzer` is wired behind feature flags in `/api/v1/analyze`.
+- L4 confidence uses the ML classifier confidence when available; otherwise defaults to 0.0.
 
 ## Integration Flags
 - `FUSION_ANALYZER_ENABLED=true`: compute a fusion decision and attach it to classification output.

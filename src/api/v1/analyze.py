@@ -744,7 +744,7 @@ async def analyze_cad_file(
                         if ml_result and ml_result.get("predicted_type"):
                             l4_prediction = {
                                 "label": ml_result["predicted_type"],
-                                "confidence": 0.0,
+                                "confidence": float(ml_result.get("confidence", 0.0)),
                             }
 
                         fusion_decision = get_fusion_analyzer().analyze(
