@@ -34,7 +34,8 @@ try:
     from OCC.Core.IFSelect import IFSelect_RetDone
     from OCC.Core.STEPControl import STEPControl_Reader
     from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_SHELL, TopAbs_SOLID, TopAbs_VERTEX
-    from OCC.Core.TopExp import TopExp, TopExp_Explorer
+    from OCC.Core import TopExp
+    from OCC.Core.TopExp import TopExp_Explorer
     from OCC.Core.TopTools import (
         TopTools_IndexedDataMapOfShapeListOfShape,
         TopTools_IndexedMapOfShape,

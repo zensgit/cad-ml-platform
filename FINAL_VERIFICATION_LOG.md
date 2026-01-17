@@ -1454,6 +1454,10 @@
   - Triggered the workflow on the feature branch; setup failed due to micromamba version format.
   - Tests: `gh workflow run uvnet-graph-dryrun.yml --ref feat/l4-uvnet-graph-model`, `gh run view 21096516600 --log`
   - Report: `reports/DEV_UVNET_GRAPH_DRYRUN_CI_ATTEMPT_20260117.md`
+- **UV-Net Graph Dry-Run CI Result**:
+  - Workflow ran with pythonocc-core installed, but import failed due to `TopExp` import name mismatch.
+  - Tests: `gh run view 21096593368 --log`
+  - Report: `reports/DEV_UVNET_GRAPH_DRYRUN_CI_RESULT_20260117.md`
 - **UV-Net Training Schema Alignment**:
   - Ensured training scripts pass node/edge schema into UV-Net checkpoints.
   - Tests: `source .venv-graph/bin/activate && python3 scripts/train_smoke_test.py`, `source .venv-graph/bin/activate && python3 scripts/uvnet_checkpoint_inspect.py --path models/smoke_test_model.pth`
