@@ -18,4 +18,5 @@ python3 scripts/train_uvnet_graph_dryrun.py --data-dir data/abc_subset
 
 ## CI
 - Workflow: `.github/workflows/uvnet-graph-dryrun.yml`
-- Trigger: manual dispatch or PRs touching UV-Net graph code.
+- Trigger: manual dispatch, PRs touching UV-Net graph code, or pushes to the
+  `feat/l4-uvnet-graph-model` branch.

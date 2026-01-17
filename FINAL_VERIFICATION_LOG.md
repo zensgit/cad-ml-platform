@@ -1447,7 +1447,7 @@
   - Report: `reports/DEV_UVNET_OCC_DOCKER_RETRY_20260117.md`
 - **UV-Net Graph Dry-Run Workflow**:
   - Added a GitHub Actions workflow to run the graph dry-run on Linux with micromamba.
-  - Tests: not run locally (CI workflow only)
+  - Tests: dispatch attempt failed (workflow not on default branch); push trigger added for branch runs.
   - Design: `docs/UVNET_GRAPH_DRYRUN.md`
   - Report: `reports/DEV_UVNET_GRAPH_DRYRUN_WORKFLOW_20260117.md`
 - **UV-Net Training Schema Alignment**:

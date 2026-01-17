@@ -9,9 +9,12 @@ micromamba and pythonocc-core.
 
 ## Steps
 - Added `.github/workflows/uvnet-graph-dryrun.yml`.
+- Attempted to dispatch the workflow via `gh workflow run`, but GitHub reported
+  the workflow is not available on the default branch yet.
+- Added a push trigger for `feat/l4-uvnet-graph-model` to allow branch runs.
 
 ## Results
-- Workflow added; not executed locally.
+- Workflow updated with push trigger; pending CI execution.
 
 ## Notes
 - The workflow is intended to run in GitHub Actions on Ubuntu to avoid macOS
