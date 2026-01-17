@@ -118,11 +118,17 @@ class UVNetGraphModel(nn.Module):
         embedding_dim: int = 1024,
         num_classes: int = 11,
         dropout_rate: float = 0.3,
+        node_schema: Optional[Tuple[str, ...]] = None,
+        edge_schema: Optional[Tuple[str, ...]] = None,
     ):
         super().__init__()
         self.node_input_dim = node_input_dim
         self.hidden_dim = hidden_dim
         self.embedding_dim = embedding_dim
+        self.num_classes = num_classes
+        self.dropout_rate = dropout_rate
+        self.node_schema = tuple(node_schema) if node_schema else None
+        self.edge_schema = tuple(edge_schema) if edge_schema else None
         self.has_pyg = HAS_PYG
 
         # Encoder Layers (GCN)
@@ -207,5 +213,9 @@ class UVNetGraphModel(nn.Module):
             "node_input_dim": self.node_input_dim,
             "hidden_dim": self.hidden_dim,
             "embedding_dim": self.embedding_dim,
+            "num_classes": self.num_classes,
+            "dropout_rate": self.dropout_rate,
+            "node_schema": self.node_schema,
+            "edge_schema": self.edge_schema,
             "backend": "pyg" if self.has_pyg else "pure_torch",
         }

@@ -1389,6 +1389,75 @@
   - Added classifier confidence extraction and fed L4 confidence into FusionAnalyzer inputs.
   - Tests: `source .venv-graph/bin/activate && pytest tests/unit/test_classifier_confidence.py -v`
   - Report: `reports/DEV_FUSION_ANALYZER_L4_CONFIDENCE_20260117.md`
+- **GNN Dependency Check**:
+  - Verified system Python lacks torch/PyG; fallback remains available via pure-torch GCN.
+  - Tests: `python3 - <<'PY' ... PY` (dependency check script)
+  - Report: `reports/DEV_GNN_DEPENDENCY_CHECK_20260117.md`
+- **UV-Net Checkpoint Config Load**:
+  - Added config fields to UV-Net checkpoints and used them during inference loads.
+  - Tests: `source .venv-graph/bin/activate && pytest tests/test_uvnet_graph_flow.py -v`
+  - Design: `docs/UVNET_MODEL_CHECKPOINT_CONFIG.md`
+  - Report: `reports/DEV_UVNET_CHECKPOINT_CONFIG_20260117.md`
+- **UV-Net Smoke Training**:
+  - Validated end-to-end graph training with synthetic inputs and checkpoint creation.
+  - Tests: `source .venv-graph/bin/activate && python3 scripts/train_smoke_test.py`
+  - Design: `docs/TRAINING_3D_PIPELINE.md`
+  - Report: `reports/DEV_UVNET_SMOKE_TRAINING_20260117.md`
+- **UV-Net Checkpoint Load Validation**:
+  - Confirmed encoder loads the smoke-test checkpoint and produces embeddings when node dims match.
+  - Tests: `source .venv-graph/bin/activate && python3 - <<'PY' ... PY`
+  - Report: `reports/DEV_UVNET_CHECKPOINT_LOAD_20260117.md`
+- **UV-Net Smoke Test Node Dimension Alignment**:
+  - Aligned smoke test node dim with B-Rep graph schema and revalidated training.
+  - Tests: `source .venv-graph/bin/activate && python3 scripts/train_smoke_test.py`
+  - Design: `docs/UVNET_SMOKE_TEST_NODE_DIM.md`
+  - Report: `reports/DEV_UVNET_SMOKE_TEST_NODE_DIM_20260117.md`
+- **UV-Net Encoder Dimension Guard**:
+  - Added node-dimension validation and covered it with a unit test.
+  - Tests: `source .venv-graph/bin/activate && pytest tests/unit/test_uvnet_encoder_dimension_guard.py -v`
+  - Design: `docs/UVNET_ENCODER_DIMENSION_CHECK.md`
+  - Report: `reports/DEV_UVNET_ENCODER_DIMENSION_GUARD_20260117.md`
+- **UV-Net Checkpoint Inspector**:
+  - Added a lightweight checkpoint inspection script and validated a forward pass.
+  - Tests: `source .venv-graph/bin/activate && python3 scripts/uvnet_checkpoint_inspect.py --path models/smoke_test_model.pth`
+  - Design: `docs/UVNET_CHECKPOINT_INSPECTOR.md`
+  - Report: `reports/DEV_UVNET_CHECKPOINT_INSPECTOR_20260117.md`
+- **UV-Net Schema Validation**:
+  - Stored schema metadata in UV-Net checkpoints and validated inference inputs when available.
+  - Tests: `source .venv-graph/bin/activate && pytest tests/unit/test_uvnet_encoder_dimension_guard.py -v`
+  - Design: `docs/UVNET_SCHEMA_VALIDATION.md`
+  - Report: `reports/DEV_UVNET_SCHEMA_VALIDATION_20260117.md`
+- **UV-Net Trainer Input Guard**:
+  - Added a node feature dimension guard in the trainer and validated it with a unit test.
+  - Tests: `source .venv-graph/bin/activate && pytest tests/unit/test_uvnet_trainer_input_guard.py -v`
+  - Design: `docs/UVNET_TRAINER_INPUT_GUARD.md`
+  - Report: `reports/DEV_UVNET_TRAINER_INPUT_GUARD_20260117.md`
+- **UV-Net Graph Dry-Run**:
+  - Added a STEP-based graph dry-run script (skipped locally due to missing OCC).
+  - Tests: `source .venv-graph/bin/activate && python3 scripts/train_uvnet_graph_dryrun.py --data-dir data/abc_subset`
+  - Design: `docs/UVNET_GRAPH_DRYRUN.md`
+  - Report: `reports/DEV_UVNET_GRAPH_DRYRUN_20260117.md`
+- **UV-Net OCC Setup Attempt**:
+  - Attempted pip, local micromamba, and docker-based installs for pythonocc-core; dry-run still blocked.
+  - Tests: `source .venv-graph/bin/activate && pip install pythonocc-core`, `./.tools/bin/micromamba --version`, `docker run --rm --platform linux/amd64 ... micromamba create ...`, `python3 scripts/train_uvnet_graph_dryrun.py --data-dir data/abc_sample`
+  - Report: `reports/DEV_UVNET_OCC_SETUP_20260117.md`
+- **UV-Net OCC Docker Retry**:
+  - Retried docker micromamba with low download concurrency and local cache; still stalled on repodata fetch.
+  - Tests: `docker run --rm --platform linux/amd64 -v "$PWD/.mamba-cache":/root/.cache/mamba ...`
+  - Report: `reports/DEV_UVNET_OCC_DOCKER_RETRY_20260117.md`
+- **UV-Net Graph Dry-Run Workflow**:
+  - Added a GitHub Actions workflow to run the graph dry-run on Linux with micromamba.
+  - Tests: not run locally (CI workflow only)
+  - Design: `docs/UVNET_GRAPH_DRYRUN.md`
+  - Report: `reports/DEV_UVNET_GRAPH_DRYRUN_WORKFLOW_20260117.md`
+- **UV-Net Training Schema Alignment**:
+  - Ensured training scripts pass node/edge schema into UV-Net checkpoints.
+  - Tests: `source .venv-graph/bin/activate && python3 scripts/train_smoke_test.py`, `source .venv-graph/bin/activate && python3 scripts/uvnet_checkpoint_inspect.py --path models/smoke_test_model.pth`
+  - Report: `reports/DEV_UVNET_TRAINING_SCHEMA_ALIGN_20260117.md`
+- **UV-Net Checkpoint Inspect Make Target**:
+  - Added a Make target for checkpoint inspection and validated it with the smoke-test model.
+  - Tests: `make uvnet-checkpoint-inspect UVNET_CHECKPOINT=models/smoke_test_model.pth PYTHON=.venv-graph/bin/python`
+  - Report: `reports/DEV_UVNET_CHECKPOINT_MAKE_TARGET_20260117.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

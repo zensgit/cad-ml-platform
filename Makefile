@@ -4,7 +4,9 @@
 .PHONY: help install dev test test-dedupcad-vision lint format type-check clean run docs docker eval-history health-check eval-trend \
 	observability-up observability-down observability-status self-check metrics-validate prom-validate \
 	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted e2e-smoke \
-	dedup2d-secure-smoke
+	dedup2d-secure-smoke chrome-devtools cdp-console-demo cdp-network-demo cdp-perf-demo cdp-response-demo \
+	cdp-screenshot-demo cdp-trace-demo playwright-console-demo playwright-trace-demo playwright-install \
+	uvnet-checkpoint-inspect
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -23,6 +25,7 @@ ISORT := $(PYTHON) -m isort
 MYPY := $(PYTHON) -m mypy
 FLAKE8 := $(PYTHON) -m flake8
 PROMETHEUS_URL ?= http://localhost:9091
+UVNET_CHECKPOINT ?= models/uvnet_v1.pth
 
 # 项目路径
 SRC_DIR := src
@@ -116,6 +119,36 @@ run: ## 启动服务
 	@echo "$(GREEN)Starting CAD ML Platform...$(NC)"
 	uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
+chrome-devtools: ## Launch Chrome with remote debugging enabled
+	@scripts/chrome_devtools.sh
+
+cdp-console-demo: ## Demo capturing console logs via CDP
+	$(PYTHON) scripts/cdp_capture_console.py
+
+cdp-network-demo: ## Demo capturing network events via CDP
+	$(PYTHON) scripts/cdp_network_capture.py
+
+cdp-perf-demo: ## Demo capturing performance metrics via CDP
+	$(PYTHON) scripts/cdp_performance_capture.py
+
+cdp-response-demo: ## Demo capturing response bodies via CDP
+	$(PYTHON) scripts/cdp_response_capture.py
+
+cdp-screenshot-demo: ## Demo capturing a screenshot via CDP
+	$(PYTHON) scripts/cdp_screenshot_capture.py
+
+cdp-trace-demo: ## Demo capturing a trace via CDP
+	$(PYTHON) scripts/cdp_trace_capture.py
+
+playwright-console-demo: ## Demo capturing console logs via Playwright (optional)
+	$(PYTHON) scripts/playwright_console_capture.py
+
+playwright-trace-demo: ## Demo capturing Playwright trace (optional)
+	$(PYTHON) scripts/playwright_trace_capture.py
+
+playwright-install: ## Install Playwright browser (requires network)
+	$(PYTHON) -m playwright install chromium
+
 run-demo: ## 运行演示
 	@echo "$(GREEN)Running assembly demo...$(NC)"
 	$(PYTHON) examples/assembly_demo.py
@@ -128,6 +161,9 @@ docs: ## 生成文档
 self-check: ## Run basic self-check
 	@echo "$(GREEN)Running self-check...$(NC)"
 	$(PYTHON) scripts/self_check.py
+
+uvnet-checkpoint-inspect: ## Inspect UV-Net checkpoint config and forward pass
+	$(PYTHON) scripts/uvnet_checkpoint_inspect.py --path $(UVNET_CHECKPOINT)
 
 self-check-enhanced: ## Run comprehensive self-check
 	@echo "$(GREEN)Running enhanced self-check...$(NC)"

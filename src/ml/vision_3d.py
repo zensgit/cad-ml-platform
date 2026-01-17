@@ -65,7 +65,12 @@ class UVNetEncoder:
             config = checkpoint.get("config", {})
             self.model = UVNetGraphModel(
                 node_input_dim=config.get("node_input_dim", 12),
+                hidden_dim=config.get("hidden_dim", 64),
                 embedding_dim=config.get("embedding_dim", 1024),
+                num_classes=config.get("num_classes", 11),
+                dropout_rate=config.get("dropout_rate", 0.3),
+                node_schema=config.get("node_schema"),
+                edge_schema=config.get("edge_schema"),
             )
             self.model.load_state_dict(checkpoint["model_state_dict"])
             self.model.to(self.device)
@@ -91,7 +96,7 @@ class UVNetEncoder:
         Returns:
             List[float]: A normalized embedding vector (e.g., 1024 dimensions).
         """
-        dim = 1024
+        dim = self.model.embedding_dim if self._loaded and self.model is not None else 1024
 
         # 1. Mock Path (If no model loaded or explicit legacy feature dict)
         if not self._loaded or (isinstance(data_source, dict) and "edge_index" not in data_source):
@@ -104,10 +109,14 @@ class UVNetEncoder:
                 if isinstance(data_source, dict):
                     x = data_source["x"]
                     edge_index = data_source["edge_index"]
+                    node_schema = data_source.get("node_schema")
+                    edge_schema = data_source.get("edge_schema")
                 else:
                     # Assume PyG Data object
                     x = data_source.x
                     edge_index = data_source.edge_index
+                    node_schema = getattr(data_source, "node_schema", None)
+                    edge_schema = getattr(data_source, "edge_schema", None)
 
                 # Ensure tensors and device
                 if not isinstance(x, torch.Tensor):
@@ -117,6 +126,51 @@ class UVNetEncoder:
 
                 x = x.to(self.device)
                 edge_index = edge_index.to(self.device)
+
+                model_node_schema = getattr(self.model, "node_schema", None)
+                model_edge_schema = getattr(self.model, "edge_schema", None)
+                if model_node_schema is not None and node_schema is not None:
+                    if tuple(model_node_schema) != tuple(node_schema):
+                        logger.error(
+                            "Graph node schema mismatch: expected %s, got %s",
+                            model_node_schema,
+                            node_schema,
+                        )
+                        return [0.0] * dim
+                elif model_node_schema is not None and node_schema is None:
+                    logger.warning("Graph node schema missing from input data.")
+                elif model_node_schema is None and node_schema is not None:
+                    logger.warning("Model node schema missing; input schema provided.")
+
+                if model_edge_schema is not None and edge_schema is not None:
+                    if tuple(model_edge_schema) != tuple(edge_schema):
+                        logger.error(
+                            "Graph edge schema mismatch: expected %s, got %s",
+                            model_edge_schema,
+                            edge_schema,
+                        )
+                        return [0.0] * dim
+                elif model_edge_schema is not None and edge_schema is None:
+                    logger.warning("Graph edge schema missing from input data.")
+                elif model_edge_schema is None and edge_schema is not None:
+                    logger.warning("Model edge schema missing; input schema provided.")
+
+                if x.dim() != 2:
+                    logger.error("Graph node feature tensor must be 2D, got shape %s", tuple(x.shape))
+                    return [0.0] * dim
+
+                expected_dim = getattr(self.model, "node_input_dim", None)
+                if expected_dim is not None and x.size(1) != expected_dim:
+                    logger.error(
+                        "Graph node feature dim mismatch: expected %s, got %s",
+                        expected_dim,
+                        x.size(1),
+                    )
+                    return [0.0] * dim
+
+                if x.size(0) == 0:
+                    logger.error("Graph node feature tensor is empty; returning zeros.")
+                    return [0.0] * dim
 
                 # Create Batch Index (All 0s for single sample)
                 batch = torch.zeros(x.size(0), dtype=torch.long, device=self.device)

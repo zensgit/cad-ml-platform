@@ -41,11 +41,14 @@ class TestUVNetGraphFlow(unittest.TestCase):
         # Check if config returns correct backend status
         config = self.model.get_config()
         self.assertEqual(config["node_input_dim"], self.node_dim)
+        self.assertEqual(config["num_classes"], self.num_classes)
+        self.assertAlmostEqual(config["dropout_rate"], 0.3)
         self.assertEqual(config["backend"], "pyg" if self.model.has_pyg else "pure_torch")
 
     def test_forward_pass_single_graph(self):
         """Test forward pass with a single random graph."""
         print("Testing Forward Pass (Single)...")
+        self.model.eval()
         num_nodes = 10
         num_edges = 20
 

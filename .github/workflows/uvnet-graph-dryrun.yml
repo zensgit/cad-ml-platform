@@ -1,0 +1,45 @@
+name: UV-Net Graph Dry-Run
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/core/geometry/**"
+      - "src/ml/**"
+      - "scripts/train_uvnet_graph_dryrun.py"
+      - "docs/UVNET_GRAPH_DRYRUN.md"
+      - ".github/workflows/uvnet-graph-dryrun.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  uvnet-graph-dryrun:
+    runs-on: ubuntu-latest
+    env:
+      MAMBA_DEFAULT_REPODATA_FN: repodata.json
+      MAMBA_FETCH_THREADS: 1
+      MAMBA_DOWNLOAD_THREADS: 1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up micromamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          micromamba-version: "1.5.8"
+          environment-name: uvnet
+          init-shell: bash
+          cache-environment: true
+          create-args: >-
+            python=3.10
+            pythonocc-core
+            pytorch
+            -c conda-forge
+      - name: Run UV-Net graph dry-run
+        run: |
+          micromamba run -n uvnet python scripts/train_uvnet_graph_dryrun.py --data-dir data/abc_sample | tee uvnet_graph_dryrun.log
+      - name: Upload dry-run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uvnet-graph-dryrun-log
+          path: uvnet_graph_dryrun.log

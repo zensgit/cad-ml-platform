@@ -128,6 +128,14 @@ class UVNetTrainer:
         self.criterion = nn.NLLLoss()  # Expecting LogSoftmax output
         self.history: Dict[str, List[float]] = {"loss": [], "acc": []}
 
+    def _validate_node_features(self, x: torch.Tensor) -> None:
+        if x.dim() != 2:
+            raise ValueError(f"Expected node feature tensor to be 2D, got {tuple(x.shape)}")
+        if x.size(1) != self.model.node_input_dim:
+            raise ValueError(
+                f"Node feature dim mismatch: expected {self.model.node_input_dim}, got {x.size(1)}"
+            )
+
     def train_epoch(self, dataloader: Any) -> Dict[str, float]:
         self.model.train()
         total_loss = 0.0
@@ -152,6 +160,8 @@ class UVNetTrainer:
                 x = inputs["x"]
                 edge_index = inputs["edge_index"]
                 batch_idx = inputs["batch"]
+
+            self._validate_node_features(x)
 
             self.optimizer.zero_grad()
 
@@ -196,9 +206,11 @@ class UVNetTrainer:
                     inputs = move_to_device(inputs, self.device)
                     targets = targets.to(self.device)
                     
-                    x = inputs["x"]
-                    edge_index = inputs["edge_index"]
-                    batch_idx = inputs["batch"]
+                x = inputs["x"]
+                edge_index = inputs["edge_index"]
+                batch_idx = inputs["batch"]
+
+                self._validate_node_features(x)
 
                 log_probs, _ = self.model(x, edge_index, batch_idx)
                 loss = self.criterion(log_probs, targets)

@@ -128,3 +128,5 @@ reports/replay_extended/
 .venv311/
 .venv_run/
 .venv-graph/
+.mamba-cache/
+.tools/

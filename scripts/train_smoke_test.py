@@ -16,9 +16,19 @@ from src.ml.train.model import UVNetGraphModel
 from src.ml.train.trainer import UVNetTrainer, get_graph_dataloader
 from src.ml.utils import get_best_device
 
+try:
+    from src.core.geometry.engine import BREP_GRAPH_EDGE_FEATURES, BREP_GRAPH_NODE_FEATURES
+except Exception:
+    BREP_GRAPH_NODE_FEATURES = tuple()
+    BREP_GRAPH_EDGE_FEATURES = tuple()
+
+DEFAULT_NODE_DIM = len(BREP_GRAPH_NODE_FEATURES) or 15
+DEFAULT_NODE_SCHEMA = BREP_GRAPH_NODE_FEATURES or None
+DEFAULT_EDGE_SCHEMA = BREP_GRAPH_EDGE_FEATURES or None
+
 class MockGraphDataset(Dataset):
     """Generates synthetic graph data to test the pipeline without external files."""
-    def __init__(self, num_samples=100, node_dim=15):
+    def __init__(self, num_samples=100, node_dim=DEFAULT_NODE_DIM):
         self.num_samples = num_samples
         self.node_dim = node_dim
 
@@ -47,9 +57,14 @@ def run_smoke_test():
         print("⚠️  Warning: MPS not detected. Training will be slow on CPU.")
 
     # 1. Initialize Model (UV-Net Graph Architecture)
-    node_dim = 15  # Matches GeometryEngine.BREP_GRAPH_NODE_FEATURES
+    node_dim = DEFAULT_NODE_DIM  # Matches GeometryEngine.BREP_GRAPH_NODE_FEATURES
     num_classes = 10
-    model = UVNetGraphModel(node_input_dim=node_dim, num_classes=num_classes)
+    model = UVNetGraphModel(
+        node_input_dim=node_dim,
+        num_classes=num_classes,
+        node_schema=DEFAULT_NODE_SCHEMA,
+        edge_schema=DEFAULT_EDGE_SCHEMA,
+    )
     
     # 2. Initialize Trainer
     trainer = UVNetTrainer(model, device=device, learning_rate=0.01)
