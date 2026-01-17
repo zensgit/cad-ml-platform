@@ -43,10 +43,11 @@ try:
     from OCC.Core.TopoDS import TopoDS_Shape
 
     HAS_OCC = True
-except ImportError:
+except ImportError as exc:
     HAS_OCC = False
     logger.warning(
-        "pythonocc-core not found. 3D analysis capabilities will be limited to mock/fallback."
+        "pythonocc-core not found. 3D analysis capabilities will be limited to mock/fallback. (%s)",
+        exc,
     )
 
 
