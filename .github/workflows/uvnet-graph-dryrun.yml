@@ -34,7 +34,7 @@ jobs:
       - name: Set up micromamba
         uses: mamba-org/setup-micromamba@v1
         with:
-          micromamba-version: "1.5.8"
+          micromamba-version: "1.5.8-0"
           environment-name: uvnet
           init-shell: bash
           cache-environment: true

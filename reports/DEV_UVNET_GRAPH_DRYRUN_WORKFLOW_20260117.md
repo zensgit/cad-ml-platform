@@ -15,6 +15,7 @@ micromamba and pythonocc-core.
 
 ## Results
 - Workflow updated with push trigger; pending CI execution.
+  Next run uses `micromamba-version: 1.5.8-0`.
 
 ## Notes
 - The workflow is intended to run in GitHub Actions on Ubuntu to avoid macOS
