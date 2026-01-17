@@ -729,6 +729,9 @@ async def analyze_cad_file(
                 fusion_override = (
                     os.getenv("FUSION_ANALYZER_OVERRIDE", "false").lower() == "true"
                 )
+                fusion_override_min_conf = float(
+                    os.getenv("FUSION_ANALYZER_OVERRIDE_MIN_CONF", "0.5")
+                )
                 if fusion_enabled:
                     try:
                         from src.core.knowledge.fusion_analyzer import (
@@ -751,13 +754,18 @@ async def analyze_cad_file(
                             l4_prediction=l4_prediction,
                         )
                         cls_payload["fusion_decision"] = fusion_decision.model_dump()
-                        if fusion_override:
+                        if fusion_override and fusion_decision.confidence >= fusion_override_min_conf:
                             cls_payload["part_type"] = fusion_decision.primary_label
                             cls_payload["confidence"] = fusion_decision.confidence
                             cls_payload["rule_version"] = (
                                 f"FusionAnalyzer-{fusion_decision.schema_version}"
                             )
                             cls_payload["confidence_source"] = "fusion"
+                        elif fusion_override:
+                            cls_payload["fusion_override_skipped"] = {
+                                "min_confidence": fusion_override_min_conf,
+                                "decision_confidence": fusion_decision.confidence,
+                            }
                     except Exception as e:
                         logger.error(f"FusionAnalyzer failed: {e}")
                 results["classification"] = cls_payload

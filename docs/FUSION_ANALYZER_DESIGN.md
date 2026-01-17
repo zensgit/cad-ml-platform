@@ -36,3 +36,4 @@ preserving explainability and deterministic fallback behavior.
 - `FUSION_ANALYZER_ENABLED=true`: compute a fusion decision and attach it to classification output.
 - `FUSION_ANALYZER_OVERRIDE=true`: replace the classification label/confidence with the fusion
   decision (requires `FUSION_ANALYZER_ENABLED=true`).
+- `FUSION_ANALYZER_OVERRIDE_MIN_CONF=0.5`: minimum fused confidence required to apply override.
