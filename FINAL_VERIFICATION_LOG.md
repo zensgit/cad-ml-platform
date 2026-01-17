@@ -1463,6 +1463,10 @@
   - Fix: added `tests/fixtures/mock_cube.step` and seeded `data/abc_sample` in CI.
   - Tests: `gh run view 21096649015 --log`
   - Report: `reports/DEV_UVNET_GRAPH_DRYRUN_CI_DATA_20260117.md`
+- **UV-Net Graph Dry-Run CI Success**:
+  - Workflow completed with the STEP fixture and produced non-empty outputs.
+  - Tests: `gh run view 21096943972 --log`
+  - Report: `reports/DEV_UVNET_GRAPH_DRYRUN_CI_SUCCESS_20260117.md`
 - **UV-Net Training Schema Alignment**:
   - Ensured training scripts pass node/edge schema into UV-Net checkpoints.
   - Tests: `source .venv-graph/bin/activate && python3 scripts/train_smoke_test.py`, `source .venv-graph/bin/activate && python3 scripts/uvnet_checkpoint_inspect.py --path models/smoke_test_model.pth`
