@@ -1505,7 +1505,7 @@
   - Report: `reports/DEV_UVNET_TRAINING_LOOP_20260119.md`
 - **2D Part Recognition (JSON/DXF Signals)**:
   - Added JSON adapter and DXF text/dimension metadata; classification now uses text signals with L2 fusion when 3D features are absent.
-  - Tests: `pytest tests/unit/test_adapter_factory_coverage.py -v`, `pytest tests/unit/test_input_validator_coverage.py -v`, `pytest tests/integration/test_analyze_json_fusion.py -v`, `pytest tests/integration/test_analyze_dxf_fusion.py -v`, `pytest tests/integration/test_e2e_api_smoke.py -v` (1 passed, 1 skipped: dedup vision unavailable)
+  - Tests: `pytest tests/unit/test_adapter_factory_coverage.py -v`, `pytest tests/unit/test_input_validator_coverage.py -v`, `pytest tests/integration/test_analyze_json_fusion.py -v`, `pytest tests/integration/test_analyze_dxf_fusion.py -v`, `pytest tests/integration/test_dedupcad_vision_contract.py -v`, `pytest tests/integration/test_e2e_api_smoke.py -v` (2 passed; dedupcad-vision running locally)
   - Design: `docs/2D_PART_RECOGNITION_JSON.md`
   - Report: `reports/DEV_2D_PART_RECOGNITION_JSON_20260119.md`
 

@@ -13,4 +13,5 @@
 - `pytest tests/unit/test_input_validator_coverage.py -v`
 - `pytest tests/integration/test_analyze_json_fusion.py -v`
 - `pytest tests/integration/test_analyze_dxf_fusion.py -v`
-- `pytest tests/integration/test_e2e_api_smoke.py -v` (1 passed, 1 skipped: dedup vision unavailable)
+- `pytest tests/integration/test_dedupcad_vision_contract.py -v`
+- `pytest tests/integration/test_e2e_api_smoke.py -v` (2 passed; dedupcad-vision running locally)
