@@ -12,7 +12,10 @@ import sys
 import unittest
 from unittest.mock import MagicMock
 
-import torch
+try:
+    import torch
+except ImportError:  # pragma: no cover - optional dependency in CI
+    torch = None
 
 # Add src to path
 sys.path.append(".")
@@ -21,6 +24,7 @@ from src.ml.train.model import UVNetGraphModel
 from src.ml.train.trainer import GraphBatchCollate, UVNetTrainer
 
 
+@unittest.skipIf(torch is None, "torch not installed")
 class TestUVNetGraphFlow(unittest.TestCase):
     def setUp(self):
         self.node_dim = 12
