@@ -1437,6 +1437,21 @@
   - Tests: `source .venv-graph/bin/activate && python3 scripts/train_uvnet_graph_dryrun.py --data-dir data/abc_subset`
   - Design: `docs/UVNET_GRAPH_DRYRUN.md`
   - Report: `reports/DEV_UVNET_GRAPH_DRYRUN_20260117.md`
+- **UV-Net Graph Dry-Run Guard**:
+  - Fail the dry-run when the batch produces an empty graph and log edge counts.
+  - Tests: attempted `docker run --platform linux/amd64 ... micromamba run -n uvnet python scripts/train_uvnet_graph_dryrun.py --data-dir data/abc_sample` (blocked by local Docker/micromamba issues).
+  - Design: `docs/UVNET_GRAPH_DRYRUN.md`
+  - Report: `reports/DEV_UVNET_GRAPH_DRYRUN_GUARD_20260118.md`
+- **UV-Net Graph Fixture Expansion**:
+  - Added pythonocc-core test fixtures and copied all STEP/STP fixtures in the workflow seed step.
+  - Tests: `head -n 2 tests/fixtures/eight_cyl.stp`, `head -n 2 tests/fixtures/as1_oc_214.stp`
+  - Design: `docs/UVNET_GRAPH_DRYRUN.md`
+  - Report: `reports/DEV_UVNET_GRAPH_FIXTURES_20260118.md`
+- **UV-Net Graph Dry-Run Trigger Cleanup**:
+  - Removed the push trigger from the dry-run workflow; kept manual dispatch and PR triggers.
+  - Tests: configuration review only.
+  - Design: `docs/UVNET_GRAPH_DRYRUN.md`
+  - Report: `reports/DEV_UVNET_GRAPH_DRYRUN_TRIGGER_CLEANUP_20260118.md`
 - **UV-Net OCC Setup Attempt**:
   - Attempted pip, local micromamba, and docker-based installs for pythonocc-core; dry-run still blocked.
   - Tests: `source .venv-graph/bin/activate && pip install pythonocc-core`, `./.tools/bin/micromamba --version`, `docker run --rm --platform linux/amd64 ... micromamba create ...`, `python3 scripts/train_uvnet_graph_dryrun.py --data-dir data/abc_sample`

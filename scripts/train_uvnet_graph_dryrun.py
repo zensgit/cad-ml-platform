@@ -40,7 +40,7 @@ def main() -> int:
 
     if not os.path.exists(args.data_dir):
         print(f"Data directory not found: {args.data_dir}")
-        return 0
+        return 1
 
     dataset = ABCDataset(
         args.data_dir,
@@ -53,7 +53,7 @@ def main() -> int:
 
     if len(dataset) == 0:
         print("No STEP files found for dry-run.")
-        return 0
+        return 1
 
     dataloader = get_graph_dataloader(dataset, batch_size=args.batch_size, shuffle=False)
     batch_data = next(iter(dataloader))
@@ -68,9 +68,14 @@ def main() -> int:
         edge_index = batch_data.edge_index
         batch_idx = batch_data.batch
 
-    if x.size(0) == 0:
-        print("Dry-run batch contained no nodes; verify input STEP files.")
-        return 0
+    node_count = x.size(0)
+    edge_count = edge_index.size(1)
+    if node_count == 0 or edge_count == 0:
+        print(
+            f"Dry-run produced empty graph (nodes={node_count}, edges={edge_count}); "
+            "verify input STEP files."
+        )
+        return 1
 
     model = UVNetGraphModel(
         node_input_dim=len(BREP_GRAPH_NODE_FEATURES),
@@ -85,7 +90,8 @@ def main() -> int:
 
     print("UV-Net Graph Dry-Run")
     print(f"Data dir: {args.data_dir}")
-    print(f"Batch nodes: {x.size(0)}")
+    print(f"Batch nodes: {node_count}")
+    print(f"Batch edges: {edge_count}")
     print(f"Logits shape: {tuple(logits.shape)}")
     print(f"Embedding shape: {tuple(embedding.shape)}")
     return 0
