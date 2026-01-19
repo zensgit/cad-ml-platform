@@ -12,8 +12,8 @@ be replaced by true human labels when available.
 
 ## Results
 - Sample size: 20
-- Top-1 accuracy: 0.15
-- Top-3 accuracy: 0.20
+- Top-1 accuracy: 0.10
+- Top-3 accuracy: 0.15
 
 ## Notes
 - Because reviewer labels are auto-filled, these metrics remain a weak-label

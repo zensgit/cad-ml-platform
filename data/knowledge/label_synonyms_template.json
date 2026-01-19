@@ -270,5 +270,21 @@
   "零件轴改": [
     "modified shaft part",
     "revised shaft"
+  ],
+  "活动齿板": [
+    "movable toothed plate",
+    "movable gear plate"
+  ],
+  "托轮轴压板": [
+    "roller shaft clamp plate",
+    "support roller shaft clamp plate"
+  ],
+  "带座轴承板": [
+    "bearing base plate",
+    "housed bearing plate"
+  ],
+  "挡板": [
+    "baffle plate",
+    "shield plate"
   ]
 }

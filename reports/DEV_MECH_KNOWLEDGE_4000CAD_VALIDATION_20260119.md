@@ -19,11 +19,11 @@ for the 4000CAD dataset slice.
 
 ## Manual-Eval Baseline (Auto-Filled)
 - Sample size: 20
-- Top-1 accuracy: 0.15
-- Top-3 accuracy: 0.20
+- Top-1 accuracy: 0.10
+- Top-3 accuracy: 0.15
 - Reviewer labels were auto-filled from filenames (not human verified).
 
 ## Auto-Label Attempt
 - Unlabeled rows: 27
-- Auto-labeled rows: 0
+- Auto-labeled rows: 10
 - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_AUTO_LABEL_ATTEMPT_20260119.md`

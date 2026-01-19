@@ -15,7 +15,7 @@ unlabeled files and a 20-sample evaluation subset with model predictions.
 ## Notes
 - Fill `label_cn`/`label_en` for unlabeled files to expand the manifest.
 - Fill `reviewer_label_cn` in the eval template to compute true Top-1/Top-3.
-- Auto-labeling via DXF text hints found no matches for the 27 unlabeled files;
-  manual input is still required for those rows.
+- Auto-labeling via decoded DXF text yielded 10 provisional labels; remaining
+  17 files still need manual input.
 - The manual-eval template has been auto-filled from filename labels to allow
   a provisional evaluation; replace with human labels when available.

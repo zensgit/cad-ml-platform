@@ -17,7 +17,7 @@
 
 ## Synonyms + Rules
 - Synonyms: `data/knowledge/label_synonyms_template.json` (68 labels)
-- Rules updated: `data/knowledge/geometry_rules.json` (+21 dataset rules)
+- Rules updated: `data/knowledge/geometry_rules.json` (+21 dataset rules, +4 from auto-labeled files)
 - Script used: `python3 scripts/build_geometry_rules_from_manifest.py --manifest reports/MECH_4000_DWG_LABEL_MANIFEST_20260119.csv --synonyms-json data/knowledge/label_synonyms_template.json`
 
 ## Training

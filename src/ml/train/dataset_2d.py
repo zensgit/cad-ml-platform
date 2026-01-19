@@ -222,7 +222,8 @@ class DXFManifestDataset(Dataset):
     def __getitem__(self, idx: int) -> Tuple[Dict[str, Any], torch.Tensor]:
         item = self.samples[idx]
         file_name = item["file_name"]
-        file_path = os.path.join(self.dxf_dir, file_name.replace(".dwg", ".dxf"))
+        stem = os.path.splitext(file_name)[0]
+        file_path = os.path.join(self.dxf_dir, f"{stem}.dxf")
         label = torch.tensor(item["label_id"], dtype=torch.long)
 
         try:

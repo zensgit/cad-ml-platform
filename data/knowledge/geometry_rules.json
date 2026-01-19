@@ -1,8 +1,8 @@
 {
-  "version": "2026-01-19T14:16:23.431532+00:00",
+  "version": "2026-01-19T14:42:59.222580+00:00",
   "category": "geometry",
-  "count": 93,
-  "updated_at": "2026-01-19T14:16:23.431532+00:00",
+  "count": 97,
+  "updated_at": "2026-01-19T14:42:59.222580+00:00",
   "rules": [
     {
       "id": "learned_bolt_Bolt_M6x20",
@@ -2226,6 +2226,102 @@
       "source": "dataset_manifest",
       "created_at": "2026-01-19T13:50:51.683812+00:00",
       "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_1dcc268e6462",
+      "category": "geometry",
+      "name": "Dataset rule for 带座轴承板",
+      "chinese_name": "带座轴承板",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "bearing base plate",
+        "housed bearing plate",
+        "带座轴承板"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "带座轴承板": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T14:42:59.222580+00:00",
+      "updated_at": "2026-01-19T14:42:59.222580+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_4090df647a21",
+      "category": "geometry",
+      "name": "Dataset rule for 托轮轴压板",
+      "chinese_name": "托轮轴压板",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "roller shaft clamp plate",
+        "support roller shaft clamp plate",
+        "托轮轴压板"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "托轮轴压板": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T14:42:59.222580+00:00",
+      "updated_at": "2026-01-19T14:42:59.222580+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_3d725a9a762d",
+      "category": "geometry",
+      "name": "Dataset rule for 挡板",
+      "chinese_name": "挡板",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "baffle plate",
+        "shield plate",
+        "挡板"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "挡板": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T14:42:59.222580+00:00",
+      "updated_at": "2026-01-19T14:42:59.222580+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_ebac435e24bb",
+      "category": "geometry",
+      "name": "Dataset rule for 活动齿板",
+      "chinese_name": "活动齿板",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "movable gear plate",
+        "movable toothed plate",
+        "活动齿板"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "活动齿板": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T14:42:59.222580+00:00",
+      "updated_at": "2026-01-19T14:42:59.222580+00:00",
       "metadata": {
         "count": 1
       }

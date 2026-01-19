@@ -1537,10 +1537,10 @@
   - Generated unlabeled mapping + manual eval templates for human review.
   - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_MANUAL_LABELING_20260119.md`
 - **Mechanical Knowledge 4000CAD Auto-Label Attempt**:
-  - Attempted to auto-label 27 unlabeled DWGs via DXF text hints; no matches.
+  - Auto-labeled 10 of 27 unlabeled DWGs via decoded DXF text hints.
   - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_AUTO_LABEL_ATTEMPT_20260119.md`
 - **Mechanical Knowledge 4000CAD Manual Eval Results**:
-  - Auto-filled reviewer labels and computed Top-1 0.15, Top-3 0.20 (proxy baseline).
+  - Auto-filled reviewer labels and computed Top-1 0.10, Top-3 0.15 (proxy baseline).
   - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_MANUAL_EVAL_RESULTS_20260119.md`
 
 ---
