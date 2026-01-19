@@ -7,11 +7,12 @@ Model expected to implement `.predict` taking List[List[float]].
 """
 
 import logging
+import math
 import os
 import pickle
 import threading
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -129,6 +130,7 @@ def predict(vector: List[float]) -> Dict[str, Any]:
         start = time.time()
         # sklearn predict returns array-like labels
         label = _MODEL.predict([vector])[0]
+        confidence, confidence_source = _extract_confidence(_MODEL, vector, label)
         dur = time.time() - start
         from src.utils.analysis_metrics import (
             classification_model_inference_seconds,
@@ -139,14 +141,78 @@ def predict(vector: List[float]) -> Dict[str, Any]:
         classification_prediction_distribution.labels(
             label=str(label), version=_MODEL_VERSION
         ).inc()
-        return {
+        result = {
             "predicted_type": str(label),
             "model_version": _MODEL_VERSION,
             "inference_seconds": round(dur, 6),
             "model_hash": _MODEL_HASH,
         }
+        if confidence is not None:
+            result["confidence"] = confidence
+            result["confidence_source"] = confidence_source
+        return result
     except Exception:
         return {"status": "inference_error"}
+
+
+def _extract_confidence(
+    model: Any,
+    vector: List[float],
+    label: Any,
+) -> tuple[Optional[float], Optional[str]]:
+    try:
+        if hasattr(model, "predict_proba"):
+            probs = model.predict_proba([vector])
+            if probs is not None:
+                row = probs[0]
+                try:
+                    idx = list(getattr(model, "classes_", [])).index(label)
+                    return float(row[idx]), "predict_proba"
+                except Exception:
+                    return float(max(row)), "predict_proba"
+    except Exception:
+        pass
+
+    try:
+        if hasattr(model, "decision_function"):
+            scores = model.decision_function([vector])
+            score_list = _normalize_scores(scores)
+            if len(score_list) == 1:
+                return float(1 / (1 + math.exp(-score_list[0]))), "decision_function"
+            probs = _softmax(score_list)
+            try:
+                idx = list(getattr(model, "classes_", [])).index(label)
+                return float(probs[idx]), "decision_function"
+            except Exception:
+                return float(max(probs)), "decision_function"
+    except Exception:
+        pass
+
+    return None, None
+
+
+def _normalize_scores(scores: Any) -> List[float]:
+    try:
+        if hasattr(scores, "ndim") and scores.ndim > 1:
+            scores = scores[0]
+    except Exception:
+        pass
+    try:
+        if isinstance(scores, (list, tuple)) and scores and isinstance(scores[0], (list, tuple)):
+            scores = scores[0]
+    except Exception:
+        pass
+    try:
+        return [float(x) for x in scores]
+    except Exception:
+        return [float(scores)]
+
+
+def _softmax(scores: List[float]) -> List[float]:
+    max_val = max(scores)
+    exp_scores = [math.exp(s - max_val) for s in scores]
+    total = sum(exp_scores) or 1.0
+    return [val / total for val in exp_scores]
 
 
 def get_opcode_audit_snapshot() -> Dict[str, Any]:

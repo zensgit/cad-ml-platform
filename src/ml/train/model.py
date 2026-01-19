@@ -1,59 +1,221 @@
 """
-UV-Net Model Definition (Scaffold).
+UV-Net Graph Model Definition (Dual-Path Implementation).
 
-Structure based on 'UV-Net: Learning from Boundary Representations'.
+Defines the architecture for the 3D feature recognition model.
+Adheres to the "Graph Data Contract" v1.0.
+
+### Graph Data Contract (v1.0)
+Input is a Data object (or named tuple) with:
+- x: Tensor[N, node_input_dim] (float32) - Node features (Face attributes)
+- edge_index: Tensor[2, E] (int64) - Adjacency list (Source, Target)
+- batch: Tensor[N] (int64) - Batch index for each node (0..batch_size-1)
+
+This module supports two backends:
+1. `torch_geometric` (Preferred): Optimized GNN kernels.
+2. `pure_torch` (Fallback): Basic matrix multiplication GCN for environments without PyG.
 """
+
+import logging
+import math
+from typing import Optional, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+logger = logging.getLogger(__name__)
 
-class UVNetModel(nn.Module):
-    def __init__(self, num_classes=11, input_dim=12):
-        super(UVNetModel, self).__init__()
+# --- Dependency Management ---
+HAS_PYG = False
+try:
+    from torch_geometric.nn import GCNConv, global_mean_pool, global_max_pool
 
-        # Simplified PointNet-like structure for the scaffold
-        # UV-Net uses a Face-Adjacency Graph, but the interface is similar (Embedding -> Class)
+    HAS_PYG = True
+except ImportError:
+    logger.info("torch_geometric not found. Using pure PyTorch fallback for GNN layers.")
 
-        self.conv1 = nn.Conv1d(input_dim, 64, 1)
-        self.conv2 = nn.Conv1d(64, 128, 1)
-        self.conv3 = nn.Conv1d(128, 1024, 1)
 
-        self.bn1 = nn.BatchNorm1d(64)
-        self.bn2 = nn.BatchNorm1d(128)
-        self.bn3 = nn.BatchNorm1d(1024)
+# --- Pure PyTorch Fallback Layer ---
+class SimpleGCNLayer(nn.Module):
+    """
+    Basic Graph Convolutional Layer using pure PyTorch.
+    Formula: D^-0.5 * A * D^-0.5 * X * W
+    """
 
-        self.fc1 = nn.Linear(1024, 512)
+    def __init__(self, in_channels: int, out_channels: int):
+        super().__init__()
+        self.linear = nn.Linear(in_channels, out_channels, bias=False)
+        self.bias = nn.Parameter(torch.Tensor(out_channels))
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        nn.init.xavier_uniform_(self.linear.weight)
+        nn.init.zeros_(self.bias)
+
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        # x: [N, in_channels]
+        # edge_index: [2, E]
+        N = x.size(0)
+        device = x.device
+
+        # 1. Self-loops (add identity matrix)
+        # Simply append 0..N-1 to edge_index
+        loop_index = torch.arange(0, N, dtype=torch.long, device=device)
+        loop_index = loop_index.unsqueeze(0).repeat(2, 1)
+        edge_index_aug = torch.cat([edge_index, loop_index], dim=1)
+
+        # 2. Compute Adjacency Matrix (Sparse)
+        # Value is 1.0 for all edges
+        row, col = edge_index_aug
+        values = torch.ones(row.size(0), device=device)
+        adj = torch.sparse_coo_tensor(
+            torch.stack([row, col]), values, (N, N)
+        ).to_dense()  # Warning: O(N^2) memory, simplistic for fallback
+
+        # 3. Compute Degree Matrix D
+        deg = adj.sum(dim=1)
+        deg_inv_sqrt = deg.pow(-0.5)
+        deg_inv_sqrt[deg_inv_sqrt == float("inf")] = 0
+        d_mat_inv_sqrt = torch.diag(deg_inv_sqrt)
+
+        # 4. Propagation: D^-0.5 * A * D^-0.5 * X
+        support = torch.mm(d_mat_inv_sqrt, adj)
+        support = torch.mm(support, d_mat_inv_sqrt)
+        output = torch.mm(support, x)
+
+        # 5. Weights
+        output = self.linear(output) + self.bias
+        return output
+
+
+def simple_global_max_pool(x: torch.Tensor, batch: Optional[torch.Tensor]) -> torch.Tensor:
+    """Global max pooling for pure torch batching."""
+    if batch is None:
+        return x.max(dim=0, keepdim=True)[0]
+
+    # Number of graphs in batch
+    batch_size = batch.max().item() + 1
+    out_list = []
+    for i in range(batch_size):
+        mask = batch == i
+        if mask.sum() > 0:
+            out_list.append(x[mask].max(dim=0)[0])
+        else:
+            out_list.append(torch.zeros(x.size(1), device=x.device))
+    return torch.stack(out_list)
+
+
+# --- Main Model Architecture ---
+class UVNetGraphModel(nn.Module):
+    """
+    GNN for CAD B-Rep classification.
+    """
+
+    def __init__(
+        self,
+        node_input_dim: int = 12,
+        hidden_dim: int = 64,
+        embedding_dim: int = 1024,
+        num_classes: int = 11,
+        dropout_rate: float = 0.3,
+        node_schema: Optional[Tuple[str, ...]] = None,
+        edge_schema: Optional[Tuple[str, ...]] = None,
+    ):
+        super().__init__()
+        self.node_input_dim = node_input_dim
+        self.hidden_dim = hidden_dim
+        self.embedding_dim = embedding_dim
+        self.num_classes = num_classes
+        self.dropout_rate = dropout_rate
+        self.node_schema = tuple(node_schema) if node_schema else None
+        self.edge_schema = tuple(edge_schema) if edge_schema else None
+        self.has_pyg = HAS_PYG
+
+        # Encoder Layers (GCN)
+        if self.has_pyg:
+            self.conv1 = GCNConv(node_input_dim, hidden_dim)
+            self.conv2 = GCNConv(hidden_dim, hidden_dim * 2)
+            self.conv3 = GCNConv(hidden_dim * 2, embedding_dim)
+        else:
+            self.conv1 = SimpleGCNLayer(node_input_dim, hidden_dim)
+            self.conv2 = SimpleGCNLayer(hidden_dim, hidden_dim * 2)
+            self.conv3 = SimpleGCNLayer(hidden_dim * 2, embedding_dim)
+
+        self.bn1 = nn.BatchNorm1d(hidden_dim)
+        self.bn2 = nn.BatchNorm1d(hidden_dim * 2)
+        self.bn3 = nn.BatchNorm1d(embedding_dim)
+
+        # Classification Head (MLP)
+        self.fc1 = nn.Linear(embedding_dim, 512)
         self.fc2 = nn.Linear(512, 256)
         self.fc3 = nn.Linear(256, num_classes)
 
-        self.dropout = nn.Dropout(p=0.3)
-        self.bn4 = nn.BatchNorm1d(512)
-        self.bn5 = nn.BatchNorm1d(256)
+        self.dropout = nn.Dropout(p=dropout_rate)
+        self.bn_fc1 = nn.BatchNorm1d(512)
+        self.bn_fc2 = nn.BatchNorm1d(256)
 
-    def forward(self, x):
-        # x shape: (Batch, Features, Points/Faces)
+    def forward(
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        batch: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Forward pass.
 
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
+        Args:
+            x: [Num_Nodes, Node_Features]
+            edge_index: [2, Num_Edges]
+            batch: [Num_Nodes] - Batch assignments (0..B-1)
 
-        # Global Max Pooling
-        x = torch.max(x, 2, keepdim=True)[0]
-        x = x.view(-1, 1024)
+        Returns:
+            logits: [Batch_Size, Num_Classes]
+            embedding: [Batch_Size, Embedding_Dim]
+        """
+        # 1. Graph Convolution Blocks
+        x = self.conv1(x, edge_index)
+        x = self.bn1(x)
+        x = F.relu(x)
 
-        x = F.relu(self.bn4(self.fc1(x)))
-        x = self.dropout(x)
-        x = F.relu(self.bn5(self.fc2(x)))
-        x = self.fc3(x)
+        x = self.conv2(x, edge_index)
+        x = self.bn2(x)
+        x = F.relu(x)
 
-        return F.log_softmax(x, dim=1)
+        x = self.conv3(x, edge_index)
+        x = self.bn3(x)
+        # Activation optional here before pooling, usually helpful
+        x = F.relu(x)
 
-    def get_embedding(self, x):
-        """Extract the global feature vector (1024 dim)."""
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
-        x = torch.max(x, 2, keepdim=True)[0]
-        return x.view(-1, 1024)
+        # 2. Global Pooling (Readout)
+        if self.has_pyg:
+            # PyG handles masking internally
+            embedding = global_max_pool(x, batch)
+        else:
+            embedding = simple_global_max_pool(x, batch)
+
+        # 3. Classification Head
+        out = self.fc1(embedding)
+        out = self.bn_fc1(out)
+        out = F.relu(out)
+        out = self.dropout(out)
+
+        out = self.fc2(out)
+        out = self.bn_fc2(out)
+        out = F.relu(out)
+
+        logits = self.fc3(out)
+
+        return F.log_softmax(logits, dim=1), embedding
+
+    def get_config(self):
+        """Return architecture configuration for saving."""
+        return {
+            "node_input_dim": self.node_input_dim,
+            "hidden_dim": self.hidden_dim,
+            "embedding_dim": self.embedding_dim,
+            "num_classes": self.num_classes,
+            "dropout_rate": self.dropout_rate,
+            "node_schema": self.node_schema,
+            "edge_schema": self.edge_schema,
+            "backend": "pyg" if self.has_pyg else "pure_torch",
+        }

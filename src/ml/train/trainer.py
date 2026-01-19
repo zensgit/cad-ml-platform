@@ -1,138 +1,250 @@
 """
-Training Loop.
+Trainer for UV-Net Graph Model.
 
-Orchestrates the training of the UV-Net model using the ABC Dataset.
+Handles training loop with support for Graph Batching (Dual-Path).
 """
 
-import argparse
 import logging
-import os
-import sys
+import time
+from typing import Any, Dict, List, Optional, Tuple
 
-# Mock Torch for environments without it (e.g. CI/Lightweight)
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
+
+from src.ml.train.model import UVNetGraphModel
+from src.ml.utils import get_best_device, move_to_device
+
+logger = logging.getLogger(__name__)
+
+# Try to import PyG loader
+HAS_PYG = False
 try:
-    import torch
-    import torch.nn.functional as F
-    import torch.optim as optim
+    from torch_geometric.loader import DataLoader as PyGDataLoader
+    from torch_geometric.data import Data, Batch
 
-    from src.ml.train.dataset import get_dataloader
-    from src.ml.train.model import UVNetModel
+    HAS_PYG = True
 except ImportError:
-    # Minimal mock to pass dry-run
-    class MagicMock:
-        def __getattr__(self, name):
-            return MagicMock()
-
-        def __call__(self, *args, **kwargs):
-            return MagicMock()
-
-        def to(self, *args):
-            return self
-
-        def item(self):
-            return 0.5
-
-    def _mock_device(device_name):
-        return device_name
-
-    def _mock_cuda_is_available():
-        return False
-
-    def _mock_randn(*args, **kwargs):
-        return MagicMock()
-
-    def _mock_randint(*args, **kwargs):
-        return MagicMock()
-
-    def _mock_get_dataloader(*args, **kwargs):
-        return []
-
-    torch = MagicMock()
-    torch.device = _mock_device
-    torch.cuda.is_available = _mock_cuda_is_available
-    torch.randn = _mock_randn
-    torch.randint = _mock_randint
-    optim = MagicMock()
-    F = MagicMock()
-    UVNetModel = MagicMock()
-    get_dataloader = _mock_get_dataloader
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("Trainer")
+    # We will define a custom collate_fn for pure torch
+    pass
 
 
-def train(args):
-    if isinstance(torch, type) and torch.__name__ == "MagicMock":
-        logger.warning("PyTorch not found. Running in MOCK mode.")
+# --- Custom Collate for Pure PyTorch Fallback ---
+class GraphBatchCollate:
+    """
+    Collates a list of graph data dictionaries/objects into a single batch
+    by concatenating nodes and shifting edge indices.
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Using device: {device}")
+    Contract: Input samples must have keys 'x', 'edge_index', 'label' (optional).
+    """
 
-    # 1. Load Data
-    train_loader = get_dataloader(args.data_dir, batch_size=args.batch_size)
+    def __call__(self, batch_list: List[Any]) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
+        # Initialize lists
+        x_list = []
+        edge_index_list = []
+        batch_idx_list = []
+        labels = []
 
-    # 2. Init Model
-    model = UVNetModel().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+        node_offset = 0
 
-    model.train()
+        for i, sample in enumerate(batch_list):
+            # Extract fields (support both dict and object access)
+            if isinstance(sample, dict):
+                x = sample["x"]
+                edge_index = sample["edge_index"]
+                y = sample.get("y", None)
+            else:
+                # Support PyG Data object or tuple from Dataset
+                if isinstance(sample, tuple):
+                    # Sample is (data_obj, label)
+                    data_obj = sample[0]
+                    y = sample[1]
+                    if isinstance(data_obj, dict):
+                        x = data_obj["x"]
+                        edge_index = data_obj["edge_index"]
+                    else:
+                        x = data_obj.x
+                        edge_index = data_obj.edge_index
+                else:
+                    # Direct attribute access
+                    x = sample.x
+                    edge_index = sample.edge_index
+                    y = sample.y
 
-    # 3. Training Loop
-    logger.info("Starting training...")
-    for epoch in range(1, args.epochs + 1):
-        if args.dry_run and epoch > 1:
-            break
+            num_nodes = x.size(0)
 
-        total_loss = 0
-        batch_count = 0
+            # Append Node Features
+            x_list.append(x)
 
-        # If dataset is empty (no real files), we simulate one batch for dry-run
-        if len(train_loader) == 0 and args.dry_run:
-            data = torch.randn(args.batch_size, 12, 1024).to(device)
-            target = torch.randint(0, 10, (args.batch_size,)).to(device)
-            iterator = [(data, target)]
-        else:
-            iterator = train_loader
+            # Shift and Append Edge Indices
+            # edge_index is [2, E]
+            edge_index_shifted = edge_index + node_offset
+            edge_index_list.append(edge_index_shifted)
 
-        for batch_idx, (data, target) in enumerate(iterator):
-            data, target = data.to(device), target.to(device)
+            # Create Batch Index Vector [0, 0, 1, 1, 1, ...]
+            batch_idx_list.append(torch.full((num_nodes,), i, dtype=torch.long))
 
-            optimizer.zero_grad()
-            output = model(data)
-            loss = F.nll_loss(output, target)
+            # Labels
+            if y is not None:
+                if isinstance(y, torch.Tensor):
+                    labels.append(y.view(-1))
+                else:
+                    labels.append(torch.tensor([y], dtype=torch.long))
+
+            node_offset += num_nodes
+
+        # Concatenate everything
+        x_batch = torch.cat(x_list, dim=0)
+        edge_index_batch = torch.cat(edge_index_list, dim=1)
+        batch_vec = torch.cat(batch_idx_list, dim=0)
+        y_batch = torch.cat(labels, dim=0) if labels else None
+
+        return {
+            "x": x_batch,
+            "edge_index": edge_index_batch,
+            "batch": batch_vec,
+        }, y_batch
+
+
+class UVNetTrainer:
+    def __init__(
+        self,
+        model: UVNetGraphModel,
+        device: Optional[str] = None,
+        learning_rate: float = 0.001,
+        weight_decay: float = 1e-4,
+    ):
+        if device is None:
+            device = get_best_device()
+        
+        self.device = device
+        self.model = model.to(self.device)
+        logger.info(f"Trainer initialized on device: {self.device}")
+        
+        self.optimizer = optim.Adam(
+            self.model.parameters(), lr=learning_rate, weight_decay=weight_decay
+        )
+        self.criterion = nn.NLLLoss()  # Expecting LogSoftmax output
+        self.history: Dict[str, List[float]] = {"loss": [], "acc": []}
+
+    def _validate_node_features(self, x: torch.Tensor) -> None:
+        if x.dim() != 2:
+            raise ValueError(f"Expected node feature tensor to be 2D, got {tuple(x.shape)}")
+        if x.size(1) != self.model.node_input_dim:
+            raise ValueError(
+                f"Node feature dim mismatch: expected {self.model.node_input_dim}, got {x.size(1)}"
+            )
+
+    def train_epoch(self, dataloader: Any) -> Dict[str, float]:
+        self.model.train()
+        total_loss = 0.0
+        correct = 0
+        total = 0
+
+        for batch_data in dataloader:
+            # Handle PyG vs Custom Collate structure
+            if HAS_PYG and isinstance(dataloader, PyGDataLoader):
+                # PyG Batch object
+                batch_data = batch_data.to(self.device)
+                x = batch_data.x
+                edge_index = batch_data.edge_index
+                batch_idx = batch_data.batch
+                targets = batch_data.y
+            else:
+                # Custom Collate returns (inputs_dict, labels)
+                inputs, targets = batch_data
+                inputs = move_to_device(inputs, self.device)
+                targets = targets.to(self.device)
+                
+                x = inputs["x"]
+                edge_index = inputs["edge_index"]
+                batch_idx = inputs["batch"]
+
+            self._validate_node_features(x)
+
+            self.optimizer.zero_grad()
+
+            # Forward
+            log_probs, _ = self.model(x, edge_index, batch_idx)
+
+            # Loss
+            loss = self.criterion(log_probs, targets)
             loss.backward()
-            optimizer.step()
+            self.optimizer.step()
 
-            total_loss += loss.item()
-            batch_count += 1
+            # Metrics
+            total_loss += loss.item() * targets.size(0)
+            preds = log_probs.argmax(dim=1)
+            correct += preds.eq(targets).sum().item()
+            total += targets.size(0)
 
-            if args.dry_run:
-                logger.info("Dry run batch complete.")
-                break
+        avg_loss = total_loss / total if total > 0 else 0.0
+        accuracy = correct / total if total > 0 else 0.0
 
-        avg_loss = total_loss / max(1, batch_count)
-        logger.info(f"Epoch {epoch}: Average Loss = {avg_loss:.4f}")
+        self.history["loss"].append(avg_loss)
+        self.history["acc"].append(accuracy)
 
-    # 4. Save
-    if args.save_model:
-        os.makedirs("models", exist_ok=True)
-        torch.save(model.state_dict(), "models/uvnet_v1.pth")
-        logger.info("Model saved to models/uvnet_v1.pth")
+        return {"loss": avg_loss, "accuracy": accuracy}
+
+    def evaluate(self, dataloader: Any) -> Dict[str, float]:
+        self.model.eval()
+        total_loss = 0.0
+        correct = 0
+        total = 0
+
+        with torch.no_grad():
+            for batch_data in dataloader:
+                if HAS_PYG and isinstance(dataloader, PyGDataLoader):
+                    batch_data = batch_data.to(self.device)
+                    x = batch_data.x
+                    edge_index = batch_data.edge_index
+                    batch_idx = batch_data.batch
+                    targets = batch_data.y
+                else:
+                    inputs, targets = batch_data
+                    inputs = move_to_device(inputs, self.device)
+                    targets = targets.to(self.device)
+                    
+                x = inputs["x"]
+                edge_index = inputs["edge_index"]
+                batch_idx = inputs["batch"]
+
+                self._validate_node_features(x)
+
+                log_probs, _ = self.model(x, edge_index, batch_idx)
+                loss = self.criterion(log_probs, targets)
+
+                total_loss += loss.item() * targets.size(0)
+                preds = log_probs.argmax(dim=1)
+                correct += preds.eq(targets).sum().item()
+                total += targets.size(0)
+
+        return {
+            "val_loss": total_loss / total if total > 0 else 0.0,
+            "val_accuracy": correct / total if total > 0 else 0.0,
+        }
+
+    def save_checkpoint(self, path: str):
+        torch.save(
+            {
+                "model_state_dict": self.model.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "history": self.history,
+                "config": self.model.get_config(),
+            },
+            path,
+        )
+        logger.info(f"Model saved to {path}")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train UV-Net")
-    parser.add_argument(
-        "--data-dir",
-        type=str,
-        default="data/abc_subset",
-        help="Path to STEP files",
-    )
-    parser.add_argument("--batch-size", type=int, default=16)
-    parser.add_argument("--epochs", type=int, default=5)
-    parser.add_argument("--lr", type=float, default=0.001)
-    parser.add_argument("--dry-run", action="store_true", help="Run a single pass for verification")
-    parser.add_argument("--save-model", action="store_true", default=True)
-
-    args = parser.parse_args()
-    train(args)
+def get_graph_dataloader(dataset, batch_size=32, shuffle=True):
+    """Factory to get the correct DataLoader based on dependencies."""
+    if HAS_PYG:
+        return PyGDataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+    else:
+        # Use standard torch DataLoader with custom collate
+        collate_fn = GraphBatchCollate()
+        return DataLoader(
+            dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn
+        )

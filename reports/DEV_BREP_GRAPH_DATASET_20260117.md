@@ -11,11 +11,13 @@ preserving the legacy numeric tensor output.
 - Added `output_format` and `graph_backend` options to `ABCDataset`.
 - Converted `extract_brep_graph` output to tensors and optional PyG `Data` objects.
 - Added unit coverage for dict-based graph output.
-- Ran: `pytest tests/unit/test_graph_dataset_output.py -v`.
+- Ran: `source .venv-graph/bin/activate && pytest tests/unit/test_graph_dataset_output.py -v`.
 
 ## Results
-- Test skipped because PyTorch is not installed in the local environment.
+- Test passed in a local Python 3.11 virtualenv after installing `torch`, `numpy`, and
+  `pydantic-settings` (required by repo test fixtures).
 
 ## Notes
 - Graph output defaults to a dict unless `torch_geometric` is available.
 - Empty graphs are returned for invalid shapes to keep batch collation stable.
+- Virtualenv used: `.venv-graph`.

@@ -50,6 +50,8 @@ ENV/
 *.iges
 *.igs
 *.stl
+!tests/fixtures/*.step
+!tests/fixtures/*.stp
 uploads/
 temp/
 cache/
@@ -127,3 +129,6 @@ reports/replay_extended/
 .venv/
 .venv311/
 .venv_run/
+.venv-graph/
+.mamba-cache/
+.tools/
