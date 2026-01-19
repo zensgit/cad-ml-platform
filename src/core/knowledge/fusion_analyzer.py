@@ -7,7 +7,7 @@ Implements the "Ensemble & Fallback" strategy with strict guardrails.
 """
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from src.core.knowledge.fusion_contracts import (
     FusionDecision,
@@ -85,7 +85,11 @@ class FusionAnalyzer:
         aspect_ratio = l2_features.get("aspect_ratio", 1.0)
         is_geometric_slot = aspect_ratio > 1.5
         
-        ai_label = l4_prediction.get("label") if l4_prediction else None
+        ai_label = (
+            str(l4_prediction.get("label"))
+            if l4_prediction and l4_prediction.get("label") is not None
+            else None
+        )
         ai_conf = l4_prediction.get("confidence", 0.0) if l4_prediction else 0.0
         
         if ai_label == "Slot" and not is_geometric_slot:
@@ -96,7 +100,7 @@ class FusionAnalyzer:
         # --- Step 3: Decision Logic ---
         
         # Case A: Strong AI Confidence + No Conflict -> Trust AI
-        if ai_conf >= self.ai_threshold and conflict != ConflictLevel.HIGH:
+        if ai_label is not None and ai_conf >= self.ai_threshold and conflict != ConflictLevel.HIGH:
             reasons.append(f"AI confidence {ai_conf:.2f} exceeds threshold")
             return FusionDecision(
                 primary_label=ai_label,
@@ -134,7 +138,13 @@ class FusionAnalyzer:
             schema_version=FUSION_SCHEMA_VERSION
         )
 
-    def _fallback_decision(self, label: str, conf: float, reasons: list, source: DecisionSource) -> FusionDecision:
+    def _fallback_decision(
+        self,
+        label: str,
+        conf: float,
+        reasons: List[str],
+        source: DecisionSource,
+    ) -> FusionDecision:
         return FusionDecision(
             primary_label=label,
             confidence=conf,
@@ -146,5 +156,5 @@ class FusionAnalyzer:
 # Singleton
 _fusion = FusionAnalyzer()
 
-def get_fusion_analyzer():
+def get_fusion_analyzer() -> FusionAnalyzer:
     return _fusion
