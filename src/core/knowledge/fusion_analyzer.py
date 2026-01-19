@@ -40,6 +40,15 @@ def build_l2_features(doc: CadDocument) -> Dict[str, Any]:
     min_dim = min(d for d in (width, height) if d > 0.0) if width > 0 and height > 0 else 0.0
     max_dim = max(width, height)
     aspect_ratio = max_dim / min_dim if min_dim > 0 else 1.0
+    try:
+        dimension_count = int(doc.metadata.get("dimension_count") or 0)
+    except (TypeError, ValueError):
+        dimension_count = 0
+    text_content = doc.metadata.get("text_content")
+    if isinstance(text_content, list):
+        text_count = len([t for t in text_content if str(t).strip()])
+    else:
+        text_count = 0
 
     return {
         "aspect_ratio": aspect_ratio,
@@ -48,6 +57,10 @@ def build_l2_features(doc: CadDocument) -> Dict[str, Any]:
         "bbox_width": width,
         "bbox_height": height,
         "bbox_depth": depth,
+        "entity_count": float(doc.entity_count()),
+        "layer_count": float(len(doc.layers)),
+        "dimension_count": float(dimension_count),
+        "text_count": float(text_count),
     }
 
 

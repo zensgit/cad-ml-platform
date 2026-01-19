@@ -111,6 +111,42 @@ class TestDxfAdapter:
         assert result.format == "dxf"
 
 
+class TestJsonAdapter:
+    """Tests for JsonAdapter class."""
+
+    def test_json_adapter_format(self):
+        """Test JsonAdapter format is 'json'."""
+        from src.adapters.factory import JsonAdapter
+
+        adapter = JsonAdapter()
+        assert adapter.format == "json"
+
+    @pytest.mark.asyncio
+    async def test_json_adapter_parse_minimal(self):
+        """Test JsonAdapter.parse with a minimal v2-like payload."""
+        import json as _json
+
+        from src.adapters.factory import JsonAdapter
+
+        adapter = JsonAdapter()
+        payload = {
+            "entities": [
+                {"type": "LINE", "layer": "0", "start": [0, 0], "end": [10, 0]},
+                {"type": "CIRCLE", "layer": "A", "center": [5, 5], "radius": 2},
+                {"type": "TEXT", "text": "Bolt_M6x20"},
+            ],
+            "text_content": ["Bolt_M6x20"],
+            "meta": {"drawing_number": "B-001"},
+        }
+
+        result = await adapter.parse(_json.dumps(payload).encode("utf-8"), file_name="test.json")
+
+        assert result.file_name == "test.json"
+        assert result.format == "json"
+        assert result.metadata.get("text") == "Bolt_M6x20"
+        assert any(entity.kind == "LINE" for entity in result.entities)
+
+
 class TestStlAdapter:
     """Tests for StlAdapter class."""
 
@@ -235,6 +271,13 @@ class TestAdapterFactory:
         adapter = AdapterFactory.get_adapter("stl")
         assert isinstance(adapter, StlAdapter)
 
+    def test_get_adapter_json(self):
+        """Test get_adapter returns JsonAdapter for 'json'."""
+        from src.adapters.factory import AdapterFactory, JsonAdapter
+
+        adapter = AdapterFactory.get_adapter("json")
+        assert isinstance(adapter, JsonAdapter)
+
     def test_get_adapter_step(self):
         """Test get_adapter returns StepIgesAdapter for 'step'."""
         from src.adapters.factory import AdapterFactory, StepIgesAdapter
@@ -286,7 +329,7 @@ class TestAdapterFactory:
         """Test all expected formats are in mapping."""
         from src.adapters.factory import AdapterFactory
 
-        expected_formats = ["dxf", "dwg", "stl", "step", "stp", "iges", "igs"]
+        expected_formats = ["dxf", "dwg", "json", "stl", "step", "stp", "iges", "igs"]
         for fmt in expected_formats:
             assert fmt in AdapterFactory._mapping
 

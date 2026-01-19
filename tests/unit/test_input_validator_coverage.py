@@ -421,6 +421,12 @@ class TestIsSupportedMime:
 
         assert is_supported_mime("application/step") is True
 
+    def test_application_json_supported(self):
+        """Test application/json is supported."""
+        from src.security.input_validator import is_supported_mime
+
+        assert is_supported_mime("application/json") is True
+
     def test_text_prefix_supported(self):
         """Test text/* types are supported."""
         from src.security.input_validator import is_supported_mime

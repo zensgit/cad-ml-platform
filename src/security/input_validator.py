@@ -187,6 +187,7 @@ def is_supported_mime(mime: str) -> bool:
         "text/plain",
         "application/octet-stream",
         "application/zip",  # STEP packages / compressed bundles
+        "application/json",
         "model/stl",
         "application/stl",
         "application/vnd.ms-pki.stl",

@@ -5,6 +5,7 @@ Initial implementation ships DXF & STL lightweight parsers; others fallback to s
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict
 
 from src.models.cad_document import BoundingBox, CadDocument, CadEntity
@@ -29,6 +30,7 @@ class DxfAdapter(_BaseAdapter):
         layers: Dict[str, int] = {}
         entities: list[CadEntity] = []
         bbox = BoundingBox()
+        entity_counts: Dict[str, int] = {}
         try:
             import tempfile
 
@@ -45,10 +47,12 @@ class DxfAdapter(_BaseAdapter):
                 except Exception:
                     pass
             msp = doc.modelspace()
-            for e in msp:
+            msp_entities = list(msp)
+            for e in msp_entities:
                 kind = e.dxftype()
                 layer = e.dxf.layer
                 layers[layer] = layers.get(layer, 0) + 1
+                entity_counts[kind] = entity_counts.get(kind, 0) + 1
                 entities.append(CadEntity(kind=kind, layer=layer))
                 # crude bbox accumulation (extents if present)
                 try:
@@ -61,6 +65,32 @@ class DxfAdapter(_BaseAdapter):
                         bbox.max_y = max(bbox.max_y, max_y)
                 except Exception:
                     pass
+            metadata = {"parser": "ezdxf"}
+            try:
+                from src.core.dedupcad_precision.vendor.parsers import (
+                    parse_dimensions,
+                    parse_text_content,
+                )
+
+                text_content = parse_text_content(msp_entities)
+                if text_content:
+                    metadata["text_content"] = text_content
+                    metadata["text"] = " ".join(text_content)
+                    metadata["text_count"] = len(text_content)
+                dims = parse_dimensions(msp_entities)
+                if dims:
+                    metadata["dimension_count"] = len(dims)
+            except Exception:
+                pass
+            return CadDocument(
+                file_name=file_name,
+                format=self.format,
+                entities=entities,
+                layers=layers,
+                bounding_box=bbox,
+                metadata=metadata,
+                raw_stats={"entity_counts": entity_counts} if entity_counts else {},
+            )
         except Exception:  # library absent or parse error
             return CadDocument(
                 file_name=file_name,
@@ -70,13 +100,126 @@ class DxfAdapter(_BaseAdapter):
                 bounding_box=bbox,
                 metadata={"parser": "stub"},
             )
+
+
+class JsonAdapter(_BaseAdapter):
+    format = "json"
+
+    async def parse(self, data: bytes, *, file_name: str) -> CadDocument:
+        entities: list[CadEntity] = []
+        layers: Dict[str, int] = {}
+        bbox = BoundingBox()
+        entity_counts: Dict[str, int] = {}
+        metadata: Dict[str, Any] = {"parser": "json"}
+        bbox_initialized = False
+
+        def _update_bbox_xy(x: float, y: float) -> None:
+            nonlocal bbox_initialized
+            if not bbox_initialized:
+                bbox.min_x = bbox.max_x = float(x)
+                bbox.min_y = bbox.max_y = float(y)
+                bbox_initialized = True
+            else:
+                bbox.min_x = min(bbox.min_x, float(x))
+                bbox.min_y = min(bbox.min_y, float(y))
+                bbox.max_x = max(bbox.max_x, float(x))
+                bbox.max_y = max(bbox.max_y, float(y))
+
+        def _update_bbox_entity(ent: Dict[str, Any]) -> None:
+            etype = str(ent.get("type", ""))
+            if etype == "LINE":
+                start = ent.get("start") or []
+                end = ent.get("end") or []
+                if len(start) >= 2:
+                    _update_bbox_xy(start[0], start[1])
+                if len(end) >= 2:
+                    _update_bbox_xy(end[0], end[1])
+            elif etype in {"CIRCLE", "ARC"}:
+                center = ent.get("center") or []
+                radius = float(ent.get("radius") or 0.0)
+                if len(center) >= 2:
+                    _update_bbox_xy(center[0] - radius, center[1] - radius)
+                    _update_bbox_xy(center[0] + radius, center[1] + radius)
+            elif etype in {"LWPOLYLINE", "POLYLINE"}:
+                points = ent.get("points") or []
+                for pt in points:
+                    if pt is not None and len(pt) >= 2:
+                        _update_bbox_xy(pt[0], pt[1])
+            elif etype == "ELLIPSE":
+                center = ent.get("center") or []
+                major = ent.get("major") or [0.0, 0.0]
+                ratio = float(ent.get("ratio") or 0.0)
+                if len(center) >= 2:
+                    major_len = (float(major[0]) ** 2 + float(major[1]) ** 2) ** 0.5
+                    radius = major_len * max(1.0, ratio)
+                    _update_bbox_xy(center[0] - radius, center[1] - radius)
+                    _update_bbox_xy(center[0] + radius, center[1] + radius)
+            elif etype in {"SPLINE", "LEADER"}:
+                points = ent.get("control_points") or ent.get("vertices") or []
+                for pt in points:
+                    if pt is not None and len(pt) >= 2:
+                        _update_bbox_xy(pt[0], pt[1])
+
+        try:
+            payload = json.loads(data.decode("utf-8", errors="ignore") or "{}")
+            if isinstance(payload, list):
+                payload = {"entities": payload}
+            if isinstance(payload, dict):
+                meta = payload.get("meta") or payload.get("metadata")
+                if isinstance(meta, dict):
+                    metadata["meta"] = meta
+            try:
+                from src.core.dedupcad_precision.vendor.v2_normalize import normalize_v2
+
+                if isinstance(payload, dict):
+                    payload = normalize_v2(payload)
+            except Exception:
+                pass
+
+            text_content = payload.get("text_content") if isinstance(payload, dict) else None
+            if isinstance(text_content, list):
+                cleaned = [str(t) for t in text_content if str(t).strip()]
+                if cleaned:
+                    metadata["text_content"] = cleaned
+                    metadata["text"] = " ".join(cleaned)
+                    metadata["text_count"] = len(cleaned)
+
+            dimensions = payload.get("dimensions") if isinstance(payload, dict) else None
+            if isinstance(dimensions, list):
+                metadata["dimension_count"] = len(dimensions)
+            elif isinstance(dimensions, dict):
+                metadata["dimension_count"] = len(dimensions)
+
+            raw_entities = payload.get("entities", []) if isinstance(payload, dict) else []
+            if isinstance(raw_entities, list):
+                for ent in raw_entities:
+                    if not isinstance(ent, dict):
+                        continue
+                    kind = str(ent.get("type", "UNKNOWN"))
+                    layer = ent.get("layer")
+                    entities.append(CadEntity(kind=kind, layer=layer))
+                    entity_counts[kind] = entity_counts.get(kind, 0) + 1
+                    if layer:
+                        layers[layer] = layers.get(layer, 0) + 1
+                    _update_bbox_entity(ent)
+        except Exception:
+            return CadDocument(
+                file_name=file_name,
+                format=self.format,
+                entities=entities,
+                layers=layers,
+                bounding_box=bbox,
+                metadata={"parser": "stub"},
+            )
+
         return CadDocument(
             file_name=file_name,
             format=self.format,
             entities=entities,
             layers=layers,
             bounding_box=bbox,
-            metadata={"parser": "ezdxf"},
+            metadata=metadata,
+            raw_stats={"entity_counts": entity_counts} if entity_counts else {},
         )
 
 
@@ -136,6 +279,7 @@ class AdapterFactory:
         "dxf": DxfAdapter,
         "dwg": DxfAdapter,  # dwg may be pre-converted externally; treat as dxf for now
         "stl": StlAdapter,
+        "json": JsonAdapter,
         "step": None,  # placeholder will be replaced after class definition
         "stp": None,
         "iges": None,
