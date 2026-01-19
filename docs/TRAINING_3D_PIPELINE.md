@@ -46,6 +46,22 @@ Expected behavior:
 - Trains for 5 epochs on the detected device.
 - Writes a checkpoint to `models/smoke_test_model.pth`.
 
+## UV-Net Graph Training Loop
+
+Script: `scripts/train_uvnet_graph.py`
+
+```
+source .venv-graph/bin/activate
+python3 scripts/train_uvnet_graph.py --data-dir data/abc_subset --epochs 10
+```
+
+Expected behavior:
+
+- Builds graph samples from STEP files and trains the UV-Net graph model end-to-end.
+- Uses `label_strategy=surface_bucket` by default to create pseudo-labels from surface counts.
+- Writes a checkpoint to `models/uvnet_graph_latest.pth` unless overridden via `--output`.
+- Use `--synthetic` to run the loop without STEP parsing (no pythonocc required).
+
 ## UV-Net Checkpoint Inspector
 
 Script: `scripts/uvnet_checkpoint_inspect.py`
