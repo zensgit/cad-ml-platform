@@ -1,21 +1,21 @@
 file_name,relative_path,source_dir,suggested_label_cn,suggested_label_en,reviewer_label_cn,reviewer_label_en,model_pred_top1,model_pred_top3,notes
-71002小立柱油缸装配图.dwg,71002小立柱油缸装配图.dwg,机械零件CAD图纸,小立柱油缸装配图,,,,轴承外圈强化研磨上下料系统,"轴承外圈强化研磨上下料系统,小立柱装配图,床身装配图",
-涡轮.dwg,老接的/涡轮.dwg,蜗杆与箱体,涡轮,,,,,,
-44002液压系统管路图.dwg,44002液压系统管路图.dwg,机械零件CAD图纸,液压系统管路图,,,,蜗杆,"蜗杆,组合刀架装配图,机件多面视图",
-2004阶梯轴7.dwg,2004阶梯轴7.dwg,蜗杆与箱体,阶梯轴,,,,压下螺丝,"压下螺丝,蜗杆,机件多面视图",
-传动轴.dwg,老接的/传动轴.dwg,蜗杆与箱体,传动轴,,,,,,
-52001组合刀架装配图.dwg,52001组合刀架装配图.dwg,机械零件CAD图纸,组合刀架装配图,,,,滑板装配图,"滑板装配图,小立柱装配图,压下螺丝",
-机件多面视图.dwg,机件多面视图.dwg,机械零件CAD图纸,机件多面视图,,,,机件多面视图,"机件多面视图,传动轴,压下螺丝",
-11001床身装配图.dwg,11001床身装配图.dwg,机械零件CAD图纸,床身装配图,,,,小立柱装配图,"小立柱装配图,轴承外圈强化研磨上下料系统,滑板装配图",
-阀视图.dwg,阀视图.dwg,机械零件CAD图纸,阀视图,,,,机件多面视图,"机件多面视图,传动轴,压下螺丝",
-44001液压原理图 070210.dwg,44001液压原理图 070210.dwg,机械零件CAD图纸,液压原理图,,,,压下螺丝,"压下螺丝,机件多面视图,滑板装配图",
-底座视图.dwg,底座视图.dwg,机械零件CAD图纸,底座视图,,,,机件多面视图,"机件多面视图,传动轴,压下螺丝",
-2004零件轴改6.dwg,2004零件轴改6.dwg,蜗杆与箱体,零件轴改,,,,压下螺丝,"压下螺丝,机件多面视图,传动轴",
-轴承外圈强化研磨上下料系统11-2.dwg,轴承外圈强化研磨上下料系统11-2.dwg,蜗杆与箱体,轴承外圈强化研磨上下料系统,,,,小立柱装配图,"小立柱装配图,组合刀架装配图,轴承外圈强化研磨上下料系统",
-改箱体右盖123.dwg,改箱体右盖123.dwg,蜗杆与箱体,改箱体右盖,,,,机件多面视图,"机件多面视图,传动轴,压下螺丝",
-蜗杆.dwg,老接的/蜗杆.dwg,蜗杆与箱体,蜗杆,,,,,,
-32001差动机构.dwg,32001差动机构.dwg,机械零件CAD图纸,差动机构,,,,蜗杆,"蜗杆,机件多面视图,床身装配图",
-35001滑板装配图.dwg,35001滑板装配图.dwg,机械零件CAD图纸,滑板装配图,,,,滑板装配图,"滑板装配图,压下螺丝,小立柱装配图",
-压下螺丝.dwg,老接的/压下螺丝.dwg,蜗杆与箱体,压下螺丝,,,,,,
-泵.dwg,泵.dwg,机械零件CAD图纸,泵,,,,压下螺丝,"压下螺丝,蜗杆,滑板装配图",
-2004零件轴改7.dwg,2004零件轴改7.dwg,蜗杆与箱体,零件轴改,,,,压下螺丝,"压下螺丝,机件多面视图,传动轴",
+71002小立柱油缸装配图.dwg,71002小立柱油缸装配图.dwg,机械零件CAD图纸,小立柱油缸装配图,,小立柱油缸装配图,small column cylinder assembly drawing,轴承外圈强化研磨上下料系统,"轴承外圈强化研磨上下料系统,小立柱装配图,床身装配图",auto_from_filename
+涡轮.dwg,老接的/涡轮.dwg,蜗杆与箱体,涡轮,,涡轮,worm wheel,,,auto_from_filename
+44002液压系统管路图.dwg,44002液压系统管路图.dwg,机械零件CAD图纸,液压系统管路图,,液压系统管路图,hydraulic system piping diagram,蜗杆,"蜗杆,组合刀架装配图,机件多面视图",auto_from_filename
+2004阶梯轴7.dwg,2004阶梯轴7.dwg,蜗杆与箱体,阶梯轴,,阶梯轴,stepped shaft,压下螺丝,"压下螺丝,蜗杆,机件多面视图",auto_from_filename
+传动轴.dwg,老接的/传动轴.dwg,蜗杆与箱体,传动轴,,传动轴,drive shaft,,,auto_from_filename
+52001组合刀架装配图.dwg,52001组合刀架装配图.dwg,机械零件CAD图纸,组合刀架装配图,,组合刀架装配图,combined tool holder assembly drawing,滑板装配图,"滑板装配图,小立柱装配图,压下螺丝",auto_from_filename
+机件多面视图.dwg,机件多面视图.dwg,机械零件CAD图纸,机件多面视图,,机件多面视图,machine part multiview,机件多面视图,"机件多面视图,传动轴,压下螺丝",auto_from_filename
+11001床身装配图.dwg,11001床身装配图.dwg,机械零件CAD图纸,床身装配图,,床身装配图,bed assembly drawing,小立柱装配图,"小立柱装配图,轴承外圈强化研磨上下料系统,滑板装配图",auto_from_filename
+阀视图.dwg,阀视图.dwg,机械零件CAD图纸,阀视图,,阀视图,valve view,机件多面视图,"机件多面视图,传动轴,压下螺丝",auto_from_filename
+44001液压原理图 070210.dwg,44001液压原理图 070210.dwg,机械零件CAD图纸,液压原理图,,液压原理图,hydraulic schematic,压下螺丝,"压下螺丝,机件多面视图,滑板装配图",auto_from_filename
+底座视图.dwg,底座视图.dwg,机械零件CAD图纸,底座视图,,底座视图,base view,机件多面视图,"机件多面视图,传动轴,压下螺丝",auto_from_filename
+2004零件轴改6.dwg,2004零件轴改6.dwg,蜗杆与箱体,零件轴改,,零件轴改,modified shaft part,压下螺丝,"压下螺丝,机件多面视图,传动轴",auto_from_filename
+轴承外圈强化研磨上下料系统11-2.dwg,轴承外圈强化研磨上下料系统11-2.dwg,蜗杆与箱体,轴承外圈强化研磨上下料系统,,轴承外圈强化研磨上下料系统,bearing outer ring grinding loading/unloading system,小立柱装配图,"小立柱装配图,组合刀架装配图,轴承外圈强化研磨上下料系统",auto_from_filename
+改箱体右盖123.dwg,改箱体右盖123.dwg,蜗杆与箱体,改箱体右盖,,改箱体右盖,modified housing right cover,机件多面视图,"机件多面视图,传动轴,压下螺丝",auto_from_filename
+蜗杆.dwg,老接的/蜗杆.dwg,蜗杆与箱体,蜗杆,,蜗杆,worm,,,auto_from_filename
+32001差动机构.dwg,32001差动机构.dwg,机械零件CAD图纸,差动机构,,差动机构,differential mechanism,蜗杆,"蜗杆,机件多面视图,床身装配图",auto_from_filename
+35001滑板装配图.dwg,35001滑板装配图.dwg,机械零件CAD图纸,滑板装配图,,滑板装配图,slide plate assembly drawing,滑板装配图,"滑板装配图,压下螺丝,小立柱装配图",auto_from_filename
+压下螺丝.dwg,老接的/压下螺丝.dwg,蜗杆与箱体,压下螺丝,,压下螺丝,pressing screw,,,auto_from_filename
+泵.dwg,泵.dwg,机械零件CAD图纸,泵,,泵,pump,压下螺丝,"压下螺丝,蜗杆,滑板装配图",auto_from_filename
+2004零件轴改7.dwg,2004零件轴改7.dwg,蜗杆与箱体,零件轴改,,零件轴改,modified shaft part,压下螺丝,"压下螺丝,机件多面视图,传动轴",auto_from_filename
