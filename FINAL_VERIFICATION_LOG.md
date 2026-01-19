@@ -1508,6 +1508,34 @@
   - Tests: `pytest tests/unit/test_adapter_factory_coverage.py -v`, `pytest tests/unit/test_input_validator_coverage.py -v`, `pytest tests/integration/test_analyze_json_fusion.py -v`, `pytest tests/integration/test_analyze_dxf_fusion.py -v`, `pytest tests/integration/test_dedupcad_vision_contract.py -v`, `pytest tests/integration/test_e2e_api_smoke.py -v` (2 passed; dedupcad-vision running locally)
   - Design: `docs/2D_PART_RECOGNITION_JSON.md`
   - Report: `reports/DEV_2D_PART_RECOGNITION_JSON_20260119.md`
+- **Mechanical Knowledge 2D Graph Pipeline**:
+  - Added DWG manifest + DXF conversion tooling, auto-generated dataset rules, and a lightweight 2D graph model/inference path.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_2D_GRAPH_PIPELINE_20260119.md`
+- **Mechanical Knowledge 2D Graph Validation**:
+  - Tests: `pytest tests/unit/test_geometry_rules_dataset.py -v`, DXF graph extraction dry-run via `.venv-graph/bin/python`.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_2D_GRAPH_VALIDATION_20260119.md`
+- **Mechanical Knowledge 2D Graph Synonyms**:
+  - Generated bilingual label synonyms and merged into geometry rules; unignored `data/knowledge/*.json` for tracking.
+  - Tests: `pytest tests/unit/test_geometry_rules_dataset.py -v`
+  - Report: `reports/DEV_MECH_KNOWLEDGE_2D_GRAPH_SYNONYMS_20260119.md`
+- **Mechanical Knowledge 2D Graph Training**:
+  - Trained a graph2d checkpoint on DXF drawings and ran an inference dry-run.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_2D_GRAPH_TRAINING_20260119.md`
+- **Mechanical Knowledge 2D Graph API Validation**:
+  - Tests: `GRAPH2D_ENABLED=true GRAPH2D_MODEL_PATH=models/graph2d_latest.pth pytest tests/integration/test_analyze_dxf_fusion.py -v`
+  - Report: `reports/DEV_MECH_KNOWLEDGE_2D_GRAPH_API_VALIDATION_20260119.md`
+- **Mechanical Knowledge 2D Graph Weak-Label Evaluation**:
+  - Computed a 20-sample baseline against manifest labels (Top-1 0.15, Top-3 0.25).
+  - Report: `reports/DEV_MECH_KNOWLEDGE_2D_GRAPH_WEAK_LABEL_EVAL_20260119.md`
+- **Mechanical Knowledge 4000CAD Development**:
+  - Ingested additional DWG datasets, added bilingual synonyms, and retrained graph2d.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_DEVELOPMENT_20260119.md`
+- **Mechanical Knowledge 4000CAD Validation**:
+  - Tests: `pytest tests/unit/test_geometry_rules_dataset.py -v`; conversion 50/50; weak-label baseline Top-1 0.15, Top-3 0.20.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_VALIDATION_20260119.md`
+- **Mechanical Knowledge 4000CAD Manual Labeling Prep**:
+  - Generated unlabeled mapping + manual eval templates for human review.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_MANUAL_LABELING_20260119.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

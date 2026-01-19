@@ -79,7 +79,10 @@ docker-compose.override.yml
 deployments/docker/docker-compose.external-network.yml
 
 # Data
-data/
+data/*
+!data/knowledge/
+!data/knowledge/*.json
+*/data/
 *.db
 *.sqlite
 *.sqlite3

@@ -5,6 +5,7 @@ Loads synthetic DXF data and labels for GNN training.
 Converts raw entities (Lines, Circles) into a Graph structure.
 """
 
+import csv
 import json
 import logging
 import os
@@ -43,10 +44,10 @@ class DXFDataset(Dataset):
         else:
             logger.warning(f"Labels not found at {label_path}. Dataset empty.")
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.samples)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Tuple[Dict[str, Any], torch.Tensor]:
         item = self.samples[idx]
         file_name = item["file"]
         file_path = os.path.join(self.root_dir, file_name)
@@ -83,9 +84,7 @@ class DXFDataset(Dataset):
     def _dxf_to_graph(self, msp) -> Tuple[torch.Tensor, torch.Tensor]:
         """Convert DXF entities to Node Features and Adjacency."""
         nodes = []
-        # Naive approach: connect all entities to all (fully connected) for small graphs
-        # Or connect entities that share endpoints (better).
-        # For simplicity in this MVP: Fully connected graph of up to N entities.
+        # Build adjacency by shared endpoints (approx) to keep topology meaningful.
         
         entities = list(msp)
         # Filter supported entities
@@ -95,9 +94,13 @@ class DXFDataset(Dataset):
         max_nodes = 50
         valid_entities = valid_entities[:max_nodes]
 
+        keypoints: List[List[Tuple[float, float]]] = []
+        all_points: List[Tuple[float, float]] = []
+
         for e in valid_entities:
             feat = [0.0] * DXF_NODE_DIM
             dtype = e.dxftype()
+            pts: List[Tuple[float, float]] = []
             
             if dtype == "LINE":
                 feat[0] = 1.0
@@ -110,9 +113,11 @@ class DXFDataset(Dataset):
                 feat[3] = mid.x / 200.0
                 feat[4] = mid.y / 200.0
                 # Direction
-                d = (end - start).normalize()
-                feat[5] = d.x
-                feat[6] = d.y
+                if l > 1e-9:
+                    d = (end - start).normalize()
+                    feat[5] = d.x
+                    feat[6] = d.y
+                pts = [(float(start.x), float(start.y)), (float(end.x), float(end.y))]
                 
             elif dtype == "CIRCLE":
                 feat[1] = 1.0
@@ -120,6 +125,7 @@ class DXFDataset(Dataset):
                 feat[2] = r / 50.0
                 feat[3] = e.dxf.center.x / 200.0
                 feat[4] = e.dxf.center.y / 200.0
+                pts = [(float(e.dxf.center.x), float(e.dxf.center.y))]
                 
             elif dtype == "LWPOLYLINE":
                 # Treat polyline as a single complex node for now
@@ -128,23 +134,113 @@ class DXFDataset(Dataset):
                 if len(e) > 0:
                     feat[3] = e[0][0] / 200.0
                     feat[4] = e[0][1] / 200.0
+                    pts = [(float(p[0]), float(p[1])) for p in e.get_points()]
 
             nodes.append(feat)
+            keypoints.append(pts)
+            all_points.extend(pts)
 
         if not nodes:
             return torch.zeros(0, DXF_NODE_DIM), torch.zeros(2, 0, dtype=torch.long)
 
         x = torch.tensor(nodes, dtype=torch.float)
         
-        # Fully connected edges (simplest for small graphs)
         num_nodes = len(nodes)
-        if num_nodes > 1:
+        if num_nodes <= 1:
+            return x, torch.zeros(2, 0, dtype=torch.long)
+
+        eps = 1e-3
+        if all_points:
+            xs = [p[0] for p in all_points]
+            ys = [p[1] for p in all_points]
+            dx = max(xs) - min(xs)
+            dy = max(ys) - min(ys)
+            scale = max(dx, dy, 1.0)
+            eps = max(eps, scale * 1e-3)
+
+        edges: List[Tuple[int, int]] = []
+        for i in range(num_nodes):
+            for j in range(i + 1, num_nodes):
+                connected = False
+                for p1 in keypoints[i]:
+                    for p2 in keypoints[j]:
+                        dx = p1[0] - p2[0]
+                        dy = p1[1] - p2[1]
+                        if (dx * dx + dy * dy) <= eps * eps:
+                            connected = True
+                            break
+                    if connected:
+                        break
+                if connected:
+                    edges.append((i, j))
+                    edges.append((j, i))
+
+        if not edges:
+            # Fallback to fully connected if no adjacency detected.
             row = torch.arange(num_nodes).repeat_interleave(num_nodes)
             col = torch.arange(num_nodes).repeat(num_nodes)
-            # Remove self-loops from edge list? Optional.
             mask = row != col
             edge_index = torch.stack([row[mask], col[mask]], dim=0)
-        else:
-            edge_index = torch.zeros(2, 0, dtype=torch.long)
+            return x, edge_index
+
+        edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
 
         return x, edge_index
+
+
+class DXFManifestDataset(Dataset):
+    """DXF dataset backed by a manifest CSV (weak labels from filenames)."""
+
+    def __init__(self, manifest_csv: str, dxf_dir: str, label_map: Dict[str, int] | None = None):
+        self.manifest_csv = manifest_csv
+        self.dxf_dir = dxf_dir
+        self.samples: List[Dict[str, Any]] = []
+        self.label_map = label_map or {}
+
+        with open(manifest_csv, "r", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                if not row:
+                    continue
+                label = (row.get("label_cn") or "").strip()
+                file_name = (row.get("file_name") or "").strip()
+                if not label or not file_name:
+                    continue
+                if label not in self.label_map:
+                    self.label_map[label] = len(self.label_map)
+                self.samples.append(
+                    {
+                        "file_name": file_name,
+                        "label": label,
+                        "label_id": self.label_map[label],
+                    }
+                )
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+    def __getitem__(self, idx: int) -> Tuple[Dict[str, Any], torch.Tensor]:
+        item = self.samples[idx]
+        file_name = item["file_name"]
+        file_path = os.path.join(self.dxf_dir, file_name.replace(".dwg", ".dxf"))
+        label = torch.tensor(item["label_id"], dtype=torch.long)
+
+        try:
+            doc = ezdxf.readfile(file_path)
+            msp = doc.modelspace()
+            x, edge_index = self._dxf_to_graph(msp)
+            return {"x": x, "edge_index": edge_index, "file_name": file_name}, label
+        except Exception as e:
+            logger.error(f"Error parsing {file_name}: {e}")
+            return {
+                "x": torch.zeros(0, DXF_NODE_DIM),
+                "edge_index": torch.zeros(2, 0, dtype=torch.long),
+                "file_name": file_name,
+            }, label
+
+    def get_label_map(self) -> Dict[str, int]:
+        return dict(self.label_map)
+
+    def _dxf_to_graph(self, msp) -> Tuple[torch.Tensor, torch.Tensor]:
+        # Reuse graph builder from DXFDataset
+        return DXFDataset._dxf_to_graph(self, msp)

@@ -787,6 +787,20 @@ async def analyze_cad_file(
                 except Exception:
                     ml_result = None
                     cls_payload["model_version"] = "ml_error"
+                # Optional 2D graph classifier (shadow by default)
+                graph2d_result: Dict[str, Any] | None = None
+                graph2d_enabled = os.getenv("GRAPH2D_ENABLED", "false").lower() == "true"
+                if graph2d_enabled and file_format == "dxf":
+                    try:
+                        from src.ml.vision_2d import get_2d_classifier
+
+                        graph2d_result = get_2d_classifier().predict_from_bytes(
+                            content, file.filename
+                        )
+                        if graph2d_result.get("status") != "model_unavailable":
+                            cls_payload["graph2d_prediction"] = graph2d_result
+                    except Exception:
+                        graph2d_result = None
                 # Optional FusionAnalyzer (shadow by default)
                 fusion_enabled = os.getenv("FUSION_ANALYZER_ENABLED", "false").lower() == "true"
                 fusion_override = (
@@ -804,7 +818,19 @@ async def analyze_cad_file(
                         )
 
                         l4_prediction = None
-                        if ml_result and ml_result.get("predicted_type"):
+                        graph2d_fusion = (
+                            os.getenv("GRAPH2D_FUSION_ENABLED", "false").lower() == "true"
+                        )
+                        if (
+                            graph2d_fusion
+                            and graph2d_result
+                            and graph2d_result.get("label")
+                        ):
+                            l4_prediction = {
+                                "label": graph2d_result["label"],
+                                "confidence": float(graph2d_result.get("confidence", 0.0)),
+                            }
+                        elif ml_result and ml_result.get("predicted_type"):
                             l4_prediction = {
                                 "label": ml_result["predicted_type"],
                                 "confidence": float(ml_result.get("confidence", 0.0)),

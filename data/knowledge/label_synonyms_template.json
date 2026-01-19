@@ -1,0 +1,274 @@
+{
+  "上封头组件": [
+    "top head assembly",
+    "upper head assembly"
+  ],
+  "罐体部分": [
+    "tank section",
+    "vessel section"
+  ],
+  "过滤托架": [
+    "filter bracket",
+    "filter support bracket"
+  ],
+  "上筒体组件": [
+    "upper cylinder shell",
+    "upper shell assembly"
+  ],
+  "下锥体组件": [
+    "bottom cone assembly",
+    "lower cone assembly"
+  ],
+  "再沸器": [
+    "re boiler",
+    "re-boiler",
+    "reboiler"
+  ],
+  "扭转弹簧": [
+    "torsion spring"
+  ],
+  "短轴承座(盖)": [
+    "short bearing housing cover",
+    "short bearing seat cover"
+  ],
+  "蜗轮蜗杆传动出料机构": [
+    "worm drive discharge assembly",
+    "worm gear drive discharge mechanism"
+  ],
+  "调节螺栓": [
+    "adjusting bolt",
+    "adjustment bolt"
+  ],
+  "超声波法兰": [
+    "ultrasonic flange"
+  ],
+  "下封板": [
+    "bottom cover plate",
+    "lower end plate"
+  ],
+  "下筒体组件": [
+    "lower cylinder shell",
+    "lower shell assembly"
+  ],
+  "下轴承支架组件": [
+    "lower bearing bracket assembly",
+    "lower bearing support assembly"
+  ],
+  "人孔": [
+    "inspection port",
+    "manhole"
+  ],
+  "人孔法兰": [
+    "inspection port flange",
+    "manhole flange"
+  ],
+  "侧推料组件": [
+    "lateral feed assembly",
+    "side pusher assembly"
+  ],
+  "保护罩组件": [
+    "guard assembly",
+    "protective cover assembly"
+  ],
+  "出料凸缘": [
+    "discharge flange",
+    "outlet flange"
+  ],
+  "出料正压隔离器": [
+    "discharge positive pressure isolator",
+    "outlet pressure isolator"
+  ],
+  "对接法兰": [
+    "butt flange",
+    "butt weld flange",
+    "butt-weld flange"
+  ],
+  "底板": [
+    "base plate",
+    "bottom plate"
+  ],
+  "手轮组件": [
+    "hand wheel assembly",
+    "handwheel assembly"
+  ],
+  "拖车": [
+    "trailer"
+  ],
+  "拖轮组件": [
+    "towing wheel assembly",
+    "trailer wheel assembly"
+  ],
+  "捕集口": [
+    "capture port",
+    "collection port"
+  ],
+  "捕集器组件": [
+    "capture assembly",
+    "collector assembly"
+  ],
+  "搅拌减速机机罩": [
+    "agitator reducer cover",
+    "mixer gearbox cover"
+  ],
+  "搅拌器组件": [
+    "agitator assembly",
+    "mixer assembly"
+  ],
+  "搅拌桨组件": [
+    "agitator impeller assembly",
+    "mixer paddle assembly"
+  ],
+  "搅拌轴组件": [
+    "agitator shaft assembly",
+    "mixer shaft assembly"
+  ],
+  "支承座": [
+    "support base",
+    "support seat"
+  ],
+  "旋转组件": [
+    "rotary assembly",
+    "rotating assembly"
+  ],
+  "汽水分离器": [
+    "steam water separator",
+    "steam-water separator",
+    "vapor liquid separator",
+    "vapor-liquid separator"
+  ],
+  "液压开盖组件": [
+    "hydraulic cover opening assembly",
+    "hydraulic lid opener"
+  ],
+  "电加热箱": [
+    "electric heater box",
+    "electric heating box"
+  ],
+  "真空组件": [
+    "vacuum assembly",
+    "vacuum module"
+  ],
+  "管束": [
+    "tube bank",
+    "tube bundle"
+  ],
+  "罐体支腿": [
+    "tank support legs",
+    "vessel support legs"
+  ],
+  "自动进料装置": [
+    "automatic feeder",
+    "automatic feeding device"
+  ],
+  "轴向定位轴承": [
+    "axial locating bearing",
+    "axial positioning bearing"
+  ],
+  "轴头组件": [
+    "shaft end assembly",
+    "shaft head assembly"
+  ],
+  "轴承座": [
+    "bearing housing",
+    "bearing pedestal"
+  ],
+  "过滤芯组件": [
+    "filter cartridge assembly",
+    "filter core assembly"
+  ],
+  "连接法兰(大)": [
+    "large connection flange",
+    "large coupling flange"
+  ],
+  "阀体": [
+    "valve body"
+  ],
+  "防爆视灯组件": [
+    "explosion proof sight light assembly",
+    "explosion proof viewing light",
+    "explosion-proof sight light assembly",
+    "explosion-proof viewing light"
+  ],
+  "传动轴": [
+    "drive shaft",
+    "transmission shaft"
+  ],
+  "压下螺丝": [
+    "pressing screw",
+    "hold-down screw"
+  ],
+  "小立柱油缸装配图": [
+    "small column cylinder assembly drawing",
+    "small column hydraulic cylinder assembly"
+  ],
+  "小立柱装配图": [
+    "small column assembly drawing",
+    "small column assembly"
+  ],
+  "差动机构": [
+    "differential mechanism",
+    "differential assembly"
+  ],
+  "床身装配图": [
+    "bed assembly drawing",
+    "machine bed assembly"
+  ],
+  "底座视图": [
+    "base view",
+    "base plate view"
+  ],
+  "改箱体右盖": [
+    "modified housing right cover",
+    "revised casing right cover"
+  ],
+  "机件多面视图": [
+    "machine part multiview",
+    "component multi-view"
+  ],
+  "泵": [
+    "pump"
+  ],
+  "泵盖图": [
+    "pump cover drawing",
+    "pump cover view"
+  ],
+  "涡轮": [
+    "worm wheel",
+    "worm gear wheel"
+  ],
+  "液压原理图": [
+    "hydraulic schematic",
+    "hydraulic principle diagram"
+  ],
+  "液压系统管路图": [
+    "hydraulic system piping diagram",
+    "hydraulic piping schematic"
+  ],
+  "滑板装配图": [
+    "slide plate assembly drawing",
+    "slide plate assembly"
+  ],
+  "组合刀架装配图": [
+    "combined tool holder assembly drawing",
+    "modular tool holder assembly"
+  ],
+  "蜗杆": [
+    "worm",
+    "worm shaft"
+  ],
+  "轴承外圈强化研磨上下料系统": [
+    "bearing outer ring grinding loading/unloading system",
+    "bearing outer ring enhanced grinding feed system"
+  ],
+  "阀视图": [
+    "valve view",
+    "valve drawing"
+  ],
+  "阶梯轴": [
+    "stepped shaft"
+  ],
+  "零件轴改": [
+    "modified shaft part",
+    "revised shaft"
+  ]
+}

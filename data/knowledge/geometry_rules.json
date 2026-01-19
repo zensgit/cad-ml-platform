@@ -1,0 +1,2234 @@
+{
+  "version": "2026-01-19T13:50:51.683812+00:00",
+  "category": "geometry",
+  "count": 93,
+  "updated_at": "2026-01-19T13:50:51.683812+00:00",
+  "rules": [
+    {
+      "id": "learned_bolt_Bolt_M6x20",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M6x20.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M6x20",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.293080",
+      "updated_at": "2025-12-21T19:51:56.293090",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M16x60",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M16x60.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M16x60",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.300363",
+      "updated_at": "2025-12-21T19:51:56.300369",
+      "metadata": {}
+    },
+    {
+      "id": "learned_flange_Flange_DN25",
+      "category": "geometry",
+      "name": "Learned flange from Flange_DN25.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Flange_DN25",
+        "flange"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "flange": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.307232",
+      "updated_at": "2025-12-21T19:51:56.307239",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M8x20",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M8x20.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M8x20",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.313730",
+      "updated_at": "2025-12-21T19:51:56.313736",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M10x60",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M10x60.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M10x60",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.320243",
+      "updated_at": "2025-12-21T19:51:56.320251",
+      "metadata": {}
+    },
+    {
+      "id": "learned_flange_Flange_DN40",
+      "category": "geometry",
+      "name": "Learned flange from Flange_DN40.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Flange_DN40",
+        "flange"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "flange": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.326569",
+      "updated_at": "2025-12-21T19:51:56.326573",
+      "metadata": {}
+    },
+    {
+      "id": "learned_flange_Flange_DN80",
+      "category": "geometry",
+      "name": "Learned flange from Flange_DN80.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Flange_DN80",
+        "flange"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "flange": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.332884",
+      "updated_at": "2025-12-21T19:51:56.332888",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M6x40",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M6x40.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M6x40",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.339103",
+      "updated_at": "2025-12-21T19:51:56.339109",
+      "metadata": {}
+    },
+    {
+      "id": "learned_washer_Washer_M20",
+      "category": "geometry",
+      "name": "Learned washer from Washer_M20.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Washer_M20",
+        "washer"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "washer": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.344732",
+      "updated_at": "2025-12-21T19:51:56.344736",
+      "metadata": {}
+    },
+    {
+      "id": "learned_washer_Washer_M8",
+      "category": "geometry",
+      "name": "Learned washer from Washer_M8.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Washer_M8",
+        "washer"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "washer": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.350101",
+      "updated_at": "2025-12-21T19:51:56.350106",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M8x40",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M8x40.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M8x40",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.356277",
+      "updated_at": "2025-12-21T19:51:56.356282",
+      "metadata": {}
+    },
+    {
+      "id": "learned_flange_Flange_DN100",
+      "category": "geometry",
+      "name": "Learned flange from Flange_DN100.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Flange_DN100",
+        "flange"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "flange": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.372472",
+      "updated_at": "2025-12-21T19:51:56.372477",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M12x60",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M12x60.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M12x60",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.378406",
+      "updated_at": "2025-12-21T19:51:56.378410",
+      "metadata": {}
+    },
+    {
+      "id": "learned_flange_Flange_DN50",
+      "category": "geometry",
+      "name": "Learned flange from Flange_DN50.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Flange_DN50",
+        "flange"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "flange": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.383774",
+      "updated_at": "2025-12-21T19:51:56.383778",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M16x20",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M16x20.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M16x20",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.389441",
+      "updated_at": "2025-12-21T19:51:56.389444",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M10x40",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M10x40.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M10x40",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.395516",
+      "updated_at": "2025-12-21T19:51:56.395521",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M6x60",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M6x60.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M6x60",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.401481",
+      "updated_at": "2025-12-21T19:51:56.401485",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M8x60",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M8x60.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M8x60",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.407151",
+      "updated_at": "2025-12-21T19:51:56.407156",
+      "metadata": {}
+    },
+    {
+      "id": "learned_washer_Washer_M10",
+      "category": "geometry",
+      "name": "Learned washer from Washer_M10.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Washer_M10",
+        "washer"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "washer": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.412322",
+      "updated_at": "2025-12-21T19:51:56.412325",
+      "metadata": {}
+    },
+    {
+      "id": "learned_washer_Washer_M6",
+      "category": "geometry",
+      "name": "Learned washer from Washer_M6.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Washer_M6",
+        "washer"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "washer": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.417232",
+      "updated_at": "2025-12-21T19:51:56.417235",
+      "metadata": {}
+    },
+    {
+      "id": "learned_washer_Washer_M12",
+      "category": "geometry",
+      "name": "Learned washer from Washer_M12.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Washer_M12",
+        "washer"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "washer": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.422779",
+      "updated_at": "2025-12-21T19:51:56.422783",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M12x40",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M12x40.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M12x40",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.428380",
+      "updated_at": "2025-12-21T19:51:56.428383",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M16x40",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M16x40.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M16x40",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.433946",
+      "updated_at": "2025-12-21T19:51:56.433951",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M10x20",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M10x20.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M10x20",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.439955",
+      "updated_at": "2025-12-21T19:51:56.439960",
+      "metadata": {}
+    },
+    {
+      "id": "learned_bolt_Bolt_M12x20",
+      "category": "geometry",
+      "name": "Learned bolt from Bolt_M12x20.dxf",
+      "chinese_name": "",
+      "description": "",
+      "keywords": [
+        "Bolt_M12x20",
+        "bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "bolt": 0.95
+      },
+      "enabled": true,
+      "priority": 100,
+      "source": "active_learning",
+      "created_at": "2025-12-21T19:51:56.446208",
+      "updated_at": "2025-12-21T19:51:56.446213",
+      "metadata": {}
+    },
+    {
+      "id": "dataset_label_9d906f0be74a",
+      "category": "geometry",
+      "name": "Dataset rule for 上封头组件",
+      "chinese_name": "上封头组件",
+      "description": "Auto-generated from manifest (count=5).",
+      "keywords": [
+        "上封头",
+        "上封头组件",
+        "upper head assembly",
+        "top head assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "上封头组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 5,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_295f090f7216",
+      "category": "geometry",
+      "name": "Dataset rule for 罐体部分",
+      "chinese_name": "罐体部分",
+      "description": "Auto-generated from manifest (count=5).",
+      "keywords": [
+        "罐体",
+        "罐体部分",
+        "tank section",
+        "vessel section"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "罐体部分": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 5,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_b2e752ae7023",
+      "category": "geometry",
+      "name": "Dataset rule for 过滤托架",
+      "chinese_name": "过滤托架",
+      "description": "Auto-generated from manifest (count=4).",
+      "keywords": [
+        "过滤托架",
+        "filter bracket",
+        "filter support bracket"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "过滤托架": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 4,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_feff9a4fdf68",
+      "category": "geometry",
+      "name": "Dataset rule for 上筒体组件",
+      "chinese_name": "上筒体组件",
+      "description": "Auto-generated from manifest (count=3).",
+      "keywords": [
+        "上筒体",
+        "上筒体组件",
+        "upper shell assembly",
+        "upper cylinder shell"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "上筒体组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 3,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_d43e4168cbfc",
+      "category": "geometry",
+      "name": "Dataset rule for 下锥体组件",
+      "chinese_name": "下锥体组件",
+      "description": "Auto-generated from manifest (count=3).",
+      "keywords": [
+        "下锥体",
+        "下锥体组件",
+        "lower cone assembly",
+        "bottom cone assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "下锥体组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 3,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_b5563eea2c12",
+      "category": "geometry",
+      "name": "Dataset rule for 再沸器",
+      "chinese_name": "再沸器",
+      "description": "Auto-generated from manifest (count=3).",
+      "keywords": [
+        "再沸器",
+        "reboiler",
+        "re-boiler",
+        "re boiler"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "再沸器": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T13:33:36.321445+00:00",
+      "metadata": {
+        "count": 3,
+        "synonyms_updated_at": "2026-01-19T13:33:36.321445+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_4164886abf2a",
+      "category": "geometry",
+      "name": "Dataset rule for 扭转弹簧",
+      "chinese_name": "扭转弹簧",
+      "description": "Auto-generated from manifest (count=3).",
+      "keywords": [
+        "扭转弹簧",
+        "torsion spring"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "扭转弹簧": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 3,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_b1cc6ef31dfe",
+      "category": "geometry",
+      "name": "Dataset rule for 短轴承座(盖)",
+      "chinese_name": "短轴承座(盖)",
+      "description": "Auto-generated from manifest (count=3).",
+      "keywords": [
+        "短轴承座(盖)",
+        "短轴承座盖",
+        "short bearing housing cover",
+        "short bearing seat cover"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "短轴承座(盖)": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 3,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_64c98d2cdd35",
+      "category": "geometry",
+      "name": "Dataset rule for 蜗轮蜗杆传动出料机构",
+      "chinese_name": "蜗轮蜗杆传动出料机构",
+      "description": "Auto-generated from manifest (count=3).",
+      "keywords": [
+        "蜗轮蜗杆传动出料机构",
+        "worm gear drive discharge mechanism",
+        "worm drive discharge assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "蜗轮蜗杆传动出料机构": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 3,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_0e9b3ec708eb",
+      "category": "geometry",
+      "name": "Dataset rule for 调节螺栓",
+      "chinese_name": "调节螺栓",
+      "description": "Auto-generated from manifest (count=3).",
+      "keywords": [
+        "调节螺栓",
+        "adjusting bolt",
+        "adjustment bolt"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "调节螺栓": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 3,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_5c3ca406bce3",
+      "category": "geometry",
+      "name": "Dataset rule for 超声波法兰",
+      "chinese_name": "超声波法兰",
+      "description": "Auto-generated from manifest (count=3).",
+      "keywords": [
+        "超声波法兰",
+        "ultrasonic flange"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "超声波法兰": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 3,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_e129756459e6",
+      "category": "geometry",
+      "name": "Dataset rule for 下封板",
+      "chinese_name": "下封板",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "下封板",
+        "lower end plate",
+        "bottom cover plate"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "下封板": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_198389af9dda",
+      "category": "geometry",
+      "name": "Dataset rule for 下筒体组件",
+      "chinese_name": "下筒体组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "下筒体",
+        "下筒体组件",
+        "lower shell assembly",
+        "lower cylinder shell"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "下筒体组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_f3a4bafaef9c",
+      "category": "geometry",
+      "name": "Dataset rule for 下轴承支架组件",
+      "chinese_name": "下轴承支架组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "下轴承支架",
+        "下轴承支架组件",
+        "lower bearing bracket assembly",
+        "lower bearing support assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "下轴承支架组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_cde9b89e8556",
+      "category": "geometry",
+      "name": "Dataset rule for 人孔",
+      "chinese_name": "人孔",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "人孔",
+        "manhole",
+        "inspection port"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "人孔": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_f8be3076b72b",
+      "category": "geometry",
+      "name": "Dataset rule for 人孔法兰",
+      "chinese_name": "人孔法兰",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "人孔法兰",
+        "manhole flange",
+        "inspection port flange"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "人孔法兰": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_873d1e933005",
+      "category": "geometry",
+      "name": "Dataset rule for 侧推料组件",
+      "chinese_name": "侧推料组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "侧推料",
+        "侧推料组件",
+        "side pusher assembly",
+        "lateral feed assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "侧推料组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_5c38b7948a3a",
+      "category": "geometry",
+      "name": "Dataset rule for 保护罩组件",
+      "chinese_name": "保护罩组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "保护罩",
+        "保护罩组件",
+        "protective cover assembly",
+        "guard assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "保护罩组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_e66202d529d0",
+      "category": "geometry",
+      "name": "Dataset rule for 出料凸缘",
+      "chinese_name": "出料凸缘",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "出料凸缘",
+        "discharge flange",
+        "outlet flange"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "出料凸缘": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_29751c6030c4",
+      "category": "geometry",
+      "name": "Dataset rule for 出料正压隔离器",
+      "chinese_name": "出料正压隔离器",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "出料正压隔离器",
+        "discharge positive pressure isolator",
+        "outlet pressure isolator"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "出料正压隔离器": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_b0c94cecc85e",
+      "category": "geometry",
+      "name": "Dataset rule for 对接法兰",
+      "chinese_name": "对接法兰",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "对接法兰",
+        "butt flange",
+        "butt-weld flange",
+        "butt weld flange"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "对接法兰": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T13:33:36.321445+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T13:33:36.321445+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_78e6fec4c681",
+      "category": "geometry",
+      "name": "Dataset rule for 底板",
+      "chinese_name": "底板",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "底板",
+        "base plate",
+        "bottom plate"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "底板": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_18013b8229d8",
+      "category": "geometry",
+      "name": "Dataset rule for 手轮组件",
+      "chinese_name": "手轮组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "手轮",
+        "手轮组件",
+        "handwheel assembly",
+        "hand wheel assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "手轮组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_e48787bc8f1e",
+      "category": "geometry",
+      "name": "Dataset rule for 拖车",
+      "chinese_name": "拖车",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "拖车",
+        "trailer"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "拖车": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_9c4a1b37cdb7",
+      "category": "geometry",
+      "name": "Dataset rule for 拖轮组件",
+      "chinese_name": "拖轮组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "拖轮",
+        "拖轮组件",
+        "trailer wheel assembly",
+        "towing wheel assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "拖轮组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_f90bd7b5b510",
+      "category": "geometry",
+      "name": "Dataset rule for 捕集口",
+      "chinese_name": "捕集口",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "捕集口",
+        "collection port",
+        "capture port"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "捕集口": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_a1900b4e8654",
+      "category": "geometry",
+      "name": "Dataset rule for 捕集器组件",
+      "chinese_name": "捕集器组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "捕集器",
+        "捕集器组件",
+        "collector assembly",
+        "capture assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "捕集器组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_9abc8abf9108",
+      "category": "geometry",
+      "name": "Dataset rule for 搅拌减速机机罩",
+      "chinese_name": "搅拌减速机机罩",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "搅拌减速机机罩",
+        "agitator reducer cover",
+        "mixer gearbox cover"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "搅拌减速机机罩": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_3691d337e706",
+      "category": "geometry",
+      "name": "Dataset rule for 搅拌器组件",
+      "chinese_name": "搅拌器组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "搅拌器",
+        "搅拌器组件",
+        "agitator assembly",
+        "mixer assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "搅拌器组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_3d65f2869128",
+      "category": "geometry",
+      "name": "Dataset rule for 搅拌桨组件",
+      "chinese_name": "搅拌桨组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "搅拌桨",
+        "搅拌桨组件",
+        "agitator impeller assembly",
+        "mixer paddle assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "搅拌桨组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_280e0015968c",
+      "category": "geometry",
+      "name": "Dataset rule for 搅拌轴组件",
+      "chinese_name": "搅拌轴组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "搅拌轴",
+        "搅拌轴组件",
+        "agitator shaft assembly",
+        "mixer shaft assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "搅拌轴组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_92b67992a59d",
+      "category": "geometry",
+      "name": "Dataset rule for 支承座",
+      "chinese_name": "支承座",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "支承座",
+        "support base",
+        "support seat"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "支承座": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_23893e239b67",
+      "category": "geometry",
+      "name": "Dataset rule for 旋转组件",
+      "chinese_name": "旋转组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "旋转",
+        "旋转组件",
+        "rotary assembly",
+        "rotating assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "旋转组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_cf420e6a607a",
+      "category": "geometry",
+      "name": "Dataset rule for 汽水分离器",
+      "chinese_name": "汽水分离器",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "汽水分离器",
+        "steam-water separator",
+        "vapor-liquid separator",
+        "steam water separator",
+        "vapor liquid separator"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "汽水分离器": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T13:33:36.321445+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T13:33:36.321445+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_7d64c9aa1ec5",
+      "category": "geometry",
+      "name": "Dataset rule for 液压开盖组件",
+      "chinese_name": "液压开盖组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "液压开盖",
+        "液压开盖组件",
+        "hydraulic cover opening assembly",
+        "hydraulic lid opener"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "液压开盖组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_3f0885c2952c",
+      "category": "geometry",
+      "name": "Dataset rule for 电加热箱",
+      "chinese_name": "电加热箱",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "电加热箱",
+        "electric heating box",
+        "electric heater box"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "电加热箱": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_119d35da6760",
+      "category": "geometry",
+      "name": "Dataset rule for 真空组件",
+      "chinese_name": "真空组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "真空",
+        "真空组件",
+        "vacuum assembly",
+        "vacuum module"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "真空组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_0a40dc40f28c",
+      "category": "geometry",
+      "name": "Dataset rule for 管束",
+      "chinese_name": "管束",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "管束",
+        "tube bundle",
+        "tube bank"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "管束": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_4aa8110fd223",
+      "category": "geometry",
+      "name": "Dataset rule for 罐体支腿",
+      "chinese_name": "罐体支腿",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "罐体支腿",
+        "tank support legs",
+        "vessel support legs"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "罐体支腿": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_2209b513b688",
+      "category": "geometry",
+      "name": "Dataset rule for 自动进料装置",
+      "chinese_name": "自动进料装置",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "自动进料装置",
+        "automatic feeding device",
+        "automatic feeder"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "自动进料装置": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_ac36b6a99050",
+      "category": "geometry",
+      "name": "Dataset rule for 轴向定位轴承",
+      "chinese_name": "轴向定位轴承",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "轴向定位轴承",
+        "axial positioning bearing",
+        "axial locating bearing"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "轴向定位轴承": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_a05170d50398",
+      "category": "geometry",
+      "name": "Dataset rule for 轴头组件",
+      "chinese_name": "轴头组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "轴头",
+        "轴头组件",
+        "shaft end assembly",
+        "shaft head assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "轴头组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_f6e27ba4ed7a",
+      "category": "geometry",
+      "name": "Dataset rule for 轴承座",
+      "chinese_name": "轴承座",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "轴承座",
+        "bearing housing",
+        "bearing pedestal"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "轴承座": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_ab009189ee1e",
+      "category": "geometry",
+      "name": "Dataset rule for 过滤芯组件",
+      "chinese_name": "过滤芯组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "过滤芯",
+        "过滤芯组件",
+        "filter cartridge assembly",
+        "filter core assembly"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "过滤芯组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_bffb1e43ee28",
+      "category": "geometry",
+      "name": "Dataset rule for 连接法兰(大)",
+      "chinese_name": "连接法兰(大)",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "连接法兰(大)",
+        "连接法兰大",
+        "large connection flange",
+        "large coupling flange"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "连接法兰(大)": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_8e0aa465c46c",
+      "category": "geometry",
+      "name": "Dataset rule for 阀体",
+      "chinese_name": "阀体",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "阀体",
+        "valve body"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "阀体": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T12:52:54.278197+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T12:52:54.278197+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_aa821c2d25a5",
+      "category": "geometry",
+      "name": "Dataset rule for 防爆视灯组件",
+      "chinese_name": "防爆视灯组件",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "防爆视灯",
+        "防爆视灯组件",
+        "explosion-proof sight light assembly",
+        "explosion-proof viewing light",
+        "explosion proof sight light assembly",
+        "explosion proof viewing light"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "防爆视灯组件": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T12:18:34.878528+00:00",
+      "updated_at": "2026-01-19T13:33:36.321445+00:00",
+      "metadata": {
+        "count": 2,
+        "synonyms_updated_at": "2026-01-19T13:33:36.321445+00:00"
+      }
+    },
+    {
+      "id": "dataset_label_3fbfdd47f45b",
+      "category": "geometry",
+      "name": "Dataset rule for 阶梯轴",
+      "chinese_name": "阶梯轴",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "stepped shaft",
+        "阶梯轴"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "阶梯轴": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 2
+      }
+    },
+    {
+      "id": "dataset_label_973e791208ed",
+      "category": "geometry",
+      "name": "Dataset rule for 零件轴改",
+      "chinese_name": "零件轴改",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "modified shaft part",
+        "revised shaft",
+        "零件轴改"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "零件轴改": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 2
+      }
+    },
+    {
+      "id": "dataset_label_85a303aaed33",
+      "category": "geometry",
+      "name": "Dataset rule for 传动轴",
+      "chinese_name": "传动轴",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "drive shaft",
+        "transmission shaft",
+        "传动轴"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "传动轴": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_8b20de3f19bd",
+      "category": "geometry",
+      "name": "Dataset rule for 压下螺丝",
+      "chinese_name": "压下螺丝",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "hold-down screw",
+        "pressing screw",
+        "压下螺丝"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "压下螺丝": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_b359c338db54",
+      "category": "geometry",
+      "name": "Dataset rule for 小立柱油缸装配图",
+      "chinese_name": "小立柱油缸装配图",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "small column cylinder assembly drawing",
+        "small column hydraulic cylinder assembly",
+        "小立柱油缸装配图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "小立柱油缸装配图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_66455bf3df28",
+      "category": "geometry",
+      "name": "Dataset rule for 小立柱装配图",
+      "chinese_name": "小立柱装配图",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "small column assembly",
+        "small column assembly drawing",
+        "小立柱装配图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "小立柱装配图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_61c18155f93d",
+      "category": "geometry",
+      "name": "Dataset rule for 差动机构",
+      "chinese_name": "差动机构",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "differential assembly",
+        "differential mechanism",
+        "差动机构"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "差动机构": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_3f8bb49ec218",
+      "category": "geometry",
+      "name": "Dataset rule for 床身装配图",
+      "chinese_name": "床身装配图",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "bed assembly drawing",
+        "machine bed assembly",
+        "床身装配图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "床身装配图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_bf35ceccb997",
+      "category": "geometry",
+      "name": "Dataset rule for 底座视图",
+      "chinese_name": "底座视图",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "base plate view",
+        "base view",
+        "底座视图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "底座视图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_bb64b2ed88f7",
+      "category": "geometry",
+      "name": "Dataset rule for 改箱体右盖",
+      "chinese_name": "改箱体右盖",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "modified housing right cover",
+        "revised casing right cover",
+        "改箱体右盖"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "改箱体右盖": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_b8b009f501b4",
+      "category": "geometry",
+      "name": "Dataset rule for 机件多面视图",
+      "chinese_name": "机件多面视图",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "component multi-view",
+        "machine part multiview",
+        "机件多面视图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "机件多面视图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_0bb27676059b",
+      "category": "geometry",
+      "name": "Dataset rule for 泵",
+      "chinese_name": "泵",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "pump",
+        "泵"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "泵": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_080b691238ab",
+      "category": "geometry",
+      "name": "Dataset rule for 泵盖图",
+      "chinese_name": "泵盖图",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "pump cover drawing",
+        "pump cover view",
+        "泵盖图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "泵盖图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_611ac2571f85",
+      "category": "geometry",
+      "name": "Dataset rule for 涡轮",
+      "chinese_name": "涡轮",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "worm gear wheel",
+        "worm wheel",
+        "涡轮"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "涡轮": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_9a713048c8c3",
+      "category": "geometry",
+      "name": "Dataset rule for 液压原理图",
+      "chinese_name": "液压原理图",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "hydraulic principle diagram",
+        "hydraulic schematic",
+        "液压原理图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "液压原理图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_5eb08b3dada9",
+      "category": "geometry",
+      "name": "Dataset rule for 液压系统管路图",
+      "chinese_name": "液压系统管路图",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "hydraulic piping schematic",
+        "hydraulic system piping diagram",
+        "液压系统管路图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "液压系统管路图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_d8c938737fb9",
+      "category": "geometry",
+      "name": "Dataset rule for 滑板装配图",
+      "chinese_name": "滑板装配图",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "slide plate assembly",
+        "slide plate assembly drawing",
+        "滑板装配图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "滑板装配图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_6fae431649c4",
+      "category": "geometry",
+      "name": "Dataset rule for 组合刀架装配图",
+      "chinese_name": "组合刀架装配图",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "combined tool holder assembly drawing",
+        "modular tool holder assembly",
+        "组合刀架装配图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "组合刀架装配图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_0563b7d516dd",
+      "category": "geometry",
+      "name": "Dataset rule for 蜗杆",
+      "chinese_name": "蜗杆",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "worm",
+        "worm shaft",
+        "蜗杆"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "蜗杆": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_6e323f642050",
+      "category": "geometry",
+      "name": "Dataset rule for 轴承外圈强化研磨上下料系统",
+      "chinese_name": "轴承外圈强化研磨上下料系统",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "bearing outer ring enhanced grinding feed system",
+        "bearing outer ring grinding loading/unloading system",
+        "轴承外圈强化研磨上下料系统"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "轴承外圈强化研磨上下料系统": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_f0200ec7b18e",
+      "category": "geometry",
+      "name": "Dataset rule for 阀视图",
+      "chinese_name": "阀视图",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "valve drawing",
+        "valve view",
+        "阀视图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "阀视图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-19T13:50:51.683812+00:00",
+      "updated_at": "2026-01-19T13:50:51.683812+00:00",
+      "metadata": {
+        "count": 1
+      }
+    }
+  ]
+}
