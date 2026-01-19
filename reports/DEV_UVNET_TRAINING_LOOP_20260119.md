@@ -9,8 +9,10 @@
 - `src/ml/train/dataset.py`: added `label_strategy` support with surface-count buckets.
 - `scripts/train_uvnet_graph.py`: added the L4 training loop with train/val split and checkpoint output.
 - `docs/TRAINING_3D_PIPELINE.md`: documented the new training loop and synthetic mode.
+  - Ensured training uses `drop_last=True` to avoid batchnorm failures on the final short batch.
 
 ## Validation
-- Unable to run `scripts/train_uvnet_graph.py` locally because `torch` is not installed.
-- Recommended command when a torch environment is available:
-  - `python3 scripts/train_uvnet_graph.py --synthetic --epochs 1 --batch-size 4 --synthetic-samples 16`
+- Ran with the synthetic dataset in the existing `.venv-graph` torch environment:
+  - `./.venv-graph/bin/python scripts/train_uvnet_graph.py --synthetic --epochs 1 --batch-size 4 --synthetic-samples 16`
+- Output:
+  - `Epoch 1/1 loss=1.7431 acc=0.0833 val_loss=1.5604 val_acc=0.6667 time=0.89s`

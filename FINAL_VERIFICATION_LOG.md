@@ -1500,7 +1500,7 @@
   - Report: `reports/DEV_UVNET_CHECKPOINT_MAKE_TARGET_20260117.md`
 - **UV-Net Graph Training Loop**:
   - Added an end-to-end training script for STEP-based graph data with surface-bucket pseudo labels.
-  - Tests: `python3 scripts/train_uvnet_graph.py --synthetic --epochs 1 --batch-size 4 --synthetic-samples 16` (skipped: torch missing).
+  - Tests: `./.venv-graph/bin/python scripts/train_uvnet_graph.py --synthetic --epochs 1 --batch-size 4 --synthetic-samples 16`.
   - Design: `docs/TRAINING_3D_PIPELINE.md`
   - Report: `reports/DEV_UVNET_TRAINING_LOOP_20260119.md`
 

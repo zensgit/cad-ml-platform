@@ -6,8 +6,11 @@ Train UV-Net graph model on STEP B-Rep graphs.
 import argparse
 import os
 import random
+import sys
 import time
 from typing import Optional, Tuple
+
+sys.path.append(".")
 
 try:
     import torch
@@ -60,7 +63,11 @@ def _build_dataloaders(
 
     if val_split == 0.0 or len(dataset) < 2:
         train_loader = DataLoader(
-            dataset, batch_size=batch_size, shuffle=True, collate_fn=GraphBatchCollate()
+            dataset,
+            batch_size=batch_size,
+            shuffle=True,
+            drop_last=True,
+            collate_fn=GraphBatchCollate(),
         )
         return train_loader, None
 
@@ -69,7 +76,11 @@ def _build_dataloaders(
     generator = torch.Generator().manual_seed(seed)
     train_set, val_set = random_split(dataset, [train_size, val_size], generator=generator)
     train_loader = DataLoader(
-        train_set, batch_size=batch_size, shuffle=True, collate_fn=GraphBatchCollate()
+        train_set,
+        batch_size=batch_size,
+        shuffle=True,
+        drop_last=True,
+        collate_fn=GraphBatchCollate(),
     )
     val_loader = DataLoader(
         val_set, batch_size=batch_size, shuffle=False, collate_fn=GraphBatchCollate()
