@@ -1,7 +1,8 @@
 """
 Fusion Analyzer.
 
-The central "brain" that orchestrates L1-L4 feature inputs to make a reliable manufacturing decision.
+The central "brain" that orchestrates L1-L4 feature inputs to make a reliable
+manufacturing decision.
 Implements the "Ensemble & Fallback" strategy with strict guardrails.
 """
 
