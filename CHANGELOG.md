@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- UV-Net graph dry-run guardrails (fail on empty graphs), expanded STEP fixtures, and PR-only workflow trigger.
+
 ### Planned
 - vLLM provider for high throughput scenarios
 - Geometric alignment with R-tree spatial indexing
