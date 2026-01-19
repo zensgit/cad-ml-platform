@@ -1456,6 +1456,10 @@
   - Workflow completed with the expanded STEP fixtures and empty-graph guard enabled.
   - Tests: `gh run view 21126171357 --log`
   - Report: `reports/DEV_UVNET_GRAPH_DRYRUN_CI_SUCCESS_20260119.md`
+- **UV-Net CI Lint/Test Fixes**:
+  - Resolved flake8/mypy issues in fusion analyzer and added a torch-missing skip for UV-Net graph flow tests.
+  - Tests: `gh pr checks 36` (lint/type/tests rerun via CI).
+  - Report: `reports/DEV_UVNET_CI_LINT_TEST_FIX_20260119.md`
 - **UV-Net OCC Setup Attempt**:
   - Attempted pip, local micromamba, and docker-based installs for pythonocc-core; dry-run still blocked.
   - Tests: `source .venv-graph/bin/activate && pip install pythonocc-core`, `./.tools/bin/micromamba --version`, `docker run --rm --platform linux/amd64 ... micromamba create ...`, `python3 scripts/train_uvnet_graph_dryrun.py --data-dir data/abc_sample`
