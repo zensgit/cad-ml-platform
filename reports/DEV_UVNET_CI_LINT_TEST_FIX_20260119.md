@@ -12,7 +12,8 @@
 - `src/ml/classifier.py`
   - Added missing `Optional` import for `_extract_confidence` return type.
 - `tests/test_uvnet_graph_flow.py`
-  - Skip the suite when `torch` is not installed to avoid CI collection errors.
+  - Skip the module via `pytest.importorskip("torch")` when `torch` is not installed to
+    avoid CI collection errors before model imports.
 
 ## Validation
 - CI lint/type and test jobs re-run via PR checks after pushing the fixes.
