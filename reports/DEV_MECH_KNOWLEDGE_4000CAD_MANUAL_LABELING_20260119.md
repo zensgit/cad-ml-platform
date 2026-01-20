@@ -18,5 +18,6 @@ unlabeled files and a 20-sample evaluation subset with model predictions.
 - Auto-labeling via decoded DXF text + filename fallbacks filled all 27 rows.
   Numeric-only filenames use the generic label `练习零件图` and still need
   human verification.
+- English labels are auto-filled when a synonym exists; verify terminology as needed.
 - The manual-eval template has been auto-filled from filename labels to allow
   a provisional evaluation; replace with human labels when available.
