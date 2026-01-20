@@ -12,9 +12,9 @@ be replaced by true human labels when available.
 
 ## Results
 - Sample size: 20
-- Top-1 accuracy: 0.10
+- Top-1 accuracy: 0.05
 - Top-3 accuracy: 0.15
 
 ## Notes
-- Because reviewer labels are auto-filled, these metrics remain a weak-label
-  proxy and will likely shift after manual verification.
+- Reviewer labels are auto-filled (rules + filename fallbacks); metrics remain
+  a weak-label proxy and should be recomputed after manual verification.

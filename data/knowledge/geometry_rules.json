@@ -1,8 +1,8 @@
 {
-  "version": "2026-01-19T14:42:59.222580+00:00",
+  "version": "2026-01-20T00:26:20.800294+00:00",
   "category": "geometry",
-  "count": 97,
-  "updated_at": "2026-01-19T14:42:59.222580+00:00",
+  "count": 105,
+  "updated_at": "2026-01-20T00:26:20.800294+00:00",
   "rules": [
     {
       "id": "learned_bolt_Bolt_M6x20",
@@ -2322,6 +2322,198 @@
       "source": "dataset_manifest",
       "created_at": "2026-01-19T14:42:59.222580+00:00",
       "updated_at": "2026-01-19T14:42:59.222580+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_87d86c007f59",
+      "category": "geometry",
+      "name": "Dataset rule for 练习零件图",
+      "chinese_name": "练习零件图",
+      "description": "Auto-generated from manifest (count=9).",
+      "keywords": [
+        "exercise part drawing",
+        "practice part drawing",
+        "练习零件图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "练习零件图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-20T00:26:20.800294+00:00",
+      "updated_at": "2026-01-20T00:26:20.800294+00:00",
+      "metadata": {
+        "count": 9
+      }
+    },
+    {
+      "id": "dataset_label_07373fb5fc8b",
+      "category": "geometry",
+      "name": "Dataset rule for 铸件图",
+      "chinese_name": "铸件图",
+      "description": "Auto-generated from manifest (count=2).",
+      "keywords": [
+        "casting drawing",
+        "casting part drawing",
+        "铸件图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "铸件图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-20T00:26:20.800294+00:00",
+      "updated_at": "2026-01-20T00:26:20.800294+00:00",
+      "metadata": {
+        "count": 2
+      }
+    },
+    {
+      "id": "dataset_label_e96460f23c53",
+      "category": "geometry",
+      "name": "Dataset rule for 拨叉",
+      "chinese_name": "拨叉",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "fork",
+        "shift fork",
+        "拨叉"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "拨叉": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-20T00:26:20.800294+00:00",
+      "updated_at": "2026-01-20T00:26:20.800294+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_6e4626dbd91b",
+      "category": "geometry",
+      "name": "Dataset rule for 油管布置示意图",
+      "chinese_name": "油管布置示意图",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "oil line layout diagram",
+        "oil pipe layout schematic",
+        "油管布置示意图"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "油管布置示意图": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-20T00:26:20.800294+00:00",
+      "updated_at": "2026-01-20T00:26:20.800294+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_712b26dd55be",
+      "category": "geometry",
+      "name": "Dataset rule for 直推",
+      "chinese_name": "直推",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "direct push",
+        "straight push",
+        "直推"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "直推": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-20T00:26:20.800294+00:00",
+      "updated_at": "2026-01-20T00:26:20.800294+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_f95a0f91adb1",
+      "category": "geometry",
+      "name": "Dataset rule for 角钢",
+      "chinese_name": "角钢",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "angle bar",
+        "angle steel",
+        "角钢"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "角钢": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-20T00:26:20.800294+00:00",
+      "updated_at": "2026-01-20T00:26:20.800294+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_92e0b8c70809",
+      "category": "geometry",
+      "name": "Dataset rule for 铰制螺栓",
+      "chinese_name": "铰制螺栓",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "reamed bolt",
+        "reaming bolt",
+        "铰制螺栓"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "铰制螺栓": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-20T00:26:20.800294+00:00",
+      "updated_at": "2026-01-20T00:26:20.800294+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_c583d7959095",
+      "category": "geometry",
+      "name": "Dataset rule for 齿轮罩",
+      "chinese_name": "齿轮罩",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "gear cover",
+        "gear guard",
+        "齿轮罩"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "齿轮罩": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-20T00:26:20.800294+00:00",
+      "updated_at": "2026-01-20T00:26:20.800294+00:00",
       "metadata": {
         "count": 1
       }

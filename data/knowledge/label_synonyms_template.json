@@ -286,5 +286,37 @@
   "挡板": [
     "baffle plate",
     "shield plate"
+  ],
+  "练习零件图": [
+    "practice part drawing",
+    "exercise part drawing"
+  ],
+  "铸件图": [
+    "casting drawing",
+    "casting part drawing"
+  ],
+  "角钢": [
+    "angle steel",
+    "angle bar"
+  ],
+  "铰制螺栓": [
+    "reamed bolt",
+    "reaming bolt"
+  ],
+  "齿轮罩": [
+    "gear cover",
+    "gear guard"
+  ],
+  "油管布置示意图": [
+    "oil pipe layout schematic",
+    "oil line layout diagram"
+  ],
+  "直推": [
+    "direct push",
+    "straight push"
+  ],
+  "拨叉": [
+    "shift fork",
+    "fork"
   ]
 }

@@ -1,28 +1,28 @@
 file_name,relative_path,source_dir,label_cn,label_en,notes
-1.dwg,1.dwg,机械零件CAD图纸,,,auto_label:no_text_match
-10.dwg,10.dwg,机械零件CAD图纸,,,auto_label:no_text_match
-2.dwg,2.dwg,机械零件CAD图纸,,,auto_label:no_text_match
-3.dwg,3.dwg,机械零件CAD图纸,,,auto_label:no_text_match
+1.dwg,1.dwg,机械零件CAD图纸,练习零件图,,auto_label:filename_numeric
+10.dwg,10.dwg,机械零件CAD图纸,练习零件图,,auto_label:filename_numeric
+2.dwg,2.dwg,机械零件CAD图纸,练习零件图,,auto_label:filename_numeric
+3.dwg,3.dwg,机械零件CAD图纸,练习零件图,,auto_label:filename_numeric
 31001-1.dwg,31001-1.dwg,机械零件CAD图纸,差动机构,differential mechanism,auto_label:rule_match score=0.90
 31001-2.dwg,31001-2.dwg,机械零件CAD图纸,蜗杆,worm,auto_label:rule_match score=0.90
-4.dwg,4.dwg,机械零件CAD图纸,,,auto_label:no_text_match
-5.dwg,5.dwg,机械零件CAD图纸,,,auto_label:no_text_match
-6.dwg,6.dwg,机械零件CAD图纸,,,auto_label:no_text_match
+4.dwg,4.dwg,机械零件CAD图纸,练习零件图,,auto_label:filename_numeric
+5.dwg,5.dwg,机械零件CAD图纸,拨叉,,auto_label:text_keyword
+6.dwg,6.dwg,机械零件CAD图纸,练习零件图,,auto_label:filename_numeric
 61001.dwg,61001.dwg,机械零件CAD图纸,旋转组件,rotary assembly,auto_label:rule_match score=0.90
-7.dwg,7.dwg,机械零件CAD图纸,,,auto_label:no_text_match
-8.dwg,8.dwg,机械零件CAD图纸,,,auto_label:no_text_match
-9.dwg,9.dwg,机械零件CAD图纸,,,auto_label:no_text_match
-PE2540.0.dwg,PE2540.0.dwg,机械零件CAD图纸,活动齿板,,auto_label:heuristic_match
-FU200-02-01-1.DWG,FU200-02-01-1.DWG,机械零件CAD图纸,,,auto_label:no_text_match
-FU200-02-01-2.DWG,FU200-02-01-2.DWG,机械零件CAD图纸,,,auto_label:no_text_match
-FU200-02-05.DWG,FU200-02-05.DWG,机械零件CAD图纸,托轮轴压板,,auto_label:heuristic_match
-FU200-02-06.DWG,FU200-02-06.DWG,机械零件CAD图纸,带座轴承板,,auto_label:heuristic_match
-FU200-02-13-01.DWG,FU200-02-13-01.DWG,机械零件CAD图纸,,,auto_label:no_text_match
-GB27-88.DWG,GB27-88.DWG,机械零件CAD图纸,,,auto_label:no_text_match
-JDA00000.DWG,JDA00000.DWG,机械零件CAD图纸,,,auto_label:no_text_match
+7.dwg,7.dwg,机械零件CAD图纸,练习零件图,,auto_label:filename_numeric
+8.dwg,8.dwg,机械零件CAD图纸,练习零件图,,auto_label:filename_numeric
+9.dwg,9.dwg,机械零件CAD图纸,练习零件图,,auto_label:filename_numeric
+PE2540.0.dwg,PE2540.0.dwg,机械零件CAD图纸,挡板,baffle plate,auto_label:rule_match score=0.90
+FU200-02-01-1.DWG,FU200-02-01-1.DWG,机械零件CAD图纸,铸件图,,auto_label:filename_series_casting
+FU200-02-01-2.DWG,FU200-02-01-2.DWG,机械零件CAD图纸,铸件图,,auto_label:filename_series_casting
+FU200-02-05.DWG,FU200-02-05.DWG,机械零件CAD图纸,托轮轴压板,roller shaft clamp plate,auto_label:rule_match score=0.90
+FU200-02-06.DWG,FU200-02-06.DWG,机械零件CAD图纸,带座轴承板,bearing base plate,auto_label:rule_match score=0.90
+FU200-02-13-01.DWG,FU200-02-13-01.DWG,机械零件CAD图纸,角钢,,auto_label:filename_series_angle
+GB27-88.DWG,GB27-88.DWG,机械零件CAD图纸,铰制螺栓,,auto_label:filename_standard
+JDA00000.DWG,JDA00000.DWG,机械零件CAD图纸,齿轮罩,,auto_label:filename_series_title
 JDB00000.DWG,JDB00000.DWG,机械零件CAD图纸,搅拌轴组件,agitator shaft assembly,auto_label:rule_match score=0.90
-JDC00000.DWG,JDC00000.DWG,机械零件CAD图纸,,,auto_label:no_text_match
-JDD00000.DWG,JDD00000.DWG,机械零件CAD图纸,挡板,,auto_label:heuristic_match
+JDC00000.DWG,JDC00000.DWG,机械零件CAD图纸,油管布置示意图,,auto_label:filename_series_title
+JDD00000.DWG,JDD00000.DWG,机械零件CAD图纸,挡板,baffle plate,auto_label:rule_match score=0.90
 JDE00000.DWG,JDE00000.DWG,机械零件CAD图纸,底板,base plate,auto_label:rule_match score=0.90
 JDF00000.DWG,JDF00000.DWG,机械零件CAD图纸,轴承座,bearing housing,auto_label:rule_match score=0.90
-ZHITUI.DWG,ZHITUI.DWG,机械零件CAD图纸,,,auto_label:no_text_match
+ZHITUI.DWG,ZHITUI.DWG,机械零件CAD图纸,直推,,auto_label:filename_pinyin

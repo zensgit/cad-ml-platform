@@ -83,13 +83,19 @@ _STOP_SUBSTRINGS = (
     "文件号",
     "焊缝",
     "调整",
-    "装配",
     "精调",
-    "齿轮",
     "工作面",
     "备注",
     "比例",
     "单位",
+)
+_NAME_HINTS = (
+    "装配图",
+    "示意图",
+    "原理图",
+    "系统图",
+    "零件图",
+    "视图",
 )
 
 
@@ -167,13 +173,14 @@ def _heuristic_label(text: str) -> str:
         phrase = match.group(0)
         if phrase in _STOPWORDS:
             continue
-        if any(stop in phrase for stop in _STOP_SUBSTRINGS):
-            continue
+        stop_hit = any(stop in phrase for stop in _STOP_SUBSTRINGS)
         score = 0
         for suffix in _CANDIDATE_SUFFIXES:
             if phrase.endswith(suffix):
                 score += 3
                 break
+        if stop_hit and score < 3:
+            continue
         if len(phrase) >= 4:
             score += 1
         if score >= 3:
@@ -183,6 +190,36 @@ def _heuristic_label(text: str) -> str:
     candidates.sort(reverse=True)
     best = candidates[0][2]
     return best
+
+
+def _filename_fallback(file_name: str, text: str) -> Tuple[str, str]:
+    upper = file_name.upper()
+    if "拨叉" in text:
+        return "拨叉", "auto_label:text_keyword"
+    if upper in {f"{i}.DWG" for i in range(1, 11)}:
+        return "练习零件图", "auto_label:filename_numeric"
+    if upper.startswith("GB") and "铰制螺栓" in text:
+        return "铰制螺栓", "auto_label:filename_standard"
+    if upper.startswith("FU200-02-01") and "铸件" in text:
+        return "铸件图", "auto_label:filename_series_casting"
+    if upper.startswith("FU200-02-13") and "角钢" in text:
+        return "角钢", "auto_label:filename_series_angle"
+    if upper.startswith("JDA00000"):
+        if "齿轮罩" in text:
+            return "齿轮罩", "auto_label:filename_series_title"
+        if "上壳" in text:
+            return "上壳", "auto_label:filename_series_title"
+    if upper.startswith("JDC00000"):
+        if "油管布置示意图" in text:
+            return "油管布置示意图", "auto_label:filename_series_title"
+        if "油管布置" in text:
+            return "油管布置示意图", "auto_label:filename_series_title"
+    if upper.startswith("ZHITUI"):
+        return "直推", "auto_label:filename_pinyin"
+    for hint in _NAME_HINTS:
+        if hint in text:
+            return hint, "auto_label:name_hint"
+    return "", ""
 
 
 def main() -> int:
@@ -250,7 +287,14 @@ def main() -> int:
                         label_en = candidates[0] if candidates else ""
                         note = "auto_label:heuristic_match"
                     else:
-                        note = "auto_label:no_text_match"
+                        fallback, fallback_note = _filename_fallback(file_name, text)
+                        if fallback:
+                            label = fallback
+                            candidates = synonyms.get(label, [])
+                            label_en = candidates[0] if candidates else ""
+                            note = fallback_note
+                        else:
+                            note = "auto_label:no_text_match"
             except Exception as exc:
                 logger.warning("DXF parse failed for %s: %s", dxf_path, exc)
                 note = f"auto_label:parse_error {exc}"
