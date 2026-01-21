@@ -326,7 +326,9 @@
     "fork"
   ],
   "箱体": [],
-  "轴类": [],
+  "轴类": [
+    "shaft"
+  ],
   "紧固件": [],
   "轴承": [
     "bearing"
@@ -334,19 +336,46 @@
   "装配图": [
     "assembly drawing"
   ],
-  "原理图": [],
+  "原理图": [
+    "schematic",
+    "principle diagram"
+  ],
   "管类": [],
-  "盖": [],
-  "罩": [],
-  "型风送式喷雾机": [],
-  "前筒体（改）": [],
-  "后筒体（改）": [],
-  "喷雾器组件（改）": [],
-  "风叶(改)": [],
+  "盖": [
+    "cover",
+    "cap"
+  ],
+  "罩": [
+    "cover",
+    "shroud",
+    "guard"
+  ],
+  "型风送式喷雾机": [
+    "air-blast sprayer",
+    "air-assisted sprayer"
+  ],
+  "前筒体（改）": [
+    "front shell (rev)",
+    "front cylinder (rev)"
+  ],
+  "后筒体（改）": [
+    "rear shell (rev)",
+    "rear cylinder (rev)"
+  ],
+  "喷雾器组件（改）": [
+    "sprayer assembly (rev)"
+  ],
+  "风叶(改)": [
+    "fan blade (rev)",
+    "fan blade (modified)"
+  ],
   "上摆臂": [],
   "中摆臂": [],
   "光线调节座": [],
-  "压紧片": [],
+  "压紧片": [
+    "clamping plate",
+    "hold-down plate"
+  ],
   "底座": [],
   "激光发射仓结构图": [],
   "激光固定座": [],
@@ -387,11 +416,16 @@
     "机械平面图",
     "示意图",
     "站架三视图",
-    "练习零件图",
     "视图"
   ],
+  "练习零件图": [
+    "practice part drawing",
+    "exercise part drawing"
+  ],
   "平面图": [],
-  "箱座": [],
+  "箱座": [
+    "housing base"
+  ],
   "蜗轮蜗杆": [
     "worm gear",
     "worm gear set"
@@ -405,25 +439,38 @@
   "总装配": [
     "general assembly"
   ],
-  "架类": [],
+  "架类": [
+    "frame",
+    "support frame"
+  ],
   "后桥装配": [
     "assembly",
     "rear axle assembly"
   ],
   "副本": [],
   "汽缸": [],
-  "前进离合器": [],
+  "前进离合器": [
+    "forward clutch"
+  ],
   "机架": [
     "machine frame"
   ],
   "圆柱滚子轴承": [
     "bearing"
   ],
-  "基质沥青计量罐": [],
+  "基质沥青计量罐": [
+    "base asphalt metering tank",
+    "asphalt metering tank"
+  ],
   "技术文件": [],
-  "夹具": [],
+  "夹具": [
+    "fixture",
+    "jig"
+  ],
   "电路图": [],
-  "金雨薇": [],
+  "金雨薇": [
+    "jin yuwei"
+  ],
   "夹具主体座": [],
   "夹具二维图": [
     "fixture 2d drawing"

@@ -1,8 +1,8 @@
 {
-  "version": "2026-01-21T08:27:37.329654+00:00",
+  "version": "2026-01-21T15:42:39.219514+00:00",
   "category": "geometry",
-  "count": 110,
-  "updated_at": "2026-01-21T08:27:37.329654+00:00",
+  "count": 112,
+  "updated_at": "2026-01-21T15:42:39.219514+00:00",
   "rules": [
     {
       "id": "learned_bolt_Bolt_M6x20",
@@ -1071,7 +1071,9 @@
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
         "前筒体改",
-        "前筒体（改）"
+        "前筒体（改）",
+        "front shell (rev)",
+        "front cylinder (rev)"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -1081,9 +1083,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T03:57:36.026700+00:00",
-      "updated_at": "2026-01-20T03:57:36.026700+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -1093,7 +1096,9 @@
       "chinese_name": "压紧片",
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
-        "压紧片"
+        "压紧片",
+        "clamping plate",
+        "hold-down plate"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -1103,9 +1108,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T03:57:36.026700+00:00",
-      "updated_at": "2026-01-20T03:57:36.026700+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -1116,7 +1122,9 @@
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
         "后筒体改",
-        "后筒体（改）"
+        "后筒体（改）",
+        "rear shell (rev)",
+        "rear cylinder (rev)"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -1126,9 +1134,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T03:57:36.026700+00:00",
-      "updated_at": "2026-01-20T03:57:36.026700+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -1139,7 +1148,8 @@
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
         "喷雾器组件改",
-        "喷雾器组件（改）"
+        "喷雾器组件（改）",
+        "sprayer assembly (rev)"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -1149,9 +1159,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T03:57:36.026700+00:00",
-      "updated_at": "2026-01-20T03:57:36.026700+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -1161,7 +1172,9 @@
       "chinese_name": "型风送式喷雾机",
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
-        "型风送式喷雾机"
+        "型风送式喷雾机",
+        "air-blast sprayer",
+        "air-assisted sprayer"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -1171,9 +1184,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T03:57:36.026700+00:00",
-      "updated_at": "2026-01-20T03:57:36.026700+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -1466,7 +1480,9 @@
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
         "风叶(改)",
-        "风叶改"
+        "风叶改",
+        "fan blade (rev)",
+        "fan blade (modified)"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -1476,9 +1492,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T03:57:36.026700+00:00",
-      "updated_at": "2026-01-20T03:57:36.026700+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -1583,7 +1600,8 @@
       "chinese_name": "前进离合器",
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
-        "前进离合器"
+        "前进离合器",
+        "forward clutch"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -1593,9 +1611,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T04:17:14.178972+00:00",
-      "updated_at": "2026-01-20T04:17:14.178972+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -1671,7 +1690,9 @@
       "chinese_name": "基质沥青计量罐",
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
-        "基质沥青计量罐"
+        "基质沥青计量罐",
+        "base asphalt metering tank",
+        "asphalt metering tank"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -1681,9 +1702,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T04:17:14.178972+00:00",
-      "updated_at": "2026-01-20T04:17:14.178972+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -1693,7 +1715,9 @@
       "chinese_name": "夹具",
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
-        "夹具"
+        "夹具",
+        "fixture",
+        "jig"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -1703,9 +1727,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T04:17:14.178972+00:00",
-      "updated_at": "2026-01-20T04:17:14.178972+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -1964,7 +1989,8 @@
       "chinese_name": "箱座",
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
-        "箱座"
+        "箱座",
+        "housing base"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -1974,9 +2000,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T04:17:14.178972+00:00",
-      "updated_at": "2026-01-20T04:17:14.178972+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -2010,7 +2037,8 @@
       "chinese_name": "金雨薇",
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
-        "金雨薇"
+        "金雨薇",
+        "jin yuwei"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -2020,9 +2048,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T04:17:14.178972+00:00",
-      "updated_at": "2026-01-20T04:17:14.178972+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -2056,7 +2085,9 @@
       "chinese_name": "原理图",
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
-        "原理图"
+        "原理图",
+        "schematic",
+        "principle diagram"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -2066,9 +2097,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T09:57:06.524606+00:00",
-      "updated_at": "2026-01-20T09:57:06.524606+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -2124,7 +2156,9 @@
       "chinese_name": "架类",
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
-        "架类"
+        "架类",
+        "frame",
+        "support frame"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -2134,9 +2168,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T09:57:06.524606+00:00",
-      "updated_at": "2026-01-20T09:57:06.524606+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -2190,7 +2225,10 @@
       "chinese_name": "罩",
       "description": "Auto-generated from manifest (count=1).",
       "keywords": [
-        "罩"
+        "罩",
+        "cover",
+        "shroud",
+        "guard"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -2200,9 +2238,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T09:57:06.524606+00:00",
-      "updated_at": "2026-01-20T09:57:06.524606+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 1
+        "count": 1,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -2286,7 +2325,8 @@
       "chinese_name": "轴类",
       "description": "Auto-generated from manifest (count=6).",
       "keywords": [
-        "轴类"
+        "轴类",
+        "shaft"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -2296,9 +2336,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T16:02:58.756241+00:00",
-      "updated_at": "2026-01-20T16:02:58.756241+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 6
+        "count": 6,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -2333,7 +2374,9 @@
       "chinese_name": "盖",
       "description": "Auto-generated from manifest (count=5).",
       "keywords": [
-        "盖"
+        "盖",
+        "cover",
+        "cap"
       ],
       "ocr_patterns": [],
       "part_hints": {
@@ -2343,9 +2386,10 @@
       "priority": 90,
       "source": "dataset_manifest",
       "created_at": "2026-01-20T16:02:58.756241+00:00",
-      "updated_at": "2026-01-20T16:02:58.756241+00:00",
+      "updated_at": "2026-01-21T15:12:51.548266+00:00",
       "metadata": {
-        "count": 5
+        "count": 5,
+        "synonyms_updated_at": "2026-01-21T15:12:51.548266+00:00"
       }
     },
     {
@@ -2499,6 +2543,54 @@
       "source": "dataset_manifest",
       "created_at": "2026-01-21T08:06:48.213269+00:00",
       "updated_at": "2026-01-21T08:06:48.213269+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_4090df647a21",
+      "category": "geometry",
+      "name": "Dataset rule for 托轮轴压板",
+      "chinese_name": "托轮轴压板",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "roller shaft clamp plate",
+        "support roller shaft clamp plate",
+        "托轮轴压板"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "托轮轴压板": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-21T15:41:29.607253+00:00",
+      "updated_at": "2026-01-21T15:41:29.607253+00:00",
+      "metadata": {
+        "count": 1
+      }
+    },
+    {
+      "id": "dataset_label_92e0b8c70809",
+      "category": "geometry",
+      "name": "Dataset rule for 铰制螺栓",
+      "chinese_name": "铰制螺栓",
+      "description": "Auto-generated from manifest (count=1).",
+      "keywords": [
+        "reamed bolt",
+        "reaming bolt",
+        "铰制螺栓"
+      ],
+      "ocr_patterns": [],
+      "part_hints": {
+        "铰制螺栓": 0.9
+      },
+      "enabled": true,
+      "priority": 90,
+      "source": "dataset_manifest",
+      "created_at": "2026-01-21T15:41:29.607253+00:00",
+      "updated_at": "2026-01-21T15:41:29.607253+00:00",
       "metadata": {
         "count": 1
       }
