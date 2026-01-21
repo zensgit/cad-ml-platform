@@ -1528,20 +1528,311 @@
   - Computed a 20-sample baseline against manifest labels (Top-1 0.15, Top-3 0.25).
   - Report: `reports/DEV_MECH_KNOWLEDGE_2D_GRAPH_WEAK_LABEL_EVAL_20260119.md`
 - **Mechanical Knowledge 4000CAD Development**:
-  - Ingested additional DWG datasets, added bilingual synonyms, and retrained graph2d.
+  - Applied a high-confidence auto-label filter (>= 0.7), enabled layout-aware OCR (PaddleOCR/PaddlePaddle installed), and retrained graph2d on 38 labeled rows (no OCR text extracted).
   - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_DEVELOPMENT_20260119.md`
 - **Mechanical Knowledge 4000CAD Validation**:
-  - Tests: `pytest tests/unit/test_geometry_rules_dataset.py -v`; conversion 50/50; weak-label baseline Top-1 0.15, Top-3 0.20.
+  - Tests: `GRAPH2D_ENABLED=true GRAPH2D_MODEL_PATH=models/graph2d_latest.pth pytest tests/integration/test_analyze_dxf_fusion.py -v` (conversion log remains 50/50; baselines not re-run).
   - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_VALIDATION_20260119.md`
 - **Mechanical Knowledge 4000CAD Manual Labeling Prep**:
-  - Generated unlabeled mapping + manual eval templates for human review.
+  - Kept 15 high-confidence auto labels; cleared 12 rows for human review.
   - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_MANUAL_LABELING_20260119.md`
 - **Mechanical Knowledge 4000CAD Auto-Label Attempt**:
-  - Auto-labeled all 27 unlabeled DWGs via decoded DXF text + filename fallbacks.
+  - Auto-labeled 15/27 rows via DXF text + rules (>= 0.7 confidence), cleared low-confidence fallbacks; OCR ran against paperspace + model layouts but returned no text.
   - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_AUTO_LABEL_ATTEMPT_20260119.md`
+- **Mechanical Knowledge 4000CAD INSERT Attribute Scan**:
+  - Added INSERT attribute text extraction for title-block fields; auto-label count unchanged (15/27).
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_AUTO_LABEL_ATTEMPT_20260119.md`
+- **Mechanical Knowledge 4000CAD OCR Text Diagnostic**:
+  - Scanned 12 unlabeled DXFs for layout text; only 4 contain modelspace text and 0 contain paperspace text.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_OCR_TEXT_DIAGNOSTIC_20260120.md`
+- **Mechanical Knowledge 4000CAD Auto-Label Update**:
+  - Collapsed CJK spacing in DXF text extraction, auto-labeled remaining rows (including `压盖`, `支腿`, `练习零件图`), and rebuilt geometry rules.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_AUTO_LABEL_UPDATE_20260120.md`
+- **Mechanical Knowledge 4000CAD Training + API Validation**:
+  - Trained graph2d on the updated manifest and re-ran the DXF fusion integration test.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Manual Review**:
+  - Reviewed numeric-named practice drawings; dimensions only, retained `练习零件图`.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_MANUAL_REVIEW_20260120.md`
+- **Mechanical Knowledge 4000CAD Preview Render**:
+  - Rendered PNG previews for numeric practice drawings and created a review worksheet with model hints.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_PREVIEW_20260120.md`
+- **Mechanical Knowledge 4000CAD Downweight Training**:
+  - Downweighted `练习零件图` during graph2d training and re-ran the DXF fusion integration test.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_TRAINING_DOWNWEIGHT_20260120.md`
+- **Mechanical Knowledge 4000CAD Sample Expansion**:
+  - Converted 80 additional DWG drawings, appended them to the manifest, and regenerated geometry rules.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_SAMPLE_EXPANSION_20260120.md`
+- **Mechanical Knowledge 4000CAD Expansion Validation**:
+  - Retrained graph2d on the expanded manifest (with `练习零件图` downweighted) and re-ran the DXF fusion test.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_EXPANSION_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Sample Expansion (Batch 2)**:
+  - Converted an additional 120 DWG drawings, appended them to the manifest, and regenerated geometry rules.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_SAMPLE_EXPANSION_20260120B.md`
+- **Mechanical Knowledge 4000CAD Expansion Validation (Batch 2)**:
+  - Retrained graph2d on the 223-row manifest (with `练习零件图` downweighted) and re-ran the DXF fusion test.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_EXPANSION_VALIDATION_20260120B.md`
+- **Mechanical Knowledge 4000CAD Frequency Filter**:
+  - Filtered manifest to labels with frequency >= 2 (130 rows, 21 labels).
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_FREQ_FILTER_20260120.md`
+- **Mechanical Knowledge 4000CAD Frequency Training**:
+  - Trained graph2d on the filtered manifest and re-ran the DXF fusion test.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_FREQ_TRAINING_20260120.md`
+- **Mechanical Knowledge 4000CAD A/B Evaluation**:
+  - Compared full vs freq2 checkpoints on the freq>=2 manifest; full model slightly leads top-1.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_AB_EVAL_20260120.md`
+- **Mechanical Knowledge 4000CAD Default Model**:
+  - Adopted `models/graph2d_latest.pth` as the default Graph2D checkpoint and documented env config.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_DEFAULT_MODEL_20260120.md`
+- **Mechanical Knowledge 4000CAD Default Batch Inference**:
+  - Ran batch inference with the default graph2d checkpoint on the full 4000CAD manifest.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_DEFAULT_PRED_20260120.md`
+- **Mechanical Knowledge 4000CAD Default Prediction Review**:
+  - Prepared a 20-sample manual review sheet for default model predictions.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_DEFAULT_PRED_REVIEW_20260120.md`
+- **Mechanical Knowledge 4000CAD Default Prediction Review Results**:
+  - Auto-filled review verdicts using manifest labels (sample Top-1 0.25).
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_DEFAULT_PRED_REVIEW_20260120.md`
+- **Mechanical Knowledge 4000CAD Label Merge Suggestions**:
+  - Generated a merge suggestion list for low-frequency labels with keyword-based grouping rules.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_LABEL_MERGE_SUGGESTIONS_20260120.md`
+- **Mechanical Knowledge 4000CAD Label Merge Applied**:
+  - Applied merge map to create a consolidated manifest and pruned dataset-derived geometry rules.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_LABEL_MERGE_APPLIED_20260120.md`
+- **Mechanical Knowledge 4000CAD Merged Training**:
+  - Trained graph2d on the merged-label manifest and re-ran the DXF fusion test.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_MERGED_TRAINING_20260120.md`
+- **Mechanical Knowledge 4000CAD A/B Merged Evaluation**:
+  - Compared full vs merged checkpoints on the merged manifest; merged model leads Top-1/Top-3.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_AB_MERGED_EVAL_20260120.md`
+- **Mechanical Knowledge 4000CAD Default Model (Merged)**:
+  - Switched default Graph2D checkpoint to the merged-label model in env docs.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_DEFAULT_MODEL_MERGED_20260120.md`
+- **Mechanical Knowledge 4000CAD Merged Smoke Inference**:
+  - Ran a 10-sample smoke inference using the merged default model.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_MERGED_SMOKE_20260120.md`
+- **Mechanical Knowledge 4000CAD Label Diagnostic**:
+  - Computed per-label accuracy and confusion stats for the merged model.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_LABEL_DIAGNOSTIC_20260120.md`
+- **Mechanical Knowledge 4000CAD Label Merge (Stage 2)**:
+  - Consolidated low-accuracy labels into `机械制图` and updated the manifest.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_LABEL_MERGE2_APPLIED_20260120.md`
+- **Mechanical Knowledge 4000CAD Merged2 Training**:
+  - Trained graph2d on the merged2 manifest and re-ran the DXF fusion test.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_MERGED2_TRAINING_20260120.md`
+- **Mechanical Knowledge 4000CAD A/B Merged2 Evaluation**:
+  - Compared merged vs merged2 checkpoints on the merged2 manifest; merged remains ahead.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_AB_MERGED2_EVAL_20260120.md`
+- **Mechanical Knowledge 4000CAD Model Cleanup**:
+  - Marked merged model as default and moved merged2 checkpoint to experimental storage.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_MODEL_CLEANUP_20260120.md`
+- **Mechanical Knowledge 4000CAD Report Archive**:
+  - Archived 2026-01-20 reports under `reports/experiments/20260120` and created an index.
+  - Report: `reports/REPORTS_INDEX_20260120.md`
+- **Mechanical Knowledge 4000CAD Preview Archive**:
+  - Moved preview images into the 2026-01-20 report archive.
+  - Report: `reports/REPORTS_INDEX_20260120.md`
+- **Mechanical Knowledge 4000CAD Model Inventory**:
+  - Added a model inventory section to the report index (default/experimental paths).
+  - Report: `reports/REPORTS_INDEX_20260120.md`
+- **Mechanical Knowledge 4000CAD Rollup**:
+  - Added a rollup summary for 2026-01-20 Graph2D work in the report archive.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_ROLLUP_20260120.md`
+- **Mechanical Knowledge 4000CAD Experimental Models**:
+  - Added a README for experimental checkpoints under `models/experimental`.
+  - Report: `models/experimental/README.md`
 - **Mechanical Knowledge 4000CAD Manual Eval Results**:
   - Auto-filled reviewer labels and computed Top-1 0.05, Top-3 0.15 (proxy baseline).
   - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_MANUAL_EVAL_RESULTS_20260119.md`
+- **Mechanical Knowledge 4000CAD Graph2D Defaults**:
+  - Aligned Graph2D training, rules, and runtime defaults to the merged manifest/model.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_DEFAULTS_20260120.md`
+- **Mechanical Knowledge 4000CAD Graph2D DXF Smoke**:
+  - Ran Graph2D-enabled analyze on a real DXF sample and re-ran the DXF fusion test.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_DXF_SMOKE_20260120.md`
+- **Mechanical Knowledge 4000CAD Graph2D Training Refresh**:
+  - Retrained the merged Graph2D checkpoint using the 4000CAD DXF conversions.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_TRAINING_REFRESH_20260120.md`
+- **Mechanical Knowledge 4000CAD Graph2D Training Refresh B**:
+  - Retrained Graph2D after applying Top-30 manual review decisions to the merged manifest.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_TRAINING_REFRESH_20260120B.md`
+- **Mechanical Knowledge 4000CAD Graph2D Training Refresh C**:
+  - Retrained Graph2D after merging generic drawing labels into `机械制图`.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_TRAINING_REFRESH_20260120C.md`
+- **Mechanical Knowledge 4000CAD Graph2D Smoke Batch**:
+  - Ran a 20-sample Graph2D smoke inference on converted DXFs.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_SMOKE_BATCH_20260120.md`
+- **Mechanical Knowledge 4000CAD Graph2D Smoke Batch 200**:
+  - Ran a 200-sample Graph2D smoke inference after label merges.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_SMOKE_BATCH_200_20260120B.md`
+- **Mechanical Knowledge 4000CAD Graph2D Smoke Batch 200 Validation**:
+  - Recorded Top-1 match rate on the 200-sample batch.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_SMOKE_BATCH_200_VALIDATION_20260120B.md`
+- **Mechanical Knowledge 4000CAD Label Synonyms Auto-Fill**:
+  - Auto-filled English synonyms from OCR vocab + a CN→EN dictionary and rebuilt geometry rules.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_LABEL_SYNONYMS_AUTO_20260120.md`
+- **Mechanical Knowledge 4000CAD Label Merge Rules**:
+  - Merged generic drawing labels into `机械制图` and rebuilt geometry rules.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_LABEL_MERGE_RULES_20260120B.md`
+- **Mechanical Knowledge 4000CAD Label Merge Rules Validation**:
+  - Verified manifest updates and rule rebuild counts.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_LABEL_MERGE_RULES_VALIDATION_20260120B.md`
+- **Mechanical Knowledge 4000CAD Graph2D Fusion Smoke**:
+  - Exercised Graph2D + FusionAnalyzer on a DXF sample and re-ran the fusion integration test.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_FUSION_SMOKE_20260120.md`
+- **Mechanical Knowledge 4000CAD Graph2D Fusion Test B**:
+  - Re-ran the DXF fusion integration test with Graph2D enabled using the refreshed checkpoint.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_FUSION_TEST_20260120B.md`
+- **Mechanical Knowledge 4000CAD Graph2D Fusion Test B Validation**:
+  - Captured pass status and deprecation warnings from the integration test.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_FUSION_TEST_VALIDATION_20260120B.md`
+- **Mechanical Knowledge 4000CAD Graph2D Fusion Test C**:
+  - Re-ran the DXF fusion integration test with Graph2D enabled after priority updates.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_FUSION_TEST_20260120C.md`
+- **Mechanical Knowledge 4000CAD Graph2D Fusion Test C Validation**:
+  - Captured pass status and deprecation warnings from the integration test.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_FUSION_TEST_VALIDATION_20260120C.md`
+- **Mechanical Knowledge 4000CAD Graph2D Training Refresh D**:
+  - Retrained Graph2D after all review conflicts were cleared.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_TRAINING_REFRESH_20260120D.md`
+- **Mechanical Knowledge 4000CAD Graph2D Fusion Test D**:
+  - Re-ran the DXF fusion integration test with Graph2D enabled after final retraining.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_FUSION_TEST_20260120D.md`
+- **Mechanical Knowledge 4000CAD Graph2D Fusion Test D Validation**:
+  - Captured pass status and deprecation warnings from the integration test.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_FUSION_TEST_VALIDATION_20260120D.md`
+- **Mechanical Knowledge 4000CAD Review Sheet**:
+  - Generated a 200-sample DXF metadata review sheet with preview images for manual QA.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_SHEET_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Sheet Validation**:
+  - Confirmed row counts and extraction coverage for the review sheet output.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_SHEET_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Auto-Check**:
+  - Auto-reviewed the DXF review sheet using Graph2D predictions and synonym normalization.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_AUTO_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Auto-Validation**:
+  - Verified auto-review counts for confirmed vs follow-up samples.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_AUTO_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Auto Rerun**:
+  - Re-ran auto-review with manual overrides preserved and confirmed rows marked in review_status.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_AUTO_RERUN_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Auto Rerun Validation**:
+  - Confirmed rerun counts, including 10 manual-confirmed entries.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_AUTO_RERUN_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Auto Merge**:
+  - Re-ran auto-review after applying label-merge rules to reduce conflicts.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_AUTO_MERGE_20260120B.md`
+- **Mechanical Knowledge 4000CAD Review Auto Merge Validation**:
+  - Verified post-merge auto-review counts and pending volume.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_AUTO_MERGE_VALIDATION_20260120B.md`
+- **Mechanical Knowledge 4000CAD Review Priority List**:
+  - Generated a high-confidence conflict subset for manual review (confidence >= 0.20).
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Validation**:
+  - Confirmed the priority list counts and summary coverage.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30 List**:
+  - Built a 30-sample priority conflict list sorted by Graph2D confidence.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30 Validation**:
+  - Verified the 30-row list and label breakdown.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Pack 30**:
+  - Built a Top-30 HTML pack with preview renders for manual review.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_PACK_30_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Pack 30 Validation**:
+  - Verified the pack includes HTML, CSV, and 30 previews.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_PACK_30_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30B List**:
+  - Generated the next Top-30 conflict batch from the remaining review conflicts.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30B_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30B Validation**:
+  - Verified the Top-30B list size and label breakdown.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30B_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Pack 30B**:
+  - Built a second Top-30 HTML pack with preview renders for manual review.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_PACK_30B_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Pack 30B Validation**:
+  - Verified the pack includes HTML, CSV, and 30 previews.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_PACK_30B_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30C List**:
+  - Generated the next Top-30 conflict batch from the reduced conflict set.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30C_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30C Validation**:
+  - Verified the Top-30C list size and label breakdown.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30C_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Pack 30C**:
+  - Built a third Top-30 HTML pack with preview renders for manual review.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_PACK_30C_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Pack 30C Validation**:
+  - Verified the pack includes HTML, CSV, and 30 previews.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_PACK_30C_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30D List**:
+  - Generated the Top-30D conflict batch from the remaining conflicts.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30D_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30D Validation**:
+  - Verified the Top-30D list size and label breakdown.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30D_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Pack 30D**:
+  - Built a Top-30D HTML pack with preview renders for manual review.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_PACK_30D_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Pack 30D Validation**:
+  - Verified the pack includes HTML, CSV, and 30 previews.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_PACK_30D_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30D Applied**:
+  - Applied manual decisions and subcategory notes to the review sheet and manifest.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30D_APPLIED_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30D Applied Validation**:
+  - Verified auto-review counts, conflict reductions, and updated rules.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30D_APPLIED_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 13E List**:
+  - Generated the final 13-sample conflict batch from the remaining conflicts.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_13E_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 13E Validation**:
+  - Verified the 13-sample list size and label breakdown.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_13E_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Pack 13E**:
+  - Built the final 13-sample HTML pack with preview renders.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_PACK_13E_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Pack 13E Validation**:
+  - Verified the pack includes HTML, CSV, and 13 previews.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_PACK_13E_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 13E Applied**:
+  - Applied final manual decisions and subcategory notes to the review sheet and manifest.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_13E_APPLIED_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 13E Applied Validation**:
+  - Verified all 200 review rows are confirmed and conflicts are cleared.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_13E_APPLIED_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Conflicts Cleared**:
+  - Recorded zero remaining conflicts after final review decisions.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_CONFLICTS_CLEARED_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30C Applied**:
+  - Applied manual decisions (with subcategory notes) to the review sheet and manifest.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30C_APPLIED_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30C Applied Validation**:
+  - Verified auto-review counts and reduced conflicts after applying decisions.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30C_APPLIED_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30 Applied**:
+  - Applied manual decisions to the review sheet, priority list, and merged manifest.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30_APPLIED_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority 30 Applied Validation**:
+  - Confirmed updated auto-review counts and refreshed pack contents.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_30_APPLIED_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Previews**:
+  - Added a priority review CSV with preview paths for high-confidence conflicts.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_PREVIEWS_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Pack**:
+  - Built an HTML review pack with previews for the priority conflict samples.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_PACK_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Pack Validation**:
+  - Verified the pack contents (HTML + CSV + 10 previews).
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_PACK_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Applied**:
+  - Applied manual priority decisions to review sheets, synced manifest, retrained Graph2D, refreshed pack.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_APPLIED_20260120.md`
+- **Mechanical Knowledge 4000CAD Review Priority Applied Validation**:
+  - Confirmed review-status counts and DXF fusion test after applying decisions.
+  - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_APPLIED_VALIDATION_20260120.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
