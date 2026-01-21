@@ -1,0 +1,13 @@
+file_name,dxf_path,dxf_exists,model_text_direct,model_text_inserted,model_text_total,paperspace_text_direct,paperspace_text_inserted,paperspace_text_total,paperspace_layouts,paperspace_layout_counts,block_text_count,has_text,error
+1.dwg,/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf/1.dxf,1,0,0,0,0,0,0,Layout1;Layout2,0;0,9,0,
+10.dwg,/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf/10.dxf,1,0,0,0,0,0,0,\M+5B2BC\M+5BED61;\M+5B2BC\M+5BED62,0;0,5,0,
+2.dwg,/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf/2.dxf,1,0,0,0,0,0,0,Layout1;Layout2,0;0,10,0,
+3.dwg,/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf/3.dxf,1,1,0,1,0,0,0,\M+5B2BC\M+5BED61,0,6,1,
+4.dwg,/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf/4.dxf,1,0,0,0,0,0,0,\M+5B2BC\M+5BED61;\M+5B2BC\M+5BED62,0;0,4,0,
+6.dwg,/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf/6.dxf,1,0,0,0,0,0,0,Layout1;Layout2,0;0,11,0,
+7.dwg,/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf/7.dxf,1,0,0,0,0,0,0,\M+5B2BC\M+5BED61,0,8,0,
+8.dwg,/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf/8.dxf,1,0,0,0,0,0,0,Layout1;Layout2,0;0,14,0,
+9.dwg,/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf/9.dxf,1,0,0,0,0,0,0,\M+5B2BC\M+5BED61,0,8,0,
+FU200-02-01-1.DWG,/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf/FU200-02-01-1.dxf,1,78,0,78,0,0,0,\M+5B2BC\M+5BED61,0,90,1,
+FU200-02-01-2.DWG,/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf/FU200-02-01-2.dxf,1,96,0,96,0,0,0,\M+5B2BC\M+5BED61,0,122,1,
+ZHITUI.DWG,/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf/ZHITUI.dxf,1,35,1,36,0,0,0,Layout1,0,105,1,
