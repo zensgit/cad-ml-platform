@@ -693,11 +693,21 @@ async def analyze_cad_file(
                     ent_counts[e.kind] = ent_counts.get(e.kind, 0) + 1
                 text_signals = _build_text_signals(doc)
                 try:
-                    from src.core.knowledge.fusion_analyzer import build_l2_features
+                    from src.core.knowledge.fusion_analyzer import (
+                        build_doc_metadata,
+                        build_l2_features,
+                    )
 
+                    doc_metadata = build_doc_metadata(doc)
                     l2_features = build_l2_features(doc)
                 except Exception:
+                    doc_metadata = {}
                     l2_features = {}
+                l3_features = (
+                    {k: v for k, v in features_3d.items() if k != "embedding_vector"}
+                    if features_3d
+                    else {}
+                )
                 if features_3d:
                     try:
                         from src.core.knowledge.fusion import get_fusion_classifier
@@ -811,11 +821,7 @@ async def analyze_cad_file(
                 )
                 if fusion_enabled:
                     try:
-                        from src.core.knowledge.fusion_analyzer import (
-                            build_doc_metadata,
-                            build_l2_features,
-                            get_fusion_analyzer,
-                        )
+                        from src.core.knowledge.fusion_analyzer import get_fusion_analyzer
 
                         l4_prediction = None
                         graph2d_fusion = (
@@ -837,12 +843,18 @@ async def analyze_cad_file(
                             }
 
                         fusion_decision = get_fusion_analyzer().analyze(
-                            doc_metadata=build_doc_metadata(doc),
-                            l2_features=build_l2_features(doc),
-                            l3_features=features_3d or {},
+                            doc_metadata=doc_metadata,
+                            l2_features=l2_features,
+                            l3_features=l3_features,
                             l4_prediction=l4_prediction,
                         )
                         cls_payload["fusion_decision"] = fusion_decision.model_dump()
+                        cls_payload["fusion_inputs"] = {
+                            "l1": doc_metadata,
+                            "l2": l2_features,
+                            "l3": l3_features,
+                            "l4": l4_prediction,
+                        }
                         if fusion_override and fusion_decision.confidence >= fusion_override_min_conf:
                             cls_payload["part_type"] = fusion_decision.primary_label
                             cls_payload["confidence"] = fusion_decision.confidence
