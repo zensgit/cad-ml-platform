@@ -1833,6 +1833,10 @@
 - **Mechanical Knowledge 4000CAD Review Priority Applied Validation**:
   - Confirmed review-status counts and DXF fusion test after applying decisions.
   - Report: `reports/experiments/20260120/DEV_MECH_KNOWLEDGE_4000CAD_REVIEW_PRIORITY_APPLIED_VALIDATION_20260120.md`
+- **Mechanical Knowledge 4000CAD Post-Commit Validation**:
+  - Reran Graph2D DXF fusion test with merged model settings; 1 passed with ezdxf deprecation warnings.
+  - Logged the commit batch covering review tooling, OCR auto labeling, training defaults, env docs, and 20260119 artifacts.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_POST_COMMIT_VALIDATION_20260121.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
