@@ -26,6 +26,8 @@ services:
       # Point to dedupcad-vision (run it separately, or change this to your service DNS)
       - DEDUPCAD_VISION_URL=${DEDUPCAD_VISION_URL:-http://host.docker.internal:58001}
       - DEDUPCAD_VISION_TIMEOUT_SECONDS=60
+      - CAD_RENDER_FALLBACK_URL=${CAD_RENDER_FALLBACK_URL:-}
+      - CAD_RENDER_FALLBACK_TOKEN=${CAD_RENDER_FALLBACK_TOKEN:-}
       - WORKERS=1
       - HOST=0.0.0.0
       - PORT=8000

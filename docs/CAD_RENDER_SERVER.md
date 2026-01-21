@@ -31,6 +31,16 @@ DWG_DRAFTSIGHT_CMD=
 CAD_RENDER_AUTH_TOKEN=
 ```
 
+## Use as cad-ml fallback
+
+cad-ml-api can forward `/api/v1/render/cad` to this service when local DWG conversion
+is unavailable.
+
+```
+CAD_RENDER_FALLBACK_URL=http://host.docker.internal:18002
+CAD_RENDER_FALLBACK_TOKEN=
+```
+
 ## Metrics
 
 - Endpoint: `GET /metrics`
