@@ -15,9 +15,11 @@ unlabeled files and a 20-sample evaluation subset with model predictions.
 ## Notes
 - Fill `label_cn`/`label_en` for unlabeled files to expand the manifest.
 - Fill `reviewer_label_cn` in the eval template to compute true Top-1/Top-3.
-- Auto-labeling via decoded DXF text + filename fallbacks filled all 27 rows.
-  Numeric-only filenames use the generic label `练习零件图` and still need
-  human verification.
+- Auto-labeling now keeps only high-confidence matches (>= 0.7): 15/27 rows.
+  The remaining 12 rows are cleared for manual review (previously filename
+  fallbacks like `练习零件图`).
+- OCR metadata columns (`ocr_used`, `ocr_confidence`, `ocr_layout`) are available for triage.
+  OCR ran (paperspace + model), but returned no text in this dataset slice (`ocr_used=0`).
 - English labels are auto-filled when a synonym exists; verify terminology as needed.
 - The manual-eval template has been auto-filled from filename labels to allow
   a provisional evaluation; replace with human labels when available.

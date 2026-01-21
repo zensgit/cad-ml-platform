@@ -1,29 +1,26 @@
 # DEV_MECH_KNOWLEDGE_4000CAD_VALIDATION_20260119
 
 ## Summary
-Validated updated geometry rules, DWG->DXF conversion, and graph2d weak-label baseline
-for the 4000CAD dataset slice.
+Validated the graph2d integration path after applying a high-confidence
+auto-label filter for the 4000CAD dataset slice.
+OCR was configured with PaddleOCR (paperspace + model render), but no text was
+extracted from the rendered DXFs.
 
 ## Tests
-- `pytest tests/unit/test_geometry_rules_dataset.py -v`
+- `GRAPH2D_ENABLED=true GRAPH2D_MODEL_PATH=models/graph2d_latest.pth pytest tests/integration/test_analyze_dxf_fusion.py -v`
+  - Result: 1 passed
 
 ## Conversion Validation
-- `python3 scripts/convert_dwg_batch.py --input-dir ... --input-dir ... --recursive --output-dir /Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf --log-csv reports/MECH_4000_DWG_TO_DXF_LOG_20260119.csv`
-- Result: 50/50 conversions succeeded.
+- Previous log: `reports/MECH_4000_DWG_TO_DXF_LOG_20260119.csv` (50/50 conversions). Not re-run.
 
 ## Graph2D Weak-Label Baseline
-- Sample size: 20 (seed=17)
-- Top-1 accuracy: 0.15
-- Top-3 accuracy: 0.20
-- Labels are derived from filenames (weak labels).
+- Not re-run after the high-confidence filter (previous weak-label metrics remain).
 
 ## Manual-Eval Baseline (Auto-Filled)
-- Sample size: 20
-- Top-1 accuracy: 0.05
-- Top-3 accuracy: 0.15
-- Reviewer labels were auto-filled from filenames (not human verified).
+- Not re-run (auto-filled reviewer labels remain as placeholders).
 
 ## Auto-Label Attempt
 - Unlabeled rows: 27
-- Auto-labeled rows: 27 (rule + heuristic + filename fallbacks)
+- Auto-labeled rows (>= 0.7 confidence): 15
+- Cleared for review: 12
 - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_AUTO_LABEL_ATTEMPT_20260119.md`
