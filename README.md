@@ -1661,6 +1661,10 @@ CAD_ML_IMAGE=ghcr.io/zensgit/cad-ml-platform:main \\
 # 可选：arm64 主机使用 CAD_ML_PLATFORM=linux/arm64
   docker compose -f deployments/docker/docker-compose.yml \\
   -f deployments/docker/docker-compose.ghcr.yml up -d --no-build
+
+# 可选：DWG 渲染回退（建议本机运行 CAD render server）
+CAD_RENDER_FALLBACK_URL=http://host.docker.internal:18002 \\
+  docker compose -f deployments/docker/docker-compose.yml up -d --no-build
 ```
 
 ### Kubernetes部署
