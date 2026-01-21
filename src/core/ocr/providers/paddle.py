@@ -6,8 +6,13 @@ Real integration will import PaddleOCR and run detection/recognition.
 
 from __future__ import annotations
 
+import inspect
+import io
 import logging
+import os
 import time
+
+os.environ.setdefault("DISABLE_MODEL_SOURCE_CHECK", "1")
 
 try:
     from paddleocr import PaddleOCR  # type: ignore
@@ -16,6 +21,9 @@ except Exception:
 
 from src.core.errors import ErrorCode
 from src.utils.metrics import ocr_errors_total, ocr_stage_duration_seconds
+
+import numpy as np
+from PIL import Image
 
 from ..base import (
     DimensionInfo,
@@ -43,14 +51,50 @@ class PaddleOcrProvider(OcrClient):
         self._paddle_kwargs = paddle_kwargs
         # Underlying OCR client; may be set by warmup() or injected by tests
         self._ocr = None
+        os.environ.setdefault("DISABLE_MODEL_SOURCE_CHECK", "1")
+
+    def _normalize_paddle_kwargs(self, kwargs: dict) -> dict:
+        if not kwargs:
+            return {}
+        mapped = dict(kwargs)
+        alias_map = {
+            "use_angle_cls": "use_textline_orientation",
+            "det_db_box_thresh": "text_det_box_thresh",
+            "det_db_unclip_ratio": "text_det_unclip_ratio",
+            "det_db_thresh": "text_det_thresh",
+            "det_db_limit_side_len": "text_det_limit_side_len",
+            "det_db_limit_type": "text_det_limit_type",
+        }
+        for old_key, new_key in alias_map.items():
+            if old_key in mapped and new_key not in mapped:
+                mapped[new_key] = mapped.pop(old_key)
+            elif old_key in mapped:
+                mapped.pop(old_key, None)
+        return mapped
+
+    def _filter_paddle_kwargs(self, kwargs: dict) -> dict:
+        if PaddleOCR is None:
+            return {}
+        try:
+            allowed = set(inspect.signature(PaddleOCR).parameters.keys())
+        except (TypeError, ValueError):
+            return kwargs
+        return {key: value for key, value in kwargs.items() if key in allowed}
+
+    def _init_paddle(self, kwargs: dict):
+        if PaddleOCR is None:
+            return None
+        normalized = self._normalize_paddle_kwargs(kwargs)
+        filtered = self._filter_paddle_kwargs(normalized)
+        return PaddleOCR(**filtered)
 
     async def warmup(self) -> None:
         if PaddleOCR and not self._initialized:
             # Allow external override via kwargs for fidelity tuning
-            kwargs = {"lang": "ch", "use_angle_cls": True, "use_gpu": False}
+            kwargs = {"lang": "ch", "use_textline_orientation": True}
             kwargs.update(self._paddle_kwargs or {})
             try:
-                self._ocr = PaddleOCR(**kwargs)
+                self._ocr = self._init_paddle(kwargs)
             except MemoryError as e:
                 ocr_errors_total.labels(
                     provider=self.name, code=ErrorCode.RESOURCE_EXHAUSTED.value, stage="init"
@@ -61,7 +105,7 @@ class PaddleOcrProvider(OcrClient):
                 # fallback to default minimal init
                 logging.warning(f"Primary PaddleOCR init failed, falling back to defaults: {e}")
                 try:
-                    self._ocr = PaddleOCR(lang="ch", use_angle_cls=True, use_gpu=False)
+                    self._ocr = self._init_paddle({"lang": "ch"})
                 except Exception as fallback_error:
                     ocr_errors_total.labels(
                         provider=self.name, code=ErrorCode.MODEL_LOAD_ERROR.value, stage="init"
@@ -93,7 +137,12 @@ class PaddleOcrProvider(OcrClient):
 
         if self._ocr is not None:
             try:
-                ocr_result = self._ocr.ocr(processed_bytes, cls=True)
+                image = Image.open(io.BytesIO(processed_bytes)).convert("RGB")
+                ocr_input = np.array(image)
+                if hasattr(self._ocr, "predict"):
+                    ocr_result = self._ocr.predict(ocr_input)
+                else:
+                    ocr_result = self._ocr.ocr(ocr_input)
                 texts = []
                 # Support outputs that are either [ [ [points], (text,score) ], ... ] or flattened forms
                 for line in ocr_result:
