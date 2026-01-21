@@ -1837,6 +1837,48 @@
   - Reran Graph2D DXF fusion test with merged model settings; 1 passed with ezdxf deprecation warnings.
   - Logged the commit batch covering review tooling, OCR auto labeling, training defaults, env docs, and 20260119 artifacts.
   - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_POST_COMMIT_VALIDATION_20260121.md`
+- **Mechanical Knowledge 4000CAD Label Taxonomy Refresh**:
+  - Enriched manifest label synonyms, rebuilt label map snapshots, and regenerated geometry rules.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_LABEL_TAXONOMY_REFRESH_20260121.md`
+- **Mechanical Knowledge 4000CAD Label Taxonomy Refresh Validation**:
+  - Confirmed label map size and no remaining synonym gaps after refresh.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_LABEL_TAXONOMY_REFRESH_VALIDATION_20260121.md`
+- **Mechanical Knowledge 4000CAD Auto-Label Review Pass**:
+  - Auto-labeled the unlabeled DWG template, generated a focused review sheet, and built a priority pack for conflicts.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_AUTO_LABEL_REVIEW_20260121.md`
+- **Mechanical Knowledge 4000CAD Auto-Label Review Validation**:
+  - Verified row counts, conflicts, and priority pack outputs after Graph2D auto-review.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_AUTO_LABEL_REVIEW_VALIDATION_20260121.md`
+- **Mechanical Knowledge 4000CAD Auto-Label Review Applied**:
+  - Applied manual confirmations to the unlabeled subset and updated the merged manifest.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_AUTO_LABEL_REVIEW_APPLIED_20260121.md`
+- **Mechanical Knowledge 4000CAD Auto-Label Review Applied Validation**:
+  - Verified applied review sheet and manifest updates for the unlabeled subset.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_AUTO_LABEL_REVIEW_APPLIED_VALIDATION_20260121.md`
+- **Mechanical Knowledge 4000CAD Dataset Refresh**:
+  - Validated DXF coverage and exported refreshed text vocabulary snapshot.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_DATASET_REFRESH_20260121.md`
+- **Mechanical Knowledge 4000CAD Dataset Refresh Validation**:
+  - Confirmed coverage completeness and vocab export counts.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_DATASET_REFRESH_VALIDATION_20260121.md`
+- **Mechanical Knowledge 4000CAD Graph2D Training Refresh**:
+  - Trained Graph2D with downweighted dominant class and refreshed the merged checkpoint.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_TRAINING_20260121.md`
+- **Mechanical Knowledge 4000CAD Graph2D Training Validation**:
+  - Verified checkpoint write and DXF fusion integration test pass.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_TRAINING_VALIDATION_20260121.md`
+- **Mechanical Knowledge 4000CAD Fusion API Update**:
+  - Added L1/L2/L3/L4 fusion inputs to classification payload and documented toggles.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_API_UPDATE_20260121.md`
+- **Mechanical Knowledge 4000CAD Fusion API Update Validation**:
+  - Verified fusion input wiring and env toggle documentation.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_API_UPDATE_VALIDATION_20260121.md`
+- **Mechanical Knowledge 4000CAD End-to-End Verification**:
+  - Ran DXF fusion integration test with FusionAnalyzer + Graph2D enabled and refreshed report indexes.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_END_TO_END_20260121.md`
+- **Mechanical Knowledge 4000CAD End-to-End Validation**:
+  - Confirmed test pass and index artifacts for the 2026-01-21 deliverables.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_END_TO_END_VALIDATION_20260121.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
