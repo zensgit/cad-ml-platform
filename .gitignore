@@ -64,6 +64,7 @@ models/*.pkl
 models/*.h5
 models/*.pth
 models/*.onnx
+models/experimental/
 !models/.gitkeep
 
 # Config files with secrets
