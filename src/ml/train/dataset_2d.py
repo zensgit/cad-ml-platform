@@ -41,7 +41,7 @@ class DXFDataset(Dataset):
         if os.path.exists(label_path):
             with open(label_path, "r") as f:
                 self.samples = json.load(f)
-        else:
+        elif self.root_dir not in {".", ""}:
             logger.warning(f"Labels not found at {label_path}. Dataset empty.")
 
     def __len__(self) -> int:

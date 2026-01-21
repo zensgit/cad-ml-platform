@@ -27,7 +27,9 @@ except Exception:
 
 class Graph2DClassifier:
     def __init__(self, model_path: Optional[str] = None) -> None:
-        self.model_path = model_path or os.getenv("GRAPH2D_MODEL_PATH", "models/graph2d_latest.pth")
+        self.model_path = model_path or os.getenv(
+            "GRAPH2D_MODEL_PATH", "models/graph2d_merged_latest.pth"
+        )
         self.model: Optional[SimpleGraphClassifier] = None
         self.label_map: Dict[str, int] = {}
         self.device = "cpu"

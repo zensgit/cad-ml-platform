@@ -47,21 +47,32 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Train 2D DXF graph classifier.")
     parser.add_argument(
         "--manifest",
-        default="reports/MECH_DWG_LABEL_MANIFEST_20260119.csv",
+        default="reports/experiments/20260120/MECH_4000_DWG_LABEL_MANIFEST_MERGED_20260120.csv",
         help="Manifest CSV path",
     )
     parser.add_argument(
         "--dxf-dir",
-        default="/Users/huazhou/Downloads/训练图纸/训练图纸_dxf",
+        default="/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf",
         help="DXF directory",
     )
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--hidden-dim", type=int, default=64)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument(
+        "--downweight-label",
+        default="",
+        help="Optional label name to downweight in the loss function.",
+    )
+    parser.add_argument(
+        "--downweight-factor",
+        type=float,
+        default=0.3,
+        help="Multiplier applied to the downweighted label (0.0-1.0).",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-samples", type=int, default=0)
-    parser.add_argument("--output", default="models/graph2d_latest.pth")
+    parser.add_argument("--output", default="models/graph2d_merged_latest.pth")
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -97,7 +108,16 @@ def main() -> int:
     num_classes = len(label_map)
     model = SimpleGraphClassifier(DXF_NODE_DIM, args.hidden_dim, num_classes)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    criterion = torch.nn.CrossEntropyLoss()
+    weight = torch.ones(num_classes, dtype=torch.float)
+    if args.downweight_label and args.downweight_label in label_map:
+        factor = max(0.05, min(1.0, float(args.downweight_factor)))
+        label_idx = label_map[args.downweight_label]
+        weight[label_idx] = factor
+        print(
+            f"Downweighting label {args.downweight_label!r} (idx={label_idx}) "
+            f"with factor {factor:.2f}"
+        )
+    criterion = torch.nn.CrossEntropyLoss(weight=weight)
 
     for epoch in range(1, args.epochs + 1):
         model.train()
