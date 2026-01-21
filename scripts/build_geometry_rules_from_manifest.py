@@ -81,7 +81,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Generate geometry rules from manifest.")
     parser.add_argument(
         "--manifest",
-        default="reports/MECH_DWG_LABEL_MANIFEST_20260119.csv",
+        default="reports/experiments/20260120/MECH_4000_DWG_LABEL_MANIFEST_MERGED_20260120.csv",
         help="Manifest CSV path",
     )
     parser.add_argument(
