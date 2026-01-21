@@ -60,11 +60,38 @@ def extract_geom_json_from_dxf(dxf_path: Path) -> Dict[str, Any]:
     return base
 
 
+def _resolve_layout(doc, layout_name: Optional[str]):
+    if not layout_name:
+        return doc.modelspace()
+    normalized = layout_name.strip()
+    if not normalized:
+        return doc.modelspace()
+    lower = normalized.lower()
+    if lower in {"model", "modelspace", "msp"}:
+        return doc.modelspace()
+    if lower in {"paper", "paperspace", "psp", "layout"}:
+        for layout in doc.layouts:
+            if layout.name.lower() != "model":
+                return layout
+        return doc.modelspace()
+    try:
+        layout = doc.layouts.get(normalized)
+        if layout is not None:
+            return layout
+    except Exception:
+        pass
+    try:
+        return doc.layout(normalized)
+    except Exception:
+        return doc.modelspace()
+
+
 def render_dxf_to_png(
     dxf_path: Path,
     out_png_path: Path,
     *,
     config: Optional[DxfRenderConfig] = None,
+    layout_name: Optional[str] = None,
 ) -> None:
     """Render DXF to PNG using ezdxf + matplotlib (headless)."""
     cfg = config or DxfRenderConfig()
@@ -97,7 +124,7 @@ def render_dxf_to_png(
         raise RuntimeError(f"DXF render dependencies missing: {e}") from e
 
     doc = ezdxf.readfile(str(dxf_path))
-    msp = doc.modelspace()
+    layout = _resolve_layout(doc, layout_name)
     render_text = os.getenv("DEDUPCAD2_RENDER_TEXT", "1").strip().lower() not in {
         "0",
         "false",
@@ -116,9 +143,9 @@ def render_dxf_to_png(
         excluded_types = excluded_types | text_types
     if not render_hatch:
         excluded_types.add("HATCH")
-    entities_for_bbox = [e for e in msp if e.dxftype() not in excluded_types]
+    entities_for_bbox = [e for e in layout if e.dxftype() not in excluded_types]
     try:
-        ext = bbox.extents(entities_for_bbox or msp)
+        ext = bbox.extents(entities_for_bbox or layout)
         xmin, ymin, _ = ext.extmin
         xmax, ymax, _ = ext.extmax
     except Exception as e:
@@ -160,7 +187,7 @@ def render_dxf_to_png(
         text_policy=TextPolicy.IGNORE if not render_text else text_policy_default,
     )
     ctx = RenderContext(doc, export_mode=True)
-    ctx.set_current_layout(msp)
+    ctx.set_current_layout(layout)
     backend = MatplotlibBackend(ax)
 
     def filter_entities(entity: Any) -> bool:
@@ -174,14 +201,16 @@ def render_dxf_to_png(
         return True
 
     try:
-        Frontend(ctx, backend, config=base_render_cfg).draw_layout(msp, filter_func=filter_entities)
+        Frontend(ctx, backend, config=base_render_cfg).draw_layout(
+            layout, filter_func=filter_entities
+        )
     except Exception as e:
         # Fallback: some MTEXT variants trigger layout errors in ezdxf's renderer.
         # For dedup rendering, a text-less thumbnail is preferable to a hard failure.
         try:
             fallback_cfg = base_render_cfg.with_changes(text_policy=TextPolicy.IGNORE)
             Frontend(ctx, backend, config=fallback_cfg).draw_layout(
-                msp,
+                layout,
                 filter_func=filter_entities,
             )
         except Exception:
