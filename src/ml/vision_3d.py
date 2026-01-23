@@ -63,14 +63,21 @@ class UVNetEncoder:
 
             # Initialize model architecture (Config-driven if available)
             config = checkpoint.get("config", {})
+            node_schema = config.get("node_schema")
+            edge_schema = config.get("edge_schema")
+            node_input_dim = config.get("node_input_dim")
+            if node_input_dim is None and node_schema is not None:
+                node_input_dim = len(node_schema)
+            if node_input_dim is None:
+                node_input_dim = 15
             self.model = UVNetGraphModel(
-                node_input_dim=config.get("node_input_dim", 12),
+                node_input_dim=node_input_dim,
                 hidden_dim=config.get("hidden_dim", 64),
                 embedding_dim=config.get("embedding_dim", 1024),
                 num_classes=config.get("num_classes", 11),
                 dropout_rate=config.get("dropout_rate", 0.3),
-                node_schema=config.get("node_schema"),
-                edge_schema=config.get("edge_schema"),
+                node_schema=node_schema,
+                edge_schema=edge_schema,
             )
             self.model.load_state_dict(checkpoint["model_state_dict"])
             self.model.to(self.device)
@@ -109,12 +116,14 @@ class UVNetEncoder:
                 if isinstance(data_source, dict):
                     x = data_source["x"]
                     edge_index = data_source["edge_index"]
+                    edge_attr = data_source.get("edge_attr")
                     node_schema = data_source.get("node_schema")
                     edge_schema = data_source.get("edge_schema")
                 else:
                     # Assume PyG Data object
                     x = data_source.x
                     edge_index = data_source.edge_index
+                    edge_attr = getattr(data_source, "edge_attr", None)
                     node_schema = getattr(data_source, "node_schema", None)
                     edge_schema = getattr(data_source, "edge_schema", None)
 
@@ -123,9 +132,13 @@ class UVNetEncoder:
                     x = torch.tensor(x, dtype=torch.float)
                 if not isinstance(edge_index, torch.Tensor):
                     edge_index = torch.tensor(edge_index, dtype=torch.long)
+                if edge_attr is not None and not isinstance(edge_attr, torch.Tensor):
+                    edge_attr = torch.tensor(edge_attr, dtype=torch.float)
 
                 x = x.to(self.device)
                 edge_index = edge_index.to(self.device)
+                if edge_attr is not None:
+                    edge_attr = edge_attr.to(self.device)
 
                 model_node_schema = getattr(self.model, "node_schema", None)
                 model_edge_schema = getattr(self.model, "edge_schema", None)
@@ -176,7 +189,7 @@ class UVNetEncoder:
                 batch = torch.zeros(x.size(0), dtype=torch.long, device=self.device)
 
                 with torch.no_grad():
-                    _, embedding = self.model(x, edge_index, batch)
+                    _, embedding = self.model(x, edge_index, batch, edge_attr=edge_attr)
 
                 return embedding.cpu().numpy().flatten().tolist()
 

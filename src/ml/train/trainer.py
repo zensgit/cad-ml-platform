@@ -36,23 +36,27 @@ class GraphBatchCollate:
     Collates a list of graph data dictionaries/objects into a single batch
     by concatenating nodes and shifting edge indices.
 
-    Contract: Input samples must have keys 'x', 'edge_index', 'label' (optional).
+    Contract: Input samples must have keys 'x', 'edge_index', optional 'edge_attr', and
+    optional labels ('y' or tuple entry).
     """
 
     def __call__(self, batch_list: List[Any]) -> Tuple[Dict[str, torch.Tensor], torch.Tensor]:
         # Initialize lists
         x_list = []
         edge_index_list = []
+        edge_attr_list = []
         batch_idx_list = []
         labels = []
 
         node_offset = 0
+        has_edge_attr = False
 
         for i, sample in enumerate(batch_list):
             # Extract fields (support both dict and object access)
             if isinstance(sample, dict):
                 x = sample["x"]
                 edge_index = sample["edge_index"]
+                edge_attr = sample.get("edge_attr")
                 y = sample.get("y", None)
             else:
                 # Support PyG Data object or tuple from Dataset
@@ -63,13 +67,16 @@ class GraphBatchCollate:
                     if isinstance(data_obj, dict):
                         x = data_obj["x"]
                         edge_index = data_obj["edge_index"]
+                        edge_attr = data_obj.get("edge_attr")
                     else:
                         x = data_obj.x
                         edge_index = data_obj.edge_index
+                        edge_attr = getattr(data_obj, "edge_attr", None)
                 else:
                     # Direct attribute access
                     x = sample.x
                     edge_index = sample.edge_index
+                    edge_attr = getattr(sample, "edge_attr", None)
                     y = sample.y
 
             num_nodes = x.size(0)
@@ -81,6 +88,10 @@ class GraphBatchCollate:
             # edge_index is [2, E]
             edge_index_shifted = edge_index + node_offset
             edge_index_list.append(edge_index_shifted)
+
+            if edge_attr is not None:
+                has_edge_attr = True
+            edge_attr_list.append(edge_attr)
 
             # Create Batch Index Vector [0, 0, 1, 1, 1, ...]
             batch_idx_list.append(torch.full((num_nodes,), i, dtype=torch.long))
@@ -99,12 +110,22 @@ class GraphBatchCollate:
         edge_index_batch = torch.cat(edge_index_list, dim=1)
         batch_vec = torch.cat(batch_idx_list, dim=0)
         y_batch = torch.cat(labels, dim=0) if labels else None
+        edge_attr_batch = None
 
-        return {
+        if has_edge_attr:
+            if any(attr is None for attr in edge_attr_list):
+                raise ValueError("Mixed edge_attr presence in batch; ensure all samples provide edge_attr.")
+            edge_attr_batch = torch.cat(edge_attr_list, dim=0)
+
+        batch_payload = {
             "x": x_batch,
             "edge_index": edge_index_batch,
             "batch": batch_vec,
-        }, y_batch
+        }
+        if edge_attr_batch is not None:
+            batch_payload["edge_attr"] = edge_attr_batch
+
+        return batch_payload, y_batch
 
 
 class UVNetTrainer:
@@ -149,16 +170,18 @@ class UVNetTrainer:
                 batch_data = batch_data.to(self.device)
                 x = batch_data.x
                 edge_index = batch_data.edge_index
+                edge_attr = getattr(batch_data, "edge_attr", None)
                 batch_idx = batch_data.batch
-                targets = batch_data.y
+                targets = batch_data.y.view(-1)
             else:
                 # Custom Collate returns (inputs_dict, labels)
                 inputs, targets = batch_data
                 inputs = move_to_device(inputs, self.device)
-                targets = targets.to(self.device)
+                targets = targets.to(self.device).view(-1)
                 
                 x = inputs["x"]
                 edge_index = inputs["edge_index"]
+                edge_attr = inputs.get("edge_attr")
                 batch_idx = inputs["batch"]
 
             self._validate_node_features(x)
@@ -166,7 +189,7 @@ class UVNetTrainer:
             self.optimizer.zero_grad()
 
             # Forward
-            log_probs, _ = self.model(x, edge_index, batch_idx)
+            log_probs, _ = self.model(x, edge_index, batch_idx, edge_attr=edge_attr)
 
             # Loss
             loss = self.criterion(log_probs, targets)
@@ -199,20 +222,22 @@ class UVNetTrainer:
                     batch_data = batch_data.to(self.device)
                     x = batch_data.x
                     edge_index = batch_data.edge_index
+                    edge_attr = getattr(batch_data, "edge_attr", None)
                     batch_idx = batch_data.batch
-                    targets = batch_data.y
+                    targets = batch_data.y.view(-1)
                 else:
                     inputs, targets = batch_data
                     inputs = move_to_device(inputs, self.device)
-                    targets = targets.to(self.device)
-                    
-                x = inputs["x"]
-                edge_index = inputs["edge_index"]
-                batch_idx = inputs["batch"]
+                    targets = targets.to(self.device).view(-1)
+
+                    x = inputs["x"]
+                    edge_index = inputs["edge_index"]
+                    edge_attr = inputs.get("edge_attr")
+                    batch_idx = inputs["batch"]
 
                 self._validate_node_features(x)
 
-                log_probs, _ = self.model(x, edge_index, batch_idx)
+                log_probs, _ = self.model(x, edge_index, batch_idx, edge_attr=edge_attr)
                 loss = self.criterion(log_probs, targets)
 
                 total_loss += loss.item() * targets.size(0)
@@ -240,7 +265,12 @@ class UVNetTrainer:
 
 def get_graph_dataloader(dataset, batch_size=32, shuffle=True):
     """Factory to get the correct DataLoader based on dependencies."""
-    if HAS_PYG:
+    use_pyg = (
+        HAS_PYG
+        and getattr(dataset, "graph_backend", None) in {"pyg", "auto"}
+        and getattr(dataset, "_pyg_data", None) is not None
+    )
+    if use_pyg:
         return PyGDataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
     else:
         # Use standard torch DataLoader with custom collate

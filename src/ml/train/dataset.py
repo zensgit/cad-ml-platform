@@ -124,7 +124,7 @@ class ABCDataset(Dataset):
             and self.graph_backend in {"pyg", "auto"}
             and not isinstance(sample, dict)
         ):
-            sample.y = torch.tensor([label], dtype=torch.long)
+            sample.y = torch.tensor(label, dtype=torch.long)
             return sample
 
         return sample, label

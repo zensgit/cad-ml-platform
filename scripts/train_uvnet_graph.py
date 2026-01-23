@@ -20,7 +20,11 @@ except ImportError as exc:  # pragma: no cover - environment dependent
 
 from torch.utils.data import DataLoader, Dataset, random_split
 
-from src.core.geometry.engine import BREP_GRAPH_NODE_FEATURES, HAS_OCC
+from src.core.geometry.engine import (
+    BREP_GRAPH_EDGE_FEATURES,
+    BREP_GRAPH_NODE_FEATURES,
+    HAS_OCC,
+)
 from src.ml.train.dataset import ABCDataset
 from src.ml.train.model import UVNetGraphModel
 from src.ml.train.trainer import GraphBatchCollate, UVNetTrainer
@@ -162,6 +166,8 @@ def main() -> int:
     model = UVNetGraphModel(
         node_input_dim=node_dim,
         num_classes=num_classes,
+        node_schema=BREP_GRAPH_NODE_FEATURES,
+        edge_schema=BREP_GRAPH_EDGE_FEATURES,
     )
     trainer = UVNetTrainer(
         model,

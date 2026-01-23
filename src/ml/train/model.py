@@ -8,6 +8,7 @@ Adheres to the "Graph Data Contract" v1.0.
 Input is a Data object (or named tuple) with:
 - x: Tensor[N, node_input_dim] (float32) - Node features (Face attributes)
 - edge_index: Tensor[2, E] (int64) - Adjacency list (Source, Target)
+- edge_attr: Tensor[E, edge_input_dim] (float32) - Edge features (optional)
 - batch: Tensor[N] (int64) - Batch index for each node (0..batch_size-1)
 
 This module supports two backends:
@@ -113,7 +114,7 @@ class UVNetGraphModel(nn.Module):
 
     def __init__(
         self,
-        node_input_dim: int = 12,
+        node_input_dim: Optional[int] = None,
         hidden_dim: int = 64,
         embedding_dim: int = 1024,
         num_classes: int = 11,
@@ -122,6 +123,11 @@ class UVNetGraphModel(nn.Module):
         edge_schema: Optional[Tuple[str, ...]] = None,
     ):
         super().__init__()
+        if node_input_dim is None:
+            if node_schema is not None:
+                node_input_dim = len(node_schema)
+            else:
+                node_input_dim = 15
         self.node_input_dim = node_input_dim
         self.hidden_dim = hidden_dim
         self.embedding_dim = embedding_dim
@@ -159,6 +165,7 @@ class UVNetGraphModel(nn.Module):
         x: torch.Tensor,
         edge_index: torch.Tensor,
         batch: Optional[torch.Tensor] = None,
+        edge_attr: Optional[torch.Tensor] = None,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Forward pass.

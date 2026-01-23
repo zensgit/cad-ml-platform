@@ -80,6 +80,7 @@ class TestUVNetGraphFlow(unittest.TestCase):
             dataset.append({
                 "x": torch.randn(num_nodes, self.node_dim),
                 "edge_index": torch.randint(0, num_nodes, (2, num_edges)),
+                "edge_attr": torch.randn(num_edges, 2),
                 "y": torch.randint(0, self.num_classes, (1,)).item()
             })
 
@@ -91,11 +92,14 @@ class TestUVNetGraphFlow(unittest.TestCase):
         self.assertIn("x", batch_inputs)
         self.assertIn("edge_index", batch_inputs)
         self.assertIn("batch", batch_inputs)
+        self.assertIn("edge_attr", batch_inputs)
         
         # Total nodes check
         total_nodes = sum(d["x"].size(0) for d in dataset)
+        total_edges = sum(d["edge_index"].size(1) for d in dataset)
         self.assertEqual(batch_inputs["x"].size(0), total_nodes)
         self.assertEqual(batch_inputs["batch"].size(0), total_nodes)
+        self.assertEqual(batch_inputs["edge_attr"].size(0), total_edges)
         self.assertEqual(batch_targets.size(0), batch_size)
 
         # Run Training Step through Trainer

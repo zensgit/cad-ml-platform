@@ -2084,5 +2084,12 @@
   - Verified graph dataset output shapes and schema metadata in the current environment.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BREP_GRAPH_DATASET_UPGRADE_VALIDATION_20260123.md`
 
+- **Mechanical Knowledge 4000CAD UV-Net Graph Pipeline Alignment**:
+  - Added edge_attr plumbing and schema-driven defaults across training/inference.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_PIPELINE_ALIGNMENT_20260123.md`
+- **Mechanical Knowledge 4000CAD UV-Net Graph Pipeline Alignment Validation**:
+  - UV-Net graph tests skipped locally because torch is unavailable.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_PIPELINE_ALIGNMENT_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent

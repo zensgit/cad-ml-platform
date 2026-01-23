@@ -62,10 +62,12 @@ def main() -> int:
         inputs, _targets = batch_data
         x = inputs["x"]
         edge_index = inputs["edge_index"]
+        edge_attr = inputs.get("edge_attr")
         batch_idx = inputs["batch"]
     else:
         x = batch_data.x
         edge_index = batch_data.edge_index
+        edge_attr = getattr(batch_data, "edge_attr", None)
         batch_idx = batch_data.batch
 
     node_count = x.size(0)
@@ -86,7 +88,7 @@ def main() -> int:
     model.eval()
 
     with torch.no_grad():
-        logits, embedding = model(x, edge_index, batch_idx)
+        logits, embedding = model(x, edge_index, batch_idx, edge_attr=edge_attr)
 
     print("UV-Net Graph Dry-Run")
     print(f"Data dir: {args.data_dir}")
