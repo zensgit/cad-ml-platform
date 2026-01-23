@@ -38,3 +38,4 @@ preserving explainability and deterministic fallback behavior.
 - `FUSION_ANALYZER_OVERRIDE=true`: replace the classification label/confidence with the fusion
   decision (requires `FUSION_ANALYZER_ENABLED=true`).
 - `FUSION_ANALYZER_OVERRIDE_MIN_CONF=0.5`: minimum fused confidence required to apply override.
+- `GRAPH2D_MIN_CONF=0.0`: minimum Graph2D confidence required to pass L4 input into fusion.

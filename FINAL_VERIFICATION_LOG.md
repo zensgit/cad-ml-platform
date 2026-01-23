@@ -2154,5 +2154,26 @@
   - Captured Graph2D confidence distribution for the 50-file sample run.
   - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_INFERENCE_VALIDATION_20260123.md`
 
+- **Training DXF Label Manifest Cleaned**:
+  - Merged low-frequency DXF labels into `other` for a cleaner training manifest.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_CLEANED_20260123.md`
+- **Training DXF Label Manifest Cleaned Validation**:
+  - Verified cleaned manifest counts and label distribution.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_CLEANED_VALIDATION_20260123.md`
+
+- **Training DXF 2D Graph Training Cleaned**:
+  - Trained a Graph2D model on the cleaned manifest with `other` downweighted.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_CLEANED_20260123.md`
+- **Training DXF 2D Graph Training Cleaned Validation**:
+  - Logged the 15-epoch training run and checkpoint output for the cleaned dataset.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_CLEANED_VALIDATION_20260123.md`
+
+- **Training DXF 2D Graph Inference Cleaned**:
+  - Ran DXF batch analysis with the cleaned Graph2D checkpoint and confidence gate enabled.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_INFERENCE_CLEANED_20260123.md`
+- **Training DXF 2D Graph Inference Cleaned Validation**:
+  - Captured Graph2D confidence buckets with `GRAPH2D_MIN_CONF=0.4` gating.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_INFERENCE_CLEANED_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent

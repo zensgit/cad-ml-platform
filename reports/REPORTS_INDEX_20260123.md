@@ -13,6 +13,7 @@ for FusionAnalyzer guardrails, Graph2D override coverage, and B-Rep graph datase
 ## Model Inventory
 - Graph2D default: `models/graph2d_parts_upsampled_20260122.pth`
 - Graph2D training sample: `models/graph2d_training_20260123.pth`
+- Graph2D training cleaned: `models/graph2d_training_cleaned_20260123.pth`
 
 ## 2026-01-23 Report List
 - reports/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_FUSION_SUMMARY_20260123.md
@@ -55,3 +56,9 @@ for FusionAnalyzer guardrails, Graph2D override coverage, and B-Rep graph datase
 - reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_VALIDATION_20260123.md
 - reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_INFERENCE_20260123.md
 - reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_INFERENCE_VALIDATION_20260123.md
+- reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_CLEANED_20260123.md
+- reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_CLEANED_VALIDATION_20260123.md
+- reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_CLEANED_20260123.md
+- reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_CLEANED_VALIDATION_20260123.md
+- reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_INFERENCE_CLEANED_20260123.md
+- reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_INFERENCE_CLEANED_VALIDATION_20260123.md

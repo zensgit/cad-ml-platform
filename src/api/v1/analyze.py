@@ -808,6 +808,7 @@ async def analyze_cad_file(
                     cls_payload["model_version"] = "ml_error"
                 # Optional 2D graph classifier (shadow by default)
                 graph2d_result: Dict[str, Any] | None = None
+                graph2d_fusable: Dict[str, Any] | None = None
                 graph2d_enabled = os.getenv("GRAPH2D_ENABLED", "false").lower() == "true"
                 if graph2d_enabled and file_format == "dxf":
                     try:
@@ -817,7 +818,13 @@ async def analyze_cad_file(
                             content, file.filename
                         )
                         if graph2d_result.get("status") != "model_unavailable":
+                            graph2d_min_conf = _safe_float_env("GRAPH2D_MIN_CONF", 0.0)
+                            graph2d_conf = float(graph2d_result.get("confidence", 0.0))
+                            graph2d_result["min_confidence"] = graph2d_min_conf
+                            graph2d_result["passed_threshold"] = graph2d_conf >= graph2d_min_conf
                             cls_payload["graph2d_prediction"] = graph2d_result
+                            if graph2d_result["passed_threshold"]:
+                                graph2d_fusable = graph2d_result
                     except Exception:
                         graph2d_result = None
                 # Optional FusionAnalyzer (shadow by default)
@@ -838,12 +845,12 @@ async def analyze_cad_file(
                         )
                         if (
                             graph2d_fusion
-                            and graph2d_result
-                            and graph2d_result.get("label")
+                            and graph2d_fusable
+                            and graph2d_fusable.get("label")
                         ):
                             l4_prediction = {
-                                "label": graph2d_result["label"],
-                                "confidence": float(graph2d_result.get("confidence", 0.0)),
+                                "label": graph2d_fusable["label"],
+                                "confidence": float(graph2d_fusable.get("confidence", 0.0)),
                                 "source": "graph2d",
                             }
                         elif ml_result and ml_result.get("predicted_type"):
