@@ -2049,5 +2049,12 @@
   - Verified override run outputs and artifact generation.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_SAMPLE_GRAPH2D_OVERRIDE_VALIDATION_20260123.md`
 
+- **Mechanical Knowledge 4000CAD Batch Analysis 50 (Graph2D Override Compare)**:
+  - Compared override thresholds at 0.5 and 0.6 on 50 samples.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_50_GRAPH2D_OVERRIDE_COMPARE_20260123.md`
+- **Mechanical Knowledge 4000CAD Batch Analysis 50 (Graph2D Override Compare) Validation**:
+  - Verified both runs completed and summary artifacts recorded.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_50_GRAPH2D_OVERRIDE_COMPARE_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent

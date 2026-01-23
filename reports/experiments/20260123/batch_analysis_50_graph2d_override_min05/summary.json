@@ -1,0 +1,26 @@
+{
+  "total": 50,
+  "success": 50,
+  "error": 0,
+  "confidence_buckets": {
+    "0_6_0_8": 14,
+    "gte_0_8": 22,
+    "0_4_0_6": 14
+  },
+  "label_counts": {
+    "moderate_component": 13,
+    "蜗杆": 2,
+    "箱体": 1,
+    "装配图": 5,
+    "底板": 2,
+    "complex_assembly": 10,
+    "盖": 6,
+    "机械制图": 5,
+    "轴承": 2,
+    "模板": 2,
+    "支腿": 1,
+    "罩": 1
+  },
+  "low_confidence_count": 27,
+  "sample_size": 50
+}
