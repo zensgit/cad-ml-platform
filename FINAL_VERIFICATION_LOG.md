@@ -2266,5 +2266,12 @@
   - Logged deployment template updates for recommended settings.
   - Report: `reports/experiments/20260123/DEV_GRAPH2D_RECOMMENDED_RUNTIME_DEPLOYMENT_VALIDATION_20260123.md`
 
+- **Graph2D Recommended Runtime GHCR**:
+  - Recorded GHCR override notes for Graph2D runtime inheritance.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_RECOMMENDED_RUNTIME_GHCR_20260123.md`
+- **Graph2D Recommended Runtime GHCR Validation**:
+  - Logged GHCR override documentation update.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_RECOMMENDED_RUNTIME_GHCR_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent

@@ -9,8 +9,10 @@ services:
     image: ${CAD_ML_IMAGE:-ghcr.io/zensgit/cad-ml-platform:main}
     platform: ${CAD_ML_PLATFORM:-linux/amd64}
     pull_policy: always
+    # Graph2D runtime settings are inherited from the base compose file and .env.
 
   dedup2d-worker:
     image: ${CAD_ML_IMAGE:-ghcr.io/zensgit/cad-ml-platform:main}
     platform: ${CAD_ML_PLATFORM:-linux/amd64}
     pull_policy: always
+    # Graph2D runtime settings are inherited from the base compose file and .env.
