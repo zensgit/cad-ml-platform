@@ -2042,5 +2042,12 @@
   - Verified Graph2D predictions populated in batch outputs and summary artifacts.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_SAMPLE_GRAPH2D_VALIDATION_20260123.md`
 
+- **Mechanical Knowledge 4000CAD Batch Analysis Sample (Graph2D Override)**:
+  - Re-ran 20-sample DXF batch analysis with Graph2D override enabled at 0.5 threshold.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_SAMPLE_GRAPH2D_OVERRIDE_20260123.md`
+- **Mechanical Knowledge 4000CAD Batch Analysis Sample (Graph2D Override) Validation**:
+  - Verified override run outputs and artifact generation.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_SAMPLE_GRAPH2D_OVERRIDE_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
