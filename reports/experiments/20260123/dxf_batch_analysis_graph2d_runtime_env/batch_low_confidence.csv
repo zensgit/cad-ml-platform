@@ -1,0 +1,12 @@
+file,status,part_type,confidence,confidence_source,rule_version,graph2d_label,graph2d_confidence,fusion_label,fusion_confidence
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf/LTJ012303106-0030连接法兰(大)v1.dxf,ok,moderate_component,0.600,rules,v1,other,0.8268035054206848,Standard_Part,0.55
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf/J2825002-06上筒体组件v1.dxf,ok,complex_assembly,0.550,rules,v1,other,0.5023757219314575,Standard_Part,0.55
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf/J0225004-04-04轴头组件v2.dxf,ok,complex_assembly,0.550,rules,v1,other,0.801520049571991,Standard_Part,0.55
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf/J2925001-01人孔v2.dxf,ok,complex_assembly,0.550,rules,v1,other,0.3013240396976471,Standard_Part,0.55
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf/J0224025-06-01-03出料凸缘v1.dxf,ok,complex_assembly,0.550,rules,v1,other,0.8168149590492249,Standard_Part,0.55
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf/BTJ01231101522-00自动进料装置v1.dxf,ok,complex_assembly,0.550,rules,v1,other,0.8156121969223022,Standard_Part,0.6000000000000001
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf/BTJ01231101522-00自动进料装置v2.dxf,ok,complex_assembly,0.550,rules,v1,other,0.8156121969223022,Standard_Part,0.55
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf/J0224071-11捕集器组件v1.dxf,ok,complex_assembly,0.550,rules,v1,other,0.9083922505378723,Standard_Part,0.55
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf/LTJ012306102-0084调节螺栓v1.dxf,ok,moderate_component,0.600,rules,v1,other,0.8410875797271729,Standard_Part,0.55
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf/BTJ02230101102-12手轮组件v2.dxf,ok,moderate_component,0.600,rules,v1,other,1.0,Standard_Part,0.55
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf/BTJ01239601522-03扭转弹簧v2.dxf,ok,moderate_component,0.600,rules,v1,other,0.838770866394043,Standard_Part,0.55

@@ -2252,5 +2252,12 @@
   - Logged the local `.env` update (gitignored).
   - Report: `reports/experiments/20260123/DEV_GRAPH2D_RUNTIME_ENV_VALIDATION_20260123.md`
 
+- **Graph2D Runtime Env Smoke**:
+  - Ran a 20-file DXF batch analysis using the `.env` recommended Graph2D settings.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_RUNTIME_ENV_SMOKE_20260123.md`
+- **Graph2D Runtime Env Smoke Validation**:
+  - Recorded allowlist hits and confidence gate counts for the `.env` smoke run.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_RUNTIME_ENV_SMOKE_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
