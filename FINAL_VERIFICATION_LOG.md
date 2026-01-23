@@ -2238,5 +2238,12 @@
   - Recorded 2/50 changes vs baseline for the extended allowlist run.
   - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_ALLOWLIST_BOILER_VESSEL_VALIDATION_20260123.md`
 
+- **Graph2D Recommended Runtime**:
+  - Documented the recommended Graph2D runtime settings (conservative allowlist).
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_RECOMMENDED_RUNTIME_20260123.md`
+- **Graph2D Recommended Runtime Validation**:
+  - Recorded the runbook addition for recommended settings.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_RECOMMENDED_RUNTIME_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
