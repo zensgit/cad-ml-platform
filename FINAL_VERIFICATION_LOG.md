@@ -2147,5 +2147,12 @@
   - Recorded the 3-epoch training run and checkpoint output.
   - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_VALIDATION_20260123.md`
 
+- **Training DXF 2D Graph Inference**:
+  - Ran DXF batch analysis with the new Graph2D checkpoint enabled.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_INFERENCE_20260123.md`
+- **Training DXF 2D Graph Inference Validation**:
+  - Captured Graph2D confidence distribution for the 50-file sample run.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_INFERENCE_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
