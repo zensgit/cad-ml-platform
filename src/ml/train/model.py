@@ -28,10 +28,12 @@ logger = logging.getLogger(__name__)
 
 # --- Dependency Management ---
 HAS_PYG = False
+HAS_PYG_EDGE_ATTR = False
 try:
-    from torch_geometric.nn import GCNConv, global_mean_pool, global_max_pool
+    from torch_geometric.nn import GCNConv, GINEConv, global_mean_pool, global_max_pool
 
     HAS_PYG = True
+    HAS_PYG_EDGE_ATTR = True
 except ImportError:
     logger.info("torch_geometric not found. Using pure PyTorch fallback for GNN layers.")
 
@@ -136,6 +138,7 @@ class UVNetGraphModel(nn.Module):
         dropout_rate: float = 0.3,
         node_schema: Optional[Tuple[str, ...]] = None,
         edge_schema: Optional[Tuple[str, ...]] = None,
+        use_edge_attr: bool = True,
     ):
         super().__init__()
         if node_input_dim is None:
@@ -158,12 +161,47 @@ class UVNetGraphModel(nn.Module):
         self.edge_schema = tuple(edge_schema) if edge_schema else None
         self.has_pyg = HAS_PYG
         self.edge_weight_layer = nn.Linear(edge_input_dim, 1) if edge_input_dim > 0 else None
+        self.use_edge_attr = use_edge_attr
+        self.edge_mlp = None
+        self._use_gine = False
 
         # Encoder Layers (GCN)
         if self.has_pyg:
-            self.conv1 = GCNConv(node_input_dim, hidden_dim)
-            self.conv2 = GCNConv(hidden_dim, hidden_dim * 2)
-            self.conv3 = GCNConv(hidden_dim * 2, embedding_dim)
+            if self.use_edge_attr and HAS_PYG_EDGE_ATTR:
+                self.edge_mlp = nn.Sequential(
+                    nn.Linear(edge_input_dim, hidden_dim),
+                    nn.ReLU(),
+                    nn.Linear(hidden_dim, hidden_dim),
+                )
+                self.conv1 = GINEConv(
+                    nn.Sequential(
+                        nn.Linear(node_input_dim, hidden_dim),
+                        nn.ReLU(),
+                        nn.Linear(hidden_dim, hidden_dim),
+                    ),
+                    edge_dim=edge_input_dim,
+                )
+                self.conv2 = GINEConv(
+                    nn.Sequential(
+                        nn.Linear(hidden_dim, hidden_dim * 2),
+                        nn.ReLU(),
+                        nn.Linear(hidden_dim * 2, hidden_dim * 2),
+                    ),
+                    edge_dim=edge_input_dim,
+                )
+                self.conv3 = GINEConv(
+                    nn.Sequential(
+                        nn.Linear(hidden_dim * 2, embedding_dim),
+                        nn.ReLU(),
+                        nn.Linear(embedding_dim, embedding_dim),
+                    ),
+                    edge_dim=edge_input_dim,
+                )
+                self._use_gine = True
+            else:
+                self.conv1 = GCNConv(node_input_dim, hidden_dim)
+                self.conv2 = GCNConv(hidden_dim, hidden_dim * 2)
+                self.conv3 = GCNConv(hidden_dim * 2, embedding_dim)
         else:
             self.conv1 = SimpleGCNLayer(node_input_dim, hidden_dim)
             self.conv2 = SimpleGCNLayer(hidden_dim, hidden_dim * 2)
@@ -204,22 +242,22 @@ class UVNetGraphModel(nn.Module):
         edge_weight = self._edge_weight(edge_attr)
 
         # 1. Graph Convolution Blocks
-        if self.has_pyg:
-            x = self.conv1(x, edge_index, edge_weight=edge_weight)
+        if self.has_pyg and self._use_gine:
+            x = self.conv1(x, edge_index, edge_attr=edge_attr)
         else:
             x = self.conv1(x, edge_index, edge_weight=edge_weight)
         x = self.bn1(x)
         x = F.relu(x)
 
-        if self.has_pyg:
-            x = self.conv2(x, edge_index, edge_weight=edge_weight)
+        if self.has_pyg and self._use_gine:
+            x = self.conv2(x, edge_index, edge_attr=edge_attr)
         else:
             x = self.conv2(x, edge_index, edge_weight=edge_weight)
         x = self.bn2(x)
         x = F.relu(x)
 
-        if self.has_pyg:
-            x = self.conv3(x, edge_index, edge_weight=edge_weight)
+        if self.has_pyg and self._use_gine:
+            x = self.conv3(x, edge_index, edge_attr=edge_attr)
         else:
             x = self.conv3(x, edge_index, edge_weight=edge_weight)
         x = self.bn3(x)
@@ -258,13 +296,17 @@ class UVNetGraphModel(nn.Module):
             "dropout_rate": self.dropout_rate,
             "node_schema": self.node_schema,
             "edge_schema": self.edge_schema,
+            "use_edge_attr": self.use_edge_attr,
             "backend": "pyg" if self.has_pyg else "pure_torch",
+            "edge_backend": "gine" if self._use_gine else "weighted_gcn",
         }
 
     def _edge_weight(self, edge_attr: Optional[torch.Tensor]) -> Optional[torch.Tensor]:
         if edge_attr is None:
             return None
         if self.edge_weight_layer is None:
+            return None
+        if not self.use_edge_attr:
             return None
         if edge_attr.dim() != 2:
             raise ValueError(f"Edge feature tensor must be 2D, got shape {tuple(edge_attr.shape)}")
