@@ -2140,5 +2140,12 @@
   - Verified manifest row counts and label coverage from the training DXF directory.
   - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_VALIDATION_20260123.md`
 
+- **Training DXF 2D Graph Training**:
+  - Trained a 2D Graph model on the training DXF manifest and saved a new checkpoint.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_20260123.md`
+- **Training DXF 2D Graph Training Validation**:
+  - Recorded the 3-epoch training run and checkpoint output.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
