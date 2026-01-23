@@ -2105,5 +2105,12 @@
   - Verified a synthetic training run with edge_attr weighting enabled.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_EDGE_ATTR_WEIGHTING_VALIDATION_20260123.md`
 
+- **Mechanical Knowledge 4000CAD UV-Net Graph STEP Validation**:
+  - Attempted STEP-based UV-Net graph validation; blocked by missing `pythonocc-core`.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_STEP_VALIDATION_20260123.md`
+- **Mechanical Knowledge 4000CAD UV-Net Graph STEP Validation Validation**:
+  - Confirmed `pythonocc-core` is unavailable in the current environment.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_STEP_VALIDATION_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
