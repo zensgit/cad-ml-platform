@@ -2133,5 +2133,12 @@
   - Captured summary stats and outputs from the DXF batch analyze run.
   - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_PIPELINE_VALIDATION_VALIDATION_20260123.md`
 
+- **Training DXF Label Manifest**:
+  - Added a DXF filename label manifest builder and generated a manifest CSV.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_20260123.md`
+- **Training DXF Label Manifest Validation**:
+  - Verified manifest row counts and label coverage from the training DXF directory.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
