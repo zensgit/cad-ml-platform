@@ -2224,5 +2224,12 @@
   - Verified allowlist run produced 0/50 changes vs baseline.
   - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_ALLOWLIST_VALIDATION_20260123.md`
 
+- **Training DXF 2D Graph Fusion Allowlist Boiler**:
+  - Tested allowlist with `再沸器` and `GRAPH2D_MIN_CONF=0.7`.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_ALLOWLIST_BOILER_20260123.md`
+- **Training DXF 2D Graph Fusion Allowlist Boiler Validation**:
+  - Recorded 2/50 changes vs baseline for the minimal allowlist run.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_ALLOWLIST_BOILER_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
