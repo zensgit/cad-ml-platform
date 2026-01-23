@@ -2074,7 +2074,7 @@
   - Synced Graph2D override threshold defaults into deployment templates.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_DEPLOY_SYNC_20260123.md`
 - **Mechanical Knowledge 4000CAD Graph2D Override Deploy Sync Validation**:
-  - Verified deployment templates set override threshold to 0.6.
+  - Verified deployment templates and docker-compose config output set override threshold to 0.6.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_DEPLOY_SYNC_VALIDATION_20260123.md`
 
 ---

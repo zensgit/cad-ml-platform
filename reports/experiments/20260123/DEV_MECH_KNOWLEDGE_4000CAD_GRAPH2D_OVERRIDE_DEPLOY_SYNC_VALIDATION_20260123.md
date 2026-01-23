@@ -3,6 +3,10 @@
 ## Checks
 - Verified deployment templates set FUSION_GRAPH2D_OVERRIDE_MIN_CONF=0.6.
 
+## Runtime Config Check
+- Command: `docker-compose -f deployments/docker/docker-compose.yml config | rg "FUSION_GRAPH2D_OVERRIDE_MIN_CONF"`
+- Result: `FUSION_GRAPH2D_OVERRIDE_MIN_CONF: "0.6"`
+
 ## Files Verified
 - `deployments/docker/docker-compose.yml`
 - `k8s/app/deployment.yaml`
