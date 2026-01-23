@@ -28,10 +28,11 @@ except Exception:
 class Graph2DClassifier:
     def __init__(self, model_path: Optional[str] = None) -> None:
         self.model_path = model_path or os.getenv(
-            "GRAPH2D_MODEL_PATH", "models/graph2d_merged_latest.pth"
+            "GRAPH2D_MODEL_PATH", "models/graph2d_parts_upsampled_20260122.pth"
         )
         self.model: Optional[SimpleGraphClassifier] = None
         self.label_map: Dict[str, int] = {}
+        self.node_dim: int = 7
         self.device = "cpu"
         self._loaded = False
 
@@ -44,6 +45,7 @@ class Graph2DClassifier:
         checkpoint = torch.load(self.model_path, map_location=self.device)
         self.label_map = checkpoint.get("label_map", {})
         node_dim = int(checkpoint.get("node_dim", 7))
+        self.node_dim = node_dim
         hidden_dim = int(checkpoint.get("hidden_dim", 64))
         num_classes = max(1, len(self.label_map))
         self.model = SimpleGraphClassifier(node_dim, hidden_dim, num_classes)
@@ -73,8 +75,8 @@ class Graph2DClassifier:
                 pass
 
         msp = doc.modelspace()
-        dataset = DXFDataset(root_dir=".")
-        x, edge_index = dataset._dxf_to_graph(msp)
+        dataset = DXFDataset(root_dir=".", node_dim=self.node_dim)
+        x, edge_index = dataset._dxf_to_graph(msp, self.node_dim)
         if x.numel() == 0:
             return {"status": "empty_graph"}
 

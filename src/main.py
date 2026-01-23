@@ -50,11 +50,76 @@ settings = get_settings()
 READINESS_CHECK_TIMEOUT_SECONDS = float(os.getenv("READINESS_CHECK_TIMEOUT_SECONDS", "0.5"))
 
 
+def _validate_optional_feature_flags() -> None:
+    graph2d_enabled = os.getenv("GRAPH2D_ENABLED", "false").lower() == "true"
+    graph2d_model = os.getenv("GRAPH2D_MODEL_PATH", "models/graph2d_parts_upsampled_20260122.pth")
+    fusion_enabled = os.getenv("FUSION_ANALYZER_ENABLED", "false").lower() == "true"
+    fusion_override = os.getenv("FUSION_ANALYZER_OVERRIDE", "false").lower() == "true"
+    graph2d_fusion = os.getenv("GRAPH2D_FUSION_ENABLED", "false").lower() == "true"
+    min_conf_raw = os.getenv("FUSION_ANALYZER_OVERRIDE_MIN_CONF", "0.5")
+    graph2d_override_labels = os.getenv("FUSION_GRAPH2D_OVERRIDE_LABELS", "").strip()
+    graph2d_override_min_conf_raw = os.getenv("FUSION_GRAPH2D_OVERRIDE_MIN_CONF", "0.6")
+    graph2d_override_low_conf_labels = os.getenv(
+        "FUSION_GRAPH2D_OVERRIDE_LOW_CONF_LABELS", ""
+    ).strip()
+    graph2d_override_low_conf_min_raw = os.getenv(
+        "FUSION_GRAPH2D_OVERRIDE_LOW_CONF_MIN_CONF", "0.6"
+    )
+
+    if graph2d_enabled and not os.path.exists(graph2d_model):
+        logger.warning("GRAPH2D_ENABLED=true but model missing: %s", graph2d_model)
+    if graph2d_fusion and not graph2d_enabled:
+        logger.warning("GRAPH2D_FUSION_ENABLED=true requires GRAPH2D_ENABLED=true")
+    if fusion_override and not fusion_enabled:
+        logger.warning("FUSION_ANALYZER_OVERRIDE=true requires FUSION_ANALYZER_ENABLED=true")
+    if graph2d_override_labels and not graph2d_fusion:
+        logger.warning("FUSION_GRAPH2D_OVERRIDE_LABELS set but GRAPH2D_FUSION_ENABLED=false")
+    if graph2d_override_low_conf_labels and not graph2d_fusion:
+        logger.warning(
+            "FUSION_GRAPH2D_OVERRIDE_LOW_CONF_LABELS set but GRAPH2D_FUSION_ENABLED=false"
+        )
+    try:
+        min_conf = float(min_conf_raw)
+        if not 0.0 <= min_conf <= 1.0:
+            logger.warning(
+                "FUSION_ANALYZER_OVERRIDE_MIN_CONF out of range: %s", min_conf_raw
+            )
+    except (TypeError, ValueError):
+        logger.warning(
+            "FUSION_ANALYZER_OVERRIDE_MIN_CONF is not a float: %s", min_conf_raw
+        )
+    try:
+        graph2d_override_min = float(graph2d_override_min_conf_raw)
+        if not 0.0 <= graph2d_override_min <= 1.0:
+            logger.warning(
+                "FUSION_GRAPH2D_OVERRIDE_MIN_CONF out of range: %s",
+                graph2d_override_min_conf_raw,
+            )
+    except (TypeError, ValueError):
+        logger.warning(
+            "FUSION_GRAPH2D_OVERRIDE_MIN_CONF is not a float: %s",
+            graph2d_override_min_conf_raw,
+        )
+    try:
+        graph2d_override_low_conf_min = float(graph2d_override_low_conf_min_raw)
+        if not 0.0 <= graph2d_override_low_conf_min <= 1.0:
+            logger.warning(
+                "FUSION_GRAPH2D_OVERRIDE_LOW_CONF_MIN_CONF out of range: %s",
+                graph2d_override_low_conf_min_raw,
+            )
+    except (TypeError, ValueError):
+        logger.warning(
+            "FUSION_GRAPH2D_OVERRIDE_LOW_CONF_MIN_CONF is not a float: %s",
+            graph2d_override_low_conf_min_raw,
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     # 启动时
     logger.info("Starting CAD ML Platform...")
+    _validate_optional_feature_flags()
 
     # Optional dev seeding of knowledge rules
     try:

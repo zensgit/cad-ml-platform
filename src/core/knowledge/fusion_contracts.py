@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 # Schema Version Control
-FUSION_SCHEMA_VERSION = "v1.0"
+FUSION_SCHEMA_VERSION = "v1.2"
 
 
 class DecisionSource(str, Enum):
@@ -58,7 +58,11 @@ class FeatureNormalizationSchema(BaseModel):
     def normalize(self, features: Dict[str, Any]) -> List[float]:
         vec = []
         for k in self.keys:
-            val = float(features.get(k, 0.0))
+            raw = features.get(k, 0.0)
+            try:
+                val = float(raw) if raw is not None else 0.0
+            except (TypeError, ValueError):
+                val = 0.0
             scale = self.scale_factors.get(k, 1.0)
             # Avoid division by zero
             vec.append(val / scale if scale != 0 else val)
@@ -66,10 +70,48 @@ class FeatureNormalizationSchema(BaseModel):
 
 # Default Normalization Schema for MVP
 DEFAULT_NORM_SCHEMA = FeatureNormalizationSchema(
-    keys=["aspect_ratio", "complexity_score", "hole_count"],
+    keys=[
+        "aspect_ratio",
+        "complexity_score",
+        "entity_count",
+        "layer_count",
+        "dimension_count",
+        "text_count",
+        "bbox_width",
+        "bbox_height",
+        "bbox_depth",
+        "faces",
+        "edges",
+        "volume",
+        "surface_area",
+        "bbox_volume",
+        "surface_plane",
+        "surface_cylinder",
+        "surface_cone",
+        "surface_sphere",
+        "surface_torus",
+        "surface_bspline",
+    ],
     scale_factors={
-        "aspect_ratio": 10.0,       # Expect ratios 1-10
-        "complexity_score": 100.0,  # Expect scores 0-100
-        "hole_count": 20.0          # Expect 0-20 holes
-    }
+        "aspect_ratio": 10.0,
+        "complexity_score": 2000.0,
+        "entity_count": 2000.0,
+        "layer_count": 200.0,
+        "dimension_count": 200.0,
+        "text_count": 200.0,
+        "bbox_width": 10000.0,
+        "bbox_height": 10000.0,
+        "bbox_depth": 10000.0,
+        "faces": 500.0,
+        "edges": 2000.0,
+        "volume": 1e9,
+        "surface_area": 1e7,
+        "bbox_volume": 1e9,
+        "surface_plane": 500.0,
+        "surface_cylinder": 500.0,
+        "surface_cone": 200.0,
+        "surface_sphere": 200.0,
+        "surface_torus": 200.0,
+        "surface_bspline": 500.0,
+    },
 )
