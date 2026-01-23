@@ -53,6 +53,22 @@ spec:
           value: "0.6"
         - name: GRAPH2D_MIN_CONF
           value: "0.6"
+        - name: GRAPH2D_ENABLED
+          value: "true"
+        - name: GRAPH2D_MODEL_PATH
+          value: "models/graph2d_training_cleaned_20260123.pth"
+        - name: GRAPH2D_ALLOW_LABELS
+          value: "再沸器"
+        - name: GRAPH2D_EXCLUDE_LABELS
+          value: "other"
+        - name: GRAPH2D_FUSION_ENABLED
+          value: "true"
+        - name: FUSION_ANALYZER_ENABLED
+          value: "true"
+        - name: FUSION_ANALYZER_OVERRIDE
+          value: "true"
+        - name: FUSION_ANALYZER_OVERRIDE_MIN_CONF
+          value: "0.6"
         resources:
           requests:
             memory: "1Gi"

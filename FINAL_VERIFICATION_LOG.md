@@ -2259,5 +2259,12 @@
   - Recorded allowlist hits and confidence gate counts for the `.env` smoke run.
   - Report: `reports/experiments/20260123/DEV_GRAPH2D_RUNTIME_ENV_SMOKE_VALIDATION_20260123.md`
 
+- **Graph2D Recommended Runtime Deployment**:
+  - Synced recommended Graph2D runtime settings to deployment templates.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_RECOMMENDED_RUNTIME_DEPLOYMENT_20260123.md`
+- **Graph2D Recommended Runtime Deployment Validation**:
+  - Logged deployment template updates for recommended settings.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_RECOMMENDED_RUNTIME_DEPLOYMENT_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent

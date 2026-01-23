@@ -18,6 +18,15 @@ services:
       - FUSION_GRAPH2D_OVERRIDE_MIN_CONF=${FUSION_GRAPH2D_OVERRIDE_MIN_CONF:-0.6}
       # Graph2D min confidence gate (defaults to 0.6; override via env if needed)
       - GRAPH2D_MIN_CONF=${GRAPH2D_MIN_CONF:-0.6}
+      # Graph2D recommended runtime (override via env if needed)
+      - GRAPH2D_ENABLED=${GRAPH2D_ENABLED:-true}
+      - GRAPH2D_MODEL_PATH=${GRAPH2D_MODEL_PATH:-models/graph2d_training_cleaned_20260123.pth}
+      - GRAPH2D_ALLOW_LABELS=${GRAPH2D_ALLOW_LABELS:-再沸器}
+      - GRAPH2D_EXCLUDE_LABELS=${GRAPH2D_EXCLUDE_LABELS:-other}
+      - GRAPH2D_FUSION_ENABLED=${GRAPH2D_FUSION_ENABLED:-true}
+      - FUSION_ANALYZER_ENABLED=${FUSION_ANALYZER_ENABLED:-true}
+      - FUSION_ANALYZER_OVERRIDE=${FUSION_ANALYZER_OVERRIDE:-true}
+      - FUSION_ANALYZER_OVERRIDE_MIN_CONF=${FUSION_ANALYZER_OVERRIDE_MIN_CONF:-0.6}
       # 2D dedup async backend (required when WORKERS>1)
       - DEDUP2D_ASYNC_BACKEND=redis
       - DEDUP2D_REDIS_URL=redis://redis:6379/0
