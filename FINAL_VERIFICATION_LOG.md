@@ -2098,5 +2098,12 @@
   - Verified synthetic training run with edge_attr enabled.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_EDGE_ATTR_SYNTHETIC_VALIDATION_20260123.md`
 
+- **Mechanical Knowledge 4000CAD UV-Net Graph Edge Attr Weighting**:
+  - Added edge_attr-derived edge weighting in the UV-Net GCN path.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_EDGE_ATTR_WEIGHTING_20260123.md`
+- **Mechanical Knowledge 4000CAD UV-Net Graph Edge Attr Weighting Validation**:
+  - Verified a synthetic training run with edge_attr weighting enabled.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_EDGE_ATTR_WEIGHTING_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent

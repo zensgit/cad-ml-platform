@@ -53,7 +53,12 @@ class SimpleGCNLayer(nn.Module):
         nn.init.xavier_uniform_(self.linear.weight)
         nn.init.zeros_(self.bias)
 
-    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_weight: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         # x: [N, in_channels]
         # edge_index: [2, E]
         N = x.size(0)
@@ -64,17 +69,22 @@ class SimpleGCNLayer(nn.Module):
         loop_index = torch.arange(0, N, dtype=torch.long, device=device)
         loop_index = loop_index.unsqueeze(0).repeat(2, 1)
         edge_index_aug = torch.cat([edge_index, loop_index], dim=1)
+        if edge_weight is None:
+            edge_weight = torch.ones(edge_index.size(1), device=device, dtype=x.dtype)
+        else:
+            edge_weight = edge_weight.to(device).view(-1)
+        loop_weight = torch.ones(N, device=device, dtype=edge_weight.dtype)
+        edge_weight_aug = torch.cat([edge_weight, loop_weight], dim=0)
 
         # 2. Compute Adjacency Matrix (Sparse)
         # Value is 1.0 for all edges
         row, col = edge_index_aug
         if x.device.type == "mps":
-            adj = torch.zeros((N, N), device=device)
-            adj[row, col] = 1.0
+            adj = torch.zeros((N, N), device=device, dtype=edge_weight_aug.dtype)
+            adj.index_put_((row, col), edge_weight_aug, accumulate=True)
         else:
-            values = torch.ones(row.size(0), device=device)
             adj = torch.sparse_coo_tensor(
-                torch.stack([row, col]), values, (N, N)
+                torch.stack([row, col]), edge_weight_aug, (N, N)
             ).to_dense()  # Warning: O(N^2) memory, simplistic for fallback
 
         # 3. Compute Degree Matrix D
@@ -119,6 +129,7 @@ class UVNetGraphModel(nn.Module):
     def __init__(
         self,
         node_input_dim: Optional[int] = None,
+        edge_input_dim: Optional[int] = None,
         hidden_dim: int = 64,
         embedding_dim: int = 1024,
         num_classes: int = 11,
@@ -132,7 +143,13 @@ class UVNetGraphModel(nn.Module):
                 node_input_dim = len(node_schema)
             else:
                 node_input_dim = 15
+        if edge_input_dim is None:
+            if edge_schema is not None:
+                edge_input_dim = len(edge_schema)
+            else:
+                edge_input_dim = 2
         self.node_input_dim = node_input_dim
+        self.edge_input_dim = edge_input_dim
         self.hidden_dim = hidden_dim
         self.embedding_dim = embedding_dim
         self.num_classes = num_classes
@@ -140,6 +157,7 @@ class UVNetGraphModel(nn.Module):
         self.node_schema = tuple(node_schema) if node_schema else None
         self.edge_schema = tuple(edge_schema) if edge_schema else None
         self.has_pyg = HAS_PYG
+        self.edge_weight_layer = nn.Linear(edge_input_dim, 1) if edge_input_dim > 0 else None
 
         # Encoder Layers (GCN)
         if self.has_pyg:
@@ -183,16 +201,27 @@ class UVNetGraphModel(nn.Module):
             logits: [Batch_Size, Num_Classes]
             embedding: [Batch_Size, Embedding_Dim]
         """
+        edge_weight = self._edge_weight(edge_attr)
+
         # 1. Graph Convolution Blocks
-        x = self.conv1(x, edge_index)
+        if self.has_pyg:
+            x = self.conv1(x, edge_index, edge_weight=edge_weight)
+        else:
+            x = self.conv1(x, edge_index, edge_weight=edge_weight)
         x = self.bn1(x)
         x = F.relu(x)
 
-        x = self.conv2(x, edge_index)
+        if self.has_pyg:
+            x = self.conv2(x, edge_index, edge_weight=edge_weight)
+        else:
+            x = self.conv2(x, edge_index, edge_weight=edge_weight)
         x = self.bn2(x)
         x = F.relu(x)
 
-        x = self.conv3(x, edge_index)
+        if self.has_pyg:
+            x = self.conv3(x, edge_index, edge_weight=edge_weight)
+        else:
+            x = self.conv3(x, edge_index, edge_weight=edge_weight)
         x = self.bn3(x)
         # Activation optional here before pooling, usually helpful
         x = F.relu(x)
@@ -222,6 +251,7 @@ class UVNetGraphModel(nn.Module):
         """Return architecture configuration for saving."""
         return {
             "node_input_dim": self.node_input_dim,
+            "edge_input_dim": self.edge_input_dim,
             "hidden_dim": self.hidden_dim,
             "embedding_dim": self.embedding_dim,
             "num_classes": self.num_classes,
@@ -230,3 +260,17 @@ class UVNetGraphModel(nn.Module):
             "edge_schema": self.edge_schema,
             "backend": "pyg" if self.has_pyg else "pure_torch",
         }
+
+    def _edge_weight(self, edge_attr: Optional[torch.Tensor]) -> Optional[torch.Tensor]:
+        if edge_attr is None:
+            return None
+        if self.edge_weight_layer is None:
+            return None
+        if edge_attr.dim() != 2:
+            raise ValueError(f"Edge feature tensor must be 2D, got shape {tuple(edge_attr.shape)}")
+        if edge_attr.size(1) != self.edge_input_dim:
+            raise ValueError(
+                f"Edge feature dim mismatch: expected {self.edge_input_dim}, got {edge_attr.size(1)}"
+            )
+        edge_attr = edge_attr.to(dtype=self.edge_weight_layer.weight.dtype)
+        return torch.sigmoid(self.edge_weight_layer(edge_attr)).squeeze(-1)

@@ -70,8 +70,12 @@ class UVNetEncoder:
                 node_input_dim = len(node_schema)
             if node_input_dim is None:
                 node_input_dim = 15
+            edge_input_dim = config.get("edge_input_dim")
+            if edge_input_dim is None and edge_schema is not None:
+                edge_input_dim = len(edge_schema)
             self.model = UVNetGraphModel(
                 node_input_dim=node_input_dim,
+                edge_input_dim=edge_input_dim,
                 hidden_dim=config.get("hidden_dim", 64),
                 embedding_dim=config.get("embedding_dim", 1024),
                 num_classes=config.get("num_classes", 11),

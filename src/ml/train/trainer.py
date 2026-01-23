@@ -157,6 +157,17 @@ class UVNetTrainer:
                 f"Node feature dim mismatch: expected {self.model.node_input_dim}, got {x.size(1)}"
             )
 
+    def _validate_edge_features(self, edge_attr: Optional[torch.Tensor]) -> None:
+        if edge_attr is None:
+            return
+        if edge_attr.dim() != 2:
+            raise ValueError(f"Edge feature tensor must be 2D, got {tuple(edge_attr.shape)}")
+        edge_dim = getattr(self.model, "edge_input_dim", None)
+        if edge_dim is not None and edge_attr.size(1) != edge_dim:
+            raise ValueError(
+                f"Edge feature dim mismatch: expected {edge_dim}, got {edge_attr.size(1)}"
+            )
+
     def train_epoch(self, dataloader: Any) -> Dict[str, float]:
         self.model.train()
         total_loss = 0.0
@@ -185,6 +196,7 @@ class UVNetTrainer:
                 batch_idx = inputs["batch"]
 
             self._validate_node_features(x)
+            self._validate_edge_features(edge_attr)
 
             self.optimizer.zero_grad()
 
@@ -236,6 +248,7 @@ class UVNetTrainer:
                     batch_idx = inputs["batch"]
 
                 self._validate_node_features(x)
+                self._validate_edge_features(edge_attr)
 
                 log_probs, _ = self.model(x, edge_index, batch_idx, edge_attr=edge_attr)
                 loss = self.criterion(log_probs, targets)
