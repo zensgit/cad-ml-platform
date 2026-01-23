@@ -1,0 +1,8 @@
+label,count,share,avg_confidence
+complex_assembly,9,0.450,0.550
+moderate_component,4,0.200,0.600
+蜗杆,2,0.100,0.900
+机械制图,2,0.100,0.900
+箱体,1,0.050,0.900
+底板,1,0.050,0.900
+盖,1,0.050,0.900

@@ -2028,5 +2028,12 @@
   - Verified Graph2D override integration test after singleton restoration.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_ANALYZER_AUDIT_FIXES_VALIDATION_20260123.md`
 
+- **Mechanical Knowledge 4000CAD Batch Analysis Sample (20)**:
+  - Ran a 20-sample DXF batch analysis using local TestClient.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_SAMPLE_20260123.md`
+- **Mechanical Knowledge 4000CAD Batch Analysis Sample Validation**:
+  - Verified batch outputs and summary artifacts; noted Graph2D inference disabled without Torch.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_SAMPLE_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
