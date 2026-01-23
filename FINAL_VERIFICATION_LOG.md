@@ -2106,10 +2106,10 @@
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_EDGE_ATTR_WEIGHTING_VALIDATION_20260123.md`
 
 - **Mechanical Knowledge 4000CAD UV-Net Graph STEP Validation**:
-  - Attempted STEP-based UV-Net graph validation; pip install `pythonocc-core` had no matching distribution.
+  - Local macOS pip install failed; completed Docker micromamba STEP dry-run with pythonocc-core and torch.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_STEP_VALIDATION_20260123.md`
 - **Mechanical Knowledge 4000CAD UV-Net Graph STEP Validation Validation**:
-  - Confirmed `pythonocc-core` is unavailable and pip install failed in `.venv-graph`.
+  - Recorded local pip failure and the Docker dry-run results (nodes, edges, logits, embeddings).
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_STEP_VALIDATION_VALIDATION_20260123.md`
 
 - **Mechanical Knowledge 4000CAD UV-Net Graph PyG Edge Attr Upgrade**:

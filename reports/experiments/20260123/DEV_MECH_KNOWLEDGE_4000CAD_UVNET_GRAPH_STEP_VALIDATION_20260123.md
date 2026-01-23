@@ -1,13 +1,13 @@
 # DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_STEP_VALIDATION_20260123
 
 ## Summary
-- Attempted STEP-based UV-Net graph dry-run validation in the current environment.
-- Tried installing `pythonocc-core` via pip in `.venv-graph` but no distribution was available.
+- Attempted STEP-based UV-Net graph dry-run validation locally; pip install failed on macOS.
+- Completed STEP validation via linux/amd64 micromamba Docker container with pythonocc-core.
 
 ## Result
-- `pythonocc-core` is not available locally, so STEP-based graph extraction cannot execute.
-- The pip installation failed with "No matching distribution found".
+- Local pip install failed with "No matching distribution found".
+- Docker run succeeded: non-zero node/edge counts and valid logits/embedding shapes.
 
 ## Notes
-- Re-run on a machine with `pythonocc-core` installed to validate real B-Rep graph extraction.
-- Consider using a Linux environment with conda-forge packages or a container that bundles OpenCascade.
+- Docker-based validation is the recommended path for macOS arm64.
+- Use a persistent micromamba cache volume to speed up repeat validations.
