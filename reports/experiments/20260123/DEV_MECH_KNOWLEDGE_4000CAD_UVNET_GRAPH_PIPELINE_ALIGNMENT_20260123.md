@@ -3,6 +3,7 @@
 ## Summary
 - Threaded `edge_attr` through graph collation and training/inference paths.
 - Aligned model defaults to infer node input dimensions from schema when available.
+- Added an MPS-safe dense adjacency fallback for the pure-torch GCN path.
 - Ensured PyG samples attach scalar labels and training scripts persist schema in checkpoints.
 
 ## Changes
