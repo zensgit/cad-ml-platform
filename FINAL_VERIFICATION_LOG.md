@@ -2035,5 +2035,12 @@
   - Verified batch outputs and summary artifacts; noted Graph2D inference disabled without Torch.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_SAMPLE_VALIDATION_20260123.md`
 
+- **Mechanical Knowledge 4000CAD Batch Analysis Sample (Graph2D)**:
+  - Re-ran the 20-sample DXF batch analysis with Graph2D enabled via `.venv-graph`.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_SAMPLE_GRAPH2D_20260123.md`
+- **Mechanical Knowledge 4000CAD Batch Analysis Sample (Graph2D) Validation**:
+  - Verified Graph2D predictions populated in batch outputs and summary artifacts.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_SAMPLE_GRAPH2D_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
