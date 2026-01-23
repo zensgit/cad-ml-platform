@@ -2203,5 +2203,12 @@
   - Verified the `make run` command expands the min-confidence default.
   - Report: `reports/experiments/20260123/DEV_GRAPH2D_MIN_CONF_RUN_TARGET_VALIDATION_20260123.md`
 
+- **Training DXF 2D Graph Fusion Impact**:
+  - Compared classification outputs with FusionAnalyzer override disabled vs enabled.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_IMPACT_20260123.md`
+- **Training DXF 2D Graph Fusion Impact Validation**:
+  - Recorded override diff counts and output artifacts for the fusion impact comparison.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_IMPACT_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent

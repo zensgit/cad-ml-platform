@@ -1,0 +1,8 @@
+label,count,share,avg_confidence
+other,33,0.660,0.833
+机械制图,6,0.120,0.917
+complex_assembly,4,0.080,0.550
+再沸器,2,0.040,0.934
+moderate_component,2,0.040,0.600
+盖,2,0.040,0.900
+底板,1,0.020,0.900
