@@ -117,7 +117,7 @@ clean: ## 清理临时文件
 
 run: ## 启动服务
 	@echo "$(GREEN)Starting CAD ML Platform...$(NC)"
-	uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+	GRAPH2D_MIN_CONF=$${GRAPH2D_MIN_CONF:-0.6} uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 
 chrome-devtools: ## Launch Chrome with remote debugging enabled
 	@scripts/chrome_devtools.sh

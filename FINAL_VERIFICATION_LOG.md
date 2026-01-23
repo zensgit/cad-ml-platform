@@ -2196,5 +2196,12 @@
   - Recorded the deployment template updates.
   - Report: `reports/experiments/20260123/DEV_GRAPH2D_MIN_CONF_DEPLOYMENT_VALIDATION_20260123.md`
 
+- **Graph2D Min-Confidence Run Target**:
+  - Added a default `GRAPH2D_MIN_CONF=0.6` to `make run`.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_MIN_CONF_RUN_TARGET_20260123.md`
+- **Graph2D Min-Confidence Run Target Validation**:
+  - Verified the `make run` command expands the min-confidence default.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_MIN_CONF_RUN_TARGET_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
