@@ -1,0 +1,7 @@
+# DEV_MECH_KNOWLEDGE_4000CAD_TEMPLATE_UPSAMPLED_API_VALIDATION_VALIDATION_20260122
+
+## Checks
+- Integration tests passed with template-upsampled Graph2D model.
+
+## Files Verified
+- `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_TEMPLATE_UPSAMPLED_API_VALIDATION_20260122.md`
