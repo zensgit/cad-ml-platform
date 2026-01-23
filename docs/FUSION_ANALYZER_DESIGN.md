@@ -39,3 +39,4 @@ preserving explainability and deterministic fallback behavior.
   decision (requires `FUSION_ANALYZER_ENABLED=true`).
 - `FUSION_ANALYZER_OVERRIDE_MIN_CONF=0.5`: minimum fused confidence required to apply override.
 - `GRAPH2D_MIN_CONF=0.6`: minimum Graph2D confidence required to pass L4 input into fusion (tune per model).
+- `GRAPH2D_EXCLUDE_LABELS=other`: comma-separated labels excluded from Graph2D fusion inputs.

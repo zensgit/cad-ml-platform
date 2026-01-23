@@ -66,6 +66,7 @@ def _validate_optional_feature_flags() -> None:
         "FUSION_GRAPH2D_OVERRIDE_LOW_CONF_MIN_CONF", "0.6"
     )
     graph2d_min_conf_raw = os.getenv("GRAPH2D_MIN_CONF", "0.0")
+    graph2d_exclude_raw = os.getenv("GRAPH2D_EXCLUDE_LABELS", "other")
 
     if graph2d_enabled and not os.path.exists(graph2d_model):
         logger.warning("GRAPH2D_ENABLED=true but model missing: %s", graph2d_model)
@@ -119,6 +120,8 @@ def _validate_optional_feature_flags() -> None:
             logger.warning("GRAPH2D_MIN_CONF out of range: %s", graph2d_min_conf_raw)
     except (TypeError, ValueError):
         logger.warning("GRAPH2D_MIN_CONF is not a float: %s", graph2d_min_conf_raw)
+    if graph2d_exclude_raw.strip() and not graph2d_enabled:
+        logger.warning("GRAPH2D_EXCLUDE_LABELS set but GRAPH2D_ENABLED=false")
 
 
 @asynccontextmanager

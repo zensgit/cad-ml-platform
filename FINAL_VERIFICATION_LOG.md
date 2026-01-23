@@ -2210,5 +2210,12 @@
   - Recorded override diff counts and output artifacts for the fusion impact comparison.
   - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_IMPACT_VALIDATION_20260123.md`
 
+- **Training DXF 2D Graph Fusion Exclude Other**:
+  - Excluded `other` from Graph2D fusion inputs using `GRAPH2D_EXCLUDE_LABELS`.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_EXCLUDE_OTHER_20260123.md`
+- **Training DXF 2D Graph Fusion Exclude Other Validation**:
+  - Compared override results after excluding `other` (2/50 changes vs baseline).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_EXCLUDE_OTHER_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent

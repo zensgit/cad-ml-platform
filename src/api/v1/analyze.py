@@ -820,10 +820,18 @@ async def analyze_cad_file(
                         if graph2d_result.get("status") != "model_unavailable":
                             graph2d_min_conf = _safe_float_env("GRAPH2D_MIN_CONF", 0.0)
                             graph2d_conf = float(graph2d_result.get("confidence", 0.0))
+                            graph2d_exclude_raw = os.getenv("GRAPH2D_EXCLUDE_LABELS", "other")
+                            graph2d_exclude = {
+                                label.strip()
+                                for label in graph2d_exclude_raw.split(",")
+                                if label.strip()
+                            }
+                            graph2d_label = str(graph2d_result.get("label") or "").strip()
                             graph2d_result["min_confidence"] = graph2d_min_conf
                             graph2d_result["passed_threshold"] = graph2d_conf >= graph2d_min_conf
+                            graph2d_result["excluded"] = graph2d_label in graph2d_exclude
                             cls_payload["graph2d_prediction"] = graph2d_result
-                            if graph2d_result["passed_threshold"]:
+                            if graph2d_result["passed_threshold"] and not graph2d_result["excluded"]:
                                 graph2d_fusable = graph2d_result
                     except Exception:
                         graph2d_result = None
