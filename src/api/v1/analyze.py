@@ -55,6 +55,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Local helper for env float parsing to avoid runtime 500s on bad values.
+def _safe_float_env(name: str, default: float) -> float:
+    raw = os.getenv(name, str(default))
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        logger.warning("Invalid %s=%s; using default %.2f", name, raw, default)
+        return float(default)
+
 # Drift state (in-memory); keys: materials, predictions, baseline_materials, baseline_predictions
 _DRIFT_STATE: Dict[str, Any] = {
     "materials": [],
@@ -816,8 +825,8 @@ async def analyze_cad_file(
                 fusion_override = (
                     os.getenv("FUSION_ANALYZER_OVERRIDE", "false").lower() == "true"
                 )
-                fusion_override_min_conf = float(
-                    os.getenv("FUSION_ANALYZER_OVERRIDE_MIN_CONF", "0.5")
+                fusion_override_min_conf = _safe_float_env(
+                    "FUSION_ANALYZER_OVERRIDE_MIN_CONF", 0.5
                 )
                 if fusion_enabled:
                     try:
@@ -835,11 +844,13 @@ async def analyze_cad_file(
                             l4_prediction = {
                                 "label": graph2d_result["label"],
                                 "confidence": float(graph2d_result.get("confidence", 0.0)),
+                                "source": "graph2d",
                             }
                         elif ml_result and ml_result.get("predicted_type"):
                             l4_prediction = {
                                 "label": ml_result["predicted_type"],
                                 "confidence": float(ml_result.get("confidence", 0.0)),
+                                "source": "ml",
                             }
 
                         fusion_decision = get_fusion_analyzer().analyze(
@@ -856,12 +867,25 @@ async def analyze_cad_file(
                             "l4": l4_prediction,
                         }
                         if fusion_override and fusion_decision.confidence >= fusion_override_min_conf:
-                            cls_payload["part_type"] = fusion_decision.primary_label
-                            cls_payload["confidence"] = fusion_decision.confidence
-                            cls_payload["rule_version"] = (
-                                f"FusionAnalyzer-{fusion_decision.schema_version}"
+                            from src.core.knowledge.fusion_contracts import DecisionSource
+
+                            is_default_rule = (
+                                fusion_decision.source == DecisionSource.RULE_BASED
+                                and fusion_decision.rule_hits == ["RULE_DEFAULT"]
                             )
-                            cls_payload["confidence_source"] = "fusion"
+                            if is_default_rule:
+                                cls_payload["fusion_override_skipped"] = {
+                                    "min_confidence": fusion_override_min_conf,
+                                    "decision_confidence": fusion_decision.confidence,
+                                    "reason": "default_rule_only",
+                                }
+                            else:
+                                cls_payload["part_type"] = fusion_decision.primary_label
+                                cls_payload["confidence"] = fusion_decision.confidence
+                                cls_payload["rule_version"] = (
+                                    f"FusionAnalyzer-{fusion_decision.schema_version}"
+                                )
+                                cls_payload["confidence_source"] = "fusion"
                         elif fusion_override:
                             cls_payload["fusion_override_skipped"] = {
                                 "min_confidence": fusion_override_min_conf,

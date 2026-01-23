@@ -1879,6 +1879,147 @@
 - **Mechanical Knowledge 4000CAD End-to-End Validation**:
   - Confirmed test pass and index artifacts for the 2026-01-21 deliverables.
   - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_END_TO_END_VALIDATION_20260121.md`
+- **Mechanical Knowledge 4000CAD OCR Auto-Label Pass**:
+  - Ran PaddleOCR-enabled auto-labeling on the unlabeled DWG template; OCR returned no text for this batch.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_OCR_AUTO_LABEL_20260121.md`
+- **Mechanical Knowledge 4000CAD OCR Auto-Label Validation**:
+  - Verified OCR auto-label row counts and delta output.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_OCR_AUTO_LABEL_VALIDATION_20260121.md`
+- **Mechanical Knowledge 4000CAD Synthetic DXF Augmentation**:
+  - Generated a 20-sample synthetic DXF dataset with plates, holes, and slots for graph augmentation.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_SYNTHETIC_DXF_AUGMENTATION_20260121.md`
+- **Mechanical Knowledge 4000CAD Synthetic DXF Augmentation Validation**:
+  - Confirmed synthetic dataset and label manifest outputs.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_SYNTHETIC_DXF_AUGMENTATION_VALIDATION_20260121.md`
+- **Mechanical Knowledge 4000CAD Graph2D Evaluation**:
+  - Re-trained Graph2D (6 epochs) and exported per-class validation metrics + error buckets.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_EVAL_20260121.md`
+- **Mechanical Knowledge 4000CAD Graph2D Evaluation Validation**:
+  - Verified Graph2D evaluation metrics and error outputs.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_EVAL_VALIDATION_20260121.md`
+- **Mechanical Knowledge 4000CAD Fusion Analyzer Upgrade**:
+  - Normalized L2/L3 inputs, calibrated AI confidence, and validated env flags at startup.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_ANALYZER_UPGRADE_20260121.md`
+- **Mechanical Knowledge 4000CAD Fusion Analyzer Upgrade Validation**:
+  - Confirmed integration test coverage for fusion inputs and schema v1.1.
+  - Report: `reports/experiments/20260121/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_ANALYZER_UPGRADE_VALIDATION_20260121.md`
+- **Mechanical Knowledge 4000CAD Graph2D Targeted Augmentation**:
+  - Upsampled underperforming labels and retrained Graph2D on a balanced manifest.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_TARGETED_AUGMENTATION_20260122.md`
+- **Mechanical Knowledge 4000CAD Graph2D Targeted Augmentation Validation**:
+  - Verified balanced manifest outputs, evaluation metrics, and DXF fusion integration test.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_TARGETED_AUGMENTATION_VALIDATION_20260122.md`
+- **Mechanical Knowledge 4000CAD Graph2D Template Feature Engineering**:
+  - Added border/title-block hints to DXF node features and trained a template-focused model.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_TEMPLATE_FEATURES_20260122.md`
+- **Mechanical Knowledge 4000CAD Graph2D Template Feature Validation**:
+  - Verified template-feature checkpoint and evaluation metrics outputs.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_TEMPLATE_FEATURES_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD OCR Paper Titleblock Pass**:
+  - Ran OCR focused on paper-space title blocks; no text extracted for this batch.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_OCR_PAPER_TITLEBLOCK_20260122.md`
+- **Mechanical Knowledge 4000CAD OCR Paper Titleblock Validation**:
+  - Verified OCR run outputs and zero OCR hits.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_OCR_PAPER_TITLEBLOCK_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Template Upsample Pass**:
+  - Upsampled template labels to 80 entries and retrained Graph2D.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_TEMPLATE_UPSAMPLE_20260122.md`
+- **Mechanical Knowledge 4000CAD Template Upsample Validation**:
+  - Verified template-upsampled manifest, metrics, and candidate list outputs.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_TEMPLATE_UPSAMPLE_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Template Upsampled API Validation**:
+  - Verified DXF analyze integration tests using the template-upsampled Graph2D model.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_TEMPLATE_UPSAMPLED_API_VALIDATION_20260122.md`
+- **Mechanical Knowledge 4000CAD Template Upsampled API Validation Validation**:
+  - Confirmed integration test pass for the template-upsampled model.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_TEMPLATE_UPSAMPLED_API_VALIDATION_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Graph2D Default Model Switch**:
+  - Updated default Graph2D model path to the template-upsampled checkpoint.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_DEFAULT_MODEL_SWITCH_20260122.md`
+- **Mechanical Knowledge 4000CAD Graph2D Default Model Switch Validation**:
+  - Verified env/default path updates for Graph2D model loading.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_DEFAULT_MODEL_SWITCH_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Parts Upsample Pass**:
+  - Upsampled 零件图 to 100 entries and retrained Graph2D with node-dim 9.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_PARTS_UPSAMPLE_20260122.md`
+- **Mechanical Knowledge 4000CAD Parts Upsample Validation**:
+  - Verified parts-upsampled manifest and evaluation metrics outputs.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_PARTS_UPSAMPLE_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Parts Upsampled API Validation**:
+  - Verified DXF analyze integration tests using the parts-upsampled Graph2D model.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_PARTS_UPSAMPLED_API_VALIDATION_20260122.md`
+- **Mechanical Knowledge 4000CAD Parts Upsampled API Validation Validation**:
+  - Confirmed integration test pass for the parts-upsampled model.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_PARTS_UPSAMPLED_API_VALIDATION_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Batch Analysis**:
+  - Ran local batch analyze on training DXF set using parts-upsampled Graph2D.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_20260122.md`
+- **Mechanical Knowledge 4000CAD Batch Analysis Validation**:
+  - Verified batch analysis outputs and summary distribution.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Fusion Consistency Review**:
+  - Audited Graph2D vs final part_type consistency on batch analysis outputs.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_CONSISTENCY_20260122.md`
+- **Mechanical Knowledge 4000CAD Fusion Consistency Validation**:
+  - Verified mismatch and coverage artifacts from fusion consistency audit.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_CONSISTENCY_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Graph2D Label Override**:
+  - Added Graph2D label override for high-confidence template/part/assembly labels.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_LABEL_OVERRIDE_20260122.md`
+- **Mechanical Knowledge 4000CAD Graph2D Label Override Validation**:
+  - Verified fusion schema v1.2 and integration test pass.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_LABEL_OVERRIDE_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Graph2D Override Fusion Batch Analysis**:
+  - Re-ran batch DXF analysis with Graph2D override and FusionAnalyzer override enabled.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_FUSION_BATCH_ANALYSIS_20260122.md`
+- **Mechanical Knowledge 4000CAD Graph2D Override Fusion Batch Analysis Validation**:
+  - Verified override batch analysis outputs, mismatch summary, and coverage artifacts.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_FUSION_BATCH_ANALYSIS_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Graph2D Override Fusion Batch Analysis (Min 0.5)**:
+  - Re-ran batch DXF analysis with Graph2D override min confidence set to 0.5.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_FUSION_BATCH_ANALYSIS_MIN05_20260122.md`
+- **Mechanical Knowledge 4000CAD Graph2D Override Fusion Batch Analysis (Min 0.5) Validation**:
+  - Verified batch analysis outputs and mismatch artifacts for the 0.5 override run.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_FUSION_BATCH_ANALYSIS_MIN05_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Graph2D Override Fusion Batch Analysis (Min 0.5 / Fusion 0.5)**:
+  - Re-ran batch DXF analysis with Graph2D and FusionAnalyzer override thresholds both at 0.5.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_FUSION_BATCH_ANALYSIS_MIN05_FUSION05_20260122.md`
+- **Mechanical Knowledge 4000CAD Graph2D Override Fusion Batch Analysis (Min 0.5 / Fusion 0.5) Validation**:
+  - Verified batch analysis outputs and mismatch artifacts for the 0.5/0.5 override run.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_FUSION_BATCH_ANALYSIS_MIN05_FUSION05_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Fusion Override Default Rule Guard**:
+  - Skipped fusion overrides when the decision is the default rule fallback.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_OVERRIDE_DEFAULT_RULE_GUARD_20260122.md`
+- **Mechanical Knowledge 4000CAD Fusion Override Default Rule Guard Validation**:
+  - Verified guarded batch analysis outputs and mismatch artifacts.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_OVERRIDE_DEFAULT_RULE_GUARD_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Graph2D Low-Confidence Override Guard**:
+  - Added low-confidence guard for Graph2D overrides on 机械制图/零件图 labels.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_LOW_CONF_LABEL_GUARD_20260122.md`
+- **Mechanical Knowledge 4000CAD Graph2D Low-Confidence Override Guard Validation**:
+  - Verified guarded batch analysis outputs and DXF fusion integration tests.
+  - Report: `reports/experiments/20260122/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_LOW_CONF_LABEL_GUARD_VALIDATION_20260122.md`
+
+- **Mechanical Knowledge 4000CAD Fusion Analyzer Hardening**:
+  - Added safe fusion override env parsing and Graph2D override integration coverage.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_ANALYZER_HARDENING_20260123.md`
+- **Mechanical Knowledge 4000CAD Fusion Analyzer Hardening Validation**:
+  - Verified Graph2D override coverage and fusion override env parsing guardrails.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_ANALYZER_HARDENING_VALIDATION_20260123.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
