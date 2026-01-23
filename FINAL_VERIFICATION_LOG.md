@@ -2119,5 +2119,19 @@
   - Installed torch_geometric in `.venv-graph` and verified GINEConv path via synthetic training.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_PYG_EDGE_ATTR_UPGRADE_VALIDATION_20260123.md`
 
+- **UV-Net STEP Docker Validation Script**:
+  - Added a Docker micromamba helper script for STEP UV-Net dry-run validation; shell syntax checked.
+  - Report: `reports/experiments/20260123/DEV_UVNET_STEP_DOCKER_SCRIPT_20260123.md`
+- **UV-Net STEP Docker Validation Script Validation**:
+  - Verified `scripts/validate_uvnet_step_docker.sh` with `bash -n`; runtime run pending STEP input.
+  - Report: `reports/experiments/20260123/DEV_UVNET_STEP_DOCKER_SCRIPT_VALIDATION_20260123.md`
+
+- **Training DXF 2D Pipeline Validation**:
+  - Ran local DXF batch analysis on a 50-file sample; Graph2D model unavailable due to missing torch.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_PIPELINE_VALIDATION_20260123.md`
+- **Training DXF 2D Pipeline Validation Validation**:
+  - Captured summary stats and outputs from the DXF batch analyze run.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_PIPELINE_VALIDATION_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
