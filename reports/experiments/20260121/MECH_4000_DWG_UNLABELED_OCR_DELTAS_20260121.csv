@@ -1,0 +1,11 @@
+file_name,label_cn_prev,label_en_prev,label_confidence_prev,label_cn_new,label_en_new,label_confidence_new,ocr_used,ocr_confidence,ocr_layout,notes
+1.dwg,练习零件图,,0.70,练习零件图,practice part drawing,0.70,0,0.00,,auto_label:filename_numeric
+10.dwg,练习零件图,,0.70,练习零件图,practice part drawing,0.70,0,0.00,,auto_label:filename_numeric
+2.dwg,练习零件图,,0.70,练习零件图,practice part drawing,0.70,0,0.00,,auto_label:filename_numeric
+3.dwg,练习零件图,,0.70,练习零件图,practice part drawing,0.70,0,0.00,,auto_label:filename_numeric
+4.dwg,练习零件图,,0.70,练习零件图,practice part drawing,0.70,0,0.00,,auto_label:filename_numeric
+6.dwg,练习零件图,,0.70,练习零件图,practice part drawing,0.70,0,0.00,,auto_label:filename_numeric
+7.dwg,练习零件图,,0.70,练习零件图,practice part drawing,0.70,0,0.00,,auto_label:filename_numeric
+8.dwg,练习零件图,,0.70,练习零件图,practice part drawing,0.70,0,0.00,,auto_label:filename_numeric
+9.dwg,练习零件图,,0.70,练习零件图,practice part drawing,0.70,0,0.00,,auto_label:filename_numeric
+GB27-88.DWG,,,0.40,铰制螺栓,reamed bolt,0.90,0,0.00,,auto_label:rule_match score=0.90

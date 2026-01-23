@@ -1,0 +1,28 @@
+file_name,relative_path,source_dir,label_cn,label_en,label_confidence,auto_label_reason,ocr_used,ocr_confidence,ocr_layout,notes
+1.dwg,1.dwg,机械零件CAD图纸,练习零件图,practice part drawing,0.70,filename_numeric,0,0.00,,auto_label:filename_numeric
+10.dwg,10.dwg,机械零件CAD图纸,练习零件图,practice part drawing,0.70,filename_numeric,0,0.00,,auto_label:filename_numeric
+2.dwg,2.dwg,机械零件CAD图纸,练习零件图,practice part drawing,0.70,filename_numeric,0,0.00,,auto_label:filename_numeric
+3.dwg,3.dwg,机械零件CAD图纸,练习零件图,practice part drawing,0.70,filename_numeric,0,0.00,,auto_label:filename_numeric
+31001-1.dwg,31001-1.dwg,机械零件CAD图纸,差动机构,differential mechanism,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+31001-2.dwg,31001-2.dwg,机械零件CAD图纸,蜗杆,worm,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+4.dwg,4.dwg,机械零件CAD图纸,练习零件图,practice part drawing,0.70,filename_numeric,0,0.00,,auto_label:filename_numeric
+5.dwg,5.dwg,机械零件CAD图纸,拨叉,shift fork,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+6.dwg,6.dwg,机械零件CAD图纸,练习零件图,practice part drawing,0.70,filename_numeric,0,0.00,,auto_label:filename_numeric
+61001.dwg,61001.dwg,机械零件CAD图纸,旋转组件,rotary assembly,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+7.dwg,7.dwg,机械零件CAD图纸,练习零件图,practice part drawing,0.70,filename_numeric,0,0.00,,auto_label:filename_numeric
+8.dwg,8.dwg,机械零件CAD图纸,练习零件图,practice part drawing,0.70,filename_numeric,0,0.00,,auto_label:filename_numeric
+9.dwg,9.dwg,机械零件CAD图纸,练习零件图,practice part drawing,0.70,filename_numeric,0,0.00,,auto_label:filename_numeric
+PE2540.0.dwg,PE2540.0.dwg,机械零件CAD图纸,挡板,baffle plate,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+FU200-02-01-1.DWG,FU200-02-01-1.DWG,机械零件CAD图纸,盖,cover,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+FU200-02-01-2.DWG,FU200-02-01-2.DWG,机械零件CAD图纸,轴承,bearing,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+FU200-02-05.DWG,FU200-02-05.DWG,机械零件CAD图纸,托轮轴压板,roller shaft clamp plate,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+FU200-02-06.DWG,FU200-02-06.DWG,机械零件CAD图纸,轴承,bearing,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+FU200-02-13-01.DWG,FU200-02-13-01.DWG,机械零件CAD图纸,角钢,angle steel,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+GB27-88.DWG,GB27-88.DWG,机械零件CAD图纸,铰制螺栓,reamed bolt,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+JDA00000.DWG,JDA00000.DWG,机械零件CAD图纸,支腿,support leg,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+JDB00000.DWG,JDB00000.DWG,机械零件CAD图纸,旋转组件,rotary assembly,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+JDC00000.DWG,JDC00000.DWG,机械零件CAD图纸,机械制图,mechanical drawing,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+JDD00000.DWG,JDD00000.DWG,机械零件CAD图纸,挡板,baffle plate,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+JDE00000.DWG,JDE00000.DWG,机械零件CAD图纸,底板,base plate,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+JDF00000.DWG,JDF00000.DWG,机械零件CAD图纸,盖,cover,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
+ZHITUI.DWG,ZHITUI.DWG,机械零件CAD图纸,支腿,support leg,0.90,rule_match,0,0.00,,auto_label:rule_match score=0.90
