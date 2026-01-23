@@ -31,9 +31,17 @@ from src.ml.train.trainer import GraphBatchCollate, UVNetTrainer
 
 
 class SyntheticGraphDataset(Dataset):
-    def __init__(self, samples: int, node_dim: int, num_classes: int, seed: int) -> None:
+    def __init__(
+        self,
+        samples: int,
+        node_dim: int,
+        edge_dim: int,
+        num_classes: int,
+        seed: int,
+    ) -> None:
         self.samples = samples
         self.node_dim = node_dim
+        self.edge_dim = edge_dim
         self.num_classes = num_classes
         self.random = random.Random(seed)
 
@@ -45,8 +53,9 @@ class SyntheticGraphDataset(Dataset):
         num_edges = self.random.randint(max(1, num_nodes - 1), num_nodes * 3)
         x = torch.randn(num_nodes, self.node_dim)
         edge_index = torch.randint(0, num_nodes, (2, num_edges))
+        edge_attr = torch.randn(num_edges, self.edge_dim)
         label = self.random.randint(0, self.num_classes - 1)
-        return {"x": x, "edge_index": edge_index}, label
+        return {"x": x, "edge_index": edge_index, "edge_attr": edge_attr}, label
 
 
 def _set_seed(seed: int) -> None:
@@ -127,11 +136,13 @@ def main() -> int:
     _set_seed(args.seed)
 
     node_dim = len(BREP_GRAPH_NODE_FEATURES)
+    edge_dim = len(BREP_GRAPH_EDGE_FEATURES)
 
     if args.synthetic:
         dataset: Dataset = SyntheticGraphDataset(
             samples=args.synthetic_samples,
             node_dim=node_dim,
+            edge_dim=edge_dim,
             num_classes=args.num_classes or 5,
             seed=args.seed,
         )

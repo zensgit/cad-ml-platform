@@ -58,10 +58,11 @@ class TestUVNetGraphFlow(unittest.TestCase):
         x = torch.randn(num_nodes, self.node_dim)
         # Random edge index [2, E]
         edge_index = torch.randint(0, num_nodes, (2, num_edges))
+        edge_attr = torch.randn(num_edges, 2)
         # Batch vector (all zeros for single graph)
         batch = torch.zeros(num_nodes, dtype=torch.long)
 
-        logits, embedding = self.model(x, edge_index, batch)
+        logits, embedding = self.model(x, edge_index, batch, edge_attr=edge_attr)
 
         self.assertEqual(logits.shape, (1, self.num_classes))
         self.assertEqual(embedding.shape, (1, self.embedding_dim))

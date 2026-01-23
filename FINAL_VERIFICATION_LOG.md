@@ -2091,5 +2091,12 @@
   - UV-Net graph tests skipped locally because torch is unavailable; synthetic training smoke test completed.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_PIPELINE_ALIGNMENT_VALIDATION_20260123.md`
 
+- **Mechanical Knowledge 4000CAD UV-Net Graph Edge Attr Synthetic**:
+  - Enabled edge_attr generation in synthetic UV-Net graph training and updated forward coverage.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_EDGE_ATTR_SYNTHETIC_20260123.md`
+- **Mechanical Knowledge 4000CAD UV-Net Graph Edge Attr Synthetic Validation**:
+  - Verified synthetic training run with edge_attr enabled.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_EDGE_ATTR_SYNTHETIC_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
