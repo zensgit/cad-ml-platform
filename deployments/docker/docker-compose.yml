@@ -16,6 +16,8 @@ services:
       - VECTOR_STORE_BACKEND=redis
       # Graph2D override threshold (defaults to 0.6; override via env if needed)
       - FUSION_GRAPH2D_OVERRIDE_MIN_CONF=${FUSION_GRAPH2D_OVERRIDE_MIN_CONF:-0.6}
+      # Graph2D min confidence gate (defaults to 0.6; override via env if needed)
+      - GRAPH2D_MIN_CONF=${GRAPH2D_MIN_CONF:-0.6}
       # 2D dedup async backend (required when WORKERS>1)
       - DEDUP2D_ASYNC_BACKEND=redis
       - DEDUP2D_REDIS_URL=redis://redis:6379/0

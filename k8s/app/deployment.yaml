@@ -51,6 +51,8 @@ spec:
           value: "4"
         - name: FUSION_GRAPH2D_OVERRIDE_MIN_CONF
           value: "0.6"
+        - name: GRAPH2D_MIN_CONF
+          value: "0.6"
         resources:
           requests:
             memory: "1Gi"

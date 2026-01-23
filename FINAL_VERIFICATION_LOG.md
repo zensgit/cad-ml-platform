@@ -2189,5 +2189,12 @@
   - Verified documentation and sample config updates for `GRAPH2D_MIN_CONF`.
   - Report: `reports/experiments/20260123/DEV_GRAPH2D_MIN_CONF_DEFAULT_VALIDATION_20260123.md`
 
+- **Graph2D Min-Confidence Deployment**:
+  - Set `GRAPH2D_MIN_CONF=0.6` in Docker Compose and Kubernetes deployment templates.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_MIN_CONF_DEPLOYMENT_20260123.md`
+- **Graph2D Min-Confidence Deployment Validation**:
+  - Recorded the deployment template updates.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_MIN_CONF_DEPLOYMENT_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
