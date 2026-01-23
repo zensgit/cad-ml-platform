@@ -68,10 +68,14 @@ class SimpleGCNLayer(nn.Module):
         # 2. Compute Adjacency Matrix (Sparse)
         # Value is 1.0 for all edges
         row, col = edge_index_aug
-        values = torch.ones(row.size(0), device=device)
-        adj = torch.sparse_coo_tensor(
-            torch.stack([row, col]), values, (N, N)
-        ).to_dense()  # Warning: O(N^2) memory, simplistic for fallback
+        if x.device.type == "mps":
+            adj = torch.zeros((N, N), device=device)
+            adj[row, col] = 1.0
+        else:
+            values = torch.ones(row.size(0), device=device)
+            adj = torch.sparse_coo_tensor(
+                torch.stack([row, col]), values, (N, N)
+            ).to_dense()  # Warning: O(N^2) memory, simplistic for fallback
 
         # 3. Compute Degree Matrix D
         deg = adj.sum(dim=1)
