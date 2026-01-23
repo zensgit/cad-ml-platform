@@ -3,6 +3,7 @@
 ## Summary
 - Added optional PyG edge-attribute message passing (GINEConv) when torch_geometric is available.
 - Preserved weighted-GCN fallback for pure torch environments.
+- Validated the PyG path in `.venv-graph` with a synthetic training run.
 
 ## Changes
 - `src/ml/train/model.py` (GINEConv path + edge backend metadata)

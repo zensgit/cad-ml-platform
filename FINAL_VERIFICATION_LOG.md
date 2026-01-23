@@ -2116,7 +2116,7 @@
   - Added optional GINEConv path when torch_geometric is available.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_PYG_EDGE_ATTR_UPGRADE_20260123.md`
 - **Mechanical Knowledge 4000CAD UV-Net Graph PyG Edge Attr Upgrade Validation**:
-  - Verified synthetic training loop still executes; PyG unavailable locally.
+  - Installed torch_geometric in `.venv-graph` and verified GINEConv path via synthetic training.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_UVNET_GRAPH_PYG_EDGE_ATTR_UPGRADE_VALIDATION_20260123.md`
 
 ---
