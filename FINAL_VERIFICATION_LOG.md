@@ -2063,5 +2063,12 @@
   - Verified `.env.example` default remains at 0.6.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_DEFAULT_RECOMMENDATION_VALIDATION_20260123.md`
 
+- **Mechanical Knowledge 4000CAD Graph2D + Fusion Summary**:
+  - Consolidated Graph2D/Fusion updates, batch runs, and override threshold decision.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_FUSION_SUMMARY_20260123.md`
+- **Mechanical Knowledge 4000CAD Graph2D + Fusion Summary Validation**:
+  - Verified summary references latest reports and tests.
+  - Report: `reports/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_FUSION_SUMMARY_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
