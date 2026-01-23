@@ -2056,5 +2056,12 @@
   - Verified both runs completed and summary artifacts recorded.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BATCH_ANALYSIS_50_GRAPH2D_OVERRIDE_COMPARE_VALIDATION_20260123.md`
 
+- **Mechanical Knowledge 4000CAD Graph2D Override Default Recommendation**:
+  - Documented default override threshold 0.6 with experimental 0.5 guidance.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_DEFAULT_RECOMMENDATION_20260123.md`
+- **Mechanical Knowledge 4000CAD Graph2D Override Default Recommendation Validation**:
+  - Verified `.env.example` default remains at 0.6.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_DEFAULT_RECOMMENDATION_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
