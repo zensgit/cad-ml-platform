@@ -2231,5 +2231,12 @@
   - Recorded 2/50 changes vs baseline for the minimal allowlist run.
   - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_ALLOWLIST_BOILER_VALIDATION_20260123.md`
 
+- **Training DXF 2D Graph Fusion Allowlist Boiler Vessel**:
+  - Extended allowlist to `再沸器,罐体部分` with `GRAPH2D_MIN_CONF=0.7`.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_ALLOWLIST_BOILER_VESSEL_20260123.md`
+- **Training DXF 2D Graph Fusion Allowlist Boiler Vessel Validation**:
+  - Recorded 2/50 changes vs baseline for the extended allowlist run.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_ALLOWLIST_BOILER_VESSEL_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
