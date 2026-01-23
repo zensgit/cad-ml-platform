@@ -2,6 +2,7 @@
 
 ## Checks
 - Confirmed the local environment does not have `pythonocc-core` installed.
+- Attempted to install `pythonocc-core` in `.venv-graph` via pip.
 
 ## Runtime Output
 - Command:
@@ -11,6 +12,10 @@ print("HAS_OCC", HAS_OCC)
 PY`
 - Result:
   - `HAS_OCC False`
+- Command:
+  - `.venv-graph/bin/pip install pythonocc-core`
+- Result:
+  - `ERROR: No matching distribution found for pythonocc-core`
 
 ## Notes
 - STEP validation is blocked until `pythonocc-core` is installed.
