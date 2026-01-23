@@ -74,26 +74,36 @@ def test_analyze_dxf_graph2d_override(monkeypatch):
     from src.core.knowledge.fusion_analyzer import get_fusion_analyzer
 
     fusion = get_fusion_analyzer()
+    prev_labels = fusion.graph2d_override_labels
+    prev_min_conf = fusion.graph2d_override_min_conf
+    prev_low_labels = fusion.graph2d_override_low_conf_labels
+    prev_low_min = fusion.graph2d_override_low_conf_min
     fusion.graph2d_override_labels = {"模板"}
     fusion.graph2d_override_min_conf = 0.5
     fusion.graph2d_override_low_conf_labels = set()
     fusion.graph2d_override_low_conf_min = 0.5
-    dxf_payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
-    options = {"extract_features": True, "classify_parts": True}
-    resp = client.post(
-        "/api/v1/analyze/",
-        files={
-            "file": ("Template_A1.dxf", io.BytesIO(dxf_payload), "application/dxf"),
-        },
-        data={"options": json.dumps(options)},
-        headers={"x-api-key": os.getenv("API_KEY", "test")},
-    )
-    assert resp.status_code == 200, resp.text
-    data = resp.json()
-    classification = data.get("results", {}).get("classification", {})
-    assert classification.get("part_type") == "模板"
-    assert classification.get("confidence_source") == "fusion"
-    assert str(classification.get("rule_version", "")).startswith("FusionAnalyzer-")
-    fusion_decision = classification.get("fusion_decision") or {}
-    assert fusion_decision.get("primary_label") == "模板"
-    assert fusion_decision.get("source") == "hybrid"
+    try:
+        dxf_payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
+        options = {"extract_features": True, "classify_parts": True}
+        resp = client.post(
+            "/api/v1/analyze/",
+            files={
+                "file": ("Template_A1.dxf", io.BytesIO(dxf_payload), "application/dxf"),
+            },
+            data={"options": json.dumps(options)},
+            headers={"x-api-key": os.getenv("API_KEY", "test")},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        classification = data.get("results", {}).get("classification", {})
+        assert classification.get("part_type") == "模板"
+        assert classification.get("confidence_source") == "fusion"
+        assert str(classification.get("rule_version", "")).startswith("FusionAnalyzer-")
+        fusion_decision = classification.get("fusion_decision") or {}
+        assert fusion_decision.get("primary_label") == "模板"
+        assert fusion_decision.get("source") == "hybrid"
+    finally:
+        fusion.graph2d_override_labels = prev_labels
+        fusion.graph2d_override_min_conf = prev_min_conf
+        fusion.graph2d_override_low_conf_labels = prev_low_labels
+        fusion.graph2d_override_low_conf_min = prev_low_min

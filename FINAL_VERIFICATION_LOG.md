@@ -2021,5 +2021,12 @@
   - Verified Graph2D override coverage and fusion override env parsing guardrails.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_ANALYZER_HARDENING_VALIDATION_20260123.md`
 
+- **Mechanical Knowledge 4000CAD Fusion Analyzer Audit Fixes**:
+  - Aligned Graph2D override checks with calibrated confidence and clamped override thresholds.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_ANALYZER_AUDIT_FIXES_20260123.md`
+- **Mechanical Knowledge 4000CAD Fusion Analyzer Audit Fixes Validation**:
+  - Verified Graph2D override integration test after singleton restoration.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_ANALYZER_AUDIT_FIXES_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent

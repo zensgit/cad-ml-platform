@@ -118,7 +118,7 @@ class FusionAnalyzer:
             reasons.append("L2/L4 Conflict: Geometry does not support AI prediction")
         ai_conf_calibrated = self._calibrate_ai_confidence(ai_conf, conflict, normalized_vec)
 
-        if self._should_graph2d_override(l4_prediction, conflict, ai_conf):
+        if self._should_graph2d_override(l4_prediction, conflict, ai_conf_calibrated):
             reasons.append(
                 f"Graph2D override for label {ai_label} at confidence {ai_conf_calibrated:.2f}"
             )
@@ -271,7 +271,7 @@ class FusionAnalyzer:
     def _load_graph2d_override_min_conf(self) -> float:
         raw = os.getenv("FUSION_GRAPH2D_OVERRIDE_MIN_CONF", "0.6")
         try:
-            return float(raw)
+            return self._clamp_conf(float(raw), 0.6)
         except (TypeError, ValueError):
             return 0.6
 
@@ -282,9 +282,17 @@ class FusionAnalyzer:
     def _load_graph2d_override_low_conf_min(self) -> float:
         raw = os.getenv("FUSION_GRAPH2D_OVERRIDE_LOW_CONF_MIN_CONF", "0.6")
         try:
-            return float(raw)
+            return self._clamp_conf(float(raw), 0.6)
         except (TypeError, ValueError):
             return 0.6
+
+    @staticmethod
+    def _clamp_conf(value: float, default: float) -> float:
+        if value < 0.0:
+            return 0.0
+        if value > 1.0:
+            return 1.0
+        return value if value == value else default
 
     def _should_graph2d_override(
         self,
