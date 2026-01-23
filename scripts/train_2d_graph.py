@@ -59,6 +59,7 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--hidden-dim", type=int, default=64)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--node-dim", type=int, default=DXF_NODE_DIM)
     parser.add_argument(
         "--downweight-label",
         default="",
@@ -78,7 +79,7 @@ def main() -> int:
     random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    dataset = DXFManifestDataset(args.manifest, args.dxf_dir)
+    dataset = DXFManifestDataset(args.manifest, args.dxf_dir, node_dim=args.node_dim)
     if args.max_samples and args.max_samples > 0:
         dataset.samples = dataset.samples[: args.max_samples]
     if len(dataset) == 0:
@@ -106,7 +107,7 @@ def main() -> int:
 
     label_map = dataset.get_label_map()
     num_classes = len(label_map)
-    model = SimpleGraphClassifier(DXF_NODE_DIM, args.hidden_dim, num_classes)
+    model = SimpleGraphClassifier(args.node_dim, args.hidden_dim, num_classes)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     weight = torch.ones(num_classes, dtype=torch.float)
     if args.downweight_label and args.downweight_label in label_map:
@@ -165,7 +166,7 @@ def main() -> int:
         {
             "model_state_dict": model.state_dict(),
             "label_map": label_map,
-            "node_dim": DXF_NODE_DIM,
+            "node_dim": args.node_dim,
             "hidden_dim": args.hidden_dim,
         },
         out_path,
