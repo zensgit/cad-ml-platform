@@ -2175,5 +2175,12 @@
   - Captured Graph2D confidence buckets with `GRAPH2D_MIN_CONF=0.4` gating.
   - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_INFERENCE_CLEANED_VALIDATION_20260123.md`
 
+- **Training DXF 2D Graph Inference Min-Conf Compare**:
+  - Compared Graph2D gating thresholds at 0.5 and 0.6 using the cleaned model.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_INFERENCE_MINCONF_COMPARE_20260123.md`
+- **Training DXF 2D Graph Inference Min-Conf Compare Validation**:
+  - Recorded pass counts for 0.5 vs 0.6 gating over 50 samples.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_INFERENCE_MINCONF_COMPARE_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
