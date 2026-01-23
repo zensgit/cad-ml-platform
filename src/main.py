@@ -67,6 +67,7 @@ def _validate_optional_feature_flags() -> None:
     )
     graph2d_min_conf_raw = os.getenv("GRAPH2D_MIN_CONF", "0.0")
     graph2d_exclude_raw = os.getenv("GRAPH2D_EXCLUDE_LABELS", "other")
+    graph2d_allow_raw = os.getenv("GRAPH2D_ALLOW_LABELS", "")
 
     if graph2d_enabled and not os.path.exists(graph2d_model):
         logger.warning("GRAPH2D_ENABLED=true but model missing: %s", graph2d_model)
@@ -122,6 +123,8 @@ def _validate_optional_feature_flags() -> None:
         logger.warning("GRAPH2D_MIN_CONF is not a float: %s", graph2d_min_conf_raw)
     if graph2d_exclude_raw.strip() and not graph2d_enabled:
         logger.warning("GRAPH2D_EXCLUDE_LABELS set but GRAPH2D_ENABLED=false")
+    if graph2d_allow_raw.strip() and not graph2d_enabled:
+        logger.warning("GRAPH2D_ALLOW_LABELS set but GRAPH2D_ENABLED=false")
 
 
 @asynccontextmanager

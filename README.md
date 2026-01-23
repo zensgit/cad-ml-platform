@@ -485,6 +485,7 @@ baseline_material_age_seconds > bool DRIFT_BASELINE_MAX_AGE_SECONDS
 | DRIFT_BASELINE_AUTO_REFRESH | 是否自动刷新过期基线 | 1 |
 | GRAPH2D_MIN_CONF | Graph2D 最小置信度门控 (低于阈值不参与融合) | 0.6 |
 | GRAPH2D_EXCLUDE_LABELS | Graph2D 融合排除标签（逗号分隔） | other |
+| GRAPH2D_ALLOW_LABELS | Graph2D 融合白名单标签（逗号分隔，优先生效） | 空 |
 
 ### 🔐 安全建议
 - 生产环境配置并收敛 `ALLOWED_MODEL_HASHES`。

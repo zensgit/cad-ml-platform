@@ -2217,5 +2217,12 @@
   - Compared override results after excluding `other` (2/50 changes vs baseline).
   - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_EXCLUDE_OTHER_VALIDATION_20260123.md`
 
+- **Training DXF 2D Graph Fusion Allowlist**:
+  - Added Graph2D allowlist gating for fusion inputs.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_ALLOWLIST_20260123.md`
+- **Training DXF 2D Graph Fusion Allowlist Validation**:
+  - Verified allowlist run produced 0/50 changes vs baseline.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_FUSION_ALLOWLIST_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent

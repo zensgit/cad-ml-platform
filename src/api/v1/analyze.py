@@ -820,6 +820,12 @@ async def analyze_cad_file(
                         if graph2d_result.get("status") != "model_unavailable":
                             graph2d_min_conf = _safe_float_env("GRAPH2D_MIN_CONF", 0.0)
                             graph2d_conf = float(graph2d_result.get("confidence", 0.0))
+                            graph2d_allow_raw = os.getenv("GRAPH2D_ALLOW_LABELS", "").strip()
+                            graph2d_allow = {
+                                label.strip()
+                                for label in graph2d_allow_raw.split(",")
+                                if label.strip()
+                            }
                             graph2d_exclude_raw = os.getenv("GRAPH2D_EXCLUDE_LABELS", "other")
                             graph2d_exclude = {
                                 label.strip()
@@ -827,11 +833,17 @@ async def analyze_cad_file(
                                 if label.strip()
                             }
                             graph2d_label = str(graph2d_result.get("label") or "").strip()
+                            graph2d_allowed = not graph2d_allow or graph2d_label in graph2d_allow
                             graph2d_result["min_confidence"] = graph2d_min_conf
                             graph2d_result["passed_threshold"] = graph2d_conf >= graph2d_min_conf
                             graph2d_result["excluded"] = graph2d_label in graph2d_exclude
+                            graph2d_result["allowed"] = graph2d_allowed
                             cls_payload["graph2d_prediction"] = graph2d_result
-                            if graph2d_result["passed_threshold"] and not graph2d_result["excluded"]:
+                            if (
+                                graph2d_result["passed_threshold"]
+                                and graph2d_allowed
+                                and not graph2d_result["excluded"]
+                            ):
                                 graph2d_fusable = graph2d_result
                     except Exception:
                         graph2d_result = None
