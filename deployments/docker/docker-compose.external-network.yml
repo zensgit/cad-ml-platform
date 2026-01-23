@@ -1,0 +1,6 @@
+networks:
+  cad-ml-network:
+    external: true
+    name: cad-ml-network
+
+# Graph2D runtime settings are inherited from the base compose file and .env.

@@ -2273,5 +2273,12 @@
   - Logged GHCR override documentation update.
   - Report: `reports/experiments/20260123/DEV_GRAPH2D_RECOMMENDED_RUNTIME_GHCR_VALIDATION_20260123.md`
 
+- **Graph2D Recommended Runtime External Network**:
+  - Added external-network compose notes for Graph2D runtime inheritance.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_RECOMMENDED_RUNTIME_EXTERNAL_NETWORK_20260123.md`
+- **Graph2D Recommended Runtime External Network Validation**:
+  - Logged external-network compose documentation update.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_RECOMMENDED_RUNTIME_EXTERNAL_NETWORK_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
