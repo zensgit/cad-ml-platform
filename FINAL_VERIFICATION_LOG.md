@@ -2182,5 +2182,12 @@
   - Recorded pass counts for 0.5 vs 0.6 gating over 50 samples.
   - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_INFERENCE_MINCONF_COMPARE_VALIDATION_20260123.md`
 
+- **Graph2D Min-Confidence Default**:
+  - Set `GRAPH2D_MIN_CONF=0.6` as the documented default and added a tuning runbook.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_MIN_CONF_DEFAULT_20260123.md`
+- **Graph2D Min-Confidence Default Validation**:
+  - Verified documentation and sample config updates for `GRAPH2D_MIN_CONF`.
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_MIN_CONF_DEFAULT_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
