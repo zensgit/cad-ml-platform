@@ -2077,5 +2077,12 @@
   - Verified deployment templates and docker-compose config output set override threshold to 0.6.
   - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_GRAPH2D_OVERRIDE_DEPLOY_SYNC_VALIDATION_20260123.md`
 
+- **Mechanical Knowledge 4000CAD B-Rep Graph Dataset Upgrade**:
+  - Expanded face adjacency edges for multi-face boundaries and aligned PyG label handling.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BREP_GRAPH_DATASET_UPGRADE_20260123.md`
+- **Mechanical Knowledge 4000CAD B-Rep Graph Dataset Upgrade Validation**:
+  - Verified graph dataset output shapes and schema metadata in the current environment.
+  - Report: `reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BREP_GRAPH_DATASET_UPGRADE_VALIDATION_20260123.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent

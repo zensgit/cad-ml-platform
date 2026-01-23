@@ -13,6 +13,10 @@ legacy numeric features for the existing PointNet scaffold.
 - `graph_backend="pyg"`: require PyG; fall back to dict with a warning if unavailable.
 - `graph_backend="dict"`: always return a plain dict with tensors.
 
+## Label Handling
+- PyG backend: attaches `y` to the Data object and returns the Data instance directly.
+- Dict backend: returns `(sample, label)` tuples.
+
 ## Graph Tensor Layout
 - `x`: node features, shape `(num_nodes, node_dim)`
 - `edge_index`: edge indices, shape `(2, num_edges)`

@@ -242,13 +242,16 @@ class GeometryEngine:
                             face_indices.append(face_idx - 1)
                         it.Next()
 
+                    face_indices = sorted(set(face_indices))
                     if len(face_indices) < 2:
                         continue
 
-                    a_idx, b_idx = face_indices[0], face_indices[1]
-                    edge_feat = self._edge_feature_vector(faces[a_idx], faces[b_idx])
-                    edge_index.extend([[a_idx, b_idx], [b_idx, a_idx]])
-                    edge_features.extend([edge_feat, edge_feat])
+                    for j in range(len(face_indices)):
+                        for k in range(j + 1, len(face_indices)):
+                            a_idx, b_idx = face_indices[j], face_indices[k]
+                            edge_feat = self._edge_feature_vector(faces[a_idx], faces[b_idx])
+                            edge_index.extend([[a_idx, b_idx], [b_idx, a_idx]])
+                            edge_features.extend([edge_feat, edge_feat])
             else:
                 edge_map = TopTools_IndexedMapOfShape()
                 edge_to_faces: Dict[int, set[int]] = {}

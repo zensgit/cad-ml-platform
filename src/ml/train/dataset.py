@@ -118,6 +118,15 @@ class ABCDataset(Dataset):
         if self.transform:
             sample = self.transform(sample)
 
+        if (
+            self.output_format == "graph"
+            and self._pyg_data is not None
+            and self.graph_backend in {"pyg", "auto"}
+            and not isinstance(sample, dict)
+        ):
+            sample.y = torch.tensor([label], dtype=torch.long)
+            return sample
+
         return sample, label
 
     def _num_classes_for_strategy(self, strategy: str) -> int:

@@ -2,7 +2,7 @@
 
 ## Overview
 This index summarizes the 2026-01-23 development and validation reports produced
-for FusionAnalyzer guardrails and Graph2D override coverage.
+for FusionAnalyzer guardrails, Graph2D override coverage, and B-Rep graph dataset upgrades.
 
 ## Experimental Reports
 - `reports/experiments/20260123/INDEX_20260123.md`
@@ -32,3 +32,5 @@ for FusionAnalyzer guardrails and Graph2D override coverage.
 - reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_ANALYZER_AUDIT_FIXES_VALIDATION_20260123.md
 - reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_ANALYZER_HARDENING_20260123.md
 - reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_FUSION_ANALYZER_HARDENING_VALIDATION_20260123.md
+- reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BREP_GRAPH_DATASET_UPGRADE_20260123.md
+- reports/experiments/20260123/DEV_MECH_KNOWLEDGE_4000CAD_BREP_GRAPH_DATASET_UPGRADE_VALIDATION_20260123.md
