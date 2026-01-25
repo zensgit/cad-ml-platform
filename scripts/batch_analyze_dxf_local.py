@@ -33,9 +33,38 @@ def _collect_files(root: Path) -> List[Path]:
     return [p for p in root.rglob("*.dxf") if p.is_file()]
 
 
+def _collect_from_manifest(manifest: Path, dxf_dir: Path) -> List[Path]:
+    files: List[Path] = []
+    seen: set[Path] = set()
+    with manifest.open("r", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            if not row:
+                continue
+            relative_path = (row.get("relative_path") or "").strip()
+            file_name = (row.get("file_name") or row.get("file") or "").strip()
+            source_dir = (row.get("source_dir") or "").strip()
+            candidates: List[Path] = []
+            if relative_path:
+                candidates.append(dxf_dir / relative_path)
+            if file_name:
+                candidates.append(dxf_dir / file_name)
+            if source_dir and file_name:
+                candidates.append(dxf_dir / source_dir / file_name)
+            for candidate in candidates:
+                if candidate in seen:
+                    break
+                if candidate.exists():
+                    files.append(candidate)
+                    seen.add(candidate)
+                    break
+    return files
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Batch analyze DXF via local TestClient")
     parser.add_argument("--dxf-dir", required=True, help="DXF directory")
+    parser.add_argument("--manifest", help="Optional manifest CSV to select files")
     parser.add_argument("--output-dir", default="reports/experiments/20260122/batch_analysis")
     parser.add_argument("--max-files", type=int, default=200)
     parser.add_argument("--seed", type=int, default=22)
@@ -46,7 +75,13 @@ def main() -> None:
     if not dxf_dir.exists():
         raise SystemExit(f"DXF dir not found: {dxf_dir}")
 
-    files = _collect_files(dxf_dir)
+    manifest_path = Path(args.manifest) if args.manifest else None
+    if manifest_path:
+        if not manifest_path.exists():
+            raise SystemExit(f"Manifest not found: {manifest_path}")
+        files = _collect_from_manifest(manifest_path, dxf_dir)
+    else:
+        files = _collect_files(dxf_dir)
     if not files:
         raise SystemExit("No DXF files found")
 
@@ -103,7 +138,11 @@ def main() -> None:
         data = resp.json()
         classification = data.get("results", {}).get("classification", {})
         graph2d = classification.get("graph2d_prediction", {}) or {}
+        filename_pred = classification.get("filename_prediction", {}) or {}
+        hybrid_decision = classification.get("hybrid_decision", {}) or {}
+        titleblock_pred = classification.get("titleblock_prediction", {}) or {}
         fusion = classification.get("fusion_decision", {}) or {}
+        soft_override = classification.get("soft_override_suggestion", {}) or {}
         part_type = classification.get("part_type")
         confidence = float(classification.get("confidence") or 0.0)
 
@@ -127,17 +166,56 @@ def main() -> None:
             "rule_version": classification.get("rule_version"),
             "graph2d_label": graph2d.get("label"),
             "graph2d_confidence": graph2d.get("confidence"),
+            "graph2d_temperature": graph2d.get("temperature"),
+            "graph2d_temperature_source": graph2d.get("temperature_source"),
+            "filename_label": filename_pred.get("label"),
+            "filename_confidence": filename_pred.get("confidence"),
+            "filename_match_type": filename_pred.get("match_type"),
+            "filename_extracted_name": filename_pred.get("extracted_name"),
+            "hybrid_label": hybrid_decision.get("label"),
+            "hybrid_confidence": hybrid_decision.get("confidence"),
+            "hybrid_source": hybrid_decision.get("source"),
+            "hybrid_path": ";".join(hybrid_decision.get("decision_path", []) or []),
+            "titleblock_label": titleblock_pred.get("label"),
+            "titleblock_confidence": titleblock_pred.get("confidence"),
+            "titleblock_part_name": (
+                titleblock_pred.get("title_block_info", {}) or {}
+            ).get("part_name"),
+            "titleblock_drawing_number": (
+                titleblock_pred.get("title_block_info", {}) or {}
+            ).get("drawing_number"),
+            "titleblock_material": (
+                titleblock_pred.get("title_block_info", {}) or {}
+            ).get("material"),
+            "titleblock_raw_texts_count": (
+                titleblock_pred.get("title_block_info", {}) or {}
+            ).get("raw_texts_count"),
+            "titleblock_region_entities_count": (
+                titleblock_pred.get("title_block_info", {}) or {}
+            ).get("region_entities_count"),
             "fusion_label": fusion.get("primary_label"),
             "fusion_confidence": fusion.get("confidence"),
+            "soft_override_eligible": soft_override.get("eligible"),
+            "soft_override_label": soft_override.get("label"),
+            "soft_override_confidence": soft_override.get("confidence"),
+            "soft_override_threshold": soft_override.get("threshold"),
+            "soft_override_reason": soft_override.get("reason"),
         })
         stats["success"] += 1
+        if soft_override.get("eligible"):
+            stats["soft_override_candidates"] += 1
 
     with results_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
         writer.writeheader()
         writer.writerows(rows)
 
-    low_conf = [r for r in rows if r.get("status") == "ok" and float(r.get("confidence") or 0) <= args.min_confidence]
+    low_conf = [
+        r
+        for r in rows
+        if r.get("status") == "ok"
+        and float(r.get("confidence") or 0) <= args.min_confidence
+    ]
     if low_conf:
         with low_conf_path.open("w", encoding="utf-8", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=low_conf[0].keys())
@@ -163,6 +241,7 @@ def main() -> None:
         "confidence_buckets": dict(conf_buckets),
         "label_counts": dict(label_counts),
         "low_confidence_count": len(low_conf),
+        "soft_override_candidates": stats.get("soft_override_candidates", 0),
         "sample_size": len(files),
     }
     summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")

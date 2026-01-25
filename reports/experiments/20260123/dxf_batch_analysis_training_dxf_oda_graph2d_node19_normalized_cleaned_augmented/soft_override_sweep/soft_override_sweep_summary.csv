@@ -1,0 +1,5 @@
+threshold,candidate_count,override_from_counts,override_to_counts
+0.16,50,"{""complex_assembly"": 25, ""moderate_component"": 25}","{""传动件"": 33, ""罐体"": 15, ""设备"": 2}"
+0.17,12,"{""complex_assembly"": 6, ""moderate_component"": 6}","{""传动件"": 6, ""罐体"": 4, ""设备"": 2}"
+0.18,4,"{""complex_assembly"": 2, ""moderate_component"": 2}","{""传动件"": 4}"
+0.19,2,"{""moderate_component"": 2}","{""传动件"": 2}"

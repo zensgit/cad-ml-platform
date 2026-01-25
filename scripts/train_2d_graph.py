@@ -7,6 +7,7 @@ import argparse
 import json
 import random
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -25,13 +26,85 @@ def _require_torch() -> bool:
         return False
 
 
-def _collate(batch: List[Tuple[Dict[str, Any], Any]]) -> Tuple[List[Any], List[Any], List[Any]]:
-    xs, edges, labels = [], [], []
+def _collate(
+    batch: List[Tuple[Dict[str, Any], Any]]
+) -> Tuple[List[Any], List[Any], List[Any], List[Any]]:
+    xs, edges, edge_attrs, labels = [], [], [], []
     for graph, label in batch:
         xs.append(graph["x"])
         edges.append(graph["edge_index"])
+        edge_attrs.append(graph.get("edge_attr"))
         labels.append(label)
-    return xs, edges, labels
+    return xs, edges, edge_attrs, labels
+
+
+def _compute_class_weights(labels: List[int], num_classes: int, mode: str):
+    import torch
+
+    weights = torch.ones(num_classes, dtype=torch.float)
+    if mode == "none":
+        return weights
+    counts = Counter(labels)
+    total = sum(counts.values())
+    for idx in range(num_classes):
+        count = counts.get(idx, 0)
+        if count <= 0:
+            weights[idx] = 0.0
+            continue
+        base = total / (num_classes * count)
+        weights[idx] = base if mode == "inverse" else base**0.5
+    return weights
+
+
+def _compute_log_prior(labels: List[int], num_classes: int):
+    import torch
+
+    counts = Counter(labels)
+    total = sum(counts.values())
+    priors = []
+    for idx in range(num_classes):
+        count = counts.get(idx, 0)
+        prior = count / total if total else 0.0
+        priors.append(max(prior, 1e-6))
+    prior_tensor = torch.tensor(priors, dtype=torch.float)
+    return torch.log(prior_tensor)
+
+
+def _stratified_split(indices: List[int], labels: List[int], train_ratio: float):
+    label_to_indices: Dict[int, List[int]] = {}
+    for idx, label in zip(indices, labels):
+        label_to_indices.setdefault(label, []).append(idx)
+
+    train_idx: List[int] = []
+    val_idx: List[int] = []
+    for label, idxs in label_to_indices.items():
+        random.shuffle(idxs)
+        train_count = max(1, int(len(idxs) * train_ratio))
+        if len(idxs) > 1 and train_count == len(idxs):
+            train_count -= 1
+        train_idx.extend(idxs[:train_count])
+        val_idx.extend(idxs[train_count:])
+
+    if not val_idx:
+        val_idx = train_idx[:1]
+        train_idx = train_idx[1:] if len(train_idx) > 1 else train_idx
+
+    return train_idx, val_idx
+
+
+def _build_balanced_sampler(labels: List[int]):
+    import torch
+    from torch.utils.data import WeightedRandomSampler
+
+    counts = Counter(labels)
+    if not counts:
+        return None
+    weights = [1.0 / counts[label] for label in labels]
+    return WeightedRandomSampler(
+        weights=torch.tensor(weights, dtype=torch.double),
+        num_samples=len(weights),
+        replacement=True,
+    )
 
 
 def main() -> int:
@@ -41,8 +114,14 @@ def main() -> int:
     import torch
     from torch.utils.data import DataLoader, Subset
 
-    from src.ml.train.dataset_2d import DXFManifestDataset, DXF_NODE_DIM
-    from src.ml.train.model_2d import SimpleGraphClassifier
+    from src.ml.train.dataset_2d import (
+        DXFManifestDataset,
+        DXF_EDGE_DIM,
+        DXF_NODE_DIM,
+        DXF_NODE_FEATURES,
+        DXF_NODE_FEATURES_LEGACY,
+    )
+    from src.ml.train.model_2d import EdgeGraphSageClassifier, SimpleGraphClassifier
 
     parser = argparse.ArgumentParser(description="Train 2D DXF graph classifier.")
     parser.add_argument(
@@ -61,6 +140,18 @@ def main() -> int:
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--node-dim", type=int, default=DXF_NODE_DIM)
     parser.add_argument(
+        "--model",
+        choices=["gcn", "edge_sage"],
+        default="gcn",
+        help="Model architecture to train.",
+    )
+    parser.add_argument(
+        "--edge-dim",
+        type=int,
+        default=DXF_EDGE_DIM,
+        help="Edge feature dimension for edge-aware models.",
+    )
+    parser.add_argument(
         "--downweight-label",
         default="",
         help="Optional label name to downweight in the loss function.",
@@ -71,6 +162,65 @@ def main() -> int:
         default=0.3,
         help="Multiplier applied to the downweighted label (0.0-1.0).",
     )
+    parser.add_argument(
+        "--class-weighting",
+        choices=["none", "inverse", "sqrt"],
+        default="none",
+        help="Optional class weighting strategy.",
+    )
+    parser.add_argument(
+        "--loss",
+        choices=["cross_entropy", "focal", "logit_adjusted"],
+        default="cross_entropy",
+        help="Loss function to use for training.",
+    )
+    parser.add_argument(
+        "--focal-alpha",
+        type=float,
+        default=0.25,
+        help="Focal loss alpha parameter.",
+    )
+    parser.add_argument(
+        "--focal-gamma",
+        type=float,
+        default=2.0,
+        help="Focal loss gamma parameter.",
+    )
+    parser.add_argument(
+        "--logit-adjustment-tau",
+        type=float,
+        default=1.0,
+        help="Logit adjustment tau parameter.",
+    )
+    parser.add_argument(
+        "--sampler",
+        choices=["none", "balanced"],
+        default="none",
+        help="Optional sampling strategy for the training split.",
+    )
+    parser.add_argument(
+        "--split-strategy",
+        choices=["random", "stratified"],
+        default="stratified",
+        help="Train/validation split strategy.",
+    )
+    parser.add_argument(
+        "--augment",
+        action="store_true",
+        help="Enable simple feature jitter augmentation for training graphs.",
+    )
+    parser.add_argument(
+        "--augment-prob",
+        type=float,
+        default=0.5,
+        help="Probability of applying augmentation to each training sample.",
+    )
+    parser.add_argument(
+        "--augment-scale",
+        type=float,
+        default=0.05,
+        help="Noise scale for feature jitter augmentation.",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-samples", type=int, default=0)
     parser.add_argument("--output", default="models/graph2d_merged_latest.pth")
@@ -79,7 +229,13 @@ def main() -> int:
     random.seed(args.seed)
     torch.manual_seed(args.seed)
 
-    dataset = DXFManifestDataset(args.manifest, args.dxf_dir, node_dim=args.node_dim)
+    use_edge_attr = args.model == "edge_sage"
+    dataset = DXFManifestDataset(
+        args.manifest,
+        args.dxf_dir,
+        node_dim=args.node_dim,
+        return_edge_attr=use_edge_attr,
+    )
     if args.max_samples and args.max_samples > 0:
         dataset.samples = dataset.samples[: args.max_samples]
     if len(dataset) == 0:
@@ -88,14 +244,19 @@ def main() -> int:
 
     indices = list(range(len(dataset)))
     random.shuffle(indices)
-    split = max(1, int(len(indices) * 0.8))
-    train_idx = indices[:split]
-    val_idx = indices[split:] or indices[:1]
+    if args.split_strategy == "stratified":
+        labels = [dataset.samples[idx]["label_id"] for idx in indices]
+        train_idx, val_idx = _stratified_split(indices, labels, 0.8)
+    else:
+        split = max(1, int(len(indices) * 0.8))
+        train_idx = indices[:split]
+        val_idx = indices[split:] or indices[:1]
 
     train_loader = DataLoader(
         Subset(dataset, train_idx),
         batch_size=args.batch_size,
-        shuffle=True,
+        shuffle=args.sampler == "none",
+        sampler=None,
         collate_fn=_collate,
     )
     val_loader = DataLoader(
@@ -107,31 +268,113 @@ def main() -> int:
 
     label_map = dataset.get_label_map()
     num_classes = len(label_map)
-    model = SimpleGraphClassifier(args.node_dim, args.hidden_dim, num_classes)
+    if args.model == "edge_sage":
+        model = EdgeGraphSageClassifier(
+            args.node_dim, args.edge_dim, args.hidden_dim, num_classes
+        )
+    else:
+        model = SimpleGraphClassifier(args.node_dim, args.hidden_dim, num_classes)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-    weight = torch.ones(num_classes, dtype=torch.float)
+    train_labels = [dataset.samples[idx]["label_id"] for idx in train_idx]
+    sampler = None
+    if args.sampler == "balanced":
+        sampler = _build_balanced_sampler(train_labels)
+        if sampler is not None:
+            train_loader = DataLoader(
+                Subset(dataset, train_idx),
+                batch_size=args.batch_size,
+                shuffle=False,
+                sampler=sampler,
+                collate_fn=_collate,
+            )
+    from src.ml.class_balancer import ClassBalancer
+
+    balance_strategy = "none"
+    if args.loss == "focal":
+        balance_strategy = "focal"
+    elif args.loss == "logit_adjusted":
+        balance_strategy = "logit_adj"
+    elif args.class_weighting != "none":
+        balance_strategy = "weights"
+
+    weight_mode = args.class_weighting if args.class_weighting != "none" else "sqrt"
+    balancer = ClassBalancer(
+        strategy=balance_strategy,
+        weight_mode=weight_mode,
+        focal_alpha=args.focal_alpha,
+        focal_gamma=args.focal_gamma,
+        logit_adj_tau=args.logit_adjustment_tau,
+    )
+
     if args.downweight_label and args.downweight_label in label_map:
         factor = max(0.05, min(1.0, float(args.downweight_factor)))
         label_idx = label_map[args.downweight_label]
-        weight[label_idx] = factor
         print(
             f"Downweighting label {args.downweight_label!r} (idx={label_idx}) "
             f"with factor {factor:.2f}"
         )
-    criterion = torch.nn.CrossEntropyLoss(weight=weight)
+
+    class_counts = None
+    if balance_strategy == "logit_adj":
+        counts = Counter(train_labels)
+        class_counts = [counts.get(i, 1) for i in range(num_classes)]
+
+    labels_for_loss = None
+    if balance_strategy in {"weights", "focal"} and args.class_weighting != "none":
+        labels_for_loss = train_labels
+    elif balance_strategy == "weights":
+        labels_for_loss = train_labels
+
+    criterion = balancer.get_loss_function(
+        labels=labels_for_loss,
+        num_classes=num_classes,
+        class_counts=class_counts,
+    )
+
+    class_stats = balancer.get_class_distribution(train_labels)
+    print(
+        "Class balance:",
+        f"classes={class_stats['num_classes']} "
+        f"min={class_stats['min_count']} max={class_stats['max_count']} "
+        f"ratio={class_stats['imbalance_ratio']:.2f} strategy={balance_strategy}",
+    )
+
+    feature_idx = {name: i for i, name in enumerate(DXF_NODE_FEATURES)}
+
+    def _augment_features(x: torch.Tensor) -> torch.Tensor:
+        if x.numel() == 0 or args.node_dim < len(DXF_NODE_FEATURES_LEGACY):
+            return x
+        x = x.clone()
+        scale = float(args.augment_scale)
+        for name in ("length_norm", "radius_norm", "center_x_norm", "center_y_norm"):
+            idx = feature_idx.get(name)
+            if idx is None or idx >= args.node_dim:
+                continue
+            x[:, idx] = (x[:, idx] + torch.randn_like(x[:, idx]) * scale).clamp(0.0, 1.0)
+        for name in ("dir_x", "dir_y"):
+            idx = feature_idx.get(name)
+            if idx is None or idx >= args.node_dim:
+                continue
+            x[:, idx] = (x[:, idx] + torch.randn_like(x[:, idx]) * scale).clamp(-1.0, 1.0)
+        return x
 
     for epoch in range(1, args.epochs + 1):
         model.train()
         total_loss = 0.0
         total_seen = 0
-        for xs, edges, labels in train_loader:
+        for xs, edges, edge_attrs, labels in train_loader:
             optimizer.zero_grad()
             batch_loss = 0.0
             batch_count = 0
-            for x, edge_index, label in zip(xs, edges, labels):
+            for x, edge_index, edge_attr, label in zip(xs, edges, edge_attrs, labels):
                 if x.numel() == 0:
                     continue
-                logits = model(x, edge_index)
+                if args.augment and random.random() < args.augment_prob:
+                    x = _augment_features(x)
+                if use_edge_attr:
+                    logits = model(x, edge_index, edge_attr)
+                else:
+                    logits = model(x, edge_index)
                 loss = criterion(logits, label.view(1))
                 batch_loss += loss
                 batch_count += 1
@@ -148,11 +391,14 @@ def main() -> int:
         correct = 0
         total = 0
         with torch.no_grad():
-            for xs, edges, labels in val_loader:
-                for x, edge_index, label in zip(xs, edges, labels):
+            for xs, edges, edge_attrs, labels in val_loader:
+                for x, edge_index, edge_attr, label in zip(xs, edges, edge_attrs, labels):
                     if x.numel() == 0:
                         continue
-                    logits = model(x, edge_index)
+                    if use_edge_attr:
+                        logits = model(x, edge_index, edge_attr)
+                    else:
+                        logits = model(x, edge_index)
                     pred = int(torch.argmax(logits, dim=1)[0])
                     if pred == int(label):
                         correct += 1
@@ -168,6 +414,9 @@ def main() -> int:
             "label_map": label_map,
             "node_dim": args.node_dim,
             "hidden_dim": args.hidden_dim,
+            "loss_type": args.loss,
+            "model_type": args.model,
+            "edge_dim": args.edge_dim if use_edge_attr else 0,
         },
         out_path,
     )

@@ -1,0 +1,14 @@
+{
+  "total": 2,
+  "success": 2,
+  "error": 0,
+  "confidence_buckets": {
+    "gte_0_8": 2
+  },
+  "label_counts": {
+    "盖": 1,
+    "其他": 1
+  },
+  "low_confidence_count": 0,
+  "sample_size": 2
+}

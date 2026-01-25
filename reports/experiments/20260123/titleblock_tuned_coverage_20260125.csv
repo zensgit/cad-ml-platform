@@ -1,0 +1,7 @@
+metric,count,percent
+total_samples,30,100.0
+titleblock_label_present,30,100.0
+titleblock_label_conf_ge_0_75,29,96.67
+titleblock_raw_texts_count_gt_0,30,100.0
+titleblock_region_entities_count_gt_0,30,100.0
+titleblock_any_text_or_entities,30,100.0

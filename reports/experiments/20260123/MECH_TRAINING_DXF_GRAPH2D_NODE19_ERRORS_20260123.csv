@@ -1,0 +1,10 @@
+file_name,true_label,pred_label,confidence,margin,bucket
+J0525002-04-02过滤托架v1.dxf,过滤托架,other,0.641,0.597,mid_confidence
+LTJ012306102-0084调节螺栓v1.dxf,调节螺栓,other,0.678,0.638,mid_confidence
+J0225034-05罐体部分v2.dxf,罐体部分,other,0.717,0.678,mid_confidence
+J0724006-05上封头组件v3.dxf,上封头组件,other,0.666,0.626,mid_confidence
+BTJ01231501522-00短轴承座(盖)v1.dxf,短轴承座(盖),other,0.672,0.631,mid_confidence
+J0724006-01下锥体组件v2.dxf,下锥体组件,other,0.629,0.584,mid_confidence
+BTJ01231501522-00短轴承座(盖)v3.dxf,短轴承座(盖),other,0.663,0.622,mid_confidence
+BTJ01239601522-03扭转弹簧v2.dxf,扭转弹簧,other,0.710,0.674,mid_confidence
+J2824002-06上封头组件v2.dxf,上封头组件,other,0.743,0.710,mid_confidence

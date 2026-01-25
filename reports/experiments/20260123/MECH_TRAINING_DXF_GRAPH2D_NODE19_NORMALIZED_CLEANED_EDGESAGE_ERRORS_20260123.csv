@@ -1,0 +1,15 @@
+file_name,true_label,pred_label,confidence,margin,bucket
+J2825002-09下轴承支架组件v1.dxf,轴承件,传动件,0.181,0.025,low_confidence
+BTJ01231301522-01轴向定位轴承v1.dxf,轴承件,传动件,0.182,0.013,low_confidence
+J2925001-00再沸器v3.dxf,设备,传动件,0.159,0.004,low_confidence
+BTJ01232801522-01电加热箱v1.dxf,设备,传动件,0.234,0.036,low_confidence
+J2925001-05管束v1.dxf,设备,传动件,0.196,0.029,low_confidence
+J1424042-51-01-08对接法兰v2.dxf,法兰,传动件,0.242,0.082,low_confidence
+J2925001-01-01人孔法兰v2.dxf,法兰,传动件,0.209,0.044,low_confidence
+J0724006-01下锥体组件v1.dxf,罐体,传动件,0.161,0.010,low_confidence
+J2825002-06上筒体组件v3.dxf,罐体,传动件,0.186,0.032,low_confidence
+J2825003-05下筒体组件v1.dxf,罐体,传动件,0.169,0.017,low_confidence
+J0224036-10搅拌减速机机罩v2.dxf,罩盖件,传动件,0.264,0.066,low_confidence
+J2925004-04-01底板v2.dxf,other,传动件,0.183,0.034,low_confidence
+比较_LTJ012306102-0084调节螺栓v1 vs LTJ012306102-0084调节螺栓v2.dxf,other,传动件,0.239,0.060,low_confidence
+J0224071-11捕集器组件v2.dxf,过滤组件,传动件,0.174,0.019,low_confidence

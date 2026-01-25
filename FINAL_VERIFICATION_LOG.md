@@ -2280,5 +2280,683 @@
   - Logged external-network compose documentation update.
   - Report: `reports/experiments/20260123/DEV_GRAPH2D_RECOMMENDED_RUNTIME_EXTERNAL_NETWORK_VALIDATION_20260123.md`
 
+- **DXF Graph Feature Expansion**:
+  - Extended DXF graph extraction with ARC/TEXT/DIMENSION/INSERT and richer node signals.
+  - Report: `reports/DEV_DXF_GRAPH_FEATURES_20260123.md`
+- **DXF Graph Tests**:
+  - `pytest tests/unit/test_dxf_graph_builder.py -v` skipped (torch unavailable).
+  - Report: `reports/DEV_DXF_GRAPH_TESTS_20260123.md`
+- **DXF Graph Tests (Torch)**:
+  - `.venv-graph/bin/python -m pytest tests/unit/test_dxf_graph_builder.py -v` passed.
+  - Report: `reports/DEV_DXF_GRAPH_TESTS_20260123.md`
+- **DXF Batch Manifest Selection**:
+  - Added `--manifest` support for local DXF batch analysis file selection.
+  - Validation: `python3 -m py_compile scripts/batch_analyze_dxf_local.py`.
+  - Report: `reports/DEV_DXF_GRAPH_BATCH_MANIFEST_20260123.md`
+
+- **Training DXF Batch Analysis (Training Drawings)**:
+  - Ran local batch analysis against the provided DXF directory (2 files).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DRAWINGS_20260123.md`
+- **Training DXF Batch Analysis (Training Drawings) Validation**:
+  - Verified outputs; Graph2D disabled because `torch` is unavailable.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DRAWINGS_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training Drawings, Graph2D)**:
+  - Re-ran batch analysis with torch-enabled Graph2D predictions.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DRAWINGS_GRAPH2D_20260123.md`
+- **Training DXF Batch Analysis (Training Drawings, Graph2D) Validation**:
+  - Verified Graph2D outputs in batch CSV.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DRAWINGS_GRAPH2D_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF, Graph2D)**:
+  - Ran 50-file batch analysis on the training DXF directory with Graph2D enabled.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_GRAPH2D_20260123.md`
+- **Training DXF Batch Analysis (Training DXF, Graph2D) Validation**:
+  - Verified low-confidence list and summary metrics for the 50-file run.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_GRAPH2D_VALIDATION_20260123.md`
+- **Training DWG to DXF Conversion (ODA)**:
+  - Converted 110 DWG files using ODAFileConverter into a separate DXF directory.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DWG_TO_DXF_20260123.md`
+- **Training DWG to DXF Conversion (ODA) Validation**:
+  - Verified conversion log with 110/110 successes.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DWG_TO_DXF_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D)**:
+  - Ran Graph2D batch analysis against the ODA-converted DXF set (110 files).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D) Validation**:
+  - Verified summary and low-confidence list for the ODA-converted run.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_VALIDATION_20260123.md`
+- **Training DXF Label Manifest ODA**:
+  - Generated manifest for ODA DXF set (110 rows).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_ODA_20260123.md`
+- **Training DXF Label Manifest ODA Validation**:
+  - Confirmed manifest row count and output path.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_ODA_VALIDATION_20260123.md`
+- **Training DXF Label Manifest ODA Cleaned**:
+  - Mapped low-frequency labels to `other` for node19 training.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_ODA_CLEANED_20260123.md`
+- **Training DXF Label Manifest ODA Cleaned Validation**:
+  - Recorded counts (labels kept=11, replaced=72).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_ODA_CLEANED_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19**:
+  - Trained Graph2D model with 19-dim node features, downweighted `other`.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Validation**:
+  - Logged epoch metrics (val_acc=0.591).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Eval**:
+  - Evaluated model on validation split with metrics/errors outputs.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Eval Validation**:
+  - Recorded accuracy=0.591, top-2=0.636, errors=9.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19)**:
+  - Ran 110-file batch analysis using the node19 model.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19) Validation**:
+  - Verified low-confidence list and diff CSV (3 label changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Compare)**:
+  - Compared baseline vs node19 run; aggregate metrics unchanged.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Compare) Validation**:
+  - Recorded comparison summary and label diff.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_COMPARE_VALIDATION_20260123.md`
+- **Training DXF Label Manifest ODA Normalized**:
+  - Normalized ODA labels into 11 canonical buckets.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_ODA_NORMALIZED_20260123.md`
+- **Training DXF Label Manifest ODA Normalized Validation**:
+  - Verified normalized manifest row counts and label buckets.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_ODA_NORMALIZED_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized**:
+  - Trained Graph2D model on the normalized label manifest (11 buckets).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Validation**:
+  - Logged epoch validation accuracy (val_acc=0.091).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Eval**:
+  - Evaluated the normalized model on the validation split.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Eval Validation**:
+  - Recorded accuracy=0.091, top-2=0.364, errors=20.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized)**:
+  - Ran 110-file batch analysis using the normalized node19 model.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized) Validation**:
+  - Verified summary and Graph2D label collapse (传动件=108, 设备=2).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Compare)**:
+  - Compared baseline vs normalized node19 Graph2D runs.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Compare) Validation**:
+  - Recorded diff summary (110 label changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_COMPARE_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Weighted**:
+  - Trained Graph2D model with inverse class weighting on normalized labels.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_WEIGHTED_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Weighted Validation**:
+  - Logged epoch validation accuracy (val_acc=0.091).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_WEIGHTED_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Weighted Eval**:
+  - Evaluated the class-weighted model on the validation split.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_WEIGHTED_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Weighted Eval Validation**:
+  - Recorded accuracy=0.091, top-2=0.364, errors=20.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_WEIGHTED_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Weighted)**:
+  - Ran 110-file batch analysis using the weighted normalized node19 model.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_WEIGHTED_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Weighted) Validation**:
+  - Verified summary and Graph2D label distribution (传动件=108, 设备=2).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_WEIGHTED_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Weighted Compare)**:
+  - Compared normalized baseline vs weighted node19 runs.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_WEIGHTED_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Weighted Compare) Validation**:
+  - Recorded diff summary (0 label/confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_WEIGHTED_COMPARE_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Balanced**:
+  - Trained Graph2D model with balanced sampling on normalized labels.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_BALANCED_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Balanced Validation**:
+  - Logged epoch validation accuracy (val_acc=0.136 peak, ended 0.091).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_BALANCED_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Balanced Eval**:
+  - Evaluated the balanced-sampler model on the validation split.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_BALANCED_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Balanced Eval Validation**:
+  - Recorded accuracy=0.091, top-2=0.136, errors=20.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_BALANCED_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Balanced)**:
+  - Ran 110-file batch analysis using the balanced normalized node19 model.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_BALANCED_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Balanced) Validation**:
+  - Verified summary and Graph2D label distribution (开孔件=103, 支撑件=4, 法兰=3).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_BALANCED_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Balanced Compare)**:
+  - Compared normalized baseline vs balanced node19 runs.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_BALANCED_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Balanced Compare) Validation**:
+  - Recorded diff summary (110 label/confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_BALANCED_COMPARE_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Focal**:
+  - Trained Graph2D model with focal loss on normalized labels.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_FOCAL_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Focal Validation**:
+  - Logged epoch validation accuracy (val_acc=0.091).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_FOCAL_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Focal Eval**:
+  - Evaluated the focal-loss model on the validation split.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_FOCAL_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Focal Eval Validation**:
+  - Recorded accuracy=0.091, top-2=0.364, errors=20.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_FOCAL_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Focal)**:
+  - Ran 110-file batch analysis using the focal-loss node19 model.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_FOCAL_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Focal) Validation**:
+  - Verified summary and Graph2D label distribution (传动件=108, 设备=2).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_FOCAL_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Focal Compare)**:
+  - Compared normalized baseline vs focal node19 runs.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_FOCAL_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Focal Compare) Validation**:
+  - Recorded diff summary (0 label changes, 110 confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_FOCAL_COMPARE_VALIDATION_20260123.md`
+- **Training DXF Label Manifest ODA Normalized Cleaned**:
+  - Mapped low-frequency normalized labels to `other` (min-count=5).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_ODA_NORMALIZED_CLEANED_20260123.md`
+- **Training DXF Label Manifest ODA Normalized Cleaned Validation**:
+  - Recorded cleaned manifest counts (labels_kept=7, replaced=14).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_ODA_NORMALIZED_CLEANED_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned**:
+  - Trained Graph2D model on cleaned normalized labels (stratified split).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_CLEANED_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Validation**:
+  - Logged epoch validation accuracy (val_acc up to 0.231).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_CLEANED_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Eval**:
+  - Evaluated the cleaned normalized model on the validation split.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_CLEANED_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Eval Validation**:
+  - Recorded accuracy=0.222, top-2=0.500, errors=14.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_CLEANED_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned)**:
+  - Ran 110-file batch analysis using the cleaned normalized node19 model.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned) Validation**:
+  - Verified summary and Graph2D label distribution (传动件=101, 罐体=5, 设备=4).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Compare)**:
+  - Compared normalized baseline vs cleaned node19 runs.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Compare) Validation**:
+  - Recorded diff summary (9 label changes, 110 confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_COMPARE_VALIDATION_20260123.md`
+- **DXF Graph Edge Features**:
+  - Added edge feature schema and edge-aware GraphSAGE model support.
+  - Report: `reports/DEV_DXF_GRAPH_EDGE_FEATURES_20260123.md`
+- **DXF Graph Edge Features Validation**:
+  - `.venv-graph/bin/python -m pytest tests/unit/test_dxf_graph_builder.py -v` passed.
+  - Report: `reports/DEV_DXF_GRAPH_EDGE_FEATURES_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned GraphSAGE**:
+  - Trained edge-aware GraphSAGE model on cleaned normalized labels.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_CLEANED_EDGESAGE_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned GraphSAGE Validation**:
+  - Logged epoch validation accuracy (val_acc=0.192).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_CLEANED_EDGESAGE_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned GraphSAGE Eval**:
+  - Evaluated the edge-aware GraphSAGE model on the validation split.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_CLEANED_EDGESAGE_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned GraphSAGE Eval Validation**:
+  - Recorded accuracy=0.222, top-2=0.556, errors=14.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_CLEANED_EDGESAGE_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned GraphSAGE)**:
+  - Ran 110-file batch analysis using the edge-aware GraphSAGE model.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_EDGESAGE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned GraphSAGE) Validation**:
+  - Verified summary and Graph2D label distribution (传动件=110).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_EDGESAGE_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned GraphSAGE Compare)**:
+  - Compared cleaned baseline vs GraphSAGE node19 runs.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_EDGESAGE_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned GraphSAGE Compare) Validation**:
+  - Recorded diff summary (9 label changes, 110 confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_EDGESAGE_COMPARE_VALIDATION_20260123.md`
+
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Logit-Adjusted**:
+  - Trained Graph2D model with logit-adjusted loss on cleaned normalized labels.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_CLEANED_LOGIT_ADJUSTED_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Logit-Adjusted Validation**:
+  - Logged epoch validation accuracy (val_acc up to 0.154).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_CLEANED_LOGIT_ADJUSTED_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Logit-Adjusted Eval**:
+  - Evaluated the logit-adjusted model on the validation split.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_CLEANED_LOGIT_ADJUSTED_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Logit-Adjusted Eval Validation**:
+  - Recorded accuracy=0.167, top-2=0.500, errors=15.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_CLEANED_LOGIT_ADJUSTED_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Logit-Adjusted)**:
+  - Ran 110-file batch analysis using the logit-adjusted node19 model.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_LOGIT_ADJUSTED_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Logit-Adjusted) Validation**:
+  - Verified summary and Graph2D label distribution (complex_assembly=28, moderate_component=25, 机械制图=14).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_LOGIT_ADJUSTED_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Logit-Adjusted Compare)**:
+  - Compared cleaned baseline vs logit-adjusted node19 runs.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_LOGIT_ADJUSTED_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Logit-Adjusted Compare) Validation**:
+  - Recorded diff summary (100 label changes, 110 confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_LOGIT_ADJUSTED_COMPARE_VALIDATION_20260123.md`
+- **Training DXF Label Manifest ODA Normalized Cleaned Min-Count=8**:
+  - Mapped low-frequency normalized labels to `other` (min-count=8).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_ODA_NORMALIZED_CLEANED_MINCOUNT8_20260123.md`
+- **Training DXF Label Manifest ODA Normalized Cleaned Min-Count=8 Validation**:
+  - Recorded cleaned manifest counts (labels_kept=7, replaced=14).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LABEL_MANIFEST_ODA_NORMALIZED_CLEANED_MINCOUNT8_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Min-Count=8**:
+  - Trained Graph2D model on min-count=8 cleaned normalized labels.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_CLEANED_MINCOUNT8_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Min-Count=8 Validation**:
+  - Logged epoch validation accuracy (val_acc up to 0.231).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_CLEANED_MINCOUNT8_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Min-Count=8 Eval**:
+  - Evaluated the min-count=8 model on the validation split.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_CLEANED_MINCOUNT8_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Min-Count=8 Eval Validation**:
+  - Recorded accuracy=0.222, top-2=0.500, errors=14.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_CLEANED_MINCOUNT8_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Min-Count=8)**:
+  - Ran 110-file batch analysis using the min-count=8 node19 model.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_MINCOUNT8_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Min-Count=8) Validation**:
+  - Verified summary and Graph2D label distribution (complex_assembly=28, moderate_component=25, 机械制图=14).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_MINCOUNT8_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Min-Count=8 Compare)**:
+  - Compared cleaned baseline vs min-count=8 node19 runs.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_MINCOUNT8_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Min-Count=8 Compare) Validation**:
+  - Recorded diff summary (0 label changes, 0 confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_MINCOUNT8_COMPARE_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Augmented**:
+  - Trained Graph2D model with feature jitter augmentation on cleaned normalized labels.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_CLEANED_AUGMENTED_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Augmented Validation**:
+  - Logged epoch validation accuracy (val_acc up to 0.308).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_CLEANED_AUGMENTED_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Augmented Eval**:
+  - Evaluated the augmented model on the validation split.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_CLEANED_AUGMENTED_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Augmented Eval Validation**:
+  - Recorded accuracy=0.389, top-2=0.556, errors=11.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_CLEANED_AUGMENTED_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented)**:
+  - Ran 110-file batch analysis using the augmented node19 model.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented) Validation**:
+  - Verified summary and Graph2D label distribution (complex_assembly=28, moderate_component=25, 机械制图=14).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Compare)**:
+  - Compared cleaned baseline vs augmented node19 runs.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Compare) Validation**:
+  - Recorded diff summary (29 label changes, 110 confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_COMPARE_VALIDATION_20260123.md`
+
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Max500)**:
+  - Ran a larger batch analysis (max-files=500; dataset size 110).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_MAX500_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Max500) Validation**:
+  - Verified summary unchanged; diff recorded no label/confidence changes.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_MAX500_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Fusion70)**:
+  - Ran batch analysis with fusion override min-conf=0.7.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_FUSION70_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Fusion70) Validation**:
+  - Verified summary unchanged; diff recorded no label/confidence changes.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_FUSION70_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Fusion70 Compare)**:
+  - Compared augmented baseline vs fusion70 outputs (no changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_FUSION70_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Fusion70 Compare) Validation**:
+  - Recorded diff summary (0 label changes, 0 confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_FUSION70_COMPARE_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Augmented V2**:
+  - Trained a milder-augmentation (scale=0.03) model with 8 epochs.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_CLEANED_AUGMENTED_V2_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Augmented V2 Validation**:
+  - Logged epoch validation accuracy (val_acc up to 0.385).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_TRAINING_ODA_NODE19_NORMALIZED_CLEANED_AUGMENTED_V2_VALIDATION_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Augmented V2 Eval**:
+  - Evaluated the augmented v2 model on the validation split.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_CLEANED_AUGMENTED_V2_20260123.md`
+- **Training DXF 2D Graph ODA Node19 Normalized Cleaned Augmented V2 Eval Validation**:
+  - Recorded accuracy=0.333, top-2=0.556, errors=12.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_2D_GRAPH_EVAL_ODA_NODE19_NORMALIZED_CLEANED_AUGMENTED_V2_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented V2)**:
+  - Ran 110-file batch analysis using the augmented v2 model.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_V2_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented V2) Validation**:
+  - Verified summary unchanged; diff recorded no label/confidence changes.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_V2_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented V2 Compare)**:
+  - Compared augmented baseline vs augmented v2 outputs (no changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_V2_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented V2 Compare) Validation**:
+  - Recorded diff summary (0 label changes, 0 confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_V2_COMPARE_VALIDATION_20260123.md`
+
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Graph2DMin70)**:
+  - Ran batch analysis with GRAPH2D_MIN_CONF=0.7 for the augmented model.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_GRAPH2DMIN70_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Graph2DMin70) Validation**:
+  - Verified summary unchanged; diff recorded no label/confidence changes.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_GRAPH2DMIN70_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Graph2DMin70 Compare)**:
+  - Compared augmented baseline vs graph2d min-conf=0.7 outputs (no changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_GRAPH2DMIN70_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Graph2DMin70 Compare) Validation**:
+  - Recorded diff summary (0 label changes, 0 confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_GRAPH2DMIN70_COMPARE_VALIDATION_20260123.md`
+
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Allowlist)**:
+  - Ran batch analysis with GRAPH2D_ALLOW_LABELS applied (复杂装配,机械制图,盖,轴承,挡板).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_ALLOWLIST_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Allowlist) Validation**:
+  - Verified summary unchanged; diff recorded no label/confidence changes.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_ALLOWLIST_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Allowlist Compare)**:
+  - Compared augmented baseline vs allowlist outputs (no changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_ALLOWLIST_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Allowlist Compare) Validation**:
+  - Recorded diff summary (0 label changes, 0 confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_ALLOWLIST_COMPARE_VALIDATION_20260123.md`
+
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Fusion Override)**:
+  - Ran batch analysis with FusionAnalyzer override enabled (min_conf=0.5).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_FUSION_OVERRIDE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Fusion Override) Validation**:
+  - Verified summary unchanged; diff recorded no label/confidence changes.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_FUSION_OVERRIDE_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Fusion Override Compare)**:
+  - Compared augmented baseline vs fusion override outputs (no changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_FUSION_OVERRIDE_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Fusion Override Compare) Validation**:
+  - Recorded diff summary (0 label changes, 0 confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_FUSION_OVERRIDE_COMPARE_VALIDATION_20260123.md`
+
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Exclude)**:
+  - Ran batch analysis with GRAPH2D_EXCLUDE_LABELS (complex_assembly, moderate_component, 机械制图).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_EXCLUDE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Exclude) Validation**:
+  - Verified summary unchanged; diff recorded no label/confidence changes.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_EXCLUDE_VALIDATION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Exclude Compare)**:
+  - Compared augmented baseline vs exclude outputs (no changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_EXCLUDE_COMPARE_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Exclude Compare) Validation**:
+  - Recorded diff summary (0 label changes, 0 confidence changes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_EXCLUDE_COMPARE_VALIDATION_20260123.md`
+
+- **Training DXF Low-Confidence Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented)**:
+  - Generated low-confidence aggregates, label distributions, and fusion vs graph2d cross-tab.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LOW_CONF_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_20260123.md`
+- **Training DXF Low-Confidence Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented) Validation**:
+  - Verified counts and confidence ranges (53/110 low-confidence; min=0.55, max=0.60).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_LOW_CONF_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_VALIDATION_20260123.md`
+
+- **Training DXF Rule Path Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented)**:
+  - Summarized rule vs fusion paths and captured a sample rule-based classification payload.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_RULE_PATH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_20260123.md`
+- **Training DXF Rule Path Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented) Validation**:
+  - Verified rule_version/confidence_source splits and low-confidence mapping to v1 rules.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_RULE_PATH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_VALIDATION_20260123.md`
+
+- **Training DXF Soft Override Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented)**:
+  - Simulated soft override of v1 rules when Graph2D confidence >= 0.60 (no candidates met threshold).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_20260123.md`
+- **Training DXF Soft Override Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented) Validation**:
+  - Verified Graph2D confidence range (≈0.158–0.194) and zero override candidates at threshold 0.60.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_VALIDATION_20260123.md`
+
+- **Training DXF Soft Override Min18 Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented)**:
+  - Simulated soft override with graph2d_confidence >= 0.18; 4 candidates met threshold.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_MIN18_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_20260123.md`
+- **Training DXF Soft Override Min18 Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented) Validation**:
+  - Verified override counts (complex_assembly=2, moderate_component=2 => 传动件=4).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_MIN18_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_VALIDATION_20260123.md`
+
+- **Training DXF Soft Override Sweep Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented)**:
+  - Swept thresholds 0.16–0.19; recorded candidate counts and override targets.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_SWEEP_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_20260123.md`
+- **Training DXF Soft Override Sweep Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented) Validation**:
+  - Verified sweep counts (0.16=50, 0.17=12, 0.18=4, 0.19=2).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_SWEEP_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_VALIDATION_20260123.md`
+
+- **Training DXF Soft Override Min17 Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented)**:
+  - Simulated soft override with graph2d_confidence >= 0.17; 12 candidates met threshold.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_MIN17_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_20260123.md`
+- **Training DXF Soft Override Min17 Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented) Validation**:
+  - Verified override counts (complex_assembly=6, moderate_component=6 => 传动件=6, 罐体=4, 设备=2).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_MIN17_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_VALIDATION_20260123.md`
+
+- **Training DXF Soft Override Min17 Review List**:
+  - Generated manual review manifest for the 12 candidate files.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_MIN17_REVIEW_LIST_20260123.md`
+- **Training DXF Soft Override Min17 Review List Validation**:
+  - Verified review manifest contains 12 entries.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_MIN17_REVIEW_LIST_VALIDATION_20260123.md`
+
+- **Training DXF Soft Override Min17 Review Template**:
+  - Generated manual review template with reviewer feedback fields.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_MIN17_REVIEW_TEMPLATE_20260123.md`
+- **Training DXF Soft Override Min17 Review Template Validation**:
+  - Verified review template fields added (reviewer/review_date/agree_with_graph2d/correct_label/notes).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_MIN17_REVIEW_TEMPLATE_VALIDATION_20260123.md`
+
+- **Training DXF Soft Override Suggestion Output**:
+  - Added `soft_override_suggestion` to classification output and expanded batch CSV fields.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_SUGGESTION_OUTPUT_20260123.md`
+- **Training DXF Soft Override Suggestion Output Validation**:
+  - Verified suggestion eligibility logic and batch output fields (no runtime test executed).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_SUGGESTION_OUTPUT_VALIDATION_20260123.md`
+
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Soft Override Suggestion)**:
+  - Ran batch analysis with soft-override suggestion fields (min_conf=0.17).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_SOFT_OVERRIDE_SUGGESTION_20260123.md`
+- **Training DXF Batch Analysis (Training DXF ODA, Graph2D Node19 Normalized Cleaned Augmented Soft Override Suggestion) Validation**:
+  - Verified summary and soft-override counts (candidates=12).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_BATCH_ANALYSIS_TRAINING_DXF_ODA_GRAPH2D_NODE19_NORMALIZED_CLEANED_AUGMENTED_SOFT_OVERRIDE_SUGGESTION_VALIDATION_20260123.md`
+
+- **Training DXF Soft Override Suggestion Candidates**:
+  - Extracted 12 eligible suggestions from batch results.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_SUGGESTION_CANDIDATES_20260123.md`
+- **Training DXF Soft Override Suggestion Candidates Validation**:
+  - Verified candidate count and output columns.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_SUGGESTION_CANDIDATES_VALIDATION_20260123.md`
+
+- **Training DXF Soft Override Suggestion Review Template**:
+  - Generated review template for soft-override eligible candidates.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_SUGGESTION_REVIEW_TEMPLATE_20260123.md`
+- **Training DXF Soft Override Suggestion Review Template Validation**:
+  - Verified review template fields and row count (12).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_SUGGESTION_REVIEW_TEMPLATE_VALIDATION_20260123.md`
+
+- **Training DXF Soft Override Review Guide**:
+  - Added a lightweight manual review guide for the soft-override candidates.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_REVIEW_GUIDE_20260123.md`
+- **Training DXF Soft Override Review Guide Validation**:
+  - Verified guide references the current review template.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_REVIEW_GUIDE_VALIDATION_20260123.md`
+
+- **Training DXF Soft Override Suggestion Candidates Summary**:
+  - Summarized label and confidence bucket distributions for the 12 candidates.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_SUGGESTION_CANDIDATES_SUMMARY_20260123.md`
+- **Training DXF Soft Override Suggestion Candidates Summary Validation**:
+  - Verified summary tables for labels and confidence buckets.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_SUGGESTION_CANDIDATES_SUMMARY_VALIDATION_20260123.md`
+
+- **Graph2D Temperature Calibration**:
+  - Ran temperature scaling on the Node19 normalized cleaned augmented checkpoint (val_samples=18, T=0.965337).
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_TEMPERATURE_CALIBRATION_20260124.md`
+- **Graph2D Temperature Calibration Validation**:
+  - Verified calibration JSON fields and predictions CSV (18 rows).
+  - Report: `reports/experiments/20260123/DEV_GRAPH2D_TEMPERATURE_CALIBRATION_VALIDATION_20260124.md`
+
+- **Training DXF Soft Override Calibrated Batch Analysis**:
+  - Re-ran batch analysis with Graph2D temperature scaling enabled (soft-override candidates=27).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_BATCH_ANALYSIS_20260124.md`
+- **Training DXF Soft Override Calibrated Batch Analysis Validation**:
+  - Verified calibrated summary and candidate deltas vs baseline.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_BATCH_ANALYSIS_VALIDATION_20260124.md`
+
+- **Training DXF Soft Override Calibrated Added Review Set**:
+  - Generated review template and distributions for 15 newly eligible candidates.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_ADDED_REVIEW_20260124.md`
+- **Training DXF Soft Override Calibrated Added Review Set Validation**:
+  - Verified review template rows and label/confidence summaries.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_ADDED_REVIEW_VALIDATION_20260124.md`
+
+- **Training DXF Soft Override Calibrated Added Review Summary**:
+  - Generated summary tracker for manual review progress and corrected labels.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_ADDED_REVIEW_SUMMARY_20260124.md`
+- **Training DXF Soft Override Calibrated Added Review Summary Validation**:
+  - Verified summary and corrected label CSV outputs exist with required columns.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_ADDED_REVIEW_SUMMARY_VALIDATION_20260124.md`
+
+- **Training DXF Soft Override Calibrated Review Summarizer**:
+  - Added a script to refresh review summary and corrected label counts from the review template.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_REVIEW_SUMMARIZER_20260124.md`
+- **Training DXF Soft Override Calibrated Review Summarizer Validation**:
+  - Verified summarizer outputs were generated from the default review template.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_REVIEW_SUMMARIZER_VALIDATION_20260124.md`
+
+- **Training DXF Soft Override Calibrated Review Decision Template**:
+  - Added a decision template to capture review outcomes and threshold recommendation.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_REVIEW_DECISION_TEMPLATE_20260124.md`
+- **Training DXF Soft Override Calibrated Review Decision Template Validation**:
+  - Verified decision template is available for review sign-off.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_REVIEW_DECISION_TEMPLATE_VALIDATION_20260124.md`
+
+- **Training DXF Soft Override Calibrated Review Completed**:
+  - Recorded manual review outcomes (15/15 disagree with Graph2D) and updated summary outputs.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_ADDED_REVIEW_SUMMARY_20260124.md`
+- **Training DXF Soft Override Calibrated Review Completion Validation**:
+  - Verified summary counts and suggested threshold updated after review.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_ADDED_REVIEW_SUMMARY_VALIDATION_20260124.md`
+- **Training DXF Soft Override Calibrated Review Decision**:
+  - Proposed raising `GRAPH2D_SOFT_OVERRIDE_MIN_CONF` to 0.19 based on 0% precision in the 0.17–0.18 band.
+  - Decision file: `reports/experiments/20260123/soft_override_calibrated_added_review_decision_20260124.md`
+
+- **Training DXF Soft Override Calibrated Min19 Batch Analysis**:
+  - Re-ran batch analysis with `GRAPH2D_SOFT_OVERRIDE_MIN_CONF=0.19` (candidates=2).
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_MIN19_BATCH_ANALYSIS_20260124.md`
+- **Training DXF Soft Override Calibrated Min19 Batch Analysis Validation**:
+  - Verified candidate reduction and output artifacts for the min19 run.
+  - Report: `reports/experiments/20260123/DEV_TRAINING_DXF_SOFT_OVERRIDE_CALIBRATED_MIN19_BATCH_ANALYSIS_VALIDATION_20260124.md`
+
+- **DXF Filename Hybrid Integration**:
+  - Integrated filename + Graph2D hybrid outputs with optional override and batch CSV fields.
+  - Report: `reports/experiments/20260123/DEV_DXF_FILENAME_HYBRID_INTEGRATION_20260125.md`
+- **DXF Filename Hybrid Integration Validation**:
+  - Added unit tests for filename extraction and hybrid decision logic.
+  - Report: `reports/experiments/20260123/DEV_DXF_FILENAME_HYBRID_INTEGRATION_VALIDATION_20260125.md`
+
+- **DXF Baseline Audit**:
+  - Established label distribution, filename coverage, and Graph2D confidence baseline with a golden set template.
+  - Report: `reports/experiments/20260123/DEV_DXF_BASELINE_AUDIT_20260125.md`
+- **DXF Baseline Audit Validation**:
+  - Verified baseline output CSVs and golden set template generation.
+  - Report: `reports/experiments/20260123/DEV_DXF_BASELINE_AUDIT_VALIDATION_20260125.md`
+
+- **DXF Node Importance Sampling**:
+  - Integrated importance sampling into DXF graph construction with configurable limits.
+  - Report: `reports/experiments/20260123/DEV_DXF_NODE_IMPORTANCE_SAMPLING_20260125.md`
+- **DXF Node Importance Sampling Validation**:
+  - Verified sampling honors max nodes and retains text entities via unit test.
+  - Report: `reports/experiments/20260123/DEV_DXF_NODE_IMPORTANCE_SAMPLING_VALIDATION_20260125.md`
+
+- **DXF Class Balance Strategy**:
+  - Added configurable class-imbalance loss handling and expanded evaluation metrics (Macro/Weighted F1).
+  - Report: `reports/experiments/20260123/DEV_DXF_CLASS_BALANCE_STRATEGY_20260125.md`
+- **DXF Class Balance Strategy Validation**:
+  - Verified class-balancer unit tests and evaluation metric output changes.
+  - Report: `reports/experiments/20260123/DEV_DXF_CLASS_BALANCE_STRATEGY_VALIDATION_20260125.md`
+
+- **DXF Title Block Features**:
+  - Added title-block extraction, classifier, and hybrid fusion path with feature flags.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_FEATURES_20260125.md`
+- **DXF Title Block Features Validation**:
+  - Verified title-block extraction and classifier mapping via unit tests.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_FEATURES_VALIDATION_20260125.md`
+- **DXF Title Block Refinements**:
+  - Added attribute-driven title-block extraction, text normalization, and gated overrides.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_REFINEMENTS_20260125.md`
+- **DXF Title Block Refinements Validation**:
+  - Verified attribute-based extraction with updated unit tests.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_REFINEMENTS_VALIDATION_20260125.md`
+- **DXF Title Block Tuned Batch Analysis**:
+  - Ran a 30-file tuned batch (region ratio 0.7/0.5) with attribute parsing; 100% title-block label coverage.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_TUNED_BATCH_ANALYSIS_20260125.md`
+- **DXF Title Block Tuned Batch Analysis Validation**:
+  - Verified tuned batch outputs and coverage summary CSVs.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_TUNED_BATCH_ANALYSIS_VALIDATION_20260125.md`
+- **DXF Title Block Tuned Full Batch Analysis**:
+  - Ran full 110-file tuned batch; 98.18% title-block label coverage with 100% text extraction.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_TUNED_FULL_BATCH_ANALYSIS_20260125.md`
+- **DXF Title Block Tuned Full Batch Analysis Validation**:
+  - Verified tuned full-batch artifacts and coverage summary CSVs.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_TUNED_FULL_BATCH_ANALYSIS_VALIDATION_20260125.md`
+- **DXF Title Block Synonym Patch**:
+  - Added `小减速机轴` as a synonym for `轴类` to close remaining title-block label gaps.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_SYNONYM_PATCH_20260125.md`
+- **DXF Title Block Synonym Patch Validation**:
+  - Verified full tuned batch reaches 100% label coverage after synonym update.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_SYNONYM_PATCH_VALIDATION_20260125.md`
+- **DXF Title Block Tuned Full Synonyms Batch Analysis**:
+  - Re-ran full 110-file tuned batch after synonym patch; 100% title-block label coverage.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_TUNED_FULL_SYNONYMS_BATCH_ANALYSIS_20260125.md`
+- **DXF Title Block Tuned Full Synonyms Batch Analysis Validation**:
+  - Verified tuned full-synonyms batch artifacts and coverage summary CSVs.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_TUNED_FULL_SYNONYMS_BATCH_ANALYSIS_VALIDATION_20260125.md`
+- **DXF Title Block Conflict Review**:
+  - Reviewed filename vs title-block conflicts and recorded precedence rules for hybrid decisions.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_CONFLICT_REVIEW_20260125.md`
+- **DXF Title Block Conflict Review Validation**:
+  - Verified conflict decision paths are recorded for the two conflicted samples.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_CONFLICT_REVIEW_VALIDATION_20260125.md`
+- **DXF Title Block Conflict Review List**:
+  - Generated a review list CSV for the remaining filename vs title-block conflicts.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_CONFLICT_REVIEW_20260125.md`
+- **DXF Title Block Override Smoke**:
+  - Ran override-enabled smoke batch (30 files); title-block override adoption remained 0.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_OVERRIDE_SMOKE_20260125.md`
+- **DXF Title Block Override Smoke Validation**:
+  - Verified override smoke batch artifacts and summary metrics.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_OVERRIDE_SMOKE_VALIDATION_20260125.md`
+- **DXF Title Block Override Full Analysis**:
+  - Ran override-enabled full batch and compared against baseline; 1 source change, no label changes on conflicts.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_OVERRIDE_FULL_ANALYSIS_20260125.md`
+- **DXF Title Block Override Full Analysis Validation**:
+  - Verified override full-batch artifacts and diff summaries.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_OVERRIDE_FULL_ANALYSIS_VALIDATION_20260125.md`
+- **DXF Title Block Batch Analysis**:
+  - Ran batch analysis with title-block signals enabled on 110 ODA training DXFs; 36.36% had title-block text detected, 0 labels matched.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_BATCH_ANALYSIS_20260125.md`
+- **DXF Title Block Batch Analysis Validation**:
+  - Verified batch artifacts and title-block coverage summaries for the ODA training run.
+  - Report: `reports/experiments/20260123/DEV_DXF_TITLEBLOCK_BATCH_ANALYSIS_VALIDATION_20260125.md`
+- **DXF Baseline Autoreview (Filename Coverage)**:
+  - Ran automated baseline review on 110 training DXFs (capped from requested 300) and generated coverage/conflict artifacts.
+  - Report: `reports/experiments/20260125/DEV_DXF_BASELINE_AUTOREVIEW_20260125.md`
+- **DXF Baseline Autoreview Validation**:
+  - Verified batch artifacts, review summaries, and coverage metrics; noted Graph2D disabled in this environment.
+  - Report: `reports/experiments/20260125/DEV_DXF_BASELINE_AUTOREVIEW_VALIDATION_20260125.md`
+- **DXF Baseline Autoreview (Graph2D Enabled)**:
+  - Re-ran the baseline with Torch-enabled Graph2D to obtain true agreement/conflict metrics.
+  - Report: `reports/experiments/20260125/DEV_DXF_BASELINE_AUTOREVIEW_GRAPH2D_20260125.md`
+- **DXF Baseline Autoreview (Graph2D Enabled) Validation**:
+  - Verified batch artifacts, review summaries, and coverage metrics for the Graph2D-enabled run.
+  - Report: `reports/experiments/20260125/DEV_DXF_BASELINE_AUTOREVIEW_GRAPH2D_VALIDATION_20260125.md`
+
 ---
 **Signed off by**: GitHub Copilot CLI Agent
