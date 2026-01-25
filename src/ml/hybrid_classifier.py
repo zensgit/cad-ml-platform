@@ -12,6 +12,7 @@ Feature Flags:
     FILENAME_FUSION_WEIGHT: 文件名分类权重 (default: 0.7)
     GRAPH2D_FUSION_WEIGHT: Graph2D 分类权重 (default: 0.3)
     TITLEBLOCK_ENABLED: 是否启用标题栏特征 (default: false)
+    TITLEBLOCK_OVERRIDE_ENABLED: 是否允许标题栏直接覆盖 (default: false)
 """
 
 from __future__ import annotations
@@ -71,8 +72,10 @@ class HybridClassifier:
         self,
         filename_weight: float = 0.7,
         graph2d_weight: float = 0.3,
+        titleblock_weight: float = 0.2,
         filename_min_conf: float = 0.8,
         graph2d_min_conf: float = 0.5,
+        titleblock_min_conf: float = 0.75,
     ):
         """
         初始化混合分类器
@@ -85,20 +88,33 @@ class HybridClassifier:
         """
         self.filename_weight = float(os.getenv("FILENAME_FUSION_WEIGHT", str(filename_weight)))
         self.graph2d_weight = float(os.getenv("GRAPH2D_FUSION_WEIGHT", str(graph2d_weight)))
+        self.titleblock_weight = float(
+            os.getenv("TITLEBLOCK_FUSION_WEIGHT", str(titleblock_weight))
+        )
         self.filename_min_conf = float(os.getenv("FILENAME_MIN_CONF", str(filename_min_conf)))
         self.graph2d_min_conf = float(os.getenv("GRAPH2D_MIN_CONF", str(graph2d_min_conf)))
+        self.titleblock_min_conf = float(
+            os.getenv("TITLEBLOCK_MIN_CONF", str(titleblock_min_conf))
+        )
+        self.titleblock_override_enabled = (
+            os.getenv("TITLEBLOCK_OVERRIDE_ENABLED", "false").lower() == "true"
+        )
 
         # 懒加载分类器
         self._filename_classifier = None
         self._graph2d_classifier = None
+        self._titleblock_classifier = None
 
         logger.info(
             "HybridClassifier initialized",
             extra={
                 "filename_weight": self.filename_weight,
                 "graph2d_weight": self.graph2d_weight,
+                "titleblock_weight": self.titleblock_weight,
                 "filename_min_conf": self.filename_min_conf,
                 "graph2d_min_conf": self.graph2d_min_conf,
+                "titleblock_min_conf": self.titleblock_min_conf,
+                "titleblock_override_enabled": self.titleblock_override_enabled,
             },
         )
 
@@ -122,6 +138,19 @@ class HybridClassifier:
                 self._graph2d_classifier = None
         return self._graph2d_classifier
 
+    @property
+    def titleblock_classifier(self):
+        """懒加载 TitleBlockClassifier"""
+        if self._titleblock_classifier is None:
+            try:
+                from src.ml.titleblock_extractor import get_titleblock_classifier
+
+                self._titleblock_classifier = get_titleblock_classifier()
+            except Exception as e:
+                logger.warning("TitleBlock classifier not available: %s", e)
+                self._titleblock_classifier = None
+        return self._titleblock_classifier
+
     def _is_filename_enabled(self) -> bool:
         """检查文件名分类是否启用"""
         return os.getenv("FILENAME_CLASSIFIER_ENABLED", "true").lower() == "true"
@@ -133,6 +162,10 @@ class HybridClassifier:
     def _is_hybrid_enabled(self) -> bool:
         """检查混合分类是否启用"""
         return os.getenv("HYBRID_CLASSIFIER_ENABLED", "true").lower() == "true"
+
+    def _is_titleblock_enabled(self) -> bool:
+        """检查标题栏特征是否启用"""
+        return os.getenv("TITLEBLOCK_ENABLED", "false").lower() == "true"
 
     def classify(
         self,
@@ -186,6 +219,36 @@ class HybridClassifier:
         if graph2d_pred:
             result.graph2d_prediction = graph2d_pred
 
+        # 3. TitleBlock 分类
+        titleblock_pred = None
+        if self._is_titleblock_enabled() and file_bytes:
+            try:
+                import tempfile
+                import os as _os
+                import ezdxf  # type: ignore
+
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
+                    tmp.write(file_bytes)
+                    tmp_path = tmp.name
+                try:
+                    doc = ezdxf.readfile(tmp_path)
+                    msp = doc.modelspace()
+                    classifier = self.titleblock_classifier
+                    if classifier:
+                        titleblock_pred = classifier.predict(list(msp))
+                        result.decision_path.append("titleblock_predicted")
+                finally:
+                    try:
+                        _os.unlink(tmp_path)
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.warning("TitleBlock classification failed: %s", e)
+                result.decision_path.append("titleblock_error")
+
+        if titleblock_pred:
+            result.titleblock_prediction = titleblock_pred
+
         # 3. 融合决策
         filename_label = filename_pred.get("label") if filename_pred else None
         filename_conf = float(filename_pred.get("confidence", 0)) if filename_pred else 0.0
@@ -193,10 +256,23 @@ class HybridClassifier:
         graph2d_label = graph2d_pred.get("label") if graph2d_pred else None
         graph2d_conf = float(graph2d_pred.get("confidence", 0)) if graph2d_pred else 0.0
 
+        titleblock_label = titleblock_pred.get("label") if titleblock_pred else None
+        titleblock_conf = float(titleblock_pred.get("confidence", 0.0)) if titleblock_pred else 0.0
+
         result.fusion_weights = {
             "filename": self.filename_weight,
             "graph2d": self.graph2d_weight,
+            "titleblock": self.titleblock_weight,
         }
+
+        if (
+            titleblock_label
+            and filename_label
+            and titleblock_label != filename_label
+        ):
+            result.decision_path.append("titleblock_filename_conflict")
+            if filename_conf >= self.filename_min_conf:
+                result.decision_path.append("titleblock_ignored_filename_high_conf")
 
         # 决策逻辑
         if filename_label and filename_conf >= self.filename_min_conf:
@@ -206,6 +282,18 @@ class HybridClassifier:
             result.source = DecisionSource.FILENAME
             result.decision_path.append("filename_high_conf_adopted")
 
+        elif (
+            self.titleblock_override_enabled
+            and titleblock_label
+            and titleblock_conf >= self.titleblock_min_conf
+            and filename_conf < 0.5
+            and (not graph2d_label or graph2d_conf < self.graph2d_min_conf)
+        ):
+            result.label = titleblock_label
+            result.confidence = titleblock_conf
+            result.source = DecisionSource.TITLEBLOCK
+            result.decision_path.append("titleblock_adopted")
+
         elif graph2d_label and graph2d_conf >= self.graph2d_min_conf and filename_conf < 0.5:
             # Graph2D 高置信度，文件名低置信度
             result.label = graph2d_label
@@ -213,27 +301,32 @@ class HybridClassifier:
             result.source = DecisionSource.GRAPH2D
             result.decision_path.append("graph2d_adopted")
 
-        elif filename_label and graph2d_label:
-            # 两者都有预测，加权融合
-            if filename_label == graph2d_label:
-                # 标签一致，增强置信度
-                fused_conf = min(1.0, filename_conf * self.filename_weight + graph2d_conf * self.graph2d_weight + 0.1)
-                result.label = filename_label
+        elif filename_label or graph2d_label or titleblock_label:
+            # 多源融合 (filename/graph2d/titleblock)
+            label_scores: Dict[str, float] = {}
+            label_sources: Dict[str, List[str]] = {}
+
+            def _add_score(label: Optional[str], conf: float, weight: float, source: str) -> None:
+                if not label:
+                    return
+                label_scores[label] = label_scores.get(label, 0.0) + conf * weight
+                label_sources.setdefault(label, []).append(source)
+
+            _add_score(filename_label, filename_conf, self.filename_weight, "filename")
+            _add_score(graph2d_label, graph2d_conf, self.graph2d_weight, "graph2d")
+            _add_score(titleblock_label, titleblock_conf, self.titleblock_weight, "titleblock")
+
+            if label_scores:
+                best_label = max(label_scores.items(), key=lambda item: item[1])[0]
+                sources = label_sources.get(best_label, [])
+                bonus = 0.1 if len(sources) >= 2 else 0.0
+                fused_conf = min(1.0, label_scores[best_label] + bonus)
+                result.label = best_label
                 result.confidence = fused_conf
                 result.source = DecisionSource.FUSION
-                result.decision_path.append("fusion_agreement")
-            else:
-                # 标签冲突，选择置信度更高的
-                if filename_conf * self.filename_weight >= graph2d_conf * self.graph2d_weight:
-                    result.label = filename_label
-                    result.confidence = filename_conf
-                    result.source = DecisionSource.FILENAME
-                    result.decision_path.append("fusion_conflict_filename_wins")
-                else:
-                    result.label = graph2d_label
-                    result.confidence = graph2d_conf
-                    result.source = DecisionSource.GRAPH2D
-                    result.decision_path.append("fusion_conflict_graph2d_wins")
+                result.decision_path.append("fusion_scored")
+                if bonus > 0:
+                    result.decision_path.append("fusion_multi_source_bonus")
 
         elif filename_label:
             # 只有文件名预测

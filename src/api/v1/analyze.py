@@ -847,6 +847,70 @@ async def analyze_cad_file(
                                 graph2d_fusable = graph2d_result
                     except Exception:
                         graph2d_result = None
+                # Optional Hybrid classifier (filename + graph2d fusion)
+                hybrid_result: Dict[str, Any] | None = None
+                hybrid_enabled = os.getenv("HYBRID_CLASSIFIER_ENABLED", "true").lower() == "true"
+                if hybrid_enabled and file_format == "dxf":
+                    try:
+                        from src.ml.hybrid_classifier import get_hybrid_classifier
+
+                        hybrid = get_hybrid_classifier()
+                        hybrid_result = hybrid.classify(
+                            filename=file.filename,
+                            file_bytes=content,
+                            graph2d_result=graph2d_result,
+                        ).to_dict()
+                        cls_payload["filename_prediction"] = hybrid_result.get(
+                            "filename_prediction"
+                        )
+                        cls_payload["titleblock_prediction"] = hybrid_result.get(
+                            "titleblock_prediction"
+                        )
+                        cls_payload["hybrid_decision"] = hybrid_result
+                    except Exception as exc:
+                        cls_payload["hybrid_error"] = str(exc)
+                soft_override_suggestion: Dict[str, Any] | None = None
+                if graph2d_result and graph2d_result.get("status") != "model_unavailable":
+                    soft_override_min_conf = _safe_float_env(
+                        "GRAPH2D_SOFT_OVERRIDE_MIN_CONF", 0.17
+                    )
+                    graph2d_label = str(graph2d_result.get("label") or "").strip()
+                    graph2d_conf = float(graph2d_result.get("confidence", 0.0))
+                    graph2d_allowed = bool(graph2d_result.get("allowed", True))
+                    graph2d_excluded = bool(graph2d_result.get("excluded", False))
+                    eligible = True
+                    reason = "eligible"
+                    if cls_payload.get("confidence_source") != "rules":
+                        eligible = False
+                        reason = "confidence_source_not_rules"
+                    elif str(cls_payload.get("rule_version") or "") != "v1":
+                        eligible = False
+                        reason = "rule_version_not_v1"
+                    elif graph2d_excluded:
+                        eligible = False
+                        reason = "graph2d_excluded"
+                    elif not graph2d_allowed:
+                        eligible = False
+                        reason = "graph2d_not_allowed"
+                    elif graph2d_conf < soft_override_min_conf:
+                        eligible = False
+                        reason = "below_threshold"
+                    soft_override_suggestion = {
+                        "eligible": eligible,
+                        "threshold": soft_override_min_conf,
+                        "label": graph2d_label,
+                        "confidence": graph2d_conf,
+                        "reason": reason,
+                    }
+                    cls_payload["soft_override_suggestion"] = soft_override_suggestion
+                elif graph2d_result is not None:
+                    cls_payload["soft_override_suggestion"] = {
+                        "eligible": False,
+                        "threshold": _safe_float_env("GRAPH2D_SOFT_OVERRIDE_MIN_CONF", 0.17),
+                        "label": None,
+                        "confidence": float(graph2d_result.get("confidence", 0.0) or 0.0),
+                        "reason": "graph2d_unavailable",
+                    }
                 # Optional FusionAnalyzer (shadow by default)
                 fusion_enabled = os.getenv("FUSION_ANALYZER_ENABLED", "false").lower() == "true"
                 fusion_override = (
@@ -920,6 +984,25 @@ async def analyze_cad_file(
                             }
                     except Exception as e:
                         logger.error(f"FusionAnalyzer failed: {e}")
+                # Optional Hybrid override (off by default)
+                hybrid_override = (
+                    os.getenv("HYBRID_CLASSIFIER_OVERRIDE", "false").lower() == "true"
+                )
+                if hybrid_override and hybrid_result:
+                    hybrid_min_conf = _safe_float_env("HYBRID_OVERRIDE_MIN_CONF", 0.8)
+                    hybrid_label = hybrid_result.get("label")
+                    hybrid_conf = float(hybrid_result.get("confidence", 0.0) or 0.0)
+                    if hybrid_label and hybrid_conf >= hybrid_min_conf:
+                        cls_payload["part_type"] = hybrid_label
+                        cls_payload["confidence"] = hybrid_conf
+                        cls_payload["rule_version"] = "HybridClassifier-v1"
+                        cls_payload["confidence_source"] = "hybrid"
+                    else:
+                        cls_payload["hybrid_override_skipped"] = {
+                            "min_confidence": hybrid_min_conf,
+                            "decision_confidence": hybrid_conf,
+                            "label": hybrid_label,
+                        }
                 results["classification"] = cls_payload
                 # Active learning: flag low-confidence samples for review
                 try:
