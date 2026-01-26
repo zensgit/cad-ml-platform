@@ -28,14 +28,15 @@ def _require_torch() -> bool:
 
 def _collate(
     batch: List[Tuple[Dict[str, Any], Any]]
-) -> Tuple[List[Any], List[Any], List[Any], List[Any]]:
-    xs, edges, edge_attrs, labels = [], [], [], []
+) -> Tuple[List[Any], List[Any], List[Any], List[Any], List[str]]:
+    xs, edges, edge_attrs, labels, filenames = [], [], [], [], []
     for graph, label in batch:
         xs.append(graph["x"])
         edges.append(graph["edge_index"])
         edge_attrs.append(graph.get("edge_attr"))
         labels.append(label)
-    return xs, edges, edge_attrs, labels
+        filenames.append(graph.get("file_name", ""))
+    return xs, edges, edge_attrs, labels, filenames
 
 
 def _compute_class_weights(labels: List[int], num_classes: int, mode: str):
@@ -224,10 +225,42 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-samples", type=int, default=0)
     parser.add_argument("--output", default="models/graph2d_merged_latest.pth")
+    parser.add_argument(
+        "--distill", action="store_true", help="Enable knowledge distillation training"
+    )
+    parser.add_argument(
+        "--teacher",
+        choices=["filename", "hybrid"],
+        default="hybrid",
+        help="Teacher model type for distillation",
+    )
+    parser.add_argument(
+        "--distill-alpha",
+        type=float,
+        default=0.3,
+        help="Distillation loss weight (0.0-1.0)",
+    )
+    parser.add_argument(
+        "--distill-temp",
+        type=float,
+        default=3.0,
+        help="Distillation temperature",
+    )
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        help="Device to use (cpu, cuda, mps)",
+    )
     args = parser.parse_args()
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
+
+    device = torch.device(args.device)
+    if args.device == "mps" and not torch.backends.mps.is_available():
+        print("Warning: MPS not available, falling back to CPU")
+        device = torch.device("cpu")
+    print(f"Using device: {device}")
 
     use_edge_attr = args.model == "edge_sage"
     dataset = DXFManifestDataset(
@@ -288,6 +321,22 @@ def main() -> int:
                 collate_fn=_collate,
             )
     from src.ml.class_balancer import ClassBalancer
+    from src.ml.knowledge_distillation import DistillationLoss, TeacherModel
+
+    # Initialize Teacher if needed
+    teacher_model = None
+    distill_loss_fn = None
+    if args.distill:
+        print(f"Initializing teacher model: {args.teacher}")
+        teacher_model = TeacherModel(
+            teacher_type=args.teacher,
+            label_to_idx=label_map,
+            num_classes=num_classes,
+        )
+        distill_loss_fn = DistillationLoss(
+            alpha=args.distill_alpha,
+            temperature=args.distill_temp,
+        )
 
     balance_strategy = "none"
     if args.loss == "focal":
@@ -358,26 +407,53 @@ def main() -> int:
             x[:, idx] = (x[:, idx] + torch.randn_like(x[:, idx]) * scale).clamp(-1.0, 1.0)
         return x
 
+    model.to(device)
+
     for epoch in range(1, args.epochs + 1):
         model.train()
         total_loss = 0.0
         total_seen = 0
-        for xs, edges, edge_attrs, labels in train_loader:
+        for batch_data in train_loader:
+            # Unpack batch (custom collate returns 5 items now including filenames)
+            xs, edges, edge_attrs, labels, filenames = batch_data
+
             optimizer.zero_grad()
             batch_loss = 0.0
             batch_count = 0
-            for x, edge_index, edge_attr, label in zip(xs, edges, edge_attrs, labels):
+
+            for i, (x, edge_index, edge_attr, label, filename) in enumerate(
+                zip(xs, edges, edge_attrs, labels, filenames)
+            ):
                 if x.numel() == 0:
                     continue
+
+                # Move to device
+                x = x.to(device)
+                edge_index = edge_index.to(device)
+                if edge_attr is not None:
+                    edge_attr = edge_attr.to(device)
+                label = label.to(device)
+
                 if args.augment and random.random() < args.augment_prob:
                     x = _augment_features(x)
+
                 if use_edge_attr:
                     logits = model(x, edge_index, edge_attr)
                 else:
                     logits = model(x, edge_index)
-                loss = criterion(logits, label.view(1))
+
+                # Calculate loss
+                if args.distill and teacher_model and distill_loss_fn:
+                    # Generate teacher soft labels for this sample
+                    teacher_logits = teacher_model.generate_soft_labels([filename])
+                    teacher_logits = teacher_logits.to(device)
+                    loss, _ = distill_loss_fn(logits, teacher_logits, label.view(1))
+                else:
+                    loss = criterion(logits, label.view(1))
+
                 batch_loss += loss
                 batch_count += 1
+
             if batch_count == 0:
                 continue
             batch_loss = batch_loss / batch_count
@@ -391,10 +467,14 @@ def main() -> int:
         correct = 0
         total = 0
         with torch.no_grad():
-            for xs, edges, edge_attrs, labels in val_loader:
+            for xs, edges, edge_attrs, labels, _ in val_loader:
                 for x, edge_index, edge_attr, label in zip(xs, edges, edge_attrs, labels):
                     if x.numel() == 0:
                         continue
+                    x = x.to(device)
+                    edge_index = edge_index.to(device)
+                    if edge_attr is not None:
+                        edge_attr = edge_attr.to(device)
                     if use_edge_attr:
                         logits = model(x, edge_index, edge_attr)
                     else:
