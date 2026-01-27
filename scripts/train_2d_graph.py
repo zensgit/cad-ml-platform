@@ -251,6 +251,17 @@ def main() -> int:
         default="cpu",
         help="Device to use (cpu, cuda, mps)",
     )
+    parser.add_argument(
+        "--early-stop-patience",
+        type=int,
+        default=0,
+        help="Early stopping patience (0 to disable). Stop if val_acc doesn't improve for N epochs.",
+    )
+    parser.add_argument(
+        "--save-best",
+        action="store_true",
+        help="Save the model with best validation accuracy instead of final epoch.",
+    )
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -409,6 +420,11 @@ def main() -> int:
 
     model.to(device)
 
+    # Early stopping and best model tracking
+    best_val_acc = 0.0
+    best_model_state = None
+    epochs_without_improvement = 0
+
     for epoch in range(1, args.epochs + 1):
         model.train()
         total_loss = 0.0
@@ -484,23 +500,49 @@ def main() -> int:
                         correct += 1
                     total += 1
         acc = correct / max(1, total)
-        print(f"Epoch {epoch}/{args.epochs} loss={avg_loss:.4f} val_acc={acc:.3f}")
+
+        # Track best model and early stopping
+        improved = acc > best_val_acc
+        if improved:
+            best_val_acc = acc
+            epochs_without_improvement = 0
+            if args.save_best:
+                best_model_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+        else:
+            epochs_without_improvement += 1
+
+        status = "← best" if improved else ""
+        print(f"Epoch {epoch}/{args.epochs} loss={avg_loss:.4f} val_acc={acc:.3f} {status}")
+
+        # Early stopping check
+        if args.early_stop_patience > 0 and epochs_without_improvement >= args.early_stop_patience:
+            print(f"Early stopping at epoch {epoch} (no improvement for {args.early_stop_patience} epochs)")
+            print(f"Best validation accuracy: {best_val_acc:.3f}")
+            break
 
     out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Use best model state if --save-best was enabled and we have one
+    save_state = best_model_state if (args.save_best and best_model_state is not None) else model.state_dict()
+
     torch.save(
         {
-            "model_state_dict": model.state_dict(),
+            "model_state_dict": save_state,
             "label_map": label_map,
             "node_dim": args.node_dim,
             "hidden_dim": args.hidden_dim,
             "loss_type": args.loss,
             "model_type": args.model,
             "edge_dim": args.edge_dim if use_edge_attr else 0,
+            "best_val_acc": best_val_acc,
         },
         out_path,
     )
-    print(f"Saved checkpoint: {out_path}")
+    if args.save_best and best_model_state is not None:
+        print(f"Saved best checkpoint (val_acc={best_val_acc:.3f}): {out_path}")
+    else:
+        print(f"Saved checkpoint: {out_path}")
     return 0
 
 
