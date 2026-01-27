@@ -12,9 +12,8 @@
 3. 表面处理：精加工后、检验前
 4. 焊接：根据结构件特点，通常在机加工后
 5. 材料相关规则：
-   - 铸铁（HT/QT）：需要时效处理消除内应力
-   - 不锈钢（304/316）：酸洗/钝化处理
-   - 铝合金（6061/7075）：阳极氧化处理
+   - 使用详细材料数据库获取工艺建议
+   - 根据材料属性自动生成警告和推荐
 """
 
 from __future__ import annotations
@@ -32,6 +31,25 @@ from src.core.ocr.base import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# 导入新的材料分类系统
+try:
+    from src.core.materials import (
+        MaterialInfo,
+        classify_material_detailed,
+        get_process_recommendations,
+    )
+    from src.core.materials.classifier import (
+        MaterialGroup,
+        ProcessRecommendation,
+    )
+    _MATERIALS_AVAILABLE = True
+except ImportError:
+    _MATERIALS_AVAILABLE = False
+    MaterialInfo = None  # type: ignore
+    MaterialGroup = None  # type: ignore
+    ProcessRecommendation = None  # type: ignore
 
 
 class ProcessStage(str, Enum):
@@ -174,6 +192,8 @@ def classify_material(material: Optional[str]) -> Optional[str]:
     """
     对材料进行分类
 
+    优先使用新的详细材料分类系统，回退到旧的模式匹配。
+
     Args:
         material: 材料名称字符串
 
@@ -183,6 +203,24 @@ def classify_material(material: Optional[str]) -> Optional[str]:
     if not material:
         return None
 
+    # 优先使用新的材料分类系统
+    if _MATERIALS_AVAILABLE:
+        info = classify_material_detailed(material)
+        if info:
+            # 将 MaterialGroup 映射到旧的类别名称
+            group_to_category = {
+                MaterialGroup.CAST_IRON: "cast_iron",
+                MaterialGroup.CARBON_STEEL: "carbon_steel",
+                MaterialGroup.ALLOY_STEEL: "alloy_steel",
+                MaterialGroup.STAINLESS_STEEL: "stainless_steel",
+                MaterialGroup.CORROSION_RESISTANT: "stainless_steel",  # 耐蚀合金归类为不锈钢
+                MaterialGroup.ALUMINUM: "aluminum",
+                MaterialGroup.COPPER: "copper",
+                MaterialGroup.TITANIUM: "titanium",
+            }
+            return group_to_category.get(info.group)
+
+    # 回退到旧的模式匹配
     material_upper = material.upper()
 
     for category, patterns in MATERIAL_PATTERNS.items():
@@ -191,6 +229,21 @@ def classify_material(material: Optional[str]) -> Optional[str]:
                 return category
 
     return None
+
+
+def get_detailed_material_info(material: Optional[str]) -> Optional[MaterialInfo]:
+    """
+    获取详细的材料信息
+
+    Args:
+        material: 材料名称字符串
+
+    Returns:
+        MaterialInfo 或 None
+    """
+    if not material or not _MATERIALS_AVAILABLE:
+        return None
+    return classify_material_detailed(material)
 
 
 # 材料相关的工艺建议
@@ -272,9 +325,23 @@ class ProcessRouteGenerator:
         steps: List[ProcessStep] = []
         warnings: List[str] = []
 
-        # 材料分类
+        # 材料分类 - 优先使用详细材料系统
         material_category = classify_material(material)
         material_hints = MATERIAL_PROCESS_HINTS.get(material_category, {}) if material_category else {}
+
+        # 获取详细材料信息（如果可用）
+        material_info = get_detailed_material_info(material)
+        if material_info:
+            # 使用详细材料数据库的工艺建议
+            process_rec = material_info.process
+            if process_rec.blank_hint:
+                material_hints["blank_hint"] = process_rec.blank_hint
+            # 添加材料数据库的警告
+            for warn in process_rec.warnings:
+                warnings.append(f"[{material_info.grade}] {warn}")
+            # 添加材料数据库的推荐
+            for rec in process_rec.recommendations:
+                warnings.append(f"[工艺建议] {rec}")
 
         # 1. 毛坯准备
         blank_desc = material_hints.get("blank_hint", "下料/锻造/铸造")
@@ -479,8 +546,22 @@ class ProcessRouteGenerator:
     def _generate_basic_route(self, material: Optional[str] = None) -> ProcessRoute:
         """生成基础工艺路线（无特殊工艺要求时）"""
         steps = []
+        warnings = []
         material_category = classify_material(material)
         material_hints = MATERIAL_PROCESS_HINTS.get(material_category, {}) if material_category else {}
+
+        # 获取详细材料信息（如果可用）
+        material_info = get_detailed_material_info(material)
+        if material_info:
+            process_rec = material_info.process
+            if process_rec.blank_hint:
+                material_hints["blank_hint"] = process_rec.blank_hint
+            # 添加材料数据库的警告
+            for warn in process_rec.warnings:
+                warnings.append(f"[{material_info.grade}] {warn}")
+            # 添加材料数据库的推荐
+            for rec in process_rec.recommendations:
+                warnings.append(f"[工艺建议] {rec}")
 
         for i, (stage, name, desc) in enumerate(self._base_steps):
             # 毛坯准备根据材料调整描述
@@ -492,7 +573,7 @@ class ProcessRouteGenerator:
                 description=desc,
                 sequence=i + 1,
             ))
-        return ProcessRoute(steps=steps, material=material, confidence=0.3)
+        return ProcessRoute(steps=steps, material=material, confidence=0.3, warnings=warnings)
 
     def _calculate_confidence(self, proc: ProcessRequirements, material: Optional[str] = None) -> float:
         """计算工艺路线置信度"""
@@ -508,6 +589,9 @@ class ProcessRouteGenerator:
         # 有材料信息增加置信度
         if material:
             score += 0.05
+            # 如果在详细材料数据库中找到，进一步增加置信度
+            if _MATERIALS_AVAILABLE and classify_material_detailed(material):
+                score += 0.05
         return min(score, 1.0)
 
 
