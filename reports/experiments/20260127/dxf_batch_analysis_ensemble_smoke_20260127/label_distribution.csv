@@ -1,0 +1,5 @@
+label,count,share,avg_confidence
+机械制图,4,0.400,0.925
+complex_assembly,3,0.300,0.550
+moderate_component,2,0.200,0.600
+盖,1,0.100,0.900
