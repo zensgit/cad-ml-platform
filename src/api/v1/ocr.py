@@ -49,6 +49,7 @@ class OcrResponse(BaseModel):
     dimensions: List
     symbols: List
     title_block: Dict
+    process_requirements: Optional[Dict] = Field(None, description="Extracted manufacturing process requirements")
     error: Optional[str] = None
     code: Optional[ErrorCode] = None
 
@@ -145,6 +146,7 @@ def _input_error_response(provider: str, detail: str) -> OcrResponse:
         dimensions=[],
         symbols=[],
         title_block={},
+        process_requirements=None,
         error=detail,
         code=ErrorCode.INPUT_ERROR,
     )
@@ -175,6 +177,7 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
             dimensions=[],
             symbols=[],
             title_block={},
+            process_requirements=None,
             error=str(oe),
             code=oe.code if isinstance(oe.code, ErrorCode) else ErrorCode.INTERNAL_ERROR,
         )
@@ -195,6 +198,7 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
             dimensions=[],
             symbols=[],
             title_block={},
+            process_requirements=None,
             error="OCR extraction failed",
             code=ErrorCode.INTERNAL_ERROR,
         )
@@ -230,6 +234,7 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
         dimensions=[d.model_dump() for d in result.dimensions],
         symbols=[s.model_dump() for s in result.symbols],
         title_block=result.title_block.model_dump(),
+        process_requirements=result.process_requirements.model_dump() if result.process_requirements else None,
     )
 
 
@@ -296,6 +301,7 @@ async def ocr_extract(
             dimensions=[],
             symbols=[],
             title_block={},
+            process_requirements=None,
             error=str(ve.detail),
             code=ErrorCode.INPUT_ERROR,
         )
@@ -320,6 +326,7 @@ async def ocr_extract(
             dimensions=[],
             symbols=[],
             title_block={},
+            process_requirements=None,
             error="OCR extraction failed",
             code=ErrorCode.INTERNAL_ERROR,
         )
