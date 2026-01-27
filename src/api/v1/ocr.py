@@ -40,6 +40,17 @@ def get_manager() -> OcrManager:
     return _manager
 
 
+class MaterialInfoBrief(BaseModel):
+    """材料信息简要"""
+    found: bool = Field(..., description="是否在数据库中找到")
+    grade: Optional[str] = Field(None, description="标准牌号")
+    name: Optional[str] = Field(None, description="材料名称")
+    category: Optional[str] = Field(None, description="材料类别")
+    group: Optional[str] = Field(None, description="材料组")
+    warnings: List[str] = Field(default_factory=list, description="工艺警告")
+    recommendations: List[str] = Field(default_factory=list, description="工艺建议")
+
+
 class OcrResponse(BaseModel):
     success: bool = Field(True, description="Whether OCR succeeded")
     provider: str
@@ -50,6 +61,7 @@ class OcrResponse(BaseModel):
     symbols: List
     title_block: Dict
     material: Optional[str] = Field(None, description="Extracted material from title block")
+    material_info: Optional[MaterialInfoBrief] = Field(None, description="Detailed material classification info")
     process_requirements: Optional[Dict] = Field(None, description="Extracted manufacturing process requirements")
     process_route: Optional[Dict] = Field(None, description="Recommended manufacturing process route")
     error: Optional[str] = None
@@ -149,6 +161,7 @@ def _input_error_response(provider: str, detail: str) -> OcrResponse:
         symbols=[],
         title_block={},
         material=None,
+        material_info=None,
         process_requirements=None,
         process_route=None,
         error=detail,
@@ -182,6 +195,7 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
             symbols=[],
             title_block={},
             material=None,
+            material_info=None,
             process_requirements=None,
             process_route=None,
             error=str(oe),
@@ -205,6 +219,7 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
             symbols=[],
             title_block={},
             material=None,
+            material_info=None,
             process_requirements=None,
             process_route=None,
             error="OCR extraction failed",
@@ -237,6 +252,28 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
     # Generate process route if process requirements exist
     process_route = None
     material = result.title_block.material
+    material_info = None
+
+    # Get detailed material info if material is available
+    if material:
+        try:
+            from src.core.materials import classify_material_detailed
+            info = classify_material_detailed(material)
+            if info:
+                material_info = MaterialInfoBrief(
+                    found=True,
+                    grade=info.grade,
+                    name=info.name,
+                    category=info.category.value,
+                    group=info.group.value,
+                    warnings=info.process.warnings,
+                    recommendations=info.process.recommendations,
+                )
+            else:
+                material_info = MaterialInfoBrief(found=False)
+        except Exception as e:
+            logger.warning("material_info.classification_failed", extra={"error": str(e)})
+
     if result.process_requirements:
         try:
             from src.core.process import generate_process_route
@@ -254,6 +291,7 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
         symbols=[s.model_dump() for s in result.symbols],
         title_block=result.title_block.model_dump(),
         material=result.title_block.material,
+        material_info=material_info,
         process_requirements=result.process_requirements.model_dump() if result.process_requirements else None,
         process_route=process_route,
     )
@@ -323,6 +361,7 @@ async def ocr_extract(
             symbols=[],
             title_block={},
             material=None,
+            material_info=None,
             process_requirements=None,
             process_route=None,
             error=str(ve.detail),
@@ -350,6 +389,7 @@ async def ocr_extract(
             symbols=[],
             title_block={},
             material=None,
+            material_info=None,
             process_requirements=None,
             process_route=None,
             error="OCR extraction failed",
