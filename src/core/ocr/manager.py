@@ -34,6 +34,7 @@ from .base import DimensionType, OcrClient, OcrResult, SymbolType
 from .calibration import MultiEvidenceCalibrator
 from .config import DATASET_VERSION, PROMPT_VERSION
 from .exceptions import OcrError
+from .parsing.process_parser import parse_process_requirements
 
 # Versions centralized in config.
 
@@ -183,6 +184,9 @@ class OcrManager:
         result.trace_id = trace_id
         # completeness & calibrated confidence
         result.completeness = self._compute_completeness(result)
+        # Extract process requirements from OCR text
+        if result.text:
+            result.process_requirements = parse_process_requirements(result.text)
         item_mean = None
         if result.dimensions or result.symbols:
             vals = [d.confidence for d in result.dimensions if d.confidence is not None] + [
@@ -229,6 +233,8 @@ class OcrManager:
                 ds_result.fallback_level = "missing_fields"
                 ds_result.processing_time_ms = int((time.time() - start) * 1000)
                 ds_result.completeness = self._compute_completeness(ds_result)
+                if ds_result.text:
+                    ds_result.process_requirements = parse_process_requirements(ds_result.text)
                 item_mean_ds = None
                 if ds_result.dimensions or ds_result.symbols:
                     vals_ds = [
@@ -271,6 +277,8 @@ class OcrManager:
                 ds_result.fallback_level = "confidence_fallback"
                 ds_result.processing_time_ms = int((time.time() - start) * 1000)
                 ds_result.completeness = self._compute_completeness(ds_result)
+                if ds_result.text:
+                    ds_result.process_requirements = parse_process_requirements(ds_result.text)
                 item_mean_ds = None
                 if ds_result.dimensions or ds_result.symbols:
                     vals_ds = [
