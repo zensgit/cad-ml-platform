@@ -4,7 +4,8 @@ HybridClassifier - 混合分类器
 融合多种分类信号：
 1. FilenameClassifier (文件名)
 2. Graph2DClassifier (几何图神经网络)
-3. TitleBlockClassifier (标题栏文本) [未来]
+3. TitleBlockClassifier (标题栏文本)
+4. ProcessClassifier (工艺特征)
 
 Feature Flags:
     HYBRID_CLASSIFIER_ENABLED: 是否启用混合分类 (default: true)
@@ -13,6 +14,8 @@ Feature Flags:
     GRAPH2D_FUSION_WEIGHT: Graph2D 分类权重 (default: 0.3)
     TITLEBLOCK_ENABLED: 是否启用标题栏特征 (default: false)
     TITLEBLOCK_OVERRIDE_ENABLED: 是否允许标题栏直接覆盖 (default: false)
+    PROCESS_FEATURES_ENABLED: 是否启用工艺特征 (default: true)
+    PROCESS_FUSION_WEIGHT: 工艺特征权重 (default: 0.15)
 """
 
 from __future__ import annotations
@@ -39,6 +42,7 @@ class DecisionSource(str, Enum):
     FILENAME = "filename"
     GRAPH2D = "graph2d"
     TITLEBLOCK = "titleblock"
+    PROCESS = "process"
     FUSION = "fusion"
     FALLBACK = "fallback"
 
@@ -54,6 +58,7 @@ class ClassificationResult:
     filename_prediction: Optional[Dict[str, Any]] = None
     graph2d_prediction: Optional[Dict[str, Any]] = None
     titleblock_prediction: Optional[Dict[str, Any]] = None
+    process_prediction: Optional[Dict[str, Any]] = None
 
     # 融合决策详情
     fusion_weights: Dict[str, float] = field(default_factory=dict)
@@ -68,6 +73,7 @@ class ClassificationResult:
             "filename_prediction": self.filename_prediction,
             "graph2d_prediction": self.graph2d_prediction,
             "titleblock_prediction": self.titleblock_prediction,
+            "process_prediction": self.process_prediction,
             "fusion_weights": self.fusion_weights,
             "decision_path": self.decision_path,
         }
@@ -81,9 +87,11 @@ class HybridClassifier:
         filename_weight: float = 0.7,
         graph2d_weight: float = 0.3,
         titleblock_weight: float = 0.2,
+        process_weight: float = 0.15,
         filename_min_conf: float = 0.8,
         graph2d_min_conf: float = 0.5,
         titleblock_min_conf: float = 0.75,
+        process_min_conf: float = 0.3,
     ):
         """
         初始化混合分类器
@@ -91,19 +99,25 @@ class HybridClassifier:
         Args:
             filename_weight: 文件名分类权重
             graph2d_weight: Graph2D 分类权重
+            titleblock_weight: 标题栏分类权重
+            process_weight: 工艺特征分类权重
             filename_min_conf: 文件名分类最低置信度（高于此值优先采用）
             graph2d_min_conf: Graph2D 分类最低置信度
+            titleblock_min_conf: 标题栏分类最低置信度
+            process_min_conf: 工艺特征分类最低置信度
         """
         self.filename_weight = float(os.getenv("FILENAME_FUSION_WEIGHT", str(filename_weight)))
         self.graph2d_weight = float(os.getenv("GRAPH2D_FUSION_WEIGHT", str(graph2d_weight)))
         self.titleblock_weight = float(
             os.getenv("TITLEBLOCK_FUSION_WEIGHT", str(titleblock_weight))
         )
+        self.process_weight = float(os.getenv("PROCESS_FUSION_WEIGHT", str(process_weight)))
         self.filename_min_conf = float(os.getenv("FILENAME_MIN_CONF", str(filename_min_conf)))
         self.graph2d_min_conf = float(os.getenv("GRAPH2D_MIN_CONF", str(graph2d_min_conf)))
         self.titleblock_min_conf = float(
             os.getenv("TITLEBLOCK_MIN_CONF", str(titleblock_min_conf))
         )
+        self.process_min_conf = float(os.getenv("PROCESS_MIN_CONF", str(process_min_conf)))
         self.titleblock_override_enabled = (
             os.getenv("TITLEBLOCK_OVERRIDE_ENABLED", "false").lower() == "true"
         )
@@ -119,6 +133,7 @@ class HybridClassifier:
         self._filename_classifier = None
         self._graph2d_classifier = None
         self._titleblock_classifier = None
+        self._process_classifier = None
 
         logger.info(
             "HybridClassifier initialized",
@@ -126,9 +141,11 @@ class HybridClassifier:
                 "filename_weight": self.filename_weight,
                 "graph2d_weight": self.graph2d_weight,
                 "titleblock_weight": self.titleblock_weight,
+                "process_weight": self.process_weight,
                 "filename_min_conf": self.filename_min_conf,
                 "graph2d_min_conf": self.graph2d_min_conf,
                 "titleblock_min_conf": self.titleblock_min_conf,
+                "process_min_conf": self.process_min_conf,
                 "titleblock_override_enabled": self.titleblock_override_enabled,
                 "graph2d_drawing_labels": sorted(self.graph2d_drawing_labels),
             },
@@ -167,6 +184,19 @@ class HybridClassifier:
                 self._titleblock_classifier = None
         return self._titleblock_classifier
 
+    @property
+    def process_classifier(self):
+        """懒加载 ProcessClassifier"""
+        if self._process_classifier is None:
+            try:
+                from src.ml.process_classifier import get_process_classifier
+
+                self._process_classifier = get_process_classifier()
+            except Exception as e:
+                logger.warning("Process classifier not available: %s", e)
+                self._process_classifier = None
+        return self._process_classifier
+
     def _is_filename_enabled(self) -> bool:
         """检查文件名分类是否启用"""
         return os.getenv("FILENAME_CLASSIFIER_ENABLED", "true").lower() == "true"
@@ -182,6 +212,10 @@ class HybridClassifier:
     def _is_titleblock_enabled(self) -> bool:
         """检查标题栏特征是否启用"""
         return os.getenv("TITLEBLOCK_ENABLED", "false").lower() == "true"
+
+    def _is_process_enabled(self) -> bool:
+        """检查工艺特征分类是否启用"""
+        return os.getenv("PROCESS_FEATURES_ENABLED", "true").lower() == "true"
 
     def _is_graph2d_drawing_type(self, label: Optional[str]) -> bool:
         if not label:
@@ -275,7 +309,58 @@ class HybridClassifier:
         if titleblock_pred:
             result.titleblock_prediction = titleblock_pred
 
-        # 3. 融合决策
+        # 4. Process 特征分类
+        process_pred = None
+        process_label = None
+        process_conf = 0.0
+        if self._is_process_enabled() and file_bytes:
+            try:
+                import tempfile
+                import os as _os
+                import ezdxf  # type: ignore
+
+                # 提取 DXF 文本
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
+                    tmp.write(file_bytes)
+                    tmp_path = tmp.name
+                try:
+                    doc = ezdxf.readfile(tmp_path)
+                    texts = []
+                    for entity in doc.modelspace():
+                        if entity.dxftype() == 'TEXT':
+                            texts.append(entity.dxf.text)
+                        elif entity.dxftype() == 'MTEXT':
+                            texts.append(entity.text)
+                        elif entity.dxftype() == 'ATTRIB':
+                            texts.append(entity.dxf.text)
+                    for entity in doc.modelspace():
+                        if entity.dxftype() == 'INSERT':
+                            for attrib in entity.attribs:
+                                texts.append(attrib.dxf.text)
+                    combined_text = '\n'.join(texts)
+
+                    if combined_text.strip():
+                        classifier = self.process_classifier
+                        if classifier:
+                            proc_result = classifier.predict_from_text(combined_text)
+                            if proc_result.suggested_labels and proc_result.confidence >= self.process_min_conf:
+                                process_pred = proc_result.to_dict()
+                                process_label = proc_result.suggested_labels[0]
+                                process_conf = proc_result.confidence
+                                result.decision_path.append("process_predicted")
+                finally:
+                    try:
+                        _os.unlink(tmp_path)
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.warning("Process classification failed: %s", e)
+                result.decision_path.append("process_error")
+
+        if process_pred:
+            result.process_prediction = process_pred
+
+        # 5. 融合决策
         filename_label = filename_pred.get("label") if filename_pred else None
         filename_conf = float(filename_pred.get("confidence", 0)) if filename_pred else 0.0
 
@@ -293,6 +378,7 @@ class HybridClassifier:
             "filename": self.filename_weight,
             "graph2d": self.graph2d_weight,
             "titleblock": self.titleblock_weight,
+            "process": self.process_weight,
         }
 
         if (
@@ -331,8 +417,8 @@ class HybridClassifier:
             result.source = DecisionSource.GRAPH2D
             result.decision_path.append("graph2d_adopted")
 
-        elif filename_label or graph2d_label or titleblock_label:
-            # 多源融合 (filename/graph2d/titleblock)
+        elif filename_label or graph2d_label or titleblock_label or process_label:
+            # 多源融合 (filename/graph2d/titleblock/process)
             label_scores: Dict[str, float] = {}
             label_sources: Dict[str, List[str]] = {}
 
@@ -345,6 +431,7 @@ class HybridClassifier:
             _add_score(filename_label, filename_conf, self.filename_weight, "filename")
             _add_score(graph2d_label, graph2d_conf, self.graph2d_weight, "graph2d")
             _add_score(titleblock_label, titleblock_conf, self.titleblock_weight, "titleblock")
+            _add_score(process_label, process_conf, self.process_weight, "process")
 
             if label_scores:
                 best_label = max(label_scores.items(), key=lambda item: item[1])[0]
