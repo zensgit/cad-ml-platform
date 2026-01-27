@@ -1,0 +1,9 @@
+{
+  "total":110.0,
+  "low_confidence_count":53.0,
+  "low_confidence_ratio":0.4818,
+  "confidence_min":0.55,
+  "confidence_max":0.6,
+  "confidence_mean":0.5557,
+  "confidence_median":0.55
+}

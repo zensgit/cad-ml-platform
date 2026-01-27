@@ -1,0 +1,14 @@
+label,baseline_count,overridden_from,overridden_to,new_count,delta
+complex_assembly,28,2,0,26,-2
+moderate_component,25,2,0,23,-2
+传动件,0,0,4,4,4
+底板,4,0,0,4,0
+挡板,5,0,0,5,0
+支腿,4,0,0,4,0
+旋转组件,4,0,0,4,0
+机械制图,14,0,0,14,0
+盖,11,0,0,11,0
+箱体,2,0,0,2,0
+罩,4,0,0,4,0
+蜗杆,3,0,0,3,0
+轴承,6,0,0,6,0

@@ -1,0 +1,13 @@
+file,part_type,confidence,confidence_source,rule_version,graph2d_label,graph2d_confidence,soft_override_label,soft_override_confidence,soft_override_threshold,soft_override_reason
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/J0225048-02-07侧推料组件v2.dxf,complex_assembly,0.55,rules,v1,传动件,0.1819678843021392,传动件,0.1819678843021392,0.17,eligible
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/BTJ02230101102-12手轮组件v1.dxf,moderate_component,0.6,rules,v1,传动件,0.1940209567546844,传动件,0.1940209567546844,0.17,eligible
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/J2825003-05下筒体组件v2.dxf,complex_assembly,0.55,rules,v1,罐体,0.1746706813573837,罐体,0.1746706813573837,0.17,eligible
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/BTJ01231201522-00拖车DN1500v2.dxf,complex_assembly,0.55,rules,v1,设备,0.1707949042320251,设备,0.1707949042320251,0.17,eligible
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/J0225048-02-07侧推料组件v1.dxf,complex_assembly,0.55,rules,v1,传动件,0.1819678843021392,传动件,0.1819678843021392,0.17,eligible
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/J1424042-51-01-08对接法兰v2.dxf,moderate_component,0.6,rules,v1,传动件,0.1735863089561462,传动件,0.1735863089561462,0.17,eligible
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/J2825003-05下筒体组件v1.dxf,complex_assembly,0.55,rules,v1,罐体,0.1746706813573837,罐体,0.1746706813573837,0.17,eligible
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/LTJ012303106-0001超声波法兰v1.dxf,moderate_component,0.6,rules,v1,罐体,0.1717875003814697,罐体,0.1717875003814697,0.17,eligible
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/BTJ01231201522-00拖车DN1500v1.dxf,complex_assembly,0.55,rules,v1,设备,0.1707949042320251,设备,0.1707949042320251,0.17,eligible
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/J1424042-51-01-08对接法兰v1.dxf,moderate_component,0.6,rules,v1,传动件,0.1729955524206161,传动件,0.1729955524206161,0.17,eligible
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/BTJ02230101102-12手轮组件v2.dxf,moderate_component,0.6,rules,v1,传动件,0.1940209567546844,传动件,0.1940209567546844,0.17,eligible
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/LTJ012303106-0001超声波法兰v2.dxf,moderate_component,0.6,rules,v1,罐体,0.1720746308565139,罐体,0.1720746308565139,0.17,eligible

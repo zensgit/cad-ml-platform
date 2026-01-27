@@ -1,0 +1,27 @@
+{
+  "total": 110,
+  "success": 110,
+  "error": 0,
+  "confidence_buckets": {
+    "0_4_0_6": 28,
+    "gte_0_8": 57,
+    "0_6_0_8": 25
+  },
+  "label_counts": {
+    "complex_assembly": 28,
+    "蜗杆": 3,
+    "底板": 4,
+    "盖": 11,
+    "挡板": 5,
+    "moderate_component": 25,
+    "机械制图": 14,
+    "旋转组件": 4,
+    "轴承": 6,
+    "箱体": 2,
+    "支腿": 4,
+    "罩": 4
+  },
+  "low_confidence_count": 53,
+  "soft_override_candidates": 53,
+  "sample_size": 110
+}

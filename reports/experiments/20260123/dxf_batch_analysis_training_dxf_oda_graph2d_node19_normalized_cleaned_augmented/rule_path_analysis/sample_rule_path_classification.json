@@ -1,0 +1,28 @@
+{
+  "file": "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/BTJ14240301522-00防爆视灯组件v1.dxf",
+  "status": 200,
+  "classification": {
+    "part_type": "complex_assembly",
+    "confidence": 0.55,
+    "confidence_source": "rules",
+    "rule_version": "v1",
+    "graph2d_prediction": null,
+    "fusion_decision": {
+      "primary_label": "Standard_Part",
+      "confidence": 0.55,
+      "source": "rule_based",
+      "reasons": [
+        "Default fallback: No specific features detected"
+      ],
+      "rule_hits": [
+        "RULE_DEFAULT"
+      ],
+      "ai_raw_score": 0.0,
+      "consistency_check": "none",
+      "consistency_notes": null,
+      "schema_version": "v1.2",
+      "feature_vector_id": "497544d02213"
+    },
+    "fusion_override_skipped": null
+  }
+}

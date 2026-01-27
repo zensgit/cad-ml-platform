@@ -1,0 +1,14 @@
+{
+  "total": 110,
+  "rule_v1_count": 53,
+  "rule_v1_rules_count": 53,
+  "soft_override_threshold": 0.18,
+  "soft_override_candidates": 4,
+  "override_from_counts": {
+    "complex_assembly": 2,
+    "moderate_component": 2
+  },
+  "override_to_counts": {
+    "传动件": 4
+  }
+}

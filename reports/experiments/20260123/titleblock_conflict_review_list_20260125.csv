@@ -1,0 +1,3 @@
+file,filename_label,filename_confidence,titleblock_label,titleblock_confidence,titleblock_part_name,titleblock_drawing_number,decision,decision_path
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/比较_LTJ012306102-0084调节螺栓v1 vs LTJ012306102-0084调节螺栓v2.dxf,调节螺栓,0.95,轴类,0.85,小减速机轴,LTJ012306102-0084,manual_review,filename_extracted;titleblock_predicted;titleblock_filename_conflict;titleblock_ignored_filename_high_conf;filename_high_conf_adopted
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/LTJ012306102-0084调节螺栓v1.dxf,调节螺栓,0.95,轴类,0.85,小减速机轴,LTJ012306102-0084,manual_review,filename_extracted;titleblock_predicted;titleblock_filename_conflict;titleblock_ignored_filename_high_conf;filename_high_conf_adopted

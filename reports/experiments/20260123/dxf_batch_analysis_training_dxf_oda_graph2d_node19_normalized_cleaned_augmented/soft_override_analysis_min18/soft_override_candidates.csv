@@ -1,0 +1,5 @@
+file,part_type,confidence,rule_version,confidence_source,graph2d_label,graph2d_confidence,soft_override_label,soft_override_confidence
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/J0225048-02-07侧推料组件v2.dxf,complex_assembly,0.55,v1,rules,传动件,0.1819678843021392,传动件,0.1819678843021392
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/BTJ02230101102-12手轮组件v1.dxf,moderate_component,0.6,v1,rules,传动件,0.1940209567546844,传动件,0.1940209567546844
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/J0225048-02-07侧推料组件v1.dxf,complex_assembly,0.55,v1,rules,传动件,0.1819678843021392,传动件,0.1819678843021392
+/Users/huazhou/Downloads/训练图纸/训练图纸_dxf_oda_20260123/BTJ02230101102-12手轮组件v2.dxf,moderate_component,0.6,v1,rules,传动件,0.1940209567546844,传动件,0.1940209567546844

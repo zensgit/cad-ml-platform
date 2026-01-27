@@ -1,0 +1,16 @@
+{
+  "total": 110,
+  "low_confidence_count": 53,
+  "low_confidence_ratio": 0.4818,
+  "rule_versions": {
+    "L2-Fusion-v1": 57,
+    "v1": 53
+  },
+  "confidence_sources": {
+    "fusion": 57,
+    "rules": 53
+  },
+  "low_confidence_rule_versions": {
+    "v1": 53
+  }
+}

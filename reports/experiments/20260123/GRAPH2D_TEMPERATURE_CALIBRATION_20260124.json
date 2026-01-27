@@ -1,0 +1,8 @@
+{
+  "temperature": 0.965337,
+  "nll_before": 1.976248,
+  "nll_after": 1.973759,
+  "ece_before": 0.217827,
+  "ece_after": 0.216095,
+  "val_samples": 18
+}

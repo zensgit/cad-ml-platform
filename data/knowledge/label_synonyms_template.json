@@ -29,7 +29,8 @@
   ],
   "短轴承座(盖)": [
     "short bearing housing cover",
-    "short bearing seat cover"
+    "short bearing seat cover",
+    "小轴承座(盖)"
   ],
   "蜗轮蜗杆传动出料机构": [
     "worm drive discharge assembly",
@@ -327,7 +328,8 @@
   ],
   "箱体": [],
   "轴类": [
-    "shaft"
+    "shaft",
+    "小减速机轴"
   ],
   "紧固件": [],
   "轴承": [
