@@ -50,6 +50,7 @@ class OcrResponse(BaseModel):
     symbols: List
     title_block: Dict
     process_requirements: Optional[Dict] = Field(None, description="Extracted manufacturing process requirements")
+    process_route: Optional[Dict] = Field(None, description="Recommended manufacturing process route")
     error: Optional[str] = None
     code: Optional[ErrorCode] = None
 
@@ -147,6 +148,7 @@ def _input_error_response(provider: str, detail: str) -> OcrResponse:
         symbols=[],
         title_block={},
         process_requirements=None,
+        process_route=None,
         error=detail,
         code=ErrorCode.INPUT_ERROR,
     )
@@ -178,6 +180,7 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
             symbols=[],
             title_block={},
             process_requirements=None,
+            process_route=None,
             error=str(oe),
             code=oe.code if isinstance(oe.code, ErrorCode) else ErrorCode.INTERNAL_ERROR,
         )
@@ -199,6 +202,7 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
             symbols=[],
             title_block={},
             process_requirements=None,
+            process_route=None,
             error="OCR extraction failed",
             code=ErrorCode.INTERNAL_ERROR,
         )
@@ -226,6 +230,16 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
             "stages_latency_ms": result.stages_latency_ms,
         },
     )
+    # Generate process route if process requirements exist
+    process_route = None
+    if result.process_requirements:
+        try:
+            from src.core.process import generate_process_route
+            route = generate_process_route(result.process_requirements)
+            process_route = route.to_dict()
+        except Exception as e:
+            logger.warning("process_route.generation_failed", extra={"error": str(e)})
+
     return OcrResponse(
         provider=result.provider or provider,
         confidence=(result.calibrated_confidence or result.confidence),
@@ -235,6 +249,7 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
         symbols=[s.model_dump() for s in result.symbols],
         title_block=result.title_block.model_dump(),
         process_requirements=result.process_requirements.model_dump() if result.process_requirements else None,
+        process_route=process_route,
     )
 
 
@@ -302,6 +317,7 @@ async def ocr_extract(
             symbols=[],
             title_block={},
             process_requirements=None,
+            process_route=None,
             error=str(ve.detail),
             code=ErrorCode.INPUT_ERROR,
         )
@@ -327,6 +343,7 @@ async def ocr_extract(
             symbols=[],
             title_block={},
             process_requirements=None,
+            process_route=None,
             error="OCR extraction failed",
             code=ErrorCode.INTERNAL_ERROR,
         )
