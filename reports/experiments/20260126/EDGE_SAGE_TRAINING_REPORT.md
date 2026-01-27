@@ -100,6 +100,7 @@ Epoch   Loss    Val Acc
 | `graph2d_edge_sage_v2.pth` | 599KB | hidden=256, 100ep | 44.2% | 44.2% |
 | `graph2d_edge_sage_v3.pth` | 2.2MB | hidden=512, 150ep | **53.5%** | 48.8% |
 | `graph2d_edge_sage_v4_best.pth` | 2.2MB | hidden=512, 早停 | 51.2% | 51.2% (best) |
+| `graph2d_edge_sage_v5_warmup.pth` | 2.2MB | hidden=512, warmup_cosine | **53.5%** | 53.5% (best) |
 
 ## EdgeSage v3 训练曲线
 
@@ -130,21 +131,65 @@ Epoch   Loss    Val Acc
 
 **早停配置**: `--early-stop-patience 25 --save-best`
 
+## EdgeSage v5 训练曲线 (warmup_cosine 调度器)
+
+```
+Epoch   Loss    Val Acc   LR
+1       1.34    2.3%      1.0e-4  (warmup)
+10      0.70    0.0%      5.0e-4  (warmup 结束)
+17      0.54    18.6%     4.98e-4
+37      0.34    37.2%     4.76e-4
+67      0.29    46.5%     3.98e-4
+87      0.33    51.2%     3.25e-4
+93      0.28    53.5%     3.01e-4 ← 最佳 (保存点)
+123     0.28    48.8%     1.80e-4 ← 早停触发
+```
+
+**调度器配置**: `--scheduler warmup_cosine --warmup-epochs 10`
+
+## 集成学习实验
+
+### 集成分类器实现
+
+使用 `EnsembleGraph2DClassifier` 实现多模型投票：
+- **Soft Voting**: 平均各模型的概率分布
+- **Hard Voting**: 多数投票
+
+### 集成结果 (验证集 n=42)
+
+| 方法 | 准确率 | 提升 |
+|------|--------|------|
+| v3 单模型 | 64.3% | - |
+| v4 单模型 | 64.3% | - |
+| v5 单模型 | 66.7% | +2.4% |
+| Hard Voting (v3+v4) | 64.3% | +0% |
+| **Soft Voting (v3+v4)** | **69.0%** | **+4.7%** |
+| Soft Voting (v3+v4+v5) | 64.3% | +0% |
+| Hard Voting (v3+v4+v5) | 64.3% | +0% |
+
+**关键发现**:
+- Soft voting (v3+v4) 是最佳方案
+- 三模型集成反而下降，可能因为 v5 与 v3 训练相似度高
+- v5 单模型表现优于 v3/v4
+
 ## 后续优化方向
 
 1. ~~**增大模型容量**: hidden=512 可能进一步提升~~ ✅ 已验证有效 (53.5%)
-2. **学习率调度**: warmup + cosine decay 可能稳定训练
+2. ~~**学习率调度**: warmup + cosine decay 可能稳定训练~~ ✅ 已实现 (v5)
 3. ~~**早停机制**: 在最佳验证准确率时保存模型~~ ✅ 已实现 (v4)
 4. **更强的数据增强**: 旋转、缩放等几何变换
-5. **集成学习**: v3 + v4 投票可能进一步提升
+5. ~~**集成学习**: v3 + v4 投票可能进一步提升~~ ✅ Soft voting +4.7%
+6. ~~**三模型集成**: v3 + v4 + v5 投票~~ ⚠️ 未提升，保持双模型方案
 
 ## 结论
 
 - **EdgeGraphSage 解决了 GCN 的类别坍缩问题**
 - **边特征是 CAD 图分类的关键区分因素**
 - **模型容量增大持续有效**: 128→256→512 均带来提升
-- **当前最佳模型**: `graph2d_edge_sage_v3.pth` (**53.5%** 验证准确率)
-- **推荐用于生产**: 结合 HybridClassifier 使用
+- **warmup_cosine 调度器有效**: v5 达到与 v3 相同的 53.5%
+- **集成学习显著提升**: Soft voting 从 64.3% 提升到 **69.0%**
+- **当前最佳方案**: `EnsembleGraph2DClassifier` (v3+v4 soft voting)
+- **推荐用于生产**: 集成分类器结合 HybridClassifier 使用
 
 ---
 *实验环境: Apple M4, MPS 加速, PyTorch 2.10.0*

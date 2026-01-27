@@ -47,21 +47,48 @@ def main():
     # Load classifiers
     v3 = Graph2DClassifier(model_path="models/graph2d_edge_sage_v3.pth")
     v4 = Graph2DClassifier(model_path="models/graph2d_edge_sage_v4_best.pth")
-    ensemble_soft = EnsembleGraph2DClassifier(voting="soft")
-    ensemble_hard = EnsembleGraph2DClassifier(voting="hard")
+    v5 = Graph2DClassifier(model_path="models/graph2d_edge_sage_v5_warmup.pth")
+
+    # 2-model ensemble
+    ensemble_soft_2 = EnsembleGraph2DClassifier(
+        model_paths=["models/graph2d_edge_sage_v3.pth", "models/graph2d_edge_sage_v4_best.pth"],
+        voting="soft"
+    )
+
+    # 3-model ensemble
+    ensemble_soft_3 = EnsembleGraph2DClassifier(
+        model_paths=[
+            "models/graph2d_edge_sage_v3.pth",
+            "models/graph2d_edge_sage_v4_best.pth",
+            "models/graph2d_edge_sage_v5_warmup.pth",
+        ],
+        voting="soft"
+    )
+    ensemble_hard_3 = EnsembleGraph2DClassifier(
+        model_paths=[
+            "models/graph2d_edge_sage_v3.pth",
+            "models/graph2d_edge_sage_v4_best.pth",
+            "models/graph2d_edge_sage_v5_warmup.pth",
+        ],
+        voting="hard"
+    )
 
     print(f"\nModels loaded:")
     print(f"  v3: {v3._loaded}")
     print(f"  v4: {v4._loaded}")
-    print(f"  ensemble_soft: {ensemble_soft._loaded} ({len(ensemble_soft.classifiers)} models)")
-    print(f"  ensemble_hard: {ensemble_hard._loaded} ({len(ensemble_hard.classifiers)} models)")
+    print(f"  v5: {v5._loaded}")
+    print(f"  ensemble_soft_2: {ensemble_soft_2._loaded} ({len(ensemble_soft_2.classifiers)} models)")
+    print(f"  ensemble_soft_3: {ensemble_soft_3._loaded} ({len(ensemble_soft_3.classifiers)} models)")
+    print(f"  ensemble_hard_3: {ensemble_hard_3._loaded} ({len(ensemble_hard_3.classifiers)} models)")
 
     # Evaluate
     results = {
         "v3": {"correct": 0, "total": 0},
         "v4": {"correct": 0, "total": 0},
-        "ensemble_soft": {"correct": 0, "total": 0},
-        "ensemble_hard": {"correct": 0, "total": 0},
+        "v5": {"correct": 0, "total": 0},
+        "soft_2 (v3+v4)": {"correct": 0, "total": 0},
+        "soft_3 (v3+v4+v5)": {"correct": 0, "total": 0},
+        "hard_3 (v3+v4+v5)": {"correct": 0, "total": 0},
     }
 
     label_map = dataset.get_label_map()
@@ -86,7 +113,15 @@ def main():
         true_label = idx_to_label.get(sample["label_id"])
 
         # Test each classifier
-        for name, clf in [("v3", v3), ("v4", v4), ("ensemble_soft", ensemble_soft), ("ensemble_hard", ensemble_hard)]:
+        classifiers = [
+            ("v3", v3),
+            ("v4", v4),
+            ("v5", v5),
+            ("soft_2 (v3+v4)", ensemble_soft_2),
+            ("soft_3 (v3+v4+v5)", ensemble_soft_3),
+            ("hard_3 (v3+v4+v5)", ensemble_hard_3),
+        ]
+        for name, clf in classifiers:
             pred = clf.predict_from_bytes(dxf_bytes, sample["file_name"])
             if pred.get("status") == "ok":
                 results[name]["total"] += 1
