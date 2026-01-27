@@ -661,6 +661,156 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="镍基高温合金，高温强度极高",
     ),
 
+    "Monel400": MaterialInfo(
+        grade="Monel400",
+        name="蒙乃尔400",
+        aliases=["Monel 400", "N04400", "NCu30", "2.4360"],
+        category=MaterialCategory.METAL,
+        sub_category=MaterialSubCategory.FERROUS,
+        group=MaterialGroup.CORROSION_RESISTANT,
+        standards=["ASTM B127", "ASTM B164"],
+        properties=MaterialProperties(
+            density=8.80,
+            tensile_strength=550,
+            yield_strength=240,
+            hardness="HB110-150",
+            machinability="fair",
+            weldability="good",
+        ),
+        process=ProcessRecommendation(
+            blank_forms=["板材", "棒材", "管材", "锻件"],
+            blank_hint="热轧/冷拔棒材",
+            heat_treatments=["退火"],
+            surface_treatments=["酸洗"],
+            cutting_speed_range=(15, 30),
+            special_tooling=True,
+            coolant_required=True,
+            warnings=["加工硬化倾向", "需要锋利刀具"],
+            recommendations=["海水设备", "阀门", "泵轴"],
+        ),
+        description="镍铜合金，优异的耐海水腐蚀性",
+    ),
+
+    "MonelK500": MaterialInfo(
+        grade="MonelK500",
+        name="蒙乃尔K500",
+        aliases=["Monel K-500", "Monel K500", "N05500", "2.4375"],
+        category=MaterialCategory.METAL,
+        sub_category=MaterialSubCategory.FERROUS,
+        group=MaterialGroup.CORROSION_RESISTANT,
+        standards=["ASTM B865"],
+        properties=MaterialProperties(
+            density=8.44,
+            tensile_strength=1100,
+            yield_strength=790,
+            hardness="HRC28-35",
+            machinability="poor",
+            weldability="fair",
+        ),
+        process=ProcessRecommendation(
+            blank_forms=["棒材", "锻件"],
+            blank_hint="时效硬化态棒材",
+            heat_treatments=["时效硬化"],
+            surface_treatments=["酸洗"],
+            cutting_speed_range=(8, 15),
+            special_tooling=True,
+            coolant_required=True,
+            warnings=["极难加工", "时效态更难加工", "需要专用刀具"],
+            recommendations=["海洋紧固件", "泵轴", "弹簧"],
+        ),
+        description="时效硬化镍铜合金，高强度耐海水腐蚀",
+    ),
+
+    "HastelloyB3": MaterialInfo(
+        grade="HastelloyB3",
+        name="哈氏合金B3",
+        aliases=["Hastelloy B-3", "Hastelloy B3", "N10675", "2.4600"],
+        category=MaterialCategory.METAL,
+        sub_category=MaterialSubCategory.FERROUS,
+        group=MaterialGroup.CORROSION_RESISTANT,
+        standards=["ASTM B333"],
+        properties=MaterialProperties(
+            density=9.22,
+            tensile_strength=760,
+            yield_strength=380,
+            hardness="HB200",
+            machinability="poor",
+            weldability="good",
+        ),
+        process=ProcessRecommendation(
+            blank_forms=["板材", "棒材", "管材"],
+            blank_hint="固溶态板材",
+            heat_treatments=["固溶处理"],
+            surface_treatments=["酸洗"],
+            cutting_speed_range=(8, 15),
+            special_tooling=True,
+            coolant_required=True,
+            warnings=["极难加工", "对盐酸耐蚀但对氧化性介质敏感"],
+            recommendations=["盐酸环境", "还原性酸环境"],
+        ),
+        description="镍钼合金，耐盐酸和还原性酸腐蚀",
+    ),
+
+    "Stellite6": MaterialInfo(
+        grade="Stellite6",
+        name="司太立6",
+        aliases=["Stellite 6", "钴基6号", "CoCr-A"],
+        category=MaterialCategory.METAL,
+        sub_category=MaterialSubCategory.NON_FERROUS,
+        group=MaterialGroup.CORROSION_RESISTANT,
+        standards=["AWS A5.21"],
+        properties=MaterialProperties(
+            density=8.40,
+            tensile_strength=900,
+            yield_strength=700,
+            hardness="HRC38-44",
+            machinability="poor",
+            weldability="good",
+        ),
+        process=ProcessRecommendation(
+            blank_forms=["铸件", "堆焊层", "粉末冶金件"],
+            blank_hint="铸造或堆焊成型",
+            heat_treatments=[],
+            surface_treatments=["研磨"],
+            cutting_speed_range=(5, 10),
+            special_tooling=True,
+            coolant_required=True,
+            warnings=["极难加工", "只能用CBN或金刚石刀具", "通常只做研磨"],
+            recommendations=["阀座", "密封面", "高温耐磨件"],
+        ),
+        description="钴基硬质合金，极高的硬度和耐磨性",
+    ),
+
+    "Incoloy825": MaterialInfo(
+        grade="Incoloy825",
+        name="因科洛伊825",
+        aliases=["Incoloy 825", "N08825", "GH2825", "2.4858"],
+        category=MaterialCategory.METAL,
+        sub_category=MaterialSubCategory.FERROUS,
+        group=MaterialGroup.CORROSION_RESISTANT,
+        standards=["ASTM B424", "ASTM B425"],
+        properties=MaterialProperties(
+            density=8.14,
+            tensile_strength=690,
+            yield_strength=310,
+            hardness="HB120-200",
+            machinability="fair",
+            weldability="good",
+        ),
+        process=ProcessRecommendation(
+            blank_forms=["板材", "棒材", "管材", "锻件"],
+            blank_hint="固溶态板材/管材",
+            heat_treatments=["固溶处理", "稳定化处理"],
+            surface_treatments=["酸洗", "钝化"],
+            cutting_speed_range=(20, 35),
+            special_tooling=True,
+            coolant_required=True,
+            warnings=["加工硬化倾向", "需要锋利刀具和充分冷却"],
+            recommendations=["硫酸环境", "磷酸环境", "油气井下管材"],
+        ),
+        description="镍铁铬合金，优异的耐酸腐蚀性能",
+    ),
+
     "2205": MaterialInfo(
         grade="2205",
         name="双相不锈钢",
@@ -1451,6 +1601,23 @@ MATERIAL_MATCH_PATTERNS: List[Tuple[str, str]] = [
     (r"N07718", "Inconel718"),
     (r"GH[-\s]?4169", "Inconel718"),
     (r"Alloy[-\s]?718", "Inconel718"),
+    # Monel
+    (r"Monel[-\s]?400", "Monel400"),
+    (r"N04400", "Monel400"),
+    (r"NCu[-\s]?30", "Monel400"),
+    (r"Monel[-\s]?K[-\s]?500", "MonelK500"),
+    (r"N05500", "MonelK500"),
+    # Hastelloy B
+    (r"Hastelloy[-\s]?B[-\s]?3", "HastelloyB3"),
+    (r"N10675", "HastelloyB3"),
+    # Stellite
+    (r"Stellite[-\s]?6", "Stellite6"),
+    (r"钴基[-\s]?6号?", "Stellite6"),
+    (r"CoCr[-\s]?A", "Stellite6"),
+    # Incoloy
+    (r"Incoloy[-\s]?825", "Incoloy825"),
+    (r"N08825", "Incoloy825"),
+    (r"GH[-\s]?2825", "Incoloy825"),
 
     # 双相不锈钢
     (r"2205[A-Z]?", "2205"),
@@ -1756,6 +1923,43 @@ MATERIAL_EQUIVALENCE: Dict[str, Dict[str, str]] = {
         "UNS": "N07718",
         "name": "因科镍合金",
     },
+    "Monel400": {
+        "CN": "NCu30",
+        "US": "Monel 400",
+        "JP": "NW4400",
+        "DE": "2.4360",
+        "UNS": "N04400",
+        "name": "蒙乃尔合金",
+    },
+    "MonelK500": {
+        "CN": "NCu30-2.5-1.5",
+        "US": "Monel K-500",
+        "JP": "NW5500",
+        "DE": "2.4375",
+        "UNS": "N05500",
+        "name": "时效硬化蒙乃尔",
+    },
+    "HastelloyB3": {
+        "CN": "NS321",
+        "US": "Hastelloy B-3",
+        "DE": "2.4600",
+        "UNS": "N10675",
+        "name": "哈氏B3合金",
+    },
+    "Stellite6": {
+        "CN": "钴基6号",
+        "US": "Stellite 6",
+        "DE": "2.4778",
+        "name": "司太立合金",
+    },
+    "Incoloy825": {
+        "CN": "GH2825",
+        "US": "Incoloy 825",
+        "JP": "NCF825",
+        "DE": "2.4858",
+        "UNS": "N08825",
+        "name": "因科洛伊合金",
+    },
     # 铜合金
     "H62": {
         "CN": "H62",
@@ -1831,3 +2035,119 @@ def list_material_standards(material: str) -> List[Tuple[str, str]]:
     if equiv:
         return [(std, val) for std, val in equiv.items() if std != "name"]
     return []
+
+
+def export_materials_csv(filepath: Optional[str] = None) -> str:
+    """
+    导出材料数据库为 CSV 格式
+
+    Args:
+        filepath: 可选的文件路径，如果提供则写入文件
+
+    Returns:
+        CSV 格式字符串
+    """
+    import csv
+    import io
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # 写入表头
+    headers = [
+        "牌号", "名称", "别名", "类别", "子类", "材料组",
+        "密度(g/cm³)", "抗拉强度(MPa)", "屈服强度(MPa)", "硬度",
+        "可加工性", "可焊性", "毛坯形式", "需要专用刀具", "需要冷却液",
+        "推荐热处理", "禁止热处理", "推荐表面处理", "切削速度(m/min)",
+        "警告", "建议", "描述"
+    ]
+    writer.writerow(headers)
+
+    # 按牌号排序
+    for grade in sorted(MATERIAL_DATABASE.keys()):
+        info = MATERIAL_DATABASE[grade]
+        props = info.properties
+        proc = info.process
+
+        row = [
+            info.grade,
+            info.name,
+            "|".join(info.aliases) if info.aliases else "",
+            info.category.value,
+            info.sub_category.value,
+            info.group.value,
+            props.density if props.density else "",
+            props.tensile_strength if props.tensile_strength else "",
+            props.yield_strength if props.yield_strength else "",
+            props.hardness if props.hardness else "",
+            props.machinability if props.machinability else "",
+            props.weldability if props.weldability else "",
+            "|".join(proc.blank_forms) if proc.blank_forms else "",
+            "是" if proc.special_tooling else "否",
+            "是" if proc.coolant_required else "否",
+            "|".join(proc.heat_treatments) if proc.heat_treatments else "",
+            "|".join(proc.forbidden_heat_treatments) if proc.forbidden_heat_treatments else "",
+            "|".join(proc.surface_treatments) if proc.surface_treatments else "",
+            f"{proc.cutting_speed_range[0]}-{proc.cutting_speed_range[1]}" if proc.cutting_speed_range else "",
+            "|".join(proc.warnings) if proc.warnings else "",
+            "|".join(proc.recommendations) if proc.recommendations else "",
+            info.description,
+        ]
+        writer.writerow(row)
+
+    csv_content = output.getvalue()
+    output.close()
+
+    # 如果提供了文件路径，写入文件
+    if filepath:
+        with open(filepath, "w", encoding="utf-8-sig", newline="") as f:
+            f.write(csv_content)
+        logger.info("Materials exported to %s", filepath)
+
+    return csv_content
+
+
+def export_equivalence_csv(filepath: Optional[str] = None) -> str:
+    """
+    导出材料等价表为 CSV 格式
+
+    Args:
+        filepath: 可选的文件路径，如果提供则写入文件
+
+    Returns:
+        CSV 格式字符串
+    """
+    import csv
+    import io
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # 写入表头
+    headers = ["牌号", "名称", "中国(CN)", "美国(US)", "日本(JP)", "德国(DE)", "UNS"]
+    writer.writerow(headers)
+
+    # 按牌号排序
+    for grade in sorted(MATERIAL_EQUIVALENCE.keys()):
+        equiv = MATERIAL_EQUIVALENCE[grade]
+        row = [
+            grade,
+            equiv.get("name", ""),
+            equiv.get("CN", ""),
+            equiv.get("US", ""),
+            equiv.get("JP", ""),
+            equiv.get("DE", ""),
+            equiv.get("UNS", ""),
+        ]
+        writer.writerow(row)
+
+    csv_content = output.getvalue()
+    output.close()
+
+    # 如果提供了文件路径，写入文件
+    if filepath:
+        with open(filepath, "w", encoding="utf-8-sig", newline="") as f:
+            f.write(csv_content)
+        logger.info("Material equivalence exported to %s", filepath)
+
+    return csv_content

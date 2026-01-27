@@ -469,3 +469,69 @@ class TestEngineeringPlastics:
             info = classify_material_detailed(p)
             assert info.group == MaterialGroup.ENGINEERING_PLASTIC, \
                 f"{p} expected engineering_plastic group, got {info.group}"
+
+
+class TestSpecialAlloys:
+    """Test special alloys: Monel, Stellite, Hastelloy, Incoloy."""
+
+    def test_special_alloys_exist(self):
+        """Special alloys exist in database."""
+        alloys = ["Monel400", "MonelK500", "HastelloyB3", "Stellite6", "Incoloy825"]
+        for a in alloys:
+            assert a in MATERIAL_DATABASE, f"{a} not found in database"
+
+    @pytest.mark.parametrize("pattern,expected_grade", [
+        # Monel 400
+        ("Monel400", "Monel400"),
+        ("Monel 400", "Monel400"),
+        ("N04400", "Monel400"),
+        ("NCu30", "Monel400"),
+        # Monel K-500
+        ("Monel K-500", "MonelK500"),
+        ("Monel K500", "MonelK500"),
+        ("N05500", "MonelK500"),
+        # Hastelloy B-3
+        ("Hastelloy B-3", "HastelloyB3"),
+        ("Hastelloy B3", "HastelloyB3"),
+        ("N10675", "HastelloyB3"),
+        # Stellite 6
+        ("Stellite 6", "Stellite6"),
+        ("Stellite6", "Stellite6"),
+        ("钴基6号", "Stellite6"),
+        ("CoCr-A", "Stellite6"),
+        # Incoloy 825
+        ("Incoloy 825", "Incoloy825"),
+        ("Incoloy825", "Incoloy825"),
+        ("N08825", "Incoloy825"),
+        ("GH2825", "Incoloy825"),
+    ])
+    def test_special_alloy_patterns(self, pattern, expected_grade):
+        """Special alloy patterns are recognized."""
+        info = classify_material_detailed(pattern)
+        assert info is not None, f"Pattern '{pattern}' not recognized"
+        assert info.grade == expected_grade, f"'{pattern}' returned {info.grade}"
+
+    def test_monel400_properties(self):
+        """Monel 400 has correct properties."""
+        info = classify_material_detailed("Monel400")
+        assert info is not None
+        assert info.group == MaterialGroup.CORROSION_RESISTANT
+        assert info.properties.density == 8.80
+        assert info.process.special_tooling is True
+
+    def test_stellite6_properties(self):
+        """Stellite 6 has correct properties."""
+        info = classify_material_detailed("Stellite6")
+        assert info is not None
+        assert info.group == MaterialGroup.CORROSION_RESISTANT
+        assert info.properties.hardness == "HRC38-44"
+        assert info.process.special_tooling is True
+        assert "CBN" in str(info.process.warnings) or "金刚石" in str(info.process.warnings)
+
+    def test_special_alloys_in_corrosion_resistant_group(self):
+        """All special alloys are in corrosion_resistant group."""
+        alloys = ["Monel400", "MonelK500", "HastelloyB3", "Stellite6", "Incoloy825"]
+        for a in alloys:
+            info = classify_material_detailed(a)
+            assert info.group == MaterialGroup.CORROSION_RESISTANT, \
+                f"{a} expected corrosion_resistant group, got {info.group}"
