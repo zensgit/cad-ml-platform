@@ -464,3 +464,70 @@ class TestMaterialIntegration:
 
         assert route.material == "40Cr"
         assert len(route.steps) > 0
+
+
+class TestCuttingParameters:
+    """Test cutting parameters in process route."""
+
+    def test_titanium_has_cutting_params(self):
+        """Titanium route includes cutting parameters."""
+        gen = ProcessRouteGenerator()
+        route = gen.generate(ProcessRequirements(), material="TC4")
+
+        # Find rough machining step
+        rough_step = next(s for s in route.steps if s.name == "粗加工")
+        assert rough_step.parameters.get("cutting_speed_recommended") == 15
+        assert rough_step.parameters.get("cutting_speed_unit") == "m/min"
+        assert rough_step.parameters.get("special_tooling") is True
+        assert rough_step.parameters.get("coolant_required") is True
+
+        # Find finish machining step
+        finish_step = next(s for s in route.steps if s.name == "精加工")
+        assert finish_step.parameters.get("cutting_speed_recommended") == 40
+        assert finish_step.parameters.get("special_tooling") is True
+
+    def test_aluminum_has_high_cutting_speed(self):
+        """Aluminum has high cutting speed and no coolant required."""
+        gen = ProcessRouteGenerator()
+        route = gen.generate(ProcessRequirements(), material="6061")
+
+        rough_step = next(s for s in route.steps if s.name == "粗加工")
+        assert rough_step.parameters.get("cutting_speed_recommended") == 200
+        assert rough_step.parameters.get("coolant_required") is False
+
+        finish_step = next(s for s in route.steps if s.name == "精加工")
+        assert finish_step.parameters.get("cutting_speed_recommended") == 500
+
+    def test_stainless_steel_cutting_params(self):
+        """Stainless steel has moderate cutting speed."""
+        gen = ProcessRouteGenerator()
+        route = gen.generate(ProcessRequirements(), material="S30408")
+
+        rough_step = next(s for s in route.steps if s.name == "粗加工")
+        assert rough_step.parameters.get("cutting_speed_recommended") == 40
+        assert rough_step.parameters.get("coolant_required") is True
+        assert rough_step.parameters.get("special_tooling") is False
+
+    def test_special_tooling_in_description(self):
+        """Special tooling requirement appears in description."""
+        gen = ProcessRouteGenerator()
+        route = gen.generate(ProcessRequirements(), material="TC4")
+
+        rough_step = next(s for s in route.steps if s.name == "粗加工")
+        assert "专用刀具" in rough_step.description
+
+    def test_no_cutting_params_for_unknown_material(self):
+        """Unknown material has no cutting parameters."""
+        gen = ProcessRouteGenerator()
+        route = gen.generate(ProcessRequirements(), material="UNKNOWN123")
+
+        rough_step = next(s for s in route.steps if s.name == "粗加工")
+        assert rough_step.parameters == {}
+
+    def test_no_cutting_params_when_no_material(self):
+        """No material means no cutting parameters."""
+        gen = ProcessRouteGenerator()
+        route = gen.generate(ProcessRequirements())
+
+        rough_step = next(s for s in route.steps if s.name == "粗加工")
+        assert rough_step.parameters == {}

@@ -343,6 +343,20 @@ class ProcessRouteGenerator:
             for rec in process_rec.recommendations:
                 warnings.append(f"[工艺建议] {rec}")
 
+        # 提取切削参数（如果有材料信息）
+        cutting_params = {}
+        if material_info and material_info.process.cutting_speed_range:
+            cutting_params["cutting_speed_min"] = material_info.process.cutting_speed_range[0]
+            cutting_params["cutting_speed_max"] = material_info.process.cutting_speed_range[1]
+            cutting_params["cutting_speed_unit"] = "m/min"
+        if material_info and material_info.process.feed_rate_range:
+            cutting_params["feed_rate_min"] = material_info.process.feed_rate_range[0]
+            cutting_params["feed_rate_max"] = material_info.process.feed_rate_range[1]
+            cutting_params["feed_rate_unit"] = "mm/r"
+        if material_info:
+            cutting_params["coolant_required"] = material_info.process.coolant_required
+            cutting_params["special_tooling"] = material_info.process.special_tooling
+
         # 1. 毛坯准备
         blank_desc = material_hints.get("blank_hint", "下料/锻造/铸造")
         steps.append(ProcessStep(
@@ -352,10 +366,22 @@ class ProcessRouteGenerator:
         ))
 
         # 2. 粗加工
+        rough_params = {}
+        if cutting_params:
+            # 粗加工使用较低切速、较大进给
+            if "cutting_speed_min" in cutting_params:
+                rough_params["cutting_speed_recommended"] = cutting_params["cutting_speed_min"]
+                rough_params["cutting_speed_unit"] = "m/min"
+            rough_params["coolant_required"] = cutting_params.get("coolant_required", True)
+            rough_params["special_tooling"] = cutting_params.get("special_tooling", False)
+        rough_desc = "车/铣/刨粗加工，留精加工余量"
+        if cutting_params.get("special_tooling"):
+            rough_desc += "（需专用刀具）"
         steps.append(ProcessStep(
             stage=ProcessStage.rough_machining,
             name="粗加工",
-            description="车/铣/刨粗加工，留精加工余量",
+            description=rough_desc,
+            parameters=rough_params if rough_params else {},
         ))
 
         # 3. 预热处理（调质/正火/退火等）
@@ -421,10 +447,22 @@ class ProcessRouteGenerator:
                 description="热处理后精密磨削",
             ))
         else:
+            # 精加工使用较高切速
+            finish_params = {}
+            if cutting_params:
+                if "cutting_speed_max" in cutting_params:
+                    finish_params["cutting_speed_recommended"] = cutting_params["cutting_speed_max"]
+                    finish_params["cutting_speed_unit"] = "m/min"
+                finish_params["coolant_required"] = cutting_params.get("coolant_required", True)
+                finish_params["special_tooling"] = cutting_params.get("special_tooling", False)
+            finish_desc = "车/铣精加工至图纸尺寸"
+            if cutting_params.get("special_tooling"):
+                finish_desc += "（需专用刀具）"
             steps.append(ProcessStep(
                 stage=ProcessStage.finish_machining,
                 name="精加工",
-                description="车/铣精加工至图纸尺寸",
+                description=finish_desc,
+                parameters=finish_params if finish_params else {},
             ))
 
         # 7. 焊接工序
