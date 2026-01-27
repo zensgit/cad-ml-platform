@@ -56,6 +56,9 @@ HEAT_TREATMENT_PATTERNS = {
     HeatTreatmentType.flame_hardening: re.compile(r"火焰淬火|flame", re.IGNORECASE | re.UNICODE),
     HeatTreatmentType.stress_relief: re.compile(r"去应力|消除应力|stress.?relief", re.IGNORECASE | re.UNICODE),
     HeatTreatmentType.aging: re.compile(r"时效|aging", re.IGNORECASE | re.UNICODE),
+    HeatTreatmentType.quench_temper: re.compile(r"调质", re.UNICODE),
+    HeatTreatmentType.solution_treatment: re.compile(r"固溶|solution.?treat", re.IGNORECASE | re.UNICODE),
+    HeatTreatmentType.general_heat_treatment: re.compile(r"热处理(?!类型)", re.UNICODE),  # 通用热处理，排除"热处理类型"
 }
 
 # ============================================================================

@@ -49,6 +49,9 @@ class HeatTreatmentType(str, Enum):
     flame_hardening = "flame_hardening"  # 火焰淬火
     stress_relief = "stress_relief"  # 去应力退火
     aging = "aging"  # 时效处理
+    quench_temper = "quench_temper"  # 调质处理
+    solution_treatment = "solution_treatment"  # 固溶处理
+    general_heat_treatment = "general_heat_treatment"  # 通用热处理
 
 
 class SurfaceTreatmentType(str, Enum):
