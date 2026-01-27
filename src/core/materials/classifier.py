@@ -1612,3 +1612,222 @@ def classify_material_simple(material: Optional[str]) -> Optional[str]:
     if info:
         return info.group.value
     return None
+
+
+# ============================================================================
+# 材料等价表（中外标准对照）
+# ============================================================================
+
+# 格式: {标准牌号: {标准体系: 等价牌号}}
+MATERIAL_EQUIVALENCE: Dict[str, Dict[str, str]] = {
+    # 不锈钢
+    "S30408": {
+        "CN": "S30408",           # 中国 GB
+        "US": "304",              # 美国 ASTM/AISI
+        "JP": "SUS304",           # 日本 JIS
+        "DE": "1.4301",           # 德国 DIN/EN
+        "name": "奥氏体不锈钢",
+    },
+    "S31603": {
+        "CN": "S31603",
+        "US": "316L",
+        "JP": "SUS316L",
+        "DE": "1.4404",
+        "name": "低碳奥氏体不锈钢",
+    },
+    "2205": {
+        "CN": "S31803",
+        "US": "2205",
+        "JP": "SUS329J3L",
+        "DE": "1.4462",
+        "name": "双相不锈钢",
+    },
+    "2507": {
+        "CN": "S32750",
+        "US": "2507",
+        "JP": "SUS327L1",
+        "DE": "1.4410",
+        "name": "超级双相不锈钢",
+    },
+    # 碳素钢
+    "Q235B": {
+        "CN": "Q235B",
+        "US": "A36",
+        "JP": "SS400",
+        "DE": "S235JR",
+        "name": "普通碳素结构钢",
+    },
+    "45": {
+        "CN": "45",
+        "US": "1045",
+        "JP": "S45C",
+        "DE": "C45",
+        "name": "优质碳素结构钢",
+    },
+    "20": {
+        "CN": "20",
+        "US": "1020",
+        "JP": "S20C",
+        "DE": "C20",
+        "name": "优质碳素结构钢",
+    },
+    # 合金钢
+    "40Cr": {
+        "CN": "40Cr",
+        "US": "5140",
+        "JP": "SCr440",
+        "DE": "41Cr4",
+        "name": "合金结构钢",
+    },
+    "42CrMo": {
+        "CN": "42CrMo",
+        "US": "4140",
+        "JP": "SCM440",
+        "DE": "42CrMo4",
+        "name": "合金结构钢",
+    },
+    "GCr15": {
+        "CN": "GCr15",
+        "US": "52100",
+        "JP": "SUJ2",
+        "DE": "100Cr6",
+        "name": "高碳铬轴承钢",
+    },
+    # 铝合金
+    "6061": {
+        "CN": "6061",
+        "US": "6061",
+        "JP": "A6061",
+        "DE": "AlMg1SiCu",
+        "name": "铝镁硅合金",
+    },
+    "7075": {
+        "CN": "7075",
+        "US": "7075",
+        "JP": "A7075",
+        "DE": "AlZn5.5MgCu",
+        "name": "超硬铝合金",
+    },
+    # 钛合金
+    "TA2": {
+        "CN": "TA2",
+        "US": "Gr2",
+        "JP": "TB340C",
+        "DE": "3.7035",
+        "name": "工业纯钛",
+    },
+    "TC4": {
+        "CN": "TC4",
+        "US": "Ti-6Al-4V",
+        "JP": "TB480",
+        "DE": "3.7165",
+        "name": "钛合金",
+    },
+    # 镍基合金
+    "C276": {
+        "CN": "NS334",
+        "US": "C-276",
+        "JP": "NW0276",
+        "DE": "2.4819",
+        "UNS": "N10276",
+        "name": "哈氏合金",
+    },
+    "C22": {
+        "CN": "NS335",
+        "US": "C-22",
+        "JP": "NW0022",
+        "DE": "2.4602",
+        "UNS": "N06022",
+        "name": "哈氏合金",
+    },
+    "Inconel625": {
+        "CN": "GH3625",
+        "US": "Inconel 625",
+        "JP": "NCF625",
+        "DE": "2.4856",
+        "UNS": "N06625",
+        "name": "因科镍合金",
+    },
+    "Inconel718": {
+        "CN": "GH4169",
+        "US": "Inconel 718",
+        "JP": "NCF718",
+        "DE": "2.4668",
+        "UNS": "N07718",
+        "name": "因科镍合金",
+    },
+    # 铜合金
+    "H62": {
+        "CN": "H62",
+        "US": "C27400",
+        "JP": "C2700",
+        "DE": "CuZn37",
+        "name": "普通黄铜",
+    },
+}
+
+
+def get_material_equivalence(material: str) -> Optional[Dict[str, str]]:
+    """
+    获取材料等价表
+
+    Args:
+        material: 材料名称或牌号
+
+    Returns:
+        等价表字典 {标准体系: 等价牌号} 或 None
+    """
+    # 先尝试分类获取标准牌号
+    info = classify_material_detailed(material)
+    if info:
+        grade = info.grade
+        if grade in MATERIAL_EQUIVALENCE:
+            return MATERIAL_EQUIVALENCE[grade]
+
+    # 直接查找
+    if material in MATERIAL_EQUIVALENCE:
+        return MATERIAL_EQUIVALENCE[material]
+
+    # 反向查找（输入的可能是其他标准的牌号）
+    material_upper = material.upper().replace("-", "").replace(" ", "")
+    for grade, equiv in MATERIAL_EQUIVALENCE.items():
+        for std, val in equiv.items():
+            if std != "name":
+                val_clean = val.upper().replace("-", "").replace(" ", "")
+                if val_clean == material_upper:
+                    return equiv
+
+    return None
+
+
+def find_equivalent_material(material: str, target_standard: str = "CN") -> Optional[str]:
+    """
+    查找等价材料牌号
+
+    Args:
+        material: 材料名称或牌号
+        target_standard: 目标标准体系 (CN/US/JP/DE/UNS)
+
+    Returns:
+        等价牌号 或 None
+    """
+    equiv = get_material_equivalence(material)
+    if equiv and target_standard in equiv:
+        return equiv[target_standard]
+    return None
+
+
+def list_material_standards(material: str) -> List[Tuple[str, str]]:
+    """
+    列出材料的所有标准牌号
+
+    Args:
+        material: 材料名称或牌号
+
+    Returns:
+        [(标准体系, 牌号), ...] 列表
+    """
+    equiv = get_material_equivalence(material)
+    if equiv:
+        return [(std, val) for std, val in equiv.items() if std != "name"]
+    return []

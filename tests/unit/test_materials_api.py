@@ -233,3 +233,87 @@ class TestGetMaterialProcess:
         """Get process for unknown material returns 404."""
         response = client.get(f"{API_PREFIX}/UNKNOWN123/process")
         assert response.status_code == 404
+
+
+class TestMaterialEquivalence:
+    """Test GET /api/v1/materials/{grade}/equivalents endpoint."""
+
+    def test_get_equivalents_for_stainless(self, client):
+        """Get equivalents for 304 stainless steel."""
+        response = client.get(f"{API_PREFIX}/304/equivalents")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["found"] is True
+        assert data["equivalents"]["CN"] == "S30408"
+        assert data["equivalents"]["US"] == "304"
+        assert data["equivalents"]["JP"] == "SUS304"
+        assert data["equivalents"]["DE"] == "1.4301"
+
+    def test_get_equivalents_from_japanese_standard(self, client):
+        """Get equivalents using Japanese standard input."""
+        response = client.get(f"{API_PREFIX}/SUS304/equivalents")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["found"] is True
+        assert data["equivalents"]["CN"] == "S30408"
+
+    def test_get_equivalents_for_alloy_steel(self, client):
+        """Get equivalents for 42CrMo alloy steel."""
+        response = client.get(f"{API_PREFIX}/42CrMo/equivalents")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["found"] is True
+        assert data["equivalents"]["US"] == "4140"
+        assert data["equivalents"]["JP"] == "SCM440"
+        assert data["equivalents"]["DE"] == "42CrMo4"
+
+    def test_get_equivalents_for_unknown(self, client):
+        """Get equivalents for unknown material returns not found."""
+        response = client.get(f"{API_PREFIX}/PTFE/equivalents")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["found"] is False
+
+
+class TestMaterialConvert:
+    """Test GET /api/v1/materials/{grade}/convert/{target} endpoint."""
+
+    def test_convert_japanese_to_chinese(self, client):
+        """Convert Japanese S45C to Chinese standard."""
+        response = client.get(f"{API_PREFIX}/S45C/convert/CN")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["success"] is True
+        assert data["result"] == "45"
+
+    def test_convert_american_to_german(self, client):
+        """Convert American 4140 to German standard."""
+        response = client.get(f"{API_PREFIX}/4140/convert/DE")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["success"] is True
+        assert data["result"] == "42CrMo4"
+
+    def test_convert_to_uns(self, client):
+        """Convert to UNS number."""
+        response = client.get(f"{API_PREFIX}/C276/convert/UNS")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["success"] is True
+        assert data["result"] == "N10276"
+
+    def test_convert_unknown_material(self, client):
+        """Convert unknown material returns error."""
+        response = client.get(f"{API_PREFIX}/UNKNOWN123/convert/CN")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["success"] is False
+        assert "not found" in data["error"]

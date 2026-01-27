@@ -93,6 +93,20 @@ class MaterialGroupsResponse(BaseModel):
     groups: Dict[str, List[str]] = Field(..., description="按类别分组的材料组")
 
 
+class MaterialEquivalenceResponse(BaseModel):
+    """材料等价表响应"""
+    found: bool = Field(..., description="是否找到等价表")
+    input: str = Field(..., description="输入材料")
+    name: Optional[str] = Field(None, description="材料名称")
+    equivalents: Dict[str, str] = Field(default_factory=dict, description="各标准体系等价牌号")
+
+
+class MaterialStandardItem(BaseModel):
+    """标准牌号项"""
+    standard: str = Field(..., description="标准体系 (CN/US/JP/DE/UNS)")
+    grade: str = Field(..., description="牌号")
+
+
 # ============================================================================
 # API Endpoints
 # ============================================================================
@@ -331,6 +345,86 @@ async def get_material_process(grade: str) -> ProcessRecommendationResponse:
         warnings=info.process.warnings,
         recommendations=info.process.recommendations,
     )
+
+
+@router.get("/{grade}/equivalents", response_model=MaterialEquivalenceResponse)
+async def get_material_equivalents(grade: str) -> MaterialEquivalenceResponse:
+    """
+    获取材料等价表
+
+    查询材料在不同标准体系中的等价牌号：
+    - CN: 中国 GB 标准
+    - US: 美国 ASTM/AISI 标准
+    - JP: 日本 JIS 标准
+    - DE: 德国 DIN/EN 标准
+    - UNS: 统一编号系统（部分材料）
+    """
+    from src.core.materials import get_material_equivalence
+
+    equiv = get_material_equivalence(grade)
+
+    if not equiv:
+        return MaterialEquivalenceResponse(
+            found=False,
+            input=grade,
+        )
+
+    # Extract name and remove from equivalents dict
+    name = equiv.get("name")
+    equivalents = {k: v for k, v in equiv.items() if k != "name"}
+
+    return MaterialEquivalenceResponse(
+        found=True,
+        input=grade,
+        name=name,
+        equivalents=equivalents,
+    )
+
+
+@router.get("/{grade}/convert/{target_standard}")
+async def convert_material_standard(
+    grade: str,
+    target_standard: str,
+) -> Dict[str, Any]:
+    """
+    转换材料牌号到目标标准
+
+    将材料牌号转换为指定标准体系的等价牌号
+
+    Args:
+        grade: 材料牌号（任意标准）
+        target_standard: 目标标准体系 (CN/US/JP/DE/UNS)
+
+    Returns:
+        转换结果
+    """
+    from src.core.materials import find_equivalent_material, get_material_equivalence
+
+    equiv = get_material_equivalence(grade)
+    if not equiv:
+        return {
+            "success": False,
+            "input": grade,
+            "target_standard": target_standard,
+            "error": "Material not found in equivalence table",
+        }
+
+    target_grade = find_equivalent_material(grade, target_standard)
+    if not target_grade:
+        return {
+            "success": False,
+            "input": grade,
+            "target_standard": target_standard,
+            "error": f"No equivalent found for standard '{target_standard}'",
+        }
+
+    return {
+        "success": True,
+        "input": grade,
+        "target_standard": target_standard,
+        "result": target_grade,
+        "name": equiv.get("name"),
+    }
 
 
 __all__ = ["router"]
