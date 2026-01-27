@@ -427,4 +427,53 @@ async def convert_material_standard(
     }
 
 
+@router.get("/export/csv")
+async def export_materials_to_csv():
+    """
+    导出材料数据库为 CSV
+
+    返回完整的材料数据库 CSV 文件，包含：
+    - 材料基本信息（牌号、名称、别名）
+    - 分类信息（类别、子类、材料组）
+    - 物理属性（密度、抗拉强度、屈服强度、硬度）
+    - 加工属性（可加工性、可焊性）
+    - 工艺建议（热处理、表面处理、切削参数）
+    """
+    from fastapi.responses import Response
+    from src.core.materials import export_materials_csv
+
+    csv_content = export_materials_csv()
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv; charset=utf-8-sig",
+        headers={
+            "Content-Disposition": "attachment; filename=materials.csv"
+        }
+    )
+
+
+@router.get("/export/equivalence-csv")
+async def export_equivalence_to_csv():
+    """
+    导出材料等价表为 CSV
+
+    返回材料等价表 CSV 文件，包含：
+    - 牌号和名称
+    - 各标准体系等价牌号（CN/US/JP/DE/UNS）
+    """
+    from fastapi.responses import Response
+    from src.core.materials import export_equivalence_csv
+
+    csv_content = export_equivalence_csv()
+
+    return Response(
+        content=csv_content,
+        media_type="text/csv; charset=utf-8-sig",
+        headers={
+            "Content-Disposition": "attachment; filename=material_equivalence.csv"
+        }
+    )
+
+
 __all__ = ["router"]

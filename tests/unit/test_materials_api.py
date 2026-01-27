@@ -272,7 +272,7 @@ class TestMaterialEquivalence:
 
     def test_get_equivalents_for_unknown(self, client):
         """Get equivalents for unknown material returns not found."""
-        response = client.get(f"{API_PREFIX}/PTFE/equivalents")
+        response = client.get(f"{API_PREFIX}/UNKNOWN_MATERIAL_XYZ/equivalents")
         assert response.status_code == 200
 
         data = response.json()
@@ -317,3 +317,37 @@ class TestMaterialConvert:
         data = response.json()
         assert data["success"] is False
         assert "not found" in data["error"]
+
+
+class TestMaterialExport:
+    """Test GET /api/v1/materials/export/* endpoints."""
+
+    def test_export_materials_csv(self, client):
+        """Export materials CSV returns valid CSV."""
+        response = client.get(f"{API_PREFIX}/export/csv")
+        assert response.status_code == 200
+        assert "text/csv" in response.headers["content-type"]
+        assert "attachment" in response.headers["content-disposition"]
+        assert "materials.csv" in response.headers["content-disposition"]
+
+        # Check CSV content
+        content = response.text
+        lines = content.strip().split('\n')
+        assert len(lines) > 40  # At least 40 materials + header
+        assert "牌号" in lines[0]  # Header contains grade column
+        assert "S30408" in content  # Contains common material
+
+    def test_export_equivalence_csv(self, client):
+        """Export equivalence CSV returns valid CSV."""
+        response = client.get(f"{API_PREFIX}/export/equivalence-csv")
+        assert response.status_code == 200
+        assert "text/csv" in response.headers["content-type"]
+        assert "attachment" in response.headers["content-disposition"]
+        assert "equivalence.csv" in response.headers["content-disposition"]
+
+        # Check CSV content
+        content = response.text
+        lines = content.strip().split('\n')
+        assert len(lines) > 20  # At least 20 equivalences + header
+        assert "中国(CN)" in lines[0]  # Header contains CN column
+        assert "美国(US)" in lines[0]  # Header contains US column

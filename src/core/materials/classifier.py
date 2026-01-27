@@ -1968,6 +1968,49 @@ MATERIAL_EQUIVALENCE: Dict[str, Dict[str, str]] = {
         "DE": "CuZn37",
         "name": "普通黄铜",
     },
+    # 工程塑料
+    "PEEK": {
+        "CN": "PEEK",
+        "US": "PEEK",
+        "DE": "PEEK",
+        "ISO": "ISO 19924",
+        "name": "聚醚醚酮",
+    },
+    "POM": {
+        "CN": "POM",
+        "US": "Delrin",
+        "DE": "POM-C/POM-H",
+        "ISO": "ISO 9988",
+        "name": "聚甲醛",
+    },
+    "PA66": {
+        "CN": "PA66",
+        "US": "Nylon 66",
+        "DE": "PA66",
+        "ISO": "ISO 1874",
+        "name": "尼龙66",
+    },
+    "PC": {
+        "CN": "PC",
+        "US": "Polycarbonate",
+        "DE": "PC",
+        "ISO": "ISO 7391",
+        "name": "聚碳酸酯",
+    },
+    "UHMWPE": {
+        "CN": "UHMWPE",
+        "US": "UHMW-PE",
+        "DE": "PE-UHMW",
+        "ISO": "ISO 11542",
+        "name": "超高分子量聚乙烯",
+    },
+    "PTFE": {
+        "CN": "PTFE",
+        "US": "Teflon",
+        "DE": "PTFE",
+        "ISO": "ISO 12086",
+        "name": "聚四氟乙烯",
+    },
 }
 
 
