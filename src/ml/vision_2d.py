@@ -2,6 +2,7 @@
 2D Vision Module (DXF graph classification).
 
 Loads a lightweight GNN model trained on DXF entity graphs.
+Supports ensemble voting with multiple models.
 """
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ import logging
 import os
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -175,3 +176,133 @@ _graph2d = Graph2DClassifier()
 
 def get_2d_classifier() -> Graph2DClassifier:
     return _graph2d
+
+
+class EnsembleGraph2DClassifier:
+    """Ensemble classifier that combines predictions from multiple Graph2D models."""
+
+    def __init__(
+        self,
+        model_paths: Optional[List[str]] = None,
+        voting: str = "soft",
+    ) -> None:
+        """
+        Initialize ensemble classifier.
+
+        Args:
+            model_paths: List of model checkpoint paths. If None, uses env var
+                GRAPH2D_ENSEMBLE_MODELS (comma-separated) or defaults to v3+v4.
+            voting: Voting strategy - "soft" (average probabilities) or "hard" (majority vote).
+        """
+        if model_paths is None:
+            env_paths = os.getenv("GRAPH2D_ENSEMBLE_MODELS", "")
+            if env_paths:
+                model_paths = [p.strip() for p in env_paths.split(",") if p.strip()]
+            else:
+                model_paths = [
+                    "models/graph2d_edge_sage_v3.pth",
+                    "models/graph2d_edge_sage_v4_best.pth",
+                ]
+
+        self.model_paths = model_paths
+        self.voting = voting
+        self.classifiers: List[Graph2DClassifier] = []
+        self._loaded = False
+
+        if HAS_TORCH:
+            self._load_models()
+
+    def _load_models(self) -> None:
+        for path in self.model_paths:
+            if os.path.exists(path):
+                clf = Graph2DClassifier(model_path=path)
+                if clf._loaded:
+                    self.classifiers.append(clf)
+                    logger.info("Loaded ensemble model: %s", path)
+                else:
+                    logger.warning("Failed to load ensemble model: %s", path)
+            else:
+                logger.warning("Ensemble model not found: %s", path)
+
+        self._loaded = len(self.classifiers) > 0
+        if self._loaded:
+            logger.info("Ensemble initialized with %d models", len(self.classifiers))
+
+    def predict_from_bytes(self, data: bytes, file_name: str) -> Dict[str, Any]:
+        """Ensemble prediction combining multiple models."""
+        if not HAS_TORCH or not self._loaded:
+            return {"status": "model_unavailable"}
+        if not data:
+            return {"status": "empty_input"}
+
+        predictions = []
+        all_probs = []
+
+        for clf in self.classifiers:
+            result = clf.predict_from_bytes(data, file_name)
+            if result.get("status") == "ok":
+                predictions.append(result)
+
+        if not predictions:
+            return {"status": "all_models_failed"}
+
+        if len(predictions) == 1:
+            return predictions[0]
+
+        # Get label map from first classifier
+        label_map = self.classifiers[0].label_map
+        idx_to_label = {v: k for k, v in label_map.items()}
+        num_classes = len(label_map)
+
+        if self.voting == "soft":
+            # Average probabilities across models
+            import torch
+
+            avg_probs = torch.zeros(num_classes)
+            for pred in predictions:
+                # Reconstruct probability vector
+                pred_label = pred.get("label")
+                pred_conf = pred.get("confidence", 0.0)
+                if pred_label in label_map:
+                    idx = label_map[pred_label]
+                    # Simple approximation: assign confidence to predicted class
+                    # and distribute remaining across others
+                    probs = torch.ones(num_classes) * (1 - pred_conf) / (num_classes - 1)
+                    probs[idx] = pred_conf
+                    avg_probs += probs
+
+            avg_probs /= len(predictions)
+            pred_idx = int(torch.argmax(avg_probs).item())
+            final_label = idx_to_label.get(pred_idx)
+            final_conf = float(avg_probs[pred_idx].item())
+
+        else:  # hard voting
+            from collections import Counter
+
+            votes = Counter(p.get("label") for p in predictions)
+            final_label, vote_count = votes.most_common(1)[0]
+            # Confidence is proportion of votes
+            final_conf = vote_count / len(predictions)
+
+        return {
+            "label": final_label,
+            "confidence": final_conf,
+            "status": "ok",
+            "ensemble_size": len(predictions),
+            "voting": self.voting,
+            "individual_predictions": [
+                {"label": p.get("label"), "confidence": p.get("confidence")}
+                for p in predictions
+            ],
+        }
+
+
+_ensemble_graph2d: Optional[EnsembleGraph2DClassifier] = None
+
+
+def get_ensemble_2d_classifier() -> EnsembleGraph2DClassifier:
+    """Get or create the ensemble 2D classifier singleton."""
+    global _ensemble_graph2d
+    if _ensemble_graph2d is None:
+        _ensemble_graph2d = EnsembleGraph2DClassifier()
+    return _ensemble_graph2d

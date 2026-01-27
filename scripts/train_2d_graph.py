@@ -262,6 +262,18 @@ def main() -> int:
         action="store_true",
         help="Save the model with best validation accuracy instead of final epoch.",
     )
+    parser.add_argument(
+        "--scheduler",
+        choices=["none", "cosine", "warmup_cosine"],
+        default="none",
+        help="Learning rate scheduler (none, cosine, warmup_cosine).",
+    )
+    parser.add_argument(
+        "--warmup-epochs",
+        type=int,
+        default=5,
+        help="Number of warmup epochs for warmup_cosine scheduler.",
+    )
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -319,6 +331,33 @@ def main() -> int:
     else:
         model = SimpleGraphClassifier(args.node_dim, args.hidden_dim, num_classes)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
+
+    # Learning rate scheduler
+    scheduler = None
+    if args.scheduler == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=args.epochs, eta_min=args.lr * 0.01
+        )
+        print(f"Using CosineAnnealingLR scheduler (T_max={args.epochs})")
+    elif args.scheduler == "warmup_cosine":
+        from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR, SequentialLR
+
+        warmup_scheduler = LambdaLR(
+            optimizer, lr_lambda=lambda ep: min(1.0, (ep + 1) / args.warmup_epochs)
+        )
+        cosine_scheduler = CosineAnnealingLR(
+            optimizer, T_max=args.epochs - args.warmup_epochs, eta_min=args.lr * 0.01
+        )
+        scheduler = SequentialLR(
+            optimizer,
+            schedulers=[warmup_scheduler, cosine_scheduler],
+            milestones=[args.warmup_epochs],
+        )
+        print(
+            f"Using WarmupCosine scheduler (warmup={args.warmup_epochs}, "
+            f"cosine={args.epochs - args.warmup_epochs})"
+        )
+
     train_labels = [dataset.samples[idx]["label_id"] for idx in train_idx]
     sampler = None
     if args.sampler == "balanced":
@@ -511,8 +550,17 @@ def main() -> int:
         else:
             epochs_without_improvement += 1
 
+        # Update learning rate scheduler
+        if scheduler is not None:
+            current_lr = optimizer.param_groups[0]["lr"]
+            scheduler.step()
+            new_lr = optimizer.param_groups[0]["lr"]
+            lr_info = f" lr={new_lr:.2e}" if new_lr != current_lr else ""
+        else:
+            lr_info = ""
+
         status = "← best" if improved else ""
-        print(f"Epoch {epoch}/{args.epochs} loss={avg_loss:.4f} val_acc={acc:.3f} {status}")
+        print(f"Epoch {epoch}/{args.epochs} loss={avg_loss:.4f} val_acc={acc:.3f}{lr_info} {status}")
 
         # Early stopping check
         if args.early_stop_patience > 0 and epochs_without_improvement >= args.early_stop_patience:
