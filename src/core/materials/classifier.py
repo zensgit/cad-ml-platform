@@ -600,6 +600,127 @@ MATERIAL_DATABASE: Dict[str, MaterialInfo] = {
         description="镍基耐蚀合金，综合耐蚀性优异",
     ),
 
+    "Inconel625": MaterialInfo(
+        grade="Inconel625",
+        name="因科镍625",
+        aliases=["Inconel 625", "N06625", "625", "NCF625"],
+        category=MaterialCategory.METAL,
+        sub_category=MaterialSubCategory.FERROUS,
+        group=MaterialGroup.CORROSION_RESISTANT,
+        standards=["ASTM B446"],
+        properties=MaterialProperties(
+            density=8.44,
+            tensile_strength=830,
+            yield_strength=415,
+            hardness="HB200",
+            machinability="poor",
+            weldability="excellent",
+        ),
+        process=ProcessRecommendation(
+            blank_forms=["板材", "棒材", "管材", "锻件"],
+            blank_hint="固溶态锻件/板材",
+            heat_treatments=["固溶处理", "时效"],
+            surface_treatments=["酸洗", "钝化"],
+            cutting_speed_range=(12, 25),
+            special_tooling=True,
+            coolant_required=True,
+            warnings=["切削难度大", "加工硬化严重", "刀具磨损快"],
+            recommendations=["海洋环境首选", "高温耐蚀环境"],
+        ),
+        description="镍基高温合金，耐蚀性和焊接性优异",
+    ),
+
+    "Inconel718": MaterialInfo(
+        grade="Inconel718",
+        name="因科镍718",
+        aliases=["Inconel 718", "N07718", "718", "GH4169"],
+        category=MaterialCategory.METAL,
+        sub_category=MaterialSubCategory.FERROUS,
+        group=MaterialGroup.CORROSION_RESISTANT,
+        standards=["ASTM B637"],
+        properties=MaterialProperties(
+            density=8.19,
+            tensile_strength=1240,
+            yield_strength=1030,
+            hardness="HRC36-40",
+            machinability="poor",
+            weldability="good",
+        ),
+        process=ProcessRecommendation(
+            blank_forms=["锻件", "棒材"],
+            blank_hint="固溶+时效态锻件",
+            heat_treatments=["固溶处理", "时效强化"],
+            surface_treatments=["酸洗"],
+            cutting_speed_range=(10, 20),
+            special_tooling=True,
+            coolant_required=True,
+            warnings=["极难加工", "需要专用刀具和参数", "切削热大"],
+            recommendations=["航空发动机零件", "高温高强度场合"],
+        ),
+        description="镍基高温合金，高温强度极高",
+    ),
+
+    "2205": MaterialInfo(
+        grade="2205",
+        name="双相不锈钢",
+        aliases=["S31803", "S32205", "SAF2205", "1.4462"],
+        category=MaterialCategory.METAL,
+        sub_category=MaterialSubCategory.FERROUS,
+        group=MaterialGroup.STAINLESS_STEEL,
+        standards=["ASTM A240"],
+        properties=MaterialProperties(
+            density=7.8,
+            tensile_strength=620,
+            yield_strength=450,
+            hardness="HB290",
+            machinability="fair",
+            weldability="good",
+        ),
+        process=ProcessRecommendation(
+            blank_forms=["板材", "棒材", "管材", "锻件"],
+            blank_hint="固溶态板材/锻件",
+            heat_treatments=["固溶处理"],
+            forbidden_heat_treatments=["淬火"],
+            surface_treatments=["钝化", "酸洗"],
+            cutting_speed_range=(30, 60),
+            coolant_required=True,
+            warnings=["比奥氏体不锈钢难加工", "需要更大切削力"],
+            recommendations=["海水/氯化物环境", "强度要求高的耐蚀场合"],
+        ),
+        description="双相不锈钢，强度和耐蚀性兼顾",
+    ),
+
+    "2507": MaterialInfo(
+        grade="2507",
+        name="超级双相不锈钢",
+        aliases=["S32750", "SAF2507", "1.4410"],
+        category=MaterialCategory.METAL,
+        sub_category=MaterialSubCategory.FERROUS,
+        group=MaterialGroup.STAINLESS_STEEL,
+        standards=["ASTM A240"],
+        properties=MaterialProperties(
+            density=7.8,
+            tensile_strength=800,
+            yield_strength=550,
+            hardness="HB310",
+            machinability="poor",
+            weldability="fair",
+        ),
+        process=ProcessRecommendation(
+            blank_forms=["板材", "棒材", "锻件"],
+            blank_hint="固溶态板材/锻件",
+            heat_treatments=["固溶处理"],
+            forbidden_heat_treatments=["淬火"],
+            surface_treatments=["钝化", "酸洗"],
+            cutting_speed_range=(25, 50),
+            special_tooling=True,
+            coolant_required=True,
+            warnings=["难加工", "焊接需严格控制热输入"],
+            recommendations=["海水淡化", "化工高压管道"],
+        ),
+        description="超级双相不锈钢，耐蚀性极强",
+    ),
+
     # -------------------------------------------------------------------------
     # 铸铁 (Cast Iron)
     # -------------------------------------------------------------------------
@@ -1133,7 +1254,8 @@ MATERIAL_MATCH_PATTERNS: List[Tuple[str, str]] = [
     (r"45[#钢]?", "45"),
     (r"S45C", "45"),
     (r"C45", "45"),
-    (r"20[#钢]?", "20"),
+    (r"20[#钢]", "20"),  # 需要后缀才能匹配，避免与2205/2507冲突
+    (r"^20$", "20"),  # 精确匹配20
     (r"65Mn", "65Mn"),
 
     # 合金钢
@@ -1175,6 +1297,29 @@ MATERIAL_MATCH_PATTERNS: List[Tuple[str, str]] = [
     (r"C[-\s]?22[ⅡI]*", "C22"),
     (r"Hastelloy\s*C[-\s]?22", "C22"),
     (r"N06022", "C22"),
+    # Inconel 625
+    (r"Inconel[-\s]?625", "Inconel625"),
+    (r"IN[-\s]?625", "Inconel625"),
+    (r"N06625", "Inconel625"),
+    (r"NCF[-\s]?625", "Inconel625"),
+    (r"Alloy[-\s]?625", "Inconel625"),
+    # Inconel 718
+    (r"Inconel[-\s]?718", "Inconel718"),
+    (r"IN[-\s]?718", "Inconel718"),
+    (r"N07718", "Inconel718"),
+    (r"GH[-\s]?4169", "Inconel718"),
+    (r"Alloy[-\s]?718", "Inconel718"),
+
+    # 双相不锈钢
+    (r"2205[A-Z]?", "2205"),
+    (r"S318[0-9]{2}", "2205"),
+    (r"S322[0-9]{2}", "2205"),
+    (r"SAF[-\s]?2205", "2205"),
+    (r"(?:1\.)?4462", "2205"),
+    (r"2507[A-Z]?", "2507"),
+    (r"S327[0-9]{2}", "2507"),
+    (r"SAF[-\s]?2507", "2507"),
+    (r"(?:1\.)?4410", "2507"),
 
     # 紧固件材料
     (r"A[24]-\d+", "S30408"),  # A2-50, A2-70, A4-70 是不锈钢紧固件
