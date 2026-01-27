@@ -347,3 +347,118 @@ class TestComplexScenarios:
 
         # No warning since stress relief is present
         assert not any("去应力" in w for w in route.warnings)
+
+
+class TestMaterialIntegration:
+    """Test material-based route generation."""
+
+    def test_classify_material_cast_iron(self):
+        """classify_material identifies cast iron."""
+        from src.core.process.route_generator import classify_material
+        assert classify_material("HT200") == "cast_iron"
+        assert classify_material("QT400") == "cast_iron"
+        assert classify_material("球墨铸铁") == "cast_iron"
+
+    def test_classify_material_stainless_steel(self):
+        """classify_material identifies stainless steel."""
+        from src.core.process.route_generator import classify_material
+        assert classify_material("304") == "stainless_steel"
+        assert classify_material("S30408") == "stainless_steel"
+        assert classify_material("316L不锈钢") == "stainless_steel"
+
+    def test_classify_material_aluminum(self):
+        """classify_material identifies aluminum."""
+        from src.core.process.route_generator import classify_material
+        assert classify_material("6061-T6") == "aluminum"
+        assert classify_material("7075") == "aluminum"
+        assert classify_material("铝合金") == "aluminum"
+
+    def test_classify_material_carbon_steel(self):
+        """classify_material identifies carbon steel."""
+        from src.core.process.route_generator import classify_material
+        assert classify_material("Q235B") == "carbon_steel"
+        assert classify_material("45#") == "carbon_steel"
+        assert classify_material("A3") == "carbon_steel"
+
+    def test_classify_material_unknown(self):
+        """classify_material returns None for unknown materials."""
+        from src.core.process.route_generator import classify_material
+        assert classify_material(None) is None
+        assert classify_material("") is None
+        assert classify_material("XYZ123") is None
+
+    def test_cast_iron_blank_description(self):
+        """Cast iron route has casting blank description."""
+        gen = ProcessRouteGenerator()
+        route = gen.generate(ProcessRequirements(), material="HT200")
+
+        assert route.material == "HT200"
+        assert route.steps[0].description == "铸造毛坯"
+
+    def test_cast_iron_aging_warning(self):
+        """Cast iron without aging generates warning."""
+        gen = ProcessRouteGenerator()
+        proc = ProcessRequirements(
+            heat_treatments=[HeatTreatmentInfo(type=HeatTreatmentType.quenching)]
+        )
+        route = gen.generate(proc, material="HT200")
+
+        assert any("时效" in w for w in route.warnings)
+
+    def test_stainless_steel_passivation_warning(self):
+        """Stainless steel without passivation generates warning."""
+        gen = ProcessRouteGenerator()
+        route = gen.generate(ProcessRequirements(), material="S30408")
+
+        assert any("钝化" in w for w in route.warnings)
+
+    def test_stainless_steel_with_passivation_no_warning(self):
+        """Stainless steel with passivation has no warning."""
+        gen = ProcessRouteGenerator()
+        proc = ProcessRequirements(
+            surface_treatments=[
+                SurfaceTreatmentInfo(type=SurfaceTreatmentType.passivation)
+            ]
+        )
+        route = gen.generate(proc, material="304")
+
+        assert not any("钝化" in w for w in route.warnings)
+
+    def test_aluminum_anodize_warning(self):
+        """Aluminum without anodizing generates warning."""
+        gen = ProcessRouteGenerator()
+        route = gen.generate(ProcessRequirements(), material="6061")
+
+        assert any("阳极氧化" in w for w in route.warnings)
+
+    def test_aluminum_blank_description(self):
+        """Aluminum route has extrusion blank description."""
+        gen = ProcessRouteGenerator()
+        route = gen.generate(ProcessRequirements(), material="6061-T6")
+
+        assert "挤压" in route.steps[0].description or "型材" in route.steps[0].description
+
+    def test_titanium_special_tooling_warning(self):
+        """Titanium generates special tooling warning."""
+        gen = ProcessRouteGenerator()
+        route = gen.generate(ProcessRequirements(), material="TC4")
+
+        assert any("刀具" in w or "参数" in w for w in route.warnings)
+
+    def test_material_increases_confidence(self):
+        """Having material increases confidence."""
+        gen = ProcessRouteGenerator()
+        route_no_mat = gen.generate(ProcessRequirements())
+        route_with_mat = gen.generate(ProcessRequirements(), material="Q235B")
+
+        assert route_with_mat.confidence > route_no_mat.confidence
+
+    def test_convenience_function_with_material(self):
+        """generate_process_route accepts material parameter."""
+        proc = ProcessRequirements(
+            heat_treatments=[HeatTreatmentInfo(type=HeatTreatmentType.quenching)]
+        )
+        route = generate_process_route(proc, material="40Cr")
+
+        assert route.material == "40Cr"
+        assert len(route.steps) > 0

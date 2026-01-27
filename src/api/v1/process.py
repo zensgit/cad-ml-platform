@@ -92,6 +92,7 @@ class ProcessRouteResponse(BaseModel):
 class ProcessRouteRequest(BaseModel):
     """工艺路线请求"""
     text: str = Field(..., description="技术要求文本", min_length=1)
+    material: Optional[str] = Field(None, description="材料名称")
 
 
 class ProcessRequirementsInput(BaseModel):
@@ -105,6 +106,7 @@ class ProcessRequirementsInput(BaseModel):
 class ProcessRouteStructuredRequest(BaseModel):
     """结构化工艺路线请求"""
     process_requirements: ProcessRequirementsInput = Field(..., description="工艺要求")
+    material: Optional[str] = Field(None, description="材料名称")
 
 
 @router.post("/process/route/from-text", response_model=ProcessRouteResponse)
@@ -126,8 +128,8 @@ async def generate_route_from_text(request: ProcessRouteRequest) -> ProcessRoute
         # Parse process requirements from text
         proc = parse_process_requirements(request.text)
 
-        # Generate route
-        route = generate_process_route(proc)
+        # Generate route with material info
+        route = generate_process_route(proc, material=request.material)
 
         # Convert to response
         steps = [
@@ -148,6 +150,7 @@ async def generate_route_from_text(request: ProcessRouteRequest) -> ProcessRoute
                 "total_steps": len(steps),
                 "confidence": route.confidence,
                 "has_warnings": len(route.warnings) > 0,
+                "material": request.material,
             },
         )
 
@@ -236,8 +239,8 @@ async def generate_route_from_requirements(
             general_notes=request.process_requirements.general_notes,
         )
 
-        # Generate route
-        route = generate_process_route(proc)
+        # Generate route with material info
+        route = generate_process_route(proc, material=request.material)
 
         steps = [
             ProcessStepResponse(
@@ -256,6 +259,7 @@ async def generate_route_from_requirements(
             extra={
                 "total_steps": len(steps),
                 "confidence": route.confidence,
+                "material": request.material,
             },
         )
 
@@ -265,6 +269,7 @@ async def generate_route_from_requirements(
             total_steps=len(steps),
             confidence=route.confidence,
             warnings=route.warnings,
+            material=route.material,
         )
 
     except Exception as e:

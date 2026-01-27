@@ -11,6 +11,10 @@
    - 去应力：焊接后/热处理后
 3. 表面处理：精加工后、检验前
 4. 焊接：根据结构件特点，通常在机加工后
+5. 材料相关规则：
+   - 铸铁（HT/QT）：需要时效处理消除内应力
+   - 不锈钢（304/316）：酸洗/钝化处理
+   - 铝合金（6061/7075）：阳极氧化处理
 """
 
 from __future__ import annotations
@@ -154,6 +158,86 @@ WELDING_NAMES = {
 }
 
 
+# 材料分类模式
+MATERIAL_PATTERNS = {
+    "cast_iron": ["HT", "QT", "球墨", "灰铁", "铸铁", "KT"],
+    "carbon_steel": ["Q235", "Q345", "45#", "45钢", "20钢", "20#", "A3"],
+    "alloy_steel": ["40Cr", "42CrMo", "GCr15", "Cr12", "合金钢"],
+    "stainless_steel": ["304", "316", "S304", "S316", "S30408", "不锈钢", "1Cr18Ni9Ti"],
+    "aluminum": ["6061", "7075", "2024", "铝合金", "AL", "LY12"],
+    "copper": ["黄铜", "紫铜", "H62", "H68", "铜合金", "CuZn"],
+    "titanium": ["TC4", "TA2", "钛合金", "Ti"],
+}
+
+
+def classify_material(material: Optional[str]) -> Optional[str]:
+    """
+    对材料进行分类
+
+    Args:
+        material: 材料名称字符串
+
+    Returns:
+        材料类别 或 None
+    """
+    if not material:
+        return None
+
+    material_upper = material.upper()
+
+    for category, patterns in MATERIAL_PATTERNS.items():
+        for pattern in patterns:
+            if pattern.upper() in material_upper:
+                return category
+
+    return None
+
+
+# 材料相关的工艺建议
+MATERIAL_PROCESS_HINTS = {
+    "cast_iron": {
+        "blank_hint": "铸造毛坯",
+        "aging_recommended": True,
+        "aging_reason": "铸铁件建议时效处理消除铸造内应力",
+        "surface_hint": "发黑/喷漆",
+    },
+    "carbon_steel": {
+        "blank_hint": "锻造/圆钢",
+        "can_carburize": True,
+        "surface_hint": "镀锌/发黑",
+    },
+    "alloy_steel": {
+        "blank_hint": "锻造",
+        "quench_temper_recommended": True,
+        "surface_hint": "镀铬/发黑",
+    },
+    "stainless_steel": {
+        "blank_hint": "板材/棒材",
+        "passivation_recommended": True,
+        "passivation_reason": "不锈钢建议钝化处理提高耐蚀性",
+        "no_carburize": True,
+        "surface_hint": "抛光/钝化",
+    },
+    "aluminum": {
+        "blank_hint": "挤压型材/板材",
+        "anodize_recommended": True,
+        "anodize_reason": "铝合金建议阳极氧化处理",
+        "no_electroplate": True,
+        "surface_hint": "阳极氧化/喷漆",
+    },
+    "copper": {
+        "blank_hint": "棒材/板材",
+        "surface_hint": "抛光/镀层",
+    },
+    "titanium": {
+        "blank_hint": "锻造/板材",
+        "surface_hint": "阳极氧化",
+        "special_tooling": True,
+        "special_tooling_reason": "钛合金需要专用刀具和切削参数",
+    },
+}
+
+
 class ProcessRouteGenerator:
     """工艺路线生成器"""
 
@@ -165,28 +249,39 @@ class ProcessRouteGenerator:
             (ProcessStage.inspection, "检验", "尺寸/形位公差检验"),
         ]
 
-    def generate(self, process_requirements: Optional[ProcessRequirements]) -> ProcessRoute:
+    def generate(
+        self,
+        process_requirements: Optional[ProcessRequirements],
+        material: Optional[str] = None,
+    ) -> ProcessRoute:
         """
         根据工艺要求生成工艺路线
 
         Args:
             process_requirements: 提取的工艺要求
+            material: 材料名称（可选）
 
         Returns:
             ProcessRoute 工艺路线
         """
         if not process_requirements:
-            return self._generate_basic_route()
+            return self._generate_basic_route(material=material)
 
         route = ProcessRoute()
+        route.material = material
         steps: List[ProcessStep] = []
         warnings: List[str] = []
 
+        # 材料分类
+        material_category = classify_material(material)
+        material_hints = MATERIAL_PROCESS_HINTS.get(material_category, {}) if material_category else {}
+
         # 1. 毛坯准备
+        blank_desc = material_hints.get("blank_hint", "下料/锻造/铸造")
         steps.append(ProcessStep(
             stage=ProcessStage.blank_preparation,
             name="毛坯准备",
-            description="下料/锻造/铸造",
+            description=blank_desc,
         ))
 
         # 2. 粗加工
@@ -313,6 +408,34 @@ class ProcessRouteGenerator:
                 source="图纸要求",
             ))
 
+        # 9.1 材料相关的工艺建议
+        has_passivation = any(
+            st.type == SurfaceTreatmentType.passivation for st in surface_ops
+        )
+        has_anodizing = any(
+            st.type == SurfaceTreatmentType.anodizing for st in surface_ops
+        )
+
+        # 不锈钢钝化建议
+        if material_hints.get("passivation_recommended") and not has_passivation:
+            warnings.append(material_hints.get("passivation_reason", "建议增加钝化处理"))
+
+        # 铝合金阳极氧化建议
+        if material_hints.get("anodize_recommended") and not has_anodizing:
+            warnings.append(material_hints.get("anodize_reason", "建议增加阳极氧化处理"))
+
+        # 铸铁时效建议
+        has_aging = any(
+            ht.type == HeatTreatmentType.aging
+            for ht in (process_requirements.heat_treatments or [])
+        )
+        if material_hints.get("aging_recommended") and not has_aging:
+            warnings.append(material_hints.get("aging_reason", "建议增加时效处理"))
+
+        # 钛合金特殊刀具提示
+        if material_hints.get("special_tooling"):
+            warnings.append(material_hints.get("special_tooling_reason", "需要特殊加工参数"))
+
         # 10. 检验
         inspection_items = []
         if post_heat_treatments:
@@ -334,7 +457,7 @@ class ProcessRouteGenerator:
             step.sequence = i + 1
 
         # 计算置信度
-        confidence = self._calculate_confidence(process_requirements)
+        confidence = self._calculate_confidence(process_requirements, material=material)
 
         route.steps = steps
         route.confidence = confidence
@@ -353,19 +476,25 @@ class ProcessRouteGenerator:
 
         return route
 
-    def _generate_basic_route(self) -> ProcessRoute:
+    def _generate_basic_route(self, material: Optional[str] = None) -> ProcessRoute:
         """生成基础工艺路线（无特殊工艺要求时）"""
         steps = []
+        material_category = classify_material(material)
+        material_hints = MATERIAL_PROCESS_HINTS.get(material_category, {}) if material_category else {}
+
         for i, (stage, name, desc) in enumerate(self._base_steps):
+            # 毛坯准备根据材料调整描述
+            if stage == ProcessStage.blank_preparation and material_hints.get("blank_hint"):
+                desc = material_hints["blank_hint"]
             steps.append(ProcessStep(
                 stage=stage,
                 name=name,
                 description=desc,
                 sequence=i + 1,
             ))
-        return ProcessRoute(steps=steps, confidence=0.3)
+        return ProcessRoute(steps=steps, material=material, confidence=0.3)
 
-    def _calculate_confidence(self, proc: ProcessRequirements) -> float:
+    def _calculate_confidence(self, proc: ProcessRequirements, material: Optional[str] = None) -> float:
         """计算工艺路线置信度"""
         score = 0.4  # 基础分
         if proc.heat_treatments:
@@ -376,6 +505,9 @@ class ProcessRouteGenerator:
             score += 0.15
         if proc.general_notes:
             score += 0.1
+        # 有材料信息增加置信度
+        if material:
+            score += 0.05
         return min(score, 1.0)
 
 
@@ -391,14 +523,18 @@ def get_route_generator() -> ProcessRouteGenerator:
     return _route_generator
 
 
-def generate_process_route(process_requirements: Optional[ProcessRequirements]) -> ProcessRoute:
+def generate_process_route(
+    process_requirements: Optional[ProcessRequirements],
+    material: Optional[str] = None,
+) -> ProcessRoute:
     """
     便捷函数：生成工艺路线
 
     Args:
         process_requirements: 提取的工艺要求
+        material: 材料名称（可选）
 
     Returns:
         ProcessRoute 工艺路线
     """
-    return get_route_generator().generate(process_requirements)
+    return get_route_generator().generate(process_requirements, material=material)
