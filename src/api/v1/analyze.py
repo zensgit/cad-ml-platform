@@ -832,11 +832,20 @@ async def analyze_cad_file(
                 graph2d_enabled = os.getenv("GRAPH2D_ENABLED", "false").lower() == "true"
                 if graph2d_enabled and file_format == "dxf":
                     try:
-                        from src.ml.vision_2d import get_2d_classifier
-
-                        graph2d_result = get_2d_classifier().predict_from_bytes(
-                            content, file.filename
+                        graph2d_ensemble_enabled = (
+                            os.getenv("GRAPH2D_ENSEMBLE_ENABLED", "false").lower() == "true"
                         )
+                        from src.ml.vision_2d import (
+                            get_2d_classifier,
+                            get_ensemble_2d_classifier,
+                        )
+
+                        classifier = (
+                            get_ensemble_2d_classifier()
+                            if graph2d_ensemble_enabled
+                            else get_2d_classifier()
+                        )
+                        graph2d_result = classifier.predict_from_bytes(content, file.filename)
                         if graph2d_result.get("status") != "model_unavailable":
                             graph2d_min_conf = _safe_float_env("GRAPH2D_MIN_CONF", 0.0)
                             graph2d_conf = float(graph2d_result.get("confidence", 0.0))
@@ -860,6 +869,7 @@ async def analyze_cad_file(
                             graph2d_result["excluded"] = graph2d_label in graph2d_exclude
                             graph2d_result["allowed"] = graph2d_allowed
                             graph2d_result["is_drawing_type"] = graph2d_is_drawing_type
+                            graph2d_result["ensemble_enabled"] = graph2d_ensemble_enabled
                             cls_payload["graph2d_prediction"] = graph2d_result
                             if (
                                 graph2d_result["passed_threshold"]

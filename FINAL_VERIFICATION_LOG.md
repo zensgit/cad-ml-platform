@@ -2969,6 +2969,18 @@
 - **Graph2D Retrain Validation**:
   - Evaluated retrained checkpoint and batch agreement vs filename; accuracy remains low with current dataset size.
   - Report: `reports/experiments/20260126/DEV_GRAPH2D_RETRAIN_VALIDATION_20260126.md`
+- **Graph2D Ensemble Integration**:
+  - Integrated `EnsembleGraph2DClassifier` into `/api/v1/analyze` behind `GRAPH2D_ENSEMBLE_ENABLED`.
+  - Report: `reports/experiments/20260127/DEV_GRAPH2D_ENSEMBLE_INTEGRATION_20260127.md`
+- **Graph2D Ensemble Integration Validation**:
+  - Ran a smoke batch with ensemble enabled and verified ensemble metadata in batch outputs.
+  - Report: `reports/experiments/20260127/DEV_GRAPH2D_ENSEMBLE_INTEGRATION_VALIDATION_20260127.md`
+- **Graph2D Ensemble Full Batch**:
+  - Ran the full local DXF batch (110 files) with ensemble enabled and generated review artifacts.
+  - Report: `reports/experiments/20260127/DEV_GRAPH2D_ENSEMBLE_FULL_BATCH_20260127.md`
+- **Graph2D Ensemble Full Batch Validation**:
+  - Verified ensemble coverage, drawing-type exclusion rate, hybrid sources, and targeted unit tests.
+  - Report: `reports/experiments/20260127/DEV_GRAPH2D_ENSEMBLE_FULL_BATCH_VALIDATION_20260127.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
