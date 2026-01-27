@@ -69,6 +69,10 @@ try:
     from src.api.v1 import twin  # type: ignore
 except Exception:
     twin = None  # type: ignore
+try:
+    from src.api.v1 import materials  # type: ignore
+except Exception:
+    materials = None  # type: ignore
 
 api_router = APIRouter()
 
@@ -128,6 +132,8 @@ if active_learning is not None:
     )  # type: ignore
 if twin is not None:
     v1_router.include_router(twin.router, prefix="/twin", tags=["数字孪生"])  # type: ignore
+if materials is not None:
+    v1_router.include_router(materials.router, prefix="/materials", tags=["材料"])  # type: ignore
 
 api_router.include_router(v1_router)
 if compare is not None:
