@@ -25,6 +25,14 @@ from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_GRAPH2D_DRAWING_LABELS = {
+    "零件图",
+    "机械制图",
+    "装配图",
+    "练习零件图",
+    "原理图",
+    "模板",
+}
 
 class DecisionSource(str, Enum):
     """决策来源"""
@@ -99,6 +107,13 @@ class HybridClassifier:
         self.titleblock_override_enabled = (
             os.getenv("TITLEBLOCK_OVERRIDE_ENABLED", "false").lower() == "true"
         )
+        drawing_labels_raw = os.getenv("GRAPH2D_DRAWING_TYPE_LABELS", "").strip()
+        if drawing_labels_raw:
+            self.graph2d_drawing_labels = {
+                label.strip() for label in drawing_labels_raw.split(",") if label.strip()
+            }
+        else:
+            self.graph2d_drawing_labels = set(DEFAULT_GRAPH2D_DRAWING_LABELS)
 
         # 懒加载分类器
         self._filename_classifier = None
@@ -115,6 +130,7 @@ class HybridClassifier:
                 "graph2d_min_conf": self.graph2d_min_conf,
                 "titleblock_min_conf": self.titleblock_min_conf,
                 "titleblock_override_enabled": self.titleblock_override_enabled,
+                "graph2d_drawing_labels": sorted(self.graph2d_drawing_labels),
             },
         )
 
@@ -167,6 +183,11 @@ class HybridClassifier:
         """检查标题栏特征是否启用"""
         return os.getenv("TITLEBLOCK_ENABLED", "false").lower() == "true"
 
+    def _is_graph2d_drawing_type(self, label: Optional[str]) -> bool:
+        if not label:
+            return False
+        return label.strip() in self.graph2d_drawing_labels
+
     def classify(
         self,
         filename: str,
@@ -216,7 +237,12 @@ class HybridClassifier:
                 logger.error(f"Graph2D classification failed: {e}")
                 result.decision_path.append("graph2d_error")
 
+        graph2d_label_raw = graph2d_pred.get("label") if graph2d_pred else None
+        graph2d_conf_raw = float(graph2d_pred.get("confidence", 0)) if graph2d_pred else 0.0
+        graph2d_is_drawing_type = self._is_graph2d_drawing_type(graph2d_label_raw)
         if graph2d_pred:
+            graph2d_pred = dict(graph2d_pred)
+            graph2d_pred["is_drawing_type"] = graph2d_is_drawing_type
             result.graph2d_prediction = graph2d_pred
 
         # 3. TitleBlock 分类
@@ -253,8 +279,12 @@ class HybridClassifier:
         filename_label = filename_pred.get("label") if filename_pred else None
         filename_conf = float(filename_pred.get("confidence", 0)) if filename_pred else 0.0
 
-        graph2d_label = graph2d_pred.get("label") if graph2d_pred else None
-        graph2d_conf = float(graph2d_pred.get("confidence", 0)) if graph2d_pred else 0.0
+        graph2d_label = graph2d_label_raw
+        graph2d_conf = graph2d_conf_raw
+        if graph2d_is_drawing_type:
+            result.decision_path.append("graph2d_drawing_type_ignored")
+            graph2d_label = None
+            graph2d_conf = 0.0
 
         titleblock_label = titleblock_pred.get("label") if titleblock_pred else None
         titleblock_conf = float(titleblock_pred.get("confidence", 0.0)) if titleblock_pred else 0.0

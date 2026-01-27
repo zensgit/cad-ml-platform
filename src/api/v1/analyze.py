@@ -64,6 +64,26 @@ def _safe_float_env(name: str, default: float) -> float:
         logger.warning("Invalid %s=%s; using default %.2f", name, raw, default)
         return float(default)
 
+DEFAULT_GRAPH2D_DRAWING_LABELS = {
+    "零件图",
+    "机械制图",
+    "装配图",
+    "练习零件图",
+    "原理图",
+    "模板",
+}
+
+
+def _graph2d_is_drawing_type(label: Optional[str]) -> bool:
+    if not label:
+        return False
+    raw = os.getenv("GRAPH2D_DRAWING_TYPE_LABELS", "").strip()
+    if raw:
+        labels = {item.strip() for item in raw.split(",") if item.strip()}
+    else:
+        labels = DEFAULT_GRAPH2D_DRAWING_LABELS
+    return label.strip() in labels
+
 # Drift state (in-memory); keys: materials, predictions, baseline_materials, baseline_predictions
 _DRIFT_STATE: Dict[str, Any] = {
     "materials": [],
@@ -833,16 +853,19 @@ async def analyze_cad_file(
                                 if label.strip()
                             }
                             graph2d_label = str(graph2d_result.get("label") or "").strip()
+                            graph2d_is_drawing_type = _graph2d_is_drawing_type(graph2d_label)
                             graph2d_allowed = not graph2d_allow or graph2d_label in graph2d_allow
                             graph2d_result["min_confidence"] = graph2d_min_conf
                             graph2d_result["passed_threshold"] = graph2d_conf >= graph2d_min_conf
                             graph2d_result["excluded"] = graph2d_label in graph2d_exclude
                             graph2d_result["allowed"] = graph2d_allowed
+                            graph2d_result["is_drawing_type"] = graph2d_is_drawing_type
                             cls_payload["graph2d_prediction"] = graph2d_result
                             if (
                                 graph2d_result["passed_threshold"]
                                 and graph2d_allowed
                                 and not graph2d_result["excluded"]
+                                and not graph2d_is_drawing_type
                             ):
                                 graph2d_fusable = graph2d_result
                     except Exception:
@@ -878,6 +901,7 @@ async def analyze_cad_file(
                     graph2d_conf = float(graph2d_result.get("confidence", 0.0))
                     graph2d_allowed = bool(graph2d_result.get("allowed", True))
                     graph2d_excluded = bool(graph2d_result.get("excluded", False))
+                    graph2d_is_drawing_type = bool(graph2d_result.get("is_drawing_type", False))
                     eligible = True
                     reason = "eligible"
                     if cls_payload.get("confidence_source") != "rules":
@@ -892,6 +916,9 @@ async def analyze_cad_file(
                     elif not graph2d_allowed:
                         eligible = False
                         reason = "graph2d_not_allowed"
+                    elif graph2d_is_drawing_type:
+                        eligible = False
+                        reason = "graph2d_drawing_type"
                     elif graph2d_conf < soft_override_min_conf:
                         eligible = False
                         reason = "below_threshold"

@@ -2957,6 +2957,18 @@
 - **DXF Baseline Autoreview (Graph2D Enabled) Validation**:
   - Verified batch artifacts, review summaries, and coverage metrics for the Graph2D-enabled run.
   - Report: `reports/experiments/20260125/DEV_DXF_BASELINE_AUTOREVIEW_GRAPH2D_VALIDATION_20260125.md`
+- **DXF Baseline Autoreview (Graph2D Drawing-Type Exclusion)**:
+  - Excluded drawing-type Graph2D labels from part-name fusion and re-ran the baseline batch analysis.
+  - Report: `reports/experiments/20260126/DEV_DXF_BASELINE_AUTOREVIEW_GRAPH2D_DRAWINGTYPE_20260126.md`
+- **DXF Baseline Autoreview (Graph2D Drawing-Type Exclusion) Validation**:
+  - Verified batch artifacts and confirmed zero soft-override candidates under drawing-type exclusion.
+  - Report: `reports/experiments/20260126/DEV_DXF_BASELINE_AUTOREVIEW_GRAPH2D_DRAWINGTYPE_VALIDATION_20260126.md`
+- **Graph2D Retrain (Filename-Synonym Manifest)**:
+  - Built a training manifest using filename-synonym labels for the training DXFs (109/110 coverage).
+  - Report: `reports/experiments/20260126/DEV_GRAPH2D_RETRAIN_20260126.md`
+- **Graph2D Retrain Validation**:
+  - Evaluated retrained checkpoint and batch agreement vs filename; accuracy remains low with current dataset size.
+  - Report: `reports/experiments/20260126/DEV_GRAPH2D_RETRAIN_VALIDATION_20260126.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

@@ -168,6 +168,7 @@ def main() -> None:
             "graph2d_confidence": graph2d.get("confidence"),
             "graph2d_temperature": graph2d.get("temperature"),
             "graph2d_temperature_source": graph2d.get("temperature_source"),
+            "graph2d_is_drawing_type": graph2d.get("is_drawing_type"),
             "filename_label": filename_pred.get("label"),
             "filename_confidence": filename_pred.get("confidence"),
             "filename_match_type": filename_pred.get("match_type"),
