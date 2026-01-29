@@ -308,13 +308,17 @@ class InsightsAnalyzer:
         # Recommendations
         narrative.append("\n## Recommendations")
 
-        if trends["combined"] == "degrading":
+        if trends.get("status") == "insufficient_data":
+            narrative.append("\n⚠️ **Limited Data**: Not enough history to assess trends.")
+            narrative.append("- Continue collecting evaluation results")
+            narrative.append("- Re-run insights after more samples are available")
+        elif trends.get("combined") == "degrading":
             narrative.append("\n⚠️ **Action Required**: Combined score is showing a "
                            "degrading trend. Consider:")
             narrative.append("- Review recent model changes")
             narrative.append("- Check data quality")
             narrative.append("- Run diagnostic tests")
-        elif trends["combined"] == "improving":
+        elif trends.get("combined") == "improving":
             narrative.append("\n✅ **Positive Trend**: Performance is improving. "
                            "Consider:")
             narrative.append("- Document successful changes")

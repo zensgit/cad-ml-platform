@@ -342,7 +342,11 @@ class ProcessRouteGenerator:
 
         # 材料分类 - 优先使用详细材料系统
         material_category = classify_material(material)
-        material_hints = MATERIAL_PROCESS_HINTS.get(material_category, {}) if material_category else {}
+        material_hints = (
+            MATERIAL_PROCESS_HINTS.get(material_category, {})
+            if material_category
+            else {}
+        )
 
         # 获取详细材料信息（如果可用）
         material_info = get_detailed_material_info(material)
@@ -601,7 +605,11 @@ class ProcessRouteGenerator:
         steps = []
         warnings = []
         material_category = classify_material(material)
-        material_hints = MATERIAL_PROCESS_HINTS.get(material_category, {}) if material_category else {}
+        material_hints = (
+            MATERIAL_PROCESS_HINTS.get(material_category, {})
+            if material_category
+            else {}
+        )
 
         # 获取详细材料信息（如果可用）
         material_info = get_detailed_material_info(material)
@@ -618,7 +626,9 @@ class ProcessRouteGenerator:
 
         for i, (stage, name, desc) in enumerate(self._base_steps):
             # 毛坯准备根据材料调整描述
-            if stage == ProcessStage.blank_preparation and material_hints.get("blank_hint"):
+            if stage == ProcessStage.blank_preparation and material_hints.get(
+                "blank_hint"
+            ):
                 desc = material_hints["blank_hint"]
             steps.append(ProcessStep(
                 stage=stage,
@@ -626,9 +636,18 @@ class ProcessRouteGenerator:
                 description=desc,
                 sequence=i + 1,
             ))
-        return ProcessRoute(steps=steps, material=material, confidence=0.3, warnings=warnings)
+        return ProcessRoute(
+            steps=steps,
+            material=material,
+            confidence=0.3,
+            warnings=warnings,
+        )
 
-    def _calculate_confidence(self, proc: ProcessRequirements, material: Optional[str] = None) -> float:
+    def _calculate_confidence(
+        self,
+        proc: ProcessRequirements,
+        material: Optional[str] = None,
+    ) -> float:
         """计算工艺路线置信度"""
         score = 0.4  # 基础分
         if proc.heat_treatments:

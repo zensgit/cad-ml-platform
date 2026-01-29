@@ -60,10 +60,18 @@ class OcrResponse(BaseModel):
     dimensions: List
     symbols: List
     title_block: Dict
-    material: Optional[str] = Field(None, description="Extracted material from title block")
-    material_info: Optional[MaterialInfoBrief] = Field(None, description="Detailed material classification info")
-    process_requirements: Optional[Dict] = Field(None, description="Extracted manufacturing process requirements")
-    process_route: Optional[Dict] = Field(None, description="Recommended manufacturing process route")
+    material: Optional[str] = Field(
+        None, description="Extracted material from title block"
+    )
+    material_info: Optional[MaterialInfoBrief] = Field(
+        None, description="Detailed material classification info"
+    )
+    process_requirements: Optional[Dict] = Field(
+        None, description="Extracted manufacturing process requirements"
+    )
+    process_route: Optional[Dict] = Field(
+        None, description="Recommended manufacturing process route"
+    )
     error: Optional[str] = None
     code: Optional[ErrorCode] = None
 
@@ -292,7 +300,11 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
         title_block=result.title_block.model_dump(),
         material=result.title_block.material,
         material_info=material_info,
-        process_requirements=result.process_requirements.model_dump() if result.process_requirements else None,
+        process_requirements=(
+            result.process_requirements.model_dump()
+            if result.process_requirements
+            else None
+        ),
         process_route=process_route,
     )
 
