@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "cad-assistant.fullname" . }}-config
+  labels:
+    {{- include "cad-assistant.labels" . | nindent 4 }}
+data:
+  # LLM Configuration
+  LLM_PROVIDER: {{ .Values.config.llm.provider | quote }}
+  LLM_MODEL: {{ .Values.config.llm.model | quote }}
+  LLM_MAX_TOKENS: {{ .Values.config.llm.maxTokens | quote }}
+  LLM_TEMPERATURE: {{ .Values.config.llm.temperature | quote }}
+
+  # Knowledge Base Configuration
+  EMBEDDING_MODEL: {{ .Values.config.knowledgeBase.embeddingModel | quote }}
+  SIMILARITY_THRESHOLD: {{ .Values.config.knowledgeBase.similarityThreshold | quote }}
+  MAX_RESULTS: {{ .Values.config.knowledgeBase.maxResults | quote }}
+
+  # Cache Configuration
+  CACHE_ENABLED: {{ .Values.config.cache.enabled | quote }}
+  CACHE_TTL: {{ .Values.config.cache.ttl | quote }}
+  CACHE_MAX_SIZE: {{ .Values.config.cache.maxSize | quote }}
+
+  # Security Configuration
+  API_KEY_ENABLED: {{ .Values.config.security.apiKeyEnabled | quote }}
+  RATE_LIMIT_ENABLED: {{ .Values.config.security.rateLimitEnabled | quote }}
+  RATE_LIMIT_PER_MINUTE: {{ .Values.config.security.rateLimitPerMinute | quote }}
+
+  # Logging Configuration
+  LOG_LEVEL: {{ .Values.config.logging.level | quote }}
+  LOG_FORMAT: {{ .Values.config.logging.format | quote }}
+
+  # Metrics Configuration
+  METRICS_ENABLED: {{ .Values.metrics.enabled | quote }}
+  METRICS_PORT: {{ .Values.metrics.port | quote }}

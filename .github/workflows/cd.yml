@@ -1,0 +1,255 @@
+name: CD Pipeline - Deploy
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: 'Version to deploy (e.g., v1.0.0)'
+        required: false
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/cad-assistant
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "push" ]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+          elif [ -n "${{ inputs.version }}" ]; then
+            VERSION=${{ inputs.version }}
+          else
+            VERSION="sha-${GITHUB_SHA::8}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/assistant/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_SHA=${{ github.sha }}
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: https://staging.cad-assistant.example.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.0
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG_STAGING }}
+
+      - name: Deploy with Helm
+        run: |
+          helm upgrade --install cad-assistant-staging \
+            deploy/helm/cad-assistant/ \
+            --namespace cad-assistant-staging \
+            --create-namespace \
+            --set image.tag=${{ needs.build-and-push.outputs.version }} \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set ingress.enabled=true \
+            --set ingress.hosts[0].host=staging.cad-assistant.example.com \
+            --set replicaCount=1 \
+            --wait \
+            --timeout 10m
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/cad-assistant-staging -n cad-assistant-staging
+
+      - name: Run smoke tests
+        run: |
+          # Wait for service to be ready
+          sleep 30
+
+          # Health check
+          HEALTH_RESPONSE=$(kubectl run curl-test --rm -i --restart=Never \
+            --image=curlimages/curl:latest \
+            -n cad-assistant-staging \
+            -- curl -s http://cad-assistant-staging/health)
+
+          echo "Health check response: $HEALTH_RESPONSE"
+          echo "$HEALTH_RESPONSE" | grep -q "healthy" || exit 1
+
+  deploy-production:
+    name: Deploy to Production
+    needs: [build-and-push, deploy-staging]
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.environment == 'production')
+    environment:
+      name: production
+      url: https://cad-assistant.example.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: v3.13.0
+
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+
+      - name: Deploy with Helm (Blue-Green)
+        run: |
+          # Get current deployment color
+          CURRENT_COLOR=$(kubectl get service cad-assistant -n cad-assistant \
+            -o jsonpath='{.spec.selector.deployment}' 2>/dev/null || echo "blue")
+
+          if [ "$CURRENT_COLOR" == "blue" ]; then
+            NEW_COLOR="green"
+          else
+            NEW_COLOR="blue"
+          fi
+
+          echo "Deploying to $NEW_COLOR environment"
+
+          # Deploy new version
+          helm upgrade --install cad-assistant-$NEW_COLOR \
+            deploy/helm/cad-assistant/ \
+            --namespace cad-assistant \
+            --create-namespace \
+            --set image.tag=${{ needs.build-and-push.outputs.version }} \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set ingress.enabled=true \
+            --set ingress.hosts[0].host=cad-assistant.example.com \
+            --set replicaCount=3 \
+            --set autoscaling.enabled=true \
+            --set resources.limits.memory=4Gi \
+            --set resources.requests.memory=1Gi \
+            --wait \
+            --timeout 15m
+
+          echo "NEW_COLOR=$NEW_COLOR" >> $GITHUB_ENV
+
+      - name: Verify new deployment
+        run: |
+          kubectl rollout status deployment/cad-assistant-${{ env.NEW_COLOR }} -n cad-assistant
+
+      - name: Run production smoke tests
+        run: |
+          # Health check on new deployment
+          kubectl run curl-test --rm -i --restart=Never \
+            --image=curlimages/curl:latest \
+            -n cad-assistant \
+            -- curl -s http://cad-assistant-${{ env.NEW_COLOR }}/health | grep -q "healthy"
+
+      - name: Switch traffic to new deployment
+        run: |
+          # Update service selector to point to new deployment
+          kubectl patch service cad-assistant -n cad-assistant \
+            -p "{\"spec\":{\"selector\":{\"deployment\":\"${{ env.NEW_COLOR }}\"}}}"
+
+          echo "Traffic switched to ${{ env.NEW_COLOR }} deployment"
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "Production deployment successful"
+          echo "Version: ${{ needs.build-and-push.outputs.version }}"
+          echo "Environment: ${{ env.NEW_COLOR }}"
+
+  rollback:
+    name: Rollback (Manual)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' && failure()
+    environment:
+      name: production
+    steps:
+      - name: Configure kubectl
+        uses: azure/k8s-set-context@v3
+        with:
+          kubeconfig: ${{ secrets.KUBE_CONFIG_PRODUCTION }}
+
+      - name: Rollback to previous version
+        run: |
+          # Get the other color (not currently serving traffic)
+          CURRENT_COLOR=$(kubectl get service cad-assistant -n cad-assistant \
+            -o jsonpath='{.spec.selector.deployment}')
+
+          if [ "$CURRENT_COLOR" == "blue" ]; then
+            ROLLBACK_COLOR="green"
+          else
+            ROLLBACK_COLOR="blue"
+          fi
+
+          # Switch traffic back to previous deployment
+          kubectl patch service cad-assistant -n cad-assistant \
+            -p "{\"spec\":{\"selector\":{\"deployment\":\"$ROLLBACK_COLOR\"}}}"
+
+          echo "Rolled back to $ROLLBACK_COLOR deployment"
