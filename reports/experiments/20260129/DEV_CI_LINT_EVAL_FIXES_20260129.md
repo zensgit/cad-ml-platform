@@ -8,8 +8,10 @@ Fix CI failures in `lint-type` and `Run Evaluation and Generate Report`.
 - Wrapped long lines in OCR API response assembly and process-route generation to reduce E501 risk.
 - Guarded `analyze_eval_insights.py` against missing history and emit a minimal report instead of exiting non-zero.
 - Resolved mypy type-check errors in materials APIs, render fallback handling, process-route typing, and cost sorting keys.
+- Updated CI `e2e-smoke` to skip when the dedupcad-vision image cannot be pulled (missing GHCR access).
 
 ## Files Updated
+- `.github/workflows/ci.yml`
 - `.flake8`
 - `src/api/v1/ocr.py`
 - `src/api/v1/materials.py`
