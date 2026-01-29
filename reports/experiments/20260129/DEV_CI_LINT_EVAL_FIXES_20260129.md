@@ -7,11 +7,15 @@ Fix CI failures in `lint-type` and `Run Evaluation and Generate Report`.
 - Expanded flake8 per-file ignores for known legacy-long lines and duplicate-key fixtures in knowledge and ML modules.
 - Wrapped long lines in OCR API response assembly and process-route generation to reduce E501 risk.
 - Guarded `analyze_eval_insights.py` against missing history and emit a minimal report instead of exiting non-zero.
+- Resolved mypy type-check errors in materials APIs, render fallback handling, process-route typing, and cost sorting keys.
 
 ## Files Updated
 - `.flake8`
 - `src/api/v1/ocr.py`
+- `src/api/v1/materials.py`
+- `src/api/v1/render.py`
 - `src/core/process/route_generator.py`
+- `src/core/materials/classifier.py`
 - `scripts/analyze_eval_insights.py`
 
 ## Notes

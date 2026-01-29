@@ -14272,7 +14272,7 @@ def search_by_properties(
         })
 
     # 按牌号排序
-    results.sort(key=lambda x: x["grade"])
+    results.sort(key=lambda x: str(x.get("grade") or ""))
 
     return results[:limit]
 
@@ -15239,7 +15239,7 @@ def compare_material_costs(
             missing.append(grade)
 
     # 按成本指数排序
-    results.sort(key=lambda x: x["cost_index"])
+    results.sort(key=lambda x: float(x.get("cost_index") or 0.0))
 
     # 添加相对比较
     if results:
@@ -15320,7 +15320,7 @@ def search_by_cost(
         })
 
     # 按成本指数排序
-    results.sort(key=lambda x: x["cost_index"])
+    results.sort(key=lambda x: float(x.get("cost_index") or 0.0))
 
     return results[:limit]
 

@@ -6,6 +6,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -572,7 +573,7 @@ async def recommend_materials(
     """
     from src.core.materials import get_material_recommendations
 
-    requirements = {}
+    requirements: Dict[str, Any] = {}
     if min_strength:
         requirements["min_strength"] = min_strength
     if max_density:
@@ -645,7 +646,7 @@ async def list_material_groups() -> MaterialGroupsResponse:
         "composite": [],
     }
 
-    seen_groups: Dict[str, set] = {k: set() for k in groups}
+    seen_groups: Dict[str, set[str]] = {k: set() for k in groups}
 
     for info in MATERIAL_DATABASE.values():
         cat = info.category.value
@@ -680,6 +681,14 @@ async def get_material(grade: str) -> MaterialInfoResponse:
             found=False,
             grade=grade,
             name=grade,
+            aliases=[],
+            category=None,
+            sub_category=None,
+            group=None,
+            standards=[],
+            description="",
+            properties=None,
+            process=None,
         )
 
     return MaterialInfoResponse(
@@ -740,6 +749,10 @@ async def classify_material(request: MaterialClassifyRequest) -> MaterialClassif
         return MaterialClassifyResponse(
             input=request.material,
             found=False,
+            grade=None,
+            name=None,
+            category=None,
+            group=None,
         )
 
     logger.info(
@@ -788,6 +801,10 @@ async def batch_classify_materials(
             results.append(MaterialClassifyResponse(
                 input=mat,
                 found=False,
+                grade=None,
+                name=None,
+                category=None,
+                group=None,
             ))
 
     return results
@@ -846,6 +863,8 @@ async def get_material_equivalents(grade: str) -> MaterialEquivalenceResponse:
         return MaterialEquivalenceResponse(
             found=False,
             input=grade,
+            name=None,
+            equivalents={},
         )
 
     # Extract name and remove from equivalents dict
@@ -1078,7 +1097,7 @@ async def check_full_compatibility_api(
 
 
 @router.get("/export/csv")
-async def export_materials_to_csv():
+async def export_materials_to_csv() -> Response:
     """
     导出材料数据库为 CSV
 
@@ -1089,7 +1108,6 @@ async def export_materials_to_csv():
     - 加工属性（可加工性、可焊性）
     - 工艺建议（热处理、表面处理、切削参数）
     """
-    from fastapi.responses import Response
     from src.core.materials import export_materials_csv
 
     csv_content = export_materials_csv()
@@ -1104,7 +1122,7 @@ async def export_materials_to_csv():
 
 
 @router.get("/export/equivalence-csv")
-async def export_equivalence_to_csv():
+async def export_equivalence_to_csv() -> Response:
     """
     导出材料等价表为 CSV
 
@@ -1112,7 +1130,6 @@ async def export_equivalence_to_csv():
     - 牌号和名称
     - 各标准体系等价牌号（CN/US/JP/DE/UNS）
     """
-    from fastapi.responses import Response
     from src.core.materials import export_equivalence_csv
 
     csv_content = export_equivalence_csv()

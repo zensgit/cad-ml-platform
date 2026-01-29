@@ -262,7 +262,7 @@ def get_detailed_material_info(material: Optional[str]) -> Optional[MaterialInfo
 
 
 # 材料相关的工艺建议
-MATERIAL_PROCESS_HINTS = {
+MATERIAL_PROCESS_HINTS: Dict[str, Dict[str, Any]] = {
     "cast_iron": {
         "blank_hint": "铸造毛坯",
         "aging_recommended": True,
@@ -309,7 +309,7 @@ MATERIAL_PROCESS_HINTS = {
 class ProcessRouteGenerator:
     """工艺路线生成器"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._base_steps = [
             (ProcessStage.blank_preparation, "毛坯准备", "下料/锻造/铸造"),
             (ProcessStage.rough_machining, "粗加工", "车/铣/刨粗加工"),
@@ -342,7 +342,7 @@ class ProcessRouteGenerator:
 
         # 材料分类 - 优先使用详细材料系统
         material_category = classify_material(material)
-        material_hints = (
+        material_hints: Dict[str, Any] = (
             MATERIAL_PROCESS_HINTS.get(material_category, {})
             if material_category
             else {}
@@ -363,7 +363,7 @@ class ProcessRouteGenerator:
                 warnings.append(f"[工艺建议] {rec}")
 
         # 提取切削参数（如果有材料信息）
-        cutting_params = {}
+        cutting_params: Dict[str, Any] = {}
         if material_info and material_info.process.cutting_speed_range:
             cutting_params["cutting_speed_min"] = material_info.process.cutting_speed_range[0]
             cutting_params["cutting_speed_max"] = material_info.process.cutting_speed_range[1]
@@ -385,7 +385,7 @@ class ProcessRouteGenerator:
         ))
 
         # 2. 粗加工
-        rough_params = {}
+        rough_params: Dict[str, Any] = {}
         if cutting_params:
             # 粗加工使用较低切速、较大进给
             if "cutting_speed_min" in cutting_params:
@@ -410,16 +410,16 @@ class ProcessRouteGenerator:
         ]
         for ht in pre_heat_treatments:
             name = HEAT_TREATMENT_NAMES.get(ht.type, str(ht.type))
-            params = {}
+            ht_params: Dict[str, Any] = {}
             if ht.hardness:
-                params["hardness"] = ht.hardness
+                ht_params["hardness"] = ht.hardness
             if ht.depth:
-                params["depth_mm"] = ht.depth
+                ht_params["depth_mm"] = ht.depth
             steps.append(ProcessStep(
                 stage=ProcessStage.heat_treatment_pre,
                 name=name,
                 description=ht.raw,
-                parameters=params,
+                parameters=ht_params,
                 source="图纸要求",
             ))
 
@@ -438,22 +438,22 @@ class ProcessRouteGenerator:
         # 5. 后热处理（淬火/渗碳/渗氮等）
         for ht in post_heat_treatments:
             name = HEAT_TREATMENT_NAMES.get(ht.type, str(ht.type))
-            params = {}
+            post_params: Dict[str, Any] = {}
             if ht.hardness:
-                params["hardness"] = ht.hardness
+                post_params["hardness"] = ht.hardness
             if ht.hardness_min:
-                params["hardness_min"] = ht.hardness_min
+                post_params["hardness_min"] = ht.hardness_min
             if ht.hardness_max:
-                params["hardness_max"] = ht.hardness_max
+                post_params["hardness_max"] = ht.hardness_max
             if ht.hardness_unit:
-                params["hardness_unit"] = ht.hardness_unit
+                post_params["hardness_unit"] = ht.hardness_unit
             if ht.depth:
-                params["depth_mm"] = ht.depth
+                post_params["depth_mm"] = ht.depth
             steps.append(ProcessStep(
                 stage=ProcessStage.heat_treatment_post,
                 name=name,
                 description=ht.raw,
-                parameters=params,
+                parameters=post_params,
                 source="图纸要求",
             ))
 
@@ -467,7 +467,7 @@ class ProcessRouteGenerator:
             ))
         else:
             # 精加工使用较高切速
-            finish_params = {}
+            finish_params: Dict[str, Any] = {}
             if cutting_params:
                 if "cutting_speed_max" in cutting_params:
                     finish_params["cutting_speed_recommended"] = cutting_params["cutting_speed_max"]
@@ -488,16 +488,16 @@ class ProcessRouteGenerator:
         welding_ops = process_requirements.welding or []
         for w in welding_ops:
             name = WELDING_NAMES.get(w.type, str(w.type))
-            params = {}
+            weld_params: Dict[str, Any] = {}
             if w.filler_material:
-                params["filler_material"] = w.filler_material
+                weld_params["filler_material"] = w.filler_material
             if w.leg_size:
-                params["leg_size_mm"] = w.leg_size
+                weld_params["leg_size_mm"] = w.leg_size
             steps.append(ProcessStep(
                 stage=ProcessStage.welding,
                 name=name,
                 description=w.raw,
-                parameters=params,
+                parameters=weld_params,
                 source="图纸要求",
             ))
 
@@ -521,14 +521,14 @@ class ProcessRouteGenerator:
         surface_ops = process_requirements.surface_treatments or []
         for st in surface_ops:
             name = SURFACE_TREATMENT_NAMES.get(st.type, str(st.type))
-            params = {}
+            surface_params: Dict[str, Any] = {}
             if st.thickness:
-                params["thickness_um"] = st.thickness
+                surface_params["thickness_um"] = st.thickness
             steps.append(ProcessStep(
                 stage=ProcessStage.surface_treatment,
                 name=name,
                 description=st.raw,
-                parameters=params,
+                parameters=surface_params,
                 source="图纸要求",
             ))
 
@@ -602,10 +602,10 @@ class ProcessRouteGenerator:
 
     def _generate_basic_route(self, material: Optional[str] = None) -> ProcessRoute:
         """生成基础工艺路线（无特殊工艺要求时）"""
-        steps = []
-        warnings = []
+        steps: List[ProcessStep] = []
+        warnings: List[str] = []
         material_category = classify_material(material)
-        material_hints = (
+        material_hints: Dict[str, Any] = (
             MATERIAL_PROCESS_HINTS.get(material_category, {})
             if material_category
             else {}

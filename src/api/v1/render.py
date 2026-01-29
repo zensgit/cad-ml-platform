@@ -77,13 +77,13 @@ async def render_cad_preview(request: Request, file: UploadFile = File(...)) -> 
         )
         return Response(content=png_bytes, media_type="image/png")
     except Exception as exc:
-        png_bytes = await _render_via_fallback(
+        fallback_bytes = await _render_via_fallback(
             request=request,
             file_name=file_name,
             file_bytes=file_bytes,
             content_type=content_type,
         )
-        if png_bytes:
+        if fallback_bytes:
             logger.info("CAD render fallback used")
-            return Response(content=png_bytes, media_type="image/png")
+            return Response(content=fallback_bytes, media_type="image/png")
         raise HTTPException(status_code=422, detail=str(exc)) from exc
