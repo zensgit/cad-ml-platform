@@ -94,7 +94,8 @@ class SimpleEmbeddingProvider(EmbeddingProvider):
 
     def _hash_to_index(self, ngram: str) -> int:
         """Hash n-gram to embedding index."""
-        hash_val = int(hashlib.md5(ngram.encode()).hexdigest(), 16)
+        # MD5 used only for hash distribution, not security - nosec B324
+        hash_val = int(hashlib.md5(ngram.encode(), usedforsecurity=False).hexdigest(), 16)
         return hash_val % self._dimension
 
     def embed_text(self, text: str) -> List[float]:

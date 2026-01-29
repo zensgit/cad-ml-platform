@@ -1,0 +1,209 @@
+# Default values for cad-assistant
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+
+# Application settings
+replicaCount: 2
+
+image:
+  repository: cad-assistant
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# Service account
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+# Pod settings
+podAnnotations: {}
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Service settings
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+  annotations: {}
+
+# Ingress settings
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+  hosts:
+    - host: cad-assistant.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: cad-assistant-tls
+  #    hosts:
+  #      - cad-assistant.local
+
+# Resource limits
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 200m
+    memory: 512Mi
+
+# Autoscaling
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Application configuration
+config:
+  # LLM Settings
+  llm:
+    provider: "offline"  # offline, openai, claude, qwen
+    model: "offline"
+    maxTokens: 2000
+    temperature: 0.7
+
+  # Knowledge base settings
+  knowledgeBase:
+    embeddingModel: "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    similarityThreshold: 0.7
+    maxResults: 5
+
+  # Cache settings
+  cache:
+    enabled: true
+    ttl: 3600
+    maxSize: 1000
+
+  # Security settings
+  security:
+    apiKeyEnabled: true
+    rateLimitEnabled: true
+    rateLimitPerMinute: 60
+
+  # Logging
+  logging:
+    level: "INFO"
+    format: "json"
+
+# Environment variables
+env: []
+#  - name: OPENAI_API_KEY
+#    valueFrom:
+#      secretKeyRef:
+#        name: cad-assistant-secrets
+#        key: openai-api-key
+
+# Secrets (will be created if provided)
+secrets:
+  create: false
+  openaiApiKey: ""
+  claudeApiKey: ""
+  apiKeys: []
+
+# Persistence
+persistence:
+  enabled: true
+  storageClass: ""
+  accessMode: ReadWriteOnce
+  size: 10Gi
+  annotations: {}
+
+# Redis configuration
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    password: ""
+  master:
+    persistence:
+      enabled: true
+      size: 1Gi
+
+# PostgreSQL configuration (optional, for analytics)
+postgresql:
+  enabled: false
+  auth:
+    username: cadassistant
+    password: ""
+    database: cadassistant
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+
+# Health checks
+healthCheck:
+  liveness:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Metrics
+metrics:
+  enabled: true
+  port: 9090
+  path: /metrics
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+
+# PodDisruptionBudget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Network Policy
+networkPolicy:
+  enabled: false
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
