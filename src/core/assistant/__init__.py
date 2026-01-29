@@ -15,7 +15,7 @@ Components:
 """
 
 from .query_analyzer import QueryAnalyzer, QueryIntent, AnalyzedQuery
-from .knowledge_retriever import KnowledgeRetriever, RetrievalResult
+from .knowledge_retriever import KnowledgeRetriever, RetrievalResult, RetrievalMode, RetrievalSource
 from .context_assembler import ContextAssembler, AssembledContext
 from .assistant import CADAssistant, AssistantConfig, LLMProvider
 from .llm_providers import (
@@ -29,6 +29,14 @@ from .llm_providers import (
     get_provider,
     get_best_available_provider,
 )
+from .embedding_retriever import (
+    EmbeddingConfig,
+    EmbeddingProvider,
+    KnowledgeIndex,
+    KnowledgeItem,
+    SemanticRetriever,
+    get_semantic_retriever,
+)
 
 __all__ = [
     # Query Analysis
@@ -38,6 +46,15 @@ __all__ = [
     # Knowledge Retrieval
     "KnowledgeRetriever",
     "RetrievalResult",
+    "RetrievalMode",
+    "RetrievalSource",
+    # Semantic Retrieval
+    "EmbeddingConfig",
+    "EmbeddingProvider",
+    "KnowledgeIndex",
+    "KnowledgeItem",
+    "SemanticRetriever",
+    "get_semantic_retriever",
     # Context Assembly
     "ContextAssembler",
     "AssembledContext",
