@@ -60,6 +60,12 @@ class ConversationContext:
     tolerances: List[str] = field(default_factory=list)
     thread_specs: List[str] = field(default_factory=list)
 
+    # Extended entities for new knowledge domains
+    welding_processes: List[str] = field(default_factory=list)
+    heat_treatments: List[str] = field(default_factory=list)
+    surface_treatments: List[str] = field(default_factory=list)
+    gdt_characteristics: List[str] = field(default_factory=list)
+
     # Topic tracking
     current_topic: Optional[str] = None
     topic_history: List[str] = field(default_factory=list)
@@ -68,12 +74,21 @@ class ConversationContext:
     last_query_intent: Optional[str] = None
     pending_clarifications: List[str] = field(default_factory=list)
 
+    # Reference tracking for pronoun resolution
+    last_mentioned_material: Optional[str] = None
+    last_mentioned_dimension: Optional[float] = None
+    last_mentioned_process: Optional[str] = None
+
     def merge(self, other: "ConversationContext") -> None:
         """Merge another context into this one."""
         self.materials.extend(other.materials)
         self.dimensions.extend(other.dimensions)
         self.tolerances.extend(other.tolerances)
         self.thread_specs.extend(other.thread_specs)
+        self.welding_processes.extend(other.welding_processes)
+        self.heat_treatments.extend(other.heat_treatments)
+        self.surface_treatments.extend(other.surface_treatments)
+        self.gdt_characteristics.extend(other.gdt_characteristics)
 
         if other.current_topic:
             self.current_topic = other.current_topic
@@ -81,6 +96,14 @@ class ConversationContext:
                 self.topic_history.append(other.current_topic)
 
         self.last_query_intent = other.last_query_intent or self.last_query_intent
+
+        # Update reference tracking
+        if other.last_mentioned_material:
+            self.last_mentioned_material = other.last_mentioned_material
+        if other.last_mentioned_dimension:
+            self.last_mentioned_dimension = other.last_mentioned_dimension
+        if other.last_mentioned_process:
+            self.last_mentioned_process = other.last_mentioned_process
 
 
 @dataclass
@@ -270,6 +293,19 @@ class ConversationManager:
         if ctx.thread_specs:
             parts.append(f"螺纹规格: {', '.join(set(ctx.thread_specs[-3:]))}")
 
+        # Extended context summaries
+        if ctx.welding_processes:
+            parts.append(f"焊接工艺: {', '.join(set(ctx.welding_processes[-3:]))}")
+
+        if ctx.heat_treatments:
+            parts.append(f"热处理: {', '.join(set(ctx.heat_treatments[-3:]))}")
+
+        if ctx.surface_treatments:
+            parts.append(f"表面处理: {', '.join(set(ctx.surface_treatments[-3:]))}")
+
+        if ctx.gdt_characteristics:
+            parts.append(f"几何公差: {', '.join(set(ctx.gdt_characteristics[-3:]))}")
+
         if ctx.current_topic:
             parts.append(f"当前话题: {ctx.current_topic}")
 
@@ -376,26 +412,66 @@ class ConversationManager:
             return query
 
         ctx = conv.context
+        resolved_query = query
 
-        # Replace common references
-        replacements = {
-            "它的": "",
-            "这个材料的": "",
-            "该材料的": "",
-            "这种钢的": "",
-        }
+        # Material reference patterns
+        material_refs = [
+            "它的", "这个材料的", "该材料的", "这种钢的",
+            "这种材料的", "那个材料的", "上面材料的",
+        ]
 
-        # Try to resolve with last mentioned material
-        if ctx.materials:
+        # Process reference patterns
+        process_refs = [
+            "这个工艺的", "该工艺的", "这种处理的",
+            "那个处理的", "上面工艺的", "刚才说的工艺",
+        ]
+
+        # Dimension reference patterns
+        dimension_refs = [
+            "这个尺寸的", "该尺寸的", "这个直径的",
+            "那个直径的", "刚才那个尺寸",
+        ]
+
+        # Try to resolve material references
+        if ctx.last_mentioned_material:
+            for ref in material_refs:
+                if ref in resolved_query:
+                    resolved_query = resolved_query.replace(
+                        ref, f"{ctx.last_mentioned_material}的"
+                    )
+                    break
+
+        # Try to resolve process references
+        if ctx.last_mentioned_process:
+            for ref in process_refs:
+                if ref in resolved_query:
+                    resolved_query = resolved_query.replace(
+                        ref, f"{ctx.last_mentioned_process}的"
+                    )
+                    break
+
+        # Try to resolve dimension references
+        if ctx.last_mentioned_dimension:
+            for ref in dimension_refs:
+                if ref in resolved_query:
+                    resolved_query = resolved_query.replace(
+                        ref, f"{ctx.last_mentioned_dimension}mm的"
+                    )
+                    break
+
+        # Fallback: try materials list if last_mentioned_material not set
+        if resolved_query == query and ctx.materials:
             last_material = ctx.materials[-1]
-            for ref in replacements:
-                if ref in query:
-                    return query.replace(ref, f"{last_material}的")
+            for ref in material_refs:
+                if ref in resolved_query:
+                    resolved_query = resolved_query.replace(ref, f"{last_material}的")
+                    break
 
-        return query
+        return resolved_query
 
     def _update_context(self, conv: Conversation, content: str) -> None:
         """Update conversation context from new content."""
+        import re
         ctx = conv.context
 
         # Extract materials (common patterns)
@@ -408,13 +484,15 @@ class ConversationManager:
         for pattern in material_patterns:
             if pattern in content:
                 ctx.materials.append(pattern)
+                ctx.last_mentioned_material = pattern
 
         # Extract dimensions (numbers followed by mm)
-        import re
         dim_matches = re.findall(r'(\d+(?:\.\d+)?)\s*mm', content)
         for match in dim_matches:
             try:
-                ctx.dimensions.append(float(match))
+                dim_value = float(match)
+                ctx.dimensions.append(dim_value)
+                ctx.last_mentioned_dimension = dim_value
             except ValueError:
                 pass
 
@@ -428,6 +506,52 @@ class ConversationManager:
             if pattern in content:
                 ctx.tolerances.append(pattern)
 
+        # Extract welding processes
+        welding_patterns = [
+            "TIG", "MIG", "MAG", "SMAW", "GTAW", "GMAW",
+            "氩弧焊", "埋弧焊", "电弧焊", "激光焊", "点焊", "缝焊",
+            "焊接", "焊缝", "焊丝", "焊条",
+        ]
+        for pattern in welding_patterns:
+            if pattern in content:
+                ctx.welding_processes.append(pattern)
+                ctx.last_mentioned_process = pattern
+
+        # Extract heat treatments
+        heat_treatment_patterns = [
+            "淬火", "回火", "退火", "正火", "调质", "渗碳", "渗氮",
+            "时效", "固溶", "HRC", "HB", "HV",
+            "quenching", "tempering", "annealing", "normalizing",
+        ]
+        for pattern in heat_treatment_patterns:
+            if pattern in content:
+                ctx.heat_treatments.append(pattern)
+                ctx.last_mentioned_process = pattern
+
+        # Extract surface treatments
+        surface_treatment_patterns = [
+            "电镀", "镀锌", "镀铬", "镀镍", "化学镀",
+            "阳极氧化", "硬质阳极", "本色阳极",
+            "喷涂", "粉末涂装", "电泳", "达克罗",
+            "发黑", "磷化", "钝化", "抛光", "喷砂",
+        ]
+        for pattern in surface_treatment_patterns:
+            if pattern in content:
+                ctx.surface_treatments.append(pattern)
+                ctx.last_mentioned_process = pattern
+
+        # Extract GD&T characteristics
+        gdt_patterns = [
+            "平面度", "直线度", "圆度", "圆柱度",
+            "垂直度", "平行度", "倾斜度", "位置度",
+            "同轴度", "对称度", "圆跳动", "全跳动",
+            "轮廓度", "形位公差", "GD&T", "几何公差",
+            "基准", "MMC", "LMC", "公差带",
+        ]
+        for pattern in gdt_patterns:
+            if pattern in content:
+                ctx.gdt_characteristics.append(pattern)
+
         # Update topic based on content keywords
         topic_keywords = {
             "材料": "material_selection",
@@ -438,6 +562,14 @@ class ConversationManager:
             "轴承": "bearings",
             "加工": "machining",
             "切削": "cutting",
+            "焊接": "welding",
+            "热处理": "heat_treatment",
+            "表面处理": "surface_treatment",
+            "电镀": "electroplating",
+            "阳极氧化": "anodizing",
+            "GD&T": "gdt",
+            "形位公差": "gdt",
+            "几何公差": "gdt",
         }
 
         for keyword, topic in topic_keywords.items():
