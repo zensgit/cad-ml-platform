@@ -1,3 +1,5 @@
+from typing import Optional
+
 from fastapi.testclient import TestClient
 
 from src.main import app
@@ -5,7 +7,7 @@ from src.main import app
 client = TestClient(app)
 
 
-def _headers(admin_token: str | None = None):
+def _headers(admin_token: Optional[str] = None):
     headers = {"X-API-Key": "test"}
     if admin_token is not None:
         headers["X-Admin-Token"] = admin_token

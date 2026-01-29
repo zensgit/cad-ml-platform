@@ -1,5 +1,6 @@
 import json
 import uuid
+from typing import Dict, Optional
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -11,10 +12,10 @@ client = TestClient(app)
 
 
 class DummyRedis:
-    def __init__(self, data: dict[object, dict[object, str]]) -> None:
+    def __init__(self, data: Dict[object, Dict[object, str]]) -> None:
         self._data = data
 
-    async def scan(self, cursor: int = 0, match: str | None = None, count: int = 500):
+    async def scan(self, cursor: int = 0, match: Optional[str] = None, count: int = 500):
         return 0, list(self._data.keys())
 
     async def hgetall(self, key):

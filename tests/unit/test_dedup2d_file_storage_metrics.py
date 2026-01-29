@@ -1,9 +1,10 @@
 import pytest
+from typing import Optional
 
 from src.core.dedup2d_file_storage import LocalDedup2DFileStorage
 
 
-def _metrics_text() -> str | None:
+def _metrics_text() -> Optional[str]:
     try:
         from prometheus_client import generate_latest
     except Exception:
@@ -11,7 +12,7 @@ def _metrics_text() -> str | None:
     return generate_latest().decode()
 
 
-def _metric_value(metric_name: str, label_fragment: str) -> float | None:
+def _metric_value(metric_name: str, label_fragment: str) -> Optional[float]:
     text = _metrics_text()
     if text is None:
         return None

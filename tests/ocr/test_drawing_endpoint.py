@@ -1,5 +1,7 @@
 """Smoke test for drawing recognition endpoint."""
 
+from typing import Optional
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -13,7 +15,7 @@ SAMPLE_BASE64_PNG = (
 
 
 class DummyManager:
-    async def extract(self, image_bytes: bytes, strategy: str = "auto", trace_id: str | None = None) -> OcrResult:
+    async def extract(self, image_bytes: bytes, strategy: str = "auto", trace_id: Optional[str] = None) -> OcrResult:
         return OcrResult(
             title_block=TitleBlock(
                 drawing_number="DWG-123",
