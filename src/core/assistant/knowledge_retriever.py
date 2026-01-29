@@ -3,6 +3,8 @@ Knowledge Retriever for CAD-ML Assistant.
 
 Retrieves relevant knowledge from domain-specific databases based on
 analyzed query intent and extracted entities.
+
+Supports both keyword-based and semantic (embedding) retrieval.
 """
 
 from dataclasses import dataclass, field
@@ -21,7 +23,16 @@ class RetrievalSource(str, Enum):
     BEARINGS = "bearings"
     SEALS = "seals"
     MACHINING = "machining"
+    DESIGN_STANDARDS = "design_standards"
     GDT = "gdt"
+
+
+class RetrievalMode(str, Enum):
+    """Retrieval mode."""
+
+    KEYWORD = "keyword"  # Traditional keyword matching
+    SEMANTIC = "semantic"  # Embedding-based similarity
+    HYBRID = "hybrid"  # Combine both approaches
 
 
 @dataclass
@@ -44,6 +55,12 @@ class KnowledgeRetriever:
     - Tolerance knowledge (tolerance module)
     - Standard parts (standards module)
     - Machining parameters (machining module)
+    - Design standards (design_standards module)
+
+    Retrieval modes:
+    - keyword: Traditional entity/keyword matching (fast, precise)
+    - semantic: Embedding-based similarity search (flexible, semantic)
+    - hybrid: Combine both approaches (best accuracy)
 
     Example:
         >>> retriever = KnowledgeRetriever()
@@ -52,7 +69,8 @@ class KnowledgeRetriever:
         ...     print(f"{r.source}: {r.summary}")
     """
 
-    def __init__(self):
+    def __init__(self, mode: RetrievalMode = RetrievalMode.HYBRID):
+        self.mode = mode
         self._retrievers = {
             RetrievalSource.MATERIALS: self._retrieve_materials,
             RetrievalSource.TOLERANCE: self._retrieve_tolerance,
@@ -60,12 +78,25 @@ class KnowledgeRetriever:
             RetrievalSource.BEARINGS: self._retrieve_bearings,
             RetrievalSource.SEALS: self._retrieve_seals,
             RetrievalSource.MACHINING: self._retrieve_machining,
+            RetrievalSource.DESIGN_STANDARDS: self._retrieve_design_standards,
         }
+        self._semantic_retriever = None
+
+    def _get_semantic_retriever(self):
+        """Lazy-load semantic retriever."""
+        if self._semantic_retriever is None:
+            try:
+                from .embedding_retriever import get_semantic_retriever
+                self._semantic_retriever = get_semantic_retriever()
+            except Exception:
+                self._semantic_retriever = None
+        return self._semantic_retriever
 
     def retrieve(
         self,
         query: AnalyzedQuery,
         max_results: int = 5,
+        mode: Optional[RetrievalMode] = None,
     ) -> List[RetrievalResult]:
         """
         Retrieve relevant knowledge based on analyzed query.
@@ -73,10 +104,40 @@ class KnowledgeRetriever:
         Args:
             query: Analyzed query with intent and entities
             max_results: Maximum number of results to return
+            mode: Override retrieval mode (optional)
 
         Returns:
             List of RetrievalResult sorted by relevance
         """
+        effective_mode = mode or self.mode
+        results = []
+
+        # 1. Keyword-based retrieval (always run for precise entity matches)
+        if effective_mode in [RetrievalMode.KEYWORD, RetrievalMode.HYBRID]:
+            keyword_results = self._retrieve_by_keyword(query)
+            results.extend(keyword_results)
+
+        # 2. Semantic retrieval (for flexible matching)
+        if effective_mode in [RetrievalMode.SEMANTIC, RetrievalMode.HYBRID]:
+            semantic_results = self._retrieve_by_semantic(query)
+
+            # In hybrid mode, add semantic results that don't duplicate keyword results
+            if effective_mode == RetrievalMode.HYBRID:
+                existing_ids = {r.metadata.get("id") for r in results}
+                for r in semantic_results:
+                    if r.metadata.get("id") not in existing_ids:
+                        # Slightly lower relevance for semantic-only matches
+                        r.relevance *= 0.9
+                        results.append(r)
+            else:
+                results.extend(semantic_results)
+
+        # Sort by relevance and limit
+        results.sort(key=lambda x: x.relevance, reverse=True)
+        return results[:max_results]
+
+    def _retrieve_by_keyword(self, query: AnalyzedQuery) -> List[RetrievalResult]:
+        """Retrieve using traditional keyword/entity matching."""
         results = []
 
         # Determine which sources to query based on intent
@@ -92,9 +153,52 @@ class KnowledgeRetriever:
                     # Log error but continue with other sources
                     print(f"Retrieval error from {source}: {e}")
 
-        # Sort by relevance and limit
-        results.sort(key=lambda x: x.relevance, reverse=True)
-        return results[:max_results]
+        return results
+
+    def _retrieve_by_semantic(self, query: AnalyzedQuery) -> List[RetrievalResult]:
+        """Retrieve using semantic similarity search."""
+        results = []
+
+        semantic_retriever = self._get_semantic_retriever()
+        if semantic_retriever is None:
+            return results
+
+        try:
+            # Use original query text for semantic search
+            search_results = semantic_retriever.search(
+                query=query.original_query,
+                max_results=10,
+            )
+
+            for item, score in search_results:
+                # Map source string to RetrievalSource enum
+                source_map = {
+                    "materials": RetrievalSource.MATERIALS,
+                    "tolerance": RetrievalSource.TOLERANCE,
+                    "threads": RetrievalSource.THREADS,
+                    "bearings": RetrievalSource.BEARINGS,
+                    "seals": RetrievalSource.SEALS,
+                    "machining": RetrievalSource.MACHINING,
+                    "design_standards": RetrievalSource.DESIGN_STANDARDS,
+                }
+                source = source_map.get(item.source, RetrievalSource.MATERIALS)
+
+                results.append(RetrievalResult(
+                    source=source,
+                    relevance=score,
+                    data=item.data,
+                    summary=item.text[:100],
+                    metadata={
+                        "id": item.id,
+                        "match_type": "semantic",
+                        "similarity_score": score,
+                    },
+                ))
+
+        except Exception as e:
+            print(f"Semantic retrieval error: {e}")
+
+        return results
 
     def _get_sources_for_intent(self, intent: QueryIntent) -> List[RetrievalSource]:
         """Map intent to knowledge sources."""
@@ -421,6 +525,112 @@ class KnowledgeRetriever:
                         },
                         summary=f"{material_grade}加工: 切削速度{params.cutting_speed_recommended if params else 'N/A'}m/min, 可加工性{mat.machinability_rating}%",
                     ))
+
+        return results
+
+    def _retrieve_design_standards(self, query: AnalyzedQuery) -> List[RetrievalResult]:
+        """Retrieve from design standards knowledge base."""
+        results = []
+
+        try:
+            from src.core.knowledge.design_standards import (
+                get_ra_value,
+                get_surface_finish_for_application,
+                get_linear_tolerance,
+                get_angular_tolerance,
+                get_preferred_diameter,
+                get_standard_chamfer,
+                get_standard_fillet,
+                SurfaceFinishGrade,
+                GeneralToleranceClass,
+            )
+        except ImportError:
+            return results
+
+        # Surface finish query
+        surface_grade = query.entities.get("surface_grade")
+        if surface_grade:
+            try:
+                grade = SurfaceFinishGrade(surface_grade.upper())
+                ra = get_ra_value(grade)
+                results.append(RetrievalResult(
+                    source=RetrievalSource.DESIGN_STANDARDS,
+                    relevance=0.95,
+                    data={"grade": grade.value, "ra_um": ra},
+                    summary=f"表面粗糙度 {grade.value}: Ra = {ra} μm",
+                    metadata={"id": f"surface_{grade.value}"},
+                ))
+            except (ValueError, KeyError):
+                pass
+
+        # General tolerance query
+        dimension = query.entities.get("dimension")
+        tolerance_class = query.entities.get("tolerance_class", "m")
+        if dimension:
+            try:
+                d = float(dimension)
+                tol_class = GeneralToleranceClass(tolerance_class.lower())
+                tol = get_linear_tolerance(d, tol_class)
+                if tol:
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.DESIGN_STANDARDS,
+                        relevance=0.95,
+                        data={"dimension": d, "class": tol_class.value, "tolerance": tol},
+                        summary=f"一般公差 {tol_class.value}级 @ {d}mm: ±{tol}mm",
+                        metadata={"id": f"gen_tol_{d}_{tol_class.value}"},
+                    ))
+            except (ValueError, KeyError):
+                pass
+
+        # Preferred diameter query
+        target_diameter = query.entities.get("target_diameter")
+        if target_diameter:
+            try:
+                d = float(target_diameter)
+                preferred = get_preferred_diameter(d)
+                results.append(RetrievalResult(
+                    source=RetrievalSource.DESIGN_STANDARDS,
+                    relevance=0.9,
+                    data={"target": d, "preferred": preferred},
+                    summary=f"优选直径: {d}mm → {preferred}mm (ISO 497)",
+                    metadata={"id": f"pref_dia_{d}"},
+                ))
+            except ValueError:
+                pass
+
+        # Chamfer/fillet query
+        chamfer_size = query.entities.get("chamfer_size")
+        fillet_size = query.entities.get("fillet_size")
+
+        if chamfer_size:
+            try:
+                size = float(chamfer_size)
+                result = get_standard_chamfer(size)
+                if result:
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.DESIGN_STANDARDS,
+                        relevance=0.9,
+                        data=result,
+                        summary=f"标准倒角: {size}mm → {result['designation']}",
+                        metadata={"id": f"chamfer_{size}"},
+                    ))
+            except ValueError:
+                pass
+
+        if fillet_size:
+            try:
+                size = float(fillet_size)
+                result = get_standard_fillet(size)
+                if result:
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.DESIGN_STANDARDS,
+                        relevance=0.9,
+                        data=result,
+                        summary=f"标准圆角: {size}mm → {result['designation']}",
+                        metadata={"id": f"fillet_{size}"},
+                    ))
+            except ValueError:
+                pass
 
         return results
 
