@@ -236,6 +236,7 @@ class CostCompareResponse(BaseModel):
     """成本比较响应"""
     total: int = Field(..., description="比较数量")
     comparison: List[CostCompareItem] = Field(..., description="比较结果")
+    missing: List[str] = Field(default_factory=list, description="未命中的材料牌号")
 
 
 class CostSearchItem(BaseModel):
@@ -457,6 +458,7 @@ async def search_by_cost_api(
     max_cost_index: Optional[float] = Query(None, description="最大成本指数"),
     category: Optional[str] = Query(None, description="限定类别"),
     group: Optional[str] = Query(None, description="限定材料组"),
+    include_estimated: bool = Query(False, description="是否包含按材料组估算的成本"),
     limit: int = Query(20, description="返回数量限制", ge=1, le=100),
 ) -> CostSearchResponse:
     """
@@ -467,6 +469,7 @@ async def search_by_cost_api(
     - max_cost_index: 最大成本指数 (Q235B=1.0)
     - category: 材料类别
     - group: 材料组
+    - include_estimated: 是否包含按材料组估算的成本
     """
     from src.core.materials import search_by_cost
 
@@ -475,6 +478,7 @@ async def search_by_cost_api(
         max_cost_index=max_cost_index,
         category=category,
         group=group,
+        include_estimated=include_estimated,
         limit=limit,
     )
 
@@ -492,14 +496,16 @@ async def compare_costs(
     比较多个材料的成本
 
     输入材料牌号列表，返回按成本排序的比较结果
+    未命中的材料会返回到 missing 列表
     """
     from src.core.materials import compare_material_costs
 
-    results = compare_material_costs(grades)
+    results, missing = compare_material_costs(grades, include_missing=True)
 
     return CostCompareResponse(
         total=len(results),
         comparison=[CostCompareItem(**r) for r in results],
+        missing=missing,
     )
 
 
@@ -955,7 +961,7 @@ async def check_galvanic_corrosion_api(
     检查两种材料的电偶腐蚀风险
 
     评估两种材料接触时的电化学腐蚀风险，返回：
-    - 风险等级: negligible/low/moderate/medium/high/severe/safe/unknown
+    - 风险等级: safe/low/moderate/high/severe/unknown/none
     - 电位差
     - 阳极/阴极识别
     - 防护建议

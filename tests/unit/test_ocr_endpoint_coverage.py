@@ -415,6 +415,63 @@ class TestOcrExtractEndpoint:
                         assert len(result.symbols) == 1
 
     @pytest.mark.asyncio
+    async def test_ocr_extract_success_with_material_info(self):
+        """Test OCR extraction populates material_info when material is present."""
+        from src.api.v1.ocr import ocr_extract
+
+        mock_file = MagicMock()
+        mock_file.filename = "test.png"
+
+        mock_result = OcrResult(
+            provider="paddle",
+            confidence=0.9,
+            processing_time_ms=100,
+            fallback_level="primary",
+            extraction_mode="provider_native",
+            dimensions=[],
+            symbols=[],
+            title_block=TitleBlock(material="S30408"),
+        )
+
+        mock_manager = MagicMock()
+        mock_manager.extract = AsyncMock(return_value=mock_result)
+
+        mock_info = MagicMock()
+        mock_info.grade = "S30408"
+        mock_info.name = "奥氏体不锈钢"
+        mock_info.category = MagicMock(value="metal")
+        mock_info.group = MagicMock(value="stainless_steel")
+        mock_info.process = MagicMock(
+            warnings=["注意钝化处理"],
+            recommendations=["建议固溶处理"],
+        )
+
+        with patch("src.api.v1.ocr.check_idempotency", new_callable=AsyncMock) as mock_check:
+            mock_check.return_value = None
+            with patch("src.api.v1.ocr.validate_and_read", new_callable=AsyncMock) as mock_validate:
+                mock_validate.return_value = (b"image_bytes", "image/png")
+                with patch("src.api.v1.ocr.get_manager", return_value=mock_manager):
+                    with patch(
+                        "src.api.v1.ocr.store_idempotency", new_callable=AsyncMock
+                    ):
+                        with patch(
+                            "src.core.materials.classify_material_detailed",
+                            return_value=mock_info,
+                        ):
+                            result = await ocr_extract(
+                                file=mock_file,
+                                provider="paddle",
+                                request=None,
+                                idempotency_key=None,
+                            )
+
+        assert result.success is True
+        assert result.material_info is not None
+        assert result.material_info.found is True
+        assert result.material_info.grade == "S30408"
+        assert result.material_info.group == "stainless_steel"
+
+    @pytest.mark.asyncio
     async def test_ocr_extract_success_with_idempotency(self):
         """Test successful OCR extraction stores idempotency."""
         from src.api.v1.ocr import ocr_extract

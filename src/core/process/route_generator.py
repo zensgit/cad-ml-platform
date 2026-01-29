@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -225,8 +226,22 @@ def classify_material(material: Optional[str]) -> Optional[str]:
 
     for category, patterns in MATERIAL_PATTERNS.items():
         for pattern in patterns:
-            if pattern.upper() in material_upper:
-                return category
+            if not pattern:
+                continue
+            # Chinese patterns use direct substring matching
+            if any("\u4e00" <= ch <= "\u9fff" for ch in pattern):
+                if pattern in material:
+                    return category
+                continue
+
+            token = pattern.upper()
+            if len(token) <= 2:
+                # Short tokens require word-ish boundaries to avoid false positives
+                if re.search(rf"(?<![A-Z0-9]){re.escape(token)}(?![A-Z0-9])", material_upper):
+                    return category
+            else:
+                if token in material_upper:
+                    return category
 
     return None
 

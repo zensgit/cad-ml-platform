@@ -2981,6 +2981,15 @@
 - **Graph2D Ensemble Full Batch Validation**:
   - Verified ensemble coverage, drawing-type exclusion rate, hybrid sources, and targeted unit tests.
   - Report: `reports/experiments/20260127/DEV_GRAPH2D_ENSEMBLE_FULL_BATCH_VALIDATION_20260127.md`
+- **Material API Fixes**:
+  - Aligned material search/compatibility semantics, refined process-route material matching, and added OCR material-info coverage.
+  - Report: `reports/experiments/20260129/DEV_MATERIAL_API_FIXES_20260129.md`
+- **Material API Fixes Validation**:
+  - Installed pytest-asyncio and re-ran targeted unit tests; all passed.
+  - Report: `reports/experiments/20260129/DEV_MATERIAL_API_FIXES_VALIDATION_20260129.md`
+- **Material API Release Summary**:
+  - Drafted release/PR summary for material API changes and validation coverage.
+  - Report: `reports/experiments/20260129/DEV_MATERIAL_API_RELEASE_SUMMARY_20260129.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

@@ -731,6 +731,7 @@ class TestMaterialCostCompare:
 
         data = response.json()
         assert data["total"] == 3
+        assert data["missing"] == []
 
         # 应该按成本排序
         costs = [c["cost_index"] for c in data["comparison"]]
@@ -749,6 +750,18 @@ class TestMaterialCostCompare:
 
         data = response.json()
         assert data["total"] == 2
+        assert data["missing"] == []
+
+    def test_compare_with_unknown_material(self, client):
+        """Compare costs with unknown material returns missing list."""
+        response = client.post(
+            f"{API_PREFIX}/cost/compare?grades=Q235B&grades=UNKNOWN_XYZ"
+        )
+        assert response.status_code == 200
+
+        data = response.json()
+        assert data["total"] == 1
+        assert data["missing"] == ["UNKNOWN_XYZ"]
 
 
 class TestMaterialCost:

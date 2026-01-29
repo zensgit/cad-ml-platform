@@ -14108,19 +14108,24 @@ def search_materials(
 
     query = query.strip()
     query_lower = query.lower()
-    results: List[Tuple[float, str, MaterialInfo]] = []
+    results: List[Tuple[float, str, MaterialInfo, str]] = []
 
     # 1. 先尝试精确匹配
     exact_match = classify_material_detailed(query)
     if exact_match:
-        return [{
-            "grade": exact_match.grade,
-            "name": exact_match.name,
-            "category": exact_match.category.value,
-            "group": exact_match.group.value,
-            "score": 1.0,
-            "match_type": "exact",
-        }]
+        if category and exact_match.category.value != category:
+            pass
+        elif group and exact_match.group.value != group:
+            pass
+        else:
+            return [{
+                "grade": exact_match.grade,
+                "name": exact_match.name,
+                "category": exact_match.category.value,
+                "group": exact_match.group.value,
+                "score": 1.0,
+                "match_type": "exact",
+            }]
 
     # 2. 检查拼音映射
     pinyin_matches: List[str] = []
@@ -14178,21 +14183,21 @@ def search_materials(
                     match_type = "standard"
 
         if score >= min_score:
-            results.append((score, grade, info))
+            results.append((score, grade, info, match_type))
 
     # 按分数排序
     results.sort(key=lambda x: (-x[0], x[1]))
 
     # 格式化返回结果
     formatted_results = []
-    for score, grade, info in results[:limit]:
+    for score, grade, info, match_type in results[:limit]:
         formatted_results.append({
             "grade": grade,
             "name": info.name,
             "category": info.category.value,
             "group": info.group.value,
             "score": round(score, 2),
-            "match_type": "fuzzy",
+            "match_type": match_type,
         })
 
     return formatted_results
@@ -15210,22 +15215,28 @@ def get_material_cost(grade: str) -> Optional[Dict[str, Any]]:
 
 def compare_material_costs(
     grades: List[str],
-) -> List[Dict[str, Any]]:
+    include_missing: bool = False,
+) -> Any:
     """
     比较多个材料的成本
 
     Args:
         grades: 材料牌号列表
+        include_missing: 是否返回未命中的材料列表
 
     Returns:
-        成本比较结果，按成本指数排序
+        成本比较结果，按成本指数排序；
+        include_missing=True 时返回 (results, missing)
     """
     results = []
+    missing = []
 
     for grade in grades:
         cost_info = get_material_cost(grade)
         if cost_info:
             results.append(cost_info)
+        else:
+            missing.append(grade)
 
     # 按成本指数排序
     results.sort(key=lambda x: x["cost_index"])
@@ -15236,6 +15247,8 @@ def compare_material_costs(
         for r in results:
             r["relative_to_cheapest"] = round(r["cost_index"] / min_cost, 2)
 
+    if include_missing:
+        return results, missing
     return results
 
 
@@ -15245,6 +15258,7 @@ def search_by_cost(
     category: Optional[str] = None,
     group: Optional[str] = None,
     limit: int = 20,
+    include_estimated: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     按成本筛选材料
@@ -15268,22 +15282,32 @@ def search_by_cost(
         if group and info.group.value != group:
             continue
 
-        # 获取成本数据
-        cost_data = MATERIAL_COST_DATA.get(grade)
-        if not cost_data:
-            continue
+        tier = None
+        cost_index = None
+        tier_name = "未知"
 
-        tier, cost_index = cost_data
+        if include_estimated:
+            cost_info = get_material_cost(grade)
+            if not cost_info:
+                continue
+            tier = cost_info["tier"]
+            cost_index = cost_info["cost_index"]
+            tier_name = cost_info["tier_name"]
+        else:
+            cost_data = MATERIAL_COST_DATA.get(grade)
+            if not cost_data:
+                continue
+            tier, cost_index = cost_data
+            tier_info = COST_TIER_DESCRIPTIONS.get(tier, {})
+            tier_name = tier_info.get("name", "未知")
 
         # 成本等级过滤
-        if max_tier and tier > max_tier:
+        if max_tier and tier and tier > max_tier:
             continue
 
         # 成本指数过滤
-        if max_cost_index and cost_index > max_cost_index:
+        if max_cost_index and cost_index and cost_index > max_cost_index:
             continue
-
-        tier_info = COST_TIER_DESCRIPTIONS.get(tier, {})
 
         results.append({
             "grade": grade,
@@ -15291,7 +15315,7 @@ def search_by_cost(
             "category": info.category.value,
             "group": info.group.value,
             "tier": tier,
-            "tier_name": tier_info.get("name", "未知"),
+            "tier_name": tier_name,
             "cost_index": cost_index,
         })
 
@@ -15581,7 +15605,7 @@ def check_galvanic_corrosion(
         risk_cn = "低风险"
         recommendation = "干燥环境可用，潮湿环境需注意"
     elif potential_diff < GALVANIC_RISK_THRESHOLDS["medium"]:
-        risk = "medium"
+        risk = "moderate"
         risk_cn = "中风险"
         recommendation = "建议绝缘隔离或表面处理"
     elif potential_diff < GALVANIC_RISK_THRESHOLDS["high"]:
@@ -15673,7 +15697,7 @@ def check_heat_treatment_compatibility(
     # 不在推荐列表也不在禁止列表
     return {
         "compatible": True,
-        "status": "neutral",
+        "status": "allowed",
         "status_cn": "可行",
         "grade": info.grade,
         "name": info.name,
@@ -15737,4 +15761,3 @@ def check_full_compatibility(
         "weld_compatibility": weld,
         "galvanic_corrosion": galvanic,
     }
-
