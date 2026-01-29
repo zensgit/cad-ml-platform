@@ -34,6 +34,16 @@ class QueryIntent(str, Enum):
     TOOL_SELECTION = "tool_selection"  # 刀具选择
     PROCESS_ROUTE = "process_route"  # 工艺路线
 
+    # Welding
+    WELDING_PARAMETERS = "welding_parameters"  # 焊接参数
+    WELDING_JOINT = "welding_joint"  # 焊接接头设计
+    WELDABILITY = "weldability"  # 焊接性评估
+
+    # Heat Treatment
+    HEAT_TREATMENT = "heat_treatment"  # 热处理参数
+    HARDENING = "hardening"  # 淬火/硬化
+    ANNEALING = "annealing"  # 退火
+
     # GD&T
     GDT_INTERPRETATION = "gdt_interpretation"  # GD&T解读
     GDT_APPLICATION = "gdt_application"  # GD&T应用
@@ -90,6 +100,12 @@ class QueryAnalyzer:
             QueryIntent.CUTTING_PARAMETERS: ["machining.cutting", "machining.materials"],
             QueryIntent.TOOL_SELECTION: ["machining.tooling"],
             QueryIntent.PROCESS_ROUTE: ["machining", "materials"],
+            QueryIntent.WELDING_PARAMETERS: ["welding.parameters"],
+            QueryIntent.WELDING_JOINT: ["welding.joints"],
+            QueryIntent.WELDABILITY: ["welding.materials"],
+            QueryIntent.HEAT_TREATMENT: ["heat_treatment.processes"],
+            QueryIntent.HARDENING: ["heat_treatment.hardening"],
+            QueryIntent.ANNEALING: ["heat_treatment.annealing"],
             QueryIntent.GDT_INTERPRETATION: ["gdt"],
             QueryIntent.GDT_APPLICATION: ["gdt", "tolerance"],
         }
@@ -141,6 +157,32 @@ class QueryAnalyzer:
             QueryIntent.TOOL_SELECTION: [
                 re.compile(r"(刀具|刀片|铣刀|钻头).*(选择|推荐|用什么)", re.IGNORECASE),
                 re.compile(r"(加工|切削).*用.*刀", re.IGNORECASE),
+            ],
+            QueryIntent.WELDING_PARAMETERS: [
+                re.compile(r"(焊接|焊|SMAW|GMAW|GTAW|TIG|MIG|MAG).*(参数|电流|电压|速度)", re.IGNORECASE),
+                re.compile(r"(电弧焊|气保焊|氩弧焊|埋弧焊)", re.IGNORECASE),
+                re.compile(r"焊.*(多少|怎么)", re.IGNORECASE),
+            ],
+            QueryIntent.WELDING_JOINT: [
+                re.compile(r"(坡口|接头|焊缝).*(设计|尺寸|角度)", re.IGNORECASE),
+                re.compile(r"(V型|X型|U型|对接|搭接|T型).*焊", re.IGNORECASE),
+            ],
+            QueryIntent.WELDABILITY: [
+                re.compile(r"(焊接性|可焊性|预热|焊后)", re.IGNORECASE),
+                re.compile(r"(碳当量|CE|热输入)", re.IGNORECASE),
+                re.compile(r"能.*焊", re.IGNORECASE),
+            ],
+            QueryIntent.HEAT_TREATMENT: [
+                re.compile(r"(热处理|淬火|回火|退火|正火).*(参数|温度|时间)", re.IGNORECASE),
+                re.compile(r"(热处理|淬火|回火).*怎么", re.IGNORECASE),
+            ],
+            QueryIntent.HARDENING: [
+                re.compile(r"(淬火|淬透性|硬化|HRC).*(温度|介质|硬度)", re.IGNORECASE),
+                re.compile(r"(油淬|水淬|空冷|回火).*温度", re.IGNORECASE),
+            ],
+            QueryIntent.ANNEALING: [
+                re.compile(r"(退火|球化|去应力|正火).*(温度|时间|工艺)", re.IGNORECASE),
+                re.compile(r"消除应力", re.IGNORECASE),
             ],
             QueryIntent.GDT_INTERPRETATION: [
                 re.compile(r"(GD&?T|形位公差|几何公差)", re.IGNORECASE),
