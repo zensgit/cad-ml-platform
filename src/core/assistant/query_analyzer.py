@@ -44,6 +44,11 @@ class QueryIntent(str, Enum):
     HARDENING = "hardening"  # 淬火/硬化
     ANNEALING = "annealing"  # 退火
 
+    # Surface Treatment
+    ELECTROPLATING = "electroplating"  # 电镀
+    ANODIZING = "anodizing"  # 阳极氧化
+    COATING = "coating"  # 涂装/涂层
+
     # GD&T
     GDT_INTERPRETATION = "gdt_interpretation"  # GD&T解读
     GDT_APPLICATION = "gdt_application"  # GD&T应用
@@ -106,6 +111,9 @@ class QueryAnalyzer:
             QueryIntent.HEAT_TREATMENT: ["heat_treatment.processes"],
             QueryIntent.HARDENING: ["heat_treatment.hardening"],
             QueryIntent.ANNEALING: ["heat_treatment.annealing"],
+            QueryIntent.ELECTROPLATING: ["surface_treatment.plating"],
+            QueryIntent.ANODIZING: ["surface_treatment.anodizing"],
+            QueryIntent.COATING: ["surface_treatment.coating"],
             QueryIntent.GDT_INTERPRETATION: ["gdt"],
             QueryIntent.GDT_APPLICATION: ["gdt", "tolerance"],
         }
@@ -183,6 +191,22 @@ class QueryAnalyzer:
             QueryIntent.ANNEALING: [
                 re.compile(r"(退火|球化|去应力|正火).*(温度|时间|工艺)", re.IGNORECASE),
                 re.compile(r"消除应力", re.IGNORECASE),
+            ],
+            QueryIntent.ELECTROPLATING: [
+                re.compile(r"(电镀|镀锌|镀镍|镀铬|镀层).*(厚度|参数|工艺|推荐)", re.IGNORECASE),
+                re.compile(r"(锌|镍|铬|金|银|硬铬).*镀", re.IGNORECASE),
+                re.compile(r"镀.*(锌|镍|铬|金|银|硬)", re.IGNORECASE),
+                re.compile(r"(盐雾|防腐|耐蚀).*镀", re.IGNORECASE),
+            ],
+            QueryIntent.ANODIZING: [
+                re.compile(r"(阳极氧化|阳极|硬质阳极|氧化).*(类型|厚度|颜色|参数)", re.IGNORECASE),
+                re.compile(r"(Type\s*I{1,3}|铬酸|硫酸).*阳极", re.IGNORECASE),
+                re.compile(r"铝.*氧化", re.IGNORECASE),
+            ],
+            QueryIntent.COATING: [
+                re.compile(r"(涂装|涂层|涂料|喷涂|喷漆).*(推荐|选择|厚度|参数)", re.IGNORECASE),
+                re.compile(r"(粉末|环氧|聚氨酯|锌铬).*(涂|喷)", re.IGNORECASE),
+                re.compile(r"(C[1-5]|CX|ISO\s*12944).*涂", re.IGNORECASE),
             ],
             QueryIntent.GDT_INTERPRETATION: [
                 re.compile(r"(GD&?T|形位公差|几何公差)", re.IGNORECASE),

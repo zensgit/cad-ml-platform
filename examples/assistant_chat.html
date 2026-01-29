@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAD 智能助手 - 机械设计知识问答</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 280px 1fr 300px;
+            gap: 20px;
+            height: calc(100vh - 40px);
+        }
+
+        /* Sidebar - Knowledge Modules */
+        .sidebar {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow-y: auto;
+        }
+
+        .sidebar h2 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .module-list {
+            list-style: none;
+        }
+
+        .module-item {
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .module-item:hover {
+            background: #667eea;
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .module-item.active {
+            background: #667eea;
+            color: white;
+        }
+
+        .module-icon {
+            font-size: 20px;
+        }
+
+        .module-info {
+            flex: 1;
+        }
+
+        .module-name {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .module-desc {
+            font-size: 11px;
+            opacity: 0.8;
+            margin-top: 2px;
+        }
+
+        /* Main Chat Area */
+        .chat-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .chat-header-icon {
+            width: 50px;
+            height: 50px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+        }
+
+        .chat-header-info h1 {
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .chat-header-info p {
+            font-size: 13px;
+            opacity: 0.9;
+            margin-top: 4px;
+        }
+
+        .status-badge {
+            margin-left: auto;
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4ade80;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Messages Area */
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9ff;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .message.assistant .message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .message.user .message-avatar {
+            background: #e2e8f0;
+        }
+
+        .message-content {
+            max-width: 70%;
+        }
+
+        .message-bubble {
+            padding: 14px 18px;
+            border-radius: 16px;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        .message.assistant .message-bubble {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px 16px 16px 4px;
+        }
+
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 16px 16px 4px 16px;
+        }
+
+        .message-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 6px;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .message.user .message-meta {
+            justify-content: flex-end;
+        }
+
+        .confidence-badge {
+            padding: 2px 8px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            font-size: 10px;
+        }
+
+        .confidence-high { background: #dcfce7; color: #166534; }
+        .confidence-medium { background: #fef3c7; color: #92400e; }
+        .confidence-low { background: #fecaca; color: #991b1b; }
+
+        .sources-list {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f9ff;
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        .sources-list strong {
+            color: #667eea;
+        }
+
+        .sources-list ul {
+            margin-top: 5px;
+            padding-left: 20px;
+            color: #64748b;
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid #e2e8f0;
+            background: white;
+        }
+
+        .input-wrapper {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .input-field {
+            flex: 1;
+            position: relative;
+        }
+
+        .input-field textarea {
+            width: 100%;
+            padding: 14px 18px;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 14px;
+            resize: none;
+            min-height: 50px;
+            max-height: 120px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        .input-field textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-field textarea::placeholder {
+            color: #94a3b8;
+        }
+
+        .send-button {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .send-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Right Panel - Examples */
+        .examples-panel {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow-y: auto;
+        }
+
+        .examples-panel h2 {
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #764ba2;
+        }
+
+        .example-category {
+            margin-bottom: 20px;
+        }
+
+        .example-category h3 {
+            font-size: 13px;
+            color: #667eea;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .example-list {
+            list-style: none;
+        }
+
+        .example-item {
+            padding: 10px 14px;
+            margin-bottom: 6px;
+            background: #f8f9ff;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #475569;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+        }
+
+        .example-item:hover {
+            background: #ede9fe;
+            border-left-color: #667eea;
+            transform: translateX(3px);
+        }
+
+        /* Loading Animation */
+        .typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 14px 18px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px 16px 16px 4px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: #667eea;
+            border-radius: 50%;
+            animation: typing 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: 0s; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.4;
+            }
+            30% {
+                transform: translateY(-8px);
+                opacity: 1;
+            }
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+
+            .sidebar, .examples-panel {
+                display: none;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Left Sidebar - Knowledge Modules -->
+        <div class="sidebar">
+            <h2>📚 知识模块</h2>
+            <ul class="module-list" id="moduleList">
+                <!-- Dynamically populated -->
+            </ul>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="chat-container">
+            <div class="chat-header">
+                <div class="chat-header-icon">🤖</div>
+                <div class="chat-header-info">
+                    <h1>CAD 智能助手</h1>
+                    <p>机械设计、材料工艺、加工制造知识问答</p>
+                </div>
+                <div class="status-badge" id="statusBadge">
+                    <span class="status-dot"></span>
+                    <span id="statusText">连接中...</span>
+                </div>
+            </div>
+
+            <div class="messages" id="messages">
+                <!-- Welcome message -->
+                <div class="message assistant">
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            👋 您好！我是 CAD 智能助手，专注于机械设计和制造工艺领域。
+                            <br><br>
+                            我可以回答以下问题：
+                            <ul style="margin: 10px 0; padding-left: 20px;">
+                                <li>材料性能查询（如不锈钢、铝合金属性）</li>
+                                <li>公差配合选择（IT等级、基准制配合）</li>
+                                <li>标准件规格（螺纹、轴承、O形圈）</li>
+                                <li>加工参数推荐（切削速度、进给量）</li>
+                                <li>焊接参数和工艺选择</li>
+                                <li>热处理工艺（淬火、回火、退火）</li>
+                                <li>表面处理（电镀、阳极氧化、涂装）</li>
+                            </ul>
+                            请在下方输入您的问题，或点击右侧示例快速开始。
+                        </div>
+                        <div class="message-meta">
+                            <span>刚刚</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <div class="input-field">
+                        <textarea
+                            id="queryInput"
+                            placeholder="输入您的问题，如：304不锈钢的屈服强度是多少？"
+                            rows="1"
+                        ></textarea>
+                    </div>
+                    <button class="send-button" id="sendButton" onclick="sendQuery()">
+                        ➤
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Examples -->
+        <div class="examples-panel">
+            <h2>💡 示例查询</h2>
+            <div id="examplesContainer">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api/v1/assistant';
+
+        // Knowledge modules configuration
+        const KNOWLEDGE_MODULES = [
+            { id: 'materials', icon: '🔩', name: '材料数据库', desc: '金属、塑料、复合材料' },
+            { id: 'tolerance', icon: '📐', name: '公差配合', desc: 'IT公差、基准制' },
+            { id: 'standards', icon: '📏', name: '标准件', desc: '螺纹、轴承、密封' },
+            { id: 'machining', icon: '⚙️', name: '加工参数', desc: '切削、刀具选择' },
+            { id: 'welding', icon: '🔥', name: '焊接工艺', desc: '焊接参数、填充材料' },
+            { id: 'heat_treatment', icon: '🌡️', name: '热处理', desc: '淬火、回火、退火' },
+            { id: 'surface', icon: '✨', name: '表面处理', desc: '电镀、阳极氧化、涂装' },
+            { id: 'design', icon: '📋', name: '设计标准', desc: '粗糙度、一般公差' },
+        ];
+
+        // Example queries by category
+        const EXAMPLE_QUERIES = {
+            '材料查询': [
+                '304不锈钢的抗拉强度是多少？',
+                '6061铝合金的硬度是多少？',
+                '45#钢适合做什么零件？',
+            ],
+            '公差配合': [
+                'IT7公差在25mm时的值？',
+                'H7/f6配合的间隙范围？',
+                '过盈配合用什么配合代号？',
+            ],
+            '标准件': [
+                'M10螺纹的底孔尺寸？',
+                '6205轴承的尺寸规格？',
+                'DN50法兰的螺栓孔分布？',
+            ],
+            '加工参数': [
+                '车削铝合金用什么转速？',
+                '钻孔304不锈钢的进给量？',
+                '铣削45#钢的切削速度？',
+            ],
+            '焊接工艺': [
+                'Q235碳钢焊接用什么焊条？',
+                '304不锈钢TIG焊的电流参数？',
+                '铝合金MIG焊的焊丝选择？',
+            ],
+            '热处理': [
+                '45#钢淬火温度是多少？',
+                '调质处理的硬度范围？',
+                '退火和正火的区别？',
+            ],
+            '表面处理': [
+                '镀锌层厚度选择标准？',
+                '铝合金阳极氧化类型？',
+                'C4级环境用什么涂层？',
+            ],
+        };
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            renderModules();
+            renderExamples();
+            checkStatus();
+
+            // Auto-resize textarea
+            const textarea = document.getElementById('queryInput');
+            textarea.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            });
+
+            // Enter to send
+            textarea.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendQuery();
+                }
+            });
+        });
+
+        // Render knowledge modules
+        function renderModules() {
+            const container = document.getElementById('moduleList');
+            container.innerHTML = KNOWLEDGE_MODULES.map(m => `
+                <li class="module-item" data-module="${m.id}">
+                    <span class="module-icon">${m.icon}</span>
+                    <div class="module-info">
+                        <div class="module-name">${m.name}</div>
+                        <div class="module-desc">${m.desc}</div>
+                    </div>
+                </li>
+            `).join('');
+        }
+
+        // Render example queries
+        function renderExamples() {
+            const container = document.getElementById('examplesContainer');
+            container.innerHTML = Object.entries(EXAMPLE_QUERIES).map(([category, queries]) => `
+                <div class="example-category">
+                    <h3>📌 ${category}</h3>
+                    <ul class="example-list">
+                        ${queries.map(q => `
+                            <li class="example-item" onclick="setQuery('${q}')">${q}</li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `).join('');
+        }
+
+        // Check API status
+        async function checkStatus() {
+            const statusText = document.getElementById('statusText');
+            const statusDot = document.querySelector('.status-dot');
+
+            try {
+                const response = await fetch(`${API_BASE}/status`);
+                const data = await response.json();
+
+                if (data.status === 'running') {
+                    statusText.textContent = data.provider.available ? '在线' : '离线模式';
+                    statusDot.style.background = data.provider.available ? '#4ade80' : '#fbbf24';
+                }
+            } catch (e) {
+                statusText.textContent = '离线';
+                statusDot.style.background = '#ef4444';
+            }
+        }
+
+        // Set query from example
+        function setQuery(query) {
+            const input = document.getElementById('queryInput');
+            input.value = query;
+            input.focus();
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+        }
+
+        // Send query to API
+        async function sendQuery() {
+            const input = document.getElementById('queryInput');
+            const query = input.value.trim();
+
+            if (!query) return;
+
+            // Disable input
+            input.disabled = true;
+            document.getElementById('sendButton').disabled = true;
+
+            // Add user message
+            addMessage(query, 'user');
+
+            // Clear input
+            input.value = '';
+            input.style.height = 'auto';
+
+            // Show typing indicator
+            const typingId = showTyping();
+
+            try {
+                const response = await fetch(`${API_BASE}/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: query,
+                        verbose: true,
+                        language: 'zh'
+                    })
+                });
+
+                const data = await response.json();
+
+                // Remove typing indicator
+                removeTyping(typingId);
+
+                // Add assistant response
+                addMessage(data.answer, 'assistant', {
+                    confidence: data.confidence,
+                    sources: data.sources,
+                    intent: data.intent
+                });
+
+            } catch (e) {
+                removeTyping(typingId);
+                addMessage('抱歉，连接服务器失败。请检查 API 服务是否运行。', 'assistant', {
+                    confidence: 0,
+                    sources: []
+                });
+            }
+
+            // Re-enable input
+            input.disabled = false;
+            document.getElementById('sendButton').disabled = false;
+            input.focus();
+        }
+
+        // Add message to chat
+        function addMessage(text, type, meta = {}) {
+            const container = document.getElementById('messages');
+            const now = new Date();
+            const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+            let confidenceClass = '';
+            let confidenceText = '';
+            if (meta.confidence !== undefined) {
+                if (meta.confidence >= 0.8) {
+                    confidenceClass = 'confidence-high';
+                    confidenceText = '高置信度';
+                } else if (meta.confidence >= 0.5) {
+                    confidenceClass = 'confidence-medium';
+                    confidenceText = '中置信度';
+                } else {
+                    confidenceClass = 'confidence-low';
+                    confidenceText = '低置信度';
+                }
+            }
+
+            let sourcesHtml = '';
+            if (meta.sources && meta.sources.length > 0) {
+                sourcesHtml = `
+                    <div class="sources-list">
+                        <strong>📚 参考来源：</strong>
+                        <ul>
+                            ${meta.sources.map(s => `<li>${s}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            const messageHtml = `
+                <div class="message ${type}">
+                    <div class="message-avatar">${type === 'user' ? '👤' : '🤖'}</div>
+                    <div class="message-content">
+                        <div class="message-bubble">
+                            ${text.replace(/\n/g, '<br>')}
+                            ${sourcesHtml}
+                        </div>
+                        <div class="message-meta">
+                            <span>${timeStr}</span>
+                            ${confidenceText ? `<span class="confidence-badge ${confidenceClass}">${confidenceText}</span>` : ''}
+                            ${meta.intent ? `<span style="color: #667eea;">意图: ${meta.intent}</span>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.insertAdjacentHTML('beforeend', messageHtml);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Show typing indicator
+        function showTyping() {
+            const container = document.getElementById('messages');
+            const id = 'typing-' + Date.now();
+
+            const typingHtml = `
+                <div class="message assistant" id="${id}">
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">
+                        <div class="typing-indicator">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            container.insertAdjacentHTML('beforeend', typingHtml);
+            container.scrollTop = container.scrollHeight;
+
+            return id;
+        }
+
+        // Remove typing indicator
+        function removeTyping(id) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.remove();
+            }
+        }
+    </script>
+</body>
+</html>

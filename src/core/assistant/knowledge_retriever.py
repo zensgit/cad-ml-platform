@@ -26,6 +26,7 @@ class RetrievalSource(str, Enum):
     DESIGN_STANDARDS = "design_standards"
     WELDING = "welding"
     HEAT_TREATMENT = "heat_treatment"
+    SURFACE_TREATMENT = "surface_treatment"
     GDT = "gdt"
 
 
@@ -83,6 +84,7 @@ class KnowledgeRetriever:
             RetrievalSource.DESIGN_STANDARDS: self._retrieve_design_standards,
             RetrievalSource.WELDING: self._retrieve_welding,
             RetrievalSource.HEAT_TREATMENT: self._retrieve_heat_treatment,
+            RetrievalSource.SURFACE_TREATMENT: self._retrieve_surface_treatment,
         }
         self._semantic_retriever = None
 
@@ -225,6 +227,9 @@ class KnowledgeRetriever:
             QueryIntent.HEAT_TREATMENT: [RetrievalSource.HEAT_TREATMENT, RetrievalSource.MATERIALS],
             QueryIntent.HARDENING: [RetrievalSource.HEAT_TREATMENT],
             QueryIntent.ANNEALING: [RetrievalSource.HEAT_TREATMENT],
+            QueryIntent.ELECTROPLATING: [RetrievalSource.SURFACE_TREATMENT],
+            QueryIntent.ANODIZING: [RetrievalSource.SURFACE_TREATMENT],
+            QueryIntent.COATING: [RetrievalSource.SURFACE_TREATMENT],
         }
         return mapping.get(intent, [RetrievalSource.MATERIALS])
 
@@ -874,6 +879,148 @@ class KnowledgeRetriever:
                         },
                         summary=f"{ht_key}{ann_type.value}: {params.temperature_recommended}°C, {params.cooling_method}",
                         metadata={"id": f"anneal_{ht_key}_{ann_type.value}"},
+                    ))
+
+        return results
+
+    def _retrieve_surface_treatment(self, query: AnalyzedQuery) -> List[RetrievalResult]:
+        """Retrieve from surface treatment knowledge base."""
+        results = []
+
+        try:
+            from src.core.knowledge.surface_treatment import (
+                get_plating_parameters,
+                get_plating_thickness,
+                recommend_plating_for_application,
+                get_anodizing_parameters,
+                get_anodizing_colors,
+                recommend_anodizing_for_application,
+                get_coating_parameters,
+                get_coating_for_environment,
+                calculate_coating_life,
+                PlatingType,
+                AnodizingType,
+                CoatingType,
+            )
+        except ImportError:
+            return results
+
+        application = query.entities.get("application", "")
+        environment = query.entities.get("environment", "")
+
+        # Electroplating query
+        if query.intent == QueryIntent.ELECTROPLATING:
+            # Common plating types
+            plating_types = [
+                (PlatingType.ZINC_YELLOW, "镀黄锌"),
+                (PlatingType.ZINC_NICKEL, "镀锌镍合金"),
+                (PlatingType.NICKEL_BRIGHT, "镀亮镍"),
+                (PlatingType.CHROME_HARD, "镀硬铬"),
+            ]
+
+            for plating_type, name_zh in plating_types:
+                params = get_plating_parameters(plating_type)
+                if params:
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.SURFACE_TREATMENT,
+                        relevance=0.85,
+                        data={
+                            "plating_type": plating_type.value,
+                            "name_zh": name_zh,
+                            "thickness_typical": params.thickness_typical,
+                            "corrosion_resistance_hours": params.corrosion_resistance_hours,
+                            "hardness_hv": params.hardness_hv,
+                            "current_density": params.current_density_typical,
+                        },
+                        summary=f"{name_zh}: 厚度{params.thickness_typical}μm, 盐雾{params.corrosion_resistance_hours or 'N/A'}h",
+                        metadata={"id": f"plating_{plating_type.value}"},
+                    ))
+
+            # Thickness recommendation
+            if application:
+                thickness_info = get_plating_thickness(application, environment or "indoor")
+                if thickness_info:
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.SURFACE_TREATMENT,
+                        relevance=0.9,
+                        data=thickness_info,
+                        summary=f"{application}镀层厚度推荐: {thickness_info.get('thickness_um', 'N/A')}μm",
+                        metadata={"id": f"plating_thickness_{application}"},
+                    ))
+
+        # Anodizing query
+        elif query.intent == QueryIntent.ANODIZING:
+            anodize_types = [
+                (AnodizingType.TYPE_II, "Type II硫酸阳极氧化"),
+                (AnodizingType.TYPE_III, "Type III硬质阳极氧化"),
+                (AnodizingType.TYPE_I, "Type I铬酸阳极氧化"),
+            ]
+
+            for anodize_type, name_zh in anodize_types:
+                params = get_anodizing_parameters(anodize_type)
+                if params:
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.SURFACE_TREATMENT,
+                        relevance=0.85,
+                        data={
+                            "anodize_type": anodize_type.value,
+                            "name_zh": name_zh,
+                            "thickness_typical": params.thickness_typical,
+                            "hardness_hv": params.hardness_hv,
+                            "acid_type": params.acid_type,
+                            "temperature": params.temperature_typical,
+                        },
+                        summary=f"{name_zh}: 厚度{params.thickness_typical}μm, {params.acid_type}",
+                        metadata={"id": f"anodize_{anodize_type.value}"},
+                    ))
+
+            # Available colors for Type II
+            colors = get_anodizing_colors(AnodizingType.TYPE_II)
+            if colors:
+                results.append(RetrievalResult(
+                    source=RetrievalSource.SURFACE_TREATMENT,
+                    relevance=0.8,
+                    data={"colors": colors, "anodize_type": "type_ii"},
+                    summary=f"Type II可染色: {', '.join(c['name_zh'] for c in colors[:5])}",
+                    metadata={"id": "anodize_colors_type_ii"},
+                ))
+
+        # Coating query
+        elif query.intent == QueryIntent.COATING:
+            coating_types = [
+                (CoatingType.POWDER_POLYESTER, "聚酯粉末涂料"),
+                (CoatingType.EPOXY, "环氧涂料"),
+                (CoatingType.POLYURETHANE, "聚氨酯涂料"),
+                (CoatingType.ZINC_FLAKE, "锌铬涂层"),
+            ]
+
+            for coating_type, name_zh in coating_types:
+                params = get_coating_parameters(coating_type)
+                if params:
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.SURFACE_TREATMENT,
+                        relevance=0.85,
+                        data={
+                            "coating_type": coating_type.value,
+                            "name_zh": name_zh,
+                            "dft_recommended": params.dft_recommended,
+                            "cure_temperature": params.cure_temperature,
+                            "application_method": params.application_method,
+                        },
+                        summary=f"{name_zh}: 干膜厚度{params.dft_recommended}μm",
+                        metadata={"id": f"coating_{coating_type.value}"},
+                    ))
+
+            # Environment-based recommendation
+            if environment:
+                env_info = get_coating_for_environment(environment)
+                if env_info:
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.SURFACE_TREATMENT,
+                        relevance=0.9,
+                        data=env_info,
+                        summary=f"{environment}环境涂层: 最小厚度{env_info.get('min_dft_um', 'N/A')}μm",
+                        metadata={"id": f"coating_env_{environment}"},
                     ))
 
         return results
