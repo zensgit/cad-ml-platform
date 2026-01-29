@@ -6,6 +6,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -236,6 +237,7 @@ class CostCompareResponse(BaseModel):
     """成本比较响应"""
     total: int = Field(..., description="比较数量")
     comparison: List[CostCompareItem] = Field(..., description="比较结果")
+    missing: List[str] = Field(default_factory=list, description="未命中的材料牌号")
 
 
 class CostSearchItem(BaseModel):
@@ -457,6 +459,7 @@ async def search_by_cost_api(
     max_cost_index: Optional[float] = Query(None, description="最大成本指数"),
     category: Optional[str] = Query(None, description="限定类别"),
     group: Optional[str] = Query(None, description="限定材料组"),
+    include_estimated: bool = Query(False, description="是否包含按材料组估算的成本"),
     limit: int = Query(20, description="返回数量限制", ge=1, le=100),
 ) -> CostSearchResponse:
     """
@@ -467,6 +470,7 @@ async def search_by_cost_api(
     - max_cost_index: 最大成本指数 (Q235B=1.0)
     - category: 材料类别
     - group: 材料组
+    - include_estimated: 是否包含按材料组估算的成本
     """
     from src.core.materials import search_by_cost
 
@@ -475,6 +479,7 @@ async def search_by_cost_api(
         max_cost_index=max_cost_index,
         category=category,
         group=group,
+        include_estimated=include_estimated,
         limit=limit,
     )
 
@@ -492,14 +497,16 @@ async def compare_costs(
     比较多个材料的成本
 
     输入材料牌号列表，返回按成本排序的比较结果
+    未命中的材料会返回到 missing 列表
     """
     from src.core.materials import compare_material_costs
 
-    results = compare_material_costs(grades)
+    results, missing = compare_material_costs(grades, include_missing=True)
 
     return CostCompareResponse(
         total=len(results),
         comparison=[CostCompareItem(**r) for r in results],
+        missing=missing,
     )
 
 
@@ -566,7 +573,7 @@ async def recommend_materials(
     """
     from src.core.materials import get_material_recommendations
 
-    requirements = {}
+    requirements: Dict[str, Any] = {}
     if min_strength:
         requirements["min_strength"] = min_strength
     if max_density:
@@ -639,7 +646,7 @@ async def list_material_groups() -> MaterialGroupsResponse:
         "composite": [],
     }
 
-    seen_groups: Dict[str, set] = {k: set() for k in groups}
+    seen_groups: Dict[str, set[str]] = {k: set() for k in groups}
 
     for info in MATERIAL_DATABASE.values():
         cat = info.category.value
@@ -674,6 +681,14 @@ async def get_material(grade: str) -> MaterialInfoResponse:
             found=False,
             grade=grade,
             name=grade,
+            aliases=[],
+            category=None,
+            sub_category=None,
+            group=None,
+            standards=[],
+            description="",
+            properties=None,
+            process=None,
         )
 
     return MaterialInfoResponse(
@@ -734,6 +749,10 @@ async def classify_material(request: MaterialClassifyRequest) -> MaterialClassif
         return MaterialClassifyResponse(
             input=request.material,
             found=False,
+            grade=None,
+            name=None,
+            category=None,
+            group=None,
         )
 
     logger.info(
@@ -782,6 +801,10 @@ async def batch_classify_materials(
             results.append(MaterialClassifyResponse(
                 input=mat,
                 found=False,
+                grade=None,
+                name=None,
+                category=None,
+                group=None,
             ))
 
     return results
@@ -840,6 +863,8 @@ async def get_material_equivalents(grade: str) -> MaterialEquivalenceResponse:
         return MaterialEquivalenceResponse(
             found=False,
             input=grade,
+            name=None,
+            equivalents={},
         )
 
     # Extract name and remove from equivalents dict
@@ -955,7 +980,7 @@ async def check_galvanic_corrosion_api(
     检查两种材料的电偶腐蚀风险
 
     评估两种材料接触时的电化学腐蚀风险，返回：
-    - 风险等级: negligible/low/moderate/medium/high/severe/safe/unknown
+    - 风险等级: safe/low/moderate/high/severe/unknown/none
     - 电位差
     - 阳极/阴极识别
     - 防护建议
@@ -1072,7 +1097,7 @@ async def check_full_compatibility_api(
 
 
 @router.get("/export/csv")
-async def export_materials_to_csv():
+async def export_materials_to_csv() -> Response:
     """
     导出材料数据库为 CSV
 
@@ -1083,7 +1108,6 @@ async def export_materials_to_csv():
     - 加工属性（可加工性、可焊性）
     - 工艺建议（热处理、表面处理、切削参数）
     """
-    from fastapi.responses import Response
     from src.core.materials import export_materials_csv
 
     csv_content = export_materials_csv()
@@ -1098,7 +1122,7 @@ async def export_materials_to_csv():
 
 
 @router.get("/export/equivalence-csv")
-async def export_equivalence_to_csv():
+async def export_equivalence_to_csv() -> Response:
     """
     导出材料等价表为 CSV
 
@@ -1106,7 +1130,6 @@ async def export_equivalence_to_csv():
     - 牌号和名称
     - 各标准体系等价牌号（CN/US/JP/DE/UNS）
     """
-    from fastapi.responses import Response
     from src.core.materials import export_equivalence_csv
 
     csv_content = export_equivalence_csv()

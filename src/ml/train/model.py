@@ -312,7 +312,8 @@ class UVNetGraphModel(nn.Module):
             raise ValueError(f"Edge feature tensor must be 2D, got shape {tuple(edge_attr.shape)}")
         if edge_attr.size(1) != self.edge_input_dim:
             raise ValueError(
-                f"Edge feature dim mismatch: expected {self.edge_input_dim}, got {edge_attr.size(1)}"
+                f"Edge feature dim mismatch: expected {self.edge_input_dim}, "
+                f"got {edge_attr.size(1)}"
             )
         edge_attr = edge_attr.to(dtype=self.edge_weight_layer.weight.dtype)
         return torch.sigmoid(self.edge_weight_layer(edge_attr)).squeeze(-1)

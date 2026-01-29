@@ -122,7 +122,7 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 
 # 安装依赖
 pip install -r requirements.txt
-pip install -r requirements-dev.txt  # 开发工具（lint/type/type-test/预提交）
+pip install -r requirements-dev.txt  # 开发工具（含 pytest-asyncio，用于异步OCR测试）
 ```
 
 #### 3. 配置文件
@@ -597,6 +597,11 @@ curl -s http://localhost:8000/api/v1/vision/analyze \
 | maintenance.py | 孤儿向量清理 / 缓存管理 / 系统维护统计 |
 | process.py | 工艺规则审计与版本指标 |
 | health.py | Faiss / feature cache 健康状态 |
+| materials.py | 材料数据库查询 / 推荐 / 成本 / 兼容性 |
+
+材料 API 说明：
+- `GET /api/v1/materials/cost/search` 支持 `include_estimated=true`（按材料组估算成本）
+- `POST /api/v1/materials/cost/compare` 返回 `missing` 列表（未命中牌号）
 
 特征版本 (Feature Version) 演进：
 

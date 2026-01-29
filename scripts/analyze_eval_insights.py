@@ -253,12 +253,24 @@ class InsightsAnalyzer:
             "degrading": "📉"
         }
 
-        narrative.append(f"\n- **Combined Score**: {trend_emoji[trends['combined']]} "
-                        f"{trends['combined'].capitalize()}")
-        narrative.append(f"- **Vision Module**: {trend_emoji[trends['vision']]} "
-                        f"{trends['vision'].capitalize()}")
-        narrative.append(f"- **OCR Module**: {trend_emoji[trends['ocr']]} "
-                        f"{trends['ocr'].capitalize()}")
+        if trends.get("status") == "insufficient_data":
+            narrative.append("\n- **Trend Analysis**: insufficient data")
+        else:
+            combined_trend = trends.get("combined", "stable")
+            vision_trend = trends.get("vision", "stable")
+            ocr_trend = trends.get("ocr", "stable")
+            narrative.append(
+                f"\n- **Combined Score**: {trend_emoji.get(combined_trend, '➡️')} "
+                f"{combined_trend.capitalize()}"
+            )
+            narrative.append(
+                f"- **Vision Module**: {trend_emoji.get(vision_trend, '➡️')} "
+                f"{vision_trend.capitalize()}"
+            )
+            narrative.append(
+                f"- **OCR Module**: {trend_emoji.get(ocr_trend, '➡️')} "
+                f"{ocr_trend.capitalize()}"
+            )
 
         # Statistical Summary
         if len(self.history) > 1:
@@ -296,13 +308,17 @@ class InsightsAnalyzer:
         # Recommendations
         narrative.append("\n## Recommendations")
 
-        if trends["combined"] == "degrading":
+        if trends.get("status") == "insufficient_data":
+            narrative.append("\n⚠️ **Limited Data**: Not enough history to assess trends.")
+            narrative.append("- Continue collecting evaluation results")
+            narrative.append("- Re-run insights after more samples are available")
+        elif trends.get("combined") == "degrading":
             narrative.append("\n⚠️ **Action Required**: Combined score is showing a "
                            "degrading trend. Consider:")
             narrative.append("- Review recent model changes")
             narrative.append("- Check data quality")
             narrative.append("- Run diagnostic tests")
-        elif trends["combined"] == "improving":
+        elif trends.get("combined") == "improving":
             narrative.append("\n✅ **Positive Trend**: Performance is improving. "
                            "Consider:")
             narrative.append("- Document successful changes")
@@ -414,8 +430,21 @@ def main():
     analyzer.load_history(days=args.days)
 
     if len(analyzer.history) == 0:
-        print("No evaluation history found")
-        return 1
+        message = "No evaluation history found"
+        print(message)
+        if args.output:
+            output_path = Path(args.output)
+            if output_path.suffix == ".json":
+                output_path.write_text(
+                    json.dumps({"status": "empty", "message": message}, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
+            else:
+                output_path.write_text(
+                    f"# Evaluation Insights Report\n\n{message}\n",
+                    encoding="utf-8",
+                )
+        return 0
 
     # Detect anomalies
     anomalies = analyzer.detect_anomalies(threshold=args.threshold)

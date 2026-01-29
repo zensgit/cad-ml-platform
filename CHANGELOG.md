@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - UV-Net graph dry-run guardrails (fail on empty graphs), expanded STEP fixtures, and PR-only workflow trigger.
+- Materials API: cost search `include_estimated` flag and cost compare `missing` list for unknown grades.
 
 ### Planned
 - vLLM provider for high throughput scenarios
