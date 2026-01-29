@@ -45,6 +45,44 @@ from .conversation import (
     MessageRole,
     get_conversation_manager,
 )
+from .persistence import (
+    StorageBackend,
+    JSONStorageBackend,
+    SQLiteStorageBackend,
+    ConversationPersistence,
+)
+from .semantic_retrieval import (
+    EmbeddingResult,
+    SemanticSearchResult,
+    EmbeddingProvider as SemanticEmbeddingProvider,
+    SimpleEmbeddingProvider,
+    SentenceTransformerProvider,
+    VectorStore,
+    SemanticRetriever as VectorSemanticRetriever,
+    create_semantic_retriever,
+)
+from .quality_evaluation import (
+    QualityDimension,
+    DimensionScore,
+    EvaluationResult,
+    ResponseQualityEvaluator,
+    EvaluationHistory,
+)
+from .api_service import (
+    APIError,
+    ValidationError,
+    NotFoundError,
+    RateLimitError,
+    APIRequest,
+    APIResponse,
+    AskRequest,
+    ConversationRequest,
+    EvaluationRequest,
+    RateLimiter,
+    CADAssistantAPI,
+    create_flask_app,
+    create_fastapi_app,
+)
 
 __all__ = [
     # Query Analysis
@@ -70,6 +108,40 @@ __all__ = [
     "Message",
     "MessageRole",
     "get_conversation_manager",
+    # Persistence
+    "StorageBackend",
+    "JSONStorageBackend",
+    "SQLiteStorageBackend",
+    "ConversationPersistence",
+    # Vector Semantic Retrieval
+    "EmbeddingResult",
+    "SemanticSearchResult",
+    "SemanticEmbeddingProvider",
+    "SimpleEmbeddingProvider",
+    "SentenceTransformerProvider",
+    "VectorStore",
+    "VectorSemanticRetriever",
+    "create_semantic_retriever",
+    # Quality Evaluation
+    "QualityDimension",
+    "DimensionScore",
+    "EvaluationResult",
+    "ResponseQualityEvaluator",
+    "EvaluationHistory",
+    # API Service
+    "APIError",
+    "ValidationError",
+    "NotFoundError",
+    "RateLimitError",
+    "APIRequest",
+    "APIResponse",
+    "AskRequest",
+    "ConversationRequest",
+    "EvaluationRequest",
+    "RateLimiter",
+    "CADAssistantAPI",
+    "create_flask_app",
+    "create_fastapi_app",
     # Context Assembly
     "ContextAssembler",
     "AssembledContext",
