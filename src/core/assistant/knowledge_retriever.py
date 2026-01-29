@@ -24,6 +24,8 @@ class RetrievalSource(str, Enum):
     SEALS = "seals"
     MACHINING = "machining"
     DESIGN_STANDARDS = "design_standards"
+    WELDING = "welding"
+    HEAT_TREATMENT = "heat_treatment"
     GDT = "gdt"
 
 
@@ -79,6 +81,8 @@ class KnowledgeRetriever:
             RetrievalSource.SEALS: self._retrieve_seals,
             RetrievalSource.MACHINING: self._retrieve_machining,
             RetrievalSource.DESIGN_STANDARDS: self._retrieve_design_standards,
+            RetrievalSource.WELDING: self._retrieve_welding,
+            RetrievalSource.HEAT_TREATMENT: self._retrieve_heat_treatment,
         }
         self._semantic_retriever = None
 
@@ -215,6 +219,12 @@ class KnowledgeRetriever:
             QueryIntent.CUTTING_PARAMETERS: [RetrievalSource.MACHINING, RetrievalSource.MATERIALS],
             QueryIntent.TOOL_SELECTION: [RetrievalSource.MACHINING],
             QueryIntent.PROCESS_ROUTE: [RetrievalSource.MACHINING, RetrievalSource.MATERIALS],
+            QueryIntent.WELDING_PARAMETERS: [RetrievalSource.WELDING],
+            QueryIntent.WELDING_JOINT: [RetrievalSource.WELDING],
+            QueryIntent.WELDABILITY: [RetrievalSource.WELDING, RetrievalSource.MATERIALS],
+            QueryIntent.HEAT_TREATMENT: [RetrievalSource.HEAT_TREATMENT, RetrievalSource.MATERIALS],
+            QueryIntent.HARDENING: [RetrievalSource.HEAT_TREATMENT],
+            QueryIntent.ANNEALING: [RetrievalSource.HEAT_TREATMENT],
         }
         return mapping.get(intent, [RetrievalSource.MATERIALS])
 
@@ -631,6 +641,240 @@ class KnowledgeRetriever:
                     ))
             except ValueError:
                 pass
+
+        return results
+
+    def _retrieve_welding(self, query: AnalyzedQuery) -> List[RetrievalResult]:
+        """Retrieve from welding knowledge base."""
+        results = []
+
+        try:
+            from src.core.knowledge.welding import (
+                get_welding_parameters,
+                get_filler_material,
+                get_joint_design,
+                get_weldability,
+                get_preheat_temperature,
+                calculate_heat_input,
+                WeldingProcess,
+                GrooveType,
+            )
+        except ImportError:
+            return results
+
+        material_grade = query.entities.get("material_grade", "").upper()
+        thickness = query.entities.get("thickness")
+
+        # Map material to welding material type
+        material_type_mapping = {
+            "Q235": "carbon_steel",
+            "Q345": "carbon_steel",
+            "45": "carbon_steel",
+            "304": "stainless_steel",
+            "316": "stainless_steel",
+            "316L": "stainless_steel",
+            "6061": "aluminum",
+            "7075": "aluminum",
+        }
+
+        # Welding parameters query
+        if query.intent == QueryIntent.WELDING_PARAMETERS:
+            base_material = material_type_mapping.get(material_grade, "carbon_steel")
+            t = float(thickness) if thickness else 6.0
+
+            for process in [WeldingProcess.GMAW, WeldingProcess.SMAW, WeldingProcess.GTAW]:
+                params = get_welding_parameters(process, base_material, t)
+                if params:
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.WELDING,
+                        relevance=0.9,
+                        data={
+                            "process": process.value,
+                            "material": base_material,
+                            "thickness": t,
+                            "current": params.current_recommended,
+                            "voltage": params.voltage_recommended,
+                            "speed": params.speed_recommended,
+                            "electrode_diameter": params.electrode_diameter,
+                        },
+                        summary=f"{process.value}焊接 {base_material} {t}mm: {params.current_recommended}A, {params.voltage_recommended}V",
+                        metadata={"id": f"weld_{process.value}_{base_material}"},
+                    ))
+
+            # Filler material
+            fillers = get_filler_material(base_material, "GMAW")
+            if fillers:
+                results.append(RetrievalResult(
+                    source=RetrievalSource.WELDING,
+                    relevance=0.85,
+                    data={"filler_materials": fillers, "base_material": base_material},
+                    summary=f"{base_material}焊丝推荐: {', '.join(fillers[:3])}",
+                    metadata={"id": f"filler_{base_material}"},
+                ))
+
+        # Joint design query
+        elif query.intent == QueryIntent.WELDING_JOINT:
+            t = float(thickness) if thickness else 10.0
+            for groove_type in [GrooveType.SINGLE_V, GrooveType.DOUBLE_V, GrooveType.SQUARE]:
+                design = get_joint_design(groove_type, t)
+                if design:
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.WELDING,
+                        relevance=0.9,
+                        data={
+                            "groove_type": groove_type.value,
+                            "thickness": t,
+                            "groove_angle": design.groove_angle,
+                            "root_gap": design.root_gap,
+                            "root_face": design.root_face,
+                        },
+                        summary=f"{groove_type.value}坡口 {t}mm: 角度{design.groove_angle}°, 根部间隙{design.root_gap}mm",
+                        metadata={"id": f"joint_{groove_type.value}_{t}"},
+                    ))
+
+        # Weldability query
+        elif query.intent == QueryIntent.WELDABILITY:
+            if material_grade:
+                # Map to weldability key
+                weld_key_mapping = {
+                    "Q235": "Q235",
+                    "Q345": "Q345",
+                    "45": "45",
+                    "304": "304",
+                    "316L": "316L",
+                    "40CR": "40Cr",
+                }
+                weld_key = weld_key_mapping.get(material_grade, material_grade)
+                weldability = get_weldability(weld_key)
+
+                if weldability:
+                    t = float(thickness) if thickness else 20.0
+                    preheat = get_preheat_temperature(weld_key, thickness=t)
+
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.WELDING,
+                        relevance=0.95,
+                        data={
+                            "material": weld_key,
+                            "weldability_class": weldability.weldability.value,
+                            "preheat_required": weldability.preheat_required,
+                            "preheat_temp": preheat,
+                            "carbon_equivalent": weldability.carbon_equivalent,
+                            "special_requirements": weldability.special_requirements,
+                        },
+                        summary=f"{weld_key}焊接性: {weldability.weldability.value}, 预热{preheat[0]}-{preheat[1]}°C",
+                        metadata={"id": f"weldability_{weld_key}"},
+                    ))
+
+        return results
+
+    def _retrieve_heat_treatment(self, query: AnalyzedQuery) -> List[RetrievalResult]:
+        """Retrieve from heat treatment knowledge base."""
+        results = []
+
+        try:
+            from src.core.knowledge.heat_treatment import (
+                get_heat_treatment_parameters,
+                get_hardenability,
+                get_tempering_temperature,
+                get_annealing_parameters,
+                calculate_hardness_after_tempering,
+                HeatTreatmentProcess,
+                AnnealingType,
+            )
+        except ImportError:
+            return results
+
+        material_grade = query.entities.get("material_grade", "").upper()
+        target_hardness = query.entities.get("target_hardness")
+
+        # Map material to heat treatment key
+        ht_key_mapping = {
+            "45": "45",
+            "45钢": "45",
+            "40CR": "40Cr",
+            "CR12MOV": "Cr12MoV",
+            "304": "304",
+            "6061": "6061",
+            "GCR15": "GCr15",
+        }
+        ht_key = ht_key_mapping.get(material_grade, material_grade)
+
+        # Hardening query
+        if query.intent in [QueryIntent.HARDENING, QueryIntent.HEAT_TREATMENT]:
+            params = get_heat_treatment_parameters(ht_key, HeatTreatmentProcess.QUENCH_HARDENING)
+            if params:
+                results.append(RetrievalResult(
+                    source=RetrievalSource.HEAT_TREATMENT,
+                    relevance=0.95,
+                    data={
+                        "material": ht_key,
+                        "process": "quench_hardening",
+                        "temperature": params.temperature_recommended,
+                        "temperature_range": (params.temperature_min, params.temperature_max),
+                        "quench_media": params.quench_media.value if params.quench_media else None,
+                        "hardness_range": params.hardness_range,
+                    },
+                    summary=f"{ht_key}淬火: {params.temperature_recommended}°C, {params.quench_media.value if params.quench_media else 'N/A'}",
+                    metadata={"id": f"quench_{ht_key}"},
+                ))
+
+            # Hardenability data
+            hardenability = get_hardenability(ht_key)
+            if hardenability:
+                results.append(RetrievalResult(
+                    source=RetrievalSource.HEAT_TREATMENT,
+                    relevance=0.9,
+                    data={
+                        "material": ht_key,
+                        "hardenability_class": hardenability.hardenability_class.value,
+                        "critical_diameter_water": hardenability.critical_diameter_water,
+                        "critical_diameter_oil": hardenability.critical_diameter_oil,
+                        "as_quenched_hardness": hardenability.as_quenched_hardness_max,
+                    },
+                    summary=f"{ht_key}淬透性: {hardenability.hardenability_class.value}, 临界直径(油){hardenability.critical_diameter_oil}mm",
+                    metadata={"id": f"hardenability_{ht_key}"},
+                ))
+
+            # Tempering recommendation
+            if target_hardness:
+                try:
+                    h = float(target_hardness)
+                    temp_range = get_tempering_temperature(ht_key, h)
+                    if temp_range:
+                        results.append(RetrievalResult(
+                            source=RetrievalSource.HEAT_TREATMENT,
+                            relevance=0.9,
+                            data={
+                                "material": ht_key,
+                                "target_hardness": h,
+                                "tempering_temp_range": temp_range,
+                            },
+                            summary=f"{ht_key}回火至HRC{h}: {temp_range[0]}-{temp_range[1]}°C",
+                            metadata={"id": f"temper_{ht_key}_{h}"},
+                        ))
+                except ValueError:
+                    pass
+
+        # Annealing query
+        elif query.intent == QueryIntent.ANNEALING:
+            for ann_type in [AnnealingType.FULL, AnnealingType.SPHEROIDIZING, AnnealingType.STRESS_RELIEF]:
+                params = get_annealing_parameters(ht_key, ann_type)
+                if params:
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.HEAT_TREATMENT,
+                        relevance=0.9,
+                        data={
+                            "material": ht_key,
+                            "annealing_type": ann_type.value,
+                            "temperature": params.temperature_recommended,
+                            "temperature_range": (params.temperature_min, params.temperature_max),
+                            "cooling_method": params.cooling_method,
+                            "hardness_after": params.hardness_after,
+                        },
+                        summary=f"{ht_key}{ann_type.value}: {params.temperature_recommended}°C, {params.cooling_method}",
+                        metadata={"id": f"anneal_{ht_key}_{ann_type.value}"},
+                    ))
 
         return results
 
