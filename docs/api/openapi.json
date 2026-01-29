@@ -1,0 +1,675 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CAD Assistant API",
+    "description": "\n# CAD Assistant API\n\n智能制造知识助手 API，提供 RAG（检索增强生成）驱动的 CAD 设计和制造知识查询服务。\n\n## 功能特性\n\n- **智能问答**: 基于知识库的材料、焊接、GD&T 等专业知识查询\n- **流式响应**: 支持 Server-Sent Events (SSE) 实时流式输出\n- **多模型支持**: OpenAI, Claude, Qwen, Ollama 等多种 LLM 提供商\n- **多租户隔离**: 企业级租户隔离和配额管理\n- **RBAC 权限**: 细粒度的角色权限控制\n\n## 认证\n\nAPI 支持 API Key 认证：\n```\nX-API-Key: your-api-key\n```\n\n## 速率限制\n\n- Free: 10 请求/分钟\n- Basic: 30 请求/分钟\n- Professional: 100 请求/分钟\n- Enterprise: 500 请求/分钟\n        ",
+    "version": "1.0.0",
+    "contact": {
+      "name": "CAD ML Platform Team",
+      "url": "https://github.com/cad-ml-platform"
+    },
+    "license": {
+      "name": "MIT",
+      "url": "https://opensource.org/licenses/MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8000",
+      "description": "本地开发服务器"
+    },
+    {
+      "url": "https://api.cad-assistant.example.com",
+      "description": "生产服务器"
+    }
+  ],
+  "tags": [
+    {
+      "name": "assistant",
+      "description": "智能助手 API"
+    },
+    {
+      "name": "conversation",
+      "description": "对话管理 API"
+    },
+    {
+      "name": "knowledge",
+      "description": "知识库 API"
+    },
+    {
+      "name": "streaming",
+      "description": "流式响应 API"
+    },
+    {
+      "name": "admin",
+      "description": "管理 API"
+    },
+    {
+      "name": "health",
+      "description": "健康检查 API"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "健康检查",
+        "description": "检查 API 服务健康状态",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "服务健康",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ask": {
+      "post": {
+        "tags": [
+          "assistant"
+        ],
+        "summary": "提问",
+        "description": "向 CAD 助手提问，获取专业知识回答",
+        "operationId": "ask",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskRequest"
+              },
+              "examples": {
+                "material_query": {
+                  "summary": "材料查询",
+                  "value": {
+                    "query": "304不锈钢的抗拉强度是多少？",
+                    "conversation_id": null
+                  }
+                },
+                "welding_query": {
+                  "summary": "焊接参数",
+                  "value": {
+                    "query": "TIG 焊接 304 不锈钢的推荐参数",
+                    "conversation_id": "conv-abc123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AskResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "429": {
+            "$ref": "#/components/responses/RateLimited"
+          }
+        }
+      }
+    },
+    "/ask/stream": {
+      "post": {
+        "tags": [
+          "streaming"
+        ],
+        "summary": "流式提问",
+        "description": "使用 Server-Sent Events 流式返回回答",
+        "operationId": "askStream",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SSE 流式响应",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string",
+                  "description": "SSE 事件流",
+                  "example": "data: {\"type\": \"chunk\", \"data\": {\"text\": \"304不锈钢\"}}\n\n"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations": {
+      "post": {
+        "tags": [
+          "conversation"
+        ],
+        "summary": "创建对话",
+        "description": "创建新的对话会话",
+        "operationId": "createConversation",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "对话创建成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "conversation"
+        ],
+        "summary": "列出对话",
+        "description": "获取当前用户的所有对话",
+        "operationId": "listConversations",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "对话列表",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ConversationResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/conversations/{conversation_id}": {
+      "get": {
+        "tags": [
+          "conversation"
+        ],
+        "summary": "获取对话",
+        "description": "获取指定对话的详细信息",
+        "operationId": "getConversation",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "对话详情",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "conversation"
+        ],
+        "summary": "删除对话",
+        "operationId": "deleteConversation",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "conversation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "删除成功"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/knowledge/search": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "搜索知识库",
+        "description": "在知识库中搜索相关内容",
+        "operationId": "searchKnowledge",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KnowledgeSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "搜索结果",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeSearchResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "获取指标",
+        "description": "获取系统运行指标",
+        "operationId": "getMetrics",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "系统指标",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "apiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    },
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "healthy"
+          },
+          "version": {
+            "type": "string",
+            "example": "1.0.0"
+          },
+          "timestamp": {
+            "type": "number",
+            "example": 1704067200
+          }
+        }
+      },
+      "AskRequest": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "用户问题",
+            "example": "304不锈钢的抗拉强度是多少？"
+          },
+          "conversation_id": {
+            "type": "string",
+            "nullable": true,
+            "description": "对话 ID，用于多轮对话"
+          }
+        }
+      },
+      "AskResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "answer": {
+                "type": "string",
+                "example": "304不锈钢的抗拉强度约为 515 MPa。"
+              },
+              "confidence": {
+                "type": "number",
+                "example": 0.92
+              },
+              "conversation_id": {
+                "type": "string"
+              },
+              "sources": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Source"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Source": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "example": "material_database"
+          },
+          "content": {
+            "type": "string"
+          },
+          "relevance": {
+            "type": "number",
+            "example": 0.95
+          }
+        }
+      },
+      "ConversationResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "conv-abc123"
+          },
+          "created_at": {
+            "type": "number"
+          },
+          "message_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "ConversationDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Message"
+            }
+          },
+          "created_at": {
+            "type": "number"
+          },
+          "updated_at": {
+            "type": "number"
+          }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "assistant",
+              "system"
+            ]
+          },
+          "content": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "number"
+          }
+        }
+      },
+      "KnowledgeSearchRequest": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "materials",
+              "welding",
+              "gdt",
+              "surface_treatment"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "default": 10
+          }
+        }
+      },
+      "KnowledgeSearchResponse": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "content": {
+                  "type": "string"
+                },
+                "category": {
+                  "type": "string"
+                },
+                "relevance": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "MetricsResponse": {
+        "type": "object",
+        "properties": {
+          "cache": {
+            "type": "object",
+            "properties": {
+              "hits": {
+                "type": "integer"
+              },
+              "misses": {
+                "type": "integer"
+              },
+              "hit_rate": {
+                "type": "number"
+              }
+            }
+          },
+          "requests": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer"
+              },
+              "success_rate": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "请求参数错误",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "未授权",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "资源不存在",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "RateLimited": {
+        "description": "请求频率超限",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -83,6 +83,85 @@ from .api_service import (
     create_flask_app,
     create_fastapi_app,
 )
+from .caching import (
+    CacheBackend,
+    LRUCache,
+    EmbeddingCache,
+    SearchResultCache,
+    ResponseCache,
+    CacheManager,
+)
+from .knowledge_manager import (
+    KnowledgeCategory,
+    KnowledgeItem,
+    KnowledgeStats,
+    KnowledgeBaseManager,
+    create_knowledge_manager,
+)
+from .analytics import (
+    TimeGranularity,
+    ConversationMetrics,
+    UsageMetrics,
+    QualityTrend,
+    AnalyticsCollector,
+)
+from .security import (
+    Permission as SecurityPermission,
+    AuthError,
+    UnauthorizedError,
+    ForbiddenError,
+    APIKey,
+    APIKeyManager,
+    SecurityAuditor,
+    require_permission as require_security_permission,
+    sanitize_input,
+)
+from .monitoring import (
+    LogLevel,
+    LogEntry,
+    StructuredLogger,
+    MetricValue,
+    MetricsCollector,
+    HealthChecker,
+    get_logger,
+    get_metrics,
+)
+from .streaming import (
+    StreamEventType,
+    StreamEvent,
+    StreamingResponse,
+    StreamingAssistant,
+    create_sse_response,
+)
+from .multi_model import (
+    ModelProvider,
+    ModelStatus,
+    ModelConfig,
+    ModelHealth,
+    LoadBalancingStrategy,
+    ModelSelector,
+    MultiModelAssistant,
+)
+from .multi_tenant import (
+    TenantStatus,
+    TenantTier,
+    TenantQuota,
+    TenantUsage,
+    Tenant,
+    TenantManager,
+    TenantContext,
+)
+from .rbac import (
+    Permission,
+    ResourceType,
+    Role,
+    User,
+    Resource,
+    Policy,
+    RBACManager,
+    AccessContext,
+    require_permission,
+)
 
 __all__ = [
     # Query Analysis
@@ -159,4 +238,74 @@ __all__ = [
     "OfflineProvider",
     "get_provider",
     "get_best_available_provider",
+    # Caching (P4)
+    "CacheBackend",
+    "LRUCache",
+    "EmbeddingCache",
+    "SearchResultCache",
+    "ResponseCache",
+    "CacheManager",
+    # Knowledge Manager (P5)
+    "KnowledgeCategory",
+    "KnowledgeItem",
+    "KnowledgeStats",
+    "KnowledgeBaseManager",
+    "create_knowledge_manager",
+    # Analytics (P5)
+    "TimeGranularity",
+    "ConversationMetrics",
+    "UsageMetrics",
+    "QualityTrend",
+    "AnalyticsCollector",
+    # Security (P6)
+    "SecurityPermission",
+    "AuthError",
+    "UnauthorizedError",
+    "ForbiddenError",
+    "APIKey",
+    "APIKeyManager",
+    "SecurityAuditor",
+    "require_security_permission",
+    "sanitize_input",
+    # Monitoring (P6)
+    "LogLevel",
+    "LogEntry",
+    "StructuredLogger",
+    "MetricValue",
+    "MetricsCollector",
+    "HealthChecker",
+    "get_logger",
+    "get_metrics",
+    # Streaming (P8)
+    "StreamEventType",
+    "StreamEvent",
+    "StreamingResponse",
+    "StreamingAssistant",
+    "create_sse_response",
+    # Multi-Model (P8)
+    "ModelProvider",
+    "ModelStatus",
+    "ModelConfig",
+    "ModelHealth",
+    "LoadBalancingStrategy",
+    "ModelSelector",
+    "MultiModelAssistant",
+    # Multi-Tenant (P9)
+    "TenantStatus",
+    "TenantTier",
+    "TenantQuota",
+    "TenantUsage",
+    "Tenant",
+    "TenantManager",
+    "TenantContext",
+    # RBAC (P9)
+    "Permission",
+    "ResourceType",
+    "Role",
+    "User",
+    "Resource",
+    "Policy",
+    "RBACManager",
+    "AccessContext",
+    "require_permission",
 ]
