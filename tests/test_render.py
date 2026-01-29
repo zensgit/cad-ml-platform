@@ -1,6 +1,6 @@
 import sys
 from types import ModuleType
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -52,3 +52,28 @@ def test_render_cad_preview_render_failure_returns_422(render_client):
         resp = render_client.post("/api/v1/render/cad", files=files)
     assert resp.status_code == 422
     assert resp.json()["detail"] == "bad cad"
+
+
+def test_render_cad_preview_fallback_returns_png(render_client):
+    with patch(
+        "src.api.v1.render._render_cad_to_png",
+        side_effect=RuntimeError("bad cad"),
+    ), patch(
+        "src.api.v1.render._render_via_fallback",
+        new=AsyncMock(return_value=b"fallback-png"),
+    ) as mock_fallback:
+        files = {"file": ("bad.dwg", b"dwgdata", "application/acad")}
+        resp = render_client.post("/api/v1/render/cad", files=files)
+    assert resp.status_code == 200
+    assert resp.content == b"fallback-png"
+    assert resp.headers["content-type"] == "image/png"
+    mock_fallback.assert_awaited_once()
+
+
+def test_resolve_bearer_helpers():
+    from src.api.v1.render import _resolve_bearer
+
+    assert _resolve_bearer("") == ""
+    assert _resolve_bearer("token") == "Bearer token"
+    assert _resolve_bearer("Bearer token") == "Bearer token"
+    assert _resolve_bearer("bearer token") == "bearer token"
