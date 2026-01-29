@@ -2990,6 +2990,12 @@
 - **Material API Release Summary**:
   - Drafted release/PR summary for material API changes and validation coverage.
   - Report: `reports/experiments/20260129/DEV_MATERIAL_API_RELEASE_SUMMARY_20260129.md`
+- **CI Lint/Eval Fixes**:
+  - Adjusted flake8 ignores for the materials database and hardened evaluation-insights script.
+  - Report: `reports/experiments/20260129/DEV_CI_LINT_EVAL_FIXES_20260129.md`
+- **CI Lint/Eval Fixes Validation**:
+  - Verified evaluation-insights script handles empty history without failing.
+  - Report: `reports/experiments/20260129/DEV_CI_LINT_EVAL_FIXES_VALIDATION_20260129.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

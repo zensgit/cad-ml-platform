@@ -40,7 +40,8 @@ HARDNESS_SINGLE_PATTERN = re.compile(
 
 # Depth patterns: 渗碳深度0.8-1.2mm, 淬硬层深度≥0.5
 DEPTH_PATTERN = re.compile(
-    r"(?:渗碳|渗氮|淬硬|硬化|有效硬化)?层?深[度]?\s*[≥>=]?\s*(\d+(?:\.\d+)?)\s*[-~至到]?\s*(\d+(?:\.\d+)?)?\s*(?:mm|MM)?",
+    r"(?:渗碳|渗氮|淬硬|硬化|有效硬化)?层?深[度]?\s*[≥>=]?\s*(\d+(?:\.\d+)?)\s*"
+    r"[-~至到]?\s*(\d+(?:\.\d+)?)?\s*(?:mm|MM)?",
     re.UNICODE,
 )
 
@@ -75,7 +76,9 @@ SURFACE_TREATMENT_PATTERNS = {
     SurfaceTreatmentType.electroplating: re.compile(r"电镀|electroplat", re.IGNORECASE | re.UNICODE),
     SurfaceTreatmentType.galvanizing: re.compile(r"镀锌|热镀锌|冷镀锌|galvaniz", re.IGNORECASE | re.UNICODE),
     SurfaceTreatmentType.chromating: re.compile(r"镀铬|镀硬铬|装饰铬|chrom(?:e|ium)", re.IGNORECASE | re.UNICODE),
-    SurfaceTreatmentType.nickel_plating: re.compile(r"镀镍|化学镍|nickel", re.IGNORECASE | re.UNICODE),
+    SurfaceTreatmentType.nickel_plating: re.compile(
+        r"镀镍|化学镍|nickel", re.IGNORECASE | re.UNICODE
+    ),
     SurfaceTreatmentType.anodizing: re.compile(r"阳极氧化|硬质阳极|anodiz", re.IGNORECASE | re.UNICODE),
     SurfaceTreatmentType.phosphating: re.compile(r"磷化|phosphat", re.IGNORECASE | re.UNICODE),
     SurfaceTreatmentType.blackening: re.compile(r"发黑|氧化发黑|黑色氧化|blacken", re.IGNORECASE | re.UNICODE),
