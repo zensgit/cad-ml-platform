@@ -12,6 +12,12 @@ from enum import Enum
 from .query_analyzer import QueryAnalyzer, AnalyzedQuery, QueryIntent
 from .knowledge_retriever import KnowledgeRetriever, RetrievalResult
 from .context_assembler import ContextAssembler, AssembledContext
+from .llm_providers import (
+    BaseLLMProvider,
+    LLMConfig,
+    get_provider,
+    get_best_available_provider,
+)
 
 
 class LLMProvider(str, Enum):
@@ -29,9 +35,10 @@ class AssistantConfig:
 
     # LLM settings
     llm_provider: LLMProvider = LLMProvider.CLAUDE
-    model_name: str = "claude-3-sonnet"
+    model_name: str = "claude-3-sonnet-20240229"
     temperature: float = 0.3
     max_tokens: int = 2000
+    api_key: Optional[str] = None  # If None, uses environment variable
 
     # Retrieval settings
     max_retrieval_results: int = 5
@@ -43,6 +50,7 @@ class AssistantConfig:
     # Behavior settings
     language: str = "zh"  # "zh" or "en"
     verbose: bool = False
+    auto_select_provider: bool = True  # Auto-select best available provider
 
 
 @dataclass
@@ -95,8 +103,38 @@ class CADAssistant:
             max_context_tokens=self.config.max_context_tokens
         )
 
-        # LLM callback
-        self._llm_callback = llm_callback or self._default_llm_callback
+        # Initialize LLM provider
+        self._llm_provider: Optional[BaseLLMProvider] = None
+        self._llm_callback = llm_callback
+
+        if llm_callback is None:
+            self._init_llm_provider()
+
+    def _init_llm_provider(self) -> None:
+        """Initialize the LLM provider based on configuration."""
+        llm_config = LLMConfig(
+            api_key=self.config.api_key,
+            model_name=self.config.model_name,
+            temperature=self.config.temperature,
+            max_tokens=self.config.max_tokens,
+        )
+
+        if self.config.auto_select_provider:
+            self._llm_provider = get_best_available_provider(llm_config)
+        else:
+            provider_map = {
+                LLMProvider.CLAUDE: "claude",
+                LLMProvider.GPT4: "openai",
+                LLMProvider.QWEN: "qwen",
+                LLMProvider.LOCAL: "ollama",
+            }
+            provider_name = provider_map.get(self.config.llm_provider, "offline")
+            self._llm_provider = get_provider(provider_name, llm_config)
+
+        if self.config.verbose:
+            provider_type = type(self._llm_provider).__name__
+            available = self._llm_provider.is_available()
+            print(f"[LLM] Using {provider_type}, available: {available}")
 
     def ask(self, query: str) -> AssistantResponse:
         """
@@ -137,7 +175,7 @@ class CADAssistant:
 
         # 4. Generate response
         if results:
-            answer = self._llm_callback(context.system_prompt, context.user_prompt)
+            answer = self._call_llm(context.system_prompt, context.user_prompt)
             confidence = min(analyzed.confidence, max(r.relevance for r in results))
         else:
             answer = self._generate_fallback_response(analyzed)
@@ -187,7 +225,7 @@ class CADAssistant:
         enhanced_prompt = context.user_prompt + f"\n\n附加背景信息:\n{additional_context}"
 
         # Generate response
-        answer = self._llm_callback(context.system_prompt, enhanced_prompt)
+        answer = self._call_llm(context.system_prompt, enhanced_prompt)
         confidence = analyzed.confidence * 0.9 if results else 0.5
 
         sources = [f"{r.source.value}: {r.summary}" for r in results]
@@ -259,6 +297,28 @@ class CADAssistant:
                 return f"根据知识库查询结果:\n\n{knowledge_section.strip()}\n\n如需更详细的信息，请提供更具体的查询条件。"
 
         return "抱歉，知识库中未找到与您问题直接相关的信息。请尝试更具体的查询，或联系技术支持获取帮助。"
+
+    def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
+        """
+        Call LLM to generate response.
+
+        Uses custom callback if provided, otherwise uses configured provider.
+        """
+        # Use custom callback if provided
+        if self._llm_callback is not None:
+            return self._llm_callback(system_prompt, user_prompt)
+
+        # Use configured LLM provider
+        if self._llm_provider is not None and self._llm_provider.is_available():
+            try:
+                return self._llm_provider.generate(system_prompt, user_prompt)
+            except Exception as e:
+                if self.config.verbose:
+                    print(f"[LLM] Error: {e}, falling back to default")
+                return self._default_llm_callback(system_prompt, user_prompt)
+
+        # Fallback to default
+        return self._default_llm_callback(system_prompt, user_prompt)
 
     def _generate_fallback_response(self, analyzed: AnalyzedQuery) -> str:
         """Generate fallback response when no knowledge is found."""
