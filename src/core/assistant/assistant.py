@@ -18,6 +18,13 @@ from .llm_providers import (
     get_provider,
     get_best_available_provider,
 )
+from .conversation import (
+    ConversationManager,
+    Conversation,
+    Message,
+    MessageRole,
+    get_conversation_manager,
+)
 
 
 class LLMProvider(str, Enum):
@@ -47,6 +54,10 @@ class AssistantConfig:
     # Context settings
     max_context_tokens: int = 4000
 
+    # Conversation settings
+    enable_conversation: bool = True  # Enable multi-turn conversation
+    max_history_turns: int = 3  # Max conversation turns to include
+
     # Behavior settings
     language: str = "zh"  # "zh" or "en"
     verbose: bool = False
@@ -61,6 +72,7 @@ class AssistantResponse:
     confidence: float
     sources: List[str] = field(default_factory=list)
     context_used: Optional[AssembledContext] = None
+    conversation_id: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -103,6 +115,12 @@ class CADAssistant:
             max_context_tokens=self.config.max_context_tokens
         )
 
+        # Initialize conversation manager
+        if self.config.enable_conversation:
+            self._conversation_manager = get_conversation_manager()
+        else:
+            self._conversation_manager = None
+
         # Initialize LLM provider
         self._llm_provider: Optional[BaseLLMProvider] = None
         self._llm_callback = llm_callback
@@ -136,18 +154,33 @@ class CADAssistant:
             available = self._llm_provider.is_available()
             print(f"[LLM] Using {provider_type}, available: {available}")
 
-    def ask(self, query: str) -> AssistantResponse:
+    def ask(self, query: str, conversation_id: Optional[str] = None) -> AssistantResponse:
         """
         Process a user query and return a response.
 
         Args:
             query: User's natural language query
+            conversation_id: Optional conversation ID for multi-turn context
 
         Returns:
             AssistantResponse with answer and metadata
         """
+        # Handle conversation context
+        effective_query = query
+        if conversation_id and self._conversation_manager:
+            # Check if this is a follow-up and resolve references
+            if self._conversation_manager.detect_follow_up(conversation_id, query):
+                effective_query = self._conversation_manager.resolve_references(
+                    conversation_id, query
+                )
+                if self.config.verbose:
+                    print(f"[Conversation] Resolved query: {effective_query}")
+
+            # Add user message to history
+            self._conversation_manager.add_user_message(conversation_id, query)
+
         # 1. Analyze query
-        analyzed = self._query_analyzer.analyze(query)
+        analyzed = self._query_analyzer.analyze(effective_query)
 
         if self.config.verbose:
             print(f"[QueryAnalyzer] Intent: {analyzed.intent}, Confidence: {analyzed.confidence:.2f}")
@@ -170,6 +203,12 @@ class CADAssistant:
         # 3. Assemble context
         context = self._context_assembler.assemble(analyzed, results)
 
+        # Include conversation history in prompt if enabled
+        if conversation_id and self._conversation_manager:
+            conv_context = self._conversation_manager.get_context_summary(conversation_id)
+            if conv_context:
+                context.user_prompt = f"对话背景: {conv_context}\n\n{context.user_prompt}"
+
         if self.config.verbose:
             print(f"[ContextAssembler] Token estimate: {context.token_estimate}")
 
@@ -181,7 +220,11 @@ class CADAssistant:
             answer = self._generate_fallback_response(analyzed)
             confidence = 0.3
 
-        # 5. Build response
+        # 5. Store assistant response in conversation history
+        if conversation_id and self._conversation_manager:
+            self._conversation_manager.add_assistant_message(conversation_id, answer)
+
+        # 6. Build response
         sources = [f"{r.source.value}: {r.summary}" for r in results]
 
         return AssistantResponse(
@@ -189,6 +232,7 @@ class CADAssistant:
             confidence=confidence,
             sources=sources,
             context_used=context if self.config.verbose else None,
+            conversation_id=conversation_id,
             metadata={
                 "intent": analyzed.intent.value,
                 "entities": analyzed.entities,
@@ -281,6 +325,58 @@ class CADAssistant:
                 "铝合金铣削的进给量?",
             ],
         }
+
+    # ========== Conversation Management Methods ==========
+
+    def start_conversation(self, **metadata) -> str:
+        """
+        Start a new conversation session.
+
+        Returns:
+            Conversation ID for tracking multi-turn context
+        """
+        if not self._conversation_manager:
+            raise RuntimeError("Conversation management is disabled")
+        return self._conversation_manager.create_conversation(**metadata)
+
+    def get_conversation_history(
+        self,
+        conversation_id: str,
+        max_turns: int = 10,
+    ) -> List[Dict[str, str]]:
+        """
+        Get conversation history.
+
+        Args:
+            conversation_id: Conversation ID
+            max_turns: Maximum message pairs to return
+
+        Returns:
+            List of {"role": "user/assistant", "content": "..."}
+        """
+        if not self._conversation_manager:
+            return []
+        return self._conversation_manager.get_recent_history(
+            conversation_id, max_turns * 2
+        )
+
+    def clear_conversation(self, conversation_id: str) -> bool:
+        """Clear conversation history while keeping the session."""
+        if not self._conversation_manager:
+            return False
+        return self._conversation_manager.clear_conversation(conversation_id)
+
+    def end_conversation(self, conversation_id: str) -> bool:
+        """End and delete a conversation session."""
+        if not self._conversation_manager:
+            return False
+        return self._conversation_manager.delete_conversation(conversation_id)
+
+    def list_conversations(self) -> List[Dict[str, Any]]:
+        """List all active conversation sessions."""
+        if not self._conversation_manager:
+            return []
+        return self._conversation_manager.list_conversations()
 
     def _default_llm_callback(self, system_prompt: str, user_prompt: str) -> str:
         """

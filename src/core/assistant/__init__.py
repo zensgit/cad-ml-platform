@@ -37,6 +37,14 @@ from .embedding_retriever import (
     SemanticRetriever,
     get_semantic_retriever,
 )
+from .conversation import (
+    ConversationManager,
+    Conversation,
+    ConversationContext,
+    Message,
+    MessageRole,
+    get_conversation_manager,
+)
 
 __all__ = [
     # Query Analysis
@@ -55,6 +63,13 @@ __all__ = [
     "KnowledgeItem",
     "SemanticRetriever",
     "get_semantic_retriever",
+    # Conversation
+    "ConversationManager",
+    "Conversation",
+    "ConversationContext",
+    "Message",
+    "MessageRole",
+    "get_conversation_manager",
     # Context Assembly
     "ContextAssembler",
     "AssembledContext",
