@@ -348,3 +348,277 @@ class TestSingletonManager:
         m2 = get_conversation_manager()
 
         assert m1 is m2
+
+
+class TestEnhancedContextExtraction:
+    """Tests for enhanced context extraction with new knowledge domains."""
+
+    def test_extract_welding_processes(self):
+        """Test welding process extraction."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "TIG焊接不锈钢时需要注意什么？")
+
+        ctx = manager.get_context(conv_id)
+        assert "TIG" in ctx.welding_processes
+        # last_mentioned_process may be TIG or 焊接 depending on pattern order
+        assert ctx.last_mentioned_process in ["TIG", "焊接"]
+
+    def test_extract_chinese_welding_terms(self):
+        """Test Chinese welding terminology extraction."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "氩弧焊和埋弧焊哪个更适合厚板？")
+
+        ctx = manager.get_context(conv_id)
+        assert "氩弧焊" in ctx.welding_processes
+        assert "埋弧焊" in ctx.welding_processes
+
+    def test_extract_heat_treatments(self):
+        """Test heat treatment extraction."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "45钢淬火后的硬度能达到多少HRC？")
+
+        ctx = manager.get_context(conv_id)
+        assert "淬火" in ctx.heat_treatments
+        assert "HRC" in ctx.heat_treatments
+        assert ctx.last_mentioned_process in ["淬火", "HRC"]
+
+    def test_extract_surface_treatments(self):
+        """Test surface treatment extraction."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "铝合金阳极氧化后的膜厚一般是多少？")
+
+        ctx = manager.get_context(conv_id)
+        assert "阳极氧化" in ctx.surface_treatments
+        assert ctx.last_mentioned_process == "阳极氧化"
+
+    def test_extract_gdt_characteristics(self):
+        """Test GD&T characteristic extraction."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "平面度公差0.02mm怎么检测？")
+
+        ctx = manager.get_context(conv_id)
+        assert "平面度" in ctx.gdt_characteristics
+
+
+class TestEnhancedReferenceTracking:
+    """Tests for enhanced reference tracking."""
+
+    def test_track_last_mentioned_material(self):
+        """Test tracking last mentioned material."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "304不锈钢的强度是多少？")
+
+        ctx = manager.get_context(conv_id)
+        # Both 304 and 不锈钢 match, last one wins
+        assert ctx.last_mentioned_material in ["304", "不锈钢"]
+        assert "304" in ctx.materials
+
+    def test_track_last_mentioned_dimension(self):
+        """Test tracking last mentioned dimension."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "直径50mm的轴需要什么公差？")
+
+        ctx = manager.get_context(conv_id)
+        assert ctx.last_mentioned_dimension == 50.0
+
+
+class TestEnhancedReferenceResolution:
+    """Tests for enhanced reference resolution."""
+
+    def test_resolve_material_reference(self):
+        """Test resolving material reference."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "304不锈钢的强度是多少？")
+
+        resolved = manager.resolve_references(conv_id, "它的密度是多少？")
+        # Should resolve to either 304 or 不锈钢
+        assert "304" in resolved or "不锈钢" in resolved
+        assert "它的" not in resolved
+
+    def test_resolve_process_reference(self):
+        """Test resolving process reference."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "TIG焊接的参数是什么？")
+
+        resolved = manager.resolve_references(conv_id, "这个工艺的适用材料？")
+        # Should resolve to either TIG or 焊接
+        assert "TIG" in resolved or "焊接" in resolved
+
+    def test_resolve_dimension_reference(self):
+        """Test resolving dimension reference."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "直径50mm的轴承孔公差？")
+
+        resolved = manager.resolve_references(conv_id, "这个尺寸的加工方法？")
+        assert "50" in resolved
+
+
+class TestEnhancedTopicTracking:
+    """Tests for enhanced topic tracking."""
+
+    def test_detect_welding_topic(self):
+        """Test welding topic detection."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "焊接参数怎么设置？")
+
+        ctx = manager.get_context(conv_id)
+        assert ctx.current_topic == "welding"
+
+    def test_detect_heat_treatment_topic(self):
+        """Test heat treatment topic detection."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "热处理工艺选择")
+
+        ctx = manager.get_context(conv_id)
+        assert ctx.current_topic == "heat_treatment"
+
+    def test_detect_gdt_topic(self):
+        """Test GD&T topic detection."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        # Use specific GD&T keyword that triggers gdt topic
+        manager.add_user_message(conv_id, "GD&T标注方法")
+
+        ctx = manager.get_context(conv_id)
+        assert ctx.current_topic == "gdt"
+
+
+class TestEnhancedContextSummary:
+    """Tests for enhanced context summary."""
+
+    def test_summary_includes_welding(self):
+        """Test summary includes welding processes."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "TIG焊接不锈钢")
+
+        summary = manager.get_context_summary(conv_id)
+        assert "焊接" in summary or "TIG" in summary
+
+    def test_summary_includes_heat_treatment(self):
+        """Test summary includes heat treatments."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(conv_id, "淬火回火处理")
+
+        summary = manager.get_context_summary(conv_id)
+        assert "热处理" in summary or "淬火" in summary
+
+
+class TestComplexConversationScenarios:
+    """Integration tests for complex conversation scenarios."""
+
+    def test_multi_domain_conversation(self):
+        """Test conversation spanning multiple knowledge domains."""
+        from src.core.assistant.conversation import ConversationManager
+
+        manager = ConversationManager()
+        conv_id = manager.create_conversation()
+
+        manager.add_user_message(
+            conv_id,
+            "304不锈钢板材，厚度20mm，需要TIG焊接，焊后做固溶处理，然后电镀镍"
+        )
+
+        ctx = manager.get_context(conv_id)
+
+        assert "304" in ctx.materials
+        assert 20.0 in ctx.dimensions
+        assert "TIG" in ctx.welding_processes
+        assert "固溶" in ctx.heat_treatments
+        assert any("镀镍" in t or "电镀" in t for t in ctx.surface_treatments)
+
+    def test_context_merge_functionality(self):
+        """Test ConversationContext merge functionality."""
+        from src.core.assistant.conversation import ConversationContext
+
+        ctx1 = ConversationContext(
+            materials=["304"],
+            welding_processes=["TIG"],
+            current_topic="welding",
+            topic_history=["welding"],
+            last_mentioned_material="304",
+        )
+
+        ctx2 = ConversationContext(
+            materials=["316L"],
+            heat_treatments=["固溶"],
+            surface_treatments=["阳极氧化"],
+            gdt_characteristics=["平面度"],
+            current_topic="heat_treatment",
+            topic_history=["heat_treatment"],
+            last_mentioned_material="316L",
+            last_mentioned_process="固溶",
+        )
+
+        ctx1.merge(ctx2)
+
+        # Check merged content
+        assert "304" in ctx1.materials
+        assert "316L" in ctx1.materials
+        assert "TIG" in ctx1.welding_processes
+        assert "固溶" in ctx1.heat_treatments
+        assert "阳极氧化" in ctx1.surface_treatments
+        assert "平面度" in ctx1.gdt_characteristics
+        assert ctx1.current_topic == "heat_treatment"
+        assert "welding" in ctx1.topic_history
+        assert "heat_treatment" in ctx1.topic_history
+        assert ctx1.last_mentioned_material == "316L"
+        assert ctx1.last_mentioned_process == "固溶"
