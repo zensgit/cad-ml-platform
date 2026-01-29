@@ -85,6 +85,7 @@ class KnowledgeRetriever:
             RetrievalSource.WELDING: self._retrieve_welding,
             RetrievalSource.HEAT_TREATMENT: self._retrieve_heat_treatment,
             RetrievalSource.SURFACE_TREATMENT: self._retrieve_surface_treatment,
+            RetrievalSource.GDT: self._retrieve_gdt,
         }
         self._semantic_retriever = None
 
@@ -230,6 +231,8 @@ class KnowledgeRetriever:
             QueryIntent.ELECTROPLATING: [RetrievalSource.SURFACE_TREATMENT],
             QueryIntent.ANODIZING: [RetrievalSource.SURFACE_TREATMENT],
             QueryIntent.COATING: [RetrievalSource.SURFACE_TREATMENT],
+            QueryIntent.GDT_INTERPRETATION: [RetrievalSource.GDT],
+            QueryIntent.GDT_APPLICATION: [RetrievalSource.GDT, RetrievalSource.TOLERANCE],
         }
         return mapping.get(intent, [RetrievalSource.MATERIALS])
 
@@ -1022,6 +1025,158 @@ class KnowledgeRetriever:
                         summary=f"{environment}环境涂层: 最小厚度{env_info.get('min_dft_um', 'N/A')}μm",
                         metadata={"id": f"coating_env_{environment}"},
                     ))
+
+        return results
+
+    def _retrieve_gdt(self, query: AnalyzedQuery) -> List[RetrievalResult]:
+        """Retrieve from GD&T knowledge base."""
+        results = []
+
+        try:
+            from src.core.knowledge.gdt import (
+                GDTCharacteristic,
+                GDTCategory,
+                get_gdt_symbol,
+                get_all_symbols,
+                get_tolerance_zone,
+                get_recommended_tolerance,
+                get_gdt_for_feature,
+                interpret_feature_control_frame,
+            )
+            from src.core.knowledge.gdt.tolerances import ToleranceGrade
+            from src.core.knowledge.gdt.application import FeatureType, get_gdt_rule_one_guidance
+        except ImportError:
+            return results
+
+        # Map keywords to characteristics
+        char_keywords = {
+            "平面度": GDTCharacteristic.FLATNESS,
+            "直线度": GDTCharacteristic.STRAIGHTNESS,
+            "圆度": GDTCharacteristic.CIRCULARITY,
+            "圆柱度": GDTCharacteristic.CYLINDRICITY,
+            "垂直度": GDTCharacteristic.PERPENDICULARITY,
+            "平行度": GDTCharacteristic.PARALLELISM,
+            "位置度": GDTCharacteristic.POSITION,
+            "同心度": GDTCharacteristic.CONCENTRICITY,
+            "对称度": GDTCharacteristic.SYMMETRY,
+            "圆跳动": GDTCharacteristic.CIRCULAR_RUNOUT,
+            "全跳动": GDTCharacteristic.TOTAL_RUNOUT,
+            "倾斜度": GDTCharacteristic.ANGULARITY,
+        }
+
+        # Check for specific characteristic queries
+        matched_char = None
+        for keyword, char in char_keywords.items():
+            if keyword in query.original_query:
+                matched_char = char
+                break
+
+        if matched_char:
+            # Get symbol info
+            info = get_gdt_symbol(matched_char)
+            if info:
+                results.append(RetrievalResult(
+                    source=RetrievalSource.GDT,
+                    relevance=0.95,
+                    data={
+                        "characteristic": matched_char.value,
+                        "name_zh": info.name_zh,
+                        "name_en": info.name_en,
+                        "symbol": info.symbol_unicode,
+                        "category": info.category.value,
+                        "requires_datum": info.requires_datum,
+                        "applications": info.typical_applications,
+                    },
+                    summary=f"{info.name_zh} ({info.symbol_unicode}): {info.description_zh}",
+                    metadata={"id": f"gdt_{matched_char.value}"},
+                ))
+
+                # Get recommended tolerance
+                size = query.entities.get("diameter")
+                if size:
+                    try:
+                        s = float(size)
+                        tol = get_recommended_tolerance(matched_char, s, ToleranceGrade.K)
+                        if tol:
+                            results.append(RetrievalResult(
+                                source=RetrievalSource.GDT,
+                                relevance=0.9,
+                                data={
+                                    "characteristic": matched_char.value,
+                                    "size": s,
+                                    "grade": "K",
+                                    "recommended_tolerance": tol,
+                                },
+                                summary=f"{info.name_zh}推荐值 @ {s}mm (K级): {tol}mm",
+                                metadata={"id": f"gdt_tol_{matched_char.value}_{s}"},
+                            ))
+                    except ValueError:
+                        pass
+
+        # GD&T interpretation query - return category overview
+        if query.intent == QueryIntent.GDT_INTERPRETATION:
+            for category in [GDTCategory.FORM, GDTCategory.ORIENTATION, GDTCategory.LOCATION, GDTCategory.RUNOUT]:
+                symbols = get_all_symbols(category)
+                if symbols:
+                    category_names = {
+                        GDTCategory.FORM: "形状公差",
+                        GDTCategory.ORIENTATION: "方向公差",
+                        GDTCategory.LOCATION: "位置公差",
+                        GDTCategory.RUNOUT: "跳动公差",
+                    }
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.GDT,
+                        relevance=0.8,
+                        data={
+                            "category": category.value,
+                            "name_zh": category_names.get(category, category.value),
+                            "symbols": [
+                                {"name": s.name_zh, "symbol": s.symbol_unicode, "requires_datum": s.requires_datum}
+                                for s in symbols
+                            ],
+                        },
+                        summary=f"{category_names.get(category)}: {', '.join(s.name_zh for s in symbols[:4])}",
+                        metadata={"id": f"gdt_category_{category.value}"},
+                    ))
+
+            # Add Rule #1 guidance
+            rule_one = get_gdt_rule_one_guidance()
+            results.append(RetrievalResult(
+                source=RetrievalSource.GDT,
+                relevance=0.75,
+                data=rule_one,
+                summary=f"{rule_one['name_zh']}: {rule_one['principle']}",
+                metadata={"id": "gdt_rule_one"},
+            ))
+
+        # GD&T application query - feature-based recommendations
+        if query.intent == QueryIntent.GDT_APPLICATION:
+            feature_keywords = {
+                "孔": FeatureType.HOLE,
+                "轴": FeatureType.SHAFT,
+                "平面": FeatureType.FLAT_SURFACE,
+                "槽": FeatureType.SLOT,
+                "螺纹": FeatureType.THREAD,
+            }
+
+            for keyword, feature_type in feature_keywords.items():
+                if keyword in query.original_query:
+                    app = get_gdt_for_feature(feature_type)
+                    results.append(RetrievalResult(
+                        source=RetrievalSource.GDT,
+                        relevance=0.9,
+                        data={
+                            "feature_type": feature_type.value,
+                            "recommended_characteristics": [c.value for c in app.recommended_characteristics],
+                            "typical_tolerances": {
+                                c.value: t for c, t in app.typical_tolerances.items()
+                            },
+                            "inspection_methods": [m.value for m in app.inspection_methods],
+                        },
+                        summary=f"{keyword}特征GD&T: {', '.join(c.value for c in app.recommended_characteristics[:3])}",
+                        metadata={"id": f"gdt_app_{feature_type.value}"},
+                    ))
+                    break
 
         return results
 
