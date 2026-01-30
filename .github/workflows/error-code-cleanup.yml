@@ -253,7 +253,7 @@ jobs:
 
       - name: Add PR comment with details
         if: steps.pr.outputs.pull-request-number
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
