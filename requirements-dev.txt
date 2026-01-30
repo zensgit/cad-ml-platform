@@ -1,17 +1,17 @@
 # Development-only dependencies for CAD ML Platform
 
 # Linters/formatters
-black==24.3.0
-isort==5.12.0
+black==24.10.0
+isort==5.13.2
 flake8==6.1.0
 
 # Typing
-mypy==1.7.1
+mypy==1.19.1
 types-requests==2.32.4.20250913
 
 # Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
+pytest==7.4.4
+pytest-asyncio==0.26.0
 pytest-cov==4.1.0
 httpx==0.28.1
 httpcore==1.0.9
@@ -22,7 +22,7 @@ aiomqtt==1.2.1
 # safety
 
 # Validation helpers
-jsonschema==4.21.1
+jsonschema==4.26.0
 
 # Pre-commit helpers
-pre-commit==3.5.0
+pre-commit==3.8.0
