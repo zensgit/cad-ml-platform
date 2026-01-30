@@ -108,8 +108,8 @@ class TelemetryConfig:
     def __init__(
         self,
         service_name: str = "cad-ml-platform",
-        otlp_endpoint: str | None = None,
-        jaeger_host: str | None = None,
+        otlp_endpoint: Optional[str] = None,
+        jaeger_host: Optional[str] = None,
         jaeger_port: int = 6831,
         enable_auto_instrumentation: bool = True,
         enable_console_export: bool = False,
@@ -155,7 +155,7 @@ _meter: Any = None
 
 def setup_telemetry(
     app: Any = None,
-    config: TelemetryConfig | None = None,
+    config: Optional[TelemetryConfig] = None,
 ) -> Any:
     """Set up OpenTelemetry tracing and metrics.
 
@@ -240,7 +240,7 @@ def _setup_auto_instrumentation(app: Any = None) -> None:
         logger.debug("HTTPX auto-instrumentation enabled")
 
 
-def get_tracer(name: str | None = None) -> Any:
+def get_tracer(name: Optional[str] = None) -> Any:
     """Get a tracer instance.
 
     Args:
@@ -261,7 +261,7 @@ def get_tracer(name: str | None = None) -> Any:
     return _tracer
 
 
-def get_meter(name: str | None = None) -> Any:
+def get_meter(name: Optional[str] = None) -> Any:
     """Get a meter instance for metrics.
 
     Args:
@@ -277,8 +277,8 @@ def get_meter(name: str | None = None) -> Any:
 
 
 def traced(
-    name: str | None = None,
-    attributes: dict[str, Any] | None = None,
+    name: Optional[str] = None,
+    attributes: Optional[Dict[str, Any]] = None,
 ) -> Callable:
     """Decorator to automatically trace a function.
 
@@ -349,7 +349,7 @@ def traced(
 @contextmanager
 def trace_operation(
     name: str,
-    attributes: dict[str, Any] | None = None,
+    attributes: Optional[Dict[str, Any]] = None,
 ) -> Generator[Any, None, None]:
     """Context manager for tracing a code block.
 
@@ -428,12 +428,12 @@ class _NoOpMeter:
 
 
 class _NoOpCounter:
-    def add(self, value: int, attributes: dict | None = None) -> None:
+    def add(self, value: int, attributes: Optional[dict] = None) -> None:
         pass
 
 
 class _NoOpHistogram:
-    def record(self, value: float, attributes: dict | None = None) -> None:
+    def record(self, value: float, attributes: Optional[dict] = None) -> None:
         pass
 
 

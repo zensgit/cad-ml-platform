@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from math import sqrt
-from typing import Any, Dict, List, Protocol, runtime_checkable
+from typing import Any, Dict, List, Optional, Protocol, Set, Union, runtime_checkable
 
 from src.core.errors_extended import ErrorCode
 from src.core.vector_layouts import VECTOR_LAYOUT_BASE
@@ -31,7 +31,7 @@ from src.utils.cache import get_sync_client
 _VECTOR_STORE: Dict[str, List[float]] = {}
 _VECTOR_META: Dict[str, Dict[str, str]] = {}
 _VECTOR_LOCK = __import__("threading").RLock()
-_LAST_VECTOR_ERROR: Dict[str, str] | None = None
+_LAST_VECTOR_ERROR: Optional[Dict[str, str]] = None
 
 _BACKEND = os.getenv("VECTOR_STORE_BACKEND", "memory")
 _TTL_SECONDS = int(os.getenv("VECTOR_TTL_SECONDS", "0"))  # 0 = disabled
@@ -40,19 +40,19 @@ _VECTOR_LAST_ACCESS: Dict[str, float] = {}
 
 # Degraded mode flag: set when Faiss falls back to memory
 _VECTOR_DEGRADED: bool = False
-_VECTOR_DEGRADED_REASON: str | None = None
-_VECTOR_DEGRADED_AT: float | None = None
+_VECTOR_DEGRADED_REASON: Optional[str] = None
+_VECTOR_DEGRADED_AT: Optional[float] = None
 
 # Degradation history (limited to last 10 events)
-_DEGRADATION_HISTORY: list[Dict[str, Any]] = []
+_DEGRADATION_HISTORY: List[Dict[str, Any]] = []
 _MAX_DEGRADATION_HISTORY = 10
 _FAISS_RECOVERY_LOCK = __import__("threading").Lock()
 _FAISS_MANUAL_RECOVERY_IN_PROGRESS = False
 _FAISS_RECOVERY_INTERVAL_SECONDS = float(os.getenv("FAISS_RECOVERY_INTERVAL_SECONDS", "300"))
 _FAISS_RECOVERY_MAX_BACKOFF = float(os.getenv("FAISS_RECOVERY_MAX_BACKOFF", "3600"))
 _FAISS_RECOVERY_BACKOFF_MULTIPLIER = float(os.getenv("FAISS_RECOVERY_BACKOFF_MULTIPLIER", "2"))
-_FAISS_NEXT_RECOVERY_TS: float | None = None
-_FAISS_SUPPRESS_UNTIL_TS: float | None = None  # flapping suppression window
+_FAISS_NEXT_RECOVERY_TS: Optional[float] = None
+_FAISS_SUPPRESS_UNTIL_TS: Optional[float] = None  # flapping suppression window
 _FAISS_RECOVERY_FLAP_THRESHOLD = int(os.getenv("FAISS_RECOVERY_FLAP_THRESHOLD", "3"))
 _FAISS_RECOVERY_FLAP_WINDOW_SECONDS = int(
     os.getenv("FAISS_RECOVERY_FLAP_WINDOW_SECONDS", "900")
@@ -63,7 +63,7 @@ _FAISS_RECOVERY_SUPPRESSION_SECONDS = int(
 _FAISS_RECOVERY_STATE_BACKEND = os.getenv("FAISS_RECOVERY_STATE_BACKEND", "file").lower()
 
 
-def get_client() -> Any | None:
+def get_client() -> Optional[Any]:
     """Compatibility wrapper for recovery-state tests."""
     return get_sync_client()
 
@@ -155,7 +155,7 @@ def load_recovery_state():  # pragma: no cover (invoked at startup)
         return False
 
 
-def register_vector(doc_id: str, vector: List[float], meta: Dict[str, str] | None = None) -> bool:
+def register_vector(doc_id: str, vector: List[float], meta: Optional[Dict[str, str]] = None) -> bool:
     """Register a vector.
 
     Returns True if accepted, False if rejected (e.g. dimension mismatch).
@@ -235,7 +235,7 @@ def register_vector(doc_id: str, vector: List[float], meta: Dict[str, str] | Non
     return True
 
 
-def last_vector_error() -> Dict[str, str] | None:
+def last_vector_error() -> Optional[Dict[str, str]]:
     """Return the last structured vector registration error (dimension mismatch etc.)."""
     return _LAST_VECTOR_ERROR
 
@@ -245,7 +245,7 @@ def has_vector(doc_id: str) -> bool:
         return doc_id in _VECTOR_STORE
 
 
-def get_vector(doc_id: str) -> List[float] | None:
+def get_vector(doc_id: str) -> Optional[List[float]]:
     """Retrieve a vector by doc_id from memory or Redis backend."""
     with _VECTOR_LOCK:
         if doc_id in _VECTOR_STORE:
@@ -294,7 +294,7 @@ class VectorStoreProtocol(Protocol):
     def add(self, key: str, vector: List[float]) -> None:
         ...  # noqa: D401
 
-    def get(self, key: str) -> List[float] | None:
+    def get(self, key: str) -> Optional[List[float]]:
         ...
 
     def exists(self, key: str) -> bool:
@@ -303,7 +303,7 @@ class VectorStoreProtocol(Protocol):
     def query(self, vector: List[float], top_k: int = 5) -> List[tuple[str, float]]:
         ...
 
-    def meta(self, key: str) -> Dict[str, str] | None:
+    def meta(self, key: str) -> Optional[Dict[str, str]]:
         ...  # noqa: D102
 
 
@@ -316,7 +316,7 @@ class InMemoryVectorStore(VectorStoreProtocol):
     def add(self, key: str, vector: List[float]) -> None:
         self._store[key] = vector
 
-    def get(self, key: str) -> List[float] | None:
+    def get(self, key: str) -> Optional[List[float]]:
         if key in self._store:
             return self._store.get(key)
         if _BACKEND == "redis":
@@ -377,7 +377,7 @@ class InMemoryVectorStore(VectorStoreProtocol):
                 _VECTOR_LAST_ACCESS[k] = _t.time()
         return sorted(results, key=lambda x: x[1], reverse=True)[:top_k]
 
-    def meta(self, key: str) -> Dict[str, str] | None:
+    def meta(self, key: str) -> Optional[Dict[str, str]]:
         if key in _VECTOR_META:
             return _VECTOR_META.get(key)
         if _BACKEND == "redis":
@@ -468,19 +468,19 @@ async def background_prune_task(interval: float = 30.0) -> None:  # pragma: no c
 
 
 _FAISS_INDEX = None  # type: ignore
-_FAISS_DIM: int | None = None
+_FAISS_DIM: Optional[int] = None
 _FAISS_ID_MAP: Dict[int, str] = {}
 _FAISS_REVERSE_MAP: Dict[str, int] = {}
-_FAISS_AVAILABLE: bool | None = None
-_FAISS_PENDING_DELETE: set[str] = set()
+_FAISS_AVAILABLE: Optional[bool] = None
+_FAISS_PENDING_DELETE: Set[str] = set()
 _FAISS_LAST_EXPORT_SIZE: int = 0
-_FAISS_LAST_EXPORT_TS: float | None = None
-_FAISS_LAST_IMPORT: float | None = None
+_FAISS_LAST_EXPORT_TS: Optional[float] = None
+_FAISS_LAST_IMPORT: Optional[float] = None
 _FAISS_IMPORTED: bool = False
 _FAISS_MAX_PENDING_DELETE = int(os.getenv("FAISS_MAX_PENDING_DELETE", "100"))
 _FAISS_REBUILD_BACKOFF = float(os.getenv("FAISS_REBUILD_BACKOFF_INITIAL", "5"))  # seconds
 _FAISS_REBUILD_BACKOFF_MAX = float(os.getenv("FAISS_REBUILD_BACKOFF_MAX", "300"))
-_FAISS_NEXT_REBUILD_TS: float | None = None
+_FAISS_NEXT_REBUILD_TS: Optional[float] = None
 
 
 class FaissVectorStore(VectorStoreProtocol):
@@ -489,7 +489,7 @@ class FaissVectorStore(VectorStoreProtocol):
     Gracefully degrades to unavailable state if faiss not installed.
     """
 
-    def __init__(self, normalize: bool | None = None) -> None:
+    def __init__(self, normalize: Optional[bool] = None) -> None:
         global _FAISS_AVAILABLE
         if _FAISS_AVAILABLE is None:
             try:
@@ -559,7 +559,7 @@ class FaissVectorStore(VectorStoreProtocol):
         except Exception:
             pass
 
-    def get(self, key: str) -> List[float] | None:
+    def get(self, key: str) -> Optional[List[float]]:
         return _VECTOR_STORE.get(key)
 
     def exists(self, key: str) -> bool:
@@ -758,14 +758,14 @@ class FaissVectorStore(VectorStoreProtocol):
 # Vector Store Factory and Dependency Injection
 # ============================================================================
 
-_DEFAULT_STORE: VectorStoreProtocol | None = None
+_DEFAULT_STORE: Optional[VectorStoreProtocol] = None
 
 
 def _set_store_metadata(
     store: VectorStoreProtocol,
     requested_backend: str,
     actual_backend: str,
-    fallback_from: str | None = None,
+    fallback_from: Optional[str] = None,
 ) -> None:
     try:
         setattr(store, "_requested_backend", requested_backend)
@@ -789,7 +789,7 @@ def reload_vector_store_backend() -> bool:
         return False
 
 
-def get_vector_store(backend: str | None = None) -> VectorStoreProtocol:
+def get_vector_store(backend: Optional[str] = None) -> VectorStoreProtocol:
     """Factory function to get the appropriate vector store backend.
 
     Args:
@@ -956,7 +956,7 @@ def get_degraded_mode_info() -> Dict[str, any]:
     }
 
 
-def attempt_faiss_recovery(now: float | None = None) -> bool:
+def attempt_faiss_recovery(now: Optional[float] = None) -> bool:
     """Try to recover from degraded mode by reinitializing Faiss backend.
 
     Returns True if recovery succeeded (and flags were cleared), False otherwise.
@@ -1096,7 +1096,7 @@ async def faiss_recovery_loop() -> None:  # pragma: no cover (background loop)
 
 
 def _detect_flapping_and_set_suppression(
-    now: float | None = None,
+    now: Optional[float] = None,
 ) -> bool:  # pragma: no cover - tested via unit
     """Internal helper to detect flapping degraded events and set suppression window.
 

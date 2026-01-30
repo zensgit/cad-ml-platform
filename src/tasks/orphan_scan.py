@@ -5,12 +5,13 @@ from __future__ import annotations
 import asyncio
 import os
 import time
+from typing import Optional
 
 from src.utils.analysis_metrics import vector_orphan_scan_last_seconds, vector_orphan_total
 from src.utils.cache import get_client
 
 
-async def orphan_scan_loop(interval: float | None = None) -> None:  # pragma: no cover (loop)
+async def orphan_scan_loop(interval: Optional[float] = None) -> None:  # pragma: no cover (loop)
     scan_interval = interval or float(os.getenv("VECTOR_ORPHAN_SCAN_INTERVAL_SECONDS", "300"))
     last_scan = time.time()
     while True:

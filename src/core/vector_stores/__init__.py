@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from src.core.protocols import VectorStoreProtocol
@@ -41,7 +41,7 @@ class VectorStoreConnectionError(VectorStoreError):
     pass
 
 
-def get_vector_store(backend: str | None = None) -> "VectorStoreProtocol":
+def get_vector_store(backend: Optional[str] = None) -> "VectorStoreProtocol":
     """Get vector store instance with automatic fallback.
 
     Args:

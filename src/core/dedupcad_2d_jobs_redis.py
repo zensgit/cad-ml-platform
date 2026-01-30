@@ -184,7 +184,7 @@ def _tenant_jobs_key(cfg: Dedup2DRedisJobConfig, tenant_id: str) -> str:
     return f"{cfg.key_prefix}:tenant:{tenant_id}:jobs"
 
 
-_POOL: ArqRedis | None = None
+_POOL: Optional[ArqRedis] = None
 _POOL_LOCK = asyncio.Lock()
 
 

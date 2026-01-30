@@ -23,7 +23,7 @@ import os
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +46,8 @@ class VectorSearchResult:
 
     id: str
     score: float
-    metadata: dict[str, Any] = field(default_factory=dict)
-    vector: list[float] | None = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    vector: Optional[List[float]] = None
 
 
 @dataclass
@@ -57,7 +57,7 @@ class QdrantConfig:
     host: str = "localhost"
     port: int = 6333
     grpc_port: int = 6334
-    api_key: str | None = None
+    api_key: Optional[str] = None
     https: bool = False
     collection_name: str = "cad_vectors"
     vector_size: int = 128
@@ -97,7 +97,7 @@ class QdrantVectorStore:
         client: Qdrant client instance
     """
 
-    def __init__(self, config: QdrantConfig | None = None):
+    def __init__(self, config: Optional[QdrantConfig] = None):
         """Initialize Qdrant vector store.
 
         Args:
@@ -113,7 +113,7 @@ class QdrantVectorStore:
             )
 
         self.config = config or QdrantConfig.from_env()
-        self._client: QdrantClient | None = None
+        self._client: Optional[QdrantClient] = None
         self._initialized = False
 
     @property
@@ -194,8 +194,8 @@ class QdrantVectorStore:
     async def register_vector(
         self,
         vector_id: str,
-        vector: list[float],
-        metadata: dict[str, Any] | None = None,
+        vector: List[float],
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> bool:
         """Register a vector with metadata.
 
@@ -243,7 +243,7 @@ class QdrantVectorStore:
 
     async def register_vectors_batch(
         self,
-        vectors: list[tuple[str, list[float], dict[str, Any] | None]],
+        vectors: List[tuple],
         batch_size: int = 100,
     ) -> int:
         """Register multiple vectors in batches.
@@ -286,12 +286,12 @@ class QdrantVectorStore:
 
     async def search_similar(
         self,
-        query_vector: list[float],
+        query_vector: List[float],
         top_k: int = 10,
-        filter_conditions: dict[str, Any] | None = None,
-        score_threshold: float | None = None,
+        filter_conditions: Optional[Dict[str, Any]] = None,
+        score_threshold: Optional[float] = None,
         with_vectors: bool = False,
-    ) -> list[VectorSearchResult]:
+    ) -> List[VectorSearchResult]:
         """Search for similar vectors.
 
         This replaces ~150 lines of FAISS search, metadata filtering,
@@ -379,7 +379,7 @@ class QdrantVectorStore:
             logger.error(f"Search failed: {e}")
             raise
 
-    async def get_vector(self, vector_id: str) -> VectorSearchResult | None:
+    async def get_vector(self, vector_id: str) -> Optional[VectorSearchResult]:
         """Get a specific vector by ID.
 
         Args:
@@ -432,7 +432,7 @@ class QdrantVectorStore:
             logger.error(f"Failed to delete vector {vector_id}: {e}")
             return False
 
-    async def delete_vectors_by_filter(self, filter_conditions: dict[str, Any]) -> int:
+    async def delete_vectors_by_filter(self, filter_conditions: Dict[str, Any]) -> int:
         """Delete vectors matching filter conditions.
 
         Args:
@@ -472,7 +472,7 @@ class QdrantVectorStore:
             logger.error(f"Failed to delete vectors by filter: {e}")
             raise
 
-    async def update_metadata(self, vector_id: str, metadata: dict[str, Any]) -> bool:
+    async def update_metadata(self, vector_id: str, metadata: Dict[str, Any]) -> bool:
         """Update metadata for a vector.
 
         Args:
@@ -495,7 +495,7 @@ class QdrantVectorStore:
             logger.error(f"Failed to update metadata for {vector_id}: {e}")
             return False
 
-    async def count(self, filter_conditions: dict[str, Any] | None = None) -> int:
+    async def count(self, filter_conditions: Optional[Dict[str, Any]] = None) -> int:
         """Count vectors, optionally with filter.
 
         Args:
@@ -523,7 +523,7 @@ class QdrantVectorStore:
         )
         return result.count
 
-    async def get_stats(self) -> dict[str, Any]:
+    async def get_stats(self) -> Dict[str, Any]:
         """Get collection statistics.
 
         Returns:

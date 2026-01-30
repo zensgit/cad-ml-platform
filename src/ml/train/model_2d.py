@@ -42,7 +42,7 @@ class SimpleGraphClassifier(nn.Module):
         self,
         x: torch.Tensor,
         edge_index: torch.Tensor,
-        edge_attr: torch.Tensor | None = None,
+        edge_attr: torch.Optional[Tensor] = None,
     ) -> torch.Tensor:
         x = torch.relu(self.gcn1(x, edge_index))
         x = torch.relu(self.gcn2(x, edge_index))

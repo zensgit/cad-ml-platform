@@ -140,7 +140,7 @@ def load_validation_matrix() -> Dict[str, Any]:
 
 
 def matrix_validate(
-    data: bytes, file_format: str, project_id: str | None = None
+    data: bytes, file_format: str, project_id: Optional[str] = None
 ) -> Tuple[bool, str]:
     matrix = load_validation_matrix()
     fmts = matrix.get("formats", {})
@@ -238,7 +238,7 @@ def _resolve_mime(upload_file: UploadFile, data: bytes) -> str:
     return _resolve_mime_parts(filename, content_type, data)
 
 
-def _resolve_mime_parts(filename: str, content_type: str | None, data: bytes) -> str:
+def _resolve_mime_parts(filename: str, content_type: Optional[str], data: bytes) -> str:
     sniffed_mime, _ = sniff_mime(data)
     upload_mime = content_type.strip() if isinstance(content_type, str) else ""
     if upload_mime and upload_mime != "application/octet-stream":
@@ -279,7 +279,7 @@ async def validate_and_read(upload_file: UploadFile) -> tuple[bytes, str]:
 def validate_bytes(
     data: bytes,
     filename: str = "",
-    content_type: str | None = None,
+    content_type: Optional[str] = None,
 ) -> tuple[bytes, str]:
     max_mb = _get_env_float("OCR_MAX_FILE_MB", 50.0)
     if max_mb > 0 and len(data) > int(max_mb * 1024 * 1024):

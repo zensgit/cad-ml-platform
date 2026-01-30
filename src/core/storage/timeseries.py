@@ -28,7 +28,7 @@ class InMemoryTimeSeriesStore:
     def __init__(self, max_per_device: int = 1000):
         self._max_per_device = max_per_device
         self._store: Dict[str, Deque[TelemetryFrame]] = defaultdict(deque)
-        self._lock: asyncio.Lock | None = None
+        self._lock: asyncio.Optional[Lock] = None
 
     def _get_lock(self) -> asyncio.Lock:
         """Lazily create lock to avoid issues with missing event loop at import time."""

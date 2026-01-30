@@ -17,27 +17,27 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 _MODEL = None
-_MODEL_LOADED_AT: float | None = None
+_MODEL_LOADED_AT: Optional[float] = None
 _MODEL_VERSION = os.getenv("CLASSIFICATION_MODEL_VERSION", "none")
 _MODEL_PATH = Path(os.getenv("CLASSIFICATION_MODEL_PATH", "models/classifier_v1.pkl"))
-_MODEL_HASH: str | None = None
-_MODEL_LAST_ERROR: str | None = None
+_MODEL_HASH: Optional[str] = None
+_MODEL_LAST_ERROR: Optional[str] = None
 _MODEL_LOAD_SEQ: int = 0  # Monotonic sequence to disambiguate reloads
 # Previous model snapshot for rollback
-_MODEL_PREV: Dict[str, Any] | None = None
-_MODEL_PREV_HASH: str | None = None
-_MODEL_PREV_VERSION: str | None = None
-_MODEL_PREV_PATH: Path | None = None
+_MODEL_PREV: Optional[Dict[str, Any]] = None
+_MODEL_PREV_HASH: Optional[str] = None
+_MODEL_PREV_VERSION: Optional[str] = None
+_MODEL_PREV_PATH: Optional[Path] = None
 # Second level rollback snapshot (in case rollback target also fails later)
-_MODEL_PREV2: Dict[str, Any] | None = None
-_MODEL_PREV2_HASH: str | None = None
-_MODEL_PREV2_VERSION: str | None = None
-_MODEL_PREV2_PATH: Path | None = None
+_MODEL_PREV2: Optional[Dict[str, Any]] = None
+_MODEL_PREV2_HASH: Optional[str] = None
+_MODEL_PREV2_VERSION: Optional[str] = None
+_MODEL_PREV2_PATH: Optional[Path] = None
 # Third level rollback snapshot (deepest recovery point)
-_MODEL_PREV3: Dict[str, Any] | None = None
-_MODEL_PREV3_HASH: str | None = None
-_MODEL_PREV3_VERSION: str | None = None
-_MODEL_PREV3_PATH: Path | None = None
+_MODEL_PREV3: Optional[Dict[str, Any]] = None
+_MODEL_PREV3_HASH: Optional[str] = None
+_MODEL_PREV3_VERSION: Optional[str] = None
+_MODEL_PREV3_PATH: Optional[Path] = None
 # Thread safety for reload operations
 _MODEL_LOCK = threading.Lock()
 _OPCODE_AUDIT_SET: set[str] = set()
@@ -225,7 +225,7 @@ def get_opcode_audit_snapshot() -> Dict[str, Any]:
 
 
 def reload_model(
-    path: str | None, expected_version: str | None = None, force: bool = False
+    path: Optional[str], expected_version: Optional[str] = None, force: bool = False
 ) -> Dict[str, Any]:
     """Hot reload classification model with security validation.
 
@@ -257,8 +257,8 @@ def reload_model(
 
 
 def _reload_model_impl(
-    path: str | None,
-    expected_version: str | None,
+    path: Optional[str],
+    expected_version: Optional[str],
     force: bool,
     model_reload_total,
     model_security_fail_total,

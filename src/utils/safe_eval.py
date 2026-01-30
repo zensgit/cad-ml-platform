@@ -112,7 +112,7 @@ def _eval_slice(node: ast.AST, names: Mapping[str, Any]) -> Any:
     return _eval_node(node, names)
 
 
-def _eval_optional(node: ast.AST | None, names: Mapping[str, Any]) -> Any | None:
+def _eval_optional(node: ast.Optional[AST], names: Mapping[str, Any]) -> Optional[Any]:
     if node is None:
         return None
     return _eval_node(node, names)

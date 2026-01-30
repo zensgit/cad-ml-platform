@@ -29,7 +29,7 @@ async def _render_via_fallback(
     file_name: str,
     file_bytes: bytes,
     content_type: str,
-) -> bytes | None:
+) -> Optional[bytes]:
     base_url = os.getenv("CAD_RENDER_FALLBACK_URL", "").strip()
     if not base_url:
         return None

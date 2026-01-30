@@ -11,6 +11,7 @@ import io
 import logging
 import os
 import time
+from typing import Optional
 
 os.environ.setdefault("DISABLE_MODEL_SOURCE_CHECK", "1")
 
@@ -114,7 +115,7 @@ class PaddleOcrProvider(OcrClient):
                     raise
         self._initialized = True
 
-    async def extract(self, image_bytes: bytes, trace_id: str | None = None) -> OcrResult:
+    async def extract(self, image_bytes: bytes, trace_id: Optional[str] = None) -> OcrResult:
         start = time.time()
         timer = StageTimer()
         timer.start("preprocess")

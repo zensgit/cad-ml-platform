@@ -162,7 +162,7 @@ SLOTS_V4 = [
 
 
 class FeatureExtractor:
-    def __init__(self, feature_version: str | None = None):
+    def __init__(self, feature_version: Optional[str] = None):
         """Initialize FeatureExtractor with optional version override.
 
         Args:
@@ -173,7 +173,7 @@ class FeatureExtractor:
         self.feature_version = feature_version
 
     def upgrade_vector(
-        self, existing: List[float], current_version: str | None = None
+        self, existing: List[float], current_version: Optional[str] = None
     ) -> List[float]:
         """Upgrade an existing combined vector to target version.
 

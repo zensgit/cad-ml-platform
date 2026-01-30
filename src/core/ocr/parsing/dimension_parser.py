@@ -58,7 +58,7 @@ def _norm_number(token: str) -> float:
     return float(token.replace("＋", "+").replace("－", "-").replace(" ", ""))
 
 
-def _to_mm(value: float, unit: str | None) -> float:
+def _to_mm(value: float, unit: Optional[str]) -> float:
     if not unit:
         return value
     u = unit.lower()

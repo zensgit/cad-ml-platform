@@ -647,7 +647,7 @@ async def analyze_cad_file(
             except Exception:
                 pass
             extractor = FeatureExtractor()
-            combined_vec: list[float] | None = None
+            combined_vec: Optional[List[float]] = None
             if cached_vector is not None:
                 feature_cache_hits_total.inc()
                 # rehydrate cached vector into geometric/semantic split
@@ -812,7 +812,7 @@ async def analyze_cad_file(
                     else "rules"
                 )
                 # Attempt ML classification overlay
-                ml_result: Dict[str, Any] | None = None
+                ml_result: Optional[Dict[str, Any]] = None
                 try:
                     from src.ml.classifier import predict
 
@@ -827,8 +827,8 @@ async def analyze_cad_file(
                     ml_result = None
                     cls_payload["model_version"] = "ml_error"
                 # Optional 2D graph classifier (shadow by default)
-                graph2d_result: Dict[str, Any] | None = None
-                graph2d_fusable: Dict[str, Any] | None = None
+                graph2d_result: Optional[Dict[str, Any]] = None
+                graph2d_fusable: Optional[Dict[str, Any]] = None
                 graph2d_enabled = os.getenv("GRAPH2D_ENABLED", "false").lower() == "true"
                 if graph2d_enabled and file_format == "dxf":
                     try:
@@ -881,7 +881,7 @@ async def analyze_cad_file(
                     except Exception:
                         graph2d_result = None
                 # Optional Hybrid classifier (filename + graph2d fusion)
-                hybrid_result: Dict[str, Any] | None = None
+                hybrid_result: Optional[Dict[str, Any]] = None
                 hybrid_enabled = os.getenv("HYBRID_CLASSIFIER_ENABLED", "true").lower() == "true"
                 if hybrid_enabled and file_format == "dxf":
                     try:
@@ -902,7 +902,7 @@ async def analyze_cad_file(
                         cls_payload["hybrid_decision"] = hybrid_result
                     except Exception as exc:
                         cls_payload["hybrid_error"] = str(exc)
-                soft_override_suggestion: Dict[str, Any] | None = None
+                soft_override_suggestion: Optional[Dict[str, Any]] = None
                 if graph2d_result and graph2d_result.get("status") != "model_unavailable":
                     soft_override_min_conf = _safe_float_env(
                         "GRAPH2D_SOFT_OVERRIDE_MIN_CONF", 0.17
@@ -1312,7 +1312,7 @@ async def analyze_cad_file(
             feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
             feature_vector: list[float] = FeatureExtractor().flatten(features)
             vector_layout = VECTOR_LAYOUT_BASE
-            l3_dim: int | None = None
+            l3_dim: Optional[int] = None
 
             # L3 Integration: Append 3D embedding if available
             if "features_3d" in locals() and "embedding_vector" in features_3d:

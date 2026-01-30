@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class FeatureCache:
@@ -38,7 +38,7 @@ class FeatureCache:
             self._store.pop(k, None)
         return len(expired_keys)
 
-    def get(self, key: str) -> List[float] | None:
+    def get(self, key: str) -> Optional[List[float]]:
         self._purge_expired()
         if key not in self._store:
             self._misses += 1
@@ -109,10 +109,10 @@ class FeatureCache:
 
 
 # Global singleton (simple usage pattern for current scope)
-_FEATURE_CACHE: FeatureCache | None = None
+_FEATURE_CACHE: Optional[FeatureCache] = None
 
 # Snapshot for apply/rollback window
-_CACHE_PREV_SNAPSHOT: Dict[str, Any] | None = None
+_CACHE_PREV_SNAPSHOT: Optional[Dict[str, Any]] = None
 _CACHE_ROLLBACK_WINDOW_SECONDS = 5 * 60  # 5 minutes
 
 

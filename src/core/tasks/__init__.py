@@ -26,7 +26,7 @@ import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -73,10 +73,10 @@ class TaskResult:
     job_id: str
     status: TaskStatus
     result: Any = None
-    error: str | None = None
-    started_at: datetime | None = None
-    completed_at: datetime | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    error: Optional[str] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -86,7 +86,7 @@ class TaskConfig:
     redis_host: str = "localhost"
     redis_port: int = 6379
     redis_db: int = 0
-    redis_password: str | None = None
+    redis_password: Optional[str] = None
     max_jobs: int = 10
     job_timeout: int = 300  # 5 minutes
     retry_jobs: bool = True
@@ -118,7 +118,7 @@ class TaskClient:
         _pool: Arq Redis connection pool
     """
 
-    def __init__(self, config: TaskConfig | None = None):
+    def __init__(self, config: Optional[TaskConfig] = None):
         """Initialize task client.
 
         Args:
@@ -160,7 +160,7 @@ class TaskClient:
     async def submit_analysis(
         self,
         file_path: str,
-        options: dict[str, Any] | None = None,
+        options: Optional[Dict[str, Any]] = None,
         priority: int = 0,
     ) -> str:
         """Submit a CAD analysis task.
@@ -187,7 +187,7 @@ class TaskClient:
     async def submit_feature_extraction(
         self,
         document_id: str,
-        feature_types: list[str] | None = None,
+        feature_types: Optional[List[str]] = None,
     ) -> str:
         """Submit a feature extraction task.
 
@@ -211,9 +211,9 @@ class TaskClient:
 
     async def submit_similarity_search(
         self,
-        query_vector: list[float],
+        query_vector: List[float],
         top_k: int = 10,
-        filter_conditions: dict[str, Any] | None = None,
+        filter_conditions: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Submit a similarity search task.
 
@@ -332,7 +332,7 @@ class TaskClient:
 
 
 # Singleton instance
-_task_client: TaskClient | None = None
+_task_client: Optional[TaskClient] = None
 
 
 def get_task_client() -> TaskClient:

@@ -39,7 +39,7 @@ async def process_rules_audit(raw: bool = True, api_key: str = Depends(get_api_k
         cm = rules.get(m, {})
         if isinstance(cm, dict):
             complexities[m] = sorted([c for c in cm.keys() if isinstance(cm.get(c), list)])
-    file_hash: str | None = None
+    file_hash: Optional[str] = None
     try:
         if os.path.exists(path):
             with open(path, "rb") as f:

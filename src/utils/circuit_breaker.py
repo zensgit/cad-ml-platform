@@ -22,7 +22,7 @@ class CircuitConfig:
 
 
 class CircuitBreaker:
-    def __init__(self, key: str, cfg: CircuitConfig | None = None):
+    def __init__(self, key: str, cfg: Optional[CircuitConfig] = None):
         self.key = f"ocr:cb:{key}"
         self.cfg = cfg or CircuitConfig()
         self._state = 0

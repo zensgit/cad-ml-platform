@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 import os
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Union
 
 import yaml
 
@@ -51,11 +51,11 @@ DEFAULT_RULES = {
     },
 }
 
-_rules_cache: Dict[str, Any] | None = None
-_rules_mtime: float | None = None
+_rules_cache: Optional[Dict[str, Any]] = None
+_rules_mtime: Optional[float] = None
 
 
-def load_rules(path: str | None = None, *, force_reload: bool = False) -> Dict[str, Any]:
+def load_rules(path: Optional[str] = None, *, force_reload: bool = False) -> Dict[str, Any]:
     global _rules_cache, _rules_mtime
     path = path or os.getenv("PROCESS_RULES_FILE", "config/process_rules.yaml")
     if not force_reload and _rules_cache is not None:

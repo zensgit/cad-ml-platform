@@ -94,7 +94,7 @@ class OcrManager:
         image_bytes: bytes,
         strategy: str = "auto",
         crop_cfg: Optional[Dict] = None,
-        trace_id: str | None = None,
+        trace_id: Optional[str] = None,
     ) -> OcrResult:
         start = time.time()
         provider_name = self._select_provider(strategy)

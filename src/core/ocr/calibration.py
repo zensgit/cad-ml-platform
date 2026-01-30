@@ -30,7 +30,7 @@ class MultiEvidenceCalibrator:
       - parse_error_rate: ratio of parse errors (penalize high values)
     """
 
-    def __init__(self, weights: EvidenceWeights | None = None):
+    def __init__(self, weights: Optional[EvidenceWeights] = None):
         self.weights = weights or EvidenceWeights()
 
     def calibrate(
