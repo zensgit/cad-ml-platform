@@ -10,7 +10,7 @@ import json
 import logging
 import math
 import os
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import ezdxf
 import torch
@@ -147,8 +147,8 @@ class DXFDataset(Dataset):
             return empty_graph, label.long().squeeze()
 
     def _dxf_to_graph(
-        self, msp, node_dim: int | None = None, return_edge_attr: bool = False
-    ) -> Tuple[torch.Tensor, torch.Tensor] | Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, msp, node_dim: Optional[int] = None, return_edge_attr: bool = False
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
         """Convert DXF entities to Node Features and Adjacency."""
         node_dim = node_dim or DXF_NODE_DIM
         legacy_mode = node_dim <= len(DXF_NODE_FEATURES_LEGACY)
@@ -519,7 +519,7 @@ class DXFManifestDataset(Dataset):
         self,
         manifest_csv: str,
         dxf_dir: str,
-        label_map: Dict[str, int] | None = None,
+        label_map: Optional[Dict[str, int]] = None,
         node_dim: int = DXF_NODE_DIM,
         return_edge_attr: bool = False,
     ):
@@ -589,8 +589,8 @@ class DXFManifestDataset(Dataset):
         return dict(self.label_map)
 
     def _dxf_to_graph(
-        self, msp, node_dim: int | None = None, return_edge_attr: bool = False
-    ) -> Tuple[torch.Tensor, torch.Tensor] | Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, msp, node_dim: Optional[int] = None, return_edge_attr: bool = False
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
         # Reuse graph builder from DXFDataset
         return DXFDataset._dxf_to_graph(
             self, msp, node_dim=node_dim, return_edge_attr=return_edge_attr
