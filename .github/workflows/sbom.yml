@@ -172,7 +172,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download SBOM artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: sbom-artifacts-${{ github.sha }}
 
@@ -203,7 +203,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download SBOM
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: sbom-artifacts-${{ github.sha }}
 
@@ -251,7 +251,7 @@ jobs:
           python-version: '3.11'
 
       - name: Download current SBOM
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: sbom-artifacts-${{ github.sha }}
 
