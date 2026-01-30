@@ -49,7 +49,8 @@ class TestCircuitConfigUtils:
 class TestCircuitBreakerUtilsInit:
     """Tests for CircuitBreaker initialization."""
 
-    def test_init_default_config(self):
+    @pytest.mark.asyncio
+    async def test_init_default_config(self):
         """Test CircuitBreaker initialization with default config."""
         from src.utils.circuit_breaker import CircuitBreaker
 
@@ -62,7 +63,8 @@ class TestCircuitBreakerUtilsInit:
         assert cb._opened_at == 0.0
         assert cb._half_open_budget == 0
 
-    def test_init_custom_config(self):
+    @pytest.mark.asyncio
+    async def test_init_custom_config(self):
         """Test CircuitBreaker initialization with custom config."""
         from src.utils.circuit_breaker import CircuitBreaker, CircuitConfig
 
@@ -491,7 +493,8 @@ class TestCircuitStatesValues:
 class TestCircuitBreakerUtilsMetrics:
     """Tests for metrics integration."""
 
-    def test_init_sets_metric(self):
+    @pytest.mark.asyncio
+    async def test_init_sets_metric(self):
         """Test initialization sets circuit state metric."""
         from src.utils.circuit_breaker import CircuitBreaker
 
