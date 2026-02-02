@@ -46,13 +46,54 @@ except ImportError:
 
 
 __all__ = [
+    # Task Queue
     "TaskClient",
     "TaskResult",
     "TaskStatus",
     "TaskConfig",
     "ARQ_AVAILABLE",
     "get_task_client",
+    # Scheduler
+    "CronSchedule",
+    "IntervalSchedule",
+    "ScheduledTask",
+    "TaskScheduler",
+    "get_scheduler",
+    # Workflows
+    "Workflow",
+    "WorkflowStep",
+    "WorkflowStatus",
+    "WorkflowEngine",
+    "WorkflowBuilder",
+    "chain",
+    "group",
+    "chord",
+    "conditional",
+    "get_workflow_engine",
 ]
+
+# Import scheduler components
+from src.core.tasks.scheduler import (
+    CronSchedule,
+    IntervalSchedule,
+    ScheduledTask,
+    TaskScheduler,
+    get_scheduler,
+)
+
+# Import workflow components
+from src.core.tasks.workflows import (
+    Workflow,
+    WorkflowStep,
+    WorkflowStatus,
+    WorkflowEngine,
+    WorkflowBuilder,
+    chain,
+    group,
+    chord,
+    conditional,
+    get_workflow_engine,
+)
 
 
 class TaskStatus(str, Enum):
