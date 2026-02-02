@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 import operator
-from typing import Any, Callable, Mapping
+from typing import Any, Callable, Mapping, Optional
 
 BinaryOp = Callable[[Any, Any], Any]
 UnaryOp = Callable[[Any], Any]
@@ -112,7 +112,7 @@ def _eval_slice(node: ast.AST, names: Mapping[str, Any]) -> Any:
     return _eval_node(node, names)
 
 
-def _eval_optional(node: ast.Optional[AST], names: Mapping[str, Any]) -> Optional[Any]:
+def _eval_optional(node: Optional[ast.AST], names: Mapping[str, Any]) -> Optional[Any]:
     if node is None:
         return None
     return _eval_node(node, names)

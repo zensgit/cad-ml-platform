@@ -1,0 +1,263 @@
+# Argo Rollouts Canary Configuration
+# For progressive delivery with automatic analysis
+
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: cad-ml-api
+  namespace: cad-ml-platform
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: cad-ml-api
+  template:
+    metadata:
+      labels:
+        app: cad-ml-api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+    spec:
+      containers:
+        - name: api
+          image: cad-ml-platform:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: VERSION
+              value: "{{.Values.version}}"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+  strategy:
+    canary:
+      # Canary steps with gradual rollout
+      steps:
+        # Step 1: 1% canary
+        - setWeight: 1
+        - pause: { duration: 5m }
+        - analysis:
+            templates:
+              - templateName: canary-success-rate
+            args:
+              - name: service-name
+                value: cad-ml-api-canary
+
+        # Step 2: 5% canary
+        - setWeight: 5
+        - pause: { duration: 10m }
+        - analysis:
+            templates:
+              - templateName: canary-success-rate
+              - templateName: canary-latency
+
+        # Step 3: 10% canary
+        - setWeight: 10
+        - pause: { duration: 15m }
+        - analysis:
+            templates:
+              - templateName: canary-success-rate
+              - templateName: canary-latency
+              - templateName: canary-error-rate
+
+        # Step 4: 25% canary
+        - setWeight: 25
+        - pause: { duration: 20m }
+        - analysis:
+            templates:
+              - templateName: canary-full-analysis
+
+        # Step 5: 50% canary
+        - setWeight: 50
+        - pause: { duration: 30m }
+        - analysis:
+            templates:
+              - templateName: canary-full-analysis
+
+        # Step 6: 75% canary
+        - setWeight: 75
+        - pause: { duration: 30m }
+        - analysis:
+            templates:
+              - templateName: canary-full-analysis
+
+        # Step 7: Full rollout
+        - setWeight: 100
+
+      # Traffic routing with Istio
+      trafficRouting:
+        istio:
+          virtualService:
+            name: cad-ml-api
+            routes:
+              - primary
+          destinationRule:
+            name: cad-ml-api
+            canarySubsetName: canary
+            stableSubsetName: stable
+
+      # Anti-affinity for canary pods
+      antiAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution: {}
+
+      # Canary metadata
+      canaryMetadata:
+        annotations:
+          role: canary
+        labels:
+          role: canary
+
+      # Stable metadata
+      stableMetadata:
+        annotations:
+          role: stable
+        labels:
+          role: stable
+
+---
+# Analysis Template: Success Rate
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: canary-success-rate
+  namespace: cad-ml-platform
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: success-rate
+      interval: 1m
+      count: 5
+      successCondition: result[0] >= 0.99
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring:9090
+          query: |
+            sum(rate(http_requests_total{service="{{args.service-name}}",status=~"2.."}[5m])) /
+            sum(rate(http_requests_total{service="{{args.service-name}}"}[5m]))
+
+---
+# Analysis Template: Latency
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: canary-latency
+  namespace: cad-ml-platform
+spec:
+  metrics:
+    - name: latency-p99
+      interval: 1m
+      count: 5
+      successCondition: result[0] <= 3000
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring:9090
+          query: |
+            histogram_quantile(0.99,
+              sum(rate(http_request_duration_milliseconds_bucket{service="cad-ml-api-canary"}[5m])) by (le)
+            )
+
+---
+# Analysis Template: Error Rate
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: canary-error-rate
+  namespace: cad-ml-platform
+spec:
+  metrics:
+    - name: error-rate
+      interval: 1m
+      count: 5
+      successCondition: result[0] <= 0.01
+      failureLimit: 3
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring:9090
+          query: |
+            sum(rate(http_requests_total{service="cad-ml-api-canary",status=~"5.."}[5m])) /
+            sum(rate(http_requests_total{service="cad-ml-api-canary"}[5m]))
+
+---
+# Analysis Template: Full Analysis
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: canary-full-analysis
+  namespace: cad-ml-platform
+spec:
+  metrics:
+    - name: success-rate
+      interval: 2m
+      count: 10
+      successCondition: result[0] >= 0.995
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring:9090
+          query: |
+            sum(rate(http_requests_total{service="cad-ml-api-canary",status=~"2.."}[5m])) /
+            sum(rate(http_requests_total{service="cad-ml-api-canary"}[5m]))
+
+    - name: latency-p99
+      interval: 2m
+      count: 10
+      successCondition: result[0] <= 3000
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring:9090
+          query: |
+            histogram_quantile(0.99,
+              sum(rate(http_request_duration_milliseconds_bucket{service="cad-ml-api-canary"}[5m])) by (le)
+            )
+
+    - name: error-rate
+      interval: 2m
+      count: 10
+      successCondition: result[0] <= 0.005
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring:9090
+          query: |
+            sum(rate(http_requests_total{service="cad-ml-api-canary",status=~"5.."}[5m])) /
+            sum(rate(http_requests_total{service="cad-ml-api-canary"}[5m]))
+
+    - name: canary-vs-stable
+      interval: 2m
+      count: 10
+      successCondition: result[0] <= 1.2
+      failureLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus.monitoring:9090
+          query: |
+            (
+              histogram_quantile(0.99,
+                sum(rate(http_request_duration_milliseconds_bucket{service="cad-ml-api-canary"}[5m])) by (le)
+              )
+            ) / (
+              histogram_quantile(0.99,
+                sum(rate(http_request_duration_milliseconds_bucket{service="cad-ml-api-stable"}[5m])) by (le)
+              )
+            )

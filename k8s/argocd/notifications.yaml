@@ -1,0 +1,176 @@
+# ArgoCD Notifications Configuration
+# Slack, DingTalk, and Webhook notifications
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: argocd
+data:
+  # Slack configuration
+  service.slack: |
+    token: $slack-token
+    signingSecret: $slack-signing-secret
+
+  # Webhook for DingTalk
+  service.webhook.dingtalk: |
+    url: $dingtalk-webhook-url
+    headers:
+      - name: Content-Type
+        value: application/json
+
+  # Webhook for WeChat Work
+  service.webhook.wechat: |
+    url: $wechat-webhook-url
+    headers:
+      - name: Content-Type
+        value: application/json
+
+  # Custom webhook for internal systems
+  service.webhook.internal: |
+    url: $internal-webhook-url
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: X-API-Key
+        value: $internal-api-key
+
+  # Notification templates
+  template.app-deployed: |
+    message: |
+      ✅ *{{.app.metadata.name}}* deployed successfully!
+
+      *Environment:* {{.app.spec.destination.namespace}}
+      *Revision:* {{.app.status.sync.revision | substr 0 7}}
+      *Author:* {{(call .repo.GetCommitMetadata .app.status.sync.revision).Author}}
+      *Message:* {{(call .repo.GetCommitMetadata .app.status.sync.revision).Message | substr 0 100}}
+    slack:
+      attachments: |
+        [{
+          "color": "#18be52",
+          "fields": [
+            {"title": "Application", "value": "{{.app.metadata.name}}", "short": true},
+            {"title": "Namespace", "value": "{{.app.spec.destination.namespace}}", "short": true},
+            {"title": "Revision", "value": "{{.app.status.sync.revision | substr 0 7}}", "short": true},
+            {"title": "Status", "value": "{{.app.status.sync.status}}", "short": true}
+          ]
+        }]
+
+  template.app-sync-failed: |
+    message: |
+      ❌ *{{.app.metadata.name}}* sync failed!
+
+      *Environment:* {{.app.spec.destination.namespace}}
+      *Error:* {{.app.status.operationState.message}}
+    slack:
+      attachments: |
+        [{
+          "color": "#E96D76",
+          "fields": [
+            {"title": "Application", "value": "{{.app.metadata.name}}", "short": true},
+            {"title": "Namespace", "value": "{{.app.spec.destination.namespace}}", "short": true},
+            {"title": "Error", "value": "{{.app.status.operationState.message | substr 0 200}}", "short": false}
+          ]
+        }]
+
+  template.app-health-degraded: |
+    message: |
+      ⚠️ *{{.app.metadata.name}}* health degraded!
+
+      *Environment:* {{.app.spec.destination.namespace}}
+      *Health Status:* {{.app.status.health.status}}
+    slack:
+      attachments: |
+        [{
+          "color": "#f4c030",
+          "fields": [
+            {"title": "Application", "value": "{{.app.metadata.name}}", "short": true},
+            {"title": "Health", "value": "{{.app.status.health.status}}", "short": true}
+          ]
+        }]
+
+  template.dingtalk-deploy: |
+    webhook:
+      dingtalk:
+        method: POST
+        body: |
+          {
+            "msgtype": "markdown",
+            "markdown": {
+              "title": "部署通知",
+              "text": "### {{.app.metadata.name}} 部署成功 ✅\n\n**环境:** {{.app.spec.destination.namespace}}\n\n**版本:** {{.app.status.sync.revision | substr 0 7}}\n\n**时间:** {{.app.status.operationState.finishedAt}}"
+            }
+          }
+
+  template.dingtalk-failed: |
+    webhook:
+      dingtalk:
+        method: POST
+        body: |
+          {
+            "msgtype": "markdown",
+            "markdown": {
+              "title": "部署失败",
+              "text": "### {{.app.metadata.name}} 部署失败 ❌\n\n**环境:** {{.app.spec.destination.namespace}}\n\n**错误:** {{.app.status.operationState.message | substr 0 200}}"
+            },
+            "at": {
+              "isAtAll": true
+            }
+          }
+
+  # Notification triggers
+  trigger.on-deployed: |
+    - description: Application is synced and healthy
+      oncePer: app.status.sync.revision
+      send:
+        - app-deployed
+      when: app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+
+  trigger.on-sync-failed: |
+    - description: Application sync failed
+      send:
+        - app-sync-failed
+      when: app.status.operationState.phase in ['Error', 'Failed']
+
+  trigger.on-health-degraded: |
+    - description: Application health degraded
+      send:
+        - app-health-degraded
+      when: app.status.health.status == 'Degraded'
+
+  trigger.on-sync-succeeded: |
+    - description: Application sync succeeded
+      oncePer: app.status.sync.revision
+      send:
+        - app-deployed
+        - dingtalk-deploy
+      when: app.status.operationState.phase in ['Succeeded']
+
+  # Subscriptions
+  subscriptions: |
+    - recipients:
+        - slack:cad-ml-deployments
+      triggers:
+        - on-deployed
+        - on-sync-succeeded
+    - recipients:
+        - slack:cad-ml-alerts
+        - webhook:dingtalk
+      triggers:
+        - on-sync-failed
+        - on-health-degraded
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: argocd-notifications-secret
+  namespace: argocd
+type: Opaque
+stringData:
+  slack-token: "xoxb-your-slack-token"
+  slack-signing-secret: "your-signing-secret"
+  dingtalk-webhook-url: "https://oapi.dingtalk.com/robot/send?access_token=xxx"
+  wechat-webhook-url: "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
+  internal-webhook-url: "https://your-internal-service/api/deploy-notifications"
+  internal-api-key: "your-api-key"

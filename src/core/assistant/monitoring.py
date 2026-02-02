@@ -143,7 +143,7 @@ class StructuredLogger:
         """Log critical message."""
         self._log(LogLevel.CRITICAL, message, **kwargs)
 
-    def exception(self, message: str, exc_info: Exception = None, **kwargs) -> None:
+    def exception(self, message: str, exc_info: Optional[Exception] = None, **kwargs) -> None:
         """Log exception with traceback."""
         import traceback
 

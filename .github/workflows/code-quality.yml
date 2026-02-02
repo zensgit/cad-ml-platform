@@ -152,3 +152,65 @@ jobs:
       - name: Find dead code
         run: |
           vulture src/ --min-confidence 80 || true
+
+  # ============================================
+  # Type checking with mypy
+  # ============================================
+  type-check:
+    name: Type Checking (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install mypy types-redis types-requests
+
+      - name: Run mypy (strict on core modules)
+        run: |
+          echo "## Mypy Type Check Report" > mypy-report.md
+          echo "" >> mypy-report.md
+          echo "### Core Modules (Strict)" >> mypy-report.md
+          echo '```' >> mypy-report.md
+          mypy src/api/ src/core/errors/ src/core/feature_flags/ \
+            --ignore-missing-imports \
+            --show-error-codes \
+            --no-error-summary \
+            --pretty 2>&1 | head -100 >> mypy-report.md || true
+          echo '```' >> mypy-report.md
+          echo "" >> mypy-report.md
+          echo "### Full Scan Summary" >> mypy-report.md
+          echo '```' >> mypy-report.md
+          mypy src/ --ignore-missing-imports --show-error-codes 2>&1 | tail -5 >> mypy-report.md || true
+          echo '```' >> mypy-report.md
+
+      - name: Upload mypy report
+        uses: actions/upload-artifact@v4
+        with:
+          name: mypy-report
+          path: mypy-report.md
+
+      - name: Comment PR with mypy issues
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('mypy-report.md')) {
+              const report = fs.readFileSync('mypy-report.md', 'utf8');
+              if (report.includes('error:')) {
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: '## 🔍 Type Check Report\n\n' + report.substring(0, 5000)
+                });
+              }
+            }
+

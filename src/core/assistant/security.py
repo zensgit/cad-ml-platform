@@ -377,7 +377,7 @@ def require_permission(permission: Permission):
 
     def decorator(func: Callable) -> Callable:
         @wraps(func)
-        def wrapper(*args, api_key: APIKey = None, **kwargs):
+        def wrapper(*args, api_key: Optional[APIKey] = None, **kwargs):
             if api_key is None:
                 raise UnauthorizedError("API key required")
 

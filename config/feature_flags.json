@@ -1,0 +1,80 @@
+"""Feature flags configuration file.
+
+This file defines feature flags for the CAD ML Platform.
+Can be used with FEATURE_FLAG_BACKEND=config and FEATURE_FLAG_CONFIG_PATH.
+"""
+{
+  "flags": [
+    {
+      "name": "ocr_v2_enabled",
+      "description": "Enable OCR v2 with enhanced dimension extraction",
+      "enabled": false,
+      "strategy": "percentage",
+      "percentage": 0,
+      "metadata": {
+        "owner": "ml-team",
+        "jira": "CAD-1234"
+      }
+    },
+    {
+      "name": "hybrid_classifier_enabled",
+      "description": "Enable hybrid classifier with 3-source fusion",
+      "enabled": false,
+      "strategy": "percentage",
+      "percentage": 0,
+      "metadata": {
+        "owner": "ml-team",
+        "jira": "CAD-1235"
+      }
+    },
+    {
+      "name": "knowledge_graph_enabled",
+      "description": "Enable knowledge graph for part recommendations",
+      "enabled": true,
+      "strategy": "all",
+      "metadata": {
+        "owner": "platform-team"
+      }
+    },
+    {
+      "name": "strict_rate_limiting",
+      "description": "Enable strict rate limiting mode",
+      "enabled": false,
+      "strategy": "tenant_list",
+      "allowed_tenants": [],
+      "metadata": {
+        "owner": "platform-team"
+      }
+    },
+    {
+      "name": "experimental_preprocessing",
+      "description": "Enable experimental image preprocessing",
+      "enabled": false,
+      "strategy": "user_list",
+      "allowed_users": [],
+      "metadata": {
+        "owner": "ml-team",
+        "status": "experimental"
+      }
+    },
+    {
+      "name": "paddle_ocr_alignment",
+      "description": "Enable PaddleOCR bounding box alignment",
+      "enabled": true,
+      "strategy": "all",
+      "metadata": {
+        "owner": "ocr-team"
+      }
+    },
+    {
+      "name": "async_batch_processing",
+      "description": "Enable async batch processing for large uploads",
+      "enabled": false,
+      "strategy": "percentage",
+      "percentage": 10,
+      "metadata": {
+        "owner": "platform-team"
+      }
+    }
+  ]
+}
