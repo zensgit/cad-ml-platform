@@ -17,7 +17,8 @@ try:
     from sklearn.linear_model import LogisticRegression
 
     SKLEARN_AVAILABLE = True
-except ImportError:
+except (ImportError, ValueError):
+    # ValueError can occur with numpy binary incompatibility
     SKLEARN_AVAILABLE = False
     # Stub classes for when sklearn is not available
 

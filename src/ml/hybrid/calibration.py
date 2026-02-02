@@ -151,7 +151,7 @@ class IsotonicCalibration(Calibrator):
             ir.fit(confidences, labels)
             self._ir = ir
             self._fitted = True
-        except ImportError:
+        except (ImportError, ValueError):
             # Fallback: simple binning
             self._fit_binning(confidences, labels)
 
