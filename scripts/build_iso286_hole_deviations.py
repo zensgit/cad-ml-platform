@@ -31,9 +31,9 @@ def _parse_entry(entry: str) -> Tuple[float, float] | None:
 def _load_isofits() -> tuple[Dict[str, List[List[float]]], List[float]]:
     try:
         import importlib.util
-        from pathlib import Path as SysPath
+        import isofits
 
-        data_path = SysPath("/opt/homebrew/lib/python3.11/site-packages/data.py")
+        data_path = Path(isofits.__file__).resolve().with_name("data.py")
         if not data_path.exists():
             return {}, []
         spec = importlib.util.spec_from_file_location("isofits_data", data_path)
@@ -70,6 +70,8 @@ def _load_isofits() -> tuple[Dict[str, List[List[float]]], List[float]]:
             if devs:
                 deviations[symbol] = devs
         return deviations, size_uppers
+    except ImportError:
+        return {}, []
     except Exception:
         return {}, []
 
@@ -109,6 +111,10 @@ def build() -> dict:
 def main() -> None:
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     payload = build()
+    if not payload.get("deviations"):
+        raise SystemExit(
+            "ISO 286 deviations not available. Install 'isofits' and rerun."
+        )
     OUTPUT_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     symbols = ", ".join(sorted(payload.get("deviations", {}).keys()))
     print(f"Wrote {OUTPUT_PATH} with symbols: {symbols}")

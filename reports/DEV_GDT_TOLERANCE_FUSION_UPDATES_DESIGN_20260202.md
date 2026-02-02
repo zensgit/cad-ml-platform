@@ -30,6 +30,7 @@ Targeted reliability improvements across GD&T parsing, tolerance-fit calculation
 - **Impact**: Prevents silent failures and extends fit computations to common shaft-basis cases while remaining explicit about unsupported symbols.
   - Current override file covers symbols: E, F, G, H, J, JS, K, M, N, P, R.
   - C/D are derived from shaft fundamental deviations when ISO table entries are missing.
+  - `scripts/build_iso286_hole_deviations.py` requires `isofits` to be installed.
 
 ### 4) Benchmark stability
 - **Problem**: Concurrency and client transport usage were flaky and incompatible with httpx 0.28.

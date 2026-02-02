@@ -9,6 +9,7 @@
 pytest tests/test_gdt_application.py tests/test_tolerance_fits.py -v
 pytest tests/benchmarks -v --benchmark
 scripts/validate_iso286_hole_deviations.py
+python3.11 scripts/build_iso286_hole_deviations.py
 ```
 
 ## Results
@@ -27,4 +28,5 @@ These are already declared in repository requirements (except Pillow which is pu
 
 ## Data Notes
 - Overrides file populated: `data/knowledge/iso286_hole_deviations.json` (symbols: C, D, E, F, G, H, J, JS, K, M, N, P, R).
+- C/D values are derived from shaft fundamental deviations when ISO table entries are absent.
 - Fits referencing symbols outside this set require additional entries or a custom `HOLE_DEVIATIONS_PATH`.
