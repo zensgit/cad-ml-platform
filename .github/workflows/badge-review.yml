@@ -186,7 +186,7 @@ jobs:
 
       - name: Create review issue
         if: github.event_name == 'schedule'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
