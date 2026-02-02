@@ -8,6 +8,7 @@
 ```
 pytest tests/test_gdt_application.py tests/test_tolerance_fits.py -v
 pytest tests/benchmarks -v --benchmark
+scripts/validate_iso286_hole_deviations.py
 ```
 
 ## Results
@@ -25,5 +26,5 @@ To satisfy benchmark/runtime imports during validation, the following Python dep
 These are already declared in repository requirements (except Pillow which is pulled by analyze import). If you run benchmarks in a clean venv, install `requirements.txt` first.
 
 ## Data Notes
-- Overrides file populated: `data/knowledge/iso286_hole_deviations.json` (symbols: E, F, G, H, J, JS, K, M, N, P, R).
-- Fits referencing other symbols (e.g. D) require additional entries or a custom `HOLE_DEVIATIONS_PATH`.
+- Overrides file populated: `data/knowledge/iso286_hole_deviations.json` (symbols: C, D, E, F, G, H, J, JS, K, M, N, P, R).
+- Fits referencing symbols outside this set require additional entries or a custom `HOLE_DEVIATIONS_PATH`.

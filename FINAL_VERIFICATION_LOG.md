@@ -3000,7 +3000,7 @@
   - Hardened GD&T frame defaults, enabled FusionAnalyzer env refresh, clarified hole-basis fit support, and stabilized benchmarks.
   - Report: `reports/DEV_GDT_TOLERANCE_FUSION_UPDATES_DESIGN_20260202.md`
 - **GD&T/Tolerance/Fusion Updates Validation**:
-  - Added unit tests for GD&T parsing and fit deviations; benchmark suite executed.
+  - Added unit tests for GD&T parsing and fit deviations; benchmark suite executed; ISO286 overrides validated.
   - Report: `reports/DEV_GDT_TOLERANCE_FUSION_UPDATES_VALIDATION_20260202.md`
 - **Weekly Plan (ISO286 & Benchmarks)**:
   - Detailed week plan covering ISO 286 hole deviations, benchmark stability, and validation steps.
