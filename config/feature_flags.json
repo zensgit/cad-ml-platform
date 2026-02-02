@@ -1,8 +1,3 @@
-"""Feature flags configuration file.
-
-This file defines feature flags for the CAD ML Platform.
-Can be used with FEATURE_FLAG_BACKEND=config and FEATURE_FLAG_CONFIG_PATH.
-"""
 {
   "flags": [
     {
