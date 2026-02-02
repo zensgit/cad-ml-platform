@@ -12,7 +12,7 @@ Reference:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class PlatingType(str, Enum):
@@ -307,7 +307,7 @@ def get_plating_parameters(
 def get_plating_thickness(
     application: str,
     environment: str = "indoor",
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Get recommended plating thickness for application.
 
@@ -359,8 +359,8 @@ def get_plating_thickness(
 
 def recommend_plating_for_application(
     application: str,
-    requirements: List[str] = None,
-) -> List[Dict]:
+    requirements: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
     """
     Recommend plating types for an application.
 
@@ -447,7 +447,7 @@ def calculate_plating_time(
     thickness: float,
     plating_type: Union[str, PlatingType],
     area: float = 1.0,
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Calculate plating time.
 

@@ -7,7 +7,7 @@ and datum priority rules per ISO 5459 and ASME Y14.5.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class DatumFeatureType(str, Enum):
@@ -102,7 +102,7 @@ DATUM_FEATURE_TYPES: Dict[DatumFeatureType, Dict] = {
 def get_datum_priority(
     feature_type: DatumFeatureType,
     priority: DatumPriority,
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Get degrees of freedom constrained by a datum feature at given priority.
 
@@ -218,7 +218,7 @@ def create_datum_reference_frame(
     )
 
 
-def get_common_datum_schemes() -> List[Dict]:
+def get_common_datum_schemes() -> List[Dict[str, Any]]:
     """
     Get common datum reference frame schemes.
 
@@ -253,7 +253,7 @@ def get_common_datum_schemes() -> List[Dict]:
     ]
 
 
-def validate_datum_sequence(datums: List[str]) -> Dict:
+def validate_datum_sequence(datums: List[str]) -> Dict[str, Any]:
     """
     Validate datum sequence in a feature control frame.
 

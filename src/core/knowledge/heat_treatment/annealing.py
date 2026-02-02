@@ -12,7 +12,7 @@ Reference:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class AnnealingType(str, Enum):
@@ -222,7 +222,7 @@ ANNEALING_DATABASE: Dict[str, Dict[AnnealingType, Dict]] = {
 }
 
 # Stress relief temperature guidelines by material type
-STRESS_RELIEF_GUIDELINES: Dict[str, Dict] = {
+STRESS_RELIEF_GUIDELINES: Dict[str, Dict[str, Any]] = {
     "carbon_steel": {
         "temperature_range": (550, 650),
         "holding_time_factor": 2.5,
@@ -322,7 +322,7 @@ def get_annealing_parameters(
 def get_stress_relief_parameters(
     material_type: str,
     thickness: float,
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Get stress relief annealing parameters.
 
@@ -364,7 +364,7 @@ def calculate_annealing_cycle_time(
     section_thickness: float,
     annealing_type: AnnealingType,
     furnace_type: str = "box",
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Calculate total annealing cycle time.
 

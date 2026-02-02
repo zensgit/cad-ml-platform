@@ -11,7 +11,7 @@ Reference:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .it_grades import ITGrade, get_tolerance_value
 
@@ -214,7 +214,7 @@ SHAFT_FUNDAMENTAL_DEVIATIONS: Dict[str, List[Tuple[float, float]]] = {
 
 # Common standard fits - Hole basis system (基孔制)
 # Format: "HoleShaft": (hole_symbol, hole_grade, shaft_symbol, shaft_grade)
-COMMON_FITS: Dict[str, Dict] = {
+COMMON_FITS: Dict[str, Dict[str, Any]] = {
     # Clearance fits (间隙配合)
     "H11/c11": {
         "hole": ("H", 11),

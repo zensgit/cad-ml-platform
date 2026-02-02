@@ -12,7 +12,7 @@ Reference:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class AnodizingType(str, Enum):
@@ -172,7 +172,7 @@ ANODIZING_DATABASE: Dict[AnodizingType, Dict] = {
 }
 
 # Available anodize colors
-ANODIZE_COLORS: Dict[str, Dict] = {
+ANODIZE_COLORS: Dict[str, Dict[str, Any]] = {
     "natural": {
         "name_zh": "本色/银白色",
         "name_en": "Natural/Clear",
@@ -290,7 +290,7 @@ def get_anodizing_parameters(
 
 def get_anodizing_colors(
     anodize_type: Union[str, AnodizingType] = AnodizingType.TYPE_II,
-) -> List[Dict]:
+) -> List[Dict[str, Any]]:
     """
     Get available colors for an anodize type.
 
@@ -321,8 +321,8 @@ def get_anodizing_colors(
 
 def recommend_anodizing_for_application(
     application: str,
-    requirements: List[str] = None,
-) -> List[Dict]:
+    requirements: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
     """
     Recommend anodizing type for an application.
 
@@ -391,7 +391,7 @@ def recommend_anodizing_for_application(
 def calculate_dimension_change(
     thickness: float,
     anodize_type: AnodizingType = AnodizingType.TYPE_II,
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Calculate dimension change from anodizing.
 

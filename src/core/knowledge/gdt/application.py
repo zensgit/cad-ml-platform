@@ -7,7 +7,7 @@ feature control frames.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .symbols import GDTCharacteristic, GDTCategory, ToleranceModifier
 from .tolerances import ToleranceZone, get_tolerance_zone
@@ -193,7 +193,7 @@ def get_gdt_for_feature(feature_type: FeatureType) -> GDTApplication:
 def get_inspection_method(
     characteristic: GDTCharacteristic,
     tolerance_value: float,
-) -> List[Dict]:
+) -> List[Dict[str, Any]]:
     """
     Get recommended inspection methods for a geometric tolerance.
 
@@ -317,7 +317,7 @@ def interpret_feature_control_frame(
 def generate_feature_control_frame(
     characteristic: GDTCharacteristic,
     tolerance: float,
-    datums: List[str] = None,
+    datums: Optional[List[str]] = None,
     modifier: Optional[ToleranceModifier] = None,
     diameter_zone: bool = False,
 ) -> str:
@@ -355,7 +355,7 @@ def generate_feature_control_frame(
     return " ".join(parts)
 
 
-def get_gdt_rule_one_guidance() -> Dict:
+def get_gdt_rule_one_guidance() -> Dict[str, Any]:
     """
     Get guidance on Rule #1 (Envelope Principle / Taylor Principle).
 

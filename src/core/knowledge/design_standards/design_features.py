@@ -9,7 +9,7 @@ Reference:
 - Various national standards for chamfers and fillets
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 # Preferred diameter series per ISO/R 497 (R10, R20, R40 series combined)
@@ -35,7 +35,7 @@ PREFERRED_DIAMETERS = sorted(set(PREFERRED_DIAMETERS))
 
 # Standard chamfer sizes (C x 45° format)
 # Format: nominal_size_mm: (c_min, c_max, typical_c)
-STANDARD_CHAMFERS: Dict[str, Dict] = {
+STANDARD_CHAMFERS: Dict[str, Dict[str, Any]] = {
     # Small chamfers
     "C0.2": {"size": 0.2, "range": (0.15, 0.25), "application_zh": "微小边缘", "application_en": "Micro edges"},
     "C0.3": {"size": 0.3, "range": (0.25, 0.35), "application_zh": "小零件边缘", "application_en": "Small part edges"},
@@ -57,7 +57,7 @@ STANDARD_CHAMFERS: Dict[str, Dict] = {
 
 # Standard fillet radii
 # Format: "Rn": {size, range, application}
-STANDARD_FILLETS: Dict[str, Dict] = {
+STANDARD_FILLETS: Dict[str, Dict[str, Any]] = {
     # Small fillets
     "R0.2": {"size": 0.2, "range": (0.15, 0.25), "application_zh": "微小圆角", "application_en": "Micro fillet"},
     "R0.3": {"size": 0.3, "range": (0.25, 0.35), "application_zh": "小圆角", "application_en": "Small fillet"},
@@ -186,7 +186,7 @@ def get_standard_fillet(target_radius: float) -> Optional[Dict]:
     return closest
 
 
-def suggest_chamfer_for_thread(thread_diameter: float) -> Dict:
+def suggest_chamfer_for_thread(thread_diameter: float) -> Dict[str, Any]:
     """
     Suggest chamfer size for thread entry.
 
@@ -205,7 +205,7 @@ def suggest_chamfer_for_thread(thread_diameter: float) -> Dict:
 def suggest_fillet_for_shaft(
     shaft_diameter: float,
     stress_concentration: str = "medium",
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Suggest fillet radius for shaft shoulder.
 

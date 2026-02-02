@@ -12,7 +12,7 @@ Reference:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 class ToolMaterial(str, Enum):
@@ -206,7 +206,7 @@ GEOMETRY_RECOMMENDATIONS: Dict[str, ToolGeometry] = {
 }
 
 # Comprehensive tool database
-TOOL_DATABASE: Dict[str, Dict] = {
+TOOL_DATABASE: Dict[str, Dict[str, Any]] = {
     # Turning inserts
     "CNMG120408": {
         "type": ToolType.TURNING_EXTERNAL,
@@ -374,7 +374,7 @@ def get_tool_recommendation(
 def select_tool_for_material(
     material_key: str,
     operation: str = "general",
-) -> List[Dict]:
+) -> List[Dict[str, Any]]:
     """
     Select suitable tools for a workpiece material.
 

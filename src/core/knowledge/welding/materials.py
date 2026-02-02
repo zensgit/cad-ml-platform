@@ -12,7 +12,7 @@ Reference:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import math
 
 
@@ -378,7 +378,7 @@ def get_preheat_temperature(
 def check_material_compatibility(
     material_1: str,
     material_2: str,
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Check compatibility of two materials for welding.
 

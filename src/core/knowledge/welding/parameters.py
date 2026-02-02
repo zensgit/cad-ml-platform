@@ -12,7 +12,7 @@ Reference:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import math
 
 
@@ -270,7 +270,7 @@ WELDING_PROCESS_DATABASE: Dict[tuple, Dict] = {
 }
 
 # Filler material recommendations
-FILLER_MATERIAL_DATABASE: Dict[str, Dict] = {
+FILLER_MATERIAL_DATABASE: Dict[str, Dict[str, Any]] = {
     # Carbon steel fillers
     "carbon_steel": {
         "SMAW": {

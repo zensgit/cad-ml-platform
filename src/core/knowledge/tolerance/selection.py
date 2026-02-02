@@ -11,7 +11,7 @@ Reference:
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from .fits import FitType, FitClass, COMMON_FITS
 
@@ -283,7 +283,7 @@ def select_fit_for_application(
 def get_fit_recommendations(
     fit_type: Optional[FitType] = None,
     fit_class: Optional[FitClass] = None,
-) -> List[Dict]:
+) -> List[Dict[str, Any]]:
     """
     Get fit recommendations filtered by type or class.
 

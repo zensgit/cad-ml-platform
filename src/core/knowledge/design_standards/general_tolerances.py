@@ -11,7 +11,7 @@ Reference:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class GeneralToleranceClass(str, Enum):
@@ -138,7 +138,7 @@ def get_chamfer_fillet_tolerance(
 
 def get_general_tolerance_table(
     tolerance_class: GeneralToleranceClass = GeneralToleranceClass.M,
-) -> List[Dict]:
+) -> List[Dict[str, Any]]:
     """
     Get full general tolerance table for a class.
 

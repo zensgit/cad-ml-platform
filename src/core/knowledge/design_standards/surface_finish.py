@@ -11,7 +11,7 @@ Reference:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 class SurfaceFinishGrade(str, Enum):
@@ -50,7 +50,7 @@ SURFACE_FINISH_TABLE: Dict[SurfaceFinishGrade, Tuple[float, float, str, str]] = 
 
 # Application-based surface finish recommendations
 # Format: application -> (recommended_grade, Ra_range, description)
-SURFACE_FINISH_APPLICATIONS: Dict[str, Dict] = {
+SURFACE_FINISH_APPLICATIONS: Dict[str, Dict[str, Any]] = {
     # Precision fits
     "bearing_journal": {
         "grade": SurfaceFinishGrade.N6,
@@ -217,7 +217,7 @@ def suggest_surface_finish(target_ra: float) -> SurfaceFinishGrade:
     return closest_grade
 
 
-def list_surface_finishes() -> List[Dict]:
+def list_surface_finishes() -> List[Dict[str, Any]]:
     """
     List all surface finish grades with details.
 

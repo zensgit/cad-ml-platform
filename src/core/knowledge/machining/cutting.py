@@ -12,7 +12,7 @@ Reference:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 import math
 
 
@@ -406,7 +406,7 @@ def get_drilling_parameters(
     workpiece_group: str,
     hole_depth: Optional[float] = None,
     tool_material: str = "coated_carbide",
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Get drilling-specific parameters.
 

@@ -12,7 +12,7 @@ Reference:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 import math
 
 
@@ -231,7 +231,7 @@ def can_through_harden(
     material_id: str,
     section_size: float,
     quench_media: str = "oil",
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Check if a section can be through-hardened.
 
@@ -403,7 +403,7 @@ def recommend_quench_for_section(
     material_id: str,
     section_size: float,
     required_core_hardness: Optional[float] = None,
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Recommend quenching approach for a given section size.
 

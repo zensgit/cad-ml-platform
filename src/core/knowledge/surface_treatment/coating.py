@@ -12,7 +12,7 @@ Reference:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class CoatingType(str, Enum):
@@ -309,7 +309,7 @@ def get_coating_parameters(
 def get_coating_for_environment(
     environment: Union[str, EnvironmentClass],
     design_life: str = "medium",
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Get coating system recommendation for environment.
 
@@ -350,7 +350,7 @@ def calculate_coating_life(
     coating_type: Union[str, CoatingType],
     environment: Union[str, EnvironmentClass],
     dft: float,
-) -> Dict:
+) -> Dict[str, Any]:
     """
     Estimate coating service life.
 
@@ -412,8 +412,8 @@ def calculate_coating_life(
 def recommend_coating_system(
     substrate: str,
     environment: str,
-    requirements: List[str] = None,
-) -> List[Dict]:
+    requirements: Optional[List[str]] = None,
+) -> List[Dict[str, Any]]:
     """
     Recommend complete coating system.
 

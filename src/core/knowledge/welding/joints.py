@@ -12,7 +12,7 @@ Reference:
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class GrooveType(str, Enum):
@@ -62,7 +62,7 @@ class JointDesign:
 
 # Joint design database
 # Format: {(groove_type, thickness_range): design_params}
-JOINT_DESIGN_DATABASE: Dict[tuple, Dict] = {
+JOINT_DESIGN_DATABASE: Dict[Tuple[GrooveType, Tuple[int, int]], Dict[str, Any]] = {
     # Square butt (I-joint)
     (GrooveType.SQUARE, (1, 3)): {
         "root_gap": 0,
@@ -184,7 +184,7 @@ JOINT_DESIGN_DATABASE: Dict[tuple, Dict] = {
 }
 
 # Fillet weld design
-FILLET_WELD_SIZES: Dict[str, Dict] = {
+FILLET_WELD_SIZES: Dict[str, Dict[str, Any]] = {
     # Minimum fillet weld size based on thicker plate (AWS D1.1)
     "min_size": {
         (0, 6): 3,
