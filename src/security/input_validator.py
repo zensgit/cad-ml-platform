@@ -7,7 +7,7 @@ Uses python-magic if available; degrades gracefully when library absent.
 
 import os
 import re
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from fastapi import HTTPException, UploadFile
 

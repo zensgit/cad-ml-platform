@@ -17,7 +17,7 @@ The parser is heuristic: it scans text left-to-right, assigns tolerances to the 
 from __future__ import annotations
 
 import re
-from typing import List
+from typing import List, Optional
 
 from src.core.ocr.base import DimensionInfo, DimensionType, SymbolInfo, SymbolType
 

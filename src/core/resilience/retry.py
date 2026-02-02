@@ -27,7 +27,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import logging
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, Optional, Tuple, Type, TypeVar
 
 logger = logging.getLogger(__name__)
 

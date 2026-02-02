@@ -129,7 +129,7 @@ def validate_dedup2d_callback_url(url: str, *, cfg: Optional[Dedup2DWebhookConfi
 
     if effective_cfg.block_private_networks:
         # Fast path: IP literals
-        ip: ipaddress.IPv4Address | ipaddress.Optional[IPv6Address]
+        ip: Optional[ipaddress.IPv4Address | ipaddress.IPv6Address]
         try:
             ip = ipaddress.ip_address(host)
         except ValueError:
