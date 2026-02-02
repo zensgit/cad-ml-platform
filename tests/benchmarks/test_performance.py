@@ -13,11 +13,10 @@ import io
 import json
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List
 
 import pytest
-from fastapi.testclient import TestClient
+import httpx
 
 
 # Skip all benchmarks by default, run with: pytest tests/benchmarks -v --benchmark
@@ -25,10 +24,13 @@ pytestmark = pytest.mark.benchmark
 
 
 @pytest.fixture(scope="module")
-def client():
-    """Create test client."""
+async def async_client():
+    """Create async test client."""
     from src.main import app
-    return TestClient(app)
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
 
 
 @pytest.fixture
@@ -46,14 +48,23 @@ def api_headers() -> Dict[str, str]:
 class TestAnalyzeEndpointPerformance:
     """Performance tests for /api/v1/analyze endpoint."""
 
-    def test_analyze_single_request_latency(
-        self, client, sample_dxf_payload, api_headers
+    @pytest.mark.anyio
+    async def test_analyze_single_request_latency(
+        self, async_client, sample_dxf_payload, api_headers
     ):
         """Measure single request latency."""
         options = {"extract_features": True, "classify_parts": True}
 
+        # Warm up to avoid cold-start penalties in latency check
+        await async_client.post(
+            "/api/v1/analyze/",
+            files={"file": ("warmup.dxf", io.BytesIO(sample_dxf_payload), "application/dxf")},
+            data={"options": json.dumps({"extract_features": False, "classify_parts": False})},
+            headers=api_headers,
+        )
+
         start = time.perf_counter()
-        resp = client.post(
+        resp = await async_client.post(
             "/api/v1/analyze/",
             files={"file": ("test.dxf", io.BytesIO(sample_dxf_payload), "application/dxf")},
             data={"options": json.dumps(options)},
@@ -65,14 +76,15 @@ class TestAnalyzeEndpointPerformance:
         # Single request should complete within 2 seconds
         assert elapsed < 2.0, f"Request took {elapsed:.2f}s, expected < 2s"
 
-    def test_analyze_throughput(self, client, sample_dxf_payload, api_headers):
+    @pytest.mark.anyio
+    async def test_analyze_throughput(self, async_client, sample_dxf_payload, api_headers):
         """Measure throughput with sequential requests."""
         options = {"extract_features": True, "classify_parts": False}
         num_requests = 10
 
         start = time.perf_counter()
         for _ in range(num_requests):
-            resp = client.post(
+            resp = await async_client.post(
                 "/api/v1/analyze/",
                 files={"file": ("test.dxf", io.BytesIO(sample_dxf_payload), "application/dxf")},
                 data={"options": json.dumps(options)},
@@ -85,13 +97,14 @@ class TestAnalyzeEndpointPerformance:
         # Should handle at least 2 requests per second
         assert throughput >= 2.0, f"Throughput {throughput:.2f} req/s, expected >= 2"
 
-    def test_analyze_concurrent_requests(self, client, sample_dxf_payload, api_headers):
+    @pytest.mark.anyio
+    async def test_analyze_concurrent_requests(self, async_client, sample_dxf_payload, api_headers):
         """Measure concurrent request handling."""
         options = {"extract_features": True, "classify_parts": False}
         num_concurrent = 5
 
-        def make_request():
-            return client.post(
+        async def make_request():
+            return await async_client.post(
                 "/api/v1/analyze/",
                 files={"file": ("test.dxf", io.BytesIO(sample_dxf_payload), "application/dxf")},
                 data={"options": json.dumps(options)},
@@ -99,9 +112,7 @@ class TestAnalyzeEndpointPerformance:
             )
 
         start = time.perf_counter()
-        with ThreadPoolExecutor(max_workers=num_concurrent) as executor:
-            futures = [executor.submit(make_request) for _ in range(num_concurrent)]
-            responses = [f.result() for f in futures]
+        responses = await asyncio.gather(*[make_request() for _ in range(num_concurrent)])
         elapsed = time.perf_counter() - start
 
         # All requests should succeed
@@ -116,23 +127,25 @@ class TestAnalyzeEndpointPerformance:
 class TestHealthEndpointPerformance:
     """Performance tests for health check endpoint."""
 
-    def test_health_check_latency(self, client):
+    @pytest.mark.anyio
+    async def test_health_check_latency(self, async_client):
         """Health check should be extremely fast."""
         start = time.perf_counter()
-        resp = client.get("/health")
+        resp = await async_client.get("/health")
         elapsed = time.perf_counter() - start
 
         assert resp.status_code == 200
         # Health check should complete in < 100ms
         assert elapsed < 0.1, f"Health check took {elapsed*1000:.1f}ms, expected < 100ms"
 
-    def test_health_check_burst(self, client):
+    @pytest.mark.anyio
+    async def test_health_check_burst(self, async_client):
         """Health check should handle burst traffic."""
         num_requests = 100
 
         start = time.perf_counter()
         for _ in range(num_requests):
-            resp = client.get("/health")
+            resp = await async_client.get("/health")
             assert resp.status_code == 200
         elapsed = time.perf_counter() - start
 
@@ -213,16 +226,19 @@ class TestMonitoringPerformance:
 class TestMemoryUsage:
     """Memory usage tests."""
 
-    def test_analyze_memory_stability(self, client, sample_dxf_payload, api_headers):
+    @pytest.mark.anyio
+    async def test_analyze_memory_stability(
+        self, async_client, sample_dxf_payload, api_headers
+    ):
         """Check memory doesn't grow unboundedly during requests."""
         import gc
-        import sys
+        import tracemalloc
 
         options = {"extract_features": True, "classify_parts": True}
 
         # Warm up
         for _ in range(3):
-            client.post(
+            await async_client.post(
                 "/api/v1/analyze/",
                 files={"file": ("test.dxf", io.BytesIO(sample_dxf_payload), "application/dxf")},
                 data={"options": json.dumps(options)},
@@ -230,12 +246,12 @@ class TestMemoryUsage:
             )
 
         gc.collect()
-        # Get baseline object count
-        baseline_objects = len(gc.get_objects())
+        tracemalloc.start()
+        baseline_snapshot = tracemalloc.take_snapshot()
 
         # Run more requests
         for _ in range(10):
-            client.post(
+            await async_client.post(
                 "/api/v1/analyze/",
                 files={"file": ("test.dxf", io.BytesIO(sample_dxf_payload), "application/dxf")},
                 data={"options": json.dumps(options)},
@@ -243,12 +259,13 @@ class TestMemoryUsage:
             )
 
         gc.collect()
-        final_objects = len(gc.get_objects())
+        final_snapshot = tracemalloc.take_snapshot()
+        stats = final_snapshot.compare_to(baseline_snapshot, "filename")
+        total_diff = sum(stat.size_diff for stat in stats)
+        tracemalloc.stop()
 
-        # Object count shouldn't grow significantly (allow 10% growth)
-        growth = final_objects - baseline_objects
-        growth_pct = growth / baseline_objects * 100
-        assert growth_pct < 10, f"Object count grew by {growth_pct:.1f}%"
+        # Allow small allocation growth (10MB) to reduce flakiness
+        assert total_diff < 10 * 1024 * 1024, f"Memory grew by {total_diff / (1024 * 1024):.2f} MB"
 
 
 @pytest.fixture

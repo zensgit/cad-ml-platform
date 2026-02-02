@@ -5,7 +5,7 @@ Provides guidance on applying GD&T to features and interpreting
 feature control frames.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -53,7 +53,7 @@ class FeatureControlFrame:
     tertiary_datum: Optional[str] = None
     tertiary_datum_modifier: Optional[str] = None
     composite: bool = False
-    notes: List[str] = None
+    notes: List[str] = field(default_factory=list)
 
 
 @dataclass

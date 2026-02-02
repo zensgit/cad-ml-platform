@@ -2996,6 +2996,15 @@
 - **CI Lint/Eval Fixes Validation**:
   - Verified evaluation-insights script handles empty history, mypy passes for the targeted fixes, and e2e-smoke skip behavior is documented.
   - Report: `reports/experiments/20260129/DEV_CI_LINT_EVAL_FIXES_VALIDATION_20260129.md`
+- **GD&T/Tolerance/Fusion Updates**:
+  - Hardened GD&T frame defaults, enabled FusionAnalyzer env refresh, clarified hole-basis fit support, and stabilized benchmarks.
+  - Report: `reports/DEV_GDT_TOLERANCE_FUSION_UPDATES_DESIGN_20260202.md`
+- **GD&T/Tolerance/Fusion Updates Validation**:
+  - Added unit tests for GD&T parsing and fit deviations; benchmark suite executed.
+  - Report: `reports/DEV_GDT_TOLERANCE_FUSION_UPDATES_VALIDATION_20260202.md`
+- **Weekly Plan (ISO286 & Benchmarks)**:
+  - Detailed week plan covering ISO 286 hole deviations, benchmark stability, and validation steps.
+  - Report: `reports/DEV_WEEK_PLAN_20260202.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

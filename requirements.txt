@@ -4,6 +4,7 @@ uvicorn[standard]==0.24.0
 python-multipart==0.0.18
 pydantic==2.5.0
 pydantic-settings==2.1.0
+Pillow==10.4.0
 
 # CAD Processing
 ezdxf==1.1.3
