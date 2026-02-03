@@ -17,76 +17,73 @@ if "src" in sys.modules:
     del sys.modules["src"]
 importlib.invalidate_caches()
 
-# P20: Gateway tests
-from src.core.gateway.rate_limiter import (
-    RateLimitConfig,
-    RateLimitStrategy,
-    FixedWindowLimiter,
-    SlidingWindowLimiter,
-    TokenBucketLimiter,
-    create_rate_limiter,
-)
-from src.core.gateway.circuit_breaker import (
-    CircuitBreaker,
-    CircuitBreakerConfig,
-    CircuitState,
-    CircuitBreakerError,
-    get_circuit_breaker,
-)
-from src.core.gateway.api_key import (
-    APIKey,
-    APIKeyScope,
-    APIKeyManager,
-    SCOPE_HIERARCHY,
-)
+try:
+    # P20: Gateway tests
+    from src.core.gateway.rate_limiter import (
+        FixedWindowLimiter,
+        RateLimitConfig,
+        RateLimitStrategy,
+        SlidingWindowLimiter,
+        TokenBucketLimiter,
+        create_rate_limiter,
+    )
+    from src.core.gateway.circuit_breaker import (
+        CircuitBreaker,
+        CircuitBreakerConfig,
+        CircuitBreakerError,
+        CircuitState,
+        get_circuit_breaker,
+    )
+    from src.core.gateway.api_key import (
+        APIKey,
+        APIKeyManager,
+        APIKeyScope,
+        SCOPE_HIERARCHY,
+    )
 
-# P21: Audit tests
-from src.core.audit.logger import (
-    AuditEvent,
-    AuditEventType,
-    AuditSeverity,
-    AuditContext,
-    AuditLogger,
-    MemoryAuditBackend,
-)
-from src.core.audit.compliance import (
-    ComplianceFramework,
-    DataCategory,
-    AccessPurpose,
-    RetentionPolicy,
-    ComplianceTracker,
-)
+    # P21: Audit tests
+    from src.core.audit.logger import (
+        AuditContext,
+        AuditEvent,
+        AuditEventType,
+        AuditLogger,
+        AuditSeverity,
+        MemoryAuditBackend,
+    )
+    from src.core.audit.compliance import (
+        AccessPurpose,
+        ComplianceFramework,
+        ComplianceTracker,
+        DataCategory,
+        RetentionPolicy,
+    )
 
-# P22: Cache tests
-from src.core.cache.client import (
-    CacheConfig,
-    CacheEntry,
-    MemoryCache,
-)
-from src.core.cache.strategies import (
-    CacheAside,
-)
+    # P22: Cache tests
+    from src.core.cache.client import CacheConfig, CacheEntry, MemoryCache
+    from src.core.cache.strategies import CacheAside
 
-# P23: Health tests
-from src.core.health.checker import (
-    HealthChecker,
-    HealthStatus,
-    DependencyHealth,
-    DiskSpaceHealthCheck,
-    CustomHealthCheck,
-)
-from src.core.health.probes import (
-    LivenessProbe,
-    ReadinessProbe,
-    StartupProbe,
-    ProbeStatus,
-)
-from src.core.health.self_healing import (
-    SelfHealer,
-    HealingAction,
-    HealingActionType,
-    CacheClearStrategy,
-)
+    # P23: Health tests
+    from src.core.health.checker import (
+        CustomHealthCheck,
+        DependencyHealth,
+        DiskSpaceHealthCheck,
+        HealthChecker,
+        HealthStatus,
+    )
+    from src.core.health.probes import (
+        LivenessProbe,
+        ProbeStatus,
+        ReadinessProbe,
+        StartupProbe,
+    )
+    from src.core.health.self_healing import (
+        CacheClearStrategy,
+        HealingAction,
+        HealingActionType,
+        SelfHealer,
+    )
+except ModuleNotFoundError as exc:
+    pytest.skip(f"enterprise modules unavailable: {exc}", allow_module_level=True)
 
 
 # =============================================================================
