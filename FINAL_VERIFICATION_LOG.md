@@ -3037,6 +3037,9 @@
 - **CI Test Import Path Fix**:
   - Inserted repo root into `sys.path` during pytest collection to resolve `src.core.*` imports in CI.
   - Report: `reports/DEV_CI_TEST_PATH_FIX_20260203.md`
+- **CI Test Import Override**:
+  - Cleared any preloaded `src` module and re-imported the local package to avoid external `src` shadowing.
+  - Report: `reports/DEV_CI_TEST_IMPORT_OVERRIDE_20260203.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

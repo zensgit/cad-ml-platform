@@ -1,3 +1,4 @@
+import importlib
 import os
 import sys
 from pathlib import Path
@@ -6,8 +7,14 @@ from typing import Callable, Iterator, Optional, TYPE_CHECKING
 import pytest
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT_DIR / "src"
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
+if SRC_DIR.exists():
+    if "src" in sys.modules:
+        del sys.modules["src"]
+    importlib.invalidate_caches()
+    import src  # noqa: F401
 
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient
