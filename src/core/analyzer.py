@@ -29,7 +29,7 @@ def _get_ml_classifier() -> Optional[Any]:
     _ml_classifier_loaded = True
     try:
         from src.ml.part_classifier import PartClassifier
-        model_path = os.getenv("CAD_CLASSIFIER_MODEL", "models/cad_classifier_v2.pt")
+        model_path = os.getenv("CAD_CLASSIFIER_MODEL", "models/cad_classifier_v6.pt")
         if os.path.exists(model_path):
             _ml_classifier = PartClassifier(model_path)
             logger.info(f"ML分类器加载成功: {model_path}")
