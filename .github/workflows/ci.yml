@@ -109,6 +109,12 @@ jobs:
         run: pytest -q -k test_routes_smoke || true
       - name: Run knowledge tests
         run: make test-knowledge
+      - name: Upload knowledge test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-test-report
+          path: reports/junit-knowledge.xml
       - name: Run unit tests
         run: make test
       - name: Golden evaluation gate (3.11 only)

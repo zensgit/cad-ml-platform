@@ -64,7 +64,7 @@ test: ## 运行测试
 
 test-knowledge: ## 运行知识库相关测试
 	@echo "$(GREEN)Running knowledge tests...$(NC)"
-	$(PYTEST) $(TEST_DIR)/unit/knowledge -v
+	$(PYTEST) $(TEST_DIR)/unit/knowledge -v --junitxml=reports/junit-knowledge.xml
 
 test-dedupcad-vision: ## 运行测试（依赖 DedupCAD Vision 已启动）
 	@echo "$(GREEN)Running tests with DedupCAD Vision required...$(NC)"

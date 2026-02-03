@@ -3015,6 +3015,7 @@
   - Added ISO286 hole symbol coverage test to ensure all 28 symbols are present.
   - Added minimum row coverage guard (with documented exceptions for CD/EF/FG).
   - Added `make test-knowledge` target and CI step for knowledge regression coverage.
+  - Added junit artifact upload for knowledge tests in CI and CI-enhanced workflows.
   - Generated CSV report and grade-diff summary for EI values.
   - Report: `reports/DEV_ISO286_HOLE_DEVIATIONS_PDF_VALIDATION_20260203.md`
 

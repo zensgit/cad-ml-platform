@@ -158,6 +158,14 @@ jobs:
         with:
           name: test-results-${{ matrix.python-version }}-${{ matrix.shard }}
           path: junit-*.xml
+      - name: Run knowledge tests
+        run: make test-knowledge
+      - name: Upload knowledge test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: knowledge-test-report
+          path: reports/junit-knowledge.xml
 
   # ============================================
   # Stage 3: Integration tests
