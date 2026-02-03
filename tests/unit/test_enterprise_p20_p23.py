@@ -1,10 +1,21 @@
 """Unit tests for P20-P23 enterprise modules."""
 
 import asyncio
+import importlib
+import sys
 import time
-import pytest
-from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from datetime import datetime, timedelta
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
+
+import pytest
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+if "src" in sys.modules:
+    del sys.modules["src"]
+importlib.invalidate_caches()
 
 # P20: Gateway tests
 from src.core.gateway.rate_limiter import (
