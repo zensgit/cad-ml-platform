@@ -148,9 +148,9 @@ jobs:
           pip install -r requirements.txt
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
       - name: Log in to GHCR
-        if: ${{ startsWith(env.DEDUPCAD_VISION_IMAGE, 'ghcr.io/') && secrets.GHCR_TOKEN != '' }}
+        if: ${{ startsWith(env.DEDUPCAD_VISION_IMAGE, 'ghcr.io/') }}
         run: |
-          echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
       - name: Pull dedupcad-vision image
         id: pull_image
         continue-on-error: true
