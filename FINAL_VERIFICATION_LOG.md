@@ -3005,6 +3005,13 @@
 - **Weekly Plan (ISO286 & Benchmarks)**:
   - Detailed week plan covering ISO 286 hole deviations, benchmark stability, and validation steps.
   - Report: `reports/DEV_WEEK_PLAN_20260202.md`
+- **ISO286 Hole Deviations (PDF Tables 2–16 Import)**:
+  - Extracted A/B/C, CD/D/E, EF/F, FG/G, H/JS/J/K/M/N/P/R, and S/T/U/V/X/Y/Z/ZA/ZB/ZC hole deviations from GB/T 1800.2-2020 Tables 2–16 and merged into ISO286 overrides.
+  - Report: `reports/DEV_ISO286_HOLE_DEVIATIONS_PDF_DESIGN_20260203.md`
+- **ISO286 Hole Deviations (PDF Tables 2–16 Import) Validation**:
+  - Validated ISO286 coverage and re-ran tolerance-fit unit tests (including A/B/C fits and JS EI symmetry).
+  - Generated CSV report and grade-diff summary for EI values.
+  - Report: `reports/DEV_ISO286_HOLE_DEVIATIONS_PDF_VALIDATION_20260203.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

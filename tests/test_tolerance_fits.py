@@ -1,6 +1,8 @@
+import importlib
 import json
 from pathlib import Path
-import importlib
+
+import pytest
 
 import src.core.knowledge.tolerance.fits as fits
 from src.core.knowledge.tolerance import get_tolerance_value
@@ -28,6 +30,26 @@ def test_get_fit_deviations_non_h_hole():
     tolerance = get_tolerance_value(nominal, "IT9")
     assert tolerance is not None
     assert result.hole_upper_deviation_um - result.hole_lower_deviation_um == tolerance
+
+
+def test_get_fit_deviations_non_h_hole_abc():
+    nominal = 25
+    tolerance = fits.get_tolerance_value(nominal, "IT9")
+    for symbol in ("A", "B", "C"):
+        result = fits.get_fit_deviations(f"{symbol}9/h9", nominal)
+        assert result is not None
+        expected = fits._get_hole_fundamental_deviation(symbol, nominal)
+        assert result.hole_lower_deviation_um == expected
+        assert result.hole_upper_deviation_um - result.hole_lower_deviation_um == tolerance
+
+
+def test_hole_js_fundamental_deviation_symmetry():
+    nominal = 25
+    deviation = fits._get_hole_fundamental_deviation("JS", nominal)
+    assert deviation is not None
+    tolerance = fits.get_tolerance_value(nominal, "IT6")
+    assert tolerance is not None
+    assert deviation == pytest.approx(-tolerance / 2)
 
 
 def test_hole_deviation_override(monkeypatch, tmp_path: Path):
