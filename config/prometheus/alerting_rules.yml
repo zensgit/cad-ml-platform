@@ -115,7 +115,11 @@ groups:
       - alert: CacheHitRateLow
         expr: |
           (
-            sum(rate(analysis_cache_hits_total[5m])) / (sum(rate(analysis_cache_hits_total[5m])) + sum(rate(analysis_cache_miss_total[5m])))
+            sum(rate(analysis_cache_hits_total[5m]))
+            / (
+              sum(rate(analysis_cache_hits_total[5m]))
+              + sum(rate(analysis_cache_miss_total[5m]))
+            )
           ) < 0.3
         for: 10m
         labels:
@@ -212,7 +216,15 @@ groups:
       # Drift Baseline Stale Alert
       - alert: DriftBaselineStale
         expr: |
-          max(baseline_material_age_seconds) > bool max_over_time(baseline_material_age_seconds[1m]) * on() DRIFT_BASELINE_MAX_AGE_SECONDS OR max(baseline_prediction_age_seconds) > bool max_over_time(baseline_prediction_age_seconds[1m]) * on() DRIFT_BASELINE_MAX_AGE_SECONDS
+          (
+            max(baseline_material_age_seconds)
+            > bool max_over_time(baseline_material_age_seconds[1m]) * on() DRIFT_BASELINE_MAX_AGE_SECONDS
+          )
+          OR
+          (
+            max(baseline_prediction_age_seconds)
+            > bool max_over_time(baseline_prediction_age_seconds[1m]) * on() DRIFT_BASELINE_MAX_AGE_SECONDS
+          )
         for: 30m
         labels:
           severity: warning
@@ -372,7 +384,11 @@ groups:
           summary: "Significant throughput drop detected"
           description: "Current throughput is 50% below hourly average"
       - alert: CadAnalysisLowSuccessRate
-        expr: (sum(rate(analysis_requests_total{status="success"}[5m])) / sum(rate(analysis_requests_total[5m]))) * 100 < 90
+        expr: |
+          (
+            sum(rate(analysis_requests_total{status="success"}[5m]))
+            / sum(rate(analysis_requests_total[5m]))
+          ) * 100 < 90
         for: 5m
         labels:
           severity: warning
@@ -396,7 +412,11 @@ groups:
           runbook: "docs/runbooks/cad_analysis_internal_errors.md"
 
       - alert: CadAnalysisStageLatencyParseP95High
-        expr: histogram_quantile(0.95, sum by (le) (rate(analysis_stage_duration_seconds_bucket{stage="parse"}[5m]))) > 0.5
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(analysis_stage_duration_seconds_bucket{stage="parse"}[5m]))
+          ) > 0.5
         for: 10m
         labels:
           severity: warning
@@ -439,12 +459,21 @@ groups:
       - alert: FeatureExtractionV4SlowDown
         expr: |
           (
-            histogram_quantile(0.95, sum by (le) (rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m])))
+            histogram_quantile(
+              0.95,
+              sum by (le) (rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m]))
+            )
             >
-            histogram_quantile(0.95, sum by (le) (rate(feature_extraction_latency_seconds_bucket{version="v3"}[5m]))) * 1.5
+            histogram_quantile(
+              0.95,
+              sum by (le) (rate(feature_extraction_latency_seconds_bucket{version="v3"}[5m]))
+            ) * 1.5
           )
           and
-          histogram_quantile(0.95, sum by (le) (rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m]))) > 0
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m]))
+          ) > 0
         for: 10m
         labels:
           severity: warning
@@ -458,7 +487,12 @@ groups:
       # V4 Absolute Latency High
       - alert: FeatureExtractionV4LatencyHigh
         expr: |
-          histogram_quantile(0.95, sum by (le) (rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m]))) > 0.010
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m])
+            )
+          ) > 0.010
         for: 5m
         labels:
           severity: warning

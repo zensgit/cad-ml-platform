@@ -98,7 +98,7 @@ data:
             "msgtype": "markdown",
             "markdown": {
               "title": "部署通知",
-              "text": "### {{.app.metadata.name}} 部署成功 ✅\n\n**环境:** {{.app.spec.destination.namespace}}\n\n**版本:** {{.app.status.sync.revision | substr 0 7}}\n\n**时间:** {{.app.status.operationState.finishedAt}}"
+              "text": "### {{.app.metadata.name}} 部署成功 ✅\n\n**环境:** {{.app.spec.destination.namespace}}\n\n**版本:** {{.app.status.sync.revision | substr 0 7}}\n\n**时间:** {{.app.status.operationState.finishedAt}}"  # yamllint disable-line rule:line-length
             }
           }
 
@@ -111,7 +111,7 @@ data:
             "msgtype": "markdown",
             "markdown": {
               "title": "部署失败",
-              "text": "### {{.app.metadata.name}} 部署失败 ❌\n\n**环境:** {{.app.spec.destination.namespace}}\n\n**错误:** {{.app.status.operationState.message | substr 0 200}}"
+              "text": "### {{.app.metadata.name}} 部署失败 ❌\n\n**环境:** {{.app.spec.destination.namespace}}\n\n**错误:** {{.app.status.operationState.message | substr 0 200}}"  # yamllint disable-line rule:line-length
             },
             "at": {
               "isAtAll": true

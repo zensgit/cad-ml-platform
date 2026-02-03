@@ -182,6 +182,7 @@ def setup_logging(
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(numeric_level)
 
+    formatter: logging.Formatter
     if json_output:
         formatter = JsonFormatter(
             service_name=service_name,
