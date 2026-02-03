@@ -5,6 +5,7 @@
 - `ci-enhanced.yml` dispatch succeeded.
 - `ci.yml` dispatch initially failed due to GitHub API workflow parsing error referencing `secrets` in an `if` expression.
 - Updated `ci.yml` to use `github.token` for GHCR login, then re-dispatched successfully.
+- The dispatched `ci.yml` run failed in the lint step due to pre-existing flake8 violations (line length and shadowed imports), so knowledge tests/artifacts were not produced in that run.
 
 ## Commands & Results
 1) Trigger CI (ci.yml) - initial attempt
@@ -25,6 +26,14 @@
 - Command:
   - `gh workflow run ci-enhanced.yml`
 - Result: Dispatch succeeded.
+
+4) CI dispatch outcome (ci.yml)
+- Result: Failed at `lint-type` job.
+  - Example lint failures (flake8):
+    - `src/core/assistant/api_docs.py:157:101 E501 line too long`
+    - `src/core/assistant/knowledge_retriever.py:356:101 E501 line too long`
+    - `src/core/audit_enhanced/query.py:383:21 F402 import 'field' shadowed by loop variable`
+  - Impact: unit tests and knowledge-test artifacts did not run for this dispatch.
 
 ## Notes
 - The CI YAML parse error appears specific to workflow dispatch via the GitHub API. The same workflow should still run on push; follow up if CI remains blocked.

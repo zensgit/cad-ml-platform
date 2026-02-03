@@ -3020,6 +3020,7 @@
   - Triggered `ci-enhanced.yml` via `gh workflow run`.
   - `ci.yml` workflow dispatch initially failed due to a GitHub API parse error on a `secrets` expression.
   - Updated GHCR login to use `github.token` and re-dispatched `ci.yml` successfully.
+  - Dispatched `ci.yml` failed at lint due to existing flake8 violations; tests/artifacts did not run in that dispatch.
   - Report: `reports/DEV_KNOWLEDGE_CI_SMOKE_20260203.md`
   - Generated CSV report and grade-diff summary for EI values.
   - Report: `reports/DEV_ISO286_HOLE_DEVIATIONS_PDF_VALIDATION_20260203.md`
