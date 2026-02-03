@@ -1,8 +1,13 @@
 import os
+import sys
 from pathlib import Path
 from typing import Callable, Iterator, Optional, TYPE_CHECKING
 
 import pytest
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient

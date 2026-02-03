@@ -3034,6 +3034,9 @@
 - **CI Test Collection Fixes**:
   - Added `src.core` package marker, skipped part-classifier tests when PyTorch is unavailable, and de-conflicted knowledge artifact names.
   - Report: `reports/DEV_CI_TEST_FIX_20260203.md`
+- **CI Test Import Path Fix**:
+  - Inserted repo root into `sys.path` during pytest collection to resolve `src.core.*` imports in CI.
+  - Report: `reports/DEV_CI_TEST_PATH_FIX_20260203.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
