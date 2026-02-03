@@ -261,9 +261,9 @@ class SchemaTransformBuilder:
         """Nest flat fields under a parent object."""
         def transform(data: Dict) -> Dict:
             nested = {}
-            for field in child_fields:
-                if field in data:
-                    nested[field] = data.pop(field)
+            for field_name in child_fields:
+                if field_name in data:
+                    nested[field_name] = data.pop(field_name)
             if nested:
                 data[parent_field] = nested
             return data

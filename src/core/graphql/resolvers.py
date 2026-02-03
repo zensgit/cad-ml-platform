@@ -6,6 +6,7 @@ Provides resolver base classes and implementations.
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -154,7 +155,6 @@ class DocumentsQueryResolver(QueryResolver):
         offset = 0
         if after:
             try:
-                import base64
                 offset = int(base64.b64decode(after).decode()) + 1
             except Exception:
                 offset = 0
@@ -177,7 +177,6 @@ class DocumentsQueryResolver(QueryResolver):
 
         edges = []
         for i, doc in enumerate(documents):
-            import base64
             cursor = base64.b64encode(str(offset + i).encode()).decode()
             edges.append(Edge(node=doc, cursor=cursor))
 

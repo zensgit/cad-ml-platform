@@ -466,11 +466,11 @@ class FieldExtractor:
         pairs = self._parse_label_value_pairs(extraction_result.raw_texts)
         new_fields = self._auto_detect_fields(pairs, extraction_result.raw_texts)
 
-        for field in new_fields:
-            if field.field_type not in existing_types:
-                field.source = "ocr"
-                field.confidence *= 0.8  # Reduce confidence for OCR
-                extraction_result.fields.append(field)
+        for field_item in new_fields:
+            if field_item.field_type not in existing_types:
+                field_item.source = "ocr"
+                field_item.confidence *= 0.8  # Reduce confidence for OCR
+                extraction_result.fields.append(field_item)
 
         # Recalculate confidence
         if extraction_result.fields:

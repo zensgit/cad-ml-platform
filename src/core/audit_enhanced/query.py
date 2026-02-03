@@ -384,19 +384,19 @@ class AuditQuery:
             # Calculate per group
             for key, group_records in groups.items():
                 group_dict = dict(zip(group_by, key))
-                for field, agg_type in aggregations:
-                    value = self._aggregate(group_records, field, agg_type)
+                for field_name, agg_type in aggregations:
+                    value = self._aggregate(group_records, field_name, agg_type)
                     results.append(AggregationResult(
-                        name=f"{agg_type.value}_{field}",
+                        name=f"{agg_type.value}_{field_name}",
                         value=value,
                         group_by=group_dict,
                     ))
         else:
             # Global aggregations
-            for field, agg_type in aggregations:
-                value = self._aggregate(records, field, agg_type)
+            for field_name, agg_type in aggregations:
+                value = self._aggregate(records, field_name, agg_type)
                 results.append(AggregationResult(
-                    name=f"{agg_type.value}_{field}",
+                    name=f"{agg_type.value}_{field_name}",
                     value=value,
                 ))
 
@@ -513,19 +513,19 @@ class AuditExporter:
 
         for record in records:
             row = {}
-            for field in fields:
-                if field == "user_id" and record.context:
-                    row[field] = record.context.user_id
-                elif field == "category":
-                    row[field] = record.category.value
-                elif field == "severity":
-                    row[field] = record.severity.value
-                elif field == "outcome":
-                    row[field] = record.outcome.value
-                elif field == "timestamp":
-                    row[field] = record.timestamp.isoformat()
+            for field_name in fields:
+                if field_name == "user_id" and record.context:
+                    row[field_name] = record.context.user_id
+                elif field_name == "category":
+                    row[field_name] = record.category.value
+                elif field_name == "severity":
+                    row[field_name] = record.severity.value
+                elif field_name == "outcome":
+                    row[field_name] = record.outcome.value
+                elif field_name == "timestamp":
+                    row[field_name] = record.timestamp.isoformat()
                 else:
-                    row[field] = getattr(record, field, "")
+                    row[field_name] = getattr(record, field_name, "")
             writer.writerow(row)
 
         return output.getvalue()

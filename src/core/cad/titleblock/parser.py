@@ -324,11 +324,11 @@ class TitleblockParser:
             FieldType.PROJECT: "project",
         }
 
-        for field in extraction.fields:
-            if field.field_type in field_mapping:
-                setattr(metadata, field_mapping[field.field_type], field.value)
-            elif field.field_type == FieldType.CUSTOM:
-                metadata.custom_fields[field.label] = field.value
+        for field_item in extraction.fields:
+            if field_item.field_type in field_mapping:
+                setattr(metadata, field_mapping[field_item.field_type], field_item.value)
+            elif field_item.field_type == FieldType.CUSTOM:
+                metadata.custom_fields[field_item.label] = field_item.value
 
         return metadata
 

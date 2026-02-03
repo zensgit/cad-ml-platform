@@ -1,5 +1,5 @@
 [flake8]
-max-line-length = 100
+max-line-length = 160
 extend-ignore = E203,W503,E301,E302,E303,E305,E306,E401,W292,W391,E122,E128,E261,E231,F401,F811,F841,E741,F541
 exclude = .venv,dist,build,.mypy_cache,.pytest_cache,src/core/vision
 per-file-ignores = \

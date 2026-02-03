@@ -195,9 +195,14 @@ class DWGParser:
             return
 
         # R2000+ header structure
-        if self._header.version in (DWGVersion.R2000, DWGVersion.R2004,
-                                     DWGVersion.R2007, DWGVersion.R2010,
-                                     DWGVersion.R2013, DWGVersion.R2018):
+        if self._header.version in (
+            DWGVersion.R2000,
+            DWGVersion.R2004,
+            DWGVersion.R2007,
+            DWGVersion.R2010,
+            DWGVersion.R2013,
+            DWGVersion.R2018,
+        ):
             try:
                 # Byte 6: Maintenance release version
                 # Byte 7: Unknown

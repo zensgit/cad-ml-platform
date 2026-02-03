@@ -206,27 +206,27 @@ class ValidateTransform(Transform):
         errors = []
 
         # Check required fields
-        for field in self.required_fields:
-            if field not in data or data[field] is None:
-                errors.append(f"Missing required field: {field}")
+        for field_name in self.required_fields:
+            if field_name not in data or data[field_name] is None:
+                errors.append(f"Missing required field: {field_name}")
 
         # Check field types
-        for field, expected_type in self.field_types.items():
-            if field in data and data[field] is not None:
-                if not isinstance(data[field], expected_type):
+        for field_name, expected_type in self.field_types.items():
+            if field_name in data and data[field_name] is not None:
+                if not isinstance(data[field_name], expected_type):
                     errors.append(
-                        f"Invalid type for {field}: expected {expected_type.__name__}, "
-                        f"got {type(data[field]).__name__}"
+                        f"Invalid type for {field_name}: expected {expected_type.__name__}, "
+                        f"got {type(data[field_name]).__name__}"
                     )
 
         # Custom validators
-        for field, validator in self.validators.items():
-            if field in data:
+        for field_name, validator in self.validators.items():
+            if field_name in data:
                 try:
-                    if not validator(data[field]):
-                        errors.append(f"Validation failed for {field}")
+                    if not validator(data[field_name]):
+                        errors.append(f"Validation failed for {field_name}")
                 except Exception as e:
-                    errors.append(f"Validator error for {field}: {e}")
+                    errors.append(f"Validator error for {field_name}: {e}")
 
         return errors
 
@@ -258,19 +258,19 @@ class TypeConvertTransform(Transform):
         for record in records:
             new_data = copy.copy(record.data)
 
-            for field, target_type in self.conversions.items():
-                if field in new_data:
+            for field_name, target_type in self.conversions.items():
+                if field_name in new_data:
                     try:
-                        new_data[field] = self._convert(new_data[field], target_type)
+                        new_data[field_name] = self._convert(new_data[field_name], target_type)
                     except Exception as e:
                         if self.on_error == "null":
-                            new_data[field] = None
+                            new_data[field_name] = None
                         elif self.on_error == "raise":
                             raise
                         # "keep" does nothing
                         errors.append({
                             "offset": record.offset,
-                            "field": field,
+                            "field": field_name,
                             "error": str(e),
                         })
 

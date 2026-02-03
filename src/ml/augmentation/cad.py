@@ -182,12 +182,17 @@ class TextPerturbation(CADAugmentation):
 
         # Common OCR confusions
         self._confusions = {
-            "0": "O", "O": "0",
-            "1": "l", "l": "1",
-            "I": "l", "l": "I",
-            "5": "S", "S": "5",
-            "8": "B", "B": "8",
-            "2": "Z", "Z": "2",
+            "0": "O",
+            "O": "0",
+            "1": "l",
+            "l": ["1", "I"],
+            "I": "l",
+            "5": "S",
+            "S": "5",
+            "8": "B",
+            "B": "8",
+            "2": "Z",
+            "Z": "2",
         }
 
     def _apply(self, data: Any) -> Any:
@@ -215,7 +220,10 @@ class TextPerturbation(CADAugmentation):
             # Character swap
             if random.random() < self.char_swap_rate:
                 if char in self._confusions:
-                    chars[i] = self._confusions[char]
+                    replacement = self._confusions[char]
+                    if isinstance(replacement, (list, tuple)):
+                        replacement = random.choice(replacement)
+                    chars[i] = replacement
 
             # Case change
             if random.random() < self.case_change_rate:

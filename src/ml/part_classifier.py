@@ -127,7 +127,7 @@ class PartClassifier:
                     elif etype == "INSERT":
                         if hasattr(entity.dxf, 'insert'):
                             all_points.append((entity.dxf.insert.x, entity.dxf.insert.y))
-                except:
+                except Exception:
                     pass
 
             type_counts = Counter(entity_types)

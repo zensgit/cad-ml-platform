@@ -420,20 +420,20 @@ class InMemorySearchClient(SearchClient):
             return True
 
         if "match" in query:
-            for field, match_query in query["match"].items():
+            for field_name, match_query in query["match"].items():
                 if isinstance(match_query, dict):
                     search_term = match_query.get("query", "").lower()
                 else:
                     search_term = str(match_query).lower()
 
-                doc_value = str(doc.get(field, "")).lower()
+                doc_value = str(doc.get(field_name, "")).lower()
                 if search_term not in doc_value:
                     return False
             return True
 
         if "term" in query:
-            for field, term_value in query["term"].items():
-                if doc.get(field) != term_value:
+            for field_name, term_value in query["term"].items():
+                if doc.get(field_name) != term_value:
                     return False
             return True
 
