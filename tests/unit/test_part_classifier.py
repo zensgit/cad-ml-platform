@@ -10,6 +10,9 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+# Skip these tests when torch is unavailable in the runtime.
+pytest.importorskip("torch")
+
 # 测试模块导入
 from src.ml.part_classifier import (
     ClassificationResult,

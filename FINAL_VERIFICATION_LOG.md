@@ -3031,6 +3031,9 @@
   - Expanded mypy ignore coverage for legacy core modules and fixed logging formatter typing.
   - Normalized alerting/metadata YAML formatting and line-length compliance.
   - Report: `reports/DEV_CI_TYPECHECK_YAMLLINT_FIX_20260203.md`
+- **CI Test Collection Fixes**:
+  - Added `src.core` package marker, skipped part-classifier tests when PyTorch is unavailable, and de-conflicted knowledge artifact names.
+  - Report: `reports/DEV_CI_TEST_FIX_20260203.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
