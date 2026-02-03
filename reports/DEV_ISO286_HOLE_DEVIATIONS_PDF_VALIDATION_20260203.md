@@ -39,7 +39,7 @@
 6) ISO286 hole symbol coverage
 - Command:
   - `pytest tests/unit/knowledge/test_iso286_hole_deviations_coverage.py -v`
-- Result: `1 passed`
+- Result: `2 passed`
 
 ## Output Artifacts
 - `data/knowledge/iso286_hole_deviations.json`
