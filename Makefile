@@ -62,6 +62,10 @@ test: ## 运行测试
 	@echo "$(GREEN)Running tests...$(NC)"
 	$(PYTEST) $(TEST_DIR) -v --cov=$(SRC_DIR) --cov-report=term-missing --cov-report=html
 
+test-knowledge: ## 运行知识库相关测试
+	@echo "$(GREEN)Running knowledge tests...$(NC)"
+	$(PYTEST) $(TEST_DIR)/unit/knowledge -v
+
 test-dedupcad-vision: ## 运行测试（依赖 DedupCAD Vision 已启动）
 	@echo "$(GREEN)Running tests with DedupCAD Vision required...$(NC)"
 	@echo "$(YELLOW)Ensure dedupcad-vision is running at $${DEDUPCAD_VISION_URL:-http://localhost:58001}$(NC)"

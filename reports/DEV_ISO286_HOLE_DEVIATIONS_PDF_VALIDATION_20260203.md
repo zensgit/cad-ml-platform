@@ -41,6 +41,11 @@
   - `pytest tests/unit/knowledge/test_iso286_hole_deviations_coverage.py -v`
 - Result: `2 passed`
 
+7) Knowledge suite (Makefile target)
+- Command:
+  - `make test-knowledge`
+- Result: `183 passed`
+
 ## Output Artifacts
 - `data/knowledge/iso286_hole_deviations.json`
 - `reports/DEV_ISO286_HOLE_DEVIATIONS_PDF_DESIGN_20260203.md`
