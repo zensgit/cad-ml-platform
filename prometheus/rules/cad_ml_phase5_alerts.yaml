@@ -18,7 +18,12 @@ groups:
           summary: Faiss recovery attempts failing
           description: More than 3 failed recovery attempts within 10 minutes.
       - alert: DegradationFlapping
-        expr: (increase(similarity_degraded_total{event="degraded"}[15m]) + increase(similarity_degraded_total{event="restored"}[15m])) > 6
+        expr: |
+          (
+            increase(similarity_degraded_total{event="degraded"}[15m])
+            +
+            increase(similarity_degraded_total{event="restored"}[15m])
+          ) > 6
         for: 10m
         labels:
           severity: warning
@@ -26,7 +31,10 @@ groups:
           summary: Degraded/restored flapping detected
           description: Excessive degraded/restored toggles in a short period.
       - alert: RecoveryETAStalled
-        expr: (faiss_next_recovery_eta_seconds > 0) and (increase(faiss_next_recovery_eta_seconds[15m]) == 0) and (time() - process_start_time_seconds > 600)
+        expr: |
+          (faiss_next_recovery_eta_seconds > 0)
+          and (increase(faiss_next_recovery_eta_seconds[15m]) == 0)
+          and (time() - process_start_time_seconds > 600)
         for: 15m
         labels:
           severity: warning
@@ -42,21 +50,30 @@ groups:
           summary: Recovery suppression spike
           description: Flapping suppression triggered frequently; check thresholds and backend health.
       - alert: RecoverySuppressedAttempts
-        expr: increase(faiss_recovery_attempts_total{result="suppressed"}[30m]) > 5 and (time() - process_start_time_seconds > 600)
+        expr: |
+          increase(faiss_recovery_attempts_total{result="suppressed"}[30m]) > 5
+          and (time() - process_start_time_seconds > 600)
         for: 10m
         labels:
           severity: warning
         annotations:
           summary: Suppressed recovery attempts high
-          description: Faiss recovery attempts are being suppressed frequently; investigate flapping or misconfiguration.
+          description: >-
+            Faiss recovery attempts are being suppressed frequently; investigate flapping or
+            misconfiguration.
       - alert: RecoverySuppressionWindowStuck
-        expr: (faiss_recovery_suppression_remaining_seconds > 0) and (increase(faiss_recovery_suppression_remaining_seconds[10m]) == 0) and (time() - process_start_time_seconds > 600)
+        expr: |
+          (faiss_recovery_suppression_remaining_seconds > 0)
+          and (increase(faiss_recovery_suppression_remaining_seconds[10m]) == 0)
+          and (time() - process_start_time_seconds > 600)
         for: 15m
         labels:
           severity: warning
         annotations:
           summary: Recovery suppression window stuck
-          description: Suppression remaining seconds not decreasing; recovery loop may be stalled or time mocking active.
+          description: >-
+            Suppression remaining seconds not decreasing; recovery loop may be stalled or time
+            mocking active.
 
   - name: cad_ml_security_alerts
     rules:
@@ -80,7 +97,12 @@ groups:
   - name: cad_ml_cache_alerts
     rules:
       - alert: LowCacheHitRatio
-        expr: (rate(feature_cache_hits_total[5m]) / (rate(feature_cache_hits_total[5m]) + rate(feature_cache_miss_total[5m]))) < 0.7
+        expr: |
+          (
+            rate(feature_cache_hits_total[5m])
+            /
+            (rate(feature_cache_hits_total[5m]) + rate(feature_cache_miss_total[5m]))
+          ) < 0.7
         for: 10m
         labels:
           severity: warning
@@ -99,7 +121,11 @@ groups:
   - name: cad_ml_feature_alerts
     rules:
       - alert: V4FeatureExtractionSlow
-        expr: histogram_quantile(0.95, sum(rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m])) by (le)) > 0.01
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(feature_extraction_latency_seconds_bucket{version="v4"}[5m])) by (le)
+          ) > 0.01
         for: 10m
         labels:
           severity: warning
@@ -107,7 +133,18 @@ groups:
           summary: v4 feature extraction p95 slow
           description: p95 latency of v4 feature extraction exceeds 10ms.
       - alert: V4FeaturePerformanceDegradation
-        expr: (histogram_quantile(0.95, sum(rate(feature_extraction_latency_seconds_bucket{version="v4"}[10m])) by (le)) / histogram_quantile(0.95, sum(rate(feature_extraction_latency_seconds_bucket{version="v3"}[10m])) by (le))) > 2
+        expr: |
+          (
+            histogram_quantile(
+              0.95,
+              sum(rate(feature_extraction_latency_seconds_bucket{version="v4"}[10m])) by (le)
+            )
+            /
+            histogram_quantile(
+              0.95,
+              sum(rate(feature_extraction_latency_seconds_bucket{version="v3"}[10m])) by (le)
+            )
+          ) > 2
         for: 15m
         labels:
           severity: warning

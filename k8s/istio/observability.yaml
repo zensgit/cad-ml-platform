@@ -127,6 +127,7 @@ metadata:
   labels:
     grafana_dashboard: "1"
 data:
+  # yamllint disable rule:line-length
   istio-mesh.json: |
     {
       "annotations": {
@@ -238,6 +239,7 @@ data:
       "schemaVersion": 38,
       "version": 1
     }
+  # yamllint enable rule:line-length
 
 ---
 # Kiali configuration

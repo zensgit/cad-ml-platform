@@ -3040,6 +3040,9 @@
 - **CI Test Import Override**:
   - Cleared any preloaded `src` module and re-imported the local package to avoid external `src` shadowing.
   - Report: `reports/DEV_CI_TEST_IMPORT_OVERRIDE_20260203.md`
+- **CI Yamllint Cleanup**:
+  - Fixed indentation and line-length violations across Prometheus/ArgoCD/Istio YAML and embedded JSON blocks.
+  - Report: `reports/DEV_CI_YAMLLINT_CLEANUP_20260203.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
