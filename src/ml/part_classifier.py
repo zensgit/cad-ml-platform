@@ -2,7 +2,7 @@
 CAD部件分类推理服务
 
 提供DXF/DWG图纸的部件类型识别功能
-支持V2 (28维/7类) 和 V6 (48维/5类) 模型
+支持V2 (28维/7类), V6 (48维/5类) 和 V7 (48维/5类) 模型
 """
 
 import logging
@@ -31,7 +31,7 @@ class ClassificationResult:
 class PartClassifier:
     """部件分类器 - 支持多版本模型"""
 
-    def __init__(self, model_path: str = "models/cad_classifier_v6.pt"):
+    def __init__(self, model_path: str = "models/cad_classifier_v7.pt"):
         self.model_path = Path(model_path)
         self.model = None
         self.id_to_label = None
@@ -52,7 +52,7 @@ class PartClassifier:
         self.version = checkpoint.get("version", "v2")
 
         # 根据版本选择模型架构
-        if self.version == "v6":
+        if self.version in ("v6", "v7"):
             self.model = self._build_v6_model(input_dim, hidden_dim, num_classes)
         else:
             self.model = self._build_v2_model(input_dim, hidden_dim, num_classes)
@@ -129,7 +129,7 @@ class PartClassifier:
 
     def extract_features(self, dxf_path: str) -> Optional[np.ndarray]:
         """从DXF文件提取特征 - 根据模型版本选择特征维度"""
-        if self.version == "v6":
+        if self.version in ("v6", "v7"):
             return self._extract_features_v6(dxf_path)
         else:
             return self._extract_features_v2(dxf_path)
