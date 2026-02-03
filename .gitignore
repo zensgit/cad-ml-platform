@@ -124,6 +124,8 @@ reports/baselines/latest_snapshot.json
 # Large/local artifacts (keep reports and handoff folders in repo, ignore generated outputs)
 handoff/*.zip
 reports/*.csv
+!reports/DEV_ISO286_EI_REPORT_20260203.csv
+!reports/DEV_ISO286_EI_DIFF_6_vs_7_20260203.csv
 reports/*.json
 reports/*.jsonl
 reports/replay/
