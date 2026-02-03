@@ -30,11 +30,15 @@ Imported ISO 286 hole deviation data for A/B/C, CD/D/E, EF/F, FG/G, H/JS/J/K/M/N
 - **Decision**: Add `pdfplumber` to `requirements-dev.txt` and `requirements-dev-lite.txt`.
 - **Why**: Ensures PDF table extraction is reproducible in dev environments.
 
-### 6) Preferred grade tracking
+### 6) Fail-fast on missing pdfplumber
+- **Decision**: Require `pdfplumber` for Tables 6–16 by default; add `--allow-partial` to skip with a warning.
+- **Why**: Prevents silently writing incomplete overrides when table extraction is unavailable.
+
+### 7) Preferred grade tracking
 - **Decision**: Persist `preferred_grade` in the JSON output to document which IT grade column was selected for EI extraction.
 - **Why**: Provides traceability when changing grade selection (e.g., `--prefer-grade 7`).
 
-### 7) Report & compare outputs
+### 8) Report & compare outputs
 - **Decision**: Add `--report` (CSV dump of symbol/size/ei) and `--compare-grade`/`--compare-report` for EI diffing.
 - **Why**: Enables quick human review and grade-to-grade sensitivity checks without manual spreadsheet work.
 

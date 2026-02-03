@@ -4,6 +4,7 @@
 - Extracted A/B/C, CD/D/E, EF/F, FG/G, H/JS/J/K/M/N/P/R, and S/T/U/V/X/Y/Z/ZA/ZB/ZC hole deviations from GB/T 1800.2-2020 PDF (Tables 2–16).
 - Re-validated ISO286 deviation coverage.
 - Re-ran tolerance-fit unit tests.
+- Confirmed extractor now fails fast when `pdfplumber` is missing (unless `--allow-partial` is used).
 
 ## Commands & Results
 1) Extract Tables 2–16 from PDF

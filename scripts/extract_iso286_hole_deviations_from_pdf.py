@@ -11,10 +11,11 @@ Notes:
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import re
+import sys
 from pathlib import Path
-import csv
 from typing import Dict, List, Optional, Tuple
 
 from pypdf import PdfReader
@@ -298,9 +299,25 @@ def _extract_size_upper(line: str) -> Optional[float]:
 
 
 def _is_size_line(line: str) -> bool:
-    if not re.search(r"[+-]\s*\d", line):
+    if re.search(r"[+-]\s*\d", line):
+        return _extract_size_upper(line) is not None
+    if _extract_size_upper(line) is None:
         return False
-    return _extract_size_upper(line) is not None
+    if re.search(r"[—–\-至]", line):
+        return True
+    return len(re.findall(r"\d+(?:\.\d+)?", line)) >= 2
+
+
+def _warn(message: str) -> None:
+    print(f"WARNING: {message}", file=sys.stderr)
+
+
+def _has_pdfplumber() -> bool:
+    try:
+        import pdfplumber  # noqa: F401
+    except ImportError:
+        return False
+    return True
 
 
 def _choose_value(values: List[float], grades: List[int], prefer_grade: int) -> float:
@@ -337,10 +354,7 @@ def _parse_table(reader: PdfReader, table: dict, prefer_grade: int) -> Dict[str,
 
 
 def _parse_table_pdfplumber(pdf_path: Path, table: dict, prefer_grade: int) -> Dict[str, List[List[float]]]:
-    try:
-        import pdfplumber
-    except ImportError:
-        return {}
+    import pdfplumber
 
     debug = os.getenv("ISO_PDF_DEBUG") == "1"
     results: Dict[str, List[List[float]]] = {g["symbol"]: [] for g in table["groups"]}
@@ -473,31 +487,31 @@ def _parse_table_lines(lines: List[str], table: dict, prefer_grade: int) -> Dict
     return results
 
 
-def _is_valid_series(symbol: str, rows: List[List[float]]) -> bool:
+def _validate_series(symbol: str, rows: List[List[float]]) -> tuple[bool, str]:
     if len(rows) < 3:
-        return False
+        return False, "insufficient rows"
     size_uppers = [row[0] for row in rows]
     if size_uppers != sorted(size_uppers):
-        return False
+        return False, "size uppers not sorted"
     if any(size not in VALID_SIZE_UPPERS for size in size_uppers):
-        return False
+        return False, "invalid size upper"
     values = [row[1] for row in rows]
     if any(abs(val) > 100000 for val in values):
-        return False
+        return False, "deviation out of range"
     if symbol in POSITIVE_SYMBOLS and any(val < 0 for val in values):
-        return False
+        return False, "negative EI in positive symbol"
     if symbol in NEGATIVE_SYMBOLS and any(val > 0 for val in values):
-        return False
+        return False, "positive EI in negative symbol"
     # Basic monotonicity guard
     if symbol in POSITIVE_SYMBOLS:
         for prev, curr in zip(values, values[1:]):
             if curr < prev:
-                return False
+                return False, "non-monotonic EI for positive symbol"
     if symbol in NEGATIVE_SYMBOLS:
         for prev, curr in zip(values, values[1:]):
             if curr > prev:
-                return False
-    return True
+                return False, "non-monotonic EI for negative symbol"
+    return True, ""
 
 
 def _merge_series(existing: List[List[float]], updates: List[List[float]]) -> List[List[float]]:
@@ -534,19 +548,44 @@ def _merge_payload(
     return payload
 
 
-def _build_deviations(pdf_path: Path, prefer_grade: int) -> Dict[str, List[List[float]]]:
+def _build_deviations(
+    pdf_path: Path,
+    prefer_grade: int,
+    allow_partial: bool,
+) -> Dict[str, List[List[float]]]:
+    pdfplumber_available = _has_pdfplumber()
+    if TABLES_PDFPLUMBER and not pdfplumber_available:
+        message = (
+            "pdfplumber is required to parse Tables 6–16 (H–ZC). "
+            "Install pdfplumber or rerun with --allow-partial to skip these tables."
+        )
+        if allow_partial:
+            _warn(message)
+        else:
+            raise SystemExit(message)
     reader = PdfReader(str(pdf_path))
     merged: Dict[str, List[List[float]]] = {}
     for table in TABLES_PYPDF:
         updates = _parse_table(reader, table, prefer_grade)
         for symbol, rows in updates.items():
-            if rows and _is_valid_series(symbol, rows):
+            if not rows:
+                continue
+            ok, reason = _validate_series(symbol, rows)
+            if ok:
                 merged[symbol] = rows
-    for table in TABLES_PDFPLUMBER:
-        updates = _parse_table_pdfplumber(pdf_path, table, prefer_grade)
-        for symbol, rows in updates.items():
-            if rows and _is_valid_series(symbol, rows):
-                merged[symbol] = rows
+            else:
+                _warn(f"Skipping {symbol} series: {reason}")
+    if pdfplumber_available:
+        for table in TABLES_PDFPLUMBER:
+            updates = _parse_table_pdfplumber(pdf_path, table, prefer_grade)
+            for symbol, rows in updates.items():
+                if not rows:
+                    continue
+                ok, reason = _validate_series(symbol, rows)
+                if ok:
+                    merged[symbol] = rows
+                else:
+                    _warn(f"Skipping {symbol} series: {reason}")
     return merged
 
 
@@ -593,6 +632,11 @@ def main() -> None:
     parser.add_argument("--pdf", required=True, help="Path to GB/T 1800.2-2020 PDF")
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
     parser.add_argument("--prefer-grade", type=int, default=6)
+    parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="Allow running without pdfplumber; skips Tables 6–16.",
+    )
     parser.add_argument("--report", help="Optional CSV report output path")
     parser.add_argument("--compare-grade", type=int, help="Optional grade to compare against")
     parser.add_argument("--compare-report", help="Optional CSV diff output path")
@@ -602,7 +646,7 @@ def main() -> None:
     if not pdf_path.exists():
         raise SystemExit(f"PDF not found: {pdf_path}")
 
-    merged = _build_deviations(pdf_path, args.prefer_grade)
+    merged = _build_deviations(pdf_path, args.prefer_grade, args.allow_partial)
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -611,7 +655,7 @@ def main() -> None:
     if args.report:
         _write_report_csv(merged, Path(args.report))
     if args.compare_grade:
-        compare_rows = _build_deviations(pdf_path, args.compare_grade)
+        compare_rows = _build_deviations(pdf_path, args.compare_grade, args.allow_partial)
         diff = _diff_rows(merged, compare_rows)
         compare_path = (
             Path(args.compare_report)
