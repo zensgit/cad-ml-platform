@@ -3089,6 +3089,9 @@
 - **GPU Base Image Tag Fix**:
   - Updated CUDA runtime tag to fix GPU image build failures.
   - Report: `reports/DEV_GPU_IMAGE_BASE_TAG_FIX_20260204.md`
+- **Docker Multi-Arch Manifest Fix**:
+  - Corrected metadata JSON usage to unblock manifest creation and Trivy scans.
+  - Report: `reports/DEV_DOCKER_MULTIARCH_MANIFEST_FIX_20260204.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

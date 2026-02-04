@@ -37,6 +37,7 @@ jobs:
     name: Extract Metadata
     runs-on: ubuntu-latest
     outputs:
+      json: ${{ steps.meta.outputs.json }}
       tags: ${{ steps.meta.outputs.tags }}
       labels: ${{ steps.meta.outputs.labels }}
       version: ${{ steps.version.outputs.version }}
@@ -171,7 +172,7 @@ jobs:
           docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
         env:
-          DOCKER_METADATA_OUTPUT_JSON: ${{ needs.metadata.outputs.tags }}
+          DOCKER_METADATA_OUTPUT_JSON: ${{ needs.metadata.outputs.json }}
 
       - name: Inspect image
         run: |
