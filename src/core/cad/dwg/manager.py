@@ -198,7 +198,7 @@ class DWGManager:
 
     def _calculate_hash(self, file_path: Path) -> str:
         """Calculate file hash for caching."""
-        hasher = hashlib.md5()
+        hasher = hashlib.md5()  # nosec B324 - file cache fingerprint
         with open(file_path, "rb") as f:
             # Read in chunks for large files
             for chunk in iter(lambda: f.read(8192), b""):

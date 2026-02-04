@@ -313,7 +313,7 @@ class ConsistentHashBalancer(LoadBalancer):
         self._requests: Dict[str, int] = {}
 
     def _hash(self, key: str) -> int:
-        return int(hashlib.md5(key.encode()).hexdigest(), 16)
+        return int(hashlib.md5(key.encode()).hexdigest(), 16)  # nosec B324 - consistent hashing
 
     def _rebuild_ring(self, instances: List[ServiceInstance]) -> None:
         """Rebuild the hash ring."""

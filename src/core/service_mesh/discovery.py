@@ -315,7 +315,7 @@ class ServiceRegistrar:
     def _generate_instance_id(self) -> str:
         """Generate a unique instance ID."""
         data = f"{self.definition.name}:{self.host}:{self.port}:{time.time()}"
-        return hashlib.md5(data.encode()).hexdigest()[:12]
+        return hashlib.md5(data.encode()).hexdigest()[:12]  # nosec B324 - instance id hashing
 
     async def start(self) -> None:
         """Start the registrar (register and begin heartbeats)."""

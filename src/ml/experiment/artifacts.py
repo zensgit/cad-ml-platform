@@ -111,7 +111,7 @@ class ArtifactStore:
 
     def _compute_checksum(self, path: Path) -> str:
         """Compute MD5 checksum of file."""
-        md5 = hashlib.md5()
+        md5 = hashlib.md5()  # nosec B324 - artifact checksum
         with open(path, "rb") as f:
             for chunk in iter(lambda: f.read(8192), b""):
                 md5.update(chunk)

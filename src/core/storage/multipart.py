@@ -197,7 +197,7 @@ class MultipartUploadManager:
         state.updated_at = datetime.utcnow()
 
         # Calculate ETag (MD5)
-        etag = hashlib.md5(data).hexdigest()
+        etag = hashlib.md5(data).hexdigest()  # nosec B324 - ETag compatibility
 
         # Store part info
         part_info = PartInfo(
@@ -247,7 +247,7 @@ class MultipartUploadManager:
         logger.info(f"Completed multipart upload: {upload_id}, key={state.key}")
 
         # Calculate combined ETag
-        combined_etag = hashlib.md5(
+        combined_etag = hashlib.md5(  # nosec B324 - ETag compatibility
             b"".join(
                 state.parts[i].etag.encode()
                 for i in sorted(state.parts.keys())

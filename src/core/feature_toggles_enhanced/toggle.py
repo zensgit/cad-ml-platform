@@ -140,7 +140,7 @@ class PercentageRule(ToggleRule):
             # Use consistent hashing for sticky sessions
             key = context.get(self.sticky_key)
             if key:
-                hash_val = int(hashlib.md5(str(key).encode()).hexdigest(), 16)
+                hash_val = int(hashlib.md5(str(key).encode()).hexdigest(), 16)  # nosec B324 - stable rollout hashing
                 return (hash_val % 100) < self.percentage
 
         # Random evaluation
@@ -319,7 +319,7 @@ class FeatureToggle:
 
         # Use consistent hashing
         key = context.user_id or context.session_id or str(random.random())
-        hash_val = int(hashlib.md5(f"{self.name}:{key}".encode()).hexdigest(), 16)
+        hash_val = int(hashlib.md5(f"{self.name}:{key}".encode()).hexdigest(), 16)  # nosec B324 - consistent variant bucketing
 
         total_weight = sum(self.variants.values())
         if total_weight == 0:

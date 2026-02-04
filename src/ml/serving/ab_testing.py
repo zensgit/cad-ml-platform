@@ -499,7 +499,9 @@ class ABTestManager:
                     return variant
 
         # Assign based on user ID hash
-        hash_val = int(hashlib.md5(f"{experiment.id}:{user_id}".encode()).hexdigest(), 16)
+        hash_val = int(
+            hashlib.md5(f"{experiment.id}:{user_id}".encode()).hexdigest(), 16
+        )  # nosec B324 - consistent variant bucketing
         bucket = (hash_val % 100) / 100.0
 
         cumulative = 0.0

@@ -150,7 +150,7 @@ class InMemoryStorage(StorageClient):
         if len(data) > self.config.max_file_size:
             raise ValueError(f"File size exceeds maximum: {self.config.max_file_size}")
 
-        etag = hashlib.md5(data).hexdigest()
+        etag = hashlib.md5(data).hexdigest()  # nosec B324 - ETag compatibility
         content_type = content_type or mimetypes.guess_type(key)[0] or "application/octet-stream"
 
         obj_meta = ObjectMetadata(
@@ -249,7 +249,7 @@ class InMemoryStorage(StorageClient):
         if upload_id not in self._multipart_uploads:
             raise ValueError(f"Upload not found: {upload_id}")
 
-        etag = hashlib.md5(data).hexdigest()
+        etag = hashlib.md5(data).hexdigest()  # nosec B324 - ETag compatibility
         part = {
             "part_number": part_number,
             "etag": etag,
@@ -331,7 +331,7 @@ class LocalFileStorage(StorageClient):
         import json
         await asyncio.to_thread(meta_path.write_text, json.dumps(meta_content))
 
-        etag = hashlib.md5(data).hexdigest()
+        etag = hashlib.md5(data).hexdigest()  # nosec B324 - ETag compatibility
 
         return ObjectMetadata(
             key=key,
@@ -368,7 +368,7 @@ class LocalFileStorage(StorageClient):
 
         stat = await asyncio.to_thread(file_path.stat)
         data = await asyncio.to_thread(file_path.read_bytes)
-        etag = hashlib.md5(data).hexdigest()
+        etag = hashlib.md5(data).hexdigest()  # nosec B324 - ETag compatibility
 
         # Read metadata
         meta_path = file_path.with_suffix(file_path.suffix + ".meta")
