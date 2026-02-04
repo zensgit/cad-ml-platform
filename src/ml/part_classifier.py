@@ -2,7 +2,7 @@
 CAD部件分类推理服务
 
 提供DXF/DWG图纸的部件类型识别功能
-支持V2 (28维/7类), V6 (48维/5类) 和 V7 (48维/5类) 模型
+支持V2 (28维/7类), V6 (48维/5类) 模型（兼容读取历史V7/V8权重）
 """
 
 import logging
@@ -49,7 +49,9 @@ class PartClassifier:
         input_dim = checkpoint["input_dim"]
         hidden_dim = checkpoint["hidden_dim"]
         num_classes = checkpoint["num_classes"]
-        self.version = checkpoint.get("version", "v2")
+        self.version = checkpoint.get("version")
+        if not self.version:
+            self.version = self._infer_version(input_dim, num_classes)
 
         # 根据版本选择模型架构
         if self.version == "v8":
@@ -68,6 +70,12 @@ class PartClassifier:
         self.input_dim = input_dim
 
         logger.info(f"模型加载成功 (版本: {self.version})，类别: {list(self.id_to_label.values())}")
+
+    def _infer_version(self, input_dim: int, num_classes: int) -> str:
+        """基于维度推断模型版本，避免缺少version字段时加载错误架构。"""
+        if input_dim >= 48 and num_classes <= 10:
+            return "v6"
+        return "v2"
 
     def _build_v2_model(self, input_dim, hidden_dim, num_classes):
         """V2模型架构 (28维特征)"""

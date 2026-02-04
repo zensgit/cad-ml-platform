@@ -3052,6 +3052,10 @@
 - **Adaptive Rate Limit Monitor Dashboard Fix**:
   - Guarded scheduled dashboard generation against empty/invalid traffic and performance JSON artifacts.
   - Report: `reports/DEV_ADAPTIVE_RATE_LIMIT_MONITOR_FIX_20260204.md`
+- **Part Classifier Version Guard**:
+  - Inferred model version from checkpoint dimensions when metadata is missing.
+  - Adjusted V9 training script default dataset and clarified PartClassifier support note.
+  - Report: `reports/DEV_PART_CLASSIFIER_VERSION_GUARD_20260204.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

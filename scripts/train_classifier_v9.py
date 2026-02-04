@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-DATA_DIR = Path("data/training_v7")  # 使用V7数据集
+DATA_DIR = Path("data/training_v6")  # 使用V6数据集（如需切换可通过参数覆盖）
 MODEL_DIR = Path("models")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 
