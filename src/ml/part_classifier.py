@@ -52,7 +52,9 @@ class PartClassifier:
         self.version = checkpoint.get("version", "v2")
 
         # 根据版本选择模型架构
-        if self.version in ("v6", "v7"):
+        if self.version == "v8":
+            self.model = self._build_v8_model(input_dim, hidden_dim, num_classes)
+        elif self.version in ("v6", "v7"):
             self.model = self._build_v6_model(input_dim, hidden_dim, num_classes)
         else:
             self.model = self._build_v2_model(input_dim, hidden_dim, num_classes)
@@ -127,9 +129,14 @@ class PartClassifier:
 
         return ImprovedClassifierV6(input_dim, hidden_dim, num_classes)
 
+    def _build_v8_model(self, input_dim, hidden_dim, num_classes):
+        """V8模型架构 (48维特征, 与V6/V7相同)"""
+        # V8使用与V6/V7相同的架构
+        return self._build_v6_model(input_dim, hidden_dim, num_classes)
+
     def extract_features(self, dxf_path: str) -> Optional[np.ndarray]:
         """从DXF文件提取特征 - 根据模型版本选择特征维度"""
-        if self.version in ("v6", "v7"):
+        if self.version in ("v6", "v7", "v8"):
             return self._extract_features_v6(dxf_path)
         else:
             return self._extract_features_v2(dxf_path)
