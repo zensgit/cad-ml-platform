@@ -259,7 +259,7 @@ class EnhancedFeatureExtractorV4:
                         dimension_count += 1
                     elif etype == "HATCH":
                         hatch_count += 1
-                except:
+                except Exception:
                     pass
 
             type_counts = Counter(entity_types)
@@ -423,7 +423,7 @@ def render_dxf_to_image(dxf_path: str, size: int = IMG_SIZE) -> Optional[np.ndar
                             ax.plot(xs, ys, 'k-', linewidth=0.8)
                             all_x.extend(xs)
                             all_y.extend(ys)
-            except:
+            except Exception:
                 pass
 
         if not all_x or not all_y:

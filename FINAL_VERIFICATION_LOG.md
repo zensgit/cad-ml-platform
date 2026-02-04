@@ -3101,6 +3101,9 @@
 - **Docker Security Scan Permissions**:
   - Granted `security-events: write` so SARIF uploads succeed in the security scan job.
   - Report: `reports/DEV_DOCKER_SECURITY_SCAN_PERMISSIONS_20260204.md`
+- **Lint E722 Fix (Classifier API)**:
+  - Replaced bare `except` clauses in DXF parsing loops to satisfy flake8.
+  - Report: `reports/DEV_LINT_E722_CLASSIFIER_API_20260204.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
