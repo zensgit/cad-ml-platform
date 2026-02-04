@@ -3074,6 +3074,12 @@
 - **Untracked Artifacts Inventory**:
   - Logged current untracked model/script artifacts and recommendations.
   - Report: `reports/DEV_UNTRACKED_ARTIFACTS_20260204.md`
+- **ISO 286 Deviations Extraction**:
+  - Added pdfplumber extraction script and generated `iso286_deviations.json` from GB/T 1800.2 PDF.
+  - Report: `reports/DEV_ISO286_DEVIATIONS_EXTRACT_20260204.md`
+- **Assistant API Tolerance Test**:
+  - Added GB/T 1804 tolerance query API test and guarded TestClient creation for local httpx mismatch.
+  - Report: `reports/DEV_ASSISTANT_API_TOLERANCE_TEST_20260204.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
