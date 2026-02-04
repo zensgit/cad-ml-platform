@@ -289,15 +289,24 @@ jobs:
               "alerts": []
           }
 
+          def safe_json_load(path: str) -> dict:
+              if not os.path.exists(path):
+                  return {}
+              try:
+                  with open(path) as f:
+                      content = f.read().strip()
+                  if not content:
+                      return {}
+                  return json.loads(content)
+              except (OSError, json.JSONDecodeError) as exc:
+                  print(f"Warning: failed to load {path}: {exc}")
+                  return {}
+
           # 加载流量分析
-          if os.path.exists("traffic-analysis/traffic_analysis.json"):
-              with open("traffic-analysis/traffic_analysis.json") as f:
-                  dashboard["traffic"] = json.load(f)
+          dashboard["traffic"] = safe_json_load("traffic-analysis/traffic_analysis.json")
 
           # 加载性能数据
-          if os.path.exists("performance-report/sla_check.json"):
-              with open("performance-report/sla_check.json") as f:
-                  dashboard["performance"] = json.load(f)
+          dashboard["performance"] = safe_json_load("performance-report/sla_check.json")
 
           # 保存仪表板数据
           with open("dashboard.json", "w") as f:
