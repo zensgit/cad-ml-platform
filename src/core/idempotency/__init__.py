@@ -208,7 +208,9 @@ class IdempotencyKeyGenerator:
             parts.append(user_id)
         if body:
             body_str = json.dumps(body, sort_keys=True, default=str)
-            parts.append(hashlib.md5(body_str.encode()).hexdigest())  # nosec B324 - idempotency fingerprint
+            parts.append(
+                hashlib.md5(body_str.encode()).hexdigest()
+            )  # nosec B324
         return ":".join(parts)
 
     @staticmethod
