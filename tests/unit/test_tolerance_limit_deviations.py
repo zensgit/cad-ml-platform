@@ -46,3 +46,15 @@ def test_limit_deviations_hole_p7_negative_band():
 def test_limit_deviations_hole_js6_symmetric_table():
     lower, upper = get_limit_deviations("JS", 6, 6.0)
     assert lower == upper
+
+
+@pytest.mark.skipif(not ISO286_PATH.exists(), reason="iso286 deviations table not available")
+def test_limit_deviations_hole_cd6_normalizes_label():
+    lower, upper = get_limit_deviations("CD", 6, 3.0)
+    assert (lower, upper) == (34.0, 40.0)
+
+
+@pytest.mark.skipif(not ISO286_PATH.exists(), reason="iso286 deviations table not available")
+def test_limit_deviations_shaft_y6_normalizes_label():
+    lower, upper = get_limit_deviations("y", 6, 24.0)
+    assert (lower, upper) == (63.0, 76.0)

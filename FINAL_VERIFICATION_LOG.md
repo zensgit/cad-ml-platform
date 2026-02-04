@@ -3083,6 +3083,9 @@
 - **ISO 286 Table Integration**:
   - Added ISO 286 table-backed deviation lookup with cached loading and assistant tolerance retrieval fallback.
   - Report: `reports/DEV_ISO286_TABLE_INTEGRATION_20260204.md`
+- **ISO 286 Table Label Normalization**:
+  - Normalized ISO 286 table labels to handle footnote prefixes/spaces/mixed case and added regression tests.
+  - Report: `reports/DEV_ISO286_LABEL_NORMALIZATION_20260204.md`
 - **Security Audit B324 Suppression**:
   - Annotated non-security MD5 usages to suppress bandit high-severity findings.
   - Report: `reports/DEV_SECURITY_AUDIT_B324_SUPPRESSION_20260204.md`

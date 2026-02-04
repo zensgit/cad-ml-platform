@@ -13,13 +13,14 @@ Note:
   and a subset of non-H hole symbols where fundamental deviations are available.
 """
 
-import json
-import os
-from functools import lru_cache
 from dataclasses import dataclass
 from enum import Enum
+from functools import lru_cache
+import json
+import os
+import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .it_grades import ITGrade, get_tolerance_value
 
@@ -266,6 +267,86 @@ if _hole_overrides:
     HOLE_FUNDAMENTAL_DEVIATIONS.update(_hole_overrides)
 
 
+_EXTRA_HOLE_SYMBOLS: Set[str] = {"CD", "EF", "FG"}
+_KNOWN_HOLE_SYMBOLS: Set[str] = (
+    set(HOLE_SYMBOLS.keys()) | set(_hole_overrides.keys()) | _EXTRA_HOLE_SYMBOLS
+)
+_KNOWN_SHAFT_SYMBOLS: Set[str] = set(SHAFT_SYMBOLS.keys())
+
+
+def _normalize_symbol_token(
+    symbol_raw: str,
+    kind: str,
+    known_symbols: Set[str],
+    had_space: bool,
+) -> Optional[str]:
+    if not symbol_raw:
+        return None
+    symbol_norm = symbol_raw.upper() if kind == "holes" else symbol_raw.lower()
+    if symbol_norm in known_symbols:
+        return symbol_norm
+
+    candidates: List[str] = []
+    if had_space and len(symbol_norm) > 1:
+        candidates.append(symbol_norm[1:])
+    if len(symbol_norm) > 1:
+        candidates.append(symbol_norm[:-1])
+        candidates.append(symbol_norm[1:])
+    if len(symbol_raw) > 1 and symbol_raw[0].islower():
+        candidate = symbol_raw[1:]
+        candidate = candidate.upper() if kind == "holes" else candidate.lower()
+        candidates.append(candidate)
+    if len(symbol_raw) > 1 and symbol_raw[-1].islower():
+        candidate = symbol_raw[:-1]
+        candidate = candidate.upper() if kind == "holes" else candidate.lower()
+        candidates.append(candidate)
+
+    seen: Set[str] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if candidate in known_symbols:
+            return candidate
+    return symbol_norm
+
+
+def _normalize_iso286_label(
+    raw_label: Any,
+    kind: str,
+    known_symbols: Set[str],
+) -> Optional[str]:
+    if raw_label is None:
+        return None
+    raw = str(raw_label).strip()
+    if not raw:
+        return None
+    had_space = any(ch.isspace() for ch in raw)
+    compact = "".join(raw.split())
+    match = re.match(r"([A-Za-z]+)(\d+)$", compact)
+    if not match:
+        return None
+    symbol_raw, grade = match.groups()
+    symbol_norm = _normalize_symbol_token(symbol_raw, kind, known_symbols, had_space)
+    if not symbol_norm:
+        return None
+    return f"{symbol_norm}{grade}"
+
+
+def _infer_symbol_kind(symbol: str) -> str:
+    has_upper = any(ch.isupper() for ch in symbol)
+    has_lower = any(ch.islower() for ch in symbol)
+    if has_upper and not has_lower:
+        return "holes"
+    if has_lower and not has_upper:
+        return "shafts"
+    if symbol.upper() in _KNOWN_HOLE_SYMBOLS:
+        return "holes"
+    if symbol.lower() in _KNOWN_SHAFT_SYMBOLS:
+        return "shafts"
+    return "holes"
+
+
 @lru_cache(maxsize=1)
 def _load_iso286_deviation_tables() -> Dict[str, Dict[str, List[Tuple[float, float, float]]]]:
     """Load ISO 286 deviation tables (holes/shafts) from extracted JSON."""
@@ -276,12 +357,19 @@ def _load_iso286_deviation_tables() -> Dict[str, Dict[str, List[Tuple[float, flo
     except Exception:
         return {"holes": {}, "shafts": {}}
 
-    def _parse_table(raw: Any) -> Dict[str, List[Tuple[float, float, float]]]:
+    def _parse_table(
+        raw: Any,
+        kind: str,
+        known_symbols: Set[str],
+    ) -> Dict[str, List[Tuple[float, float, float]]]:
         parsed: Dict[str, List[Tuple[float, float, float]]] = {}
         if not isinstance(raw, dict):
             return parsed
         for label, rows in raw.items():
             if not isinstance(rows, list):
+                continue
+            normalized = _normalize_iso286_label(label, kind, known_symbols)
+            if not normalized:
                 continue
             cleaned: List[Tuple[float, float, float]] = []
             for entry in rows:
@@ -295,12 +383,14 @@ def _load_iso286_deviation_tables() -> Dict[str, Dict[str, List[Tuple[float, flo
                     continue
                 cleaned.append((size_upper, lower, upper))
             if cleaned:
-                parsed[str(label)] = cleaned
+                existing = parsed.get(normalized)
+                if existing is None or len(cleaned) > len(existing):
+                    parsed[normalized] = cleaned
         return parsed
 
     return {
-        "holes": _parse_table(data.get("holes", {})),
-        "shafts": _parse_table(data.get("shafts", {})),
+        "holes": _parse_table(data.get("holes", {}), "holes", _KNOWN_HOLE_SYMBOLS),
+        "shafts": _parse_table(data.get("shafts", {}), "shafts", _KNOWN_SHAFT_SYMBOLS),
     }
 
 
@@ -318,10 +408,15 @@ def get_limit_deviations(
     except (TypeError, ValueError):
         return None
 
-    label = f"{symbol_clean}{grade_int}"
     tables = _load_iso286_deviation_tables()
-    table_map = tables["holes"] if symbol_clean.isupper() else tables["shafts"]
-    rows = table_map.get(label)
+    kind = _infer_symbol_kind(symbol_clean)
+    symbol_norm = symbol_clean.upper() if kind == "holes" else symbol_clean.lower()
+    label = f"{symbol_norm}{grade_int}"
+    rows = tables[kind].get(label)
+    if not rows:
+        alt_kind = "shafts" if kind == "holes" else "holes"
+        alt_symbol = symbol_clean.lower() if alt_kind == "shafts" else symbol_clean.upper()
+        rows = tables[alt_kind].get(f"{alt_symbol}{grade_int}")
     if not rows:
         return None
     for size_upper, lower, upper in rows:
