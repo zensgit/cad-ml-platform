@@ -23,6 +23,7 @@ from .fits import (
     HoleDeviation,
     get_fit_deviations,
     get_common_fits,
+    get_fundamental_deviation,
     COMMON_FITS,
 )
 from .selection import (
@@ -44,6 +45,7 @@ __all__ = [
     "HoleDeviation",
     "get_fit_deviations",
     "get_common_fits",
+    "get_fundamental_deviation",
     "COMMON_FITS",
     # Selection
     "FitApplication",

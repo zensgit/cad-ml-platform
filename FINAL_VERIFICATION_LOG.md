@@ -3059,6 +3059,9 @@
 - **Tolerance Knowledge Design**:
   - Authored tolerance knowledge design (ISO 286 / GB/T 1800.2 ingestion, schema, API, validation plan).
   - Report: `reports/DEV_TOLERANCE_KNOWLEDGE_DESIGN_20260204.md`
+- **Tolerance Knowledge Seed + Fundamental Deviation**:
+  - Added GB/T 1804/1184 precision seed rules and a fundamental deviation lookup helper.
+  - Report: `reports/DEV_TOLERANCE_KNOWLEDGE_SEED_20260204.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

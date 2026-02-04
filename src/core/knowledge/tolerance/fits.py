@@ -261,6 +261,24 @@ _hole_overrides = _load_hole_deviation_overrides()
 if _hole_overrides:
     HOLE_FUNDAMENTAL_DEVIATIONS.update(_hole_overrides)
 
+def get_fundamental_deviation(symbol: str, nominal_size_mm: float) -> Optional[float]:
+    """Get fundamental deviation (μm) for hole/shaft symbol at nominal size."""
+    if not symbol:
+        return None
+    symbol_clean = symbol.strip()
+    if not symbol_clean:
+        return None
+    if symbol_clean.isupper():
+        deviations = HOLE_FUNDAMENTAL_DEVIATIONS.get(symbol_clean.upper())
+    else:
+        deviations = SHAFT_FUNDAMENTAL_DEVIATIONS.get(symbol_clean.lower())
+    if deviations is None:
+        return None
+    for size_upper, deviation in deviations:
+        if nominal_size_mm <= size_upper:
+            return deviation
+    return deviations[-1][1] if deviations else None
+
 
 # Common standard fits - Hole basis system (基孔制)
 # Format: "HoleShaft": (hole_symbol, hole_grade, shaft_symbol, shaft_grade)
