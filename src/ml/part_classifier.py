@@ -31,7 +31,7 @@ class ClassificationResult:
 class PartClassifier:
     """部件分类器 - 支持多版本模型"""
 
-    def __init__(self, model_path: str = "models/cad_classifier_v7.pt"):
+    def __init__(self, model_path: str = "models/cad_classifier_v6.pt"):
         self.model_path = Path(model_path)
         self.model = None
         self.id_to_label = None
