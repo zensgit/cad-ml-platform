@@ -1,0 +1,22 @@
+{
+  "version": "v16_super_ensemble",
+  "components": {
+    "v6": {
+      "path": "cad_classifier_v6.pt",
+      "weight": 0.6
+    },
+    "v14_ensemble": {
+      "path": "cad_classifier_v14_ensemble.pt",
+      "weight": 0.4
+    }
+  },
+  "accuracy_original": 0.9964953271028038,
+  "accuracy_clean": 0.9988262910798122,
+  "accuracy_corrected": 0.9988317757009346,
+  "suspicious_samples": [
+    "其他/old_0033.dxf",
+    "其他/old_0085.dxf",
+    "连接件/old_0008.dxf",
+    "其他/new_0208.dxf"
+  ]
+}
