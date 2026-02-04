@@ -141,8 +141,8 @@ class PercentageRule(ToggleRule):
             key = context.get(self.sticky_key)
             if key:
                 hash_val = int(
-                    hashlib.md5(str(key).encode()).hexdigest(), 16
-                )  # nosec B324
+                    hashlib.md5(str(key).encode()).hexdigest(), 16  # nosec B324
+                )
                 return (hash_val % 100) < self.percentage
 
         # Random evaluation
@@ -322,8 +322,8 @@ class FeatureToggle:
         # Use consistent hashing
         key = context.user_id or context.session_id or str(random.random())
         hash_val = int(
-            hashlib.md5(f"{self.name}:{key}".encode()).hexdigest(), 16
-        )  # nosec B324
+            hashlib.md5(f"{self.name}:{key}".encode()).hexdigest(), 16  # nosec B324
+        )
 
         total_weight = sum(self.variants.values())
         if total_weight == 0:
