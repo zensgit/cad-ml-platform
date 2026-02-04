@@ -3080,6 +3080,9 @@
 - **Assistant API Tolerance Test**:
   - Added GB/T 1804 tolerance query API test and guarded TestClient creation for local httpx mismatch.
   - Report: `reports/DEV_ASSISTANT_API_TOLERANCE_TEST_20260204.md`
+- **ISO 286 Table Integration**:
+  - Added ISO 286 table-backed deviation lookup with cached loading and assistant tolerance retrieval fallback.
+  - Report: `reports/DEV_ISO286_TABLE_INTEGRATION_20260204.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

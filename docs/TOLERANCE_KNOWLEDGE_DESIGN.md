@@ -21,35 +21,36 @@
 4. **防故障**：容错缺失字段或空数据文件。
 
 ## 数据模型设计
-新增统一数据文件（替代或扩展现有孔偏差文件）：
+新增统一数据文件（扩展现有孔偏差文件）：
 
 ```json
 {
-  "source": "GB/T 1800.2-2020 Table 2–16",
-  "version": "2026-02-04",
+  "source_pdf": "GB/T 1800.2-2020 PDF",
+  "generated_at": "2026-02-04T00:00:00",
   "units": "um",
   "holes": {
-    "H": [[3, 0], [6, 0], [10, 0], ...],
-    "G": [[3, 2], [6, 4], ...]
+    "H7": [[6, 0, 12], [10, 0, 15], ...],
+    "K7": [[3, -10, 0], [6, -9, 3], ...]
   },
   "shafts": {
-    "h": [[3, 0], [6, 0], ...],
-    "g": [[3, -2], [6, -4], ...]
+    "h6": [[6, -8, 0], [10, -9, 0], ...],
+    "g6": [[3, -8, -2], [6, -12, -4], ...]
   }
 }
 ```
 
-- 文件建议：`data/knowledge/iso286_deviations.json`
-- 保留现有 `iso286_hole_deviations.json` 以保证兼容，读取优先级：新文件 > 旧文件 > 内置常量。
+- 文件建议：`data/knowledge/iso286_deviations.json`（可通过 `ISO286_DEVIATIONS_PATH` 覆盖）。
+- 保留现有 `iso286_hole_deviations.json` 以保证兼容：缺失时回退到旧文件或内置常量。
 
 ## 代码改造点
 1. **读取器扩展**（`src/core/knowledge/tolerance/fits.py`）
-   - 加载 `iso286_deviations.json`（holes/shafts）
+   - 加载 `iso286_deviations.json`（holes/shafts，含 grade）
+   - 提供 `get_limit_deviations(symbol, grade, size)` 优先使用表格
    - 若缺失则回退到 `iso286_hole_deviations.json`
 2. **基本偏差 API**
    - 提供 `get_fundamental_deviation(symbol, size)` 返回 EI/ES
 3. **容差查询增强**（`src/core/assistant/knowledge_retriever.py`）
-   - 支持 “H7/g6 25mm”、“h6 10mm” 等查询
+   - 支持 “H7 25mm”、“h6 10mm” 等查询（优先表格）
 4. **动态精度规则**
    - 增加 `data/knowledge/precision_rules.json`（根据 OCR 文本如 “GB/T 1804-M” 提供精度线索）
 
@@ -84,5 +85,5 @@
 - 回滚：继续使用旧 `iso286_hole_deviations.json` 与内置偏差
 
 ## 下一步
-- 如果你确认数据来源 PDF 可用，将实现抽取脚本并生成新数据文件。
-- 之后进入接口扩展与测试阶段。
+- 校验抽取表格的关键区段（H7/h6/g6/K7/P7 等）与标准原表一致性。
+- 按需求完善表格解析精度与回滚策略。

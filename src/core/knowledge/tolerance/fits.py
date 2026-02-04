@@ -15,6 +15,7 @@ Note:
 
 import json
 import os
+from functools import lru_cache
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -226,6 +227,9 @@ HOLE_FUNDAMENTAL_DEVIATIONS: Dict[str, List[Tuple[float, float]]] = {}
 _HOLE_DEVIATIONS_PATH = Path(
     os.getenv("HOLE_DEVIATIONS_PATH", "data/knowledge/iso286_hole_deviations.json")
 )
+_ISO286_DEVIATIONS_PATH = Path(
+    os.getenv("ISO286_DEVIATIONS_PATH", "data/knowledge/iso286_deviations.json")
+)
 
 
 def _load_hole_deviation_overrides() -> Dict[str, List[Tuple[float, float]]]:
@@ -260,6 +264,70 @@ def _load_hole_deviation_overrides() -> Dict[str, List[Tuple[float, float]]]:
 _hole_overrides = _load_hole_deviation_overrides()
 if _hole_overrides:
     HOLE_FUNDAMENTAL_DEVIATIONS.update(_hole_overrides)
+
+
+@lru_cache(maxsize=1)
+def _load_iso286_deviation_tables() -> Dict[str, Dict[str, List[Tuple[float, float, float]]]]:
+    """Load ISO 286 deviation tables (holes/shafts) from extracted JSON."""
+    if not _ISO286_DEVIATIONS_PATH.exists():
+        return {"holes": {}, "shafts": {}}
+    try:
+        data = json.loads(_ISO286_DEVIATIONS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {"holes": {}, "shafts": {}}
+
+    def _parse_table(raw: Any) -> Dict[str, List[Tuple[float, float, float]]]:
+        parsed: Dict[str, List[Tuple[float, float, float]]] = {}
+        if not isinstance(raw, dict):
+            return parsed
+        for label, rows in raw.items():
+            if not isinstance(rows, list):
+                continue
+            cleaned: List[Tuple[float, float, float]] = []
+            for entry in rows:
+                if not isinstance(entry, (list, tuple)) or len(entry) < 3:
+                    continue
+                try:
+                    size_upper = float(entry[0])
+                    lower = float(entry[1])
+                    upper = float(entry[2])
+                except (TypeError, ValueError):
+                    continue
+                cleaned.append((size_upper, lower, upper))
+            if cleaned:
+                parsed[str(label)] = cleaned
+        return parsed
+
+    return {
+        "holes": _parse_table(data.get("holes", {})),
+        "shafts": _parse_table(data.get("shafts", {})),
+    }
+
+
+def get_limit_deviations(
+    symbol: str, grade: int, nominal_size_mm: float
+) -> Optional[Tuple[float, float]]:
+    """Get lower/upper deviations (μm) from ISO 286 table if available."""
+    if not symbol:
+        return None
+    symbol_clean = symbol.strip()
+    if not symbol_clean:
+        return None
+    try:
+        grade_int = int(grade)
+    except (TypeError, ValueError):
+        return None
+
+    label = f"{symbol_clean}{grade_int}"
+    tables = _load_iso286_deviation_tables()
+    table_map = tables["holes"] if symbol_clean.isupper() else tables["shafts"]
+    rows = table_map.get(label)
+    if not rows:
+        return None
+    for size_upper, lower, upper in rows:
+        if nominal_size_mm <= size_upper:
+            return lower, upper
+    return (rows[-1][1], rows[-1][2]) if rows else None
 
 def get_fundamental_deviation(symbol: str, nominal_size_mm: float) -> Optional[float]:
     """Get fundamental deviation (μm) for hole/shaft symbol at nominal size."""

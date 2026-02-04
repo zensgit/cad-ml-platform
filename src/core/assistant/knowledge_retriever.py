@@ -10,6 +10,12 @@ Supports both keyword-based and semantic (embedding) retrieval.
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
+import logging
+
+try:
+    from src.utils.logging import get_logger as _get_structured_logger
+except Exception:
+    _get_structured_logger = None
 
 from .query_analyzer import AnalyzedQuery, QueryIntent
 
@@ -88,6 +94,12 @@ class KnowledgeRetriever:
             RetrievalSource.GDT: self._retrieve_gdt,
         }
         self._semantic_retriever = None
+        self._precision_rules_cache: Optional[List[Dict[str, Any]]] = None
+        self._precision_rules_loaded = False
+        if _get_structured_logger:
+            self._logger = _get_structured_logger("cad_assistant.knowledge_retriever")
+        else:
+            self._logger = logging.getLogger(__name__)
 
     def _get_semantic_retriever(self):
         """Lazy-load semantic retriever."""
@@ -96,6 +108,7 @@ class KnowledgeRetriever:
                 from .embedding_retriever import get_semantic_retriever
                 self._semantic_retriever = get_semantic_retriever()
             except Exception:
+                self._logger.warning("Failed to initialize semantic retriever")
                 self._semantic_retriever = None
         return self._semantic_retriever
 
@@ -158,7 +171,7 @@ class KnowledgeRetriever:
                     results.extend(source_results)
                 except Exception as e:
                     # Log error but continue with other sources
-                    print(f"Retrieval error from {source}: {e}")
+                    self._logger.warning(f"Retrieval error from {source}: {e}")
 
         return results
 
@@ -203,7 +216,7 @@ class KnowledgeRetriever:
                 ))
 
         except Exception as e:
-            print(f"Semantic retrieval error: {e}")
+            self._logger.warning(f"Semantic retrieval error: {e}")
 
         return results
 
@@ -294,6 +307,7 @@ class KnowledgeRetriever:
                 get_common_fits,
                 select_fit_for_application,
                 get_fundamental_deviation,
+                get_limit_deviations,
             )
         except ImportError:
             return results
@@ -355,9 +369,39 @@ class KnowledgeRetriever:
         if not results and tol_symbol and tol_grade and diameter:
             try:
                 d = float(diameter)
-                grade_str = f"IT{tol_grade}"
-                tolerance = get_tolerance_value(d, grade_str)
+                grade_int = int(tol_grade)
+                grade_str = f"IT{grade_int}"
                 symbol = tol_symbol.strip()
+                limit_deviations = get_limit_deviations(symbol, grade_int, d)
+                if limit_deviations:
+                    lower, upper = limit_deviations
+                    is_hole = symbol.isupper()
+                    summary = (
+                        f"{symbol}{grade_int} @ {d}mm: "
+                        f"{'EI' if is_hole else 'ei'}={lower:.0f}μm, "
+                        f"{'ES' if is_hole else 'es'}={upper:.0f}μm"
+                    )
+                    results.append(
+                        RetrievalResult(
+                            source=RetrievalSource.TOLERANCE,
+                            relevance=0.93,
+                            data={
+                                "symbol": symbol.upper() if is_hole else symbol.lower(),
+                                "grade": grade_int,
+                                "diameter": d,
+                                "tolerance_um": upper - lower,
+                                "lower_deviation_um": lower,
+                                "upper_deviation_um": upper,
+                                "type": "hole" if is_hole else "shaft",
+                                "source": "iso286_table",
+                            },
+                            summary=summary,
+                            metadata={"match_type": "iso286_table"},
+                        )
+                    )
+                    return results
+
+                tolerance = get_tolerance_value(d, grade_str)
                 if tolerance is not None and symbol:
                     symbol_upper = symbol.upper()
                     symbol_lower = symbol.lower()
@@ -450,16 +494,8 @@ class KnowledgeRetriever:
     def _retrieve_precision_rules(self, query: AnalyzedQuery) -> List[RetrievalResult]:
         """Retrieve precision/tolerance rules from knowledge seed."""
         results: List[RetrievalResult] = []
-        rules_path = "data/knowledge/precision_rules.json"
-        try:
-            import json
-            from pathlib import Path
-            path = Path(rules_path)
-            if not path.exists():
-                return results
-            data = json.loads(path.read_text(encoding="utf-8"))
-            rules = data.get("rules", [])
-        except Exception:
+        rules = self._get_precision_rules()
+        if not rules:
             return results
 
         text = query.original_query
@@ -512,6 +548,29 @@ class KnowledgeRetriever:
             )
 
         return results
+
+    def _get_precision_rules(self) -> List[Dict[str, Any]]:
+        """Load precision rules from disk once and cache."""
+        if self._precision_rules_loaded:
+            return self._precision_rules_cache or []
+
+        self._precision_rules_loaded = True
+        rules_path = "data/knowledge/precision_rules.json"
+        try:
+            import json
+            from pathlib import Path
+
+            path = Path(rules_path)
+            if not path.exists():
+                self._precision_rules_cache = []
+                return []
+            data = json.loads(path.read_text(encoding="utf-8"))
+            self._precision_rules_cache = data.get("rules", [])
+        except Exception as exc:
+            self._precision_rules_cache = []
+            self._logger.warning(f"Failed to load precision rules from {rules_path}: {exc}")
+
+        return self._precision_rules_cache or []
 
     def _retrieve_threads(self, query: AnalyzedQuery) -> List[RetrievalResult]:
         """Retrieve from thread specifications."""
