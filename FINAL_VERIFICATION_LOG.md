@@ -3056,6 +3056,9 @@
   - Inferred model version from checkpoint dimensions when metadata is missing.
   - Adjusted V9 training script default dataset and clarified PartClassifier support note.
   - Report: `reports/DEV_PART_CLASSIFIER_VERSION_GUARD_20260204.md`
+- **Tolerance Knowledge Design**:
+  - Authored tolerance knowledge design (ISO 286 / GB/T 1800.2 ingestion, schema, API, validation plan).
+  - Report: `reports/DEV_TOLERANCE_KNOWLEDGE_DESIGN_20260204.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
