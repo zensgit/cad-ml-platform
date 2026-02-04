@@ -3086,6 +3086,9 @@
 - **Security Audit B324 Suppression**:
   - Annotated non-security MD5 usages to suppress bandit high-severity findings.
   - Report: `reports/DEV_SECURITY_AUDIT_B324_SUPPRESSION_20260204.md`
+- **GPU Base Image Tag Fix**:
+  - Updated CUDA runtime tag to fix GPU image build failures.
+  - Report: `reports/DEV_GPU_IMAGE_BASE_TAG_FIX_20260204.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
