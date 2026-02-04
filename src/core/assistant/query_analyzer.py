@@ -138,6 +138,7 @@ class QueryAnalyzer:
                 re.compile(r"(IT|公差).*(等级|值|多少)", re.IGNORECASE),
                 re.compile(r"(IT\d+|it\d+)", re.IGNORECASE),
                 re.compile(r"公差.*(\d+mm|\d+毫米)", re.IGNORECASE),
+                re.compile(r"(GB/T\s*1804|GB/T\s*1184|未注公差|一般公差|形位公差)", re.IGNORECASE),
             ],
             QueryIntent.FIT_SELECTION: [
                 re.compile(r"(配合|H\d+|h\d+|g\d+|k\d+)", re.IGNORECASE),

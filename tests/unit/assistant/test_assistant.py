@@ -121,6 +121,26 @@ class TestKnowledgeRetriever:
         assert len(results) > 0
         assert any(r.source == RetrievalSource.TOLERANCE for r in results)
 
+    def test_retrieve_precision_rule_gbt1804(self):
+        """Test precision rule retrieval for GB/T 1804."""
+        analyzer = QueryAnalyzer()
+        retriever = KnowledgeRetriever()
+
+        query = analyzer.analyze("未注公差按GB/T 1804-M执行")
+        results = retriever.retrieve(query)
+
+        assert any("1804" in r.summary for r in results)
+
+    def test_retrieve_precision_rule_gbt1184(self):
+        """Test precision rule retrieval for GB/T 1184."""
+        analyzer = QueryAnalyzer()
+        retriever = KnowledgeRetriever()
+
+        query = analyzer.analyze("未注形位公差按GB/T 1184-K执行")
+        results = retriever.retrieve(query)
+
+        assert any("1184" in r.summary for r in results)
+
     def test_retrieve_max_results(self):
         """Test max results limit."""
         analyzer = QueryAnalyzer()

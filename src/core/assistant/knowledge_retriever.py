@@ -359,6 +359,75 @@ class KnowledgeRetriever:
                     summary=f"{code}: {data.get('name_zh', '')}",
                 ))
 
+        # Precision rules (e.g., GB/T 1804/1184) from knowledge seed
+        results.extend(self._retrieve_precision_rules(query))
+
+        return results
+
+    def _retrieve_precision_rules(self, query: AnalyzedQuery) -> List[RetrievalResult]:
+        """Retrieve precision/tolerance rules from knowledge seed."""
+        results: List[RetrievalResult] = []
+        rules_path = "data/knowledge/precision_rules.json"
+        try:
+            import json
+            from pathlib import Path
+            path = Path(rules_path)
+            if not path.exists():
+                return results
+            data = json.loads(path.read_text(encoding="utf-8"))
+            rules = data.get("rules", [])
+        except Exception:
+            return results
+
+        text = query.original_query
+        text_lower = text.lower()
+
+        for rule in rules:
+            if not rule.get("enabled", True):
+                continue
+            matched = False
+
+            for keyword in rule.get("keywords", []):
+                if keyword.lower() in text_lower:
+                    matched = True
+                    break
+
+            if not matched:
+                for pattern in rule.get("ocr_patterns", []):
+                    try:
+                        if __import__("re").search(pattern, text, __import__("re").IGNORECASE):
+                            matched = True
+                            break
+                    except Exception:
+                        continue
+
+            if not matched:
+                continue
+
+            metadata = rule.get("metadata", {})
+            tolerance_class = metadata.get("tolerance_class")
+            gdt_class = metadata.get("gdt_class")
+            if tolerance_class:
+                summary = f"未注公差按 GB/T 1804-{tolerance_class.upper()}（一般公差{tolerance_class.upper()}级）"
+            elif gdt_class:
+                summary = f"未注形位公差按 GB/T 1184-{gdt_class.upper()}"
+            else:
+                summary = rule.get("description") or rule.get("name") or "公差规则"
+
+            results.append(
+                RetrievalResult(
+                    source=RetrievalSource.TOLERANCE,
+                    relevance=0.75,
+                    data={
+                        "rule_id": rule.get("id"),
+                        "name": rule.get("name"),
+                        "description": rule.get("description"),
+                        "metadata": metadata,
+                    },
+                    summary=summary,
+                )
+            )
+
         return results
 
     def _retrieve_threads(self, query: AnalyzedQuery) -> List[RetrievalResult]:

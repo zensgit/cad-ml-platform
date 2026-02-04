@@ -3062,6 +3062,9 @@
 - **Tolerance Knowledge Seed + Fundamental Deviation**:
   - Added GB/T 1804/1184 precision seed rules and a fundamental deviation lookup helper.
   - Report: `reports/DEV_TOLERANCE_KNOWLEDGE_SEED_20260204.md`
+- **Tolerance Precision Retrieval Integration**:
+  - Wired GB/T 1804/1184 precision rules into assistant tolerance retrieval and intent detection.
+  - Report: `reports/DEV_TOLERANCE_PRECISION_RETRIEVAL_20260204.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
