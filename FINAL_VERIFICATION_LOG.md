@@ -3098,6 +3098,9 @@
 - **Docker Security Scan Tag Fix**:
   - Ensured Trivy scans run after manifest creation and use the metadata version tag.
   - Report: `reports/DEV_DOCKER_SECURITY_SCAN_TAG_FIX_20260204.md`
+- **Docker Security Scan Permissions**:
+  - Granted `security-events: write` so SARIF uploads succeed in the security scan job.
+  - Report: `reports/DEV_DOCKER_SECURITY_SCAN_PERMISSIONS_20260204.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
