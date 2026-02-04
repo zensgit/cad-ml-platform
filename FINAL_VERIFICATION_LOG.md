@@ -3065,6 +3065,15 @@
 - **Tolerance Precision Retrieval Integration**:
   - Wired GB/T 1804/1184 precision rules into assistant tolerance retrieval and intent detection.
   - Report: `reports/DEV_TOLERANCE_PRECISION_RETRIEVAL_20260204.md`
+- **Tolerance Query Enhancements**:
+  - Added fundamental deviation lookup (e.g., H7/g6 with nominal size) and updated assistant examples.
+  - Report: `reports/DEV_TOLERANCE_QUERY_ENHANCEMENTS_20260204.md`
+- **Tolerance Knowledge Roadmap**:
+  - Captured a phased delivery checklist for tolerance knowledge ingestion and validation.
+  - Report: `docs/TOLERANCE_KNOWLEDGE_ROADMAP.md`
+- **Untracked Artifacts Inventory**:
+  - Logged current untracked model/script artifacts and recommendations.
+  - Report: `reports/DEV_UNTRACKED_ARTIFACTS_20260204.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

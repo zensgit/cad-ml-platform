@@ -121,6 +121,26 @@ class TestKnowledgeRetriever:
         assert len(results) > 0
         assert any(r.source == RetrievalSource.TOLERANCE for r in results)
 
+    def test_retrieve_fundamental_deviation_hole(self):
+        """Test fundamental deviation retrieval for hole symbols."""
+        analyzer = QueryAnalyzer()
+        retriever = KnowledgeRetriever()
+
+        query = analyzer.analyze("H7 25mm 基本偏差是多少?")
+        results = retriever.retrieve(query)
+
+        assert any("EI=" in r.summary for r in results)
+
+    def test_retrieve_fundamental_deviation_shaft(self):
+        """Test fundamental deviation retrieval for shaft symbols."""
+        analyzer = QueryAnalyzer()
+        retriever = KnowledgeRetriever()
+
+        query = analyzer.analyze("g6 10mm 基本偏差是多少?")
+        results = retriever.retrieve(query)
+
+        assert any("ei=" in r.summary for r in results)
+
     def test_retrieve_precision_rule_gbt1804(self):
         """Test precision rule retrieval for GB/T 1804."""
         analyzer = QueryAnalyzer()

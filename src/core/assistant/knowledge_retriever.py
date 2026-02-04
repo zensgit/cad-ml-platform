@@ -293,6 +293,7 @@ class KnowledgeRetriever:
                 get_fit_deviations,
                 get_common_fits,
                 select_fit_for_application,
+                get_fundamental_deviation,
             )
         except ImportError:
             return results
@@ -347,6 +348,88 @@ class KnowledgeRetriever:
                         ))
                 except (ValueError, AttributeError):
                     pass
+
+        # Fundamental deviation lookup (e.g., H7 25mm 基本偏差)
+        tol_symbol = query.entities.get("tolerance_symbol")
+        tol_grade = query.entities.get("tolerance_grade")
+        if not results and tol_symbol and tol_grade and diameter:
+            try:
+                d = float(diameter)
+                grade_str = f"IT{tol_grade}"
+                tolerance = get_tolerance_value(d, grade_str)
+                symbol = tol_symbol.strip()
+                if tolerance is not None and symbol:
+                    symbol_upper = symbol.upper()
+                    symbol_lower = symbol.lower()
+                    is_hole = symbol.isupper()
+
+                    if is_hole:
+                        if symbol_upper == "H":
+                            lower = 0.0
+                            upper = tolerance
+                        elif symbol_upper == "JS":
+                            upper = tolerance / 2
+                            lower = -tolerance / 2
+                        else:
+                            fund_dev = get_fundamental_deviation(symbol_upper, d)
+                            if fund_dev is None:
+                                fund_dev = 0.0
+                            lower = fund_dev
+                            upper = fund_dev + tolerance
+
+                        summary = (
+                            f"{symbol_upper}{tol_grade} @ {d}mm: "
+                            f"EI={lower:.0f}μm, ES={upper:.0f}μm"
+                        )
+                        results.append(
+                            RetrievalResult(
+                                source=RetrievalSource.TOLERANCE,
+                                relevance=0.9,
+                                data={
+                                    "symbol": symbol_upper,
+                                    "grade": tol_grade,
+                                    "diameter": d,
+                                    "tolerance_um": tolerance,
+                                    "lower_deviation_um": lower,
+                                    "upper_deviation_um": upper,
+                                    "type": "hole",
+                                },
+                                summary=summary,
+                            )
+                        )
+                    else:
+                        fund_dev = get_fundamental_deviation(symbol_lower, d)
+                        if fund_dev is None:
+                            fund_dev = 0.0
+                        if symbol_lower in ["g", "f", "e", "d", "c", "h", "a", "b"]:
+                            upper = fund_dev
+                            lower = fund_dev - tolerance
+                        else:
+                            lower = fund_dev
+                            upper = fund_dev + tolerance
+
+                        summary = (
+                            f"{symbol_lower}{tol_grade} @ {d}mm: "
+                            f"ei={lower:.0f}μm, es={upper:.0f}μm"
+                        )
+                        results.append(
+                            RetrievalResult(
+                                source=RetrievalSource.TOLERANCE,
+                                relevance=0.9,
+                                data={
+                                    "symbol": symbol_lower,
+                                    "grade": tol_grade,
+                                    "diameter": d,
+                                    "tolerance_um": tolerance,
+                                    "lower_deviation_um": lower,
+                                    "upper_deviation_um": upper,
+                                    "type": "shaft",
+                                },
+                                summary=summary,
+                            )
+                        )
+            except ValueError:
+                pass
 
         # If no specific query, return common fits info
         if not results and query.intent in [QueryIntent.FIT_SELECTION, QueryIntent.FIT_CALCULATION]:

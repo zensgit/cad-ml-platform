@@ -228,6 +228,10 @@ class QueryAnalyzer:
             "bearing": re.compile(r"(6[0-3]\d{2,3})", re.IGNORECASE),
             "it_grade": re.compile(r"IT\s?(\d{1,2})", re.IGNORECASE),
             "fit": re.compile(r"([HhGgKkMmNnPpRrSs]\d+)/([a-z]\d+)", re.IGNORECASE),
+            "tolerance_symbol": re.compile(
+                r"([A-Za-z]{1,2})(\d{1,2})(?=.*(公差|偏差|配合))",
+                re.IGNORECASE,
+            ),
             "oring": re.compile(r"(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)", re.IGNORECASE),
         }
 
@@ -325,6 +329,9 @@ class QueryAnalyzer:
                 elif entity_type == "fit":
                     entities["hole_tolerance"] = match.group(1)
                     entities["shaft_tolerance"] = match.group(2)
+                elif entity_type == "tolerance_symbol":
+                    entities["tolerance_symbol"] = match.group(1)
+                    entities["tolerance_grade"] = match.group(2)
                 elif entity_type == "oring":
                     entities["oring_id"] = match.group(1)
                     entities["oring_cs"] = match.group(2)
@@ -339,6 +346,7 @@ class QueryAnalyzer:
             "304不锈钢的机械性能是什么?",
             "M10螺纹的底孔尺寸是多少?",
             "H7/g6配合的间隙范围?",
+            "H7 25mm 基本偏差是多少?",
             "加工45钢用什么刀具?",
             "6205轴承的尺寸规格?",
             "IT7公差等级在25mm时的值?",
