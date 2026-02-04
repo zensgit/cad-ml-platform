@@ -4,7 +4,7 @@
 # ================================
 # Stage 1: Base dependencies
 # ================================
-FROM python:3.10-slim as base
+FROM python:3.14-slim as base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -34,7 +34,7 @@ RUN pip install --user --no-warn-script-location -r requirements.txt
 # ================================
 # Stage 3: Production image
 # ================================
-FROM python:3.10-slim as production
+FROM python:3.14-slim as production
 
 # Labels
 LABEL maintainer="CAD ML Platform Team" \
