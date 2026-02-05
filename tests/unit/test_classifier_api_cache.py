@@ -326,6 +326,51 @@ def test_batch_classify_mixed_files(monkeypatch):
             assert r["category"] == "error"
 
 
+def test_batch_classify_duplicate_filenames(monkeypatch):
+    """Ensure batch results preserve order even with duplicate filenames."""
+    def fake_load():
+        return None
+
+    def fake_predict(path: str):
+        with open(path, "rb") as handle:
+            content = handle.read()
+        if b"DXF-A" in content:
+            return {
+                "category": "壳体类",
+                "confidence": 0.91,
+                "probabilities": {"壳体类": 0.91},
+            }
+        return {
+            "category": "轴类",
+            "confidence": 0.88,
+            "probabilities": {"轴类": 0.88},
+        }
+
+    monkeypatch.setattr(classifier_api.classifier, "load", fake_load)
+    monkeypatch.setattr(classifier_api.classifier, "predict", fake_predict)
+
+    client = TestClient(classifier_api.app)
+    admin_headers = {"X-Admin-Token": "test"}
+    client.post("/cache/clear", headers=admin_headers)
+
+    payload_a = b"0\nSECTION\n2\nENTITIES\n0\nDXF-A\n0\nENDSEC\n0\nEOF\n"
+    payload_b = b"0\nSECTION\n2\nENTITIES\n0\nDXF-B\n0\nENDSEC\n0\nEOF\n"
+
+    response = client.post(
+        "/classify/batch",
+        files=[
+            ("files", ("dup.dxf", payload_a, "application/dxf")),
+            ("files", ("dup.dxf", payload_b, "application/dxf")),
+        ],
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 2
+    assert len(data["results"]) == 2
+    assert data["results"][0]["category"] == "壳体类"
+    assert data["results"][1]["category"] == "轴类"
+
+
 def test_warmup_model_function():
     """Test that warmup function exists and is callable."""
     assert hasattr(classifier_api, "_warmup_model")

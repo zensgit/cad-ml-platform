@@ -97,6 +97,9 @@ auto_count = len(results) - review_count
 print(f"自动处理: {auto_count}, 需审核: {review_count}")
 ```
 
+**批量接口注意事项**:
+- 结果顺序与上传文件顺序一致，即使存在同名文件也不会合并。
+
 ### 3. 自定义阈值
 ```python
 # 更严格的审核（更多样本需要人工确认）

@@ -819,21 +819,21 @@ async def classify_file(request: Request, file: UploadFile = File(...)):
         Path(tmp_path).unlink(missing_ok=True)
 
 
-def _predict_single(args: Tuple[str, bytes, str]) -> Tuple[str, Optional[Dict[str, Any]], Optional[str]]:
+def _predict_single(args: Tuple[int, str, bytes, str]) -> Tuple[int, str, Optional[Dict[str, Any]], Optional[str]]:
     """同步预测单个文件（用于线程池）
 
     Args:
-        args: (filename, content, tmp_path)
+        args: (index, filename, content, tmp_path)
 
     Returns:
-        (filename, result_dict, error_msg)
+        (index, filename, result_dict, error_msg)
     """
-    filename, content, tmp_path = args
+    index, filename, content, tmp_path = args
     try:
         result = classifier.predict(tmp_path)
-        return (filename, result, None)
+        return (index, filename, result, None)
     except Exception as e:
-        return (filename, None, str(e))
+        return (index, filename, None, str(e))
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
@@ -852,18 +852,19 @@ async def classify_batch(request: Request, files: List[UploadFile] = File(...)):
     _enforce_rate_limit(request)
 
     # 第一阶段：读取文件并检查缓存
-    cached_results: Dict[str, ClassificationResult] = {}
-    pending_files: List[Tuple[str, bytes]] = []
-    errors: List[ClassificationResult] = []
+    cached_results: Dict[int, ClassificationResult] = {}
+    pending_files: List[Tuple[int, str, bytes]] = []
+    pending_content: Dict[int, bytes] = {}
+    errors: Dict[int, ClassificationResult] = {}
 
-    for file in files:
+    for index, file in enumerate(files):
         if not file.filename.lower().endswith('.dxf'):
-            errors.append(ClassificationResult(
+            errors[index] = ClassificationResult(
                 filename=file.filename,
                 category="error",
                 confidence=0.0,
                 probabilities={"error": "不是DXF文件"}
-            ))
+            )
             continue
 
         content = await file.read()
@@ -871,14 +872,15 @@ async def classify_batch(request: Request, files: List[UploadFile] = File(...)):
         # 检查缓存
         cached = result_cache.get(content)
         if cached is not None:
-            cached_results[file.filename] = ClassificationResult(
+            cached_results[index] = ClassificationResult(
                 filename=file.filename,
                 category=cached["category"],
                 confidence=cached["confidence"],
                 probabilities=cached["probabilities"]
             )
         else:
-            pending_files.append((file.filename, content))
+            pending_files.append((index, file.filename, content))
+            pending_content[index] = content
 
     # 第二阶段：并行处理未缓存的文件
     predicted_results: Dict[str, ClassificationResult] = {}
@@ -886,11 +888,11 @@ async def classify_batch(request: Request, files: List[UploadFile] = File(...)):
     if pending_files:
         # 准备临时文件
         tasks = []
-        for filename, content in pending_files:
+        for index, filename, content in pending_files:
             tmp = tempfile.NamedTemporaryFile(suffix='.dxf', delete=False)
             tmp.write(content)
             tmp.close()
-            tasks.append((filename, content, tmp.name))
+            tasks.append((index, filename, content, tmp.name))
 
         # 使用线程池并行预测
         loop = asyncio.get_event_loop()
@@ -900,18 +902,20 @@ async def classify_batch(request: Request, files: List[UploadFile] = File(...)):
         )
 
         # 处理结果
-        for (filename, content), (_, result, error) in zip(pending_files, results):
+        for (_, _, _), (index, filename, result, error) in zip(pending_files, results):
             if error:
-                predicted_results[filename] = ClassificationResult(
+                predicted_results[index] = ClassificationResult(
                     filename=filename,
                     category="error",
                     confidence=0.0,
                     probabilities={"error": error}
                 )
             else:
+                content = pending_content.get(index)
                 # 存入缓存
-                result_cache.put(content, result)
-                predicted_results[filename] = ClassificationResult(
+                if content is not None:
+                    result_cache.put(content, result)
+                predicted_results[index] = ClassificationResult(
                     filename=filename,
                     category=result["category"],
                     confidence=result["confidence"],
@@ -923,21 +927,26 @@ async def classify_batch(request: Request, files: List[UploadFile] = File(...)):
     success = 0
     cache_hits = len(cached_results)
 
-    for file in files:
-        if file.filename in cached_results:
-            results.append(cached_results[file.filename])
+    for index, file in enumerate(files):
+        if index in cached_results:
+            results.append(cached_results[index])
             success += 1
-        elif file.filename in predicted_results:
-            r = predicted_results[file.filename]
+        elif index in predicted_results:
+            r = predicted_results[index]
             results.append(r)
             if r.category != "error":
                 success += 1
+        elif index in errors:
+            results.append(errors[index])
         else:
-            # 来自errors列表
-            for e in errors:
-                if e.filename == file.filename:
-                    results.append(e)
-                    break
+            results.append(
+                ClassificationResult(
+                    filename=file.filename,
+                    category="error",
+                    confidence=0.0,
+                    probabilities={"error": "未知错误"},
+                )
+            )
 
     if cache_hits > 0 or len(pending_files) > 0:
         logger.info(f"批量分类: {len(files)}文件, 缓存命中{cache_hits}, 并行处理{len(pending_files)}")

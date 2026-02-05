@@ -3168,6 +3168,9 @@
 - **Classifier Deployment Alerts + Ops Notes**:
   - Enabled alerting rules in deployment config, added classifier alerts, documented ops health checks plus dashboard variants, removed Redis host port binding from observability compose, and excluded `data/training_merged` from Docker build context. Full stack rebuild blocked by Docker daemon/disk exhaustion; see report.
   - Report: `reports/DEV_CLASSIFIER_DEPLOYMENT_ALERTS_OPS_NOTE_20260205.md`
+- **Classifier Batch Order Fix**:
+  - Preserved `/classify/batch` ordering for duplicate filenames, added a regression test, and documented batch ordering behavior.
+  - Report: `reports/DEV_CLASSIFIER_BATCH_ORDER_FIX_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
