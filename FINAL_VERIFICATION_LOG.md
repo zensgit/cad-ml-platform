@@ -3153,6 +3153,12 @@
 - **Classifier Recording Rule Prefix**:
   - Prefixed classifier cache hit ratio recording rule to satisfy naming conventions.
   - Report: `reports/DEV_CLASSIFIER_RECORDING_RULE_PREFIX_20260205.md`
+- **Classifier Runbooks**:
+  - Added cache hit-rate and rate-limit spike runbooks for classifier operations.
+  - Report: `reports/DEV_CLASSIFIER_RUNBOOKS_20260205.md`
+- **Classifier Recording Rule Validation**:
+  - Validated promtool output after classifier recording rule updates.
+  - Report: `reports/DEV_CLASSIFIER_RECORDING_RULE_VALIDATION_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
