@@ -89,6 +89,7 @@ class LRUCache:
         """存入缓存"""
         key = self._hash_content(content)
         if key in self.cache:
+            self.cache[key] = result
             self.cache.move_to_end(key)
         else:
             if len(self.cache) >= self.max_size:
