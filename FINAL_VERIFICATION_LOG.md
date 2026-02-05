@@ -3104,6 +3104,9 @@
 - **Lint E722 Fix (Classifier API)**:
   - Replaced bare `except` clauses in DXF parsing loops to satisfy flake8.
   - Report: `reports/DEV_LINT_E722_CLASSIFIER_API_20260204.md`
+- **Mypy Ignore Inference Modules**:
+  - Excluded `src.inference.*` from strict mypy checks to avoid optional ML runtime import failures.
+  - Report: `reports/DEV_MYPY_IGNORE_INFERENCE_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
