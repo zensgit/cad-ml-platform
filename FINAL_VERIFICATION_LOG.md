@@ -3159,6 +3159,9 @@
 - **Classifier Recording Rule Validation**:
   - Validated promtool output after classifier recording rule updates.
   - Report: `reports/DEV_CLASSIFIER_RECORDING_RULE_VALIDATION_20260205.md`
+- **Classifier Dashboard + Alerts + Health**:
+  - Added classifier cache panels, alert rules, and health cache stats endpoint with tests.
+  - Report: `reports/DEV_CLASSIFIER_DASHBOARD_ALERTS_HEALTH_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

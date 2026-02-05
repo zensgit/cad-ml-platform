@@ -56,6 +56,15 @@ class CacheRollbackResponse(BaseModel):
     error: Optional[dict] = None
 
 
+class ClassifierCacheStatsResponse(BaseModel):
+    status: str
+    size: int
+    max_size: int
+    hits: int
+    misses: int
+    hit_ratio: Optional[float] = None
+
+
 class FaissHealthResponse(BaseModel):
     available: bool
     index_size: Optional[int]
@@ -113,6 +122,26 @@ async def feature_cache_stats(api_key: str = Depends(get_api_key)):
         hits=hits,
         misses=misses,
         evictions=evictions,
+    )
+
+
+@router.get("/classifier/cache", response_model=ClassifierCacheStatsResponse)
+@router.get("/health/classifier/cache", response_model=ClassifierCacheStatsResponse)
+async def classifier_cache_stats(admin_token: str = Depends(get_admin_token)):
+    from src.inference.classifier_api import result_cache
+
+    stats = result_cache.stats()
+    hits = stats.get("hits", 0)
+    misses = stats.get("misses", 0)
+    total = hits + misses
+    hit_ratio = (hits / total) if total > 0 else None
+    return ClassifierCacheStatsResponse(
+        status="ok",
+        size=stats.get("size", 0),
+        max_size=stats.get("max_size", 0),
+        hits=hits,
+        misses=misses,
+        hit_ratio=hit_ratio,
     )
 
 
