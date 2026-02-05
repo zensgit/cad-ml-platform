@@ -65,7 +65,7 @@ IDX_TO_CAT = {i: cat for i, cat in enumerate(CATEGORIES)}
 # ============== LRU缓存 ==============
 
 class LRUCache:
-    """基于文件哈希的LRU缓存"""
+    """基于文件哈希的LRU缓存（L1内存缓存）"""
 
     def __init__(self, max_size: int = 1000):
         self.max_size = max_size
@@ -90,9 +90,20 @@ class LRUCache:
         classification_cache_miss_total.inc()
         return None
 
+    def get_by_key(self, key: str) -> Optional[Dict]:
+        """通过key直接获取（不计统计）"""
+        if key in self.cache:
+            self.cache.move_to_end(key)
+            return self.cache[key]
+        return None
+
     def put(self, content: bytes, result: Dict):
         """存入缓存"""
         key = self._hash_content(content)
+        self.put_by_key(key, result)
+
+    def put_by_key(self, key: str, result: Dict):
+        """通过key直接存入"""
         if key in self.cache:
             self.cache[key] = result
             self.cache.move_to_end(key)
@@ -123,8 +134,113 @@ class LRUCache:
         classification_cache_size.set(0)
 
 
-# 全局缓存实例
-result_cache = LRUCache(max_size=1000)
+class HybridCache:
+    """混合缓存：L1内存 + L2 Redis
+
+    特性：
+    - L1: 本地LRU缓存，毫秒级响应
+    - L2: Redis缓存，支持分布式部署
+    - 自动降级：Redis不可用时仅用L1
+    """
+
+    REDIS_PREFIX = "clf:v16:"
+    REDIS_TTL = 3600 * 24  # 24小时
+
+    def __init__(self, l1_max_size: int = 1000):
+        self.l1 = LRUCache(max_size=l1_max_size)
+        self._redis_client = None
+        self._redis_available = False
+        self._init_redis()
+
+    def _init_redis(self):
+        """初始化Redis连接"""
+        try:
+            from src.utils.cache import get_sync_client
+            self._redis_client = get_sync_client()
+            if self._redis_client:
+                self._redis_client.ping()
+                self._redis_available = True
+                logger.info("分类器缓存: Redis L2已启用")
+        except Exception as e:
+            logger.info(f"分类器缓存: Redis不可用，仅使用L1内存缓存 ({e})")
+            self._redis_available = False
+
+    def _make_key(self, content: bytes) -> str:
+        """生成缓存key"""
+        return self.REDIS_PREFIX + hashlib.md5(content).hexdigest()
+
+    def get(self, content: bytes) -> Optional[Dict]:
+        """获取缓存结果（L1 -> L2）"""
+        key = self._make_key(content)
+
+        # L1查找
+        result = self.l1.get_by_key(key)
+        if result is not None:
+            self.l1.hits += 1
+            classification_cache_hits_total.inc()
+            return result
+
+        # L2查找
+        if self._redis_available and self._redis_client:
+            try:
+                raw = self._redis_client.get(key)
+                if raw:
+                    result = json.loads(raw)
+                    # 回填L1
+                    self.l1.put_by_key(key, result)
+                    self.l1.hits += 1
+                    classification_cache_hits_total.inc()
+                    return result
+            except Exception as e:
+                logger.debug(f"Redis get failed: {e}")
+
+        self.l1.misses += 1
+        classification_cache_miss_total.inc()
+        return None
+
+    def put(self, content: bytes, result: Dict):
+        """存入缓存（同时写L1和L2）"""
+        key = self._make_key(content)
+
+        # 写L1
+        self.l1.put_by_key(key, result)
+
+        # 写L2
+        if self._redis_available and self._redis_client:
+            try:
+                self._redis_client.setex(key, self.REDIS_TTL, json.dumps(result))
+            except Exception as e:
+                logger.debug(f"Redis set failed: {e}")
+
+    def stats(self) -> Dict:
+        """缓存统计"""
+        stats = self.l1.stats()
+        stats["redis_enabled"] = self._redis_available
+        if self._redis_available and self._redis_client:
+            try:
+                # 统计Redis中分类器缓存的key数量
+                keys = self._redis_client.keys(self.REDIS_PREFIX + "*")
+                stats["redis_keys"] = len(keys) if keys else 0
+            except Exception:
+                stats["redis_keys"] = -1
+        return stats
+
+    def clear(self):
+        """清空缓存（L1和L2）"""
+        self.l1.clear()
+
+        if self._redis_available and self._redis_client:
+            try:
+                keys = self._redis_client.keys(self.REDIS_PREFIX + "*")
+                if keys:
+                    self._redis_client.delete(*keys)
+                logger.info(f"Redis缓存已清空: {len(keys) if keys else 0}个key")
+            except Exception as e:
+                logger.warning(f"Redis clear failed: {e}")
+
+
+# 全局缓存实例 - 使用混合缓存支持Redis
+result_cache = HybridCache(l1_max_size=1000)
 
 # 线程池用于并行批处理（模型推理是CPU/GPU密集型）
 _executor = ThreadPoolExecutor(max_workers=4)

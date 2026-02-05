@@ -336,3 +336,48 @@ def test_executor_exists():
     """Test that thread pool executor is configured."""
     assert hasattr(classifier_api, "_executor")
     assert classifier_api._executor is not None
+
+
+class TestHybridCache:
+    """Tests for HybridCache class."""
+
+    def test_hybrid_cache_init(self):
+        """Test hybrid cache initialization."""
+        cache = classifier_api.HybridCache(l1_max_size=100)
+        assert cache.l1.max_size == 100
+        assert hasattr(cache, "_redis_available")
+
+    def test_hybrid_cache_l1_only(self):
+        """Test hybrid cache works with L1 only (no Redis)."""
+        cache = classifier_api.HybridCache(l1_max_size=10)
+        content = b"test content for hybrid"
+        result = {"category": "传动件", "confidence": 0.91}
+
+        # Put and get
+        cache.put(content, result)
+        cached = cache.get(content)
+
+        assert cached == result
+        assert cache.l1.hits >= 1
+
+    def test_hybrid_cache_stats(self):
+        """Test hybrid cache stats include redis info."""
+        cache = classifier_api.HybridCache(l1_max_size=10)
+        stats = cache.stats()
+
+        assert "size" in stats
+        assert "redis_enabled" in stats
+
+    def test_hybrid_cache_clear(self):
+        """Test hybrid cache clear."""
+        cache = classifier_api.HybridCache(l1_max_size=10)
+        cache.put(b"content1", {"v": 1})
+        cache.put(b"content2", {"v": 2})
+
+        cache.clear()
+
+        assert len(cache.l1.cache) == 0
+
+    def test_result_cache_is_hybrid(self):
+        """Test global result_cache is HybridCache instance."""
+        assert isinstance(classifier_api.result_cache, classifier_api.HybridCache)
