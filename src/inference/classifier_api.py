@@ -538,13 +538,24 @@ class V16Classifier:
         self.v6_weight = 0.6
         self.v14_weight = 0.4
         self.loaded = False
+        self.use_half = False  # 是否使用FP16半精度
 
-    def load(self):
-        """加载模型"""
+    def load(self, use_half: bool = None):
+        """加载模型
+
+        Args:
+            use_half: 是否使用FP16半精度（减少约50%内存）
+                      默认: CUDA/MPS设备自动启用
+        """
         if self.loaded:
             return
 
         logger.info("加载V16模型...")
+
+        # 自动决定是否使用半精度
+        if use_half is None:
+            use_half = DEVICE.type in ('cuda', 'mps')
+        self.use_half = use_half
 
         # 加载V16配置
         config_path = MODEL_DIR / "cad_classifier_v16_config.json"
@@ -562,6 +573,8 @@ class V16Classifier:
         self.v6_model = ImprovedClassifierV6(48, 256, 5, 0.5)
         self.v6_model.load_state_dict(v6_ckpt['model_state_dict'])
         self.v6_model.to(DEVICE)
+        if self.use_half:
+            self.v6_model.half()
         self.v6_model.eval()
         self.v6_mean = v6_ckpt.get('feature_mean', np.zeros(48))
         self.v6_std = v6_ckpt.get('feature_std', np.ones(48))
@@ -575,6 +588,8 @@ class V16Classifier:
             model = FusionModelV14(48, 5)
             model.load_state_dict(fold_state)
             model.to(DEVICE)
+            if self.use_half:
+                model.half()
             model.eval()
             self.v14_models.append(model)
 
@@ -583,7 +598,8 @@ class V16Classifier:
         self.v14_std = self.v6_std
 
         self.loaded = True
-        logger.info(f"模型加载完成，设备: {DEVICE}")
+        precision = "FP16" if self.use_half else "FP32"
+        logger.info(f"模型加载完成，设备: {DEVICE}, 精度: {precision}")
 
     def predict(self, dxf_path: str) -> dict:
         """预测单个DXF文件"""
@@ -601,16 +617,19 @@ class V16Classifier:
         feat_v6 = (features - self.v6_mean) / (self.v6_std + 1e-8)
         feat_v14 = (features - self.v14_mean) / (self.v14_std + 1e-8)
 
-        with torch.inference_mode():
-            x_v6 = torch.FloatTensor(feat_v6).unsqueeze(0).to(DEVICE)
-            v6_probs = torch.softmax(self.v6_model(x_v6), dim=1)
+        # 选择数据类型
+        dtype = torch.float16 if self.use_half else torch.float32
 
-            x_geo = torch.FloatTensor(feat_v14).unsqueeze(0).to(DEVICE)
-            x_img = torch.FloatTensor(img).unsqueeze(0).unsqueeze(0).to(DEVICE)
+        with torch.inference_mode():
+            x_v6 = torch.tensor(feat_v6, dtype=dtype).unsqueeze(0).to(DEVICE)
+            v6_probs = torch.softmax(self.v6_model(x_v6), dim=1).float()
+
+            x_geo = torch.tensor(feat_v14, dtype=dtype).unsqueeze(0).to(DEVICE)
+            x_img = torch.tensor(img, dtype=dtype).unsqueeze(0).unsqueeze(0).to(DEVICE)
 
             v14_probs_list = []
             for model in self.v14_models:
-                probs = torch.softmax(model(x_img, x_geo), dim=1)
+                probs = torch.softmax(model(x_img, x_geo), dim=1).float()
                 v14_probs_list.append(probs)
             v14_probs = torch.mean(torch.stack(v14_probs_list), dim=0)
 

@@ -314,7 +314,7 @@
       "title": "Classifier Cache Hit Rate (%)",
       "targets": [
         {
-          "expr": "sum(rate(classification_cache_hits_total[5m])) / (sum(rate(classification_cache_hits_total[5m])) + sum(rate(classification_cache_miss_total[5m]))) * 100",
+          "expr": "sum(rate(classification_cache_hits_total{instance=~\"$instance\"}[5m])) / (sum(rate(classification_cache_hits_total{instance=~\"$instance\"}[5m])) + sum(rate(classification_cache_miss_total{instance=~\"$instance\"}[5m]))) * 100",
           "legendFormat": "Classifier Cache Hit Rate (%)"
         }
       ],
@@ -331,7 +331,7 @@
       "title": "Classifier Cache Size",
       "targets": [
         {
-          "expr": "classification_cache_size",
+          "expr": "classification_cache_size{instance=~\"$instance\"}",
           "legendFormat": "Classifier Cache Size"
         }
       ],
@@ -348,7 +348,7 @@
       "title": "Classifier Rate Limited (per min)",
       "targets": [
         {
-          "expr": "sum(rate(classification_rate_limited_total[5m])) * 60",
+          "expr": "sum(rate(classification_rate_limited_total{instance=~\"$instance\"}[5m])) * 60",
           "legendFormat": "Classifier Rate Limited (per min)"
         }
       ],
@@ -383,6 +383,13 @@
         "name": "provider",
         "type": "query",
         "query": "label_values(ocr_requests_total, provider)",
+        "multi": true,
+        "includeAll": true
+      },
+      {
+        "name": "instance",
+        "type": "query",
+        "query": "label_values(classification_cache_hits_total, instance)",
         "multi": true,
         "includeAll": true
       }
