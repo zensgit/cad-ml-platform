@@ -32,7 +32,9 @@ MODEL_DIR = Path(__file__).parent.parent.parent / "models"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
 IMG_SIZE = 128
 
-CATEGORIES = ["轴类", "传动件", "壳体类", "连接件", "其他"]
+# 类别映射 - 必须与训练时的labels.json一致
+# label_to_id: 传动件=0, 其他=1, 壳体类=2, 轴类=3, 连接件=4
+CATEGORIES = ["传动件", "其他", "壳体类", "轴类", "连接件"]
 CAT_TO_IDX = {cat: i for i, cat in enumerate(CATEGORIES)}
 IDX_TO_CAT = {i: cat for i, cat in enumerate(CATEGORIES)}
 
