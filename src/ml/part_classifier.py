@@ -17,6 +17,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from src.utils.dxf_features import extract_features_v6
+
 logger = logging.getLogger(__name__)
 
 
@@ -41,7 +43,13 @@ class PartClassifier:
         self.model_path = Path(model_path)
         self.model = None
         self.id_to_label = None
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            "cuda"
+            if torch.cuda.is_available()
+            else "mps"
+            if torch.backends.mps.is_available()
+            else "cpu"
+        )
         self.version = "v2"  # 默认版本
         self._load_model()
 
@@ -263,172 +271,7 @@ class PartClassifier:
 
     def _extract_features_v6(self, dxf_path: str) -> Optional[np.ndarray]:
         """V6特征提取 (48维)"""
-        try:
-            import ezdxf
-
-            doc = ezdxf.readfile(dxf_path)
-            msp = doc.modelspace()
-
-            entity_types = []
-            layer_names = []
-            all_points = []
-            circle_radii = []
-            arc_radii = []
-            arc_angles = []
-            line_lengths = []
-            polyline_vertex_counts = []
-            dimension_count = 0
-            hatch_count = 0
-            block_names = []
-
-            for entity in msp:
-                etype = entity.dxftype()
-                entity_types.append(etype)
-
-                if hasattr(entity.dxf, 'layer'):
-                    layer_names.append(entity.dxf.layer)
-
-                try:
-                    if etype == "LINE":
-                        start = (entity.dxf.start.x, entity.dxf.start.y)
-                        end = (entity.dxf.end.x, entity.dxf.end.y)
-                        all_points.extend([start, end])
-                        length = np.sqrt((end[0]-start[0])**2 + (end[1]-start[1])**2)
-                        line_lengths.append(length)
-                    elif etype == "CIRCLE":
-                        center = (entity.dxf.center.x, entity.dxf.center.y)
-                        all_points.append(center)
-                        circle_radii.append(entity.dxf.radius)
-                    elif etype == "ARC":
-                        center = (entity.dxf.center.x, entity.dxf.center.y)
-                        all_points.append(center)
-                        arc_radii.append(entity.dxf.radius)
-                        angle = abs(entity.dxf.end_angle - entity.dxf.start_angle)
-                        if angle > 180:
-                            angle = 360 - angle
-                        arc_angles.append(angle)
-                    elif etype in ["TEXT", "MTEXT"]:
-                        if hasattr(entity.dxf, 'insert'):
-                            all_points.append((entity.dxf.insert.x, entity.dxf.insert.y))
-                    elif etype in ["LWPOLYLINE", "POLYLINE"]:
-                        if hasattr(entity, 'get_points'):
-                            pts = list(entity.get_points())
-                            polyline_vertex_counts.append(len(pts))
-                            for pt in pts:
-                                all_points.append((pt[0], pt[1]))
-                    elif etype == "INSERT":
-                        if hasattr(entity.dxf, 'insert'):
-                            all_points.append((entity.dxf.insert.x, entity.dxf.insert.y))
-                        if hasattr(entity.dxf, 'name'):
-                            block_names.append(entity.dxf.name)
-                    elif etype == "DIMENSION":
-                        dimension_count += 1
-                    elif etype == "HATCH":
-                        hatch_count += 1
-                except Exception:
-                    pass
-
-            type_counts = Counter(entity_types)
-            total_entities = len(entity_types)
-
-            features = []
-
-            # 1-12: 实体类型比例
-            for etype in ["LINE", "CIRCLE", "ARC", "LWPOLYLINE", "POLYLINE",
-                          "SPLINE", "ELLIPSE", "TEXT", "MTEXT", "DIMENSION",
-                          "HATCH", "INSERT"]:
-                features.append(type_counts.get(etype, 0) / max(total_entities, 1))
-
-            # 13-16: 基础几何
-            features.append(np.log1p(total_entities) / 10)
-            if all_points:
-                xs = [p[0] for p in all_points]
-                ys = [p[1] for p in all_points]
-                width = max(xs) - min(xs)
-                height = max(ys) - min(ys)
-                features.extend([np.log1p(width) / 10, np.log1p(height) / 10,
-                               np.clip(width / max(height, 0.001), 0, 10) / 10])
-            else:
-                features.extend([0, 0, 0.5])
-
-            # 17-22: 圆/弧
-            if circle_radii:
-                features.extend([np.log1p(np.mean(circle_radii)) / 5,
-                               np.log1p(np.std(circle_radii)) / 5 if len(circle_radii) > 1 else 0,
-                               len(circle_radii) / max(total_entities, 1)])
-            else:
-                features.extend([0, 0, 0])
-
-            if arc_radii:
-                features.extend([np.log1p(np.mean(arc_radii)) / 5,
-                               np.mean(arc_angles) / 180 if arc_angles else 0,
-                               len(arc_radii) / max(total_entities, 1)])
-            else:
-                features.extend([0, 0, 0])
-
-            # 23-26: 线段
-            if line_lengths:
-                features.extend([np.log1p(np.mean(line_lengths)) / 5,
-                               np.log1p(np.std(line_lengths)) / 5 if len(line_lengths) > 1 else 0,
-                               np.log1p(np.max(line_lengths)) / 5,
-                               np.log1p(np.min(line_lengths)) / 5])
-            else:
-                features.extend([0, 0, 0, 0])
-
-            # 27-32: 图层
-            unique_layers = len(set(layer_names))
-            features.append(np.log1p(unique_layers) / 3)
-            layer_lower = [l.lower() for l in layer_names]
-            features.append(1.0 if any('dim' in l for l in layer_lower) else 0.0)
-            features.append(1.0 if any('text' in l for l in layer_lower) else 0.0)
-            features.append(1.0 if any('center' in l for l in layer_lower) else 0.0)
-            features.append(1.0 if any('hidden' in l or 'hid' in l for l in layer_lower) else 0.0)
-            features.append(1.0 if any('section' in l or 'cut' in l for l in layer_lower) else 0.0)
-
-            # 33-36: 复杂度
-            features.append((type_counts.get("CIRCLE", 0) + type_counts.get("ARC", 0)) / max(total_entities, 1))
-            features.append((type_counts.get("TEXT", 0) + type_counts.get("MTEXT", 0)) / max(total_entities, 1))
-            features.append(type_counts.get("INSERT", 0) / max(total_entities, 1))
-            features.append(dimension_count / max(total_entities, 1))
-
-            # 37-40: 空间分布
-            if all_points and len(all_points) > 1:
-                xs = np.array([p[0] for p in all_points])
-                ys = np.array([p[1] for p in all_points])
-                area = (max(xs) - min(xs)) * (max(ys) - min(ys))
-                features.append(np.log1p(len(all_points) / max(area, 0.001)) / 10)
-                features.append(np.std(xs) / max(max(xs) - min(xs), 0.001))
-                features.append(np.std(ys) / max(max(ys) - min(ys), 0.001))
-                center_offset = np.sqrt((np.mean(xs) - (max(xs)+min(xs))/2)**2 +
-                                       (np.mean(ys) - (max(ys)+min(ys))/2)**2)
-                features.append(np.log1p(center_offset) / 5)
-            else:
-                features.extend([0, 0.5, 0.5, 0])
-
-            # 41-44: 形状复杂度
-            if polyline_vertex_counts:
-                features.extend([np.log1p(np.mean(polyline_vertex_counts)) / 3,
-                               np.log1p(np.max(polyline_vertex_counts)) / 4])
-            else:
-                features.extend([0, 0])
-            features.append(hatch_count / max(total_entities, 1))
-            features.append(np.log1p(len(set(block_names))) / 3)
-
-            # 45-48: 类型特征
-            curved = type_counts.get("CIRCLE", 0) + type_counts.get("ARC", 0) + type_counts.get("ELLIPSE", 0)
-            straight = type_counts.get("LINE", 0)
-            features.append(np.clip(curved / max(straight, 1), 0, 5) / 5)
-            annotation = type_counts.get("TEXT", 0) + type_counts.get("MTEXT", 0) + dimension_count
-            features.append(annotation / max(total_entities, 1))
-            geometry = straight + curved + type_counts.get("LWPOLYLINE", 0) + type_counts.get("POLYLINE", 0)
-            features.append(np.clip(geometry / max(annotation, 1), 0, 20) / 20)
-            features.append(len(circle_radii) / max(total_entities, 1))
-
-            return np.array(features, dtype=np.float32)
-
-        except Exception as e:
-            logger.error(f"特征提取失败: {e}")
-            return None
+        return extract_features_v6(dxf_path, log=logger)
 
     def predict(self, dxf_path: str) -> Optional[ClassificationResult]:
         """预测DXF文件的部件类别"""
@@ -438,7 +281,7 @@ class PartClassifier:
 
         x = torch.tensor(features, dtype=torch.float32).unsqueeze(0).to(self.device)
 
-        with torch.no_grad():
+        with torch.inference_mode():
             outputs = self.model(x)
             probs = torch.softmax(outputs, dim=1)[0]
             pred_id = probs.argmax().item()
@@ -706,156 +549,7 @@ class PartClassifierV16:
 
     def _extract_features(self, dxf_path: str) -> Optional[np.ndarray]:
         """提取48维几何特征（与V6训练时一致）"""
-        try:
-            import ezdxf
-            doc = ezdxf.readfile(dxf_path)
-            msp = doc.modelspace()
-
-            entity_types = []
-            layer_names = []
-            all_points = []
-            circle_radii = []
-            arc_radii = []
-            arc_angles = []
-            line_lengths = []
-            polyline_vertex_counts = []
-            dimension_count = 0
-            hatch_count = 0
-            block_names = []
-
-            for entity in msp:
-                etype = entity.dxftype()
-                entity_types.append(etype)
-                if hasattr(entity.dxf, 'layer'):
-                    layer_names.append(entity.dxf.layer)
-                try:
-                    if etype == "LINE":
-                        start = (entity.dxf.start.x, entity.dxf.start.y)
-                        end = (entity.dxf.end.x, entity.dxf.end.y)
-                        all_points.extend([start, end])
-                        line_lengths.append(np.sqrt((end[0]-start[0])**2 + (end[1]-start[1])**2))
-                    elif etype == "CIRCLE":
-                        center = (entity.dxf.center.x, entity.dxf.center.y)
-                        all_points.append(center)
-                        circle_radii.append(entity.dxf.radius)
-                    elif etype == "ARC":
-                        center = (entity.dxf.center.x, entity.dxf.center.y)
-                        all_points.append(center)
-                        arc_radii.append(entity.dxf.radius)
-                        angle = abs(entity.dxf.end_angle - entity.dxf.start_angle)
-                        if angle > 180:
-                            angle = 360 - angle
-                        arc_angles.append(angle)
-                    elif etype in ["TEXT", "MTEXT"]:
-                        if hasattr(entity.dxf, 'insert'):
-                            all_points.append((entity.dxf.insert.x, entity.dxf.insert.y))
-                    elif etype in ["LWPOLYLINE", "POLYLINE"]:
-                        if hasattr(entity, 'get_points'):
-                            pts = list(entity.get_points())
-                            polyline_vertex_counts.append(len(pts))
-                            for pt in pts:
-                                all_points.append((pt[0], pt[1]))
-                    elif etype == "INSERT":
-                        if hasattr(entity.dxf, 'insert'):
-                            all_points.append((entity.dxf.insert.x, entity.dxf.insert.y))
-                        if hasattr(entity.dxf, 'name'):
-                            block_names.append(entity.dxf.name)
-                    elif etype == "DIMENSION":
-                        dimension_count += 1
-                    elif etype == "HATCH":
-                        hatch_count += 1
-                except:
-                    pass
-
-            type_counts = Counter(entity_types)
-            total_entities = len(entity_types)
-            features = []
-
-            for etype in ["LINE", "CIRCLE", "ARC", "LWPOLYLINE", "POLYLINE",
-                          "SPLINE", "ELLIPSE", "TEXT", "MTEXT", "DIMENSION", "HATCH", "INSERT"]:
-                features.append(type_counts.get(etype, 0) / max(total_entities, 1))
-
-            features.append(np.log1p(total_entities) / 10)
-            if all_points:
-                xs = [p[0] for p in all_points]
-                ys = [p[1] for p in all_points]
-                width = max(xs) - min(xs)
-                height = max(ys) - min(ys)
-                features.extend([np.log1p(width) / 10, np.log1p(height) / 10,
-                               np.clip(width / max(height, 0.001), 0, 10) / 10])
-            else:
-                features.extend([0, 0, 0.5])
-
-            if circle_radii:
-                features.extend([np.log1p(np.mean(circle_radii)) / 5,
-                               np.log1p(np.std(circle_radii)) / 5 if len(circle_radii) > 1 else 0,
-                               len(circle_radii) / max(total_entities, 1)])
-            else:
-                features.extend([0, 0, 0])
-
-            if arc_radii:
-                features.extend([np.log1p(np.mean(arc_radii)) / 5,
-                               np.mean(arc_angles) / 180 if arc_angles else 0,
-                               len(arc_radii) / max(total_entities, 1)])
-            else:
-                features.extend([0, 0, 0])
-
-            if line_lengths:
-                features.extend([np.log1p(np.mean(line_lengths)) / 5,
-                               np.log1p(np.std(line_lengths)) / 5 if len(line_lengths) > 1 else 0,
-                               np.log1p(np.max(line_lengths)) / 5,
-                               np.log1p(np.min(line_lengths)) / 5])
-            else:
-                features.extend([0, 0, 0, 0])
-
-            unique_layers = len(set(layer_names))
-            features.append(np.log1p(unique_layers) / 3)
-            layer_lower = [l.lower() for l in layer_names]
-            features.append(1.0 if any('dim' in l for l in layer_lower) else 0.0)
-            features.append(1.0 if any('text' in l for l in layer_lower) else 0.0)
-            features.append(1.0 if any('center' in l for l in layer_lower) else 0.0)
-            features.append(1.0 if any('hidden' in l or 'hid' in l for l in layer_lower) else 0.0)
-            features.append(1.0 if any('section' in l or 'cut' in l for l in layer_lower) else 0.0)
-
-            features.append((type_counts.get("CIRCLE", 0) + type_counts.get("ARC", 0)) / max(total_entities, 1))
-            features.append((type_counts.get("TEXT", 0) + type_counts.get("MTEXT", 0)) / max(total_entities, 1))
-            features.append(type_counts.get("INSERT", 0) / max(total_entities, 1))
-            features.append(dimension_count / max(total_entities, 1))
-
-            if all_points and len(all_points) > 1:
-                xs = np.array([p[0] for p in all_points])
-                ys = np.array([p[1] for p in all_points])
-                area = (max(xs) - min(xs)) * (max(ys) - min(ys))
-                features.append(np.log1p(len(all_points) / max(area, 0.001)) / 10)
-                features.append(np.std(xs) / max(max(xs) - min(xs), 0.001))
-                features.append(np.std(ys) / max(max(ys) - min(ys), 0.001))
-                center_offset = np.sqrt((np.mean(xs) - (max(xs)+min(xs))/2)**2 +
-                                       (np.mean(ys) - (max(ys)+min(ys))/2)**2)
-                features.append(np.log1p(center_offset) / 5)
-            else:
-                features.extend([0, 0.5, 0.5, 0])
-
-            if polyline_vertex_counts:
-                features.extend([np.log1p(np.mean(polyline_vertex_counts)) / 3,
-                               np.log1p(np.max(polyline_vertex_counts)) / 4])
-            else:
-                features.extend([0, 0])
-            features.append(hatch_count / max(total_entities, 1))
-            features.append(np.log1p(len(set(block_names))) / 3)
-
-            curved = type_counts.get("CIRCLE", 0) + type_counts.get("ARC", 0) + type_counts.get("ELLIPSE", 0)
-            straight = type_counts.get("LINE", 0)
-            features.append(np.clip(curved / max(straight, 1), 0, 5) / 5)
-            annotation = type_counts.get("TEXT", 0) + type_counts.get("MTEXT", 0) + dimension_count
-            features.append(annotation / max(total_entities, 1))
-            geometry = straight + curved + type_counts.get("LWPOLYLINE", 0) + type_counts.get("POLYLINE", 0)
-            features.append(np.clip(geometry / max(annotation, 1), 0, 20) / 20)
-            features.append(len(circle_radii) / max(total_entities, 1))
-
-            return np.array(features, dtype=np.float32)
-        except Exception as e:
-            logger.error(f"特征提取失败: {e}")
-            return None
+        return extract_features_v6(dxf_path, log=logger)
 
     def _check_needs_review(self, top1_cat: str, top1_conf: float,
                              top2_cat: str, top2_conf: float) -> tuple:
@@ -935,8 +629,8 @@ class PartClassifierV16:
                                 ax.plot(xs, ys, 'k-', linewidth=0.8)
                                 all_x.extend(xs)
                                 all_y.extend(ys)
-                except:
-                    pass
+                except Exception as exc:
+                    logger.debug("DXF渲染实体跳过: %s", exc)
 
             if not all_x or not all_y:
                 plt.close(fig)
@@ -950,14 +644,14 @@ class PartClassifierV16:
             ax.set_ylim(y_min - margin * y_range, y_max + margin * y_range)
             ax.axis('off')
 
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png', dpi=100, facecolor='white', bbox_inches='tight', pad_inches=0)
-            plt.close(fig)
-            buf.seek(0)
+            with io.BytesIO() as buf:
+                plt.savefig(buf, format='png', dpi=100, facecolor='white', bbox_inches='tight', pad_inches=0)
+                plt.close(fig)
+                buf.seek(0)
 
-            from PIL import Image
-            img = Image.open(buf).convert('L').resize((self.IMG_SIZE, self.IMG_SIZE))
-            return np.array(img, dtype=np.float32) / 255.0
+                from PIL import Image
+                img = Image.open(buf).convert('L').resize((self.IMG_SIZE, self.IMG_SIZE))
+                return np.array(img, dtype=np.float32) / 255.0
         except Exception as e:
             logger.error(f"渲染失败: {e}")
             return None
@@ -981,18 +675,18 @@ class PartClassifierV16:
             return None
 
         # V6预测 (使用原始特征，因为训练时未保存标准化参数)
-        with torch.no_grad():
-            x_v6 = torch.FloatTensor(features).unsqueeze(0).to(self.device)
-            v6_probs = torch.softmax(self.v6_model(x_v6), dim=1)
-
-        # V14预测 (使用原始特征，因为训练时未标准化)
         if self.v14_models:
             img = self._render_dxf(dxf_path)
             if img is None:
                 img = np.zeros((self.IMG_SIZE, self.IMG_SIZE), dtype=np.float32)
+        else:
+            img = None
 
-            with torch.no_grad():
-                # V14使用原始特征（不标准化）
+        with torch.inference_mode():
+            x_v6 = torch.FloatTensor(features).unsqueeze(0).to(self.device)
+            v6_probs = torch.softmax(self.v6_model(x_v6), dim=1)
+
+            if self.v14_models:
                 x_geo = torch.FloatTensor(features).unsqueeze(0).to(self.device)
                 x_img = torch.FloatTensor(img).unsqueeze(0).unsqueeze(0).to(self.device)
 
@@ -1002,10 +696,10 @@ class PartClassifierV16:
                     v14_probs_list.append(probs)
                 v14_probs = torch.mean(torch.stack(v14_probs_list), dim=0)
 
-            # 融合
-            final_probs = self.v6_weight * v6_probs + self.v14_weight * v14_probs
-        else:
-            final_probs = v6_probs
+                # 融合
+                final_probs = self.v6_weight * v6_probs + self.v14_weight * v14_probs
+            else:
+                final_probs = v6_probs
 
         # 获取top-2预测
         probs_np = final_probs[0].cpu().numpy()

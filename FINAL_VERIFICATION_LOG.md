@@ -3117,6 +3117,15 @@
 - **Untracked Artifacts Inventory (Update)**:
   - Logged the latest local model/script artifacts and suggested handling options.
   - Report: `reports/DEV_UNTRACKED_ARTIFACTS_20260205.md`
+- **Inference Feature Refactor**:
+  - Centralized DXF feature extraction, aligned inference behavior, and tightened error handling.
+  - Report: `reports/DEV_INFERENCE_FEATURES_REFACTOR_20260205.md`
+- **Gitignore Local Artifacts**:
+  - Added ignores for local model weights and experimental artifacts.
+  - Report: `reports/DEV_GITIGNORE_LOCAL_ARTIFACTS_20260205.md`
+- **ISO 286 Deviations Refresh**:
+  - Regenerated ISO 286 deviation tables with normalized header symbols.
+  - Report: `reports/DEV_ISO286_DEVIATIONS_REFRESH_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
