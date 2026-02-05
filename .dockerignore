@@ -1,0 +1,3 @@
+# Reduce build context size by excluding large local training datasets.
+data/training_merged/
+data/training_merged/**

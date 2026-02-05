@@ -3166,7 +3166,7 @@
   - Exposed classifier cache/rate-limit config via `/health` and added instance variable support.
   - Report: `reports/DEV_CLASSIFIER_HEALTH_CONFIG_GRAFANA_20260205.md`
 - **Classifier Deployment Alerts + Ops Notes**:
-  - Enabled alerting rules in deployment config, added classifier alerts, documented ops health checks plus dashboard variants, and removed Redis host port binding from observability compose to avoid conflicts.
+  - Enabled alerting rules in deployment config, added classifier alerts, documented ops health checks plus dashboard variants, removed Redis host port binding from observability compose, and excluded `data/training_merged` from Docker build context. Full stack rebuild blocked by Docker daemon/disk exhaustion; see report.
   - Report: `reports/DEV_CLASSIFIER_DEPLOYMENT_ALERTS_OPS_NOTE_20260205.md`
 
 ---
