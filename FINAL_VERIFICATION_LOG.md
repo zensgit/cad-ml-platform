@@ -3141,6 +3141,9 @@
 - **Classifier Cache Metrics + Auth + Test**:
   - Added cache metrics, protected cache endpoints with admin token, and validated cache hits.
   - Report: `reports/DEV_CLASSIFIER_API_CACHE_GUARDS_20260205.md`
+- **Classifier API Lifespan Migration**:
+  - Replaced startup event hooks with lifespan handlers to avoid FastAPI deprecation warnings.
+  - Report: `reports/DEV_CLASSIFIER_API_LIFESPAN_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

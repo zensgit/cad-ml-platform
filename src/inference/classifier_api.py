@@ -21,6 +21,7 @@ import sys
 import tempfile
 import time
 from collections import OrderedDict
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -469,10 +470,18 @@ class V16Classifier:
 
 # ============== FastAPI应用 ==============
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI lifespan handler for model warmup."""
+    classifier.load()
+    yield
+
+
 app = FastAPI(
     title="V16 CAD部件分类器",
     description="基于深度学习的CAD零件自动分类服务",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan,
 )
 
 # 全局分类器实例
@@ -490,12 +499,6 @@ class BatchResult(BaseModel):
     results: List[ClassificationResult]
     total: int
     success: int
-
-
-@app.on_event("startup")
-async def startup():
-    """启动时加载模型"""
-    classifier.load()
 
 
 @app.get("/")
