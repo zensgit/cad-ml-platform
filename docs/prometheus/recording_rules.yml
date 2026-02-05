@@ -203,6 +203,12 @@ groups:
           /
           sum(rate(ocr_requests_total[5m]))
           * 100
+      - record: cad_ml_classification_cache_hit_ratio
+        expr: |
+          sum(rate(classification_cache_hits_total[5m]))
+          /
+          (sum(rate(classification_cache_hits_total[5m])) + sum(rate(classification_cache_miss_total[5m])))
+          * 100
 
   - name: cad_ml_dedup2d
     interval: 30s

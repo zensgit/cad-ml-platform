@@ -183,6 +183,8 @@ kubectl get hpa -n cad-ml
 | `CACHE_L1_ENABLED` | Enable L1 (in-memory) cache | `true` |
 | `CACHE_L1_MAX_SIZE` | L1 cache max entries | `2000` |
 | `CACHE_L2_ENABLED` | Enable L2 (Redis) cache | `true` |
+| `CLASSIFIER_RATE_LIMIT_PER_MIN` | Classifier API requests per minute per IP | `120` |
+| `CLASSIFIER_RATE_LIMIT_BURST` | Extra classifier burst requests per minute per IP | `20` |
 | `MODEL_PATH` | Model files directory | `/models` |
 | `VECTOR_STORE_BACKEND` | Vector store (faiss/milvus) | `faiss` |
 

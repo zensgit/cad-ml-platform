@@ -44,6 +44,10 @@ This document lists all Prometheus metrics exposed by the CAD ML Platform at the
 | `classification_model_load_total` | Counter | Model load outcomes | `status`, `version` |
 | `classification_model_inference_seconds` | Histogram | Classification inference latency | - |
 | `classification_prediction_distribution` | Counter | Distribution of predicted types | `label`, `version` |
+| `classification_cache_hits_total` | Counter | Classification cache hits | - |
+| `classification_cache_miss_total` | Counter | Classification cache misses | - |
+| `classification_cache_size` | Gauge | Classification cache size | - |
+| `classification_rate_limited_total` | Counter | Classification rate limited requests | - |
 | `model_reload_total` | Counter | Model hot reload attempts | `status`, `version` |
 | `model_security_fail_total` | Counter | Model security validation failures | `reason` |
 | `model_opcode_mode` | Gauge | Current opcode validation mode (0=audit, 1=blocklist, 2=whitelist) | - |

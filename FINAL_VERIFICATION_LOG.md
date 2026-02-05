@@ -3147,6 +3147,12 @@
 - **Classifier Cache Monitoring + Rate Limit**:
   - Added classifier cache metrics, rate limiting, and monitoring guidance.
   - Report: `reports/DEV_CLASSIFIER_CACHE_MONITORING_20260205.md`
+- **Classifier Rate Limit Docs**:
+  - Documented classifier rate-limit env vars and recorded cache metrics in docs/rules.
+  - Report: `reports/DEV_CLASSIFIER_RATE_LIMIT_DOCS_20260205.md`
+- **Classifier Recording Rule Prefix**:
+  - Prefixed classifier cache hit ratio recording rule to satisfy naming conventions.
+  - Report: `reports/DEV_CLASSIFIER_RECORDING_RULE_PREFIX_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
