@@ -234,3 +234,105 @@ def test_batch_classify_uses_cache(monkeypatch):
     assert response.status_code == 200
     # Should still be 2 (no new predictions)
     assert call_count["n"] == 2
+
+
+def test_root_endpoint(monkeypatch):
+    """Test health check endpoint."""
+    def fake_load():
+        return None
+
+    monkeypatch.setattr(classifier_api.classifier, "load", fake_load)
+    client = TestClient(classifier_api.app)
+
+    response = client.get("/")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "ok"
+    assert "model" in data
+    assert "accuracy" in data
+
+
+def test_categories_endpoint(monkeypatch):
+    """Test categories endpoint."""
+    def fake_load():
+        return None
+
+    monkeypatch.setattr(classifier_api.classifier, "load", fake_load)
+    client = TestClient(classifier_api.app)
+
+    response = client.get("/categories")
+    assert response.status_code == 200
+    data = response.json()
+    assert "categories" in data
+    assert len(data["categories"]) == 5
+    assert "传动件" in data["categories"]
+    assert "壳体类" in data["categories"]
+
+
+def test_classify_non_dxf_file(monkeypatch):
+    """Test classify rejects non-DXF files."""
+    def fake_load():
+        return None
+
+    monkeypatch.setattr(classifier_api.classifier, "load", fake_load)
+    client = TestClient(classifier_api.app)
+
+    response = client.post(
+        "/classify",
+        files={"file": ("test.txt", b"hello", "text/plain")},
+    )
+    assert response.status_code == 400
+    assert "DXF" in response.json()["detail"]
+
+
+def test_batch_classify_mixed_files(monkeypatch):
+    """Test batch classify handles mixed file types."""
+    call_count = {"n": 0}
+
+    def fake_load():
+        return None
+
+    def fake_predict(_path: str):
+        call_count["n"] += 1
+        return {
+            "category": "连接件",
+            "confidence": 0.88,
+            "probabilities": {"连接件": 0.88},
+        }
+
+    monkeypatch.setattr(classifier_api.classifier, "load", fake_load)
+    monkeypatch.setattr(classifier_api.classifier, "predict", fake_predict)
+
+    client = TestClient(classifier_api.app)
+    admin_headers = {"X-Admin-Token": "test"}
+    client.post("/cache/clear", headers=admin_headers)
+
+    payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
+
+    response = client.post(
+        "/classify/batch",
+        files=[
+            ("files", ("valid.dxf", payload, "application/dxf")),
+            ("files", ("invalid.txt", b"hello", "text/plain")),
+        ],
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 2
+    assert data["success"] == 1  # Only DXF file succeeds
+    # Check that non-DXF file has error
+    for r in data["results"]:
+        if r["filename"] == "invalid.txt":
+            assert r["category"] == "error"
+
+
+def test_warmup_model_function():
+    """Test that warmup function exists and is callable."""
+    assert hasattr(classifier_api, "_warmup_model")
+    assert callable(classifier_api._warmup_model)
+
+
+def test_executor_exists():
+    """Test that thread pool executor is configured."""
+    assert hasattr(classifier_api, "_executor")
+    assert classifier_api._executor is not None
