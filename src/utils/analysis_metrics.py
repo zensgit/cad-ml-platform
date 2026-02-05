@@ -380,6 +380,18 @@ classification_model_version_total = Counter(
     "Observed classification model version usage",
     ["version"],
 )
+classification_cache_hits_total = Counter(
+    "classification_cache_hits_total",
+    "Classification API cache hits",
+)
+classification_cache_miss_total = Counter(
+    "classification_cache_miss_total",
+    "Classification API cache misses",
+)
+classification_cache_size = Gauge(
+    "classification_cache_size",
+    "Classification API cache size",
+)
 faiss_auto_rebuild_total = Counter(
     "faiss_auto_rebuild_total",
     "Faiss auto rebuild trigger outcomes",

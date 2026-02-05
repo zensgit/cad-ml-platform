@@ -27,13 +27,19 @@ from typing import Dict, List, Optional
 import numpy as np
 import torch
 import torch.nn as nn
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import Depends, FastAPI, File, UploadFile, HTTPException
 from pydantic import BaseModel
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
+from src.api.dependencies import get_admin_token
+from src.utils.analysis_metrics import (
+    classification_cache_hits_total,
+    classification_cache_miss_total,
+    classification_cache_size,
+)
 from src.utils.dxf_features import extract_features_v6
 from src.utils.logging import setup_logging
 
@@ -71,10 +77,12 @@ class LRUCache:
         key = self._hash_content(content)
         if key in self.cache:
             self.hits += 1
+            classification_cache_hits_total.inc()
             # 移动到末尾（最近使用）
             self.cache.move_to_end(key)
             return self.cache[key]
         self.misses += 1
+        classification_cache_miss_total.inc()
         return None
 
     def put(self, content: bytes, result: Dict):
@@ -87,6 +95,7 @@ class LRUCache:
                 # 移除最久未使用的
                 self.cache.popitem(last=False)
             self.cache[key] = result
+        classification_cache_size.set(len(self.cache))
 
     def stats(self) -> Dict:
         """缓存统计"""
@@ -105,6 +114,7 @@ class LRUCache:
         self.cache.clear()
         self.hits = 0
         self.misses = 0
+        classification_cache_size.set(0)
 
 
 # 全局缓存实例
@@ -616,13 +626,13 @@ async def classify_batch(files: List[UploadFile] = File(...)):
 # ============== 缓存管理 ==============
 
 @app.get("/cache/stats")
-async def cache_stats():
+async def cache_stats(admin_token: str = Depends(get_admin_token)):
     """获取缓存统计信息"""
     return result_cache.stats()
 
 
 @app.post("/cache/clear")
-async def cache_clear():
+async def cache_clear(admin_token: str = Depends(get_admin_token)):
     """清空缓存"""
     result_cache.clear()
     return {"status": "ok", "message": "缓存已清空"}

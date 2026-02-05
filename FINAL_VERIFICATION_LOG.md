@@ -3138,6 +3138,9 @@
 - **Classifier API Cache**:
   - Added LRU caching for DXF classification and cache management endpoints.
   - Report: `reports/DEV_CLASSIFIER_API_CACHE_20260205.md`
+- **Classifier Cache Metrics + Auth + Test**:
+  - Added cache metrics, protected cache endpoints with admin token, and validated cache hits.
+  - Report: `reports/DEV_CLASSIFIER_API_CACHE_GUARDS_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
