@@ -3165,6 +3165,9 @@
 - **Classifier Health Config + Grafana Variable**:
   - Exposed classifier cache/rate-limit config via `/health` and added instance variable support.
   - Report: `reports/DEV_CLASSIFIER_HEALTH_CONFIG_GRAFANA_20260205.md`
+- **Classifier Deployment Alerts + Ops Notes**:
+  - Enabled alerting rules in deployment config, added classifier alerts, and documented ops health checks plus dashboard variants.
+  - Report: `reports/DEV_CLASSIFIER_DEPLOYMENT_ALERTS_OPS_NOTE_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
