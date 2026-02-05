@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
-from typing import Any, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple
 
 import numpy as np
-from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 logger = logging.getLogger(__name__)
 
 
-def extract_features_v6(dxf_path: str, *, log: Optional[logging.Logger] = None) -> Optional[NDArray[np.float32]]:
+def extract_features_v6(dxf_path: str, *, log: Optional[logging.Logger] = None) -> Optional["NDArray[np.float32]"]:
     """Extract the 48-dim DXF feature vector used by V6/V14/V16 models."""
     active_logger = log or logger
     try:
