@@ -41,6 +41,9 @@ class HealthConfigMonitoring(BaseModel):
     error_ema_alpha: float
     metrics_enabled: bool
     redis_enabled: bool
+    classifier_rate_limit_per_min: Optional[int] = None
+    classifier_rate_limit_burst: Optional[int] = None
+    classifier_cache_max_size: Optional[int] = None
 
 
 class HealthConfigNetwork(BaseModel):

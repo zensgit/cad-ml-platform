@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -74,6 +75,15 @@ def build_health_payload(metrics_enabled_override: Optional[bool] = None) -> Dic
                 "error_ema_alpha": current_settings.ERROR_EMA_ALPHA,
                 "metrics_enabled": metrics_enabled,
                 "redis_enabled": current_settings.REDIS_ENABLED,
+                "classifier_rate_limit_per_min": int(
+                    os.getenv("CLASSIFIER_RATE_LIMIT_PER_MIN", "120")
+                ),
+                "classifier_rate_limit_burst": int(
+                    os.getenv("CLASSIFIER_RATE_LIMIT_BURST", "20")
+                ),
+                "classifier_cache_max_size": int(
+                    os.getenv("CLASSIFIER_CACHE_MAX_SIZE", "1000")
+                ),
             },
             "network": {
                 "cors_origins": current_settings.CORS_ORIGINS,

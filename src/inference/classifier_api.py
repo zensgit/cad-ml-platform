@@ -240,7 +240,8 @@ class HybridCache:
 
 
 # 全局缓存实例 - 使用混合缓存支持Redis
-result_cache = HybridCache(l1_max_size=1000)
+_classifier_cache_max_size = int(os.getenv("CLASSIFIER_CACHE_MAX_SIZE", "1000"))
+result_cache = HybridCache(l1_max_size=_classifier_cache_max_size)
 
 # 线程池用于并行批处理（模型推理是CPU/GPU密集型）
 _executor = ThreadPoolExecutor(max_workers=4)

@@ -47,7 +47,10 @@ Classifier cache stats are available at `GET /api/v1/health/classifier/cache` (a
     "monitoring": {
       "error_ema_alpha": 0.2,
       "metrics_enabled": true|false,
-      "redis_enabled": true|false
+      "redis_enabled": true|false,
+      "classifier_rate_limit_per_min": 120,
+      "classifier_rate_limit_burst": 20,
+      "classifier_cache_max_size": 1000
     },
     "network": {
       "cors_origins": ["*"],

@@ -3162,6 +3162,9 @@
 - **Classifier Dashboard + Alerts + Health**:
   - Added classifier cache panels, alert rules, and health cache stats endpoint with tests.
   - Report: `reports/DEV_CLASSIFIER_DASHBOARD_ALERTS_HEALTH_20260205.md`
+- **Classifier Health Config + Grafana Variable**:
+  - Exposed classifier cache/rate-limit config via `/health` and added instance variable support.
+  - Report: `reports/DEV_CLASSIFIER_HEALTH_CONFIG_GRAFANA_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
