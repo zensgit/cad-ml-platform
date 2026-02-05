@@ -3126,6 +3126,15 @@
 - **ISO 286 Deviations Refresh**:
   - Regenerated ISO 286 deviation tables with normalized header symbols.
   - Report: `reports/DEV_ISO286_DEVIATIONS_REFRESH_20260205.md`
+- **Inference Smoke Test**:
+  - Ran a local DXF smoke test to validate feature extraction and V16 inference.
+  - Report: `reports/DEV_INFERENCE_SMOKE_TEST_20260205.md`
+- **DXF Feature Extraction Test**:
+  - Added a unit test covering shared 48-dim feature extraction output shape.
+  - Report: `reports/DEV_DXF_FEATURES_TEST_20260205.md`
+- **Model Weights Policy**:
+  - Documented default local-weights handling and optional Git LFS workflow.
+  - Report: `reports/DEV_MODEL_WEIGHTS_POLICY_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
