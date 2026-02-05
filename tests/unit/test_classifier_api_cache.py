@@ -49,6 +49,33 @@ def test_classifier_cache_hits(monkeypatch):
     assert data["misses"] >= 1
 
 
+def test_classifier_rate_limit(monkeypatch):
+    class DummyLimiter:
+        def __init__(self):
+            self.calls = 0
+
+        def allow(self, _key: str) -> bool:
+            self.calls += 1
+            return self.calls <= 1
+
+    monkeypatch.setattr(classifier_api, "_rate_limiter", DummyLimiter())
+
+    client = TestClient(classifier_api.app)
+    payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
+
+    response = client.post(
+        "/classify",
+        files={"file": ("sample.dxf", payload, "application/dxf")},
+    )
+    assert response.status_code in (200, 400, 500)
+
+    response = client.post(
+        "/classify",
+        files={"file": ("sample.dxf", payload, "application/dxf")},
+    )
+    assert response.status_code == 429
+
+
 class TestLRUCacheUnit:
     """Unit tests for LRUCache class."""
 
@@ -207,4 +234,3 @@ def test_batch_classify_uses_cache(monkeypatch):
     assert response.status_code == 200
     # Should still be 2 (no new predictions)
     assert call_count["n"] == 2
-

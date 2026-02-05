@@ -380,6 +380,10 @@ classification_model_version_total = Counter(
     "Observed classification model version usage",
     ["version"],
 )
+classification_rate_limited_total = Counter(
+    "classification_rate_limited_total",
+    "Classification API rate limited requests",
+)
 classification_cache_hits_total = Counter(
     "classification_cache_hits_total",
     "Classification API cache hits",

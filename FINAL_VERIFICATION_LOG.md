@@ -3144,6 +3144,9 @@
 - **Classifier API Lifespan Migration**:
   - Replaced startup event hooks with lifespan handlers to avoid FastAPI deprecation warnings.
   - Report: `reports/DEV_CLASSIFIER_API_LIFESPAN_20260205.md`
+- **Classifier Cache Monitoring + Rate Limit**:
+  - Added classifier cache metrics, rate limiting, and monitoring guidance.
+  - Report: `reports/DEV_CLASSIFIER_CACHE_MONITORING_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

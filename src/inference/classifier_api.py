@@ -17,18 +17,19 @@ import hashlib
 import io
 import json
 import logging
+import os
 import sys
 import tempfile
 import time
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict, deque
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Deque, Dict, List, Optional
 
 import numpy as np
 import torch
 import torch.nn as nn
-from fastapi import Depends, FastAPI, File, UploadFile, HTTPException
+from fastapi import Depends, FastAPI, File, Request, UploadFile, HTTPException
 from pydantic import BaseModel
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -40,6 +41,7 @@ from src.utils.analysis_metrics import (
     classification_cache_hits_total,
     classification_cache_miss_total,
     classification_cache_size,
+    classification_rate_limited_total,
 )
 from src.utils.dxf_features import extract_features_v6
 from src.utils.logging import setup_logging
@@ -121,6 +123,44 @@ class LRUCache:
 
 # 全局缓存实例
 result_cache = LRUCache(max_size=1000)
+
+
+# ============== 简易限流 ==============
+
+class RateLimiter:
+    """简单滑动窗口限流器（按客户端IP）"""
+
+    def __init__(self, max_requests: int, window_seconds: int, burst: int = 0):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.burst = burst
+        self._requests: Dict[str, Deque[float]] = defaultdict(deque)
+
+    def allow(self, key: str) -> bool:
+        if self.max_requests <= 0:
+            return True
+        now = time.monotonic()
+        window_start = now - self.window_seconds
+        bucket = self._requests[key]
+        while bucket and bucket[0] < window_start:
+            bucket.popleft()
+        if len(bucket) >= (self.max_requests + self.burst):
+            return False
+        bucket.append(now)
+        return True
+
+
+_rate_limit_per_min = int(os.getenv("CLASSIFIER_RATE_LIMIT_PER_MIN", "120"))
+_rate_limit_burst = int(os.getenv("CLASSIFIER_RATE_LIMIT_BURST", "20"))
+_rate_limiter = RateLimiter(_rate_limit_per_min, 60, _rate_limit_burst)
+
+
+def _enforce_rate_limit(request: Request) -> None:
+    client_host = request.client.host if request.client else "unknown"
+    if not _rate_limiter.allow(client_host):
+        classification_rate_limited_total.inc()
+        logger.warning("Rate limit exceeded for %s", client_host)
+        raise HTTPException(status_code=429, detail="Too many requests")
 
 # ============== 模型定义 ==============
 
@@ -514,8 +554,9 @@ async def get_categories():
 
 
 @app.post("/classify", response_model=ClassificationResult)
-async def classify_file(file: UploadFile = File(...)):
+async def classify_file(request: Request, file: UploadFile = File(...)):
     """分类单个DXF文件（带缓存）"""
+    _enforce_rate_limit(request)
     if not file.filename.lower().endswith('.dxf'):
         raise HTTPException(status_code=400, detail="只支持DXF文件")
 
@@ -558,8 +599,9 @@ async def classify_file(file: UploadFile = File(...)):
 
 
 @app.post("/classify/batch", response_model=BatchResult)
-async def classify_batch(files: List[UploadFile] = File(...)):
+async def classify_batch(request: Request, files: List[UploadFile] = File(...)):
     """批量分类DXF文件（带缓存）"""
+    _enforce_rate_limit(request)
     results = []
     success = 0
     cache_hits = 0
@@ -630,15 +672,20 @@ async def classify_batch(files: List[UploadFile] = File(...)):
 # ============== 缓存管理 ==============
 
 @app.get("/cache/stats")
-async def cache_stats(admin_token: str = Depends(get_admin_token)):
+async def cache_stats(request: Request, admin_token: str = Depends(get_admin_token)):
     """获取缓存统计信息"""
-    return result_cache.stats()
+    stats = result_cache.stats()
+    client_host = request.client.host if request.client else "unknown"
+    logger.info("Cache stats requested by %s", client_host)
+    return stats
 
 
 @app.post("/cache/clear")
-async def cache_clear(admin_token: str = Depends(get_admin_token)):
+async def cache_clear(request: Request, admin_token: str = Depends(get_admin_token)):
     """清空缓存"""
     result_cache.clear()
+    client_host = request.client.host if request.client else "unknown"
+    logger.info("Cache cleared by %s", client_host)
     return {"status": "ok", "message": "缓存已清空"}
 
 
