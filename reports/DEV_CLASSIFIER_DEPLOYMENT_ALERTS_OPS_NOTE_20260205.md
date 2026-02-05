@@ -9,6 +9,7 @@
 - `config/prometheus.yml`: enable `/etc/prometheus/alerting_rules.yml`.
 - `config/prometheus/alerting_rules.yml`: add classifier cache hit-rate and rate-limit alerts.
 - `docker-compose.observability.yml`: mount `alerting_rules.yml` for Prometheus.
+- `docker-compose.observability.yml`: remove Redis host port binding to avoid 6379 conflicts (Redis stays internal).
 - `docker-compose.yml`: mount recording + alerting rules for Prometheus.
 - `docs/OPERATIONS_MANUAL.md`: troubleshooting steps for classifier cache/rate limiting, including `/health` config checks.
 - `docs/OBSERVABILITY_QUICKSTART.md`: note on dashboard variants and variable support.
@@ -19,6 +20,7 @@
 - `curl -X POST http://localhost:9090/-/reload`
 - `python3 - <<'PY' ...` (queried `http://localhost:9090/api/v1/rules` and confirmed classifier alerts present).
 - `python3 - <<'PY' ...` (loaded `config/prometheus.yml` and `config/prometheus/alerting_rules.yml` with `yaml.safe_load`).
+- `docker-compose -f docker-compose.observability.yml config | rg -n "redis:" -A6` (confirmed Redis has no host port binding).
 - Full stack check (observability):
   - `docker-compose -f docker-compose.observability.yml up -d --build`
   - Port conflict on `6379` (existing Redis); started Redis on the observability network without host binding:

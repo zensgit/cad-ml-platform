@@ -33,8 +33,6 @@ services:
   redis:
     image: redis:6-alpine
     container_name: cad-redis
-    ports:
-      - "6379:6379"
     networks:
       - observability
     volumes:
