@@ -3107,6 +3107,16 @@
 - **Mypy Ignore Inference Modules**:
   - Excluded `src.inference.*` from strict mypy checks to avoid optional ML runtime import failures.
   - Report: `reports/DEV_MYPY_IGNORE_INFERENCE_20260205.md`
+- **ISO 286 Deviations Script Normalization**:
+  - Normalized ISO 286 header symbols in the extraction script to strip footnote markers and keep
+    canonical tolerance labels.
+  - Report: `reports/DEV_ISO286_DEVIATIONS_SCRIPT_NORMALIZATION_20260205.md`
+- **Inference Code Review**:
+  - Reviewed classifier inference modules and captured follow-up recommendations.
+  - Report: `reports/DEV_INFERENCE_CODE_REVIEW_20260205.md`
+- **Untracked Artifacts Inventory (Update)**:
+  - Logged the latest local model/script artifacts and suggested handling options.
+  - Report: `reports/DEV_UNTRACKED_ARTIFACTS_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

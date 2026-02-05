@@ -17,6 +17,64 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pdfplumber
 
+KNOWN_HOLE_SYMBOLS = {
+    "A",
+    "B",
+    "C",
+    "D",
+    "E",
+    "F",
+    "G",
+    "H",
+    "J",
+    "JS",
+    "K",
+    "M",
+    "N",
+    "P",
+    "R",
+    "S",
+    "T",
+    "U",
+    "V",
+    "X",
+    "Y",
+    "Z",
+    "ZA",
+    "ZB",
+    "ZC",
+    "CD",
+    "EF",
+    "FG",
+}
+
+KNOWN_SHAFT_SYMBOLS = {
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "j",
+    "js",
+    "k",
+    "m",
+    "n",
+    "p",
+    "r",
+    "s",
+    "t",
+    "u",
+    "x",
+    "y",
+    "z",
+    "za",
+    "zb",
+    "zc",
+}
+
 
 def _normalize_cell(cell: Optional[str]) -> str:
     if cell is None:
@@ -44,7 +102,53 @@ def _parse_deviation_cell(cell: str) -> Optional[Tuple[float, float]]:
     return float(numbers[0]), float(numbers[1])
 
 
-def _build_column_labels(header1: List[Any], header2: List[Any]) -> List[Optional[str]]:
+def _extract_ascii_letters(value: str) -> str:
+    return "".join(re.findall(r"[A-Za-z]+", value))
+
+
+def _normalize_symbol(symbol: str, kind: Optional[str]) -> Optional[str]:
+    if not symbol:
+        return None
+    tokens = symbol.split()
+    if len(tokens) > 1:
+        symbol = tokens[-1]
+    symbol = _extract_ascii_letters(symbol)
+    if not symbol:
+        return None
+    if kind == "holes":
+        upper = symbol.upper()
+        if upper in KNOWN_HOLE_SYMBOLS:
+            return upper
+        if len(symbol) > 1 and symbol[-1].islower():
+            trimmed = symbol[:-1].upper()
+            if trimmed in KNOWN_HOLE_SYMBOLS:
+                return trimmed
+        if len(symbol) > 1 and symbol[0].islower():
+            trimmed = symbol[1:].upper()
+            if trimmed in KNOWN_HOLE_SYMBOLS:
+                return trimmed
+        return upper
+    if kind == "shafts":
+        lower = symbol.lower()
+        if lower in KNOWN_SHAFT_SYMBOLS:
+            return lower
+        if len(lower) > 1:
+            trimmed = lower[:-1]
+            if trimmed in KNOWN_SHAFT_SYMBOLS:
+                return trimmed
+            trimmed = lower[1:]
+            if trimmed in KNOWN_SHAFT_SYMBOLS:
+                return trimmed
+        return lower
+
+    return symbol
+
+
+def _build_column_labels(
+    header1: List[Any],
+    header2: List[Any],
+    kind: Optional[str],
+) -> List[Optional[str]]:
     group_labels: List[Optional[str]] = []
     current: Optional[str] = None
     for cell in header1[2:]:
@@ -59,7 +163,11 @@ def _build_column_labels(header1: List[Any], header2: List[Any]) -> List[Optiona
         if not group or not grade:
             col_labels.append(None)
         else:
-            col_labels.append(f"{group}{grade}")
+            normalized_group = _normalize_symbol(group, kind)
+            if not normalized_group:
+                col_labels.append(None)
+            else:
+                col_labels.append(f"{normalized_group}{grade}")
     return col_labels
 
 
@@ -110,7 +218,7 @@ def parse_pdf(pdf_path: Path) -> Dict[str, Any]:
                     continue
                 header1 = table[0]
                 header2 = table[1]
-                col_labels = _build_column_labels(header1, header2)
+                col_labels = _build_column_labels(header1, header2, kind)
 
                 rows: List[Dict[str, Any]] = []
                 for row in table[2:]:
