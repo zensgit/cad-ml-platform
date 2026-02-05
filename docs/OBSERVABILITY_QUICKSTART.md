@@ -65,6 +65,8 @@ make self-check-strict
    - Login: `admin` / `admin`
    - Dashboard: Pre-imported "CAD ML Platform - Observability"
 
+Note: `grafana/dashboards/observability.json` is the simplified dashboard without template variables. For provider or component filtering, import `docs/grafana/observability_dashboard.json`.
+
 ## 🔧 Common Operations
 
 ### Generate Some Metrics

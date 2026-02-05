@@ -131,6 +131,36 @@ groups:
           runbook_url: "https://docs.example.com/runbooks/cache_hit_rate_low"
           feature_version: "${FEATURE_VERSION}"  # annotate current feature version for correlation
 
+      # Classifier Cache Alerts
+      - alert: ClassifierCacheHitRateLow
+        expr: |
+          (
+            sum(rate(classification_cache_hits_total[15m]))
+            /
+            (sum(rate(classification_cache_hits_total[15m])) + sum(rate(classification_cache_miss_total[15m])))
+          ) < 0.2
+          and (sum(rate(classification_cache_hits_total[15m])) + sum(rate(classification_cache_miss_total[15m]))) > 0.05
+        for: 15m
+        labels:
+          severity: warning
+          component: classifier
+        annotations:
+          summary: "Classifier cache hit rate low"
+          description: "Classifier cache hit ratio below 20% for 15m. Investigate cache capacity or input variability."
+          runbook_url: "docs/runbooks/classifier_cache_low_hit.md"
+
+      - alert: ClassifierRateLimitedHigh
+        expr: |
+          sum(rate(classification_rate_limited_total[5m])) > 0.083
+        for: 10m
+        labels:
+          severity: warning
+          component: classifier
+        annotations:
+          summary: "Classifier rate limiting high"
+          description: "Classifier API rate limited requests exceed 5/min for 10m. Check burst settings and client behavior."
+          runbook_url: "docs/runbooks/classifier_rate_limit_spike.md"
+
       # Analysis Result Store Alerts
       - alert: AnalysisResultStoreGrowing
         expr: analysis_result_store_files > 10000
