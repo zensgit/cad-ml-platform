@@ -16,10 +16,12 @@
 - **L2 Redis缓存**: 支持分布式部署，24小时TTL
 - **自动降级**: Redis不可用时自动使用L1
 - **回填机制**: L2命中后自动回填L1
+- **可配置缓存大小**: 通过 `CLASSIFIER_CACHE_MAX_SIZE` 环境变量配置
 
 #### 性能优化
 - **并行批处理**: ThreadPoolExecutor (4 workers) 并行推理
 - **模型预热**: 启动时执行空推理预热GPU/CPU缓存
+- **FP16半精度**: CUDA/MPS设备自动启用，减少约50%内存占用
 - **Pydantic V2**: 迁移到ConfigDict语法
 
 #### 性能指标
@@ -29,15 +31,18 @@
 | 缓存命中延迟 | **1.3ms** (850x加速) |
 | 批处理吞吐 | **2.8 files/sec** |
 | 模型准确率 | **99.67%** |
+| 模型内存(FP32) | 154.3MB |
+| 模型参数量 | 2.68M |
 
-#### API文档增强
-- OpenAPI描述、示例、标签分组
-- 端点: `/classify`, `/classify/batch`, `/cache/stats`, `/cache/clear`
+#### 代码质量
+- **类型注解**: 全面的类型注解覆盖 (LRUCache, HybridCache, RateLimiter, V16Classifier)
+- **API文档增强**: OpenAPI描述、示例、标签分组
+- **端点**: `/classify`, `/classify/batch`, `/cache/stats`, `/cache/clear`
 
 #### 测试覆盖
 - 单元测试: 22个 (LRUCache, HybridCache, API端点)
 - 性能基准: 4个 (延迟, 吞吐, 缓存效率)
-- 全部29个测试通过
+- 全部测试通过
 
 ---
 
