@@ -552,7 +552,7 @@ class PartClassifierV16:
         return extract_features_v6(dxf_path, log=logger)
 
     def _check_needs_review(self, top1_cat: str, top1_conf: float,
-                             top2_cat: str, top2_conf: float) -> tuple:
+                            top2_cat: str, top2_conf: float) -> tuple:
         """检查是否需要人工审核
 
         Returns:

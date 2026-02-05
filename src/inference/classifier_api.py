@@ -36,15 +36,15 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from src.api.dependencies import get_admin_token
-from src.utils.analysis_metrics import (
+from src.api.dependencies import get_admin_token  # noqa: E402
+from src.utils.analysis_metrics import (  # noqa: E402
     classification_cache_hits_total,
     classification_cache_miss_total,
     classification_cache_size,
     classification_rate_limited_total,
 )
-from src.utils.dxf_features import extract_features_v6
-from src.utils.logging import setup_logging
+from src.utils.dxf_features import extract_features_v6  # noqa: E402
+from src.utils.logging import setup_logging  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
