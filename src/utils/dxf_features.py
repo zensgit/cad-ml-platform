@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
-from typing import Optional
+from typing import Any, List, Optional, Tuple
 
 import numpy as np
+from numpy.typing import NDArray
 
 logger = logging.getLogger(__name__)
 
 
-def extract_features_v6(dxf_path: str, *, log: Optional[logging.Logger] = None) -> Optional[np.ndarray]:
+def extract_features_v6(dxf_path: str, *, log: Optional[logging.Logger] = None) -> Optional[NDArray[np.float32]]:
     """Extract the 48-dim DXF feature vector used by V6/V14/V16 models."""
     active_logger = log or logger
     try:
@@ -172,15 +173,17 @@ def extract_features_v6(dxf_path: str, *, log: Optional[logging.Logger] = None) 
 
         # 37-40: spatial distribution
         if all_points and len(all_points) > 1:
-            xs = np.array([p[0] for p in all_points])
-            ys = np.array([p[1] for p in all_points])
-            area = (max(xs) - min(xs)) * (max(ys) - min(ys))
+            xs_arr = np.array([p[0] for p in all_points])
+            ys_arr = np.array([p[1] for p in all_points])
+            area = (float(np.max(xs_arr)) - float(np.min(xs_arr))) * (float(np.max(ys_arr)) - float(np.min(ys_arr)))
             features.append(np.log1p(len(all_points) / max(area, 0.001)) / 10)
-            features.append(np.std(xs) / max(max(xs) - min(xs), 0.001))
-            features.append(np.std(ys) / max(max(ys) - min(ys), 0.001))
+            x_range = float(np.max(xs_arr)) - float(np.min(xs_arr))
+            y_range = float(np.max(ys_arr)) - float(np.min(ys_arr))
+            features.append(float(np.std(xs_arr)) / max(x_range, 0.001))
+            features.append(float(np.std(ys_arr)) / max(y_range, 0.001))
             center_offset = np.sqrt(
-                (np.mean(xs) - (max(xs) + min(xs)) / 2) ** 2
-                + (np.mean(ys) - (max(ys) + min(ys)) / 2) ** 2
+                (float(np.mean(xs_arr)) - (float(np.max(xs_arr)) + float(np.min(xs_arr))) / 2) ** 2
+                + (float(np.mean(ys_arr)) - (float(np.max(ys_arr)) + float(np.min(ys_arr))) / 2) ** 2
             )
             features.append(np.log1p(center_offset) / 5)
         else:
