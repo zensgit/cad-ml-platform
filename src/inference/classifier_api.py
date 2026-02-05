@@ -26,7 +26,7 @@ from collections import OrderedDict, defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Deque, Dict, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -67,17 +67,17 @@ IDX_TO_CAT = {i: cat for i, cat in enumerate(CATEGORIES)}
 class LRUCache:
     """基于文件哈希的LRU缓存（L1内存缓存）"""
 
-    def __init__(self, max_size: int = 1000):
-        self.max_size = max_size
-        self.cache: OrderedDict = OrderedDict()
-        self.hits = 0
-        self.misses = 0
+    def __init__(self, max_size: int = 1000) -> None:
+        self.max_size: int = max_size
+        self.cache: OrderedDict[str, Dict[str, Any]] = OrderedDict()
+        self.hits: int = 0
+        self.misses: int = 0
 
     def _hash_content(self, content: bytes) -> str:
         """计算文件内容哈希"""
         return hashlib.md5(content).hexdigest()
 
-    def get(self, content: bytes) -> Optional[Dict]:
+    def get(self, content: bytes) -> Optional[Dict[str, Any]]:
         """获取缓存结果"""
         key = self._hash_content(content)
         if key in self.cache:
@@ -90,19 +90,19 @@ class LRUCache:
         classification_cache_miss_total.inc()
         return None
 
-    def get_by_key(self, key: str) -> Optional[Dict]:
+    def get_by_key(self, key: str) -> Optional[Dict[str, Any]]:
         """通过key直接获取（不计统计）"""
         if key in self.cache:
             self.cache.move_to_end(key)
             return self.cache[key]
         return None
 
-    def put(self, content: bytes, result: Dict):
+    def put(self, content: bytes, result: Dict[str, Any]) -> None:
         """存入缓存"""
         key = self._hash_content(content)
         self.put_by_key(key, result)
 
-    def put_by_key(self, key: str, result: Dict):
+    def put_by_key(self, key: str, result: Dict[str, Any]) -> None:
         """通过key直接存入"""
         if key in self.cache:
             self.cache[key] = result
@@ -114,7 +114,7 @@ class LRUCache:
             self.cache[key] = result
         classification_cache_size.set(len(self.cache))
 
-    def stats(self) -> Dict:
+    def stats(self) -> Dict[str, Any]:
         """缓存统计"""
         total = self.hits + self.misses
         hit_rate = self.hits / total if total > 0 else 0
@@ -126,7 +126,7 @@ class LRUCache:
             "hit_rate": f"{hit_rate:.2%}"
         }
 
-    def clear(self):
+    def clear(self) -> None:
         """清空缓存"""
         self.cache.clear()
         self.hits = 0
@@ -143,16 +143,16 @@ class HybridCache:
     - 自动降级：Redis不可用时仅用L1
     """
 
-    REDIS_PREFIX = "clf:v16:"
-    REDIS_TTL = 3600 * 24  # 24小时
+    REDIS_PREFIX: str = "clf:v16:"
+    REDIS_TTL: int = 3600 * 24  # 24小时
 
-    def __init__(self, l1_max_size: int = 1000):
-        self.l1 = LRUCache(max_size=l1_max_size)
-        self._redis_client = None
-        self._redis_available = False
+    def __init__(self, l1_max_size: int = 1000) -> None:
+        self.l1: LRUCache = LRUCache(max_size=l1_max_size)
+        self._redis_client: Any = None
+        self._redis_available: bool = False
         self._init_redis()
 
-    def _init_redis(self):
+    def _init_redis(self) -> None:
         """初始化Redis连接"""
         try:
             from src.utils.cache import get_sync_client
@@ -169,7 +169,7 @@ class HybridCache:
         """生成缓存key"""
         return self.REDIS_PREFIX + hashlib.md5(content).hexdigest()
 
-    def get(self, content: bytes) -> Optional[Dict]:
+    def get(self, content: bytes) -> Optional[Dict[str, Any]]:
         """获取缓存结果（L1 -> L2）"""
         key = self._make_key(content)
 
@@ -198,7 +198,7 @@ class HybridCache:
         classification_cache_miss_total.inc()
         return None
 
-    def put(self, content: bytes, result: Dict):
+    def put(self, content: bytes, result: Dict[str, Any]) -> None:
         """存入缓存（同时写L1和L2）"""
         key = self._make_key(content)
 
@@ -212,7 +212,7 @@ class HybridCache:
             except Exception as e:
                 logger.debug(f"Redis set failed: {e}")
 
-    def stats(self) -> Dict:
+    def stats(self) -> Dict[str, Any]:
         """缓存统计"""
         stats = self.l1.stats()
         stats["redis_enabled"] = self._redis_available
@@ -225,7 +225,7 @@ class HybridCache:
                 stats["redis_keys"] = -1
         return stats
 
-    def clear(self):
+    def clear(self) -> None:
         """清空缓存（L1和L2）"""
         self.l1.clear()
 
@@ -252,10 +252,10 @@ _executor = ThreadPoolExecutor(max_workers=4)
 class RateLimiter:
     """简单滑动窗口限流器（按客户端IP）"""
 
-    def __init__(self, max_requests: int, window_seconds: int, burst: int = 0):
-        self.max_requests = max_requests
-        self.window_seconds = window_seconds
-        self.burst = burst
+    def __init__(self, max_requests: int, window_seconds: int, burst: int = 0) -> None:
+        self.max_requests: int = max_requests
+        self.window_seconds: int = window_seconds
+        self.burst: int = burst
         self._requests: Dict[str, Deque[float]] = defaultdict(deque)
 
     def allow(self, key: str) -> bool:
@@ -529,19 +529,19 @@ def render_dxf_to_image(dxf_path: str, size: int = IMG_SIZE) -> Optional[np.ndar
 class V16Classifier:
     """V16超级集成分类器"""
 
-    def __init__(self):
-        self.v6_model = None
-        self.v14_models = []
-        self.v6_mean = None
-        self.v6_std = None
-        self.v14_mean = None
-        self.v14_std = None
-        self.v6_weight = 0.6
-        self.v14_weight = 0.4
-        self.loaded = False
-        self.use_half = False  # 是否使用FP16半精度
+    def __init__(self) -> None:
+        self.v6_model: Optional[ImprovedClassifierV6] = None
+        self.v14_models: List[FusionModelV14] = []
+        self.v6_mean: Optional[np.ndarray] = None
+        self.v6_std: Optional[np.ndarray] = None
+        self.v14_mean: Optional[np.ndarray] = None
+        self.v14_std: Optional[np.ndarray] = None
+        self.v6_weight: float = 0.6
+        self.v14_weight: float = 0.4
+        self.loaded: bool = False
+        self.use_half: bool = False  # 是否使用FP16半精度
 
-    def load(self, use_half: bool = None):
+    def load(self, use_half: Optional[bool] = None) -> None:
         """加载模型
 
         Args:
@@ -602,7 +602,7 @@ class V16Classifier:
         precision = "FP16" if self.use_half else "FP32"
         logger.info(f"模型加载完成，设备: {DEVICE}, 精度: {precision}")
 
-    def predict(self, dxf_path: str) -> dict:
+    def predict(self, dxf_path: str) -> Dict[str, Any]:
         """预测单个DXF文件"""
         if not self.loaded:
             self.load()
@@ -651,7 +651,7 @@ class V16Classifier:
 
 # ============== FastAPI应用 ==============
 
-def _warmup_model():
+def _warmup_model() -> None:
     """预热模型 - 执行一次空推理预热GPU/CPU缓存"""
     try:
         # 创建虚拟输入
@@ -819,7 +819,7 @@ async def classify_file(request: Request, file: UploadFile = File(...)):
         Path(tmp_path).unlink(missing_ok=True)
 
 
-def _predict_single(args: Tuple[str, bytes, str]) -> Tuple[str, Optional[Dict], Optional[str]]:
+def _predict_single(args: Tuple[str, bytes, str]) -> Tuple[str, Optional[Dict[str, Any]], Optional[str]]:
     """同步预测单个文件（用于线程池）
 
     Args:
@@ -975,7 +975,7 @@ async def cache_clear(request: Request, admin_token: str = Depends(get_admin_tok
 
 # ============== CLI模式 ==============
 
-def classify_cli(dxf_paths: List[str]):
+def classify_cli(dxf_paths: List[str]) -> None:
     """命令行分类"""
     classifier.load()
 
