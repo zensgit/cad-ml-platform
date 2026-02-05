@@ -3135,6 +3135,9 @@
 - **Model Weights Policy**:
   - Documented default local-weights handling and optional Git LFS workflow.
   - Report: `reports/DEV_MODEL_WEIGHTS_POLICY_20260205.md`
+- **Classifier API Cache**:
+  - Added LRU caching for DXF classification and cache management endpoints.
+  - Report: `reports/DEV_CLASSIFIER_API_CACHE_20260205.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

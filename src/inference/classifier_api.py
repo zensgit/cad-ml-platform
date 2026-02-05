@@ -28,7 +28,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -502,18 +501,32 @@ async def get_categories():
 
 @app.post("/classify", response_model=ClassificationResult)
 async def classify_file(file: UploadFile = File(...)):
-    """分类单个DXF文件"""
+    """分类单个DXF文件（带缓存）"""
     if not file.filename.lower().endswith('.dxf'):
         raise HTTPException(status_code=400, detail="只支持DXF文件")
 
+    content = await file.read()
+
+    # 检查缓存
+    cached = result_cache.get(content)
+    if cached is not None:
+        logger.debug(f"缓存命中: {file.filename}")
+        return ClassificationResult(
+            filename=file.filename,
+            category=cached["category"],
+            confidence=cached["confidence"],
+            probabilities=cached["probabilities"]
+        )
+
     # 保存临时文件
     with tempfile.NamedTemporaryFile(suffix='.dxf', delete=False) as tmp:
-        content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
 
     try:
         result = classifier.predict(tmp_path)
+        # 存入缓存
+        result_cache.put(content, result)
         return ClassificationResult(
             filename=file.filename,
             category=result["category"],
@@ -532,9 +545,10 @@ async def classify_file(file: UploadFile = File(...)):
 
 @app.post("/classify/batch", response_model=BatchResult)
 async def classify_batch(files: List[UploadFile] = File(...)):
-    """批量分类DXF文件"""
+    """批量分类DXF文件（带缓存）"""
     results = []
     success = 0
+    cache_hits = 0
 
     for file in files:
         if not file.filename.lower().endswith('.dxf'):
@@ -546,13 +560,29 @@ async def classify_batch(files: List[UploadFile] = File(...)):
             ))
             continue
 
+        content = await file.read()
+
+        # 检查缓存
+        cached = result_cache.get(content)
+        if cached is not None:
+            results.append(ClassificationResult(
+                filename=file.filename,
+                category=cached["category"],
+                confidence=cached["confidence"],
+                probabilities=cached["probabilities"]
+            ))
+            success += 1
+            cache_hits += 1
+            continue
+
         with tempfile.NamedTemporaryFile(suffix='.dxf', delete=False) as tmp:
-            content = await file.read()
             tmp.write(content)
             tmp_path = tmp.name
 
         try:
             result = classifier.predict(tmp_path)
+            # 存入缓存
+            result_cache.put(content, result)
             results.append(ClassificationResult(
                 filename=file.filename,
                 category=result["category"],
@@ -577,7 +607,25 @@ async def classify_batch(files: List[UploadFile] = File(...)):
         finally:
             Path(tmp_path).unlink(missing_ok=True)
 
+    if cache_hits > 0:
+        logger.info(f"批量分类: {len(files)}个文件, {cache_hits}个缓存命中")
+
     return BatchResult(results=results, total=len(files), success=success)
+
+
+# ============== 缓存管理 ==============
+
+@app.get("/cache/stats")
+async def cache_stats():
+    """获取缓存统计信息"""
+    return result_cache.stats()
+
+
+@app.post("/cache/clear")
+async def cache_clear():
+    """清空缓存"""
+    result_cache.clear()
+    return {"status": "ok", "message": "缓存已清空"}
 
 
 # ============== CLI模式 ==============
