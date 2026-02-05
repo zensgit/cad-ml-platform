@@ -14,10 +14,15 @@ from fastapi.testclient import TestClient
 
 from src.main import app
 
-client = TestClient(app)
-
 # Store original os.getenv for use in mock side_effects
 _original_getenv = os.getenv
+
+
+@pytest.fixture
+def client():
+    """Create a fresh test client for each test."""
+    with TestClient(app) as c:
+        yield c
 
 
 def _read_metric(counter):
@@ -38,7 +43,7 @@ def make_getenv_side_effect(backend_value: str):
     return getenv_side_effect
 
 
-def test_backend_reload_invalid_backend():
+def test_backend_reload_invalid_backend(client):
     """Test reload with invalid backend environment variable."""
     with patch("os.getenv") as mock_getenv:
         # Simulate invalid backend name
@@ -71,7 +76,7 @@ def test_backend_reload_invalid_backend():
             assert "message" in detail
 
 
-def test_backend_reload_missing_api_key():
+def test_backend_reload_missing_api_key(client):
     """Test reload endpoint with missing API key.
 
     Note: In test environment, the dependency has a default value,
@@ -87,7 +92,7 @@ def test_backend_reload_missing_api_key():
     assert response.status_code in (200, 401, 403, 500)
 
 
-def test_backend_reload_initialization_failure():
+def test_backend_reload_initialization_failure(client):
     """Test reload when backend initialization fails."""
     with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
         # Simulate initialization failure by raising exception
@@ -115,7 +120,7 @@ def test_backend_reload_initialization_failure():
             assert "detail" in context or "suggestion" in context
 
 
-def test_backend_reload_success():
+def test_backend_reload_success(client):
     """Test successful backend reload."""
     with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
         with patch("os.getenv") as mock_getenv:
@@ -141,7 +146,7 @@ def test_backend_reload_success():
             assert data["backend"] == "memory"
 
 
-def test_backend_reload_metric_recording():
+def test_backend_reload_metric_recording(client):
     """Test that reload failures record metrics with proper labels."""
     from src.utils.analysis_metrics import vector_store_reload_total
 
@@ -181,7 +186,7 @@ def test_backend_reload_metric_recording():
             assert after_error == before_error + 1
 
 
-def test_backend_reload_returns_current_backend():
+def test_backend_reload_returns_current_backend(client):
     """Test that reload response includes current backend name."""
     with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
         mock_reload.return_value = True
@@ -208,7 +213,7 @@ def test_backend_reload_returns_current_backend():
                 assert data["backend"] == backend_name
 
 
-def test_backend_reload_error_has_suggestion():
+def test_backend_reload_error_has_suggestion(client):
     """Test that error responses include helpful suggestions."""
     with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
         mock_reload.return_value = False
@@ -236,7 +241,7 @@ def test_backend_reload_error_has_suggestion():
                 )
 
 
-def test_backend_reload_structured_error_format():
+def test_backend_reload_structured_error_format(client):
     """Test that all error responses follow structured error format."""
     with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
         mock_reload.side_effect = RuntimeError("Test failure")
@@ -273,7 +278,7 @@ def test_backend_reload_structured_error_format():
 # ============================================================================
 
 
-def test_backend_reload_concurrent_conflict():
+def test_backend_reload_concurrent_conflict(client):
     """Test concurrent reload requests are handled safely.
 
     Simulates two concurrent reload requests to ensure proper handling
@@ -321,7 +326,7 @@ def test_backend_reload_concurrent_conflict():
     assert any(status == 200 for _, status in results), f"No successful reload: {results}"
 
 
-def test_backend_reload_config_file_missing():
+def test_backend_reload_config_file_missing(client):
     """Test reload when config file is missing or unreadable."""
     with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
         # Simulate config file not found error
@@ -344,7 +349,7 @@ def test_backend_reload_config_file_missing():
         assert detail["stage"] == "backend_reload"
 
 
-def test_backend_reload_permission_denied():
+def test_backend_reload_permission_denied(client):
     """Test reload when permission is denied on resources."""
     with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
         # Simulate permission denied error
@@ -367,7 +372,7 @@ def test_backend_reload_permission_denied():
         assert "message" in detail
 
 
-def test_backend_reload_timeout():
+def test_backend_reload_timeout(client):
     """Test reload when operation times out."""
     with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
         # Simulate timeout error
@@ -388,7 +393,7 @@ def test_backend_reload_timeout():
         assert detail["stage"] == "backend_reload"
 
 
-def test_backend_reload_memory_error():
+def test_backend_reload_memory_error(client):
     """Test reload when out of memory."""
     with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
         # Simulate memory error
@@ -408,7 +413,7 @@ def test_backend_reload_memory_error():
         assert "stage" in detail
 
 
-def test_backend_reload_partial_failure():
+def test_backend_reload_partial_failure(client):
     """Test reload when partial failure occurs (some indices loaded, others failed)."""
     with patch("src.core.similarity.reload_vector_store_backend") as mock_reload:
         # Simulate partial failure - returns False but doesn't raise
