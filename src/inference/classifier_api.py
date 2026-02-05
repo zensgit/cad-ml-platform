@@ -13,6 +13,7 @@ V16 CAD部件分类器推理服务
 - 缓存命中时响应时间 < 1ms
 """
 
+import asyncio
 import hashlib
 import io
 import json
@@ -22,15 +23,16 @@ import sys
 import tempfile
 import time
 from collections import OrderedDict, defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Deque, Dict, List, Optional
+from typing import Deque, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
 import torch.nn as nn
 from fastapi import Depends, FastAPI, File, Request, UploadFile, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
@@ -123,6 +125,9 @@ class LRUCache:
 
 # 全局缓存实例
 result_cache = LRUCache(max_size=1000)
+
+# 线程池用于并行批处理（模型推理是CPU/GPU密集型）
+_executor = ThreadPoolExecutor(max_workers=4)
 
 
 # ============== 简易限流 ==============
@@ -510,16 +515,56 @@ class V16Classifier:
 
 # ============== FastAPI应用 ==============
 
+def _warmup_model():
+    """预热模型 - 执行一次空推理预热GPU/CPU缓存"""
+    try:
+        # 创建虚拟输入
+        dummy_geo = np.zeros(48, dtype=np.float32)
+        dummy_img = np.zeros((IMG_SIZE, IMG_SIZE), dtype=np.float32)
+
+        # V6预热
+        with torch.inference_mode():
+            x_v6 = torch.FloatTensor(dummy_geo).unsqueeze(0).to(DEVICE)
+            _ = classifier.v6_model(x_v6)
+
+            # V14预热
+            x_geo = torch.FloatTensor(dummy_geo).unsqueeze(0).to(DEVICE)
+            x_img = torch.FloatTensor(dummy_img).unsqueeze(0).unsqueeze(0).to(DEVICE)
+            for model in classifier.v14_models:
+                _ = model(x_img, x_geo)
+
+        logger.info("模型预热完成")
+    except Exception as e:
+        logger.warning(f"模型预热失败: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifespan handler for model warmup."""
     classifier.load()
+    _warmup_model()
     yield
+    # 关闭线程池
+    _executor.shutdown(wait=False)
 
 
 app = FastAPI(
     title="V16 CAD部件分类器",
-    description="基于深度学习的CAD零件自动分类服务",
+    description="""
+## CAD零件自动分类服务
+
+基于深度学习的V16超级集成分类器，准确率99.67%。
+
+### 功能特性
+- **5类零件分类**: 传动件、其他、壳体类、轴类、连接件
+- **高性能缓存**: LRU缓存，重复文件毫秒级响应
+- **并行批处理**: 多文件并行推理，提升吞吐量
+- **置信度输出**: 返回各类别概率分布
+
+### 技术架构
+- V6几何特征分类器 (权重0.6)
+- V14视觉+几何融合集成 (权重0.4)
+""",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -529,33 +574,73 @@ classifier = V16Classifier()
 
 
 class ClassificationResult(BaseModel):
+    """分类结果"""
     filename: str
     category: str
     confidence: float
     probabilities: dict
 
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "filename": "part_001.dxf",
+            "category": "壳体类",
+            "confidence": 0.92,
+            "probabilities": {
+                "传动件": 0.02,
+                "其他": 0.02,
+                "壳体类": 0.92,
+                "轴类": 0.03,
+                "连接件": 0.01
+            }
+        }
+    })
+
 
 class BatchResult(BaseModel):
+    """批量分类结果"""
     results: List[ClassificationResult]
     total: int
     success: int
 
+    model_config = ConfigDict(json_schema_extra={
+        "example": {
+            "results": [],
+            "total": 10,
+            "success": 9
+        }
+    })
 
-@app.get("/")
+
+@app.get("/", tags=["健康检查"])
 async def root():
-    """健康检查"""
-    return {"status": "ok", "model": "V16", "accuracy": "99.88%"}
+    """
+    健康检查端点
+
+    返回服务状态、模型版本和准确率。
+    """
+    return {"status": "ok", "model": "V16", "accuracy": "99.67%"}
 
 
-@app.get("/categories")
+@app.get("/categories", tags=["元数据"])
 async def get_categories():
-    """获取所有类别"""
+    """
+    获取所有分类类别
+
+    返回模型支持的5个零件类别列表。
+    """
     return {"categories": CATEGORIES}
 
 
-@app.post("/classify", response_model=ClassificationResult)
+@app.post("/classify", response_model=ClassificationResult, tags=["分类"])
 async def classify_file(request: Request, file: UploadFile = File(...)):
-    """分类单个DXF文件（带缓存）"""
+    """
+    分类单个DXF文件
+
+    上传DXF文件进行零件分类，支持缓存加速。
+
+    - **file**: DXF格式的CAD文件
+    - 返回: 类别、置信度、各类别概率
+    """
     _enforce_rate_limit(request)
     if not file.filename.lower().endswith('.dxf'):
         raise HTTPException(status_code=400, detail="只支持DXF文件")
@@ -598,17 +683,46 @@ async def classify_file(request: Request, file: UploadFile = File(...)):
         Path(tmp_path).unlink(missing_ok=True)
 
 
-@app.post("/classify/batch", response_model=BatchResult)
+def _predict_single(args: Tuple[str, bytes, str]) -> Tuple[str, Optional[Dict], Optional[str]]:
+    """同步预测单个文件（用于线程池）
+
+    Args:
+        args: (filename, content, tmp_path)
+
+    Returns:
+        (filename, result_dict, error_msg)
+    """
+    filename, content, tmp_path = args
+    try:
+        result = classifier.predict(tmp_path)
+        return (filename, result, None)
+    except Exception as e:
+        return (filename, None, str(e))
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+
+@app.post("/classify/batch", response_model=BatchResult, tags=["分类"])
 async def classify_batch(request: Request, files: List[UploadFile] = File(...)):
-    """批量分类DXF文件（带缓存）"""
+    """
+    批量分类DXF文件
+
+    并行处理多个DXF文件，支持缓存加速。
+
+    - **files**: 多个DXF格式的CAD文件
+    - 返回: 每个文件的分类结果、总数、成功数
+    - 特性: 缓存命中的文件直接返回，未缓存文件并行处理
+    """
     _enforce_rate_limit(request)
-    results = []
-    success = 0
-    cache_hits = 0
+
+    # 第一阶段：读取文件并检查缓存
+    cached_results: Dict[str, ClassificationResult] = {}
+    pending_files: List[Tuple[str, bytes]] = []
+    errors: List[ClassificationResult] = []
 
     for file in files:
         if not file.filename.lower().endswith('.dxf'):
-            results.append(ClassificationResult(
+            errors.append(ClassificationResult(
                 filename=file.filename,
                 category="error",
                 confidence=0.0,
@@ -621,68 +735,102 @@ async def classify_batch(request: Request, files: List[UploadFile] = File(...)):
         # 检查缓存
         cached = result_cache.get(content)
         if cached is not None:
-            results.append(ClassificationResult(
+            cached_results[file.filename] = ClassificationResult(
                 filename=file.filename,
                 category=cached["category"],
                 confidence=cached["confidence"],
                 probabilities=cached["probabilities"]
-            ))
-            success += 1
-            cache_hits += 1
-            continue
+            )
+        else:
+            pending_files.append((file.filename, content))
 
-        with tempfile.NamedTemporaryFile(suffix='.dxf', delete=False) as tmp:
+    # 第二阶段：并行处理未缓存的文件
+    predicted_results: Dict[str, ClassificationResult] = {}
+
+    if pending_files:
+        # 准备临时文件
+        tasks = []
+        for filename, content in pending_files:
+            tmp = tempfile.NamedTemporaryFile(suffix='.dxf', delete=False)
             tmp.write(content)
-            tmp_path = tmp.name
+            tmp.close()
+            tasks.append((filename, content, tmp.name))
 
-        try:
-            result = classifier.predict(tmp_path)
-            # 存入缓存
-            result_cache.put(content, result)
-            results.append(ClassificationResult(
-                filename=file.filename,
-                category=result["category"],
-                confidence=result["confidence"],
-                probabilities=result["probabilities"]
-            ))
+        # 使用线程池并行预测
+        loop = asyncio.get_event_loop()
+        results = await loop.run_in_executor(
+            None,
+            lambda: list(_executor.map(_predict_single, tasks))
+        )
+
+        # 处理结果
+        for (filename, content), (_, result, error) in zip(pending_files, results):
+            if error:
+                predicted_results[filename] = ClassificationResult(
+                    filename=filename,
+                    category="error",
+                    confidence=0.0,
+                    probabilities={"error": error}
+                )
+            else:
+                # 存入缓存
+                result_cache.put(content, result)
+                predicted_results[filename] = ClassificationResult(
+                    filename=filename,
+                    category=result["category"],
+                    confidence=result["confidence"],
+                    probabilities=result["probabilities"]
+                )
+
+    # 第三阶段：按原始顺序组装结果
+    results = []
+    success = 0
+    cache_hits = len(cached_results)
+
+    for file in files:
+        if file.filename in cached_results:
+            results.append(cached_results[file.filename])
             success += 1
-        except ValueError as exc:
-            results.append(ClassificationResult(
-                filename=file.filename,
-                category="error",
-                confidence=0.0,
-                probabilities={"error": str(exc)}
-            ))
-        except Exception as e:
-            results.append(ClassificationResult(
-                filename=file.filename,
-                category="error",
-                confidence=0.0,
-                probabilities={"error": str(e)}
-            ))
-        finally:
-            Path(tmp_path).unlink(missing_ok=True)
+        elif file.filename in predicted_results:
+            r = predicted_results[file.filename]
+            results.append(r)
+            if r.category != "error":
+                success += 1
+        else:
+            # 来自errors列表
+            for e in errors:
+                if e.filename == file.filename:
+                    results.append(e)
+                    break
 
-    if cache_hits > 0:
-        logger.info(f"批量分类: {len(files)}个文件, {cache_hits}个缓存命中")
+    if cache_hits > 0 or len(pending_files) > 0:
+        logger.info(f"批量分类: {len(files)}文件, 缓存命中{cache_hits}, 并行处理{len(pending_files)}")
 
     return BatchResult(results=results, total=len(files), success=success)
 
 
 # ============== 缓存管理 ==============
 
-@app.get("/cache/stats")
+@app.get("/cache/stats", tags=["缓存管理"])
 async def cache_stats(request: Request, admin_token: str = Depends(get_admin_token)):
-    """获取缓存统计信息"""
+    """
+    获取缓存统计信息
+
+    需要管理员令牌。返回缓存大小、命中率等指标。
+    """
     stats = result_cache.stats()
     client_host = request.client.host if request.client else "unknown"
     logger.info("Cache stats requested by %s", client_host)
     return stats
 
 
-@app.post("/cache/clear")
+@app.post("/cache/clear", tags=["缓存管理"])
 async def cache_clear(request: Request, admin_token: str = Depends(get_admin_token)):
-    """清空缓存"""
+    """
+    清空缓存
+
+    需要管理员令牌。清除所有缓存的分类结果。
+    """
     result_cache.clear()
     client_host = request.client.host if request.client else "unknown"
     logger.info("Cache cleared by %s", client_host)
