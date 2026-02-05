@@ -1,5 +1,5 @@
 {
-  "version": "v16_super_ensemble",
+  "version": "v16_super_ensemble_retrained",
   "components": {
     "v6": {
       "path": "cad_classifier_v6.pt",
@@ -10,13 +10,28 @@
       "weight": 0.4
     }
   },
-  "accuracy_original": 0.9964953271028038,
-  "accuracy_clean": 0.9988262910798122,
-  "accuracy_corrected": 0.9988317757009346,
-  "suspicious_samples": [
-    "其他/old_0033.dxf",
-    "其他/old_0085.dxf",
-    "连接件/old_0008.dxf",
-    "其他/new_0208.dxf"
+  "training_data": "data/training_v7 (905 samples, 4 labels corrected)",
+  "v6_accuracy": 0.9826,
+  "v14_ensemble_accuracy": 0.993,
+  "v16_accuracy": 0.9967,
+  "errors": [
+    {
+      "file": "其他/old_0085.dxf",
+      "true": "传动件",
+      "pred": "其他",
+      "note": "corrected label"
+    },
+    {
+      "file": "连接件/old_0008.dxf",
+      "true": "连接件",
+      "pred": "传动件",
+      "note": "edge case"
+    },
+    {
+      "file": "其他/new_0208.dxf",
+      "true": "壳体类",
+      "pred": "其他",
+      "note": "corrected label"
+    }
   ]
 }
