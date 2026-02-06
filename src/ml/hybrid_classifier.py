@@ -279,9 +279,9 @@ class HybridClassifier:
             graph2d_pred["is_drawing_type"] = graph2d_is_drawing_type
             result.graph2d_prediction = graph2d_pred
 
-        # 3. TitleBlock 分类
-        titleblock_pred = None
-        if self._is_titleblock_enabled() and file_bytes:
+        # 3. TitleBlock/Process 共享 DXF 解析（避免重复读文件）
+        dxf_entities: Optional[List[Any]] = None
+        if (self._is_titleblock_enabled() or self._is_process_enabled()) and file_bytes:
             try:
                 import tempfile
                 import os as _os
@@ -292,16 +292,24 @@ class HybridClassifier:
                     tmp_path = tmp.name
                 try:
                     doc = ezdxf.readfile(tmp_path)
-                    msp = doc.modelspace()
-                    classifier = self.titleblock_classifier
-                    if classifier:
-                        titleblock_pred = classifier.predict(list(msp))
-                        result.decision_path.append("titleblock_predicted")
+                    dxf_entities = list(doc.modelspace())
                 finally:
                     try:
                         _os.unlink(tmp_path)
                     except Exception:
                         pass
+            except Exception as e:
+                logger.warning("DXF parse failed for hybrid classifiers: %s", e)
+                result.decision_path.append("dxf_parse_error")
+
+        # 3. TitleBlock 分类
+        titleblock_pred = None
+        if self._is_titleblock_enabled() and dxf_entities is not None:
+            try:
+                classifier = self.titleblock_classifier
+                if classifier:
+                    titleblock_pred = classifier.predict(dxf_entities)
+                    result.decision_path.append("titleblock_predicted")
             except Exception as e:
                 logger.warning("TitleBlock classification failed: %s", e)
                 result.decision_path.append("titleblock_error")
@@ -313,46 +321,35 @@ class HybridClassifier:
         process_pred = None
         process_label = None
         process_conf = 0.0
-        if self._is_process_enabled() and file_bytes:
+        if self._is_process_enabled() and dxf_entities is not None:
             try:
-                import tempfile
-                import os as _os
-                import ezdxf  # type: ignore
+                texts = []
+                for entity in dxf_entities:
+                    dtype = entity.dxftype()
+                    if dtype == "TEXT":
+                        texts.append(entity.dxf.text)
+                    elif dtype == "MTEXT":
+                        texts.append(entity.text)
+                    elif dtype == "ATTRIB":
+                        texts.append(entity.dxf.text)
+                for entity in dxf_entities:
+                    if entity.dxftype() == "INSERT":
+                        for attrib in getattr(entity, "attribs", []):
+                            texts.append(attrib.dxf.text)
+                combined_text = "\n".join(texts)
 
-                # 提取 DXF 文本
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
-                    tmp.write(file_bytes)
-                    tmp_path = tmp.name
-                try:
-                    doc = ezdxf.readfile(tmp_path)
-                    texts = []
-                    for entity in doc.modelspace():
-                        if entity.dxftype() == 'TEXT':
-                            texts.append(entity.dxf.text)
-                        elif entity.dxftype() == 'MTEXT':
-                            texts.append(entity.text)
-                        elif entity.dxftype() == 'ATTRIB':
-                            texts.append(entity.dxf.text)
-                    for entity in doc.modelspace():
-                        if entity.dxftype() == 'INSERT':
-                            for attrib in entity.attribs:
-                                texts.append(attrib.dxf.text)
-                    combined_text = '\n'.join(texts)
-
-                    if combined_text.strip():
-                        classifier = self.process_classifier
-                        if classifier:
-                            proc_result = classifier.predict_from_text(combined_text)
-                            if proc_result.suggested_labels and proc_result.confidence >= self.process_min_conf:
-                                process_pred = proc_result.to_dict()
-                                process_label = proc_result.suggested_labels[0]
-                                process_conf = proc_result.confidence
-                                result.decision_path.append("process_predicted")
-                finally:
-                    try:
-                        _os.unlink(tmp_path)
-                    except Exception:
-                        pass
+                if combined_text.strip():
+                    classifier = self.process_classifier
+                    if classifier:
+                        proc_result = classifier.predict_from_text(combined_text)
+                        if (
+                            proc_result.suggested_labels
+                            and proc_result.confidence >= self.process_min_conf
+                        ):
+                            process_pred = proc_result.to_dict()
+                            process_label = proc_result.suggested_labels[0]
+                            process_conf = proc_result.confidence
+                            result.decision_path.append("process_predicted")
             except Exception as e:
                 logger.warning("Process classification failed: %s", e)
                 result.decision_path.append("process_error")

@@ -467,6 +467,8 @@ class DAGExecutor:
 
         if not incoming_edges:
             # Root node - use workflow inputs
+            if isinstance(context.inputs, dict) and len(context.inputs) == 1:
+                return next(iter(context.inputs.values()))
             return context.inputs
 
         # Collect outputs from dependencies

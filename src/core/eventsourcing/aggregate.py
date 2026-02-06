@@ -86,6 +86,8 @@ class Aggregate(ABC):
     def load_from_history(self, events: List[Event]) -> None:
         """Reconstruct state from historical events."""
         for event in events:
+            if event.version <= self._version:
+                event.version = self._version + 1
             self.apply(event)
 
 

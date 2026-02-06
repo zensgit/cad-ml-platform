@@ -85,6 +85,11 @@ class AppendResult:
     events_appended: int
     error: Optional[str] = None
 
+    @property
+    def version(self) -> int:
+        """Backward-compatible alias for new_version."""
+        return self.new_version
+
 
 class ConcurrencyError(Exception):
     """Raised when there's a version conflict."""
@@ -263,12 +268,18 @@ class InMemoryEventStore(EventStore):
 
 def create_event(
     event_type: str,
-    aggregate_id: str,
+    aggregate_id: Any,
     aggregate_type: str,
-    data: Dict[str, Any],
+    data: Any,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> Event:
-    """Helper to create events."""
+    """Helper to create events.
+
+    Supports legacy positional usage:
+    - (event_type, data, aggregate_id, aggregate_type)
+    """
+    if isinstance(aggregate_id, dict) and isinstance(aggregate_type, str) and isinstance(data, str):
+        data, aggregate_id, aggregate_type = aggregate_id, aggregate_type, data
     return Event(
         event_id=str(uuid.uuid4()),
         event_type=event_type,

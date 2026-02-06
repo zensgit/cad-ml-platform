@@ -751,7 +751,7 @@ class TestETLPipeline:
         from src.core.etl.pipeline import Pipeline, PipelineStatus, PipelineConfig
         from src.core.etl.sources import MemorySource, SourceConfig, SourceType
         from src.core.etl.transforms import MapTransform, FilterTransform
-        from src.core.etl.sinks import MemorySink, SinkConfig
+        from src.core.etl.sinks import MemorySink, SinkConfig, SinkType
 
         # Source data
         data = [
@@ -1011,7 +1011,7 @@ class TestWorkflowETLIntegration:
         from src.core.etl.pipeline import Pipeline, PipelineConfig
         from src.core.etl.sources import MemorySource, SourceConfig, SourceType
         from src.core.etl.transforms import MapTransform
-        from src.core.etl.sinks import MemorySink, SinkConfig
+        from src.core.etl.sinks import MemorySink, SinkConfig, SinkType
 
         # ETL pipeline function
         async def run_etl(input_data):

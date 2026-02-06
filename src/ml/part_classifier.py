@@ -8,6 +8,7 @@ CAD部件分类推理服务
 import io
 import json
 import logging
+import os
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -158,7 +159,8 @@ class PartClassifier:
 
     def extract_features(self, dxf_path: str) -> Optional[np.ndarray]:
         """从DXF文件提取特征 - 根据模型版本选择特征维度"""
-        if self.version in ("v6", "v7", "v8"):
+        version = getattr(self, "version", "v2")
+        if version in ("v6", "v7", "v8"):
             return self._extract_features_v6(dxf_path)
         else:
             return self._extract_features_v2(dxf_path)
@@ -312,7 +314,15 @@ def get_part_classifier() -> PartClassifier:
     """获取分类器单例"""
     global _classifier
     if _classifier is None:
-        _classifier = PartClassifier()
+        configured_model = os.getenv("CAD_CLASSIFIER_MODEL")
+        if configured_model:
+            model_path = configured_model
+        elif Path("models/cad_classifier_v2.pt").exists():
+            # Backward-compatible convenience default used by unit tests.
+            model_path = "models/cad_classifier_v2.pt"
+        else:
+            model_path = "models/cad_classifier_v6.pt"
+        _classifier = PartClassifier(model_path)
     return _classifier
 
 

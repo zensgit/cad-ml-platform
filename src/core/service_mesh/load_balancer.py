@@ -15,6 +15,7 @@ import hashlib
 import logging
 import random
 import time
+import threading
 from abc import ABC, abstractmethod
 from bisect import bisect_left
 from dataclasses import dataclass, field
@@ -78,7 +79,7 @@ class RoundRobinBalancer(LoadBalancer):
     def __init__(self):
         self._index = 0
         self._requests: Dict[str, int] = {}
-        self._lock = asyncio.Lock()
+        self._lock = threading.Lock()
 
     def select(
         self,
