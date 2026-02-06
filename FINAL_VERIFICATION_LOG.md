@@ -3188,6 +3188,10 @@
   - Added Graph2D baseline freeze script (checkpoint + metadata bundle) and worktree bootstrap script for parallel branch workflows.
   - Validation completed with new/related unit tests (`47 passed` total across targeted suites) and script CLI smoke checks.
   - Report: `reports/DEV_GRAPH2D_CONFIG_BASELINE_FREEZE_20260206.md`
+- **Filename Classifier Config Integration**:
+  - Wired `FilenameClassifier` defaults to `hybrid_config` (with env still highest priority) and added configurable synonyms path fallback.
+  - Validation completed with focused config + classifier regression tests (`41 passed`).
+  - Report: `reports/DEV_FILENAME_CLASSIFIER_CONFIG_INTEGRATION_20260206.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent

@@ -21,10 +21,14 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from src.ml.hybrid_config import get_config
+
 logger = logging.getLogger(__name__)
 
 # 默认同义词表路径
-DEFAULT_SYNONYMS_PATH = Path(__file__).resolve().parents[2] / "data/knowledge/label_synonyms_template.json"
+DEFAULT_SYNONYMS_PATH = (
+    Path(__file__).resolve().parents[2] / "data/knowledge/label_synonyms_template.json"
+)
 
 # 版本后缀正则 (匹配 v1, v2, _v1, -v2, V1 等)
 _VERSION_SUFFIX_RE = re.compile(r"(?:[_\-\s]?[vV]\d+)$")
@@ -39,9 +43,9 @@ class FilenameClassifier:
     def __init__(
         self,
         synonyms_path: Optional[str] = None,
-        exact_match_conf: float = 0.95,
-        partial_match_conf: float = 0.7,
-        fuzzy_match_conf: float = 0.5,
+        exact_match_conf: Optional[float] = None,
+        partial_match_conf: Optional[float] = None,
+        fuzzy_match_conf: Optional[float] = None,
     ):
         """
         初始化分类器
@@ -52,12 +56,29 @@ class FilenameClassifier:
             partial_match_conf: 部分匹配置信度
             fuzzy_match_conf: 模糊匹配置信度
         """
-        self.exact_match_conf = float(os.getenv("FILENAME_EXACT_MATCH_CONF", str(exact_match_conf)))
-        self.partial_match_conf = float(os.getenv("FILENAME_PARTIAL_MATCH_CONF", str(partial_match_conf)))
-        self.fuzzy_match_conf = float(os.getenv("FILENAME_FUZZY_MATCH_CONF", str(fuzzy_match_conf)))
+        cfg = get_config().filename
+        self.exact_match_conf = self._resolve_float(
+            "FILENAME_EXACT_MATCH_CONF",
+            explicit=exact_match_conf,
+            default=cfg.exact_match_conf,
+        )
+        self.partial_match_conf = self._resolve_float(
+            "FILENAME_PARTIAL_MATCH_CONF",
+            explicit=partial_match_conf,
+            default=cfg.partial_match_conf,
+        )
+        self.fuzzy_match_conf = self._resolve_float(
+            "FILENAME_FUZZY_MATCH_CONF",
+            explicit=fuzzy_match_conf,
+            default=cfg.fuzzy_match_conf,
+        )
 
         # 加载同义词表
-        path = Path(synonyms_path) if synonyms_path else DEFAULT_SYNONYMS_PATH
+        resolved_synonyms = self._resolve_synonyms_path(
+            explicit=synonyms_path,
+            config_value=cfg.synonyms_path,
+        )
+        path = Path(resolved_synonyms) if resolved_synonyms else DEFAULT_SYNONYMS_PATH
         self.synonyms: Dict[str, List[str]] = self._load_synonyms(path)
         self.matcher: Dict[str, str] = self._build_matcher()
 
@@ -71,6 +92,31 @@ class FilenameClassifier:
                 "fuzzy_conf": self.fuzzy_match_conf,
             },
         )
+
+    @staticmethod
+    def _resolve_float(
+        env_key: str, explicit: Optional[float], default: float
+    ) -> float:
+        base = explicit if explicit is not None else default
+        raw = os.getenv(env_key)
+        if raw is None:
+            return float(base)
+        try:
+            return float(raw)
+        except ValueError:
+            logger.warning("Invalid %s=%s, fallback to %.4f", env_key, raw, base)
+            return float(base)
+
+    @staticmethod
+    def _resolve_synonyms_path(explicit: Optional[str], config_value: str) -> str:
+        if explicit:
+            return str(explicit)
+        env_value = os.getenv("FILENAME_SYNONYMS_PATH")
+        if env_value:
+            return env_value
+        if config_value:
+            return str(config_value)
+        return ""
 
     def _load_synonyms(self, path: Path) -> Dict[str, List[str]]:
         """加载同义词表"""
