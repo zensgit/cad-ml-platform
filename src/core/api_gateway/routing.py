@@ -40,7 +40,8 @@ class Route:
     name: str
     path: str
     backend: str  # Backend service identifier
-    methods: List[str] = field(default_factory=lambda: ["GET"])
+    # Empty means "allow all methods" for backward compatibility.
+    methods: List[str] = field(default_factory=list)
     match_type: MatchType = MatchType.PREFIX
     priority: int = 0
     headers: Dict[str, str] = field(default_factory=dict)  # Required headers

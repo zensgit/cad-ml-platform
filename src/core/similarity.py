@@ -7,6 +7,7 @@ Later phases can replace with persistent / ANN index (Faiss, Milvus etc.).
 from __future__ import annotations
 
 import os
+import sys
 from math import sqrt
 from typing import Any, Dict, List, Optional, Protocol, Set, Union, runtime_checkable
 
@@ -493,9 +494,14 @@ class FaissVectorStore(VectorStoreProtocol):
         global _FAISS_AVAILABLE
         if _FAISS_AVAILABLE is None:
             try:
-                import faiss  # type: ignore  # noqa: F401
+                import faiss  # type: ignore
 
                 _FAISS_AVAILABLE = True
+                # Stabilize Faiss runtime on macOS where HNSW can be flaky with multi-thread defaults.
+                default_threads = "1" if sys.platform == "darwin" else "0"
+                thread_count = int(os.getenv("FAISS_OMP_NUM_THREADS", default_threads))
+                if thread_count > 0 and hasattr(faiss, "omp_set_num_threads"):
+                    faiss.omp_set_num_threads(thread_count)
             except Exception:
                 _FAISS_AVAILABLE = False
         self._available = _FAISS_AVAILABLE

@@ -431,6 +431,9 @@ def get_fundamental_deviation(symbol: str, nominal_size_mm: float) -> Optional[f
     symbol_clean = symbol.strip()
     if not symbol_clean:
         return None
+    if symbol_clean.upper() == "H":
+        # Basic hole system: H hole lower deviation (EI) is always 0.
+        return 0.0
     if symbol_clean.isupper():
         deviations = HOLE_FUNDAMENTAL_DEVIATIONS.get(symbol_clean.upper())
     else:

@@ -157,6 +157,12 @@ class InMemorySchemaRegistry(SchemaRegistry):
             self._lock = asyncio.Lock()
         return self._lock
 
+    def _get_compatibility_unlocked(self, subject: str) -> CompatibilityMode:
+        """Read compatibility mode without re-acquiring the async lock."""
+        if subject in self._subject_configs:
+            return self._subject_configs[subject].compatibility_mode
+        return self.default_compatibility
+
     async def register_schema(
         self,
         subject: str,
@@ -189,7 +195,7 @@ class InMemorySchemaRegistry(SchemaRegistry):
                 # New schema - check compatibility
                 existing_schemas = await self._get_all_schemas(subject)
                 if existing_schemas:
-                    mode = await self.get_compatibility(subject)
+                    mode = self._get_compatibility_unlocked(subject)
                     if mode != CompatibilityMode.NONE:
                         checker = get_compatibility_checker(schema.schema_type)
                         result = checker.check(schema, existing_schemas, mode)
@@ -307,7 +313,7 @@ class InMemorySchemaRegistry(SchemaRegistry):
             if not existing_schemas:
                 return CompatibilityResult(compatible=True)
 
-            mode = await self.get_compatibility(subject)
+            mode = self._get_compatibility_unlocked(subject)
             if mode == CompatibilityMode.NONE:
                 return CompatibilityResult(compatible=True)
 
