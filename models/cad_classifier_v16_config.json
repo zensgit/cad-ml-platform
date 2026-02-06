@@ -33,5 +33,7 @@
       "pred": "其他",
       "note": "corrected label"
     }
-  ]
+  ],
+  "accuracy_after_correction": 0.06408839779005525,
+  "errors_after_correction": 847
 }
