@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
 from collections import Counter
@@ -26,8 +27,65 @@ def _require_torch() -> bool:
         return False
 
 
+def _load_yaml_defaults(config_path: str, section: str) -> Dict[str, Any]:
+    """Load optional CLI defaults from YAML."""
+    if not config_path:
+        return {}
+    path = Path(config_path)
+    if not path.exists():
+        return {}
+    try:
+        import yaml  # type: ignore
+    except Exception as exc:
+        print(f"Warning: yaml unavailable, ignore config {path}: {exc}")
+        return {}
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        print(f"Warning: failed to parse config {path}: {exc}")
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    section_payload = payload.get(section)
+    data = section_payload if isinstance(section_payload, dict) else payload
+    if not isinstance(data, dict):
+        return {}
+    return {str(k).replace("-", "_"): v for k, v in data.items()}
+
+
+def _apply_config_defaults(
+    parser: argparse.ArgumentParser, config_path: str, section: str
+) -> None:
+    defaults = _load_yaml_defaults(config_path, section)
+    if not defaults:
+        return
+    valid_keys = {action.dest for action in parser._actions}
+    filtered = {k: v for k, v in defaults.items() if k in valid_keys}
+    unknown = sorted(set(defaults.keys()) - set(filtered.keys()))
+    if unknown:
+        print(
+            f"Warning: ignored unknown keys in {config_path} ({section}): "
+            + ", ".join(unknown)
+        )
+    if filtered:
+        parser.set_defaults(**filtered)
+
+
+def _apply_dxf_sampling_env(args: argparse.Namespace) -> None:
+    mapping = {
+        "dxf_max_nodes": "DXF_MAX_NODES",
+        "dxf_sampling_strategy": "DXF_SAMPLING_STRATEGY",
+        "dxf_sampling_seed": "DXF_SAMPLING_SEED",
+        "dxf_text_priority_ratio": "DXF_TEXT_PRIORITY_RATIO",
+    }
+    for arg_name, env_name in mapping.items():
+        value = getattr(args, arg_name, None)
+        if value is not None:
+            os.environ[env_name] = str(value)
+
+
 def _collate(
-    batch: List[Tuple[Dict[str, Any], Any]]
+    batch: List[Tuple[Dict[str, Any], Any]],
 ) -> Tuple[List[Any], List[Any], List[Any], List[Any], List[str]]:
     xs, edges, edge_attrs, labels, filenames = [], [], [], [], []
     for graph, label in batch:
@@ -124,7 +182,18 @@ def main() -> int:
     )
     from src.ml.train.model_2d import EdgeGraphSageClassifier, SimpleGraphClassifier
 
-    parser = argparse.ArgumentParser(description="Train 2D DXF graph classifier.")
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument(
+        "--config",
+        default="config/graph2d_training.yaml",
+        help="YAML config path for train_2d_graph defaults.",
+    )
+    pre_args, _ = pre_parser.parse_known_args()
+
+    parser = argparse.ArgumentParser(
+        description="Train 2D DXF graph classifier.",
+        parents=[pre_parser],
+    )
     parser.add_argument(
         "--manifest",
         default="reports/experiments/20260120/MECH_4000_DWG_LABEL_MANIFEST_MERGED_20260120.csv",
@@ -274,7 +343,34 @@ def main() -> int:
         default=5,
         help="Number of warmup epochs for warmup_cosine scheduler.",
     )
+    parser.add_argument(
+        "--dxf-max-nodes",
+        type=int,
+        default=None,
+        help="Override DXF_MAX_NODES for importance sampling.",
+    )
+    parser.add_argument(
+        "--dxf-sampling-strategy",
+        choices=["importance", "random", "hybrid"],
+        default=None,
+        help="Override DXF_SAMPLING_STRATEGY for importance sampling.",
+    )
+    parser.add_argument(
+        "--dxf-sampling-seed",
+        type=int,
+        default=None,
+        help="Override DXF_SAMPLING_SEED for importance sampling.",
+    )
+    parser.add_argument(
+        "--dxf-text-priority-ratio",
+        type=float,
+        default=None,
+        help="Override DXF_TEXT_PRIORITY_RATIO for importance sampling.",
+    )
+
+    _apply_config_defaults(parser, pre_args.config, "train_2d_graph")
     args = parser.parse_args()
+    _apply_dxf_sampling_env(args)
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -449,12 +545,16 @@ def main() -> int:
             idx = feature_idx.get(name)
             if idx is None or idx >= args.node_dim:
                 continue
-            x[:, idx] = (x[:, idx] + torch.randn_like(x[:, idx]) * scale).clamp(0.0, 1.0)
+            x[:, idx] = (x[:, idx] + torch.randn_like(x[:, idx]) * scale).clamp(
+                0.0, 1.0
+            )
         for name in ("dir_x", "dir_y"):
             idx = feature_idx.get(name)
             if idx is None or idx >= args.node_dim:
                 continue
-            x[:, idx] = (x[:, idx] + torch.randn_like(x[:, idx]) * scale).clamp(-1.0, 1.0)
+            x[:, idx] = (x[:, idx] + torch.randn_like(x[:, idx]) * scale).clamp(
+                -1.0, 1.0
+            )
         return x
 
     model.to(device)
@@ -523,7 +623,9 @@ def main() -> int:
         total = 0
         with torch.no_grad():
             for xs, edges, edge_attrs, labels, _ in val_loader:
-                for x, edge_index, edge_attr, label in zip(xs, edges, edge_attrs, labels):
+                for x, edge_index, edge_attr, label in zip(
+                    xs, edges, edge_attrs, labels
+                ):
                     if x.numel() == 0:
                         continue
                     x = x.to(device)
@@ -546,7 +648,9 @@ def main() -> int:
             best_val_acc = acc
             epochs_without_improvement = 0
             if args.save_best:
-                best_model_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+                best_model_state = {
+                    k: v.cpu().clone() for k, v in model.state_dict().items()
+                }
         else:
             epochs_without_improvement += 1
 
@@ -560,11 +664,18 @@ def main() -> int:
             lr_info = ""
 
         status = "← best" if improved else ""
-        print(f"Epoch {epoch}/{args.epochs} loss={avg_loss:.4f} val_acc={acc:.3f}{lr_info} {status}")
+        print(
+            f"Epoch {epoch}/{args.epochs} loss={avg_loss:.4f} val_acc={acc:.3f}{lr_info} {status}"
+        )
 
         # Early stopping check
-        if args.early_stop_patience > 0 and epochs_without_improvement >= args.early_stop_patience:
-            print(f"Early stopping at epoch {epoch} (no improvement for {args.early_stop_patience} epochs)")
+        if (
+            args.early_stop_patience > 0
+            and epochs_without_improvement >= args.early_stop_patience
+        ):
+            print(
+                f"Early stopping at epoch {epoch} (no improvement for {args.early_stop_patience} epochs)"
+            )
             print(f"Best validation accuracy: {best_val_acc:.3f}")
             break
 
@@ -572,7 +683,11 @@ def main() -> int:
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Use best model state if --save-best was enabled and we have one
-    save_state = best_model_state if (args.save_best and best_model_state is not None) else model.state_dict()
+    save_state = (
+        best_model_state
+        if (args.save_best and best_model_state is not None)
+        else model.state_dict()
+    )
 
     torch.save(
         {
@@ -584,6 +699,13 @@ def main() -> int:
             "model_type": args.model,
             "edge_dim": args.edge_dim if use_edge_attr else 0,
             "best_val_acc": best_val_acc,
+            "config_path": args.config,
+            "sampling_overrides": {
+                "dxf_max_nodes": args.dxf_max_nodes,
+                "dxf_sampling_strategy": args.dxf_sampling_strategy,
+                "dxf_sampling_seed": args.dxf_sampling_seed,
+                "dxf_text_priority_ratio": args.dxf_text_priority_ratio,
+            },
         },
         out_path,
     )

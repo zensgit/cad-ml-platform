@@ -1,0 +1,15 @@
+eval_2d_graph:
+  manifest: "reports/experiments/20260121/MECH_4000_DWG_LABEL_MANIFEST_MERGED_20260121.csv"
+  dxf_dir: "/Users/huazhou/Downloads/4000例CAD及三维机械零件练习图纸/机械CAD图纸_dxf"
+  checkpoint: "models/graph2d_merged_latest.pth"
+  batch_size: 4
+  seed: 42
+  val_split: 0.2
+  max_samples: 0
+  split_strategy: "stratified"
+  output_metrics: "reports/experiments/20260121/MECH_4000_DWG_GRAPH2D_VAL_METRICS_20260121.csv"
+  output_errors: "reports/experiments/20260121/MECH_4000_DWG_GRAPH2D_VAL_ERRORS_20260121.csv"
+  dxf_max_nodes: 200
+  dxf_sampling_strategy: "importance"
+  dxf_sampling_seed: 42
+  dxf_text_priority_ratio: 0.3

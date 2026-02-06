@@ -1,0 +1,64 @@
+enabled: true
+version: "1.1.0"
+
+filename:
+  enabled: true
+  min_confidence: 0.8
+  exact_match_conf: 0.95
+  partial_match_conf: 0.7
+  fuzzy_match_conf: 0.5
+  fusion_weight: 0.7
+  synonyms_path: "data/knowledge/label_synonyms_template.json"
+
+graph2d:
+  enabled: false
+  min_confidence: 0.5
+  fusion_weight: 0.3
+  exclude_labels: "other"
+  allow_labels: ""
+  drawing_type_labels:
+    - "零件图"
+    - "机械制图"
+    - "装配图"
+    - "练习零件图"
+    - "原理图"
+    - "模板"
+
+titleblock:
+  enabled: false
+  region_x_ratio: 0.6
+  region_y_ratio: 0.4
+  min_confidence: 0.75
+  fusion_weight: 0.2
+  override_enabled: false
+
+process:
+  enabled: true
+  min_confidence: 0.3
+  fusion_weight: 0.15
+
+sampling:
+  max_nodes: 200
+  strategy: "importance"
+  seed: 42
+  text_priority_ratio: 0.3
+
+class_balance:
+  strategy: "focal"
+  weight_mode: "sqrt"
+  focal_alpha: 0.25
+  focal_gamma: 2.0
+  logit_adj_tau: 1.0
+
+multimodal:
+  enabled: true
+  geometry_weight: 0.3
+  text_weight: 0.5
+  rule_weight: 0.2
+  gate_type: "weighted"
+
+distillation:
+  enabled: false
+  alpha: 0.3
+  temperature: 3.0
+  teacher_type: "hybrid"

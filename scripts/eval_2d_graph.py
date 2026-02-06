@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import os
 import random
 import sys
 from pathlib import Path
@@ -23,6 +24,62 @@ def _require_torch() -> bool:
     except Exception as exc:  # pragma: no cover - runtime check
         print(f"Torch not available: {exc}")
         return False
+
+
+def _load_yaml_defaults(config_path: str, section: str) -> Dict[str, Any]:
+    if not config_path:
+        return {}
+    path = Path(config_path)
+    if not path.exists():
+        return {}
+    try:
+        import yaml  # type: ignore
+    except Exception as exc:
+        print(f"Warning: yaml unavailable, ignore config {path}: {exc}")
+        return {}
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        print(f"Warning: failed to parse config {path}: {exc}")
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    section_payload = payload.get(section)
+    data = section_payload if isinstance(section_payload, dict) else payload
+    if not isinstance(data, dict):
+        return {}
+    return {str(k).replace("-", "_"): v for k, v in data.items()}
+
+
+def _apply_config_defaults(
+    parser: argparse.ArgumentParser, config_path: str, section: str
+) -> None:
+    defaults = _load_yaml_defaults(config_path, section)
+    if not defaults:
+        return
+    valid_keys = {action.dest for action in parser._actions}
+    filtered = {k: v for k, v in defaults.items() if k in valid_keys}
+    unknown = sorted(set(defaults.keys()) - set(filtered.keys()))
+    if unknown:
+        print(
+            f"Warning: ignored unknown keys in {config_path} ({section}): "
+            + ", ".join(unknown)
+        )
+    if filtered:
+        parser.set_defaults(**filtered)
+
+
+def _apply_dxf_sampling_env(args: argparse.Namespace) -> None:
+    mapping = {
+        "dxf_max_nodes": "DXF_MAX_NODES",
+        "dxf_sampling_strategy": "DXF_SAMPLING_STRATEGY",
+        "dxf_sampling_seed": "DXF_SAMPLING_SEED",
+        "dxf_text_priority_ratio": "DXF_TEXT_PRIORITY_RATIO",
+    }
+    for arg_name, env_name in mapping.items():
+        value = getattr(args, arg_name, None)
+        if value is not None:
+            os.environ[env_name] = str(value)
 
 
 def _inverse_label_map(label_map: Dict[str, int]) -> Dict[int, str]:
@@ -58,7 +115,7 @@ def _stratified_split(indices: List[int], labels: List[int], val_ratio: float):
 
 
 def _collate(
-    batch: List[Tuple[Dict[str, Any], Any]]
+    batch: List[Tuple[Dict[str, Any], Any]],
 ) -> Tuple[List[Any], List[Any], List[Any], List[Any], List[str]]:
     xs, edges, edge_attrs, labels, file_names = [], [], [], [], []
     for graph, label in batch:
@@ -80,7 +137,18 @@ def main() -> int:
     from src.ml.train.dataset_2d import DXFManifestDataset, DXF_EDGE_DIM, DXF_NODE_DIM
     from src.ml.train.model_2d import EdgeGraphSageClassifier, SimpleGraphClassifier
 
-    parser = argparse.ArgumentParser(description="Evaluate 2D DXF graph classifier.")
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument(
+        "--config",
+        default="config/graph2d_eval.yaml",
+        help="YAML config path for eval_2d_graph defaults.",
+    )
+    pre_args, _ = pre_parser.parse_known_args()
+
+    parser = argparse.ArgumentParser(
+        description="Evaluate 2D DXF graph classifier.",
+        parents=[pre_parser],
+    )
     parser.add_argument(
         "--manifest",
         default="reports/experiments/20260121/MECH_4000_DWG_LABEL_MANIFEST_MERGED_20260121.csv",
@@ -116,7 +184,33 @@ def main() -> int:
         default="reports/experiments/20260121/MECH_4000_DWG_GRAPH2D_VAL_ERRORS_20260121.csv",
         help="Error CSV output",
     )
+    parser.add_argument(
+        "--dxf-max-nodes",
+        type=int,
+        default=None,
+        help="Override DXF_MAX_NODES for importance sampling.",
+    )
+    parser.add_argument(
+        "--dxf-sampling-strategy",
+        choices=["importance", "random", "hybrid"],
+        default=None,
+        help="Override DXF_SAMPLING_STRATEGY for importance sampling.",
+    )
+    parser.add_argument(
+        "--dxf-sampling-seed",
+        type=int,
+        default=None,
+        help="Override DXF_SAMPLING_SEED for importance sampling.",
+    )
+    parser.add_argument(
+        "--dxf-text-priority-ratio",
+        type=float,
+        default=None,
+        help="Override DXF_TEXT_PRIORITY_RATIO for importance sampling.",
+    )
+    _apply_config_defaults(parser, pre_args.config, "eval_2d_graph")
     args = parser.parse_args()
+    _apply_dxf_sampling_env(args)
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -197,7 +291,9 @@ def main() -> int:
                 confidence = float(probs[pred_idx].item())
                 topk = min(2, probs.numel())
                 top_vals, top_idx = torch.topk(probs, k=topk)
-                margin = float(top_vals[0].item() - top_vals[1].item()) if topk > 1 else 1.0
+                margin = (
+                    float(top_vals[0].item() - top_vals[1].item()) if topk > 1 else 1.0
+                )
 
                 label_id = int(label)
                 per_label_total[label_id] = per_label_total.get(label_id, 0) + 1
@@ -235,7 +331,11 @@ def main() -> int:
         fp = per_label_pred.get(label_id, 0) - tp
         precision = tp / max(tp + fp, 1)
         recall = tp / max(total_count, 1)
-        f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
+        f1 = (
+            (2 * precision * recall / (precision + recall))
+            if (precision + recall)
+            else 0.0
+        )
         f1_sum += f1
         weighted_f1_sum += f1 * total_count
         class_count += 1
@@ -263,7 +363,9 @@ def main() -> int:
             ],
         )
         writer.writeheader()
-        for label_id, total_count in sorted(per_label_total.items(), key=lambda item: item[0]):
+        for label_id, total_count in sorted(
+            per_label_total.items(), key=lambda item: item[0]
+        ):
             if total_count == 0:
                 continue
             correct_count = per_label_correct.get(label_id, 0)
@@ -271,7 +373,11 @@ def main() -> int:
             pred_count = per_label_pred.get(label_id, 0)
             precision = correct_count / max(pred_count, 1)
             recall = correct_count / max(total_count, 1)
-            f1 = (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
+            f1 = (
+                (2 * precision * recall / (precision + recall))
+                if (precision + recall)
+                else 0.0
+            )
             writer.writerow(
                 {
                     "label_cn": inv_label_map.get(label_id, str(label_id)),

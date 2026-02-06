@@ -6,7 +6,8 @@
 	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted e2e-smoke \
 	dedup2d-secure-smoke chrome-devtools cdp-console-demo cdp-network-demo cdp-perf-demo cdp-response-demo \
 	cdp-screenshot-demo cdp-trace-demo playwright-console-demo playwright-trace-demo playwright-install \
-	uvnet-checkpoint-inspect
+	uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap
+.PHONY: test-unit test-contract-local test-e2e-local test-all-local
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -62,6 +63,22 @@ test: ## 运行测试
 	@echo "$(GREEN)Running tests...$(NC)"
 	$(PYTEST) $(TEST_DIR) -v --cov=$(SRC_DIR) --cov-report=term-missing --cov-report=html
 
+test-unit: ## 运行 unit 分层测试（快速质量门）
+	@echo "$(GREEN)Running unit tests...$(NC)"
+	bash scripts/test_with_local_api.sh --suite unit
+
+test-contract-local: ## 自动起停本地 API 后运行 contract 测试
+	@echo "$(GREEN)Running contract tests with local API...$(NC)"
+	bash scripts/test_with_local_api.sh --suite contract
+
+test-e2e-local: ## 自动起停本地 API 后运行 e2e 测试
+	@echo "$(GREEN)Running e2e tests with local API...$(NC)"
+	bash scripts/test_with_local_api.sh --suite e2e
+
+test-all-local: ## 自动起停本地 API 后运行全量 tests
+	@echo "$(GREEN)Running full tests with local API...$(NC)"
+	bash scripts/test_with_local_api.sh --suite all
+
 test-knowledge: ## 运行知识库相关测试
 	@echo "$(GREEN)Running knowledge tests...$(NC)"
 	$(PYTEST) $(TEST_DIR)/unit/knowledge -v --junitxml=reports/junit-knowledge.xml
@@ -81,6 +98,15 @@ test-assembly: ## 运行装配模块测试
 test-baseline: ## 运行基线评测
 	@echo "$(GREEN)Running baseline evaluation...$(NC)"
 	$(PYTHON) scripts/run_baseline_evaluation.py
+
+graph2d-freeze-baseline: ## 冻结当前 Graph2D 模型为可追踪基线包
+	@echo "$(GREEN)Freezing Graph2D baseline...$(NC)"
+	$(PYTHON) scripts/freeze_graph2d_baseline.py --checkpoint $${GRAPH2D_MODEL_PATH:-models/graph2d_merged_latest.pth}
+
+worktree-bootstrap: ## 创建并初始化并行开发 worktree（示例：make worktree-bootstrap BRANCH=feat/x TARGET=../repo-x）
+	@echo "$(GREEN)Bootstrapping worktree...$(NC)"
+	@test -n "$(BRANCH)" || (echo "$(RED)BRANCH is required$(NC)"; exit 1)
+	scripts/bootstrap_worktree.sh "$(BRANCH)" "$${TARGET:-}" "$${BASE:-main}"
 
 lint: ## 运行代码检查（仅 src/，使用 .flake8 配置）
 	@echo "$(GREEN)Running linters (src only)...$(NC)"

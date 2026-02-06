@@ -3171,6 +3171,23 @@
 - **Classifier Batch Order Fix**:
   - Preserved `/classify/batch` ordering for duplicate filenames, added a regression test, and documented batch ordering behavior.
   - Report: `reports/DEV_CLASSIFIER_BATCH_ORDER_FIX_20260205.md`
+- **Unit Test Fixes + Hybrid DXF Parse Reuse**:
+  - Stabilized event-sourcing/workflow/load-balancer tests, restored legacy create-event ordering, and reused DXF parsing for hybrid titleblock/process features.
+  - Report: `reports/DEV_UNIT_TEST_FIXES_20260206.md`
+- **Extended Test Stabilization + Full Suite Pass**:
+  - Fixed async lock initialization in resilience paths, corrected GD&T/tolerance intent overlap, restored Paddle timeout metrics mapping, aligned e2e fixture/assertions with current API behavior, and added H-hole fundamental deviation fallback.
+  - Validation completed with full `tests` pass: `7515 passed, 72 skipped`.
+  - Report: `reports/DEV_UNIT_TEST_FIXES_20260206.md`
+- **Tiered Testing + CI Alignment**:
+  - Added tiered local test runner (`unit/contract/e2e/all`), Make targets, pytest marker registration, and a dedicated CI workflow for tiered jobs.
+  - Added testing strategy and CI failure routing docs for faster diagnosis.
+  - Validation completed with script and make entrypoints; full local API-backed suite passed: `7515 passed, 72 skipped`.
+  - Report: `reports/DEV_STABILITY_CI_TIERED_TESTING_20260206.md`
+- **Graph2D Config + Baseline Freeze**:
+  - Added YAML-driven config files for hybrid runtime and Graph2D train/eval defaults; CLI/env override precedence retained.
+  - Added Graph2D baseline freeze script (checkpoint + metadata bundle) and worktree bootstrap script for parallel branch workflows.
+  - Validation completed with new/related unit tests (`47 passed` total across targeted suites) and script CLI smoke checks.
+  - Report: `reports/DEV_GRAPH2D_CONFIG_BASELINE_FREEZE_20260206.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
