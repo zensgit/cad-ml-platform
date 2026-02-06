@@ -97,11 +97,11 @@ class ToggleRule(ABC):
     """Abstract base class for toggle rules."""
 
     @abstractmethod
-    def evaluate(self, context: EvaluationContext) -> Optional[bool]:
+    def evaluate(self, context: EvaluationContext) -> Optional[Union[bool, EvaluationResult]]:
         """Evaluate rule against context.
 
         Returns:
-            True/False if rule matches, None if rule doesn't apply.
+            True/False or EvaluationResult if rule matches, None if rule doesn't apply.
         """
         pass
 
@@ -109,15 +109,23 @@ class ToggleRule(ABC):
 class AlwaysOnRule(ToggleRule):
     """Rule that always returns True."""
 
-    def evaluate(self, context: EvaluationContext) -> Optional[bool]:
-        return True
+    def evaluate(self, context: EvaluationContext) -> Optional[Union[bool, EvaluationResult]]:
+        return EvaluationResult(
+            enabled=True,
+            toggle_name="",
+            reason="always_on_rule",
+        )
 
 
 class AlwaysOffRule(ToggleRule):
     """Rule that always returns False."""
 
-    def evaluate(self, context: EvaluationContext) -> Optional[bool]:
-        return False
+    def evaluate(self, context: EvaluationContext) -> Optional[Union[bool, EvaluationResult]]:
+        return EvaluationResult(
+            enabled=False,
+            toggle_name="",
+            reason="always_off_rule",
+        )
 
 
 class PercentageRule(ToggleRule):
@@ -135,7 +143,8 @@ class PercentageRule(ToggleRule):
         self.sticky = sticky
         self.sticky_key = sticky_key
 
-    def evaluate(self, context: EvaluationContext) -> Optional[bool]:
+    def evaluate(self, context: EvaluationContext) -> Optional[Union[bool, EvaluationResult]]:
+        enabled: bool
         if self.sticky:
             # Use consistent hashing for sticky sessions
             key = context.get(self.sticky_key)
@@ -143,10 +152,20 @@ class PercentageRule(ToggleRule):
                 hash_val = int(
                     hashlib.md5(str(key).encode()).hexdigest(), 16  # nosec B324
                 )
-                return (hash_val % 100) < self.percentage
+                enabled = (hash_val % 100) < self.percentage
+                return EvaluationResult(
+                    enabled=enabled,
+                    toggle_name="",
+                    reason="percentage_rule_sticky",
+                )
 
         # Random evaluation
-        return random.random() * 100 < self.percentage
+        enabled = random.random() * 100 < self.percentage
+        return EvaluationResult(
+            enabled=enabled,
+            toggle_name="",
+            reason="percentage_rule_random",
+        )
 
 
 class UserIdRule(ToggleRule):
@@ -156,12 +175,16 @@ class UserIdRule(ToggleRule):
         self.user_ids = user_ids
         self.include = include
 
-    def evaluate(self, context: EvaluationContext) -> Optional[bool]:
+    def evaluate(self, context: EvaluationContext) -> Optional[Union[bool, EvaluationResult]]:
         if not context.user_id:
             return None
 
         in_list = context.user_id in self.user_ids
-        return in_list if self.include else not in_list
+        return EvaluationResult(
+            enabled=(in_list if self.include else not in_list),
+            toggle_name="",
+            reason="user_id_rule",
+        )
 
 
 class AttributeRule(ToggleRule):
@@ -170,40 +193,52 @@ class AttributeRule(ToggleRule):
     def __init__(
         self,
         attribute: str,
-        operator: str,
-        value: Any,
+        operator: str = "eq",
+        value: Any = None,
+        values: Optional[Set[Any]] = None,
     ):
+        # Backward-compatibility: AttributeRule(attribute="plan", values={...})
+        if values is not None:
+            operator = "in"
+            value = values
         self.attribute = attribute
         self.operator = operator
         self.value = value
 
-    def evaluate(self, context: EvaluationContext) -> Optional[bool]:
+    def evaluate(self, context: EvaluationContext) -> Optional[Union[bool, EvaluationResult]]:
         attr_value = context.get(self.attribute)
         if attr_value is None:
             return None
 
+        result: Optional[bool]
         if self.operator == "eq":
-            return attr_value == self.value
+            result = attr_value == self.value
         elif self.operator == "ne":
-            return attr_value != self.value
+            result = attr_value != self.value
         elif self.operator == "gt":
-            return attr_value > self.value
+            result = attr_value > self.value
         elif self.operator == "gte":
-            return attr_value >= self.value
+            result = attr_value >= self.value
         elif self.operator == "lt":
-            return attr_value < self.value
+            result = attr_value < self.value
         elif self.operator == "lte":
-            return attr_value <= self.value
+            result = attr_value <= self.value
         elif self.operator == "in":
-            return attr_value in self.value
+            result = attr_value in self.value
         elif self.operator == "not_in":
-            return attr_value not in self.value
+            result = attr_value not in self.value
         elif self.operator == "contains":
-            return self.value in attr_value
+            result = self.value in attr_value
         elif self.operator == "regex":
-            return bool(re.match(self.value, str(attr_value)))
+            result = bool(re.match(self.value, str(attr_value)))
         else:
             return None
+
+        return EvaluationResult(
+            enabled=bool(result),
+            toggle_name="",
+            reason=f"attribute_rule_{self.operator}",
+        )
 
 
 class TimeBasedRule(ToggleRule):
@@ -217,44 +252,77 @@ class TimeBasedRule(ToggleRule):
         self.start_time = start_time
         self.end_time = end_time
 
-    def evaluate(self, context: EvaluationContext) -> Optional[bool]:
+    def evaluate(self, context: EvaluationContext) -> Optional[Union[bool, EvaluationResult]]:
         now = context.timestamp
 
         if self.start_time and now < self.start_time:
-            return False
+            return EvaluationResult(
+                enabled=False,
+                toggle_name="",
+                reason="time_based_before_start",
+            )
         if self.end_time and now > self.end_time:
-            return False
+            return EvaluationResult(
+                enabled=False,
+                toggle_name="",
+                reason="time_based_after_end",
+            )
 
-        return True
+        return EvaluationResult(
+            enabled=True,
+            toggle_name="",
+            reason="time_based_in_window",
+        )
 
 
 class CompositeRule(ToggleRule):
     """Combine multiple rules with AND/OR logic."""
 
-    def __init__(self, rules: List[ToggleRule], require_all: bool = True):
+    def __init__(
+        self,
+        rules: List[ToggleRule],
+        require_all: bool = True,
+        operator: Optional[str] = None,
+    ):
+        # Backward-compatibility: CompositeRule(operator="and"/"or", rules=[...])
+        if operator is not None:
+            op = operator.lower().strip()
+            if op == "and":
+                require_all = True
+            elif op == "or":
+                require_all = False
+            else:
+                raise ValueError("operator must be 'and' or 'or'")
         self.rules = rules
         self.require_all = require_all
 
-    def evaluate(self, context: EvaluationContext) -> Optional[bool]:
-        results = []
+    def evaluate(self, context: EvaluationContext) -> Optional[Union[bool, EvaluationResult]]:
+        results: List[bool] = []
         for rule in self.rules:
-            result = rule.evaluate(context)
-            if result is not None:
-                results.append(result)
+            raw_result = rule.evaluate(context)
+            if raw_result is None:
+                continue
+            if isinstance(raw_result, EvaluationResult):
+                results.append(bool(raw_result.enabled))
+            else:
+                results.append(bool(raw_result))
 
         if not results:
             return None
 
-        if self.require_all:
-            return all(results)
-        else:
-            return any(results)
+        enabled = all(results) if self.require_all else any(results)
+        return EvaluationResult(
+            enabled=enabled,
+            toggle_name="",
+            reason=f"composite_rule_{'and' if self.require_all else 'or'}",
+        )
 
 
 @dataclass
 class FeatureToggle:
     """A feature toggle definition."""
     name: str
+    description: str = ""
     state: ToggleState = ToggleState.OFF
     rules: List[ToggleRule] = field(default_factory=list)
     metadata: ToggleMetadata = field(default_factory=lambda: ToggleMetadata(name=""))
@@ -264,6 +332,8 @@ class FeatureToggle:
     def __post_init__(self):
         if not self.metadata.name:
             self.metadata = ToggleMetadata(name=self.name)
+        if self.description and not self.metadata.description:
+            self.metadata.description = self.description
 
     def is_enabled(self, context: Optional[EvaluationContext] = None) -> bool:
         """Check if toggle is enabled."""
@@ -297,12 +367,18 @@ class FeatureToggle:
 
         # Evaluate rules
         for i, rule in enumerate(self.rules):
-            result = rule.evaluate(context)
-            if result is not None:
+            rule_result = rule.evaluate(context)
+            if rule_result is not None:
+                if isinstance(rule_result, EvaluationResult):
+                    enabled = bool(rule_result.enabled)
+                    reason = rule_result.reason or f"rule_{i}_{type(rule).__name__}"
+                else:
+                    enabled = bool(rule_result)
+                    reason = f"rule_{i}_{type(rule).__name__}"
                 return EvaluationResult(
-                    enabled=result,
+                    enabled=enabled,
                     toggle_name=self.name,
-                    reason=f"rule_{i}_{type(rule).__name__}",
+                    reason=reason,
                 )
 
         # Default

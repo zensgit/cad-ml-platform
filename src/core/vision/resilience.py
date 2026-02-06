@@ -115,7 +115,9 @@ class ResilientVisionProvider(VisionProvider):
         self._circuit_config = circuit_config or CircuitBreakerConfig()
         self._circuit_state = CircuitBreakerState()
         self._metrics = ProviderMetrics()
-        self._lock = asyncio.Lock()
+        # Lazy-initialize asyncio primitives to support sync construction
+        # in tests and call sites where no event loop is running yet.
+        self._lock: Optional[asyncio.Lock] = None
 
     async def analyze_image(
         self, image_data: bytes, include_description: bool = True
@@ -203,9 +205,15 @@ class ResilientVisionProvider(VisionProvider):
         jitter = delay * 0.2 * (2 * random.random() - 1)
         return delay + jitter
 
+    def _get_lock(self) -> asyncio.Lock:
+        """Get or create the internal asyncio lock."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
+
     async def _check_circuit(self) -> None:
         """Check and update circuit breaker state."""
-        async with self._lock:
+        async with self._get_lock():
             state = self._circuit_state
 
             if state.state == CircuitState.OPEN:
@@ -233,7 +241,7 @@ class ResilientVisionProvider(VisionProvider):
 
     async def _on_success(self, latency_ms: float) -> None:
         """Handle successful request."""
-        async with self._lock:
+        async with self._get_lock():
             self._metrics.successful_requests += 1
             self._metrics.total_latency_ms += latency_ms
 
@@ -251,7 +259,7 @@ class ResilientVisionProvider(VisionProvider):
 
     async def _on_failure(self, error: str) -> None:
         """Handle failed request."""
-        async with self._lock:
+        async with self._get_lock():
             self._metrics.failed_requests += 1
             self._metrics.last_error = error
             self._metrics.last_error_time = time.time()

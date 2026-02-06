@@ -66,6 +66,11 @@ class ToggleStore(ABC):
         """Check if toggle exists."""
         pass
 
+    async def list_toggles(self) -> List[str]:
+        """List toggle names (backward-compatible helper)."""
+        toggles = await self.get_all()
+        return [toggle.name for toggle in toggles]
+
 
 class InMemoryToggleStore(ToggleStore):
     """In-memory toggle storage."""
@@ -119,6 +124,10 @@ class InMemoryToggleStore(ToggleStore):
     async def exists(self, name: str) -> bool:
         async with self._get_lock():
             return name in self._toggles
+
+    async def list_toggles(self) -> List[str]:
+        async with self._get_lock():
+            return list(self._toggles.keys())
 
 
 class FileToggleStore(ToggleStore):

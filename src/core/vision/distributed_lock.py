@@ -45,6 +45,15 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
+def _ensure_lock(holder: Any) -> asyncio.Lock:
+    """Lazily create asyncio.Lock so sync constructors work without an event loop."""
+    lock = getattr(holder, "_lock", None)
+    if lock is None:
+        lock = asyncio.Lock()
+        setattr(holder, "_lock", lock)
+    return lock
+
+
 # ============================================================================
 # Lock Enums
 # ============================================================================
@@ -206,7 +215,7 @@ class InMemoryLock(DistributedLock):
         self._locks: Dict[str, LockInfo] = {}
         self._waiters: Dict[str, List[asyncio.Event]] = {}
         self._fencing_counter = 0
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
 
     async def acquire(
         self,
@@ -219,7 +228,7 @@ class InMemoryLock(DistributedLock):
         start_time = time.time()
 
         while True:
-            async with self._lock:
+            async with _ensure_lock(self):
                 # Check for expired lock
                 if resource_id in self._locks:
                     existing = self._locks[resource_id]
@@ -276,7 +285,7 @@ class InMemoryLock(DistributedLock):
 
             # Wait for lock release
             event = asyncio.Event()
-            async with self._lock:
+            async with _ensure_lock(self):
                 if resource_id not in self._waiters:
                     self._waiters[resource_id] = []
                 self._waiters[resource_id].append(event)
@@ -287,7 +296,7 @@ class InMemoryLock(DistributedLock):
             except asyncio.TimeoutError:
                 pass
             finally:
-                async with self._lock:
+                async with _ensure_lock(self):
                     if resource_id in self._waiters:
                         try:
                             self._waiters[resource_id].remove(event)
@@ -296,7 +305,7 @@ class InMemoryLock(DistributedLock):
 
     async def release(self, resource_id: str, owner_id: str) -> bool:
         """Release a lock."""
-        async with self._lock:
+        async with _ensure_lock(self):
             if resource_id not in self._locks:
                 return False
 
@@ -321,7 +330,7 @@ class InMemoryLock(DistributedLock):
 
     async def is_locked(self, resource_id: str) -> bool:
         """Check if resource is locked."""
-        async with self._lock:
+        async with _ensure_lock(self):
             if resource_id in self._locks:
                 if self._locks[resource_id].is_expired:
                     del self._locks[resource_id]
@@ -331,7 +340,7 @@ class InMemoryLock(DistributedLock):
 
     async def get_lock_info(self, resource_id: str) -> Optional[LockInfo]:
         """Get lock information."""
-        async with self._lock:
+        async with _ensure_lock(self):
             lock_info = self._locks.get(resource_id)
             if lock_info and lock_info.is_expired:
                 del self._locks[resource_id]
@@ -345,7 +354,7 @@ class InMemoryLock(DistributedLock):
         extension_seconds: float,
     ) -> bool:
         """Extend lock TTL."""
-        async with self._lock:
+        async with _ensure_lock(self):
             if resource_id not in self._locks:
                 return False
 
@@ -374,7 +383,7 @@ class ReentrantLock(DistributedLock):
         """Initialize reentrant lock."""
         self._base_lock = base_lock or InMemoryLock()
         self._reentry_counts: Dict[str, Dict[str, int]] = {}
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
 
     async def acquire(
         self,
@@ -384,7 +393,7 @@ class ReentrantLock(DistributedLock):
         ttl_seconds: Optional[float] = None,
     ) -> LockResult:
         """Acquire lock with reentry support."""
-        async with self._lock:
+        async with _ensure_lock(self):
             # Check for existing reentry
             if resource_id in self._reentry_counts:
                 if owner_id in self._reentry_counts[resource_id]:
@@ -402,7 +411,7 @@ class ReentrantLock(DistributedLock):
         result = await self._base_lock.acquire(resource_id, owner_id, timeout_seconds, ttl_seconds)
 
         if result.success:
-            async with self._lock:
+            async with _ensure_lock(self):
                 if resource_id not in self._reentry_counts:
                     self._reentry_counts[resource_id] = {}
                 self._reentry_counts[resource_id][owner_id] = 1
@@ -411,7 +420,7 @@ class ReentrantLock(DistributedLock):
 
     async def release(self, resource_id: str, owner_id: str) -> bool:
         """Release lock with reentry support."""
-        async with self._lock:
+        async with _ensure_lock(self):
             if resource_id not in self._reentry_counts:
                 return False
 
@@ -471,7 +480,7 @@ class ReadWriteLock:
         self._readers: Dict[str, Set[str]] = {}  # resource_id -> set of reader owners
         self._writers: Dict[str, str] = {}  # resource_id -> writer owner
         self._reader_count: Dict[str, int] = {}
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
         self._write_events: Dict[str, asyncio.Event] = {}
         self._read_events: Dict[str, asyncio.Event] = {}
 
@@ -485,7 +494,7 @@ class ReadWriteLock:
         start_time = time.time()
 
         while True:
-            async with self._lock:
+            async with _ensure_lock(self):
                 # Check if there's a writer
                 if resource_id not in self._writers:
                     # No writer, can acquire read lock
@@ -521,7 +530,7 @@ class ReadWriteLock:
 
             # Wait for writer to release
             event = asyncio.Event()
-            async with self._lock:
+            async with _ensure_lock(self):
                 self._write_events[resource_id] = event
 
             try:
@@ -540,7 +549,7 @@ class ReadWriteLock:
         start_time = time.time()
 
         while True:
-            async with self._lock:
+            async with _ensure_lock(self):
                 # Check if there are readers or another writer
                 reader_count = self._reader_count.get(resource_id, 0)
                 has_writer = resource_id in self._writers
@@ -573,7 +582,7 @@ class ReadWriteLock:
 
             # Wait for readers/writer to release
             event = asyncio.Event()
-            async with self._lock:
+            async with _ensure_lock(self):
                 self._read_events[resource_id] = event
 
             try:
@@ -584,7 +593,7 @@ class ReadWriteLock:
 
     async def release_read(self, resource_id: str, owner_id: str) -> bool:
         """Release a read lock."""
-        async with self._lock:
+        async with _ensure_lock(self):
             if resource_id not in self._readers:
                 return False
 
@@ -607,7 +616,7 @@ class ReadWriteLock:
 
     async def release_write(self, resource_id: str, owner_id: str) -> bool:
         """Release a write lock."""
-        async with self._lock:
+        async with _ensure_lock(self):
             if resource_id not in self._writers:
                 return False
 
@@ -629,17 +638,17 @@ class ReadWriteLock:
 
     async def is_read_locked(self, resource_id: str) -> bool:
         """Check if resource has read locks."""
-        async with self._lock:
+        async with _ensure_lock(self):
             return self._reader_count.get(resource_id, 0) > 0
 
     async def is_write_locked(self, resource_id: str) -> bool:
         """Check if resource has write lock."""
-        async with self._lock:
+        async with _ensure_lock(self):
             return resource_id in self._writers
 
     async def get_reader_count(self, resource_id: str) -> int:
         """Get number of readers."""
-        async with self._lock:
+        async with _ensure_lock(self):
             return self._reader_count.get(resource_id, 0)
 
 
@@ -665,14 +674,14 @@ class LockManager:
         self._deadlock_detection = enable_deadlock_detection
         self._wait_graph: Dict[str, Set[str]] = {}  # owner -> set of owners waiting for
         self._held_locks: Dict[str, Set[str]] = {}  # owner -> set of resources held
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
         self._deadlock_callbacks: List[Callable[[DeadlockInfo], None]] = []
 
     async def acquire(self, request: LockRequest) -> LockResult:
         """Acquire a lock with deadlock detection."""
         if self._deadlock_detection:
             # Check for potential deadlock before attempting
-            async with self._lock:
+            async with _ensure_lock(self):
                 # Record wait edge
                 current_owner = await self._get_resource_owner(request.resource_id)
                 if current_owner and current_owner != request.owner_id:
@@ -705,7 +714,7 @@ class LockManager:
         )
 
         # Update tracking
-        async with self._lock:
+        async with _ensure_lock(self):
             # Remove wait edge
             if request.owner_id in self._wait_graph:
                 owner = await self._get_resource_owner(request.resource_id)
@@ -723,7 +732,7 @@ class LockManager:
         result = await self._lock_impl.release(resource_id, owner_id)
 
         if result:
-            async with self._lock:
+            async with _ensure_lock(self):
                 if owner_id in self._held_locks:
                     self._held_locks[owner_id].discard(resource_id)
 
@@ -748,7 +757,7 @@ class LockManager:
     async def release_all(self, owner_id: str) -> int:
         """Release all locks held by an owner."""
         count = 0
-        async with self._lock:
+        async with _ensure_lock(self):
             resources = list(self._held_locks.get(owner_id, set()))
 
         for resource_id in resources:
@@ -759,7 +768,7 @@ class LockManager:
 
     async def get_held_locks(self, owner_id: str) -> List[LockInfo]:
         """Get all locks held by an owner."""
-        async with self._lock:
+        async with _ensure_lock(self):
             resources = list(self._held_locks.get(owner_id, set()))
 
         locks: List[LockInfo] = []
@@ -856,16 +865,16 @@ class FencingTokenManager:
     def __init__(self) -> None:
         """Initialize token manager."""
         self._tokens: Dict[str, int] = {}
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
 
     async def get_token(self, resource_id: str) -> int:
         """Get current fencing token for a resource."""
-        async with self._lock:
+        async with _ensure_lock(self):
             return self._tokens.get(resource_id, 0)
 
     async def increment_token(self, resource_id: str) -> int:
         """Increment and return new token."""
-        async with self._lock:
+        async with _ensure_lock(self):
             current = self._tokens.get(resource_id, 0)
             new_token = current + 1
             self._tokens[resource_id] = new_token
@@ -873,7 +882,7 @@ class FencingTokenManager:
 
     async def validate_token(self, resource_id: str, token: int) -> bool:
         """Validate that token is current."""
-        async with self._lock:
+        async with _ensure_lock(self):
             current = self._tokens.get(resource_id, 0)
             return token >= current
 
@@ -936,7 +945,7 @@ class DistributedSemaphore:
         """Initialize semaphore."""
         self._max_permits = max_permits
         self._permits: Dict[str, Set[str]] = {}  # resource_id -> set of owners
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
         self._events: Dict[str, asyncio.Event] = {}
 
     async def acquire(
@@ -949,7 +958,7 @@ class DistributedSemaphore:
         start_time = time.time()
 
         while True:
-            async with self._lock:
+            async with _ensure_lock(self):
                 if resource_id not in self._permits:
                     self._permits[resource_id] = set()
 
@@ -970,7 +979,7 @@ class DistributedSemaphore:
 
             # Wait for release
             event = asyncio.Event()
-            async with self._lock:
+            async with _ensure_lock(self):
                 self._events[resource_id] = event
 
             try:
@@ -981,7 +990,7 @@ class DistributedSemaphore:
 
     async def release(self, resource_id: str, owner_id: str) -> bool:
         """Release a permit."""
-        async with self._lock:
+        async with _ensure_lock(self):
             if resource_id not in self._permits:
                 return False
 
@@ -999,7 +1008,7 @@ class DistributedSemaphore:
 
     async def get_available_permits(self, resource_id: str) -> int:
         """Get number of available permits."""
-        async with self._lock:
+        async with _ensure_lock(self):
             current = len(self._permits.get(resource_id, set()))
             return max(0, self._max_permits - current)
 

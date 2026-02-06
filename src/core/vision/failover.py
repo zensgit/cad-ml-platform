@@ -132,7 +132,12 @@ class FailoverManager:
         self._endpoints = endpoints
         self._config = config or FailoverConfig()
         self._round_robin_index = 0
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     def add_endpoint(self, endpoint: ProviderEndpoint) -> None:
         """Add a new endpoint."""
@@ -174,7 +179,7 @@ class FailoverManager:
             return available[0]
 
         elif self._config.strategy == FailoverStrategy.ROUND_ROBIN:
-            async with self._lock:
+            async with self._get_lock():
                 self._round_robin_index = self._round_robin_index % len(available)
                 selected = available[self._round_robin_index]
                 self._round_robin_index += 1

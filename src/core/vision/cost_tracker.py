@@ -186,7 +186,12 @@ class CostTracker:
         self._usage_history: List[UsageRecord] = []
         self._daily_costs: Dict[str, float] = {}  # date -> cost
         self._monthly_costs: Dict[str, float] = {}  # month -> cost
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     async def record_usage(
         self,
@@ -215,7 +220,7 @@ class CostTracker:
         Returns:
             UsageRecord for this request
         """
-        async with self._lock:
+        async with self._get_lock():
             # Get pricing
             pricing = self._pricing.get(provider)
             if pricing:
@@ -301,7 +306,7 @@ class CostTracker:
         if not self._budget.hard_limit:
             return True
 
-        async with self._lock:
+        async with self._get_lock():
             now = datetime.now()
             date_key = now.strftime("%Y-%m-%d")
             month_key = now.strftime("%Y-%m")

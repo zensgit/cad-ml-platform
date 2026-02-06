@@ -145,7 +145,12 @@ class QuotaManager:
         """Initialize quota manager."""
         self._limits: Dict[str, List[QuotaLimit]] = {}
         self._usage: Dict[str, Dict[QuotaPeriod, QuotaUsage]] = {}
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     def set_limits(self, provider_id: str, limits: List[QuotaLimit]) -> None:
         """Set quota limits for a provider."""
@@ -166,7 +171,7 @@ class QuotaManager:
         estimated_cost: float = 0.0,
     ) -> QuotaCheckResult:
         """Check if a request is within quota."""
-        async with self._lock:
+        async with self._get_lock():
             limits = self._limits.get(provider_id, [])
             usage_dict = self._usage.get(provider_id, {})
 
@@ -237,7 +242,7 @@ class QuotaManager:
         cost_used: float = 0.0,
     ) -> None:
         """Record usage after a request."""
-        async with self._lock:
+        async with self._get_lock():
             usage_dict = self._usage.get(provider_id, {})
 
             for usage in usage_dict.values():
@@ -298,7 +303,12 @@ class Throttler:
         """Initialize throttler."""
         self._config = config or ThrottleConfig()
         self._state = ThrottleState(tokens=float(self._config.burst_size))
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     @property
     def config(self) -> ThrottleConfig:
@@ -310,7 +320,7 @@ class Throttler:
 
         Returns the delay in seconds before the request should be made.
         """
-        async with self._lock:
+        async with self._get_lock():
             if self._config.strategy == ThrottleStrategy.FIXED_DELAY:
                 return self._fixed_delay()
             elif self._config.strategy == ThrottleStrategy.ADAPTIVE:

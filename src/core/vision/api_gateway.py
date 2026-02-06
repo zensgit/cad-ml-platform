@@ -287,7 +287,12 @@ class LoadBalancer:
         self._strategy = strategy
         self._endpoints: List[ServiceEndpoint] = []
         self._current_index = 0
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     def add_endpoint(self, endpoint: ServiceEndpoint) -> None:
         """Add an endpoint."""
@@ -327,7 +332,7 @@ class LoadBalancer:
 
     async def _round_robin(self, endpoints: List[ServiceEndpoint]) -> ServiceEndpoint:
         """Round robin selection."""
-        async with self._lock:
+        async with self._get_lock():
             endpoint = endpoints[self._current_index % len(endpoints)]
             self._current_index += 1
             return endpoint

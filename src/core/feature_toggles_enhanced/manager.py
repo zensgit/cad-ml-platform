@@ -151,6 +151,7 @@ class ToggleManager:
         self,
         name: str,
         state: ToggleState = ToggleState.OFF,
+        default_state: Optional[ToggleState] = None,
         toggle_type: ToggleType = ToggleType.RELEASE,
         description: str = "",
         owner: str = "",
@@ -158,8 +159,13 @@ class ToggleManager:
         variants: Optional[Dict[str, int]] = None,
     ) -> FeatureToggle:
         """Create a new toggle."""
+        # Backward-compatibility: older call-sites use default_state=...
+        if default_state is not None:
+            state = default_state
+
         toggle = FeatureToggle(
             name=name,
+            description=description,
             state=state,
             rules=rules or [],
             variants=variants or {},
@@ -207,6 +213,10 @@ class ToggleManager:
     async def get_all_toggles(self) -> List[FeatureToggle]:
         """Get all toggles."""
         return await self.store.get_all()
+
+    async def get_toggle(self, name: str) -> Optional[FeatureToggle]:
+        """Get toggle by name (backward-compatible alias)."""
+        return await self.store.get(name)
 
     async def get_toggles_by_type(self, toggle_type: ToggleType) -> List[FeatureToggle]:
         """Get toggles by type."""

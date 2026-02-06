@@ -129,11 +129,20 @@ class WebhookManager:
             delivery_concurrency: Max concurrent deliveries
         """
         self._webhooks: Dict[str, WebhookConfig] = {}
-        self._queue: asyncio.Queue[WebhookEvent] = asyncio.Queue(maxsize=max_queue_size)
-        self._delivery_semaphore = asyncio.Semaphore(delivery_concurrency)
+        self._max_queue_size = max_queue_size
+        self._delivery_concurrency = delivery_concurrency
+        # Lazily initialize asyncio primitives to avoid requiring a running event loop at import/construct time.
+        self._queue: Optional[asyncio.Queue[WebhookEvent]] = None
+        self._delivery_semaphore: Optional[asyncio.Semaphore] = None
         self._delivery_history: List[DeliveryResult] = []
         self._running = False
         self._worker_task: Optional[asyncio.Task[None]] = None
+
+    def _ensure_async_primitives(self) -> None:
+        if self._queue is None:
+            self._queue = asyncio.Queue(maxsize=self._max_queue_size)
+        if self._delivery_semaphore is None:
+            self._delivery_semaphore = asyncio.Semaphore(self._delivery_concurrency)
 
     def register_webhook(
         self,
@@ -190,6 +199,8 @@ class WebhookManager:
             event_type=event_type,
             payload=payload,
         )
+        self._ensure_async_primitives()
+        assert self._queue is not None
 
         try:
             self._queue.put_nowait(event)
@@ -204,6 +215,7 @@ class WebhookManager:
         if self._running:
             return
 
+        self._ensure_async_primitives()
         self._running = True
         self._worker_task = asyncio.create_task(self._delivery_worker())
         logger.info("Webhook delivery worker started")
@@ -221,6 +233,8 @@ class WebhookManager:
 
     async def _delivery_worker(self) -> None:
         """Background worker for delivering webhooks."""
+        self._ensure_async_primitives()
+        assert self._queue is not None
         while self._running:
             try:
                 event = await asyncio.wait_for(
@@ -248,6 +262,8 @@ class WebhookManager:
         config: WebhookConfig,
     ) -> DeliveryResult:
         """Deliver event to a specific webhook with retries."""
+        self._ensure_async_primitives()
+        assert self._delivery_semaphore is not None
         async with self._delivery_semaphore:
             attempt = 0
             last_error = None

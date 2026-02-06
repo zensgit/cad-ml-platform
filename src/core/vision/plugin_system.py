@@ -261,7 +261,12 @@ class HookManager:
     def __init__(self) -> None:
         """Initialize hook manager."""
         self._hooks: Dict[str, List[HookRegistration]] = {}
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     def register(
         self,
@@ -356,7 +361,7 @@ class HookManager:
         results: List[Any] = []
         to_remove: List[HookRegistration] = []
 
-        async with self._lock:
+        async with self._get_lock():
             for registration in self._hooks[hook_name]:
                 try:
                     if registration.async_handler:
@@ -605,7 +610,7 @@ class PluginManager:
         self._hooks = HookManager()
         self._plugins: Dict[str, PluginInstance] = {}
         self._event_handlers: List[Callable[[PluginEvent], None]] = []
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
 
     @property
     def hooks(self) -> HookManager:
