@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
@@ -97,6 +99,22 @@ class ProviderRegistryHealthResponse(BaseModel):
     registry: Dict[str, Any]
 
 
+class ProviderHealthItem(BaseModel):
+    domain: str
+    provider: str
+    ready: bool
+    snapshot: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+
+class ProviderHealthResponse(BaseModel):
+    status: str
+    total: int
+    ready: int
+    timeout_seconds: float
+    results: List[ProviderHealthItem] = Field(default_factory=list)
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health_alias() -> Dict[str, Any]:
     """Alias `/api/v1/health` to the root `/health` endpoint."""
@@ -119,6 +137,87 @@ async def provider_registry_health(api_key: str = Depends(get_api_key)):
     return ProviderRegistryHealthResponse(
         status="ok",
         registry=get_core_provider_registry_snapshot(),
+    )
+
+
+@router.get("/providers/health", response_model=ProviderHealthResponse)
+@router.get("/health/providers/health", response_model=ProviderHealthResponse)
+async def provider_health(
+    api_key: str = Depends(get_api_key),
+    timeout_seconds: float = 0.75,
+):
+    """Run best-effort health checks for all bootstrapped core providers."""
+    from src.core.providers import ProviderRegistry, bootstrap_core_provider_registry
+    from src.core.providers.base import ProviderStatus
+
+    if timeout_seconds <= 0:
+        timeout_seconds = 0.75
+    timeout_seconds = float(min(timeout_seconds, 10.0))
+
+    bootstrap_core_provider_registry()
+
+    async def _check(domain: str, name: str) -> ProviderHealthItem:
+        started_at = time.perf_counter()
+        try:
+            provider = ProviderRegistry.get(domain, name)
+        except Exception as exc:  # noqa: BLE001
+            return ProviderHealthItem(
+                domain=domain,
+                provider=name,
+                ready=False,
+                snapshot=None,
+                error=f"init_error: {exc}",
+            )
+
+        ok = False
+        err: Optional[str] = None
+        try:
+            # Use the provider's internal check with a timeout. We update the
+            # public status fields ourselves to avoid cancellation edge-cases.
+            ok = await asyncio.wait_for(
+                provider._health_check_impl(),  # type: ignore[attr-defined]
+                timeout=timeout_seconds,
+            )
+            provider._status = ProviderStatus.HEALTHY if ok else ProviderStatus.DOWN  # type: ignore[attr-defined]
+            if ok:
+                provider._last_error = None  # type: ignore[attr-defined]
+        except asyncio.TimeoutError:
+            err = "timeout"
+            provider._status = ProviderStatus.DOWN  # type: ignore[attr-defined]
+            provider._last_error = "timeout"  # type: ignore[attr-defined]
+        except Exception as exc:  # noqa: BLE001
+            err = str(exc)
+            provider._status = ProviderStatus.DOWN  # type: ignore[attr-defined]
+            provider._last_error = err  # type: ignore[attr-defined]
+        finally:
+            provider._last_health_check_at = time.time()  # type: ignore[attr-defined]
+            provider._last_health_check_latency_ms = (  # type: ignore[attr-defined]
+                time.perf_counter() - started_at
+            ) * 1000.0
+
+        return ProviderHealthItem(
+            domain=domain,
+            provider=name,
+            ready=bool(ok),
+            snapshot=provider.status_snapshot(),  # type: ignore[attr-defined]
+            error=err,
+        )
+
+    tasks = [
+        _check(domain, name)
+        for domain in ProviderRegistry.list_domains()
+        for name in ProviderRegistry.list_providers(domain)
+    ]
+
+    results = list(await asyncio.gather(*tasks)) if tasks else []
+    results.sort(key=lambda item: (item.domain, item.provider))
+    ready_count = sum(1 for item in results if item.ready)
+    return ProviderHealthResponse(
+        status="ok",
+        total=len(results),
+        ready=ready_count,
+        timeout_seconds=timeout_seconds,
+        results=results,
     )
 
 
@@ -574,6 +673,7 @@ async def model_health(api_key: str = Depends(get_api_key)):
 
 class V16ClassifierHealthResponse(BaseModel):
     """V16分类器健康状态"""
+
     status: str
     loaded: bool
     speed_mode: Optional[str] = None
@@ -592,6 +692,7 @@ class V16ClassifierHealthResponse(BaseModel):
 
 class V16CacheClearResponse(BaseModel):
     """V16缓存清除响应"""
+
     status: str
     cleared_entries: int = 0
     previous_hits: int = 0
@@ -601,11 +702,13 @@ class V16CacheClearResponse(BaseModel):
 
 class V16SpeedModeRequest(BaseModel):
     """V16速度模式切换请求"""
+
     speed_mode: str = Field(description="速度模式: accurate, balanced, fast, v6_only")
 
 
 class V16SpeedModeResponse(BaseModel):
     """V16速度模式切换响应"""
+
     status: str
     previous_mode: Optional[str] = None
     current_mode: Optional[str] = None
@@ -632,20 +735,28 @@ async def v16_classifier_health(api_key: str = Depends(get_api_key)):
         classifier = _get_v16_classifier()
 
         if classifier is None:
-            disabled = os.getenv("DISABLE_V16_CLASSIFIER", "").lower() in ("1", "true", "yes")
+            disabled = os.getenv("DISABLE_V16_CLASSIFIER", "").lower() in (
+                "1",
+                "true",
+                "yes",
+            )
             v16_classifier_loaded.set(0)
             return V16ClassifierHealthResponse(
                 status="disabled" if disabled else "unavailable",
                 loaded=False,
-                last_error="V16 classifier disabled by environment" if disabled else "Model files not found or load failed",
+                last_error=(
+                    "V16 classifier disabled by environment"
+                    if disabled
+                    else "Model files not found or load failed"
+                ),
             )
 
-        cache_hits = getattr(classifier, 'cache_hits', 0)
-        cache_misses = getattr(classifier, 'cache_misses', 0)
+        cache_hits = getattr(classifier, "cache_hits", 0)
+        cache_misses = getattr(classifier, "cache_misses", 0)
         total = cache_hits + cache_misses
         hit_ratio = cache_hits / total if total > 0 else None
-        current_cache_size = len(getattr(classifier, 'feature_cache', {}))
-        max_cache_size = getattr(classifier, 'cache_size', 0)
+        current_cache_size = len(getattr(classifier, "feature_cache", {}))
+        max_cache_size = getattr(classifier, "cache_size", 0)
 
         # Update Prometheus metrics
         v16_classifier_loaded.set(1)
@@ -655,6 +766,7 @@ async def v16_classifier_health(api_key: str = Depends(get_api_key)):
         dwg_available = False
         try:
             from src.core.cad.dwg.converter import DWGConverter
+
             converter = DWGConverter()
             dwg_available = converter.is_available
         except Exception:
@@ -663,17 +775,17 @@ async def v16_classifier_health(api_key: str = Depends(get_api_key)):
         return V16ClassifierHealthResponse(
             status="ok",
             loaded=True,
-            speed_mode=getattr(classifier, 'speed_mode', None),
-            cache_enabled=getattr(classifier, 'enable_cache', False),
+            speed_mode=getattr(classifier, "speed_mode", None),
+            cache_enabled=getattr(classifier, "enable_cache", False),
             cache_size=current_cache_size,
             cache_max_size=max_cache_size,
             cache_hits=cache_hits,
             cache_misses=cache_misses,
             cache_hit_ratio=round(hit_ratio, 4) if hit_ratio is not None else None,
-            v6_model_loaded=getattr(classifier, 'v6_model', None) is not None,
-            v14_model_loaded=getattr(classifier, 'v14_model', None) is not None,
+            v6_model_loaded=getattr(classifier, "v6_model", None) is not None,
+            v14_model_loaded=getattr(classifier, "v14_model", None) is not None,
             dwg_converter_available=dwg_available,
-            categories=getattr(classifier, 'categories', None),
+            categories=getattr(classifier, "categories", None),
         )
     except Exception as e:
         return V16ClassifierHealthResponse(
@@ -701,19 +813,19 @@ async def v16_classifier_cache_clear(
                 message="V16 classifier not loaded",
             )
 
-        prev_hits = getattr(classifier, 'cache_hits', 0)
-        prev_misses = getattr(classifier, 'cache_misses', 0)
-        cache_size = len(getattr(classifier, 'feature_cache', {}))
+        prev_hits = getattr(classifier, "cache_hits", 0)
+        prev_misses = getattr(classifier, "cache_misses", 0)
+        cache_size = len(getattr(classifier, "feature_cache", {}))
 
-        if hasattr(classifier, 'feature_cache'):
+        if hasattr(classifier, "feature_cache"):
             classifier.feature_cache.clear()
-        if hasattr(classifier, 'image_cache'):
+        if hasattr(classifier, "image_cache"):
             classifier.image_cache.clear()
-        if hasattr(classifier, 'cache_order'):
+        if hasattr(classifier, "cache_order"):
             classifier.cache_order.clear()
-        if hasattr(classifier, 'cache_hits'):
+        if hasattr(classifier, "cache_hits"):
             classifier.cache_hits = 0
-        if hasattr(classifier, 'cache_misses'):
+        if hasattr(classifier, "cache_misses"):
             classifier.cache_misses = 0
 
         return V16CacheClearResponse(
@@ -761,9 +873,10 @@ async def v16_classifier_speed_mode(
                 message="V16 classifier not loaded",
             )
 
-        previous_mode = getattr(classifier, 'speed_mode', None)
+        previous_mode = getattr(classifier, "speed_mode", None)
 
         from src.ml.part_classifier import SPEED_MODES
+
         if req.speed_mode not in SPEED_MODES:
             return V16SpeedModeResponse(
                 status="error",
@@ -815,7 +928,7 @@ async def v16_classifier_speed_mode_get(api_key: str = Depends(get_api_key)):
 
         return V16SpeedModeResponse(
             status="ok",
-            current_mode=getattr(classifier, 'speed_mode', None),
+            current_mode=getattr(classifier, "speed_mode", None),
             available_modes=available_modes,
         )
     except Exception as e:

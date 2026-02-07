@@ -3275,3 +3275,7 @@
   - Extended `src/core/providers/` with a classifier domain bridge (`classifier/hybrid`, `classifier/graph2d`, `classifier/graph2d_ensemble`) and lazy imports to keep `torch` optional.
   - Validation: provider unit suites passed; black/flake8 checks passed; targeted mypy passed for the new module.
   - Report: `reports/DEV_PROVIDER_FRAMEWORK_CLASSIFIER_BRIDGE_20260207.md`
+- **Provider Health Endpoint**:
+  - Added `GET /api/v1/providers/health` (alias: `/api/v1/health/providers/health`) to run best-effort, timeout-bounded checks over all registered core providers.
+  - Validation: `python3 -m pytest -q tests/unit/test_provider_health_endpoint.py` (passed).
+  - Report: `reports/DEV_PROVIDER_HEALTH_ENDPOINT_20260207.md`
