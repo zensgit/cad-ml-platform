@@ -61,6 +61,23 @@ def _collect_from_manifest(manifest: Path, dxf_dir: Path) -> List[Path]:
     return files
 
 
+def _sanitize_file_column(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Return a copy of rows with `file` column reduced to basename.
+
+    Batch results often contain absolute local paths; we keep a sanitized copy
+    suitable for committing into git.
+    """
+
+    sanitized: List[Dict[str, Any]] = []
+    for row in rows:
+        copied = dict(row)
+        raw = copied.get("file")
+        if isinstance(raw, str) and raw:
+            copied["file"] = Path(raw).name
+        sanitized.append(copied)
+    return sanitized
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Batch analyze DXF via local TestClient")
     parser.add_argument("--dxf-dir", required=True, help="DXF directory")
@@ -97,8 +114,21 @@ def main() -> None:
 
     out_dir = Path(args.output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / ".gitignore").write_text(
+        "\n".join(
+            [
+                # These include absolute local paths; keep untracked.
+                "batch_results.csv",
+                "batch_low_confidence.csv",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
     results_path = out_dir / "batch_results.csv"
+    results_sanitized_path = out_dir / "batch_results_sanitized.csv"
     low_conf_path = out_dir / "batch_low_confidence.csv"
+    low_conf_sanitized_path = out_dir / "batch_low_confidence_sanitized.csv"
     summary_path = out_dir / "summary.json"
     label_dist_path = out_dir / "label_distribution.csv"
 
@@ -214,6 +244,12 @@ def main() -> None:
         writer.writeheader()
         writer.writerows(rows)
 
+    sanitized_rows = _sanitize_file_column(rows)
+    with results_sanitized_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=sanitized_rows[0].keys())
+        writer.writeheader()
+        writer.writerows(sanitized_rows)
+
     low_conf = [
         r
         for r in rows
@@ -225,6 +261,11 @@ def main() -> None:
             writer = csv.DictWriter(handle, fieldnames=low_conf[0].keys())
             writer.writeheader()
             writer.writerows(low_conf)
+        sanitized_low_conf = _sanitize_file_column(low_conf)
+        with low_conf_sanitized_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=sanitized_low_conf[0].keys())
+            writer.writeheader()
+            writer.writerows(sanitized_low_conf)
 
     with label_dist_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=["label", "count", "share", "avg_confidence"])
@@ -251,7 +292,9 @@ def main() -> None:
     summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print(f"results: {results_path}")
+    print(f"results_sanitized: {results_sanitized_path}")
     print(f"low_conf: {low_conf_path if low_conf else 'none'}")
+    print(f"low_conf_sanitized: {low_conf_sanitized_path if low_conf else 'none'}")
     print(f"summary: {summary_path}")
     print(f"label_dist: {label_dist_path}")
 

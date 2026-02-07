@@ -36,9 +36,44 @@ _VERSION_SUFFIX_RE = re.compile(r"(?:[_\-\s]?[vV]\d+)$")
 # 比较文件前缀
 _COMPARE_PREFIX_RE = re.compile(r"^比较[_\-\s]*")
 
+# 常见规格后缀：文件名中常把尺寸/规格附在零件名后面，导致只能部分匹配。
+# 例如: "拖车DN1500"、"阀门PN16"、"螺栓M12"（仅在末尾出现时去除）。
+_SPEC_SUFFIX_RES = (
+    re.compile(r"(?:DN)\s*\d+(?:\.\d+)?$", re.IGNORECASE),
+    re.compile(r"(?:PN)\s*\d+(?:\.\d+)?$", re.IGNORECASE),
+    re.compile(r"(?:M)\s*\d+(?:x\d+(?:\.\d+)?)?$", re.IGNORECASE),
+)
+
 
 class FilenameClassifier:
     """基于文件名的零件分类器"""
+
+    @staticmethod
+    def _normalize_part_name(part_name: str) -> str:
+        """Normalize extracted part name for matching.
+
+        This is intentionally conservative: only strips common spec suffixes
+        (DN/PN/M...) when they appear at the very end, and avoids producing an
+        empty/too-short name.
+        """
+
+        original = part_name.strip()
+        if not original:
+            return original
+
+        name = original
+        # Apply repeatedly to handle concatenated suffixes (e.g. DN1500PN16).
+        for _ in range(3):
+            before = name
+            for spec_re in _SPEC_SUFFIX_RES:
+                name = spec_re.sub("", name).strip()
+            name = re.sub(r"[_\-\s]+$", "", name).strip()
+            if name == before:
+                break
+
+        if name and len(name) >= 2:
+            return name
+        return original
 
     def __init__(
         self,
@@ -191,6 +226,7 @@ class FilenameClassifier:
                 part_name = match.group(1).strip()
                 # 清理可能的数字前缀
                 part_name = re.sub(r"^[-\d]+", "", part_name).strip()
+                part_name = self._normalize_part_name(part_name)
                 if part_name and len(part_name) >= 2:
                     return part_name
 

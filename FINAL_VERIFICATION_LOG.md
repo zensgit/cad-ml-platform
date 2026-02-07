@@ -3251,3 +3251,7 @@
 - **DXF Batch Analyze (Local) Hybrid Evaluation**:
   - Ran local batch `/api/v1/analyze` over `110` DXF files (filename-driven Hybrid override), confirming drawing-type outputs no longer block final labels.
   - Report: `reports/DEV_DXF_BATCH_ANALYZE_LOCAL_HYBRID_20260207.md`
+- **Filename Classifier Spec Suffix Normalization**:
+  - Normalized extracted part names by stripping trailing spec suffixes (for example `DN####`) so filename labels reach exact-match confidence and remove remaining low-confidence overrides.
+  - Validation: targeted unit+integration suites passed; local DXF batch rerun (`110` files) achieved `low_confidence_count=0` and replaced `complex_assembly` leftovers with concrete labels (example: `拖车`).
+  - Report: `reports/DEV_FILENAME_CLASSIFIER_SPEC_SUFFIX_NORMALIZATION_20260207.md`
