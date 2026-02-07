@@ -1149,6 +1149,7 @@ async def analyze_cad_file(
                         "other",
                     }
                     current_part_type = str(cls_payload.get("part_type") or "").strip()
+                    current_is_drawing_type = _graph2d_is_drawing_type(current_part_type)
                     is_placeholder_rule = (
                         str(cls_payload.get("confidence_source") or "") == "rules"
                         and str(cls_payload.get("rule_version") or "") == "v1"
@@ -1174,6 +1175,11 @@ async def analyze_cad_file(
                         )
                     elif hybrid_auto_override and is_low_conf_base:
                         mode = "auto_low_conf"
+                        should_override = bool(hybrid_label) and (
+                            hybrid_conf >= hybrid_min_conf
+                        )
+                    elif hybrid_auto_override and current_is_drawing_type:
+                        mode = "auto_drawing_type"
                         should_override = bool(hybrid_label) and (
                             hybrid_conf >= hybrid_min_conf
                         )

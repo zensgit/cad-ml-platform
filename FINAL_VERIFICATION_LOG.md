@@ -3244,3 +3244,10 @@
   - Extended auto-override to cover low-confidence base classification results via `HYBRID_OVERRIDE_BASE_MAX_CONF` (default `0.7`), using `mode=auto_low_conf`.
   - Validation: focused integration suite passed (`2 passed`).
   - Report: `reports/DEV_ANALYZE_DXF_HYBRID_LOW_CONF_OVERRIDE_20260207.md`
+- **Analyze DXF Hybrid Drawing-Type Override**:
+  - Extended auto-override to apply when the current `part_type` is a drawing-type label (for example `机械制图`), using `mode=auto_drawing_type`.
+  - Validation: focused integration suite passed (`3 passed`).
+  - Report: `reports/DEV_ANALYZE_DXF_HYBRID_DRAWING_TYPE_OVERRIDE_20260207.md`
+- **DXF Batch Analyze (Local) Hybrid Evaluation**:
+  - Ran local batch `/api/v1/analyze` over `110` DXF files (filename-driven Hybrid override), confirming drawing-type outputs no longer block final labels.
+  - Report: `reports/DEV_DXF_BATCH_ANALYZE_LOCAL_HYBRID_20260207.md`
