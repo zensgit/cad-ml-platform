@@ -3287,3 +3287,6 @@
   - Added Prometheus counters for `/api/v1/analyze/batch-classify` request outcomes (`success|partial|failed`) and per-file results (`success|failed`).
   - Validation: `python3 -m pytest -q tests/unit/test_v16_classifier_endpoints.py::TestBatchClassifyEndpoint` (passed).
   - Report: `reports/DEV_V16_BATCH_CLASSIFY_METRICS_20260207.md`
+- **Provider Framework Docs**:
+  - Added a concise provider framework guide for adding new providers and operating core provider health/registry endpoints.
+  - Report: `reports/DEV_PROVIDER_FRAMEWORK_DOCS_20260207.md`
