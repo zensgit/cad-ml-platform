@@ -59,6 +59,24 @@ Classifier cache stats are available at `GET /api/v1/health/classifier/cache` (a
     "debug": {
       "debug_mode": true|false,
       "log_level": "INFO|DEBUG|WARNING|ERROR"
+    },
+    "ml": {
+      "classification": {
+        "hybrid_enabled": true|false,
+        "hybrid_version": "1.1.0",
+        "hybrid_config_path": "config/hybrid_classifier.yaml",
+        "graph2d_model_path": "models/graph2d_parts_upsampled_20260122.pth",
+        "filename_enabled": true|false,
+        "graph2d_enabled": true|false,
+        "titleblock_enabled": true|false,
+        "process_enabled": true|false
+      },
+      "sampling": {
+        "max_nodes": 200,
+        "strategy": "importance|random|hybrid",
+        "seed": 42,
+        "text_priority_ratio": 0.3
+      }
     }
   }
 }
@@ -99,6 +117,13 @@ Classifier cache stats are available at `GET /api/v1/health/classifier/cache` (a
 ### Debug Information
 - **debug_mode**: Whether debug mode is active
 - **log_level**: Current logging level
+
+### ML Configuration
+- **classification.hybrid_enabled**: Hybrid classifier master switch
+- **classification.*_enabled**: Per-branch switches (filename/graph2d/titleblock/process)
+- **classification.hybrid_config_path**: Active runtime config path
+- **classification.graph2d_model_path**: Active Graph2D checkpoint path
+- **sampling**: Effective DXF graph sampling parameters used in runtime
 
 ## Use Cases
 
@@ -153,6 +178,12 @@ def check_config_drift(expected_config):
 curl -H "X-Admin-Token: $ADMIN_TOKEN" http://localhost:8000/api/v1/health/classifier/cache
 ```
 Returns cache size, hit ratio, and hit/miss counts for the classifier API cache.
+
+### 6. Hybrid Config Runtime Inspection
+```bash
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/api/v1/health/ml/hybrid-config
+```
+Returns full effective hybrid classifier config (after file/env merge).
 
 ## Benefits
 

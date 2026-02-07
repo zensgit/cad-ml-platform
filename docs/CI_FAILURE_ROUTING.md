@@ -4,6 +4,28 @@
 
 This guide documents how CI failures are automatically routed to the appropriate teams based on exit codes from our evaluation and security scripts.
 
+## Test Failure Routing (Tiered Jobs)
+
+The project also routes failures by test tier in `.github/workflows/ci-tiered-tests.yml`.
+
+### Tier Mapping
+
+| Job | Primary Scope | Typical Owner | First Checks |
+|-----|----------------|---------------|--------------|
+| `unit-tier` | `tests/unit` | Core backend/dev team | Recent code changes, module imports, async lock/lifecycle behavior |
+| `contract-local` | `tests/contract` | API/backend team | Local API boot logs, OpenAPI/response shape changes, `/health` payload |
+| `e2e-local` | `tests/e2e` | API + platform team | Playwright install, optional route availability, local API readiness |
+
+### Fast Triage Procedure
+
+1. Identify the failing tier first (unit, contract-local, e2e-local).
+2. Download the `*-local-api-log` artifact for API-backed tiers.
+3. Reproduce with the same command locally:
+   - `bash scripts/test_with_local_api.sh --suite unit`
+   - `bash scripts/test_with_local_api.sh --suite contract`
+   - `bash scripts/test_with_local_api.sh --suite e2e`
+4. If the failure is route availability related under `/api/v2/*`, verify whether the endpoint is optional in the current deployment profile.
+
 ## Security Audit Exit Codes
 
 The `scripts/security_audit.py` script returns specific exit codes for different security issue types, enabling precise CI/CD control and team routing.
