@@ -3220,3 +3220,8 @@
   - Exposed core provider registry in `/health` payload (`config.core_providers`) and new APIs: `/api/v1/providers/registry`, `/api/v1/health/providers/registry`.
   - Validation: provider/health/main targeted suite passed (`44 passed`), Black and Flake8 checks passed.
   - Report: `reports/DEV_PROVIDER_FRAMEWORK_OCR_BOOTSTRAP_HEALTH_20260207.md`
+- **OCR Manager ProviderRegistry Wiring**:
+  - Updated OCR API manager and analyze optional OCR path to construct providers via `ProviderRegistry` (with startup bootstrap).
+  - Extended `OcrProviderAdapter` with `warmup()` + `extract()` compatibility so it can be used as an `OcrClient`.
+  - Validation: focused provider+OCR endpoint suite passed (`29 passed`), Black/Flake8 checks passed.
+  - Report: `reports/DEV_OCR_MANAGER_PROVIDER_REGISTRY_WIRING_20260207.md`

@@ -68,6 +68,20 @@ class OcrProviderAdapter(BaseProvider[OcrProviderConfig, OcrResult]):
             return bool(result)
         return True
 
+    async def warmup(self) -> None:
+        """Compatibility method to satisfy ``OcrClient`` usage."""
+        maybe_warmup = getattr(self._wrapped_provider, "warmup", None)
+        if callable(maybe_warmup):
+            result = maybe_warmup()
+            if inspect.isawaitable(result):
+                await result
+
+    async def extract(
+        self, image_bytes: bytes, trace_id: Optional[str] = None
+    ) -> OcrResult:
+        """Compatibility method to satisfy ``OcrClient`` usage."""
+        return await self.process(image_bytes, trace_id=trace_id)
+
 
 def bootstrap_core_ocr_providers() -> None:
     """Register built-in OCR providers in ``ProviderRegistry``."""

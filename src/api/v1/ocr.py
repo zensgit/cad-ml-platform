@@ -16,8 +16,7 @@ from src.core.assembly.confidence_calibrator import ConfidenceCalibrationSystem
 from src.core.errors import ErrorCode
 from src.core.ocr.exceptions import OcrError
 from src.core.ocr.manager import OcrManager
-from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
-from src.core.ocr.providers.paddle import PaddleOcrProvider
+from src.core.providers import ProviderRegistry, bootstrap_core_provider_registry
 from src.middleware.rate_limit import rate_limit
 from src.security.input_validator import validate_and_read, validate_bytes
 from src.utils.idempotency import check_idempotency, store_idempotency
@@ -34,14 +33,18 @@ _calibrator = ConfidenceCalibrationSystem(method="isotonic")
 def get_manager() -> OcrManager:
     global _manager
     if _manager is None:
+        bootstrap_core_provider_registry()
         _manager = OcrManager(confidence_fallback=0.85)
-        _manager.register_provider("paddle", PaddleOcrProvider())
-        _manager.register_provider("deepseek_hf", DeepSeekHfProvider())
+        _manager.register_provider("paddle", ProviderRegistry.get("ocr", "paddle"))
+        _manager.register_provider(
+            "deepseek_hf", ProviderRegistry.get("ocr", "deepseek_hf")
+        )
     return _manager
 
 
 class MaterialInfoBrief(BaseModel):
     """材料信息简要"""
+
     found: bool = Field(..., description="是否在数据库中找到")
     grade: Optional[str] = Field(None, description="标准牌号")
     name: Optional[str] = Field(None, description="材料名称")
@@ -184,7 +187,9 @@ def _strip_base64_prefix(payload: str) -> str:
     return cleaned
 
 
-async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> OcrResponse:
+async def _run_ocr_extract(
+    image_bytes: bytes, provider: str, trace_id: str
+) -> OcrResponse:
     manager = get_manager()
     try:
         result = await manager.extract(
@@ -207,7 +212,9 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
             process_requirements=None,
             process_route=None,
             error=str(oe),
-            code=oe.code if isinstance(oe.code, ErrorCode) else ErrorCode.INTERNAL_ERROR,
+            code=(
+                oe.code if isinstance(oe.code, ErrorCode) else ErrorCode.INTERNAL_ERROR
+            ),
         )
     except Exception:  # unknown internal error
         from src.utils.metrics import ocr_errors_total
@@ -249,7 +256,9 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
             "fallback_level": result.fallback_level,
             "image_hash": result.image_hash,
             "completeness": result.completeness,
-            "calibrated_confidence": (result.calibrated_confidence or result.confidence),
+            "calibrated_confidence": (
+                result.calibrated_confidence or result.confidence
+            ),
             "trace_id": trace_id,
             "extraction_mode": result.extraction_mode,
             "dimensions_count": len(result.dimensions),
@@ -266,6 +275,7 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
     if material:
         try:
             from src.core.materials import classify_material_detailed
+
             info = classify_material_detailed(material)
             if info:
                 material_info = MaterialInfoBrief(
@@ -280,12 +290,17 @@ async def _run_ocr_extract(image_bytes: bytes, provider: str, trace_id: str) -> 
             else:
                 material_info = MaterialInfoBrief(found=False)
         except Exception as e:
-            logger.warning("material_info.classification_failed", extra={"error": str(e)})
+            logger.warning(
+                "material_info.classification_failed", extra={"error": str(e)}
+            )
 
     if result.process_requirements:
         try:
             from src.core.process import generate_process_route
-            route = generate_process_route(result.process_requirements, material=material)
+
+            route = generate_process_route(
+                result.process_requirements, material=material
+            )
             process_route = route.to_dict()
         except Exception as e:
             logger.warning("process_route.generation_failed", extra={"error": str(e)})
@@ -473,11 +488,15 @@ async def ocr_extract_base64(
 async def list_ocr_providers() -> OcrProvidersResponse:
     manager = get_manager()
     providers = list_provider_names(manager)
-    return OcrProvidersResponse(providers=providers, default=get_default_provider_name(manager))
+    return OcrProvidersResponse(
+        providers=providers, default=get_default_provider_name(manager)
+    )
 
 
 @router.get("/health", response_model=OcrHealthResponse)
 async def ocr_health() -> OcrHealthResponse:
     manager = get_manager()
     statuses = await collect_provider_statuses(manager)
-    return OcrHealthResponse(status=summarize_provider_health(statuses), providers=statuses)
+    return OcrHealthResponse(
+        status=summarize_provider_health(statuses), providers=statuses
+    )
