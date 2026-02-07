@@ -29,8 +29,18 @@ from pathlib import Path
 from typing import Any, Deque, Dict, List, Optional, Tuple, Union
 
 import numpy as np
-import torch
-import torch.nn as nn
+try:
+    import torch  # type: ignore
+    import torch.nn as nn  # type: ignore
+except Exception:  # pragma: no cover - torch is optional in this repo
+    torch = None  # type: ignore
+
+    class _NNStub:  # noqa: D401 - simple stub
+        """Minimal stub so the module remains importable without torch."""
+
+        Module = object
+
+    nn = _NNStub()  # type: ignore
 from fastapi import Depends, FastAPI, File, Request, UploadFile, HTTPException
 from pydantic import BaseModel, ConfigDict
 
@@ -52,7 +62,30 @@ logger = logging.getLogger(__name__)
 
 # 常量
 MODEL_DIR = Path(__file__).parent.parent.parent / "models"
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu")
+TORCH_AVAILABLE = torch is not None
+
+
+class _FallbackDevice:
+    type = "cpu"
+
+    def __str__(self) -> str:
+        return "cpu"
+
+    def __repr__(self) -> str:
+        return "cpu"
+
+
+DEVICE = (
+    torch.device(
+        "cuda"
+        if torch.cuda.is_available()
+        else "mps"
+        if torch.backends.mps.is_available()
+        else "cpu"
+    )
+    if TORCH_AVAILABLE
+    else _FallbackDevice()
+)
 IMG_SIZE = 128
 
 # 类别映射 - 必须与训练时的labels.json一致
@@ -548,6 +581,11 @@ class V16Classifier:
             use_half: 是否使用FP16半精度（减少约50%内存）
                       默认: CUDA/MPS设备自动启用
         """
+        if not TORCH_AVAILABLE:
+            raise ModuleNotFoundError(
+                "torch is required for V16Classifier inference. "
+                "Install torch or run tests with mocked classifier.load/predict."
+            )
         if self.loaded:
             return
 
@@ -604,6 +642,11 @@ class V16Classifier:
 
     def predict(self, dxf_path: str) -> Dict[str, Any]:
         """预测单个DXF文件"""
+        if not TORCH_AVAILABLE:
+            raise ModuleNotFoundError(
+                "torch is required for V16Classifier inference. "
+                "Install torch to enable /classify endpoints."
+            )
         if not self.loaded:
             self.load()
 
@@ -653,6 +696,9 @@ class V16Classifier:
 
 def _warmup_model() -> None:
     """预热模型 - 执行一次空推理预热GPU/CPU缓存"""
+    if not TORCH_AVAILABLE:
+        logger.info("torch not available; skip model warmup")
+        return
     try:
         # 创建虚拟输入
         dummy_geo = np.zeros(48, dtype=np.float32)
@@ -677,8 +723,9 @@ def _warmup_model() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI lifespan handler for model warmup."""
-    classifier.load()
-    _warmup_model()
+    if TORCH_AVAILABLE:
+        classifier.load()
+        _warmup_model()
     yield
     # 关闭线程池
     _executor.shutdown(wait=False)

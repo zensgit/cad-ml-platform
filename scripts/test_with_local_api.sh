@@ -7,7 +7,7 @@ API_KEY_VALUE="${API_KEY:-test-api-key}"
 WAIT_SECONDS=60
 LOG_PATH="/tmp/cad_ml_uvicorn.log"
 PYTHON_BIN="${PYTHON_BIN:-}"
-PYTEST_BIN="${PYTEST_BIN:-pytest}"
+PYTEST_BIN="${PYTEST_BIN:-}"
 SERVER_PID=""
 STARTED_LOCAL_API=0
 
@@ -25,7 +25,7 @@ Options:
     --wait SEC          Backward-compatible alias for --wait-seconds
     --log-path PATH     Uvicorn log output path (default: /tmp/cad_ml_uvicorn.log)
     --python-bin PATH   Python executable used for local uvicorn startup
-    --pytest-bin CMD    Pytest command (default: pytest)
+    --pytest-bin CMD    Pytest command (default: .venv/bin/pytest if present, else pytest)
     --help              Show this help message
 
 Examples:
@@ -46,6 +46,20 @@ default_python_bin() {
         PYTHON_BIN="$(command -v python3)"
     else
         PYTHON_BIN="python"
+    fi
+}
+
+default_pytest_bin() {
+    if [[ -n "${PYTEST_BIN}" ]]; then
+        return
+    fi
+    # Prefer venv pytest so tests run with the same dependency set as the app.
+    if [[ -x ".venv/bin/pytest" ]]; then
+        PYTEST_BIN=".venv/bin/pytest"
+    elif command -v pytest >/dev/null 2>&1; then
+        PYTEST_BIN="$(command -v pytest)"
+    else
+        PYTEST_BIN="pytest"
     fi
 }
 
@@ -141,6 +155,7 @@ if [[ ! "${WAIT_SECONDS}" =~ ^[0-9]+$ ]]; then
     echo "ERROR: --wait-seconds must be a positive integer"
     exit 1
 fi
+default_pytest_bin
 
 trap cleanup EXIT
 

@@ -3230,3 +3230,8 @@
   - Normalized OCR strategy aliases (`deepseek` -> `deepseek_hf`) and case-folding in `OcrManager` to prevent avoidable provider-down errors.
   - Validation: focused Vision/OCR unit suite passed (`45 passed`), Black/Flake8 checks passed.
   - Report: `reports/DEV_VISION_OCR_PROVIDER_REGISTRY_WIRING_20260207.md`
+- **Classifier API Torch Optional + Venv Pytest Runner Default**:
+  - Made `src/inference/classifier_api.py` importable without `torch` (torch is optional) by gating warmup/startup and adding safe fallbacks.
+  - Updated `scripts/test_with_local_api.sh` to prefer `.venv/bin/pytest` by default to avoid dependency mismatches with global Python.
+  - Validation: `.venv/bin/pytest -q tests/unit` (`6993 passed, 26 skipped`); `.venv/bin/pytest -q tests/integration` (`88 passed, 10 skipped`).
+  - Report: `reports/DEV_CLASSIFIER_API_TORCH_OPTIONAL_AND_VENV_PYTEST_RUNNER_20260207.md`
