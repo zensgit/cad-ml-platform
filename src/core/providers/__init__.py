@@ -23,6 +23,13 @@ from src.core.providers.bootstrap import (
     bootstrap_core_provider_registry,
     get_core_provider_registry_snapshot,
 )
+from src.core.providers.classifier import (
+    ClassifierProviderConfig,
+    ClassifierRequest,
+    Graph2DClassifierProviderAdapter,
+    HybridClassifierProviderAdapter,
+    bootstrap_core_classifier_providers,
+)
 from src.core.providers.ocr import (
     OcrProviderAdapter,
     OcrProviderConfig,
@@ -40,6 +47,11 @@ __all__ = [
     "ProviderConfig",
     "ProviderStatus",
     "ProviderRegistry",
+    "ClassifierProviderConfig",
+    "ClassifierRequest",
+    "HybridClassifierProviderAdapter",
+    "Graph2DClassifierProviderAdapter",
+    "bootstrap_core_classifier_providers",
     "OcrProviderConfig",
     "OcrProviderAdapter",
     "bootstrap_core_ocr_providers",

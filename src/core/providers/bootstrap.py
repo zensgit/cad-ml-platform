@@ -8,6 +8,7 @@ from typing import Any, Dict
 from src.core.providers.ocr import bootstrap_core_ocr_providers
 from src.core.providers.registry import ProviderRegistry
 from src.core.providers.vision import bootstrap_core_vision_providers
+from src.core.providers.classifier import bootstrap_core_classifier_providers
 
 _BOOTSTRAPPED = False
 _BOOTSTRAP_TS: float | None = None
@@ -33,6 +34,7 @@ def bootstrap_core_provider_registry() -> Dict[str, Any]:
 
     bootstrap_core_vision_providers()
     bootstrap_core_ocr_providers()
+    bootstrap_core_classifier_providers()
 
     if not _BOOTSTRAPPED:
         _BOOTSTRAPPED = True

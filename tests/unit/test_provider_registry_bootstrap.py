@@ -14,10 +14,14 @@ def test_bootstrap_registers_core_domains_and_providers() -> None:
     assert snapshot["bootstrapped"] is True
     assert "vision" in snapshot["domains"]
     assert "ocr" in snapshot["domains"]
+    assert "classifier" in snapshot["domains"]
     assert "stub" in snapshot["providers"]["vision"]
     assert "deepseek_stub" in snapshot["providers"]["vision"]
     assert "paddle" in snapshot["providers"]["ocr"]
     assert "deepseek_hf" in snapshot["providers"]["ocr"]
+    assert "hybrid" in snapshot["providers"]["classifier"]
+    assert "graph2d" in snapshot["providers"]["classifier"]
+    assert "graph2d_ensemble" in snapshot["providers"]["classifier"]
 
 
 def test_bootstrap_is_idempotent() -> None:

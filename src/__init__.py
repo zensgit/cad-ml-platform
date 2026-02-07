@@ -5,7 +5,7 @@ from __future__ import annotations
 from importlib import import_module
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> object:
     """Lazily import subpackages to support mock patching in tests."""
     try:
         module = import_module(f"{__name__}.{name}")

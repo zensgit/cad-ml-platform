@@ -3271,3 +3271,7 @@
   - Added `/api/v1/tolerance/*` endpoints for IT tolerance, limit deviations, and fit deviation queries.
   - Validation: `pytest -q tests/integration/test_tolerance_api.py` (`3 passed`).
   - Report: `reports/DEV_TOLERANCE_API_20260207.md`
+- **Provider Framework Classifier Bridge**:
+  - Extended `src/core/providers/` with a classifier domain bridge (`classifier/hybrid`, `classifier/graph2d`, `classifier/graph2d_ensemble`) and lazy imports to keep `torch` optional.
+  - Validation: provider unit suites passed; black/flake8 checks passed; targeted mypy passed for the new module.
+  - Report: `reports/DEV_PROVIDER_FRAMEWORK_CLASSIFIER_BRIDGE_20260207.md`

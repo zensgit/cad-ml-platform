@@ -76,7 +76,7 @@ def read_dxf_document_from_bytes(data: bytes) -> Any:
     if not data:
         raise ValueError("DXF bytes cannot be empty")
 
-    import ezdxf  # type: ignore
+    import ezdxf
 
     encoding = guess_dxf_encoding(data)
     with io.TextIOWrapper(
@@ -93,4 +93,3 @@ def read_dxf_entities_from_bytes(data: bytes) -> List[Any]:
 
     doc = read_dxf_document_from_bytes(data)
     return list(doc.modelspace())
-
