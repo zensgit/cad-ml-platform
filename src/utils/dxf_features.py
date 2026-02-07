@@ -14,13 +14,27 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def extract_features_v6(dxf_path: str, *, log: Optional[logging.Logger] = None) -> Optional["NDArray[np.float32]"]:
-    """Extract the 48-dim DXF feature vector used by V6/V14/V16 models."""
+def extract_features_v6(
+    dxf_path: str,
+    *,
+    log: Optional[logging.Logger] = None,
+    ezdxf_doc: Optional[Any] = None,
+) -> Optional["NDArray[np.float32]"]:
+    """Extract the 48-dim DXF feature vector used by V6/V14/V16 models.
+
+    Args:
+        dxf_path: Path to DXF file
+        log: Optional logger instance
+        ezdxf_doc: Pre-loaded ezdxf document to avoid re-reading the file
+    """
     active_logger = log or logger
     try:
         import ezdxf
 
-        doc = ezdxf.readfile(dxf_path)
+        if ezdxf_doc is not None:
+            doc = ezdxf_doc
+        else:
+            doc = ezdxf.readfile(dxf_path)
         msp = doc.modelspace()
 
         entity_types = []

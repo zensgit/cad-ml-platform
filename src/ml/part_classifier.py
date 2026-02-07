@@ -475,7 +475,7 @@ class _FusionModelV14(nn.Module):
 
 
 class PartClassifierV16:
-    """V16超级集成分类器 (99.88%准确率)
+    """V16超级集成分类器 (99.65%准确率)
 
     结合V6纯几何模型和V14视觉+几何融合集成模型
 
@@ -483,6 +483,7 @@ class PartClassifierV16:
     - 置信度阈值机制：低于阈值时标记为"需人工审核"
     - Top-2预测：返回前两个最可能的类别供参考
     - 边界案例识别：特定零件类型可能存在分类歧义
+    - 快速模式：可选择性跳过V14视觉分支以提高推理速度
     """
 
     # 类别映射 - 必须与训练时的labels.json一致
@@ -500,7 +501,16 @@ class PartClassifierV16:
         ("壳体类", "其他"),  # 如端盖、法兰
     ]
 
-    def __init__(self, model_dir: str = "models", confidence_threshold: float = None):
+    # 速度模式配置
+    SPEED_MODES = {
+        "accurate": {"v14_folds": 5, "use_fast_render": False},  # 完整精度 ~230ms
+        "balanced": {"v14_folds": 3, "use_fast_render": True},   # 平衡模式 ~150ms
+        "fast": {"v14_folds": 1, "use_fast_render": True},       # 快速模式 ~100ms
+        "v6_only": {"v14_folds": 0, "use_fast_render": False},   # 仅V6 ~50ms (99.34%准确率)
+    }
+
+    def __init__(self, model_dir: str = "models", confidence_threshold: float = None,
+                 speed_mode: str = "accurate"):
         self.model_dir = Path(model_dir)
         self.device = torch.device("cuda" if torch.cuda.is_available() else
                                    "mps" if torch.backends.mps.is_available() else "cpu")
@@ -508,11 +518,16 @@ class PartClassifierV16:
         self.v14_models = []
         self.v6_mean = None
         self.v6_std = None
-        self.v6_weight = 0.6
-        self.v14_weight = 0.4
+        self.v6_weight = 0.3  # 更新为优化后的权重
+        self.v14_weight = 0.7
         self.loaded = False
         # 允许自定义置信度阈值
         self.confidence_threshold = confidence_threshold or self.CONFIDENCE_THRESHOLD
+        # 速度模式
+        if speed_mode not in self.SPEED_MODES:
+            raise ValueError(f"无效速度模式: {speed_mode}，可选: {list(self.SPEED_MODES.keys())}")
+        self.speed_mode = speed_mode
+        self._speed_config = self.SPEED_MODES[speed_mode]
 
     def _load_models(self):
         """加载V6和V14模型"""
@@ -583,9 +598,9 @@ class PartClassifierV16:
         self.loaded = True
         logger.info(f"V16模型加载完成，设备: {self.device}")
 
-    def _extract_features(self, dxf_path: str) -> Optional[np.ndarray]:
+    def _extract_features(self, dxf_path: str, ezdxf_doc=None) -> Optional[np.ndarray]:
         """提取48维几何特征（与V6训练时一致）"""
-        return extract_features_v6(dxf_path, log=logger)
+        return extract_features_v6(dxf_path, log=logger, ezdxf_doc=ezdxf_doc)
 
     def _check_needs_review(self, top1_cat: str, top1_conf: float,
                             top2_cat: str, top2_conf: float) -> tuple:
@@ -616,7 +631,137 @@ class PartClassifierV16:
             return True, "; ".join(reasons)
         return False, None
 
-    def _render_dxf(self, dxf_path: str) -> Optional[np.ndarray]:
+    def _render_dxf(self, dxf_path: str, ezdxf_doc=None) -> Optional[np.ndarray]:
+        """渲染DXF为灰度图 (根据速度配置选择渲染方式)"""
+        if self._speed_config["use_fast_render"]:
+            return self._render_dxf_fast(dxf_path, ezdxf_doc)
+        # accurate模式尝试matplotlib，失败则回退到PIL
+        result = self._render_dxf_matplotlib(dxf_path)
+        if result is None:
+            return self._render_dxf_fast(dxf_path, ezdxf_doc)
+        return result
+
+    def _render_dxf_fast(self, dxf_path: str, ezdxf_doc=None) -> Optional[np.ndarray]:
+        """快速PIL渲染 (~35ms vs matplotlib的~55ms)
+
+        Args:
+            dxf_path: DXF文件路径
+            ezdxf_doc: 可选的预加载ezdxf文档对象，避免重复读取
+        """
+        try:
+            import ezdxf
+            from PIL import Image, ImageDraw
+
+            if ezdxf_doc is not None:
+                doc = ezdxf_doc
+            else:
+                doc = ezdxf.readfile(dxf_path)
+            msp = doc.modelspace()
+
+            all_x, all_y = [], []
+            entities_data = []
+
+            for entity in msp:
+                try:
+                    etype = entity.dxftype()
+                    if etype == "LINE":
+                        x1, y1 = entity.dxf.start.x, entity.dxf.start.y
+                        x2, y2 = entity.dxf.end.x, entity.dxf.end.y
+                        entities_data.append(("LINE", (x1, y1, x2, y2)))
+                        all_x.extend([x1, x2])
+                        all_y.extend([y1, y2])
+                    elif etype == "CIRCLE":
+                        cx, cy = entity.dxf.center.x, entity.dxf.center.y
+                        r = entity.dxf.radius
+                        entities_data.append(("CIRCLE", (cx, cy, r)))
+                        all_x.extend([cx - r, cx + r])
+                        all_y.extend([cy - r, cy + r])
+                    elif etype == "ARC":
+                        cx, cy = entity.dxf.center.x, entity.dxf.center.y
+                        r = entity.dxf.radius
+                        start_angle = entity.dxf.start_angle
+                        end_angle = entity.dxf.end_angle
+                        entities_data.append(("ARC", (cx, cy, r, start_angle, end_angle)))
+                        all_x.extend([cx - r, cx + r])
+                        all_y.extend([cy - r, cy + r])
+                    elif etype in ["LWPOLYLINE", "POLYLINE"]:
+                        if hasattr(entity, 'get_points'):
+                            pts = list(entity.get_points())
+                            if len(pts) >= 2:
+                                entities_data.append(("POLYLINE", pts))
+                                for p in pts:
+                                    all_x.append(p[0])
+                                    all_y.append(p[1])
+                except Exception:
+                    pass
+
+            if not all_x or not all_y:
+                return None
+
+            # 计算边界和缩放
+            margin = 0.1
+            x_min, x_max = min(all_x), max(all_x)
+            y_min, y_max = min(all_y), max(all_y)
+            x_range = max(x_max - x_min, 1e-6)
+            y_range = max(y_max - y_min, 1e-6)
+
+            # 扩展边界
+            x_min -= margin * x_range
+            x_max += margin * x_range
+            y_min -= margin * y_range
+            y_max += margin * y_range
+            x_range = x_max - x_min
+            y_range = y_max - y_min
+
+            # 保持宽高比
+            if x_range > y_range:
+                scale = self.IMG_SIZE / x_range
+                offset_y = (self.IMG_SIZE - y_range * scale) / 2
+                offset_x = 0
+            else:
+                scale = self.IMG_SIZE / y_range
+                offset_x = (self.IMG_SIZE - x_range * scale) / 2
+                offset_y = 0
+
+            def transform(x, y):
+                px = (x - x_min) * scale + offset_x
+                py = self.IMG_SIZE - ((y - y_min) * scale + offset_y)  # 翻转Y轴
+                return px, py
+
+            # 创建图像
+            img = Image.new('L', (self.IMG_SIZE, self.IMG_SIZE), color=255)
+            draw = ImageDraw.Draw(img)
+
+            for etype, data in entities_data:
+                if etype == "LINE":
+                    x1, y1, x2, y2 = data
+                    p1 = transform(x1, y1)
+                    p2 = transform(x2, y2)
+                    draw.line([p1, p2], fill=0, width=1)
+                elif etype == "CIRCLE":
+                    cx, cy, r = data
+                    # PIL椭圆需要bbox
+                    p1 = transform(cx - r, cy + r)
+                    p2 = transform(cx + r, cy - r)
+                    draw.ellipse([p1, p2], outline=0, width=1)
+                elif etype == "ARC":
+                    cx, cy, r, start, end = data
+                    p1 = transform(cx - r, cy + r)
+                    p2 = transform(cx + r, cy - r)
+                    # PIL arc 角度是逆时针从3点钟方向
+                    draw.arc([p1, p2], start=-end, end=-start, fill=0, width=1)
+                elif etype == "POLYLINE":
+                    pts = [transform(p[0], p[1]) for p in data]
+                    if len(pts) >= 2:
+                        draw.line(pts, fill=0, width=1)
+
+            return np.array(img, dtype=np.float32) / 255.0
+
+        except Exception as e:
+            logger.error(f"快速渲染失败: {e}")
+            return None
+
+    def _render_dxf_matplotlib(self, dxf_path: str) -> Optional[np.ndarray]:
         """渲染DXF为灰度图"""
         try:
             import ezdxf
@@ -706,13 +851,25 @@ class PartClassifierV16:
         """
         self._load_models()
 
-        features = self._extract_features(dxf_path)
+        # 一次性读取DXF文件，避免重复I/O
+        try:
+            import ezdxf
+            ezdxf_doc = ezdxf.readfile(dxf_path)
+        except Exception as e:
+            logger.error(f"读取DXF文件失败: {e}")
+            return None
+
+        features = self._extract_features(dxf_path, ezdxf_doc=ezdxf_doc)
         if features is None:
             return None
 
-        # V6预测 (使用原始特征，因为训练时未保存标准化参数)
-        if self.v14_models:
-            img = self._render_dxf(dxf_path)
+        # 获取速度配置
+        v14_folds = self._speed_config["v14_folds"]
+        use_v14 = v14_folds > 0 and self.v14_models
+
+        # V14需要图像渲染 (复用ezdxf_doc)
+        if use_v14:
+            img = self._render_dxf(dxf_path, ezdxf_doc=ezdxf_doc)
             if img is None:
                 img = np.zeros((self.IMG_SIZE, self.IMG_SIZE), dtype=np.float32)
         else:
@@ -722,12 +879,14 @@ class PartClassifierV16:
             x_v6 = torch.FloatTensor(features).unsqueeze(0).to(self.device)
             v6_probs = torch.softmax(self.v6_model(x_v6), dim=1)
 
-            if self.v14_models:
+            if use_v14:
                 x_geo = torch.FloatTensor(features).unsqueeze(0).to(self.device)
                 x_img = torch.FloatTensor(img).unsqueeze(0).unsqueeze(0).to(self.device)
 
+                # 根据速度模式选择使用的V14折叠数量
+                models_to_use = self.v14_models[:v14_folds]
                 v14_probs_list = []
-                for model in self.v14_models:
+                for model in models_to_use:
                     probs = torch.softmax(model(x_img, x_geo), dim=1)
                     v14_probs_list.append(probs)
                 v14_probs = torch.mean(torch.stack(v14_probs_list), dim=0)
@@ -735,6 +894,7 @@ class PartClassifierV16:
                 # 融合
                 final_probs = self.v6_weight * v6_probs + self.v14_weight * v14_probs
             else:
+                # v6_only 模式
                 final_probs = v6_probs
 
         # 获取top-2预测
@@ -759,11 +919,14 @@ class PartClassifierV16:
             for i in range(len(self.CATEGORIES))
         }
 
+        # 根据速度模式设置版本标识
+        version = f"v16_{self.speed_mode}" if self.speed_mode != "accurate" else "v16"
+
         return ClassificationResult(
             category=top1_cat,
             confidence=float(top1_conf),
             probabilities=probabilities,
-            model_version="v16",
+            model_version=version,
             needs_review=needs_review,
             review_reason=review_reason,
             top2_category=top2_cat,
