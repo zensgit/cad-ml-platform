@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import random
+import statistics
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -220,6 +221,7 @@ def main() -> None:
             "hybrid_path": ";".join(hybrid_decision.get("decision_path", []) or []),
             "titleblock_label": titleblock_pred.get("label"),
             "titleblock_confidence": titleblock_pred.get("confidence"),
+            "titleblock_status": titleblock_pred.get("status"),
             "titleblock_part_name": (
                 titleblock_pred.get("title_block_info", {}) or {}
             ).get("part_name"),
@@ -246,6 +248,8 @@ def main() -> None:
         stats["success"] += 1
         if soft_override.get("eligible"):
             stats["soft_override_candidates"] += 1
+
+    ok_rows = [r for r in rows if r.get("status") == "ok"]
 
     with results_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
@@ -287,6 +291,55 @@ def main() -> None:
                 "avg_confidence": f"{avg_conf:.3f}",
             })
 
+    titleblock_status_counts: Counter[str] = Counter()
+    titleblock_conf_all: List[float] = []
+    titleblock_conf_nonzero: List[float] = []
+    titleblock_texts_present = 0
+    titleblock_part_name_present = 0
+    titleblock_label_present = 0
+    titleblock_any_signal_present = 0
+
+    for row in ok_rows:
+        status = (row.get("titleblock_status") or "").strip()
+        titleblock_status_counts[status or "unknown"] += 1
+
+        try:
+            conf = float(row.get("titleblock_confidence") or 0.0)
+        except (TypeError, ValueError):
+            conf = 0.0
+        titleblock_conf_all.append(conf)
+        if conf > 0:
+            titleblock_conf_nonzero.append(conf)
+
+        part_name = (row.get("titleblock_part_name") or "").strip()
+        drawing_number = (row.get("titleblock_drawing_number") or "").strip()
+        material = (row.get("titleblock_material") or "").strip()
+        label = (row.get("titleblock_label") or "").strip()
+
+        try:
+            raw_texts = int(row.get("titleblock_raw_texts_count") or 0)
+        except (TypeError, ValueError):
+            raw_texts = 0
+        try:
+            region_entities = int(row.get("titleblock_region_entities_count") or 0)
+        except (TypeError, ValueError):
+            region_entities = 0
+
+        if raw_texts > 0 or region_entities > 0:
+            titleblock_texts_present += 1
+        if part_name:
+            titleblock_part_name_present += 1
+        if label:
+            titleblock_label_present += 1
+        if part_name or drawing_number or material:
+            titleblock_any_signal_present += 1
+
+    def _mean(values: List[float]) -> float:
+        return (sum(values) / len(values)) if values else 0.0
+
+    def _median(values: List[float]) -> float:
+        return float(statistics.median(values)) if values else 0.0
+
     summary = {
         "total": stats["total"],
         "success": stats["success"],
@@ -296,6 +349,33 @@ def main() -> None:
         "low_confidence_count": len(low_conf),
         "soft_override_candidates": stats.get("soft_override_candidates", 0),
         "sample_size": len(files),
+        "titleblock": {
+            "enabled": os.getenv("TITLEBLOCK_ENABLED", "false").lower() == "true",
+            "total_ok": len(ok_rows),
+            "texts_present_count": titleblock_texts_present,
+            "texts_present_rate": (
+                titleblock_texts_present / max(1, len(ok_rows))
+            ),
+            "any_signal_count": titleblock_any_signal_present,
+            "any_signal_rate": (
+                titleblock_any_signal_present / max(1, len(ok_rows))
+            ),
+            "part_name_present_count": titleblock_part_name_present,
+            "part_name_present_rate": (
+                titleblock_part_name_present / max(1, len(ok_rows))
+            ),
+            "label_present_count": titleblock_label_present,
+            "label_present_rate": (
+                titleblock_label_present / max(1, len(ok_rows))
+            ),
+            "status_counts": dict(titleblock_status_counts),
+            "confidence": {
+                "mean_all": round(_mean(titleblock_conf_all), 6),
+                "median_all": round(_median(titleblock_conf_all), 6),
+                "mean_nonzero": round(_mean(titleblock_conf_nonzero), 6),
+                "median_nonzero": round(_median(titleblock_conf_nonzero), 6),
+            },
+        },
     }
     summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
 

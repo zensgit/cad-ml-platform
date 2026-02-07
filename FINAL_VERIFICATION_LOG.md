@@ -3263,3 +3263,7 @@
   - Reduced noisy `python_multipart` multipart-parser warnings during local DXF batch runs (FastAPI `TestClient` uploads).
   - Validation: local smoke batch (`2` files) produced no multipart warnings.
   - Report: `reports/DEV_DXF_BATCH_MULTIPART_WARNING_SUPPRESSION_20260207.md`
+- **DXF Batch (Local) TitleBlock Coverage**:
+  - Added TitleBlock coverage metrics to the local DXF batch runner (`summary.json`) so evaluation does not require manual drawing review.
+  - Validation: local batch over `110` DXF files achieved `label_present_rate=1.0` with `status_counts={"matched": 108, "partial_match": 2}`.
+  - Report: `reports/DEV_DXF_BATCH_TITLEBLOCK_COVERAGE_20260207.md`
