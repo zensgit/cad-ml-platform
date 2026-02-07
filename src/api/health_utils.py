@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional
 from src.api.health_models import HealthResponse
 from src.api.health_resilience import get_resilience_health
 from src.core.config import get_settings
+from src.core.providers import get_core_provider_registry_snapshot
 from src.utils.metrics import health_request_duration_seconds, health_requests_total
 from src.utils.metrics import get_ocr_error_rate_ema, get_vision_error_rate_ema
 
@@ -130,6 +131,11 @@ def build_health_payload(
         }
     except Exception:
         # Hybrid config visibility is optional and should not fail health checks.
+        pass
+    try:
+        base["config"]["core_providers"] = get_core_provider_registry_snapshot()
+    except Exception:
+        # Provider registry visibility should not fail health checks.
         pass
 
     resilience_payload = None

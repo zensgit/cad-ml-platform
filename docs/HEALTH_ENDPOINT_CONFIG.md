@@ -77,6 +77,17 @@ Classifier cache stats are available at `GET /api/v1/health/classifier/cache` (a
         "seed": 42,
         "text_priority_ratio": 0.3
       }
+    },
+    "core_providers": {
+      "bootstrapped": true,
+      "bootstrap_timestamp": 1738920000.123,
+      "total_domains": 2,
+      "total_providers": 4,
+      "domains": ["ocr", "vision"],
+      "providers": {
+        "ocr": ["deepseek_hf", "paddle"],
+        "vision": ["deepseek_stub", "stub"]
+      }
     }
   }
 }
@@ -124,6 +135,21 @@ Classifier cache stats are available at `GET /api/v1/health/classifier/cache` (a
 - **classification.hybrid_config_path**: Active runtime config path
 - **classification.graph2d_model_path**: Active Graph2D checkpoint path
 - **sampling**: Effective DXF graph sampling parameters used in runtime
+
+### Core Provider Registry
+- **core_providers.bootstrapped**: Whether startup bootstrap executed
+- **core_providers.total_domains**: Number of registered domains
+- **core_providers.total_providers**: Total registered provider adapters
+- **core_providers.providers**: Domain-to-provider registry mapping
+
+## Provider Registry Endpoints
+
+```bash
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/api/v1/health/providers/registry
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/api/v1/providers/registry
+```
+
+Returns the runtime registry snapshot used by the new core provider framework.
 
 ## Use Cases
 
@@ -185,6 +211,12 @@ curl -H "X-API-Key: $API_KEY" http://localhost:8000/api/v1/health/ml/hybrid-conf
 ```
 Returns full effective hybrid classifier config (after file/env merge).
 
+### 7. Provider Registry Runtime Inspection
+```bash
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/api/v1/health/providers/registry
+```
+Returns bootstrapped status, domain counts, and provider registration map.
+
 ## Benefits
 
 1. **Visibility**: Operations teams can see actual running configuration
@@ -223,5 +255,5 @@ The health endpoint configuration is automatically updated when settings change.
 
 ---
 
-*Last Updated: 2025-11-19*
-*Implementation: [`src/main.py:99-150`](../src/main.py#L99)*
+*Last Updated: 2026-02-07*
+*Implementation: [`src/api/health_utils.py`](../src/api/health_utils.py), [`src/api/v1/health.py`](../src/api/v1/health.py), [`src/core/providers/bootstrap.py`](../src/core/providers/bootstrap.py), [`src/main.py`](../src/main.py)*

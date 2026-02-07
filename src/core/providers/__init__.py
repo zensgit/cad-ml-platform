@@ -19,6 +19,15 @@ Example usage:
 """
 
 from src.core.providers.base import BaseProvider, ProviderConfig, ProviderStatus
+from src.core.providers.bootstrap import (
+    bootstrap_core_provider_registry,
+    get_core_provider_registry_snapshot,
+)
+from src.core.providers.ocr import (
+    OcrProviderAdapter,
+    OcrProviderConfig,
+    bootstrap_core_ocr_providers,
+)
 from src.core.providers.registry import ProviderRegistry
 from src.core.providers.vision import (
     VisionProviderAdapter,
@@ -31,7 +40,12 @@ __all__ = [
     "ProviderConfig",
     "ProviderStatus",
     "ProviderRegistry",
+    "OcrProviderConfig",
+    "OcrProviderAdapter",
+    "bootstrap_core_ocr_providers",
     "VisionProviderConfig",
     "VisionProviderAdapter",
     "bootstrap_core_vision_providers",
+    "bootstrap_core_provider_registry",
+    "get_core_provider_registry_snapshot",
 ]

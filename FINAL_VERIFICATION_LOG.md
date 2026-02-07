@@ -3214,3 +3214,9 @@
   - Added bootstrap registration for `vision/stub` and `vision/deepseek_stub` in `ProviderRegistry`.
   - Validation: provider framework + vision bridge unit tests passed (`10 passed`), Black/Flake8 checks passed.
   - Report: `reports/DEV_PROVIDER_FRAMEWORK_VISION_BRIDGE_20260207.md`
+- **Provider Framework OCR Bridge + Startup Bootstrap + Health Visibility**:
+  - Added OCR bridge adapter (`OcrProviderAdapter`, `OcrProviderConfig`) and OCR domain bootstrap registrations (`paddle`, `deepseek_hf`).
+  - Added unified startup bootstrap for core provider registry and runtime snapshot helper.
+  - Exposed core provider registry in `/health` payload (`config.core_providers`) and new APIs: `/api/v1/providers/registry`, `/api/v1/health/providers/registry`.
+  - Validation: provider/health/main targeted suite passed (`44 passed`), Black and Flake8 checks passed.
+  - Report: `reports/DEV_PROVIDER_FRAMEWORK_OCR_BOOTSTRAP_HEALTH_20260207.md`

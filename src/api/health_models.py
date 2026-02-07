@@ -79,6 +79,15 @@ class HealthConfigMl(BaseModel):
     sampling: HealthConfigMlSampling
 
 
+class HealthConfigCoreProviders(BaseModel):
+    bootstrapped: bool
+    total_domains: int
+    total_providers: int
+    domains: List[str]
+    providers: Dict[str, List[str]]
+    bootstrap_timestamp: Optional[float] = None
+
+
 class HealthConfig(BaseModel):
     limits: HealthConfigLimits
     providers: HealthConfigProviders
@@ -86,6 +95,7 @@ class HealthConfig(BaseModel):
     network: HealthConfigNetwork
     debug: HealthConfigDebug
     ml: Optional[HealthConfigMl] = None
+    core_providers: Optional[HealthConfigCoreProviders] = None
 
 
 class HealthResponse(BaseModel):

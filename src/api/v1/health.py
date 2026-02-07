@@ -92,6 +92,11 @@ class HybridRuntimeConfigResponse(BaseModel):
     config: Dict[str, Any]
 
 
+class ProviderRegistryHealthResponse(BaseModel):
+    status: str
+    registry: Dict[str, Any]
+
+
 @router.get("/health", response_model=HealthResponse)
 async def health_alias() -> Dict[str, Any]:
     """Alias `/api/v1/health` to the root `/health` endpoint."""
@@ -104,6 +109,17 @@ async def hybrid_runtime_config(api_key: str = Depends(get_api_key)):
     from src.ml.hybrid_config import get_config
 
     return HybridRuntimeConfigResponse(status="ok", config=get_config().to_dict())
+
+
+@router.get("/providers/registry", response_model=ProviderRegistryHealthResponse)
+@router.get("/health/providers/registry", response_model=ProviderRegistryHealthResponse)
+async def provider_registry_health(api_key: str = Depends(get_api_key)):
+    from src.core.providers import get_core_provider_registry_snapshot
+
+    return ProviderRegistryHealthResponse(
+        status="ok",
+        registry=get_core_provider_registry_snapshot(),
+    )
 
 
 @router.get("/features/cache", response_model=FeatureCacheStatsResponse)
