@@ -396,6 +396,57 @@ classification_cache_size = Gauge(
     "classification_cache_size",
     "Classification API cache size",
 )
+
+# V16 Classifier Metrics
+v16_classifier_loaded = Gauge(
+    "v16_classifier_loaded",
+    "V16 classifier load status (1=loaded, 0=not loaded)",
+)
+v16_classifier_cache_hits_total = Counter(
+    "v16_classifier_cache_hits_total",
+    "V16 classifier feature cache hits",
+)
+v16_classifier_cache_misses_total = Counter(
+    "v16_classifier_cache_misses_total",
+    "V16 classifier feature cache misses",
+)
+v16_classifier_cache_size = Gauge(
+    "v16_classifier_cache_size",
+    "V16 classifier feature cache current size",
+)
+v16_classifier_cache_max_size = Gauge(
+    "v16_classifier_cache_max_size",
+    "V16 classifier feature cache max capacity",
+)
+v16_classifier_inference_seconds = Histogram(
+    "v16_classifier_inference_seconds",
+    "V16 classifier single prediction latency",
+    buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0],
+)
+v16_classifier_batch_seconds = Histogram(
+    "v16_classifier_batch_seconds",
+    "V16 classifier batch prediction latency",
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
+)
+v16_classifier_batch_size = Histogram(
+    "v16_classifier_batch_size",
+    "V16 classifier batch size distribution",
+    buckets=[1, 5, 10, 20, 50, 100],
+)
+v16_classifier_predictions_total = Counter(
+    "v16_classifier_predictions_total",
+    "V16 classifier total predictions",
+    ["category", "speed_mode"],
+)
+v16_classifier_speed_mode = Gauge(
+    "v16_classifier_speed_mode",
+    "V16 classifier current speed mode (0=accurate, 1=balanced, 2=fast, 3=v6_only)",
+)
+v16_classifier_needs_review_total = Counter(
+    "v16_classifier_needs_review_total",
+    "V16 classifier predictions flagged for review",
+)
+
 faiss_auto_rebuild_total = Counter(
     "faiss_auto_rebuild_total",
     "Faiss auto rebuild trigger outcomes",

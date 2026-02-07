@@ -621,11 +621,19 @@ async def v16_classifier_health(api_key: str = Depends(get_api_key)):
 
     try:
         from src.core.analyzer import _get_v16_classifier
+        from src.utils.analysis_metrics import (
+            v16_classifier_loaded,
+            v16_classifier_cache_size,
+            v16_classifier_cache_max_size,
+            v16_classifier_cache_hits_total,
+            v16_classifier_cache_misses_total,
+        )
 
         classifier = _get_v16_classifier()
 
         if classifier is None:
             disabled = os.getenv("DISABLE_V16_CLASSIFIER", "").lower() in ("1", "true", "yes")
+            v16_classifier_loaded.set(0)
             return V16ClassifierHealthResponse(
                 status="disabled" if disabled else "unavailable",
                 loaded=False,
@@ -636,6 +644,13 @@ async def v16_classifier_health(api_key: str = Depends(get_api_key)):
         cache_misses = getattr(classifier, 'cache_misses', 0)
         total = cache_hits + cache_misses
         hit_ratio = cache_hits / total if total > 0 else None
+        current_cache_size = len(getattr(classifier, 'feature_cache', {}))
+        max_cache_size = getattr(classifier, 'cache_size', 0)
+
+        # Update Prometheus metrics
+        v16_classifier_loaded.set(1)
+        v16_classifier_cache_size.set(current_cache_size)
+        v16_classifier_cache_max_size.set(max_cache_size)
 
         dwg_available = False
         try:
@@ -650,8 +665,8 @@ async def v16_classifier_health(api_key: str = Depends(get_api_key)):
             loaded=True,
             speed_mode=getattr(classifier, 'speed_mode', None),
             cache_enabled=getattr(classifier, 'enable_cache', False),
-            cache_size=len(getattr(classifier, 'feature_cache', {})),
-            cache_max_size=getattr(classifier, 'cache_size', 0),
+            cache_size=current_cache_size,
+            cache_max_size=max_cache_size,
             cache_hits=cache_hits,
             cache_misses=cache_misses,
             cache_hit_ratio=round(hit_ratio, 4) if hit_ratio is not None else None,
@@ -724,6 +739,7 @@ async def v16_classifier_speed_mode(
 ):
     """动态切换V16分类器速度模式"""
     available_modes = ["accurate", "balanced", "fast", "v6_only"]
+    speed_mode_values = {"accurate": 0, "balanced": 1, "fast": 2, "v6_only": 3}
 
     if req.speed_mode not in available_modes:
         return V16SpeedModeResponse(
@@ -734,6 +750,7 @@ async def v16_classifier_speed_mode(
 
     try:
         from src.core.analyzer import _get_v16_classifier
+        from src.utils.analysis_metrics import v16_classifier_speed_mode
 
         classifier = _get_v16_classifier()
 
@@ -759,6 +776,9 @@ async def v16_classifier_speed_mode(
         classifier.speed_mode = req.speed_mode
         classifier.v14_folds = mode_config["v14_folds"]
         classifier.use_fast_render = mode_config["use_fast_render"]
+
+        # Update Prometheus metric
+        v16_classifier_speed_mode.set(speed_mode_values.get(req.speed_mode, -1))
 
         return V16SpeedModeResponse(
             status="ok",
