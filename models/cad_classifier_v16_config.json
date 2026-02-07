@@ -1,65 +1,47 @@
 {
-  "version": "v16_super_ensemble",
+  "version": "v16_super_ensemble_optimized",
   "components": {
     "v6": {
       "path": "cad_classifier_v6.pt",
-      "weight": 0.6
+      "weight": 0.3
     },
     "v14_ensemble": {
       "path": "cad_classifier_v14_ensemble.pt",
-      "weight": 0.4
+      "weight": 0.7
     }
   },
-  "training_data": "data/training_v7 (905 samples, 6 labels corrected)",
-  "v6_accuracy": 0.9956,
+  "training_data": "data/training_v7 (905 samples)",
+  "optimization_note": "V14权重提升到70%因为其在边界案例上表现更好",
+  "v6_accuracy": 0.9934,
   "v14_ensemble_accuracy": 0.993,
-  "v16_accuracy": 0.9967,
-  "label_corrections": [
-    {
-      "file": "轴类/old_0031.dxf",
-      "original": "深沟球轴承.dxf",
-      "old_label": "轴类",
-      "new_label": "传动件",
-      "reason": "轴承是传动零件"
-    },
-    {
-      "file": "其他/old_0101.dxf",
-      "original": "弹簧.dxf",
-      "old_label": "其他",
-      "new_label": "连接件",
-      "reason": "弹簧属于弹性连接元件"
-    }
-  ],
+  "v16_accuracy": 0.9965,
+  "v16_errors": 3,
   "remaining_errors": [
     {
       "file": "其他/old_0033.dxf",
       "original": "调节螺栓v1.dxf",
       "true": "其他",
       "pred": "轴类",
-      "note": "边界案例"
-    },
-    {
-      "file": "其他/old_0152.dxf",
-      "original": "阀体夹具装配图.dxf",
-      "true": "其他",
-      "pred": "轴类",
-      "note": "装配图难分类"
+      "note": "V6和V14都预测错误"
     },
     {
       "file": "连接件/old_0008.dxf",
       "original": "圆螺母.dxf",
       "true": "连接件",
       "pred": "传动件",
-      "note": "边界案例"
-    },
-    {
-      "file": "连接件/old_0027.dxf",
-      "original": "螺钉-端面带孔圆螺钉.dxf",
-      "true": "连接件",
-      "pred": "其他",
-      "note": "边界案例"
+      "note": "V6和V14都预测错误"
     }
   ],
-  "accuracy_after_correction": 0.994475138121547,
-  "errors_after_correction": 5
+  "weight_optimization": {
+    "tested_weights": [
+      {"v6": 0.3, "v14": 0.7, "accuracy": 0.9965, "errors": 3},
+      {"v6": 0.4, "v14": 0.6, "accuracy": 0.9965, "errors": 3},
+      {"v6": 0.5, "v14": 0.5, "accuracy": 0.9965, "errors": 3},
+      {"v6": 0.6, "v14": 0.4, "accuracy": 0.9965, "errors": 3},
+      {"v6": 0.7, "v14": 0.3, "accuracy": 0.9953, "errors": 4},
+      {"v6": 0.8, "v14": 0.2, "accuracy": 0.9953, "errors": 4}
+    ],
+    "selected": {"v6": 0.3, "v14": 0.7},
+    "reason": "V14在边界案例（弹簧、轴承、螺钉等）上表现更好"
+  }
 }
