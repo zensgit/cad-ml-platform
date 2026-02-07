@@ -3209,3 +3209,8 @@
   - Added unit coverage for registration, creation, health-check success/failure, and unregister flows.
   - Validation: `src.core.providers` import passed; `pytest tests/unit/test_provider_framework.py` -> `7 passed`; Black/Flake8 checks passed.
   - Report: `reports/DEV_PROVIDER_FRAMEWORK_MVP_20260207.md`
+- **Provider Framework Vision Bridge**:
+  - Added `VisionProviderAdapter` and `VisionProviderConfig` to bridge `src.core.vision` providers into the core provider framework.
+  - Added bootstrap registration for `vision/stub` and `vision/deepseek_stub` in `ProviderRegistry`.
+  - Validation: provider framework + vision bridge unit tests passed (`10 passed`), Black/Flake8 checks passed.
+  - Report: `reports/DEV_PROVIDER_FRAMEWORK_VISION_BRIDGE_20260207.md`

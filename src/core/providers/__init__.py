@@ -20,10 +20,18 @@ Example usage:
 
 from src.core.providers.base import BaseProvider, ProviderConfig, ProviderStatus
 from src.core.providers.registry import ProviderRegistry
+from src.core.providers.vision import (
+    VisionProviderAdapter,
+    VisionProviderConfig,
+    bootstrap_core_vision_providers,
+)
 
 __all__ = [
     "BaseProvider",
     "ProviderConfig",
     "ProviderStatus",
     "ProviderRegistry",
+    "VisionProviderConfig",
+    "VisionProviderAdapter",
+    "bootstrap_core_vision_providers",
 ]
