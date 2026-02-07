@@ -107,6 +107,8 @@ POST /api/v1/analyze/batch-classify
 | `v16_classifier_predictions_total` | Counter | 预测计数(按类别/模式) |
 | `v16_classifier_speed_mode` | Gauge | 当前速度模式(0-3) |
 | `v16_classifier_needs_review_total` | Counter | 需人工复核计数 |
+| `v16_batch_classify_requests_total` | Counter | 批量请求计数(success/partial/failed) |
+| `v16_batch_classify_files_total` | Counter | 批量文件计数(success/failed) |
 
 ---
 
