@@ -572,4 +572,238 @@ async def model_health(api_key: str = Depends(get_api_key)):
     )
 
 
+class V16ClassifierHealthResponse(BaseModel):
+    """V16分类器健康状态"""
+    status: str
+    loaded: bool
+    speed_mode: Optional[str] = None
+    cache_enabled: bool = False
+    cache_size: int = 0
+    cache_max_size: int = 0
+    cache_hits: int = 0
+    cache_misses: int = 0
+    cache_hit_ratio: Optional[float] = None
+    v6_model_loaded: bool = False
+    v14_model_loaded: bool = False
+    dwg_converter_available: bool = False
+    categories: Optional[List[str]] = None
+    last_error: Optional[str] = None
+
+
+class V16CacheClearResponse(BaseModel):
+    """V16缓存清除响应"""
+    status: str
+    cleared_entries: int = 0
+    previous_hits: int = 0
+    previous_misses: int = 0
+    message: Optional[str] = None
+
+
+class V16SpeedModeRequest(BaseModel):
+    """V16速度模式切换请求"""
+    speed_mode: str = Field(description="速度模式: accurate, balanced, fast, v6_only")
+
+
+class V16SpeedModeResponse(BaseModel):
+    """V16速度模式切换响应"""
+    status: str
+    previous_mode: Optional[str] = None
+    current_mode: Optional[str] = None
+    available_modes: List[str] = ["accurate", "balanced", "fast", "v6_only"]
+    message: Optional[str] = None
+
+
+@router.get("/health/v16-classifier", response_model=V16ClassifierHealthResponse)
+@router.get("/v16-classifier/health", response_model=V16ClassifierHealthResponse)
+async def v16_classifier_health(api_key: str = Depends(get_api_key)):
+    """V16分类器健康检查"""
+    import os
+
+    try:
+        from src.core.analyzer import _get_v16_classifier
+
+        classifier = _get_v16_classifier()
+
+        if classifier is None:
+            disabled = os.getenv("DISABLE_V16_CLASSIFIER", "").lower() in ("1", "true", "yes")
+            return V16ClassifierHealthResponse(
+                status="disabled" if disabled else "unavailable",
+                loaded=False,
+                last_error="V16 classifier disabled by environment" if disabled else "Model files not found or load failed",
+            )
+
+        cache_hits = getattr(classifier, 'cache_hits', 0)
+        cache_misses = getattr(classifier, 'cache_misses', 0)
+        total = cache_hits + cache_misses
+        hit_ratio = cache_hits / total if total > 0 else None
+
+        dwg_available = False
+        try:
+            from src.core.cad.dwg.converter import DWGConverter
+            converter = DWGConverter()
+            dwg_available = converter.is_available
+        except Exception:
+            pass
+
+        return V16ClassifierHealthResponse(
+            status="ok",
+            loaded=True,
+            speed_mode=getattr(classifier, 'speed_mode', None),
+            cache_enabled=getattr(classifier, 'enable_cache', False),
+            cache_size=len(getattr(classifier, 'feature_cache', {})),
+            cache_max_size=getattr(classifier, 'cache_size', 0),
+            cache_hits=cache_hits,
+            cache_misses=cache_misses,
+            cache_hit_ratio=round(hit_ratio, 4) if hit_ratio is not None else None,
+            v6_model_loaded=getattr(classifier, 'v6_model', None) is not None,
+            v14_model_loaded=getattr(classifier, 'v14_model', None) is not None,
+            dwg_converter_available=dwg_available,
+            categories=getattr(classifier, 'categories', None),
+        )
+    except Exception as e:
+        return V16ClassifierHealthResponse(
+            status="error",
+            loaded=False,
+            last_error=str(e),
+        )
+
+
+@router.post("/v16-classifier/cache/clear", response_model=V16CacheClearResponse)
+@router.post("/health/v16-classifier/cache/clear", response_model=V16CacheClearResponse)
+async def v16_classifier_cache_clear(
+    api_key: str = Depends(get_api_key),
+    admin_token: str = Depends(get_admin_token),
+):
+    """清除V16分类器缓存"""
+    try:
+        from src.core.analyzer import _get_v16_classifier
+
+        classifier = _get_v16_classifier()
+
+        if classifier is None:
+            return V16CacheClearResponse(
+                status="unavailable",
+                message="V16 classifier not loaded",
+            )
+
+        prev_hits = getattr(classifier, 'cache_hits', 0)
+        prev_misses = getattr(classifier, 'cache_misses', 0)
+        cache_size = len(getattr(classifier, 'feature_cache', {}))
+
+        if hasattr(classifier, 'feature_cache'):
+            classifier.feature_cache.clear()
+        if hasattr(classifier, 'image_cache'):
+            classifier.image_cache.clear()
+        if hasattr(classifier, 'cache_order'):
+            classifier.cache_order.clear()
+        if hasattr(classifier, 'cache_hits'):
+            classifier.cache_hits = 0
+        if hasattr(classifier, 'cache_misses'):
+            classifier.cache_misses = 0
+
+        return V16CacheClearResponse(
+            status="ok",
+            cleared_entries=cache_size,
+            previous_hits=prev_hits,
+            previous_misses=prev_misses,
+            message=f"Cleared {cache_size} cached entries",
+        )
+    except Exception as e:
+        return V16CacheClearResponse(
+            status="error",
+            message=str(e),
+        )
+
+
+@router.post("/v16-classifier/speed-mode", response_model=V16SpeedModeResponse)
+@router.post("/health/v16-classifier/speed-mode", response_model=V16SpeedModeResponse)
+async def v16_classifier_speed_mode(
+    req: V16SpeedModeRequest,
+    api_key: str = Depends(get_api_key),
+    admin_token: str = Depends(get_admin_token),
+):
+    """动态切换V16分类器速度模式"""
+    available_modes = ["accurate", "balanced", "fast", "v6_only"]
+
+    if req.speed_mode not in available_modes:
+        return V16SpeedModeResponse(
+            status="error",
+            available_modes=available_modes,
+            message=f"Invalid speed_mode: {req.speed_mode}. Must be one of {available_modes}",
+        )
+
+    try:
+        from src.core.analyzer import _get_v16_classifier
+
+        classifier = _get_v16_classifier()
+
+        if classifier is None:
+            return V16SpeedModeResponse(
+                status="unavailable",
+                available_modes=available_modes,
+                message="V16 classifier not loaded",
+            )
+
+        previous_mode = getattr(classifier, 'speed_mode', None)
+
+        from src.ml.part_classifier import SPEED_MODES
+        if req.speed_mode not in SPEED_MODES:
+            return V16SpeedModeResponse(
+                status="error",
+                previous_mode=previous_mode,
+                available_modes=available_modes,
+                message=f"Speed mode {req.speed_mode} not configured",
+            )
+
+        mode_config = SPEED_MODES[req.speed_mode]
+        classifier.speed_mode = req.speed_mode
+        classifier.v14_folds = mode_config["v14_folds"]
+        classifier.use_fast_render = mode_config["use_fast_render"]
+
+        return V16SpeedModeResponse(
+            status="ok",
+            previous_mode=previous_mode,
+            current_mode=req.speed_mode,
+            available_modes=available_modes,
+            message=f"Speed mode changed from {previous_mode} to {req.speed_mode}",
+        )
+    except Exception as e:
+        return V16SpeedModeResponse(
+            status="error",
+            available_modes=available_modes,
+            message=str(e),
+        )
+
+
+@router.get("/v16-classifier/speed-mode", response_model=V16SpeedModeResponse)
+@router.get("/health/v16-classifier/speed-mode", response_model=V16SpeedModeResponse)
+async def v16_classifier_speed_mode_get(api_key: str = Depends(get_api_key)):
+    """获取当前V16分类器速度模式"""
+    available_modes = ["accurate", "balanced", "fast", "v6_only"]
+
+    try:
+        from src.core.analyzer import _get_v16_classifier
+
+        classifier = _get_v16_classifier()
+
+        if classifier is None:
+            return V16SpeedModeResponse(
+                status="unavailable",
+                available_modes=available_modes,
+                message="V16 classifier not loaded",
+            )
+
+        return V16SpeedModeResponse(
+            status="ok",
+            current_mode=getattr(classifier, 'speed_mode', None),
+            available_modes=available_modes,
+        )
+    except Exception as e:
+        return V16SpeedModeResponse(
+            status="error",
+            available_modes=available_modes,
+            message=str(e),
+        )
+
+
 __all__ = ["router"]
