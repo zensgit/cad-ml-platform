@@ -7,6 +7,8 @@ optional ML dependencies (e.g. torch) don't fail at import time.
 
 from __future__ import annotations
 
+import importlib.util
+import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
@@ -33,6 +35,7 @@ class ClassifierRequest:
 
     filename: str
     file_bytes: Optional[bytes] = None
+    file_path: Optional[str] = None
 
 
 class HybridClassifierProviderAdapter(
@@ -122,6 +125,116 @@ class Graph2DClassifierProviderAdapter(
         return loaded
 
 
+class V16PartClassifierProviderAdapter(
+    BaseProvider[ClassifierProviderConfig, Dict[str, Any]]
+):
+    """Adapter that exposes the V16 part classifier through ``BaseProvider``.
+
+    Note: V16 lives in ``src/ml/part_classifier.py`` which imports torch.
+    This adapter keeps imports lazy and does not load the model for health checks.
+    """
+
+    def __init__(self, config: ClassifierProviderConfig):
+        super().__init__(config)
+
+    @staticmethod
+    def _has_torch() -> bool:
+        return importlib.util.find_spec("torch") is not None
+
+    @staticmethod
+    def _models_present() -> bool:
+        v6_path = os.getenv("CAD_CLASSIFIER_MODEL", "models/cad_classifier_v6.pt")
+        v14_path = "models/cad_classifier_v14_ensemble.pt"
+        return os.path.exists(v6_path) and os.path.exists(v14_path)
+
+    async def _health_check_impl(self) -> bool:
+        if os.getenv("DISABLE_V16_CLASSIFIER", "").lower() in ("1", "true", "yes"):
+            return False
+        if not self._has_torch():
+            return False
+        return self._models_present()
+
+    async def _process_impl(self, request: Any, **kwargs: Any) -> Dict[str, Any]:
+        if not isinstance(request, ClassifierRequest):
+            raise TypeError(
+                "V16PartClassifierProviderAdapter expects ClassifierRequest as request"
+            )
+        if not request.file_path:
+            raise ValueError("file_path is required for v16 classification")
+        try:
+            from src.core.analyzer import _get_v16_classifier
+
+            clf = _get_v16_classifier()
+            if clf is None:
+                return {"status": "unavailable"}
+            result = clf.predict(str(request.file_path))
+            if result is None:
+                return {"status": "no_prediction"}
+            payload: Dict[str, Any] = {
+                "status": "ok",
+                "label": result.category,
+                "confidence": float(result.confidence),
+                "probabilities": dict(result.probabilities),
+                "model_version": getattr(result, "model_version", "v16"),
+                "needs_review": bool(getattr(result, "needs_review", False)),
+                "review_reason": getattr(result, "review_reason", None),
+                "top2_category": getattr(result, "top2_category", None),
+                "top2_confidence": getattr(result, "top2_confidence", None),
+            }
+            return payload
+        except Exception as exc:  # noqa: BLE001
+            return {"status": "error", "error": str(exc)}
+
+
+class V6PartClassifierProviderAdapter(
+    BaseProvider[ClassifierProviderConfig, Dict[str, Any]]
+):
+    """Adapter that exposes the V6 part classifier through ``BaseProvider``."""
+
+    def __init__(self, config: ClassifierProviderConfig):
+        super().__init__(config)
+
+    @staticmethod
+    def _has_torch() -> bool:
+        return importlib.util.find_spec("torch") is not None
+
+    @staticmethod
+    def _model_present() -> bool:
+        v6_path = os.getenv("CAD_CLASSIFIER_MODEL", "models/cad_classifier_v6.pt")
+        return os.path.exists(v6_path)
+
+    async def _health_check_impl(self) -> bool:
+        if not self._has_torch():
+            return False
+        return self._model_present()
+
+    async def _process_impl(self, request: Any, **kwargs: Any) -> Dict[str, Any]:
+        if not isinstance(request, ClassifierRequest):
+            raise TypeError(
+                "V6PartClassifierProviderAdapter expects ClassifierRequest as request"
+            )
+        if not request.file_path:
+            raise ValueError("file_path is required for v6 classification")
+        try:
+            from src.core.analyzer import _get_ml_classifier
+
+            clf = _get_ml_classifier()
+            if clf is None:
+                return {"status": "unavailable"}
+            result = clf.predict(str(request.file_path))
+            if result is None:
+                return {"status": "no_prediction"}
+            return {
+                "status": "ok",
+                "label": result.category,
+                "confidence": float(result.confidence),
+                "probabilities": dict(result.probabilities),
+                "model_version": getattr(result, "model_version", "v6"),
+            }
+        except Exception as exc:  # noqa: BLE001
+            return {"status": "error", "error": str(exc)}
+
+
 def bootstrap_core_classifier_providers() -> None:
     """Register built-in classifier providers in ``ProviderRegistry``.
 
@@ -129,6 +242,8 @@ def bootstrap_core_classifier_providers() -> None:
     - ``classifier/hybrid``
     - ``classifier/graph2d``
     - ``classifier/graph2d_ensemble``
+    - ``classifier/v16``
+    - ``classifier/v6``
     """
 
     if not ProviderRegistry.exists("classifier", "hybrid"):
@@ -166,3 +281,27 @@ def bootstrap_core_classifier_providers() -> None:
                     provider_name="graph2d_ensemble",
                 )
                 super().__init__(config=cfg, ensemble=True)
+
+    if not ProviderRegistry.exists("classifier", "v16"):
+
+        @ProviderRegistry.register("classifier", "v16")
+        class V16CoreProvider(V16PartClassifierProviderAdapter):
+            def __init__(self, config: Optional[ClassifierProviderConfig] = None):
+                cfg = config or ClassifierProviderConfig(
+                    name="v16",
+                    provider_type="classifier",
+                    provider_name="v16",
+                )
+                super().__init__(config=cfg)
+
+    if not ProviderRegistry.exists("classifier", "v6"):
+
+        @ProviderRegistry.register("classifier", "v6")
+        class V6CoreProvider(V6PartClassifierProviderAdapter):
+            def __init__(self, config: Optional[ClassifierProviderConfig] = None):
+                cfg = config or ClassifierProviderConfig(
+                    name="v6",
+                    provider_type="classifier",
+                    provider_name="v6",
+                )
+                super().__init__(config=cfg)

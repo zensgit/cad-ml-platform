@@ -22,6 +22,8 @@ def test_bootstrap_registers_core_domains_and_providers() -> None:
     assert "hybrid" in snapshot["providers"]["classifier"]
     assert "graph2d" in snapshot["providers"]["classifier"]
     assert "graph2d_ensemble" in snapshot["providers"]["classifier"]
+    assert "v16" in snapshot["providers"]["classifier"]
+    assert "v6" in snapshot["providers"]["classifier"]
 
 
 def test_bootstrap_is_idempotent() -> None:

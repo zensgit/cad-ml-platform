@@ -3279,3 +3279,7 @@
   - Added `GET /api/v1/providers/health` (alias: `/api/v1/health/providers/health`) to run best-effort, timeout-bounded checks over all registered core providers.
   - Validation: `python3 -m pytest -q tests/unit/test_provider_health_endpoint.py` (passed).
   - Report: `reports/DEV_PROVIDER_HEALTH_ENDPOINT_20260207.md`
+- **Provider Framework Classifier V16/V6 Bridge**:
+  - Added `classifier/v16` and `classifier/v6` providers to the core provider registry with lightweight readiness checks (no model load) and `file_path`-based inference support.
+  - Validation: provider unit suites passed; targeted mypy passed for the updated module.
+  - Report: `reports/DEV_PROVIDER_FRAMEWORK_CLASSIFIER_V16_V6_20260207.md`

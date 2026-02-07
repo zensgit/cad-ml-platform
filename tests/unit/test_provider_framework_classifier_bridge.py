@@ -21,6 +21,8 @@ def test_bootstrap_core_classifier_providers_registers_expected_entries() -> Non
     assert ProviderRegistry.exists("classifier", "hybrid") is True
     assert ProviderRegistry.exists("classifier", "graph2d") is True
     assert ProviderRegistry.exists("classifier", "graph2d_ensemble") is True
+    assert ProviderRegistry.exists("classifier", "v16") is True
+    assert ProviderRegistry.exists("classifier", "v6") is True
 
 
 @pytest.mark.asyncio
