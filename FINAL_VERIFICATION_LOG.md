@@ -3192,6 +3192,11 @@
   - Wired `FilenameClassifier` defaults to `hybrid_config` (with env still highest priority) and added configurable synonyms path fallback.
   - Validation completed with focused config + classifier regression tests (`41 passed`).
   - Report: `reports/DEV_FILENAME_CLASSIFIER_CONFIG_INTEGRATION_20260206.md`
+- **Health Hybrid Config Visibility**:
+  - Extended `/health` payload with `config.ml` runtime config snapshot (classification + sampling).
+  - Added runtime inspection endpoints: `/api/v1/ml/hybrid-config` and `/api/v1/health/ml/hybrid-config`.
+  - Validation completed with health/model regression tests (`28 passed`).
+  - Report: `reports/DEV_HEALTH_HYBRID_CONFIG_VISIBILITY_20260206.md`
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
