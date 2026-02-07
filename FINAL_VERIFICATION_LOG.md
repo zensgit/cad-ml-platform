@@ -3267,3 +3267,7 @@
   - Added TitleBlock coverage metrics to the local DXF batch runner (`summary.json`) so evaluation does not require manual drawing review.
   - Validation: local batch over `110` DXF files achieved `label_present_rate=1.0` with `status_counts={"matched": 108, "partial_match": 2}`.
   - Report: `reports/DEV_DXF_BATCH_TITLEBLOCK_COVERAGE_20260207.md`
+- **Tolerance Knowledge API (ISO 286 / GB/T 1800)**:
+  - Added `/api/v1/tolerance/*` endpoints for IT tolerance, limit deviations, and fit deviation queries.
+  - Validation: `pytest -q tests/integration/test_tolerance_api.py` (`3 passed`).
+  - Report: `reports/DEV_TOLERANCE_API_20260207.md`
