@@ -1024,9 +1024,50 @@ class PartClassifierV16:
             top2_confidence=float(top2_conf)
         )
 
-    def predict_batch(self, dxf_paths: List[str]) -> List[Optional[ClassificationResult]]:
-        """批量预测"""
-        return [self.predict(p) for p in dxf_paths]
+    def predict_batch(self, dxf_paths: List[str], max_workers: int = None) -> List[Optional[ClassificationResult]]:
+        """批量预测（并行处理）
+
+        Args:
+            dxf_paths: DXF文件路径列表
+            max_workers: 最大并行数，默认为CPU核心数
+
+        Returns:
+            分类结果列表，与输入顺序对应
+        """
+        if not dxf_paths:
+            return []
+
+        # 单文件不需要并行
+        if len(dxf_paths) == 1:
+            return [self.predict(dxf_paths[0])]
+
+        # 确保模型已加载（避免并行时重复加载）
+        self._load_models()
+
+        import concurrent.futures
+        import os
+
+        if max_workers is None:
+            max_workers = min(os.cpu_count() or 4, len(dxf_paths), 8)
+
+        # 并行处理文件I/O和特征提取（主要瓶颈）
+        results = [None] * len(dxf_paths)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_idx = {
+                executor.submit(self.predict, path): idx
+                for idx, path in enumerate(dxf_paths)
+            }
+
+            for future in concurrent.futures.as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                try:
+                    results[idx] = future.result()
+                except Exception as e:
+                    logger.warning(f"批量预测失败 [{idx}]: {e}")
+                    results[idx] = None
+
+        return results
 
 
 # V16全局实例
