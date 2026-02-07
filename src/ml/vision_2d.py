@@ -10,7 +10,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -119,19 +118,11 @@ class Graph2DClassifier:
             return {"status": "empty_input"}
 
         try:
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
-                tmp.write(data)
-                tmp_path = tmp.name
-            import ezdxf  # type: ignore
+            from src.utils.dxf_io import read_dxf_document_from_bytes
 
-            doc = ezdxf.readfile(tmp_path)
+            doc = read_dxf_document_from_bytes(data)
         except Exception as exc:
             return {"status": "parse_error", "error": str(exc)}
-        finally:
-            try:
-                os.unlink(tmp_path)
-            except Exception:
-                pass
 
         msp = doc.modelspace()
         dataset = DXFDataset(

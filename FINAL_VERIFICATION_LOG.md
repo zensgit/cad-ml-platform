@@ -3255,3 +3255,7 @@
   - Normalized extracted part names by stripping trailing spec suffixes (for example `DN####`) so filename labels reach exact-match confidence and remove remaining low-confidence overrides.
   - Validation: targeted unit+integration suites passed; local DXF batch rerun (`110` files) achieved `low_confidence_count=0` and replaced `complex_assembly` leftovers with concrete labels (example: `拖车`).
   - Report: `reports/DEV_FILENAME_CLASSIFIER_SPEC_SUFFIX_NORMALIZATION_20260207.md`
+- **DXF Bytes Reader (No Temp File)**:
+  - Added `src/utils/dxf_io.py` to read DXF from bytes with header-based encoding guess; refactored HybridClassifier/Graph2D/DxfAdapter paths to avoid temp files.
+  - Validation: unit+integration suites passed; local DXF batch rerun (`110` files) preserved `low_confidence_count=0`.
+  - Report: `reports/DEV_DXF_BYTES_READER_NO_TEMPFILE_20260207.md`

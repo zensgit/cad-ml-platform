@@ -368,21 +368,9 @@ class HybridClassifier:
         dxf_entities: Optional[List[Any]] = None
         if (self._is_titleblock_enabled() or self._is_process_enabled()) and file_bytes:
             try:
-                import tempfile
-                import os as _os
-                import ezdxf  # type: ignore
+                from src.utils.dxf_io import read_dxf_entities_from_bytes
 
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
-                    tmp.write(file_bytes)
-                    tmp_path = tmp.name
-                try:
-                    doc = ezdxf.readfile(tmp_path)
-                    dxf_entities = list(doc.modelspace())
-                finally:
-                    try:
-                        _os.unlink(tmp_path)
-                    except Exception:
-                        pass
+                dxf_entities = read_dxf_entities_from_bytes(file_bytes)
             except Exception as e:
                 logger.warning("DXF parse failed for hybrid classifiers: %s", e)
                 result.decision_path.append("dxf_parse_error")

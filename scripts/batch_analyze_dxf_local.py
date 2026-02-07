@@ -18,6 +18,9 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+# Keep ezdxf cache out of $HOME by default (helpful for sandboxed environments).
+os.environ.setdefault("XDG_CACHE_HOME", "/tmp/xdg-cache")
+
 try:
     from fastapi.testclient import TestClient
 except Exception as exc:  # pragma: no cover
