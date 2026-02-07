@@ -2835,12 +2835,38 @@ async def batch_classify(
 
         success_count = sum(1 for r in results if r.category is not None)
         failed_count = len(results) - success_count
+        processing_time = round(time.time() - start_time, 3)
+
+        # Record Prometheus metrics
+        try:
+            from src.utils.analysis_metrics import (
+                v16_classifier_batch_seconds,
+                v16_classifier_batch_size,
+                v16_batch_classify_requests_total,
+                v16_batch_classify_files_total,
+            )
+            v16_classifier_batch_seconds.observe(processing_time)
+            v16_classifier_batch_size.observe(len(files))
+
+            # Request status
+            if failed_count == 0:
+                v16_batch_classify_requests_total.labels(status="success").inc()
+            elif success_count == 0:
+                v16_batch_classify_requests_total.labels(status="failed").inc()
+            else:
+                v16_batch_classify_requests_total.labels(status="partial").inc()
+
+            # File counts
+            v16_batch_classify_files_total.labels(result="success").inc(success_count)
+            v16_batch_classify_files_total.labels(result="failed").inc(failed_count)
+        except Exception:
+            pass
 
         return BatchClassifyResponse(
             total=len(files),
             success=success_count,
             failed=failed_count,
-            processing_time=round(time.time() - start_time, 3),
+            processing_time=processing_time,
             results=results,
         )
 

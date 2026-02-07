@@ -446,6 +446,16 @@ v16_classifier_needs_review_total = Counter(
     "v16_classifier_needs_review_total",
     "V16 classifier predictions flagged for review",
 )
+v16_batch_classify_requests_total = Counter(
+    "v16_batch_classify_requests_total",
+    "V16 batch classify API requests",
+    ["status"],  # success|partial|failed
+)
+v16_batch_classify_files_total = Counter(
+    "v16_batch_classify_files_total",
+    "V16 batch classify total files processed",
+    ["result"],  # success|failed
+)
 
 faiss_auto_rebuild_total = Counter(
     "faiss_auto_rebuild_total",
