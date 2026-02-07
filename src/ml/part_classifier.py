@@ -484,6 +484,7 @@ class PartClassifierV16:
     - Top-2预测：返回前两个最可能的类别供参考
     - 边界案例识别：特定零件类型可能存在分类歧义
     - 快速模式：可选择性跳过V14视觉分支以提高推理速度
+    - 特征缓存：缓存已提取的特征和渲染图像，重复分类时跳过I/O
     """
 
     # 类别映射 - 必须与训练时的labels.json一致
@@ -509,8 +510,12 @@ class PartClassifierV16:
         "v6_only": {"v14_folds": 0, "use_fast_render": False},   # 仅V6 ~50ms (99.34%准确率)
     }
 
+    # 缓存配置
+    DEFAULT_CACHE_SIZE = 1000  # 默认缓存条目数
+
     def __init__(self, model_dir: str = "models", confidence_threshold: float = None,
-                 speed_mode: str = "accurate"):
+                 speed_mode: str = "accurate", enable_cache: bool = True,
+                 cache_size: int = None):
         self.model_dir = Path(model_dir)
         self.device = torch.device("cuda" if torch.cuda.is_available() else
                                    "mps" if torch.backends.mps.is_available() else "cpu")
@@ -528,6 +533,76 @@ class PartClassifierV16:
             raise ValueError(f"无效速度模式: {speed_mode}，可选: {list(self.SPEED_MODES.keys())}")
         self.speed_mode = speed_mode
         self._speed_config = self.SPEED_MODES[speed_mode]
+
+        # 特征缓存 - 使用LRU策略
+        self._enable_cache = enable_cache
+        self._cache_size = cache_size or self.DEFAULT_CACHE_SIZE
+        self._feature_cache: Dict[str, np.ndarray] = {}  # file_hash -> features
+        self._image_cache: Dict[str, np.ndarray] = {}    # file_hash -> rendered image
+        self._cache_order: List[str] = []  # LRU顺序追踪
+        self._cache_stats = {"hits": 0, "misses": 0}
+
+    def _get_file_cache_key(self, file_path: str) -> str:
+        """生成文件缓存键（基于路径和修改时间）"""
+        import hashlib
+        path = Path(file_path)
+        try:
+            mtime = path.stat().st_mtime
+            key_str = f"{path.resolve()}:{mtime}"
+            return hashlib.md5(key_str.encode()).hexdigest()[:16]
+        except OSError:
+            return hashlib.md5(str(path.resolve()).encode()).hexdigest()[:16]
+
+    def _cache_get(self, cache_key: str) -> tuple:
+        """从缓存获取特征和图像，返回(features, image)或(None, None)"""
+        if not self._enable_cache or cache_key not in self._feature_cache:
+            self._cache_stats["misses"] += 1
+            return None, None
+
+        self._cache_stats["hits"] += 1
+        # 更新LRU顺序
+        if cache_key in self._cache_order:
+            self._cache_order.remove(cache_key)
+        self._cache_order.append(cache_key)
+
+        features = self._feature_cache.get(cache_key)
+        image = self._image_cache.get(cache_key)
+        return features, image
+
+    def _cache_put(self, cache_key: str, features: np.ndarray, image: np.ndarray = None):
+        """存入缓存，自动LRU淘汰"""
+        if not self._enable_cache:
+            return
+
+        # LRU淘汰
+        while len(self._cache_order) >= self._cache_size:
+            old_key = self._cache_order.pop(0)
+            self._feature_cache.pop(old_key, None)
+            self._image_cache.pop(old_key, None)
+
+        self._feature_cache[cache_key] = features
+        if image is not None:
+            self._image_cache[cache_key] = image
+        self._cache_order.append(cache_key)
+
+    def clear_cache(self):
+        """清空缓存"""
+        self._feature_cache.clear()
+        self._image_cache.clear()
+        self._cache_order.clear()
+        self._cache_stats = {"hits": 0, "misses": 0}
+
+    def get_cache_stats(self) -> Dict[str, int]:
+        """获取缓存统计信息"""
+        total = self._cache_stats["hits"] + self._cache_stats["misses"]
+        hit_rate = self._cache_stats["hits"] / total if total > 0 else 0
+        return {
+            "hits": self._cache_stats["hits"],
+            "misses": self._cache_stats["misses"],
+            "hit_rate": hit_rate,
+            "cache_size": len(self._feature_cache),
+            "max_size": self._cache_size,
+        }
 
     def _load_models(self):
         """加载V6和V14模型"""
@@ -851,35 +926,51 @@ class PartClassifierV16:
         """
         self._load_models()
 
-        # 一次性读取DXF文件，避免重复I/O
-        try:
-            import ezdxf
-            ezdxf_doc = ezdxf.readfile(dxf_path)
-        except Exception as e:
-            logger.error(f"读取DXF文件失败: {e}")
-            return None
+        # 检查缓存
+        cache_key = self._get_file_cache_key(dxf_path)
+        cached_features, cached_img = self._cache_get(cache_key)
 
-        features = self._extract_features(dxf_path, ezdxf_doc=ezdxf_doc)
-        if features is None:
-            return None
+        if cached_features is not None:
+            # 缓存命中 - 跳过I/O
+            features = cached_features
+            img = cached_img
+        else:
+            # 缓存未命中 - 读取并提取特征
+            try:
+                import ezdxf
+                ezdxf_doc = ezdxf.readfile(dxf_path)
+            except Exception as e:
+                logger.error(f"读取DXF文件失败: {e}")
+                return None
 
-        # 获取速度配置
+            features = self._extract_features(dxf_path, ezdxf_doc=ezdxf_doc)
+            if features is None:
+                return None
+
+            # 获取速度配置
+            v14_folds = self._speed_config["v14_folds"]
+            use_v14 = v14_folds > 0 and self.v14_models
+
+            # V14需要图像渲染 (复用ezdxf_doc)
+            if use_v14:
+                img = self._render_dxf(dxf_path, ezdxf_doc=ezdxf_doc)
+                if img is None:
+                    img = np.zeros((self.IMG_SIZE, self.IMG_SIZE), dtype=np.float32)
+            else:
+                img = None
+
+            # 存入缓存
+            self._cache_put(cache_key, features, img)
+
+        # 获取速度配置（缓存命中时也需要）
         v14_folds = self._speed_config["v14_folds"]
         use_v14 = v14_folds > 0 and self.v14_models
-
-        # V14需要图像渲染 (复用ezdxf_doc)
-        if use_v14:
-            img = self._render_dxf(dxf_path, ezdxf_doc=ezdxf_doc)
-            if img is None:
-                img = np.zeros((self.IMG_SIZE, self.IMG_SIZE), dtype=np.float32)
-        else:
-            img = None
 
         with torch.inference_mode():
             x_v6 = torch.FloatTensor(features).unsqueeze(0).to(self.device)
             v6_probs = torch.softmax(self.v6_model(x_v6), dim=1)
 
-            if use_v14:
+            if use_v14 and img is not None:
                 x_geo = torch.FloatTensor(features).unsqueeze(0).to(self.device)
                 x_img = torch.FloatTensor(img).unsqueeze(0).unsqueeze(0).to(self.device)
 
