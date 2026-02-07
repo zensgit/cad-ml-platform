@@ -56,12 +56,36 @@ class HealthConfigDebug(BaseModel):
     log_level: str
 
 
+class HealthConfigMlClassification(BaseModel):
+    hybrid_enabled: bool
+    hybrid_version: str
+    hybrid_config_path: str
+    graph2d_model_path: str
+    filename_enabled: bool
+    graph2d_enabled: bool
+    titleblock_enabled: bool
+    process_enabled: bool
+
+
+class HealthConfigMlSampling(BaseModel):
+    max_nodes: int
+    strategy: str
+    seed: int
+    text_priority_ratio: float
+
+
+class HealthConfigMl(BaseModel):
+    classification: HealthConfigMlClassification
+    sampling: HealthConfigMlSampling
+
+
 class HealthConfig(BaseModel):
     limits: HealthConfigLimits
     providers: HealthConfigProviders
     monitoring: HealthConfigMonitoring
     network: HealthConfigNetwork
     debug: HealthConfigDebug
+    ml: Optional[HealthConfigMl] = None
 
 
 class HealthResponse(BaseModel):

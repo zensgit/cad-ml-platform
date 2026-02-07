@@ -80,15 +80,30 @@ class FaissHealthResponse(BaseModel):
     degraded_reason: Optional[str] = None
     degraded_duration_seconds: Optional[float] = None
     degradation_history_count: int = 0  # Number of degradation events
-    degradation_history: Optional[List[Dict]] = None  # Recent degradation events (last 10)
+    degradation_history: Optional[List[Dict]] = (
+        None  # Recent degradation events (last 10)
+    )
     next_recovery_eta: Optional[int] = None
     manual_recovery_in_progress: bool = False
+
+
+class HybridRuntimeConfigResponse(BaseModel):
+    status: str
+    config: Dict[str, Any]
 
 
 @router.get("/health", response_model=HealthResponse)
 async def health_alias() -> Dict[str, Any]:
     """Alias `/api/v1/health` to the root `/health` endpoint."""
     return build_health_payload()
+
+
+@router.get("/ml/hybrid-config", response_model=HybridRuntimeConfigResponse)
+@router.get("/health/ml/hybrid-config", response_model=HybridRuntimeConfigResponse)
+async def hybrid_runtime_config(api_key: str = Depends(get_api_key)):
+    from src.ml.hybrid_config import get_config
+
+    return HybridRuntimeConfigResponse(status="ok", config=get_config().to_dict())
 
 
 @router.get("/features/cache", response_model=FeatureCacheStatsResponse)
@@ -195,7 +210,9 @@ async def cache_tuning_recommendation(api_key: str = Depends(get_api_key)):
     elif eviction_ratio > 0.15:
         # Very high evictions -> aggressive increase
         recommended_capacity = int(capacity * 2.0)
-        reasons.append(f"Very high eviction rate ({eviction_ratio:.1%}) - double capacity")
+        reasons.append(
+            f"Very high eviction rate ({eviction_ratio:.1%}) - double capacity"
+        )
 
     # TTL tuning logic
     if hit_ratio < 0.5 and eviction_ratio < 0.05:
@@ -226,7 +243,9 @@ async def cache_tuning_recommendation(api_key: str = Depends(get_api_key)):
         ((recommended_capacity - capacity) / capacity * 100) if capacity > 0 else 0.0
     )
     ttl_change_pct = (
-        ((recommended_ttl - ttl_seconds) / ttl_seconds * 100) if ttl_seconds > 0 else 0.0
+        ((recommended_ttl - ttl_seconds) / ttl_seconds * 100)
+        if ttl_seconds > 0
+        else 0.0
     )
 
     try:
@@ -428,7 +447,9 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
         degraded_reason=degraded_info["reason"],
         degraded_duration_seconds=degraded_info["degraded_duration_seconds"],
         degradation_history_count=degraded_info["history_count"],
-        degradation_history=degraded_info["history"] if degraded_info["history"] else None,
+        degradation_history=(
+            degraded_info["history"] if degraded_info["history"] else None
+        ),
         next_recovery_eta=next_recovery_eta,
         manual_recovery_in_progress=bool(_FAISS_MANUAL_RECOVERY_IN_PROGRESS),
     )
@@ -494,7 +515,10 @@ async def model_health(api_key: str = Depends(get_api_key)):
 
     model_health_checks_total.labels(status=status).inc()
     try:
-        from src.utils.analysis_metrics import model_rollback_level, model_snapshots_available
+        from src.utils.analysis_metrics import (
+            model_rollback_level,
+            model_snapshots_available,
+        )
 
         snapshots_available = sum(
             1

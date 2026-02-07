@@ -28,16 +28,22 @@ def metrics_enabled() -> bool:
 def record_health_request(endpoint: str, status: str, duration_seconds: float) -> None:
     try:
         health_requests_total.labels(endpoint=endpoint, status=status).inc()
-        health_request_duration_seconds.labels(endpoint=endpoint).observe(duration_seconds)
+        health_request_duration_seconds.labels(endpoint=endpoint).observe(
+            duration_seconds
+        )
     except Exception:
         # Metrics collection should never block health responses.
         pass
 
 
-def build_health_payload(metrics_enabled_override: Optional[bool] = None) -> Dict[str, Any]:
+def build_health_payload(
+    metrics_enabled_override: Optional[bool] = None,
+) -> Dict[str, Any]:
     """Build health payload shared by /health and /api/v1/health."""
     metrics_enabled = (
-        _METRICS_ENABLED if metrics_enabled_override is None else metrics_enabled_override
+        _METRICS_ENABLED
+        if metrics_enabled_override is None
+        else metrics_enabled_override
     )
     current_settings = get_settings()
 
@@ -95,6 +101,36 @@ def build_health_payload(metrics_enabled_override: Optional[bool] = None) -> Dic
             },
         },
     }
+
+    try:
+        from src.ml.hybrid_config import get_config as get_hybrid_config
+
+        hybrid_cfg = get_hybrid_config()
+        base["config"]["ml"] = {
+            "classification": {
+                "hybrid_enabled": bool(hybrid_cfg.enabled),
+                "hybrid_version": str(hybrid_cfg.version),
+                "hybrid_config_path": os.getenv(
+                    "HYBRID_CONFIG_PATH", "config/hybrid_classifier.yaml"
+                ),
+                "graph2d_model_path": os.getenv(
+                    "GRAPH2D_MODEL_PATH", "models/graph2d_parts_upsampled_20260122.pth"
+                ),
+                "filename_enabled": bool(hybrid_cfg.filename.enabled),
+                "graph2d_enabled": bool(hybrid_cfg.graph2d.enabled),
+                "titleblock_enabled": bool(hybrid_cfg.titleblock.enabled),
+                "process_enabled": bool(hybrid_cfg.process.enabled),
+            },
+            "sampling": {
+                "max_nodes": int(hybrid_cfg.sampling.max_nodes),
+                "strategy": str(hybrid_cfg.sampling.strategy),
+                "seed": int(hybrid_cfg.sampling.seed),
+                "text_priority_ratio": float(hybrid_cfg.sampling.text_priority_ratio),
+            },
+        }
+    except Exception:
+        # Hybrid config visibility is optional and should not fail health checks.
+        pass
 
     resilience_payload = None
     try:
