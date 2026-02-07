@@ -3240,3 +3240,7 @@
   - Kept force override support (`HYBRID_CLASSIFIER_OVERRIDE=true`) and added `HYBRID_CLASSIFIER_AUTO_OVERRIDE` (default true).
   - Validation: focused integration suite passed (`2 passed`).
   - Report: `reports/DEV_ANALYZE_DXF_HYBRID_AUTO_OVERRIDE_20260207.md`
+- **Analyze DXF Hybrid Low-Confidence Override**:
+  - Extended auto-override to cover low-confidence base classification results via `HYBRID_OVERRIDE_BASE_MAX_CONF` (default `0.7`), using `mode=auto_low_conf`.
+  - Validation: focused integration suite passed (`2 passed`).
+  - Report: `reports/DEV_ANALYZE_DXF_HYBRID_LOW_CONF_OVERRIDE_20260207.md`

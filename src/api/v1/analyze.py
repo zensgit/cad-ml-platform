@@ -1134,6 +1134,9 @@ async def analyze_cad_file(
                 )
                 if hybrid_result:
                     hybrid_min_conf = _safe_float_env("HYBRID_OVERRIDE_MIN_CONF", 0.8)
+                    hybrid_base_max_conf = _safe_float_env(
+                        "HYBRID_OVERRIDE_BASE_MAX_CONF", 0.7
+                    )
                     hybrid_label = hybrid_result.get("label")
                     hybrid_conf = float(hybrid_result.get("confidence", 0.0) or 0.0)
 
@@ -1151,6 +1154,11 @@ async def analyze_cad_file(
                         and str(cls_payload.get("rule_version") or "") == "v1"
                         and current_part_type in placeholder_types
                     )
+                    base_conf = float(cls_payload.get("confidence", 0.0) or 0.0)
+                    is_low_conf_base = (
+                        str(cls_payload.get("confidence_source") or "") == "rules"
+                        and base_conf < hybrid_base_max_conf
+                    )
 
                     mode: Optional[str] = None
                     should_override = False
@@ -1164,11 +1172,17 @@ async def analyze_cad_file(
                         should_override = bool(hybrid_label) and (
                             hybrid_conf >= hybrid_min_conf
                         )
+                    elif hybrid_auto_override and is_low_conf_base:
+                        mode = "auto_low_conf"
+                        should_override = bool(hybrid_label) and (
+                            hybrid_conf >= hybrid_min_conf
+                        )
 
                     if should_override:
                         cls_payload["hybrid_override_applied"] = {
                             "mode": mode,
                             "min_confidence": hybrid_min_conf,
+                            "base_max_confidence": hybrid_base_max_conf,
                             "previous_part_type": cls_payload.get("part_type"),
                             "previous_confidence": cls_payload.get("confidence"),
                             "previous_rule_version": cls_payload.get("rule_version"),
