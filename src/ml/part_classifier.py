@@ -912,8 +912,11 @@ class PartClassifierV16:
             logger.error(f"渲染失败: {e}")
             return None
 
-    def predict(self, dxf_path: str) -> Optional[ClassificationResult]:
-        """预测DXF文件的部件类别
+    def predict(self, file_path: str) -> Optional[ClassificationResult]:
+        """预测CAD文件的部件类别（支持DXF和DWG）
+
+        Args:
+            file_path: DXF或DWG文件路径
 
         Returns:
             ClassificationResult 包含:
@@ -926,6 +929,67 @@ class PartClassifierV16:
         """
         self._load_models()
 
+        # 处理DWG文件 - 转换为DXF
+        dxf_path = file_path
+        temp_dxf = None
+        if file_path.lower().endswith('.dwg'):
+            dxf_path, temp_dxf = self._convert_dwg_to_dxf(file_path)
+            if dxf_path is None:
+                return None
+
+        try:
+            result = self._predict_dxf(dxf_path)
+            return result
+        finally:
+            # 清理临时文件
+            if temp_dxf:
+                try:
+                    import os
+                    os.unlink(temp_dxf)
+                except Exception:
+                    pass
+
+    def _convert_dwg_to_dxf(self, dwg_path: str) -> tuple:
+        """将DWG转换为临时DXF文件
+
+        Returns:
+            (dxf_path, temp_file_path) 或 (None, None) 如果转换失败
+        """
+        try:
+            from src.core.cad.dwg.converter import DWGConverter
+            import tempfile
+
+            converter = DWGConverter()
+            if not converter.is_available:
+                logger.warning("DWG转换器不可用，无法处理DWG文件")
+                return None, None
+
+            # 创建临时文件
+            temp_fd, temp_path = tempfile.mkstemp(suffix='.dxf')
+            import os
+            os.close(temp_fd)
+
+            result = converter.convert(dwg_path, temp_path)
+            if result.success:
+                logger.debug(f"DWG转换成功: {dwg_path} -> {temp_path}")
+                return temp_path, temp_path
+            else:
+                logger.error(f"DWG转换失败: {result.error_message}")
+                try:
+                    os.unlink(temp_path)
+                except Exception:
+                    pass
+                return None, None
+
+        except ImportError:
+            logger.warning("DWG转换模块不可用")
+            return None, None
+        except Exception as e:
+            logger.error(f"DWG转换异常: {e}")
+            return None, None
+
+    def _predict_dxf(self, dxf_path: str) -> Optional[ClassificationResult]:
+        """预测DXF文件的部件类别（内部方法）"""
         # 检查缓存
         cache_key = self._get_file_cache_key(dxf_path)
         cached_features, cached_img = self._cache_get(cache_key)
