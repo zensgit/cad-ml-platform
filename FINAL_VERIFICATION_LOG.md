@@ -3225,3 +3225,8 @@
   - Extended `OcrProviderAdapter` with `warmup()` + `extract()` compatibility so it can be used as an `OcrClient`.
   - Validation: focused provider+OCR endpoint suite passed (`29 passed`), Black/Flake8 checks passed.
   - Report: `reports/DEV_OCR_MANAGER_PROVIDER_REGISTRY_WIRING_20260207.md`
+- **Vision OCR ProviderRegistry Wiring + OCR Strategy Alias**:
+  - Wired Vision API `OcrManager` providers via core `ProviderRegistry` (best-effort, preserves graceful degradation).
+  - Normalized OCR strategy aliases (`deepseek` -> `deepseek_hf`) and case-folding in `OcrManager` to prevent avoidable provider-down errors.
+  - Validation: focused Vision/OCR unit suite passed (`45 passed`), Black/Flake8 checks passed.
+  - Report: `reports/DEV_VISION_OCR_PROVIDER_REGISTRY_WIRING_20260207.md`

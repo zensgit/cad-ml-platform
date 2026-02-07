@@ -3,7 +3,7 @@
 Provides unified base classes and registry for all providers:
 - BaseProvider: Common functionality for health checks, metrics, lifecycle
 - ProviderRegistry: Factory and discovery for provider instances
-- ConfigurableProvider: Integration with ConfigManager
+- Bootstrap helpers: Register built-in provider adapters used by the core app
 
 Example usage:
     from src.core.providers import BaseProvider, ProviderRegistry
