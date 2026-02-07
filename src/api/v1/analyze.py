@@ -140,6 +140,27 @@ class AnalysisResult(BaseModel):
     )
 
 
+class BatchClassifyResultItem(BaseModel):
+    """批量分类单个结果"""
+    file_name: str = Field(description="文件名")
+    category: Optional[str] = Field(default=None, description="分类类别")
+    confidence: Optional[float] = Field(default=None, description="置信度")
+    probabilities: Optional[Dict[str, float]] = Field(default=None, description="各类别概率")
+    needs_review: bool = Field(default=False, description="是否需要人工复核")
+    review_reason: Optional[str] = Field(default=None, description="复核原因")
+    classifier: Optional[str] = Field(default=None, description="使用的分类器版本")
+    error: Optional[str] = Field(default=None, description="错误信息")
+
+
+class BatchClassifyResponse(BaseModel):
+    """批量分类响应"""
+    total: int = Field(description="总文件数")
+    success: int = Field(description="成功分类数")
+    failed: int = Field(description="失败数")
+    processing_time: float = Field(description="处理时间(秒)")
+    results: List[BatchClassifyResultItem] = Field(description="分类结果列表")
+
+
 class SimilarityQuery(BaseModel):
     reference_id: str = Field(description="参考分析ID")
     target_id: str = Field(description="目标分析ID")
@@ -2714,6 +2735,145 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
             method="GET",
         ),
     )
+
+
+@router.post("/batch-classify", response_model=BatchClassifyResponse)
+async def batch_classify(
+    files: List[UploadFile] = File(..., description="CAD文件列表(DXF/DWG)"),
+    max_workers: Optional[int] = Form(default=None, description="并行工作线程数"),
+    api_key: str = Depends(get_api_key),
+):
+    """
+    批量分类CAD文件
+
+    使用V16超级集成分类器并行处理多个文件，支持DXF和DWG格式。
+    相比逐个调用，批量处理可获得约3倍性能提升。
+
+    Args:
+        files: CAD文件列表
+        max_workers: 并行线程数(默认自动)
+
+    Returns:
+        批量分类结果，包含每个文件的分类类别、置信度等
+    """
+    import tempfile
+    import time
+
+    start_time = time.time()
+    results: List[BatchClassifyResultItem] = []
+    work_items: List[tuple[int, str]] = []
+    temp_files: List[str] = []
+
+    try:
+        # 保存上传文件到临时目录
+        for file in files:
+            suffix = os.path.splitext(file.filename or "")[1].lower()
+            if suffix not in (".dxf", ".dwg"):
+                results.append(
+                    BatchClassifyResultItem(
+                        file_name=file.filename or "unknown",
+                        error=(
+                            f"Unsupported format: {suffix}, only .dxf and .dwg are supported"
+                        ),
+                    )
+                )
+                continue
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                content = await file.read()
+                tmp.write(content)
+                temp_files.append(tmp.name)
+                results.append(BatchClassifyResultItem(file_name=file.filename or tmp.name))
+                work_items.append((len(results) - 1, tmp.name))
+
+        # 获取V16分类器
+        from src.core.analyzer import _get_v16_classifier
+
+        classifier = _get_v16_classifier()
+
+        if classifier is None:
+            # 回退到逐个分类
+            logger.warning("V16 classifier not available, falling back to sequential")
+            from src.core.analyzer import _get_ml_classifier
+
+            ml_classifier = _get_ml_classifier()
+            if ml_classifier is None:
+                for result_idx, _temp_path in work_items:
+                    results[result_idx] = BatchClassifyResultItem(
+                        file_name=results[result_idx].file_name,
+                        error="No classifier available",
+                    )
+            else:
+                for result_idx, temp_path in work_items:
+                    try:
+                        result = ml_classifier.predict(temp_path)
+                        if result:
+                            results[result_idx] = BatchClassifyResultItem(
+                                file_name=results[result_idx].file_name,
+                                category=result.category,
+                                confidence=round(result.confidence, 4),
+                                probabilities={
+                                    k: round(v, 4)
+                                    for k, v in result.probabilities.items()
+                                },
+                                classifier="ml_v6",
+                            )
+                        else:
+                            results[result_idx] = BatchClassifyResultItem(
+                                file_name=results[result_idx].file_name,
+                                error="Classification returned None",
+                            )
+                    except Exception as e:
+                        results[result_idx] = BatchClassifyResultItem(
+                            file_name=results[result_idx].file_name,
+                            error=str(e),
+                        )
+        else:
+            # 使用V16批量分类
+            valid_paths = [temp_path for _idx, temp_path in work_items]
+            batch_results = classifier.predict_batch(valid_paths, max_workers=max_workers)
+
+            # 映射结果（保持与输入文件的顺序对齐，即使存在不支持的格式）
+            for i, (result_idx, _temp_path) in enumerate(work_items):
+                item = results[result_idx]
+                result = batch_results[i] if i < len(batch_results) else None
+                if result:
+                    results[result_idx] = BatchClassifyResultItem(
+                        file_name=item.file_name,
+                        category=result.category,
+                        confidence=round(result.confidence, 4),
+                        probabilities={
+                            k: round(v, 4) for k, v in result.probabilities.items()
+                        },
+                        needs_review=getattr(result, "needs_review", False),
+                        review_reason=getattr(result, "review_reason", None),
+                        classifier=getattr(result, "model_version", "v16"),
+                    )
+                else:
+                    results[result_idx] = BatchClassifyResultItem(
+                        file_name=item.file_name,
+                        error="Classification returned None",
+                    )
+
+        # 统计
+        success_count = sum(1 for r in results if r.category is not None)
+        failed_count = len(results) - success_count
+
+        return BatchClassifyResponse(
+            total=len(files),
+            success=success_count,
+            failed=failed_count,
+            processing_time=round(time.time() - start_time, 3),
+            results=results,
+        )
+
+    finally:
+        # 清理临时文件
+        for temp_path in temp_files:
+            try:
+                os.unlink(temp_path)
+            except Exception:
+                pass
 
 
 # IMPORTANT: This catch-all route MUST be at the end of the file

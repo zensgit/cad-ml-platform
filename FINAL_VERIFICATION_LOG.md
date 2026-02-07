@@ -3271,3 +3271,8 @@
   - Added `/api/v1/tolerance/*` endpoints for IT tolerance, limit deviations, and fit deviation queries.
   - Validation: `pytest -q tests/integration/test_tolerance_api.py` (`3 passed`).
   - Report: `reports/DEV_TOLERANCE_API_20260207.md`
+- **Analyze Batch Classify + V16 Health Controls**:
+  - Added `POST /api/v1/analyze/batch-classify` and fixed result alignment for mixed supported/unsupported uploads.
+  - Added V16 classifier health and cache/speed-mode endpoints under `/api/v1/health/v16-classifier/*`.
+  - Validation: `pytest -q tests/integration/test_analyze_batch_classify_api.py` (`1 passed`), `pytest -q tests/unit/test_health_v16_classifier_endpoints.py` (`5 passed`).
+  - Report: `reports/DEV_ANALYZE_BATCH_CLASSIFY_AND_V16_HEALTH_20260207.md`
