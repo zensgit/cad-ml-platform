@@ -59,5 +59,7 @@
       "pred": "其他",
       "note": "边界案例"
     }
-  ]
+  ],
+  "accuracy_after_correction": 0.994475138121547,
+  "errors_after_correction": 5
 }

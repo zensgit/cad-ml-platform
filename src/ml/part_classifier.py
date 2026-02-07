@@ -275,8 +275,13 @@ class PartClassifier:
         """V6特征提取 (48维)"""
         return extract_features_v6(dxf_path, log=logger)
 
-    def predict(self, dxf_path: str) -> Optional[ClassificationResult]:
-        """预测DXF文件的部件类别"""
+    def predict(self, dxf_path: str, confidence_threshold: float = 0.6) -> Optional[ClassificationResult]:
+        """预测DXF文件的部件类别
+
+        Args:
+            dxf_path: DXF文件路径
+            confidence_threshold: 置信度阈值，低于此值标记为需要人工审核
+        """
         features = self.extract_features(dxf_path)
         if features is None:
             return None
@@ -286,19 +291,40 @@ class PartClassifier:
         with torch.inference_mode():
             outputs = self.model(x)
             probs = torch.softmax(outputs, dim=1)[0]
-            pred_id = probs.argmax().item()
-            confidence = probs[pred_id].item()
+
+            # 获取top2预测
+            sorted_probs, sorted_indices = torch.sort(probs, descending=True)
+            pred_id = sorted_indices[0].item()
+            confidence = sorted_probs[0].item()
+            top2_id = sorted_indices[1].item()
+            top2_confidence = sorted_probs[1].item()
 
         probabilities = {
             self.id_to_label[i]: probs[i].item()
             for i in range(self.num_classes)
         }
 
+        # 检查是否需要人工审核
+        needs_review = False
+        review_reason = None
+        margin = confidence - top2_confidence
+
+        if confidence < confidence_threshold:
+            needs_review = True
+            review_reason = f"置信度({confidence:.1%})低于阈值({confidence_threshold:.0%})"
+        elif margin < 0.1:  # top1和top2差距小于10%
+            needs_review = True
+            review_reason = f"预测不确定(差距仅{margin:.1%})"
+
         return ClassificationResult(
             category=self.id_to_label[pred_id],
             confidence=confidence,
             probabilities=probabilities,
-            model_version=self.version
+            model_version=self.version,
+            needs_review=needs_review,
+            review_reason=review_reason,
+            top2_category=self.id_to_label[top2_id],
+            top2_confidence=top2_confidence,
         )
 
     def predict_batch(self, dxf_paths: List[str]) -> List[Optional[ClassificationResult]]:
