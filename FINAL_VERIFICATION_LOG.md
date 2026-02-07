@@ -3204,3 +3204,8 @@
   - Aligned `scripts/test_with_local_api.sh` with CI/Make targets (`unit|contract|e2e|all`, `--wait-seconds`) and added local API auto-start/reuse/cleanup behavior.
   - Validation: syntax/help checks + API orchestration dry run + real `contract` suite (`9 passed, 4 skipped`).
   - Report: `reports/DEV_TIERED_LOCAL_RUNNER_SCRIPT_FIX_20260207.md`
+- **Provider Framework MVP (Core)**:
+  - Implemented reusable provider base and registry under `src/core/providers` with health/status lifecycle support.
+  - Added unit coverage for registration, creation, health-check success/failure, and unregister flows.
+  - Validation: `src.core.providers` import passed; `pytest tests/unit/test_provider_framework.py` -> `7 passed`; Black/Flake8 checks passed.
+  - Report: `reports/DEV_PROVIDER_FRAMEWORK_MVP_20260207.md`
