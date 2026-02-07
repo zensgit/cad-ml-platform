@@ -1121,20 +1121,66 @@ async def analyze_cad_file(
                             }
                     except Exception as e:
                         logger.error(f"FusionAnalyzer failed: {e}")
-                # Optional Hybrid override (off by default)
-                hybrid_override = (
+                # Hybrid override:
+                # - Default: auto-adopt high-confidence HybridClassifier label when the
+                #   base classifier is a placeholder (rule_version=v1 bucket types).
+                # - Optional: force override via env `HYBRID_CLASSIFIER_OVERRIDE=true`.
+                hybrid_override_env = (
                     os.getenv("HYBRID_CLASSIFIER_OVERRIDE", "false").lower() == "true"
                 )
-                if hybrid_override and hybrid_result:
+                hybrid_auto_override = (
+                    os.getenv("HYBRID_CLASSIFIER_AUTO_OVERRIDE", "true").lower()
+                    == "true"
+                )
+                if hybrid_result:
                     hybrid_min_conf = _safe_float_env("HYBRID_OVERRIDE_MIN_CONF", 0.8)
                     hybrid_label = hybrid_result.get("label")
                     hybrid_conf = float(hybrid_result.get("confidence", 0.0) or 0.0)
-                    if hybrid_label and hybrid_conf >= hybrid_min_conf:
+
+                    placeholder_types = {
+                        "",
+                        "simple_plate",
+                        "moderate_component",
+                        "complex_assembly",
+                        "unknown",
+                        "other",
+                    }
+                    current_part_type = str(cls_payload.get("part_type") or "").strip()
+                    is_placeholder_rule = (
+                        str(cls_payload.get("confidence_source") or "") == "rules"
+                        and str(cls_payload.get("rule_version") or "") == "v1"
+                        and current_part_type in placeholder_types
+                    )
+
+                    mode: Optional[str] = None
+                    should_override = False
+                    if hybrid_override_env:
+                        mode = "env"
+                        should_override = bool(hybrid_label) and (
+                            hybrid_conf >= hybrid_min_conf
+                        )
+                    elif hybrid_auto_override and is_placeholder_rule:
+                        mode = "auto"
+                        should_override = bool(hybrid_label) and (
+                            hybrid_conf >= hybrid_min_conf
+                        )
+
+                    if should_override:
+                        cls_payload["hybrid_override_applied"] = {
+                            "mode": mode,
+                            "min_confidence": hybrid_min_conf,
+                            "previous_part_type": cls_payload.get("part_type"),
+                            "previous_confidence": cls_payload.get("confidence"),
+                            "previous_rule_version": cls_payload.get("rule_version"),
+                            "previous_confidence_source": cls_payload.get(
+                                "confidence_source"
+                            ),
+                        }
                         cls_payload["part_type"] = hybrid_label
                         cls_payload["confidence"] = hybrid_conf
                         cls_payload["rule_version"] = "HybridClassifier-v1"
                         cls_payload["confidence_source"] = "hybrid"
-                    else:
+                    elif hybrid_override_env:
                         cls_payload["hybrid_override_skipped"] = {
                             "min_confidence": hybrid_min_conf,
                             "decision_confidence": hybrid_conf,

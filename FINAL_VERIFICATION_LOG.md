@@ -3235,3 +3235,8 @@
   - Updated `scripts/test_with_local_api.sh` to prefer `.venv/bin/pytest` by default to avoid dependency mismatches with global Python.
   - Validation: `.venv/bin/pytest -q tests/unit` (`6993 passed, 26 skipped`); `.venv/bin/pytest -q tests/integration` (`88 passed, 10 skipped`).
   - Report: `reports/DEV_CLASSIFIER_API_TORCH_OPTIONAL_AND_VENV_PYTEST_RUNNER_20260207.md`
+- **Analyze DXF Hybrid Auto Override**:
+  - Auto-applied `HybridClassifier` decision when base DXF classification is a placeholder rule bucket (`rule_version=v1`) to surface meaningful part labels without env toggles.
+  - Kept force override support (`HYBRID_CLASSIFIER_OVERRIDE=true`) and added `HYBRID_CLASSIFIER_AUTO_OVERRIDE` (default true).
+  - Validation: focused integration suite passed (`2 passed`).
+  - Report: `reports/DEV_ANALYZE_DXF_HYBRID_AUTO_OVERRIDE_20260207.md`
