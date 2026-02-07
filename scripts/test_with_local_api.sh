@@ -1,0 +1,180 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SUITE="all"
+BASE_URL="${API_BASE_URL:-http://127.0.0.1:8000}"
+API_KEY_VALUE="${API_KEY:-test-api-key}"
+WAIT_SECONDS=60
+LOG_PATH="/tmp/cad_ml_uvicorn.log"
+PYTHON_BIN="${PYTHON_BIN:-}"
+PYTEST_BIN="${PYTEST_BIN:-pytest}"
+SERVER_PID=""
+STARTED_LOCAL_API=0
+
+usage() {
+    cat <<EOF
+Usage: $0 [OPTIONS]
+
+Run tiered tests with optional local API auto-start.
+
+Options:
+    --suite SUITE       Test suite to run: unit, contract, e2e, all (default: all)
+    --base-url URL      API base URL (default: http://127.0.0.1:8000)
+    --api-key KEY       API key for authentication (default: test-api-key)
+    --wait-seconds SEC  Max seconds to wait for server readiness (default: 60)
+    --wait SEC          Backward-compatible alias for --wait-seconds
+    --log-path PATH     Uvicorn log output path (default: /tmp/cad_ml_uvicorn.log)
+    --python-bin PATH   Python executable used for local uvicorn startup
+    --pytest-bin CMD    Pytest command (default: pytest)
+    --help              Show this help message
+
+Examples:
+    $0 --suite unit
+    $0 --suite contract --wait-seconds 90
+    $0 --suite e2e --base-url http://127.0.0.1:8000
+EOF
+    exit 0
+}
+
+default_python_bin() {
+    if [[ -n "${PYTHON_BIN}" ]]; then
+        return
+    fi
+    if [[ -x ".venv/bin/python" ]]; then
+        PYTHON_BIN=".venv/bin/python"
+    elif command -v python3 >/dev/null 2>&1; then
+        PYTHON_BIN="$(command -v python3)"
+    else
+        PYTHON_BIN="python"
+    fi
+}
+
+is_local_base_url() {
+    case "${BASE_URL}" in
+        http://127.0.0.1:*|http://localhost:*|https://127.0.0.1:*|https://localhost:*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+is_server_healthy() {
+    curl -fsS -H "X-API-Key: ${API_KEY_VALUE}" "${BASE_URL}/health" >/dev/null 2>&1
+}
+
+parse_host_port() {
+    local without_scheme host_port host port
+    without_scheme="${BASE_URL#http://}"
+    without_scheme="${without_scheme#https://}"
+    host_port="${without_scheme%%/*}"
+    host="${host_port%%:*}"
+    if [[ "${host_port}" == *":"* ]]; then
+        port="${host_port##*:}"
+    else
+        port="8000"
+    fi
+    echo "${host}" "${port}"
+}
+
+cleanup() {
+    if [[ "${STARTED_LOCAL_API}" -eq 1 && -n "${SERVER_PID}" ]]; then
+        kill "${SERVER_PID}" >/dev/null 2>&1 || true
+        wait "${SERVER_PID}" 2>/dev/null || true
+    fi
+}
+
+ensure_api() {
+    if is_server_healthy; then
+        echo "Using existing healthy API at ${BASE_URL}"
+        return
+    fi
+
+    if ! is_local_base_url; then
+        echo "ERROR: API at ${BASE_URL} is not healthy and is not a local URL."
+        echo "Please start the remote API manually before running suite '${SUITE}'."
+        exit 1
+    fi
+
+    default_python_bin
+    read -r host port <<<"$(parse_host_port)"
+    echo "Starting local API via uvicorn (${host}:${port})"
+    "${PYTHON_BIN}" -m uvicorn src.main:app --host "${host}" --port "${port}" >"${LOG_PATH}" 2>&1 &
+    SERVER_PID=$!
+    STARTED_LOCAL_API=1
+
+    for i in $(seq 1 "${WAIT_SECONDS}"); do
+        if is_server_healthy; then
+            echo "Local API is healthy."
+            return
+        fi
+        if ! kill -0 "${SERVER_PID}" >/dev/null 2>&1; then
+            echo "ERROR: Local API exited early. Last logs:"
+            tail -n 80 "${LOG_PATH}" || true
+            exit 1
+        fi
+        sleep 1
+    done
+
+    echo "ERROR: API not ready after ${WAIT_SECONDS}s."
+    tail -n 80 "${LOG_PATH}" || true
+    exit 1
+}
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --suite) SUITE="$2"; shift 2 ;;
+        --base-url) BASE_URL="$2"; shift 2 ;;
+        --api-key) API_KEY_VALUE="$2"; shift 2 ;;
+        --wait-seconds) WAIT_SECONDS="$2"; shift 2 ;;
+        --wait) WAIT_SECONDS="$2"; shift 2 ;;
+        --log-path) LOG_PATH="$2"; shift 2 ;;
+        --python-bin) PYTHON_BIN="$2"; shift 2 ;;
+        --pytest-bin) PYTEST_BIN="$2"; shift 2 ;;
+        --help) usage ;;
+        *) echo "Unknown option: $1"; usage ;;
+    esac
+done
+
+if [[ ! "${WAIT_SECONDS}" =~ ^[0-9]+$ ]]; then
+    echo "ERROR: --wait-seconds must be a positive integer"
+    exit 1
+fi
+
+trap cleanup EXIT
+
+echo "=== Tiered Test Runner ==="
+echo "Base URL: $BASE_URL"
+echo "Suite: $SUITE"
+echo "Log Path: $LOG_PATH"
+echo ""
+
+export API_BASE_URL="$BASE_URL"
+export API_KEY="$API_KEY_VALUE"
+
+case $SUITE in
+    unit)
+        "${PYTEST_BIN}" tests/unit -v --tb=short
+        ;;
+    contract)
+        ensure_api
+        "${PYTEST_BIN}" tests/contract -v --tb=short
+        ;;
+    e2e)
+        ensure_api
+        "${PYTEST_BIN}" tests/e2e -v --tb=short
+        ;;
+    all)
+        ensure_api
+        "${PYTEST_BIN}" tests -v --tb=short
+        ;;
+    *)
+        echo "ERROR: Unknown suite '${SUITE}'"
+        echo "Valid suites: unit, contract, e2e, all"
+        exit 1
+        ;;
+esac
+
+echo ""
+echo "=== Tests completed ==="

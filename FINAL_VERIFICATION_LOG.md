@@ -3200,3 +3200,7 @@
 
 ---
 **Signed off by**: GitHub Copilot CLI Agent
+- **Tiered Local Runner Script Fix**:
+  - Aligned `scripts/test_with_local_api.sh` with CI/Make targets (`unit|contract|e2e|all`, `--wait-seconds`) and added local API auto-start/reuse/cleanup behavior.
+  - Validation: syntax/help checks + API orchestration dry run + real `contract` suite (`9 passed, 4 skipped`).
+  - Report: `reports/DEV_TIERED_LOCAL_RUNNER_SCRIPT_FIX_20260207.md`
