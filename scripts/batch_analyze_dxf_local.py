@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import logging
 import os
 import random
 import sys
@@ -20,6 +21,10 @@ if str(ROOT) not in sys.path:
 
 # Keep ezdxf cache out of $HOME by default (helpful for sandboxed environments).
 os.environ.setdefault("XDG_CACHE_HOME", "/tmp/xdg-cache")
+
+# Reduce noisy multipart parser warnings when TestClient uploads files.
+logging.getLogger("python_multipart.multipart").setLevel(logging.ERROR)
+logging.getLogger("python_multipart").setLevel(logging.ERROR)
 
 try:
     from fastapi.testclient import TestClient

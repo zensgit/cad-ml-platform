@@ -1,0 +1,15 @@
+{
+  "total": 2,
+  "success": 2,
+  "error": 0,
+  "confidence_buckets": {
+    "gte_0_8": 2
+  },
+  "label_counts": {
+    "罩": 1,
+    "防爆视灯组件": 1
+  },
+  "low_confidence_count": 0,
+  "soft_override_candidates": 0,
+  "sample_size": 2
+}

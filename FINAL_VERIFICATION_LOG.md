@@ -3259,3 +3259,7 @@
   - Added `src/utils/dxf_io.py` to read DXF from bytes with header-based encoding guess; refactored HybridClassifier/Graph2D/DxfAdapter paths to avoid temp files.
   - Validation: unit+integration suites passed; local DXF batch rerun (`110` files) preserved `low_confidence_count=0`.
   - Report: `reports/DEV_DXF_BYTES_READER_NO_TEMPFILE_20260207.md`
+- **DXF Batch (Local) Multipart Warning Suppression**:
+  - Reduced noisy `python_multipart` multipart-parser warnings during local DXF batch runs (FastAPI `TestClient` uploads).
+  - Validation: local smoke batch (`2` files) produced no multipart warnings.
+  - Report: `reports/DEV_DXF_BATCH_MULTIPART_WARNING_SUPPRESSION_20260207.md`
