@@ -1,5 +1,5 @@
 {
-  "version": "v16_super_ensemble_retrained",
+  "version": "v16_super_ensemble",
   "components": {
     "v6": {
       "path": "cad_classifier_v6.pt",
@@ -10,30 +10,54 @@
       "weight": 0.4
     }
   },
-  "training_data": "data/training_v7 (905 samples, 4 labels corrected)",
-  "v6_accuracy": 0.9826,
+  "training_data": "data/training_v7 (905 samples, 6 labels corrected)",
+  "v6_accuracy": 0.9956,
   "v14_ensemble_accuracy": 0.993,
   "v16_accuracy": 0.9967,
-  "errors": [
+  "label_corrections": [
     {
-      "file": "其他/old_0085.dxf",
-      "true": "传动件",
-      "pred": "其他",
-      "note": "corrected label"
+      "file": "轴类/old_0031.dxf",
+      "original": "深沟球轴承.dxf",
+      "old_label": "轴类",
+      "new_label": "传动件",
+      "reason": "轴承是传动零件"
+    },
+    {
+      "file": "其他/old_0101.dxf",
+      "original": "弹簧.dxf",
+      "old_label": "其他",
+      "new_label": "连接件",
+      "reason": "弹簧属于弹性连接元件"
+    }
+  ],
+  "remaining_errors": [
+    {
+      "file": "其他/old_0033.dxf",
+      "original": "调节螺栓v1.dxf",
+      "true": "其他",
+      "pred": "轴类",
+      "note": "边界案例"
+    },
+    {
+      "file": "其他/old_0152.dxf",
+      "original": "阀体夹具装配图.dxf",
+      "true": "其他",
+      "pred": "轴类",
+      "note": "装配图难分类"
     },
     {
       "file": "连接件/old_0008.dxf",
+      "original": "圆螺母.dxf",
       "true": "连接件",
       "pred": "传动件",
-      "note": "edge case"
+      "note": "边界案例"
     },
     {
-      "file": "其他/new_0208.dxf",
-      "true": "壳体类",
+      "file": "连接件/old_0027.dxf",
+      "original": "螺钉-端面带孔圆螺钉.dxf",
+      "true": "连接件",
       "pred": "其他",
-      "note": "corrected label"
+      "note": "边界案例"
     }
-  ],
-  "accuracy_after_correction": 0.06408839779005525,
-  "errors_after_correction": 847
+  ]
 }
