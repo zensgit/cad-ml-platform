@@ -111,8 +111,12 @@ except Exception:  # pragma: no cover - fallback dummy
         return _Dummy()
 
 
-analysis_requests_total = Counter("analysis_requests_total", "CAD analysis requests", ["status"])
-analysis_errors_total = Counter("analysis_errors_total", "CAD analysis errors", ["stage", "code"])
+analysis_requests_total = Counter(
+    "analysis_requests_total", "CAD analysis requests", ["status"]
+)
+analysis_errors_total = Counter(
+    "analysis_errors_total", "CAD analysis errors", ["stage", "code"]
+)
 compare_requests_total = Counter(
     "compare_requests_total",
     "Feature compare requests",
@@ -305,7 +309,21 @@ vector_migrate_total = Counter(
 vector_migrate_dimension_delta = Histogram(
     "vector_migrate_dimension_delta",
     "Dimension delta (new_dim - old_dim) during vector migration",
-    buckets=(-20, -10, -5, -2, -1, 0, 1, 2, 5, 10, 20, 50, 100),  # Dimension differences
+    buckets=(
+        -20,
+        -10,
+        -5,
+        -2,
+        -1,
+        0,
+        1,
+        2,
+        5,
+        10,
+        20,
+        50,
+        100,
+    ),  # Dimension differences
 )
 
 # Process rules audit endpoint requests
@@ -590,17 +608,25 @@ drift_baseline_created_total = Counter(
 drift_baseline_refresh_total = Counter(
     "drift_baseline_refresh_total",
     "Total times drift baseline refreshed (manual or auto)",
-    ["type", "trigger"],  # labels - type: material|prediction, trigger: manual|auto|stale
+    [
+        "type",
+        "trigger",
+    ],  # labels - type: material|prediction, trigger: manual|auto|stale
 )
 model_security_fail_total = Counter(
     "model_security_fail_total",
     "Model security validation failures",
-    ["reason"],  # hash_mismatch|magic_number_invalid|forged_file|opcode_blocked|opcode_scan_error
+    [
+        "reason"
+    ],  # hash_mismatch|magic_number_invalid|forged_file|opcode_blocked|opcode_scan_error
 )
 vector_store_reload_total = Counter(
     "vector_store_reload_total",
     "Vector store backend reload requests",
-    ["status", "reason"],  # success|error, reason: ok|invalid_backend|auth_failed|init_error
+    [
+        "status",
+        "reason",
+    ],  # success|error, reason: ok|invalid_backend|auth_failed|init_error
 )
 
 # Model health check requests

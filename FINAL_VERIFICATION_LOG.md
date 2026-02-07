@@ -3283,3 +3283,7 @@
   - Added `classifier/v16` and `classifier/v6` providers to the core provider registry with lightweight readiness checks (no model load) and `file_path`-based inference support.
   - Validation: provider unit suites passed; targeted mypy passed for the updated module.
   - Report: `reports/DEV_PROVIDER_FRAMEWORK_CLASSIFIER_V16_V6_20260207.md`
+- **V16 Batch Classify Metrics**:
+  - Added Prometheus counters for `/api/v1/analyze/batch-classify` request outcomes (`success|partial|failed`) and per-file results (`success|failed`).
+  - Validation: `python3 -m pytest -q tests/unit/test_v16_classifier_endpoints.py::TestBatchClassifyEndpoint` (passed).
+  - Report: `reports/DEV_V16_BATCH_CLASSIFY_METRICS_20260207.md`

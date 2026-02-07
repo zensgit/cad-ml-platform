@@ -142,10 +142,13 @@ class AnalysisResult(BaseModel):
 
 class BatchClassifyResultItem(BaseModel):
     """批量分类单个结果"""
+
     file_name: str = Field(description="文件名")
     category: Optional[str] = Field(default=None, description="分类类别")
     confidence: Optional[float] = Field(default=None, description="置信度")
-    probabilities: Optional[Dict[str, float]] = Field(default=None, description="各类别概率")
+    probabilities: Optional[Dict[str, float]] = Field(
+        default=None, description="各类别概率"
+    )
     needs_review: bool = Field(default=False, description="是否需要人工复核")
     review_reason: Optional[str] = Field(default=None, description="复核原因")
     classifier: Optional[str] = Field(default=None, description="使用的分类器版本")
@@ -154,6 +157,7 @@ class BatchClassifyResultItem(BaseModel):
 
 class BatchClassifyResponse(BaseModel):
     """批量分类响应"""
+
     total: int = Field(description="总文件数")
     success: int = Field(description="成功分类数")
     failed: int = Field(description="失败数")
@@ -1170,7 +1174,9 @@ async def analyze_cad_file(
                         "other",
                     }
                     current_part_type = str(cls_payload.get("part_type") or "").strip()
-                    current_is_drawing_type = _graph2d_is_drawing_type(current_part_type)
+                    current_is_drawing_type = _graph2d_is_drawing_type(
+                        current_part_type
+                    )
                     is_placeholder_rule = (
                         str(cls_payload.get("confidence_source") or "") == "rules"
                         and str(cls_payload.get("rule_version") or "") == "v1"
@@ -2760,17 +2766,21 @@ async def batch_classify(
         for file in files:
             suffix = os.path.splitext(file.filename or "")[1].lower()
             if suffix not in (".dxf", ".dwg"):
-                results.append(BatchClassifyResultItem(
-                    file_name=file.filename or "unknown",
-                    error=f"Unsupported format: {suffix}, only .dxf and .dwg are supported",
-                ))
+                results.append(
+                    BatchClassifyResultItem(
+                        file_name=file.filename or "unknown",
+                        error=f"Unsupported format: {suffix}, only .dxf and .dwg are supported",
+                    )
+                )
                 continue
 
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                 content = await file.read()
                 tmp.write(content)
                 temp_files.append(tmp.name)
-                results.append(BatchClassifyResultItem(file_name=file.filename or tmp.name))
+                results.append(
+                    BatchClassifyResultItem(file_name=file.filename or tmp.name)
+                )
 
         from src.core.analyzer import _get_v16_classifier
 
@@ -2781,6 +2791,7 @@ async def batch_classify(
             for i, temp_path in enumerate(temp_files):
                 try:
                     from src.core.analyzer import _get_ml_classifier
+
                     ml_classifier = _get_ml_classifier()
                     if ml_classifier:
                         result = ml_classifier.predict(temp_path)
@@ -2789,7 +2800,10 @@ async def batch_classify(
                                 file_name=results[i].file_name,
                                 category=result.category,
                                 confidence=round(result.confidence, 4),
-                                probabilities={k: round(v, 4) for k, v in result.probabilities.items()},
+                                probabilities={
+                                    k: round(v, 4)
+                                    for k, v in result.probabilities.items()
+                                },
                                 classifier="ml_v6",
                             )
                         else:
@@ -2808,7 +2822,9 @@ async def batch_classify(
                         error=str(e),
                     )
         else:
-            batch_results = classifier.predict_batch(temp_files, max_workers=max_workers)
+            batch_results = classifier.predict_batch(
+                temp_files, max_workers=max_workers
+            )
 
             valid_idx = 0
             for i, item in enumerate(results):
@@ -2821,10 +2837,12 @@ async def batch_classify(
                             file_name=item.file_name,
                             category=result.category,
                             confidence=round(result.confidence, 4),
-                            probabilities={k: round(v, 4) for k, v in result.probabilities.items()},
-                            needs_review=getattr(result, 'needs_review', False),
-                            review_reason=getattr(result, 'review_reason', None),
-                            classifier=getattr(result, 'model_version', 'v16'),
+                            probabilities={
+                                k: round(v, 4) for k, v in result.probabilities.items()
+                            },
+                            needs_review=getattr(result, "needs_review", False),
+                            review_reason=getattr(result, "review_reason", None),
+                            classifier=getattr(result, "model_version", "v16"),
                         )
                     else:
                         results[i] = BatchClassifyResultItem(
@@ -2845,6 +2863,7 @@ async def batch_classify(
                 v16_batch_classify_requests_total,
                 v16_batch_classify_files_total,
             )
+
             v16_classifier_batch_seconds.observe(processing_time)
             v16_classifier_batch_size.observe(len(files))
 
