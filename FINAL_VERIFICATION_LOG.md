@@ -3326,3 +3326,8 @@
   - Fixed filename extraction for vendor suffixes (e.g. `...v2-yuantus.dxf`) to avoid label pollution.
   - Trained + evaluated an EdgeSage Graph2D checkpoint; results document current baseline and confirm the pipeline works end-to-end without manual drawing review.
   - Report: `reports/DEV_TRAINING_DRAWINGS_GRAPH2D_POC_20260208.md`
+- **HybridClassifier Graph2D Guardrails**:
+  - Applied Graph2D allow/exclude filtering + min-confidence gating; Graph2D cannot introduce a new label when filename/titleblock/process provide one.
+  - TitleBlock override is no longer blocked by Graph2D being present.
+  - Validation: targeted unit suites passed; local DXF batch (`30` files) confirmed stable high-confidence outputs without manual review.
+  - Report: `reports/DEV_HYBRID_GRAPH2D_GUARDRAILS_20260208.md`

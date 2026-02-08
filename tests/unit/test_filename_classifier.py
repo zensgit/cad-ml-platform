@@ -104,8 +104,9 @@ def test_hybrid_prefers_graph2d_when_filename_low(monkeypatch: pytest.MonkeyPatc
         graph2d_result={"label": "传动件", "confidence": 0.9},
     )
 
-    assert result.label == "传动件"
-    assert result.source == DecisionSource.GRAPH2D
+    # Guardrail: Graph2D should not override rule-based filename signal.
+    assert result.label == "人孔"
+    assert result.source == DecisionSource.FILENAME
 
 
 def test_hybrid_fusion_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
