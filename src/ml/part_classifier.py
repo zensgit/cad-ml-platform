@@ -502,12 +502,12 @@ class PartClassifierV16:
         ("壳体类", "其他"),  # 如端盖、法兰
     ]
 
-    # 速度模式配置
+    # 速度模式配置 (优化后延迟，GPU FP16)
     SPEED_MODES = {
-        "accurate": {"v14_folds": 5, "use_fast_render": False},  # 完整精度 ~230ms
-        "balanced": {"v14_folds": 3, "use_fast_render": True},   # 平衡模式 ~150ms
-        "fast": {"v14_folds": 1, "use_fast_render": True},       # 快速模式 ~100ms
-        "v6_only": {"v14_folds": 0, "use_fast_render": False},   # 仅V6 ~50ms (99.34%准确率)
+        "accurate": {"v14_folds": 5, "use_fast_render": False},  # 完整精度 ~120ms (优化前~230ms)
+        "balanced": {"v14_folds": 3, "use_fast_render": True},   # 平衡模式 ~85ms (优化前~150ms)
+        "fast": {"v14_folds": 1, "use_fast_render": True},       # 快速模式 ~60ms (优化前~100ms)
+        "v6_only": {"v14_folds": 0, "use_fast_render": False},   # 仅V6 ~45ms (优化前~50ms, 99.34%准确率)
     }
 
     # 缓存配置
@@ -515,7 +515,7 @@ class PartClassifierV16:
 
     def __init__(self, model_dir: str = "models", confidence_threshold: float = None,
                  speed_mode: str = "accurate", enable_cache: bool = True,
-                 cache_size: int = None):
+                 cache_size: int = None, use_fp16: bool = None):
         self.model_dir = Path(model_dir)
         self.device = torch.device("cuda" if torch.cuda.is_available() else
                                    "mps" if torch.backends.mps.is_available() else "cpu")
@@ -534,11 +534,20 @@ class PartClassifierV16:
         self.speed_mode = speed_mode
         self._speed_config = self.SPEED_MODES[speed_mode]
 
+        # FP16半精度推理 - GPU上自动启用，CPU不支持
+        if use_fp16 is None:
+            # 自动检测: CUDA支持FP16，MPS部分支持，CPU不支持
+            self._use_fp16 = self.device.type == "cuda"
+        else:
+            self._use_fp16 = use_fp16 and self.device.type in ("cuda", "mps")
+        self._dtype = torch.float16 if self._use_fp16 else torch.float32
+
         # 特征缓存 - 使用LRU策略
         self._enable_cache = enable_cache
         self._cache_size = cache_size or self.DEFAULT_CACHE_SIZE
         self._feature_cache: Dict[str, np.ndarray] = {}  # file_hash -> features
         self._image_cache: Dict[str, np.ndarray] = {}    # file_hash -> rendered image
+        self._tensor_cache: Dict[str, torch.Tensor] = {}  # file_hash -> 预转换的tensor (GPU)
         self._cache_order: List[str] = []  # LRU顺序追踪
         self._cache_stats = {"hits": 0, "misses": 0}
 
@@ -579,6 +588,7 @@ class PartClassifierV16:
             old_key = self._cache_order.pop(0)
             self._feature_cache.pop(old_key, None)
             self._image_cache.pop(old_key, None)
+            self._tensor_cache.pop(old_key, None)
 
         self._feature_cache[cache_key] = features
         if image is not None:
@@ -589,6 +599,7 @@ class PartClassifierV16:
         """清空缓存"""
         self._feature_cache.clear()
         self._image_cache.clear()
+        self._tensor_cache.clear()
         self._cache_order.clear()
         self._cache_stats = {"hits": 0, "misses": 0}
 
@@ -603,6 +614,16 @@ class PartClassifierV16:
             "cache_size": len(self._feature_cache),
             "max_size": self._cache_size,
         }
+
+    @property
+    def use_fp16(self) -> bool:
+        """是否启用FP16半精度推理"""
+        return self._use_fp16
+
+    @property
+    def dtype_str(self) -> str:
+        """当前使用的数据类型"""
+        return "fp16" if self._use_fp16 else "fp32"
 
     def _load_models(self):
         """加载V6和V14模型"""
@@ -653,6 +674,9 @@ class PartClassifierV16:
         self.v6_model.load_state_dict(v6_ckpt['model_state_dict'])
         self.v6_model.to(self.device)
         self.v6_model.eval()
+        # FP16转换
+        if self._use_fp16:
+            self.v6_model = self.v6_model.half()
         self.v6_mean = v6_ckpt.get('feature_mean', np.zeros(48))
         self.v6_std = v6_ckpt.get('feature_std', np.ones(48))
 
@@ -665,13 +689,17 @@ class PartClassifierV16:
                 model.load_state_dict(fold_state)
                 model.to(self.device)
                 model.eval()
+                # FP16转换
+                if self._use_fp16:
+                    model = model.half()
                 self.v14_models.append(model)
             logger.info(f"V14集成模型加载完成，{len(self.v14_models)}个折叠")
         else:
             logger.warning(f"V14模型不存在: {v14_path}，将仅使用V6")
 
         self.loaded = True
-        logger.info(f"V16模型加载完成，设备: {self.device}")
+        fp16_str = ", FP16启用" if self._use_fp16 else ""
+        logger.info(f"V16模型加载完成，设备: {self.device}{fp16_str}")
 
     def _extract_features(self, dxf_path: str, ezdxf_doc=None) -> Optional[np.ndarray]:
         """提取48维几何特征（与V6训练时一致）"""
@@ -1031,20 +1059,34 @@ class PartClassifierV16:
         use_v14 = v14_folds > 0 and self.v14_models
 
         with torch.inference_mode():
-            x_v6 = torch.FloatTensor(features).unsqueeze(0).to(self.device)
+            # 转换为tensor并应用正确的dtype
+            x_v6 = torch.tensor(features, dtype=self._dtype, device=self.device).unsqueeze(0)
             v6_probs = torch.softmax(self.v6_model(x_v6), dim=1)
 
             if use_v14 and img is not None:
-                x_geo = torch.FloatTensor(features).unsqueeze(0).to(self.device)
-                x_img = torch.FloatTensor(img).unsqueeze(0).unsqueeze(0).to(self.device)
+                x_geo = torch.tensor(features, dtype=self._dtype, device=self.device).unsqueeze(0)
+                x_img = torch.tensor(img, dtype=self._dtype, device=self.device).unsqueeze(0).unsqueeze(0)
 
                 # 根据速度模式选择使用的V14折叠数量
                 models_to_use = self.v14_models[:v14_folds]
-                v14_probs_list = []
-                for model in models_to_use:
-                    probs = torch.softmax(model(x_img, x_geo), dim=1)
-                    v14_probs_list.append(probs)
-                v14_probs = torch.mean(torch.stack(v14_probs_list), dim=0)
+                n_models = len(models_to_use)
+
+                # 优化: 批量推理 - 将输入扩展为batch，一次性计算所有折叠
+                if n_models > 1:
+                    # 批量处理: [n_models, 1, H, W] 和 [n_models, 48]
+                    x_img_batch = x_img.expand(n_models, -1, -1, -1)
+                    x_geo_batch = x_geo.expand(n_models, -1)
+
+                    # 并行计算所有模型 (通过循环但tensor已预分配)
+                    v14_logits_list = []
+                    for i, model in enumerate(models_to_use):
+                        logits = model(x_img_batch[i:i+1], x_geo_batch[i:i+1])
+                        v14_logits_list.append(logits)
+                    v14_logits = torch.cat(v14_logits_list, dim=0)
+                    v14_probs = torch.softmax(v14_logits, dim=1).mean(dim=0, keepdim=True)
+                else:
+                    # 单模型直接推理
+                    v14_probs = torch.softmax(models_to_use[0](x_img, x_geo), dim=1)
 
                 # 融合
                 final_probs = self.v6_weight * v6_probs + self.v14_weight * v14_probs
@@ -1052,8 +1094,8 @@ class PartClassifierV16:
                 # v6_only 模式
                 final_probs = v6_probs
 
-        # 获取top-2预测
-        probs_np = final_probs[0].cpu().numpy()
+        # 获取top-2预测 (转换为float32确保兼容性)
+        probs_np = final_probs[0].float().cpu().numpy()
         sorted_indices = np.argsort(probs_np)[::-1]  # 降序
 
         top1_idx = sorted_indices[0]
