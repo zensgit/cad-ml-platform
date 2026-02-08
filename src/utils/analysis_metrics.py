@@ -217,6 +217,23 @@ classification_latency_seconds = Histogram(
     buckets=[0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
 )
 
+analysis_part_classifier_requests_total = Counter(
+    "analysis_part_classifier_requests_total",
+    "In-process part classifier (provider) shadow invocations during analyze",
+    ["status", "provider"],
+)
+analysis_part_classifier_seconds = Histogram(
+    "analysis_part_classifier_seconds",
+    "Latency of part classifier (provider) shadow invocations during analyze",
+    ["provider"],
+    buckets=[0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0],
+)
+analysis_part_classifier_skipped_total = Counter(
+    "analysis_part_classifier_skipped_total",
+    "Analyze part classifier shadow skips (by reason)",
+    ["reason"],
+)
+
 dfm_analysis_latency_seconds = Histogram(
     "dfm_analysis_latency_seconds",
     "Latency of DFM analysis stage (wall clock seconds)",

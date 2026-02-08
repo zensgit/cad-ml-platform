@@ -111,7 +111,16 @@ def test_analyze_dxf_adds_part_classifier_prediction_when_enabled(monkeypatch):
             )
 
         async def _process_impl(self, request, **kwargs):  # noqa: ANN001, ANN201
-            return {"status": "ok", "label": "stub_part", "confidence": 0.99}
+            return {
+                "status": "ok",
+                "label": "stub_part",
+                "confidence": 0.99,
+                "model_version": "stub_v1",
+                "needs_review": True,
+                "review_reason": "edge_case",
+                "top2_category": "stub_part_2",
+                "top2_confidence": 0.2,
+            }
 
     monkeypatch.setenv("PART_CLASSIFIER_PROVIDER_ENABLED", "true")
     monkeypatch.setenv("PART_CLASSIFIER_PROVIDER_NAME", provider_name)
@@ -136,6 +145,69 @@ def test_analyze_dxf_adds_part_classifier_prediction_when_enabled(monkeypatch):
         assert pred.get("status") == "ok"
         assert pred.get("label") == "stub_part"
         assert pred.get("provider") == provider_name
+        # Normalized part-family fields (shadow-only)
+        assert classification.get("part_family") == "stub_part"
+        assert classification.get("part_family_source") == f"provider:{provider_name}"
+        assert classification.get("part_family_model_version") == "stub_v1"
+        assert classification.get("part_family_needs_review") is True
+        assert classification.get("part_family_review_reason") == "edge_case"
+        top2 = classification.get("part_family_top2") or {}
+        assert top2.get("label") == "stub_part_2"
+        assert float(top2.get("confidence") or 0.0) == 0.2
+    finally:
+        ProviderRegistry.unregister("classifier", provider_name)
+
+
+def test_analyze_dxf_part_classifier_timeout_sets_part_family_error(monkeypatch):
+    from src.core.providers.base import BaseProvider, ProviderConfig
+    from src.core.providers.registry import ProviderRegistry
+
+    provider_name = "part_stub_timeout_test"
+    if ProviderRegistry.exists("classifier", provider_name):
+        ProviderRegistry.unregister("classifier", provider_name)
+
+    @ProviderRegistry.register("classifier", provider_name)
+    class _SlowStubProvider(BaseProvider[ProviderConfig, dict]):
+        def __init__(self, config=None):  # noqa: ANN001
+            super().__init__(
+                config
+                or ProviderConfig(
+                    name=provider_name,
+                    provider_type="classifier",
+                )
+            )
+
+        async def _process_impl(self, request, **kwargs):  # noqa: ANN001, ANN201
+            import asyncio
+
+            await asyncio.sleep(0.05)
+            return {"status": "ok", "label": "late", "confidence": 0.9}
+
+    monkeypatch.setenv("PART_CLASSIFIER_PROVIDER_ENABLED", "true")
+    monkeypatch.setenv("PART_CLASSIFIER_PROVIDER_NAME", provider_name)
+    monkeypatch.setenv("PART_CLASSIFIER_PROVIDER_TIMEOUT_SECONDS", "0.01")
+    monkeypatch.setenv("GRAPH2D_ENABLED", "false")
+    monkeypatch.setenv("HYBRID_CLASSIFIER_ENABLED", "false")
+
+    try:
+        dxf_payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
+        options = {"extract_features": True, "classify_parts": True}
+        resp = client.post(
+            "/api/v1/analyze/",
+            files={
+                "file": ("Bolt_M6x20.dxf", io.BytesIO(dxf_payload), "application/dxf"),
+            },
+            data={"options": json.dumps(options)},
+            headers={"x-api-key": os.getenv("API_KEY", "test")},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        classification = data.get("results", {}).get("classification", {})
+        pred = classification.get("part_classifier_prediction") or {}
+        assert pred.get("status") == "timeout"
+        assert classification.get("part_family") is None
+        err = classification.get("part_family_error") or {}
+        assert err.get("code") == "timeout"
     finally:
         ProviderRegistry.unregister("classifier", provider_name)
 

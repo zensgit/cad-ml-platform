@@ -3344,6 +3344,11 @@
   - Controlled via `PART_CLASSIFIER_PROVIDER_ENABLED` and `PART_CLASSIFIER_PROVIDER_NAME`; emits `classification.part_classifier_prediction` when enabled.
   - Validation: analyze-fusion integration suite passed.
   - Report: `reports/DEV_ANALYZE_PART_CLASSIFIER_PROVIDER_SHADOW_20260208.md`
+- **Analyze PartFamily Shadow Fields (PartClassifier)**:
+  - Added normalized `part_family*` fields derived from the provider payload (additive; does not override `part_type`).
+  - Added `PART_CLASSIFIER_PROVIDER_SHADOW_FORMATS`, timeout and max-file-size guards, optional cache-key separation, and Prometheus metrics.
+  - Validation: analyze integration + provider framework + normalization unit suites passed.
+  - Report: `reports/DEV_ANALYZE_PART_FAMILY_SHADOW_FIELDS_20260208.md`
 - **Graph2D Coarse (Synthetic v2) Train/Eval + Coarse Override Guard**:
   - Trained + evaluated a 5-class coarse Graph2D checkpoint on `data/synthetic_v2` and recorded per-class metrics.
   - Allowed coarse family labels by default in Hybrid config, while preventing coarse labels from producing misleading `soft_override_suggestion` recommendations.

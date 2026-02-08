@@ -371,6 +371,37 @@ async def analyze_cad_file(
         file.file.seek(0)
         content_hash = hashlib.sha256(content_peek).hexdigest()[:16]
         analysis_cache_key = f"analysis:{file.filename}:{content_hash}:{options}"
+        # Include optional PartClassifier shadow settings in cache key to avoid
+        # cross-hitting cached payloads with/without shadow-only fields.
+        include_part_shadow = (
+            os.getenv("PART_CLASSIFIER_PROVIDER_INCLUDE_IN_CACHE_KEY", "true")
+            .strip()
+            .lower()
+            not in {"0", "false", "no", "off"}
+        )
+        if include_part_shadow:
+            suffix = str(file.filename or "").rsplit(".", 1)[-1].lower()
+            shadow_formats_raw = os.getenv(
+                "PART_CLASSIFIER_PROVIDER_SHADOW_FORMATS", "dxf,dwg"
+            )
+            shadow_formats = {
+                t.strip().lower()
+                for t in shadow_formats_raw.split(",")
+                if t.strip()
+            }
+            if suffix in shadow_formats:
+                shadow_enabled = (
+                    os.getenv("PART_CLASSIFIER_PROVIDER_ENABLED", "false")
+                    .strip()
+                    .lower()
+                    == "true"
+                )
+                shadow_provider = (
+                    os.getenv("PART_CLASSIFIER_PROVIDER_NAME", "v16").strip() or "v16"
+                )
+                analysis_cache_key = (
+                    f"{analysis_cache_key}:part_shadow={int(shadow_enabled)}:{shadow_provider}"
+                )
         cached = await get_cached_result(analysis_cache_key)
         if cached:
             logger.info(f"Cache hit for {file.filename}")
@@ -1087,48 +1118,155 @@ async def analyze_cad_file(
                     os.getenv("PART_CLASSIFIER_PROVIDER_ENABLED", "false").lower()
                     == "true"
                 )
-                if part_provider_enabled and file_format in {"dxf", "dwg"}:
-                    provider_name = (
-                        os.getenv("PART_CLASSIFIER_PROVIDER_NAME", "v16").strip()
-                        or "v16"
+                shadow_formats_raw = os.getenv(
+                    "PART_CLASSIFIER_PROVIDER_SHADOW_FORMATS", "dxf,dwg"
+                ).strip()
+                shadow_formats = {
+                    t.strip().lower()
+                    for t in shadow_formats_raw.split(",")
+                    if t.strip()
+                }
+                if part_provider_enabled:
+                    from src.core.classification import normalize_part_family_prediction
+                    from src.utils.analysis_metrics import (
+                        analysis_part_classifier_requests_total,
+                        analysis_part_classifier_seconds,
+                        analysis_part_classifier_skipped_total,
                     )
-                    tmp_path: Optional[str] = None
-                    try:
-                        import tempfile
 
-                        with tempfile.NamedTemporaryFile(
-                            delete=False, suffix=f".{file_format}"
-                        ) as tmp:
-                            tmp.write(content)
-                            tmp_path = tmp.name
-
-                        from src.core.providers import (
-                            ProviderRegistry,
-                            bootstrap_core_provider_registry,
+                    if file_format not in shadow_formats:
+                        analysis_part_classifier_skipped_total.labels(
+                            reason="format_not_supported"
+                        ).inc()
+                    else:
+                        provider_name = (
+                            os.getenv("PART_CLASSIFIER_PROVIDER_NAME", "v16").strip()
+                            or "v16"
                         )
-                        from src.core.providers.classifier import ClassifierRequest
+                        timeout_seconds = _safe_float_env(
+                            "PART_CLASSIFIER_PROVIDER_TIMEOUT_SECONDS", 2.0
+                        )
+                        max_mb = _safe_float_env(
+                            "PART_CLASSIFIER_PROVIDER_MAX_MB", 10.0
+                        )
+                        size_mb = len(content) / (1024 * 1024)
+                        tmp_path: Optional[str] = None
+                        status_label = "error"
+                        part_result: Dict[str, Any]
+                        started_at = None
+                        try:
+                            import asyncio
+                            import tempfile
+                            import time as _t_perf
 
-                        bootstrap_core_provider_registry()
-                        provider = ProviderRegistry.get("classifier", provider_name)
-                        part_result = await provider.process(
-                            ClassifierRequest(
-                                filename=file.filename,
-                                file_path=tmp_path,
+                            started_at = _t_perf.perf_counter()
+                            if size_mb > max_mb:
+                                status_label = "skipped"
+                                part_result = {
+                                    "status": "file_too_large",
+                                    "error": "skipped due to file size",
+                                    "max_mb": float(max_mb),
+                                    "size_mb": round(size_mb, 3),
+                                }
+                                analysis_part_classifier_skipped_total.labels(
+                                    reason="file_too_large"
+                                ).inc()
+                            else:
+                                with tempfile.NamedTemporaryFile(
+                                    delete=False, suffix=f".{file_format}"
+                                ) as tmp:
+                                    tmp.write(content)
+                                    tmp_path = tmp.name
+
+                                from src.core.providers import (
+                                    ProviderRegistry,
+                                    bootstrap_core_provider_registry,
+                                )
+                                from src.core.providers.classifier import ClassifierRequest
+
+                                bootstrap_core_provider_registry()
+                                provider = ProviderRegistry.get(
+                                    "classifier", provider_name
+                                )
+                                try:
+                                    timeout = float(
+                                        min(max(timeout_seconds, 0.01), 10.0)
+                                    )
+                                    part_result = await asyncio.wait_for(
+                                        provider.process(
+                                            ClassifierRequest(
+                                                filename=file.filename,
+                                                file_path=tmp_path,
+                                            )
+                                        ),
+                                        timeout=timeout,
+                                    )
+                                except asyncio.TimeoutError:
+                                    status_label = "timeout"
+                                    part_result = {
+                                        "status": "timeout",
+                                        "error": f"timeout after {timeout_seconds:.2f}s",
+                                    }
+                                except Exception as exc:  # noqa: BLE001
+                                    status_label = "error"
+                                    part_result = {
+                                        "status": "error",
+                                        "error": str(exc),
+                                    }
+
+                                raw_status = str(part_result.get("status") or "").strip().lower()
+                                if raw_status == "ok":
+                                    status_label = "success"
+                                elif raw_status in {"timeout"}:
+                                    status_label = "timeout"
+                                elif raw_status in {"unavailable", "no_prediction", "model_unavailable"}:
+                                    status_label = "unavailable"
+                                elif raw_status == "file_too_large":
+                                    status_label = "skipped"
+                                else:
+                                    status_label = "error"
+
+                            if isinstance(part_result, dict):
+                                part_result.setdefault("provider", provider_name)
+                            cls_payload["part_classifier_prediction"] = part_result
+                            cls_payload.update(
+                                normalize_part_family_prediction(
+                                    part_result, provider_name=provider_name
+                                )
                             )
-                        )
-                        if isinstance(part_result, dict):
-                            part_result.setdefault("provider", provider_name)
-                        cls_payload["part_classifier_prediction"] = part_result
-                    except Exception as exc:
-                        cls_payload["part_classifier_prediction"] = {
-                            "status": "error",
-                            "error": str(exc),
-                            "provider": provider_name,
-                        }
-                    finally:
-                        if tmp_path:
+                        except Exception as exc:  # noqa: BLE001
+                            status_label = "error"
+                            part_result = {
+                                "status": "error",
+                                "error": str(exc),
+                                "provider": provider_name,
+                            }
+                            cls_payload["part_classifier_prediction"] = part_result
+                            cls_payload.update(
+                                normalize_part_family_prediction(
+                                    part_result, provider_name=provider_name
+                                )
+                            )
+                        finally:
+                            if tmp_path:
+                                try:
+                                    os.unlink(tmp_path)
+                                except Exception:
+                                    pass
+                            if started_at is not None:
+                                try:
+                                    import time as _t_perf
+
+                                    elapsed = _t_perf.perf_counter() - started_at
+                                    analysis_part_classifier_seconds.labels(
+                                        provider=provider_name
+                                    ).observe(elapsed)
+                                except Exception:
+                                    pass
                             try:
-                                os.unlink(tmp_path)
+                                analysis_part_classifier_requests_total.labels(
+                                    status=status_label, provider=provider_name
+                                ).inc()
                             except Exception:
                                 pass
                 soft_override_suggestion: Optional[Dict[str, Any]] = None
