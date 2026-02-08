@@ -3290,3 +3290,7 @@
 - **Provider Framework Docs**:
   - Added a concise provider framework guide for adding new providers and operating core provider health/registry endpoints.
   - Report: `reports/DEV_PROVIDER_FRAMEWORK_DOCS_20260207.md`
+- **Analyze Classifier ProviderRegistry Wiring**:
+  - Updated the `/api/v1/analyze/` DXF pipeline to fetch Graph2D + Hybrid classifiers through `ProviderRegistry` (`classifier/*`) rather than direct ML singleton imports.
+  - Validation: `pytest` focused analyze integration suite passed.
+  - Report: `reports/DEV_ANALYZE_CLASSIFIERS_PROVIDER_REGISTRY_WIRING_20260207.md`

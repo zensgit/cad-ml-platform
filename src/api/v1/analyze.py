@@ -919,20 +919,29 @@ async def analyze_cad_file(
                             os.getenv("GRAPH2D_ENSEMBLE_ENABLED", "false").lower()
                             == "true"
                         )
-                        from src.ml.vision_2d import (
-                            get_2d_classifier,
-                            get_ensemble_2d_classifier,
+                        from src.core.providers import (
+                            ProviderRegistry,
+                            bootstrap_core_provider_registry,
                         )
+                        from src.core.providers.classifier import ClassifierRequest
 
-                        classifier = (
-                            get_ensemble_2d_classifier()
+                        bootstrap_core_provider_registry()
+                        provider_name = (
+                            "graph2d_ensemble"
                             if graph2d_ensemble_enabled
-                            else get_2d_classifier()
+                            else "graph2d"
                         )
-                        graph2d_result = classifier.predict_from_bytes(
-                            content, file.filename
+                        provider = ProviderRegistry.get("classifier", provider_name)
+                        graph2d_result = await provider.process(
+                            ClassifierRequest(
+                                filename=file.filename,
+                                file_bytes=content,
+                            )
                         )
-                        if graph2d_result.get("status") != "model_unavailable":
+                        if (
+                            isinstance(graph2d_result, dict)
+                            and graph2d_result.get("status") != "model_unavailable"
+                        ):
                             graph2d_min_conf = _safe_float_env("GRAPH2D_MIN_CONF", 0.0)
                             graph2d_conf = float(graph2d_result.get("confidence", 0.0))
                             graph2d_allow_raw = os.getenv(
@@ -989,14 +998,21 @@ async def analyze_cad_file(
                 )
                 if hybrid_enabled and file_format == "dxf":
                     try:
-                        from src.ml.hybrid_classifier import get_hybrid_classifier
+                        from src.core.providers import (
+                            ProviderRegistry,
+                            bootstrap_core_provider_registry,
+                        )
+                        from src.core.providers.classifier import ClassifierRequest
 
-                        hybrid = get_hybrid_classifier()
-                        hybrid_result = hybrid.classify(
-                            filename=file.filename,
-                            file_bytes=content,
+                        bootstrap_core_provider_registry()
+                        provider = ProviderRegistry.get("classifier", "hybrid")
+                        hybrid_result = await provider.process(
+                            ClassifierRequest(
+                                filename=file.filename,
+                                file_bytes=content,
+                            ),
                             graph2d_result=graph2d_result,
-                        ).to_dict()
+                        )
                         cls_payload["filename_prediction"] = hybrid_result.get(
                             "filename_prediction"
                         )
