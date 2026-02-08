@@ -3316,3 +3316,8 @@
   - Added `/api/v1/standards/*` endpoints for thread, bearing, and o-ring spec queries backed by `src/core/knowledge/standards`.
   - Validation: `pytest -q tests/integration/test_standards_api.py` (passed).
   - Report: `reports/DEV_STANDARDS_LIBRARY_API_20260208.md`
+- **DXF Manifest Relative Path + Stratified Subsampling (Graph2D Training/Eval)**:
+  - Updated `DXFManifestDataset` to support `relative_path` so manifests can reference nested DXF files.
+  - Added `--max-samples-strategy` to Graph2D train/eval scripts to avoid single-class truncation during smoke runs.
+  - Validation: new unit tests passed; synthetic end-to-end smoke run (manifest -> train -> eval) completed with recorded metrics.
+  - Report: `reports/DEV_DXF_MANIFEST_RELATIVE_PATH_AND_SUBSAMPLING_20260208.md`

@@ -114,6 +114,42 @@ def _stratified_split(indices: List[int], labels: List[int], val_ratio: float):
     return val_idx
 
 
+def _stratified_subsample(
+    indices: List[int], labels: List[int], max_samples: int, seed: int
+) -> List[int]:
+    """Select samples in a round-robin fashion across labels for max-samples caps."""
+    if max_samples <= 0 or max_samples >= len(indices):
+        return list(indices)
+
+    label_to_indices: Dict[int, List[int]] = {}
+    for idx, label in zip(indices, labels):
+        label_to_indices.setdefault(label, []).append(idx)
+
+    rng = random.Random(seed)
+    for idxs in label_to_indices.values():
+        rng.shuffle(idxs)
+
+    label_order = sorted(
+        label_to_indices.keys(), key=lambda k: len(label_to_indices[k]), reverse=True
+    )
+    selected: List[int] = []
+
+    while len(selected) < max_samples:
+        progressed = False
+        for label in label_order:
+            idxs = label_to_indices[label]
+            if not idxs:
+                continue
+            selected.append(idxs.pop())
+            progressed = True
+            if len(selected) >= max_samples:
+                break
+        if not progressed:
+            break
+
+    return selected
+
+
 def _collate(
     batch: List[Tuple[Dict[str, Any], Any]],
 ) -> Tuple[List[Any], List[Any], List[Any], List[Any], List[str]]:
@@ -168,6 +204,12 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--val-split", type=float, default=0.2)
     parser.add_argument("--max-samples", type=int, default=0)
+    parser.add_argument(
+        "--max-samples-strategy",
+        choices=["head", "random", "stratified"],
+        default="stratified",
+        help="How to select samples when max-samples > 0.",
+    )
     parser.add_argument(
         "--split-strategy",
         choices=["random", "stratified"],
@@ -236,13 +278,21 @@ def main() -> int:
         node_dim=node_dim,
         return_edge_attr=model_type == "edge_sage",
     )
-    if args.max_samples and args.max_samples > 0:
-        dataset.samples = dataset.samples[: args.max_samples]
     if len(dataset) == 0:
         print("Empty dataset; aborting.")
         return 1
 
     indices = list(range(len(dataset)))
+    if args.max_samples and args.max_samples > 0 and args.max_samples < len(indices):
+        if args.max_samples_strategy == "head":
+            indices = indices[: args.max_samples]
+        elif args.max_samples_strategy == "random":
+            random.shuffle(indices)
+            indices = indices[: args.max_samples]
+        else:
+            labels = [dataset.samples[idx]["label_id"] for idx in indices]
+            indices = _stratified_subsample(indices, labels, args.max_samples, args.seed)
+
     random.shuffle(indices)
     if args.split_strategy == "stratified":
         labels = [dataset.samples[idx]["label_id"] for idx in indices]
