@@ -3335,3 +3335,7 @@
   - Made Graph2D allow/exclude labels consistent across API + Hybrid config by supporting both legacy (`GRAPH2D_*`) and newer (`GRAPH2D_FUSION_*`) env vars, and defaulting API filtering to `config/hybrid_classifier.yaml` when env vars are absent.
   - Validation: unit + analyze-fusion integration suites passed.
   - Report: `reports/DEV_GRAPH2D_ALLOW_EXCLUDE_CONFIG_UNIFICATION_20260208.md`
+- **Analyze DXF Fine Label Fields (Hybrid)**:
+  - Added additive `fine_*` label fields in `/api/v1/analyze/` so HybridClassifier fine-grained labels are returned even when `part_type` comes from L2/L3 Fusion.
+  - Validation: analyze integration suite passed.
+  - Report: `reports/DEV_ANALYZE_DXF_FINE_LABEL_FIELDS_20260208.md`

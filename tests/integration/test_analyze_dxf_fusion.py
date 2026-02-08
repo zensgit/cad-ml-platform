@@ -30,6 +30,63 @@ def test_analyze_dxf_triggers_l2_fusion():
     assert classification.get("rule_version") == "L2-Fusion-v1"
 
 
+def test_analyze_dxf_adds_fine_label_fields_from_hybrid(monkeypatch):
+    """Hybrid fine label should be additive (not overriding fusion part_type)."""
+
+    class _StubHybridClassifier:
+        class _Result:
+            def __init__(self, payload):  # noqa: ANN001
+                self._payload = payload
+
+            def to_dict(self):  # noqa: D401
+                return dict(self._payload)
+
+        def classify(  # noqa: ANN201
+            self, filename, file_bytes=None, graph2d_result=None  # noqa: ANN001
+        ):
+            # Return a confident filename-based label to ensure we can assert on
+            # fine label fields even when fusion already classified the part.
+            return self._Result(
+                {
+                    "label": "人孔",
+                    "confidence": 0.95,
+                    "source": "filename_exact",
+                    "filename_prediction": {
+                        "label": "人孔",
+                        "confidence": 0.95,
+                        "source": "filename",
+                    },
+                    "titleblock_prediction": None,
+                }
+            )
+
+    monkeypatch.setenv("GRAPH2D_ENABLED", "false")
+    monkeypatch.setenv("HYBRID_CLASSIFIER_ENABLED", "true")
+    monkeypatch.setattr(
+        "src.ml.hybrid_classifier.get_hybrid_classifier",
+        lambda: _StubHybridClassifier(),
+    )
+
+    dxf_payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
+    options = {"extract_features": True, "classify_parts": True}
+    resp = client.post(
+        "/api/v1/analyze/",
+        files={
+            "file": ("Bolt_M6x20.dxf", io.BytesIO(dxf_payload), "application/dxf"),
+        },
+        data={"options": json.dumps(options)},
+        headers={"x-api-key": os.getenv("API_KEY", "test")},
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    classification = data.get("results", {}).get("classification", {})
+    assert classification.get("part_type") == "bolt"
+    assert classification.get("fine_part_type") == "人孔"
+    assert classification.get("fine_confidence") == 0.95
+    assert classification.get("fine_source") == "filename_exact"
+    assert classification.get("fine_rule_version") == "HybridClassifier-v1"
+
+
 def test_analyze_dxf_fusion_inputs(monkeypatch):
     monkeypatch.setenv("FUSION_ANALYZER_ENABLED", "true")
     monkeypatch.setenv("FUSION_ANALYZER_OVERRIDE", "false")

@@ -1038,6 +1038,14 @@ async def analyze_cad_file(
                             "titleblock_prediction"
                         )
                         cls_payload["hybrid_decision"] = hybrid_result
+                        hybrid_label = str(hybrid_result.get("label") or "").strip()
+                        if hybrid_label:
+                            cls_payload["fine_part_type"] = hybrid_label
+                            cls_payload["fine_confidence"] = float(
+                                hybrid_result.get("confidence", 0.0) or 0.0
+                            )
+                            cls_payload["fine_source"] = hybrid_result.get("source")
+                            cls_payload["fine_rule_version"] = "HybridClassifier-v1"
                     except Exception as exc:
                         cls_payload["hybrid_error"] = str(exc)
                 soft_override_suggestion: Optional[Dict[str, Any]] = None
