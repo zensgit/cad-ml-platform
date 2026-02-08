@@ -107,6 +107,39 @@ def build_health_payload(
         from src.ml.hybrid_config import get_config as get_hybrid_config
 
         hybrid_cfg = get_hybrid_config()
+        try:
+            import importlib.util
+
+            torch_available = importlib.util.find_spec("torch") is not None
+        except Exception:
+            torch_available = False
+        graph2d_model_path = os.getenv(
+            "GRAPH2D_MODEL_PATH", "models/graph2d_parts_upsampled_20260122.pth"
+        )
+        graph2d_model_present = os.path.exists(graph2d_model_path)
+        v16_disabled = os.getenv("DISABLE_V16_CLASSIFIER", "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        v6_model_path = os.getenv("CAD_CLASSIFIER_MODEL", "models/cad_classifier_v6.pt")
+        v14_model_path = "models/cad_classifier_v14_ensemble.pt"
+        v16_models_present = os.path.exists(v6_model_path) and os.path.exists(
+            v14_model_path
+        )
+
+        degraded_reasons: list[str] = []
+        if bool(hybrid_cfg.graph2d.enabled) and not torch_available:
+            degraded_reasons.append("graph2d_enabled_but_torch_missing")
+        if bool(hybrid_cfg.graph2d.enabled) and not graph2d_model_present:
+            degraded_reasons.append(f"graph2d_model_missing:{graph2d_model_path}")
+        if not v16_disabled and not torch_available:
+            degraded_reasons.append("v16_enabled_but_torch_missing")
+        if not v16_disabled and not v16_models_present:
+            degraded_reasons.append(
+                f"v16_models_missing:v6={v6_model_path},v14={v14_model_path}"
+            )
+
         base["config"]["ml"] = {
             "classification": {
                 "hybrid_enabled": bool(hybrid_cfg.enabled),
@@ -127,6 +160,18 @@ def build_health_payload(
                 "strategy": str(hybrid_cfg.sampling.strategy),
                 "seed": int(hybrid_cfg.sampling.seed),
                 "text_priority_ratio": float(hybrid_cfg.sampling.text_priority_ratio),
+            },
+            "readiness": {
+                "torch_available": torch_available,
+                "graph2d_model_path": graph2d_model_path,
+                "graph2d_model_present": graph2d_model_present,
+                "v16_disabled": v16_disabled,
+                "v6_model_path": v6_model_path,
+                "v14_model_path": v14_model_path,
+                "v16_models_present": v16_models_present,
+                "degraded_reasons": degraded_reasons,
+                "required_providers": os.getenv("READINESS_REQUIRED_PROVIDERS", ""),
+                "optional_providers": os.getenv("READINESS_OPTIONAL_PROVIDERS", ""),
             },
         }
     except Exception:

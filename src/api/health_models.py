@@ -77,6 +77,7 @@ class HealthConfigMlSampling(BaseModel):
 class HealthConfigMl(BaseModel):
     classification: HealthConfigMlClassification
     sampling: HealthConfigMlSampling
+    readiness: Optional[Dict[str, Any]] = None
 
 
 class HealthConfigCoreProviders(BaseModel):
@@ -132,6 +133,7 @@ class ReadinessCheck(BaseModel):
     detail: Optional[str] = None
     duration_ms: Optional[float] = None
     timed_out: bool = False
+    degraded: bool = False
 
 
 class ReadinessResponse(BaseModel):

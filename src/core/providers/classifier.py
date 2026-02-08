@@ -120,9 +120,35 @@ class Graph2DClassifierProviderAdapter(
         return payload
 
     async def _health_check_impl(self) -> bool:
-        # Don't parse DXF for health. Instead, rely on model loaded flags when present.
-        loaded = bool(getattr(self._wrapped_classifier, "_loaded", False))
-        return loaded
+        # Keep health checks cheap and deterministic:
+        # - respect feature flag
+        # - avoid parsing DXF
+        # - avoid forcing model load; instead validate prerequisites (torch + model files)
+        if os.getenv("GRAPH2D_ENABLED", "false").lower() != "true":
+            raise RuntimeError("disabled_by_config")
+        if importlib.util.find_spec("torch") is None:
+            raise RuntimeError("torch_missing")
+
+        if self._ensemble:
+            env_paths = os.getenv("GRAPH2D_ENSEMBLE_MODELS", "").strip()
+            model_paths = (
+                [p.strip() for p in env_paths.split(",") if p.strip()]
+                if env_paths
+                else [
+                    "models/graph2d_edge_sage_v3.pth",
+                    "models/graph2d_edge_sage_v4_best.pth",
+                ]
+            )
+            if not any(os.path.exists(path) for path in model_paths):
+                raise RuntimeError(f"model_missing: {model_paths}")
+            return True
+
+        model_path = os.getenv(
+            "GRAPH2D_MODEL_PATH", "models/graph2d_parts_upsampled_20260122.pth"
+        )
+        if not os.path.exists(model_path):
+            raise RuntimeError(f"model_missing: {model_path}")
+        return True
 
 
 class V16PartClassifierProviderAdapter(
@@ -149,10 +175,14 @@ class V16PartClassifierProviderAdapter(
 
     async def _health_check_impl(self) -> bool:
         if os.getenv("DISABLE_V16_CLASSIFIER", "").lower() in ("1", "true", "yes"):
-            return False
+            raise RuntimeError("disabled_by_config")
         if not self._has_torch():
-            return False
-        return self._models_present()
+            raise RuntimeError("torch_missing")
+        if not self._models_present():
+            v6_path = os.getenv("CAD_CLASSIFIER_MODEL", "models/cad_classifier_v6.pt")
+            v14_path = "models/cad_classifier_v14_ensemble.pt"
+            raise RuntimeError(f"model_missing: v6={v6_path} v14={v14_path}")
+        return True
 
     async def _process_impl(self, request: Any, **kwargs: Any) -> Dict[str, Any]:
         if not isinstance(request, ClassifierRequest):
@@ -205,8 +235,11 @@ class V6PartClassifierProviderAdapter(
 
     async def _health_check_impl(self) -> bool:
         if not self._has_torch():
-            return False
-        return self._model_present()
+            raise RuntimeError("torch_missing")
+        if not self._model_present():
+            v6_path = os.getenv("CAD_CLASSIFIER_MODEL", "models/cad_classifier_v6.pt")
+            raise RuntimeError(f"model_missing: {v6_path}")
+        return True
 
     async def _process_impl(self, request: Any, **kwargs: Any) -> Dict[str, Any]:
         if not isinstance(request, ClassifierRequest):

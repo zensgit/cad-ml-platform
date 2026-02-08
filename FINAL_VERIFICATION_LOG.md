@@ -3294,3 +3294,8 @@
   - Updated the `/api/v1/analyze/` DXF pipeline to fetch Graph2D + Hybrid classifiers through `ProviderRegistry` (`classifier/*`) rather than direct ML singleton imports.
   - Validation: `pytest` focused analyze integration suite passed.
   - Report: `reports/DEV_ANALYZE_CLASSIFIERS_PROVIDER_REGISTRY_WIRING_20260207.md`
+- **Readiness Core Providers Check + /health Prerequisite Summary**:
+  - Added optional `core_providers` readiness check in `/ready` based on `READINESS_REQUIRED_PROVIDERS` / `READINESS_OPTIONAL_PROVIDERS`, using provider-framework health checks.
+  - Added lightweight provider prerequisite summary to `/health` (`config.ml.readiness`) for clearer degraded-mode diagnosis (torch/model files/disable flags).
+  - Validation: targeted unit suites passed.
+  - Report: `reports/DEV_READINESS_CORE_PROVIDERS_CHECK_20260207.md`

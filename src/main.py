@@ -503,11 +503,27 @@ async def _run_readiness_check(
         if inspect.isawaitable(result):
             result = await asyncio.wait_for(result, timeout=timeout_seconds)
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
-        if result:
-            return ReadinessCheck(status="ready", duration_ms=duration_ms)
+        ok = bool(result)
+        degraded = False
+        detail = None
+        if isinstance(result, dict):
+            ok = bool(result.get("ok"))
+            degraded = bool(result.get("degraded", False))
+            detail = result.get("detail")
+        elif isinstance(result, tuple) and len(result) == 2:
+            ok = bool(result[0])
+            detail = str(result[1]) if result[1] else None
+
+        if ok:
+            return ReadinessCheck(
+                status="ready",
+                detail=detail,
+                duration_ms=duration_ms,
+                degraded=degraded,
+            )
         return ReadinessCheck(
             status="not_ready",
-            detail="check returned false",
+            detail=detail or "check returned false",
             duration_ms=duration_ms,
         )
     except asyncio.TimeoutError:
@@ -533,6 +549,44 @@ async def readiness_check(response: Response):
     start = time.perf_counter()
     from src.models.loader import models_loaded
     from src.utils.cache import redis_healthy
+    from src.core.providers.readiness import (
+        check_provider_readiness,
+        load_provider_readiness_config_from_env,
+    )
+
+    required_providers, optional_providers = load_provider_readiness_config_from_env()
+    providers_enabled = bool(required_providers or optional_providers)
+
+    async def _check_core_providers() -> dict[str, Any]:
+        summary = await check_provider_readiness(
+            required_providers,
+            optional_providers,
+            timeout_seconds=READINESS_CHECK_TIMEOUT_SECONDS,
+        )
+        error_map = {item.id: item.error for item in summary.results if item.error}
+        required_down = summary.required_down
+        optional_down = summary.optional_down
+        parts: list[str] = []
+        if required_down:
+            parts.append(
+                "required_down="
+                + ",".join(
+                    f"{pid}({error_map.get(pid) or 'down'})" for pid in required_down
+                )
+            )
+        if optional_down:
+            parts.append(
+                "optional_down="
+                + ",".join(
+                    f"{pid}({error_map.get(pid) or 'down'})" for pid in optional_down
+                )
+            )
+        detail = "; ".join(parts) if parts else None
+        return {
+            "ok": bool(summary.ok),
+            "degraded": bool(summary.degraded),
+            "detail": detail,
+        }
 
     checks = {
         "models_loaded": await _run_readiness_check(
@@ -543,6 +597,11 @@ async def readiness_check(response: Response):
         "redis": await _run_readiness_check(
             redis_healthy,
             settings.REDIS_ENABLED,
+            READINESS_CHECK_TIMEOUT_SECONDS,
+        ),
+        "core_providers": await _run_readiness_check(
+            _check_core_providers,
+            providers_enabled,
             READINESS_CHECK_TIMEOUT_SECONDS,
         ),
     }
