@@ -49,25 +49,21 @@ class ContextAssembler:
 - 材料选型原则和应用场景
 - 热处理对材料性能的影响
 - 材料成本和可加工性""",
-
         "tolerance": """你是公差配合专家，熟悉:
 - ISO 286标准公差等级(IT01-IT18)
 - 基孔制/基轴制配合系统
 - 配合选择原则和应用场景
 - 公差计算和偏差分析""",
-
         "standards": """你是标准件专家，熟悉:
 - ISO公制螺纹规格和选型
 - 滚动轴承类型、尺寸和选型计算
 - 密封件(O形圈等)规格和材料选择
 - 标准件的设计应用""",
-
         "machining": """你是机械加工专家，熟悉:
 - 切削参数计算(切削速度、进给、切深)
 - 刀具选择和几何参数
 - 材料可加工性评估
 - 工艺路线设计""",
-
         "gdt": """你是几何尺寸和公差(GD&T)专家，熟悉:
 - ASME Y14.5 / ISO 1101标准
 - 形位公差符号和解读
@@ -183,18 +179,45 @@ class ContextAssembler:
         """Format tolerance data."""
         lines = []
 
-        if "grade" in data and "tolerance_um" in data:
-            lines.append(f"【公差: {data['grade']}】")
-            lines.append(f"尺寸: {data.get('diameter', 'N/A')} mm")
-            lines.append(f"公差值: {data['tolerance_um']} μm")
-
-        elif "fit_code" in data and "deviations" in data:
+        if "fit_code" in data and "deviations" in data:
             lines.append(f"【配合: {data['fit_code']}】")
             lines.append(f"尺寸: {data.get('diameter', 'N/A')} mm")
             dev = data["deviations"]
             lines.append(f"孔偏差: +{dev['hole_upper']}/+{dev['hole_lower']} μm")
             lines.append(f"轴偏差: {dev['shaft_upper']}/{dev['shaft_lower']} μm")
-            lines.append(f"间隙范围: {dev['min_clearance']} ~ {dev['max_clearance']} μm")
+            lines.append(
+                f"间隙范围: {dev['min_clearance']} ~ {dev['max_clearance']} μm"
+            )
+
+        elif (
+            "symbol" in data
+            and "grade" in data
+            and "lower_deviation_um" in data
+            and "upper_deviation_um" in data
+        ):
+            symbol = str(data.get("symbol") or "").strip()
+            grade = str(data.get("grade") or "").strip()
+            label = f"{symbol}{grade}" if symbol and grade else symbol or grade
+            lines.append(f"【极限偏差: {label}】")
+            lines.append(f"尺寸: {data.get('diameter', 'N/A')} mm")
+            lower = data.get("lower_deviation_um")
+            upper = data.get("upper_deviation_um")
+            kind = str(data.get("type") or "")
+            if kind == "hole":
+                lines.append(f"EI={lower} μm, ES={upper} μm")
+            elif kind == "shaft":
+                lines.append(f"ei={lower} μm, es={upper} μm")
+            else:
+                lines.append(f"下偏差={lower} μm, 上偏差={upper} μm")
+            try:
+                lines.append(f"公差带: {float(upper) - float(lower)} μm")
+            except Exception:
+                pass
+
+        elif "grade" in data and "tolerance_um" in data:
+            lines.append(f"【公差: {data['grade']}】")
+            lines.append(f"尺寸: {data.get('diameter', 'N/A')} mm")
+            lines.append(f"公差值: {data['tolerance_um']} μm")
 
         elif "fit_code" in data:
             lines.append(f"【配合: {data['fit_code']}】")
@@ -276,7 +299,11 @@ class ContextAssembler:
                 domains_used.add("materials")
             elif result.source == RetrievalSource.TOLERANCE:
                 domains_used.add("tolerance")
-            elif result.source in [RetrievalSource.THREADS, RetrievalSource.BEARINGS, RetrievalSource.SEALS]:
+            elif result.source in [
+                RetrievalSource.THREADS,
+                RetrievalSource.BEARINGS,
+                RetrievalSource.SEALS,
+            ]:
                 domains_used.add("standards")
             elif result.source == RetrievalSource.MACHINING:
                 domains_used.add("machining")
@@ -306,7 +333,7 @@ class ContextAssembler:
     def _estimate_tokens(self, text: str) -> int:
         """Estimate token count for text."""
         # Rough estimation: Chinese ~2 chars/token, English ~4 chars/token
-        chinese_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
+        chinese_chars = sum(1 for c in text if "\u4e00" <= c <= "\u9fff")
         other_chars = len(text) - chinese_chars
 
         return int(chinese_chars / 1.5 + other_chars / 4)

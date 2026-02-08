@@ -66,6 +66,17 @@ class TestQueryAnalyzer:
 
         assert result.intent == QueryIntent.TOLERANCE_LOOKUP
         assert result.entities.get("it_grade") == "7"
+        # Diameter should prefer explicit units to avoid capturing the grade digit.
+        assert result.entities.get("diameter") == "25"
+
+    def test_analyze_limit_deviation_query(self):
+        """Test ISO 286 limit deviation query entity extraction."""
+        analyzer = QueryAnalyzer()
+        result = analyzer.analyze("H7 25mm 基本偏差是多少?")
+
+        assert result.entities.get("tolerance_symbol", "").upper() == "H"
+        assert result.entities.get("tolerance_grade") == "7"
+        assert result.entities.get("diameter") == "25"
 
     def test_analyze_unknown_query(self):
         """Test unknown query handling."""
@@ -120,6 +131,23 @@ class TestKnowledgeRetriever:
 
         assert len(results) > 0
         assert any(r.source == RetrievalSource.TOLERANCE for r in results)
+
+    def test_retrieve_limit_deviations_h7_25mm(self):
+        """Ensure limit deviation lookups surface ISO 286 table results."""
+        analyzer = QueryAnalyzer()
+        retriever = KnowledgeRetriever()
+
+        query = analyzer.analyze("H7 25mm 基本偏差是多少?")
+        results = retriever.retrieve(query)
+
+        tol = [r for r in results if r.source == RetrievalSource.TOLERANCE]
+        assert tol, "expected tolerance retrieval results"
+        assert any(
+            r.data.get("source") == "iso286_table"
+            and r.data.get("lower_deviation_um") == 0.0
+            and r.data.get("upper_deviation_um") == 21.0
+            for r in tol
+        )
 
     def test_retrieve_fundamental_deviation_hole(self):
         """Test fundamental deviation retrieval for hole symbols."""
@@ -229,6 +257,18 @@ class TestContextAssembler:
 
         assert len(context.sources_used) > 0
 
+    def test_assemble_formats_limit_deviations_label(self):
+        """Ensure ISO 286 limit deviation results include the symbol+grade label in context."""
+        analyzer = QueryAnalyzer()
+        retriever = KnowledgeRetriever()
+        assembler = ContextAssembler()
+
+        query = analyzer.analyze("H7 25mm 基本偏差是多少?")
+        results = retriever.retrieve(query)
+        context = assembler.assemble(query, results)
+
+        assert "H7" in context.knowledge_context
+
 
 class TestCADAssistant:
     """Tests for CADAssistant main class."""
@@ -268,6 +308,7 @@ class TestCADAssistant:
 
     def test_custom_llm_callback(self):
         """Test custom LLM callback."""
+
         def mock_llm(system_prompt: str, user_prompt: str) -> str:
             return "Mock response from custom LLM"
 
@@ -334,7 +375,12 @@ class TestIntegration:
         assert response.confidence > 0.3
         # Common 25mm bore bearings: 6005, 6205, 6305
         answer_lower = response.answer.lower()
-        assert "6005" in answer_lower or "6205" in answer_lower or "6305" in answer_lower or "25" in response.answer
+        assert (
+            "6005" in answer_lower
+            or "6205" in answer_lower
+            or "6305" in answer_lower
+            or "25" in response.answer
+        )
 
     def test_fallback_for_unknown_query(self):
         """Test graceful fallback for unknown queries."""

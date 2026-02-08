@@ -75,6 +75,9 @@ KNOWN_SHAFT_SYMBOLS = {
     "zc",
 }
 
+_NEGATIVE_SHAFT_SYMBOLS = {"a", "b", "c", "d", "e", "f", "g"}
+_POSITIVE_HOLE_SYMBOLS = {"A", "B", "C", "D", "E", "F", "G"}
+
 
 def _normalize_cell(cell: Optional[str]) -> str:
     if cell is None:
@@ -241,7 +244,12 @@ def parse_pdf(pdf_path: Path) -> Dict[str, Any]:
                         parsed = _parse_deviation_cell(cell_text)
                         if parsed is None:
                             continue
-                        upper, lower = parsed
+                        # Different table renderings place the two deviations in
+                        # different orders (ES/EI vs EI/ES). Normalize to
+                        # (lower, upper) so downstream lookups are consistent.
+                        a, b = parsed
+                        lower = min(a, b)
+                        upper = max(a, b)
                         values[label] = {"upper": upper, "lower": lower}
 
                         if kind in ("holes", "shafts") and hi is not None:
@@ -267,12 +275,76 @@ def parse_pdf(pdf_path: Path) -> Dict[str, Any]:
                     }
                 )
 
+    # Post-process aggregated tables:
+    # - sort by size_upper
+    # - de-dupe duplicate size_upper entries
+    # - apply a light sign-consistency filter for a few well-known symbol families
+    for kind in ("holes", "shafts"):
+        table = output.get(kind, {})
+        if not isinstance(table, dict):
+            continue
+        cleaned: Dict[str, List[List[float]]] = {}
+        for label, rows in table.items():
+            if not isinstance(label, str) or not isinstance(rows, list):
+                continue
+            match = re.match(r"^([A-Za-z]+)(\d+)$", label.strip())
+            symbol = match.group(1) if match else ""
+            filtered: List[Tuple[float, float, float]] = []
+            dropped = 0
+            for entry in rows:
+                if not isinstance(entry, (list, tuple)) or len(entry) < 3:
+                    continue
+                try:
+                    size_upper = float(entry[0])
+                    lower = float(entry[1])
+                    upper = float(entry[2])
+                except (TypeError, ValueError):
+                    continue
+
+                keep = True
+                if kind == "shafts":
+                    sym = symbol.lower()
+                    if sym in _NEGATIVE_SHAFT_SYMBOLS:
+                        keep = upper <= 0.0 and lower <= 0.0
+                    elif sym == "h":
+                        keep = upper == 0.0 and lower <= 0.0
+                else:
+                    sym = symbol.upper()
+                    if sym in _POSITIVE_HOLE_SYMBOLS:
+                        keep = upper >= 0.0 and lower >= 0.0
+                    elif sym == "H":
+                        keep = lower == 0.0 and upper >= 0.0
+
+                if keep:
+                    filtered.append((size_upper, lower, upper))
+                else:
+                    dropped += 1
+
+            filtered.sort(key=lambda item: item[0])
+            deduped: List[List[float]] = []
+            seen_size: set[float] = set()
+            for size_upper, lower, upper in filtered:
+                if size_upper in seen_size:
+                    continue
+                seen_size.add(size_upper)
+                deduped.append([size_upper, lower, upper])
+
+            if dropped:
+                output["warnings"].append(
+                    f"{kind}.{label}: dropped {dropped} rows failing sign-consistency checks"
+                )
+            if deduped:
+                cleaned[label.strip()] = deduped
+        output[kind] = cleaned
+
     return output
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--pdf", required=True, type=Path, help="Path to GB/T 1800.2 PDF")
+    parser.add_argument(
+        "--pdf", required=True, type=Path, help="Path to GB/T 1800.2 PDF"
+    )
     parser.add_argument(
         "--out",
         default=Path("data/knowledge/iso286_deviations.json"),
@@ -283,7 +355,9 @@ def main() -> int:
 
     data = parse_pdf(args.pdf)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.out.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     print(f"Wrote {args.out}")
     return 0
 

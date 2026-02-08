@@ -3307,3 +3307,12 @@
   - Recorded Prometheus health metrics for `GET /api/v1/providers/registry` and `GET /api/v1/providers/health`.
   - Validation: provider health endpoint unit test passed.
   - Report: `reports/DEV_PROVIDER_HEALTH_ENDPOINT_METRICS_20260208.md`
+- **Tolerance Knowledge ISO 286 Deviations Validation**:
+  - Normalized and regenerated `data/knowledge/iso286_deviations.json` from the GB/T 1800.2-2020 PDF; added validation script with deterministic spot-checks.
+  - Improved assistant tolerance rendering for limit deviations and fixed diameter extraction to prefer explicit `mm` units (avoid `IT7`/`H7` grade digit capture).
+  - Validation: `python3 scripts/validate_iso286_deviations.py --spot-check` (OK) + targeted unit/integration suites passed.
+  - Report: `reports/DEV_TOLERANCE_ISO286_DEVIATIONS_VALIDATION_20260208.md`
+- **Standards Library API (Threads/Bearings/O-Rings)**:
+  - Added `/api/v1/standards/*` endpoints for thread, bearing, and o-ring spec queries backed by `src/core/knowledge/standards`.
+  - Validation: `pytest -q tests/integration/test_standards_api.py` (passed).
+  - Report: `reports/DEV_STANDARDS_LIBRARY_API_20260208.md`

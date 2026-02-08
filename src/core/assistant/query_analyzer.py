@@ -68,7 +68,9 @@ class AnalyzedQuery:
 
     # Extracted information
     keywords: List[str] = field(default_factory=list)
-    entities: Dict[str, str] = field(default_factory=dict)  # e.g., {"material": "304", "diameter": "25"}
+    entities: Dict[str, str] = field(
+        default_factory=dict
+    )  # e.g., {"material": "304", "diameter": "25"}
     domains: List[str] = field(default_factory=list)  # Knowledge domains to search
 
     # Query refinement
@@ -102,7 +104,10 @@ class QueryAnalyzer:
             QueryIntent.THREAD_SPEC: ["standards.threads"],
             QueryIntent.BEARING_SPEC: ["standards.bearings"],
             QueryIntent.SEAL_SPEC: ["standards.seals"],
-            QueryIntent.CUTTING_PARAMETERS: ["machining.cutting", "machining.materials"],
+            QueryIntent.CUTTING_PARAMETERS: [
+                "machining.cutting",
+                "machining.materials",
+            ],
             QueryIntent.TOOL_SELECTION: ["machining.tooling"],
             QueryIntent.PROCESS_ROUTE: ["machining", "materials"],
             QueryIntent.WELDING_PARAMETERS: ["welding.parameters"],
@@ -125,7 +130,10 @@ class QueryAnalyzer:
         """Build regex patterns for intent detection."""
         patterns = {
             QueryIntent.MATERIAL_PROPERTY: [
-                re.compile(r"(材料|钢|铝|铜|钛).*(属性|强度|硬度|密度|熔点|导热)", re.IGNORECASE),
+                re.compile(
+                    r"(材料|钢|铝|铜|钛).*(属性|强度|硬度|密度|熔点|导热)",
+                    re.IGNORECASE,
+                ),
                 re.compile(r"(抗拉|屈服|延伸率|热处理)", re.IGNORECASE),
                 re.compile(r"(什么|多少).*(强度|硬度|密度)", re.IGNORECASE),
             ],
@@ -171,7 +179,10 @@ class QueryAnalyzer:
                 re.compile(r"(加工|切削).*用.*刀", re.IGNORECASE),
             ],
             QueryIntent.WELDING_PARAMETERS: [
-                re.compile(r"(焊接|焊|SMAW|GMAW|GTAW|TIG|MIG|MAG).*(参数|电流|电压|速度)", re.IGNORECASE),
+                re.compile(
+                    r"(焊接|焊|SMAW|GMAW|GTAW|TIG|MIG|MAG).*(参数|电流|电压|速度)",
+                    re.IGNORECASE,
+                ),
                 re.compile(r"(电弧焊|气保焊|氩弧焊|埋弧焊)", re.IGNORECASE),
                 re.compile(r"焊.*(多少|怎么)", re.IGNORECASE),
             ],
@@ -185,7 +196,9 @@ class QueryAnalyzer:
                 re.compile(r"能.*焊", re.IGNORECASE),
             ],
             QueryIntent.HEAT_TREATMENT: [
-                re.compile(r"(热处理|淬火|回火|退火|正火).*(参数|温度|时间)", re.IGNORECASE),
+                re.compile(
+                    r"(热处理|淬火|回火|退火|正火).*(参数|温度|时间)", re.IGNORECASE
+                ),
                 re.compile(r"(热处理|淬火|回火).*怎么", re.IGNORECASE),
             ],
             QueryIntent.HARDENING: [
@@ -197,18 +210,25 @@ class QueryAnalyzer:
                 re.compile(r"消除应力", re.IGNORECASE),
             ],
             QueryIntent.ELECTROPLATING: [
-                re.compile(r"(电镀|镀锌|镀镍|镀铬|镀层).*(厚度|参数|工艺|推荐)", re.IGNORECASE),
+                re.compile(
+                    r"(电镀|镀锌|镀镍|镀铬|镀层).*(厚度|参数|工艺|推荐)", re.IGNORECASE
+                ),
                 re.compile(r"(锌|镍|铬|金|银|硬铬).*镀", re.IGNORECASE),
                 re.compile(r"镀.*(锌|镍|铬|金|银|硬)", re.IGNORECASE),
                 re.compile(r"(盐雾|防腐|耐蚀).*镀", re.IGNORECASE),
             ],
             QueryIntent.ANODIZING: [
-                re.compile(r"(阳极氧化|阳极|硬质阳极|氧化).*(类型|厚度|颜色|参数)", re.IGNORECASE),
+                re.compile(
+                    r"(阳极氧化|阳极|硬质阳极|氧化).*(类型|厚度|颜色|参数)",
+                    re.IGNORECASE,
+                ),
                 re.compile(r"(Type\s*I{1,3}|铬酸|硫酸).*阳极", re.IGNORECASE),
                 re.compile(r"铝.*氧化", re.IGNORECASE),
             ],
             QueryIntent.COATING: [
-                re.compile(r"(涂装|涂层|涂料|喷涂|喷漆).*(推荐|选择|厚度|参数)", re.IGNORECASE),
+                re.compile(
+                    r"(涂装|涂层|涂料|喷涂|喷漆).*(推荐|选择|厚度|参数)", re.IGNORECASE
+                ),
                 re.compile(r"(粉末|环氧|聚氨酯|锌铬).*(涂|喷)", re.IGNORECASE),
                 re.compile(r"(C[1-5]|CX|ISO\s*12944).*涂", re.IGNORECASE),
             ],
@@ -224,9 +244,13 @@ class QueryAnalyzer:
         return {
             "material_grade": re.compile(
                 r"(304|316|316L|Q235|45钢|40Cr|GCr15|6061|7075|Ti-?6Al-?4V|Inconel\s?\d+)",
-                re.IGNORECASE
+                re.IGNORECASE,
             ),
-            "diameter": re.compile(r"[Ddφ直径]?\s*(\d+(?:\.\d+)?)\s*(?:mm|毫米)?"),
+            # Prefer explicit units to avoid capturing grade digits in strings like "IT7" / "H7".
+            "diameter": re.compile(
+                r"(?:[DdφΦ直径]\s*)?(\d+(?:\.\d+)?)\s*(?:mm|毫米)",
+                re.IGNORECASE,
+            ),
             "thread": re.compile(r"M(\d+(?:\.\d+)?)(x(\d+(?:\.\d+)?))?", re.IGNORECASE),
             "bearing": re.compile(r"(6[0-3]\d{2,3})", re.IGNORECASE),
             "it_grade": re.compile(r"IT\s?(\d{1,2})", re.IGNORECASE),
@@ -235,7 +259,9 @@ class QueryAnalyzer:
                 r"([A-Za-z]{1,2})(\d{1,2})(?=.*(公差|偏差|配合))",
                 re.IGNORECASE,
             ),
-            "oring": re.compile(r"(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)", re.IGNORECASE),
+            "oring": re.compile(
+                r"(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)", re.IGNORECASE
+            ),
         }
 
     def analyze(self, query: str) -> AnalyzedQuery:
@@ -306,7 +332,19 @@ class QueryAnalyzer:
         """Extract keywords from query."""
         # Simple keyword extraction - can be enhanced with NLP
         # Remove common words
-        stopwords = {"的", "是", "什么", "多少", "怎么", "如何", "请问", "能", "可以", "吗", "呢"}
+        stopwords = {
+            "的",
+            "是",
+            "什么",
+            "多少",
+            "怎么",
+            "如何",
+            "请问",
+            "能",
+            "可以",
+            "吗",
+            "呢",
+        }
 
         words = query.split()
         keywords = []
@@ -339,7 +377,9 @@ class QueryAnalyzer:
                     entities["oring_id"] = match.group(1)
                     entities["oring_cs"] = match.group(2)
                 else:
-                    entities[entity_type] = match.group(1) if match.groups() else match.group(0)
+                    entities[entity_type] = (
+                        match.group(1) if match.groups() else match.group(0)
+                    )
 
         return entities
 
