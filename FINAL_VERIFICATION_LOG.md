@@ -3299,3 +3299,11 @@
   - Added lightweight provider prerequisite summary to `/health` (`config.ml.readiness`) for clearer degraded-mode diagnosis (torch/model files/disable flags).
   - Validation: targeted unit suites passed.
   - Report: `reports/DEV_READINESS_CORE_PROVIDERS_CHECK_20260207.md`
+- **Golden DXF Hybrid Eval (Synthetic)**:
+  - Added a small golden manifest for Hybrid DXF classification (filename + titleblock) plus a local evaluator script that generates synthetic DXF bytes (no committed `.dxf`).
+  - Validation: golden unit gate passed; local evaluation script produced 20/20 passes.
+  - Report: `reports/DEV_GOLDEN_DXF_HYBRID_EVAL_20260208.md`
+- **Provider Health Endpoint Metrics**:
+  - Recorded Prometheus health metrics for `GET /api/v1/providers/registry` and `GET /api/v1/providers/health`.
+  - Validation: provider health endpoint unit test passed.
+  - Report: `reports/DEV_PROVIDER_HEALTH_ENDPOINT_METRICS_20260208.md`

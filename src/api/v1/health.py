@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_admin_token, get_api_key
 from src.api.health_models import HealthResponse
-from src.api.health_utils import build_health_payload
+from src.api.health_utils import build_health_payload, record_health_request
 
 router = APIRouter()
 
@@ -134,10 +134,18 @@ async def hybrid_runtime_config(api_key: str = Depends(get_api_key)):
 async def provider_registry_health(api_key: str = Depends(get_api_key)):
     from src.core.providers import get_core_provider_registry_snapshot
 
-    return ProviderRegistryHealthResponse(
-        status="ok",
-        registry=get_core_provider_registry_snapshot(),
-    )
+    start = time.perf_counter()
+    status = "ok"
+    try:
+        return ProviderRegistryHealthResponse(
+            status="ok",
+            registry=get_core_provider_registry_snapshot(),
+        )
+    except Exception:
+        status = "error"
+        raise
+    finally:
+        record_health_request("providers_registry", status, time.perf_counter() - start)
 
 
 @router.get("/providers/health", response_model=ProviderHealthResponse)
@@ -150,11 +158,17 @@ async def provider_health(
     from src.core.providers import ProviderRegistry, bootstrap_core_provider_registry
     from src.core.providers.base import ProviderStatus
 
+    start = time.perf_counter()
+    status = "ok"
     if timeout_seconds <= 0:
         timeout_seconds = 0.75
     timeout_seconds = float(min(timeout_seconds, 10.0))
 
-    bootstrap_core_provider_registry()
+    try:
+        bootstrap_core_provider_registry()
+    except Exception:
+        status = "error"
+        raise
 
     async def _check(domain: str, name: str) -> ProviderHealthItem:
         started_at = time.perf_counter()
@@ -212,13 +226,19 @@ async def provider_health(
     results = list(await asyncio.gather(*tasks)) if tasks else []
     results.sort(key=lambda item: (item.domain, item.provider))
     ready_count = sum(1 for item in results if item.ready)
-    return ProviderHealthResponse(
-        status="ok",
-        total=len(results),
-        ready=ready_count,
-        timeout_seconds=timeout_seconds,
-        results=results,
-    )
+    try:
+        return ProviderHealthResponse(
+            status="ok",
+            total=len(results),
+            ready=ready_count,
+            timeout_seconds=timeout_seconds,
+            results=results,
+        )
+    except Exception:
+        status = "error"
+        raise
+    finally:
+        record_health_request("providers_health", status, time.perf_counter() - start)
 
 
 @router.get("/features/cache", response_model=FeatureCacheStatsResponse)
