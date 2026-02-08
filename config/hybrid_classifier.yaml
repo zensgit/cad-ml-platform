@@ -14,7 +14,7 @@ graph2d:
   enabled: false
   min_confidence: 0.5
   fusion_weight: 0.3
-  exclude_labels: "other,传动件,壳体类,轴类,连接件,其他"
+  exclude_labels: "other"
   allow_labels: ""
   drawing_type_labels:
     - "零件图"

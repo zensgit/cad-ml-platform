@@ -1,0 +1,9 @@
+file_name,true_label,pred_label,confidence,margin,bucket
+syn2_0464.dxf,壳体类,其他,0.551,0.112,mid_confidence
+syn2_0313.dxf,其他,轴类,0.881,0.813,high_confidence
+syn2_0157.dxf,其他,壳体类,0.663,0.329,mid_confidence
+syn2_0489.dxf,其他,壳体类,0.674,0.355,mid_confidence
+syn2_0114.dxf,其他,连接件,0.479,0.208,mid_confidence
+syn2_0266.dxf,其他,连接件,0.512,0.090,low_margin
+syn2_0195.dxf,其他,壳体类,0.507,0.019,low_margin
+syn2_0104.dxf,其他,轴类,0.355,0.004,low_confidence

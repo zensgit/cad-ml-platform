@@ -80,6 +80,14 @@ DEFAULT_GRAPH2D_DRAWING_LABELS = {
     "模板",
 }
 
+DEFAULT_GRAPH2D_COARSE_LABELS = {
+    "传动件",
+    "壳体类",
+    "轴类",
+    "连接件",
+    "其他",
+}
+
 
 def _graph2d_is_drawing_type(label: Optional[str]) -> bool:
     if not label:
@@ -89,6 +97,17 @@ def _graph2d_is_drawing_type(label: Optional[str]) -> bool:
         labels = {item.strip() for item in raw.split(",") if item.strip()}
     else:
         labels = DEFAULT_GRAPH2D_DRAWING_LABELS
+    return label.strip() in labels
+
+
+def _graph2d_is_coarse_label(label: Optional[str]) -> bool:
+    if not label:
+        return False
+    raw = os.getenv("GRAPH2D_COARSE_LABELS", "").strip()
+    if raw:
+        labels = {item.strip() for item in raw.split(",") if item.strip()}
+    else:
+        labels = DEFAULT_GRAPH2D_COARSE_LABELS
     return label.strip() in labels
 
 
@@ -943,6 +962,15 @@ async def analyze_cad_file(
                             and graph2d_result.get("status") != "model_unavailable"
                         ):
                             graph2d_min_conf = _safe_float_env("GRAPH2D_MIN_CONF", 0.0)
+                            if "GRAPH2D_MIN_CONF" not in os.environ:
+                                try:
+                                    from src.ml.hybrid_config import get_config
+
+                                    graph2d_min_conf = float(
+                                        get_config().graph2d.min_confidence
+                                    )
+                                except Exception:
+                                    pass
                             graph2d_conf = float(graph2d_result.get("confidence", 0.0))
                             graph2d_allow_raw = os.getenv("GRAPH2D_ALLOW_LABELS", "").strip()
                             graph2d_exclude_raw = os.getenv("GRAPH2D_EXCLUDE_LABELS", "").strip()
@@ -984,6 +1012,9 @@ async def analyze_cad_file(
                             graph2d_is_drawing_type = _graph2d_is_drawing_type(
                                 graph2d_label
                             )
+                            graph2d_is_coarse_label = _graph2d_is_coarse_label(
+                                graph2d_label
+                            )
                             graph2d_allowed = (
                                 not graph2d_allow or graph2d_label in graph2d_allow
                             )
@@ -996,6 +1027,7 @@ async def analyze_cad_file(
                             )
                             graph2d_result["allowed"] = graph2d_allowed
                             graph2d_result["is_drawing_type"] = graph2d_is_drawing_type
+                            graph2d_result["is_coarse_label"] = graph2d_is_coarse_label
                             graph2d_result["ensemble_enabled"] = (
                                 graph2d_ensemble_enabled
                             )
@@ -1063,6 +1095,9 @@ async def analyze_cad_file(
                     graph2d_is_drawing_type = bool(
                         graph2d_result.get("is_drawing_type", False)
                     )
+                    graph2d_is_coarse_label = bool(
+                        graph2d_result.get("is_coarse_label", False)
+                    )
                     eligible = True
                     reason = "eligible"
                     if cls_payload.get("confidence_source") != "rules":
@@ -1080,6 +1115,9 @@ async def analyze_cad_file(
                     elif graph2d_is_drawing_type:
                         eligible = False
                         reason = "graph2d_drawing_type"
+                    elif graph2d_is_coarse_label:
+                        eligible = False
+                        reason = "graph2d_coarse_label"
                     elif graph2d_conf < soft_override_min_conf:
                         eligible = False
                         reason = "below_threshold"

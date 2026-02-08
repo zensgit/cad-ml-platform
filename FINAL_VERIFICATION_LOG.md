@@ -3339,3 +3339,8 @@
   - Added additive `fine_*` label fields in `/api/v1/analyze/` so HybridClassifier fine-grained labels are returned even when `part_type` comes from L2/L3 Fusion.
   - Validation: analyze integration suite passed.
   - Report: `reports/DEV_ANALYZE_DXF_FINE_LABEL_FIELDS_20260208.md`
+- **Graph2D Coarse (Synthetic v2) Train/Eval + Coarse Override Guard**:
+  - Trained + evaluated a 5-class coarse Graph2D checkpoint on `data/synthetic_v2` and recorded per-class metrics.
+  - Allowed coarse family labels by default in Hybrid config, while preventing coarse labels from producing misleading `soft_override_suggestion` recommendations.
+  - Validation: targeted unit + analyze integration suites passed; train/eval scripts produced metrics artifacts.
+  - Report: `reports/DEV_GRAPH2D_COARSE_SYNTH_V2_TRAIN_EVAL_20260208.md`
