@@ -3321,3 +3321,8 @@
   - Added `--max-samples-strategy` to Graph2D train/eval scripts to avoid single-class truncation during smoke runs.
   - Validation: new unit tests passed; synthetic end-to-end smoke run (manifest -> train -> eval) completed with recorded metrics.
   - Report: `reports/DEV_DXF_MANIFEST_RELATIVE_PATH_AND_SUBSAMPLING_20260208.md`
+- **Training Drawings Graph2D POC (Filename-Weak Labels)**:
+  - Generated a DXF training manifest from `/Users/huazhou/Downloads/训练图纸/训练图纸_dxf` using `FilenameClassifier` (110 files, 47 labels).
+  - Fixed filename extraction for vendor suffixes (e.g. `...v2-yuantus.dxf`) to avoid label pollution.
+  - Trained + evaluated an EdgeSage Graph2D checkpoint; results document current baseline and confirm the pipeline works end-to-end without manual drawing review.
+  - Report: `reports/DEV_TRAINING_DRAWINGS_GRAPH2D_POC_20260208.md`

@@ -31,6 +31,10 @@ def test_extract_part_name_patterns(synonyms_file: Path) -> None:
     assert classifier.extract_part_name("BTJ01239901522-00拖轮组件v1.dxf") == "拖轮组件"
     assert classifier.extract_part_name("BTJ01231201522-00拖车DN1500v1.dxf") == "拖车"
     assert (
+        classifier.extract_part_name("J1424042-00出料正压隔离器v2-yuantus.dxf")
+        == "出料正压隔离器"
+    )
+    assert (
         classifier.extract_part_name("比较_LTJ012306102-0084调节螺栓v1 vs v2.dxf")
         == "调节螺栓"
     )

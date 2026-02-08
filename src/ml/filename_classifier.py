@@ -48,6 +48,8 @@ _SPEC_SUFFIX_RES = (
 class FilenameClassifier:
     """基于文件名的零件分类器"""
 
+    _CN_CHAR_RE = re.compile(r"[\u4e00-\u9fa5]")
+
     @staticmethod
     def _normalize_part_name(part_name: str) -> str:
         """Normalize extracted part name for matching.
@@ -227,8 +229,38 @@ class FilenameClassifier:
                 # 清理可能的数字前缀
                 part_name = re.sub(r"^[-\d]+", "", part_name).strip()
                 part_name = self._normalize_part_name(part_name)
-                if part_name and len(part_name) >= 2:
+                # If the extracted name still contains ASCII tokens (common for
+                # suffixes like "v2-yuantus"), fall back to the longest Chinese
+                # substring to avoid polluting labels.
+                if re.search(r"[A-Za-z]", part_name):
+                    cn_matches = re.findall(r"[\u4e00-\u9fa5()（）]+", part_name)
+                    if cn_matches:
+                        candidate = max(
+                            (m.strip() for m in cn_matches if m.strip()),
+                            key=len,
+                            default="",
+                        )
+                        candidate = self._normalize_part_name(candidate)
+                        if candidate and len(candidate) >= 2:
+                            part_name = candidate
+                # Guard against trailing non-part suffixes (e.g. vendor tags like "-yuantus")
+                # being extracted as "part names".
+                if (
+                    part_name
+                    and len(part_name) >= 2
+                    and self._CN_CHAR_RE.search(part_name) is not None
+                ):
                     return part_name
+
+        # Fallback: pick the longest Chinese substring anywhere in the basename.
+        # This covers file names like "...出料正压隔离器v2-yuantus.dxf" where a trailing
+        # ASCII suffix breaks the end-anchored patterns above.
+        cn_matches = re.findall(r"[\u4e00-\u9fa5()（）]+", basename)
+        if cn_matches:
+            candidate = max((m.strip() for m in cn_matches if m.strip()), key=len, default="")
+            candidate = self._normalize_part_name(candidate)
+            if candidate and len(candidate) >= 2:
+                return candidate
 
         return None
 
