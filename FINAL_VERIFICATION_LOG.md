@@ -3349,3 +3349,7 @@
   - Extended golden HybridClassifier cases to allow injecting `graph2d_result` for guardrail and fallback validation.
   - Validation: targeted unit + integration suites passed.
   - Report: `reports/DEV_GRAPH2D_PREDICTION_CONTRACT_REGRESSION_20260208.md`
+- **Provider Registry Snapshot Class Metadata**:
+  - Enhanced the core provider registry snapshot to include registered provider class paths (`provider_classes`) for faster debugging of which implementation is active.
+  - Validation: provider registry bootstrap unit suite passed.
+  - Report: `reports/DEV_PROVIDER_REGISTRY_SNAPSHOT_CLASS_METADATA_20260208.md`

@@ -17,6 +17,17 @@ _BOOTSTRAP_TS: float | None = None
 def _build_snapshot() -> Dict[str, Any]:
     domains = ProviderRegistry.list_domains()
     providers = {domain: ProviderRegistry.list_providers(domain) for domain in domains}
+    provider_classes: Dict[str, Dict[str, str]] = {}
+    for domain, names in providers.items():
+        class_map: Dict[str, str] = {}
+        for name in names:
+            try:
+                cls = ProviderRegistry.get_provider_class(domain, name)
+                class_map[name] = f"{cls.__module__}.{cls.__qualname__}"
+            except Exception:
+                # Best-effort only; snapshot should never fail because of metadata.
+                class_map[name] = "unknown"
+        provider_classes[domain] = class_map
     total_providers = sum(len(items) for items in providers.values())
     return {
         "bootstrapped": _BOOTSTRAPPED,
@@ -25,6 +36,7 @@ def _build_snapshot() -> Dict[str, Any]:
         "total_providers": total_providers,
         "domains": domains,
         "providers": providers,
+        "provider_classes": provider_classes,
     }
 
 
