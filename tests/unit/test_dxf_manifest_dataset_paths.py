@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import csv
+import importlib.util
 from pathlib import Path
 
 import pytest
+
+# Skip tests if torch is not available
+pytestmark = pytest.mark.skipif(
+    importlib.util.find_spec("torch") is None,
+    reason="torch not installed in this environment"
+)
 
 
 def _write_min_dxf(path: Path) -> None:
