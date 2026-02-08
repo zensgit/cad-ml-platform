@@ -36,6 +36,8 @@ bash scripts/test_with_local_api.sh --suite e2e
 bash scripts/test_with_local_api.sh --suite all
 ```
 
+Note: `scripts/test_with_local_api.sh` is a stable interface used by `Makefile` and CI. Avoid creating or using a separate `./test_with_local_api.sh` at repo root to prevent drift.
+
 Behavior:
 - Reuses an already healthy API at `API_BASE_URL` if available.
 - Otherwise starts `uvicorn src.main:app`, waits for `/health`, runs tests, and shuts down automatically.

@@ -3384,3 +3384,8 @@
   - Unified provider health/readiness checks by using `BaseProvider.health_check(timeout_seconds=...)` in both `/ready` and `/api/v1/providers/health`.
   - Validation: targeted provider framework + readiness + provider health suites passed.
   - Report: `reports/DEV_PROVIDER_INSTANCE_CACHE_AND_HEALTH_UNIFICATION_20260208.md`
+- **Provider Framework Docs Clarification**:
+  - Updated `docs/PROVIDER_FRAMEWORK.md` and clarified that `src/core/providers/` is a first-class provider framework used by runtime health/readiness (not a temporary module).
+  - Clarified that the canonical local tiered runner is `scripts/test_with_local_api.sh` (used by `Makefile` and CI).
+  - Validation: provider framework unit suite passed; local runner script syntax check passed.
+  - Report: `reports/DEV_PROVIDER_FRAMEWORK_CLARITY_20260208.md`

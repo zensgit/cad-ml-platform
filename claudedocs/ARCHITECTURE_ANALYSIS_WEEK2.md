@@ -5,6 +5,8 @@
 
 ---
 
+> Status Update (2026-02-08): The core provider framework described in this doc has been implemented under `src/core/providers/` and is wired into health/readiness and API integrations. For current behavior and how-to guidance, see `docs/PROVIDER_FRAMEWORK.md` and `docs/HEALTH_ENDPOINT_CONFIG.md`. The plan/checklist sections below are kept for historical context.
+
 ## 1. 现有Provider模式分析
 
 ### 1.1 Provider类型统计
