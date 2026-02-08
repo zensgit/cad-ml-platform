@@ -3361,6 +3361,10 @@
   - Ran a small local TestClient batch to confirm `part_classifier_prediction` + normalized `part_family*` fields are emitted when torch + model artifacts are available.
   - Output: `reports/experiments/20260208/part_family_shadow_sample_10.csv` (sanitized basenames only).
   - Report: `reports/DEV_PART_FAMILY_SHADOW_EVAL_SAMPLE_20260208.md`
+- **PartFamily Shadow Eval (Training DXF Batch)**:
+  - Ran `50` training DXFs through `/api/v1/analyze/` with V16 provider enabled (shadow-only) and recorded outputs for offline review.
+  - Output: `reports/experiments/20260208/part_family_shadow_training_dxf_50.csv` (sanitized basenames only).
+  - Report: `reports/DEV_PART_FAMILY_SHADOW_EVAL_TRAINING_DXF_20260208.md`
 - **Graph2D Coarse (Synthetic v2) Train/Eval + Coarse Override Guard**:
   - Trained + evaluated a 5-class coarse Graph2D checkpoint on `data/synthetic_v2` and recorded per-class metrics.
   - Allowed coarse family labels by default in Hybrid config, while preventing coarse labels from producing misleading `soft_override_suggestion` recommendations.
