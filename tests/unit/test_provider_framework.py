@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 
 import pytest
@@ -67,6 +68,35 @@ async def test_registry_get_creates_provider_and_process():
     assert result["provider"] == "demo_provider"
     assert result["request"] == {"hello": "world"}
 
+@pytest.mark.asyncio
+async def test_registry_get_caches_default_instance(monkeypatch: pytest.MonkeyPatch) -> None:
+    @ProviderRegistry.register("vision", "cached")
+    class _CachedProvider(DemoProvider):  # noqa: D401
+        def __init__(self, config: DemoConfig | None = None):
+            super().__init__(config or DemoConfig(name="cached", provider_type="vision"))
+
+    monkeypatch.setenv("PROVIDER_REGISTRY_CACHE_ENABLED", "true")
+    p1 = ProviderRegistry.get("vision", "cached")
+    p2 = ProviderRegistry.get("vision", "cached")
+    assert p1 is p2
+
+    ProviderRegistry.clear_instances()
+    p3 = ProviderRegistry.get("vision", "cached")
+    assert p3 is not p1
+
+
+@pytest.mark.asyncio
+async def test_registry_get_does_not_cache_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    @ProviderRegistry.register("vision", "nocache")
+    class _NoCacheProvider(DemoProvider):  # noqa: D401
+        def __init__(self, config: DemoConfig | None = None):
+            super().__init__(config or DemoConfig(name="nocache", provider_type="vision"))
+
+    monkeypatch.setenv("PROVIDER_REGISTRY_CACHE_ENABLED", "false")
+    p1 = ProviderRegistry.get("vision", "nocache")
+    p2 = ProviderRegistry.get("vision", "nocache")
+    assert p1 is not p2
+
 
 @pytest.mark.asyncio
 async def test_health_check_updates_status_and_snapshot():
@@ -91,6 +121,23 @@ async def test_health_check_failure_is_captured():
     assert ok is False
     assert provider.status == ProviderStatus.DOWN
     assert provider.last_error == "boom"
+
+
+@pytest.mark.asyncio
+async def test_health_check_timeout_sets_error() -> None:
+    class _SlowHealthProvider(BaseProvider[DemoConfig, dict]):
+        async def _process_impl(self, request, **kwargs):
+            return {"ok": True}
+
+        async def _health_check_impl(self) -> bool:
+            await asyncio.sleep(0.05)
+            return True
+
+    provider = _SlowHealthProvider(DemoConfig(name="slow", provider_type="vision"))
+    ok = await provider.health_check(timeout_seconds=0.01)
+    assert ok is False
+    assert provider.status == ProviderStatus.DOWN
+    assert provider.last_error == "timeout"
 
 
 def test_unregister_removes_provider():

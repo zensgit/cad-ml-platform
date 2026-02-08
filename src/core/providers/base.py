@@ -7,6 +7,7 @@ directly to domain-specific models.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -90,16 +91,36 @@ class BaseProvider(ABC, Generic[ConfigT, ResultT]):
     async def process(self, request: Any, **kwargs: Any) -> ResultT:
         return await self._process_impl(request, **kwargs)
 
-    async def health_check(self) -> bool:
-        """Run provider health check and update runtime status."""
+    async def health_check(self, timeout_seconds: Optional[float] = None) -> bool:
+        """Run provider health check and update runtime status.
+
+        Args:
+            timeout_seconds: Optional timeout for the health check implementation.
+                When provided, the check is bounded via ``asyncio.wait_for`` and
+                `last_error` will be set to ``"timeout"`` on expiry.
+        """
         started_at = time.perf_counter()
         ok = False
         try:
-            ok = await self._health_check_impl()
+            if timeout_seconds is not None:
+                if timeout_seconds <= 0:
+                    timeout_seconds = 0.5
+                timeout_seconds = float(min(timeout_seconds, 10.0))
+                ok = await asyncio.wait_for(
+                    self._health_check_impl(), timeout=timeout_seconds
+                )
+            else:
+                ok = await self._health_check_impl()
             self._status = ProviderStatus.HEALTHY if ok else ProviderStatus.DOWN
             if ok:
                 self._last_error = None
+            else:
+                self._last_error = self._last_error or "unhealthy"
             return ok
+        except asyncio.TimeoutError:
+            self._status = ProviderStatus.DOWN
+            self._last_error = "timeout"
+            return False
         except Exception as exc:  # noqa: BLE001
             self._status = ProviderStatus.DOWN
             self._last_error = str(exc)

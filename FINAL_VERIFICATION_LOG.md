@@ -3353,3 +3353,8 @@
   - Enhanced the core provider registry snapshot to include registered provider class paths (`provider_classes`) for faster debugging of which implementation is active.
   - Validation: provider registry bootstrap unit suite passed.
   - Report: `reports/DEV_PROVIDER_REGISTRY_SNAPSHOT_CLASS_METADATA_20260208.md`
+- **Provider Instance Cache + Health/Readiness Unification**:
+  - Added provider instance caching in `ProviderRegistry` (default singleton instances; controlled by `PROVIDER_REGISTRY_CACHE_ENABLED`) and a test isolation fixture to clear instances between tests.
+  - Unified provider health/readiness checks by using `BaseProvider.health_check(timeout_seconds=...)` in both `/ready` and `/api/v1/providers/health`.
+  - Validation: targeted provider framework + readiness + provider health suites passed.
+  - Report: `reports/DEV_PROVIDER_INSTANCE_CACHE_AND_HEALTH_UNIFICATION_20260208.md`

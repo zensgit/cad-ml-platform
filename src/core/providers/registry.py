@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from threading import RLock
 from typing import Dict, List, Type
 
@@ -12,6 +13,7 @@ class ProviderRegistry:
     """Simple type-safe registry for provider classes."""
 
     _providers: Dict[str, Dict[str, Type[BaseProvider]]] = {}
+    _instances: Dict[str, Dict[str, BaseProvider]] = {}
     _lock = RLock()
 
     @classmethod
@@ -37,6 +39,11 @@ class ProviderRegistry:
         return _decorator
 
     @classmethod
+    def _cache_enabled(cls) -> bool:
+        raw = os.getenv("PROVIDER_REGISTRY_CACHE_ENABLED", "true").strip().lower()
+        return raw not in {"0", "false", "no", "off"}
+
+    @classmethod
     def get_provider_class(cls, domain: str, provider_name: str) -> Type[BaseProvider]:
         with cls._lock:
             domain_map = cls._providers.get(domain, {})
@@ -47,9 +54,24 @@ class ProviderRegistry:
 
     @classmethod
     def get(cls, domain: str, provider_name: str, *args, **kwargs) -> BaseProvider:
-        """Create a provider instance from registry."""
+        """Create or fetch a provider instance from registry.
+
+        Behavior:
+        - If *args/**kwargs are provided, always create a new instance (no caching).
+        - If no *args/**kwargs are provided, return a cached singleton instance by
+          default (controlled via PROVIDER_REGISTRY_CACHE_ENABLED).
+        """
         provider_cls = cls.get_provider_class(domain, provider_name)
-        return provider_cls(*args, **kwargs)
+        if args or kwargs or not cls._cache_enabled():
+            return provider_cls(*args, **kwargs)
+
+        with cls._lock:
+            domain_instances = cls._instances.setdefault(domain, {})
+            inst = domain_instances.get(provider_name)
+            if inst is None or type(inst) is not provider_cls:
+                inst = provider_cls()
+                domain_instances[provider_name] = inst
+            return inst
 
     @classmethod
     def list_domains(cls) -> List[str]:
@@ -75,9 +97,21 @@ class ProviderRegistry:
             del domain_map[provider_name]
             if not domain_map:
                 del cls._providers[domain]
+            inst_map = cls._instances.get(domain)
+            if inst_map and provider_name in inst_map:
+                del inst_map[provider_name]
+            if inst_map is not None and not inst_map:
+                cls._instances.pop(domain, None)
             return True
+
+    @classmethod
+    def clear_instances(cls) -> None:
+        """Clear cached provider instances (keeps provider class registrations)."""
+        with cls._lock:
+            cls._instances.clear()
 
     @classmethod
     def clear(cls) -> None:
         with cls._lock:
             cls._providers.clear()
+            cls._instances.clear()

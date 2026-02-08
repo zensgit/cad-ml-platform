@@ -156,7 +156,6 @@ async def provider_health(
 ):
     """Run best-effort health checks for all bootstrapped core providers."""
     from src.core.providers import ProviderRegistry, bootstrap_core_provider_registry
-    from src.core.providers.base import ProviderStatus
 
     start = time.perf_counter()
     status = "ok"
@@ -171,7 +170,6 @@ async def provider_health(
         raise
 
     async def _check(domain: str, name: str) -> ProviderHealthItem:
-        started_at = time.perf_counter()
         try:
             provider = ProviderRegistry.get(domain, name)
         except Exception as exc:  # noqa: BLE001
@@ -186,28 +184,12 @@ async def provider_health(
         ok = False
         err: Optional[str] = None
         try:
-            # Use the provider's internal check with a timeout. We update the
-            # public status fields ourselves to avoid cancellation edge-cases.
-            ok = await asyncio.wait_for(
-                provider._health_check_impl(),  # type: ignore[attr-defined]
-                timeout=timeout_seconds,
-            )
-            provider._status = ProviderStatus.HEALTHY if ok else ProviderStatus.DOWN  # type: ignore[attr-defined]
-            if ok:
-                provider._last_error = None  # type: ignore[attr-defined]
-        except asyncio.TimeoutError:
-            err = "timeout"
-            provider._status = ProviderStatus.DOWN  # type: ignore[attr-defined]
-            provider._last_error = "timeout"  # type: ignore[attr-defined]
+            ok = await provider.health_check(timeout_seconds=timeout_seconds)  # type: ignore[arg-type]
+            err = provider.last_error  # type: ignore[attr-defined]
         except Exception as exc:  # noqa: BLE001
+            # Provider implementations should not raise, but keep this best-effort.
+            ok = False
             err = str(exc)
-            provider._status = ProviderStatus.DOWN  # type: ignore[attr-defined]
-            provider._last_error = err  # type: ignore[attr-defined]
-        finally:
-            provider._last_health_check_at = time.time()  # type: ignore[attr-defined]
-            provider._last_health_check_latency_ms = (  # type: ignore[attr-defined]
-                time.perf_counter() - started_at
-            ) * 1000.0
 
         return ProviderHealthItem(
             domain=domain,

@@ -128,17 +128,10 @@ async def check_provider_readiness(
                 latency_ms=(time.perf_counter() - started_at) * 1000.0,
             )
 
-        ok = False
-        err: Optional[str] = None
-        try:
-            ok = await asyncio.wait_for(
-                provider._health_check_impl(),  # type: ignore[attr-defined]
-                timeout=timeout_seconds,
-            )
-        except asyncio.TimeoutError:
-            err = "timeout"
-        except Exception as exc:  # noqa: BLE001
-            err = str(exc)
+        # Standardize on the provider framework's health_check() so readiness
+        # updates provider runtime status consistently with `/providers/health`.
+        ok = await provider.health_check(timeout_seconds=timeout_seconds)  # type: ignore[arg-type]
+        err = getattr(provider, "last_error", None)
 
         latency_ms = (time.perf_counter() - started_at) * 1000.0
         return ProviderReadinessItem(

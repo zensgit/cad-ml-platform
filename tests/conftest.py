@@ -42,6 +42,7 @@ _ENV_VARS_TO_ISOLATE = [
     "TELEMETRY_STORE_BACKEND",
     "FAISS_RECOVERY_STATE_PATH",
     "ADAPTIVE_RATE_LIMIT_ENABLED",
+    "PROVIDER_REGISTRY_CACHE_ENABLED",
 ]
 
 
@@ -150,6 +151,29 @@ def feature_cache_isolation():
 
         reset_feature_cache_for_tests()
     except ImportError:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def provider_registry_instance_isolation() -> Iterator[None]:
+    """Clear cached provider instances between tests.
+
+    ProviderRegistry supports singleton caching for default instances. Tests
+    frequently monkeypatch env vars and factories; clearing instances prevents
+    cross-test interference without removing provider class registrations.
+    """
+    try:
+        from src.core.providers.registry import ProviderRegistry
+
+        ProviderRegistry.clear_instances()
+    except Exception:
+        pass
+    yield
+    try:
+        from src.core.providers.registry import ProviderRegistry
+
+        ProviderRegistry.clear_instances()
+    except Exception:
         pass
 
 
