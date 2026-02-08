@@ -944,17 +944,35 @@ async def analyze_cad_file(
                         ):
                             graph2d_min_conf = _safe_float_env("GRAPH2D_MIN_CONF", 0.0)
                             graph2d_conf = float(graph2d_result.get("confidence", 0.0))
-                            graph2d_allow_raw = os.getenv(
-                                "GRAPH2D_ALLOW_LABELS", ""
-                            ).strip()
+                            graph2d_allow_raw = os.getenv("GRAPH2D_ALLOW_LABELS", "").strip()
+                            graph2d_exclude_raw = os.getenv("GRAPH2D_EXCLUDE_LABELS", "").strip()
+
+                            # Default allow/exclude to HybridClassifier config when env not provided.
+                            # This keeps API payload + soft-override behavior consistent with
+                            # `config/hybrid_classifier.yaml` and `src/ml/hybrid_config.py`.
+                            if not graph2d_allow_raw or not graph2d_exclude_raw:
+                                try:
+                                    from src.ml.hybrid_config import get_config
+
+                                    cfg = get_config()
+                                    if not graph2d_allow_raw:
+                                        graph2d_allow_raw = str(
+                                            cfg.graph2d.allow_labels or ""
+                                        ).strip()
+                                    if not graph2d_exclude_raw:
+                                        graph2d_exclude_raw = str(
+                                            cfg.graph2d.exclude_labels or ""
+                                        ).strip()
+                                except Exception:
+                                    pass
+
+                            if not graph2d_exclude_raw:
+                                graph2d_exclude_raw = "other"
                             graph2d_allow = {
                                 label.strip()
                                 for label in graph2d_allow_raw.split(",")
                                 if label.strip()
                             }
-                            graph2d_exclude_raw = os.getenv(
-                                "GRAPH2D_EXCLUDE_LABELS", "other"
-                            )
                             graph2d_exclude = {
                                 label.strip()
                                 for label in graph2d_exclude_raw.split(",")

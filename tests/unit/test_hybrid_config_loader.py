@@ -51,3 +51,21 @@ def test_get_config_honors_hybrid_config_path(tmp_path: Path, monkeypatch) -> No
     assert loaded.filename.min_confidence == 0.73
     assert loaded.titleblock.enabled is True
     reset_config()
+
+
+def test_hybrid_config_graph2d_env_fallback(monkeypatch) -> None:
+    # Prefer *_FUSION_* env vars when present; otherwise fall back to legacy names.
+    monkeypatch.delenv("GRAPH2D_FUSION_EXCLUDE_LABELS", raising=False)
+    monkeypatch.delenv("GRAPH2D_FUSION_ALLOW_LABELS", raising=False)
+
+    monkeypatch.setenv("GRAPH2D_EXCLUDE_LABELS", "legacy_exclude")
+    monkeypatch.setenv("GRAPH2D_ALLOW_LABELS", "legacy_allow")
+    cfg = HybridClassifierConfig.from_sources(config_path=None)
+    assert cfg.graph2d.exclude_labels == "legacy_exclude"
+    assert cfg.graph2d.allow_labels == "legacy_allow"
+
+    monkeypatch.setenv("GRAPH2D_FUSION_EXCLUDE_LABELS", "fusion_exclude")
+    monkeypatch.setenv("GRAPH2D_FUSION_ALLOW_LABELS", "fusion_allow")
+    cfg2 = HybridClassifierConfig.from_sources(config_path=None)
+    assert cfg2.graph2d.exclude_labels == "fusion_exclude"
+    assert cfg2.graph2d.allow_labels == "fusion_allow"

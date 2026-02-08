@@ -420,12 +420,18 @@ class HybridClassifierConfig:
         self.graph2d.fusion_weight = _to_float(
             os.getenv("GRAPH2D_FUSION_WEIGHT"), self.graph2d.fusion_weight
         )
-        self.graph2d.exclude_labels = _to_str(
-            os.getenv("GRAPH2D_FUSION_EXCLUDE_LABELS"), self.graph2d.exclude_labels
-        )
-        self.graph2d.allow_labels = _to_str(
-            os.getenv("GRAPH2D_FUSION_ALLOW_LABELS"), self.graph2d.allow_labels
-        )
+        # Backward-compatible env mapping:
+        # - Prefer *_FUSION_* variables (newer naming)
+        # - Fall back to GRAPH2D_EXCLUDE_LABELS / GRAPH2D_ALLOW_LABELS (legacy)
+        exclude_env = os.getenv("GRAPH2D_FUSION_EXCLUDE_LABELS")
+        if exclude_env is None:
+            exclude_env = os.getenv("GRAPH2D_EXCLUDE_LABELS")
+        allow_env = os.getenv("GRAPH2D_FUSION_ALLOW_LABELS")
+        if allow_env is None:
+            allow_env = os.getenv("GRAPH2D_ALLOW_LABELS")
+
+        self.graph2d.exclude_labels = _to_str(exclude_env, self.graph2d.exclude_labels)
+        self.graph2d.allow_labels = _to_str(allow_env, self.graph2d.allow_labels)
         labels_raw = os.getenv("GRAPH2D_DRAWING_TYPE_LABELS", "").strip()
         if labels_raw:
             self.graph2d.drawing_type_labels = [

@@ -3331,3 +3331,7 @@
   - TitleBlock override is no longer blocked by Graph2D being present.
   - Validation: targeted unit suites passed; local DXF batch (`30` files) confirmed stable high-confidence outputs without manual review.
   - Report: `reports/DEV_HYBRID_GRAPH2D_GUARDRAILS_20260208.md`
+- **Graph2D Allow/Exclude Config Unification**:
+  - Made Graph2D allow/exclude labels consistent across API + Hybrid config by supporting both legacy (`GRAPH2D_*`) and newer (`GRAPH2D_FUSION_*`) env vars, and defaulting API filtering to `config/hybrid_classifier.yaml` when env vars are absent.
+  - Validation: unit + analyze-fusion integration suites passed.
+  - Report: `reports/DEV_GRAPH2D_ALLOW_EXCLUDE_CONFIG_UNIFICATION_20260208.md`
