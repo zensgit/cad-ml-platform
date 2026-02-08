@@ -138,5 +138,21 @@
     "expected_label": "过滤托架",
     "expected_source": "titleblock",
     "titleblock_texts": ["名称: 过滤托架", "图号: J0000000-03", "材料: 304"]
+  },
+  {
+    "id": "graph2d_mismatch_does_not_override_filename",
+    "filename": "J2925001-01人孔v2.dxf",
+    "expected_label": "人孔",
+    "expected_source": "filename",
+    "titleblock_texts": [],
+    "graph2d_result": {"label": "传动件", "confidence": 0.99, "status": "ok"}
+  },
+  {
+    "id": "graph2d_only_fallback",
+    "filename": "J0000000-00UNKNOWNv1.dxf",
+    "expected_label": "壳体类",
+    "expected_source": "graph2d",
+    "titleblock_texts": [],
+    "graph2d_result": {"label": "壳体类", "confidence": 0.9, "status": "ok"}
   }
 ]

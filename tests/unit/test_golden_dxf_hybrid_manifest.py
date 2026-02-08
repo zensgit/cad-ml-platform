@@ -72,9 +72,14 @@ def test_golden_hybrid_cases() -> None:
             expected_source = case.get("expected_source")
             expected_source = str(expected_source) if expected_source else None
             titleblock_texts = list(case.get("titleblock_texts") or [])
+            graph2d_result = case.get("graph2d_result")
 
             file_bytes = _build_synthetic_dxf_bytes(titleblock_texts)
-            result = clf.classify(filename=filename, file_bytes=file_bytes).to_dict()
+            result = clf.classify(
+                filename=filename,
+                file_bytes=file_bytes,
+                graph2d_result=graph2d_result,
+            ).to_dict()
 
             assert result.get("label") == expected_label
             if expected_source is not None:

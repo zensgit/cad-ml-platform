@@ -173,9 +173,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         expected_source = case.get("expected_source")
         expected_source = str(expected_source) if expected_source else None
         titleblock_texts = case.get("titleblock_texts") or []
+        graph2d_result = case.get("graph2d_result")
 
         file_bytes = _build_synthetic_dxf_bytes(list(titleblock_texts))
-        payload = clf.classify(filename=filename, file_bytes=file_bytes).to_dict()
+        payload = clf.classify(
+            filename=filename,
+            file_bytes=file_bytes,
+            graph2d_result=graph2d_result,
+        ).to_dict()
 
         pred_label = payload.get("label")
         pred_source = payload.get("source")

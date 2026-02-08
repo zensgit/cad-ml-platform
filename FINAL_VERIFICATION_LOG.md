@@ -3344,3 +3344,8 @@
   - Allowed coarse family labels by default in Hybrid config, while preventing coarse labels from producing misleading `soft_override_suggestion` recommendations.
   - Validation: targeted unit + analyze integration suites passed; train/eval scripts produced metrics artifacts.
   - Report: `reports/DEV_GRAPH2D_COARSE_SYNTH_V2_TRAIN_EVAL_20260208.md`
+- **Graph2D Prediction Contract Regression + Golden Hybrid (Graph2D Injection)**:
+  - Added API-level integration tests to lock down `graph2d_prediction` fields (threshold defaults, coarse/drawing flags, excluded labels).
+  - Extended golden HybridClassifier cases to allow injecting `graph2d_result` for guardrail and fallback validation.
+  - Validation: targeted unit + integration suites passed.
+  - Report: `reports/DEV_GRAPH2D_PREDICTION_CONTRACT_REGRESSION_20260208.md`
