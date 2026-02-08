@@ -3357,6 +3357,10 @@
   - Added `PART_CLASSIFIER_PROVIDER_*` and optional V16 tuning flags to `.env.example` to make local/staging evaluation reproducible.
   - Validation: lint + mypy passed locally.
   - Report: `reports/DEV_ENV_EXAMPLE_PART_CLASSIFIER_SHADOW_FLAGS_20260208.md`
+- **PartFamily Shadow Eval Sample (V16 Provider)**:
+  - Ran a small local TestClient batch to confirm `part_classifier_prediction` + normalized `part_family*` fields are emitted when torch + model artifacts are available.
+  - Output: `reports/experiments/20260208/part_family_shadow_sample_10.csv` (sanitized basenames only).
+  - Report: `reports/DEV_PART_FAMILY_SHADOW_EVAL_SAMPLE_20260208.md`
 - **Graph2D Coarse (Synthetic v2) Train/Eval + Coarse Override Guard**:
   - Trained + evaluated a 5-class coarse Graph2D checkpoint on `data/synthetic_v2` and recorded per-class metrics.
   - Allowed coarse family labels by default in Hybrid config, while preventing coarse labels from producing misleading `soft_override_suggestion` recommendations.
