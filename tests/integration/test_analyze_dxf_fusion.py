@@ -87,6 +87,59 @@ def test_analyze_dxf_adds_fine_label_fields_from_hybrid(monkeypatch):
     assert classification.get("fine_rule_version") == "HybridClassifier-v1"
 
 
+def test_analyze_dxf_adds_part_classifier_prediction_when_enabled(monkeypatch):
+    """PartClassifier provider wiring should be additive and safe (shadow-only)."""
+
+    from src.core.providers.base import BaseProvider, ProviderConfig
+    from src.core.providers.registry import ProviderRegistry
+
+    provider_name = "part_stub_test"
+
+    # Ensure a clean registration in case of re-runs.
+    if ProviderRegistry.exists("classifier", provider_name):
+        ProviderRegistry.unregister("classifier", provider_name)
+
+    @ProviderRegistry.register("classifier", provider_name)
+    class _StubPartProvider(BaseProvider[ProviderConfig, dict]):
+        def __init__(self, config=None):  # noqa: ANN001
+            super().__init__(
+                config
+                or ProviderConfig(
+                    name=provider_name,
+                    provider_type="classifier",
+                )
+            )
+
+        async def _process_impl(self, request, **kwargs):  # noqa: ANN001, ANN201
+            return {"status": "ok", "label": "stub_part", "confidence": 0.99}
+
+    monkeypatch.setenv("PART_CLASSIFIER_PROVIDER_ENABLED", "true")
+    monkeypatch.setenv("PART_CLASSIFIER_PROVIDER_NAME", provider_name)
+    monkeypatch.setenv("GRAPH2D_ENABLED", "false")
+    monkeypatch.setenv("HYBRID_CLASSIFIER_ENABLED", "false")
+
+    try:
+        dxf_payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
+        options = {"extract_features": True, "classify_parts": True}
+        resp = client.post(
+            "/api/v1/analyze/",
+            files={
+                "file": ("Bolt_M6x20.dxf", io.BytesIO(dxf_payload), "application/dxf"),
+            },
+            data={"options": json.dumps(options)},
+            headers={"x-api-key": os.getenv("API_KEY", "test")},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        classification = data.get("results", {}).get("classification", {})
+        pred = classification.get("part_classifier_prediction") or {}
+        assert pred.get("status") == "ok"
+        assert pred.get("label") == "stub_part"
+        assert pred.get("provider") == provider_name
+    finally:
+        ProviderRegistry.unregister("classifier", provider_name)
+
+
 def test_analyze_dxf_fusion_inputs(monkeypatch):
     monkeypatch.setenv("FUSION_ANALYZER_ENABLED", "true")
     monkeypatch.setenv("FUSION_ANALYZER_OVERRIDE", "false")

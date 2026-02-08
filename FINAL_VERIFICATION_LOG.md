@@ -3339,6 +3339,11 @@
   - Added additive `fine_*` label fields in `/api/v1/analyze/` so HybridClassifier fine-grained labels are returned even when `part_type` comes from L2/L3 Fusion.
   - Validation: analyze integration suite passed.
   - Report: `reports/DEV_ANALYZE_DXF_FINE_LABEL_FIELDS_20260208.md`
+- **Analyze PartClassifier Provider Shadow (DXF/DWG)**:
+  - Added optional provider-framework wiring for the in-process PartClassifier in `/api/v1/analyze/` (shadow-only; does not override `part_type`).
+  - Controlled via `PART_CLASSIFIER_PROVIDER_ENABLED` and `PART_CLASSIFIER_PROVIDER_NAME`; emits `classification.part_classifier_prediction` when enabled.
+  - Validation: analyze-fusion integration suite passed.
+  - Report: `reports/DEV_ANALYZE_PART_CLASSIFIER_PROVIDER_SHADOW_20260208.md`
 - **Graph2D Coarse (Synthetic v2) Train/Eval + Coarse Override Guard**:
   - Trained + evaluated a 5-class coarse Graph2D checkpoint on `data/synthetic_v2` and recorded per-class metrics.
   - Allowed coarse family labels by default in Hybrid config, while preventing coarse labels from producing misleading `soft_override_suggestion` recommendations.

@@ -1080,6 +1080,57 @@ async def analyze_cad_file(
                             cls_payload["fine_rule_version"] = "HybridClassifier-v1"
                     except Exception as exc:
                         cls_payload["hybrid_error"] = str(exc)
+                # Optional V16/V6 PartClassifier provider (shadow-only; does not override part_type).
+                # This is useful when evaluating in-process part classification models without
+                # changing the primary fusion/Hybrid decision logic.
+                part_provider_enabled = (
+                    os.getenv("PART_CLASSIFIER_PROVIDER_ENABLED", "false").lower()
+                    == "true"
+                )
+                if part_provider_enabled and file_format in {"dxf", "dwg"}:
+                    provider_name = (
+                        os.getenv("PART_CLASSIFIER_PROVIDER_NAME", "v16").strip()
+                        or "v16"
+                    )
+                    tmp_path: Optional[str] = None
+                    try:
+                        import tempfile
+
+                        with tempfile.NamedTemporaryFile(
+                            delete=False, suffix=f".{file_format}"
+                        ) as tmp:
+                            tmp.write(content)
+                            tmp_path = tmp.name
+
+                        from src.core.providers import (
+                            ProviderRegistry,
+                            bootstrap_core_provider_registry,
+                        )
+                        from src.core.providers.classifier import ClassifierRequest
+
+                        bootstrap_core_provider_registry()
+                        provider = ProviderRegistry.get("classifier", provider_name)
+                        part_result = await provider.process(
+                            ClassifierRequest(
+                                filename=file.filename,
+                                file_path=tmp_path,
+                            )
+                        )
+                        if isinstance(part_result, dict):
+                            part_result.setdefault("provider", provider_name)
+                        cls_payload["part_classifier_prediction"] = part_result
+                    except Exception as exc:
+                        cls_payload["part_classifier_prediction"] = {
+                            "status": "error",
+                            "error": str(exc),
+                            "provider": provider_name,
+                        }
+                    finally:
+                        if tmp_path:
+                            try:
+                                os.unlink(tmp_path)
+                            except Exception:
+                                pass
                 soft_override_suggestion: Optional[Dict[str, Any]] = None
                 if (
                     graph2d_result
