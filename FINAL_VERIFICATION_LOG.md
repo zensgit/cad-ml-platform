@@ -3349,6 +3349,10 @@
   - Added `PART_CLASSIFIER_PROVIDER_SHADOW_FORMATS`, timeout and max-file-size guards, optional cache-key separation, and Prometheus metrics.
   - Validation: analyze integration + provider framework + normalization unit suites passed.
   - Report: `reports/DEV_ANALYZE_PART_FAMILY_SHADOW_FIELDS_20260208.md`
+- **Metrics Export `__all__` Alignment**:
+  - Aligned `src/utils/analysis_metrics.py` `__all__` exports with defined metrics so `scripts/check_metrics_consistency.py` and `scripts/verify_metrics_export.py` pass (and `make verify-metrics` remains reliable).
+  - Validation: metrics consistency + export checks passed; lint + mypy passed locally.
+  - Report: `reports/DEV_METRICS_EXPORT_ALL_ALIGNMENT_20260208.md`
 - **Graph2D Coarse (Synthetic v2) Train/Eval + Coarse Override Guard**:
   - Trained + evaluated a 5-class coarse Graph2D checkpoint on `data/synthetic_v2` and recorded per-class metrics.
   - Allowed coarse family labels by default in Hybrid config, while preventing coarse labels from producing misleading `soft_override_suggestion` recommendations.
