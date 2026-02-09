@@ -3394,3 +3394,8 @@
   - Kept the behavior lightweight: knowledge query surfaces remain in `src/api/v1/tolerance.py` and `src/api/v1/standards.py`.
   - Validation: targeted provider bootstrap + knowledge bridge unit suites passed.
   - Report: `reports/DEV_KNOWLEDGE_PROVIDER_REGISTRY_BRIDGE_20260209.md`
+- **Readiness Env + Health Doc Alignment (Core Providers)**:
+  - Updated `/health` config visibility doc to reflect the current provider registry snapshot including `classifier` and `knowledge` domains.
+  - Added readiness/provider-registry env variables to `.env.example` for reproducible ops configuration.
+  - Validation: targeted provider bootstrap + knowledge bridge unit suites used as the behavior contract.
+  - Report: `reports/DEV_READINESS_ENV_AND_HEALTH_DOC_UPDATE_20260209.md`

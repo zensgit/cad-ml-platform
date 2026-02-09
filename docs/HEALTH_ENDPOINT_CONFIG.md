@@ -81,10 +81,12 @@ Classifier cache stats are available at `GET /api/v1/health/classifier/cache` (a
     "core_providers": {
       "bootstrapped": true,
       "bootstrap_timestamp": 1738920000.123,
-      "total_domains": 2,
-      "total_providers": 4,
-      "domains": ["ocr", "vision"],
+      "total_domains": 4,
+      "total_providers": 11,
+      "domains": ["classifier", "knowledge", "ocr", "vision"],
       "providers": {
+        "classifier": ["graph2d", "graph2d_ensemble", "hybrid", "v16", "v6"],
+        "knowledge": ["standards", "tolerance"],
         "ocr": ["deepseek_hf", "paddle"],
         "vision": ["deepseek_stub", "stub"]
       }
