@@ -11,18 +11,22 @@
 | 模块 | 原覆盖率 | 新覆盖率 | 新增测试 |
 |------|----------|----------|----------|
 | `src/core/providers/classifier.py` | 54% | **80%** | 23个 |
+| `src/core/providers/base.py` | 93% | **100%** | 23个 |
+| `src/core/providers/readiness.py` | 78% | **100%** | 28个 |
 
 ---
 
-## 优先级1: 核心Provider模块 (当前77%)
+## 优先级1: 核心Provider模块 (当前~90%)
 
 | 模块 | 覆盖率 | 缺失行 | 建议 |
 |------|--------|--------|------|
-| base.py | 93% | 67,74,114-119 | 补充name/provider_type属性测试 |
-| registry.py | 98% | 74 | 补充unregister测试 |
-| readiness.py | 75% | 34-48,78,109等 | 补充readiness检查测试 |
+| base.py | ~~93%~~ | **100%** | ✅ 完成 |
+| readiness.py | ~~78%~~ | **100%** | ✅ 完成 |
+| registry.py | 96% | 96, 102, 104 | 补充unregister测试 |
 | vision.py | 85% | 49,62-65,86-91 | 补充vision provider测试 |
-| ocr.py | 87% | 47,56,69,73-77 | 补充OCR provider测试 |
+| ocr.py | 86% | 47,56,69,73-77 | 补充OCR provider测试 |
+| knowledge.py | 91% | 44,47-48,84-85 | 接近目标 |
+| bootstrap.py | 92% | 28-30,63 | 接近目标 |
 
 ---
 
@@ -71,8 +75,8 @@
 
 ### 第1周
 - [x] classifier.py (54% → 80%)
-- [ ] base.py (93% → 98%)
-- [ ] readiness.py (75% → 90%)
+- [x] base.py (93% → 100%) ✅
+- [x] readiness.py (78% → 100%) ✅
 
 ### 第2周
 - [ ] vision.py (85% → 95%)

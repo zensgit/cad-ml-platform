@@ -3404,3 +3404,7 @@
   - Added contract coverage for knowledge endpoints (`/api/v1/tolerance/*`, `/api/v1/standards/*`) to lock down response shapes.
   - Validation: `pytest tests/contract/test_api_contract.py -q` passed locally via fallback (`13 passed, 4 skipped`).
   - Report: `reports/DEV_CONTRACT_TESTCLIENT_FALLBACK_20260209.md`
+- **Provider Framework Coverage: BaseProvider + Readiness**:
+  - Added targeted unit suites to cover edge paths in the provider framework base + readiness logic (timeouts, parsing, init errors, status snapshots).
+  - Validation: `pytest` suites passed; coverage spot checks reached 100% for `src/core/providers/base.py` and `src/core/providers/readiness.py`.
+  - Report: `reports/DEV_PROVIDER_COVERAGE_TESTS_BASE_READINESS_20260209.md`
