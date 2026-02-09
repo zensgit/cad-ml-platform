@@ -18,6 +18,7 @@
 | `src/core/providers/ocr.py` | 86% | **100%** | 20个 |
 | `src/core/providers/knowledge.py` | 91% | **100%** | 16个 |
 | `src/core/providers/bootstrap.py` | 92% | **100%** | 10个 |
+| `src/ml/hybrid_classifier.py` | 71% | **82%** | 28个 |
 
 ---
 
@@ -90,7 +91,7 @@
 - [x] registry.py (96% → 100%) ✅
 - [x] knowledge.py (91% → 100%) ✅
 - [x] bootstrap.py (92% → 100%) ✅
-- [ ] hybrid_classifier.py (50% → 75%)
+- [x] hybrid_classifier.py (71% → 82%) ✅
 
 ### 第3周
 - [ ] part_classifier.py (65% → 85%)
