@@ -3424,3 +3424,6 @@
   - Updated `scripts/test_with_local_api.sh --suite contract` to fall back to in-process contract assertions (TestClient) when uvicorn cannot bind a local port (disabled by default in CI).
   - Validation: local run reproduced `operation not permitted` bind error and proceeded to run contract tests (`13 passed, 4 skipped`).
   - Report: `reports/DEV_TEST_WITH_LOCAL_API_CONTRACT_FALLBACK_20260209.md`
+- **Redis Init Log Accuracy**:
+  - Updated startup logging so `Redis initialized` is only emitted when a Redis client is actually connected; otherwise logs a fallback warning for the in-memory cache.
+  - Report: `reports/DEV_REDIS_INIT_LOGGING_FALLBACK_20260209.md`

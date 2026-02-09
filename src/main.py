@@ -39,6 +39,7 @@ from src.core.similarity import (  # type: ignore
 )
 from src.models.loader import load_models
 from src.tasks.orphan_scan import orphan_scan_loop
+from src.utils.cache import get_client as get_redis_client
 from src.utils.cache import init_redis
 from src.utils.logging import setup_logging
 
@@ -172,7 +173,10 @@ async def lifespan(app: FastAPI):
     # 初始化Redis连接
     if settings.REDIS_ENABLED:
         await init_redis()
-        logger.info("Redis initialized")
+        if get_redis_client() is not None:
+            logger.info("Redis initialized")
+        else:
+            logger.warning("Redis unavailable; using in-memory cache fallback")
 
     # 加载ML模型
     await load_models()
