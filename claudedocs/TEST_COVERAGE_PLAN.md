@@ -16,7 +16,7 @@
 | `src/core/providers/vision.py` | 85% | **100%** | 14个 |
 | `src/core/providers/registry.py` | 96% | **100%** | 19个 |
 | `src/core/providers/ocr.py` | 86% | **100%** | 20个 |
-| `src/core/providers/knowledge.py` | 91% | **100%** | 14个 |
+| `src/core/providers/knowledge.py` | 91% | **100%** | 16个 |
 | `src/core/providers/bootstrap.py` | 92% | **100%** | 10个 |
 
 ---

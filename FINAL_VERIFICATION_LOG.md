@@ -3416,3 +3416,7 @@
   - Added lightweight `sys.modules` stubs in unit tests to cover the OCR default-provider import branches and bootstrap default config wiring without importing heavyweight OCR runtimes.
   - Validation: `pytest tests/unit/test_ocr_provider_coverage.py --cov=src.core.providers.ocr` spot check reached 100% for `src/core/providers/ocr.py`.
   - Report: `reports/DEV_PROVIDER_COVERAGE_TESTS_OCR_FULL_20260209.md`
+- **Provider Framework Coverage: Knowledge + Bootstrap Snapshots**:
+  - Added targeted unit suites to cover provider-registry snapshot bootstrapping and knowledge provider health/bootstrapping edge cases (including instantiation-time default config wiring).
+  - Validation: spot checks reached 100% for `src/core/providers/bootstrap.py` and `src/core/providers/knowledge.py`.
+  - Report: `reports/DEV_PROVIDER_COVERAGE_TESTS_KNOWLEDGE_BOOTSTRAP_20260209.md`
