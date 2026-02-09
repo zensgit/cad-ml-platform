@@ -3454,3 +3454,21 @@
   - Found single-label collapse to `机械制图=110` with `accuracy=0.0` and very low confidence (`p50=0.0594`, `p90=0.2966`).
   - Output: `reports/experiments/20260209/graph2d_diagnose_latest_114/summary.json`
   - Report: `reports/DEV_GRAPH2D_DIAGNOSE_LATEST_114_TRAINING_DXF_ODA_20260209.md`
+- **Graph2D Titleblock Distillation (Teacher via DXF Bytes)**:
+  - Extended distillation teachers to consume DXF bytes (titleblock teacher) and allowed hybrid teacher to use titleblock/process signals when bytes are available.
+  - Extended manifest dataset samples to return `file_path` so training can pass bytes to the teacher.
+  - Trained a 47-class Graph2D EdgeSAGE checkpoint with titleblock-only distillation (masked filename for the teacher), then evaluated and diagnosed it with weak supervision.
+  - Output:
+    - `reports/experiments/20260210/graph2d_distill_titleblock_teacher/train_stdout.txt`
+    - `reports/experiments/20260210/graph2d_distill_titleblock_teacher/eval_metrics.csv`
+    - `reports/experiments/20260210/graph2d_diagnose_titleblock_distilled/summary.json`
+  - Report: `reports/DEV_GRAPH2D_TITLEBLOCK_DISTILLATION_TRAINING_20260210.md`
+- **DXF Worst-Case Anonymous Eval (Graph2D Distilled Geometry Fallback)**:
+  - Ran worst-case anonymous DXF batches with masked filenames, titleblock disabled, and process heuristics disabled; validated that the distilled Graph2D checkpoint can provide non-zero fine-label coverage via Hybrid’s geometry fallback.
+  - Compared `GRAPH2D_TEMPERATURE=1.0` vs `0.5` to quantify confidence gating sensitivity (fine-label coverage `~24.5%` → `~59.1%` on the same 110 DXFs).
+  - Output:
+    - `reports/experiments/20260210/batch_analyze_training_dxf_oda_masked_filename_no_titleblock_graph2d_distilled/summary.json`
+    - `reports/experiments/20260210/batch_analyze_training_dxf_oda_masked_filename_no_titleblock_graph2d_distilled/label_distribution.csv`
+    - `reports/experiments/20260210/batch_analyze_training_dxf_oda_masked_filename_no_titleblock_graph2d_distilled_temp05/summary.json`
+    - `reports/experiments/20260210/batch_analyze_training_dxf_oda_masked_filename_no_titleblock_graph2d_distilled_temp05/label_distribution.csv`
+  - Report: `reports/DEV_DXF_WORSTCASE_GRAPH2D_DISTILLED_FALLBACK_20260210.md`

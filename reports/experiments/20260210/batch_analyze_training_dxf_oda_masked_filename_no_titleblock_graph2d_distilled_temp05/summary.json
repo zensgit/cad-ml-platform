@@ -1,0 +1,87 @@
+{
+  "total": 110,
+  "success": 110,
+  "error": 0,
+  "confidence_buckets": {
+    "0_6_0_8": 33,
+    "0_4_0_6": 40,
+    "gte_0_8": 37
+  },
+  "label_counts": {
+    "moderate_component": 33,
+    "complex_assembly": 40,
+    "机械制图": 14,
+    "盖": 10,
+    "旋转组件": 2,
+    "挡板": 5,
+    "支腿": 2,
+    "箱体": 2,
+    "底板": 2
+  },
+  "low_confidence_count": 73,
+  "soft_override_candidates": 14,
+  "sample_size": 110,
+  "filename": {
+    "label_present_count": 0,
+    "label_present_rate": 0.0,
+    "extracted_name_present_count": 0,
+    "extracted_name_present_rate": 0.0,
+    "match_type_counts": {
+      "none": 110
+    },
+    "confidence": {
+      "mean_all": 0.0,
+      "median_all": 0.0,
+      "mean_nonzero": 0.0,
+      "median_nonzero": 0.0
+    }
+  },
+  "hybrid": {
+    "label_present_count": 65,
+    "label_present_rate": 0.5909090909090909,
+    "source_counts": {
+      "graph2d": 65,
+      "fallback": 45
+    },
+    "confidence": {
+      "mean_all": 0.094132,
+      "median_all": 0.07098,
+      "mean_nonzero": 0.159301,
+      "median_nonzero": 0.118031
+    }
+  },
+  "graph2d": {
+    "label_present_count": 110,
+    "label_present_rate": 1.0,
+    "status_counts": {
+      "ok": 110
+    },
+    "confidence": {
+      "mean_all": 0.113601,
+      "median_all": 0.07098,
+      "mean_nonzero": 0.113601,
+      "median_nonzero": 0.07098
+    }
+  },
+  "titleblock": {
+    "enabled": false,
+    "total_ok": 110,
+    "texts_present_count": 0,
+    "texts_present_rate": 0.0,
+    "any_signal_count": 0,
+    "any_signal_rate": 0.0,
+    "part_name_present_count": 0,
+    "part_name_present_rate": 0.0,
+    "label_present_count": 0,
+    "label_present_rate": 0.0,
+    "status_counts": {
+      "unknown": 110
+    },
+    "confidence": {
+      "mean_all": 0.0,
+      "median_all": 0.0,
+      "mean_nonzero": 0.0,
+      "median_nonzero": 0.0
+    }
+  }
+}

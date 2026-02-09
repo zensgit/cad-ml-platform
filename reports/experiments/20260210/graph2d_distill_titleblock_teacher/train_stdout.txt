@@ -1,0 +1,24 @@
+Using device: cpu
+Initializing teacher model: titleblock
+Class balance: classes=47 min=1 max=4 ratio=4.00 strategy=focal
+Epoch 1/20 loss=1.4829 val_acc=0.000 
+Epoch 2/20 loss=1.4749 val_acc=0.043 ← best
+Epoch 3/20 loss=1.4688 val_acc=0.043 
+Epoch 4/20 loss=1.4700 val_acc=0.021 
+Epoch 5/20 loss=1.4764 val_acc=0.085 ← best
+Epoch 6/20 loss=1.4517 val_acc=0.085 
+Epoch 7/20 loss=1.4443 val_acc=0.043 
+Epoch 8/20 loss=1.4060 val_acc=0.043 
+Epoch 9/20 loss=1.3810 val_acc=0.043 
+Epoch 10/20 loss=1.3834 val_acc=0.106 ← best
+Epoch 11/20 loss=1.3904 val_acc=0.149 ← best
+Epoch 12/20 loss=1.3576 val_acc=0.255 ← best
+Epoch 13/20 loss=1.3007 val_acc=0.106 
+Epoch 14/20 loss=1.3210 val_acc=0.106 
+Epoch 15/20 loss=1.3476 val_acc=0.170 
+Epoch 16/20 loss=1.3341 val_acc=0.319 ← best
+Epoch 17/20 loss=1.3081 val_acc=0.298 
+Epoch 18/20 loss=1.2414 val_acc=0.298 
+Epoch 19/20 loss=1.2793 val_acc=0.298 
+Epoch 20/20 loss=1.2048 val_acc=0.319 
+Saved best checkpoint (val_acc=0.319): models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth
