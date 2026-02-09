@@ -590,15 +590,25 @@ class DXFManifestDataset(Dataset):
                     "edge_index": edge_index,
                     "edge_attr": edge_attr,
                     "file_name": file_name,
+                    "relative_path": rel_path,
+                    "file_path": str(file_path),
                 }, label
             x, edge_index = self._dxf_to_graph(msp, self.node_dim)
-            return {"x": x, "edge_index": edge_index, "file_name": file_name}, label
+            return {
+                "x": x,
+                "edge_index": edge_index,
+                "file_name": file_name,
+                "relative_path": rel_path,
+                "file_path": str(file_path),
+            }, label
         except Exception as e:
             logger.error("Error parsing %s (%s): %s", file_name, file_path, e)
             empty_graph = {
                 "x": torch.zeros(0, self.node_dim),
                 "edge_index": torch.zeros(2, 0, dtype=torch.long),
                 "file_name": file_name,
+                "relative_path": rel_path,
+                "file_path": str(file_path),
             }
             if self.return_edge_attr:
                 empty_graph["edge_attr"] = torch.zeros(0, DXF_EDGE_DIM)

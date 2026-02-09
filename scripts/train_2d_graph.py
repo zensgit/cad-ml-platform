@@ -86,15 +86,16 @@ def _apply_dxf_sampling_env(args: argparse.Namespace) -> None:
 
 def _collate(
     batch: List[Tuple[Dict[str, Any], Any]],
-) -> Tuple[List[Any], List[Any], List[Any], List[Any], List[str]]:
-    xs, edges, edge_attrs, labels, filenames = [], [], [], [], []
+) -> Tuple[List[Any], List[Any], List[Any], List[Any], List[str], List[str]]:
+    xs, edges, edge_attrs, labels, filenames, file_paths = [], [], [], [], [], []
     for graph, label in batch:
         xs.append(graph["x"])
         edges.append(graph["edge_index"])
         edge_attrs.append(graph.get("edge_attr"))
         labels.append(label)
         filenames.append(graph.get("file_name", ""))
-    return xs, edges, edge_attrs, labels, filenames
+        file_paths.append(graph.get("file_path", ""))
+    return xs, edges, edge_attrs, labels, filenames, file_paths
 
 
 def _compute_class_weights(labels: List[int], num_classes: int, mode: str):
@@ -346,7 +347,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--teacher",
-        choices=["filename", "hybrid"],
+        choices=["filename", "titleblock", "hybrid"],
         default="hybrid",
         help="Teacher model type for distillation",
     )
@@ -361,6 +362,12 @@ def main() -> int:
         type=float,
         default=3.0,
         help="Distillation temperature",
+    )
+    parser.add_argument(
+        "--distill-mask-filename",
+        action="store_true",
+        help="When distilling from titleblock/hybrid, pass a masked filename to the teacher "
+        "so it cannot use filename-based label signals (titleblock-only teacher signal).",
     )
     parser.add_argument(
         "--device",
@@ -527,6 +534,7 @@ def main() -> int:
     # Initialize Teacher if needed
     teacher_model = None
     distill_loss_fn = None
+    teacher_logits_cache: Dict[str, "torch.Tensor"] = {}
     if args.distill:
         print(f"Initializing teacher model: {args.teacher}")
         teacher_model = TeacherModel(
@@ -625,7 +633,7 @@ def main() -> int:
         total_seen = 0
         for batch_data in train_loader:
             # Unpack batch (custom collate returns 5 items now including filenames)
-            xs, edges, edge_attrs, labels, filenames = batch_data
+            xs, edges, edge_attrs, labels, filenames, file_paths = batch_data
 
             optimizer.zero_grad()
             batch_loss = 0.0
@@ -655,7 +663,27 @@ def main() -> int:
                 # Calculate loss
                 if args.distill and teacher_model and distill_loss_fn:
                     # Generate teacher soft labels for this sample
-                    teacher_logits = teacher_model.generate_soft_labels([filename])
+                    file_bytes = None
+                    file_path = ""
+                    if i < len(file_paths):
+                        file_path = str(file_paths[i] or "")
+                    teacher_name = filename
+                    if args.distill_mask_filename and args.teacher in {"hybrid", "titleblock"}:
+                        teacher_name = "masked.dxf"
+                    teacher_logits = None
+                    if file_path and file_path in teacher_logits_cache:
+                        teacher_logits = teacher_logits_cache[file_path]
+                    else:
+                        if file_path:
+                            try:
+                                file_bytes = Path(file_path).read_bytes()
+                            except Exception:
+                                file_bytes = None
+                        teacher_logits = teacher_model.generate_soft_labels(
+                            [teacher_name], file_bytes_list=[file_bytes]
+                        )
+                        if file_path:
+                            teacher_logits_cache[file_path] = teacher_logits.detach().cpu()
                     teacher_logits = teacher_logits.to(device)
                     loss, _ = distill_loss_fn(logits, teacher_logits, label.view(1))
                 else:
@@ -677,7 +705,7 @@ def main() -> int:
         correct = 0
         total = 0
         with torch.no_grad():
-            for xs, edges, edge_attrs, labels, _ in val_loader:
+            for xs, edges, edge_attrs, labels, _, _ in val_loader:
                 for x, edge_index, edge_attr, label in zip(
                     xs, edges, edge_attrs, labels
                 ):

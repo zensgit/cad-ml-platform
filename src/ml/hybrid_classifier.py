@@ -495,7 +495,22 @@ class HybridClassifier:
                 graph2d_label = None
                 graph2d_conf = 0.0
 
-        if graph2d_label and graph2d_conf < self.graph2d_min_conf:
+        # Graph2D confidence is sensitive to class count (many-class softmax tends to
+        # produce lower max probabilities). When class-count metadata is available,
+        # apply a conservative dynamic lower bound to avoid filtering everything.
+        effective_graph2d_min_conf = self.graph2d_min_conf
+        if result.graph2d_prediction is not None:
+            try:
+                label_map_size = int(result.graph2d_prediction.get("label_map_size") or 0)
+            except Exception:
+                label_map_size = 0
+            if label_map_size >= 20:
+                uniform = 1.0 / max(1, label_map_size)
+                dynamic_min = max(3.0 * uniform, 0.05)
+                effective_graph2d_min_conf = min(effective_graph2d_min_conf, dynamic_min)
+                result.graph2d_prediction["min_confidence_effective"] = effective_graph2d_min_conf
+
+        if graph2d_label and graph2d_conf < effective_graph2d_min_conf:
             result.decision_path.append("graph2d_below_min_conf_ignored")
             if result.graph2d_prediction is not None:
                 result.graph2d_prediction["filtered"] = True

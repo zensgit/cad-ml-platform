@@ -147,7 +147,11 @@ class Graph2DClassifier:
             if self.temperature != 1.0:
                 logits = logits / self.temperature
             probs = torch.softmax(logits, dim=1)[0]
-            pred_idx = int(torch.argmax(probs).item())
+            topk = min(2, probs.numel())
+            top_vals, top_idx = torch.topk(probs, k=topk)
+            pred_idx = int(top_idx[0].item())
+            top2_conf = float(top_vals[1].item()) if topk > 1 else 0.0
+            margin = float(top_vals[0].item() - top_vals[1].item()) if topk > 1 else 1.0
             label = None
             for name, idx in self.label_map.items():
                 if idx == pred_idx:
@@ -156,8 +160,11 @@ class Graph2DClassifier:
             return {
                 "label": label,
                 "confidence": float(probs[pred_idx].item()),
+                "top2_confidence": top2_conf,
+                "margin": margin,
                 "temperature": float(self.temperature),
                 "temperature_source": self.temperature_source,
+                "label_map_size": len(self.label_map),
                 "status": "ok",
             }
 
