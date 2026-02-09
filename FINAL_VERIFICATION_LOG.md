@@ -3443,3 +3443,14 @@
   - Validation: masked-filename batch (`110` DXFs) achieved titleblock `matched=110`, hybrid source `titleblock=110`, and `low_confidence_count=0`; unit test added for normalization case.
   - Output: `reports/experiments/20260209/batch_analyze_training_dxf_oda_masked_filename/summary.json`, `reports/experiments/20260209/batch_analyze_training_dxf_oda_masked_filename/label_distribution.csv`
   - Report: `reports/DEV_DXF_MASKED_FILENAME_TITLEBLOCK_SPEC_NORMALIZATION_20260209.md`
+- **DXF Worst-Case Baseline (Masked Filename + No Titleblock)**:
+  - Ran an in-process batch with upload filenames masked and titleblock extraction disabled to approximate anonymous DXF intake.
+  - Observed: `hybrid.label_present_rate=0.6273` (process coverage `69`, fallback `41`) with a heavy coarse-label collapse (`complex_assembly=40`, `moderate_component=33`).
+  - Observed: `low_confidence_count=73` (<= `0.6`) indicating the current geometry signal is not strong enough when text signals are unavailable.
+  - Output: `reports/experiments/20260209/batch_analyze_training_dxf_oda_masked_filename_no_titleblock/summary.json`, `reports/experiments/20260209/batch_analyze_training_dxf_oda_masked_filename_no_titleblock/label_distribution.csv`
+  - Report: `reports/DEV_DXF_MASKED_FILENAME_NO_TITLEBLOCK_WORSTCASE_BASELINE_20260209.md`
+- **Graph2D Diagnose Latest (Label Map 114)**:
+  - Diagnosed `models/graph2d_latest.pth` on the same DXF set with weak supervision (FilenameClassifier labels).
+  - Found single-label collapse to `机械制图=110` with `accuracy=0.0` and very low confidence (`p50=0.0594`, `p90=0.2966`).
+  - Output: `reports/experiments/20260209/graph2d_diagnose_latest_114/summary.json`
+  - Report: `reports/DEV_GRAPH2D_DIAGNOSE_LATEST_114_TRAINING_DXF_ODA_20260209.md`
