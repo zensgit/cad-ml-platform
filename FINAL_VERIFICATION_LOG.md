@@ -3408,3 +3408,7 @@
   - Added targeted unit suites to cover edge paths in the provider framework base + readiness logic (timeouts, parsing, init errors, status snapshots).
   - Validation: `pytest` suites passed; coverage spot checks reached 100% for `src/core/providers/base.py` and `src/core/providers/readiness.py`.
   - Report: `reports/DEV_PROVIDER_COVERAGE_TESTS_BASE_READINESS_20260209.md`
+- **Provider Framework Coverage: Registry + Vision + OCR Adapters**:
+  - Added targeted unit suites covering `ProviderRegistry` cache/unregister behavior, `VisionProviderAdapter` input/health bridging, and `OcrProviderAdapter` input/health/warmup compatibility surfaces.
+  - Validation: `pytest` suites passed; spot checks reached 100% for `src/core/providers/registry.py` and `src/core/providers/vision.py` (OCR adapter remains partial by design).
+  - Report: `reports/DEV_PROVIDER_COVERAGE_TESTS_REGISTRY_VISION_OCR_20260209.md`

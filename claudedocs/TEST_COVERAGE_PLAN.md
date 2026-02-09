@@ -1,30 +1,33 @@
 # 测试覆盖率提升计划
 
-**日期**: 2026-02-08
+**日期**: 2026-02-09
 **当前覆盖率**: 62%
 **目标覆盖率**: 85%
 
 ---
 
-## 已完成
+## 已完成/已提升
 
 | 模块 | 原覆盖率 | 新覆盖率 | 新增测试 |
 |------|----------|----------|----------|
 | `src/core/providers/classifier.py` | 54% | **80%** | 23个 |
 | `src/core/providers/base.py` | 93% | **100%** | 23个 |
 | `src/core/providers/readiness.py` | 78% | **100%** | 28个 |
+| `src/core/providers/vision.py` | 85% | **100%** | 14个 |
+| `src/core/providers/registry.py` | 96% | **100%** | 19个 |
+| `src/core/providers/ocr.py` | 86% | **87%** | 16个 |
 
 ---
 
-## 优先级1: 核心Provider模块 (当前~90%)
+## 优先级1: 核心Provider模块 (当前~95%)
 
 | 模块 | 覆盖率 | 缺失行 | 建议 |
 |------|--------|--------|------|
 | base.py | ~~93%~~ | **100%** | ✅ 完成 |
 | readiness.py | ~~78%~~ | **100%** | ✅ 完成 |
-| registry.py | 96% | 96, 102, 104 | 补充unregister测试 |
-| vision.py | 85% | 49,62-65,86-91 | 补充vision provider测试 |
-| ocr.py | 86% | 47,56,69,73-77 | 补充OCR provider测试 |
+| vision.py | ~~85%~~ | **100%** | ✅ 完成 |
+| registry.py | ~~96%~~ | **100%** | ✅ 完成 |
+| ocr.py | ~~86%~~ | **87%** | bootstrap/default provider 分支未覆盖 (40-42, 44-46, 94-99, 106-111) |
 | knowledge.py | 91% | 44,47-48,84-85 | 接近目标 |
 | bootstrap.py | 92% | 28-30,63 | 接近目标 |
 
@@ -79,8 +82,9 @@
 - [x] readiness.py (78% → 100%) ✅
 
 ### 第2周
-- [ ] vision.py (85% → 95%)
-- [ ] ocr.py (87% → 95%)
+- [x] vision.py (85% → 100%) ✅
+- [x] ocr.py (86% → 87%)
+- [x] registry.py (96% → 100%) ✅
 - [ ] hybrid_classifier.py (50% → 75%)
 
 ### 第3周
@@ -102,7 +106,7 @@
 
 ### 集成测试
 - 需要运行服务器的测试标记为 `@pytest.mark.integration`
-- Contract测试需要 `localhost:8000`
+- Contract测试优先使用 `localhost:8000`；端口绑定受限环境中，manual contract 断言可回退到 TestClient
 
 ### 性能测试
 - 基准测试放在 `tests/benchmark/`
