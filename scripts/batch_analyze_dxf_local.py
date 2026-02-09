@@ -22,6 +22,8 @@ if str(ROOT) not in sys.path:
 
 # Keep ezdxf cache out of $HOME by default (helpful for sandboxed environments).
 os.environ.setdefault("XDG_CACHE_HOME", "/tmp/xdg-cache")
+# Avoid slow/fragile network checks for remote model hosters during local evaluation.
+os.environ.setdefault("DISABLE_MODEL_SOURCE_CHECK", "True")
 
 # Reduce noisy multipart parser warnings when TestClient uploads files.
 logging.getLogger("python_multipart.multipart").setLevel(logging.ERROR)
@@ -126,9 +128,12 @@ def main() -> None:
     (out_dir / ".gitignore").write_text(
         "\n".join(
             [
-                # These include absolute local paths; keep untracked.
+                # Per-file outputs may contain absolute local paths and/or file names.
+                # Keep them untracked by default; commit only aggregated summaries.
                 "batch_results.csv",
+                "batch_results_sanitized.csv",
                 "batch_low_confidence.csv",
+                "batch_low_confidence_sanitized.csv",
                 "",
             ]
         ),
@@ -205,6 +210,7 @@ def main() -> None:
             "rule_version": classification.get("rule_version"),
             "graph2d_label": graph2d.get("label"),
             "graph2d_confidence": graph2d.get("confidence"),
+            "graph2d_status": graph2d.get("status"),
             "graph2d_temperature": graph2d.get("temperature"),
             "graph2d_temperature_source": graph2d.get("temperature_source"),
             "graph2d_is_drawing_type": graph2d.get("is_drawing_type"),
@@ -299,6 +305,22 @@ def main() -> None:
     titleblock_label_present = 0
     titleblock_any_signal_present = 0
 
+    filename_match_type_counts: Counter[str] = Counter()
+    filename_label_present = 0
+    filename_conf_all: List[float] = []
+    filename_conf_nonzero: List[float] = []
+    filename_extracted_name_present = 0
+
+    hybrid_source_counts: Counter[str] = Counter()
+    hybrid_label_present = 0
+    hybrid_conf_all: List[float] = []
+    hybrid_conf_nonzero: List[float] = []
+
+    graph2d_status_counts: Counter[str] = Counter()
+    graph2d_label_present = 0
+    graph2d_conf_all: List[float] = []
+    graph2d_conf_nonzero: List[float] = []
+
     for row in ok_rows:
         status = (row.get("titleblock_status") or "").strip()
         titleblock_status_counts[status or "unknown"] += 1
@@ -334,6 +356,54 @@ def main() -> None:
         if part_name or drawing_number or material:
             titleblock_any_signal_present += 1
 
+        # --- Filename classifier signals (via HybridClassifier) ---
+        filename_label = (row.get("filename_label") or "").strip()
+        if filename_label:
+            filename_label_present += 1
+
+        filename_extracted = (row.get("filename_extracted_name") or "").strip()
+        if filename_extracted:
+            filename_extracted_name_present += 1
+
+        match_type = (row.get("filename_match_type") or "").strip() or "unknown"
+        filename_match_type_counts[match_type] += 1
+
+        try:
+            fconf = float(row.get("filename_confidence") or 0.0)
+        except (TypeError, ValueError):
+            fconf = 0.0
+        filename_conf_all.append(fconf)
+        if fconf > 0:
+            filename_conf_nonzero.append(fconf)
+
+        # --- Hybrid decision ---
+        h_source = (row.get("hybrid_source") or "").strip() or "unknown"
+        hybrid_source_counts[h_source] += 1
+        h_label = (row.get("hybrid_label") or "").strip()
+        if h_label:
+            hybrid_label_present += 1
+        try:
+            hconf = float(row.get("hybrid_confidence") or 0.0)
+        except (TypeError, ValueError):
+            hconf = 0.0
+        hybrid_conf_all.append(hconf)
+        if hconf > 0:
+            hybrid_conf_nonzero.append(hconf)
+
+        # --- Graph2D prediction ---
+        g_status = (row.get("graph2d_status") or "").strip() or "unknown"
+        graph2d_status_counts[g_status] += 1
+        g_label = (row.get("graph2d_label") or "").strip()
+        if g_label:
+            graph2d_label_present += 1
+        try:
+            gconf = float(row.get("graph2d_confidence") or 0.0)
+        except (TypeError, ValueError):
+            gconf = 0.0
+        graph2d_conf_all.append(gconf)
+        if gconf > 0:
+            graph2d_conf_nonzero.append(gconf)
+
     def _mean(values: List[float]) -> float:
         return (sum(values) / len(values)) if values else 0.0
 
@@ -349,6 +419,43 @@ def main() -> None:
         "low_confidence_count": len(low_conf),
         "soft_override_candidates": stats.get("soft_override_candidates", 0),
         "sample_size": len(files),
+        "filename": {
+            "label_present_count": filename_label_present,
+            "label_present_rate": (filename_label_present / max(1, len(ok_rows))),
+            "extracted_name_present_count": filename_extracted_name_present,
+            "extracted_name_present_rate": (
+                filename_extracted_name_present / max(1, len(ok_rows))
+            ),
+            "match_type_counts": dict(filename_match_type_counts),
+            "confidence": {
+                "mean_all": round(_mean(filename_conf_all), 6),
+                "median_all": round(_median(filename_conf_all), 6),
+                "mean_nonzero": round(_mean(filename_conf_nonzero), 6),
+                "median_nonzero": round(_median(filename_conf_nonzero), 6),
+            },
+        },
+        "hybrid": {
+            "label_present_count": hybrid_label_present,
+            "label_present_rate": (hybrid_label_present / max(1, len(ok_rows))),
+            "source_counts": dict(hybrid_source_counts),
+            "confidence": {
+                "mean_all": round(_mean(hybrid_conf_all), 6),
+                "median_all": round(_median(hybrid_conf_all), 6),
+                "mean_nonzero": round(_mean(hybrid_conf_nonzero), 6),
+                "median_nonzero": round(_median(hybrid_conf_nonzero), 6),
+            },
+        },
+        "graph2d": {
+            "label_present_count": graph2d_label_present,
+            "label_present_rate": (graph2d_label_present / max(1, len(ok_rows))),
+            "status_counts": dict(graph2d_status_counts),
+            "confidence": {
+                "mean_all": round(_mean(graph2d_conf_all), 6),
+                "median_all": round(_median(graph2d_conf_all), 6),
+                "mean_nonzero": round(_mean(graph2d_conf_nonzero), 6),
+                "median_nonzero": round(_median(graph2d_conf_nonzero), 6),
+            },
+        },
         "titleblock": {
             "enabled": os.getenv("TITLEBLOCK_ENABLED", "false").lower() == "true",
             "total_ok": len(ok_rows),

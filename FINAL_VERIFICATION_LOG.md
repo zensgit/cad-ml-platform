@@ -3427,3 +3427,8 @@
 - **Redis Init Log Accuracy**:
   - Updated startup logging so `Redis initialized` is only emitted when a Redis client is actually connected; otherwise logs a fallback warning for the in-memory cache.
   - Report: `reports/DEV_REDIS_INIT_LOGGING_FALLBACK_20260209.md`
+- **DXF Batch Analyze Hybrid Baseline (Training DXF ODA)**:
+  - Ran an in-process `/api/v1/analyze/` TestClient batch on `110` training DXFs (ODA-normalized) to validate HybridClassifier signal coverage without manual DXF review.
+  - Observed: filename exact match `110/110`, hybrid source `filename=110`, titleblock matched/partial `108/2`, Graph2D `ok=110` but low-confidence as expected for large label spaces.
+  - Output: `reports/experiments/20260209/batch_analyze_training_dxf_oda/summary.json`, `reports/experiments/20260209/batch_analyze_training_dxf_oda/label_distribution.csv`
+  - Report: `reports/DEV_DXF_BATCH_ANALYZE_HYBRID_BASELINE_20260209.md`

@@ -1,0 +1,215 @@
+#!/usr/bin/env python3
+"""Diagnose Graph2D classifier behavior on a DXF directory.
+
+This is intended for environments where manual DXF review is not feasible.
+It reports:
+- label distribution
+- confidence distribution
+- (optional) accuracy when directory structure encodes labels (parent folder name)
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import os
+import random
+import sys
+import time
+from collections import Counter, defaultdict
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+
+def _collect_dxfs(root: Path) -> List[Path]:
+    return [p for p in root.rglob("*.dxf") if p.is_file()]
+
+
+def _safe_float(val: Any, default: float = 0.0) -> float:
+    try:
+        return float(val)
+    except Exception:
+        return default
+
+
+def _write_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
+    if not rows:
+        path.write_text("", encoding="utf-8")
+        return
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _summarize_counts(counter: Counter[str], topn: int = 20) -> List[Tuple[str, int]]:
+    return [(k, int(v)) for k, v in counter.most_common(topn)]
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Diagnose Graph2D classifier on a DXF directory."
+    )
+    parser.add_argument(
+        "--dxf-dir",
+        default="data/synthetic_v2",
+        help="Directory containing DXF files (can be nested).",
+    )
+    parser.add_argument(
+        "--model-path",
+        default=os.getenv("GRAPH2D_MODEL_PATH", "models/graph2d_coarse_synth_v2_20260208.pth"),
+        help="Graph2D checkpoint path.",
+    )
+    parser.add_argument("--max-files", type=int, default=200)
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--output-dir",
+        default=f"reports/experiments/{time.strftime('%Y%m%d')}/graph2d_diagnose",
+        help="Directory to write CSV/JSON artifacts.",
+    )
+    parser.add_argument(
+        "--labels-from-parent-dir",
+        action="store_true",
+        help="Treat parent directory name as ground-truth label (for synthetic datasets).",
+    )
+    parser.add_argument(
+        "--include-abs-paths",
+        action="store_true",
+        help="Include absolute input directory path in summary output (default: false).",
+    )
+    args = parser.parse_args()
+
+    dxf_dir = Path(args.dxf_dir)
+    if not dxf_dir.exists():
+        raise SystemExit(f"DXF dir not found: {dxf_dir}")
+
+    files = _collect_dxfs(dxf_dir)
+    if not files:
+        raise SystemExit(f"No DXF files found under: {dxf_dir}")
+
+    random.seed(int(args.seed))
+    random.shuffle(files)
+    files = files[: int(args.max_files)]
+
+    from src.ml.vision_2d import Graph2DClassifier
+
+    clf = Graph2DClassifier(model_path=str(args.model_path))
+
+    out_dir = Path(args.output_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # Per-file outputs contain file names; keep untracked by default.
+    (out_dir / ".gitignore").write_text("predictions.csv\n", encoding="utf-8")
+
+    rows: List[Dict[str, Any]] = []
+    status_counts: Counter[str] = Counter()
+    pred_counts: Counter[str] = Counter()
+    true_counts: Counter[str] = Counter()
+    correct_counts: Counter[str] = Counter()
+    confs: List[float] = []
+    conf_by_label: Dict[str, List[float]] = defaultdict(list)
+
+    t0 = time.time()
+    for p in files:
+        try:
+            data = p.read_bytes()
+        except Exception as exc:
+            rows.append(
+                {
+                    "file": p.name,
+                    "status": "read_error",
+                    "error": str(exc),
+                }
+            )
+            status_counts["read_error"] += 1
+            continue
+
+        result = clf.predict_from_bytes(data, p.name)
+        status = str(result.get("status") or "")
+        status_counts[status] += 1
+
+        pred_label = str(result.get("label") or "").strip()
+        pred_conf = _safe_float(result.get("confidence"), 0.0)
+        temperature = _safe_float(result.get("temperature"), 1.0)
+        temperature_source = str(result.get("temperature_source") or "")
+
+        true_label = ""
+        if bool(args.labels_from_parent_dir):
+            true_label = p.parent.name
+            true_counts[true_label] += 1
+
+        if status == "ok" and pred_label:
+            pred_counts[pred_label] += 1
+            confs.append(pred_conf)
+            conf_by_label[pred_label].append(pred_conf)
+            if true_label and pred_label == true_label:
+                correct_counts[true_label] += 1
+
+        rows.append(
+            {
+                "file": p.name,
+                "true_label": true_label,
+                "pred_label": pred_label,
+                "pred_confidence": f"{pred_conf:.4f}",
+                "status": status,
+                "temperature": f"{temperature:.4f}",
+                "temperature_source": temperature_source,
+            }
+        )
+
+    elapsed_s = time.time() - t0
+    ok = int(status_counts.get("ok", 0))
+    acc = None
+    if bool(args.labels_from_parent_dir) and true_counts:
+        total_labeled = sum(true_counts.values())
+        correct_total = sum(correct_counts.values())
+        acc = float(correct_total) / float(total_labeled) if total_labeled else 0.0
+
+    conf_sorted = sorted(confs)
+    conf_p50 = conf_sorted[len(conf_sorted) // 2] if conf_sorted else 0.0
+    conf_p90 = conf_sorted[int(len(conf_sorted) * 0.9)] if conf_sorted else 0.0
+
+    summary: Dict[str, Any] = {
+        "dxf_dir": (str(dxf_dir) if args.include_abs_paths else str(dxf_dir.name)),
+        "model_path": str(args.model_path),
+        "sampled_files": len(files),
+        "elapsed_seconds": round(elapsed_s, 3),
+        "status_counts": dict(status_counts),
+        "label_map_size": len(getattr(clf, "label_map", {}) or {}),
+        "top_pred_labels": _summarize_counts(pred_counts, topn=20),
+        "confidence": {
+            "count": len(confs),
+            "p50": round(conf_p50, 4),
+            "p90": round(conf_p90, 4),
+        },
+        "accuracy": acc,
+        "per_class_accuracy": {
+            label: {
+                "total": int(true_counts.get(label, 0)),
+                "correct": int(correct_counts.get(label, 0)),
+                "accuracy": round(
+                    float(correct_counts.get(label, 0)) / float(true_counts.get(label, 1)),
+                    4,
+                ),
+            }
+            for label in sorted(true_counts.keys())
+        }
+        if acc is not None
+        else None,
+    }
+
+    _write_csv(out_dir / "predictions.csv", rows)
+    (out_dir / "summary.json").write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
