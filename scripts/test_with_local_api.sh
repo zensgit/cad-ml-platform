@@ -10,6 +10,9 @@ PYTHON_BIN="${PYTHON_BIN:-}"
 PYTEST_BIN="${PYTEST_BIN:-}"
 SERVER_PID=""
 STARTED_LOCAL_API=0
+# Contract tests can run in-process (TestClient fallback) when local port
+# binding is not permitted. In CI we keep strict behavior (no fallback).
+CONTRACT_INPROCESS_FALLBACK="${CONTRACT_INPROCESS_FALLBACK:-auto}"
 
 usage() {
     cat <<EOF
@@ -32,6 +35,12 @@ Examples:
     $0 --suite unit
     $0 --suite contract --wait-seconds 90
     $0 --suite e2e --base-url http://127.0.0.1:8000
+
+Environment:
+    CONTRACT_INPROCESS_FALLBACK
+        auto (default): allow contract-only fallback when not in CI
+        true: always allow fallback for contract suite
+        false: never allow fallback (fail if API can't start)
 EOF
     exit 0
 }
@@ -76,6 +85,33 @@ is_local_base_url() {
 
 is_server_healthy() {
     curl -fsS -H "X-API-Key: ${API_KEY_VALUE}" "${BASE_URL}/health" >/dev/null 2>&1
+}
+
+contract_inprocess_fallback_enabled() {
+    if [[ "${SUITE}" != "contract" ]]; then
+        return 1
+    fi
+    case "${CONTRACT_INPROCESS_FALLBACK}" in
+        true) return 0 ;;
+        false) return 1 ;;
+        auto)
+            # CI should fail fast if the API cannot start; local dev can fall back.
+            [[ -z "${CI:-}" ]]
+            return $?
+            ;;
+        *) return 1 ;;
+    esac
+}
+
+should_contract_fallback_now() {
+    if ! contract_inprocess_fallback_enabled; then
+        return 1
+    fi
+    # Prefer falling back only for known "can't bind" environments.
+    if [[ ! -s "${LOG_PATH}" ]]; then
+        return 0
+    fi
+    grep -Eiq "operation not permitted|permission denied|not permitted" "${LOG_PATH}"
 }
 
 parse_host_port() {
@@ -126,6 +162,11 @@ ensure_api() {
         if ! kill -0 "${SERVER_PID}" >/dev/null 2>&1; then
             echo "ERROR: Local API exited early. Last logs:"
             tail -n 80 "${LOG_PATH}" || true
+            if should_contract_fallback_now; then
+                echo "WARN: Falling back to in-process contract assertions (TestClient)."
+                echo "WARN: Live-schema contract checks will be skipped without a running server."
+                return
+            fi
             exit 1
         fi
         sleep 1
@@ -133,6 +174,11 @@ ensure_api() {
 
     echo "ERROR: API not ready after ${WAIT_SECONDS}s."
     tail -n 80 "${LOG_PATH}" || true
+    if should_contract_fallback_now; then
+        echo "WARN: Falling back to in-process contract assertions (TestClient)."
+        echo "WARN: Live-schema contract checks will be skipped without a running server."
+        return
+    fi
     exit 1
 }
 
