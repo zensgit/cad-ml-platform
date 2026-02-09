@@ -3389,3 +3389,8 @@
   - Clarified that the canonical local tiered runner is `scripts/test_with_local_api.sh` (used by `Makefile` and CI).
   - Validation: provider framework unit suite passed; local runner script syntax check passed.
   - Report: `reports/DEV_PROVIDER_FRAMEWORK_CLARITY_20260208.md`
+- **Knowledge Providers in Core Provider Registry**:
+  - Added `knowledge/tolerance` and `knowledge/standards` providers to the core provider registry so knowledge modules participate in registry snapshots, health checks, and readiness selection.
+  - Kept the behavior lightweight: knowledge query surfaces remain in `src/api/v1/tolerance.py` and `src/api/v1/standards.py`.
+  - Validation: targeted provider bootstrap + knowledge bridge unit suites passed.
+  - Report: `reports/DEV_KNOWLEDGE_PROVIDER_REGISTRY_BRIDGE_20260209.md`

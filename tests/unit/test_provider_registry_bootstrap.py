@@ -15,6 +15,7 @@ def test_bootstrap_registers_core_domains_and_providers() -> None:
     assert "vision" in snapshot["domains"]
     assert "ocr" in snapshot["domains"]
     assert "classifier" in snapshot["domains"]
+    assert "knowledge" in snapshot["domains"]
     assert "stub" in snapshot["providers"]["vision"]
     assert "deepseek_stub" in snapshot["providers"]["vision"]
     assert "paddle" in snapshot["providers"]["ocr"]
@@ -24,6 +25,8 @@ def test_bootstrap_registers_core_domains_and_providers() -> None:
     assert "graph2d_ensemble" in snapshot["providers"]["classifier"]
     assert "v16" in snapshot["providers"]["classifier"]
     assert "v6" in snapshot["providers"]["classifier"]
+    assert "tolerance" in snapshot["providers"]["knowledge"]
+    assert "standards" in snapshot["providers"]["knowledge"]
 
 
 def test_bootstrap_is_idempotent() -> None:

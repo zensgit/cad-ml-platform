@@ -55,11 +55,14 @@ These providers are registered by default via `bootstrap_core_provider_registry(
 - `classifier/graph2d_ensemble`
 - `classifier/v16`
 - `classifier/v6`
+- `knowledge/tolerance`
+- `knowledge/standards`
 
 Implementation references:
 - `src/core/providers/vision.py`
 - `src/core/providers/ocr.py`
 - `src/core/providers/classifier.py`
+- `src/core/providers/knowledge.py`
 
 ## Runtime Endpoints
 

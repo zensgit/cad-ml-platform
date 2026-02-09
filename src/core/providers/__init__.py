@@ -35,6 +35,7 @@ from src.core.providers.ocr import (
     OcrProviderConfig,
     bootstrap_core_ocr_providers,
 )
+from src.core.providers.knowledge import bootstrap_core_knowledge_providers
 from src.core.providers.registry import ProviderRegistry
 from src.core.providers.vision import (
     VisionProviderAdapter,
@@ -58,6 +59,7 @@ __all__ = [
     "VisionProviderConfig",
     "VisionProviderAdapter",
     "bootstrap_core_vision_providers",
+    "bootstrap_core_knowledge_providers",
     "bootstrap_core_provider_registry",
     "get_core_provider_registry_snapshot",
 ]
