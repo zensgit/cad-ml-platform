@@ -6,10 +6,14 @@ Targets uncovered code paths in src/core/providers/ocr.py:
 - Line 69: health_check returns True when no health_check method
 - Lines 73-77: warmup method
 - Line 83: extract compatibility method
+- Lines 40-42, 44-46: default-provider branches (import + instantiation)
+- Lines 94-99, 106-111: bootstrap default config wiring (instantiation-time)
 """
 
 from __future__ import annotations
 
+import sys
+import types
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock
 
@@ -29,6 +33,34 @@ def _clear_registry():
     ProviderRegistry.clear()
     yield
     ProviderRegistry.clear()
+
+
+def _fake_ocr_provider_module(module_name: str, class_name: str) -> types.ModuleType:
+    """Provide a lightweight module to satisfy adapter imports in tests.
+
+    The real OCR providers may import heavyweight runtime dependencies; unit
+    coverage tests should not require them.
+    """
+    mod = types.ModuleType(module_name)
+
+    class _Provider:
+        name = class_name
+
+        def __init__(self, **kwargs):
+            self.kwargs = dict(kwargs)
+
+        async def extract(
+            self, image_bytes: bytes, trace_id: Optional[str] = None
+        ) -> OcrResult:
+            return OcrResult(
+                text=f"{class_name}:ok",
+                confidence=0.9,
+                provider=class_name,
+                trace_id=trace_id,
+            )
+
+    setattr(mod, class_name, _Provider)
+    return mod
 
 
 # --- OcrProviderAdapter Tests ---
@@ -169,6 +201,56 @@ class TestOcrProviderAdapter:
         result = await adapter.extract(b"image data", trace_id="trace-123")
         assert result.text == "extracted"
 
+    @pytest.mark.asyncio
+    async def test_build_default_provider_paddle_branch(self):
+        """Lines 44-46: default provider branch instantiates paddle provider."""
+        fake_paddle = _fake_ocr_provider_module(
+            "src.core.ocr.providers.paddle", "PaddleOcrProvider"
+        )
+        fake_deepseek = _fake_ocr_provider_module(
+            "src.core.ocr.providers.deepseek_hf", "DeepSeekHfProvider"
+        )
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setitem(sys.modules, "src.core.ocr.providers.paddle", fake_paddle)
+            mp.setitem(sys.modules, "src.core.ocr.providers.deepseek_hf", fake_deepseek)
+
+            config = OcrProviderConfig(
+                name="test",
+                provider_type="ocr",
+                provider_name="paddle",
+                provider_kwargs={"foo": "bar"},
+            )
+            adapter = OcrProviderAdapter(config)
+            assert getattr(adapter._wrapped_provider, "kwargs", None) == {"foo": "bar"}
+
+            result = await adapter.process(b"image data")
+            assert result.provider == "PaddleOcrProvider"
+
+    @pytest.mark.asyncio
+    async def test_build_default_provider_deepseek_branch(self):
+        """Lines 40-42: default provider branch instantiates deepseek_hf provider."""
+        fake_paddle = _fake_ocr_provider_module(
+            "src.core.ocr.providers.paddle", "PaddleOcrProvider"
+        )
+        fake_deepseek = _fake_ocr_provider_module(
+            "src.core.ocr.providers.deepseek_hf", "DeepSeekHfProvider"
+        )
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setitem(sys.modules, "src.core.ocr.providers.paddle", fake_paddle)
+            mp.setitem(sys.modules, "src.core.ocr.providers.deepseek_hf", fake_deepseek)
+
+            config = OcrProviderConfig(
+                name="test",
+                provider_type="ocr",
+                provider_name="deepseek_hf",
+                provider_kwargs={"alpha": 1},
+            )
+            adapter = OcrProviderAdapter(config)
+            assert getattr(adapter._wrapped_provider, "kwargs", None) == {"alpha": 1}
+
+            result = await adapter.process(b"image data")
+            assert result.provider == "DeepSeekHfProvider"
+
 
 # --- _build_default_provider Tests ---
 
@@ -211,6 +293,42 @@ class TestBootstrapCoreOcrProviders:
         second_paddle = ProviderRegistry.get_provider_class("ocr", "paddle")
 
         assert first_paddle is second_paddle
+
+    def test_paddle_provider_default_config_wiring(self):
+        """Lines 94-99: PaddleCoreProvider sets default config fields."""
+        fake_paddle = _fake_ocr_provider_module(
+            "src.core.ocr.providers.paddle", "PaddleOcrProvider"
+        )
+        fake_deepseek = _fake_ocr_provider_module(
+            "src.core.ocr.providers.deepseek_hf", "DeepSeekHfProvider"
+        )
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setitem(sys.modules, "src.core.ocr.providers.paddle", fake_paddle)
+            mp.setitem(sys.modules, "src.core.ocr.providers.deepseek_hf", fake_deepseek)
+
+            bootstrap_core_ocr_providers()
+            provider = ProviderRegistry.get("ocr", "paddle")
+            assert provider.config.name == "paddle"
+            assert provider.config.provider_type == "ocr"
+            assert provider.config.provider_name == "paddle"
+
+    def test_deepseek_provider_default_config_wiring(self):
+        """Lines 106-111: DeepSeekHfCoreProvider sets default config fields."""
+        fake_paddle = _fake_ocr_provider_module(
+            "src.core.ocr.providers.paddle", "PaddleOcrProvider"
+        )
+        fake_deepseek = _fake_ocr_provider_module(
+            "src.core.ocr.providers.deepseek_hf", "DeepSeekHfProvider"
+        )
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setitem(sys.modules, "src.core.ocr.providers.paddle", fake_paddle)
+            mp.setitem(sys.modules, "src.core.ocr.providers.deepseek_hf", fake_deepseek)
+
+            bootstrap_core_ocr_providers()
+            provider = ProviderRegistry.get("ocr", "deepseek_hf")
+            assert provider.config.name == "deepseek_hf"
+            assert provider.config.provider_type == "ocr"
+            assert provider.config.provider_name == "deepseek_hf"
 
 
 # --- OcrProviderConfig Tests ---

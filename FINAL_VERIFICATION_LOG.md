@@ -3412,3 +3412,7 @@
   - Added targeted unit suites covering `ProviderRegistry` cache/unregister behavior, `VisionProviderAdapter` input/health bridging, and `OcrProviderAdapter` input/health/warmup compatibility surfaces.
   - Validation: `pytest` suites passed; spot checks reached 100% for `src/core/providers/registry.py` and `src/core/providers/vision.py` (OCR adapter remains partial by design).
   - Report: `reports/DEV_PROVIDER_COVERAGE_TESTS_REGISTRY_VISION_OCR_20260209.md`
+- **Provider Framework Coverage: OCR Bridge Full Coverage**:
+  - Added lightweight `sys.modules` stubs in unit tests to cover the OCR default-provider import branches and bootstrap default config wiring without importing heavyweight OCR runtimes.
+  - Validation: `pytest tests/unit/test_ocr_provider_coverage.py --cov=src.core.providers.ocr` spot check reached 100% for `src/core/providers/ocr.py`.
+  - Report: `reports/DEV_PROVIDER_COVERAGE_TESTS_OCR_FULL_20260209.md`

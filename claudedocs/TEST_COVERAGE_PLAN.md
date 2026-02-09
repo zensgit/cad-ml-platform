@@ -15,11 +15,13 @@
 | `src/core/providers/readiness.py` | 78% | **100%** | 28个 |
 | `src/core/providers/vision.py` | 85% | **100%** | 14个 |
 | `src/core/providers/registry.py` | 96% | **100%** | 19个 |
-| `src/core/providers/ocr.py` | 86% | **87%** | 16个 |
+| `src/core/providers/ocr.py` | 86% | **100%** | 20个 |
+| `src/core/providers/knowledge.py` | 91% | **100%** | 14个 |
+| `src/core/providers/bootstrap.py` | 92% | **100%** | 10个 |
 
 ---
 
-## 优先级1: 核心Provider模块 (当前~95%)
+## 优先级1: 核心Provider模块 (当前~98%)
 
 | 模块 | 覆盖率 | 缺失行 | 建议 |
 |------|--------|--------|------|
@@ -27,9 +29,10 @@
 | readiness.py | ~~78%~~ | **100%** | ✅ 完成 |
 | vision.py | ~~85%~~ | **100%** | ✅ 完成 |
 | registry.py | ~~96%~~ | **100%** | ✅ 完成 |
-| ocr.py | ~~86%~~ | **87%** | bootstrap/default provider 分支未覆盖 (40-42, 44-46, 94-99, 106-111) |
-| knowledge.py | 91% | 44,47-48,84-85 | 接近目标 |
-| bootstrap.py | 92% | 28-30,63 | 接近目标 |
+| ocr.py | ~~86%~~ | **100%** | ✅ 完成 |
+| knowledge.py | ~~91%~~ | **100%** | ✅ 完成 |
+| bootstrap.py | ~~92%~~ | **100%** | ✅ 完成 |
+| classifier.py | 80% | 144,151,168等 | 主要是provider内部分支 |
 
 ---
 
@@ -83,8 +86,10 @@
 
 ### 第2周
 - [x] vision.py (85% → 100%) ✅
-- [x] ocr.py (86% → 87%)
+- [x] ocr.py (86% → 100%) ✅
 - [x] registry.py (96% → 100%) ✅
+- [x] knowledge.py (91% → 100%) ✅
+- [x] bootstrap.py (92% → 100%) ✅
 - [ ] hybrid_classifier.py (50% → 75%)
 
 ### 第3周
