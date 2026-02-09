@@ -49,6 +49,12 @@ TAG_MATERIAL_HINTS = ("材料", "材质", "material")
 TAG_SCALE_HINTS = ("比例", "scale")
 TAG_REVISION_HINTS = ("版本", "rev", "revision")
 
+_SPEC_SUFFIX_RES = (
+    re.compile(r"(?:DN)\s*\d+(?:\.\d+)?$", re.IGNORECASE),
+    re.compile(r"(?:PN)\s*\d+(?:\.\d+)?$", re.IGNORECASE),
+    re.compile(r"(?:M)\s*\d+(?:x\d+(?:\.\d+)?)?$", re.IGNORECASE),
+)
+
 
 def _normalize_text(text: str) -> str:
     if not text:
@@ -87,6 +93,32 @@ def _normalize_text(text: str) -> str:
     )
 
     return " ".join(normalized.split())
+
+
+def _normalize_part_name(part_name: str) -> str:
+    """Normalize a titleblock part name for label matching.
+
+    Titleblocks often append specs like DN/PN/M sizes to the part name (e.g. 拖车DN1500),
+    which causes only partial matches. We conservatively strip common spec suffixes when
+    they appear at the end.
+    """
+
+    original = str(part_name or "").strip()
+    if not original:
+        return original
+
+    name = original
+    for _ in range(3):
+        before = name
+        for spec_re in _SPEC_SUFFIX_RES:
+            name = spec_re.sub("", name).strip()
+        name = re.sub(r"[_\-\s]+$", "", name).strip()
+        if name == before:
+            break
+
+    if name and len(name) >= 2:
+        return name
+    return original
 
 
 def _tag_matches_titleblock(tag: str) -> bool:
@@ -413,6 +445,7 @@ class TitleBlockClassifier:
             "title_block_info": {
                 "drawing_number": info.drawing_number,
                 "part_name": info.part_name,
+                "part_name_normalized": None,
                 "material": info.material,
                 "raw_texts_count": len(info.raw_texts),
                 "region_entities_count": info.region_entities_count,
@@ -422,7 +455,11 @@ class TitleBlockClassifier:
 
         # 尝试从零件名称匹配标签
         if info.part_name and self._matcher:
-            key = info.part_name.lower()
+            normalized = _normalize_part_name(info.part_name)
+            if normalized != info.part_name:
+                result["title_block_info"]["part_name_normalized"] = normalized
+
+            key = normalized.lower()
             if key in self._matcher:
                 result["label"] = self._matcher[key]
                 result["confidence"] = 0.85

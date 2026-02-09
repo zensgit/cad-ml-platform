@@ -23,7 +23,8 @@ if str(ROOT) not in sys.path:
 # Keep ezdxf cache out of $HOME by default (helpful for sandboxed environments).
 os.environ.setdefault("XDG_CACHE_HOME", "/tmp/xdg-cache")
 # Avoid slow/fragile network checks for remote model hosters during local evaluation.
-os.environ.setdefault("DISABLE_MODEL_SOURCE_CHECK", "True")
+# Some upstream libraries treat only "1" as truthy for this flag.
+os.environ.setdefault("DISABLE_MODEL_SOURCE_CHECK", "1")
 
 # Reduce noisy multipart parser warnings when TestClient uploads files.
 logging.getLogger("python_multipart.multipart").setLevel(logging.ERROR)
@@ -97,6 +98,14 @@ def main() -> None:
     parser.add_argument("--max-files", type=int, default=200)
     parser.add_argument("--seed", type=int, default=22)
     parser.add_argument("--min-confidence", type=float, default=0.6)
+    parser.add_argument(
+        "--mask-filename",
+        action="store_true",
+        help=(
+            "Upload DXFs with a masked/anonymous file name (e.g. file_0001.dxf) "
+            "to evaluate behavior when filenames do not carry semantic labels."
+        ),
+    )
     args = parser.parse_args()
 
     dxf_dir = Path(args.dxf_dir)
@@ -154,7 +163,7 @@ def main() -> None:
     label_conf = defaultdict(list)
     conf_buckets = Counter()
 
-    for item in files:
+    for idx, item in enumerate(files):
         stats["total"] += 1
         try:
             payload = item.read_bytes()
@@ -163,9 +172,13 @@ def main() -> None:
             stats["error"] += 1
             continue
 
+        upload_name = item.name
+        if bool(args.mask_filename):
+            upload_name = f"file_{idx+1:04d}{item.suffix.lower() or '.dxf'}"
+
         resp = client.post(
             "/api/v1/analyze/",
-            files={"file": (item.name, payload, "application/dxf")},
+            files={"file": (upload_name, payload, "application/dxf")},
             data={"options": json.dumps(options)},
             headers={"x-api-key": os.getenv("API_KEY", "test")},
         )
@@ -284,6 +297,14 @@ def main() -> None:
             writer = csv.DictWriter(handle, fieldnames=sanitized_low_conf[0].keys())
             writer.writeheader()
             writer.writerows(sanitized_low_conf)
+    else:
+        # Remove stale low-confidence outputs from previous runs.
+        for path in (low_conf_path, low_conf_sanitized_path):
+            try:
+                if path.exists():
+                    path.unlink()
+            except Exception:
+                pass
 
     with label_dist_path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=["label", "count", "share", "avg_confidence"])

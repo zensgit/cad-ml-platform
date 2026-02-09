@@ -3437,3 +3437,9 @@
   - Found that the default `graph2d_parts_upsampled_20260122.pth` behaves like a drawing-type classifier (accuracy `0.0` vs filename labels), and `graph2d_training_drawings_20260208.pth` collapses to a few labels with very low confidence (accuracy `~7.3%`).
   - Output: `reports/experiments/20260209/graph2d_diagnose_parts_upsampled/summary.json`, `reports/experiments/20260209/graph2d_diagnose_training_drawings/summary.json`
   - Report: `reports/DEV_GRAPH2D_DIAGNOSE_TRAINING_DXF_ODA_20260209.md`
+- **DXF Masked Filename Eval + Titleblock Spec Normalization**:
+  - Added titleblock part-name normalization to strip trailing spec suffixes like `DN/PN/M...` (e.g. `拖车DN1500 -> 拖车`) so titleblock matching is `matched` instead of `partial_match`.
+  - Added `--mask-filename` to the local batch TestClient runner to evaluate behavior when upload filenames carry no semantic label signal.
+  - Validation: masked-filename batch (`110` DXFs) achieved titleblock `matched=110`, hybrid source `titleblock=110`, and `low_confidence_count=0`; unit test added for normalization case.
+  - Output: `reports/experiments/20260209/batch_analyze_training_dxf_oda_masked_filename/summary.json`, `reports/experiments/20260209/batch_analyze_training_dxf_oda_masked_filename/label_distribution.csv`
+  - Report: `reports/DEV_DXF_MASKED_FILENAME_TITLEBLOCK_SPEC_NORMALIZATION_20260209.md`
