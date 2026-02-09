@@ -10,6 +10,7 @@ Features:
 from __future__ import annotations
 
 import os
+from functools import lru_cache
 from typing import Any, Dict, Optional
 
 import pytest
@@ -24,9 +25,65 @@ except ImportError:
     SCHEMATHESIS_AVAILABLE = False
 
 # Configuration
-BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
+BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000").rstrip("/")
 API_KEY = os.environ.get("API_KEY", "test-api-key")
 OPENAPI_URL = f"{BASE_URL}/openapi.json"
+
+
+@lru_cache(maxsize=1)
+def _live_server_available() -> bool:
+    """Best-effort probe for whether API_BASE_URL is reachable.
+
+    CI runs the contract tier against a real uvicorn server. Some restricted
+    environments disallow binding local ports; in that case these tests fall
+    back to in-process TestClient calls.
+    """
+    try:
+        import requests
+
+        # Treat any HTTP response as "reachable" (including auth failures); the
+        # contract assertions should still run against the live server when it
+        # is available.
+        requests.get(
+            f"{BASE_URL}/health",
+            headers={"X-API-Key": API_KEY},
+            timeout=1,
+        )
+        return True
+    except Exception:
+        return False
+
+
+@lru_cache(maxsize=1)
+def _get_test_client():
+    from fastapi.testclient import TestClient
+    from src.main import app
+
+    return TestClient(app)
+
+
+def _request(
+    method: str,
+    path: str,
+    headers: Optional[Dict[str, str]] = None,
+    params: Optional[Dict[str, Any]] = None,
+    json: Optional[Dict[str, Any]] = None,
+):
+    """Unified request helper: live HTTP when available, else TestClient."""
+    if _live_server_available():
+        import requests
+
+        return requests.request(
+            method=method,
+            url=f"{BASE_URL}{path}",
+            headers=headers,
+            params=params,
+            json=json,
+            timeout=10,
+        )
+
+    client = _get_test_client()
+    return client.request(method, path, headers=headers, params=params, json=json)
 
 
 @pytest.mark.skipif(not SCHEMATHESIS_AVAILABLE, reason="Schemathesis not installed")
@@ -53,12 +110,7 @@ class TestAPIContract:
     @pytest.mark.parametrize("endpoint", ["/health", "/api/v1/health"])
     def test_health_endpoints_match_schema(self, endpoint):
         """Test health endpoints match their schema."""
-        import requests
-
-        response = requests.get(
-            f"{BASE_URL}{endpoint}",
-            headers={"X-API-Key": API_KEY},
-        )
+        response = _request("GET", endpoint, headers={"X-API-Key": API_KEY})
         assert response.status_code == 200
 
         # Should return JSON
@@ -67,13 +119,8 @@ class TestAPIContract:
 
     def test_error_responses_have_correct_structure(self):
         """Test that error responses follow consistent structure."""
-        import requests
-
         # Request non-existent endpoint
-        response = requests.get(
-            f"{BASE_URL}/api/v2/nonexistent",
-            headers={"X-API-Key": API_KEY},
-        )
+        response = _request("GET", "/api/v2/nonexistent", headers={"X-API-Key": API_KEY})
 
         assert response.status_code == 404
         data = response.json()
@@ -114,12 +161,7 @@ class TestResponseContracts:
 
     def test_success_response_structure(self):
         """Test successful response structure."""
-        import requests
-
-        response = requests.get(
-            f"{BASE_URL}/health",
-            headers={"X-API-Key": API_KEY},
-        )
+        response = _request("GET", "/health", headers={"X-API-Key": API_KEY})
 
         assert response.status_code == 200
         data = response.json()
@@ -129,15 +171,11 @@ class TestResponseContracts:
 
     def test_validation_error_structure(self):
         """Test validation error response structure."""
-        import requests
-
         # Send invalid request
-        response = requests.post(
-            f"{BASE_URL}/api/v2/materials/classify",
-            headers={
-                "X-API-Key": API_KEY,
-                "Content-Type": "application/json",
-            },
+        response = _request(
+            "POST",
+            "/api/v2/materials/classify",
+            headers={"X-API-Key": API_KEY, "Content-Type": "application/json"},
             json={},  # Missing required fields
         )
 
@@ -148,13 +186,8 @@ class TestResponseContracts:
 
     def test_rate_limit_response_structure(self):
         """Test rate limit response structure."""
-        import requests
-
         # This test might not trigger rate limiting in normal conditions
-        response = requests.get(
-            f"{BASE_URL}/health",
-            headers={"X-API-Key": API_KEY},
-        )
+        response = _request("GET", "/health", headers={"X-API-Key": API_KEY})
 
         # Check for rate limit headers
         headers = response.headers
@@ -169,26 +202,83 @@ class TestResponseContracts:
 
 
 @pytest.mark.contract
+class TestKnowledgeApiContracts:
+    """Contract tests for knowledge endpoints (tolerance / standards)."""
+
+    def test_tolerance_it_endpoint_response_shape(self):
+        resp = _request(
+            "GET",
+            "/api/v1/tolerance/it",
+            headers={"X-API-Key": API_KEY},
+            params={"diameter_mm": 10.0, "grade": "IT7"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, dict)
+        assert data.get("grade") == "IT7"
+        assert data.get("nominal_size_mm") == 10.0
+        assert "tolerance_um" in data
+
+    def test_tolerance_fit_endpoint_response_shape(self):
+        resp = _request(
+            "GET",
+            "/api/v1/tolerance/fit",
+            headers={"X-API-Key": API_KEY},
+            params={"fit_code": "H7/g6", "diameter_mm": 10.0},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, dict)
+        assert data.get("fit_code") == "H7/g6"
+        assert data.get("nominal_size_mm") == 10.0
+        assert data.get("fit_type") in {"clearance", "transition", "interference"}
+        for key in [
+            "hole_upper_deviation_um",
+            "hole_lower_deviation_um",
+            "shaft_upper_deviation_um",
+            "shaft_lower_deviation_um",
+            "max_clearance_um",
+            "min_clearance_um",
+        ]:
+            assert key in data
+
+    def test_standards_status_endpoint_response_shape(self):
+        resp = _request("GET", "/api/v1/standards/status", headers={"X-API-Key": API_KEY})
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, dict)
+        assert data.get("status") == "ok"
+        assert isinstance(data.get("counts"), dict)
+        assert isinstance(data.get("examples"), dict)
+
+    def test_standards_thread_endpoint_response_shape(self):
+        resp = _request(
+            "GET",
+            "/api/v1/standards/thread",
+            headers={"X-API-Key": API_KEY},
+            params={"designation": "M10"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, dict)
+        assert data.get("designation") == "M10"
+        assert "tap_drill_mm" in data
+
+
+@pytest.mark.contract
 class TestContentTypeContracts:
     """Content type contract tests."""
 
     def test_json_endpoints_return_json(self):
         """Test that JSON endpoints return proper content type."""
-        import requests
-
-        response = requests.get(
-            f"{BASE_URL}/health",
-            headers={"X-API-Key": API_KEY},
-        )
+        response = _request("GET", "/health", headers={"X-API-Key": API_KEY})
 
         content_type = response.headers.get("content-type", "")
         assert "application/json" in content_type.lower()
 
     def test_metrics_endpoint_returns_text(self):
         """Test that metrics endpoint returns text/plain."""
-        import requests
-
-        response = requests.get(f"{BASE_URL}/metrics")
+        response = _request("GET", "/metrics")
 
         content_type = response.headers.get("content-type", "")
         # Prometheus metrics can be text/plain or application/openmetrics-text
@@ -201,14 +291,10 @@ class TestHeaderContracts:
 
     def test_cors_headers_present(self):
         """Test CORS headers are present when needed."""
-        import requests
-
-        response = requests.options(
-            f"{BASE_URL}/health",
-            headers={
-                "Origin": "http://example.com",
-                "Access-Control-Request-Method": "GET",
-            },
+        response = _request(
+            "OPTIONS",
+            "/health",
+            headers={"Origin": "http://example.com", "Access-Control-Request-Method": "GET"},
         )
 
         # CORS might not be enabled, but request should succeed
@@ -216,12 +302,7 @@ class TestHeaderContracts:
 
     def test_security_headers_present(self):
         """Test security headers are present."""
-        import requests
-
-        response = requests.get(
-            f"{BASE_URL}/health",
-            headers={"X-API-Key": API_KEY},
-        )
+        response = _request("GET", "/health", headers={"X-API-Key": API_KEY})
 
         # These headers might not all be present depending on configuration
         # Just verify the request succeeds
@@ -234,24 +315,15 @@ class TestVersioningContract:
 
     def test_v1_api_available(self):
         """Test v1 API is available."""
-        import requests
-
-        response = requests.get(
-            f"{BASE_URL}/api/v1/health",
-            headers={"X-API-Key": API_KEY},
-        )
+        response = _request("GET", "/api/v1/health", headers={"X-API-Key": API_KEY})
         assert response.status_code == 200
 
     def test_version_header_accepted(self):
         """Test version header is accepted."""
-        import requests
-
-        response = requests.get(
-            f"{BASE_URL}/health",
-            headers={
-                "X-API-Key": API_KEY,
-                "X-API-Version": "v2",
-            },
+        response = _request(
+            "GET",
+            "/health",
+            headers={"X-API-Key": API_KEY, "X-API-Version": "v2"},
         )
 
         # Header should not cause errors

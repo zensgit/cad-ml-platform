@@ -3399,3 +3399,8 @@
   - Added readiness/provider-registry env variables to `.env.example` for reproducible ops configuration.
   - Validation: targeted provider bootstrap + knowledge bridge unit suites used as the behavior contract.
   - Report: `reports/DEV_READINESS_ENV_AND_HEALTH_DOC_UPDATE_20260209.md`
+- **Contract Tier TestClient Fallback + Knowledge Endpoint Contracts**:
+  - Added a unified `_request()` helper for contract assertions: prefer live HTTP when `API_BASE_URL` is reachable, otherwise fall back to in-process `TestClient` (for environments that cannot bind local ports).
+  - Added contract coverage for knowledge endpoints (`/api/v1/tolerance/*`, `/api/v1/standards/*`) to lock down response shapes.
+  - Validation: `pytest tests/contract/test_api_contract.py -q` passed locally via fallback (`13 passed, 4 skipped`).
+  - Report: `reports/DEV_CONTRACT_TESTCLIENT_FALLBACK_20260209.md`
