@@ -3432,3 +3432,8 @@
   - Observed: filename exact match `110/110`, hybrid source `filename=110`, titleblock matched/partial `108/2`, Graph2D `ok=110` but low-confidence as expected for large label spaces.
   - Output: `reports/experiments/20260209/batch_analyze_training_dxf_oda/summary.json`, `reports/experiments/20260209/batch_analyze_training_dxf_oda/label_distribution.csv`
   - Report: `reports/DEV_DXF_BATCH_ANALYZE_HYBRID_BASELINE_20260209.md`
+- **Graph2D Diagnose (Training DXF ODA, Weak-Supervised)**:
+  - Diagnosed Graph2D behavior on the same 110 training DXFs using weak supervision (FilenameClassifier true labels + synonym canonicalization).
+  - Found that the default `graph2d_parts_upsampled_20260122.pth` behaves like a drawing-type classifier (accuracy `0.0` vs filename labels), and `graph2d_training_drawings_20260208.pth` collapses to a few labels with very low confidence (accuracy `~7.3%`).
+  - Output: `reports/experiments/20260209/graph2d_diagnose_parts_upsampled/summary.json`, `reports/experiments/20260209/graph2d_diagnose_training_drawings/summary.json`
+  - Report: `reports/DEV_GRAPH2D_DIAGNOSE_TRAINING_DXF_ODA_20260209.md`

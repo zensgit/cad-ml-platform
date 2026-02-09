@@ -26,6 +26,37 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+def _load_synonyms(path: Path) -> Dict[str, List[str]]:
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        return {}
+    return {
+        str(k): [str(v) for v in values]
+        for k, values in data.items()
+        if isinstance(values, list)
+    }
+
+
+def _build_alias_map(synonyms: Dict[str, List[str]]) -> Dict[str, str]:
+    alias: Dict[str, str] = {}
+    for label, values in synonyms.items():
+        alias[label.lower()] = label
+        for value in values:
+            value = str(value or "").strip()
+            if value:
+                alias[value.lower()] = label
+    return alias
+
+
+def _canonical(label: str, alias_map: Dict[str, str]) -> str:
+    cleaned = str(label or "").strip()
+    if not cleaned:
+        return ""
+    return alias_map.get(cleaned.lower(), cleaned)
+
+
 def _collect_dxfs(root: Path) -> List[Path]:
     return [p for p in root.rglob("*.dxf") if p.is_file()]
 
@@ -78,6 +109,22 @@ def main() -> int:
         help="Treat parent directory name as ground-truth label (for synthetic datasets).",
     )
     parser.add_argument(
+        "--labels-from-filename",
+        action="store_true",
+        help="Treat FilenameClassifier prediction as ground-truth label (weak supervision).",
+    )
+    parser.add_argument(
+        "--true-label-min-confidence",
+        type=float,
+        default=0.8,
+        help="Minimum confidence to accept a weak-supervised true label (default: 0.8).",
+    )
+    parser.add_argument(
+        "--synonyms-json",
+        default="data/knowledge/label_synonyms_template.json",
+        help="Synonyms JSON path used to canonicalize labels (default: template).",
+    )
+    parser.add_argument(
         "--include-abs-paths",
         action="store_true",
         help="Include absolute input directory path in summary output (default: false).",
@@ -96,6 +143,12 @@ def main() -> int:
     random.shuffle(files)
     files = files[: int(args.max_files)]
 
+    if bool(args.labels_from_parent_dir) and bool(args.labels_from_filename):
+        raise SystemExit(
+            "Choose only one ground-truth mode: "
+            "--labels-from-parent-dir OR --labels-from-filename"
+        )
+
     from src.ml.vision_2d import Graph2DClassifier
 
     clf = Graph2DClassifier(model_path=str(args.model_path))
@@ -105,13 +158,27 @@ def main() -> int:
     # Per-file outputs contain file names; keep untracked by default.
     (out_dir / ".gitignore").write_text("predictions.csv\n", encoding="utf-8")
 
+    synonyms_path = ROOT / str(args.synonyms_json)
+    synonyms = _load_synonyms(synonyms_path)
+    alias_map = _build_alias_map(synonyms)
+
+    filename_classifier = None
+    if bool(args.labels_from_filename):
+        from src.ml.filename_classifier import FilenameClassifier
+
+        filename_classifier = FilenameClassifier(synonyms_path=str(synonyms_path))
+
     rows: List[Dict[str, Any]] = []
     status_counts: Counter[str] = Counter()
     pred_counts: Counter[str] = Counter()
+    pred_canon_counts: Counter[str] = Counter()
     true_counts: Counter[str] = Counter()
     correct_counts: Counter[str] = Counter()
+    confusion_counts: Counter[Tuple[str, str]] = Counter()
+    true_coverage = 0
     confs: List[float] = []
     conf_by_label: Dict[str, List[float]] = defaultdict(list)
+    conf_by_label_canon: Dict[str, List[float]] = defaultdict(list)
 
     t0 = time.time()
     for p in files:
@@ -133,27 +200,53 @@ def main() -> int:
         status_counts[status] += 1
 
         pred_label = str(result.get("label") or "").strip()
+        pred_label_canon = _canonical(pred_label, alias_map) if pred_label else ""
         pred_conf = _safe_float(result.get("confidence"), 0.0)
         temperature = _safe_float(result.get("temperature"), 1.0)
         temperature_source = str(result.get("temperature_source") or "")
 
         true_label = ""
+        true_label_raw = ""
+        true_label_conf = 0.0
+        true_label_source = ""
         if bool(args.labels_from_parent_dir):
-            true_label = p.parent.name
+            true_label_raw = p.parent.name
+            true_label_source = "parent_dir"
+            true_label_conf = 1.0
+        elif bool(args.labels_from_filename) and filename_classifier is not None:
+            payload = filename_classifier.predict(p.name)
+            true_label_raw = str(payload.get("label") or "").strip()
+            true_label_source = "filename"
+            true_label_conf = _safe_float(payload.get("confidence"), 0.0)
+
+        if true_label_raw and true_label_conf >= float(args.true_label_min_confidence):
+            true_label = _canonical(true_label_raw, alias_map)
             true_counts[true_label] += 1
+            true_coverage += 1
 
         if status == "ok" and pred_label:
             pred_counts[pred_label] += 1
+            if pred_label_canon:
+                pred_canon_counts[pred_label_canon] += 1
             confs.append(pred_conf)
             conf_by_label[pred_label].append(pred_conf)
-            if true_label and pred_label == true_label:
-                correct_counts[true_label] += 1
+            if pred_label_canon:
+                conf_by_label_canon[pred_label_canon].append(pred_conf)
+            if true_label:
+                if pred_label_canon and pred_label_canon == true_label:
+                    correct_counts[true_label] += 1
+                elif pred_label_canon:
+                    confusion_counts[(true_label, pred_label_canon)] += 1
 
         rows.append(
             {
                 "file": p.name,
                 "true_label": true_label,
+                "true_label_raw": true_label_raw,
+                "true_label_confidence": f"{true_label_conf:.4f}",
+                "true_label_source": true_label_source,
                 "pred_label": pred_label,
+                "pred_label_canon": pred_label_canon,
                 "pred_confidence": f"{pred_conf:.4f}",
                 "status": status,
                 "temperature": f"{temperature:.4f}",
@@ -164,7 +257,7 @@ def main() -> int:
     elapsed_s = time.time() - t0
     ok = int(status_counts.get("ok", 0))
     acc = None
-    if bool(args.labels_from_parent_dir) and true_counts:
+    if (bool(args.labels_from_parent_dir) or bool(args.labels_from_filename)) and true_counts:
         total_labeled = sum(true_counts.values())
         correct_total = sum(correct_counts.values())
         acc = float(correct_total) / float(total_labeled) if total_labeled else 0.0
@@ -172,6 +265,12 @@ def main() -> int:
     conf_sorted = sorted(confs)
     conf_p50 = conf_sorted[len(conf_sorted) // 2] if conf_sorted else 0.0
     conf_p90 = conf_sorted[int(len(conf_sorted) * 0.9)] if conf_sorted else 0.0
+
+    top_confusions: List[Dict[str, Any]] = []
+    for (t, pred), count in confusion_counts.most_common(25):
+        top_confusions.append(
+            {"true_label": t, "pred_label": pred, "count": int(count)}
+        )
 
     summary: Dict[str, Any] = {
         "dxf_dir": (str(dxf_dir) if args.include_abs_paths else str(dxf_dir.name)),
@@ -181,12 +280,24 @@ def main() -> int:
         "status_counts": dict(status_counts),
         "label_map_size": len(getattr(clf, "label_map", {}) or {}),
         "top_pred_labels": _summarize_counts(pred_counts, topn=20),
+        "top_pred_labels_canon": _summarize_counts(pred_canon_counts, topn=20),
         "confidence": {
             "count": len(confs),
             "p50": round(conf_p50, 4),
             "p90": round(conf_p90, 4),
         },
+        "true_labels": {
+            "source": ("parent_dir" if args.labels_from_parent_dir else ("filename" if args.labels_from_filename else "")),
+            "min_confidence": float(args.true_label_min_confidence),
+            "coverage": int(true_coverage),
+            "coverage_rate": round(float(true_coverage) / float(len(files)), 6),
+            "distinct_count": len(true_counts),
+            "top_true_labels": _summarize_counts(true_counts, topn=20),
+        }
+        if (args.labels_from_parent_dir or args.labels_from_filename)
+        else None,
         "accuracy": acc,
+        "top_confusions": top_confusions if acc is not None else None,
         "per_class_accuracy": {
             label: {
                 "total": int(true_counts.get(label, 0)),
