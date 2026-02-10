@@ -3514,3 +3514,7 @@
   - Added unit coverage for distributed lock backends (`InMemoryLock`, `RedisLock`, `MultiLock`) and an additional multitenancy provisioning exception path.
   - Validation: `pytest -q tests/unit/test_distributed_lock_backends.py tests/unit/test_multitenancy_manager.py`
   - Report: `reports/DEV_UNIT_COVERAGE_DISTRIBUTED_LOCK_MULTITENANCY_20260210.md`
+- **Unit Coverage: Assistant Security + RBAC + Caching**:
+  - Expanded unit coverage for assistant security utilities, RBAC manager edge cases, and caching behavior.
+  - Validation: `pytest -q tests/unit/assistant/test_caching.py tests/unit/assistant/test_rbac.py tests/unit/assistant/test_assistant_security.py`
+  - Report: `reports/DEV_UNIT_COVERAGE_ASSISTANT_SECURITY_RBAC_CACHING_20260210.md`

@@ -580,3 +580,131 @@ class TestDefaultRoles:
         assert Permission.ADMIN_TENANT_MANAGE in perms
         assert Permission.API_RATE_UNLIMITED in perms
         assert Permission.KNOWLEDGE_DELETE in perms
+
+
+class TestRBACManagerEdgeCases:
+    """Tests for RBAC edge cases to improve coverage."""
+
+    @pytest.fixture
+    def rbac(self):
+        """Create an RBAC manager with default roles."""
+        rbac = RBACManager()
+        rbac.create_default_roles()
+        return rbac
+
+    def test_delete_role_nonexistent(self, rbac):
+        """Test deleting a role that doesn't exist returns False."""
+        result = rbac.delete_role("nonexistent_role")
+        assert result is False
+
+    def test_get_effective_permissions_nonexistent_role(self, rbac):
+        """Test get_effective_permissions for nonexistent role returns empty set."""
+        perms = rbac.get_effective_permissions("nonexistent_role")
+        assert perms == set()
+
+    def test_delete_user_nonexistent(self, rbac):
+        """Test deleting a user that doesn't exist returns False."""
+        result = rbac.delete_user("nonexistent_user")
+        assert result is False
+
+    def test_revoke_role_nonexistent_user(self, rbac):
+        """Test revoking role from nonexistent user returns False."""
+        result = rbac.revoke_role("nonexistent_user", "user")
+        assert result is False
+
+    def test_grant_permission_nonexistent_user(self, rbac):
+        """Test granting permission to nonexistent user returns False."""
+        result = rbac.grant_permission("nonexistent_user", Permission.API_ACCESS)
+        assert result is False
+
+    def test_deny_permission_nonexistent_user(self, rbac):
+        """Test denying permission to nonexistent user returns False."""
+        result = rbac.deny_permission("nonexistent_user", Permission.API_ACCESS)
+        assert result is False
+
+    def test_check_resource_access_missing_user(self, rbac):
+        """Test resource access check with nonexistent user returns False."""
+        rbac.register_resource("res-test", ResourceType.CONVERSATION, "some-owner")
+        result = rbac.check_resource_access("nonexistent_user", "res-test", Permission.CONVERSATION_READ)
+        assert result is False
+
+    def test_check_resource_access_missing_resource(self, rbac):
+        """Test resource access check with nonexistent resource returns False."""
+        rbac.create_user("u-test", "testuser")
+        result = rbac.check_resource_access("u-test", "nonexistent_resource", Permission.CONVERSATION_READ)
+        assert result is False
+
+    def test_check_resource_access_no_permission(self, rbac):
+        """Test resource access check when user lacks permission returns False."""
+        rbac.create_user("u-noperm", "noperm", tenant_id="t1")
+        # Don't assign any role
+        rbac.register_resource("res-perm", ResourceType.CONVERSATION, "other-owner", tenant_id="t1")
+
+        result = rbac.check_resource_access("u-noperm", "res-perm", Permission.CONVERSATION_READ)
+        assert result is False
+
+    def test_check_resource_access_with_policy(self, rbac):
+        """Test resource access with policy enforcement."""
+        rbac.create_user("u-policy", "policyuser", tenant_id="t1")
+        rbac.assign_role("u-policy", "user")
+
+        rbac.register_resource("res-policy", ResourceType.KNOWLEDGE, "other-owner", tenant_id="t1")
+
+        # Create a policy that requires KNOWLEDGE_CREATE for KNOWLEDGE resources
+        rbac.create_policy(
+            "knowledge_edit_policy",
+            "Requires create permission",
+            ResourceType.KNOWLEDGE,
+            {Permission.KNOWLEDGE_CREATE},
+            priority=10,
+        )
+
+        # User role doesn't have KNOWLEDGE_CREATE
+        result = rbac.check_resource_access("u-policy", "res-policy", Permission.KNOWLEDGE_READ)
+        assert result is False
+
+    def test_check_resource_access_with_policy_satisfied(self, rbac):
+        """Test resource access with policy requirements satisfied."""
+        rbac.create_user("u-policy-ok", "policyok", tenant_id="t1")
+        rbac.assign_role("u-policy-ok", "engineer")  # Has KNOWLEDGE_CREATE
+
+        rbac.register_resource("res-policy-ok", ResourceType.KNOWLEDGE, "other-owner", tenant_id="t1")
+
+        # Create a policy that requires KNOWLEDGE_CREATE
+        rbac.create_policy(
+            "knowledge_policy_ok",
+            "Requires create permission",
+            ResourceType.KNOWLEDGE,
+            {Permission.KNOWLEDGE_CREATE},
+            priority=5,
+        )
+
+        result = rbac.check_resource_access("u-policy-ok", "res-policy-ok", Permission.KNOWLEDGE_READ)
+        assert result is True
+
+
+class TestAccessContextEdgeCases:
+    """Tests for AccessContext edge cases."""
+
+    @pytest.fixture
+    def rbac_with_user(self):
+        """Create RBAC with a test user."""
+        rbac = RBACManager()
+        rbac.create_default_roles()
+        rbac.create_user("edge-user", "edgeuser")
+        rbac.assign_role("edge-user", "engineer")
+        return rbac
+
+    def test_can_without_cache(self, rbac_with_user):
+        """Test can() method without cached permissions."""
+        ctx = AccessContext(rbac_with_user, "edge-user")
+        # Don't enter context, so cache is not populated
+        result = ctx.can(Permission.KNOWLEDGE_CREATE)
+        assert result is True
+
+    def test_get_permissions_without_cache(self, rbac_with_user):
+        """Test get_permissions() method without cached permissions."""
+        ctx = AccessContext(rbac_with_user, "edge-user")
+        # Don't enter context, so cache is not populated
+        perms = ctx.get_permissions()
+        assert Permission.KNOWLEDGE_CREATE in perms

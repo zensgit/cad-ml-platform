@@ -35,6 +35,10 @@
 | `src/api/v1/drift.py` | 92% | **100%** | 8个 |
 | `src/ml/serving/router.py` | 87% | **99%** | 37个 |
 | `src/ml/vision_2d.py` | 59% | **81%** | 24个 |
+| `src/core/multitenancy/manager.py` | 94% | **100%** | 50个 |
+| `src/core/distributed_lock/backends.py` | 48% | **100%** | 53个 |
+| `src/core/assistant/security.py` | 38% | **100%** | 61个 |
+| `src/core/assistant/rbac.py` | 93% | **100%** | 14个 |
 
 ---
 
