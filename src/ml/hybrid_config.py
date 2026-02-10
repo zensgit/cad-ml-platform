@@ -83,6 +83,10 @@ class Graph2DConfig:
 
     enabled: bool = False
     min_confidence: float = 0.5
+    # Optional additional guardrail:
+    # require a minimum margin between top-1 and top-2 probabilities.
+    # This is disabled by default to avoid changing existing behavior.
+    min_margin: float = 0.0
     fusion_weight: float = 0.3
     exclude_labels: str = "other"
     allow_labels: str = ""
@@ -187,6 +191,7 @@ class HybridClassifierConfig:
             "graph2d": {
                 "enabled": self.graph2d.enabled,
                 "min_confidence": self.graph2d.min_confidence,
+                "min_margin": self.graph2d.min_margin,
                 "fusion_weight": self.graph2d.fusion_weight,
                 "exclude_labels": self.graph2d.exclude_labels,
                 "allow_labels": self.graph2d.allow_labels,
@@ -272,6 +277,9 @@ class HybridClassifierConfig:
             )
             self.graph2d.min_confidence = _to_float(
                 graph2d.get("min_confidence"), self.graph2d.min_confidence
+            )
+            self.graph2d.min_margin = _to_float(
+                graph2d.get("min_margin"), self.graph2d.min_margin
             )
             self.graph2d.fusion_weight = _to_float(
                 graph2d.get("fusion_weight"), self.graph2d.fusion_weight
@@ -416,6 +424,9 @@ class HybridClassifierConfig:
         )
         self.graph2d.min_confidence = _to_float(
             os.getenv("GRAPH2D_MIN_CONF"), self.graph2d.min_confidence
+        )
+        self.graph2d.min_margin = _to_float(
+            os.getenv("GRAPH2D_MIN_MARGIN"), self.graph2d.min_margin
         )
         self.graph2d.fusion_weight = _to_float(
             os.getenv("GRAPH2D_FUSION_WEIGHT"), self.graph2d.fusion_weight

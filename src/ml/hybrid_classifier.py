@@ -145,6 +145,11 @@ class HybridClassifier:
             explicit=graph2d_min_conf,
             default=self._config.graph2d.min_confidence,
         )
+        self.graph2d_min_margin = self._resolve_float(
+            "GRAPH2D_MIN_MARGIN",
+            explicit=None,
+            default=getattr(self._config.graph2d, "min_margin", 0.0),
+        )
         self.titleblock_min_conf = self._resolve_float(
             "TITLEBLOCK_MIN_CONF",
             explicit=titleblock_min_conf,
@@ -385,6 +390,13 @@ class HybridClassifier:
         graph2d_conf_raw = (
             float(graph2d_pred.get("confidence", 0)) if graph2d_pred else 0.0
         )
+        graph2d_margin_raw: Optional[float] = None
+        if graph2d_pred:
+            try:
+                if graph2d_pred.get("margin") is not None:
+                    graph2d_margin_raw = float(graph2d_pred.get("margin"))
+            except Exception:
+                graph2d_margin_raw = None
         graph2d_is_drawing_type = self._is_graph2d_drawing_type(graph2d_label_raw)
         if graph2d_pred:
             graph2d_pred = dict(graph2d_pred)
@@ -515,6 +527,20 @@ class HybridClassifier:
             if result.graph2d_prediction is not None:
                 result.graph2d_prediction["filtered"] = True
                 result.graph2d_prediction["filtered_reason"] = "below_min_conf"
+            graph2d_label = None
+            graph2d_conf = 0.0
+
+        effective_graph2d_min_margin = self.graph2d_min_margin
+        if (
+            graph2d_label
+            and graph2d_margin_raw is not None
+            and graph2d_margin_raw < effective_graph2d_min_margin
+        ):
+            result.decision_path.append("graph2d_below_min_margin_ignored")
+            if result.graph2d_prediction is not None:
+                result.graph2d_prediction["filtered"] = True
+                result.graph2d_prediction["filtered_reason"] = "below_min_margin"
+                result.graph2d_prediction["min_margin_effective"] = effective_graph2d_min_margin
             graph2d_label = None
             graph2d_conf = 0.0
 
