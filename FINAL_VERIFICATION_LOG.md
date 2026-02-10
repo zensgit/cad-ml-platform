@@ -3472,3 +3472,17 @@
     - `reports/experiments/20260210/batch_analyze_training_dxf_oda_masked_filename_no_titleblock_graph2d_distilled_temp05/summary.json`
     - `reports/experiments/20260210/batch_analyze_training_dxf_oda_masked_filename_no_titleblock_graph2d_distilled_temp05/label_distribution.csv`
   - Report: `reports/DEV_DXF_WORSTCASE_GRAPH2D_DISTILLED_FALLBACK_20260210.md`
+- **Graph2D Temperature Calibration (Anonymous DXF Gating)**:
+  - Added a temperature calibration utility for Graph2D to choose `GRAPH2D_TEMPERATURE` using a high-confidence precision objective (accuracy among samples with confidence above a threshold, with minimum accepted count).
+  - Produced a calibration JSON compatible with `GRAPH2D_TEMPERATURE_CALIBRATION_PATH`.
+  - Output:
+    - `models/calibration/graph2d_training_dxf_oda_titleblock_distill_20260210_temperature_20260210.json`
+    - `reports/experiments/20260210/graph2d_temperature_calibration/run_stdout.txt`
+  - Report: `reports/DEV_GRAPH2D_TEMPERATURE_CALIBRATION_20260210.md`
+- **Hybrid Graph2D Margin Guardrail**:
+  - Added optional `GRAPH2D_MIN_MARGIN` guardrail (top1-top2 margin) to prevent Hybrid from accepting ambiguous Graph2D fine-label predictions.
+  - Validation: added unit coverage for margin accept/reject paths.
+  - Report: `reports/DEV_GRAPH2D_MARGIN_GUARDRAIL_20260210.md`
+- **Custom Classifier Provider Workflow (Provider Framework)**:
+  - Documented the recommended workflow to integrate new/experimental part-recognition models via the core provider framework (`src/core/providers/`) to reduce merge risk and enable safe rollout via env flags.
+  - Report: `reports/DEV_CUSTOM_CLASSIFIER_PROVIDER_WORKFLOW_20260210.md`

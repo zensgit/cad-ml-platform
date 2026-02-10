@@ -23,6 +23,8 @@
 | `src/ml/part_classifier.py` | 1% | **37%** | 34个 (torch mock限制) |
 | `src/utils/logging.py` | 69% | **86%** | 25个 |
 | `src/utils/safe_eval.py` | 18% | **99%** | 54个 |
+| `src/utils/cache.py` | 38% | **94%** | 33个 |
+| `src/utils/circuit_breaker.py` | 27% | **100%** | 已有71个测试 |
 
 ---
 
@@ -59,6 +61,8 @@
 | `src/utils/dxf_features.py` | ~~71%~~ **100%** | ✅ 已完成 |
 | `src/utils/logging.py` | ~~69%~~ **86%** | ✅ 已优化 |
 | `src/utils/safe_eval.py` | ~~18%~~ **99%** | ✅ 已完成 |
+| `src/utils/cache.py` | ~~38%~~ **94%** | ✅ 已优化 |
+| `src/utils/circuit_breaker.py` | ~~27%~~ **100%** | ✅ 已完成 |
 
 ---
 
