@@ -3542,3 +3542,6 @@
   - Re-ran GB/T 1800.2-2020 hole EI extraction against the user-provided PDF and confirmed the extracted values match the repository data.
   - Validation: `python3 scripts/validate_iso286_hole_deviations.py`, `pytest -q tests/unit/knowledge/test_tolerance.py tests/unit/knowledge/test_iso286_hole_deviations_coverage.py tests/unit/knowledge/test_iso286_pdf_extract.py`
   - Report: `reports/DEV_ISO286_HOLE_DEVIATIONS_PDF_REVALIDATION_20260210.md`
+- **Knowledge Unit Tests**:
+  - Ran `make test-knowledge` and confirmed the knowledge suite passes cleanly (`183` tests, `0` failures).
+  - Report: `reports/DEV_KNOWLEDGE_TESTS_RUN_20260210.md`
