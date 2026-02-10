@@ -7,10 +7,8 @@ Supports ensemble voting with multiple models.
 
 from __future__ import annotations
 
-import json
 import logging
 import os
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
@@ -104,42 +102,11 @@ class Graph2DClassifier:
         }
 
     def _load_temperature(self) -> None:
-        temp_raw = os.getenv("GRAPH2D_TEMPERATURE")
-        if temp_raw:
-            try:
-                temp = float(temp_raw)
-                if temp > 0:
-                    self.temperature = temp
-                    self.temperature_source = "env"
-                else:
-                    logger.warning("GRAPH2D_TEMPERATURE must be > 0; got %s", temp_raw)
-            except ValueError:
-                logger.warning("Invalid GRAPH2D_TEMPERATURE=%s", temp_raw)
-            return
+        from src.ml.graph2d_temperature import load_graph2d_temperature_settings
 
-        calibration_path = os.getenv("GRAPH2D_TEMPERATURE_CALIBRATION_PATH")
-        if not calibration_path:
-            return
-        path = Path(calibration_path)
-        if not path.exists():
-            logger.warning("Graph2D calibration file not found: %s", path)
-            return
-        try:
-            payload = json.loads(path.read_text())
-        except json.JSONDecodeError as exc:
-            logger.warning("Failed to parse Graph2D calibration file: %s", exc)
-            return
-        temp = payload.get("temperature")
-        try:
-            temp_val = float(temp)
-        except (TypeError, ValueError):
-            logger.warning("Invalid temperature in calibration file: %s", temp)
-            return
-        if temp_val <= 0:
-            logger.warning("Calibration temperature must be > 0; got %s", temp_val)
-            return
-        self.temperature = temp_val
-        self.temperature_source = str(path)
+        temp, source = load_graph2d_temperature_settings()
+        self.temperature = float(temp)
+        self.temperature_source = source
 
     def _load_model(self) -> None:
         if not HAS_TORCH:

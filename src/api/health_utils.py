@@ -108,6 +108,15 @@ def build_health_payload(
 
         hybrid_cfg = get_hybrid_config()
         try:
+            from src.ml.graph2d_temperature import load_graph2d_temperature_settings
+
+            graph2d_temperature, graph2d_temperature_source = (
+                load_graph2d_temperature_settings()
+            )
+        except Exception:
+            graph2d_temperature, graph2d_temperature_source = 1.0, None
+
+        try:
             import importlib.util
 
             torch_available = importlib.util.find_spec("torch") is not None
@@ -154,6 +163,15 @@ def build_health_payload(
                 "graph2d_enabled": bool(hybrid_cfg.graph2d.enabled),
                 "titleblock_enabled": bool(hybrid_cfg.titleblock.enabled),
                 "process_enabled": bool(hybrid_cfg.process.enabled),
+                "graph2d_min_confidence": float(hybrid_cfg.graph2d.min_confidence),
+                "graph2d_min_margin": float(hybrid_cfg.graph2d.min_margin),
+                "graph2d_exclude_labels": str(hybrid_cfg.graph2d.exclude_labels),
+                "graph2d_allow_labels": str(hybrid_cfg.graph2d.allow_labels),
+                "graph2d_temperature": float(graph2d_temperature),
+                "graph2d_temperature_source": graph2d_temperature_source,
+                "graph2d_temperature_calibration_path": os.getenv(
+                    "GRAPH2D_TEMPERATURE_CALIBRATION_PATH"
+                ),
             },
             "sampling": {
                 "max_nodes": int(hybrid_cfg.sampling.max_nodes),

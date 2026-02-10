@@ -3491,3 +3491,12 @@
   - Fixed Graph2D ensemble `voting=soft` to average real per-class probabilities (instead of reconstructing distributions from `{label, confidence}`).
   - Adds `top2_confidence` + `margin` to ensemble outputs and falls back to hard voting on label-map mismatch.
   - Report: `reports/DEV_GRAPH2D_ENSEMBLE_SOFT_VOTING_FIX_20260210.md`
+- **Unit Coverage: ML Serving Router + Multitenancy**:
+  - Added unit suites for the in-process ML serving router and multitenancy manager; expanded Graph2D unit coverage.
+  - Validation: `pytest -q tests/unit/test_vision_2d_ensemble_voting.py tests/unit/test_ml_serving_router.py tests/unit/test_multitenancy_manager.py`
+  - Report: `reports/DEV_UNIT_COVERAGE_ROUTER_MULTITENANCY_20260210.md`
+- **Health Payload Ops Visibility (Graph2D + Provider Registry)**:
+  - Added torch-free Graph2D temperature loader and surfaced Graph2D guardrails + calibration metadata in the typed health payload.
+  - Preserved provider-registry `provider_classes` in `/health` and `/api/v1/health`.
+  - Validation: `pytest -q tests/unit/test_graph2d_temperature_loading.py tests/unit/test_vision_2d_ensemble_voting.py tests/unit/test_health_utils_coverage.py tests/unit/test_provider_registry_bootstrap.py`
+  - Report: `reports/DEV_HEALTH_PAYLOAD_GRAPH2D_OPS_VISIBILITY_20260210.md`

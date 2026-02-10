@@ -217,6 +217,29 @@ class TestBuildHealthPayload:
         assert monitoring["classifier_rate_limit_burst"] == 30
         assert monitoring["classifier_cache_max_size"] == 2000
 
+    def test_build_health_payload_includes_graph2d_ops_settings(self, monkeypatch):
+        """Health payload should include Graph2D gating + calibration settings."""
+        monkeypatch.setenv("GRAPH2D_MIN_MARGIN", "0.2")
+        monkeypatch.setenv("GRAPH2D_TEMPERATURE", "1.5")
+
+        from src.ml.hybrid_config import reset_config
+
+        reset_config()
+        try:
+            from src.api.health_utils import build_health_payload
+
+            payload = build_health_payload()
+        finally:
+            reset_config()
+
+        classification = payload["config"]["ml"]["classification"]
+        assert classification["graph2d_min_margin"] == pytest.approx(0.2, rel=1e-6)
+        assert classification["graph2d_temperature"] == pytest.approx(1.5, rel=1e-6)
+        assert classification["graph2d_temperature_source"] == "env"
+
+        core = payload["config"].get("core_providers") or {}
+        assert isinstance(core.get("provider_classes"), dict)
+
 
 class TestHealthResponseModel:
     """Tests verifying HealthResponse model integration."""

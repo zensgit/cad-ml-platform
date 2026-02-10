@@ -65,6 +65,13 @@ class HealthConfigMlClassification(BaseModel):
     graph2d_enabled: bool
     titleblock_enabled: bool
     process_enabled: bool
+    graph2d_min_confidence: Optional[float] = None
+    graph2d_min_margin: Optional[float] = None
+    graph2d_exclude_labels: Optional[str] = None
+    graph2d_allow_labels: Optional[str] = None
+    graph2d_temperature: Optional[float] = None
+    graph2d_temperature_source: Optional[str] = None
+    graph2d_temperature_calibration_path: Optional[str] = None
 
 
 class HealthConfigMlSampling(BaseModel):
@@ -86,6 +93,7 @@ class HealthConfigCoreProviders(BaseModel):
     total_providers: int
     domains: List[str]
     providers: Dict[str, List[str]]
+    provider_classes: Optional[Dict[str, Dict[str, str]]] = None
     bootstrap_timestamp: Optional[float] = None
 
 
