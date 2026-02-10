@@ -110,3 +110,51 @@ def test_analyze_dxf_graph2d_excluded_label_flag(monkeypatch):
     assert graph2d.get("label") == "other"
     assert graph2d.get("excluded") is True
 
+
+def test_analyze_dxf_graph2d_min_margin_blocks_soft_override(monkeypatch):
+    """When GRAPH2D_MIN_MARGIN is set and margin is low, soft-override should be ineligible."""
+
+    from src.core.analyzer import CADAnalyzer
+
+    async def _fake_classify_part(self, doc, features):  # noqa: ANN001, ANN201
+        return {
+            "type": "传动件",
+            "confidence": 0.2,
+            "sub_type": None,
+            "characteristics": [],
+            "rule_version": "v1",
+        }
+
+    class _StubGraph2D:
+        def predict_from_bytes(self, data, file_name):  # noqa: ANN001
+            return {
+                "label": "人孔",
+                "confidence": 0.92,
+                "margin": 0.01,
+                "top2_confidence": 0.91,
+                "status": "ok",
+            }
+
+    monkeypatch.setattr(CADAnalyzer, "classify_part", _fake_classify_part)
+    monkeypatch.setenv("GRAPH2D_ENABLED", "true")
+    monkeypatch.setenv("HYBRID_CLASSIFIER_ENABLED", "false")
+    monkeypatch.setenv("GRAPH2D_MIN_CONF", "0.0")
+    monkeypatch.setenv("GRAPH2D_MIN_MARGIN", "0.2")
+    monkeypatch.setenv("GRAPH2D_SOFT_OVERRIDE_MIN_CONF", "0.0")
+
+    monkeypatch.setattr(
+        "src.core.providers.classifier.Graph2DClassifierProviderAdapter._build_default_classifier",
+        lambda self: _StubGraph2D(),
+    )
+
+    resp = _post_minimal_dxf("UNKNOWNv1.dxf")
+    assert resp.status_code == 200, resp.text
+    payload = resp.json()
+    cls_payload = payload.get("results", {}).get("classification", {})
+    graph2d = cls_payload.get("graph2d_prediction") or {}
+    soft = cls_payload.get("soft_override_suggestion") or {}
+
+    assert graph2d.get("min_margin") == 0.2
+    assert graph2d.get("passed_margin") is False
+    assert soft.get("eligible") is False
+    assert soft.get("reason") == "below_margin"

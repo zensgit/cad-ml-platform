@@ -26,11 +26,26 @@ This is orthogonal to `GRAPH2D_MIN_CONF`:
 Default behavior:
 - `GRAPH2D_MIN_MARGIN=0.0` keeps existing behavior unchanged.
 
+## Analyze Endpoint Behavior
+`/api/v1/analyze` now also surfaces and applies the same guardrail fields on the
+Graph2D payload:
+- `graph2d_prediction.min_margin`
+- `graph2d_prediction.passed_margin`
+
+This is used to:
+- block `soft_override_suggestion` eligibility when `passed_margin=false`
+- prevent Graph2D from becoming a fusable L4 signal when `passed_margin=false`
+  (for `GRAPH2D_FUSION_ENABLED` / FusionAnalyzer paths)
+
 ## Verification
 Unit tests added:
 - `tests/unit/test_hybrid_classifier_graph2d_margin_guardrail.py`
   - margin below threshold is ignored
   - margin above threshold is accepted
+
+Integration test added (analyze contract):
+- `tests/integration/test_analyze_dxf_graph2d_prediction_contract.py`
+  - low-margin Graph2D blocks `soft_override_suggestion` with reason `below_margin`
 
 Example run:
 ```bash
@@ -41,4 +56,3 @@ python3 -m pytest tests/unit/test_hybrid_classifier_graph2d_margin_guardrail.py 
 Recommended usage for many-class Graph2D checkpoints:
 - Start with `GRAPH2D_MIN_MARGIN=0.01` and iterate based on a calibration set.
 - Use together with temperature scaling (`GRAPH2D_TEMPERATURE` or `..._CALIBRATION_PATH`).
-

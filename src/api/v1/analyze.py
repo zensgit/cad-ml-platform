@@ -1002,7 +1002,32 @@ async def analyze_cad_file(
                                     )
                                 except Exception:
                                     pass
+                            graph2d_min_margin = _safe_float_env(
+                                "GRAPH2D_MIN_MARGIN", 0.0
+                            )
+                            if "GRAPH2D_MIN_MARGIN" not in os.environ:
+                                try:
+                                    from src.ml.hybrid_config import get_config
+
+                                    graph2d_min_margin = float(
+                                        getattr(get_config().graph2d, "min_margin", 0.0)
+                                    )
+                                except Exception:
+                                    pass
                             graph2d_conf = float(graph2d_result.get("confidence", 0.0))
+                            graph2d_margin_raw = None
+                            try:
+                                if graph2d_result.get("margin") is not None:
+                                    graph2d_margin_raw = float(
+                                        graph2d_result.get("margin")
+                                    )
+                            except Exception:
+                                graph2d_margin_raw = None
+                            graph2d_passed_margin = True
+                            if graph2d_margin_raw is not None:
+                                graph2d_passed_margin = (
+                                    graph2d_margin_raw >= graph2d_min_margin
+                                )
                             graph2d_allow_raw = os.getenv("GRAPH2D_ALLOW_LABELS", "").strip()
                             graph2d_exclude_raw = os.getenv("GRAPH2D_EXCLUDE_LABELS", "").strip()
 
@@ -1053,6 +1078,8 @@ async def analyze_cad_file(
                             graph2d_result["passed_threshold"] = (
                                 graph2d_conf >= graph2d_min_conf
                             )
+                            graph2d_result["min_margin"] = graph2d_min_margin
+                            graph2d_result["passed_margin"] = graph2d_passed_margin
                             graph2d_result["excluded"] = (
                                 graph2d_label in graph2d_exclude
                             )
@@ -1065,6 +1092,7 @@ async def analyze_cad_file(
                             cls_payload["graph2d_prediction"] = graph2d_result
                             if (
                                 graph2d_result["passed_threshold"]
+                                and graph2d_result.get("passed_margin", True)
                                 and graph2d_allowed
                                 and not graph2d_result["excluded"]
                                 and not graph2d_is_drawing_type
@@ -1281,6 +1309,10 @@ async def analyze_cad_file(
                     graph2d_conf = float(graph2d_result.get("confidence", 0.0))
                     graph2d_allowed = bool(graph2d_result.get("allowed", True))
                     graph2d_excluded = bool(graph2d_result.get("excluded", False))
+                    graph2d_passed_margin = bool(
+                        graph2d_result.get("passed_margin", True)
+                    )
+                    graph2d_min_margin = float(graph2d_result.get("min_margin", 0.0) or 0.0)
                     graph2d_is_drawing_type = bool(
                         graph2d_result.get("is_drawing_type", False)
                     )
@@ -1307,12 +1339,17 @@ async def analyze_cad_file(
                     elif graph2d_is_coarse_label:
                         eligible = False
                         reason = "graph2d_coarse_label"
+                    elif not graph2d_passed_margin:
+                        eligible = False
+                        reason = "below_margin"
                     elif graph2d_conf < soft_override_min_conf:
                         eligible = False
                         reason = "below_threshold"
                     soft_override_suggestion = {
                         "eligible": eligible,
                         "threshold": soft_override_min_conf,
+                        "min_margin": graph2d_min_margin,
+                        "passed_margin": graph2d_passed_margin,
                         "label": graph2d_label,
                         "confidence": graph2d_conf,
                         "reason": reason,

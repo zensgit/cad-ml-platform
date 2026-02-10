@@ -3481,6 +3481,7 @@
   - Report: `reports/DEV_GRAPH2D_TEMPERATURE_CALIBRATION_20260210.md`
 - **Hybrid Graph2D Margin Guardrail**:
   - Added optional `GRAPH2D_MIN_MARGIN` guardrail (top1-top2 margin) to prevent Hybrid from accepting ambiguous Graph2D fine-label predictions.
+  - Also applied the same margin signal to `/api/v1/analyze` Graph2D payload and soft-override gating (`passed_margin`, `below_margin`).
   - Validation: added unit coverage for margin accept/reject paths.
   - Report: `reports/DEV_GRAPH2D_MARGIN_GUARDRAIL_20260210.md`
 - **Custom Classifier Provider Workflow (Provider Framework)**:
