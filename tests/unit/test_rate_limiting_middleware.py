@@ -462,3 +462,203 @@ class TestConcurrentRequests:
         # Only 5 should succeed
         allowed_count = sum(1 for allowed, _, _ in results if allowed)
         assert allowed_count == 5
+
+
+class TestAdditionalCoverage:
+    """Additional tests to improve coverage."""
+
+    @pytest.mark.asyncio
+    async def test_local_cleanup_old_requests(self):
+        """Test local fallback cleans up old requests after 1 second."""
+        from src.api.middleware.rate_limiting import (
+            RateLimitConfig,
+            SlidingWindowRateLimiter,
+        )
+
+        limiter = SlidingWindowRateLimiter()
+        config = RateLimitConfig(max_requests=10, window_seconds=60)
+
+        with patch("src.api.middleware.rate_limiting.get_client", return_value=None):
+            # Make first request
+            await limiter.check("cleanup_test", config, cost=1)
+
+            # Simulate time passing (>1 second for cleanup trigger)
+            key = limiter._get_key("cleanup_test")
+            window = limiter._local_windows.get(key)
+            if window:
+                window["last_cleanup"] = time.time() - 2.0  # Force cleanup on next check
+                # Add an old request that should be cleaned up
+                old_ts = time.time() - config.window_seconds - 10
+                window["requests"].append(old_ts)
+
+            # Make another request - this should trigger cleanup
+            allowed, current, remaining = await limiter.check("cleanup_test", config, cost=1)
+
+        assert allowed is True
+        # Old request should have been cleaned up
+        assert current == 2  # Only the two new requests
+
+    def test_identifier_resolver_with_user_id(self):
+        """Test default identifier resolver includes user ID."""
+        from src.api.middleware.rate_limiting import RateLimitMiddleware
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.client.host = "192.168.1.1"
+
+        def mock_get(key, default=None):
+            if key == "X-User-ID":
+                return "user123"
+            return default
+
+        mock_request.headers.get = mock_get
+
+        # Create a real middleware instance
+        app = MagicMock()
+        middleware = RateLimitMiddleware(app)
+
+        identifier = middleware._default_identifier_resolver(mock_request)
+
+        assert "ip:192.168.1.1" in identifier
+        assert "user:user123" in identifier
+
+    def test_identifier_resolver_with_tenant_id(self):
+        """Test default identifier resolver includes tenant ID."""
+        from src.api.middleware.rate_limiting import RateLimitMiddleware
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.client.host = "10.0.0.1"
+
+        def mock_get(key, default=None):
+            if key == "X-Tenant-ID":
+                return "tenant456"
+            return default
+
+        mock_request.headers.get = mock_get
+
+        app = MagicMock()
+        middleware = RateLimitMiddleware(app)
+
+        identifier = middleware._default_identifier_resolver(mock_request)
+
+        assert "ip:10.0.0.1" in identifier
+        assert "tenant:tenant456" in identifier
+
+    def test_identifier_resolver_with_user_and_tenant(self):
+        """Test default identifier resolver includes both user and tenant ID."""
+        from src.api.middleware.rate_limiting import RateLimitMiddleware
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.client.host = "10.0.0.1"
+
+        def mock_get(key, default=None):
+            if key == "X-User-ID":
+                return "user789"
+            if key == "X-Tenant-ID":
+                return "tenant456"
+            return default
+
+        mock_request.headers.get = mock_get
+
+        app = MagicMock()
+        middleware = RateLimitMiddleware(app)
+
+        identifier = middleware._default_identifier_resolver(mock_request)
+
+        assert "ip:10.0.0.1" in identifier
+        assert "user:user789" in identifier
+        assert "tenant:tenant456" in identifier
+
+    def test_get_endpoint_cost_exact_match(self):
+        """Test _get_endpoint_cost with exact path match."""
+        from src.api.middleware.rate_limiting import RateLimitMiddleware
+
+        middleware = RateLimitMiddleware.__new__(RateLimitMiddleware)
+        middleware.endpoint_costs = {
+            "/api/v1/ocr/extract": 5,
+            "/api/v1/vision/analyze": 10,
+        }
+
+        # Exact match
+        cost = middleware._get_endpoint_cost("/api/v1/ocr/extract", "GET")
+        assert cost == 5
+
+    def test_get_endpoint_cost_prefix_match(self):
+        """Test _get_endpoint_cost with prefix path match."""
+        from src.api.middleware.rate_limiting import RateLimitMiddleware
+
+        middleware = RateLimitMiddleware.__new__(RateLimitMiddleware)
+        middleware.endpoint_costs = {
+            "/api/v1/ocr": 3,  # Prefix
+        }
+
+        # Prefix match - /api/v1/ocr/something starts with /api/v1/ocr
+        cost = middleware._get_endpoint_cost("/api/v1/ocr/something", "GET")
+        assert cost == 3
+
+    def test_rate_limit_exceeded_returns_429(self):
+        """Test rate limit exceeded returns 429 response with headers."""
+        from src.api.middleware.rate_limiting import (
+            RateLimitConfig,
+            RateLimitMiddleware,
+            RateLimitTier,
+        )
+
+        app = FastAPI()
+
+        @app.get("/test")
+        async def test_endpoint():
+            return {"status": "ok"}
+
+        app.add_middleware(RateLimitMiddleware)
+
+        client = TestClient(app)
+
+        # Create a very low limit config
+        low_limit_config = {RateLimitTier.ANONYMOUS: RateLimitConfig(max_requests=2)}
+
+        with patch("src.api.middleware.rate_limiting.get_client", return_value=None):
+            with patch("src.api.middleware.rate_limiting.ocr_rate_limited_total"):
+                # Use custom middleware with low limit
+                app2 = FastAPI()
+
+                @app2.get("/test")
+                async def test_endpoint2():
+                    return {"status": "ok"}
+
+                app2.add_middleware(
+                    RateLimitMiddleware,
+                    tier_configs={RateLimitTier.ANONYMOUS: RateLimitConfig(max_requests=2)},
+                )
+
+                client2 = TestClient(app2)
+
+                # First two requests should succeed
+                resp1 = client2.get("/test")
+                resp2 = client2.get("/test")
+                assert resp1.status_code == 200
+                assert resp2.status_code == 200
+
+                # Third request should be blocked
+                resp3 = client2.get("/test")
+                assert resp3.status_code == 429
+                assert "Retry-After" in resp3.headers
+                assert resp3.json()["detail"] == "Rate limit exceeded. Please retry later."
+
+    def test_tier_resolution_pro(self):
+        """Test pro tier from header."""
+        from src.api.middleware.rate_limiting import RateLimitMiddleware, RateLimitTier
+
+        app = FastAPI()
+
+        @app.get("/test")
+        async def test_endpoint():
+            return {"status": "ok"}
+
+        app.add_middleware(RateLimitMiddleware)
+        client = TestClient(app)
+
+        with patch("src.api.middleware.rate_limiting.get_client", return_value=None):
+            response = client.get("/test", headers={"X-Tenant-Tier": "pro"})
+
+        assert response.headers["X-RateLimit-Tier"] == RateLimitTier.PRO.value
+

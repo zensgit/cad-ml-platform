@@ -27,6 +27,12 @@
 | `src/utils/circuit_breaker.py` | 27% | **100%** | 已有71个测试 |
 | `src/utils/dxf_io.py` | 80% | **100%** | 12个 |
 | `src/security/input_validator.py` | 76% | **95%** | 62个 |
+| `src/utils/analysis_result_store.py` | 77% | **95%** | 27个 |
+| `src/api/health_utils.py` | 83% | **97%** | 16个 |
+| `src/core/active_learning.py` | 81% | **100%** | 14个 |
+| `src/api/health_resilience.py` | 89% | **100%** | 11个 |
+| `src/api/middleware/rate_limiting.py` | 92% | **100%** | 8个 |
+| `src/api/v1/drift.py` | 92% | **100%** | 8个 |
 
 ---
 

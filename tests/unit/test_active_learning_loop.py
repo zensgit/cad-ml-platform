@@ -111,3 +111,115 @@ class TestActiveLearningLoop:
 
         # Verify status update
         assert self.learner._samples[sample.id].status == SampleStatus.EXPORTED
+
+
+class TestActiveLearningLoadSamples:
+    """Tests for _load_samples functionality."""
+
+    def test_load_samples_from_existing_file(self, tmp_path, monkeypatch):
+        """Test loading samples from existing file on init."""
+        reset_active_learner()
+
+        data_dir = tmp_path / "active_learning"
+        data_dir.mkdir(parents=True)
+
+        # Create a samples file with existing data
+        samples_file = data_dir / "samples.jsonl"
+        sample_data = {
+            "id": "existing-sample-123",
+            "doc_id": "doc_from_file",
+            "predicted_type": "washer",
+            "confidence": 0.7,
+            "alternatives": [],
+            "score_breakdown": {},
+            "uncertainty_reason": "test_load",
+            "status": "pending",
+            "true_type": None,
+            "reviewer_id": None,
+            "feedback_time": None,
+            "created_at": "2024-01-01T00:00:00",
+        }
+        with open(samples_file, "w") as f:
+            f.write(json.dumps(sample_data) + "\n")
+
+        monkeypatch.setenv("ACTIVE_LEARNING_DATA_DIR", str(data_dir))
+        monkeypatch.setenv("ACTIVE_LEARNING_STORE", "file")
+
+        # Create learner - should load existing samples
+        learner = ActiveLearner()
+
+        assert "existing-sample-123" in learner._samples
+        assert learner._samples["existing-sample-123"].doc_id == "doc_from_file"
+
+        reset_active_learner()
+
+    def test_load_samples_empty_lines_skipped(self, tmp_path, monkeypatch):
+        """Test that empty lines in samples file are skipped."""
+        reset_active_learner()
+
+        data_dir = tmp_path / "active_learning"
+        data_dir.mkdir(parents=True)
+
+        samples_file = data_dir / "samples.jsonl"
+        sample_data = {
+            "id": "sample-with-gaps",
+            "doc_id": "doc1",
+            "predicted_type": "bolt",
+            "confidence": 0.8,
+            "alternatives": [],
+            "score_breakdown": {},
+            "uncertainty_reason": "test",
+            "status": "pending",
+            "true_type": None,
+            "reviewer_id": None,
+            "feedback_time": None,
+            "created_at": "2024-01-01T00:00:00",
+        }
+        with open(samples_file, "w") as f:
+            f.write("\n")  # Empty line
+            f.write(json.dumps(sample_data) + "\n")
+            f.write("   \n")  # Whitespace only
+            f.write("\n")  # Another empty line
+
+        monkeypatch.setenv("ACTIVE_LEARNING_DATA_DIR", str(data_dir))
+        monkeypatch.setenv("ACTIVE_LEARNING_STORE", "file")
+
+        learner = ActiveLearner()
+
+        assert len(learner._samples) == 1
+        assert "sample-with-gaps" in learner._samples
+
+        reset_active_learner()
+
+    def test_memory_store_does_not_load_file(self, tmp_path, monkeypatch):
+        """Test that memory store doesn't try to load from file."""
+        reset_active_learner()
+
+        data_dir = tmp_path / "active_learning"
+        # Don't create the directory
+
+        monkeypatch.setenv("ACTIVE_LEARNING_DATA_DIR", str(data_dir))
+        monkeypatch.setenv("ACTIVE_LEARNING_STORE", "memory")
+
+        # Should not fail even though directory doesn't exist
+        learner = ActiveLearner()
+
+        assert len(learner._samples) == 0
+        # Directory should not be created for memory store
+        assert not data_dir.exists()
+
+        reset_active_learner()
+
+    def test_default_data_dir_uses_tempdir(self, monkeypatch):
+        """Test that default data dir uses tempdir when env not set."""
+        reset_active_learner()
+
+        monkeypatch.delenv("ACTIVE_LEARNING_DATA_DIR", raising=False)
+        monkeypatch.setenv("ACTIVE_LEARNING_STORE", "memory")
+
+        learner = ActiveLearner()
+
+        assert "active_learning" in str(learner._data_dir)
+
+        reset_active_learner()
+

@@ -229,6 +229,233 @@ class TestResilienceHealth:
         assert metrics["circuit_breaker_open_ratio"] == pytest.approx(0.33, 0.01)
 
 
+class TestAdditionalCoverage:
+    """Additional tests to improve coverage."""
+
+    def test_register_adaptive_rate_limiter(self):
+        """Test register_adaptive_rate_limiter method."""
+        collector = ResilienceHealthCollector()
+
+        class MockAdaptiveLimiter:
+            def get_status(self):
+                return {
+                    "phase": "normal",
+                    "base_rate": 100,
+                    "current_rate": 80,
+                    "error_ema": 0.01,
+                    "tokens_available": 50,
+                    "consecutive_failures": 2,
+                    "in_cooldown": False,
+                    "recent_adjustments": ["adj1", "adj2"],
+                }
+
+        limiter = MockAdaptiveLimiter()
+        collector.register_adaptive_rate_limiter("adaptive_test", limiter)
+
+        assert "adaptive_test" in collector.adaptive_rate_limiters
+        assert collector.adaptive_rate_limiters["adaptive_test"] is limiter
+
+    def test_format_adaptive_rate_limiters_with_get_status(self):
+        """Test _format_adaptive_rate_limiters when limiter has get_status."""
+        collector = ResilienceHealthCollector()
+
+        class MockAdaptiveLimiter:
+            def get_status(self):
+                return {
+                    "phase": "recovery",
+                    "base_rate": 200,
+                    "current_rate": 150,
+                    "error_ema": 0.02,
+                    "tokens_available": 75,
+                    "consecutive_failures": 0,
+                    "in_cooldown": True,
+                    "recent_adjustments": [],
+                }
+
+        collector.register_adaptive_rate_limiter("limiter1", MockAdaptiveLimiter())
+
+        status = collector.get_health_status()
+        adaptive_rl = status["resilience"]["adaptive_rate_limit"]
+
+        assert "limiter1" in adaptive_rl
+        assert adaptive_rl["limiter1"]["phase"] == "recovery"
+        assert adaptive_rl["limiter1"]["base_rate"] == 200
+        assert adaptive_rl["limiter1"]["current_rate"] == 150
+        assert adaptive_rl["limiter1"]["in_cooldown"] is True
+
+    def test_format_adaptive_rate_limiters_without_get_status(self):
+        """Test _format_adaptive_rate_limiters when limiter has no get_status."""
+        collector = ResilienceHealthCollector()
+
+        class MockLimiterNoStatus:
+            pass
+
+        collector.register_adaptive_rate_limiter("no_status", MockLimiterNoStatus())
+
+        status = collector.get_health_status()
+        adaptive_rl = status["resilience"]["adaptive_rate_limit"]
+
+        # Should not include limiter without get_status
+        assert "no_status" not in adaptive_rl
+
+    def test_format_retry_policies_with_data(self):
+        """Test _format_retry_policies with actual retry policy data."""
+        from src.api.health_resilience import RetryPolicyStatus
+
+        collector = ResilienceHealthCollector()
+
+        # Add retry policies
+        collector.retry_policies = {
+            "api_retry": RetryPolicyStatus(
+                name="api_retry",
+                max_attempts=3,
+                current_attempt=1,
+                strategy="exponential",
+                base_delay=1.0,
+                total_retries=100,
+                successful_retries=85,
+            ),
+            "db_retry": RetryPolicyStatus(
+                name="db_retry",
+                max_attempts=5,
+                current_attempt=0,
+                strategy="linear",
+                base_delay=0.5,
+                total_retries=0,  # No retries yet
+                successful_retries=0,
+            ),
+        }
+
+        status = collector.get_health_status()
+        rp = status["resilience"]["retry_policies"]
+
+        assert "api_retry" in rp
+        assert rp["api_retry"]["max_attempts"] == 3
+        assert rp["api_retry"]["strategy"] == "exponential"
+        assert rp["api_retry"]["total_retries"] == 100
+        assert rp["api_retry"]["success_rate"] == 0.85
+
+        assert "db_retry" in rp
+        assert rp["db_retry"]["success_rate"] == 0  # No retries, so 0
+
+    def test_format_bulkheads_with_data(self):
+        """Test _format_bulkheads with actual bulkhead data."""
+        from src.api.health_resilience import BulkheadStatus
+
+        collector = ResilienceHealthCollector()
+
+        collector.bulkheads = {
+            "api_bulkhead": BulkheadStatus(
+                name="api_bulkhead",
+                max_concurrent=10,
+                current_concurrent=7,
+                queued_calls=3,
+                rejected_calls=5,
+                pool_type="thread",
+            ),
+            "db_bulkhead": BulkheadStatus(
+                name="db_bulkhead",
+                max_concurrent=5,
+                current_concurrent=5,
+                queued_calls=10,
+                rejected_calls=20,
+                pool_type="process",
+            ),
+        }
+
+        status = collector.get_health_status()
+        bh = status["resilience"]["bulkheads"]
+
+        assert "api_bulkhead" in bh
+        assert bh["api_bulkhead"]["max_concurrent"] == 10
+        assert bh["api_bulkhead"]["current_concurrent"] == 7
+        assert bh["api_bulkhead"]["utilization"] == 0.7
+        assert bh["api_bulkhead"]["queued"] == 3
+        assert bh["api_bulkhead"]["rejected"] == 5
+
+        assert "db_bulkhead" in bh
+        assert bh["db_bulkhead"]["utilization"] == 1.0
+
+    def test_collect_metrics_with_adaptive_limiters(self):
+        """Test _collect_metrics includes adaptive limiter phases."""
+        collector = ResilienceHealthCollector()
+
+        class MockAdaptiveLimiter:
+            def __init__(self, phase):
+                self._phase = phase
+
+            def get_status(self):
+                return {"phase": self._phase}
+
+        collector.register_adaptive_rate_limiter("limiter1", MockAdaptiveLimiter("normal"))
+        collector.register_adaptive_rate_limiter("limiter2", MockAdaptiveLimiter("normal"))
+        collector.register_adaptive_rate_limiter("limiter3", MockAdaptiveLimiter("recovery"))
+
+        status = collector.get_health_status()
+        metrics = status["resilience"]["metrics"]
+
+        assert "adaptive_limiter_phases" in metrics
+        assert metrics["adaptive_limiter_phases"]["normal"] == 2
+        assert metrics["adaptive_limiter_phases"]["recovery"] == 1
+
+    def test_collect_metrics_bulkhead_rejections(self):
+        """Test _collect_metrics sums bulkhead rejections."""
+        from src.api.health_resilience import BulkheadStatus
+
+        collector = ResilienceHealthCollector()
+
+        collector.bulkheads = {
+            "bh1": BulkheadStatus("bh1", 10, 5, 0, 10),
+            "bh2": BulkheadStatus("bh2", 10, 5, 0, 15),
+        }
+
+        status = collector.get_health_status()
+        metrics = status["resilience"]["metrics"]
+
+        assert metrics["bulkhead_rejections"] == 25
+
+
+class TestUpdateResilienceMetrics:
+    """Tests for update_resilience_metrics function."""
+
+    def test_update_resilience_metrics_circuit_breaker(self):
+        """Test update_resilience_metrics with circuit_breaker component."""
+        from src.api.health_resilience import update_resilience_metrics
+
+        # Should not raise
+        update_resilience_metrics("circuit_breaker", name="test", state="open")
+
+    def test_update_resilience_metrics_rate_limiter(self):
+        """Test update_resilience_metrics with rate_limiter component."""
+        from src.api.health_resilience import update_resilience_metrics
+
+        # Should not raise
+        update_resilience_metrics("rate_limiter", name="test", tokens=50)
+
+    def test_update_resilience_metrics_adaptive(self):
+        """Test update_resilience_metrics with adaptive component."""
+        from src.api.health_resilience import resilience_collector, update_resilience_metrics
+
+        # Reset state
+        resilience_collector.adaptive_status.adjustment_count = 0
+
+        update_resilience_metrics(
+            "adaptive", enabled=True, rate_multiplier=0.9, error_rate=0.02
+        )
+
+        assert resilience_collector.adaptive_status.enabled is True
+        assert resilience_collector.adaptive_status.current_rate_multiplier == 0.9
+        assert resilience_collector.adaptive_status.actual_error_rate == 0.02
+        assert resilience_collector.adaptive_status.adjustment_count == 1
+
+    def test_update_resilience_metrics_unknown_component(self):
+        """Test update_resilience_metrics with unknown component."""
+        from src.api.health_resilience import update_resilience_metrics
+
+        # Should not raise for unknown component
+        update_resilience_metrics("unknown_component", foo="bar")
+
+
 class TestIntegration:
     """集成测试"""
 
