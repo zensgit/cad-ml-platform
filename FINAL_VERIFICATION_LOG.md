@@ -3546,6 +3546,9 @@
   - Re-ran GB/T 1800.2-2020 hole+shaft limit deviation extraction against the user-provided PDF and confirmed the extracted tables match the current repository data.
   - Validation: `python3 scripts/validate_iso286_deviations.py --spot-check`
   - Report: `reports/DEV_ISO286_DEVIATIONS_PDF_REVALIDATION_20260210.md`
+- **ISO286 Makefile Fast Validation**:
+  - Added `make validate-iso286` for quick validation of ISO286/GB-T 1800 deviation artifacts.
+  - Report: `reports/DEV_MAKE_VALIDATE_ISO286_20260210.md`
 - **Knowledge Unit Tests**:
   - Ran `make test-knowledge` and confirmed the knowledge suite passes cleanly (`183` tests, `0` failures).
   - Report: `reports/DEV_KNOWLEDGE_TESTS_RUN_20260210.md`

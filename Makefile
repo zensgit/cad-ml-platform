@@ -6,7 +6,7 @@
 	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted e2e-smoke \
 	dedup2d-secure-smoke chrome-devtools cdp-console-demo cdp-network-demo cdp-perf-demo cdp-response-demo \
 	cdp-screenshot-demo cdp-trace-demo playwright-console-demo playwright-trace-demo playwright-install \
-	uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap
+	uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local
 
 # 默认目标
@@ -82,6 +82,11 @@ test-all-local: ## 自动起停本地 API 后运行全量 tests
 test-knowledge: ## 运行知识库相关测试
 	@echo "$(GREEN)Running knowledge tests...$(NC)"
 	$(PYTEST) $(TEST_DIR)/unit/knowledge -v --junitxml=reports/junit-knowledge.xml
+
+validate-iso286: ## 验证 ISO286/GB-T 1800 偏差表数据（快速）
+	@echo "$(GREEN)Validating ISO286 deviation tables...$(NC)"
+	$(PYTHON) scripts/validate_iso286_deviations.py --spot-check
+	$(PYTHON) scripts/validate_iso286_hole_deviations.py
 
 test-dedupcad-vision: ## 运行测试（依赖 DedupCAD Vision 已启动）
 	@echo "$(GREEN)Running tests with DedupCAD Vision required...$(NC)"
