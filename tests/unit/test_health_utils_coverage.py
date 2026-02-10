@@ -240,6 +240,39 @@ class TestBuildHealthPayload:
         core = payload["config"].get("core_providers") or {}
         assert isinstance(core.get("provider_classes"), dict)
 
+    def test_build_health_payload_includes_graph2d_ensemble_settings(
+        self, monkeypatch, tmp_path
+    ):
+        """Health payload should include Graph2D ensemble configuration."""
+        model_a = tmp_path / "graph2d_a.pth"
+        model_b = tmp_path / "graph2d_b.pth"
+        model_a.write_text("stub", encoding="utf-8")
+        model_b.write_text("stub", encoding="utf-8")
+
+        monkeypatch.setenv("GRAPH2D_ENSEMBLE_ENABLED", "true")
+        monkeypatch.setenv(
+            "GRAPH2D_ENSEMBLE_MODELS", f"{model_a},{model_b}"
+        )
+
+        from src.ml.hybrid_config import reset_config
+
+        reset_config()
+        try:
+            from src.api.health_utils import build_health_payload
+
+            payload = build_health_payload()
+        finally:
+            reset_config()
+
+        classification = payload["config"]["ml"]["classification"]
+        assert classification["graph2d_ensemble_enabled"] is True
+        assert classification["graph2d_ensemble_models_configured"] == 2
+        assert classification["graph2d_ensemble_models_present"] == 2
+        assert classification["graph2d_ensemble_models"] == [
+            "graph2d_a.pth",
+            "graph2d_b.pth",
+        ]
+
 
 class TestHealthResponseModel:
     """Tests verifying HealthResponse model integration."""

@@ -3500,3 +3500,13 @@
   - Preserved provider-registry `provider_classes` in `/health` and `/api/v1/health`.
   - Validation: `pytest -q tests/unit/test_graph2d_temperature_loading.py tests/unit/test_vision_2d_ensemble_voting.py tests/unit/test_health_utils_coverage.py tests/unit/test_provider_registry_bootstrap.py`
   - Report: `reports/DEV_HEALTH_PAYLOAD_GRAPH2D_OPS_VISIBILITY_20260210.md`
+- **Core Provider Plugin Bootstrap (Provider Framework)**:
+  - Added `CORE_PROVIDER_PLUGINS` / `CORE_PROVIDER_PLUGINS_STRICT` to allow best-effort dynamic provider registration without editing the built-in bootstrap list.
+  - Snapshot now includes `plugins` metadata for debugging.
+  - Validation: `pytest -q tests/unit/test_provider_registry_plugins.py tests/unit/test_provider_registry_bootstrap.py`
+  - Report: `reports/DEV_CORE_PROVIDER_PLUGIN_BOOTSTRAP_20260210.md`
+- **Graph2D Ensemble Ops Visibility (Health Payload)**:
+  - Added `GRAPH2D_ENSEMBLE_ENABLED` / `GRAPH2D_ENSEMBLE_MODELS` to `.env.example` and exposed ensemble settings in the typed health payload.
+  - Aligned HybridClassifier Graph2D lazy-loader with the ensemble flag for non-API code paths.
+  - Validation: `pytest -q tests/unit/test_health_utils_coverage.py tests/unit/test_graph2d_temperature_loading.py tests/unit/test_vision_2d_ensemble_voting.py`
+  - Report: `reports/DEV_GRAPH2D_ENSEMBLE_HEALTH_VISIBILITY_20260210.md`

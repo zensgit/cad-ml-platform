@@ -225,9 +225,18 @@ class HybridClassifier:
         """懒加载 Graph2DClassifier"""
         if self._graph2d_classifier is None:
             try:
-                from src.ml.vision_2d import get_2d_classifier
+                graph2d_ensemble_enabled = (
+                    os.getenv("GRAPH2D_ENSEMBLE_ENABLED", "false").strip().lower()
+                    == "true"
+                )
+                if graph2d_ensemble_enabled:
+                    from src.ml.vision_2d import get_ensemble_2d_classifier
 
-                self._graph2d_classifier = get_2d_classifier()
+                    self._graph2d_classifier = get_ensemble_2d_classifier()
+                else:
+                    from src.ml.vision_2d import get_2d_classifier
+
+                    self._graph2d_classifier = get_2d_classifier()
             except Exception as e:
                 logger.warning(f"Graph2D classifier not available: {e}")
                 self._graph2d_classifier = None

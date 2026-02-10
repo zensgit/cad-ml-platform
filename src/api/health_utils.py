@@ -116,6 +116,28 @@ def build_health_payload(
         except Exception:
             graph2d_temperature, graph2d_temperature_source = 1.0, None
 
+        graph2d_ensemble_enabled = (
+            os.getenv("GRAPH2D_ENSEMBLE_ENABLED", "false").strip().lower() == "true"
+        )
+        graph2d_ensemble_models_raw = os.getenv("GRAPH2D_ENSEMBLE_MODELS", "").strip()
+        if graph2d_ensemble_models_raw:
+            graph2d_ensemble_paths = [
+                p.strip()
+                for p in graph2d_ensemble_models_raw.split(",")
+                if p.strip()
+            ]
+        else:
+            # Match `src/ml/vision_2d.py` defaults so ops can observe what would be used
+            # if GRAPH2D_ENSEMBLE_ENABLED is flipped on without further config.
+            graph2d_ensemble_paths = [
+                "models/graph2d_edge_sage_v3.pth",
+                "models/graph2d_edge_sage_v4_best.pth",
+            ]
+        graph2d_ensemble_models = [os.path.basename(p) for p in graph2d_ensemble_paths]
+        graph2d_ensemble_models_present = sum(
+            1 for path in graph2d_ensemble_paths if os.path.exists(path)
+        )
+
         try:
             import importlib.util
 
@@ -172,6 +194,12 @@ def build_health_payload(
                 "graph2d_temperature_calibration_path": os.getenv(
                     "GRAPH2D_TEMPERATURE_CALIBRATION_PATH"
                 ),
+                "graph2d_ensemble_enabled": bool(graph2d_ensemble_enabled),
+                "graph2d_ensemble_models_configured": len(graph2d_ensemble_paths),
+                "graph2d_ensemble_models_present": int(
+                    graph2d_ensemble_models_present
+                ),
+                "graph2d_ensemble_models": graph2d_ensemble_models,
             },
             "sampling": {
                 "max_nodes": int(hybrid_cfg.sampling.max_nodes),
