@@ -111,7 +111,7 @@ CMD ["python", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "
 # ================================
 # Stage 5: GPU image (optional)
 # ================================
-FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04 as gpu-base
+FROM nvidia/cuda:13.1.1-runtime-ubuntu22.04 as gpu-base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
