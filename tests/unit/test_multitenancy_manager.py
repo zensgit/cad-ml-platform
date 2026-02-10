@@ -274,6 +274,33 @@ class TestTenantManager:
         assert tenant.status == TenantStatus.PENDING
 
     @pytest.mark.asyncio
+    async def test_provision_tenant_outer_exception(self, manager):
+        """Test provisioning handles exception after hooks complete (outer try-except)."""
+        from unittest.mock import patch, MagicMock
+
+        tenant = await manager.create_tenant(name="Test", slug="test-outer")
+
+        # Mock datetime.utcnow to raise on provisioned_at assignment
+        call_count = [0]
+
+        def mock_utcnow():
+            call_count[0] += 1
+            # First call: updated_at in PROVISIONING
+            # Second call: provisioned_at - raise here
+            if call_count[0] >= 2:
+                raise RuntimeError("Datetime error")
+            from datetime import datetime
+
+            return datetime(2025, 1, 1, 0, 0, 0)
+
+        with patch("src.core.multitenancy.manager.datetime") as mock_datetime:
+            mock_datetime.utcnow = mock_utcnow
+            result = await manager.provision_tenant(tenant.tenant_id)
+
+        assert result is False
+        assert tenant.status == TenantStatus.PENDING
+
+    @pytest.mark.asyncio
     async def test_suspend_tenant(self, manager):
         """Test suspending a tenant."""
         tenant = await manager.create_tenant(name="Test", slug="test")

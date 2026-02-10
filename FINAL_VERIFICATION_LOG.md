@@ -3510,3 +3510,7 @@
   - Aligned HybridClassifier Graph2D lazy-loader with the ensemble flag for non-API code paths.
   - Validation: `pytest -q tests/unit/test_health_utils_coverage.py tests/unit/test_graph2d_temperature_loading.py tests/unit/test_vision_2d_ensemble_voting.py`
   - Report: `reports/DEV_GRAPH2D_ENSEMBLE_HEALTH_VISIBILITY_20260210.md`
+- **Unit Coverage: Distributed Lock + Multitenancy Edge Case**:
+  - Added unit coverage for distributed lock backends (`InMemoryLock`, `RedisLock`, `MultiLock`) and an additional multitenancy provisioning exception path.
+  - Validation: `pytest -q tests/unit/test_distributed_lock_backends.py tests/unit/test_multitenancy_manager.py`
+  - Report: `reports/DEV_UNIT_COVERAGE_DISTRIBUTED_LOCK_MULTITENANCY_20260210.md`
