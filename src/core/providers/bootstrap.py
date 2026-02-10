@@ -26,6 +26,24 @@ _PLUGINS_STATUS: Dict[str, Any] = {
 }
 
 
+def reset_core_provider_plugins_state() -> None:
+    """Reset plugin loader cache.
+
+    This is primarily intended for tests that call `ProviderRegistry.clear()`
+    between cases. In production, plugin bootstrap is expected to run once per
+    process.
+    """
+    global _PLUGINS_CONFIG, _PLUGINS_STATUS
+    _PLUGINS_CONFIG = None
+    _PLUGINS_STATUS = {
+        "enabled": False,
+        "strict": False,
+        "configured": [],
+        "loaded": [],
+        "errors": [],
+    }
+
+
 def _parse_plugin_list(raw: str) -> list[str]:
     if not raw:
         return []

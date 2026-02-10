@@ -42,6 +42,14 @@ The canonical ID format is `domain/provider_name` (example: `classifier/v16`).
 - `bootstrap_core_provider_registry()`
 - `get_core_provider_registry_snapshot()`
 
+### Provider Plugins (Recommended For Experimental Providers)
+
+To integrate new providers with minimal merge risk, prefer the plugin hook:
+- Configure `CORE_PROVIDER_PLUGINS` to import a module (or call `:bootstrap`) that registers providers.
+- Inspect load status via `/api/v1/health/providers/registry` (`registry.plugins.*`).
+
+See: `docs/PROVIDER_PLUGIN_GUIDE.md`
+
 ## Built-In Core Providers
 
 These providers are registered by default via `bootstrap_core_provider_registry()`:
