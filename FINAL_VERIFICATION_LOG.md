@@ -3530,3 +3530,7 @@
   - Expanded unit coverage for maintenance endpoints (knowledge reload/status, analysis-result cleanup, orphan cleanup robustness, stats exception handling).
   - Validation: `pytest -q tests/unit/test_maintenance_endpoint_coverage.py`
   - Report: `reports/DEV_UNIT_COVERAGE_MAINTENANCE_EDGE_CASES_20260210.md`
+- **Unit Coverage: Workflow + EventSourcing**:
+  - Added unit coverage for workflow DAG execution utilities and event-sourcing store helpers.
+  - Validation: `pytest -q tests/unit/test_eventsourcing_store.py tests/unit/test_eventsourcing_aggregate.py tests/unit/test_workflow_dag.py`
+  - Report: `reports/DEV_UNIT_COVERAGE_WORKFLOW_EVENTSOURCING_20260210.md`
