@@ -3548,3 +3548,7 @@
 - **Provider Framework Review**:
   - Confirmed the provider framework (`src/core/providers/`) is already integrated into health/readiness/analyze and documented incremental next improvements.
   - Report: `reports/DEV_PROVIDER_FRAMEWORK_REVIEW_20260210.md`
+- **Unit Coverage: Workflow Tasks**:
+  - Added unit coverage for `src/core/workflow/tasks.py` (timeouts, retries, cancellation, and composition helpers).
+  - Validation: `pytest -q tests/unit/test_workflow_tasks.py`
+  - Report: `reports/DEV_UNIT_COVERAGE_WORKFLOW_TASKS_20260210.md`
