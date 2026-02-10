@@ -3574,3 +3574,11 @@
   - Added unit coverage for `src/core/metrics_aggregator/core.py` primitives (counters, gauges, histograms, and label handling).
   - Validation: `pytest -q tests/unit/test_metrics_aggregator_core.py`
   - Report: `reports/DEV_UNIT_COVERAGE_METRICS_AGGREGATOR_CORE_20260210.md`
+- **Unit Coverage: Service Mesh Load Balancer**:
+  - Added unit coverage for `src/core/service_mesh/load_balancer.py` strategies and factory behavior.
+  - Validation: `pytest -q tests/unit/test_load_balancer_coverage.py`
+  - Report: `reports/DEV_UNIT_COVERAGE_LOAD_BALANCER_20260210.md`
+- **Unit Coverage: Hybrid Classifier**:
+  - Expanded unit coverage for `src/ml/hybrid_classifier.py` decision paths, env parsing, and error handling.
+  - Validation: `pytest -q tests/unit/test_hybrid_classifier_coverage.py`
+  - Report: `reports/DEV_UNIT_COVERAGE_HYBRID_CLASSIFIER_20260210.md`

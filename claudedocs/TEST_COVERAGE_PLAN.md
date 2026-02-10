@@ -18,7 +18,7 @@
 | `src/core/providers/ocr.py` | 86% | **100%** | 20个 |
 | `src/core/providers/knowledge.py` | 91% | **100%** | 16个 |
 | `src/core/providers/bootstrap.py` | 92% | **100%** | 10个 |
-| `src/ml/hybrid_classifier.py` | 71% | **82%** | 28个 |
+| `src/ml/hybrid_classifier.py` | 71% | **99%** | 48个 |
 | `src/utils/dxf_features.py` | 71% | **100%** | 19个 |
 | `src/ml/part_classifier.py` | 1% | **37%** | 34个 (torch mock限制) |
 | `src/utils/logging.py` | 69% | **86%** | 25个 |
@@ -48,6 +48,8 @@
 | `src/core/workflow/tasks.py` | 84% | **99%** | 30个 |
 | `src/core/workflow/state_machine.py` | 76% | **99%** | 32个 |
 | `src/core/saga/core.py` | 91% | **98%** | 34个 |
+| `src/core/metrics_aggregator/core.py` | 92% | **99%** | 42个 |
+| `src/core/service_mesh/load_balancer.py` | 52% | **98%** | 61个 |
 
 ---
 
@@ -71,7 +73,7 @@
 | 模块 | 覆盖率 | 说明 |
 |------|--------|------|
 | `src/ml/part_classifier.py` | ~~1%~~ **37%** | torch mock限制，需完整torch环境达到更高覆盖 |
-| `src/ml/hybrid_classifier.py` | ~~71%~~ **92%** | ✅ 已优化 |
+| `src/ml/hybrid_classifier.py` | ~~71%~~ **99%** | ✅ 二次优化完成 |
 | `src/ml/vision_2d.py` | 26% | Graph2D分类器 |
 | `src/ml/vision_3d.py` | 28% | 3D分析 |
 
@@ -122,7 +124,7 @@
 - [x] registry.py (96% → 100%) ✅
 - [x] knowledge.py (91% → 100%) ✅
 - [x] bootstrap.py (92% → 100%) ✅
-- [x] hybrid_classifier.py (71% → 82%) ✅
+- [x] hybrid_classifier.py (71% → 99%) ✅ (二次优化)
 
 ### 第3周
 - [x] part_classifier.py (1% → 37%) ✅ (torch mock限制)

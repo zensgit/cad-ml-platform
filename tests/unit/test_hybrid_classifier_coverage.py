@@ -512,6 +512,19 @@ class TestGlobalSingleton:
 class TestHelperMethods:
     """Tests for helper methods."""
 
+    def test_resolve_str_returns_default(self):
+        """Line 325: _resolve_str returns default when env not set."""
+        with patch.dict(os.environ, {}, clear=True):
+            # Remove all env vars that might affect this
+            val = HybridClassifier._resolve_str("NONEXISTENT_VAR", "default_value")
+            assert val == "default_value"
+
+    def test_resolve_str_returns_env_value(self):
+        """Line 325: _resolve_str returns env value when set."""
+        with patch.dict(os.environ, {"MY_STR_VAR": "  custom_value  "}):
+            val = HybridClassifier._resolve_str("MY_STR_VAR", "default")
+            assert val == "custom_value"
+
     def test_resolve_float_invalid_env_falls_back(self):
         """Lines 300-304: invalid float env value falls back to default."""
         with patch.dict(os.environ, {"FILENAME_FUSION_WEIGHT": "invalid"}):
@@ -561,3 +574,574 @@ class TestHelperMethods:
         assert classifier._is_graph2d_drawing_type("轴类") is False
         assert classifier._is_graph2d_drawing_type(None) is False
         assert classifier._is_graph2d_drawing_type("") is False
+
+
+class TestGraphEnvLabels:
+    """Tests for GRAPH2D_DRAWING_TYPE_LABELS env parsing (line 169)."""
+
+    def test_graph2d_labels_from_env(self):
+        """Line 169: parse drawing labels from env var."""
+        with patch.dict(
+            os.environ,
+            {"GRAPH2D_DRAWING_TYPE_LABELS": "CustomType1, CustomType2"},
+        ):
+            classifier = HybridClassifier()
+            assert "CustomType1" in classifier.graph2d_drawing_labels
+            assert "CustomType2" in classifier.graph2d_drawing_labels
+
+
+class TestGraph2DEnsemble:
+    """Tests for graph2d ensemble classifier (lines 233-235)."""
+
+    def test_graph2d_ensemble_enabled(self):
+        """Lines 233-235: graph2d_classifier uses ensemble when enabled."""
+        with patch.dict(
+            os.environ,
+            {
+                "GRAPH2D_ENABLED": "true",
+                "GRAPH2D_ENSEMBLE_ENABLED": "true",
+            },
+        ):
+            classifier = HybridClassifier()
+            classifier._graph2d_classifier = None  # Force re-init
+
+            with patch(
+                "src.ml.vision_2d.get_ensemble_2d_classifier"
+            ) as mock_get_ensemble:
+                mock_ensemble = MagicMock()
+                mock_get_ensemble.return_value = mock_ensemble
+
+                # Access property to trigger lazy load
+                result = classifier.graph2d_classifier
+
+                mock_get_ensemble.assert_called_once()
+
+
+class TestIsHybridEnabled:
+    """Tests for _is_hybrid_enabled method (line 284)."""
+
+    def test_is_hybrid_enabled_from_env(self):
+        """Line 284: _is_hybrid_enabled reads from env."""
+        with patch.dict(os.environ, {"HYBRID_CLASSIFIER_ENABLED": "false"}):
+            classifier = HybridClassifier()
+            result = classifier._is_hybrid_enabled()
+            assert result is False
+
+
+class TestGraph2DErrorPath:
+    """Tests for graph2d classification error handling (line 393)."""
+
+    def test_graph2d_classification_error(self):
+        """Lines 393-396: graph2d classification error path."""
+        classifier = HybridClassifier()
+
+        mock_fn_classifier = MagicMock()
+        mock_fn_classifier.predict.return_value = {"label": "轴类", "confidence": 0.9}
+        classifier._filename_classifier = mock_fn_classifier
+
+        mock_graph2d = MagicMock()
+        mock_graph2d.predict_from_bytes.side_effect = Exception("Graph2D error")
+        classifier._graph2d_classifier = mock_graph2d
+
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "true",
+                "GRAPH2D_ENABLED": "true",
+                "TITLEBLOCK_ENABLED": "false",
+            },
+        ):
+            result = classifier.classify("test.dxf", file_bytes=b"content")
+
+        assert "graph2d_error" in result.decision_path
+
+
+class TestMarginExceptionHandling:
+    """Tests for margin exception handling (lines 407-408)."""
+
+    def test_graph2d_margin_invalid_value(self):
+        """Lines 407-408: graph2d margin with invalid value falls back to None."""
+        classifier = HybridClassifier()
+
+        mock_fn_classifier = MagicMock()
+        mock_fn_classifier.predict.return_value = {"label": "轴类", "confidence": 0.9}
+        classifier._filename_classifier = mock_fn_classifier
+
+        # Mock graph2d to return prediction with invalid margin
+        mock_graph2d = MagicMock()
+        mock_graph2d.predict_from_bytes.return_value = {
+            "label": "齿轮",
+            "confidence": 0.8,
+            "margin": "invalid_margin",  # Should cause exception
+        }
+        classifier._graph2d_classifier = mock_graph2d
+
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "true",
+                "GRAPH2D_ENABLED": "true",
+                "TITLEBLOCK_ENABLED": "false",
+            },
+        ):
+            # Should not raise, margin is set to None on exception
+            result = classifier.classify("test.dxf", file_bytes=b"content")
+
+        assert result is not None
+
+
+class TestProcessClassification:
+    """Tests for process classification (lines 452-455, 458-459, 466-473, 479)."""
+
+    def test_process_classification_with_text_entities(self):
+        """Lines 452-455: extract text from TEXT, MTEXT, ATTRIB entities."""
+        classifier = HybridClassifier()
+
+        mock_fn_classifier = MagicMock()
+        mock_fn_classifier.predict.return_value = {"label": "轴类", "confidence": 0.5}
+        classifier._filename_classifier = mock_fn_classifier
+
+        mock_process = MagicMock()
+        mock_result = MagicMock()
+        mock_result.suggested_labels = ["车削"]
+        mock_result.confidence = 0.9
+        mock_result.to_dict.return_value = {"label": "车削", "confidence": 0.9}
+        mock_process.predict_from_text.return_value = mock_result
+        classifier._process_classifier = mock_process
+
+        # Create mock entities for TEXT, MTEXT, and ATTRIB
+        text_entity = MagicMock()
+        text_entity.dxftype.return_value = "TEXT"
+        text_entity.dxf.text = "工艺说明"
+
+        mtext_entity = MagicMock()
+        mtext_entity.dxftype.return_value = "MTEXT"
+        mtext_entity.text = "车削加工"
+
+        attrib_entity = MagicMock()
+        attrib_entity.dxftype.return_value = "ATTRIB"
+        attrib_entity.dxf.text = "材料说明"
+
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "true",
+                "PROCESS_FEATURES_ENABLED": "true",
+                "TITLEBLOCK_ENABLED": "false",
+                "GRAPH2D_ENABLED": "false",
+            },
+        ):
+            with patch(
+                "src.utils.dxf_io.read_dxf_entities_from_bytes",
+                return_value=[text_entity, mtext_entity, attrib_entity],
+            ):
+                result = classifier.classify("test.dxf", file_bytes=b"dxf_content")
+
+        assert "process_predicted" in result.decision_path
+        assert result.process_prediction is not None
+
+    def test_process_with_insert_attribs(self):
+        """Lines 458-459: extract text from INSERT entity attribs."""
+        classifier = HybridClassifier()
+
+        mock_fn_classifier = MagicMock()
+        mock_fn_classifier.predict.return_value = {"label": "轴类", "confidence": 0.5}
+        classifier._filename_classifier = mock_fn_classifier
+
+        mock_process = MagicMock()
+        mock_result = MagicMock()
+        mock_result.suggested_labels = ["铣削"]
+        mock_result.confidence = 0.95
+        mock_result.to_dict.return_value = {"label": "铣削", "confidence": 0.95}
+        mock_process.predict_from_text.return_value = mock_result
+        classifier._process_classifier = mock_process
+
+        # Create INSERT entity with attribs
+        attrib = MagicMock()
+        attrib.dxf.text = "铣削工艺"
+
+        insert_entity = MagicMock()
+        insert_entity.dxftype.return_value = "INSERT"
+        insert_entity.attribs = [attrib]
+
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "true",
+                "PROCESS_FEATURES_ENABLED": "true",
+                "TITLEBLOCK_ENABLED": "false",
+                "GRAPH2D_ENABLED": "false",
+            },
+        ):
+            with patch(
+                "src.utils.dxf_io.read_dxf_entities_from_bytes",
+                return_value=[insert_entity],
+            ):
+                result = classifier.classify("test.dxf", file_bytes=b"dxf_content")
+
+        assert result.process_prediction is not None
+
+
+class TestDrawingTypeIgnored:
+    """Tests for drawing type being ignored (lines 490-495)."""
+
+    def test_graph2d_drawing_type_ignored(self):
+        """Lines 490-495: graph2d drawing type prediction is filtered."""
+        classifier = HybridClassifier()
+
+        mock_fn_classifier = MagicMock()
+        mock_fn_classifier.predict.return_value = {"label": "轴类", "confidence": 0.9}
+        classifier._filename_classifier = mock_fn_classifier
+
+        mock_graph2d = MagicMock()
+        mock_graph2d.predict_from_bytes.return_value = {
+            "label": "零件图",  # Drawing type label
+            "confidence": 0.95,
+        }
+        classifier._graph2d_classifier = mock_graph2d
+
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "true",
+                "GRAPH2D_ENABLED": "true",
+                "TITLEBLOCK_ENABLED": "false",
+            },
+        ):
+            result = classifier.classify("test.dxf", file_bytes=b"content")
+
+        assert "graph2d_drawing_type_ignored" in result.decision_path
+        assert result.graph2d_prediction.get("filtered") is True
+        assert result.graph2d_prediction.get("filtered_reason") == "drawing_type"
+
+
+class TestLabelMapSizeThreshold:
+    """Tests for dynamic confidence threshold based on label_map_size (lines 526-527)."""
+
+    def test_dynamic_min_conf_with_large_label_map(self):
+        """Lines 526-532: dynamic min conf when label_map_size >= 20."""
+        classifier = HybridClassifier()
+
+        mock_fn_classifier = MagicMock()
+        mock_fn_classifier.predict.return_value = {"label": "轴类", "confidence": 0.3}
+        classifier._filename_classifier = mock_fn_classifier
+
+        mock_graph2d = MagicMock()
+        mock_graph2d.predict_from_bytes.return_value = {
+            "label": "齿轮",
+            "confidence": 0.08,  # Very low but might pass dynamic threshold
+            "label_map_size": 50,  # Large label map
+        }
+        classifier._graph2d_classifier = mock_graph2d
+
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "true",
+                "GRAPH2D_ENABLED": "true",
+                "GRAPH2D_MIN_CONF": "0.2",  # Higher than dynamic
+                "TITLEBLOCK_ENABLED": "false",
+            },
+        ):
+            result = classifier.classify("test.dxf", file_bytes=b"content")
+
+        # Check that dynamic threshold was calculated
+        assert result.graph2d_prediction.get("min_confidence_effective") is not None
+
+    def test_invalid_label_map_size(self):
+        """Lines 526-527: handle invalid label_map_size gracefully."""
+        classifier = HybridClassifier()
+
+        mock_fn_classifier = MagicMock()
+        mock_fn_classifier.predict.return_value = {"label": "轴类", "confidence": 0.9}
+        classifier._filename_classifier = mock_fn_classifier
+
+        mock_graph2d = MagicMock()
+        mock_graph2d.predict_from_bytes.return_value = {
+            "label": "齿轮",
+            "confidence": 0.8,
+            "label_map_size": "invalid",  # Invalid value
+        }
+        classifier._graph2d_classifier = mock_graph2d
+
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "true",
+                "GRAPH2D_ENABLED": "true",
+                "TITLEBLOCK_ENABLED": "false",
+            },
+        ):
+            # Should not raise
+            result = classifier.classify("test.dxf", file_bytes=b"content")
+
+        assert result is not None
+
+
+class TestTitleblockFilenameConflict:
+    """Tests for titleblock/filename conflict (line 571)."""
+
+    def test_titleblock_ignored_when_filename_high_conf(self):
+        """Line 571: titleblock ignored when filename has high confidence."""
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "true",
+                "FILENAME_MIN_CONF": "0.5",
+                "TITLEBLOCK_ENABLED": "true",
+                "TITLEBLOCK_OVERRIDE_ENABLED": "false",
+                "GRAPH2D_ENABLED": "false",
+                "PROCESS_FEATURES_ENABLED": "false",
+            },
+        ):
+            classifier = HybridClassifier()
+
+            mock_fn_classifier = MagicMock()
+            mock_fn_classifier.predict.return_value = {
+                "label": "轴类",
+                "confidence": 0.95,  # High confidence
+            }
+            classifier._filename_classifier = mock_fn_classifier
+
+            mock_tb_classifier = MagicMock()
+            mock_tb_classifier.predict.return_value = {
+                "label": "齿轮",  # Different label
+                "confidence": 0.8,
+            }
+            classifier._titleblock_classifier = mock_tb_classifier
+
+            mock_entity = MagicMock()
+            mock_entity.dxftype.return_value = "LINE"
+
+            with patch(
+                "src.utils.dxf_io.read_dxf_entities_from_bytes",
+                return_value=[mock_entity],
+            ):
+                result = classifier.classify("test.dxf", file_bytes=b"dxf")
+
+        assert "titleblock_filename_conflict" in result.decision_path
+        assert "titleblock_ignored_filename_high_conf" in result.decision_path
+
+
+class TestProcessPredictionAdded:
+    """Tests for process prediction in fusion (line 622)."""
+
+    def test_process_label_in_fusion(self):
+        """Line 622: process label participates in fusion."""
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "true",
+                "FILENAME_MIN_CONF": "0.8",
+                "PROCESS_FEATURES_ENABLED": "true",
+                "PROCESS_MIN_CONF": "0.5",
+                "TITLEBLOCK_ENABLED": "false",
+                "GRAPH2D_ENABLED": "false",
+            },
+        ):
+            classifier = HybridClassifier()
+
+            mock_fn_classifier = MagicMock()
+            mock_fn_classifier.predict.return_value = {
+                "label": "轴类",
+                "confidence": 0.6,  # Below min_conf so fusion happens
+            }
+            classifier._filename_classifier = mock_fn_classifier
+
+            mock_process = MagicMock()
+            mock_result = MagicMock()
+            mock_result.suggested_labels = ["轴类"]  # Same label
+            mock_result.confidence = 0.8
+            mock_result.to_dict.return_value = {"label": "轴类", "confidence": 0.8}
+            mock_process.predict_from_text.return_value = mock_result
+            classifier._process_classifier = mock_process
+
+            text_entity = MagicMock()
+            text_entity.dxftype.return_value = "TEXT"
+            text_entity.dxf.text = "工艺说明"
+
+            with patch(
+                "src.utils.dxf_io.read_dxf_entities_from_bytes",
+                return_value=[text_entity],
+            ):
+                result = classifier.classify("test.dxf", file_bytes=b"dxf")
+
+        assert result.process_prediction is not None
+        assert result.label == "轴类"
+
+
+class TestFilenameClassifierLazyLoad:
+    """Tests for filename_classifier lazy loading (lines 212-218)."""
+
+    def test_filename_classifier_lazy_load(self):
+        """Lines 212-218: filename_classifier lazy loads with synonyms_path."""
+        classifier = HybridClassifier()
+        classifier._filename_classifier = None  # Force re-init
+
+        with patch("src.ml.filename_classifier.FilenameClassifier") as MockFC:
+            mock_instance = MagicMock()
+            MockFC.return_value = mock_instance
+
+            # Access property to trigger lazy load
+            result = classifier.filename_classifier
+
+            MockFC.assert_called_once()
+            assert result == mock_instance
+
+
+class TestGraph2DExcludeLabels:
+    """Tests for graph2d exclude labels (lines 503-508)."""
+
+    def test_graph2d_excluded_label_ignored(self):
+        """Lines 503-508: graph2d label in exclude list is filtered."""
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "false",
+                "GRAPH2D_ENABLED": "true",
+                "TITLEBLOCK_ENABLED": "false",
+            },
+        ):
+            classifier = HybridClassifier()
+            # Directly set exclude labels after initialization
+            classifier.graph2d_exclude_labels = {"杂项", "other"}
+
+            mock_graph2d = MagicMock()
+            mock_graph2d.predict_from_bytes.return_value = {
+                "label": "杂项",  # In exclude list
+                "confidence": 0.95,
+            }
+            classifier._graph2d_classifier = mock_graph2d
+
+            result = classifier.classify("test.dxf", file_bytes=b"content")
+
+        assert "graph2d_excluded_label_ignored" in result.decision_path
+        assert result.graph2d_prediction.get("filtered") is True
+
+
+class TestGraph2DAllowLabels:
+    """Tests for graph2d allow labels (lines 512-517)."""
+
+    def test_graph2d_not_in_allowlist_ignored(self):
+        """Lines 512-517: graph2d label not in allow list is filtered."""
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "false",
+                "GRAPH2D_ENABLED": "true",
+                "TITLEBLOCK_ENABLED": "false",
+            },
+        ):
+            classifier = HybridClassifier()
+            # Directly set allow labels after initialization
+            classifier.graph2d_allow_labels = {"轴类", "齿轮"}
+
+            mock_graph2d = MagicMock()
+            mock_graph2d.predict_from_bytes.return_value = {
+                "label": "杂项",  # Not in allow list
+                "confidence": 0.95,
+            }
+            classifier._graph2d_classifier = mock_graph2d
+
+            result = classifier.classify("test.dxf", file_bytes=b"content")
+
+        assert "graph2d_not_in_allowlist_ignored" in result.decision_path
+        assert result.graph2d_prediction.get("filtered") is True
+
+
+class TestGraph2DBelowMinConf:
+    """Tests for graph2d below min_conf filter (lines 535-540)."""
+
+    def test_graph2d_below_min_conf_ignored(self):
+        """Lines 535-540: graph2d below min_conf is filtered."""
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "true",
+                "GRAPH2D_ENABLED": "true",
+                "GRAPH2D_MIN_CONF": "0.5",  # Set min conf
+                "TITLEBLOCK_ENABLED": "false",
+            },
+        ):
+            classifier = HybridClassifier()
+
+            mock_fn_classifier = MagicMock()
+            mock_fn_classifier.predict.return_value = {"label": "轴类", "confidence": 0.9}
+            classifier._filename_classifier = mock_fn_classifier
+
+            mock_graph2d = MagicMock()
+            mock_graph2d.predict_from_bytes.return_value = {
+                "label": "齿轮",
+                "confidence": 0.3,  # Below min_conf
+            }
+            classifier._graph2d_classifier = mock_graph2d
+
+            result = classifier.classify("test.dxf", file_bytes=b"content")
+
+        assert "graph2d_below_min_conf_ignored" in result.decision_path
+        assert result.graph2d_prediction.get("filtered") is True
+
+
+class TestGraph2DBelowMinMargin:
+    """Tests for graph2d below min_margin filter (lines 548-554)."""
+
+    def test_graph2d_below_min_margin_ignored(self):
+        """Lines 548-554: graph2d below min_margin is filtered."""
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "true",
+                "GRAPH2D_ENABLED": "true",
+                "GRAPH2D_MIN_MARGIN": "0.1",  # Set min margin
+                "TITLEBLOCK_ENABLED": "false",
+            },
+        ):
+            classifier = HybridClassifier()
+
+            mock_fn_classifier = MagicMock()
+            mock_fn_classifier.predict.return_value = {"label": "轴类", "confidence": 0.9}
+            classifier._filename_classifier = mock_fn_classifier
+
+            mock_graph2d = MagicMock()
+            mock_graph2d.predict_from_bytes.return_value = {
+                "label": "齿轮",
+                "confidence": 0.8,
+                "margin": 0.05,  # Below min_margin
+            }
+            classifier._graph2d_classifier = mock_graph2d
+
+            result = classifier.classify("test.dxf", file_bytes=b"content")
+
+        assert "graph2d_below_min_margin_ignored" in result.decision_path
+        assert result.graph2d_prediction.get("filtered") is True
+
+
+class TestGraph2DOnlyInFusion:
+    """Tests for graph2d only prediction in fusion (line 626)."""
+
+    def test_graph2d_only_prediction(self):
+        """Line 626: graph2d as only prediction source."""
+        with patch.dict(
+            os.environ,
+            {
+                "FILENAME_CLASSIFIER_ENABLED": "false",
+                "GRAPH2D_ENABLED": "true",
+                "TITLEBLOCK_ENABLED": "false",
+                "PROCESS_FEATURES_ENABLED": "false",
+            },
+        ):
+            classifier = HybridClassifier()
+            classifier._filename_classifier = None  # Disabled
+
+            mock_graph2d = MagicMock()
+            mock_graph2d.predict_from_bytes.return_value = {
+                "label": "齿轮",
+                "confidence": 0.9,
+            }
+            classifier._graph2d_classifier = mock_graph2d
+
+            result = classifier.classify("test.dxf", file_bytes=b"content")
+
+        assert result.label == "齿轮"
+        assert result.source == DecisionSource.GRAPH2D
+        assert "graph2d_only" in result.decision_path
