@@ -39,6 +39,15 @@
 | `src/core/distributed_lock/backends.py` | 48% | **100%** | 53个 |
 | `src/core/assistant/security.py` | 38% | **100%** | 61个 |
 | `src/core/assistant/rbac.py` | 93% | **100%** | 14个 |
+| `src/core/assistant/caching.py` | 94% | **97%** | 4个 |
+| `src/core/assistant/multi_model.py` | 92% | **97%** | 7个 |
+| `src/api/v1/maintenance.py` | 91% | **100%** | 7个 |
+| `src/core/workflow/dag.py` | 81% | **100%** | 33个 |
+| `src/core/eventsourcing/store.py` | 89% | **96%** | 18个 |
+| `src/core/eventsourcing/aggregate.py` | 80% | **99%** | 22个 |
+| `src/core/workflow/tasks.py` | 84% | **99%** | 30个 |
+| `src/core/workflow/state_machine.py` | 76% | **99%** | 32个 |
+| `src/core/saga/core.py` | 91% | **98%** | 34个 |
 
 ---
 
@@ -62,7 +71,7 @@
 | 模块 | 覆盖率 | 说明 |
 |------|--------|------|
 | `src/ml/part_classifier.py` | ~~1%~~ **37%** | torch mock限制，需完整torch环境达到更高覆盖 |
-| `src/ml/hybrid_classifier.py` | ~~71%~~ **82%** | ✅ 已优化 |
+| `src/ml/hybrid_classifier.py` | ~~71%~~ **92%** | ✅ 已优化 |
 | `src/ml/vision_2d.py` | 26% | Graph2D分类器 |
 | `src/ml/vision_3d.py` | 28% | 3D分析 |
 
