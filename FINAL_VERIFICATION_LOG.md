@@ -3487,3 +3487,7 @@
 - **Custom Classifier Provider Workflow (Provider Framework)**:
   - Documented the recommended workflow to integrate new/experimental part-recognition models via the core provider framework (`src/core/providers/`) to reduce merge risk and enable safe rollout via env flags.
   - Report: `reports/DEV_CUSTOM_CLASSIFIER_PROVIDER_WORKFLOW_20260210.md`
+- **Graph2D Ensemble Soft Voting Fix**:
+  - Fixed Graph2D ensemble `voting=soft` to average real per-class probabilities (instead of reconstructing distributions from `{label, confidence}`).
+  - Adds `top2_confidence` + `margin` to ensemble outputs and falls back to hard voting on label-map mismatch.
+  - Report: `reports/DEV_GRAPH2D_ENSEMBLE_SOFT_VOTING_FIX_20260210.md`

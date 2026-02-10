@@ -52,6 +52,57 @@ class Graph2DClassifier:
         if HAS_TORCH and os.path.exists(self.model_path):
             self._load_model()
 
+    def _predict_probs(self, data: bytes, file_name: str) -> Dict[str, Any]:
+        """Return the full probability vector for internal consumers (e.g. ensembles).
+
+        This keeps the public ``predict_from_bytes`` payload small while still
+        enabling proper soft-voting ensembling.
+        """
+        if not HAS_TORCH or not self._loaded or self.model is None:
+            return {"status": "model_unavailable"}
+        if not data:
+            return {"status": "empty_input"}
+
+        try:
+            from src.utils.dxf_io import read_dxf_document_from_bytes
+
+            doc = read_dxf_document_from_bytes(data)
+        except Exception as exc:  # noqa: BLE001
+            return {"status": "parse_error", "error": str(exc)}
+
+        msp = doc.modelspace()
+        dataset = DXFDataset(
+            root_dir=".",
+            node_dim=self.node_dim,
+            return_edge_attr=self.model_type == "edge_sage",
+        )
+        if self.model_type == "edge_sage":
+            x, edge_index, edge_attr = dataset._dxf_to_graph(
+                msp, self.node_dim, return_edge_attr=True
+            )
+        else:
+            x, edge_index = dataset._dxf_to_graph(msp, self.node_dim)
+            edge_attr = None
+        if x.numel() == 0:
+            return {"status": "empty_graph"}
+
+        with torch.no_grad():
+            if self.model_type == "edge_sage":
+                logits = self.model(x, edge_index, edge_attr)
+            else:
+                logits = self.model(x, edge_index)
+            if self.temperature != 1.0:
+                logits = logits / self.temperature
+            probs = torch.softmax(logits, dim=1)[0]
+
+        return {
+            "status": "ok",
+            "probs": probs,
+            "label_map_size": len(self.label_map),
+            "temperature": float(self.temperature),
+            "temperature_source": self.temperature_source,
+        }
+
     def _load_temperature(self) -> None:
         temp_raw = os.getenv("GRAPH2D_TEMPERATURE")
         if temp_raw:
@@ -112,61 +163,34 @@ class Graph2DClassifier:
         self._loaded = True
 
     def predict_from_bytes(self, data: bytes, file_name: str) -> Dict[str, Any]:
-        if not HAS_TORCH or not self._loaded or self.model is None:
-            return {"status": "model_unavailable"}
-        if not data:
-            return {"status": "empty_input"}
+        payload = self._predict_probs(data, file_name)
+        if payload.get("status") != "ok":
+            return {k: v for k, v in payload.items() if k != "probs"}
 
-        try:
-            from src.utils.dxf_io import read_dxf_document_from_bytes
+        probs = payload["probs"]
+        topk = min(2, int(probs.numel()))
+        top_vals, top_idx = torch.topk(probs, k=topk)
+        pred_idx = int(top_idx[0].item())
+        top2_conf = float(top_vals[1].item()) if topk > 1 else 0.0
+        margin = float(top_vals[0].item() - top_vals[1].item()) if topk > 1 else 1.0
+        label = None
+        for name, idx in self.label_map.items():
+            if idx == pred_idx:
+                label = name
+                break
 
-            doc = read_dxf_document_from_bytes(data)
-        except Exception as exc:
-            return {"status": "parse_error", "error": str(exc)}
-
-        msp = doc.modelspace()
-        dataset = DXFDataset(
-            root_dir=".",
-            node_dim=self.node_dim,
-            return_edge_attr=self.model_type == "edge_sage",
-        )
-        if self.model_type == "edge_sage":
-            x, edge_index, edge_attr = dataset._dxf_to_graph(
-                msp, self.node_dim, return_edge_attr=True
-            )
-        else:
-            x, edge_index = dataset._dxf_to_graph(msp, self.node_dim)
-        if x.numel() == 0:
-            return {"status": "empty_graph"}
-
-        with torch.no_grad():
-            if self.model_type == "edge_sage":
-                logits = self.model(x, edge_index, edge_attr)
-            else:
-                logits = self.model(x, edge_index)
-            if self.temperature != 1.0:
-                logits = logits / self.temperature
-            probs = torch.softmax(logits, dim=1)[0]
-            topk = min(2, probs.numel())
-            top_vals, top_idx = torch.topk(probs, k=topk)
-            pred_idx = int(top_idx[0].item())
-            top2_conf = float(top_vals[1].item()) if topk > 1 else 0.0
-            margin = float(top_vals[0].item() - top_vals[1].item()) if topk > 1 else 1.0
-            label = None
-            for name, idx in self.label_map.items():
-                if idx == pred_idx:
-                    label = name
-                    break
-            return {
-                "label": label,
-                "confidence": float(probs[pred_idx].item()),
-                "top2_confidence": top2_conf,
-                "margin": margin,
-                "temperature": float(self.temperature),
-                "temperature_source": self.temperature_source,
-                "label_map_size": len(self.label_map),
-                "status": "ok",
-            }
+        return {
+            "label": label,
+            "confidence": float(probs[pred_idx].item()),
+            "top2_confidence": top2_conf,
+            "margin": margin,
+            "temperature": payload.get("temperature", float(self.temperature)),
+            "temperature_source": payload.get(
+                "temperature_source", self.temperature_source
+            ),
+            "label_map_size": payload.get("label_map_size", len(self.label_map)),
+            "status": "ok",
+        }
 
 
 _graph2d = Graph2DClassifier()
@@ -233,13 +257,112 @@ class EnsembleGraph2DClassifier:
         if not data:
             return {"status": "empty_input"}
 
-        predictions = []
-        all_probs = []
+        predictions: List[Dict[str, Any]] = []
+        prob_vectors: List[List[float]] = []
+        master_labels: Optional[List[str]] = None
+        label_map_mismatch = False
+
+        def _labels_from_map(label_map: Dict[str, int]) -> List[str]:
+            return [
+                name for name, _idx in sorted(label_map.items(), key=lambda kv: kv[1])
+            ]
+
+        def _top2(probs: List[float]) -> Dict[str, Any]:
+            if not probs:
+                return {"top1_idx": None, "top1": 0.0, "top2": 0.0}
+            pairs = sorted(enumerate(probs), key=lambda p: p[1], reverse=True)
+            top1_idx, top1 = pairs[0]
+            top2 = pairs[1][1] if len(pairs) > 1 else 0.0
+            return {"top1_idx": int(top1_idx), "top1": float(top1), "top2": float(top2)}
+
+        def _align_probs(
+            label_map: Dict[str, int], probs: List[float], labels: List[str]
+        ) -> Optional[List[float]]:
+            if len(label_map) != len(labels):
+                return None
+            aligned: List[float] = []
+            for label in labels:
+                idx = label_map.get(label)
+                if idx is None or idx >= len(probs):
+                    return None
+                aligned.append(float(probs[idx]))
+            s = float(sum(aligned))
+            if s > 0:
+                aligned = [p / s for p in aligned]
+            return aligned
 
         for clf in self.classifiers:
-            result = clf.predict_from_bytes(data, file_name)
-            if result.get("status") == "ok":
+            label_map = getattr(clf, "label_map", {}) or {}
+            if not isinstance(label_map, dict) or not label_map:
+                continue
+
+            probs_payload = (
+                clf._predict_probs(data, file_name)  # type: ignore[attr-defined]
+                if hasattr(clf, "_predict_probs")
+                else None
+            )
+            probs_obj = None
+            if isinstance(probs_payload, dict) and probs_payload.get("status") == "ok":
+                probs_obj = probs_payload.get("probs")
+
+            probs: Optional[List[float]] = None
+            if probs_obj is not None:
+                # Support both torch tensors and plain lists (for tests/stubs).
+                try:
+                    probs = (
+                        [float(v) for v in probs_obj.tolist()]
+                        if hasattr(probs_obj, "tolist")
+                        else [float(v) for v in probs_obj]
+                    )
+                except Exception:
+                    probs = None
+
+            if probs is None:
+                # Fallback: use the public interface if available.
+                result = clf.predict_from_bytes(data, file_name)
+                if result.get("status") != "ok":
+                    continue
                 predictions.append(result)
+                continue
+
+            if master_labels is None:
+                master_labels = _labels_from_map(label_map)
+            aligned = _align_probs(label_map, probs, master_labels)
+            if aligned is None:
+                label_map_mismatch = True
+                # Still record per-model top-1 for hard-vote fallback.
+                stats = _top2(probs)
+                top1_idx = stats["top1_idx"]
+                top1_label = None
+                if top1_idx is not None:
+                    for name, idx in label_map.items():
+                        if idx == top1_idx:
+                            top1_label = name
+                            break
+                predictions.append(
+                    {
+                        "label": top1_label,
+                        "confidence": float(stats["top1"]),
+                        "status": "ok",
+                    }
+                )
+                continue
+
+            stats = _top2(aligned)
+            top1_idx = stats["top1_idx"]
+            top1_label = (
+                master_labels[top1_idx] if top1_idx is not None else None
+            )
+            predictions.append(
+                {
+                    "label": top1_label,
+                    "confidence": float(stats["top1"]),
+                    "top2_confidence": float(stats["top2"]),
+                    "margin": float(stats["top1"] - stats["top2"]),
+                    "status": "ok",
+                }
+            )
+            prob_vectors.append(aligned)
 
         if not predictions:
             return {"status": "all_models_failed"}
@@ -247,47 +370,51 @@ class EnsembleGraph2DClassifier:
         if len(predictions) == 1:
             return predictions[0]
 
-        # Get label map from first classifier
-        label_map = self.classifiers[0].label_map
-        idx_to_label = {v: k for k, v in label_map.items()}
-        num_classes = len(label_map)
+        if self.voting == "soft" and prob_vectors and master_labels and not label_map_mismatch:
+            # Proper soft-voting: average aligned probability vectors.
+            size = len(master_labels)
+            avg = [0.0] * size
+            for vec in prob_vectors:
+                for i, p in enumerate(vec):
+                    avg[i] += float(p)
+            denom = float(len(prob_vectors))
+            avg = [p / denom for p in avg]
 
-        if self.voting == "soft":
-            # Average probabilities across models
-            import torch
-
-            avg_probs = torch.zeros(num_classes)
-            for pred in predictions:
-                # Reconstruct probability vector
-                pred_label = pred.get("label")
-                pred_conf = pred.get("confidence", 0.0)
-                if pred_label in label_map:
-                    idx = label_map[pred_label]
-                    # Simple approximation: assign confidence to predicted class
-                    # and distribute remaining across others
-                    probs = torch.ones(num_classes) * (1 - pred_conf) / (num_classes - 1)
-                    probs[idx] = pred_conf
-                    avg_probs += probs
-
-            avg_probs /= len(predictions)
-            pred_idx = int(torch.argmax(avg_probs).item())
-            final_label = idx_to_label.get(pred_idx)
-            final_conf = float(avg_probs[pred_idx].item())
-
-        else:  # hard voting
+            stats = _top2(avg)
+            pred_idx = stats["top1_idx"]
+            final_label = master_labels[pred_idx] if pred_idx is not None else None
+            final_conf = float(stats["top1"])
+            top2_conf = float(stats["top2"])
+            margin = float(final_conf - top2_conf)
+            voting = "soft"
+            label_map_size = len(master_labels)
+        else:
+            # Hard voting (and fallback when label maps mismatch / no prob vectors).
             from collections import Counter
 
             votes = Counter(p.get("label") for p in predictions)
             final_label, vote_count = votes.most_common(1)[0]
             # Confidence is proportion of votes
             final_conf = vote_count / len(predictions)
+            top2_conf = None
+            margin = None
+            voting = (
+                "hard_fallback_label_map_mismatch"
+                if label_map_mismatch and self.voting == "soft"
+                else "hard"
+            )
+            label_map_size = len(master_labels) if master_labels else None
 
         return {
             "label": final_label,
             "confidence": final_conf,
             "status": "ok",
             "ensemble_size": len(predictions),
-            "voting": self.voting,
+            "voting": voting,
+            "label_map_mismatch": bool(label_map_mismatch),
+            "label_map_size": label_map_size,
+            "top2_confidence": top2_conf,
+            "margin": margin,
             "individual_predictions": [
                 {"label": p.get("label"), "confidence": p.get("confidence")}
                 for p in predictions
