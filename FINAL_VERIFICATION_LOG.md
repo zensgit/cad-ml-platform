@@ -3552,3 +3552,7 @@
   - Added unit coverage for `src/core/workflow/tasks.py` (timeouts, retries, cancellation, and composition helpers).
   - Validation: `pytest -q tests/unit/test_workflow_tasks.py`
   - Report: `reports/DEV_UNIT_COVERAGE_WORKFLOW_TASKS_20260210.md`
+- **Unit Coverage: Workflow State Machine**:
+  - Added unit coverage for `src/core/workflow/state_machine.py` to validate state/transition behavior and guardrails.
+  - Validation: `pytest -q tests/unit/test_workflow_state_machine.py`
+  - Report: `reports/DEV_UNIT_COVERAGE_WORKFLOW_STATE_MACHINE_20260210.md`
