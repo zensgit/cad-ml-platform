@@ -33,6 +33,8 @@
 | `src/api/health_resilience.py` | 89% | **100%** | 11个 |
 | `src/api/middleware/rate_limiting.py` | 92% | **100%** | 8个 |
 | `src/api/v1/drift.py` | 92% | **100%** | 8个 |
+| `src/ml/serving/router.py` | 87% | **99%** | 37个 |
+| `src/ml/vision_2d.py` | 59% | **81%** | 24个 |
 
 ---
 
