@@ -3518,3 +3518,7 @@
   - Expanded unit coverage for assistant security utilities, RBAC manager edge cases, and caching behavior.
   - Validation: `pytest -q tests/unit/assistant/test_caching.py tests/unit/assistant/test_rbac.py tests/unit/assistant/test_assistant_security.py`
   - Report: `reports/DEV_UNIT_COVERAGE_ASSISTANT_SECURITY_RBAC_CACHING_20260210.md`
+- **Core Provider Check Metrics (Prometheus)**:
+  - Added per-provider check metrics (counter + latency histogram) for readiness checks and `/api/v1/providers/health`.
+  - Validation: `pytest -q tests/unit/test_provider_health_endpoint.py tests/unit/test_provider_readiness.py tests/unit/test_readiness_coverage.py`
+  - Report: `reports/DEV_PROVIDER_CHECK_METRICS_20260210.md`

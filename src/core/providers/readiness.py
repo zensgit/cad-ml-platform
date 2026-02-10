@@ -16,6 +16,10 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from src.core.providers.bootstrap import bootstrap_core_provider_registry
 from src.core.providers.registry import ProviderRegistry
+from src.utils.metrics import (
+    core_provider_check_duration_seconds,
+    core_provider_checks_total,
+)
 
 ProviderId = Tuple[str, str]  # (domain, provider_name)
 
@@ -120,12 +124,27 @@ async def check_provider_readiness(
         try:
             provider = ProviderRegistry.get(domain, name)
         except Exception as exc:  # noqa: BLE001
+            latency_ms = (time.perf_counter() - started_at) * 1000.0
+            try:
+                core_provider_checks_total.labels(
+                    source="readiness",
+                    domain=domain,
+                    provider=name,
+                    result="init_error",
+                ).inc()
+                core_provider_check_duration_seconds.labels(
+                    source="readiness",
+                    domain=domain,
+                    provider=name,
+                ).observe(latency_ms / 1000.0)
+            except Exception:
+                pass
             return ProviderReadinessItem(
                 id=provider_id,
                 ready=False,
                 error=f"init_error: {exc}",
                 checked_at=checked_at,
-                latency_ms=(time.perf_counter() - started_at) * 1000.0,
+                latency_ms=latency_ms,
             )
 
         # Standardize on the provider framework's health_check() so readiness
@@ -134,6 +153,20 @@ async def check_provider_readiness(
         err = getattr(provider, "last_error", None)
 
         latency_ms = (time.perf_counter() - started_at) * 1000.0
+        try:
+            core_provider_checks_total.labels(
+                source="readiness",
+                domain=domain,
+                provider=name,
+                result="ready" if ok else "down",
+            ).inc()
+            core_provider_check_duration_seconds.labels(
+                source="readiness",
+                domain=domain,
+                provider=name,
+            ).observe(latency_ms / 1000.0)
+        except Exception:
+            pass
         return ProviderReadinessItem(
             id=provider_id,
             ready=bool(ok),

@@ -12,6 +12,10 @@ from pydantic import BaseModel, Field
 from src.api.dependencies import get_admin_token, get_api_key
 from src.api.health_models import HealthResponse
 from src.api.health_utils import build_health_payload, record_health_request
+from src.utils.metrics import (
+    core_provider_check_duration_seconds,
+    core_provider_checks_total,
+)
 
 router = APIRouter()
 
@@ -170,9 +174,24 @@ async def provider_health(
         raise
 
     async def _check(domain: str, name: str) -> ProviderHealthItem:
+        started_at = time.perf_counter()
         try:
             provider = ProviderRegistry.get(domain, name)
         except Exception as exc:  # noqa: BLE001
+            try:
+                core_provider_checks_total.labels(
+                    source="providers_health",
+                    domain=domain,
+                    provider=name,
+                    result="init_error",
+                ).inc()
+                core_provider_check_duration_seconds.labels(
+                    source="providers_health",
+                    domain=domain,
+                    provider=name,
+                ).observe(time.perf_counter() - started_at)
+            except Exception:
+                pass
             return ProviderHealthItem(
                 domain=domain,
                 provider=name,
@@ -190,6 +209,22 @@ async def provider_health(
             # Provider implementations should not raise, but keep this best-effort.
             ok = False
             err = str(exc)
+        finally:
+            duration = time.perf_counter() - started_at
+            try:
+                core_provider_checks_total.labels(
+                    source="providers_health",
+                    domain=domain,
+                    provider=name,
+                    result="ready" if ok else "down",
+                ).inc()
+                core_provider_check_duration_seconds.labels(
+                    source="providers_health",
+                    domain=domain,
+                    provider=name,
+                ).observe(duration)
+            except Exception:
+                pass
 
         return ProviderHealthItem(
             domain=domain,

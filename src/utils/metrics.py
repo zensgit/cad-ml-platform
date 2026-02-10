@@ -224,6 +224,19 @@ health_request_duration_seconds = Histogram(
     buckets=[0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0],
 )
 
+# Core provider framework health/readiness checks
+core_provider_checks_total = Counter(
+    "core_provider_checks_total",
+    "Core provider readiness/health checks",
+    ["source", "domain", "provider", "result"],
+)
+core_provider_check_duration_seconds = Histogram(
+    "core_provider_check_duration_seconds",
+    "Core provider readiness/health check duration seconds",
+    ["source", "domain", "provider"],
+    buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0],
+)
+
 # Simple in-process EMA trackers; callers should update on success/error events.
 _EMA_ALPHA = float(get_settings().ERROR_EMA_ALPHA)
 _ocr_error_rate_value = 0.0
