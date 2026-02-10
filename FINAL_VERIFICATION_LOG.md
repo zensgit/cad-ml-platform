@@ -3567,3 +3567,7 @@
   - Added unit coverage for `src/core/saga/core.py` to validate step execution/compensation, saga context, and builder helpers.
   - Validation: `pytest -q tests/unit/test_saga_core.py`
   - Report: `reports/DEV_UNIT_COVERAGE_SAGA_CORE_20260210.md`
+- **Unit Coverage: Metrics Aggregator Core**:
+  - Added unit coverage for `src/core/metrics_aggregator/core.py` primitives (counters, gauges, histograms, and label handling).
+  - Validation: `pytest -q tests/unit/test_metrics_aggregator_core.py`
+  - Report: `reports/DEV_UNIT_COVERAGE_METRICS_AGGREGATOR_CORE_20260210.md`
