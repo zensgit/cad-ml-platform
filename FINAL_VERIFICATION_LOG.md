@@ -3522,6 +3522,10 @@
   - Added per-provider check metrics (counter + latency histogram) for readiness checks and `/api/v1/providers/health`.
   - Validation: `pytest -q tests/unit/test_provider_health_endpoint.py tests/unit/test_provider_readiness.py tests/unit/test_readiness_coverage.py`
   - Report: `reports/DEV_PROVIDER_CHECK_METRICS_20260210.md`
+- **Provider Check Metrics Exposition Tests**:
+  - Added unit coverage to assert `core_provider_checks_total` and `core_provider_check_duration_seconds` samples appear in `/metrics` after provider health/readiness checks.
+  - Validation: `pytest -q tests/unit/test_provider_check_metrics_exposed.py`
+  - Report: `reports/DEV_PROVIDER_CHECK_METRICS_EXPOSITION_TEST_20260210.md`
 - **Unit Coverage: Maintenance Edge Cases**:
   - Expanded unit coverage for maintenance endpoints (knowledge reload/status, analysis-result cleanup, orphan cleanup robustness, stats exception handling).
   - Validation: `pytest -q tests/unit/test_maintenance_endpoint_coverage.py`
