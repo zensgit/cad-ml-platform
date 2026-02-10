@@ -631,3 +631,184 @@ class TestRouterExport:
         from src.api.v1.maintenance import router
 
         assert router is not None
+
+
+class TestMaintenanceEdgeCases:
+    """Tests for maintenance edge cases to improve coverage."""
+
+    @pytest.mark.asyncio
+    async def test_knowledge_reload_success(self):
+        """Test successful knowledge reload."""
+        from src.api.v1.maintenance import reload_knowledge
+
+        mock_km = MagicMock()
+        mock_km.get_version.side_effect = ["v1", "v2"]
+        mock_km.reload.return_value = None
+
+        with patch(
+            "src.core.knowledge.dynamic.manager.get_knowledge_manager",
+            return_value=mock_km,
+        ):
+            result = await reload_knowledge(api_key="test")
+
+            assert result.status == "ok"
+            assert result.previous_version == "v1"
+            assert result.current_version == "v2"
+            assert result.changed is True
+
+    @pytest.mark.asyncio
+    async def test_knowledge_reload_no_change(self):
+        """Test knowledge reload when version unchanged."""
+        from src.api.v1.maintenance import reload_knowledge
+
+        mock_km = MagicMock()
+        mock_km.get_version.return_value = "v1"  # Same version
+        mock_km.reload.return_value = None
+
+        with patch(
+            "src.core.knowledge.dynamic.manager.get_knowledge_manager",
+            return_value=mock_km,
+        ):
+            result = await reload_knowledge(api_key="test")
+
+            assert result.status == "ok"
+            assert result.changed is False
+
+    @pytest.mark.asyncio
+    async def test_knowledge_status_success(self):
+        """Test successful knowledge status retrieval."""
+        from src.api.v1.maintenance import knowledge_status
+        from src.core.knowledge.dynamic.models import KnowledgeCategory
+
+        mock_km = MagicMock()
+        mock_km.get_version.return_value = "v1.0"
+        mock_km.get_rules_by_category.return_value = [MagicMock(), MagicMock()]  # 2 rules
+
+        with patch(
+            "src.core.knowledge.dynamic.manager.get_knowledge_manager",
+            return_value=mock_km,
+        ):
+            result = await knowledge_status(api_key="test")
+
+        assert result.version == "v1.0"
+        assert result.total_rules == 2 * len(list(KnowledgeCategory))
+        assert result.by_category == {cat.value: 2 for cat in KnowledgeCategory}
+
+    @pytest.mark.asyncio
+    async def test_cleanup_analysis_results_dry_run(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Test analysis results cleanup in dry run mode."""
+        from src.api.v1.maintenance import cleanup_analysis_result_store
+        from src.utils.analysis_result_store import store_analysis_result
+
+        monkeypatch.setenv("ANALYSIS_RESULT_STORE_DIR", str(tmp_path))
+
+        # Create test files
+        await store_analysis_result("old1", {"status": "old"})
+        await store_analysis_result("old2", {"status": "old"})
+
+        # Make files old
+        now = time.time()
+        for f in tmp_path.glob("*.json"):
+            os.utime(f, (now - 3600, now - 3600))
+
+        result = await cleanup_analysis_result_store(
+            max_age_seconds=60,
+            threshold=0,
+            dry_run=True,  # Dry run mode
+            verbose=True,
+            api_key="test",
+        )
+
+        assert result.status == "dry_run"
+        assert result.deleted_count == 0
+        # Files should still exist
+        assert len(list(tmp_path.glob("*.json"))) == 2
+
+    @pytest.mark.asyncio
+    async def test_cleanup_analysis_results_actual_delete(
+        self, tmp_path, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Test analysis results actual cleanup (not dry run)."""
+        from src.api.v1.maintenance import cleanup_analysis_result_store
+        from src.utils.analysis_result_store import store_analysis_result
+
+        monkeypatch.setenv("ANALYSIS_RESULT_STORE_DIR", str(tmp_path))
+
+        # Create test files
+        await store_analysis_result("old1", {"status": "old"})
+        await store_analysis_result("old2", {"status": "old"})
+
+        # Make files old
+        now = time.time()
+        for f in tmp_path.glob("*.json"):
+            os.utime(f, (now - 3600, now - 3600))
+
+        result = await cleanup_analysis_result_store(
+            max_age_seconds=60,
+            threshold=0,
+            dry_run=False,  # Actual delete
+            verbose=True,
+            api_key="test",
+        )
+
+        assert result.status == "ok"
+        assert result.deleted_count == 2
+        # Files should be deleted
+        assert len(list(tmp_path.glob("*.json"))) == 0
+
+    @pytest.mark.asyncio
+    async def test_cleanup_orphans_meta_delete_exception(self):
+        """Test cleanup handles exception when deleting metadata."""
+        from src.api.v1.maintenance import cleanup_orphan_vectors
+        from src.core import similarity
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=None)  # All vectors are orphans
+
+        test_lock = threading.RLock()
+        test_vector_store: Dict[str, Any] = {"v1": [1, 2, 3]}
+
+        # Create a mock meta dict that raises on delete
+        class RaisingDict(dict):
+            def __delitem__(self, key):
+                raise RuntimeError("Cannot delete")
+
+        test_vector_meta = RaisingDict({"v1": {"meta": 1}})
+
+        with patch("src.utils.cache.get_client", return_value=mock_client):
+            with patch.object(similarity, "_VECTOR_STORE", test_vector_store):
+                with patch.object(similarity, "_VECTOR_LOCK", test_lock):
+                    with patch.object(similarity, "_VECTOR_META", test_vector_meta):
+                        result = await cleanup_orphan_vectors(
+                            threshold=0, force=True, dry_run=False, verbose=False, api_key="test"
+                        )
+
+                        # Should succeed even if meta delete fails
+                        assert result.status == "ok"
+                        assert result.deleted_count == 1
+
+    @pytest.mark.asyncio
+    async def test_get_stats_analysis_store_exception(self):
+        """Test get_maintenance_stats handles analysis store exception."""
+        from src.api.v1.maintenance import get_maintenance_stats
+        from src.core import similarity
+
+        test_lock = threading.RLock()
+        test_vector_store: Dict[str, Any] = {}
+        test_vector_meta: Dict[str, Any] = {}
+
+        with patch.object(similarity, "_VECTOR_STORE", test_vector_store):
+            with patch.object(similarity, "_VECTOR_META", test_vector_meta):
+                with patch.object(similarity, "_VECTOR_LOCK", test_lock):
+                    with patch("src.utils.cache.get_client", return_value=None):
+                        with patch(
+                            "src.api.v1.maintenance.get_analysis_result_store_stats",
+                            side_effect=Exception("Store error"),
+                        ):
+                            result = await get_maintenance_stats(api_key="test")
+
+                            # Should handle gracefully
+                            assert result["analysis_result_store"]["enabled"] is False
+                            assert "error" in result["analysis_result_store"]
