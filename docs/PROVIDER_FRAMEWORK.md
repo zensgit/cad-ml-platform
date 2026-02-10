@@ -85,6 +85,19 @@ Readiness selection is controlled via:
 - `READINESS_REQUIRED_PROVIDERS` (comma/space separated, e.g. `ocr/paddle classifier/hybrid`)
 - `READINESS_OPTIONAL_PROVIDERS` (same format)
 
+## Observability (Prometheus Metrics)
+
+When `prometheus_client` is available (so `/metrics` is enabled), provider checks emit:
+
+- `core_provider_checks_total{source,domain,provider,result}`
+  - `source`: `readiness` | `providers_health`
+  - `result`: `ready` | `down` | `init_error`
+- `core_provider_check_duration_seconds{source,domain,provider}` (histogram)
+
+Notes:
+- These are best-effort and must never break readiness/health responses.
+- Label order in the Prometheus exposition is not guaranteed; match by label keys/values.
+
 ## Adding A New Provider (Recommended Pattern)
 
 ### 1) Define a config dataclass (optional but recommended)

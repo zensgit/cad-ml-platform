@@ -3534,3 +3534,7 @@
   - Added unit coverage for workflow DAG execution utilities and event-sourcing store helpers.
   - Validation: `pytest -q tests/unit/test_eventsourcing_store.py tests/unit/test_eventsourcing_aggregate.py tests/unit/test_workflow_dag.py`
   - Report: `reports/DEV_UNIT_COVERAGE_WORKFLOW_EVENTSOURCING_20260210.md`
+- **Provider Framework Metrics Docs**:
+  - Documented provider check metrics (`core_provider_checks_total`, `core_provider_check_duration_seconds`) in `docs/PROVIDER_FRAMEWORK.md`.
+  - Validation: `pytest -q tests/unit/test_provider_check_metrics_exposed.py`
+  - Report: `reports/DEV_PROVIDER_FRAMEWORK_METRICS_DOCS_20260210.md`
