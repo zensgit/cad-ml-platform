@@ -25,6 +25,8 @@
 | `src/utils/safe_eval.py` | 18% | **99%** | 54个 |
 | `src/utils/cache.py` | 38% | **94%** | 33个 |
 | `src/utils/circuit_breaker.py` | 27% | **100%** | 已有71个测试 |
+| `src/utils/dxf_io.py` | 80% | **100%** | 12个 |
+| `src/security/input_validator.py` | 76% | **95%** | 62个 |
 
 ---
 
