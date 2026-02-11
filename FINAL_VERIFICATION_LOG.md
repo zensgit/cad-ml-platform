@@ -3621,3 +3621,7 @@
   - Added a new `core-fast-gate` job in `.github/workflows/ci-tiered-tests.yml` to run `make validate-core-fast` before the existing unit/contract/e2e tiers.
   - Validation: `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `103 passed`)
   - Report: `reports/DEV_CI_TIERED_CORE_FAST_GATE_20260211.md`
+- **CI Tests Core Fast Gate (3.11)**:
+  - Added a `Run core fast gate (3.11 only)` step in `.github/workflows/ci.yml` `tests` job to execute `make validate-core-fast` before smoke/knowledge/unit steps.
+  - Validation: `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `103 passed`)
+  - Report: `reports/DEV_CI_TESTS_CORE_FAST_GATE_20260211.md`

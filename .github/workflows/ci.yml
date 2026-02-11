@@ -105,6 +105,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+      - name: Run core fast gate (3.11 only)
+        if: matrix.python-version == '3.11'
+        run: make validate-core-fast
       - name: Quick route smoke
         run: pytest -q -k test_routes_smoke || true
       - name: Run knowledge tests
