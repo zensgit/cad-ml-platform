@@ -3636,3 +3636,10 @@
   - Upgraded `GITHUB_STEP_SUMMARY` output to a structured markdown table with explicit status/evidence rows for ISO286 checks and both test suites.
   - Validation: `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `103 passed`)
   - Report: `reports/DEV_CI_CORE_FAST_GATE_STRUCTURED_SUMMARY_20260212.md`
+- **Provider Plugin Reload Resilience**:
+  - Hardened plugin bootstrap cache to verify plugin-registered providers are still present before reusing cached status.
+  - Added per-plugin `registered` provider tracking and automatic reload behavior after `ProviderRegistry.clear()` with unchanged plugin env config.
+  - Validation:
+    - `pytest -q tests/unit/test_provider_registry_plugins.py tests/unit/test_bootstrap_coverage.py tests/unit/test_provider_plugin_example_classifier.py` (`16 passed`)
+    - `pytest -q tests/unit/test_provider_registry_bootstrap.py tests/unit/test_provider_framework.py tests/unit/test_provider_readiness.py` (`15 passed`)
+  - Report: `reports/DEV_PROVIDER_PLUGIN_RELOAD_RESILIENCE_20260212.md`

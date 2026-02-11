@@ -23,6 +23,7 @@ _PLUGINS_STATUS: Dict[str, Any] = {
     "configured": [],
     "loaded": [],
     "errors": [],
+    "registered": {},
 }
 
 
@@ -41,6 +42,7 @@ def reset_core_provider_plugins_state() -> None:
         "configured": [],
         "loaded": [],
         "errors": [],
+        "registered": {},
     }
 
 
@@ -48,6 +50,36 @@ def _parse_plugin_list(raw: str) -> list[str]:
     if not raw:
         return []
     return [t.strip() for t in re.split(r"[,\s]+", raw) if t.strip()]
+
+
+def _snapshot_provider_ids() -> set[str]:
+    ids: set[str] = set()
+    for domain in ProviderRegistry.list_domains():
+        for name in ProviderRegistry.list_providers(domain):
+            ids.add(f"{domain}/{name}")
+    return ids
+
+
+def _plugins_registry_intact(status: Dict[str, Any]) -> bool:
+    loaded = status.get("loaded")
+    if loaded and "registered" not in status:
+        # Backward compatibility: force one refresh if cache schema changed.
+        return False
+
+    registered = status.get("registered")
+    if not isinstance(registered, dict):
+        return False
+
+    for provider_ids in registered.values():
+        if not isinstance(provider_ids, list):
+            return False
+        for provider_id in provider_ids:
+            if not isinstance(provider_id, str) or "/" not in provider_id:
+                return False
+            domain, provider_name = provider_id.split("/", 1)
+            if not ProviderRegistry.exists(domain, provider_name):
+                return False
+    return True
 
 
 def bootstrap_core_provider_plugins() -> Dict[str, Any]:
@@ -70,12 +102,13 @@ def bootstrap_core_provider_plugins() -> Dict[str, Any]:
         os.getenv("CORE_PROVIDER_PLUGINS_STRICT", "false").strip().lower() == "true"
     )
     config = (raw, bool(strict))
-    if _PLUGINS_CONFIG == config:
+    if _PLUGINS_CONFIG == config and _plugins_registry_intact(_PLUGINS_STATUS):
         return dict(_PLUGINS_STATUS)
 
     tokens = _parse_plugin_list(raw)
     loaded: list[str] = []
     errors: list[Dict[str, str]] = []
+    registered: Dict[str, list[str]] = {}
 
     for token in tokens:
         module_name = token
@@ -85,6 +118,7 @@ def bootstrap_core_provider_plugins() -> Dict[str, Any]:
             module_name = module_name.strip()
             func_name = func_name.strip()
         try:
+            before_ids = _snapshot_provider_ids()
             module = importlib.import_module(module_name)
             if func_name:
                 func = getattr(module, func_name)
@@ -93,7 +127,9 @@ def bootstrap_core_provider_plugins() -> Dict[str, Any]:
                         f"Plugin bootstrap target not callable: {module_name}:{func_name}"
                     )
                 func()
+            after_ids = _snapshot_provider_ids()
             loaded.append(token)
+            registered[token] = sorted(after_ids - before_ids)
         except Exception as exc:  # noqa: BLE001
             errors.append({"plugin": token, "error": f"{type(exc).__name__}: {exc}"})
             if strict:
@@ -105,6 +141,7 @@ def bootstrap_core_provider_plugins() -> Dict[str, Any]:
         "configured": list(tokens),
         "loaded": loaded,
         "errors": errors,
+        "registered": registered,
     }
     _PLUGINS_CONFIG = config
     return dict(_PLUGINS_STATUS)
