@@ -3617,3 +3617,7 @@
   - Added `make validate-core-fast` to run the stable regression baseline (`validate-tolerance` + `test-service-mesh`) in one command.
   - Validation: `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `103 passed`)
   - Report: `reports/DEV_MAKE_VALIDATE_CORE_FAST_20260211.md`
+- **CI Tiered Core Fast Gate**:
+  - Added a new `core-fast-gate` job in `.github/workflows/ci-tiered-tests.yml` to run `make validate-core-fast` before the existing unit/contract/e2e tiers.
+  - Validation: `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `103 passed`)
+  - Report: `reports/DEV_CI_TIERED_CORE_FAST_GATE_20260211.md`
