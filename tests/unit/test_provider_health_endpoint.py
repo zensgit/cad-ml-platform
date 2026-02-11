@@ -45,19 +45,36 @@ def test_provider_health_endpoint_returns_sorted_results():
 
     with patch("src.core.providers.bootstrap_core_provider_registry", return_value={}):
         with patch(
-            "src.core.providers.ProviderRegistry.list_domains",
-            side_effect=_list_domains,
+            "src.core.providers.get_core_provider_registry_snapshot",
+            return_value={
+                "plugins": {
+                    "configured": ["tests.fixtures.provider_plugin_example:bootstrap"],
+                    "loaded": ["tests.fixtures.provider_plugin_example:bootstrap"],
+                    "errors": [],
+                    "cache": {"reused": True, "reason": "config_match"},
+                    "summary": {
+                        "overall_status": "ok",
+                        "configured_count": 1,
+                        "loaded_count": 1,
+                        "error_count": 0,
+                    },
+                }
+            },
         ):
             with patch(
-                "src.core.providers.ProviderRegistry.list_providers",
-                side_effect=_list_providers,
+                "src.core.providers.ProviderRegistry.list_domains",
+                side_effect=_list_domains,
             ):
-                with patch("src.core.providers.ProviderRegistry.get", side_effect=_get):
-                    resp = client.get(
-                        "/api/v1/providers/health",
-                        headers=headers,
-                        params={"timeout_seconds": 0.1},
-                    )
+                with patch(
+                    "src.core.providers.ProviderRegistry.list_providers",
+                    side_effect=_list_providers,
+                ):
+                    with patch("src.core.providers.ProviderRegistry.get", side_effect=_get):
+                        resp = client.get(
+                            "/api/v1/providers/health",
+                            headers=headers,
+                            params={"timeout_seconds": 0.1},
+                        )
 
     assert resp.status_code == 200
     payload = resp.json()
@@ -67,3 +84,8 @@ def test_provider_health_endpoint_returns_sorted_results():
     assert payload["timeout_seconds"] == 0.1
     assert [r["domain"] for r in payload["results"]] == ["classifier", "vision"]
     assert [r["provider"] for r in payload["results"]] == ["hybrid", "stub"]
+    diagnostics = payload.get("plugin_diagnostics") or {}
+    assert diagnostics.get("configured_count") == 1
+    assert diagnostics.get("loaded_count") == 1
+    assert diagnostics.get("error_count") == 0
+    assert diagnostics.get("summary", {}).get("overall_status") == "ok"

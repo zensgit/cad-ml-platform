@@ -49,6 +49,9 @@ def test_registry_snapshot_reflects_runtime_state() -> None:
     assert snapshot["total_providers"] >= 4
     assert isinstance(snapshot["providers"], dict)
     assert isinstance(snapshot.get("provider_classes"), dict)
+    plugins = snapshot.get("plugins") or {}
+    summary = plugins.get("summary") or {}
+    assert summary.get("overall_status") in {"ok", "degraded", "error"}
     assert "classifier" in snapshot["provider_classes"]
     assert "hybrid" in snapshot["provider_classes"]["classifier"]
     assert isinstance(snapshot["provider_classes"]["classifier"]["hybrid"], str)

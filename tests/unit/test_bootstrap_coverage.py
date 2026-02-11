@@ -116,6 +116,17 @@ class TestGetCoreProviderRegistrySnapshot:
         assert snapshot["bootstrapped"] is True
         assert snapshot["bootstrap_timestamp"] is not None
 
+    def test_snapshot_lazy_bootstrap_recovers_after_registry_clear(self):
+        """Lazy snapshot should recover providers after registry is cleared externally."""
+        bootstrap_core_provider_registry()
+        assert bootstrap_module._BOOTSTRAPPED is True
+
+        ProviderRegistry.clear()
+        snapshot = get_core_provider_registry_snapshot(lazy_bootstrap=True)
+
+        assert "vision" in snapshot["domains"]
+        assert "ocr" in snapshot["domains"]
+
 
 # --- _build_snapshot Exception Handling Tests ---
 

@@ -126,6 +126,49 @@ def _observe_plugin_metrics(
         pass
 
 
+def _build_plugin_summary(status: Dict[str, Any]) -> Dict[str, Any]:
+    configured = status.get("configured")
+    loaded = status.get("loaded")
+    errors = status.get("errors")
+    cache = status.get("cache")
+
+    configured_count = len(configured) if isinstance(configured, list) else 0
+    loaded_count = len(loaded) if isinstance(loaded, list) else 0
+    error_count = len(errors) if isinstance(errors, list) else 0
+
+    missing_registered: list[str] = []
+    cache_reused = False
+    cache_reason = ""
+    if isinstance(cache, dict):
+        missing_registered = (
+            cache.get("missing_registered")
+            if isinstance(cache.get("missing_registered"), list)
+            else []
+        )
+        cache_reused = bool(cache.get("reused", False))
+        cache_reason = str(cache.get("reason", ""))
+
+    missing_registered_count = len(missing_registered)
+    if error_count > 0:
+        overall_status = (
+            "error" if configured_count > 0 and loaded_count == 0 else "degraded"
+        )
+    elif missing_registered_count > 0:
+        overall_status = "degraded"
+    else:
+        overall_status = "ok"
+
+    return {
+        "configured_count": configured_count,
+        "loaded_count": loaded_count,
+        "error_count": error_count,
+        "missing_registered_count": missing_registered_count,
+        "cache_reused": cache_reused,
+        "cache_reason": cache_reason,
+        "overall_status": overall_status,
+    }
+
+
 def bootstrap_core_provider_plugins() -> Dict[str, Any]:
     """Best-effort plugin hook for registering additional providers.
 
@@ -256,10 +299,12 @@ def _build_snapshot() -> Dict[str, Any]:
                 class_map[name] = "unknown"
         provider_classes[domain] = class_map
     total_providers = sum(len(items) for items in providers.values())
+    plugins = dict(_PLUGINS_STATUS)
+    plugins["summary"] = _build_plugin_summary(plugins)
     return {
         "bootstrapped": _BOOTSTRAPPED,
         "bootstrap_timestamp": _BOOTSTRAP_TS,
-        "plugins": dict(_PLUGINS_STATUS),
+        "plugins": plugins,
         "total_domains": len(domains),
         "total_providers": total_providers,
         "domains": domains,
@@ -289,6 +334,6 @@ def bootstrap_core_provider_registry() -> Dict[str, Any]:
 
 def get_core_provider_registry_snapshot(lazy_bootstrap: bool = True) -> Dict[str, Any]:
     """Return a serializable snapshot of registry status."""
-    if lazy_bootstrap and not _BOOTSTRAPPED:
+    if lazy_bootstrap and (not _BOOTSTRAPPED or not ProviderRegistry.list_domains()):
         bootstrap_core_provider_registry()
     return _build_snapshot()

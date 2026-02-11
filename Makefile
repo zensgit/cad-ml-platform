@@ -6,9 +6,9 @@
 	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted e2e-smoke \
 	dedup2d-secure-smoke chrome-devtools cdp-console-demo cdp-network-demo cdp-perf-demo cdp-response-demo \
 	cdp-screenshot-demo cdp-trace-demo playwright-console-demo playwright-trace-demo playwright-install \
-	uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance \
-	graph2d-review-summary validate-core-fast
-.PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh
+		uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance \
+		graph2d-review-summary validate-core-fast test-provider-core
+.PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -100,6 +100,20 @@ test-service-mesh: ## 运行 service-mesh 关键回归测试
 		$(TEST_DIR)/unit/test_load_balancer_coverage.py \
 		$(TEST_DIR)/unit/test_service_discovery_coverage.py -v
 
+test-provider-core: ## 运行 provider 框架核心回归测试
+	@echo "$(GREEN)Running provider core tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_provider_registry_plugins.py \
+		$(TEST_DIR)/unit/test_bootstrap_coverage.py \
+		$(TEST_DIR)/unit/test_provider_plugin_example_classifier.py \
+		$(TEST_DIR)/unit/test_provider_registry_bootstrap.py \
+		$(TEST_DIR)/unit/test_provider_framework.py \
+		$(TEST_DIR)/unit/test_provider_readiness.py \
+		$(TEST_DIR)/unit/test_health_utils_coverage.py \
+		$(TEST_DIR)/unit/test_health_hybrid_config.py \
+		$(TEST_DIR)/unit/test_provider_health_endpoint.py \
+		$(TEST_DIR)/unit/test_provider_check_metrics_exposed.py -v
+
 validate-iso286: ## 验证 ISO286/GB-T 1800 偏差表数据（快速）
 	@echo "$(GREEN)Validating ISO286 deviation tables...$(NC)"
 	$(PYTHON) scripts/validate_iso286_deviations.py --spot-check
@@ -110,10 +124,11 @@ validate-tolerance: ## 一键校验公差知识（数据 + API/模块测试）
 	$(MAKE) validate-iso286
 	$(MAKE) test-tolerance
 
-validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + service-mesh）
+validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + service-mesh + provider-core）
 	@echo "$(GREEN)Running core fast validation...$(NC)"
 	$(MAKE) validate-tolerance
 	$(MAKE) test-service-mesh
+	$(MAKE) test-provider-core
 
 test-dedupcad-vision: ## 运行测试（依赖 DedupCAD Vision 已启动）
 	@echo "$(GREEN)Running tests with DedupCAD Vision required...$(NC)"

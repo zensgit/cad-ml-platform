@@ -31,6 +31,11 @@ def test_bootstrap_loads_core_provider_plugins(monkeypatch) -> None:
     cache = plugins.get("cache") or {}
     assert cache.get("reused") is False
     assert cache.get("reason") == "first_load"
+    summary = plugins.get("summary") or {}
+    assert summary.get("overall_status") == "ok"
+    assert summary.get("configured_count") == 1
+    assert summary.get("loaded_count") == 1
+    assert summary.get("error_count") == 0
 
 
 def test_bootstrap_plugin_non_strict_captures_errors(monkeypatch) -> None:
@@ -44,6 +49,11 @@ def test_bootstrap_plugin_non_strict_captures_errors(monkeypatch) -> None:
     assert plugins.get("enabled") is True
     assert plugins.get("loaded") == []
     assert plugins.get("errors")
+    summary = plugins.get("summary") or {}
+    assert summary.get("overall_status") == "error"
+    assert summary.get("configured_count") == 1
+    assert summary.get("loaded_count") == 0
+    assert summary.get("error_count") == 1
 
 
 def test_bootstrap_plugin_strict_raises(monkeypatch) -> None:

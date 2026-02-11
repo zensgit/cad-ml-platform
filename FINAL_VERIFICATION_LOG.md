@@ -3655,3 +3655,23 @@
     - `pytest -q tests/unit/test_provider_registry_plugins.py tests/unit/test_bootstrap_coverage.py tests/unit/test_provider_plugin_example_classifier.py` (`17 passed`)
     - `pytest -q tests/unit/test_provider_registry_bootstrap.py tests/unit/test_provider_framework.py tests/unit/test_provider_readiness.py tests/unit/test_health_utils_coverage.py` (`33 passed`)
   - Report: `reports/DEV_PROVIDER_PLUGIN_CACHE_METRICS_DIAGNOSTICS_20260212.md`
+- **Provider Plugin Summary in Health Payload**:
+  - Added `plugins.summary` aggregation in core provider registry snapshots for direct health dashboard consumption.
+  - Added typed health models for plugin payload (`cache` + `summary`) while preserving compatibility.
+  - Hardened lazy snapshot recovery when `_BOOTSTRAPPED` is true but registry was externally cleared.
+  - Validation:
+    - `pytest -q tests/unit/test_provider_registry_plugins.py tests/unit/test_bootstrap_coverage.py tests/unit/test_provider_plugin_example_classifier.py tests/unit/test_provider_registry_bootstrap.py tests/unit/test_provider_framework.py tests/unit/test_provider_readiness.py tests/unit/test_health_utils_coverage.py tests/unit/test_health_hybrid_config.py tests/unit/test_provider_health_endpoint.py tests/unit/test_provider_check_metrics_exposed.py` (`57 passed`)
+    - `make test-provider-core` (`57 passed`)
+  - Report: `reports/DEV_PROVIDER_PLUGIN_SUMMARY_HEALTH_PAYLOAD_20260212.md`
+- **Provider Health Endpoint Plugin Diagnostics**:
+  - Added `plugin_diagnostics` field to `/api/v1/providers/health` response with plugin summary/cache counters.
+  - Validation:
+    - Included in provider core regression run: `make test-provider-core` (`57 passed`)
+  - Report: `reports/DEV_PROVIDER_HEALTH_PLUGIN_DIAGNOSTICS_20260212.md`
+- **Provider Core Fast Gate Integration**:
+  - Added `make test-provider-core` target and integrated it into `make validate-core-fast`.
+  - Validation: `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `103 passed`, `57 passed`)
+  - Report: `reports/DEV_PROVIDER_CORE_FAST_GATE_20260212.md`
+- **CI Summary Includes Provider Core Gate**:
+  - Extended core-fast-gate step summaries in both CI workflows to include `provider-core suite` status/evidence row.
+  - Report: `reports/DEV_CI_PROVIDER_CORE_SUMMARY_20260212.md`

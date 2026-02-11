@@ -91,6 +91,40 @@ class HealthConfigMl(BaseModel):
     readiness: Optional[Dict[str, Any]] = None
 
 
+class HealthProviderPluginCache(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    reused: Optional[bool] = None
+    reason: Optional[str] = None
+    checked_at: Optional[float] = None
+    missing_registered: Optional[List[str]] = None
+
+
+class HealthProviderPluginSummary(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    configured_count: Optional[int] = None
+    loaded_count: Optional[int] = None
+    error_count: Optional[int] = None
+    missing_registered_count: Optional[int] = None
+    cache_reused: Optional[bool] = None
+    cache_reason: Optional[str] = None
+    overall_status: Optional[str] = None
+
+
+class HealthProviderPlugins(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    enabled: Optional[bool] = None
+    strict: Optional[bool] = None
+    configured: Optional[List[str]] = None
+    loaded: Optional[List[str]] = None
+    errors: Optional[List[Dict[str, str]]] = None
+    registered: Optional[Dict[str, List[str]]] = None
+    cache: Optional[HealthProviderPluginCache] = None
+    summary: Optional[HealthProviderPluginSummary] = None
+
+
 class HealthConfigCoreProviders(BaseModel):
     bootstrapped: bool
     total_domains: int
@@ -98,7 +132,7 @@ class HealthConfigCoreProviders(BaseModel):
     domains: List[str]
     providers: Dict[str, List[str]]
     provider_classes: Optional[Dict[str, Dict[str, str]]] = None
-    plugins: Optional[Dict[str, Any]] = None
+    plugins: Optional[HealthProviderPlugins] = None
     bootstrap_timestamp: Optional[float] = None
 
 

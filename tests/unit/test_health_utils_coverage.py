@@ -239,6 +239,10 @@ class TestBuildHealthPayload:
 
         core = payload["config"].get("core_providers") or {}
         assert isinstance(core.get("provider_classes"), dict)
+        plugins = core.get("plugins") or {}
+        summary = plugins.get("summary") or {}
+        assert summary.get("overall_status") in {"ok", "degraded", "error"}
+        assert isinstance(summary.get("configured_count"), int)
 
     def test_build_health_payload_includes_graph2d_ensemble_settings(
         self, monkeypatch, tmp_path

@@ -17,6 +17,12 @@ def test_health_payload_includes_ml_config_section() -> None:
     assert "core_providers" in payload["config"]
     assert "domains" in payload["config"]["core_providers"]
     assert "providers" in payload["config"]["core_providers"]
+    plugins = payload["config"]["core_providers"].get("plugins") or {}
+    summary = plugins.get("summary") or {}
+    assert "overall_status" in summary
+    assert "configured_count" in summary
+    assert "loaded_count" in summary
+    assert "error_count" in summary
 
 
 @pytest.mark.asyncio

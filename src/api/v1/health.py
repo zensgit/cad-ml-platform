@@ -116,6 +116,7 @@ class ProviderHealthResponse(BaseModel):
     total: int
     ready: int
     timeout_seconds: float
+    plugin_diagnostics: Optional[Dict[str, Any]] = None
     results: List[ProviderHealthItem] = Field(default_factory=list)
 
 
@@ -159,7 +160,11 @@ async def provider_health(
     timeout_seconds: float = 0.75,
 ):
     """Run best-effort health checks for all bootstrapped core providers."""
-    from src.core.providers import ProviderRegistry, bootstrap_core_provider_registry
+    from src.core.providers import (
+        ProviderRegistry,
+        bootstrap_core_provider_registry,
+        get_core_provider_registry_snapshot,
+    )
 
     start = time.perf_counter()
     status = "ok"
@@ -172,6 +177,21 @@ async def provider_health(
     except Exception:
         status = "error"
         raise
+
+    plugin_diagnostics: Optional[Dict[str, Any]] = None
+    try:
+        snapshot = get_core_provider_registry_snapshot(lazy_bootstrap=False)
+        plugins = snapshot.get("plugins") or {}
+        plugin_diagnostics = {
+            "summary": plugins.get("summary"),
+            "cache": plugins.get("cache"),
+            "configured_count": len(plugins.get("configured", [])),
+            "loaded_count": len(plugins.get("loaded", [])),
+            "error_count": len(plugins.get("errors", [])),
+        }
+    except Exception:
+        # Diagnostics are best-effort and should not fail endpoint response.
+        plugin_diagnostics = None
 
     async def _check(domain: str, name: str) -> ProviderHealthItem:
         started_at = time.perf_counter()
@@ -249,6 +269,7 @@ async def provider_health(
             total=len(results),
             ready=ready_count,
             timeout_seconds=timeout_seconds,
+            plugin_diagnostics=plugin_diagnostics,
             results=results,
         )
     except Exception:
