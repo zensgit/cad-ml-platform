@@ -91,6 +91,7 @@ test-tolerance: ## 运行公差知识相关测试（unit + integration）
 		$(TEST_DIR)/unit/test_tolerance_fundamental_deviation.py \
 		$(TEST_DIR)/unit/test_tolerance_limit_deviations.py \
 		$(TEST_DIR)/unit/test_tolerance_api_normalization.py \
+		$(TEST_DIR)/integration/test_tolerance_api_errors.py \
 		$(TEST_DIR)/integration/test_tolerance_api.py -v
 
 validate-iso286: ## 验证 ISO286/GB-T 1800 偏差表数据（快速）

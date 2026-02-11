@@ -3602,3 +3602,10 @@
   - Added `make graph2d-review-summary` to standardize soft-override review CSV summarization.
   - Validation: `make graph2d-review-summary GRAPH2D_REVIEW_OUT_DIR=/tmp/graph2d_review_summary_20260211`
   - Report: `reports/DEV_MAKE_GRAPH2D_REVIEW_SUMMARY_20260211.md`
+- **Tolerance Error Contract Coverage**:
+  - Added tolerance API error-path coverage (400/404/422) at integration and contract levels.
+  - Validation:
+    - `pytest -q tests/integration/test_tolerance_api_errors.py`
+    - `pytest -q tests/contract/test_api_contract.py::TestKnowledgeApiContracts::test_tolerance_it_endpoint_rejects_unsupported_grade tests/contract/test_api_contract.py::TestKnowledgeApiContracts::test_tolerance_limit_deviations_not_found_response_shape tests/contract/test_api_contract.py::TestKnowledgeApiContracts::test_tolerance_fit_endpoint_not_found_response_shape`
+    - `make test-tolerance` (`48 passed`)
+  - Report: `reports/DEV_TOLERANCE_ERROR_CONTRACT_COVERAGE_20260211.md`

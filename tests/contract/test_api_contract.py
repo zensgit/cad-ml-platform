@@ -242,6 +242,40 @@ class TestKnowledgeApiContracts:
         ]:
             assert key in data
 
+    def test_tolerance_it_endpoint_rejects_unsupported_grade(self):
+        resp = _request(
+            "GET",
+            "/api/v1/tolerance/it",
+            headers={"X-API-Key": API_KEY},
+            params={"diameter_mm": 10.0, "grade": "IT99"},
+        )
+        assert resp.status_code == 400
+        data = resp.json()
+        assert "detail" in data
+        assert "Unsupported size/grade" in str(data.get("detail"))
+
+    def test_tolerance_limit_deviations_not_found_response_shape(self):
+        resp = _request(
+            "GET",
+            "/api/v1/tolerance/limit-deviations",
+            headers={"X-API-Key": API_KEY},
+            params={"symbol": "ZZ", "grade": 7, "diameter_mm": 10.0},
+        )
+        assert resp.status_code == 404
+        data = resp.json()
+        assert data.get("detail") == "Limit deviations not found for given symbol/grade/size."
+
+    def test_tolerance_fit_endpoint_not_found_response_shape(self):
+        resp = _request(
+            "GET",
+            "/api/v1/tolerance/fit",
+            headers={"X-API-Key": API_KEY},
+            params={"fit_code": "ZZ7/yy6", "diameter_mm": 10.0},
+        )
+        assert resp.status_code == 404
+        data = resp.json()
+        assert data.get("detail") == "Fit code not supported or out of range."
+
     def test_standards_status_endpoint_response_shape(self):
         resp = _request("GET", "/api/v1/standards/status", headers={"X-API-Key": API_KEY})
         assert resp.status_code == 200
