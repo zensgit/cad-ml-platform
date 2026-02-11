@@ -3643,3 +3643,15 @@
     - `pytest -q tests/unit/test_provider_registry_plugins.py tests/unit/test_bootstrap_coverage.py tests/unit/test_provider_plugin_example_classifier.py` (`16 passed`)
     - `pytest -q tests/unit/test_provider_registry_bootstrap.py tests/unit/test_provider_framework.py tests/unit/test_provider_readiness.py` (`15 passed`)
   - Report: `reports/DEV_PROVIDER_PLUGIN_RELOAD_RESILIENCE_20260212.md`
+- **Provider Plugin Cache Metrics & Diagnostics**:
+  - Added Prometheus observability for plugin bootstrap/cache outcomes and plugin counts:
+    - `core_provider_plugin_bootstrap_total`
+    - `core_provider_plugin_bootstrap_duration_seconds`
+    - `core_provider_plugin_configured`
+    - `core_provider_plugin_loaded`
+    - `core_provider_plugin_errors`
+  - Extended provider snapshot plugin payload with `plugins.cache` diagnostics (`reused`, `reason`, `checked_at`, `missing_registered`) for clearer health/debug visibility.
+  - Validation:
+    - `pytest -q tests/unit/test_provider_registry_plugins.py tests/unit/test_bootstrap_coverage.py tests/unit/test_provider_plugin_example_classifier.py` (`17 passed`)
+    - `pytest -q tests/unit/test_provider_registry_bootstrap.py tests/unit/test_provider_framework.py tests/unit/test_provider_readiness.py tests/unit/test_health_utils_coverage.py` (`33 passed`)
+  - Report: `reports/DEV_PROVIDER_PLUGIN_CACHE_METRICS_DIAGNOSTICS_20260212.md`

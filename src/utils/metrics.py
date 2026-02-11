@@ -236,6 +236,29 @@ core_provider_check_duration_seconds = Histogram(
     ["source", "domain", "provider"],
     buckets=[0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0],
 )
+core_provider_plugin_bootstrap_total = Counter(
+    "core_provider_plugin_bootstrap_total",
+    "Core provider plugin bootstrap outcomes",
+    ["result"],
+)
+core_provider_plugin_bootstrap_duration_seconds = Histogram(
+    "core_provider_plugin_bootstrap_duration_seconds",
+    "Core provider plugin bootstrap duration seconds",
+    ["result"],
+    buckets=[0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
+)
+core_provider_plugin_configured = Gauge(
+    "core_provider_plugin_configured",
+    "Number of configured core provider plugins",
+)
+core_provider_plugin_loaded = Gauge(
+    "core_provider_plugin_loaded",
+    "Number of loaded core provider plugins",
+)
+core_provider_plugin_errors = Gauge(
+    "core_provider_plugin_errors",
+    "Number of core provider plugin bootstrap errors",
+)
 
 # Simple in-process EMA trackers; callers should update on success/error events.
 _EMA_ALPHA = float(get_settings().ERROR_EMA_ALPHA)

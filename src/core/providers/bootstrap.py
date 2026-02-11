@@ -13,6 +13,13 @@ from src.core.providers.registry import ProviderRegistry
 from src.core.providers.vision import bootstrap_core_vision_providers
 from src.core.providers.classifier import bootstrap_core_classifier_providers
 from src.core.providers.knowledge import bootstrap_core_knowledge_providers
+from src.utils.metrics import (
+    core_provider_plugin_bootstrap_duration_seconds,
+    core_provider_plugin_bootstrap_total,
+    core_provider_plugin_configured,
+    core_provider_plugin_errors,
+    core_provider_plugin_loaded,
+)
 
 _BOOTSTRAPPED = False
 _BOOTSTRAP_TS: float | None = None
@@ -24,6 +31,12 @@ _PLUGINS_STATUS: Dict[str, Any] = {
     "loaded": [],
     "errors": [],
     "registered": {},
+    "cache": {
+        "reused": False,
+        "reason": "init",
+        "checked_at": None,
+        "missing_registered": [],
+    },
 }
 
 
@@ -43,6 +56,12 @@ def reset_core_provider_plugins_state() -> None:
         "loaded": [],
         "errors": [],
         "registered": {},
+        "cache": {
+            "reused": False,
+            "reason": "reset",
+            "checked_at": None,
+            "missing_registered": [],
+        },
     }
 
 
@@ -60,26 +79,51 @@ def _snapshot_provider_ids() -> set[str]:
     return ids
 
 
-def _plugins_registry_intact(status: Dict[str, Any]) -> bool:
+def _plugins_registry_diagnostics(status: Dict[str, Any]) -> tuple[bool, str, list[str]]:
     loaded = status.get("loaded")
     if loaded and "registered" not in status:
         # Backward compatibility: force one refresh if cache schema changed.
-        return False
+        return False, "cache_schema_mismatch", []
 
     registered = status.get("registered")
     if not isinstance(registered, dict):
-        return False
+        return False, "invalid_registered_map", []
 
+    missing_registered: list[str] = []
     for provider_ids in registered.values():
         if not isinstance(provider_ids, list):
-            return False
+            return False, "invalid_registered_value", []
         for provider_id in provider_ids:
             if not isinstance(provider_id, str) or "/" not in provider_id:
-                return False
+                return False, "invalid_registered_provider_id", []
             domain, provider_name = provider_id.split("/", 1)
             if not ProviderRegistry.exists(domain, provider_name):
-                return False
-    return True
+                missing_registered.append(provider_id)
+
+    if missing_registered:
+        return False, "missing_registered_provider", sorted(set(missing_registered))
+    return True, "intact", []
+
+
+def _observe_plugin_metrics(
+    *,
+    result: str,
+    configured_count: int,
+    loaded_count: int,
+    error_count: int,
+    duration_seconds: float,
+) -> None:
+    try:
+        core_provider_plugin_bootstrap_total.labels(result=result).inc()
+        core_provider_plugin_bootstrap_duration_seconds.labels(
+            result=result
+        ).observe(duration_seconds)
+        core_provider_plugin_configured.set(configured_count)
+        core_provider_plugin_loaded.set(loaded_count)
+        core_provider_plugin_errors.set(error_count)
+    except Exception:
+        # Metrics should never affect bootstrap behavior.
+        pass
 
 
 def bootstrap_core_provider_plugins() -> Dict[str, Any]:
@@ -97,18 +141,47 @@ def bootstrap_core_provider_plugins() -> Dict[str, Any]:
     """
     global _PLUGINS_CONFIG, _PLUGINS_STATUS
 
+    started_at = time.perf_counter()
+    checked_at = time.time()
     raw = os.getenv("CORE_PROVIDER_PLUGINS", "").strip()
     strict = (
         os.getenv("CORE_PROVIDER_PLUGINS_STRICT", "false").strip().lower() == "true"
     )
     config = (raw, bool(strict))
-    if _PLUGINS_CONFIG == config and _plugins_registry_intact(_PLUGINS_STATUS):
+    intact, cache_reason, missing_registered = _plugins_registry_diagnostics(
+        _PLUGINS_STATUS
+    )
+
+    if _PLUGINS_CONFIG == config and intact:
+        cache = {
+            "reused": True,
+            "reason": "config_match",
+            "checked_at": checked_at,
+            "missing_registered": [],
+        }
+        _PLUGINS_STATUS["cache"] = cache
+        _observe_plugin_metrics(
+            result="cache_hit",
+            configured_count=len(_PLUGINS_STATUS.get("configured", [])),
+            loaded_count=len(_PLUGINS_STATUS.get("loaded", [])),
+            error_count=len(_PLUGINS_STATUS.get("errors", [])),
+            duration_seconds=(time.perf_counter() - started_at),
+        )
         return dict(_PLUGINS_STATUS)
 
     tokens = _parse_plugin_list(raw)
     loaded: list[str] = []
     errors: list[Dict[str, str]] = []
     registered: Dict[str, list[str]] = {}
+
+    if _PLUGINS_CONFIG is None:
+        reload_reason = "first_load"
+    elif _PLUGINS_CONFIG != config:
+        reload_reason = "config_changed"
+    elif missing_registered:
+        reload_reason = "missing_registered_provider"
+    else:
+        reload_reason = cache_reason
 
     for token in tokens:
         module_name = token
@@ -133,6 +206,13 @@ def bootstrap_core_provider_plugins() -> Dict[str, Any]:
         except Exception as exc:  # noqa: BLE001
             errors.append({"plugin": token, "error": f"{type(exc).__name__}: {exc}"})
             if strict:
+                _observe_plugin_metrics(
+                    result="strict_error",
+                    configured_count=len(tokens),
+                    loaded_count=len(loaded),
+                    error_count=len(errors),
+                    duration_seconds=(time.perf_counter() - started_at),
+                )
                 raise
 
     _PLUGINS_STATUS = {
@@ -142,8 +222,22 @@ def bootstrap_core_provider_plugins() -> Dict[str, Any]:
         "loaded": loaded,
         "errors": errors,
         "registered": registered,
+        "cache": {
+            "reused": False,
+            "reason": reload_reason,
+            "checked_at": checked_at,
+            "missing_registered": missing_registered,
+        },
     }
     _PLUGINS_CONFIG = config
+
+    _observe_plugin_metrics(
+        result="reload_partial" if errors else "reload_ok",
+        configured_count=len(tokens),
+        loaded_count=len(loaded),
+        error_count=len(errors),
+        duration_seconds=(time.perf_counter() - started_at),
+    )
     return dict(_PLUGINS_STATUS)
 
 
