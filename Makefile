@@ -6,7 +6,8 @@
 	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted e2e-smoke \
 	dedup2d-secure-smoke chrome-devtools cdp-console-demo cdp-network-demo cdp-perf-demo cdp-response-demo \
 	cdp-screenshot-demo cdp-trace-demo playwright-console-demo playwright-trace-demo playwright-install \
-	uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance
+	uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance \
+	graph2d-review-summary
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance
 
 # 默认目标
@@ -522,6 +523,17 @@ eval-trend: ## 生成评测趋势图（reports/eval_history/plots）
 eval-validate: ## 校验评测历史文件的 schema 合规性
 	@echo "$(GREEN)Validating evaluation history files...$(NC)"
 	$(PYTHON) scripts/validate_eval_history.py --dir reports/eval_history
+
+# Graph2D review summarization
+GRAPH2D_REVIEW_TEMPLATE ?= reports/experiments/20260123/soft_override_calibrated_added_review_template_20260124.csv
+GRAPH2D_REVIEW_OUT_DIR ?= reports/experiments/$$(date +%Y%m%d)
+
+graph2d-review-summary: ## 汇总 Graph2D soft-override 复核模板（生成 summary + correct-label counts）
+	@echo "$(GREEN)Summarizing Graph2D soft-override review...$(NC)"
+	$(PYTHON) scripts/summarize_soft_override_review.py \
+		--review-template "$(GRAPH2D_REVIEW_TEMPLATE)" \
+		--summary-out "$(GRAPH2D_REVIEW_OUT_DIR)/soft_override_review_summary.csv" \
+		--correct-labels-out "$(GRAPH2D_REVIEW_OUT_DIR)/soft_override_correct_label_counts.csv"
 
 eval-migrate: ## 迁移旧版评测历史到 v1.0.0 schema
 	@echo "$(YELLOW)Migrating legacy evaluation history files...$(NC)"

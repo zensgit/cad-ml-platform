@@ -3598,3 +3598,7 @@
   - Added `make validate-tolerance` to run ISO286 data validation and tolerance test suites end-to-end.
   - Validation: `make validate-tolerance` (`ISO286 validators OK`, `44 passed`)
   - Report: `reports/DEV_MAKE_VALIDATE_TOLERANCE_20260211.md`
+- **Graph2D Review Summary Make Target**:
+  - Added `make graph2d-review-summary` to standardize soft-override review CSV summarization.
+  - Validation: `make graph2d-review-summary GRAPH2D_REVIEW_OUT_DIR=/tmp/graph2d_review_summary_20260211`
+  - Report: `reports/DEV_MAKE_GRAPH2D_REVIEW_SUMMARY_20260211.md`
