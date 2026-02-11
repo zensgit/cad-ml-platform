@@ -3594,3 +3594,7 @@
   - Added `make test-tolerance` to run tolerance-focused unit + integration tests in one stable command.
   - Validation: `make test-tolerance` (`44 passed`)
   - Report: `reports/DEV_MAKE_TEST_TOLERANCE_20260211.md`
+- **Tolerance Stack Validation Target**:
+  - Added `make validate-tolerance` to run ISO286 data validation and tolerance test suites end-to-end.
+  - Validation: `make validate-tolerance` (`ISO286 validators OK`, `44 passed`)
+  - Report: `reports/DEV_MAKE_VALIDATE_TOLERANCE_20260211.md`
