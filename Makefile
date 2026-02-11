@@ -7,7 +7,7 @@
 	dedup2d-secure-smoke chrome-devtools cdp-console-demo cdp-network-demo cdp-perf-demo cdp-response-demo \
 	cdp-screenshot-demo cdp-trace-demo playwright-console-demo playwright-trace-demo playwright-install \
 	uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance \
-	graph2d-review-summary
+	graph2d-review-summary validate-core-fast
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh
 
 # 默认目标
@@ -109,6 +109,11 @@ validate-tolerance: ## 一键校验公差知识（数据 + API/模块测试）
 	@echo "$(GREEN)Validating tolerance knowledge stack...$(NC)"
 	$(MAKE) validate-iso286
 	$(MAKE) test-tolerance
+
+validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + service-mesh）
+	@echo "$(GREEN)Running core fast validation...$(NC)"
+	$(MAKE) validate-tolerance
+	$(MAKE) test-service-mesh
 
 test-dedupcad-vision: ## 运行测试（依赖 DedupCAD Vision 已启动）
 	@echo "$(GREEN)Running tests with DedupCAD Vision required...$(NC)"

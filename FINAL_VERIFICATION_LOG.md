@@ -3613,3 +3613,7 @@
   - Added `make test-service-mesh` for stable regression of service discovery and load balancer modules.
   - Validation: `make test-service-mesh` (`103 passed`)
   - Report: `reports/DEV_MAKE_TEST_SERVICE_MESH_20260211.md`
+- **Core Fast Validation Target**:
+  - Added `make validate-core-fast` to run the stable regression baseline (`validate-tolerance` + `test-service-mesh`) in one command.
+  - Validation: `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `103 passed`)
+  - Report: `reports/DEV_MAKE_VALIDATE_CORE_FAST_20260211.md`
