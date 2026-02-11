@@ -3582,3 +3582,7 @@
   - Expanded unit coverage for `src/ml/hybrid_classifier.py` decision paths, env parsing, and error handling.
   - Validation: `pytest -q tests/unit/test_hybrid_classifier_coverage.py`
   - Report: `reports/DEV_UNIT_COVERAGE_HYBRID_CLASSIFIER_20260210.md`
+- **Unit Coverage: Service Discovery**:
+  - Added unit coverage for `src/core/service_mesh/discovery.py` (registry behavior, discovery cache, and registrar heartbeat lifecycle).
+  - Validation: `pytest -q tests/unit/test_service_discovery_coverage.py`
+  - Report: `reports/DEV_UNIT_COVERAGE_SERVICE_DISCOVERY_20260211.md`
