@@ -3586,3 +3586,7 @@
   - Added unit coverage for `src/core/service_mesh/discovery.py` (registry behavior, discovery cache, and registrar heartbeat lifecycle).
   - Validation: `pytest -q tests/unit/test_service_discovery_coverage.py`
   - Report: `reports/DEV_UNIT_COVERAGE_SERVICE_DISCOVERY_20260211.md`
+- **Tolerance API Normalization Tests**:
+  - Added unit tests for fit-code normalization and mixed-case/whitespace tolerance fit endpoint inputs.
+  - Validation: `pytest -q tests/unit/test_tolerance_api_normalization.py`, `pytest -q tests/integration/test_tolerance_api.py`
+  - Report: `reports/DEV_TOLERANCE_API_NORMALIZATION_TESTS_20260211.md`
