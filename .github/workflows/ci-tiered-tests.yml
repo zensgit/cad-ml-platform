@@ -32,7 +32,38 @@ jobs:
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
 
       - name: Run core fast gate
-        run: make validate-core-fast
+        run: |
+          set -o pipefail
+          make validate-core-fast 2>&1 | tee /tmp/core-fast-gate-tiered.log
+
+      - name: Upload core fast gate log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-fast-gate-tiered-log
+          path: /tmp/core-fast-gate-tiered.log
+          if-no-files-found: ignore
+
+      - name: Append core fast gate summary
+        if: always()
+        run: |
+          {
+            echo "## Core Fast Gate (Tiered CI)"
+            if [ -f /tmp/core-fast-gate-tiered.log ]; then
+              echo ""
+              echo "Key lines:"
+              echo '```text'
+              rg "ISO286 deviations|All required hole symbols present|passed in" /tmp/core-fast-gate-tiered.log || true
+              echo '```'
+              echo ""
+              echo "Tail:"
+              echo '```text'
+              tail -n 30 /tmp/core-fast-gate-tiered.log
+              echo '```'
+            else
+              echo "No core-fast-gate log found."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   unit-tier:
     runs-on: ubuntu-latest

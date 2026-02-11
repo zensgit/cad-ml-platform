@@ -3625,3 +3625,9 @@
   - Added a `Run core fast gate (3.11 only)` step in `.github/workflows/ci.yml` `tests` job to execute `make validate-core-fast` before smoke/knowledge/unit steps.
   - Validation: `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `103 passed`)
   - Report: `reports/DEV_CI_TESTS_CORE_FAST_GATE_20260211.md`
+- **CI Core Fast Gate Logs & Step Summaries**:
+  - Enhanced core-fast-gate steps in both `.github/workflows/ci-tiered-tests.yml` and `.github/workflows/ci.yml` to:
+    - persist full gate logs as workflow artifacts;
+    - append key lines + tail snippets into `GITHUB_STEP_SUMMARY`.
+  - Validation: `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `103 passed`)
+  - Report: `reports/DEV_CI_CORE_FAST_GATE_LOGGING_SUMMARY_20260211.md`

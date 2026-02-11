@@ -107,7 +107,38 @@ jobs:
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
       - name: Run core fast gate (3.11 only)
         if: matrix.python-version == '3.11'
-        run: make validate-core-fast
+        run: |
+          set -o pipefail
+          make validate-core-fast 2>&1 | tee /tmp/core-fast-gate-ci.log
+
+      - name: Upload core fast gate log (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-fast-gate-ci-log-${{ matrix.python-version }}
+          path: /tmp/core-fast-gate-ci.log
+          if-no-files-found: ignore
+
+      - name: Append core fast gate summary (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          {
+            echo "## Core Fast Gate (CI Tests, Python ${{ matrix.python-version }})"
+            if [ -f /tmp/core-fast-gate-ci.log ]; then
+              echo ""
+              echo "Key lines:"
+              echo '```text'
+              rg "ISO286 deviations|All required hole symbols present|passed in" /tmp/core-fast-gate-ci.log || true
+              echo '```'
+              echo ""
+              echo "Tail:"
+              echo '```text'
+              tail -n 30 /tmp/core-fast-gate-ci.log
+              echo '```'
+            else
+              echo "No core-fast-gate log found."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Quick route smoke
         run: pytest -q -k test_routes_smoke || true
       - name: Run knowledge tests
