@@ -20,7 +20,7 @@
 - `pytest -q tests/unit/test_provider_health_endpoint.py tests/unit/test_provider_check_metrics_exposed.py tests/unit/test_health_hybrid_config.py`
   - Included in full provider core run and passed.
 - `make test-provider-core`
-  - `57 passed`
+  - `59 passed`
 
 ## Notes
 - Endpoint contract is backward compatible (`plugin_diagnostics` is optional and additive).

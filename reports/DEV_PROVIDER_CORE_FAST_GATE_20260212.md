@@ -10,12 +10,12 @@
 
 ## Validation
 - `make test-provider-core`
-  - `57 passed`
+  - `59 passed`
 - `make validate-core-fast`
   - `validate-iso286`: `OK`
   - `test-tolerance`: `48 passed`
   - `test-service-mesh`: `103 passed`
-  - `test-provider-core`: `57 passed`
+  - `test-provider-core`: `59 passed`
 
 ## Notes
 - This keeps provider framework regressions in the same fast gate path as tolerance and service-mesh.

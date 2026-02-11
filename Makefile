@@ -104,6 +104,7 @@ test-provider-core: ## 运行 provider 框架核心回归测试
 	@echo "$(GREEN)Running provider core tests...$(NC)"
 	$(PYTEST) \
 		$(TEST_DIR)/unit/test_provider_registry_plugins.py \
+		$(TEST_DIR)/unit/test_provider_plugin_metrics_exposed.py \
 		$(TEST_DIR)/unit/test_bootstrap_coverage.py \
 		$(TEST_DIR)/unit/test_provider_plugin_example_classifier.py \
 		$(TEST_DIR)/unit/test_provider_registry_bootstrap.py \
