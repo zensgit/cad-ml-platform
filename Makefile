@@ -7,7 +7,7 @@
 	dedup2d-secure-smoke chrome-devtools cdp-console-demo cdp-network-demo cdp-perf-demo cdp-response-demo \
 	cdp-screenshot-demo cdp-trace-demo playwright-console-demo playwright-trace-demo playwright-install \
 	uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286
-.PHONY: test-unit test-contract-local test-e2e-local test-all-local
+.PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -82,6 +82,15 @@ test-all-local: ## 自动起停本地 API 后运行全量 tests
 test-knowledge: ## 运行知识库相关测试
 	@echo "$(GREEN)Running knowledge tests...$(NC)"
 	$(PYTEST) $(TEST_DIR)/unit/knowledge -v --junitxml=reports/junit-knowledge.xml
+
+test-tolerance: ## 运行公差知识相关测试（unit + integration）
+	@echo "$(GREEN)Running tolerance tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/knowledge/test_tolerance.py \
+		$(TEST_DIR)/unit/test_tolerance_fundamental_deviation.py \
+		$(TEST_DIR)/unit/test_tolerance_limit_deviations.py \
+		$(TEST_DIR)/unit/test_tolerance_api_normalization.py \
+		$(TEST_DIR)/integration/test_tolerance_api.py -v
 
 validate-iso286: ## 验证 ISO286/GB-T 1800 偏差表数据（快速）
 	@echo "$(GREEN)Validating ISO286 deviation tables...$(NC)"

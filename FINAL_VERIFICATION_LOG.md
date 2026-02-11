@@ -3590,3 +3590,7 @@
   - Added unit tests for fit-code normalization and mixed-case/whitespace tolerance fit endpoint inputs.
   - Validation: `pytest -q tests/unit/test_tolerance_api_normalization.py`, `pytest -q tests/integration/test_tolerance_api.py`
   - Report: `reports/DEV_TOLERANCE_API_NORMALIZATION_TESTS_20260211.md`
+- **Tolerance Test Make Target**:
+  - Added `make test-tolerance` to run tolerance-focused unit + integration tests in one stable command.
+  - Validation: `make test-tolerance` (`44 passed`)
+  - Report: `reports/DEV_MAKE_TEST_TOLERANCE_20260211.md`
