@@ -8,7 +8,7 @@
 	cdp-screenshot-demo cdp-trace-demo playwright-console-demo playwright-trace-demo playwright-install \
 	uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance \
 	graph2d-review-summary
-.PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance
+.PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -93,6 +93,12 @@ test-tolerance: ## 运行公差知识相关测试（unit + integration）
 		$(TEST_DIR)/unit/test_tolerance_api_normalization.py \
 		$(TEST_DIR)/integration/test_tolerance_api_errors.py \
 		$(TEST_DIR)/integration/test_tolerance_api.py -v
+
+test-service-mesh: ## 运行 service-mesh 关键回归测试
+	@echo "$(GREEN)Running service-mesh tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_load_balancer_coverage.py \
+		$(TEST_DIR)/unit/test_service_discovery_coverage.py -v
 
 validate-iso286: ## 验证 ISO286/GB-T 1800 偏差表数据（快速）
 	@echo "$(GREEN)Validating ISO286 deviation tables...$(NC)"

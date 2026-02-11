@@ -3609,3 +3609,7 @@
     - `pytest -q tests/contract/test_api_contract.py::TestKnowledgeApiContracts::test_tolerance_it_endpoint_rejects_unsupported_grade tests/contract/test_api_contract.py::TestKnowledgeApiContracts::test_tolerance_limit_deviations_not_found_response_shape tests/contract/test_api_contract.py::TestKnowledgeApiContracts::test_tolerance_fit_endpoint_not_found_response_shape`
     - `make test-tolerance` (`48 passed`)
   - Report: `reports/DEV_TOLERANCE_ERROR_CONTRACT_COVERAGE_20260211.md`
+- **Service Mesh Test Make Target**:
+  - Added `make test-service-mesh` for stable regression of service discovery and load balancer modules.
+  - Validation: `make test-service-mesh` (`103 passed`)
+  - Report: `reports/DEV_MAKE_TEST_SERVICE_MESH_20260211.md`
