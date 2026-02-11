@@ -3631,3 +3631,8 @@
     - append key lines + tail snippets into `GITHUB_STEP_SUMMARY`.
   - Validation: `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `103 passed`)
   - Report: `reports/DEV_CI_CORE_FAST_GATE_LOGGING_SUMMARY_20260211.md`
+- **CI Core Fast Gate Structured Step Summary**:
+  - Replaced `rg`-based key-line extraction with `grep`/`sed`/`tail` to improve runner compatibility.
+  - Upgraded `GITHUB_STEP_SUMMARY` output to a structured markdown table with explicit status/evidence rows for ISO286 checks and both test suites.
+  - Validation: `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `103 passed`)
+  - Report: `reports/DEV_CI_CORE_FAST_GATE_STRUCTURED_SUMMARY_20260212.md`

@@ -124,20 +124,44 @@ jobs:
         run: |
           {
             echo "## Core Fast Gate (CI Tests, Python ${{ matrix.python-version }})"
-            if [ -f /tmp/core-fast-gate-ci.log ]; then
+            LOG_FILE="/tmp/core-fast-gate-ci.log"
+            if [ ! -f "$LOG_FILE" ]; then
               echo ""
-              echo "Key lines:"
-              echo '```text'
-              rg "ISO286 deviations|All required hole symbols present|passed in" /tmp/core-fast-gate-ci.log || true
-              echo '```'
-              echo ""
-              echo "Tail:"
-              echo '```text'
-              tail -n 30 /tmp/core-fast-gate-ci.log
-              echo '```'
-            else
               echo "No core-fast-gate log found."
+              exit 0
             fi
+
+            iso_ok="❌"
+            hole_ok="❌"
+            if grep -q "ISO286 deviations:" "$LOG_FILE" && grep -q "^OK$" "$LOG_FILE"; then
+              iso_ok="✅"
+            fi
+            if grep -q "All required hole symbols present:" "$LOG_FILE"; then
+              hole_ok="✅"
+            fi
+
+            pass_lines="$(grep -E '[0-9]+ passed in [0-9.]+s' "$LOG_FILE" || true)"
+            tolerance_pass="$(echo "$pass_lines" | sed -n '1p')"
+            service_mesh_pass="$(echo "$pass_lines" | sed -n '2p')"
+            [ -z "$tolerance_pass" ] && tolerance_pass="N/A"
+            [ -z "$service_mesh_pass" ] && service_mesh_pass="N/A"
+            tolerance_ok="❌"
+            service_mesh_ok="❌"
+            [ "$tolerance_pass" != "N/A" ] && tolerance_ok="✅"
+            [ "$service_mesh_pass" != "N/A" ] && service_mesh_ok="✅"
+
+            echo ""
+            echo "| Check | Status | Evidence |"
+            echo "|---|---|---|"
+            echo "| ISO286 deviations validator | $iso_ok | \`ISO286 deviations ... OK\` |"
+            echo "| ISO286 hole symbols validator | $hole_ok | \`All required hole symbols present\` |"
+            echo "| tolerance suite | $tolerance_ok | \`$tolerance_pass\` |"
+            echo "| service-mesh suite | $service_mesh_ok | \`$service_mesh_pass\` |"
+            echo ""
+            echo "Tail:"
+            echo '```text'
+            tail -n 30 "$LOG_FILE"
+            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Quick route smoke
         run: pytest -q -k test_routes_smoke || true
