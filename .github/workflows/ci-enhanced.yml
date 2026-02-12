@@ -164,7 +164,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: knowledge-test-report-${{ matrix.python-version }}
+          name: knowledge-test-report-${{ matrix.python-version }}-${{ matrix.shard }}
           path: reports/junit-knowledge.xml
 
   # ============================================
