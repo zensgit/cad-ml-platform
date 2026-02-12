@@ -23,6 +23,7 @@ try:
     HAS_TORCH = True
 except Exception:
     logger.warning("Torch not found. 2D vision module disabled.")
+    torch = None
     DXF_NODE_DIM = 0
     DXF_EDGE_DIM = 0
     DXFDataset = None
@@ -110,7 +111,7 @@ class Graph2DClassifier:
         self.temperature_source = source
 
     def _load_model(self) -> None:
-        if not HAS_TORCH:
+        if not HAS_TORCH or torch is None:
             return
         checkpoint = torch.load(self.model_path, map_location=self.device)
         self.label_map = checkpoint.get("label_map", {})

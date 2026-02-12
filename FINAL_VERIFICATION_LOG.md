@@ -3967,3 +3967,10 @@
     - `make validate-core-fast` (passed)
     - `.venv/bin/bandit -r src/ --exclude src/core/vision,src/core/ocr -f json ...` (0 high)
   - Report: `reports/DEV_BANDIT_MD5_NONSECURITY_HASH_FIX_20260213.md`
+- **Vision2D Torch Optional Import NameError Fix**:
+  - Fixed `Graph2DClassifier` initialization regression when torch import is unavailable but tests monkeypatch `HAS_TORCH=True`.
+  - Added a defensive `_load_model()` guard and explicit `torch = None` fallback assignment in `src/ml/vision_2d.py`.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_vision_2d_ensemble_voting.py -v` (26 passed)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_VISION2D_TORCH_NAMEERROR_FIX_20260213.md`
