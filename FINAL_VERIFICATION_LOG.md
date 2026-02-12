@@ -3837,3 +3837,10 @@
     - `make validate-openapi` (`5 passed`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `5 passed`, `103 passed`, `60 passed`, `4 passed`)
   - Report: `reports/DEV_PROVIDER_PLUGIN_DIAGNOSTICS_OPENAPI_MODEL_20260212.md`
+- **Provider Registry OpenAPI Model**:
+  - Promoted `/api/v1/providers/registry` response `registry` field to typed `HealthConfigCoreProviders`.
+  - Added contract tests for `/api/v1/providers/registry` response shape and OpenAPI schema typing.
+  - Validation:
+    - `make validate-openapi` (`5 passed`)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_PROVIDER_REGISTRY_OPENAPI_MODEL_20260212.md`

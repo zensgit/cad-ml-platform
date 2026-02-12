@@ -363,6 +363,26 @@ class TestProviderHealthContracts:
         ]:
             assert key in summary
 
+    def test_provider_registry_endpoint_response_shape(self):
+        resp = _request(
+            "GET",
+            "/api/v1/providers/registry",
+            headers={"X-API-Key": API_KEY},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data.get("status") == "ok"
+        registry = data.get("registry")
+        assert isinstance(registry, dict)
+        assert isinstance(registry.get("bootstrapped"), bool)
+        assert isinstance(registry.get("total_domains"), int)
+        assert isinstance(registry.get("total_providers"), int)
+        assert isinstance(registry.get("domains"), list)
+        assert isinstance(registry.get("providers"), dict)
+        # Core domains should always exist.
+        assert "vision" in registry.get("domains", [])
+        assert "ocr" in registry.get("domains", [])
+
     def test_health_payload_core_provider_plugin_summary_shape(self):
         resp = _request("GET", "/health", headers={"X-API-Key": API_KEY})
         assert resp.status_code == 200
@@ -402,6 +422,29 @@ class TestProviderHealthContracts:
         assert "plugin_diagnostics" in props
         assert "results" in props
         assert "status" in props
+
+    def test_provider_registry_openapi_schema_contains_typed_registry(self):
+        openapi = _openapi_schema()
+        path_schema = (
+            openapi["paths"]["/api/v1/providers/registry"]["get"]["responses"]["200"]["content"][
+                "application/json"
+            ]["schema"]
+        )
+        response_schema = _resolve_schema_ref(openapi, path_schema)
+        props = response_schema.get("properties") or {}
+        assert "registry" in props
+
+        registry_schema = _resolve_schema_ref(openapi, props["registry"])
+        registry_props = registry_schema.get("properties") or {}
+        for key in [
+            "bootstrapped",
+            "total_domains",
+            "total_providers",
+            "domains",
+            "providers",
+            "plugins",
+        ]:
+            assert key in registry_props
 
     def test_health_openapi_schema_contains_core_provider_plugin_summary(self):
         openapi = _openapi_schema()

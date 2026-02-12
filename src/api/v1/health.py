@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.dependencies import get_admin_token, get_api_key
 from src.api.health_models import (
+    HealthConfigCoreProviders,
     HealthProviderPluginCache,
     HealthProviderPluginSummary,
     HealthResponse,
@@ -105,7 +106,7 @@ class HybridRuntimeConfigResponse(BaseModel):
 
 class ProviderRegistryHealthResponse(BaseModel):
     status: str
-    registry: Dict[str, Any]
+    registry: HealthConfigCoreProviders
 
 
 class ProviderPluginErrorItem(BaseModel):
