@@ -3740,3 +3740,10 @@
     - `make validate-openapi` (`4 passed`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `4 passed`, `103 passed`, `59 passed`, `4 passed`)
   - Report: `reports/DEV_OPENAPI_DUPLICATE_WARNING_GUARD_20260212.md`
+- **OpenAPI Fast Gate & Warning Filter**:
+  - Added dedicated CI `openapi-fast` job in `.github/workflows/ci.yml` and gated `tests` on it for earlier schema failure detection.
+  - Added targeted warning filter for known Pydantic `__fields__` deprecation noise in `pytest.ini`.
+  - Validation:
+    - `make validate-openapi` (`4 passed`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `4 passed`, `103 passed`, `59 passed`, `4 passed`)
+  - Report: `reports/DEV_OPENAPI_FAST_GATE_AND_WARNING_FILTER_20260212.md`
