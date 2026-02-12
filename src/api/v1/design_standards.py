@@ -24,6 +24,8 @@ from src.core.knowledge.design_standards import (
     get_angular_tolerance,
     get_general_tolerance_table,
     get_linear_tolerance,
+    get_standard_chamfer,
+    get_standard_fillet,
     get_preferred_diameter,
     get_ra_value,
     get_surface_finish_for_application,
@@ -115,6 +117,35 @@ async def surface_finish_grade(
         process_zh=str(process_zh),
         process_en=str(process_en),
     )
+
+
+class SurfaceFinishGradesListResponse(BaseModel):
+    grades: list[SurfaceFinishGradeResponse]
+    total: int
+    source: str = Field(default="ISO 1302 (built-in)")
+
+
+@router.get("/surface-finish/grades", response_model=SurfaceFinishGradesListResponse)
+async def surface_finish_grades(
+    api_key: str = Depends(get_api_key),
+) -> SurfaceFinishGradesListResponse:
+    _ = api_key
+    items: list[SurfaceFinishGradeResponse] = []
+    for grade in SurfaceFinishGrade:
+        data = SURFACE_FINISH_TABLE.get(grade)
+        if not data:
+            continue
+        ra, rz, process_zh, process_en = data
+        items.append(
+            SurfaceFinishGradeResponse(
+                grade=grade.value,
+                ra_um=float(ra),
+                rz_um=float(rz),
+                process_zh=str(process_zh),
+                process_en=str(process_en),
+            )
+        )
+    return SurfaceFinishGradesListResponse(grades=items, total=len(items))
 
 
 class SurfaceFinishApplicationResponse(BaseModel):
@@ -258,6 +289,102 @@ async def preferred_diameter(
     )
 
 
+class PreferredDiametersListResponse(BaseModel):
+    min_mm: float
+    max_mm: float
+    diameters_mm: list[float]
+    total: int
+    source: str = Field(default="ISO preferred diameters (built-in)")
+
+
+@router.get(
+    "/design-features/preferred-diameters",
+    response_model=PreferredDiametersListResponse,
+)
+async def preferred_diameters_list(
+    min_mm: float = Query(0.0, ge=0.0, description="Min diameter (mm), inclusive"),
+    max_mm: float = Query(200.0, gt=0.0, description="Max diameter (mm), inclusive"),
+    api_key: str = Depends(get_api_key),
+) -> PreferredDiametersListResponse:
+    _ = api_key
+    if max_mm < min_mm:
+        raise HTTPException(status_code=400, detail="Invalid range (max_mm < min_mm)")
+
+    from src.core.knowledge.design_standards.design_features import list_preferred_diameters
+
+    values = list_preferred_diameters(min_d=float(min_mm), max_d=float(max_mm))
+    return PreferredDiametersListResponse(
+        min_mm=float(min_mm),
+        max_mm=float(max_mm),
+        diameters_mm=[float(v) for v in values],
+        total=len(values),
+    )
+
+
+class StandardChamferResponse(BaseModel):
+    target_size_mm: float
+    designation: str
+    size_mm: float
+    range_min_mm: float
+    range_max_mm: float
+    application_zh: str
+    application_en: str
+    source: str = Field(default="Built-in standard chamfers (guideline)")
+
+
+@router.get("/design-features/chamfer", response_model=StandardChamferResponse)
+async def standard_chamfer(
+    target_size_mm: float = Query(..., gt=0.0, description="Target chamfer size in mm"),
+    api_key: str = Depends(get_api_key),
+) -> StandardChamferResponse:
+    _ = api_key
+    result = get_standard_chamfer(float(target_size_mm))
+    if result is None:
+        raise HTTPException(status_code=404, detail="Standard chamfer not found")
+    rmin, rmax = result.get("range") or (0.0, 0.0)
+    return StandardChamferResponse(
+        target_size_mm=float(target_size_mm),
+        designation=str(result.get("designation") or ""),
+        size_mm=float(result.get("size") or 0.0),
+        range_min_mm=float(rmin),
+        range_max_mm=float(rmax),
+        application_zh=str(result.get("application_zh") or ""),
+        application_en=str(result.get("application_en") or ""),
+    )
+
+
+class StandardFilletResponse(BaseModel):
+    target_radius_mm: float
+    designation: str
+    size_mm: float
+    range_min_mm: float
+    range_max_mm: float
+    application_zh: str
+    application_en: str
+    source: str = Field(default="Built-in standard fillets (guideline)")
+
+
+@router.get("/design-features/fillet", response_model=StandardFilletResponse)
+async def standard_fillet(
+    target_radius_mm: float = Query(..., gt=0.0, description="Target fillet radius in mm"),
+    api_key: str = Depends(get_api_key),
+) -> StandardFilletResponse:
+    _ = api_key
+    result = get_standard_fillet(float(target_radius_mm))
+    if result is None:
+        raise HTTPException(status_code=404, detail="Standard fillet not found")
+    rmin, rmax = result.get("range") or (0.0, 0.0)
+    return StandardFilletResponse(
+        target_radius_mm=float(target_radius_mm),
+        designation=str(result.get("designation") or ""),
+        size_mm=float(result.get("size") or 0.0),
+        range_min_mm=float(rmin),
+        range_max_mm=float(rmax),
+        application_zh=str(result.get("application_zh") or ""),
+        application_en=str(result.get("application_en") or ""),
+    )
+
+
 class SurfaceFinishSuggestResponse(BaseModel):
     target_ra_um: float
     grade: str
@@ -282,4 +409,3 @@ async def surface_finish_suggest(
 
 
 __all__ = ["router"]
-

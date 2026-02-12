@@ -3951,3 +3951,10 @@
   - Validation:
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_DESIGN_STANDARDS_API_20260213.md`
+- **Design Standards API v2 (Lists + Design Features)**:
+  - Added deterministic list endpoints for surface-finish grades and preferred diameter ranges.
+  - Added design-feature helper endpoints for standard chamfer and fillet selection.
+  - Updated OpenAPI snapshot baseline after adding routes.
+  - Validation:
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_DESIGN_STANDARDS_API_V2_20260213.md`

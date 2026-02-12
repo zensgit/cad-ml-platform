@@ -1,5 +1,5 @@
 {
-  "components_schema_count": 208,
+  "components_schema_count": 212,
   "components_schema_names": [
     "ActiveLearningSample",
     "AlternativeItem",
@@ -140,6 +140,7 @@
     "OcrResult",
     "OrphanCleanupResponse",
     "PreferredDiameterResponse",
+    "PreferredDiametersListResponse",
     "ProcessRecommendationResponse",
     "ProcessRequirementsInput",
     "ProcessRouteRequest",
@@ -169,6 +170,8 @@
     "SimilarityTopKItem",
     "SimilarityTopKQuery",
     "SimilarityTopKResponse",
+    "StandardChamferResponse",
+    "StandardFilletResponse",
     "StandardsStatusResponse",
     "StatsResponse",
     "StatusResponse",
@@ -176,6 +179,7 @@
     "SupportedQueriesResponse",
     "SurfaceFinishApplicationResponse",
     "SurfaceFinishGradeResponse",
+    "SurfaceFinishGradesListResponse",
     "SurfaceFinishSuggestResponse",
     "ThreadSpecResponse",
     "V16CacheClearResponse",
@@ -211,8 +215,8 @@
     "WeldCompatibilityResponse"
   ],
   "openapi": "3.1.0",
-  "operation_count": 174,
-  "path_count": 169,
+  "operation_count": 178,
+  "path_count": 173,
   "paths": {
     "/": {
       "get": {
@@ -754,6 +758,36 @@
         ]
       }
     },
+    "/api/v1/design-standards/design-features/chamfer": {
+      "get": {
+        "deprecated": false,
+        "operationId": "standard_chamfer_api_v1_design_standards_design_features_chamfer_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/design-standards/design-features/fillet": {
+      "get": {
+        "deprecated": false,
+        "operationId": "standard_fillet_api_v1_design_standards_design_features_fillet_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/design-standards/design-features/preferred-diameters": {
+      "get": {
+        "deprecated": false,
+        "operationId": "preferred_diameters_list_api_v1_design_standards_design_features_preferred_diameters_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
     "/api/v1/design-standards/general-tolerances/angular": {
       "get": {
         "deprecated": false,
@@ -818,6 +852,16 @@
       "get": {
         "deprecated": false,
         "operationId": "surface_finish_grade_api_v1_design_standards_surface_finish_grade_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/design-standards/surface-finish/grades": {
+      "get": {
+        "deprecated": false,
+        "operationId": "surface_finish_grades_api_v1_design_standards_surface_finish_grades_get",
         "responses": [
           "200",
           "422"
