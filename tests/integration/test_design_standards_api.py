@@ -24,6 +24,15 @@ def test_design_standards_surface_finish_grade_n7():
     assert data["rz_um"] == 6.3
 
 
+def test_design_standards_surface_finish_grades_list_contains_n7():
+    resp = client.get("/api/v1/design-standards/surface-finish/grades")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] > 0
+    grades = data["grades"]
+    assert any(item["grade"] == "N7" and item["ra_um"] == 1.6 for item in grades)
+
+
 def test_design_standards_surface_finish_application_bearing_journal():
     resp = client.get(
         "/api/v1/design-standards/surface-finish/application",
@@ -74,3 +83,41 @@ def test_design_standards_preferred_diameter_nearest_23mm():
     assert data["direction"] == "nearest"
     assert data["preferred_mm"] == 22.0
 
+
+def test_design_standards_preferred_diameters_list_range():
+    resp = client.get(
+        "/api/v1/design-standards/design-features/preferred-diameters",
+        params={"min_mm": 20, "max_mm": 25},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["min_mm"] == 20.0
+    assert data["max_mm"] == 25.0
+    assert data["total"] > 0
+    values = set(data["diameters_mm"])
+    assert 20.0 in values
+    assert 22.0 in values
+    assert 24.0 in values
+    assert 25.0 in values
+
+
+def test_design_standards_standard_chamfer_near_1_8mm():
+    resp = client.get(
+        "/api/v1/design-standards/design-features/chamfer",
+        params={"target_size_mm": 1.8},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["designation"] == "C2"
+    assert data["size_mm"] == 2.0
+
+
+def test_design_standards_standard_fillet_near_2_3mm():
+    resp = client.get(
+        "/api/v1/design-standards/design-features/fillet",
+        params={"target_radius_mm": 2.3},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["designation"] == "R2.5"
+    assert data["size_mm"] == 2.5
