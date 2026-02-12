@@ -3779,3 +3779,23 @@
     - `make validate-openapi` (`4 passed`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `4 passed`, `103 passed`, `59 passed`, `4 passed`)
   - Report: `reports/DEV_PYDANTIC_AUDIT_DICT_MODEL_CONFIG_GUARD_20260212.md`
+- **Pydantic Model Style Audit Gate (Batch 3)**:
+  - Added new AST-based style audit `scripts/ci/audit_pydantic_model_style.py` with baseline gate for:
+    - `dict_model_config`
+    - `mutable_literal_default`
+    - `mutable_field_default`
+    - `non_optional_none_default`
+  - Added summary renderer `scripts/ci/summarize_pydantic_style_audit.py` and integrated style audit summary + artifact upload in `.github/workflows/ci.yml` (`lint-type` job).
+  - Added Make targets `audit-pydantic-style` / `audit-pydantic-style-regression`.
+  - Added baseline `config/pydantic_model_style_baseline.json` and tests:
+    - `tests/unit/test_pydantic_model_style_audit.py`
+    - `tests/unit/test_pydantic_style_audit_summary.py`
+  - Fixed one real mutable-default issue:
+    - `src/api/v1/health.py` `V16SpeedModeResponse.available_modes` -> `Field(default_factory=...)`
+  - Validation:
+    - `pytest tests/unit/test_pydantic_model_style_audit.py tests/unit/test_pydantic_style_audit_summary.py tests/unit/test_pydantic_v2_audit.py tests/unit/test_pydantic_v2_audit_summary.py -q` (`10 passed`)
+    - `make audit-pydantic-style-regression` (`total_findings: 0`)
+    - `make audit-pydantic-v2-regression` (`dict_model_config: 0`, `total_findings: 0`)
+    - `make validate-openapi` (`4 passed`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `4 passed`, `103 passed`, `59 passed`, `4 passed`)
+  - Report: `reports/DEV_PYDANTIC_MODEL_STYLE_AUDIT_GATE_BATCH3_20260212.md`

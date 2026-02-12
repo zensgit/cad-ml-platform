@@ -770,7 +770,9 @@ class V16SpeedModeResponse(BaseModel):
     status: str
     previous_mode: Optional[str] = None
     current_mode: Optional[str] = None
-    available_modes: List[str] = ["accurate", "balanced", "fast", "v6_only"]
+    available_modes: List[str] = Field(
+        default_factory=lambda: ["accurate", "balanced", "fast", "v6_only"]
+    )
     message: Optional[str] = None
 
 

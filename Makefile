@@ -9,7 +9,8 @@
 		uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance \
 		validate-openapi \
 		graph2d-review-summary validate-core-fast test-provider-core test-provider-contract \
-		audit-pydantic-v2 audit-pydantic-v2-regression
+		audit-pydantic-v2 audit-pydantic-v2-regression \
+		audit-pydantic-style audit-pydantic-style-regression
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -156,6 +157,17 @@ audit-pydantic-v2-regression: ## 基于 baseline 校验 Pydantic v2 兼容性模
 	$(PYTHON) scripts/ci/audit_pydantic_v2.py \
 		--roots src \
 		--baseline config/pydantic_v2_audit_baseline.json \
+		--check-regression
+
+audit-pydantic-style: ## 审计 Pydantic 模型字段/配置风格（输出现状）
+	@echo "$(GREEN)Auditing pydantic model style...$(NC)"
+	$(PYTHON) scripts/ci/audit_pydantic_model_style.py --roots src
+
+audit-pydantic-style-regression: ## 基于 baseline 校验 Pydantic 模型风格不回退
+	@echo "$(GREEN)Checking pydantic model-style regression...$(NC)"
+	$(PYTHON) scripts/ci/audit_pydantic_model_style.py \
+		--roots src \
+		--baseline config/pydantic_model_style_baseline.json \
 		--check-regression
 
 test-dedupcad-vision: ## 运行测试（依赖 DedupCAD Vision 已启动）

@@ -57,6 +57,25 @@ jobs:
           name: pydantic-v2-audit-log
           path: /tmp/pydantic-v2-audit.log
           if-no-files-found: ignore
+      - name: Audit pydantic model style regression
+        id: pydantic_style_audit
+        run: |
+          set -o pipefail
+          make audit-pydantic-style-regression 2>&1 | tee /tmp/pydantic-style-audit.log
+      - name: Append pydantic model style summary
+        if: always()
+        run: |
+          python scripts/ci/summarize_pydantic_style_audit.py \
+            --log-file /tmp/pydantic-style-audit.log \
+            --title "Pydantic Model Style Audit" \
+            >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload pydantic model style audit log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pydantic-style-audit-log
+          path: /tmp/pydantic-style-audit.log
+          if-no-files-found: ignore
   openapi-fast:
     needs: [lint-type]
     runs-on: ubuntu-latest

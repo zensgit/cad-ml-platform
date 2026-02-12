@@ -1,0 +1,18 @@
+{
+  "counts": {
+    "dict_model_config": 0,
+    "mutable_field_default": 0,
+    "mutable_literal_default": 0,
+    "non_optional_none_default": 0
+  },
+  "patterns": [
+    "dict_model_config",
+    "mutable_literal_default",
+    "mutable_field_default",
+    "non_optional_none_default"
+  ],
+  "roots": [
+    "src"
+  ],
+  "total_findings": 0
+}
