@@ -431,6 +431,46 @@ def main() -> None:
     def _median(values: List[float]) -> float:
         return float(statistics.median(values)) if values else 0.0
 
+    def _env_bool(key: str, default: bool) -> bool:
+        raw = os.getenv(key)
+        if raw is None:
+            return bool(default)
+        return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+    titleblock_enabled_effective = (
+        os.getenv("TITLEBLOCK_ENABLED", "false").lower() == "true"
+    )
+    titleblock_override_effective = (
+        os.getenv("TITLEBLOCK_OVERRIDE_ENABLED", "false").lower() == "true"
+    )
+    titleblock_min_conf_effective: float | None = None
+    try:
+        titleblock_min_conf_effective = (
+            float(os.getenv("TITLEBLOCK_MIN_CONF", "").strip())
+            if os.getenv("TITLEBLOCK_MIN_CONF") is not None
+            else None
+        )
+    except Exception:
+        titleblock_min_conf_effective = None
+
+    # Prefer effective HybridClassifier config when available; env always wins.
+    try:
+        from src.ml.hybrid_config import get_config
+
+        cfg = get_config()
+        titleblock_enabled_effective = _env_bool(
+            "TITLEBLOCK_ENABLED", bool(cfg.titleblock.enabled)
+        )
+        titleblock_override_effective = _env_bool(
+            "TITLEBLOCK_OVERRIDE_ENABLED", bool(cfg.titleblock.override_enabled)
+        )
+        if titleblock_min_conf_effective is None:
+            titleblock_min_conf_effective = float(cfg.titleblock.min_confidence)
+    except Exception:
+        # Best-effort only; keep env-derived values.
+        if titleblock_min_conf_effective is None:
+            titleblock_min_conf_effective = 0.0
+
     summary = {
         "total": stats["total"],
         "success": stats["success"],
@@ -478,7 +518,13 @@ def main() -> None:
             },
         },
         "titleblock": {
-            "enabled": os.getenv("TITLEBLOCK_ENABLED", "false").lower() == "true",
+            "enabled": titleblock_enabled_effective,
+            "override_enabled": titleblock_override_effective,
+            "min_confidence_effective": (
+                round(float(titleblock_min_conf_effective or 0.0), 6)
+                if titleblock_min_conf_effective is not None
+                else None
+            ),
             "total_ok": len(ok_rows),
             "texts_present_count": titleblock_texts_present,
             "texts_present_rate": (

@@ -558,6 +558,15 @@ class HybridClassifier:
             float(titleblock_pred.get("confidence", 0.0)) if titleblock_pred else 0.0
         )
 
+        # ProcessClassifier often predicts drawing-type labels (e.g. 零件图/装配图).
+        # Treat these as auxiliary signals: they can be used when no other label
+        # exists, but should not compete with part-name labels from filename/titleblock/graph2d.
+        process_is_drawing_type = bool(
+            process_label and self._is_graph2d_drawing_type(process_label)
+        )
+        process_label_for_fusion = process_label
+        process_conf_for_fusion = process_conf
+
         result.fusion_weights = {
             "filename": self.filename_weight,
             "graph2d": self.graph2d_weight,
@@ -572,7 +581,12 @@ class HybridClassifier:
 
         other_labels = {
             self._normalize_label(label)
-            for label in (filename_label, titleblock_label, process_label)
+            for label in (
+                filename_label,
+                titleblock_label,
+                # Only treat process labels as comparable when they're not drawing types.
+                process_label if not process_is_drawing_type else None,
+            )
             if label
         }
         if graph2d_label and other_labels and graph2d_label not in other_labels:
@@ -583,6 +597,11 @@ class HybridClassifier:
                 result.graph2d_prediction["ignored_reason"] = "non_matching"
             graph2d_label = None
             graph2d_conf = 0.0
+
+        if process_is_drawing_type and (filename_label or titleblock_label or graph2d_label):
+            result.decision_path.append("process_drawing_type_ignored_for_fusion")
+            process_label_for_fusion = None
+            process_conf_for_fusion = 0.0
 
         # 决策逻辑
         if filename_label and filename_conf >= self.filename_min_conf:
@@ -596,7 +615,7 @@ class HybridClassifier:
             self.titleblock_override_enabled
             and titleblock_label
             and titleblock_conf >= self.titleblock_min_conf
-            and filename_conf < 0.5
+            and filename_conf < self.filename_min_conf
         ):
             result.label = titleblock_label
             result.confidence = titleblock_conf
@@ -618,9 +637,14 @@ class HybridClassifier:
                         DecisionSource.TITLEBLOCK,
                     )
                 )
-            if process_label:
+            if process_label_for_fusion:
                 preds.append(
-                    ("process", process_label, process_conf, DecisionSource.PROCESS)
+                    (
+                        "process",
+                        process_label_for_fusion,
+                        process_conf_for_fusion,
+                        DecisionSource.PROCESS,
+                    )
                 )
             if graph2d_label:
                 preds.append(
@@ -657,7 +681,12 @@ class HybridClassifier:
                     self.titleblock_weight,
                     "titleblock",
                 )
-                _add_score(process_label, process_conf, self.process_weight, "process")
+                _add_score(
+                    process_label_for_fusion,
+                    process_conf_for_fusion,
+                    self.process_weight,
+                    "process",
+                )
 
                 if label_scores:
                     best_label = max(label_scores.items(), key=lambda item: item[1])[0]

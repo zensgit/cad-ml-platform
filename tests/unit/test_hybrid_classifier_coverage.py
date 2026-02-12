@@ -267,7 +267,7 @@ class TestFusionDecision:
         assert result.filename_prediction is not None
 
     def test_titleblock_override_when_filename_low_conf(self):
-        """Lines 545-554: titleblock overrides when filename conf < 0.5."""
+        """Lines 545-554: titleblock overrides when filename below adoption threshold."""
         # Set env vars BEFORE creating classifier so they take effect in __init__
         with patch.dict(
             os.environ,

@@ -3906,3 +3906,15 @@
     - `reports/experiments/20260212/batch_analyze_training_dxf/with_filename/summary.json`
     - `reports/experiments/20260212/batch_analyze_training_dxf/masked_filename_titleblock/summary.json`
   - Report: `reports/DEV_DXF_BATCH_ANALYZE_TRAINING_SET_20260212.md`
+- **HybridClassifier TitleBlock Default + Process Guardrail**:
+  - Enabled TitleBlock extraction by default for DXF fine-label classification (`config/hybrid_classifier.yaml`).
+  - Tightened TitleBlock override gate to use `filename_min_conf` instead of a hard-coded threshold.
+  - Prevented ProcessClassifier drawing-type labels from competing with part-name labels in fusion (avoids low-confidence fusion when filename is masked).
+  - Updated `scripts/batch_analyze_dxf_local.py` to report effective TitleBlock settings (config + env).
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_hybrid_classifier_coverage.py tests/unit/test_hybrid_config_loader.py tests/integration/test_analyze_dxf_fusion.py -v` (passed)
+    - `make validate-core-fast` (passed)
+  - Artifacts:
+    - `reports/experiments/20260212/batch_analyze_training_dxf/titleblock_default/with_filename/summary.json`
+    - `reports/experiments/20260212/batch_analyze_training_dxf/titleblock_default/masked_filename/summary.json`
+  - Report: `reports/DEV_HYBRID_TITLEBLOCK_DEFAULT_AND_PROCESS_GUARDRAIL_20260212.md`
