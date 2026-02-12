@@ -65,6 +65,7 @@ These providers are registered by default via `bootstrap_core_provider_registry(
 - `classifier/v6`
 - `knowledge/tolerance`
 - `knowledge/standards`
+- `knowledge/design_standards`
 
 Implementation references:
 - `src/core/providers/vision.py`

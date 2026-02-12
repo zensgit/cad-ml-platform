@@ -104,6 +104,66 @@ class StandardsKnowledgeProviderAdapter(
         }
 
 
+class DesignStandardsKnowledgeProviderAdapter(
+    BaseProvider[KnowledgeProviderConfig, Dict[str, Any]]
+):
+    """Expose the design-standards knowledge module through ``BaseProvider``."""
+
+    def __init__(self, config: KnowledgeProviderConfig):
+        super().__init__(config)
+
+    async def _health_check_impl(self) -> bool:
+        try:
+            from src.core.knowledge.design_standards import (
+                GeneralToleranceClass,
+                SurfaceFinishGrade,
+                get_linear_tolerance,
+                get_preferred_diameter,
+                get_ra_value,
+            )
+
+            ra = get_ra_value(SurfaceFinishGrade.N7)
+            if ra <= 0:
+                return False
+
+            tol = get_linear_tolerance(50.0, GeneralToleranceClass.M)
+            if tol is None or tol <= 0:
+                return False
+
+            diameter = get_preferred_diameter(23.0)
+            return diameter is not None and diameter > 0
+        except Exception:
+            return False
+
+    async def _process_impl(self, request: Any, **kwargs: Any) -> Dict[str, Any]:
+        _ = request
+        _ = kwargs
+        from src.core.knowledge.design_standards import (
+            LINEAR_TOLERANCE_TABLE,
+            PREFERRED_DIAMETERS,
+            STANDARD_CHAMFERS,
+            STANDARD_FILLETS,
+            SURFACE_FINISH_TABLE,
+        )
+
+        return {
+            "status": "ok",
+            "counts": {
+                "surface_finish_grades": len(SURFACE_FINISH_TABLE),
+                "linear_tolerance_ranges": len(LINEAR_TOLERANCE_TABLE),
+                "preferred_diameters": len(PREFERRED_DIAMETERS),
+                "standard_chamfers": len(STANDARD_CHAMFERS),
+                "standard_fillets": len(STANDARD_FILLETS),
+            },
+            "examples": {
+                "surface_finish_grade": "N7",
+                "surface_finish_application": "bearing_journal",
+                "linear_tolerance": {"dimension_mm": 50.0, "tolerance_class": "m"},
+                "preferred_diameter": {"target_mm": 23.0, "direction": "nearest"},
+            },
+        }
+
+
 def bootstrap_core_knowledge_providers() -> None:
     """Register built-in knowledge providers in ``ProviderRegistry``."""
 
@@ -128,5 +188,17 @@ def bootstrap_core_knowledge_providers() -> None:
                     name="standards",
                     provider_type="knowledge",
                     provider_name="standards",
+                )
+                super().__init__(config=cfg)
+
+    if not ProviderRegistry.exists("knowledge", "design_standards"):
+
+        @ProviderRegistry.register("knowledge", "design_standards")
+        class DesignStandardsCoreProvider(DesignStandardsKnowledgeProviderAdapter):
+            def __init__(self, config: Optional[KnowledgeProviderConfig] = None):
+                cfg = config or KnowledgeProviderConfig(
+                    name="design_standards",
+                    provider_type="knowledge",
+                    provider_name="design_standards",
                 )
                 super().__init__(config=cfg)

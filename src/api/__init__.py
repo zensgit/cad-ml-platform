@@ -82,6 +82,10 @@ try:
 except Exception:
     standards = None  # type: ignore
 try:
+    from src.api.v1 import design_standards  # type: ignore
+except Exception:
+    design_standards = None  # type: ignore
+try:
     from src.api.v1 import assistant  # type: ignore
 except Exception:
     assistant = None  # type: ignore
@@ -150,6 +154,10 @@ if tolerance is not None:
     v1_router.include_router(tolerance.router, prefix="/tolerance", tags=["公差"])  # type: ignore
 if standards is not None:
     v1_router.include_router(standards.router, prefix="/standards", tags=["标准库"])  # type: ignore
+if design_standards is not None:
+    v1_router.include_router(
+        design_standards.router, prefix="/design-standards", tags=["设计标准"]
+    )  # type: ignore
 if assistant is not None:
     v1_router.include_router(assistant.router, prefix="/assistant", tags=["智能助手"])  # type: ignore
 

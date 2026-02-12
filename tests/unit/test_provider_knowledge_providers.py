@@ -45,3 +45,22 @@ async def test_standards_knowledge_provider_health_and_process() -> None:
     assert counts.get("bearings", 0) > 0
     assert counts.get("orings", 0) > 0
 
+
+@pytest.mark.asyncio
+async def test_design_standards_knowledge_provider_health_and_process() -> None:
+    ProviderRegistry.clear()
+    bootstrap_core_provider_registry()
+
+    provider = ProviderRegistry.get("knowledge", "design_standards")
+    ok = await provider.health_check(timeout_seconds=0.5)
+    assert ok is True
+    assert provider.status == ProviderStatus.HEALTHY
+    assert provider.last_error is None
+
+    payload = await provider.process(request={})
+    assert isinstance(payload, dict)
+    assert payload.get("status") == "ok"
+    counts = payload.get("counts") or {}
+    assert counts.get("surface_finish_grades", 0) > 0
+    assert counts.get("linear_tolerance_ranges", 0) > 0
+    assert counts.get("preferred_diameters", 0) > 0
