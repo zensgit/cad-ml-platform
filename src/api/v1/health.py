@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import time
 from typing import Any, Dict, List, Optional
 
@@ -193,6 +194,47 @@ async def provider_health(
         # Diagnostics are best-effort and should not fail endpoint response.
         plugin_diagnostics = None
 
+    async def _run_provider_health_check(provider: Any) -> tuple[bool, Optional[str]]:
+        health_check = getattr(provider, "health_check", None)
+        if not callable(health_check):
+            return False, "health_check_missing"
+
+        try:
+            result = health_check(timeout_seconds=timeout_seconds)
+        except TypeError:
+            # Backward-compatible path for legacy providers that expose
+            # health_check() without timeout_seconds parameter.
+            result = health_check()
+
+        if inspect.isawaitable(result):
+            result = await result
+        return bool(result), getattr(provider, "last_error", None)
+
+    def _build_provider_snapshot(provider: Any) -> Dict[str, Any]:
+        status_snapshot = getattr(provider, "status_snapshot", None)
+        if callable(status_snapshot):
+            snapshot = status_snapshot()
+            if isinstance(snapshot, dict):
+                return snapshot
+
+        provider_name = getattr(provider, "name", provider.__class__.__name__)
+        provider_type = getattr(provider, "provider_type", None)
+        status = getattr(provider, "status", None)
+        if hasattr(status, "value"):
+            status = status.value
+        if status is None:
+            status = "unknown"
+        return {
+            "name": str(provider_name),
+            "provider_type": provider_type,
+            "status": str(status),
+            "last_error": getattr(provider, "last_error", None),
+            "last_health_check_at": getattr(provider, "last_health_check_at", None),
+            "last_health_check_latency_ms": getattr(
+                provider, "last_health_check_latency_ms", None
+            ),
+        }
+
     async def _check(domain: str, name: str) -> ProviderHealthItem:
         started_at = time.perf_counter()
         try:
@@ -223,8 +265,7 @@ async def provider_health(
         ok = False
         err: Optional[str] = None
         try:
-            ok = await provider.health_check(timeout_seconds=timeout_seconds)  # type: ignore[arg-type]
-            err = provider.last_error  # type: ignore[attr-defined]
+            ok, err = await _run_provider_health_check(provider)
         except Exception as exc:  # noqa: BLE001
             # Provider implementations should not raise, but keep this best-effort.
             ok = False
@@ -250,7 +291,7 @@ async def provider_health(
             domain=domain,
             provider=name,
             ready=bool(ok),
-            snapshot=provider.status_snapshot(),  # type: ignore[attr-defined]
+            snapshot=_build_provider_snapshot(provider),
             error=err,
         )
 

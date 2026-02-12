@@ -3809,3 +3809,15 @@
     - `make validate-openapi` (`5 passed`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `5 passed`, `103 passed`, `59 passed`, `4 passed`)
   - Report: `reports/DEV_OPENAPI_SCHEMA_SNAPSHOT_GATE_20260212.md`
+- **Provider Framework Hardening (Registration Contract + Legacy Health Compatibility)**:
+  - Hardened `ProviderRegistry.register`:
+    - reject empty/invalid provider IDs (including reserved separators `/` and `:`)
+    - enforce registered classes inherit `BaseProvider`
+  - Added backward-compatible health-check invocation for legacy providers in:
+    - `src/core/providers/readiness.py`
+    - `src/api/v1/health.py` (`/api/v1/providers/health`)
+  - Added snapshot fallback path for providers without `status_snapshot()` in provider health endpoint.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_registry_coverage.py tests/unit/test_provider_health_endpoint.py tests/unit/test_readiness_coverage.py tests/unit/test_provider_readiness.py -v` (`55 passed`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `5 passed`, `103 passed`, `60 passed`, `4 passed`)
+  - Report: `reports/DEV_PROVIDER_FRAMEWORK_HARDENING_20260212.md`

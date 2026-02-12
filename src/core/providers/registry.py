@@ -16,6 +16,25 @@ class ProviderRegistry:
     _instances: Dict[str, Dict[str, BaseProvider]] = {}
     _lock = RLock()
 
+    @staticmethod
+    def _normalize_token(value: str, field_name: str) -> str:
+        if not isinstance(value, str):
+            raise TypeError(f"{field_name} must be a string")
+        token = value.strip()
+        if not token:
+            raise ValueError(f"{field_name} must be a non-empty string")
+        if "/" in token or ":" in token:
+            raise ValueError(f"{field_name} cannot contain '/' or ':'")
+        return token
+
+    @staticmethod
+    def _validate_provider_class(provider_cls: Type[BaseProvider]) -> None:
+        if not isinstance(provider_cls, type) or not issubclass(provider_cls, BaseProvider):
+            raise TypeError(
+                "Registered provider class must inherit BaseProvider: "
+                f"{provider_cls!r}"
+            )
+
     @classmethod
     def register(cls, domain: str, provider_name: str):
         """Decorator to register a provider class.
@@ -25,15 +44,21 @@ class ProviderRegistry:
             class DeepSeekProvider(...):
                 ...
         """
+        normalized_domain = cls._normalize_token(domain, "domain")
+        normalized_provider_name = cls._normalize_token(
+            provider_name, "provider_name"
+        )
 
         def _decorator(provider_cls: Type[BaseProvider]) -> Type[BaseProvider]:
+            cls._validate_provider_class(provider_cls)
             with cls._lock:
-                domain_map = cls._providers.setdefault(domain, {})
-                if provider_name in domain_map:
+                domain_map = cls._providers.setdefault(normalized_domain, {})
+                if normalized_provider_name in domain_map:
                     raise ValueError(
-                        f"Provider already registered: {domain}/{provider_name}"
+                        "Provider already registered: "
+                        f"{normalized_domain}/{normalized_provider_name}"
                     )
-                domain_map[provider_name] = provider_cls
+                domain_map[normalized_provider_name] = provider_cls
             return provider_cls
 
         return _decorator

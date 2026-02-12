@@ -359,6 +359,35 @@ class TestCheckProviderReadinessEdgeCases:
         assert summary.ok is True  # No required providers = ok
         assert summary.degraded is True  # But degraded because optional is down
 
+    @pytest.mark.asyncio
+    async def test_legacy_provider_health_check_without_timeout_argument(self):
+        """Legacy provider health_check() signatures should remain compatible."""
+
+        @ProviderRegistry.register("legacy", "no_timeout")
+        class LegacyProvider(DummyProvider):
+            def __init__(self, config: ProviderConfig | None = None):
+                super().__init__(
+                    config
+                    or ProviderConfig(
+                        name="no_timeout",
+                        provider_type="legacy",
+                        metadata={"ok": True},
+                    )
+                )
+
+            async def health_check(self):  # type: ignore[override]
+                return True
+
+        summary = await check_provider_readiness(
+            required=[("legacy", "no_timeout")],
+            optional=[],
+            timeout_seconds=0.2,
+        )
+
+        assert summary.ok is True
+        assert summary.required_down == []
+        assert summary.results[0].ready is True
+
 
 # --- load_provider_readiness_config_from_env Tests ---
 

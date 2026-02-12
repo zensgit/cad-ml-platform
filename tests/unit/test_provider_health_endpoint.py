@@ -89,3 +89,50 @@ def test_provider_health_endpoint_returns_sorted_results():
     assert diagnostics.get("loaded_count") == 1
     assert diagnostics.get("error_count") == 0
     assert diagnostics.get("summary", {}).get("overall_status") == "ok"
+
+
+def test_provider_health_endpoint_supports_legacy_health_check_signature():
+    """Legacy providers without timeout keyword should still be supported."""
+    client = TestClient(app)
+    headers = {"X-API-Key": "test-key"}
+
+    class LegacyProvider:
+        name = "legacy_provider"
+        provider_type = "legacy"
+        last_error = None
+
+        async def health_check(self):
+            return True
+
+    with patch("src.core.providers.bootstrap_core_provider_registry", return_value={}):
+        with patch(
+            "src.core.providers.ProviderRegistry.list_domains",
+            return_value=["legacy"],
+        ):
+            with patch(
+                "src.core.providers.ProviderRegistry.list_providers",
+                side_effect=lambda d: ["legacy_provider"] if d == "legacy" else [],
+            ):
+                with patch(
+                    "src.core.providers.ProviderRegistry.get",
+                    return_value=LegacyProvider(),
+                ):
+                    resp = client.get(
+                        "/api/v1/providers/health",
+                        headers=headers,
+                        params={"timeout_seconds": 0.1},
+                    )
+
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload["status"] == "ok"
+    assert payload["total"] == 1
+    assert payload["ready"] == 1
+    result = payload["results"][0]
+    assert result["domain"] == "legacy"
+    assert result["provider"] == "legacy_provider"
+    assert result["ready"] is True
+    assert result["error"] is None
+    assert result["snapshot"]["name"] == "legacy_provider"
+    assert result["snapshot"]["provider_type"] == "legacy"
+    assert result["snapshot"]["status"] == "unknown"

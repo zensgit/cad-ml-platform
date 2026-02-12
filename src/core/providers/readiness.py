@@ -8,6 +8,7 @@ logic into API handlers.
 from __future__ import annotations
 
 import asyncio
+import inspect
 import os
 import re
 import time
@@ -117,6 +118,22 @@ async def check_provider_readiness(
     required_ids = [format_provider_id(pid) for pid in required]
     optional_ids = [format_provider_id(pid) for pid in optional]
 
+    async def _run_provider_health_check(provider: Any) -> tuple[bool, Optional[str]]:
+        health_check = getattr(provider, "health_check", None)
+        if not callable(health_check):
+            return False, "health_check_missing"
+
+        try:
+            result = health_check(timeout_seconds=timeout_seconds)
+        except TypeError:
+            # Backward-compatible path for legacy providers that expose
+            # health_check() without timeout_seconds parameter.
+            result = health_check()
+
+        if inspect.isawaitable(result):
+            result = await result
+        return bool(result), getattr(provider, "last_error", None)
+
     async def _check_one(domain: str, name: str) -> ProviderReadinessItem:
         started_at = time.perf_counter()
         checked_at = time.time()
@@ -149,8 +166,13 @@ async def check_provider_readiness(
 
         # Standardize on the provider framework's health_check() so readiness
         # updates provider runtime status consistently with `/providers/health`.
-        ok = await provider.health_check(timeout_seconds=timeout_seconds)  # type: ignore[arg-type]
-        err = getattr(provider, "last_error", None)
+        ok = False
+        err: Optional[str] = None
+        try:
+            ok, err = await _run_provider_health_check(provider)
+        except Exception as exc:  # noqa: BLE001
+            ok = False
+            err = str(exc)
 
         latency_ms = (time.perf_counter() - started_at) * 1000.0
         try:

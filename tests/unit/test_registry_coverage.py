@@ -244,6 +244,29 @@ class TestRegistration:
         with pytest.raises(KeyError, match="Provider not found"):
             ProviderRegistry.get_provider_class("nonexistent", "provider")
 
+    def test_register_rejects_non_base_provider_class(self):
+        """Registration should fail fast when class is not BaseProvider."""
+
+        with pytest.raises(TypeError, match="inherit BaseProvider"):
+
+            @ProviderRegistry.register("test", "invalid")
+            class _NotProvider:
+                pass
+
+    def test_register_rejects_empty_domain_or_provider_name(self):
+        """Registration should reject empty identifiers."""
+        with pytest.raises(ValueError, match="domain must be a non-empty string"):
+            ProviderRegistry.register("", "valid")
+        with pytest.raises(ValueError, match="provider_name must be a non-empty string"):
+            ProviderRegistry.register("valid", " ")
+
+    def test_register_rejects_separator_characters(self):
+        """Registration should reject reserved separators for provider IDs."""
+        with pytest.raises(ValueError, match="cannot contain '/' or ':'"):
+            ProviderRegistry.register("test/domain", "provider")
+        with pytest.raises(ValueError, match="cannot contain '/' or ':'"):
+            ProviderRegistry.register("test", "provider:name")
+
 
 # --- List Methods Tests ---
 
