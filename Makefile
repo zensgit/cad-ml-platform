@@ -8,7 +8,8 @@
 	cdp-screenshot-demo cdp-trace-demo playwright-console-demo playwright-trace-demo playwright-install \
 		uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance \
 		validate-openapi \
-		graph2d-review-summary validate-core-fast test-provider-core test-provider-contract
+		graph2d-review-summary validate-core-fast test-provider-core test-provider-contract \
+		audit-pydantic-v2 audit-pydantic-v2-regression
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -145,6 +146,17 @@ validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openap
 	$(MAKE) test-service-mesh
 	$(MAKE) test-provider-core
 	$(MAKE) test-provider-contract
+
+audit-pydantic-v2: ## 审计 Pydantic v2 兼容性风险模式（输出现状）
+	@echo "$(GREEN)Auditing pydantic v2 compatibility patterns...$(NC)"
+	$(PYTHON) scripts/ci/audit_pydantic_v2.py --roots src
+
+audit-pydantic-v2-regression: ## 基于 baseline 校验 Pydantic v2 兼容性模式不回退
+	@echo "$(GREEN)Checking pydantic v2 compatibility regression...$(NC)"
+	$(PYTHON) scripts/ci/audit_pydantic_v2.py \
+		--roots src \
+		--baseline config/pydantic_v2_audit_baseline.json \
+		--check-regression
 
 test-dedupcad-vision: ## 运行测试（依赖 DedupCAD Vision 已启动）
 	@echo "$(GREEN)Running tests with DedupCAD Vision required...$(NC)"

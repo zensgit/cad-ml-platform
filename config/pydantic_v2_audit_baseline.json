@@ -1,0 +1,26 @@
+{
+  "counts": {
+    "class_config": 0,
+    "fields_attr": 0,
+    "from_orm_call": 0,
+    "parse_obj_call": 0,
+    "parse_raw_call": 0,
+    "pydantic_v1_import": 0,
+    "root_validator_decorator": 0,
+    "validator_decorator": 0
+  },
+  "patterns": [
+    "pydantic_v1_import",
+    "validator_decorator",
+    "root_validator_decorator",
+    "class_config",
+    "parse_obj_call",
+    "parse_raw_call",
+    "from_orm_call",
+    "fields_attr"
+  ],
+  "roots": [
+    "src"
+  ],
+  "total_findings": 0
+}

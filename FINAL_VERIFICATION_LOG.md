@@ -3747,3 +3747,13 @@
     - `make validate-openapi` (`4 passed`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `4 passed`, `103 passed`, `59 passed`, `4 passed`)
   - Report: `reports/DEV_OPENAPI_FAST_GATE_AND_WARNING_FILTER_20260212.md`
+- **Pydantic v2 Compatibility Audit Gate**:
+  - Added `scripts/ci/audit_pydantic_v2.py` with baseline + regression mode for high-signal v1 compatibility patterns.
+  - Added baseline file `config/pydantic_v2_audit_baseline.json` and CI gate in `lint-type` via `make audit-pydantic-v2-regression`.
+  - Added unit tests `tests/unit/test_pydantic_v2_audit.py` and Make targets `audit-pydantic-v2` / `audit-pydantic-v2-regression`.
+  - Validation:
+    - `pytest tests/unit/test_pydantic_v2_audit.py -q` (`3 passed`)
+    - `make audit-pydantic-v2-regression` (`total_findings: 0`)
+    - `make validate-openapi` (`4 passed`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `4 passed`, `103 passed`, `59 passed`, `4 passed`)
+  - Report: `reports/DEV_PYDANTIC_V2_COMPAT_AUDIT_GATE_20260212.md`

@@ -38,6 +38,8 @@ jobs:
         run: make lint
       - name: Type-check
         run: make type-check
+      - name: Audit pydantic v2 compatibility regression
+        run: make audit-pydantic-v2-regression
   openapi-fast:
     needs: [lint-type]
     runs-on: ubuntu-latest
