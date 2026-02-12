@@ -3821,3 +3821,11 @@
     - `.venv/bin/python -m pytest tests/unit/test_registry_coverage.py tests/unit/test_provider_health_endpoint.py tests/unit/test_readiness_coverage.py tests/unit/test_provider_readiness.py -v` (`55 passed`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `5 passed`, `103 passed`, `60 passed`, `4 passed`)
   - Report: `reports/DEV_PROVIDER_FRAMEWORK_HARDENING_20260212.md`
+- **Provider Plugin Diagnostics Enhancement (Health Endpoint)**:
+  - Extended `/api/v1/providers/health` plugin diagnostics with bounded samples:
+    - `errors_sample` (max 10) + `errors_truncated`
+    - `registered_count` + `registered_sample` (max 25)
+  - Updated provider health contract test to require these fields.
+  - Validation:
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `5 passed`, `103 passed`, `60 passed`, `4 passed`)
+  - Report: `reports/DEV_PROVIDER_PLUGIN_DIAGNOSTICS_ENHANCEMENT_20260212.md`

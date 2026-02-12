@@ -345,6 +345,10 @@ class TestProviderHealthContracts:
         assert isinstance(diagnostics.get("configured_count"), int)
         assert isinstance(diagnostics.get("loaded_count"), int)
         assert isinstance(diagnostics.get("error_count"), int)
+        assert isinstance(diagnostics.get("errors_sample"), list)
+        assert isinstance(diagnostics.get("errors_truncated"), bool)
+        assert isinstance(diagnostics.get("registered_count"), int)
+        assert isinstance(diagnostics.get("registered_sample"), list)
 
         summary = diagnostics.get("summary")
         assert isinstance(summary, dict)

@@ -88,6 +88,10 @@ def test_provider_health_endpoint_returns_sorted_results():
     assert diagnostics.get("configured_count") == 1
     assert diagnostics.get("loaded_count") == 1
     assert diagnostics.get("error_count") == 0
+    assert diagnostics.get("errors_sample") == []
+    assert diagnostics.get("errors_truncated") is False
+    assert diagnostics.get("registered_count") == 0
+    assert diagnostics.get("registered_sample") == []
     assert diagnostics.get("summary", {}).get("overall_status") == "ok"
 
 

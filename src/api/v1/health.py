@@ -183,12 +183,45 @@ async def provider_health(
     try:
         snapshot = get_core_provider_registry_snapshot(lazy_bootstrap=False)
         plugins = snapshot.get("plugins") or {}
+
+        raw_errors = plugins.get("errors", [])
+        errors: List[Dict[str, str]] = []
+        if isinstance(raw_errors, list):
+            for item in raw_errors:
+                if not isinstance(item, dict):
+                    continue
+                plugin = item.get("plugin")
+                error = item.get("error")
+                if isinstance(plugin, str) and isinstance(error, str):
+                    errors.append({"plugin": plugin, "error": error})
+        errors_sample = errors[:10]
+
+        raw_registered = plugins.get("registered") or {}
+        registered_total = 0
+        registered_sample: List[str] = []
+        if isinstance(raw_registered, dict):
+            for provider_ids in raw_registered.values():
+                if not isinstance(provider_ids, list):
+                    continue
+                registered_total += len(provider_ids)
+                for provider_id in provider_ids:
+                    if (
+                        len(registered_sample) < 25
+                        and isinstance(provider_id, str)
+                        and provider_id
+                    ):
+                        registered_sample.append(provider_id)
+
         plugin_diagnostics = {
             "summary": plugins.get("summary"),
             "cache": plugins.get("cache"),
             "configured_count": len(plugins.get("configured", [])),
             "loaded_count": len(plugins.get("loaded", [])),
-            "error_count": len(plugins.get("errors", [])),
+            "error_count": len(errors),
+            "errors_sample": errors_sample,
+            "errors_truncated": len(errors) > len(errors_sample),
+            "registered_count": int(registered_total),
+            "registered_sample": registered_sample,
         }
     except Exception:
         # Diagnostics are best-effort and should not fail endpoint response.
