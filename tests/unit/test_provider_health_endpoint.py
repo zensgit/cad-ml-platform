@@ -209,6 +209,62 @@ def test_provider_health_endpoint_sanitizes_provider_last_error_and_error_field(
     assert len(last_error) <= 300
 
 
+def test_provider_registry_endpoint_sanitizes_plugin_errors():
+    client = TestClient(app)
+    headers = {"X-API-Key": "test-key"}
+
+    long_error = "boom\nSECRET=abc\n" + ("x" * 2000)
+    snapshot = {
+        "bootstrapped": True,
+        "bootstrap_timestamp": 0.0,
+        "total_domains": 0,
+        "total_providers": 0,
+        "domains": ["vision", "ocr"],
+        "providers": {"vision": [], "ocr": []},
+        "provider_classes": {},
+        "plugins": {
+            "enabled": True,
+            "strict": False,
+            "configured": ["tests.fixtures.provider_plugin_example:bootstrap"],
+            "loaded": [],
+            "errors": [
+                {
+                    "plugin": "tests.fixtures.provider_plugin_example:bootstrap",
+                    "error": long_error,
+                }
+            ],
+            "registered": {},
+            "cache": {"reused": False, "reason": "first_load"},
+            "summary": {
+                "overall_status": "degraded",
+                "configured_count": 1,
+                "loaded_count": 0,
+                "error_count": 1,
+            },
+        },
+    }
+
+    with patch(
+        "src.core.providers.get_core_provider_registry_snapshot",
+        return_value=snapshot,
+    ):
+        resp = client.get(
+            "/api/v1/providers/registry",
+            headers=headers,
+        )
+
+    assert resp.status_code == 200
+    payload = resp.json()
+    assert payload.get("status") == "ok"
+    registry = payload.get("registry") or {}
+    plugins = registry.get("plugins") or {}
+    errors = plugins.get("errors") or []
+    assert len(errors) == 1
+    err = errors[0].get("error") or ""
+    assert "\n" not in err
+    assert len(err) <= 300
+
+
 def test_provider_health_endpoint_supports_legacy_health_check_signature():
     """Legacy providers without timeout keyword should still be supported."""
     client = TestClient(app)

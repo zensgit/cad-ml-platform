@@ -11,6 +11,7 @@ from src.api.health_models import HealthResponse
 from src.api.health_resilience import get_resilience_health
 from src.core.config import get_settings
 from src.core.providers import get_core_provider_registry_snapshot
+from src.utils.text_sanitize import sanitize_single_line_text
 from src.utils.metrics import health_request_duration_seconds, health_requests_total
 from src.utils.metrics import get_ocr_error_rate_ema, get_vision_error_rate_ema
 
@@ -35,6 +36,41 @@ def record_health_request(endpoint: str, status: str, duration_seconds: float) -
     except Exception:
         # Metrics collection should never block health responses.
         pass
+
+
+def sanitize_core_provider_registry_snapshot(
+    snapshot: Dict[str, Any],
+    *,
+    max_error_len: int = 300,
+) -> Dict[str, Any]:
+    """Sanitize core provider registry snapshot for public-facing payloads.
+
+    Currently focuses on plugin error messages which may contain newlines or
+    oversized exception context.
+    """
+    out = dict(snapshot)
+    plugins = snapshot.get("plugins")
+    if not isinstance(plugins, dict):
+        return out
+
+    plugins_out = dict(plugins)
+    raw_errors = plugins.get("errors")
+    if isinstance(raw_errors, list):
+        sanitized_errors: list[dict[str, Any]] = []
+        for item in raw_errors:
+            if not isinstance(item, dict):
+                continue
+            sanitized_item = dict(item)
+            error = item.get("error")
+            if error is not None:
+                sanitized = sanitize_single_line_text(error, max_len=max_error_len)
+                if sanitized is not None:
+                    sanitized_item["error"] = sanitized
+            sanitized_errors.append(sanitized_item)
+        plugins_out["errors"] = sanitized_errors
+
+    out["plugins"] = plugins_out
+    return out
 
 
 def build_health_payload(
@@ -224,7 +260,10 @@ def build_health_payload(
         # Hybrid config visibility is optional and should not fail health checks.
         pass
     try:
-        base["config"]["core_providers"] = get_core_provider_registry_snapshot()
+        snapshot = get_core_provider_registry_snapshot()
+        if isinstance(snapshot, dict):
+            snapshot = sanitize_core_provider_registry_snapshot(snapshot)
+        base["config"]["core_providers"] = snapshot
     except Exception:
         # Provider registry visibility should not fail health checks.
         pass

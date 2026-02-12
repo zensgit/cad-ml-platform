@@ -11,41 +11,24 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.dependencies import get_admin_token, get_api_key
+from src.api.health_utils import (
+    build_health_payload,
+    record_health_request,
+    sanitize_core_provider_registry_snapshot,
+)
 from src.api.health_models import (
     HealthConfigCoreProviders,
     HealthProviderPluginCache,
     HealthProviderPluginSummary,
     HealthResponse,
 )
-from src.api.health_utils import build_health_payload, record_health_request
+from src.utils.text_sanitize import sanitize_single_line_text
 from src.utils.metrics import (
     core_provider_check_duration_seconds,
     core_provider_checks_total,
 )
 
 router = APIRouter()
-
-def _sanitize_error_text(value: Optional[str], *, max_len: int = 300) -> Optional[str]:
-    """Best-effort sanitization for error strings returned in public health payloads.
-
-    - Collapse multi-line / excessive whitespace into a single line.
-    - Bound length to reduce the risk of leaking large exception contexts.
-    """
-    if value is None:
-        return None
-    try:
-        text = " ".join(str(value).split())
-    except Exception:
-        return None
-    if not text:
-        return None
-    if max_len <= 0:
-        max_len = 1
-    if len(text) > max_len:
-        if max_len <= 3:
-            return text[:max_len]
-        return text[: max_len - 3] + "..."
-    return text
 
 
 class FeatureCacheStatsResponse(BaseModel):
@@ -212,9 +195,12 @@ async def provider_registry_health(api_key: str = Depends(get_api_key)):
     start = time.perf_counter()
     status = "ok"
     try:
+        snapshot = get_core_provider_registry_snapshot()
+        if isinstance(snapshot, dict):
+            snapshot = sanitize_core_provider_registry_snapshot(snapshot)
         return ProviderRegistryHealthResponse(
             status="ok",
-            registry=get_core_provider_registry_snapshot(),
+            registry=snapshot,
         )
     except Exception:
         status = "error"
@@ -265,7 +251,7 @@ async def provider_health(
                     errors.append(
                         {
                             "plugin": plugin,
-                            "error": _sanitize_error_text(error) or error,
+                            "error": sanitize_single_line_text(error) or error,
                         }
                     )
         errors_sample = errors[:10]
@@ -333,7 +319,7 @@ async def provider_health(
             except Exception:
                 last_error = None
         if last_error:
-            last_error = _sanitize_error_text(last_error) or last_error
+            last_error = sanitize_single_line_text(last_error) or last_error
         last_health_check_at = getattr(provider, "last_health_check_at", None)
         last_health_check_latency_ms = getattr(provider, "last_health_check_latency_ms", None)
 
@@ -384,7 +370,10 @@ async def provider_health(
                 provider=name,
                 ready=False,
                 snapshot=None,
-                error=_sanitize_error_text(f"init_error: {exc}") or f"init_error: {exc}",
+                error=(
+                    sanitize_single_line_text(f"init_error: {exc}")
+                    or f"init_error: {exc}"
+                ),
             )
 
         ok = False
@@ -419,7 +408,7 @@ async def provider_health(
             except Exception:
                 error_text = None
         if error_text:
-            error_text = _sanitize_error_text(error_text) or error_text
+            error_text = sanitize_single_line_text(error_text) or error_text
         else:
             error_text = None
 

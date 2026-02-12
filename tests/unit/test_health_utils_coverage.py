@@ -110,6 +110,55 @@ class TestBuildHealthPayload:
         assert "status" in payload
         # core_providers may not be in config
 
+    def test_build_health_payload_sanitizes_core_provider_plugin_errors(self):
+        """Core provider plugin errors should be bounded and single-line."""
+        from src.api.health_utils import build_health_payload
+
+        long_error = "boom\nSECRET=abc\n" + ("x" * 2000)
+        snapshot = {
+            "bootstrapped": True,
+            "bootstrap_timestamp": 0.0,
+            "total_domains": 0,
+            "total_providers": 0,
+            "domains": [],
+            "providers": {},
+            "provider_classes": {},
+            "plugins": {
+                "enabled": True,
+                "strict": False,
+                "configured": ["tests.fixtures.provider_plugin_example:bootstrap"],
+                "loaded": [],
+                "errors": [
+                    {
+                        "plugin": "tests.fixtures.provider_plugin_example:bootstrap",
+                        "error": long_error,
+                    }
+                ],
+                "registered": {},
+                "cache": {"reused": False, "reason": "first_load"},
+                "summary": {
+                    "overall_status": "degraded",
+                    "configured_count": 1,
+                    "loaded_count": 0,
+                    "error_count": 1,
+                },
+            },
+        }
+
+        with patch(
+            "src.api.health_utils.get_core_provider_registry_snapshot",
+            return_value=snapshot,
+        ):
+            payload = build_health_payload()
+
+        core = payload["config"].get("core_providers") or {}
+        plugins = core.get("plugins") or {}
+        errors = plugins.get("errors") or []
+        assert len(errors) == 1
+        err = errors[0].get("error") or ""
+        assert "\n" not in err
+        assert len(err) <= 300
+
     def test_build_health_payload_torch_not_available(self):
         """Test build_health_payload when torch is not available."""
         from src.api.health_utils import build_health_payload

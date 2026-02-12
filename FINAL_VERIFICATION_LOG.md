@@ -3883,3 +3883,12 @@
     - `.venv/bin/python -m pytest tests/unit/test_provider_health_endpoint.py -v` (`4 passed`)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_PROVIDER_HEALTH_ERROR_SANITIZATION_20260212.md`
+- **Core Provider Plugin Errors Sanitization (Health + Registry)**:
+  - Sanitized `plugins.errors[].error` in:
+    - `/health` payload (`config.core_providers.plugins.errors`)
+    - `/api/v1/providers/registry` (`registry.plugins.errors`)
+  - Added shared helper `src/utils/text_sanitize.py` and reused it across health endpoints.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_provider_health_endpoint.py tests/unit/test_health_utils_coverage.py -v` (`24 passed`)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_CORE_PROVIDER_PLUGIN_ERRORS_SANITIZATION_20260212.md`
