@@ -338,6 +338,22 @@ class TestProviderHealthContracts:
         assert isinstance(data.get("timeout_seconds"), float)
         assert isinstance(data.get("results"), list)
 
+        for item in data.get("results") or []:
+            assert isinstance(item, dict)
+            snapshot = item.get("snapshot")
+            if snapshot is None:
+                continue
+            assert isinstance(snapshot, dict)
+            for key in [
+                "name",
+                "provider_type",
+                "status",
+                "last_error",
+                "last_health_check_at",
+                "last_health_check_latency_ms",
+            ]:
+                assert key in snapshot
+
         diagnostics = data.get("plugin_diagnostics")
         assert isinstance(diagnostics, dict)
         for key in ["configured_count", "loaded_count", "error_count", "cache", "summary"]:
@@ -422,6 +438,42 @@ class TestProviderHealthContracts:
         assert "plugin_diagnostics" in props
         assert "results" in props
         assert "status" in props
+
+    def test_provider_health_openapi_schema_contains_typed_snapshot(self):
+        openapi = _openapi_schema()
+        path_schema = (
+            openapi["paths"]["/api/v1/providers/health"]["get"]["responses"]["200"]["content"][
+                "application/json"
+            ]["schema"]
+        )
+        response_schema = _resolve_schema_ref(openapi, path_schema)
+        props = response_schema.get("properties") or {}
+        results_schema = props.get("results") or {}
+        assert isinstance(results_schema, dict)
+        item_schema = (results_schema.get("items") or {})
+        item_schema = _resolve_schema_ref(openapi, item_schema)
+
+        item_props = item_schema.get("properties") or {}
+        assert "snapshot" in item_props
+        snapshot_schema = item_props.get("snapshot") or {}
+        if isinstance(snapshot_schema, dict) and "anyOf" in snapshot_schema:
+            candidates = [
+                s for s in (snapshot_schema.get("anyOf") or []) if isinstance(s, dict)
+            ]
+            ref_schema = next((s for s in candidates if "$ref" in s), candidates[0])
+            snapshot_schema = ref_schema
+        snapshot_schema = _resolve_schema_ref(openapi, snapshot_schema)
+
+        snapshot_props = snapshot_schema.get("properties") or {}
+        for key in [
+            "name",
+            "provider_type",
+            "status",
+            "last_error",
+            "last_health_check_at",
+            "last_health_check_latency_ms",
+        ]:
+            assert key in snapshot_props
 
     def test_provider_registry_openapi_schema_contains_typed_registry(self):
         openapi = _openapi_schema()

@@ -134,11 +134,28 @@ class ProviderPluginDiagnostics(BaseModel):
     registered_sample: List[str] = Field(default_factory=list)
 
 
+class ProviderStatusSnapshot(BaseModel):
+    """Normalized provider status snapshot payload.
+
+    Providers may add extra fields; clients should only rely on the stable keys
+    declared here.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    name: str
+    provider_type: Optional[str] = None
+    status: str
+    last_error: Optional[str] = None
+    last_health_check_at: Optional[float] = None
+    last_health_check_latency_ms: Optional[float] = None
+
+
 class ProviderHealthItem(BaseModel):
     domain: str
     provider: str
     ready: bool
-    snapshot: Optional[Dict[str, Any]] = None
+    snapshot: Optional[ProviderStatusSnapshot] = None
     error: Optional[str] = None
 
 
@@ -274,12 +291,6 @@ async def provider_health(
         return bool(result), getattr(provider, "last_error", None)
 
     def _build_provider_snapshot(provider: Any) -> Dict[str, Any]:
-        status_snapshot = getattr(provider, "status_snapshot", None)
-        if callable(status_snapshot):
-            snapshot = status_snapshot()
-            if isinstance(snapshot, dict):
-                return snapshot
-
         provider_name = getattr(provider, "name", provider.__class__.__name__)
         provider_type = getattr(provider, "provider_type", None)
         status = getattr(provider, "status", None)
@@ -287,16 +298,32 @@ async def provider_health(
             status = status.value
         if status is None:
             status = "unknown"
-        return {
-            "name": str(provider_name),
-            "provider_type": provider_type,
-            "status": str(status),
-            "last_error": getattr(provider, "last_error", None),
-            "last_health_check_at": getattr(provider, "last_health_check_at", None),
-            "last_health_check_latency_ms": getattr(
-                provider, "last_health_check_latency_ms", None
-            ),
-        }
+        last_error = getattr(provider, "last_error", None)
+        last_health_check_at = getattr(provider, "last_health_check_at", None)
+        last_health_check_latency_ms = getattr(provider, "last_health_check_latency_ms", None)
+
+        snapshot: Dict[str, Any] = {}
+        status_snapshot = getattr(provider, "status_snapshot", None)
+        if callable(status_snapshot):
+            maybe = status_snapshot()
+            if isinstance(maybe, dict):
+                snapshot = dict(maybe)
+
+        # Ensure the stable keys always exist for API contract purposes.
+        if not isinstance(snapshot.get("name"), str) or not snapshot.get("name"):
+            snapshot["name"] = str(provider_name)
+        if "provider_type" not in snapshot or snapshot.get("provider_type") is None:
+            snapshot["provider_type"] = provider_type
+        if not isinstance(snapshot.get("status"), str) or not snapshot.get("status"):
+            snapshot["status"] = str(status)
+        if "last_error" not in snapshot:
+            snapshot["last_error"] = last_error
+        if "last_health_check_at" not in snapshot:
+            snapshot["last_health_check_at"] = last_health_check_at
+        if "last_health_check_latency_ms" not in snapshot:
+            snapshot["last_health_check_latency_ms"] = last_health_check_latency_ms
+
+        return snapshot
 
     async def _check(domain: str, name: str) -> ProviderHealthItem:
         started_at = time.perf_counter()

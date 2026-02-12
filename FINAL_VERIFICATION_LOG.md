@@ -3844,3 +3844,13 @@
     - `make validate-openapi` (`5 passed`)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_PROVIDER_REGISTRY_OPENAPI_MODEL_20260212.md`
+- **Provider Health Snapshot OpenAPI Model**:
+  - Promoted `/api/v1/providers/health` result `snapshot` to typed `ProviderStatusSnapshot` (extra fields allowed).
+  - Hardened snapshot builder to always include stable keys (`name`, `provider_type`, `status`, `last_error`, `last_health_check_at`, `last_health_check_latency_ms`).
+  - Updated provider health contract tests to assert snapshot keys and OpenAPI typing.
+  - Updated OpenAPI snapshot baseline.
+  - Validation:
+    - `make openapi-snapshot-update` (`paths=161`, `operations=166`)
+    - `make validate-openapi` (`5 passed`)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_PROVIDER_HEALTH_SNAPSHOT_OPENAPI_MODEL_20260212.md`
