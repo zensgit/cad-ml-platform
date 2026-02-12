@@ -11,7 +11,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Set
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.core.errors import ErrorCode
 
@@ -85,8 +85,8 @@ class VisionAnalyzeRequest(BaseModel):
                 )
         return value
 
-    model_config = {
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "image_url": "https://example.com/drawing.png",
                 "include_description": True,
@@ -96,7 +96,7 @@ class VisionAnalyzeRequest(BaseModel):
                 "cad_feature_thresholds": {"line_aspect": 5.0, "arc_fill_min": 0.08},
             }
         }
-    }
+    )
 
 
 class VisionDescription(BaseModel):
@@ -142,7 +142,7 @@ class CadFeatureStats(BaseModel):
         ..., description="Arc sweep histogram buckets"
     )
 
-    model_config = {"extra": "allow"}
+    model_config = ConfigDict(extra="allow")
 
 
 class VisionAnalyzeResponse(BaseModel):
@@ -175,8 +175,8 @@ class VisionAnalyzeResponse(BaseModel):
         None, description="Machine-readable error code if success=False"
     )
 
-    model_config = {
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "success": True,
                 "description": {
@@ -230,7 +230,7 @@ class VisionAnalyzeResponse(BaseModel):
                 "processing_time_ms": 234.5,
             }
         }
-    }
+    )
 
 
 # ========== Provider Abstract Base Class ==========

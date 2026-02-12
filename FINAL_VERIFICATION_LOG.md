@@ -3757,3 +3757,16 @@
     - `make validate-openapi` (`4 passed`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `4 passed`, `103 passed`, `59 passed`, `4 passed`)
   - Report: `reports/DEV_PYDANTIC_V2_COMPAT_AUDIT_GATE_20260212.md`
+- **Pydantic Audit CI Summary & V2 Migration Batch 1**:
+  - Added `scripts/ci/summarize_pydantic_v2_audit.py` and integrated audit summary + artifact upload in `.github/workflows/ci.yml` (`lint-type` job).
+  - Added parser tests `tests/unit/test_pydantic_v2_audit_summary.py`.
+  - Migrated first batch to explicit v2 config types:
+    - `src/core/vision/base.py` (`ConfigDict`)
+    - `src/core/config.py` (`SettingsConfigDict`)
+    - `src/core/config/__init__.py` (`SettingsConfigDict`)
+  - Validation:
+    - `pytest tests/unit/test_pydantic_v2_audit.py tests/unit/test_pydantic_v2_audit_summary.py -q` (`5 passed`)
+    - `make audit-pydantic-v2-regression` (`total_findings: 0`)
+    - `make validate-openapi` (`4 passed`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `4 passed`, `103 passed`, `59 passed`, `4 passed`)
+  - Report: `reports/DEV_PYDANTIC_AUDIT_SUMMARY_AND_V2_MIGRATION_BATCH1_20260212.md`

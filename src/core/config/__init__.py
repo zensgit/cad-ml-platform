@@ -30,7 +30,7 @@ from src.core.config.watcher import (
 # Re-export legacy Settings and get_settings for backward compatibility
 # These are defined in the sibling config.py module
 from typing import Optional
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -61,10 +61,10 @@ class Settings(BaseSettings):
     ERROR_EMA_ALPHA: float = 0.2
     TELEMETRY_STORE_BACKEND: str = "memory"
 
-    model_config = {
-        "env_file": ".env.dev",
-        "case_sensitive": False,
-    }
+    model_config = SettingsConfigDict(
+        env_file=".env.dev",
+        case_sensitive=False,
+    )
 
 
 _settings_cache: Optional[Settings] = None

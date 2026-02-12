@@ -39,7 +39,24 @@ jobs:
       - name: Type-check
         run: make type-check
       - name: Audit pydantic v2 compatibility regression
-        run: make audit-pydantic-v2-regression
+        id: pydantic_v2_audit
+        run: |
+          set -o pipefail
+          make audit-pydantic-v2-regression 2>&1 | tee /tmp/pydantic-v2-audit.log
+      - name: Append pydantic v2 audit summary
+        if: always()
+        run: |
+          python scripts/ci/summarize_pydantic_v2_audit.py \
+            --log-file /tmp/pydantic-v2-audit.log \
+            --title "Pydantic V2 Compatibility Audit" \
+            >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload pydantic v2 audit log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pydantic-v2-audit-log
+          path: /tmp/pydantic-v2-audit.log
+          if-no-files-found: ignore
   openapi-fast:
     needs: [lint-type]
     runs-on: ubuntu-latest
