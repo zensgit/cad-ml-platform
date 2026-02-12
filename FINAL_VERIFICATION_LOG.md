@@ -3958,3 +3958,6 @@
   - Validation:
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_DESIGN_STANDARDS_API_V2_20260213.md`
+- **CI Enhanced Knowledge Artifact Conflict Fix**:
+  - Fixed `CI Enhanced` workflow failures caused by duplicate artifact names when uploading the knowledge test report from multiple unit-test shards.
+  - Report: `reports/DEV_CI_ENHANCED_KNOWLEDGE_ARTIFACT_CONFLICT_FIX_20260213.md`
