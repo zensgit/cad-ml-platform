@@ -25,6 +25,28 @@ from src.utils.metrics import (
 
 router = APIRouter()
 
+def _sanitize_error_text(value: Optional[str], *, max_len: int = 300) -> Optional[str]:
+    """Best-effort sanitization for error strings returned in public health payloads.
+
+    - Collapse multi-line / excessive whitespace into a single line.
+    - Bound length to reduce the risk of leaking large exception contexts.
+    """
+    if value is None:
+        return None
+    try:
+        text = " ".join(str(value).split())
+    except Exception:
+        return None
+    if not text:
+        return None
+    if max_len <= 0:
+        max_len = 1
+    if len(text) > max_len:
+        if max_len <= 3:
+            return text[:max_len]
+        return text[: max_len - 3] + "..."
+    return text
+
 
 class FeatureCacheStatsResponse(BaseModel):
     status: str
@@ -240,7 +262,12 @@ async def provider_health(
                 plugin = item.get("plugin")
                 error = item.get("error")
                 if isinstance(plugin, str) and isinstance(error, str):
-                    errors.append({"plugin": plugin, "error": error})
+                    errors.append(
+                        {
+                            "plugin": plugin,
+                            "error": _sanitize_error_text(error) or error,
+                        }
+                    )
         errors_sample = errors[:10]
 
         raw_registered = plugins.get("registered") or {}
@@ -298,7 +325,15 @@ async def provider_health(
             status = status.value
         if status is None:
             status = "unknown"
-        last_error = getattr(provider, "last_error", None)
+        last_error_raw = getattr(provider, "last_error", None)
+        last_error: Optional[str] = None
+        if last_error_raw is not None:
+            try:
+                last_error = str(last_error_raw)
+            except Exception:
+                last_error = None
+        if last_error:
+            last_error = _sanitize_error_text(last_error) or last_error
         last_health_check_at = getattr(provider, "last_health_check_at", None)
         last_health_check_latency_ms = getattr(provider, "last_health_check_latency_ms", None)
 
@@ -349,11 +384,11 @@ async def provider_health(
                 provider=name,
                 ready=False,
                 snapshot=None,
-                error=f"init_error: {exc}",
+                error=_sanitize_error_text(f"init_error: {exc}") or f"init_error: {exc}",
             )
 
         ok = False
-        err: Optional[str] = None
+        err: Optional[Any] = None
         try:
             ok, err = await _run_provider_health_check(provider)
         except Exception as exc:  # noqa: BLE001
@@ -377,12 +412,23 @@ async def provider_health(
             except Exception:
                 pass
 
+        error_text: Optional[str] = None
+        if err is not None:
+            try:
+                error_text = str(err)
+            except Exception:
+                error_text = None
+        if error_text:
+            error_text = _sanitize_error_text(error_text) or error_text
+        else:
+            error_text = None
+
         return ProviderHealthItem(
             domain=domain,
             provider=name,
             ready=bool(ok),
             snapshot=_build_provider_snapshot(provider),
-            error=err,
+            error=error_text,
         )
 
     tasks = [

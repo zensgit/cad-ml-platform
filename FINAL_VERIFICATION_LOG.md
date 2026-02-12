@@ -3874,3 +3874,12 @@
     - `.venv/bin/python -m pytest tests/unit/test_provider_knowledge_providers.py -v` (`2 passed`)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_PROVIDER_KNOWLEDGE_PROVIDERS_COVERAGE_20260212.md`
+- **Provider Health Error Sanitization**:
+  - Sanitized multi-line/oversized error strings returned by `/api/v1/providers/health`:
+    - `plugin_diagnostics.errors_sample[].error`
+    - `results[].error`
+    - `results[].snapshot.last_error`
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_provider_health_endpoint.py -v` (`4 passed`)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_PROVIDER_HEALTH_ERROR_SANITIZATION_20260212.md`
