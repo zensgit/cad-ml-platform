@@ -93,7 +93,10 @@ def main() -> int:
     )
     parser.add_argument(
         "--model-path",
-        default=os.getenv("GRAPH2D_MODEL_PATH", "models/graph2d_coarse_synth_v2_20260208.pth"),
+        default=os.getenv(
+            "GRAPH2D_MODEL_PATH",
+            "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
+        ),
         help="Graph2D checkpoint path.",
     )
     parser.add_argument("--max-files", type=int, default=200)

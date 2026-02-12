@@ -61,7 +61,8 @@ READINESS_CHECK_TIMEOUT_SECONDS = float(
 def _validate_optional_feature_flags() -> None:
     graph2d_enabled = os.getenv("GRAPH2D_ENABLED", "false").lower() == "true"
     graph2d_model = os.getenv(
-        "GRAPH2D_MODEL_PATH", "models/graph2d_parts_upsampled_20260122.pth"
+        "GRAPH2D_MODEL_PATH",
+        "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
     )
     fusion_enabled = os.getenv("FUSION_ANALYZER_ENABLED", "false").lower() == "true"
     fusion_override = os.getenv("FUSION_ANALYZER_OVERRIDE", "false").lower() == "true"

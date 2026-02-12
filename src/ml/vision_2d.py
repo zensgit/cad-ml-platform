@@ -33,7 +33,8 @@ except Exception:
 class Graph2DClassifier:
     def __init__(self, model_path: Optional[str] = None) -> None:
         self.model_path = model_path or os.getenv(
-            "GRAPH2D_MODEL_PATH", "models/graph2d_parts_upsampled_20260122.pth"
+            "GRAPH2D_MODEL_PATH",
+            "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
         )
         self.model: Optional[torch.nn.Module] = None
         self.label_map: Dict[str, int] = {}

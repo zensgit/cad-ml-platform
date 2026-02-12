@@ -144,7 +144,8 @@ class Graph2DClassifierProviderAdapter(
             return True
 
         model_path = os.getenv(
-            "GRAPH2D_MODEL_PATH", "models/graph2d_parts_upsampled_20260122.pth"
+            "GRAPH2D_MODEL_PATH",
+            "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
         )
         if not os.path.exists(model_path):
             raise RuntimeError(f"model_missing: {model_path}")

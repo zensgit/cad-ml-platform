@@ -65,7 +65,7 @@ Classifier cache stats are available at `GET /api/v1/health/classifier/cache` (a
         "hybrid_enabled": true|false,
         "hybrid_version": "1.1.0",
         "hybrid_config_path": "config/hybrid_classifier.yaml",
-        "graph2d_model_path": "models/graph2d_parts_upsampled_20260122.pth",
+        "graph2d_model_path": "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
         "filename_enabled": true|false,
         "graph2d_enabled": true|false,
         "titleblock_enabled": true|false,

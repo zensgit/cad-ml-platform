@@ -181,7 +181,8 @@ def build_health_payload(
         except Exception:
             torch_available = False
         graph2d_model_path = os.getenv(
-            "GRAPH2D_MODEL_PATH", "models/graph2d_parts_upsampled_20260122.pth"
+            "GRAPH2D_MODEL_PATH",
+            "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
         )
         graph2d_model_present = os.path.exists(graph2d_model_path)
         v16_disabled = os.getenv("DISABLE_V16_CLASSIFIER", "").lower() in (
@@ -215,7 +216,8 @@ def build_health_payload(
                     "HYBRID_CONFIG_PATH", "config/hybrid_classifier.yaml"
                 ),
                 "graph2d_model_path": os.getenv(
-                    "GRAPH2D_MODEL_PATH", "models/graph2d_parts_upsampled_20260122.pth"
+                    "GRAPH2D_MODEL_PATH",
+                    "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
                 ),
                 "filename_enabled": bool(hybrid_cfg.filename.enabled),
                 "graph2d_enabled": bool(hybrid_cfg.graph2d.enabled),

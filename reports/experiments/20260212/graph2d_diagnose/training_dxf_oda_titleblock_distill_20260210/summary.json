@@ -1,0 +1,617 @@
+{
+  "dxf_dir": "训练图纸_dxf",
+  "model_path": "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
+  "sampled_files": 110,
+  "elapsed_seconds": 21.872,
+  "status_counts": {
+    "ok": 110
+  },
+  "label_map_size": 47,
+  "top_pred_labels": [
+    [
+      "轴向定位轴承",
+      36
+    ],
+    [
+      "液压开盖组件",
+      24
+    ],
+    [
+      "蜗轮蜗杆传动出料机构",
+      10
+    ],
+    [
+      "电加热箱",
+      5
+    ],
+    [
+      "支承座",
+      4
+    ],
+    [
+      "捕集口",
+      4
+    ],
+    [
+      "搅拌桨组件",
+      4
+    ],
+    [
+      "下筒体组件",
+      3
+    ],
+    [
+      "汽水分离器",
+      3
+    ],
+    [
+      "捕集器组件",
+      2
+    ],
+    [
+      "防爆视灯组件",
+      2
+    ],
+    [
+      "底板",
+      2
+    ],
+    [
+      "搅拌器组件",
+      2
+    ],
+    [
+      "连接法兰(大)",
+      2
+    ],
+    [
+      "上封头组件",
+      2
+    ],
+    [
+      "出料正压隔离器",
+      2
+    ],
+    [
+      "侧推料组件",
+      2
+    ],
+    [
+      "超声波法兰",
+      1
+    ]
+  ],
+  "top_pred_labels_canon": [
+    [
+      "轴向定位轴承",
+      36
+    ],
+    [
+      "液压开盖组件",
+      24
+    ],
+    [
+      "蜗轮蜗杆传动出料机构",
+      10
+    ],
+    [
+      "电加热箱",
+      5
+    ],
+    [
+      "支承座",
+      4
+    ],
+    [
+      "捕集口",
+      4
+    ],
+    [
+      "搅拌桨组件",
+      4
+    ],
+    [
+      "下筒体组件",
+      3
+    ],
+    [
+      "汽水分离器",
+      3
+    ],
+    [
+      "捕集器组件",
+      2
+    ],
+    [
+      "防爆视灯组件",
+      2
+    ],
+    [
+      "底板",
+      2
+    ],
+    [
+      "搅拌器组件",
+      2
+    ],
+    [
+      "连接法兰(大)",
+      2
+    ],
+    [
+      "上封头组件",
+      2
+    ],
+    [
+      "出料正压隔离器",
+      2
+    ],
+    [
+      "侧推料组件",
+      2
+    ],
+    [
+      "超声波法兰",
+      1
+    ]
+  ],
+  "confidence": {
+    "count": 110,
+    "p50": 0.0406,
+    "p90": 0.0909
+  },
+  "true_labels": {
+    "source": "filename",
+    "min_confidence": 0.8,
+    "coverage": 110,
+    "coverage_rate": 1.0,
+    "distinct_count": 47,
+    "top_true_labels": [
+      [
+        "罐体部分",
+        5
+      ],
+      [
+        "上封头组件",
+        5
+      ],
+      [
+        "过滤托架",
+        4
+      ],
+      [
+        "超声波法兰",
+        3
+      ],
+      [
+        "上筒体组件",
+        3
+      ],
+      [
+        "再沸器",
+        3
+      ],
+      [
+        "短轴承座(盖)",
+        3
+      ],
+      [
+        "扭转弹簧",
+        3
+      ],
+      [
+        "蜗轮蜗杆传动出料机构",
+        3
+      ],
+      [
+        "调节螺栓",
+        3
+      ],
+      [
+        "下锥体组件",
+        3
+      ],
+      [
+        "捕集器组件",
+        2
+      ],
+      [
+        "防爆视灯组件",
+        2
+      ],
+      [
+        "底板",
+        2
+      ],
+      [
+        "阀体",
+        2
+      ],
+      [
+        "轴承座",
+        2
+      ],
+      [
+        "下封板",
+        2
+      ],
+      [
+        "下轴承支架组件",
+        2
+      ],
+      [
+        "对接法兰",
+        2
+      ],
+      [
+        "人孔",
+        2
+      ]
+    ]
+  },
+  "accuracy": 0.2727272727272727,
+  "top_confusions": [
+    {
+      "true_label": "过滤托架",
+      "pred_label": "液压开盖组件",
+      "count": 4
+    },
+    {
+      "true_label": "上筒体组件",
+      "pred_label": "液压开盖组件",
+      "count": 3
+    },
+    {
+      "true_label": "罐体部分",
+      "pred_label": "蜗轮蜗杆传动出料机构",
+      "count": 3
+    },
+    {
+      "true_label": "再沸器",
+      "pred_label": "液压开盖组件",
+      "count": 3
+    },
+    {
+      "true_label": "上封头组件",
+      "pred_label": "液压开盖组件",
+      "count": 3
+    },
+    {
+      "true_label": "短轴承座(盖)",
+      "pred_label": "电加热箱",
+      "count": 3
+    },
+    {
+      "true_label": "扭转弹簧",
+      "pred_label": "轴向定位轴承",
+      "count": 3
+    },
+    {
+      "true_label": "调节螺栓",
+      "pred_label": "轴向定位轴承",
+      "count": 3
+    },
+    {
+      "true_label": "超声波法兰",
+      "pred_label": "轴向定位轴承",
+      "count": 2
+    },
+    {
+      "true_label": "阀体",
+      "pred_label": "液压开盖组件",
+      "count": 2
+    },
+    {
+      "true_label": "下封板",
+      "pred_label": "轴向定位轴承",
+      "count": 2
+    },
+    {
+      "true_label": "下轴承支架组件",
+      "pred_label": "液压开盖组件",
+      "count": 2
+    },
+    {
+      "true_label": "对接法兰",
+      "pred_label": "轴向定位轴承",
+      "count": 2
+    },
+    {
+      "true_label": "人孔",
+      "pred_label": "轴向定位轴承",
+      "count": 2
+    },
+    {
+      "true_label": "搅拌减速机机罩",
+      "pred_label": "轴向定位轴承",
+      "count": 2
+    },
+    {
+      "true_label": "罐体支腿",
+      "pred_label": "支承座",
+      "count": 2
+    },
+    {
+      "true_label": "旋转组件",
+      "pred_label": "蜗轮蜗杆传动出料机构",
+      "count": 2
+    },
+    {
+      "true_label": "轴头组件",
+      "pred_label": "轴向定位轴承",
+      "count": 2
+    },
+    {
+      "true_label": "拖车",
+      "pred_label": "捕集口",
+      "count": 2
+    },
+    {
+      "true_label": "搅拌桨组件",
+      "pred_label": "液压开盖组件",
+      "count": 2
+    },
+    {
+      "true_label": "拖轮组件",
+      "pred_label": "捕集口",
+      "count": 2
+    },
+    {
+      "true_label": "出料凸缘",
+      "pred_label": "搅拌桨组件",
+      "count": 2
+    },
+    {
+      "true_label": "捕集口",
+      "pred_label": "轴向定位轴承",
+      "count": 2
+    },
+    {
+      "true_label": "搅拌轴组件",
+      "pred_label": "轴向定位轴承",
+      "count": 2
+    },
+    {
+      "true_label": "人孔法兰",
+      "pred_label": "轴向定位轴承",
+      "count": 2
+    }
+  ],
+  "per_class_accuracy": {
+    "上封头组件": {
+      "total": 5,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "上筒体组件": {
+      "total": 3,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "下封板": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "下筒体组件": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 1.0
+    },
+    "下轴承支架组件": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "下锥体组件": {
+      "total": 3,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "人孔": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "人孔法兰": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "侧推料组件": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 1.0
+    },
+    "保护罩组件": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "再沸器": {
+      "total": 3,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "出料凸缘": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "出料正压隔离器": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 1.0
+    },
+    "对接法兰": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "底板": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 1.0
+    },
+    "手轮组件": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "扭转弹簧": {
+      "total": 3,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "拖车": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "拖轮组件": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "捕集口": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "捕集器组件": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 1.0
+    },
+    "搅拌减速机机罩": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "搅拌器组件": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 1.0
+    },
+    "搅拌桨组件": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "搅拌轴组件": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "支承座": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 1.0
+    },
+    "旋转组件": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "汽水分离器": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 1.0
+    },
+    "液压开盖组件": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 1.0
+    },
+    "电加热箱": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 1.0
+    },
+    "真空组件": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "短轴承座(盖)": {
+      "total": 3,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "管束": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "罐体支腿": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "罐体部分": {
+      "total": 5,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "自动进料装置": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "蜗轮蜗杆传动出料机构": {
+      "total": 3,
+      "correct": 3,
+      "accuracy": 1.0
+    },
+    "调节螺栓": {
+      "total": 3,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "超声波法兰": {
+      "total": 3,
+      "correct": 1,
+      "accuracy": 0.3333
+    },
+    "轴向定位轴承": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 1.0
+    },
+    "轴头组件": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "轴承座": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "过滤托架": {
+      "total": 4,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "过滤芯组件": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "连接法兰(大)": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 1.0
+    },
+    "阀体": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0.0
+    },
+    "防爆视灯组件": {
+      "total": 2,
+      "correct": 2,
+      "accuracy": 1.0
+    }
+  }
+}

@@ -3918,3 +3918,10 @@
     - `reports/experiments/20260212/batch_analyze_training_dxf/titleblock_default/with_filename/summary.json`
     - `reports/experiments/20260212/batch_analyze_training_dxf/titleblock_default/masked_filename/summary.json`
   - Report: `reports/DEV_HYBRID_TITLEBLOCK_DEFAULT_AND_PROCESS_GUARDRAIL_20260212.md`
+- **Graph2D Diagnose + Default Model Selection (DXF Training Set)**:
+  - Diagnosed multiple Graph2D checkpoints on a local DXF directory using filename-derived weak labels (synonyms-canonicalized).
+  - Found that the previous default (`graph2d_parts_upsampled_20260122.pth`) behaved like a drawing-type classifier (label-space mismatch) and could be high-confidence wrong when enabled.
+  - Switched the default `GRAPH2D_MODEL_PATH` fallback to `graph2d_training_dxf_oda_titleblock_distill_20260210.pth` (best accuracy among the tested candidates; aligned label-space).
+  - Validation:
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_GRAPH2D_DIAGNOSE_AND_DEFAULT_MODEL_SELECTION_20260212.md`
