@@ -3720,3 +3720,10 @@
     - `make validate-openapi` (`3 passed`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `3 passed`, `103 passed`, `59 passed`)
   - Report: `reports/DEV_API_ROUTE_OWNER_GUARD_20260212.md`
+- **Provider Contract Core Fast Gate**:
+  - Added `test-provider-contract` and integrated provider API contract checks into `validate-core-fast`.
+  - Extended core-fast summary rows in both CI workflows with `provider-contract suite`.
+  - Validation:
+    - `make test-provider-contract` (`4 passed`, `20 deselected`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `3 passed`, `103 passed`, `59 passed`, `4 passed`)
+  - Report: `reports/DEV_PROVIDER_CONTRACT_CORE_FAST_GATE_20260212.md`

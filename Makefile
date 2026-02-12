@@ -8,8 +8,8 @@
 	cdp-screenshot-demo cdp-trace-demo playwright-console-demo playwright-trace-demo playwright-install \
 		uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance \
 		validate-openapi \
-		graph2d-review-summary validate-core-fast test-provider-core
-.PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core validate-openapi
+		graph2d-review-summary validate-core-fast test-provider-core test-provider-contract
+.PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -116,6 +116,12 @@ test-provider-core: ## 运行 provider 框架核心回归测试
 		$(TEST_DIR)/unit/test_provider_health_endpoint.py \
 		$(TEST_DIR)/unit/test_provider_check_metrics_exposed.py -v
 
+test-provider-contract: ## 运行 provider 相关 API 契约回归测试
+	@echo "$(GREEN)Running provider contract tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/contract/test_api_contract.py \
+		-k "provider_health_endpoint_response_shape or health_payload_core_provider_plugin_summary_shape or provider_health_openapi_schema_contains_plugin_diagnostics or health_openapi_schema_contains_core_provider_plugin_summary" -v
+
 validate-iso286: ## 验证 ISO286/GB-T 1800 偏差表数据（快速）
 	@echo "$(GREEN)Validating ISO286 deviation tables...$(NC)"
 	$(PYTHON) scripts/validate_iso286_deviations.py --spot-check
@@ -132,12 +138,13 @@ validate-openapi: ## 校验 OpenAPI operationId 唯一性
 		$(TEST_DIR)/contract/test_openapi_operation_ids.py \
 		$(TEST_DIR)/unit/test_api_route_uniqueness.py -q
 
-validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core）
+validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core + provider-contract）
 	@echo "$(GREEN)Running core fast validation...$(NC)"
 	$(MAKE) validate-tolerance
 	$(MAKE) validate-openapi
 	$(MAKE) test-service-mesh
 	$(MAKE) test-provider-core
+	$(MAKE) test-provider-contract
 
 test-dedupcad-vision: ## 运行测试（依赖 DedupCAD Vision 已启动）
 	@echo "$(GREEN)Running tests with DedupCAD Vision required...$(NC)"
