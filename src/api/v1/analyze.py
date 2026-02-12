@@ -1302,8 +1302,19 @@ async def analyze_cad_file(
                     graph2d_result
                     and graph2d_result.get("status") != "model_unavailable"
                 ):
+                    # Keep soft-override behavior aligned with the Graph2D gate
+                    # (`GRAPH2D_MIN_CONF` / `config/hybrid_classifier.yaml`) by default.
+                    # Users can still override via env `GRAPH2D_SOFT_OVERRIDE_MIN_CONF`.
+                    graph2d_min_conf_default = 0.17
+                    try:
+                        if graph2d_result.get("min_confidence") is not None:
+                            graph2d_min_conf_default = float(
+                                graph2d_result.get("min_confidence")
+                            )
+                    except Exception:
+                        graph2d_min_conf_default = 0.17
                     soft_override_min_conf = _safe_float_env(
-                        "GRAPH2D_SOFT_OVERRIDE_MIN_CONF", 0.17
+                        "GRAPH2D_SOFT_OVERRIDE_MIN_CONF", graph2d_min_conf_default
                     )
                     graph2d_label = str(graph2d_result.get("label") or "").strip()
                     graph2d_conf = float(graph2d_result.get("confidence", 0.0))
@@ -1356,10 +1367,19 @@ async def analyze_cad_file(
                     }
                     cls_payload["soft_override_suggestion"] = soft_override_suggestion
                 elif graph2d_result is not None:
+                    graph2d_min_conf_default = 0.17
+                    try:
+                        if graph2d_result.get("min_confidence") is not None:
+                            graph2d_min_conf_default = float(
+                                graph2d_result.get("min_confidence")
+                            )
+                    except Exception:
+                        graph2d_min_conf_default = 0.17
                     cls_payload["soft_override_suggestion"] = {
                         "eligible": False,
                         "threshold": _safe_float_env(
-                            "GRAPH2D_SOFT_OVERRIDE_MIN_CONF", 0.17
+                            "GRAPH2D_SOFT_OVERRIDE_MIN_CONF",
+                            graph2d_min_conf_default,
                         ),
                         "label": None,
                         "confidence": float(

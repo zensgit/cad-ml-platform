@@ -111,6 +111,53 @@ def test_analyze_dxf_graph2d_excluded_label_flag(monkeypatch):
     assert graph2d.get("excluded") is True
 
 
+def test_analyze_dxf_graph2d_soft_override_defaults_to_graph2d_min_conf(monkeypatch):
+    """When GRAPH2D_SOFT_OVERRIDE_MIN_CONF is absent, it should default to Graph2D min_conf (0.5)."""
+
+    from src.core.analyzer import CADAnalyzer
+
+    async def _fake_classify_part(self, doc, features):  # noqa: ANN001, ANN201
+        return {
+            "type": "unknown",
+            "confidence": 0.2,
+            "sub_type": None,
+            "characteristics": [],
+            "rule_version": "v1",
+        }
+
+    class _StubGraph2D:
+        def predict_from_bytes(self, data, file_name):  # noqa: ANN001
+            return {"label": "人孔", "confidence": 0.49, "status": "ok"}
+
+    monkeypatch.setattr(CADAnalyzer, "classify_part", _fake_classify_part)
+    monkeypatch.setenv("GRAPH2D_ENABLED", "true")
+    monkeypatch.setenv("HYBRID_CLASSIFIER_ENABLED", "false")
+    monkeypatch.delenv("GRAPH2D_MIN_CONF", raising=False)
+    monkeypatch.delenv("GRAPH2D_MIN_MARGIN", raising=False)
+    monkeypatch.delenv("GRAPH2D_SOFT_OVERRIDE_MIN_CONF", raising=False)
+    monkeypatch.delenv("GRAPH2D_ALLOW_LABELS", raising=False)
+    monkeypatch.delenv("GRAPH2D_EXCLUDE_LABELS", raising=False)
+    monkeypatch.delenv("GRAPH2D_DRAWING_TYPE_LABELS", raising=False)
+    monkeypatch.delenv("GRAPH2D_COARSE_LABELS", raising=False)
+
+    monkeypatch.setattr(
+        "src.core.providers.classifier.Graph2DClassifierProviderAdapter._build_default_classifier",
+        lambda self: _StubGraph2D(),
+    )
+
+    resp = _post_minimal_dxf("UNKNOWNv1.dxf")
+    assert resp.status_code == 200, resp.text
+    payload = resp.json()
+    cls_payload = payload.get("results", {}).get("classification", {})
+    graph2d = cls_payload.get("graph2d_prediction") or {}
+    soft = cls_payload.get("soft_override_suggestion") or {}
+
+    assert graph2d.get("min_confidence") == 0.5
+    assert soft.get("threshold") == 0.5
+    assert soft.get("eligible") is False
+    assert soft.get("reason") == "below_threshold"
+
+
 def test_analyze_dxf_graph2d_min_margin_blocks_soft_override(monkeypatch):
     """When GRAPH2D_MIN_MARGIN is set and margin is low, soft-override should be ineligible."""
 

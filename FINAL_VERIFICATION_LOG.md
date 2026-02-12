@@ -3854,3 +3854,9 @@
     - `make validate-openapi` (`5 passed`)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_PROVIDER_HEALTH_SNAPSHOT_OPENAPI_MODEL_20260212.md`
+- **Graph2D Soft Override Threshold Alignment**:
+  - Aligned `soft_override_suggestion.threshold` default with Graph2D `min_confidence` (from `config/hybrid_classifier.yaml`) to reduce low-confidence override noise.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/integration/test_analyze_dxf_graph2d_prediction_contract.py -v` (`5 passed`)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_GRAPH2D_SOFT_OVERRIDE_THRESHOLD_ALIGNMENT_20260212.md`
