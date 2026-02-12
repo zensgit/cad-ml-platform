@@ -3683,3 +3683,9 @@
     - `make test-provider-core` (`59 passed`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `103 passed`, `59 passed`)
   - Report: `reports/DEV_PROVIDER_PLUGIN_METRICS_EXPOSURE_20260212.md`
+- **Provider Health Contract Coverage**:
+  - Added API contract assertions for provider diagnostics fields in `/api/v1/providers/health` and `/health`.
+  - Validation:
+    - `pytest -q tests/contract/test_api_contract.py -k "provider_health_endpoint_response_shape or health_payload_core_provider_plugin_summary_shape"` (`2 passed`, `20 deselected`)
+    - `make test-provider-core` (`59 passed`)
+  - Report: `reports/DEV_PROVIDER_HEALTH_CONTRACT_COVERAGE_20260212.md`

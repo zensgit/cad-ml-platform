@@ -300,6 +300,75 @@ class TestKnowledgeApiContracts:
 
 
 @pytest.mark.contract
+class TestProviderHealthContracts:
+    """Contract tests for provider health endpoints."""
+
+    def test_provider_health_endpoint_response_shape(self):
+        resp = _request(
+            "GET",
+            "/api/v1/providers/health",
+            headers={"X-API-Key": API_KEY},
+            params={"timeout_seconds": 0.1},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+
+        assert data.get("status") == "ok"
+        assert isinstance(data.get("total"), int)
+        assert isinstance(data.get("ready"), int)
+        assert isinstance(data.get("timeout_seconds"), float)
+        assert isinstance(data.get("results"), list)
+
+        diagnostics = data.get("plugin_diagnostics")
+        assert isinstance(diagnostics, dict)
+        for key in ["configured_count", "loaded_count", "error_count", "cache", "summary"]:
+            assert key in diagnostics
+        assert isinstance(diagnostics.get("configured_count"), int)
+        assert isinstance(diagnostics.get("loaded_count"), int)
+        assert isinstance(diagnostics.get("error_count"), int)
+
+        summary = diagnostics.get("summary")
+        assert isinstance(summary, dict)
+        for key in [
+            "overall_status",
+            "configured_count",
+            "loaded_count",
+            "error_count",
+            "missing_registered_count",
+            "cache_reused",
+            "cache_reason",
+        ]:
+            assert key in summary
+
+    def test_health_payload_core_provider_plugin_summary_shape(self):
+        resp = _request("GET", "/health", headers={"X-API-Key": API_KEY})
+        assert resp.status_code == 200
+        data = resp.json()
+
+        config = data.get("config") or {}
+        core_providers = config.get("core_providers") or {}
+        assert isinstance(core_providers, dict)
+        assert "plugins" in core_providers
+
+        plugins = core_providers.get("plugins") or {}
+        assert isinstance(plugins, dict)
+        assert "summary" in plugins
+
+        summary = plugins.get("summary") or {}
+        assert isinstance(summary, dict)
+        for key in [
+            "overall_status",
+            "configured_count",
+            "loaded_count",
+            "error_count",
+            "missing_registered_count",
+            "cache_reused",
+            "cache_reason",
+        ]:
+            assert key in summary
+
+
+@pytest.mark.contract
 class TestContentTypeContracts:
     """Content type contract tests."""
 
