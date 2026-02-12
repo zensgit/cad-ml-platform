@@ -3689,3 +3689,9 @@
     - `pytest -q tests/contract/test_api_contract.py -k "provider_health_endpoint_response_shape or health_payload_core_provider_plugin_summary_shape"` (`2 passed`, `20 deselected`)
     - `make test-provider-core` (`59 passed`)
   - Report: `reports/DEV_PROVIDER_HEALTH_CONTRACT_COVERAGE_20260212.md`
+- **Provider Health OpenAPI Contract Coverage**:
+  - Added OpenAPI schema contract assertions for provider diagnostics fields to prevent schema drift.
+  - Validation:
+    - `pytest -q tests/contract/test_api_contract.py -k "provider_health or core_provider_plugin_summary or openapi_schema_contains_plugin_diagnostics or openapi_schema_contains_core_provider_plugin_summary"` (`4 passed`, `20 deselected`)
+    - `make test-provider-core` (`59 passed`)
+  - Report: `reports/DEV_PROVIDER_HEALTH_OPENAPI_CONTRACT_20260212.md`

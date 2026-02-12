@@ -86,6 +86,25 @@ def _request(
     return client.request(method, path, headers=headers, params=params, json=json)
 
 
+@lru_cache(maxsize=1)
+def _openapi_schema() -> Dict[str, Any]:
+    response = _request("GET", "/openapi.json")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, dict)
+    return data
+
+
+def _resolve_schema_ref(openapi: Dict[str, Any], schema: Dict[str, Any]) -> Dict[str, Any]:
+    ref = schema.get("$ref")
+    if not ref:
+        return schema
+    prefix = "#/components/schemas/"
+    assert isinstance(ref, str)
+    assert ref.startswith(prefix)
+    return openapi["components"]["schemas"][ref[len(prefix) :]]
+
+
 @pytest.mark.skipif(not SCHEMATHESIS_AVAILABLE, reason="Schemathesis not installed")
 @pytest.mark.contract
 class TestAPIContract:
@@ -366,6 +385,44 @@ class TestProviderHealthContracts:
             "cache_reason",
         ]:
             assert key in summary
+
+    def test_provider_health_openapi_schema_contains_plugin_diagnostics(self):
+        openapi = _openapi_schema()
+        path_schema = (
+            openapi["paths"]["/api/v1/providers/health"]["get"]["responses"]["200"]["content"][
+                "application/json"
+            ]["schema"]
+        )
+        response_schema = _resolve_schema_ref(openapi, path_schema)
+        props = response_schema.get("properties") or {}
+        assert "plugin_diagnostics" in props
+        assert "results" in props
+        assert "status" in props
+
+    def test_health_openapi_schema_contains_core_provider_plugin_summary(self):
+        openapi = _openapi_schema()
+        schemas = (openapi.get("components") or {}).get("schemas") or {}
+
+        assert "HealthConfigCoreProviders" in schemas
+        assert "HealthProviderPlugins" in schemas
+        assert "HealthProviderPluginSummary" in schemas
+
+        core_props = (schemas["HealthConfigCoreProviders"].get("properties") or {})
+        plugin_props = (schemas["HealthProviderPlugins"].get("properties") or {})
+        summary_props = (schemas["HealthProviderPluginSummary"].get("properties") or {})
+
+        assert "plugins" in core_props
+        assert "summary" in plugin_props
+        for key in [
+            "overall_status",
+            "configured_count",
+            "loaded_count",
+            "error_count",
+            "missing_registered_count",
+            "cache_reused",
+            "cache_reason",
+        ]:
+            assert key in summary_props
 
 
 @pytest.mark.contract
