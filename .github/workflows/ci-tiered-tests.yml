@@ -47,62 +47,10 @@ jobs:
       - name: Append core fast gate summary
         if: always()
         run: |
-          {
-            echo "## Core Fast Gate (Tiered CI)"
-            LOG_FILE="/tmp/core-fast-gate-tiered.log"
-            if [ ! -f "$LOG_FILE" ]; then
-              echo ""
-              echo "No core-fast-gate log found."
-              exit 0
-            fi
-
-            iso_ok="❌"
-            hole_ok="❌"
-            if grep -q "ISO286 deviations:" "$LOG_FILE" && grep -q "^OK$" "$LOG_FILE"; then
-              iso_ok="✅"
-            fi
-            if grep -q "All required hole symbols present:" "$LOG_FILE"; then
-              hole_ok="✅"
-            fi
-
-            pass_lines="$(grep -E '[0-9]+ passed in [0-9.]+s' "$LOG_FILE" || true)"
-            tolerance_pass="$(echo "$pass_lines" | sed -n '1p')"
-            openapi_pass="$(echo "$pass_lines" | sed -n '2p')"
-            service_mesh_pass="$(echo "$pass_lines" | sed -n '3p')"
-            provider_core_pass="$(echo "$pass_lines" | sed -n '4p')"
-            provider_contract_pass="$(echo "$pass_lines" | sed -n '5p')"
-            [ -z "$tolerance_pass" ] && tolerance_pass="N/A"
-            [ -z "$openapi_pass" ] && openapi_pass="N/A"
-            [ -z "$service_mesh_pass" ] && service_mesh_pass="N/A"
-            [ -z "$provider_core_pass" ] && provider_core_pass="N/A"
-            [ -z "$provider_contract_pass" ] && provider_contract_pass="N/A"
-            tolerance_ok="❌"
-            openapi_ok="❌"
-            service_mesh_ok="❌"
-            provider_core_ok="❌"
-            provider_contract_ok="❌"
-            [ "$tolerance_pass" != "N/A" ] && tolerance_ok="✅"
-            [ "$openapi_pass" != "N/A" ] && openapi_ok="✅"
-            [ "$service_mesh_pass" != "N/A" ] && service_mesh_ok="✅"
-            [ "$provider_core_pass" != "N/A" ] && provider_core_ok="✅"
-            [ "$provider_contract_pass" != "N/A" ] && provider_contract_ok="✅"
-
-            echo ""
-            echo "| Check | Status | Evidence |"
-            echo "|---|---|---|"
-            echo "| ISO286 deviations validator | $iso_ok | \`ISO286 deviations ... OK\` |"
-            echo "| ISO286 hole symbols validator | $hole_ok | \`All required hole symbols present\` |"
-            echo "| tolerance suite | $tolerance_ok | \`$tolerance_pass\` |"
-            echo "| openapi-contract suite | $openapi_ok | \`$openapi_pass\` |"
-            echo "| service-mesh suite | $service_mesh_ok | \`$service_mesh_pass\` |"
-            echo "| provider-core suite | $provider_core_ok | \`$provider_core_pass\` |"
-            echo "| provider-contract suite | $provider_contract_ok | \`$provider_contract_pass\` |"
-            echo ""
-            echo "Tail:"
-            echo '```text'
-            tail -n 30 "$LOG_FILE"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          python scripts/ci/summarize_core_fast_gate.py \
+            --log-file /tmp/core-fast-gate-tiered.log \
+            --title "Core Fast Gate (Tiered CI)" \
+            >> "$GITHUB_STEP_SUMMARY"
 
   unit-tier:
     runs-on: ubuntu-latest

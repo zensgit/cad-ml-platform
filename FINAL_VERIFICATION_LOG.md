@@ -3727,3 +3727,10 @@
     - `make test-provider-contract` (`4 passed`, `20 deselected`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `3 passed`, `103 passed`, `59 passed`, `4 passed`)
   - Report: `reports/DEV_PROVIDER_CONTRACT_CORE_FAST_GATE_20260212.md`
+- **Core Fast Gate CI Summary Parser**:
+  - Replaced workflow shell parsing with `scripts/ci/summarize_core_fast_gate.py` for robust suite extraction by step markers.
+  - Added parser unit tests: `tests/unit/test_core_fast_gate_summary.py`.
+  - Validation:
+    - `pytest -q tests/unit/test_core_fast_gate_summary.py` (`2 passed`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `3 passed`, `103 passed`, `59 passed`, `4 passed`)
+  - Report: `reports/DEV_CORE_FAST_SUMMARY_PARSER_20260212.md`
