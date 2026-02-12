@@ -3714,3 +3714,9 @@
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `2 passed`, `103 passed`, `59 passed`)
     - `pytest -q tests/unit/test_drift_endpoint.py tests/unit/test_drift_startup_trigger.py` (`2 passed`)
   - Report: `reports/DEV_API_ROUTE_RUNTIME_DEDUP_20260212.md`
+- **API Route Owner Guard**:
+  - Added explicit route-owner assertions for critical `/api/v1/analyze/*` endpoints to guarantee drift/process split modules remain the active handlers.
+  - Validation:
+    - `make validate-openapi` (`3 passed`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `3 passed`, `103 passed`, `59 passed`)
+  - Report: `reports/DEV_API_ROUTE_OWNER_GUARD_20260212.md`
