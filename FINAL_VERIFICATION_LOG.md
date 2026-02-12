@@ -3695,3 +3695,12 @@
     - `pytest -q tests/contract/test_api_contract.py -k "provider_health or core_provider_plugin_summary or openapi_schema_contains_plugin_diagnostics or openapi_schema_contains_core_provider_plugin_summary"` (`4 passed`, `20 deselected`)
     - `make test-provider-core` (`59 passed`)
   - Report: `reports/DEV_PROVIDER_HEALTH_OPENAPI_CONTRACT_20260212.md`
+- **OpenAPI OperationId De-duplication & Gate**:
+  - Removed duplicate OpenAPI operation-id warnings by assigning explicit operation IDs to split drift/process routes and hiding legacy duplicates in analyze schema.
+  - Added `tests/contract/test_openapi_operation_ids.py` to enforce global operation-id uniqueness.
+  - Integrated `validate-openapi` into `validate-core-fast` and CI core-fast step summaries.
+  - Validation:
+    - OpenAPI warning probe via `/openapi.json`: `duplicate_operation_id_warnings 0`
+    - `make validate-openapi` (`1 passed`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `1 passed`, `103 passed`, `59 passed`)
+  - Report: `reports/DEV_OPENAPI_OPERATION_ID_DEDUP_20260212.md`

@@ -76,7 +76,11 @@ class DriftBaselineImportResponse(BaseModel):
     prediction_baseline_ts: Optional[int] = None
 
 
-@router.get("/drift", response_model=DriftStatusResponse)
+@router.get(
+    "/drift",
+    response_model=DriftStatusResponse,
+    operation_id="drift_status_v1",
+)
 async def drift_status(api_key: str = Depends(get_api_key)):
     import os
     import time
@@ -191,7 +195,11 @@ async def drift_status(api_key: str = Depends(get_api_key)):
     )
 
 
-@router.post("/drift/reset", response_model=DriftResetResponse)
+@router.post(
+    "/drift/reset",
+    response_model=DriftResetResponse,
+    operation_id="drift_reset_v1",
+)
 async def drift_reset(api_key: str = Depends(get_api_key)):
     from src.utils.analysis_metrics import drift_baseline_refresh_total
 
@@ -214,7 +222,11 @@ async def drift_reset(api_key: str = Depends(get_api_key)):
     )
 
 
-@router.get("/drift/baseline/status", response_model=DriftBaselineStatusResponse)
+@router.get(
+    "/drift/baseline/status",
+    response_model=DriftBaselineStatusResponse,
+    operation_id="drift_baseline_status_v1",
+)
 async def drift_baseline_status(api_key: str = Depends(get_api_key)):
     import os
     import time
@@ -256,7 +268,11 @@ async def drift_baseline_status(api_key: str = Depends(get_api_key)):
     )
 
 
-@router.post("/drift/baseline/export", response_model=DriftBaselineExportResponse)
+@router.post(
+    "/drift/baseline/export",
+    response_model=DriftBaselineExportResponse,
+    operation_id="drift_baseline_export_v1",
+)
 async def drift_baseline_export(api_key: str = Depends(get_api_key)):
     _DRIFT_STATE: Dict[str, Any] = analyze_module._DRIFT_STATE  # type: ignore
     material_baseline = list(_DRIFT_STATE.get("baseline_materials") or [])
@@ -274,7 +290,11 @@ async def drift_baseline_export(api_key: str = Depends(get_api_key)):
     return DriftBaselineExportResponse(status=status, snapshot=snapshot)
 
 
-@router.post("/drift/baseline/import", response_model=DriftBaselineImportResponse)
+@router.post(
+    "/drift/baseline/import",
+    response_model=DriftBaselineImportResponse,
+    operation_id="drift_baseline_import_v1",
+)
 async def drift_baseline_import(
     payload: DriftBaselineImportRequest,
     api_key: str = Depends(get_api_key),

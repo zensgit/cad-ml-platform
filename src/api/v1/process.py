@@ -26,7 +26,11 @@ class ProcessRulesAuditResponse(BaseModel):
     raw: Dict[str, Any]
 
 
-@router.get("/process/rules/audit", response_model=ProcessRulesAuditResponse)
+@router.get(
+    "/process/rules/audit",
+    response_model=ProcessRulesAuditResponse,
+    operation_id="process_rules_audit_v1",
+)
 async def process_rules_audit(raw: bool = True, api_key: str = Depends(get_api_key)):
     from src.core.process_rules import load_rules
 
