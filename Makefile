@@ -128,7 +128,9 @@ validate-tolerance: ## 一键校验公差知识（数据 + API/模块测试）
 
 validate-openapi: ## 校验 OpenAPI operationId 唯一性
 	@echo "$(GREEN)Validating OpenAPI operation IDs...$(NC)"
-	$(PYTEST) $(TEST_DIR)/contract/test_openapi_operation_ids.py -q
+	$(PYTEST) \
+		$(TEST_DIR)/contract/test_openapi_operation_ids.py \
+		$(TEST_DIR)/unit/test_api_route_uniqueness.py -q
 
 validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core）
 	@echo "$(GREEN)Running core fast validation...$(NC)"

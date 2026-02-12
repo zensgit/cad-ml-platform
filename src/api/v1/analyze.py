@@ -2286,12 +2286,6 @@ async def vector_stats(api_key: str = Depends(get_api_key)):
     )
 
 
-@router.get(
-    "/process/rules/audit",
-    response_model=ProcessRulesAuditResponse,
-    include_in_schema=False,
-    operation_id="process_rules_audit_legacy",
-)
 async def process_rules_audit(raw: bool = True, api_key: str = Depends(get_api_key)):
     import hashlib
     import os
@@ -2756,12 +2750,6 @@ class DriftResetResponse(BaseModel):
     reset_predictions: bool
 
 
-@router.get(
-    "/drift",
-    response_model=DriftStatusResponse,
-    include_in_schema=False,
-    operation_id="drift_status_legacy",
-)
 async def drift_status(api_key: str = Depends(get_api_key)):
     import os
     import time
@@ -2934,12 +2922,6 @@ async def drift_status(api_key: str = Depends(get_api_key)):
     )
 
 
-@router.post(
-    "/drift/reset",
-    response_model=DriftResetResponse,
-    include_in_schema=False,
-    operation_id="drift_reset_legacy",
-)
 async def drift_reset(api_key: str = Depends(get_api_key)):
     # Reset baseline lists only; keep current observations for immediate recompute when threshold met again
     reset_material = bool(_DRIFT_STATE["baseline_materials"])
@@ -3010,12 +2992,6 @@ async def feature_cache_stats(api_key: str = Depends(get_api_key)):
     )
 
 
-@router.get(
-    "/drift/baseline/status",
-    response_model=DriftBaselineStatusResponse,
-    include_in_schema=False,
-    operation_id="drift_baseline_status_legacy",
-)
 async def drift_baseline_status(api_key: str = Depends(get_api_key)):
     import os
     import time

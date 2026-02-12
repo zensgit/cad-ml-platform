@@ -3704,3 +3704,13 @@
     - `make validate-openapi` (`1 passed`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `1 passed`, `103 passed`, `59 passed`)
   - Report: `reports/DEV_OPENAPI_OPERATION_ID_DEDUP_20260212.md`
+- **API Runtime Route De-duplication & Guardrail**:
+  - Removed runtime duplicate route registrations in `analyze.py` for drift/process legacy endpoints and kept split routers as single source of truth.
+  - Added `tests/unit/test_api_route_uniqueness.py` to enforce no duplicate `(method, path)` pairs in FastAPI routes.
+  - Updated `make validate-openapi` to include route uniqueness regression.
+  - Validation:
+    - Runtime route probe: `duplicate_method_path_count 0`
+    - `make validate-openapi` (`2 passed`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `2 passed`, `103 passed`, `59 passed`)
+    - `pytest -q tests/unit/test_drift_endpoint.py tests/unit/test_drift_startup_trigger.py` (`2 passed`)
+  - Report: `reports/DEV_API_ROUTE_RUNTIME_DEDUP_20260212.md`
