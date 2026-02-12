@@ -166,8 +166,7 @@ def build_health_payload(
             # Match `src/ml/vision_2d.py` defaults so ops can observe what would be used
             # if GRAPH2D_ENSEMBLE_ENABLED is flipped on without further config.
             graph2d_ensemble_paths = [
-                "models/graph2d_edge_sage_v3.pth",
-                "models/graph2d_edge_sage_v4_best.pth",
+                "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
             ]
         graph2d_ensemble_models = [os.path.basename(p) for p in graph2d_ensemble_paths]
         graph2d_ensemble_models_present = sum(

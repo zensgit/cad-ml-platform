@@ -3925,3 +3925,9 @@
   - Validation:
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_GRAPH2D_DIAGNOSE_AND_DEFAULT_MODEL_SELECTION_20260212.md`
+- **Graph2D Ensemble Default Models Aligned To Part Labels**:
+  - Updated Graph2D ensemble defaults (when `GRAPH2D_ENSEMBLE_MODELS` is empty) to avoid drawing-type label-space mismatch if `GRAPH2D_ENSEMBLE_ENABLED=true` is enabled by ops.
+  - Updated `.env.example` Graph2D model-path guidance to match the current recommended default.
+  - Validation:
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_GRAPH2D_ENSEMBLE_DEFAULT_MODELS_ALIGN_TO_PART_LABELS_20260212.md`

@@ -181,7 +181,8 @@ class EnsembleGraph2DClassifier:
 
         Args:
             model_paths: List of model checkpoint paths. If None, uses env var
-                GRAPH2D_ENSEMBLE_MODELS (comma-separated) or defaults to v3+v4.
+                GRAPH2D_ENSEMBLE_MODELS (comma-separated) or defaults to a
+                conservative part-label model.
             voting: Voting strategy - "soft" (average probabilities) or "hard" (majority vote).
         """
         if model_paths is None:
@@ -190,8 +191,10 @@ class EnsembleGraph2DClassifier:
                 model_paths = [p.strip() for p in env_paths.split(",") if p.strip()]
             else:
                 model_paths = [
-                    "models/graph2d_edge_sage_v3.pth",
-                    "models/graph2d_edge_sage_v4_best.pth",
+                    # Keep ensemble defaults aligned to the same label-space as
+                    # the primary Graph2D part-name model. Operators can expand
+                    # this list via GRAPH2D_ENSEMBLE_MODELS after validation.
+                    "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
                 ]
 
         self.model_paths = model_paths

@@ -135,8 +135,7 @@ class Graph2DClassifierProviderAdapter(
                 [p.strip() for p in env_paths.split(",") if p.strip()]
                 if env_paths
                 else [
-                    "models/graph2d_edge_sage_v3.pth",
-                    "models/graph2d_edge_sage_v4_best.pth",
+                    "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
                 ]
             )
             if not any(os.path.exists(path) for path in model_paths):
