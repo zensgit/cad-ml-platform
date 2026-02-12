@@ -3829,3 +3829,11 @@
   - Validation:
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `5 passed`, `103 passed`, `60 passed`, `4 passed`)
   - Report: `reports/DEV_PROVIDER_PLUGIN_DIAGNOSTICS_ENHANCEMENT_20260212.md`
+- **Provider Plugin Diagnostics OpenAPI Model**:
+  - Promoted `/api/v1/providers/health` `plugin_diagnostics` from `Dict[str, Any]` to a typed Pydantic model (`ProviderPluginDiagnostics`).
+  - Updated OpenAPI snapshot baseline to reflect new component schemas.
+  - Validation:
+    - `make openapi-snapshot-update` (`paths=161`, `operations=166`)
+    - `make validate-openapi` (`5 passed`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `5 passed`, `103 passed`, `60 passed`, `4 passed`)
+  - Report: `reports/DEV_PROVIDER_PLUGIN_DIAGNOSTICS_OPENAPI_MODEL_20260212.md`

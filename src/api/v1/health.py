@@ -8,10 +8,14 @@ import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.dependencies import get_admin_token, get_api_key
-from src.api.health_models import HealthResponse
+from src.api.health_models import (
+    HealthProviderPluginCache,
+    HealthProviderPluginSummary,
+    HealthResponse,
+)
 from src.api.health_utils import build_health_payload, record_health_request
 from src.utils.metrics import (
     core_provider_check_duration_seconds,
@@ -104,6 +108,31 @@ class ProviderRegistryHealthResponse(BaseModel):
     registry: Dict[str, Any]
 
 
+class ProviderPluginErrorItem(BaseModel):
+    plugin: str
+    error: str
+
+
+class ProviderPluginDiagnostics(BaseModel):
+    """Bounded plugin diagnostics for provider health endpoint.
+
+    This model is intentionally explicit so the OpenAPI schema reflects the
+    observable contract surface.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    summary: Optional[HealthProviderPluginSummary] = None
+    cache: Optional[HealthProviderPluginCache] = None
+    configured_count: int
+    loaded_count: int
+    error_count: int
+    errors_sample: List[ProviderPluginErrorItem] = Field(default_factory=list)
+    errors_truncated: bool = False
+    registered_count: int = 0
+    registered_sample: List[str] = Field(default_factory=list)
+
+
 class ProviderHealthItem(BaseModel):
     domain: str
     provider: str
@@ -117,7 +146,7 @@ class ProviderHealthResponse(BaseModel):
     total: int
     ready: int
     timeout_seconds: float
-    plugin_diagnostics: Optional[Dict[str, Any]] = None
+    plugin_diagnostics: Optional[ProviderPluginDiagnostics] = None
     results: List[ProviderHealthItem] = Field(default_factory=list)
 
 
