@@ -3799,3 +3799,13 @@
     - `make validate-openapi` (`4 passed`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `4 passed`, `103 passed`, `59 passed`, `4 passed`)
   - Report: `reports/DEV_PYDANTIC_MODEL_STYLE_AUDIT_GATE_BATCH3_20260212.md`
+- **OpenAPI Schema Snapshot Gate**:
+  - Added snapshot contract test `tests/contract/test_openapi_schema_snapshot.py` and baseline file `config/openapi_schema_snapshot.json`.
+  - Added generator script `scripts/ci/generate_openapi_schema_snapshot.py` and Make target `openapi-snapshot-update`.
+  - Integrated snapshot check into `validate-openapi`.
+  - Added normalization for module-prefixed schema names (`src__...__Class`) to reduce non-semantic schema-name jitter.
+  - Validation:
+    - `make openapi-snapshot-update` (`paths=161`, `operations=166`)
+    - `make validate-openapi` (`5 passed`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `5 passed`, `103 passed`, `59 passed`, `4 passed`)
+  - Report: `reports/DEV_OPENAPI_SCHEMA_SNAPSHOT_GATE_20260212.md`

@@ -10,7 +10,8 @@
 		validate-openapi \
 		graph2d-review-summary validate-core-fast test-provider-core test-provider-contract \
 		audit-pydantic-v2 audit-pydantic-v2-regression \
-		audit-pydantic-style audit-pydantic-style-regression
+		audit-pydantic-style audit-pydantic-style-regression \
+		openapi-snapshot-update
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -138,7 +139,12 @@ validate-openapi: ## 校验 OpenAPI operationId 唯一性
 	@echo "$(GREEN)Validating OpenAPI operation IDs...$(NC)"
 	$(PYTEST) \
 		$(TEST_DIR)/contract/test_openapi_operation_ids.py \
+		$(TEST_DIR)/contract/test_openapi_schema_snapshot.py \
 		$(TEST_DIR)/unit/test_api_route_uniqueness.py -q
+
+openapi-snapshot-update: ## 更新 OpenAPI 快照基线
+	@echo "$(GREEN)Updating OpenAPI schema snapshot baseline...$(NC)"
+	$(PYTHON) scripts/ci/generate_openapi_schema_snapshot.py --output config/openapi_schema_snapshot.json
 
 validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core + provider-contract）
 	@echo "$(GREEN)Running core fast validation...$(NC)"
