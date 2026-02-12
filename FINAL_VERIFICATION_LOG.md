@@ -3867,3 +3867,10 @@
     - `.venv/bin/python -m pytest tests/integration/test_analyze_dxf_graph2d_prediction_contract.py -v` (`6 passed`)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_GRAPH2D_UNAVAILABLE_PREDICTION_ATTACHMENT_20260212.md`
+- **Provider Knowledge Providers Coverage**:
+  - Added unit coverage for `knowledge/tolerance` and `knowledge/standards` providers (health + process payload).
+  - Included the new tests in `make test-provider-core` so they run in `make validate-core-fast`.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_provider_knowledge_providers.py -v` (`2 passed`)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_PROVIDER_KNOWLEDGE_PROVIDERS_COVERAGE_20260212.md`
