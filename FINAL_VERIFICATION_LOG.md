@@ -3944,3 +3944,10 @@
     - `feat/tolerance-knowledge`: `make validate-core-fast` (passed)
     - `feat/standards-library`: `make validate-core-fast` (passed)
   - Report: `reports/DEV_BRANCH_SYNC_TOLERANCE_KNOWLEDGE_AND_STANDARDS_LIBRARY_20260212.md`
+- **Design Standards API + Knowledge Provider**:
+  - Added `/api/v1/design-standards/*` endpoints backed by `src/core/knowledge/design_standards`.
+  - Registered `knowledge/design_standards` provider adapter for health/readiness visibility.
+  - Updated OpenAPI snapshot baseline after adding routes.
+  - Validation:
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_DESIGN_STANDARDS_API_20260213.md`
