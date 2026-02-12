@@ -988,10 +988,7 @@ async def analyze_cad_file(
                                 file_bytes=content,
                             )
                         )
-                        if (
-                            isinstance(graph2d_result, dict)
-                            and graph2d_result.get("status") != "model_unavailable"
-                        ):
+                        if isinstance(graph2d_result, dict):
                             graph2d_min_conf = _safe_float_env("GRAPH2D_MIN_CONF", 0.0)
                             if "GRAPH2D_MIN_CONF" not in os.environ:
                                 try:
@@ -1014,90 +1011,100 @@ async def analyze_cad_file(
                                     )
                                 except Exception:
                                     pass
-                            graph2d_conf = float(graph2d_result.get("confidence", 0.0))
-                            graph2d_margin_raw = None
-                            try:
-                                if graph2d_result.get("margin") is not None:
-                                    graph2d_margin_raw = float(
-                                        graph2d_result.get("margin")
-                                    )
-                            except Exception:
-                                graph2d_margin_raw = None
-                            graph2d_passed_margin = True
-                            if graph2d_margin_raw is not None:
-                                graph2d_passed_margin = (
-                                    graph2d_margin_raw >= graph2d_min_margin
-                                )
-                            graph2d_allow_raw = os.getenv("GRAPH2D_ALLOW_LABELS", "").strip()
-                            graph2d_exclude_raw = os.getenv("GRAPH2D_EXCLUDE_LABELS", "").strip()
 
-                            # Default allow/exclude to HybridClassifier config when env not provided.
-                            # This keeps API payload + soft-override behavior consistent with
-                            # `config/hybrid_classifier.yaml` and `src/ml/hybrid_config.py`.
-                            if not graph2d_allow_raw or not graph2d_exclude_raw:
-                                try:
-                                    from src.ml.hybrid_config import get_config
-
-                                    cfg = get_config()
-                                    if not graph2d_allow_raw:
-                                        graph2d_allow_raw = str(
-                                            cfg.graph2d.allow_labels or ""
-                                        ).strip()
-                                    if not graph2d_exclude_raw:
-                                        graph2d_exclude_raw = str(
-                                            cfg.graph2d.exclude_labels or ""
-                                        ).strip()
-                                except Exception:
-                                    pass
-
-                            if not graph2d_exclude_raw:
-                                graph2d_exclude_raw = "other"
-                            graph2d_allow = {
-                                label.strip()
-                                for label in graph2d_allow_raw.split(",")
-                                if label.strip()
-                            }
-                            graph2d_exclude = {
-                                label.strip()
-                                for label in graph2d_exclude_raw.split(",")
-                                if label.strip()
-                            }
-                            graph2d_label = str(
-                                graph2d_result.get("label") or ""
-                            ).strip()
-                            graph2d_is_drawing_type = _graph2d_is_drawing_type(
-                                graph2d_label
-                            )
-                            graph2d_is_coarse_label = _graph2d_is_coarse_label(
-                                graph2d_label
-                            )
-                            graph2d_allowed = (
-                                not graph2d_allow or graph2d_label in graph2d_allow
-                            )
+                            # Always attach Graph2D payload for diagnostics (including
+                            # `status=model_unavailable`) and so downstream policy (e.g.
+                            # soft-override threshold defaults) can key off min_confidence.
                             graph2d_result["min_confidence"] = graph2d_min_conf
-                            graph2d_result["passed_threshold"] = (
-                                graph2d_conf >= graph2d_min_conf
-                            )
                             graph2d_result["min_margin"] = graph2d_min_margin
-                            graph2d_result["passed_margin"] = graph2d_passed_margin
-                            graph2d_result["excluded"] = (
-                                graph2d_label in graph2d_exclude
-                            )
-                            graph2d_result["allowed"] = graph2d_allowed
-                            graph2d_result["is_drawing_type"] = graph2d_is_drawing_type
-                            graph2d_result["is_coarse_label"] = graph2d_is_coarse_label
-                            graph2d_result["ensemble_enabled"] = (
-                                graph2d_ensemble_enabled
-                            )
+                            graph2d_result["ensemble_enabled"] = graph2d_ensemble_enabled
                             cls_payload["graph2d_prediction"] = graph2d_result
-                            if (
-                                graph2d_result["passed_threshold"]
-                                and graph2d_result.get("passed_margin", True)
-                                and graph2d_allowed
-                                and not graph2d_result["excluded"]
-                                and not graph2d_is_drawing_type
-                            ):
-                                graph2d_fusable = graph2d_result
+
+                            if graph2d_result.get("status") != "model_unavailable":
+                                graph2d_conf = float(
+                                    graph2d_result.get("confidence", 0.0)
+                                )
+                                graph2d_margin_raw = None
+                                try:
+                                    if graph2d_result.get("margin") is not None:
+                                        graph2d_margin_raw = float(
+                                            graph2d_result.get("margin")
+                                        )
+                                except Exception:
+                                    graph2d_margin_raw = None
+                                graph2d_passed_margin = True
+                                if graph2d_margin_raw is not None:
+                                    graph2d_passed_margin = (
+                                        graph2d_margin_raw >= graph2d_min_margin
+                                    )
+                                graph2d_allow_raw = os.getenv(
+                                    "GRAPH2D_ALLOW_LABELS", ""
+                                ).strip()
+                                graph2d_exclude_raw = os.getenv(
+                                    "GRAPH2D_EXCLUDE_LABELS", ""
+                                ).strip()
+
+                                # Default allow/exclude to HybridClassifier config when env not provided.
+                                # This keeps API payload + soft-override behavior consistent with
+                                # `config/hybrid_classifier.yaml` and `src/ml/hybrid_config.py`.
+                                if not graph2d_allow_raw or not graph2d_exclude_raw:
+                                    try:
+                                        from src.ml.hybrid_config import get_config
+
+                                        cfg = get_config()
+                                        if not graph2d_allow_raw:
+                                            graph2d_allow_raw = str(
+                                                cfg.graph2d.allow_labels or ""
+                                            ).strip()
+                                        if not graph2d_exclude_raw:
+                                            graph2d_exclude_raw = str(
+                                                cfg.graph2d.exclude_labels or ""
+                                            ).strip()
+                                    except Exception:
+                                        pass
+
+                                if not graph2d_exclude_raw:
+                                    graph2d_exclude_raw = "other"
+                                graph2d_allow = {
+                                    label.strip()
+                                    for label in graph2d_allow_raw.split(",")
+                                    if label.strip()
+                                }
+                                graph2d_exclude = {
+                                    label.strip()
+                                    for label in graph2d_exclude_raw.split(",")
+                                    if label.strip()
+                                }
+                                graph2d_label = str(
+                                    graph2d_result.get("label") or ""
+                                ).strip()
+                                graph2d_is_drawing_type = _graph2d_is_drawing_type(
+                                    graph2d_label
+                                )
+                                graph2d_is_coarse_label = _graph2d_is_coarse_label(
+                                    graph2d_label
+                                )
+                                graph2d_allowed = (
+                                    not graph2d_allow or graph2d_label in graph2d_allow
+                                )
+                                graph2d_result["passed_threshold"] = (
+                                    graph2d_conf >= graph2d_min_conf
+                                )
+                                graph2d_result["passed_margin"] = graph2d_passed_margin
+                                graph2d_result["excluded"] = (
+                                    graph2d_label in graph2d_exclude
+                                )
+                                graph2d_result["allowed"] = graph2d_allowed
+                                graph2d_result["is_drawing_type"] = graph2d_is_drawing_type
+                                graph2d_result["is_coarse_label"] = graph2d_is_coarse_label
+                                if (
+                                    graph2d_result["passed_threshold"]
+                                    and graph2d_result.get("passed_margin", True)
+                                    and graph2d_allowed
+                                    and not graph2d_result["excluded"]
+                                    and not graph2d_is_drawing_type
+                                ):
+                                    graph2d_fusable = graph2d_result
                     except Exception:
                         graph2d_result = None
                 # Optional Hybrid classifier (filename + graph2d fusion)

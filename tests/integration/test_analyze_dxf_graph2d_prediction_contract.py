@@ -158,6 +158,53 @@ def test_analyze_dxf_graph2d_soft_override_defaults_to_graph2d_min_conf(monkeypa
     assert soft.get("reason") == "below_threshold"
 
 
+def test_analyze_dxf_graph2d_model_unavailable_still_attaches_prediction(monkeypatch):
+    """Graph2D should attach `graph2d_prediction` even when model is unavailable."""
+
+    from src.core.analyzer import CADAnalyzer
+
+    async def _fake_classify_part(self, doc, features):  # noqa: ANN001, ANN201
+        return {
+            "type": "unknown",
+            "confidence": 0.2,
+            "sub_type": None,
+            "characteristics": [],
+            "rule_version": "v1",
+        }
+
+    class _StubGraph2D:
+        def predict_from_bytes(self, data, file_name):  # noqa: ANN001
+            return {"status": "model_unavailable"}
+
+    monkeypatch.setattr(CADAnalyzer, "classify_part", _fake_classify_part)
+    monkeypatch.setenv("GRAPH2D_ENABLED", "true")
+    monkeypatch.setenv("HYBRID_CLASSIFIER_ENABLED", "false")
+    monkeypatch.delenv("GRAPH2D_MIN_CONF", raising=False)
+    monkeypatch.delenv("GRAPH2D_MIN_MARGIN", raising=False)
+    monkeypatch.delenv("GRAPH2D_SOFT_OVERRIDE_MIN_CONF", raising=False)
+    monkeypatch.delenv("GRAPH2D_ENSEMBLE_ENABLED", raising=False)
+
+    monkeypatch.setattr(
+        "src.core.providers.classifier.Graph2DClassifierProviderAdapter._build_default_classifier",
+        lambda self: _StubGraph2D(),
+    )
+
+    resp = _post_minimal_dxf("UNKNOWNv1.dxf")
+    assert resp.status_code == 200, resp.text
+    payload = resp.json()
+    cls_payload = payload.get("results", {}).get("classification", {})
+    graph2d = cls_payload.get("graph2d_prediction") or {}
+    soft = cls_payload.get("soft_override_suggestion") or {}
+
+    assert graph2d.get("status") == "model_unavailable"
+    assert graph2d.get("min_confidence") == 0.5
+    assert graph2d.get("ensemble_enabled") is False
+
+    assert soft.get("eligible") is False
+    assert soft.get("reason") == "graph2d_unavailable"
+    assert soft.get("threshold") == 0.5
+
+
 def test_analyze_dxf_graph2d_min_margin_blocks_soft_override(monkeypatch):
     """When GRAPH2D_MIN_MARGIN is set and margin is low, soft-override should be ineligible."""
 

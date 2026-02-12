@@ -3860,3 +3860,10 @@
     - `.venv/bin/python -m pytest tests/integration/test_analyze_dxf_graph2d_prediction_contract.py -v` (`5 passed`)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_GRAPH2D_SOFT_OVERRIDE_THRESHOLD_ALIGNMENT_20260212.md`
+- **Graph2D Unavailable Prediction Attachment (Analyze DXF)**:
+  - Always attach `results.classification.graph2d_prediction` when Graph2D is enabled, including `status=model_unavailable`.
+  - Always include gate metadata (`min_confidence`, `min_margin`, `ensemble_enabled`) so downstream policy defaults remain consistent.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/integration/test_analyze_dxf_graph2d_prediction_contract.py -v` (`6 passed`)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_GRAPH2D_UNAVAILABLE_PREDICTION_ATTACHMENT_20260212.md`
