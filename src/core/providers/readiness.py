@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from src.core.providers.bootstrap import bootstrap_core_provider_registry
 from src.core.providers.registry import ProviderRegistry
+from src.utils.text_sanitize import sanitize_single_line_text
 from src.utils.metrics import (
     core_provider_check_duration_seconds,
     core_provider_checks_total,
@@ -156,10 +157,11 @@ async def check_provider_readiness(
                 ).observe(latency_ms / 1000.0)
             except Exception:
                 pass
+            init_error = sanitize_single_line_text(f"init_error: {exc}") or f"init_error: {exc}"
             return ProviderReadinessItem(
                 id=provider_id,
                 ready=False,
-                error=f"init_error: {exc}",
+                error=init_error,
                 checked_at=checked_at,
                 latency_ms=latency_ms,
             )
@@ -189,10 +191,11 @@ async def check_provider_readiness(
             ).observe(latency_ms / 1000.0)
         except Exception:
             pass
+        err_sanitized = sanitize_single_line_text(err) if err else None
         return ProviderReadinessItem(
             id=provider_id,
             ready=bool(ok),
-            error=err,
+            error=err_sanitized,
             checked_at=checked_at,
             latency_ms=latency_ms,
         )

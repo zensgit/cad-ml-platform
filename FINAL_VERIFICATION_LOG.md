@@ -3892,3 +3892,9 @@
     - `.venv/bin/python -m pytest tests/unit/test_provider_health_endpoint.py tests/unit/test_health_utils_coverage.py -v` (`24 passed`)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_CORE_PROVIDER_PLUGIN_ERRORS_SANITIZATION_20260212.md`
+- **Provider Readiness Error Sanitization**:
+  - Sanitized provider readiness errors surfaced via `/ready` (core providers readiness).
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_provider_readiness.py -v` (`3 passed`)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_PROVIDER_READINESS_ERROR_SANITIZATION_20260212.md`
