@@ -562,9 +562,9 @@ class PartClassifierV16:
         try:
             mtime = path.stat().st_mtime
             key_str = f"{path.resolve()}:{mtime}"
-            return hashlib.md5(key_str.encode()).hexdigest()[:16]
+            return hashlib.md5(key_str.encode(), usedforsecurity=False).hexdigest()[:16]
         except OSError:
-            return hashlib.md5(str(path.resolve()).encode()).hexdigest()[:16]
+            return hashlib.md5(str(path.resolve()).encode(), usedforsecurity=False).hexdigest()[:16]
 
     def _cache_get(self, cache_key: str) -> tuple:
         """从缓存获取特征和图像，返回(features, image)或(None, None)"""

@@ -3961,3 +3961,9 @@
 - **CI Enhanced Knowledge Artifact Conflict Fix**:
   - Fixed `CI Enhanced` workflow failures caused by duplicate artifact names when uploading the knowledge test report from multiple unit-test shards.
   - Report: `reports/DEV_CI_ENHANCED_KNOWLEDGE_ARTIFACT_CONFLICT_FIX_20260213.md`
+- **Bandit MD5 Non-Security Hash Fix**:
+  - Marked non-cryptographic `md5` cache keys/fingerprints as `usedforsecurity=False` to satisfy Bandit B324 gating in CI Security Audit.
+  - Validation:
+    - `make validate-core-fast` (passed)
+    - `.venv/bin/bandit -r src/ --exclude src/core/vision,src/core/ocr -f json ...` (0 high)
+  - Report: `reports/DEV_BANDIT_MD5_NONSECURITY_HASH_FIX_20260213.md`

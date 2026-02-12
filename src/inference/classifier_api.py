@@ -108,7 +108,8 @@ class LRUCache:
 
     def _hash_content(self, content: bytes) -> str:
         """计算文件内容哈希"""
-        return hashlib.md5(content).hexdigest()
+        # Non-cryptographic cache key; mark as such to satisfy Bandit/FIPS guidance.
+        return hashlib.md5(content, usedforsecurity=False).hexdigest()
 
     def get(self, content: bytes) -> Optional[Dict[str, Any]]:
         """获取缓存结果"""
@@ -200,7 +201,8 @@ class HybridCache:
 
     def _make_key(self, content: bytes) -> str:
         """生成缓存key"""
-        return self.REDIS_PREFIX + hashlib.md5(content).hexdigest()
+        # Non-cryptographic cache key; mark as such to satisfy Bandit/FIPS guidance.
+        return self.REDIS_PREFIX + hashlib.md5(content, usedforsecurity=False).hexdigest()
 
     def get(self, content: bytes) -> Optional[Dict[str, Any]]:
         """获取缓存结果（L1 -> L2）"""
