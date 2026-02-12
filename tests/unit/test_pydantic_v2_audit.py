@@ -38,6 +38,7 @@ def test_collect_findings_and_counts(tmp_path: Path) -> None:
     assert counts["pydantic_v1_import"] == 1
     assert counts["class_config"] == 1
     assert counts["validator_decorator"] == 1
+    assert counts["dict_model_config"] == 0
     assert counts["parse_obj_call"] == 1
     assert counts["root_validator_decorator"] == 0
     assert sum(counts.values()) == 4
@@ -63,5 +64,6 @@ def test_build_baseline_payload_includes_all_patterns() -> None:
     payload_counts = payload["counts"]
     assert isinstance(payload_counts, dict)
     assert payload_counts["validator_decorator"] == 3
+    assert payload_counts["dict_model_config"] == 0
     assert payload_counts["class_config"] == 0
     assert payload["total_findings"] == 3

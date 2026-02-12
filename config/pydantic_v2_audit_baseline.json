@@ -1,6 +1,7 @@
 {
   "counts": {
     "class_config": 0,
+    "dict_model_config": 0,
     "fields_attr": 0,
     "from_orm_call": 0,
     "parse_obj_call": 0,
@@ -14,6 +15,7 @@
     "validator_decorator",
     "root_validator_decorator",
     "class_config",
+    "dict_model_config",
     "parse_obj_call",
     "parse_raw_call",
     "from_orm_call",

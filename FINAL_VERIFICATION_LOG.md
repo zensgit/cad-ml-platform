@@ -3770,3 +3770,12 @@
     - `make validate-openapi` (`4 passed`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `4 passed`, `103 passed`, `59 passed`, `4 passed`)
   - Report: `reports/DEV_PYDANTIC_AUDIT_SUMMARY_AND_V2_MIGRATION_BATCH1_20260212.md`
+- **Pydantic Audit Dict ModelConfig Guard**:
+  - Extended `scripts/ci/audit_pydantic_v2.py` with `dict_model_config` pattern to guard against `model_config = { ... }` regressions.
+  - Updated baseline `config/pydantic_v2_audit_baseline.json` and unit assertions in `tests/unit/test_pydantic_v2_audit.py`.
+  - Validation:
+    - `pytest tests/unit/test_pydantic_v2_audit.py tests/unit/test_pydantic_v2_audit_summary.py -q` (`5 passed`)
+    - `make audit-pydantic-v2-regression` (`dict_model_config: 0`, `total_findings: 0`)
+    - `make validate-openapi` (`4 passed`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `4 passed`, `103 passed`, `59 passed`, `4 passed`)
+  - Report: `reports/DEV_PYDANTIC_AUDIT_DICT_MODEL_CONFIG_GUARD_20260212.md`

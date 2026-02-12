@@ -14,6 +14,7 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     "validator_decorator": re.compile(r"@\s*validator\("),
     "root_validator_decorator": re.compile(r"@\s*root_validator\("),
     "class_config": re.compile(r"^\s*class\s+Config\s*:\s*$"),
+    "dict_model_config": re.compile(r"^\s*model_config\s*=\s*\{"),
     "parse_obj_call": re.compile(r"\.parse_obj\("),
     "parse_raw_call": re.compile(r"\.parse_raw\("),
     "from_orm_call": re.compile(r"\.from_orm\("),
