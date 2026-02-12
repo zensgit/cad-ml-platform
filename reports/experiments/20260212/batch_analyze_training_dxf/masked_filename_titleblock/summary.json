@@ -1,0 +1,96 @@
+{
+  "total": 30,
+  "success": 30,
+  "error": 0,
+  "confidence_buckets": {
+    "gte_0_8": 30
+  },
+  "label_counts": {
+    "捕集器组件": 1,
+    "防爆视灯组件": 2,
+    "超声波法兰": 1,
+    "底板": 2,
+    "阀体": 1,
+    "上筒体组件": 3,
+    "轴承座": 1,
+    "下封板": 2,
+    "下轴承支架组件": 1,
+    "挡板": 1,
+    "对接法兰": 2,
+    "人孔": 2,
+    "箱体": 1,
+    "搅拌减速机机罩": 1,
+    "盖": 3,
+    "旋转组件": 1,
+    "下筒体组件": 1,
+    "轴头组件": 1,
+    "拖车": 1,
+    "再沸器": 1,
+    "支腿": 1
+  },
+  "low_confidence_count": 0,
+  "soft_override_candidates": 0,
+  "sample_size": 30,
+  "filename": {
+    "label_present_count": 0,
+    "label_present_rate": 0.0,
+    "extracted_name_present_count": 0,
+    "extracted_name_present_rate": 0.0,
+    "match_type_counts": {
+      "none": 30
+    },
+    "confidence": {
+      "mean_all": 0.0,
+      "median_all": 0.0,
+      "mean_nonzero": 0.0,
+      "median_nonzero": 0.0
+    }
+  },
+  "hybrid": {
+    "label_present_count": 30,
+    "label_present_rate": 1.0,
+    "source_counts": {
+      "titleblock": 30
+    },
+    "confidence": {
+      "mean_all": 0.85,
+      "median_all": 0.85,
+      "mean_nonzero": 0.85,
+      "median_nonzero": 0.85
+    }
+  },
+  "graph2d": {
+    "label_present_count": 0,
+    "label_present_rate": 0.0,
+    "status_counts": {
+      "unknown": 30
+    },
+    "confidence": {
+      "mean_all": 0.0,
+      "median_all": 0.0,
+      "mean_nonzero": 0.0,
+      "median_nonzero": 0.0
+    }
+  },
+  "titleblock": {
+    "enabled": true,
+    "total_ok": 30,
+    "texts_present_count": 30,
+    "texts_present_rate": 1.0,
+    "any_signal_count": 30,
+    "any_signal_rate": 1.0,
+    "part_name_present_count": 30,
+    "part_name_present_rate": 1.0,
+    "label_present_count": 30,
+    "label_present_rate": 1.0,
+    "status_counts": {
+      "matched": 30
+    },
+    "confidence": {
+      "mean_all": 0.85,
+      "median_all": 0.85,
+      "mean_nonzero": 0.85,
+      "median_nonzero": 0.85
+    }
+  }
+}

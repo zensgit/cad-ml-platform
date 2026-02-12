@@ -3898,3 +3898,11 @@
     - `.venv/bin/python -m pytest tests/unit/test_provider_readiness.py -v` (`3 passed`)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_PROVIDER_READINESS_ERROR_SANITIZATION_20260212.md`
+- **DXF Batch Analyze (Local Training Set)**:
+  - Ran `scripts/batch_analyze_dxf_local.py` on a local DXF directory with:
+    - Original filenames (Hybrid source=filename)
+    - Masked filenames + titleblock enabled (Hybrid source=titleblock)
+  - Artifacts:
+    - `reports/experiments/20260212/batch_analyze_training_dxf/with_filename/summary.json`
+    - `reports/experiments/20260212/batch_analyze_training_dxf/masked_filename_titleblock/summary.json`
+  - Report: `reports/DEV_DXF_BATCH_ANALYZE_TRAINING_SET_20260212.md`
