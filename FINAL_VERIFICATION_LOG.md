@@ -3937,3 +3937,10 @@
   - Validation:
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_GRAPH2D_RUNBOOK_AND_HEALTH_DEFAULT_ENSEMBLE_TEST_20260212.md`
+- **Branch Sync: Tolerance Knowledge + Standards Library**:
+  - Merged `main` into `feat/tolerance-knowledge` and resolved tolerance module conflicts by preferring `main` (ISO286 table-backed) implementations.
+  - Created and pushed `feat/standards-library` from `main` as a baseline branch for ongoing standards work.
+  - Validation:
+    - `feat/tolerance-knowledge`: `make validate-core-fast` (passed)
+    - `feat/standards-library`: `make validate-core-fast` (passed)
+  - Report: `reports/DEV_BRANCH_SYNC_TOLERANCE_KNOWLEDGE_AND_STANDARDS_LIBRARY_20260212.md`
