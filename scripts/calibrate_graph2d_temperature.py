@@ -1,14 +1,40 @@
 #!/usr/bin/env python3
-"""Calibrate a 2D graph classifier via temperature scaling."""
+"""Calibrate Graph2D temperature scaling for many-class DXF classification.
+
+This script performs a simple grid search over temperature values and selects
+the best temperature using a chosen objective.
+
+Recommended objective for "anonymous DXF" gating:
+- maximize precision (accuracy) on the subset of samples whose max-probability
+  exceeds a configurable confidence threshold, with a minimum accepted sample count.
+
+Inputs:
+- A manifest CSV with weak labels (label_cn, file_name, relative_path)
+- A DXF directory
+- A Graph2D checkpoint produced by scripts/train_2d_graph.py
+
+Output:
+- A JSON file compatible with Graph2DClassifier's loader via
+  GRAPH2D_TEMPERATURE_CALIBRATION_PATH (must include "temperature").
+
+Note:
+The output JSON intentionally avoids per-file details to prevent leaking
+filename-based weak labels into the repo.
+"""
 
 from __future__ import annotations
 
 import argparse
 import csv
+import json
+import math
+import os
 import random
 import sys
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -25,266 +51,457 @@ def _require_torch() -> bool:
         return False
 
 
-def _inverse_label_map(label_map: Dict[str, int]) -> Dict[int, str]:
-    return {idx: name for name, idx in label_map.items()}
+def _parse_temperatures(value: str) -> List[float]:
+    temps: List[float] = []
+    for raw in (value or "").split(","):
+        raw = raw.strip()
+        if not raw:
+            continue
+        temps.append(float(raw))
+    return temps
 
 
-def _stratified_split(indices: List[int], labels: List[int], val_ratio: float):
-    label_to_indices: Dict[int, List[int]] = {}
-    for idx, label in zip(indices, labels):
-        label_to_indices.setdefault(label, []).append(idx)
-
-    val_idx: List[int] = []
-    for label, idxs in label_to_indices.items():
-        random.shuffle(idxs)
-        val_count = max(1, int(len(idxs) * val_ratio))
-        val_count = min(val_count, len(idxs))
-        val_idx.extend(idxs[:val_count])
-
-    if not val_idx:
-        val_idx = indices[:1]
-
-    return val_idx
-
-
-def _collate(
-    batch: List[Tuple[Dict[str, Any], Any]]
-) -> Tuple[List[Any], List[Any], List[Any], List[Any], List[str]]:
-    xs, edges, edge_attrs, labels, file_names = [], [], [], [], []
-    for graph, label in batch:
-        xs.append(graph["x"])
-        edges.append(graph["edge_index"])
-        edge_attrs.append(graph.get("edge_attr"))
-        labels.append(label)
-        file_names.append(str(graph.get("file_name", "")))
-    return xs, edges, edge_attrs, labels, file_names
+def _default_temperature_grid() -> List[float]:
+    # Wide range, denser around 1.0. Keep deterministic for report diffs.
+    base = [
+        0.25,
+        0.3,
+        0.35,
+        0.4,
+        0.45,
+        0.5,
+        0.6,
+        0.7,
+        0.8,
+        0.9,
+        1.0,
+        1.1,
+        1.25,
+        1.4,
+        1.6,
+        1.8,
+        2.0,
+        2.5,
+        3.0,
+        4.0,
+    ]
+    return [t for t in base if t > 0]
 
 
-def _ece(confidences, predictions, labels, n_bins: int = 10) -> float:
+def _candidate_paths(base_dir: Path, file_name: str, relative_path: str) -> List[Path]:
+    candidates: List[Path] = []
+    rel = (relative_path or "").strip()
+    if rel:
+        rel_path = Path(rel)
+        candidates.append(rel_path if rel_path.is_absolute() else base_dir / rel_path)
+    if file_name:
+        candidates.append(base_dir / file_name)
+        stem = Path(file_name).stem
+        if stem:
+            candidates.append(base_dir / f"{stem}.dxf")
+            candidates.append(base_dir / f"{stem}.DXF")
+    return candidates or [base_dir / file_name]
+
+
+@dataclass(frozen=True)
+class _Sample:
+    file_path: Path
+    label_id: int
+
+
+def _load_samples(
+    manifest_csv: Path,
+    dxf_dir: Path,
+    label_map: Dict[str, int],
+    max_samples: int,
+    seed: int,
+) -> Tuple[List[_Sample], Dict[str, int]]:
+    stats = {
+        "rows_total": 0,
+        "rows_missing_file": 0,
+        "rows_unknown_label": 0,
+        "rows_loaded": 0,
+    }
+    samples: List[_Sample] = []
+
+    with manifest_csv.open("r", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            stats["rows_total"] += 1
+            if not row:
+                continue
+            label = (row.get("label_cn") or "").strip()
+            file_name = (row.get("file_name") or "").strip()
+            relative_path = (row.get("relative_path") or "").strip()
+            if not label or not file_name:
+                continue
+            if label not in label_map:
+                stats["rows_unknown_label"] += 1
+                continue
+            label_id = int(label_map[label])
+            candidates = _candidate_paths(dxf_dir, file_name=file_name, relative_path=relative_path)
+            file_path = next((p for p in candidates if p.exists()), None)
+            if file_path is None:
+                stats["rows_missing_file"] += 1
+                continue
+            samples.append(_Sample(file_path=file_path, label_id=label_id))
+
+    random.Random(seed).shuffle(samples)
+    if max_samples > 0:
+        samples = samples[:max_samples]
+    stats["rows_loaded"] = len(samples)
+    return samples, stats
+
+
+def _load_graph2d_checkpoint(model_path: Path) -> Dict[str, Any]:
     import torch
 
-    bins = torch.linspace(0, 1, n_bins + 1)
-    ece = torch.tensor(0.0)
-    total = len(confidences)
-    for i in range(n_bins):
-        lower, upper = bins[i], bins[i + 1]
-        mask = (confidences > lower) & (confidences <= upper)
-        if mask.any():
-            acc = (predictions[mask] == labels[mask]).float().mean()
-            avg_conf = confidences[mask].mean()
-            ece += (mask.float().mean()) * torch.abs(acc - avg_conf)
-    return float(ece.item()) if total else 0.0
+    checkpoint = torch.load(str(model_path), map_location="cpu")
+    if not isinstance(checkpoint, dict):
+        raise ValueError("checkpoint must be a dict")
+    if "model_state_dict" not in checkpoint:
+        raise ValueError("checkpoint missing model_state_dict")
+    return checkpoint
 
 
-def main() -> int:
-    if not _require_torch():
-        return 1
-
+def _build_model_from_checkpoint(checkpoint: Dict[str, Any]):
     import torch
-    from torch.utils.data import DataLoader, Subset
 
-    from src.ml.train.dataset_2d import DXFManifestDataset, DXF_EDGE_DIM, DXF_NODE_DIM
+    from src.ml.train.dataset_2d import DXF_EDGE_DIM, DXF_NODE_DIM
     from src.ml.train.model_2d import EdgeGraphSageClassifier, SimpleGraphClassifier
 
-    parser = argparse.ArgumentParser(description="Temperature scaling for 2D graph models.")
-    parser.add_argument(
-        "--manifest",
-        required=True,
-        help="Manifest CSV path",
-    )
-    parser.add_argument(
-        "--dxf-dir",
-        required=True,
-        help="DXF directory",
-    )
-    parser.add_argument(
-        "--checkpoint",
-        required=True,
-        help="Trained model checkpoint",
-    )
-    parser.add_argument("--batch-size", type=int, default=4)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--val-split", type=float, default=0.2)
-    parser.add_argument("--max-samples", type=int, default=0)
-    parser.add_argument(
-        "--split-strategy",
-        choices=["random", "stratified"],
-        default="stratified",
-        help="Validation split strategy.",
-    )
-    parser.add_argument(
-        "--output-calibration",
-        required=True,
-        help="Calibration JSON output path",
-    )
-    parser.add_argument(
-        "--output-predictions",
-        required=True,
-        help="Predictions CSV output path",
-    )
-    args = parser.parse_args()
-
-    random.seed(args.seed)
-    torch.manual_seed(args.seed)
-
-    checkpoint_path = Path(args.checkpoint)
-    if not checkpoint_path.exists():
-        print(f"Checkpoint not found: {checkpoint_path}")
-        return 1
-
-    checkpoint = torch.load(checkpoint_path, map_location="cpu")
-    label_map = checkpoint.get("label_map", {})
-    inv_label_map = _inverse_label_map(label_map)
-    node_dim = int(checkpoint.get("node_dim", DXF_NODE_DIM))
-    hidden_dim = int(checkpoint.get("hidden_dim", 64))
-    model_type = checkpoint.get("model_type", "gcn")
-    edge_dim = int(checkpoint.get("edge_dim", DXF_EDGE_DIM))
+    label_map = checkpoint.get("label_map") or {}
+    if not isinstance(label_map, dict):
+        raise ValueError("checkpoint label_map must be a dict")
     num_classes = max(1, len(label_map))
 
-    dataset = DXFManifestDataset(
-        args.manifest,
-        args.dxf_dir,
-        label_map=label_map,
-        node_dim=node_dim,
-        return_edge_attr=model_type == "edge_sage",
-    )
-    if args.max_samples and args.max_samples > 0:
-        dataset.samples = dataset.samples[: args.max_samples]
-    if len(dataset) == 0:
-        print("Empty dataset; aborting.")
-        return 1
-
-    indices = list(range(len(dataset)))
-    random.shuffle(indices)
-    if args.split_strategy == "stratified":
-        labels = [dataset.samples[idx]["label_id"] for idx in indices]
-        val_idx = _stratified_split(indices, labels, args.val_split)
-    else:
-        split = max(1, int(len(indices) * (1.0 - args.val_split)))
-        val_idx = indices[split:] or indices[:1]
-
-    val_loader = DataLoader(
-        Subset(dataset, val_idx),
-        batch_size=args.batch_size,
-        shuffle=False,
-        collate_fn=_collate,
-    )
+    node_dim = int(checkpoint.get("node_dim", DXF_NODE_DIM))
+    hidden_dim = int(checkpoint.get("hidden_dim", 64))
+    model_type = str(checkpoint.get("model_type", "gcn"))
+    edge_dim = int(checkpoint.get("edge_dim", DXF_EDGE_DIM))
 
     if model_type == "edge_sage":
         model = EdgeGraphSageClassifier(node_dim, edge_dim, hidden_dim, num_classes)
     else:
         model = SimpleGraphClassifier(node_dim, hidden_dim, num_classes)
+
     model.load_state_dict(checkpoint["model_state_dict"])
     model.eval()
+    return model, {
+        "label_map": dict(label_map),
+        "num_classes": num_classes,
+        "node_dim": node_dim,
+        "edge_dim": edge_dim,
+        "model_type": model_type,
+        "hidden_dim": hidden_dim,
+    }
+
+
+def _collect_logits(
+    model: Any,
+    model_meta: Dict[str, Any],
+    samples: Sequence[_Sample],
+) -> Tuple["torch.Tensor", "torch.Tensor", Dict[str, int]]:
+    import ezdxf
+    import torch
+
+    from src.ml.train.dataset_2d import DXFDataset
+
+    return_edge_attr = model_meta["model_type"] == "edge_sage"
+    dataset = DXFDataset(
+        root_dir=".",
+        node_dim=int(model_meta["node_dim"]),
+        return_edge_attr=bool(return_edge_attr),
+    )
+
+    stats = {
+        "samples_total": len(samples),
+        "samples_empty_graph": 0,
+        "samples_parse_error": 0,
+        "samples_used": 0,
+    }
 
     logits_list: List[torch.Tensor] = []
     labels_list: List[int] = []
-    file_names: List[str] = []
 
     with torch.no_grad():
-        for xs, edges, edge_attrs, labels, file_names_batch in val_loader:
-            for graph_x, edge_index, edge_attr, label, file_name in zip(
-                xs, edges, edge_attrs, labels, file_names_batch
-            ):
-                if graph_x.numel() == 0:
-                    continue
-                if model_type == "edge_sage":
-                    logits = model(graph_x, edge_index, edge_attr)
+        for sample in samples:
+            try:
+                doc = ezdxf.readfile(str(sample.file_path))
+                msp = doc.modelspace()
+            except Exception:
+                stats["samples_parse_error"] += 1
+                continue
+
+            try:
+                if return_edge_attr:
+                    x, edge_index, edge_attr = dataset._dxf_to_graph(
+                        msp, int(model_meta["node_dim"]), return_edge_attr=True
+                    )
                 else:
-                    logits = model(graph_x, edge_index)
-                logits_list.append(logits[0])
-                labels_list.append(int(label))
-                file_names.append(file_name)
+                    x, edge_index = dataset._dxf_to_graph(msp, int(model_meta["node_dim"]))
+                    edge_attr = None
+            except Exception:
+                stats["samples_parse_error"] += 1
+                continue
+
+            if getattr(x, "numel", lambda: 0)() == 0:
+                stats["samples_empty_graph"] += 1
+                continue
+
+            if return_edge_attr:
+                assert edge_attr is not None
+                out = model(x, edge_index, edge_attr)
+            else:
+                out = model(x, edge_index)
+            if out.dim() != 2 or out.size(0) != 1:
+                raise ValueError(f"unexpected logits shape: {tuple(out.shape)}")
+            logits_list.append(out[0].cpu())
+            labels_list.append(int(sample.label_id))
 
     if not logits_list:
-        print("No logits collected; aborting.")
-        return 1
+        raise RuntimeError("No usable samples (all graphs empty or parse errors).")
 
-    logits_tensor = torch.stack(logits_list)
-    labels_tensor = torch.tensor(labels_list, dtype=torch.long)
+    logits = torch.stack(logits_list, dim=0)
+    labels = torch.tensor(labels_list, dtype=torch.long)
+    stats["samples_used"] = int(labels.numel())
+    return logits, labels, stats
 
-    # Temperature scaling
-    log_t = torch.nn.Parameter(torch.zeros(1))
-    optimizer = torch.optim.LBFGS([log_t], lr=0.01, max_iter=50)
 
-    def _nll_loss(temp: torch.Tensor) -> torch.Tensor:
-        scaled = logits_tensor / temp
-        return torch.nn.functional.cross_entropy(scaled, labels_tensor)
+def _top2_margin(probs: "torch.Tensor") -> "torch.Tensor":
+    import torch
 
-    def closure():
-        optimizer.zero_grad()
-        temp = torch.exp(log_t)
-        loss = _nll_loss(temp)
-        loss.backward()
-        return loss
+    k = min(2, int(probs.size(1)))
+    vals, _idx = torch.topk(probs, k=k, dim=1)
+    if k < 2:
+        return torch.ones((probs.size(0),), dtype=probs.dtype)
+    return vals[:, 0] - vals[:, 1]
 
-    optimizer.step(closure)
-    temperature = float(torch.exp(log_t).item())
 
-    with torch.no_grad():
-        probs_before = torch.softmax(logits_tensor, dim=1)
-        probs_after = torch.softmax(logits_tensor / temperature, dim=1)
-        conf_before, pred_before = torch.max(probs_before, dim=1)
-        conf_after, pred_after = torch.max(probs_after, dim=1)
+def _metrics_for_temperature(
+    logits: "torch.Tensor",
+    labels: "torch.Tensor",
+    temperature: float,
+    confidence_thresholds: Sequence[float],
+    margin_thresholds: Sequence[float],
+) -> Dict[str, Any]:
+    import torch
+    import torch.nn.functional as F
 
-    nll_before = float(_nll_loss(torch.tensor(1.0)).item())
-    nll_after = float(_nll_loss(torch.tensor(temperature)).item())
-    ece_before = _ece(conf_before, pred_before, labels_tensor)
-    ece_after = _ece(conf_after, pred_after, labels_tensor)
+    scaled = logits / float(temperature)
+    nll = float(F.cross_entropy(scaled, labels).item())
+    probs = torch.softmax(scaled, dim=1)
+    conf, pred = torch.max(probs, dim=1)
+    acc = float((pred == labels).float().mean().item())
+    margin = _top2_margin(probs)
 
-    output_calibration = Path(args.output_calibration)
-    output_calibration.parent.mkdir(parents=True, exist_ok=True)
-    output_calibration.write_text(
-        csv.writer  # type: ignore
-        if False
-        else (
-            "{\n"
-            f'  "temperature": {temperature:.6f},\n'
-            f'  "nll_before": {nll_before:.6f},\n'
-            f'  "nll_after": {nll_after:.6f},\n'
-            f'  "ece_before": {ece_before:.6f},\n'
-            f'  "ece_after": {ece_after:.6f},\n'
-            f'  "val_samples": {len(labels_list)}\n'
-            "}\n"
+    def _subset_stats(mask: "torch.Tensor") -> Dict[str, Any]:
+        count = int(mask.sum().item())
+        if count == 0:
+            return {"count": 0, "rate": 0.0, "accuracy": None}
+        subset_acc = float((pred[mask] == labels[mask]).float().mean().item())
+        return {
+            "count": count,
+            "rate": float(count) / float(labels.numel()),
+            "accuracy": subset_acc,
+        }
+
+    conf_stats: Dict[str, Any] = {}
+    for thr in confidence_thresholds:
+        mask = conf >= float(thr)
+        conf_stats[str(thr)] = _subset_stats(mask)
+
+    margin_stats: Dict[str, Any] = {}
+    for thr in margin_thresholds:
+        mask = margin >= float(thr)
+        margin_stats[str(thr)] = _subset_stats(mask)
+
+    return {
+        "temperature": float(temperature),
+        "nll": nll,
+        "accuracy": acc,
+        "mean_confidence": float(conf.mean().item()),
+        "median_confidence": float(conf.median().item()),
+        "confidence_thresholds": conf_stats,
+        "margin_thresholds": margin_stats,
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Calibrate Graph2D temperature scaling.")
+    parser.add_argument("--manifest", required=True, help="Manifest CSV with label_cn/file_name")
+    parser.add_argument("--dxf-dir", required=True, help="DXF directory for manifest rows")
+    parser.add_argument(
+        "--model-path",
+        default=os.getenv(
+            "GRAPH2D_MODEL_PATH",
+            "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
         ),
-        encoding="utf-8",
+        help="Graph2D checkpoint path",
+    )
+    parser.add_argument(
+        "--output-json",
+        default="models/calibration/graph2d_temperature_calibration.json",
+        help="Output JSON path (must include temperature field)",
+    )
+    parser.add_argument(
+        "--temperatures",
+        default="",
+        help="Comma-separated temperature grid. If empty, uses a default grid.",
+    )
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--max-samples", type=int, default=0)
+    parser.add_argument(
+        "--objective",
+        choices=["nll", "precision_at_conf"],
+        default="precision_at_conf",
+        help="Selection objective. "
+        "'precision_at_conf' maximizes accuracy among samples with confidence >= "
+        "objective-confidence-threshold (with objective-min-count guard).",
+    )
+    parser.add_argument(
+        "--objective-confidence-threshold",
+        type=float,
+        default=0.15,
+        help="Used by objective=precision_at_conf.",
+    )
+    parser.add_argument(
+        "--objective-min-count",
+        type=int,
+        default=20,
+        help="Used by objective=precision_at_conf; avoid selecting temperatures "
+        "that only look good on a tiny accepted subset.",
+    )
+    parser.add_argument(
+        "--confidence-thresholds",
+        default="0.05,0.1,0.15,0.2",
+        help="Comma-separated max-prob thresholds for coverage/precision reporting.",
+    )
+    parser.add_argument(
+        "--margin-thresholds",
+        default="0.0,0.01,0.02,0.03,0.05",
+        help="Comma-separated top1-top2 margin thresholds for coverage/precision reporting.",
     )
 
-    output_predictions = Path(args.output_predictions)
-    output_predictions.parent.mkdir(parents=True, exist_ok=True)
-    with output_predictions.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=[
-                "file_name",
-                "true_label",
-                "pred_label",
-                "confidence_before",
-                "confidence_after",
-            ],
-        )
-        writer.writeheader()
-        for file_name, true_idx, pred_idx, cb, ca in zip(
-            file_names, labels_tensor.tolist(), pred_before.tolist(), conf_before.tolist(), conf_after.tolist()
-        ):
-            writer.writerow(
-                {
-                    "file_name": file_name,
-                    "true_label": inv_label_map.get(true_idx, str(true_idx)),
-                    "pred_label": inv_label_map.get(pred_idx, str(pred_idx)),
-                    "confidence_before": f"{cb:.6f}",
-                    "confidence_after": f"{ca:.6f}",
-                }
+    args = parser.parse_args()
+
+    if not _require_torch():
+        return 2
+
+    manifest = Path(args.manifest)
+    dxf_dir = Path(args.dxf_dir)
+    model_path = Path(args.model_path)
+    out_path = Path(args.output_json)
+
+    if not manifest.exists():
+        print(f"Manifest not found: {manifest}")
+        return 2
+    if not dxf_dir.exists():
+        print(f"DXF dir not found: {dxf_dir}")
+        return 2
+    if not model_path.exists():
+        print(f"Model not found: {model_path}")
+        return 2
+
+    temps = _parse_temperatures(args.temperatures) if args.temperatures else _default_temperature_grid()
+    temps = [t for t in temps if t > 0]
+    if not temps:
+        print("No valid temperatures provided.")
+        return 2
+
+    confidence_thresholds = _parse_temperatures(args.confidence_thresholds)
+    obj_conf_thr = float(args.objective_confidence_threshold)
+    if obj_conf_thr > 0 and all(abs(obj_conf_thr - t) > 1e-9 for t in confidence_thresholds):
+        confidence_thresholds.append(obj_conf_thr)
+        confidence_thresholds = sorted(set(confidence_thresholds))
+    margin_thresholds = _parse_temperatures(args.margin_thresholds)
+
+    checkpoint = _load_graph2d_checkpoint(model_path)
+    model, meta = _build_model_from_checkpoint(checkpoint)
+    label_map: Dict[str, int] = meta["label_map"]
+
+    samples, sample_stats = _load_samples(
+        manifest_csv=manifest,
+        dxf_dir=dxf_dir,
+        label_map=label_map,
+        max_samples=int(args.max_samples),
+        seed=int(args.seed),
+    )
+    if not samples:
+        print("No usable samples after filtering (unknown labels / missing files).")
+        print(json.dumps(sample_stats, indent=2, ensure_ascii=False))
+        return 2
+
+    logits, labels, logit_stats = _collect_logits(model, meta, samples)
+
+    results: List[Dict[str, Any]] = []
+    for t in temps:
+        results.append(
+            _metrics_for_temperature(
+                logits=logits,
+                labels=labels,
+                temperature=float(t),
+                confidence_thresholds=confidence_thresholds,
+                margin_thresholds=margin_thresholds,
             )
+        )
 
-    print(
-        f"Calibration samples={len(labels_list)} T={temperature:.4f} "
-        f"NLL {nll_before:.4f}->{nll_after:.4f} ECE {ece_before:.4f}->{ece_after:.4f}"
-    )
-    print(f"Calibration written to {output_calibration}")
-    print(f"Predictions written to {output_predictions}")
+    # Select best by objective.
+    best: Dict[str, Any]
+    if args.objective == "nll":
+        best = min(results, key=lambda r: float(r.get("nll", math.inf)))
+    else:
+        # Maximize accuracy for samples above a confidence threshold.
+        thr_key = str(obj_conf_thr)
+        min_count = int(args.objective_min_count)
+
+        def _score(row: Dict[str, Any]) -> Tuple[float, int, float]:
+            bucket = row.get("confidence_thresholds", {}).get(thr_key, {})
+            count = int(bucket.get("count") or 0)
+            acc = bucket.get("accuracy")
+            if acc is None or count < min_count:
+                # Treat as unusable: lowest score, then smallest count.
+                return (-1.0, -1, float("-inf"))
+            nll = float(row.get("nll") or math.inf)
+            # Higher is better for all tuple fields:
+            # - accuracy higher
+            # - count higher
+            # - (-nll) higher (i.e. nll lower)
+            return (float(acc), count, -nll)
+
+        # Sort by: accuracy desc, count desc, nll asc.
+        best = sorted(results, key=_score, reverse=True)[0]
+        # If everything is unusable, fall back to NLL.
+        if _score(best)[0] < 0:
+            best = min(results, key=lambda r: float(r.get("nll", math.inf)))
+
+    payload: Dict[str, Any] = {
+        "method": "temperature_scaling_grid",
+        "objective": str(args.objective),
+        "objective_confidence_threshold": obj_conf_thr,
+        "objective_min_count": int(args.objective_min_count),
+        "fitted": True,
+        "fitted_at": datetime.now(timezone.utc).isoformat(),
+        "sample_count": int(labels.numel()),
+        "model_path": str(model_path),
+        "label_map_size": int(meta["num_classes"]),
+        "temperature": float(best["temperature"]),
+        "best": best,
+        "grid": results,
+        "stats": {
+            "samples": sample_stats,
+            "logits": logit_stats,
+        },
+    }
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    print("Best temperature:")
+    print(json.dumps(best, indent=2, ensure_ascii=False))
+    print(f"Wrote calibration JSON: {out_path}")
     return 0
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())

@@ -1,4 +1,4 @@
 formats:
   dxf:
-    required_tokens: ['SECTION','HEADER']
+    required_tokens: ['SECTION', 'HEADER']
 exempt_projects: ['proj_exempt']

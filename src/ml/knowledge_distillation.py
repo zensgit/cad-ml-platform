@@ -153,6 +153,7 @@ class TeacherModel:
     def generate_soft_labels(
         self,
         filenames: List[str],
+        file_bytes_list: Optional[List[Optional[bytes]]] = None,
         default_confidence: float = 0.1,
     ) -> torch.Tensor:
         """
@@ -160,6 +161,7 @@ class TeacherModel:
 
         Args:
             filenames: 文件名列表
+            file_bytes_list: 每个样本的文件字节（可选；titleblock/hybrid 教师需要）
             default_confidence: 未匹配时的默认置信度
 
         Returns:
@@ -167,17 +169,48 @@ class TeacherModel:
         """
         batch_size = len(filenames)
         soft_labels = torch.zeros(batch_size, self.num_classes)
+        if file_bytes_list is None:
+            file_bytes_list = [None] * batch_size
+        if len(file_bytes_list) != batch_size:
+            raise ValueError(
+                "file_bytes_list length must match filenames length "
+                f"({len(file_bytes_list)} != {batch_size})"
+            )
 
-        for i, filename in enumerate(filenames):
+        for i, (filename, file_bytes) in enumerate(zip(filenames, file_bytes_list)):
             try:
                 if self.teacher_type == TeacherType.HYBRID:
-                    result = self.classifier.classify(filename)
+                    # Hybrid teacher can use titleblock/process signals if file_bytes are provided.
+                    result = self.classifier.classify(filename, file_bytes=file_bytes)
                     label = result.label
                     confidence = result.confidence
-                else:
+                elif self.teacher_type == TeacherType.FILENAME:
                     result = self.classifier.predict(filename)
                     label = result.get("label")
                     confidence = result.get("confidence", 0.0)
+                else:
+                    # Titleblock teacher requires DXF entities.
+                    label = None
+                    confidence = 0.0
+                    if file_bytes:
+                        try:
+                            from src.utils.dxf_io import read_dxf_entities_from_bytes
+
+                            dxf_entities = read_dxf_entities_from_bytes(file_bytes)
+                            result = self.classifier.predict(dxf_entities)
+                            label = result.get("label")
+                            confidence = result.get("confidence", 0.0)
+                        except Exception as exc:
+                            logger.debug(
+                                "Titleblock teacher parse failed for %s: %s", filename, exc
+                            )
+
+                if label and label not in self.label_to_idx and "other" in self.label_to_idx:
+                    # When the distillation teacher predicts a label outside the
+                    # student's label map (e.g., after manifest cleaning),
+                    # fall back to "other" with a low confidence.
+                    label = "other"
+                    confidence = min(float(confidence or 0.0), 0.25)
 
                 if label and label in self.label_to_idx:
                     idx = self.label_to_idx[label]
@@ -196,20 +229,37 @@ class TeacherModel:
     def get_teacher_predictions(
         self,
         filenames: List[str],
+        file_bytes_list: Optional[List[Optional[bytes]]] = None,
     ) -> List[Dict[str, Any]]:
         """获取教师预测"""
+        if file_bytes_list is None:
+            file_bytes_list = [None] * len(filenames)
+        if len(file_bytes_list) != len(filenames):
+            raise ValueError(
+                "file_bytes_list length must match filenames length "
+                f"({len(file_bytes_list)} != {len(filenames)})"
+            )
         predictions = []
-        for filename in filenames:
+        for filename, file_bytes in zip(filenames, file_bytes_list):
             try:
                 if self.teacher_type == TeacherType.HYBRID:
-                    result = self.classifier.classify(filename)
+                    result = self.classifier.classify(filename, file_bytes=file_bytes)
                     predictions.append({
                         "label": result.label,
                         "confidence": result.confidence,
                         "source": result.source.value,
                     })
-                else:
+                elif self.teacher_type == TeacherType.FILENAME:
                     result = self.classifier.predict(filename)
+                    predictions.append(result)
+                else:
+                    if not file_bytes:
+                        predictions.append({"label": None, "confidence": 0.0, "source": "titleblock"})
+                        continue
+                    from src.utils.dxf_io import read_dxf_entities_from_bytes
+
+                    entities = read_dxf_entities_from_bytes(file_bytes)
+                    result = self.classifier.predict(entities)
                     predictions.append(result)
             except Exception:
                 predictions.append({"label": None, "confidence": 0.0})

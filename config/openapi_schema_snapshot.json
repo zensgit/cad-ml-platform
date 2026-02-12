@@ -1,0 +1,1839 @@
+{
+  "components_schema_count": 200,
+  "components_schema_names": [
+    "ActiveLearningSample",
+    "AlternativeItem",
+    "AlternativeResponse",
+    "AnalysisResult",
+    "AnalysisResultCleanupResponse",
+    "ApplicationItem",
+    "ApplicationListResponse",
+    "BatchClassifyResponse",
+    "BatchClassifyResultItem",
+    "BatchSimilarityItem",
+    "BatchSimilarityRequest",
+    "BatchSimilarityResponse",
+    "BearingByBoreItem",
+    "BearingByBoreResponse",
+    "BearingSpecResponse",
+    "Body_analyze_cad_file_api_v1_analyze__post",
+    "Body_batch_analyze_api_v1_analyze_batch_post",
+    "Body_batch_classify_api_v1_analyze_batch_classify_post",
+    "Body_dedup_2d_index_add_api_v1_dedup_2d_index_add_post",
+    "Body_dedup_2d_precision_compare_api_v1_dedup_2d_precision_compare_post",
+    "Body_dedup_2d_search_api_v1_dedup_2d_search_post",
+    "Body_ocr_extract_api_v1_ocr_extract_post",
+    "Body_recognize_drawing_api_v1_drawing_recognize_post",
+    "Body_render_cad_preview_api_v1_render_cad_post",
+    "CacheApplyRequest",
+    "CacheApplyResponse",
+    "CacheRollbackResponse",
+    "CacheTuningRecommendation",
+    "CacheTuningRequest",
+    "CadFeatureStats",
+    "ClassifierCacheStatsResponse",
+    "CompareRequest",
+    "CompareResponse",
+    "CostCompareItem",
+    "CostCompareResponse",
+    "CostSearchItem",
+    "CostSearchResponse",
+    "CostTierItem",
+    "CostTierListResponse",
+    "Dedup2DGeomExistsResponse",
+    "Dedup2DHealthResponse",
+    "Dedup2DIndexAddResponse",
+    "Dedup2DIndexRebuildResponse",
+    "Dedup2DJobCancelResponse",
+    "Dedup2DJobListItem",
+    "Dedup2DJobListResponse",
+    "Dedup2DJobStatus",
+    "Dedup2DMatchItem",
+    "Dedup2DPrecisionCompareResponse",
+    "Dedup2DPresetsResponse",
+    "Dedup2DSearchAsyncResponse",
+    "Dedup2DSearchJobResponse",
+    "Dedup2DSearchResponse",
+    "Dedup2DTenantConfig",
+    "Dedup2DTenantConfigResponse",
+    "DrawingField",
+    "DrawingFieldCatalogResponse",
+    "DrawingFieldDefinition",
+    "DrawingRecognitionBase64Request",
+    "DrawingRecognitionResponse",
+    "DriftBaselineExportResponse",
+    "DriftBaselineImportRequest",
+    "DriftBaselineImportResponse",
+    "DriftBaselineSnapshot",
+    "DriftBaselineStatusResponse",
+    "DriftResetResponse",
+    "DriftStatusResponse",
+    "ErrorCode",
+    "ExportRequest",
+    "ExportResponse",
+    "ExtendedHealthResponse",
+    "FaissHealthResponse",
+    "FaissSummary",
+    "FeatureCacheStatsResponse",
+    "FeatureSlotDiff",
+    "FeatureSlotsResponse",
+    "FeatureVersionsResponse",
+    "FeaturesDiffResponse",
+    "FeedbackRequest",
+    "FeedbackResponse",
+    "FitDeviationsResponse",
+    "FullCompatibilityResponse",
+    "GalvanicAnodeCathode",
+    "GalvanicCorrosionResponse",
+    "HTTPValidationError",
+    "HealthConfig",
+    "HealthConfigCoreProviders",
+    "HealthConfigDebug",
+    "HealthConfigLimits",
+    "HealthConfigMl",
+    "HealthConfigMlClassification",
+    "HealthConfigMlSampling",
+    "HealthConfigMonitoring",
+    "HealthConfigNetwork",
+    "HealthConfigProviders",
+    "HealthErrorRateEma",
+    "HealthProviderPluginCache",
+    "HealthProviderPluginSummary",
+    "HealthProviderPlugins",
+    "HealthResponse",
+    "HealthRuntime",
+    "HealthServices",
+    "HeatTreatmentCompatibilityResponse",
+    "HybridRuntimeConfigResponse",
+    "ITToleranceResponse",
+    "KnowledgeReloadResponse",
+    "KnowledgeStatusResponse",
+    "LimitDeviationsResponse",
+    "MaterialClassifyRequest",
+    "MaterialClassifyResponse",
+    "MaterialCostItem",
+    "MaterialEquivalenceResponse",
+    "MaterialGroupsResponse",
+    "MaterialInfoBrief",
+    "MaterialInfoResponse",
+    "MaterialListItem",
+    "MaterialListResponse",
+    "MaterialPropertiesResponse",
+    "MaterialRef",
+    "MaterialSearchItem",
+    "MaterialSearchResponse",
+    "ModelHealthResponse",
+    "ModelReloadRequest",
+    "ModelReloadResponse",
+    "ORingByIdItem",
+    "ORingByIdResponse",
+    "ORingSpecResponse",
+    "OcrBase64Request",
+    "OcrHealthResponse",
+    "OcrProviderStatus",
+    "OcrProvidersResponse",
+    "OcrResponse",
+    "OcrResult",
+    "OrphanCleanupResponse",
+    "ProcessRecommendationResponse",
+    "ProcessRequirementsInput",
+    "ProcessRouteRequest",
+    "ProcessRouteResponse",
+    "ProcessRouteStructuredRequest",
+    "ProcessRulesAuditResponse",
+    "ProcessStepResponse",
+    "PropertySearchItem",
+    "PropertySearchResponse",
+    "ProviderHealthItem",
+    "ProviderHealthResponse",
+    "ProviderInfo",
+    "ProviderPluginDiagnostics",
+    "ProviderPluginErrorItem",
+    "ProviderRegistryHealthResponse",
+    "ProviderStatusSnapshot",
+    "QueryRequest",
+    "QueryResponse",
+    "ReadinessCheck",
+    "ReadinessResponse",
+    "RecommendationItem",
+    "RecommendationPropertiesItem",
+    "RecommendationResponse",
+    "SampleStatus",
+    "SimilarityQuery",
+    "SimilarityResult",
+    "SimilarityTopKItem",
+    "SimilarityTopKQuery",
+    "SimilarityTopKResponse",
+    "StandardsStatusResponse",
+    "StatsResponse",
+    "StatusResponse",
+    "SuggestionResponse",
+    "SupportedQueriesResponse",
+    "ThreadSpecResponse",
+    "V16CacheClearResponse",
+    "V16ClassifierHealthResponse",
+    "V16SpeedModeRequest",
+    "V16SpeedModeResponse",
+    "ValidationError",
+    "VectorBackendReloadResponse",
+    "VectorDeleteRequest",
+    "VectorDeleteResponse",
+    "VectorDistributionResponse",
+    "VectorListItem",
+    "VectorListResponse",
+    "VectorMigrateItem",
+    "VectorMigrateRequest",
+    "VectorMigrateResponse",
+    "VectorMigrationPreviewResponse",
+    "VectorMigrationStatusResponse",
+    "VectorMigrationSummaryResponse",
+    "VectorMigrationTrendsResponse",
+    "VectorRegisterRequest",
+    "VectorRegisterResponse",
+    "VectorSearchRequest",
+    "VectorSearchResponse",
+    "VectorStatsResponse",
+    "VectorStoreReloadResponse",
+    "VectorStoreSummary",
+    "VectorUpdateRequest",
+    "VectorUpdateResponse",
+    "VisionAnalyzeRequest",
+    "VisionAnalyzeResponse",
+    "VisionDescription",
+    "WeldCompatibilityResponse"
+  ],
+  "openapi": "3.1.0",
+  "operation_count": 166,
+  "path_count": 161,
+  "paths": {
+    "/": {
+      "get": {
+        "deprecated": false,
+        "operationId": "root__get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/active-learning/export": {
+      "post": {
+        "deprecated": false,
+        "operationId": "export_training_data_api_v1_active_learning_export_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/active-learning/feedback": {
+      "post": {
+        "deprecated": false,
+        "operationId": "submit_feedback_api_v1_active_learning_feedback_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/active-learning/pending": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_pending_samples_api_v1_active_learning_pending_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/active-learning/stats": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_active_learning_stats_api_v1_active_learning_stats_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/": {
+      "post": {
+        "deprecated": false,
+        "operationId": "analyze_cad_file_api_v1_analyze__post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/batch": {
+      "post": {
+        "deprecated": false,
+        "operationId": "batch_analyze_api_v1_analyze_batch_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/batch-classify": {
+      "post": {
+        "deprecated": false,
+        "operationId": "batch_classify_api_v1_analyze_batch_classify_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/drift": {
+      "get": {
+        "deprecated": false,
+        "operationId": "drift_status_v1",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/drift/baseline/export": {
+      "post": {
+        "deprecated": false,
+        "operationId": "drift_baseline_export_v1",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/drift/baseline/import": {
+      "post": {
+        "deprecated": false,
+        "operationId": "drift_baseline_import_v1",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/drift/baseline/status": {
+      "get": {
+        "deprecated": false,
+        "operationId": "drift_baseline_status_v1",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/drift/reset": {
+      "post": {
+        "deprecated": false,
+        "operationId": "drift_reset_v1",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/faiss/health": {
+      "get": {
+        "deprecated": false,
+        "operationId": "faiss_health_api_v1_analyze_faiss_health_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/features/cache": {
+      "get": {
+        "deprecated": false,
+        "operationId": "feature_cache_stats_api_v1_analyze_features_cache_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/features/diff": {
+      "get": {
+        "deprecated": true,
+        "operationId": "features_diff_deprecated_api_v1_analyze_features_diff_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/model/reload": {
+      "post": {
+        "deprecated": true,
+        "operationId": "model_reload_deprecated_api_v1_analyze_model_reload_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/process/route/from-requirements": {
+      "post": {
+        "deprecated": false,
+        "operationId": "generate_route_from_requirements_api_v1_analyze_process_route_from_requirements_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/process/route/from-text": {
+      "post": {
+        "deprecated": false,
+        "operationId": "generate_route_from_text_api_v1_analyze_process_route_from_text_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/process/rules/audit": {
+      "get": {
+        "deprecated": false,
+        "operationId": "process_rules_audit_v1",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/process/treatments/heat": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_heat_treatments_api_v1_analyze_process_treatments_heat_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/analyze/process/treatments/surface": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_surface_treatments_api_v1_analyze_process_treatments_surface_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/analyze/process/treatments/welding": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_welding_types_api_v1_analyze_process_treatments_welding_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/analyze/similarity": {
+      "post": {
+        "deprecated": false,
+        "operationId": "similarity_query_api_v1_analyze_similarity_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/similarity/topk": {
+      "post": {
+        "deprecated": false,
+        "operationId": "similarity_topk_api_v1_analyze_similarity_topk_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/vectors": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_vectors_api_v1_analyze_vectors_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/vectors/delete": {
+      "post": {
+        "deprecated": false,
+        "operationId": "delete_vector_api_v1_analyze_vectors_delete_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/vectors/distribution": {
+      "get": {
+        "deprecated": false,
+        "operationId": "vector_distribution_deprecated_api_v1_analyze_vectors_distribution_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/vectors/faiss/rebuild": {
+      "post": {
+        "deprecated": false,
+        "operationId": "faiss_rebuild_api_v1_analyze_vectors_faiss_rebuild_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/vectors/migrate": {
+      "post": {
+        "deprecated": false,
+        "operationId": "migrate_vectors_api_v1_analyze_vectors_migrate_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/vectors/migrate/status": {
+      "get": {
+        "deprecated": false,
+        "operationId": "vector_migration_status_api_v1_analyze_vectors_migrate_status_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/vectors/orphans": {
+      "delete": {
+        "deprecated": true,
+        "operationId": "cleanup_orphan_vectors_deprecated_api_v1_analyze_vectors_orphans_delete",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/vectors/stats": {
+      "get": {
+        "deprecated": false,
+        "operationId": "vector_stats_api_v1_analyze_vectors_stats_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/vectors/update": {
+      "post": {
+        "deprecated": false,
+        "operationId": "update_vector_api_v1_analyze_vectors_update_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/analyze/{analysis_id}": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_analysis_result_api_v1_analyze__analysis_id__get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/assistant/feedback": {
+      "post": {
+        "deprecated": false,
+        "operationId": "submit_feedback_api_v1_assistant_feedback_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/assistant/query": {
+      "post": {
+        "deprecated": false,
+        "operationId": "query_assistant_api_v1_assistant_query_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/assistant/status": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_assistant_status_api_v1_assistant_status_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/assistant/suggest": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_suggestions_api_v1_assistant_suggest_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/assistant/supported-queries": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_supported_queries_api_v1_assistant_supported_queries_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/classifier/cache": {
+      "get": {
+        "deprecated": false,
+        "operationId": "classifier_cache_stats_api_v1_classifier_cache_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/compare": {
+      "post": {
+        "deprecated": false,
+        "operationId": "compare_features_api_v1_compare_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/dedup/2d/config": {
+      "delete": {
+        "deprecated": false,
+        "operationId": "dedup_2d_delete_tenant_config_api_v1_dedup_2d_config_delete",
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "get": {
+        "deprecated": false,
+        "operationId": "dedup_2d_get_tenant_config_api_v1_dedup_2d_config_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "put": {
+        "deprecated": false,
+        "operationId": "dedup_2d_set_tenant_config_api_v1_dedup_2d_config_put",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/dedup/2d/geom/{file_hash}/exists": {
+      "get": {
+        "deprecated": false,
+        "operationId": "dedup_2d_geom_exists_api_v1_dedup_2d_geom__file_hash__exists_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/dedup/2d/health": {
+      "get": {
+        "deprecated": false,
+        "operationId": "dedup_2d_health_api_v1_dedup_2d_health_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/dedup/2d/index/add": {
+      "post": {
+        "deprecated": false,
+        "operationId": "dedup_2d_index_add_api_v1_dedup_2d_index_add_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/dedup/2d/index/rebuild": {
+      "post": {
+        "deprecated": false,
+        "operationId": "dedup_2d_index_rebuild_api_v1_dedup_2d_index_rebuild_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/dedup/2d/jobs": {
+      "get": {
+        "deprecated": false,
+        "operationId": "dedup_2d_job_list_api_v1_dedup_2d_jobs_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/dedup/2d/jobs/{job_id}": {
+      "get": {
+        "deprecated": false,
+        "operationId": "dedup_2d_job_status_api_v1_dedup_2d_jobs__job_id__get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/dedup/2d/jobs/{job_id}/cancel": {
+      "post": {
+        "deprecated": false,
+        "operationId": "dedup_2d_job_cancel_api_v1_dedup_2d_jobs__job_id__cancel_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/dedup/2d/precision/compare": {
+      "post": {
+        "deprecated": false,
+        "operationId": "dedup_2d_precision_compare_api_v1_dedup_2d_precision_compare_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/dedup/2d/presets": {
+      "get": {
+        "deprecated": false,
+        "operationId": "dedup_2d_presets_api_v1_dedup_2d_presets_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/dedup/2d/search": {
+      "post": {
+        "deprecated": false,
+        "operationId": "dedup_2d_search_api_v1_dedup_2d_search_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/drawing/fields": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_drawing_fields_api_v1_drawing_fields_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/drawing/health": {
+      "get": {
+        "deprecated": false,
+        "operationId": "drawing_health_api_v1_drawing_health_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/drawing/providers": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_drawing_providers_api_v1_drawing_providers_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/drawing/recognize": {
+      "post": {
+        "deprecated": false,
+        "operationId": "recognize_drawing_api_v1_drawing_recognize_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/drawing/recognize-base64": {
+      "post": {
+        "deprecated": false,
+        "operationId": "recognize_drawing_base64_api_v1_drawing_recognize_base64_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/faiss/health": {
+      "get": {
+        "deprecated": false,
+        "operationId": "faiss_health_api_v1_faiss_health_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/faiss/recover": {
+      "post": {
+        "deprecated": false,
+        "operationId": "faiss_manual_recover_api_v1_faiss_recover_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/features/cache": {
+      "get": {
+        "deprecated": false,
+        "operationId": "feature_cache_stats_api_v1_features_cache_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/features/cache/apply": {
+      "post": {
+        "deprecated": false,
+        "operationId": "cache_apply_api_v1_features_cache_apply_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/features/cache/prewarm": {
+      "post": {
+        "deprecated": false,
+        "operationId": "cache_prewarm_api_v1_features_cache_prewarm_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/features/cache/rollback": {
+      "post": {
+        "deprecated": false,
+        "operationId": "cache_rollback_api_v1_features_cache_rollback_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/features/cache/tuning": {
+      "get": {
+        "deprecated": false,
+        "operationId": "cache_tuning_recommendation_api_v1_features_cache_tuning_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "post": {
+        "deprecated": false,
+        "operationId": "cache_tuning_api_v1_features_cache_tuning_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/features/diff": {
+      "get": {
+        "deprecated": false,
+        "operationId": "features_diff_api_v1_features_diff_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/features/slots": {
+      "get": {
+        "deprecated": false,
+        "operationId": "feature_slots_api_v1_features_slots_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/features/versions": {
+      "get": {
+        "deprecated": false,
+        "operationId": "feature_versions_api_v1_features_versions_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/feedback/": {
+      "post": {
+        "deprecated": false,
+        "operationId": "submit_feedback_api_v1_feedback__post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "deprecated": false,
+        "operationId": "health_alias_api_v1_health_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/health/classifier/cache": {
+      "get": {
+        "deprecated": false,
+        "operationId": "classifier_cache_stats_api_v1_health_classifier_cache_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/faiss/health": {
+      "get": {
+        "deprecated": false,
+        "operationId": "faiss_health_alias_api_v1_health_faiss_health_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/features/cache": {
+      "get": {
+        "deprecated": false,
+        "operationId": "feature_cache_stats_health_alias_api_v1_health_features_cache_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/features/cache/apply": {
+      "post": {
+        "deprecated": false,
+        "operationId": "cache_apply_health_alias_api_v1_health_features_cache_apply_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/features/cache/prewarm": {
+      "post": {
+        "deprecated": false,
+        "operationId": "cache_prewarm_health_alias_api_v1_health_features_cache_prewarm_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/features/cache/rollback": {
+      "post": {
+        "deprecated": false,
+        "operationId": "cache_rollback_health_alias_api_v1_health_features_cache_rollback_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/features/cache/tuning": {
+      "get": {
+        "deprecated": false,
+        "operationId": "cache_tuning_recommendation_health_alias_api_v1_health_features_cache_tuning_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/ml/hybrid-config": {
+      "get": {
+        "deprecated": false,
+        "operationId": "hybrid_runtime_config_api_v1_health_ml_hybrid_config_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/model": {
+      "get": {
+        "deprecated": false,
+        "operationId": "model_health_api_v1_health_model_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/providers/health": {
+      "get": {
+        "deprecated": false,
+        "operationId": "provider_health_api_v1_health_providers_health_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/providers/registry": {
+      "get": {
+        "deprecated": false,
+        "operationId": "provider_registry_health_api_v1_health_providers_registry_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/v16-classifier": {
+      "get": {
+        "deprecated": false,
+        "operationId": "v16_classifier_health_api_v1_health_v16_classifier_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/v16-classifier/cache/clear": {
+      "post": {
+        "deprecated": false,
+        "operationId": "v16_classifier_cache_clear_api_v1_health_v16_classifier_cache_clear_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/health/v16-classifier/speed-mode": {
+      "get": {
+        "deprecated": false,
+        "operationId": "v16_classifier_speed_mode_get_api_v1_health_v16_classifier_speed_mode_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "post": {
+        "deprecated": false,
+        "operationId": "v16_classifier_speed_mode_api_v1_health_v16_classifier_speed_mode_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/maintenance/analysis-results": {
+      "delete": {
+        "deprecated": false,
+        "operationId": "cleanup_analysis_result_store_api_v1_maintenance_analysis_results_delete",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/maintenance/cache/clear": {
+      "post": {
+        "deprecated": false,
+        "operationId": "clear_cache_api_v1_maintenance_cache_clear_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/maintenance/knowledge/reload": {
+      "post": {
+        "deprecated": false,
+        "operationId": "reload_knowledge_api_v1_maintenance_knowledge_reload_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/maintenance/knowledge/status": {
+      "get": {
+        "deprecated": false,
+        "operationId": "knowledge_status_api_v1_maintenance_knowledge_status_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/maintenance/orphans": {
+      "delete": {
+        "deprecated": false,
+        "operationId": "cleanup_orphan_vectors_api_v1_maintenance_orphans_delete",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/maintenance/stats": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_maintenance_stats_api_v1_maintenance_stats_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/maintenance/vectors/backend/reload": {
+      "post": {
+        "deprecated": false,
+        "operationId": "reload_vector_backend_api_v1_maintenance_vectors_backend_reload_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_materials_api_v1_materials_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/applications": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_material_applications_api_v1_materials_applications_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/materials/batch-classify": {
+      "post": {
+        "deprecated": false,
+        "operationId": "batch_classify_materials_api_v1_materials_batch_classify_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/classify": {
+      "post": {
+        "deprecated": false,
+        "operationId": "classify_material_api_v1_materials_classify_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/compatibility/full": {
+      "get": {
+        "deprecated": false,
+        "operationId": "check_full_compatibility_api_api_v1_materials_compatibility_full_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/compatibility/galvanic": {
+      "get": {
+        "deprecated": false,
+        "operationId": "check_galvanic_corrosion_api_api_v1_materials_compatibility_galvanic_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/compatibility/heat-treatment": {
+      "get": {
+        "deprecated": false,
+        "operationId": "check_heat_treatment_compatibility_api_api_v1_materials_compatibility_heat_treatment_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/compatibility/weld": {
+      "get": {
+        "deprecated": false,
+        "operationId": "check_weld_compatibility_api_api_v1_materials_compatibility_weld_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/cost/compare": {
+      "post": {
+        "deprecated": false,
+        "operationId": "compare_costs_api_v1_materials_cost_compare_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/cost/search": {
+      "get": {
+        "deprecated": false,
+        "operationId": "search_by_cost_api_api_v1_materials_cost_search_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/cost/tiers": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_cost_tiers_api_v1_materials_cost_tiers_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/materials/export/csv": {
+      "get": {
+        "deprecated": false,
+        "operationId": "export_materials_to_csv_api_v1_materials_export_csv_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/materials/export/equivalence-csv": {
+      "get": {
+        "deprecated": false,
+        "operationId": "export_equivalence_to_csv_api_v1_materials_export_equivalence_csv_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/materials/groups": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_material_groups_api_v1_materials_groups_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/materials/recommend/{application}": {
+      "get": {
+        "deprecated": false,
+        "operationId": "recommend_materials_api_v1_materials_recommend__application__get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/search": {
+      "get": {
+        "deprecated": false,
+        "operationId": "search_materials_api_api_v1_materials_search_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/search/properties": {
+      "get": {
+        "deprecated": false,
+        "operationId": "search_by_properties_api_api_v1_materials_search_properties_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/{grade}": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_material_api_v1_materials__grade__get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/{grade}/alternatives": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_material_alternatives_api_v1_materials__grade__alternatives_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/{grade}/convert/{target_standard}": {
+      "get": {
+        "deprecated": false,
+        "operationId": "convert_material_standard_api_v1_materials__grade__convert__target_standard__get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/{grade}/cost": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_material_cost_api_api_v1_materials__grade__cost_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/{grade}/equivalents": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_material_equivalents_api_v1_materials__grade__equivalents_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/materials/{grade}/process": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_material_process_api_v1_materials__grade__process_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/ml/hybrid-config": {
+      "get": {
+        "deprecated": false,
+        "operationId": "hybrid_runtime_config_api_v1_ml_hybrid_config_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/model/opcode-audit": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_opcode_audit_api_v1_model_opcode_audit_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/model/reload": {
+      "post": {
+        "deprecated": false,
+        "operationId": "model_reload_api_v1_model_reload_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/model/version": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_model_version_api_v1_model_version_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/ocr/extract": {
+      "post": {
+        "deprecated": false,
+        "operationId": "ocr_extract_api_v1_ocr_extract_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/ocr/extract-base64": {
+      "post": {
+        "deprecated": false,
+        "operationId": "ocr_extract_base64_api_v1_ocr_extract_base64_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/ocr/health": {
+      "get": {
+        "deprecated": false,
+        "operationId": "ocr_health_api_v1_ocr_health_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/ocr/providers": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_ocr_providers_api_v1_ocr_providers_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/providers/health": {
+      "get": {
+        "deprecated": false,
+        "operationId": "provider_health_api_v1_providers_health_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/providers/registry": {
+      "get": {
+        "deprecated": false,
+        "operationId": "provider_registry_health_api_v1_providers_registry_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/render/cad": {
+      "post": {
+        "deprecated": false,
+        "operationId": "render_cad_preview_api_v1_render_cad_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/standards/bearing": {
+      "get": {
+        "deprecated": false,
+        "operationId": "bearing_spec_api_v1_standards_bearing_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/standards/bearing/by-bore": {
+      "get": {
+        "deprecated": false,
+        "operationId": "bearings_by_bore_api_v1_standards_bearing_by_bore_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/standards/oring": {
+      "get": {
+        "deprecated": false,
+        "operationId": "oring_spec_api_v1_standards_oring_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/standards/oring/by-id": {
+      "get": {
+        "deprecated": false,
+        "operationId": "orings_by_id_api_v1_standards_oring_by_id_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/standards/status": {
+      "get": {
+        "deprecated": false,
+        "operationId": "standards_status_api_v1_standards_status_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/standards/thread": {
+      "get": {
+        "deprecated": false,
+        "operationId": "thread_spec_api_v1_standards_thread_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/tolerance/fit": {
+      "get": {
+        "deprecated": false,
+        "operationId": "fit_deviations_api_v1_tolerance_fit_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/tolerance/it": {
+      "get": {
+        "deprecated": false,
+        "operationId": "it_tolerance_api_v1_tolerance_it_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/tolerance/limit-deviations": {
+      "get": {
+        "deprecated": false,
+        "operationId": "limit_deviations_api_v1_tolerance_limit_deviations_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/twin/history": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_history_api_v1_twin_history_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/twin/{asset_id}/state": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_twin_state_api_v1_twin__asset_id__state_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/twin/{asset_id}/telemetry": {
+      "post": {
+        "deprecated": false,
+        "operationId": "ingest_telemetry_api_v1_twin__asset_id__telemetry_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/v16-classifier/cache/clear": {
+      "post": {
+        "deprecated": false,
+        "operationId": "v16_classifier_cache_clear_api_v1_v16_classifier_cache_clear_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/v16-classifier/health": {
+      "get": {
+        "deprecated": false,
+        "operationId": "v16_classifier_health_api_v1_v16_classifier_health_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/v16-classifier/speed-mode": {
+      "get": {
+        "deprecated": false,
+        "operationId": "v16_classifier_speed_mode_get_api_v1_v16_classifier_speed_mode_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      },
+      "post": {
+        "deprecated": false,
+        "operationId": "v16_classifier_speed_mode_api_v1_v16_classifier_speed_mode_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_vectors_api_v1_vectors__get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/backend/reload": {
+      "post": {
+        "deprecated": false,
+        "operationId": "reload_vector_backend_api_v1_vectors_backend_reload_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/delete": {
+      "post": {
+        "deprecated": false,
+        "operationId": "delete_vector_api_v1_vectors_delete_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/migrate": {
+      "post": {
+        "deprecated": false,
+        "operationId": "migrate_vectors_api_v1_vectors_migrate_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/migrate/preview": {
+      "get": {
+        "deprecated": false,
+        "operationId": "preview_migration_api_v1_vectors_migrate_preview_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/migrate/status": {
+      "get": {
+        "deprecated": false,
+        "operationId": "migrate_status_api_v1_vectors_migrate_status_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/migrate/summary": {
+      "get": {
+        "deprecated": false,
+        "operationId": "migrate_summary_api_v1_vectors_migrate_summary_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/migrate/trends": {
+      "get": {
+        "deprecated": false,
+        "operationId": "migrate_trends_api_v1_vectors_migrate_trends_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/register": {
+      "post": {
+        "deprecated": false,
+        "operationId": "register_vector_endpoint_api_v1_vectors_register_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/search": {
+      "post": {
+        "deprecated": false,
+        "operationId": "search_vectors_api_v1_vectors_search_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/similarity/batch": {
+      "post": {
+        "deprecated": false,
+        "operationId": "batch_similarity_api_v1_vectors_similarity_batch_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/update": {
+      "post": {
+        "deprecated": false,
+        "operationId": "update_vector_api_v1_vectors_update_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors_stats/distribution": {
+      "get": {
+        "deprecated": false,
+        "operationId": "vector_distribution_api_v1_vectors_stats_distribution_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors_stats/stats": {
+      "get": {
+        "deprecated": false,
+        "operationId": "vector_stats_api_v1_vectors_stats_stats_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vision/analyze": {
+      "post": {
+        "deprecated": false,
+        "operationId": "analyze_vision_api_v1_vision_analyze_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vision/health": {
+      "get": {
+        "deprecated": false,
+        "operationId": "health_check_api_v1_vision_health_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/vision/metrics": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_metrics_api_v1_vision_metrics_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/api/v1/vision/providers": {
+      "get": {
+        "deprecated": false,
+        "operationId": "list_providers_api_v1_vision_providers_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "deprecated": false,
+        "operationId": "health_check_health_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/health/extended": {
+      "get": {
+        "deprecated": false,
+        "operationId": "extended_health_health_extended_get",
+        "responses": [
+          "200"
+        ]
+      }
+    },
+    "/ready": {
+      "get": {
+        "deprecated": false,
+        "operationId": "readiness_check_ready_get",
+        "responses": [
+          "200"
+        ]
+      }
+    }
+  },
+  "title": "CAD ML Platform",
+  "version": "1.0.0"
+}

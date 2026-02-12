@@ -1,0 +1,326 @@
+# Kong API Gateway Kubernetes Configuration
+# Includes Kong Gateway + Rate Limiting + Authentication
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kong
+  labels:
+    app.kubernetes.io/name: kong
+
+---
+# Kong ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+  namespace: kong
+data:
+  KONG_DATABASE: "off"
+  KONG_DECLARATIVE_CONFIG: "/kong/declarative/kong.yml"
+  KONG_PROXY_ACCESS_LOG: "/dev/stdout"
+  KONG_ADMIN_ACCESS_LOG: "/dev/stdout"
+  KONG_PROXY_ERROR_LOG: "/dev/stderr"
+  KONG_ADMIN_ERROR_LOG: "/dev/stderr"
+  KONG_ADMIN_LISTEN: "0.0.0.0:8001, 0.0.0.0:8444 ssl"
+  KONG_PROXY_LISTEN: "0.0.0.0:8000, 0.0.0.0:8443 ssl"
+  KONG_STATUS_LISTEN: "0.0.0.0:8100"
+
+---
+# Kong Declarative Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-declarative-config
+  namespace: kong
+data:
+  kong.yml: |
+    _format_version: "3.0"
+    _transform: true
+
+    services:
+      # CAD ML Platform API
+      - name: cad-ml-api
+        url: http://cad-ml-platform.default.svc.cluster.local:8080
+        routes:
+          - name: api-route
+            paths:
+              - /api/v1
+            strip_path: false
+            preserve_host: true
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 100
+              hour: 1000
+              policy: local
+              fault_tolerant: true
+              hide_client_headers: false
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Authorization
+                - Content-Type
+                - X-API-Key
+                - X-Request-ID
+              exposed_headers:
+                - X-RateLimit-Limit
+                - X-RateLimit-Remaining
+                - X-RateLimit-Reset
+              credentials: true
+              max_age: 3600
+
+      # Health endpoint (no auth)
+      - name: health
+        url: http://cad-ml-platform.default.svc.cluster.local:8080/health
+        routes:
+          - name: health-route
+            paths:
+              - /health
+            strip_path: true
+
+      # Metrics endpoint (internal only)
+      - name: metrics
+        url: http://cad-ml-platform.default.svc.cluster.local:8080/metrics
+        routes:
+          - name: metrics-route
+            paths:
+              - /metrics
+            strip_path: true
+        plugins:
+          - name: ip-restriction
+            config:
+              allow:
+                - 10.0.0.0/8
+                - 172.16.0.0/12
+                - 192.168.0.0/16
+
+    consumers:
+      - username: default-user
+        keyauth_credentials:
+          - key: default-api-key-for-testing
+
+    plugins:
+      # Global plugins
+      - name: prometheus
+        config:
+          status_code_metrics: true
+          latency_metrics: true
+          bandwidth_metrics: true
+          upstream_health_metrics: true
+
+      - name: correlation-id
+        config:
+          header_name: X-Request-ID
+          generator: uuid
+          echo_downstream: true
+
+      - name: request-transformer
+        config:
+          add:
+            headers:
+              - X-Forwarded-By:kong
+
+      - name: response-transformer
+        config:
+          add:
+            headers:
+              - X-Kong-Response-Time:${KONG_RESPONSE_LATENCY}
+
+---
+# Kong Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+  namespace: kong
+  labels:
+    app: kong
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kong
+  template:
+    metadata:
+      labels:
+        app: kong
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8100"
+    spec:
+      containers:
+        - name: kong
+          image: kong:3.4
+          envFrom:
+            - configMapRef:
+                name: kong-config
+          ports:
+            - name: proxy
+              containerPort: 8000
+            - name: proxy-ssl
+              containerPort: 8443
+            - name: admin
+              containerPort: 8001
+            - name: admin-ssl
+              containerPort: 8444
+            - name: status
+              containerPort: 8100
+          volumeMounts:
+            - name: declarative-config
+              mountPath: /kong/declarative
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          readinessProbe:
+            httpGet:
+              path: /status
+              port: 8100
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /status
+              port: 8100
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "kong quit"]
+      volumes:
+        - name: declarative-config
+          configMap:
+            name: kong-declarative-config
+
+---
+# Kong Proxy Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-proxy
+  namespace: kong
+  labels:
+    app: kong
+spec:
+  type: LoadBalancer
+  ports:
+    - name: proxy
+      port: 80
+      targetPort: 8000
+    - name: proxy-ssl
+      port: 443
+      targetPort: 8443
+  selector:
+    app: kong
+
+---
+# Kong Admin Service (internal only)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-admin
+  namespace: kong
+  labels:
+    app: kong
+spec:
+  type: ClusterIP
+  ports:
+    - name: admin
+      port: 8001
+      targetPort: 8001
+    - name: admin-ssl
+      port: 8444
+      targetPort: 8444
+  selector:
+    app: kong
+
+---
+# Kong Status Service (for metrics)
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-status
+  namespace: kong
+  labels:
+    app: kong
+spec:
+  type: ClusterIP
+  ports:
+    - name: status
+      port: 8100
+      targetPort: 8100
+  selector:
+    app: kong
+
+---
+# Kong HPA
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: kong-hpa
+  namespace: kong
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: kong
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+
+---
+# Kong PodDisruptionBudget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: kong-pdb
+  namespace: kong
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: kong
+
+---
+# ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kong-monitor
+  namespace: kong
+  labels:
+    app: kong
+spec:
+  selector:
+    matchLabels:
+      app: kong
+  endpoints:
+    - port: status
+      interval: 15s
+      path: /metrics

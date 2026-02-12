@@ -1,0 +1,36 @@
+{
+  "total": 2,
+  "success": 2,
+  "error": 0,
+  "confidence_buckets": {
+    "gte_0_8": 2
+  },
+  "label_counts": {
+    "罩": 1,
+    "防爆视灯组件": 1
+  },
+  "low_confidence_count": 0,
+  "soft_override_candidates": 0,
+  "sample_size": 2,
+  "titleblock": {
+    "enabled": true,
+    "total_ok": 2,
+    "texts_present_count": 2,
+    "texts_present_rate": 1.0,
+    "any_signal_count": 2,
+    "any_signal_rate": 1.0,
+    "part_name_present_count": 2,
+    "part_name_present_rate": 1.0,
+    "label_present_count": 2,
+    "label_present_rate": 1.0,
+    "status_counts": {
+      "matched": 2
+    },
+    "confidence": {
+      "mean_all": 0.85,
+      "median_all": 0.85,
+      "mean_nonzero": 0.85,
+      "median_nonzero": 0.85
+    }
+  }
+}

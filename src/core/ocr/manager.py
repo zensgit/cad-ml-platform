@@ -41,7 +41,9 @@ from .parsing.process_parser import parse_process_requirements
 
 class OcrManager:
     def __init__(
-        self, providers: Optional[Dict[str, OcrClient]] = None, confidence_fallback: float = 0.85
+        self,
+        providers: Optional[Dict[str, OcrClient]] = None,
+        confidence_fallback: float = 0.85,
     ):
         self.providers = providers or {}
         self.confidence_fallback = confidence_fallback
@@ -94,7 +96,7 @@ class OcrManager:
         image_bytes: bytes,
         strategy: str = "auto",
         crop_cfg: Optional[Dict] = None,
-        trace_id: str | None = None,
+        trace_id: Optional[str] = None,
     ) -> OcrResult:
         start = time.time()
         provider_name = self._select_provider(strategy)
@@ -128,7 +130,10 @@ class OcrManager:
             from src.core.errors import ErrorCode
 
             raise OcrError(
-                ErrorCode.RATE_LIMIT, "Rate limited", provider=provider_name, stage="preprocess"
+                ErrorCode.RATE_LIMIT,
+                "Rate limited",
+                provider=provider_name,
+                stage="preprocess",
             )
 
         # Circuit breaker per provider
@@ -144,7 +149,10 @@ class OcrManager:
             from src.core.errors import ErrorCode
 
             raise OcrError(
-                ErrorCode.CIRCUIT_OPEN, "Circuit open", provider=provider_name, stage="infer"
+                ErrorCode.CIRCUIT_OPEN,
+                "Circuit open",
+                provider=provider_name,
+                stage="infer",
             )
         # Cache check (skip for deepseek for now to measure quality, enable later)
         cache_key = self.build_cache_key(image_bytes, provider_name, crop_cfg)
@@ -189,9 +197,9 @@ class OcrManager:
             result.process_requirements = parse_process_requirements(result.text)
         item_mean = None
         if result.dimensions or result.symbols:
-            vals = [d.confidence for d in result.dimensions if d.confidence is not None] + [
-                s.confidence for s in result.symbols if s.confidence is not None
-            ]
+            vals = [
+                d.confidence for d in result.dimensions if d.confidence is not None
+            ] + [s.confidence for s in result.symbols if s.confidence is not None]
             if vals:
                 item_mean = sum(vals) / len(vals)
         # simplistic recent fallback ratio & parse error rate placeholders (future: track counters)
@@ -205,9 +213,13 @@ class OcrManager:
             parse_error_rate=parse_error_rate,
         )
         if result.confidence is not None:
-            safe_observe(ocr_confidence_distribution, result.confidence, provider=provider_name)
+            safe_observe(
+                ocr_confidence_distribution, result.confidence, provider=provider_name
+            )
         if result.completeness is not None:
-            safe_observe(ocr_completeness_ratio, result.completeness, provider=provider_name)
+            safe_observe(
+                ocr_completeness_ratio, result.completeness, provider=provider_name
+            )
         # Update EMA and dynamic threshold (bounded)
         calib = (
             result.calibrated_confidence
@@ -234,30 +246,40 @@ class OcrManager:
                 ds_result.processing_time_ms = int((time.time() - start) * 1000)
                 ds_result.completeness = self._compute_completeness(ds_result)
                 if ds_result.text:
-                    ds_result.process_requirements = parse_process_requirements(ds_result.text)
+                    ds_result.process_requirements = parse_process_requirements(
+                        ds_result.text
+                    )
                 item_mean_ds = None
                 if ds_result.dimensions or ds_result.symbols:
                     vals_ds = [
-                        d.confidence for d in ds_result.dimensions if d.confidence is not None
-                    ] + [s.confidence for s in ds_result.symbols if s.confidence is not None]
+                        d.confidence
+                        for d in ds_result.dimensions
+                        if d.confidence is not None
+                    ] + [
+                        s.confidence
+                        for s in ds_result.symbols
+                        if s.confidence is not None
+                    ]
                     if vals_ds:
                         item_mean_ds = sum(vals_ds) / len(vals_ds)
                 ds_result.calibrated_confidence = self._calibrator.calibrate(
                     ds_result.confidence, ds_result.completeness, item_mean=item_mean_ds
                 )
                 if ds_result.confidence is not None:
-                    ocr_confidence_distribution.labels(provider=ds_result.provider).observe(
-                        ds_result.confidence
-                    )
+                    ocr_confidence_distribution.labels(
+                        provider=ds_result.provider
+                    ).observe(ds_result.confidence)
                 if ds_result.completeness is not None:
                     ocr_completeness_ratio.labels(provider=ds_result.provider).observe(
                         ds_result.completeness
                     )
-                ocr_processing_duration_seconds.labels(provider=ds_result.provider).observe(
-                    ds_result.processing_time_ms / 1000.0
-                )
+                ocr_processing_duration_seconds.labels(
+                    provider=ds_result.provider
+                ).observe(ds_result.processing_time_ms / 1000.0)
                 await set_cache(cache_key, ds_result.model_dump())
-                ocr_requests_total.labels(provider=ds_result.provider, status="success").inc()
+                ocr_requests_total.labels(
+                    provider=ds_result.provider, status="success"
+                ).inc()
                 return ds_result
 
         # Confidence fallback gate
@@ -267,7 +289,11 @@ class OcrManager:
             if result.calibrated_confidence is not None
             else result.confidence
         )
-        if conf_cmp is not None and conf_cmp < self.confidence_fallback and strategy == "auto":
+        if (
+            conf_cmp is not None
+            and conf_cmp < self.confidence_fallback
+            and strategy == "auto"
+        ):
             deepseek = self.providers.get("deepseek_hf")
             if provider_name != "deepseek_hf" and deepseek:
                 ocr_fallback_triggered.labels(reason="low_confidence").inc()
@@ -278,31 +304,41 @@ class OcrManager:
                 ds_result.processing_time_ms = int((time.time() - start) * 1000)
                 ds_result.completeness = self._compute_completeness(ds_result)
                 if ds_result.text:
-                    ds_result.process_requirements = parse_process_requirements(ds_result.text)
+                    ds_result.process_requirements = parse_process_requirements(
+                        ds_result.text
+                    )
                 item_mean_ds = None
                 if ds_result.dimensions or ds_result.symbols:
                     vals_ds = [
-                        d.confidence for d in ds_result.dimensions if d.confidence is not None
-                    ] + [s.confidence for s in ds_result.symbols if s.confidence is not None]
+                        d.confidence
+                        for d in ds_result.dimensions
+                        if d.confidence is not None
+                    ] + [
+                        s.confidence
+                        for s in ds_result.symbols
+                        if s.confidence is not None
+                    ]
                     if vals_ds:
                         item_mean_ds = sum(vals_ds) / len(vals_ds)
                 ds_result.calibrated_confidence = self._calibrator.calibrate(
                     ds_result.confidence, ds_result.completeness, item_mean=item_mean_ds
                 )
                 if ds_result.confidence is not None:
-                    ocr_confidence_distribution.labels(provider=ds_result.provider).observe(
-                        ds_result.confidence
-                    )
+                    ocr_confidence_distribution.labels(
+                        provider=ds_result.provider
+                    ).observe(ds_result.confidence)
                 if ds_result.completeness is not None:
                     ocr_completeness_ratio.labels(provider=ds_result.provider).observe(
                         ds_result.completeness
                     )
-                ocr_processing_duration_seconds.labels(provider=ds_result.provider).observe(
-                    ds_result.processing_time_ms / 1000.0
-                )
+                ocr_processing_duration_seconds.labels(
+                    provider=ds_result.provider
+                ).observe(ds_result.processing_time_ms / 1000.0)
                 # pydantic v2
                 await set_cache(cache_key, ds_result.model_dump())
-                ocr_requests_total.labels(provider=ds_result.provider, status="success").inc()
+                ocr_requests_total.labels(
+                    provider=ds_result.provider, status="success"
+                ).inc()
                 return ds_result
 
         result.processing_time_ms = int((time.time() - start) * 1000)
@@ -320,7 +356,8 @@ class OcrManager:
                     "trace_id": result.trace_id,
                     "extraction_mode": result.extraction_mode,
                     "completeness": result.completeness,
-                    "calibrated_confidence": result.calibrated_confidence or result.confidence,
+                    "calibrated_confidence": result.calibrated_confidence
+                    or result.confidence,
                     "dimensions_count": len(result.dimensions),
                     "symbols_count": len(result.symbols),
                     "stages_latency_ms": result.stages_latency_ms,
@@ -354,10 +391,17 @@ class OcrManager:
           name to trigger a PROVIDER_DOWN path upstream (no silent fallback).
         - If strategy is 'auto' (or empty), prefer 'paddle' then 'deepseek_hf'; otherwise
           fallback to any available provider, or 'unknown' if none.
+
+        Compatibility:
+        - Accept common aliases (case-insensitive): 'deepseek' -> 'deepseek_hf'.
         """
-        if strategy and strategy != "auto":
-            # Respect explicit provider; do not silently fallback
-            return strategy
+        strategy_norm = (strategy or "").strip().lower()
+        if strategy_norm in {"deepseek", "deepseek-hf"}:
+            strategy_norm = "deepseek_hf"
+        if strategy_norm and strategy_norm != "auto":
+            # Respect explicit provider; do not silently fallback.
+            # Normalization is limited to known aliases + case folding.
+            return strategy_norm
         # auto strategy preference order
         if "paddle" in self.providers:
             return "paddle"

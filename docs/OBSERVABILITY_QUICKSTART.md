@@ -5,7 +5,7 @@
 - Docker & Docker Compose installed
 - Python 3.10+ installed
 - 8GB+ RAM available
-- Ports available: 8000, 9090, 3000, 6379
+- Ports available: 8000, 9090, 3000 (Redis is internal by default)
 
 ## 🎯 5-Minute Setup
 
@@ -34,7 +34,7 @@ This starts:
 - 🚀 **CAD ML Platform** (port 8000)
 - 📊 **Prometheus** (port 9090)
 - 📈 **Grafana** (port 3000)
-- 💾 **Redis** (port 6379)
+- 💾 **Redis** (internal only; no host port by default)
 
 ### Step 3: Verify Installation
 
@@ -64,6 +64,8 @@ make self-check-strict
 3. **Grafana**: http://localhost:3000
    - Login: `admin` / `admin`
    - Dashboard: Pre-imported "CAD ML Platform - Observability"
+
+Note: `grafana/dashboards/observability.json` is the simplified dashboard without template variables. For provider or component filtering, import `docs/grafana/observability_dashboard.json`.
 
 ## 🔧 Common Operations
 

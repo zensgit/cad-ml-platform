@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import timedelta
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +39,10 @@ except ImportError:
 
 
 async def analyze_cad_file(
-    ctx: dict[str, Any],
+    ctx: Dict[str, Any],
     file_path: str,
-    options: dict[str, Any],
-) -> dict[str, Any]:
+    options: Dict[str, Any],
+) -> Dict[str, Any]:
     """Analyze a CAD file.
 
     This task replaces the synchronous analysis pipeline,
@@ -84,10 +84,10 @@ async def analyze_cad_file(
 
 
 async def extract_features(
-    ctx: dict[str, Any],
+    ctx: Dict[str, Any],
     document_id: str,
-    feature_types: list[str],
-) -> dict[str, Any]:
+    feature_types: List[str],
+) -> Dict[str, Any]:
     """Extract features from a CAD document.
 
     Args:
@@ -124,11 +124,11 @@ async def extract_features(
 
 
 async def search_similar(
-    ctx: dict[str, Any],
-    query_vector: list[float],
+    ctx: Dict[str, Any],
+    query_vector: List[float],
     top_k: int,
-    filter_conditions: dict[str, Any],
-) -> dict[str, Any]:
+    filter_conditions: Dict[str, Any],
+) -> Dict[str, Any]:
     """Search for similar vectors.
 
     Args:
@@ -168,9 +168,9 @@ async def search_similar(
 
 
 async def batch_register_vectors(
-    ctx: dict[str, Any],
-    vectors: list[tuple[str, list[float], dict[str, Any] | None]],
-) -> dict[str, Any]:
+    ctx: Dict[str, Any],
+    vectors: List[Tuple[str, List[float], Optional[Dict[str, Any]]]],
+) -> Dict[str, Any]:
     """Batch register vectors to the store.
 
     Args:
@@ -208,7 +208,7 @@ async def batch_register_vectors(
 # ============================================================================
 
 
-async def cleanup_expired_vectors(ctx: dict[str, Any]) -> dict[str, Any]:
+async def cleanup_expired_vectors(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """Periodic cleanup of expired vectors.
 
     This runs as a cron job to remove stale data.
@@ -223,7 +223,7 @@ async def cleanup_expired_vectors(ctx: dict[str, Any]) -> dict[str, Any]:
         return {"status": "error", "error": str(e)}
 
 
-async def health_check(ctx: dict[str, Any]) -> dict[str, Any]:
+async def health_check(ctx: Dict[str, Any]) -> Dict[str, Any]:
     """Periodic health check task."""
     return {"status": "healthy", "worker_id": ctx.get("worker_id", "unknown")}
 
@@ -287,7 +287,7 @@ class WorkerSettings:
     queue_name = os.getenv("ARQ_QUEUE_NAME", "arq:queue")
 
     @staticmethod
-    async def on_startup(ctx: dict[str, Any]) -> None:
+    async def on_startup(ctx: Dict[str, Any]) -> None:
         """Initialize worker context on startup.
 
         This is called once when the worker starts. Use it to
@@ -312,7 +312,7 @@ class WorkerSettings:
             raise
 
     @staticmethod
-    async def on_shutdown(ctx: dict[str, Any]) -> None:
+    async def on_shutdown(ctx: Dict[str, Any]) -> None:
         """Cleanup worker context on shutdown.
 
         This is called when the worker is shutting down.
@@ -330,11 +330,11 @@ class WorkerSettings:
         logger.info("Worker shutdown complete")
 
     @staticmethod
-    async def on_job_start(ctx: dict[str, Any]) -> None:
+    async def on_job_start(ctx: Dict[str, Any]) -> None:
         """Called at the start of each job."""
         logger.debug(f"Starting job: {ctx.get('job_id', 'unknown')}")
 
     @staticmethod
-    async def on_job_end(ctx: dict[str, Any]) -> None:
+    async def on_job_end(ctx: Dict[str, Any]) -> None:
         """Called at the end of each job."""
         logger.debug(f"Completed job: {ctx.get('job_id', 'unknown')}")

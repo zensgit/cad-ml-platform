@@ -9,7 +9,7 @@ import logging
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
@@ -27,7 +27,12 @@ from src.core.feature_extractor import FeatureExtractor
 from src.core.ocr.manager import OcrManager
 from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
 from src.core.ocr.providers.paddle import PaddleOcrProvider
-from src.core.similarity import FaissVectorStore, compute_similarity, has_vector, register_vector
+from src.core.similarity import (
+    FaissVectorStore,
+    compute_similarity,
+    has_vector,
+    register_vector,
+)
 from src.models.cad_document import CadDocument
 from src.utils.analysis_metrics import (
     analysis_error_code_total,
@@ -55,6 +60,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+
 # Local helper for env float parsing to avoid runtime 500s on bad values.
 def _safe_float_env(name: str, default: float) -> float:
     raw = os.getenv(name, str(default))
@@ -64,6 +70,7 @@ def _safe_float_env(name: str, default: float) -> float:
         logger.warning("Invalid %s=%s; using default %.2f", name, raw, default)
         return float(default)
 
+
 DEFAULT_GRAPH2D_DRAWING_LABELS = {
     "零件图",
     "机械制图",
@@ -71,6 +78,14 @@ DEFAULT_GRAPH2D_DRAWING_LABELS = {
     "练习零件图",
     "原理图",
     "模板",
+}
+
+DEFAULT_GRAPH2D_COARSE_LABELS = {
+    "传动件",
+    "壳体类",
+    "轴类",
+    "连接件",
+    "其他",
 }
 
 
@@ -83,6 +98,18 @@ def _graph2d_is_drawing_type(label: Optional[str]) -> bool:
     else:
         labels = DEFAULT_GRAPH2D_DRAWING_LABELS
     return label.strip() in labels
+
+
+def _graph2d_is_coarse_label(label: Optional[str]) -> bool:
+    if not label:
+        return False
+    raw = os.getenv("GRAPH2D_COARSE_LABELS", "").strip()
+    if raw:
+        labels = {item.strip() for item in raw.split(",") if item.strip()}
+    else:
+        labels = DEFAULT_GRAPH2D_COARSE_LABELS
+    return label.strip() in labels
+
 
 # Drift state (in-memory); keys: materials, predictions, baseline_materials, baseline_predictions
 _DRIFT_STATE: Dict[str, Any] = {
@@ -105,8 +132,12 @@ class AnalysisOptions(BaseModel):
     quality_check: bool = Field(default=True, description="是否质量检查")
     process_recommendation: bool = Field(default=False, description="是否推荐工艺")
     estimate_cost: bool = Field(default=False, description="是否估算成本 (L4)")
-    enable_ocr: bool = Field(default=False, description="是否启用OCR解析 (默认关闭保障向后兼容)")
-    ocr_provider: str = Field(default="auto", description="OCR provider策略 auto|paddle|deepseek_hf")
+    enable_ocr: bool = Field(
+        default=False, description="是否启用OCR解析 (默认关闭保障向后兼容)"
+    )
+    ocr_provider: str = Field(
+        default="auto", description="OCR provider策略 auto|paddle|deepseek_hf"
+    )
 
 
 class AnalysisResult(BaseModel):
@@ -123,7 +154,34 @@ class AnalysisResult(BaseModel):
         default=None,
         description="统一的CAD文档结构 (序列化) 包含实体/图层/边界框/复杂度等, 便于下游直接使用。",
     )
-    feature_version: str = Field(default="v1", description="特征版本 (用于兼容后续维度或语义扩展)")
+    feature_version: str = Field(
+        default="v1", description="特征版本 (用于兼容后续维度或语义扩展)"
+    )
+
+
+class BatchClassifyResultItem(BaseModel):
+    """批量分类单个结果"""
+
+    file_name: str = Field(description="文件名")
+    category: Optional[str] = Field(default=None, description="分类类别")
+    confidence: Optional[float] = Field(default=None, description="置信度")
+    probabilities: Optional[Dict[str, float]] = Field(
+        default=None, description="各类别概率"
+    )
+    needs_review: bool = Field(default=False, description="是否需要人工复核")
+    review_reason: Optional[str] = Field(default=None, description="复核原因")
+    classifier: Optional[str] = Field(default=None, description="使用的分类器版本")
+    error: Optional[str] = Field(default=None, description="错误信息")
+
+
+class BatchClassifyResponse(BaseModel):
+    """批量分类响应"""
+
+    total: int = Field(description="总文件数")
+    success: int = Field(description="成功分类数")
+    failed: int = Field(description="失败数")
+    processing_time: float = Field(description="处理时间(秒)")
+    results: List[BatchClassifyResultItem] = Field(description="分类结果列表")
 
 
 class SimilarityQuery(BaseModel):
@@ -190,8 +248,12 @@ class VectorListResponse(BaseModel):  # deprecated moved to vectors.py
 
 class VectorUpdateRequest(BaseModel):
     id: str = Field(description="要更新的向量分析ID")
-    replace: Optional[list[float]] = Field(default=None, description="新的向量 (维度需与原向量一致)")
-    append: Optional[list[float]] = Field(default=None, description="追加的向量片段 (若提供 replace 则忽略)")
+    replace: Optional[list[float]] = Field(
+        default=None, description="新的向量 (维度需与原向量一致)"
+    )
+    append: Optional[list[float]] = Field(
+        default=None, description="追加的向量片段 (若提供 replace 则忽略)"
+    )
     material: Optional[str] = Field(default=None, description="更新材料元数据")
     complexity: Optional[str] = Field(default=None, description="更新复杂度元数据")
     format: Optional[str] = Field(default=None, description="更新格式元数据")
@@ -309,6 +371,37 @@ async def analyze_cad_file(
         file.file.seek(0)
         content_hash = hashlib.sha256(content_peek).hexdigest()[:16]
         analysis_cache_key = f"analysis:{file.filename}:{content_hash}:{options}"
+        # Include optional PartClassifier shadow settings in cache key to avoid
+        # cross-hitting cached payloads with/without shadow-only fields.
+        include_part_shadow = (
+            os.getenv("PART_CLASSIFIER_PROVIDER_INCLUDE_IN_CACHE_KEY", "true")
+            .strip()
+            .lower()
+            not in {"0", "false", "no", "off"}
+        )
+        if include_part_shadow:
+            suffix = str(file.filename or "").rsplit(".", 1)[-1].lower()
+            shadow_formats_raw = os.getenv(
+                "PART_CLASSIFIER_PROVIDER_SHADOW_FORMATS", "dxf,dwg"
+            )
+            shadow_formats = {
+                t.strip().lower()
+                for t in shadow_formats_raw.split(",")
+                if t.strip()
+            }
+            if suffix in shadow_formats:
+                shadow_enabled = (
+                    os.getenv("PART_CLASSIFIER_PROVIDER_ENABLED", "false")
+                    .strip()
+                    .lower()
+                    == "true"
+                )
+                shadow_provider = (
+                    os.getenv("PART_CLASSIFIER_PROVIDER_NAME", "v16").strip() or "v16"
+                )
+                analysis_cache_key = (
+                    f"{analysis_cache_key}:part_shadow={int(shadow_enabled)}:{shadow_provider}"
+                )
         cached = await get_cached_result(analysis_cache_key)
         if cached:
             logger.info(f"Cache hit for {file.filename}")
@@ -409,7 +502,16 @@ async def analyze_cad_file(
 
         # 获取文件格式
         file_format = file.filename.split(".")[-1].lower()
-        if file_format not in ["dxf", "dwg", "json", "step", "stp", "iges", "igs", "stl"]:
+        if file_format not in [
+            "dxf",
+            "dwg",
+            "json",
+            "step",
+            "stp",
+            "iges",
+            "igs",
+            "stl",
+        ]:
             analysis_requests_total.labels(status="error").inc()
             analysis_errors_total.labels(stage="input", code="unsupported_format").inc()
             # ErrorCode and build_error imported at module level
@@ -469,7 +571,9 @@ async def analyze_cad_file(
         try:
             from src.utils.analysis_metrics import parse_stage_latency_seconds
 
-            parse_stage_latency_seconds.labels(format=file_format).observe(_t.time() - _parse_start)
+            parse_stage_latency_seconds.labels(format=file_format).observe(
+                _t.time() - _parse_start
+            )
         except Exception:
             pass
         # Signature validation (heuristic)
@@ -494,13 +598,18 @@ async def analyze_cad_file(
 
         # Deep format validation (strict mode optional) + matrix validation
         strict_mode = os.getenv("FORMAT_STRICT_MODE", "0") == "1"
-        from src.utils.analysis_metrics import format_validation_fail_total, strict_mode_enabled
+        from src.utils.analysis_metrics import (
+            format_validation_fail_total,
+            strict_mode_enabled,
+        )
 
         if strict_mode:
             strict_mode_enabled.set(1)
             ok_deep, reason_deep = deep_format_validate(content[:2048], file_format)
             if not ok_deep:
-                format_validation_fail_total.labels(format=file_format, reason=reason_deep).inc()
+                format_validation_fail_total.labels(
+                    format=file_format, reason=reason_deep
+                ).inc()
                 analysis_rejections_total.labels(reason="deep_format_invalid").inc()
                 # ErrorCode imported at module level
                 # ErrorCode and build_error imported at module level
@@ -515,9 +624,13 @@ async def analyze_cad_file(
             # matrix validation
             from src.security.input_validator import matrix_validate
 
-            ok_matrix, reason_matrix = matrix_validate(content[:4096], file_format, project_id)
+            ok_matrix, reason_matrix = matrix_validate(
+                content[:4096], file_format, project_id
+            )
             if not ok_matrix:
-                format_validation_fail_total.labels(format=file_format, reason=reason_matrix).inc()
+                format_validation_fail_total.labels(
+                    format=file_format, reason=reason_matrix
+                ).inc()
                 analysis_rejections_total.labels(reason="matrix_format_invalid").inc()
                 # ErrorCode imported at module level
                 # ErrorCode and build_error imported at module level
@@ -539,9 +652,13 @@ async def analyze_cad_file(
         if project_id:
             doc.metadata["project_id"] = project_id
         stage_times["parse"] = time.time() - started
-        analysis_stage_duration_seconds.labels(stage="parse").observe(stage_times["parse"])
+        analysis_stage_duration_seconds.labels(stage="parse").observe(
+            stage_times["parse"]
+        )
         # Budget ratio metric (parse latency / target)
-        target_ms = float(__import__("os").getenv("ANALYSIS_PARSE_P95_TARGET_MS", "250"))
+        target_ms = float(
+            __import__("os").getenv("ANALYSIS_PARSE_P95_TARGET_MS", "250")
+        )
         if target_ms > 0:
             ratio = (stage_times["parse"] * 1000.0) / target_ms
             analysis_parse_latency_budget_ratio.observe(ratio)
@@ -570,7 +687,12 @@ async def analyze_cad_file(
         features_3d: Dict[str, Any] = {}
 
         # L3: 3D Feature Extraction (run before 2D feature extraction)
-        if analysis_options.extract_features and file_format in ["step", "stp", "iges", "igs"]:
+        if analysis_options.extract_features and file_format in [
+            "step",
+            "stp",
+            "iges",
+            "igs",
+        ]:
             try:
                 # Lazy import to avoid startup overhead if not used
                 from src.core.geometry.cache import get_feature_cache
@@ -612,7 +734,9 @@ async def analyze_cad_file(
                     results["features_3d"] = {
                         k: v for k, v in features_3d.items() if k != "embedding_vector"
                     }
-                    results["features_3d"]["embedding_dim"] = len(features_3d["embedding_vector"])
+                    results["features_3d"]["embedding_dim"] = len(
+                        features_3d["embedding_vector"]
+                    )
 
                 stage_times["features_3d"] = time.time() - _geo_start
             except Exception as e:
@@ -647,7 +771,7 @@ async def analyze_cad_file(
             except Exception:
                 pass
             extractor = FeatureExtractor()
-            combined_vec: list[float] | None = None
+            combined_vec: Optional[List[float]] = None
             if cached_vector is not None:
                 feature_cache_hits_total.inc()
                 # rehydrate cached vector into geometric/semantic split
@@ -760,7 +884,9 @@ async def analyze_cad_file(
                             "characteristics": [],
                             "rule_version": "L3-Fusion-v1",
                             "alternatives": fused_result.get("alternatives", []),
-                            "confidence_breakdown": fused_result.get("fusion_breakdown"),
+                            "confidence_breakdown": fused_result.get(
+                                "fusion_breakdown"
+                            ),
                         }
                     except Exception as e:
                         logger.error(f"Fusion failed, falling back to L1: {e}")
@@ -790,8 +916,12 @@ async def analyze_cad_file(
                                     "sub_type": None,
                                     "characteristics": [],
                                     "rule_version": "L2-Fusion-v1",
-                                    "alternatives": fused_result.get("alternatives", []),
-                                    "confidence_breakdown": fused_result.get("fusion_breakdown"),
+                                    "alternatives": fused_result.get(
+                                        "alternatives", []
+                                    ),
+                                    "confidence_breakdown": fused_result.get(
+                                        "fusion_breakdown"
+                                    ),
                                 }
                         except Exception as e:
                             logger.error(f"Fusion failed, falling back to L1: {e}")
@@ -808,11 +938,12 @@ async def analyze_cad_file(
                 rule_version = str(cls_payload.get("rule_version") or "")
                 cls_payload["confidence_source"] = (
                     "fusion"
-                    if rule_version.startswith("L3-Fusion") or rule_version.startswith("L2-Fusion")
+                    if rule_version.startswith("L3-Fusion")
+                    or rule_version.startswith("L2-Fusion")
                     else "rules"
                 )
                 # Attempt ML classification overlay
-                ml_result: Dict[str, Any] | None = None
+                ml_result: Optional[Dict[str, Any]] = None
                 try:
                     from src.ml.classifier import predict
 
@@ -827,72 +958,177 @@ async def analyze_cad_file(
                     ml_result = None
                     cls_payload["model_version"] = "ml_error"
                 # Optional 2D graph classifier (shadow by default)
-                graph2d_result: Dict[str, Any] | None = None
-                graph2d_fusable: Dict[str, Any] | None = None
-                graph2d_enabled = os.getenv("GRAPH2D_ENABLED", "false").lower() == "true"
+                graph2d_result: Optional[Dict[str, Any]] = None
+                graph2d_fusable: Optional[Dict[str, Any]] = None
+                graph2d_enabled = (
+                    os.getenv("GRAPH2D_ENABLED", "false").lower() == "true"
+                )
                 if graph2d_enabled and file_format == "dxf":
                     try:
                         graph2d_ensemble_enabled = (
-                            os.getenv("GRAPH2D_ENSEMBLE_ENABLED", "false").lower() == "true"
+                            os.getenv("GRAPH2D_ENSEMBLE_ENABLED", "false").lower()
+                            == "true"
                         )
-                        from src.ml.vision_2d import (
-                            get_2d_classifier,
-                            get_ensemble_2d_classifier,
+                        from src.core.providers import (
+                            ProviderRegistry,
+                            bootstrap_core_provider_registry,
                         )
+                        from src.core.providers.classifier import ClassifierRequest
 
-                        classifier = (
-                            get_ensemble_2d_classifier()
+                        bootstrap_core_provider_registry()
+                        provider_name = (
+                            "graph2d_ensemble"
                             if graph2d_ensemble_enabled
-                            else get_2d_classifier()
+                            else "graph2d"
                         )
-                        graph2d_result = classifier.predict_from_bytes(content, file.filename)
-                        if graph2d_result.get("status") != "model_unavailable":
+                        provider = ProviderRegistry.get("classifier", provider_name)
+                        graph2d_result = await provider.process(
+                            ClassifierRequest(
+                                filename=file.filename,
+                                file_bytes=content,
+                            )
+                        )
+                        if isinstance(graph2d_result, dict):
                             graph2d_min_conf = _safe_float_env("GRAPH2D_MIN_CONF", 0.0)
-                            graph2d_conf = float(graph2d_result.get("confidence", 0.0))
-                            graph2d_allow_raw = os.getenv("GRAPH2D_ALLOW_LABELS", "").strip()
-                            graph2d_allow = {
-                                label.strip()
-                                for label in graph2d_allow_raw.split(",")
-                                if label.strip()
-                            }
-                            graph2d_exclude_raw = os.getenv("GRAPH2D_EXCLUDE_LABELS", "other")
-                            graph2d_exclude = {
-                                label.strip()
-                                for label in graph2d_exclude_raw.split(",")
-                                if label.strip()
-                            }
-                            graph2d_label = str(graph2d_result.get("label") or "").strip()
-                            graph2d_is_drawing_type = _graph2d_is_drawing_type(graph2d_label)
-                            graph2d_allowed = not graph2d_allow or graph2d_label in graph2d_allow
+                            if "GRAPH2D_MIN_CONF" not in os.environ:
+                                try:
+                                    from src.ml.hybrid_config import get_config
+
+                                    graph2d_min_conf = float(
+                                        get_config().graph2d.min_confidence
+                                    )
+                                except Exception:
+                                    pass
+                            graph2d_min_margin = _safe_float_env(
+                                "GRAPH2D_MIN_MARGIN", 0.0
+                            )
+                            if "GRAPH2D_MIN_MARGIN" not in os.environ:
+                                try:
+                                    from src.ml.hybrid_config import get_config
+
+                                    graph2d_min_margin = float(
+                                        getattr(get_config().graph2d, "min_margin", 0.0)
+                                    )
+                                except Exception:
+                                    pass
+
+                            # Always attach Graph2D payload for diagnostics (including
+                            # `status=model_unavailable`) and so downstream policy (e.g.
+                            # soft-override threshold defaults) can key off min_confidence.
                             graph2d_result["min_confidence"] = graph2d_min_conf
-                            graph2d_result["passed_threshold"] = graph2d_conf >= graph2d_min_conf
-                            graph2d_result["excluded"] = graph2d_label in graph2d_exclude
-                            graph2d_result["allowed"] = graph2d_allowed
-                            graph2d_result["is_drawing_type"] = graph2d_is_drawing_type
+                            graph2d_result["min_margin"] = graph2d_min_margin
                             graph2d_result["ensemble_enabled"] = graph2d_ensemble_enabled
                             cls_payload["graph2d_prediction"] = graph2d_result
-                            if (
-                                graph2d_result["passed_threshold"]
-                                and graph2d_allowed
-                                and not graph2d_result["excluded"]
-                                and not graph2d_is_drawing_type
-                            ):
-                                graph2d_fusable = graph2d_result
+
+                            if graph2d_result.get("status") != "model_unavailable":
+                                graph2d_conf = float(
+                                    graph2d_result.get("confidence", 0.0)
+                                )
+                                graph2d_margin_raw = None
+                                try:
+                                    if graph2d_result.get("margin") is not None:
+                                        graph2d_margin_raw = float(
+                                            graph2d_result.get("margin")
+                                        )
+                                except Exception:
+                                    graph2d_margin_raw = None
+                                graph2d_passed_margin = True
+                                if graph2d_margin_raw is not None:
+                                    graph2d_passed_margin = (
+                                        graph2d_margin_raw >= graph2d_min_margin
+                                    )
+                                graph2d_allow_raw = os.getenv(
+                                    "GRAPH2D_ALLOW_LABELS", ""
+                                ).strip()
+                                graph2d_exclude_raw = os.getenv(
+                                    "GRAPH2D_EXCLUDE_LABELS", ""
+                                ).strip()
+
+                                # Default allow/exclude to HybridClassifier config when env not provided.
+                                # This keeps API payload + soft-override behavior consistent with
+                                # `config/hybrid_classifier.yaml` and `src/ml/hybrid_config.py`.
+                                if not graph2d_allow_raw or not graph2d_exclude_raw:
+                                    try:
+                                        from src.ml.hybrid_config import get_config
+
+                                        cfg = get_config()
+                                        if not graph2d_allow_raw:
+                                            graph2d_allow_raw = str(
+                                                cfg.graph2d.allow_labels or ""
+                                            ).strip()
+                                        if not graph2d_exclude_raw:
+                                            graph2d_exclude_raw = str(
+                                                cfg.graph2d.exclude_labels or ""
+                                            ).strip()
+                                    except Exception:
+                                        pass
+
+                                if not graph2d_exclude_raw:
+                                    graph2d_exclude_raw = "other"
+                                graph2d_allow = {
+                                    label.strip()
+                                    for label in graph2d_allow_raw.split(",")
+                                    if label.strip()
+                                }
+                                graph2d_exclude = {
+                                    label.strip()
+                                    for label in graph2d_exclude_raw.split(",")
+                                    if label.strip()
+                                }
+                                graph2d_label = str(
+                                    graph2d_result.get("label") or ""
+                                ).strip()
+                                graph2d_is_drawing_type = _graph2d_is_drawing_type(
+                                    graph2d_label
+                                )
+                                graph2d_is_coarse_label = _graph2d_is_coarse_label(
+                                    graph2d_label
+                                )
+                                graph2d_allowed = (
+                                    not graph2d_allow or graph2d_label in graph2d_allow
+                                )
+                                graph2d_result["passed_threshold"] = (
+                                    graph2d_conf >= graph2d_min_conf
+                                )
+                                graph2d_result["passed_margin"] = graph2d_passed_margin
+                                graph2d_result["excluded"] = (
+                                    graph2d_label in graph2d_exclude
+                                )
+                                graph2d_result["allowed"] = graph2d_allowed
+                                graph2d_result["is_drawing_type"] = graph2d_is_drawing_type
+                                graph2d_result["is_coarse_label"] = graph2d_is_coarse_label
+                                if (
+                                    graph2d_result["passed_threshold"]
+                                    and graph2d_result.get("passed_margin", True)
+                                    and graph2d_allowed
+                                    and not graph2d_result["excluded"]
+                                    and not graph2d_is_drawing_type
+                                ):
+                                    graph2d_fusable = graph2d_result
                     except Exception:
                         graph2d_result = None
                 # Optional Hybrid classifier (filename + graph2d fusion)
-                hybrid_result: Dict[str, Any] | None = None
-                hybrid_enabled = os.getenv("HYBRID_CLASSIFIER_ENABLED", "true").lower() == "true"
+                hybrid_result: Optional[Dict[str, Any]] = None
+                hybrid_enabled = (
+                    os.getenv("HYBRID_CLASSIFIER_ENABLED", "true").lower() == "true"
+                )
                 if hybrid_enabled and file_format == "dxf":
                     try:
-                        from src.ml.hybrid_classifier import get_hybrid_classifier
+                        from src.core.providers import (
+                            ProviderRegistry,
+                            bootstrap_core_provider_registry,
+                        )
+                        from src.core.providers.classifier import ClassifierRequest
 
-                        hybrid = get_hybrid_classifier()
-                        hybrid_result = hybrid.classify(
-                            filename=file.filename,
-                            file_bytes=content,
+                        bootstrap_core_provider_registry()
+                        provider = ProviderRegistry.get("classifier", "hybrid")
+                        hybrid_result = await provider.process(
+                            ClassifierRequest(
+                                filename=file.filename,
+                                file_bytes=content,
+                            ),
                             graph2d_result=graph2d_result,
-                        ).to_dict()
+                        )
                         cls_payload["filename_prediction"] = hybrid_result.get(
                             "filename_prediction"
                         )
@@ -900,18 +1136,207 @@ async def analyze_cad_file(
                             "titleblock_prediction"
                         )
                         cls_payload["hybrid_decision"] = hybrid_result
+                        hybrid_label = str(hybrid_result.get("label") or "").strip()
+                        if hybrid_label:
+                            cls_payload["fine_part_type"] = hybrid_label
+                            cls_payload["fine_confidence"] = float(
+                                hybrid_result.get("confidence", 0.0) or 0.0
+                            )
+                            cls_payload["fine_source"] = hybrid_result.get("source")
+                            cls_payload["fine_rule_version"] = "HybridClassifier-v1"
                     except Exception as exc:
                         cls_payload["hybrid_error"] = str(exc)
-                soft_override_suggestion: Dict[str, Any] | None = None
-                if graph2d_result and graph2d_result.get("status") != "model_unavailable":
+                # Optional V16/V6 PartClassifier provider (shadow-only; does not override part_type).
+                # This is useful when evaluating in-process part classification models without
+                # changing the primary fusion/Hybrid decision logic.
+                part_provider_enabled = (
+                    os.getenv("PART_CLASSIFIER_PROVIDER_ENABLED", "false").lower()
+                    == "true"
+                )
+                shadow_formats_raw = os.getenv(
+                    "PART_CLASSIFIER_PROVIDER_SHADOW_FORMATS", "dxf,dwg"
+                ).strip()
+                shadow_formats = {
+                    t.strip().lower()
+                    for t in shadow_formats_raw.split(",")
+                    if t.strip()
+                }
+                if part_provider_enabled:
+                    from src.core.classification import normalize_part_family_prediction
+                    from src.utils.analysis_metrics import (
+                        analysis_part_classifier_requests_total,
+                        analysis_part_classifier_seconds,
+                        analysis_part_classifier_skipped_total,
+                    )
+
+                    if file_format not in shadow_formats:
+                        analysis_part_classifier_skipped_total.labels(
+                            reason="format_not_supported"
+                        ).inc()
+                    else:
+                        provider_name = (
+                            os.getenv("PART_CLASSIFIER_PROVIDER_NAME", "v16").strip()
+                            or "v16"
+                        )
+                        timeout_seconds = _safe_float_env(
+                            "PART_CLASSIFIER_PROVIDER_TIMEOUT_SECONDS", 2.0
+                        )
+                        max_mb = _safe_float_env(
+                            "PART_CLASSIFIER_PROVIDER_MAX_MB", 10.0
+                        )
+                        size_mb = len(content) / (1024 * 1024)
+                        tmp_path: Optional[str] = None
+                        status_label = "error"
+                        part_result: Dict[str, Any]
+                        started_at = None
+                        try:
+                            import asyncio
+                            import tempfile
+                            import time as _t_perf
+
+                            started_at = _t_perf.perf_counter()
+                            if size_mb > max_mb:
+                                status_label = "skipped"
+                                part_result = {
+                                    "status": "file_too_large",
+                                    "error": "skipped due to file size",
+                                    "max_mb": float(max_mb),
+                                    "size_mb": round(size_mb, 3),
+                                }
+                                analysis_part_classifier_skipped_total.labels(
+                                    reason="file_too_large"
+                                ).inc()
+                            else:
+                                with tempfile.NamedTemporaryFile(
+                                    delete=False, suffix=f".{file_format}"
+                                ) as tmp:
+                                    tmp.write(content)
+                                    tmp_path = tmp.name
+
+                                from src.core.providers import (
+                                    ProviderRegistry,
+                                    bootstrap_core_provider_registry,
+                                )
+                                from src.core.providers.classifier import ClassifierRequest
+
+                                bootstrap_core_provider_registry()
+                                provider = ProviderRegistry.get(
+                                    "classifier", provider_name
+                                )
+                                try:
+                                    timeout = float(
+                                        min(max(timeout_seconds, 0.01), 10.0)
+                                    )
+                                    part_result = await asyncio.wait_for(
+                                        provider.process(
+                                            ClassifierRequest(
+                                                filename=file.filename,
+                                                file_path=tmp_path,
+                                            )
+                                        ),
+                                        timeout=timeout,
+                                    )
+                                except asyncio.TimeoutError:
+                                    status_label = "timeout"
+                                    part_result = {
+                                        "status": "timeout",
+                                        "error": f"timeout after {timeout_seconds:.2f}s",
+                                    }
+                                except Exception as exc:  # noqa: BLE001
+                                    status_label = "error"
+                                    part_result = {
+                                        "status": "error",
+                                        "error": str(exc),
+                                    }
+
+                                raw_status = str(part_result.get("status") or "").strip().lower()
+                                if raw_status == "ok":
+                                    status_label = "success"
+                                elif raw_status in {"timeout"}:
+                                    status_label = "timeout"
+                                elif raw_status in {"unavailable", "no_prediction", "model_unavailable"}:
+                                    status_label = "unavailable"
+                                elif raw_status == "file_too_large":
+                                    status_label = "skipped"
+                                else:
+                                    status_label = "error"
+
+                            if isinstance(part_result, dict):
+                                part_result.setdefault("provider", provider_name)
+                            cls_payload["part_classifier_prediction"] = part_result
+                            cls_payload.update(
+                                normalize_part_family_prediction(
+                                    part_result, provider_name=provider_name
+                                )
+                            )
+                        except Exception as exc:  # noqa: BLE001
+                            status_label = "error"
+                            part_result = {
+                                "status": "error",
+                                "error": str(exc),
+                                "provider": provider_name,
+                            }
+                            cls_payload["part_classifier_prediction"] = part_result
+                            cls_payload.update(
+                                normalize_part_family_prediction(
+                                    part_result, provider_name=provider_name
+                                )
+                            )
+                        finally:
+                            if tmp_path:
+                                try:
+                                    os.unlink(tmp_path)
+                                except Exception:
+                                    pass
+                            if started_at is not None:
+                                try:
+                                    import time as _t_perf
+
+                                    elapsed = _t_perf.perf_counter() - started_at
+                                    analysis_part_classifier_seconds.labels(
+                                        provider=provider_name
+                                    ).observe(elapsed)
+                                except Exception:
+                                    pass
+                            try:
+                                analysis_part_classifier_requests_total.labels(
+                                    status=status_label, provider=provider_name
+                                ).inc()
+                            except Exception:
+                                pass
+                soft_override_suggestion: Optional[Dict[str, Any]] = None
+                if (
+                    graph2d_result
+                    and graph2d_result.get("status") != "model_unavailable"
+                ):
+                    # Keep soft-override behavior aligned with the Graph2D gate
+                    # (`GRAPH2D_MIN_CONF` / `config/hybrid_classifier.yaml`) by default.
+                    # Users can still override via env `GRAPH2D_SOFT_OVERRIDE_MIN_CONF`.
+                    graph2d_min_conf_default = 0.17
+                    try:
+                        if graph2d_result.get("min_confidence") is not None:
+                            graph2d_min_conf_default = float(
+                                graph2d_result.get("min_confidence")
+                            )
+                    except Exception:
+                        graph2d_min_conf_default = 0.17
                     soft_override_min_conf = _safe_float_env(
-                        "GRAPH2D_SOFT_OVERRIDE_MIN_CONF", 0.17
+                        "GRAPH2D_SOFT_OVERRIDE_MIN_CONF", graph2d_min_conf_default
                     )
                     graph2d_label = str(graph2d_result.get("label") or "").strip()
                     graph2d_conf = float(graph2d_result.get("confidence", 0.0))
                     graph2d_allowed = bool(graph2d_result.get("allowed", True))
                     graph2d_excluded = bool(graph2d_result.get("excluded", False))
-                    graph2d_is_drawing_type = bool(graph2d_result.get("is_drawing_type", False))
+                    graph2d_passed_margin = bool(
+                        graph2d_result.get("passed_margin", True)
+                    )
+                    graph2d_min_margin = float(graph2d_result.get("min_margin", 0.0) or 0.0)
+                    graph2d_is_drawing_type = bool(
+                        graph2d_result.get("is_drawing_type", False)
+                    )
+                    graph2d_is_coarse_label = bool(
+                        graph2d_result.get("is_coarse_label", False)
+                    )
                     eligible = True
                     reason = "eligible"
                     if cls_payload.get("confidence_source") != "rules":
@@ -929,27 +1354,50 @@ async def analyze_cad_file(
                     elif graph2d_is_drawing_type:
                         eligible = False
                         reason = "graph2d_drawing_type"
+                    elif graph2d_is_coarse_label:
+                        eligible = False
+                        reason = "graph2d_coarse_label"
+                    elif not graph2d_passed_margin:
+                        eligible = False
+                        reason = "below_margin"
                     elif graph2d_conf < soft_override_min_conf:
                         eligible = False
                         reason = "below_threshold"
                     soft_override_suggestion = {
                         "eligible": eligible,
                         "threshold": soft_override_min_conf,
+                        "min_margin": graph2d_min_margin,
+                        "passed_margin": graph2d_passed_margin,
                         "label": graph2d_label,
                         "confidence": graph2d_conf,
                         "reason": reason,
                     }
                     cls_payload["soft_override_suggestion"] = soft_override_suggestion
                 elif graph2d_result is not None:
+                    graph2d_min_conf_default = 0.17
+                    try:
+                        if graph2d_result.get("min_confidence") is not None:
+                            graph2d_min_conf_default = float(
+                                graph2d_result.get("min_confidence")
+                            )
+                    except Exception:
+                        graph2d_min_conf_default = 0.17
                     cls_payload["soft_override_suggestion"] = {
                         "eligible": False,
-                        "threshold": _safe_float_env("GRAPH2D_SOFT_OVERRIDE_MIN_CONF", 0.17),
+                        "threshold": _safe_float_env(
+                            "GRAPH2D_SOFT_OVERRIDE_MIN_CONF",
+                            graph2d_min_conf_default,
+                        ),
                         "label": None,
-                        "confidence": float(graph2d_result.get("confidence", 0.0) or 0.0),
+                        "confidence": float(
+                            graph2d_result.get("confidence", 0.0) or 0.0
+                        ),
                         "reason": "graph2d_unavailable",
                     }
                 # Optional FusionAnalyzer (shadow by default)
-                fusion_enabled = os.getenv("FUSION_ANALYZER_ENABLED", "false").lower() == "true"
+                fusion_enabled = (
+                    os.getenv("FUSION_ANALYZER_ENABLED", "false").lower() == "true"
+                )
                 fusion_override = (
                     os.getenv("FUSION_ANALYZER_OVERRIDE", "false").lower() == "true"
                 )
@@ -958,11 +1406,14 @@ async def analyze_cad_file(
                 )
                 if fusion_enabled:
                     try:
-                        from src.core.knowledge.fusion_analyzer import get_fusion_analyzer
+                        from src.core.knowledge.fusion_analyzer import (
+                            get_fusion_analyzer,
+                        )
 
                         l4_prediction = None
                         graph2d_fusion = (
-                            os.getenv("GRAPH2D_FUSION_ENABLED", "false").lower() == "true"
+                            os.getenv("GRAPH2D_FUSION_ENABLED", "false").lower()
+                            == "true"
                         )
                         if (
                             graph2d_fusion
@@ -971,7 +1422,9 @@ async def analyze_cad_file(
                         ):
                             l4_prediction = {
                                 "label": graph2d_fusable["label"],
-                                "confidence": float(graph2d_fusable.get("confidence", 0.0)),
+                                "confidence": float(
+                                    graph2d_fusable.get("confidence", 0.0)
+                                ),
                                 "source": "graph2d",
                             }
                         elif ml_result and ml_result.get("predicted_type"):
@@ -994,8 +1447,13 @@ async def analyze_cad_file(
                             "l3": l3_features,
                             "l4": l4_prediction,
                         }
-                        if fusion_override and fusion_decision.confidence >= fusion_override_min_conf:
-                            from src.core.knowledge.fusion_contracts import DecisionSource
+                        if (
+                            fusion_override
+                            and fusion_decision.confidence >= fusion_override_min_conf
+                        ):
+                            from src.core.knowledge.fusion_contracts import (
+                                DecisionSource,
+                            )
 
                             is_default_rule = (
                                 fusion_decision.source == DecisionSource.RULE_BASED
@@ -1021,20 +1479,88 @@ async def analyze_cad_file(
                             }
                     except Exception as e:
                         logger.error(f"FusionAnalyzer failed: {e}")
-                # Optional Hybrid override (off by default)
-                hybrid_override = (
+                # Hybrid override:
+                # - Default: auto-adopt high-confidence HybridClassifier label when the
+                #   base classifier is a placeholder (rule_version=v1 bucket types).
+                # - Optional: force override via env `HYBRID_CLASSIFIER_OVERRIDE=true`.
+                hybrid_override_env = (
                     os.getenv("HYBRID_CLASSIFIER_OVERRIDE", "false").lower() == "true"
                 )
-                if hybrid_override and hybrid_result:
+                hybrid_auto_override = (
+                    os.getenv("HYBRID_CLASSIFIER_AUTO_OVERRIDE", "true").lower()
+                    == "true"
+                )
+                if hybrid_result:
                     hybrid_min_conf = _safe_float_env("HYBRID_OVERRIDE_MIN_CONF", 0.8)
+                    hybrid_base_max_conf = _safe_float_env(
+                        "HYBRID_OVERRIDE_BASE_MAX_CONF", 0.7
+                    )
                     hybrid_label = hybrid_result.get("label")
                     hybrid_conf = float(hybrid_result.get("confidence", 0.0) or 0.0)
-                    if hybrid_label and hybrid_conf >= hybrid_min_conf:
+
+                    placeholder_types = {
+                        "",
+                        "simple_plate",
+                        "moderate_component",
+                        "complex_assembly",
+                        "unknown",
+                        "other",
+                    }
+                    current_part_type = str(cls_payload.get("part_type") or "").strip()
+                    current_is_drawing_type = _graph2d_is_drawing_type(
+                        current_part_type
+                    )
+                    is_placeholder_rule = (
+                        str(cls_payload.get("confidence_source") or "") == "rules"
+                        and str(cls_payload.get("rule_version") or "") == "v1"
+                        and current_part_type in placeholder_types
+                    )
+                    base_conf = float(cls_payload.get("confidence", 0.0) or 0.0)
+                    is_low_conf_base = (
+                        str(cls_payload.get("confidence_source") or "") == "rules"
+                        and base_conf < hybrid_base_max_conf
+                    )
+
+                    mode: Optional[str] = None
+                    should_override = False
+                    if hybrid_override_env:
+                        mode = "env"
+                        should_override = bool(hybrid_label) and (
+                            hybrid_conf >= hybrid_min_conf
+                        )
+                    elif hybrid_auto_override and is_placeholder_rule:
+                        mode = "auto"
+                        should_override = bool(hybrid_label) and (
+                            hybrid_conf >= hybrid_min_conf
+                        )
+                    elif hybrid_auto_override and is_low_conf_base:
+                        mode = "auto_low_conf"
+                        should_override = bool(hybrid_label) and (
+                            hybrid_conf >= hybrid_min_conf
+                        )
+                    elif hybrid_auto_override and current_is_drawing_type:
+                        mode = "auto_drawing_type"
+                        should_override = bool(hybrid_label) and (
+                            hybrid_conf >= hybrid_min_conf
+                        )
+
+                    if should_override:
+                        cls_payload["hybrid_override_applied"] = {
+                            "mode": mode,
+                            "min_confidence": hybrid_min_conf,
+                            "base_max_confidence": hybrid_base_max_conf,
+                            "previous_part_type": cls_payload.get("part_type"),
+                            "previous_confidence": cls_payload.get("confidence"),
+                            "previous_rule_version": cls_payload.get("rule_version"),
+                            "previous_confidence_source": cls_payload.get(
+                                "confidence_source"
+                            ),
+                        }
                         cls_payload["part_type"] = hybrid_label
                         cls_payload["confidence"] = hybrid_conf
                         cls_payload["rule_version"] = "HybridClassifier-v1"
                         cls_payload["confidence_source"] = "hybrid"
-                    else:
+                    elif hybrid_override_env:
                         cls_payload["hybrid_override_skipped"] = {
                             "min_confidence": hybrid_min_conf,
                             "decision_confidence": hybrid_conf,
@@ -1044,13 +1570,20 @@ async def analyze_cad_file(
                 # Active learning: flag low-confidence samples for review
                 try:
                     enabled = (
-                        __import__("os").getenv("ACTIVE_LEARNING_ENABLED", "false").lower()
+                        __import__("os")
+                        .getenv("ACTIVE_LEARNING_ENABLED", "false")
+                        .lower()
                         == "true"
                     )
                     threshold = float(
-                        __import__("os").getenv("ACTIVE_LEARNING_CONFIDENCE_THRESHOLD", "0.6")
+                        __import__("os").getenv(
+                            "ACTIVE_LEARNING_CONFIDENCE_THRESHOLD", "0.6"
+                        )
                     )
-                    if enabled and float(cls_payload.get("confidence", 1.0)) < threshold:
+                    if (
+                        enabled
+                        and float(cls_payload.get("confidence", 1.0)) < threshold
+                    ):
                         from src.core.active_learning import get_active_learner
 
                         learner = get_active_learner()
@@ -1062,8 +1595,12 @@ async def analyze_cad_file(
                             score_breakdown={
                                 "rule_version": cls_payload.get("rule_version"),
                                 "model_version": cls_payload.get("model_version"),
-                                "confidence_source": cls_payload.get("confidence_source"),
-                                "confidence_breakdown": cls_payload.get("confidence_breakdown"),
+                                "confidence_source": cls_payload.get(
+                                    "confidence_source"
+                                ),
+                                "confidence_breakdown": cls_payload.get(
+                                    "confidence_breakdown"
+                                ),
                             },
                             uncertainty_reason="low_confidence",
                         )
@@ -1099,7 +1636,9 @@ async def analyze_cad_file(
 
                         dfm = get_dfm_analyzer()
                         # Use classified type or unknown
-                        ptype = results.get("classification", {}).get("part_type", "unknown")
+                        ptype = results.get("classification", {}).get(
+                            "part_type", "unknown"
+                        )
                         dfm_result = dfm.analyze(features_3d, ptype)
                         dfm_analysis_latency_seconds.observe(time.time() - dfm_start)
 
@@ -1133,10 +1672,14 @@ async def analyze_cad_file(
                 proc_result = None
                 if "features_3d" in locals() and features_3d:
                     try:
-                        from src.core.process.ai_recommender import get_process_recommender
+                        from src.core.process.ai_recommender import (
+                            get_process_recommender,
+                        )
 
                         recommender = get_process_recommender()
-                        ptype = results.get("classification", {}).get("part_type", "unknown")
+                        ptype = results.get("classification", {}).get(
+                            "part_type", "unknown"
+                        )
                         mat = material or "steel"  # Default
 
                         proc_result = recommender.recommend(features_3d, ptype, mat)
@@ -1156,7 +1699,11 @@ async def analyze_cad_file(
                     proc_result = process if isinstance(process, dict) else {}
 
                 # L4 Cost Estimation (Chained after Process)
-                if analysis_options.estimate_cost and "features_3d" in locals() and features_3d:
+                if (
+                    analysis_options.estimate_cost
+                    and "features_3d" in locals()
+                    and features_3d
+                ):
                     try:
                         from src.core.cost.estimator import get_cost_estimator
 
@@ -1174,7 +1721,9 @@ async def analyze_cad_file(
                             features_3d, primary_proc, material=material or "steel"
                         )
                         results["cost_estimation"] = cost_est
-                        cost_estimation_latency_seconds.observe(time.time() - cost_start)
+                        cost_estimation_latency_seconds.observe(
+                            time.time() - cost_start
+                        )
                     except Exception as e:
                         logger.error(f"Cost estimation failed: {e}")
 
@@ -1196,7 +1745,9 @@ async def analyze_cad_file(
             for stage_name, indiv_dur in stage_results:
                 stage_times[stage_name] = indiv_dur
                 serial_sum += indiv_dur
-                analysis_stage_duration_seconds.labels(stage=stage_name).observe(indiv_dur)
+                analysis_stage_duration_seconds.labels(stage=stage_name).observe(
+                    indiv_dur
+                )
             # Savings = sum of individual durations - wall time (non-negative)
             from src.utils.analysis_metrics import analysis_parallel_savings_seconds
 
@@ -1211,7 +1762,9 @@ async def analyze_cad_file(
         try:
             quality = results.get("quality", {}) if isinstance(results, dict) else {}
             process = results.get("process", {}) if isinstance(results, dict) else {}
-            cost = results.get("cost_estimation", {}) if isinstance(results, dict) else {}
+            cost = (
+                results.get("cost_estimation", {}) if isinstance(results, dict) else {}
+            )
 
             primary_proc = {}
             if isinstance(process, dict):
@@ -1235,14 +1788,20 @@ async def analyze_cad_file(
 
             if quality or process or cost:
                 results["manufacturing_decision"] = {
-                    "feasibility": quality.get("manufacturability")
-                    if isinstance(quality, dict)
-                    else None,
-                    "risks": quality.get("issues", []) if isinstance(quality, dict) else [],
+                    "feasibility": (
+                        quality.get("manufacturability")
+                        if isinstance(quality, dict)
+                        else None
+                    ),
+                    "risks": (
+                        quality.get("issues", []) if isinstance(quality, dict) else []
+                    ),
                     "process": primary_proc or None,
                     "cost_estimate": cost if isinstance(cost, dict) else None,
                     "cost_range": cost_range,
-                    "currency": cost.get("currency") if isinstance(cost, dict) else None,
+                    "currency": (
+                        cost.get("currency") if isinstance(cost, dict) else None
+                    ),
                 }
         except Exception as e:
             logger.warning(f"Manufacturing decision summary failed: {e}")
@@ -1269,27 +1828,39 @@ async def analyze_cad_file(
                 )
                 m_used = material or "unknown"
                 st["materials"].append(m_used)
-                pred_label = results.get("classification", {}).get("type") or results.get(
-                    "classification", {}
-                ).get("ml_predicted_type")
+                pred_label = results.get("classification", {}).get(
+                    "type"
+                ) or results.get("classification", {}).get("ml_predicted_type")
                 if pred_label:
                     st["predictions"].append(str(pred_label))
                 # establish baselines once minimum count reached
-                min_count = int(__import__("os").getenv("DRIFT_BASELINE_MIN_COUNT", "100"))
-                if len(st["baseline_materials"]) == 0 and len(st["materials"]) >= min_count:
+                min_count = int(
+                    __import__("os").getenv("DRIFT_BASELINE_MIN_COUNT", "100")
+                )
+                if (
+                    len(st["baseline_materials"]) == 0
+                    and len(st["materials"]) >= min_count
+                ):
                     st["baseline_materials"] = list(st["materials"])
                     # persist baseline to redis if available
                     try:
-                        client = __import__("src.utils.cache", fromlist=["get_client"]).get_client()
+                        client = __import__(
+                            "src.utils.cache", fromlist=["get_client"]
+                        ).get_client()
                         if client is not None:
                             await client.set("baseline:material", json.dumps(st["baseline_materials"]))  # type: ignore[attr-defined]
                             await client.set("baseline:material:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
                     except Exception:
                         pass
-                if len(st["baseline_predictions"]) == 0 and len(st["predictions"]) >= min_count:
+                if (
+                    len(st["baseline_predictions"]) == 0
+                    and len(st["predictions"]) >= min_count
+                ):
                     st["baseline_predictions"] = list(st["predictions"])
                     try:
-                        client = __import__("src.utils.cache", fromlist=["get_client"]).get_client()
+                        client = __import__(
+                            "src.utils.cache", fromlist=["get_client"]
+                        ).get_client()
                         if client is not None:
                             await client.set("baseline:class", json.dumps(st["baseline_predictions"]))  # type: ignore[attr-defined]
                             await client.set("baseline:class:ts", str(int(__import__("time").time())))  # type: ignore[attr-defined]
@@ -1299,7 +1870,9 @@ async def analyze_cad_file(
                     mat_score = compute_drift(st["materials"], st["baseline_materials"])
                     material_distribution_drift_score.observe(mat_score)
                 if st["baseline_predictions"]:
-                    cls_score = compute_drift(st["predictions"], st["baseline_predictions"])
+                    cls_score = compute_drift(
+                        st["predictions"], st["baseline_predictions"]
+                    )
                     classification_prediction_drift_score.observe(cls_score)
                 setattr(_DRIFT_STATE, "_DRIFT_STATE", st)
         except Exception:
@@ -1312,12 +1885,14 @@ async def analyze_cad_file(
             feature_version = __import__("os").getenv("FEATURE_VERSION", "v1")
             feature_vector: list[float] = FeatureExtractor().flatten(features)
             vector_layout = VECTOR_LAYOUT_BASE
-            l3_dim: int | None = None
+            l3_dim: Optional[int] = None
 
             # L3 Integration: Append 3D embedding if available
             if "features_3d" in locals() and "embedding_vector" in features_3d:
                 l3_dim = len(features_3d["embedding_vector"])
-                feature_vector.extend([float(x) for x in features_3d["embedding_vector"]])
+                feature_vector.extend(
+                    [float(x) for x in features_3d["embedding_vector"]]
+                )
                 vector_layout = VECTOR_LAYOUT_L3
 
             m_used = material or "unknown"
@@ -1361,22 +1936,36 @@ async def analyze_cad_file(
         if analysis_options.calculate_similarity and analysis_options.reference_id:
             sim = compute_similarity(analysis_options.reference_id, feature_vector)
             results["similarity"] = sim
-        elif analysis_options.reference_id and not has_vector(analysis_options.reference_id):
+        elif analysis_options.reference_id and not has_vector(
+            analysis_options.reference_id
+        ):
             results["similarity"] = {
                 "reference_id": analysis_options.reference_id,
                 "status": "reference_not_found",
             }
         if "similarity" in results:
-            stage_times["similarity"] = time.time() - started - sum(stage_times.values())
+            stage_times["similarity"] = (
+                time.time() - started - sum(stage_times.values())
+            )
             analysis_stage_duration_seconds.labels(stage="similarity").observe(
                 stage_times["similarity"]
             )
 
         # 可选 OCR 集成 (向后兼容: 默认不启用)
         if analysis_options.enable_ocr:
+            from src.core.providers import (
+                ProviderRegistry,
+                bootstrap_core_provider_registry,
+            )
+
+            bootstrap_core_provider_registry()
             ocr_manager = OcrManager(confidence_fallback=0.85)
-            ocr_manager.register_provider("paddle", PaddleOcrProvider())
-            ocr_manager.register_provider("deepseek_hf", DeepSeekHfProvider())
+            ocr_manager.register_provider(
+                "paddle", ProviderRegistry.get("ocr", "paddle")
+            )
+            ocr_manager.register_provider(
+                "deepseek_hf", ProviderRegistry.get("ocr", "deepseek_hf")
+            )
             # 简单处理: 如果是图像/含预览可抽取, 此处示例假设 unified_data 带有 preview_image_bytes
             img_bytes = unified_data.get("preview_image_bytes")
             if img_bytes:
@@ -1385,7 +1974,8 @@ async def analyze_cad_file(
                 )
                 results["ocr"] = {
                     "provider": ocr_result.provider,
-                    "confidence": ocr_result.calibrated_confidence or ocr_result.confidence,
+                    "confidence": ocr_result.calibrated_confidence
+                    or ocr_result.confidence,
                     "fallback_level": ocr_result.fallback_level,
                     "dimensions": [d.model_dump() for d in ocr_result.dimensions],
                     "symbols": [s.model_dump() for s in ocr_result.symbols],
@@ -1419,7 +2009,9 @@ async def analyze_cad_file(
                 "analysis_id": analysis_id,
                 "processing_time_s": round(processing_time, 4),
                 "stages": stage_times,
-                "feature_vector_dim": len(feature_vector) if "feature_vector" in locals() else 0,
+                "feature_vector_dim": (
+                    len(feature_vector) if "feature_vector" in locals() else 0
+                ),
                 "material": material,
                 "complexity": unified_data.get("complexity"),
             },
@@ -1457,7 +2049,9 @@ async def analyze_cad_file(
         analysis_error_code_total.labels(code=ErrorCode.JSON_PARSE_ERROR.value).inc()
         # ErrorCode and build_error imported at module level
         err = build_error(
-            ErrorCode.JSON_PARSE_ERROR, stage="options", message="Invalid options JSON format"
+            ErrorCode.JSON_PARSE_ERROR,
+            stage="options",
+            message="Invalid options JSON format",
         )
         raise HTTPException(status_code=400, detail=err)
     except HTTPException as he:
@@ -1481,12 +2075,16 @@ async def analyze_cad_file(
         raise HTTPException(status_code=he.status_code, detail=err)
     except Exception as e:
         analysis_requests_total.labels(status="error").inc()
-        analysis_errors_total.labels(stage="general", code=ErrorCode.INTERNAL_ERROR.value).inc()
+        analysis_errors_total.labels(
+            stage="general", code=ErrorCode.INTERNAL_ERROR.value
+        ).inc()
         analysis_error_code_total.labels(code=ErrorCode.INTERNAL_ERROR.value).inc()
         logger.error(f"Analysis failed for {file.filename}: {str(e)}")
         # ErrorCode and build_error imported at module level
         err = build_error(
-            ErrorCode.INTERNAL_ERROR, stage="analysis", message=f"Analysis failed: {str(e)}"
+            ErrorCode.INTERNAL_ERROR,
+            stage="analysis",
+            message=f"Analysis failed: {str(e)}",
         )
         raise HTTPException(status_code=500, detail=err)
 
@@ -1516,7 +2114,9 @@ async def batch_analyze(
 
 
 @router.post("/similarity", response_model=SimilarityResult)
-async def similarity_query(payload: SimilarityQuery, api_key: str = Depends(get_api_key)):
+async def similarity_query(
+    payload: SimilarityQuery, api_key: str = Depends(get_api_key)
+):
     """在已存在的向量之间计算相似度。"""
     from src.core.similarity import _VECTOR_STORE  # type: ignore
 
@@ -1590,7 +2190,9 @@ async def similarity_query(payload: SimilarityQuery, api_key: str = Depends(get_
 
 
 @router.post("/similarity/topk", response_model=SimilarityTopKResponse)
-async def similarity_topk(payload: SimilarityTopKQuery, api_key: str = Depends(get_api_key)):
+async def similarity_topk(
+    payload: SimilarityTopKQuery, api_key: str = Depends(get_api_key)
+):
     """基于已存储向量的 Top-K 相似检索。"""
     from src.core.similarity import InMemoryVectorStore  # type: ignore
 
@@ -1638,7 +2240,10 @@ async def similarity_topk(payload: SimilarityTopKQuery, api_key: str = Depends(g
         meta = meta_store.meta(vid) or {}
         if payload.material_filter and meta.get("material") != payload.material_filter:
             continue
-        if payload.complexity_filter and meta.get("complexity") != payload.complexity_filter:
+        if (
+            payload.complexity_filter
+            and meta.get("complexity") != payload.complexity_filter
+        ):
             continue
         items.append(
             SimilarityTopKItem(
@@ -1670,7 +2275,9 @@ async def vector_distribution_deprecated(api_key: str = Depends(get_api_key)):
 
 
 @router.post("/vectors/delete", response_model=VectorDeleteResponse)
-async def delete_vector(payload: VectorDeleteRequest, api_key: str = Depends(get_api_key)):
+async def delete_vector(
+    payload: VectorDeleteRequest, api_key: str = Depends(get_api_key)
+):
     """Deprecated: moved to /api/v1/vectors/delete"""
     raise HTTPException(
         status_code=410,
@@ -1706,7 +2313,6 @@ async def vector_stats(api_key: str = Depends(get_api_key)):
     )
 
 
-@router.get("/process/rules/audit", response_model=ProcessRulesAuditResponse)
 async def process_rules_audit(raw: bool = True, api_key: str = Depends(get_api_key)):
     import hashlib
     import os
@@ -1721,7 +2327,9 @@ async def process_rules_audit(raw: bool = True, api_key: str = Depends(get_api_k
     for m in materials:
         cm = rules.get(m, {})
         if isinstance(cm, dict):
-            complexities[m] = sorted([c for c in cm.keys() if isinstance(cm.get(c), list)])
+            complexities[m] = sorted(
+                [c for c in cm.keys() if isinstance(cm.get(c), list)]
+            )
     file_hash: Optional[str] = None
     try:
         if os.path.exists(path):
@@ -1748,11 +2356,16 @@ async def faiss_rebuild(api_key: str = Depends(get_api_key)):
 
     store = FaissVectorStore()
     ok = store.rebuild()  # type: ignore[attr-defined]
-    return {"rebuilt": ok, "message": "Index rebuilt successfully" if ok else "Rebuild failed"}
+    return {
+        "rebuilt": ok,
+        "message": "Index rebuilt successfully" if ok else "Rebuild failed",
+    }
 
 
 @router.post("/vectors/update", response_model=VectorUpdateResponse)
-async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get_api_key)):
+async def update_vector(
+    payload: VectorUpdateRequest, api_key: str = Depends(get_api_key)
+):
     from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
 
     # create_extended_error and ErrorCode imported at module level
@@ -1760,10 +2373,15 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
 
     if payload.id not in _VECTOR_STORE:
         ext = create_extended_error(
-            ErrorCode.DATA_NOT_FOUND, "Vector not found", stage="vector_update", id=payload.id
+            ErrorCode.DATA_NOT_FOUND,
+            "Vector not found",
+            stage="vector_update",
+            id=payload.id,
         )
         analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
-        return VectorUpdateResponse(id=payload.id, status="not_found", error=ext.to_dict())
+        return VectorUpdateResponse(
+            id=payload.id, status="not_found", error=ext.to_dict()
+        )
     vec = _VECTOR_STORE[payload.id]
     original_dim = len(vec)
     # Optional dimension enforcement via env flag
@@ -1781,8 +2399,12 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
                         expected=original_dim,
                         found=len(payload.replace),
                     )
-                    analysis_error_code_total.labels(code=ErrorCode.DIMENSION_MISMATCH.value).inc()
-                    from src.utils.analysis_metrics import vector_dimension_rejections_total
+                    analysis_error_code_total.labels(
+                        code=ErrorCode.DIMENSION_MISMATCH.value
+                    ).inc()
+                    from src.utils.analysis_metrics import (
+                        vector_dimension_rejections_total,
+                    )
 
                     vector_dimension_rejections_total.labels(
                         reason="dimension_mismatch_replace"
@@ -1813,8 +2435,12 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
                         expected=original_dim,
                         found=new_dim,
                     )
-                    analysis_error_code_total.labels(code=ErrorCode.DIMENSION_MISMATCH.value).inc()
-                    from src.utils.analysis_metrics import vector_dimension_rejections_total
+                    analysis_error_code_total.labels(
+                        code=ErrorCode.DIMENSION_MISMATCH.value
+                    ).inc()
+                    from src.utils.analysis_metrics import (
+                        vector_dimension_rejections_total,
+                    )
 
                     vector_dimension_rejections_total.labels(
                         reason="dimension_mismatch_append"
@@ -1837,13 +2463,17 @@ async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get
             feature_version=_VECTOR_META.get(payload.id, {}).get("feature_version"),
         )
     except Exception as e:
-        ext = create_extended_error(ErrorCode.INTERNAL_ERROR, str(e), stage="vector_update")
+        ext = create_extended_error(
+            ErrorCode.INTERNAL_ERROR, str(e), stage="vector_update"
+        )
         analysis_error_code_total.labels(code=ErrorCode.INTERNAL_ERROR.value).inc()
         return VectorUpdateResponse(id=payload.id, status="error", error=ext.to_dict())
 
 
 @router.post("/vectors/migrate", response_model=VectorMigrateResponse)
-async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(get_api_key)):
+async def migrate_vectors(
+    payload: VectorMigrateRequest, api_key: str = Depends(get_api_key)
+):
     """在线迁移指定向量到目标特征版本 (重算特征并替换)."""
     from src.core.feature_extractor import FeatureExtractor
     from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
@@ -1901,7 +2531,8 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
         stats = cached.get("statistics", {})
         bbox = stats.get("bounding_box", {})
         doc = CadDocument(
-            file_name=cached.get("file_name", vid), format=cached.get("file_format", "unknown")
+            file_name=cached.get("file_name", vid),
+            format=cached.get("file_format", "unknown"),
         )
         doc.bounding_box.min_x = bbox.get("min_x", 0.0)
         doc.bounding_box.min_y = bbox.get("min_y", 0.0)
@@ -2050,12 +2681,16 @@ class FeaturesDiffResponse(BaseModel):
 
 
 @router.get("/features/diff", response_model=FeaturesDiffResponse, deprecated=True)
-async def features_diff_deprecated(id_a: str, id_b: str, api_key: str = Depends(get_api_key)):
+async def features_diff_deprecated(
+    id_a: str, id_b: str, api_key: str = Depends(get_api_key)
+):
     """Deprecated: moved to /api/v1/features/diff"""
     raise HTTPException(
         status_code=410,
         detail=create_migration_error(
-            old_path="/api/v1/analyze/features/diff", new_path="/api/v1/features/diff", method="GET"
+            old_path="/api/v1/analyze/features/diff",
+            new_path="/api/v1/features/diff",
+            method="GET",
         ),
     )
 
@@ -2076,12 +2711,16 @@ class ModelReloadResponse(BaseModel):
 
 
 @router.post("/model/reload", response_model=ModelReloadResponse, deprecated=True)
-async def model_reload_deprecated(payload: ModelReloadRequest, api_key: str = Depends(get_api_key)):
+async def model_reload_deprecated(
+    payload: ModelReloadRequest, api_key: str = Depends(get_api_key)
+):
     """Deprecated: moved to /api/v1/model/reload"""
     raise HTTPException(
         status_code=410,
         detail=create_migration_error(
-            old_path="/api/v1/analyze/model/reload", new_path="/api/v1/model/reload", method="POST"
+            old_path="/api/v1/analyze/model/reload",
+            new_path="/api/v1/model/reload",
+            method="POST",
         ),
     )
 
@@ -2093,7 +2732,9 @@ class OrphanCleanupResponse(BaseModel):
     error: Optional[Dict[str, Any]] = None
 
 
-@router.delete("/vectors/orphans", response_model=OrphanCleanupResponse, deprecated=True)
+@router.delete(
+    "/vectors/orphans", response_model=OrphanCleanupResponse, deprecated=True
+)
 async def cleanup_orphan_vectors_deprecated(
     threshold: int = Query(0, description="最小孤儿向量数量触发清理"),
     force: bool = Query(False, description="强制执行清理"),
@@ -2136,7 +2777,6 @@ class DriftResetResponse(BaseModel):
     reset_predictions: bool
 
 
-@router.get("/drift", response_model=DriftStatusResponse)
 async def drift_status(api_key: str = Depends(get_api_key)):
     import os
     import time
@@ -2170,7 +2810,9 @@ async def drift_status(api_key: str = Depends(get_api_key)):
             try:
                 from src.utils.analysis_metrics import drift_baseline_refresh_total
 
-                drift_baseline_refresh_total.labels(type="material", trigger="stale").inc()
+                drift_baseline_refresh_total.labels(
+                    type="material", trigger="stale"
+                ).inc()
             except Exception:
                 pass
             material_baseline_counts = dict(Counter(mats))
@@ -2188,14 +2830,22 @@ async def drift_status(api_key: str = Depends(get_api_key)):
                 pass
     pred_score = None
     if prediction_baseline_counts:
-        prediction_age = int(time.time() - _DRIFT_STATE.get("baseline_predictions_ts", 0))
-        if auto_refresh_enabled and prediction_age > max_age and len(preds) >= min_count:
+        prediction_age = int(
+            time.time() - _DRIFT_STATE.get("baseline_predictions_ts", 0)
+        )
+        if (
+            auto_refresh_enabled
+            and prediction_age > max_age
+            and len(preds) >= min_count
+        ):
             _DRIFT_STATE["baseline_predictions"] = list(preds)
             _DRIFT_STATE["baseline_predictions_ts"] = time.time()
             try:
                 from src.utils.analysis_metrics import drift_baseline_refresh_total
 
-                drift_baseline_refresh_total.labels(type="prediction", trigger="stale").inc()
+                drift_baseline_refresh_total.labels(
+                    type="prediction", trigger="stale"
+                ).inc()
             except Exception:
                 pass
             prediction_baseline_counts = dict(Counter(preds))
@@ -2210,7 +2860,11 @@ async def drift_status(api_key: str = Depends(get_api_key)):
                 drift_baseline_created_total.labels(type="prediction").inc()
             except Exception:
                 pass
-    status = "baseline_pending" if (len(mats) < min_count or len(preds) < min_count) else "ok"
+    status = (
+        "baseline_pending"
+        if (len(mats) < min_count or len(preds) < min_count)
+        else "ok"
+    )
     baseline_material_age = None
     baseline_prediction_age = None
     # Use first timestamp index to approximate age (list length as proxy)
@@ -2256,7 +2910,9 @@ async def drift_status(api_key: str = Depends(get_api_key)):
             try:
                 from src.utils.analysis_metrics import drift_baseline_refresh_total
 
-                drift_baseline_refresh_total.labels(type="material", trigger="startup").inc()
+                drift_baseline_refresh_total.labels(
+                    type="material", trigger="startup"
+                ).inc()
             except Exception:
                 pass
             _DRIFT_STATE["baseline_materials_startup_mark"] = True
@@ -2268,7 +2924,9 @@ async def drift_status(api_key: str = Depends(get_api_key)):
             try:
                 from src.utils.analysis_metrics import drift_baseline_refresh_total
 
-                drift_baseline_refresh_total.labels(type="prediction", trigger="startup").inc()
+                drift_baseline_refresh_total.labels(
+                    type="prediction", trigger="startup"
+                ).inc()
             except Exception:
                 pass
             _DRIFT_STATE["baseline_predictions_startup_mark"] = True
@@ -2291,7 +2949,6 @@ async def drift_status(api_key: str = Depends(get_api_key)):
     )
 
 
-@router.post("/drift/reset", response_model=DriftResetResponse)
 async def drift_reset(api_key: str = Depends(get_api_key)):
     # Reset baseline lists only; keep current observations for immediate recompute when threshold met again
     reset_material = bool(_DRIFT_STATE["baseline_materials"])
@@ -2362,7 +3019,6 @@ async def feature_cache_stats(api_key: str = Depends(get_api_key)):
     )
 
 
-@router.get("/drift/baseline/status", response_model=DriftBaselineStatusResponse)
 async def drift_baseline_status(api_key: str = Depends(get_api_key)):
     import os
     import time
@@ -2409,9 +3065,165 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
     raise HTTPException(
         status_code=410,
         detail=create_migration_error(
-            old_path="/api/v1/analyze/faiss/health", new_path="/api/v1/health/faiss", method="GET"
+            old_path="/api/v1/analyze/faiss/health",
+            new_path="/api/v1/health/faiss",
+            method="GET",
         ),
     )
+
+
+@router.post("/batch-classify", response_model=BatchClassifyResponse)
+async def batch_classify(
+    files: List[UploadFile] = File(..., description="CAD文件列表(DXF/DWG)"),
+    max_workers: Optional[int] = Form(default=None, description="并行工作线程数"),
+    api_key: str = Depends(get_api_key),
+):
+    """
+    批量分类CAD文件
+
+    使用V16超级集成分类器并行处理多个文件，支持DXF和DWG格式。
+    相比逐个调用，批量处理可获得约3倍性能提升。
+    """
+    import tempfile
+    import time
+
+    start_time = time.time()
+    results: List[BatchClassifyResultItem] = []
+    temp_files: List[str] = []
+
+    try:
+        for file in files:
+            suffix = os.path.splitext(file.filename or "")[1].lower()
+            if suffix not in (".dxf", ".dwg"):
+                results.append(
+                    BatchClassifyResultItem(
+                        file_name=file.filename or "unknown",
+                        error=f"Unsupported format: {suffix}, only .dxf and .dwg are supported",
+                    )
+                )
+                continue
+
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                content = await file.read()
+                tmp.write(content)
+                temp_files.append(tmp.name)
+                results.append(
+                    BatchClassifyResultItem(file_name=file.filename or tmp.name)
+                )
+
+        from src.core.analyzer import _get_v16_classifier
+
+        classifier = _get_v16_classifier()
+
+        if classifier is None:
+            logger.warning("V16 classifier not available, falling back to sequential")
+            for i, temp_path in enumerate(temp_files):
+                try:
+                    from src.core.analyzer import _get_ml_classifier
+
+                    ml_classifier = _get_ml_classifier()
+                    if ml_classifier:
+                        result = ml_classifier.predict(temp_path)
+                        if result:
+                            results[i] = BatchClassifyResultItem(
+                                file_name=results[i].file_name,
+                                category=result.category,
+                                confidence=round(result.confidence, 4),
+                                probabilities={
+                                    k: round(v, 4)
+                                    for k, v in result.probabilities.items()
+                                },
+                                classifier="ml_v6",
+                            )
+                        else:
+                            results[i] = BatchClassifyResultItem(
+                                file_name=results[i].file_name,
+                                error="Classification returned None",
+                            )
+                    else:
+                        results[i] = BatchClassifyResultItem(
+                            file_name=results[i].file_name,
+                            error="No classifier available",
+                        )
+                except Exception as e:
+                    results[i] = BatchClassifyResultItem(
+                        file_name=results[i].file_name,
+                        error=str(e),
+                    )
+        else:
+            batch_results = classifier.predict_batch(
+                temp_files, max_workers=max_workers
+            )
+
+            valid_idx = 0
+            for i, item in enumerate(results):
+                if item.error:
+                    continue
+                if valid_idx < len(batch_results):
+                    result = batch_results[valid_idx]
+                    if result:
+                        results[i] = BatchClassifyResultItem(
+                            file_name=item.file_name,
+                            category=result.category,
+                            confidence=round(result.confidence, 4),
+                            probabilities={
+                                k: round(v, 4) for k, v in result.probabilities.items()
+                            },
+                            needs_review=getattr(result, "needs_review", False),
+                            review_reason=getattr(result, "review_reason", None),
+                            classifier=getattr(result, "model_version", "v16"),
+                        )
+                    else:
+                        results[i] = BatchClassifyResultItem(
+                            file_name=item.file_name,
+                            error="Classification returned None",
+                        )
+                    valid_idx += 1
+
+        success_count = sum(1 for r in results if r.category is not None)
+        failed_count = len(results) - success_count
+        processing_time = round(time.time() - start_time, 3)
+
+        # Record Prometheus metrics
+        try:
+            from src.utils.analysis_metrics import (
+                v16_classifier_batch_seconds,
+                v16_classifier_batch_size,
+                v16_batch_classify_requests_total,
+                v16_batch_classify_files_total,
+            )
+
+            v16_classifier_batch_seconds.observe(processing_time)
+            v16_classifier_batch_size.observe(len(files))
+
+            # Request status
+            if failed_count == 0:
+                v16_batch_classify_requests_total.labels(status="success").inc()
+            elif success_count == 0:
+                v16_batch_classify_requests_total.labels(status="failed").inc()
+            else:
+                v16_batch_classify_requests_total.labels(status="partial").inc()
+
+            # File counts
+            v16_batch_classify_files_total.labels(result="success").inc(success_count)
+            v16_batch_classify_files_total.labels(result="failed").inc(failed_count)
+        except Exception:
+            pass
+
+        return BatchClassifyResponse(
+            total=len(files),
+            success=success_count,
+            failed=failed_count,
+            processing_time=processing_time,
+            results=results,
+        )
+
+    finally:
+        for temp_path in temp_files:
+            try:
+                os.unlink(temp_path)
+            except Exception:
+                pass
 
 
 # IMPORTANT: This catch-all route MUST be at the end of the file

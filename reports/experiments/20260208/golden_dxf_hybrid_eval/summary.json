@@ -1,0 +1,18 @@
+{
+  "manifest": "tests/golden/golden_dxf_hybrid_cases.json",
+  "total": 20,
+  "passed": 20,
+  "failed": 0,
+  "accuracy": 1.0,
+  "macro_f1": 1.0,
+  "low_conf_threshold": 0.5,
+  "low_conf_rate": 0.0,
+  "duration_seconds": 0.78,
+  "env": {
+    "TITLEBLOCK_ENABLED": "true",
+    "TITLEBLOCK_OVERRIDE_ENABLED": "true",
+    "TITLEBLOCK_MIN_CONF": "0.6",
+    "GRAPH2D_ENABLED": "false",
+    "PROCESS_FEATURES_ENABLED": "false"
+  }
+}

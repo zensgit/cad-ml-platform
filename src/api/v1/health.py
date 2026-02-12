@@ -2,14 +2,31 @@
 
 from __future__ import annotations
 
+import asyncio
+import inspect
+import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.dependencies import get_admin_token, get_api_key
-from src.api.health_models import HealthResponse
-from src.api.health_utils import build_health_payload
+from src.api.health_utils import (
+    build_health_payload,
+    record_health_request,
+    sanitize_core_provider_registry_snapshot,
+)
+from src.api.health_models import (
+    HealthConfigCoreProviders,
+    HealthProviderPluginCache,
+    HealthProviderPluginSummary,
+    HealthResponse,
+)
+from src.utils.text_sanitize import sanitize_single_line_text
+from src.utils.metrics import (
+    core_provider_check_duration_seconds,
+    core_provider_checks_total,
+)
 
 router = APIRouter()
 
@@ -56,6 +73,15 @@ class CacheRollbackResponse(BaseModel):
     error: Optional[dict] = None
 
 
+class ClassifierCacheStatsResponse(BaseModel):
+    status: str
+    size: int
+    max_size: int
+    hits: int
+    misses: int
+    hit_ratio: Optional[float] = None
+
+
 class FaissHealthResponse(BaseModel):
     available: bool
     index_size: Optional[int]
@@ -71,15 +97,352 @@ class FaissHealthResponse(BaseModel):
     degraded_reason: Optional[str] = None
     degraded_duration_seconds: Optional[float] = None
     degradation_history_count: int = 0  # Number of degradation events
-    degradation_history: Optional[List[Dict]] = None  # Recent degradation events (last 10)
+    degradation_history: Optional[List[Dict]] = (
+        None  # Recent degradation events (last 10)
+    )
     next_recovery_eta: Optional[int] = None
     manual_recovery_in_progress: bool = False
+
+
+class HybridRuntimeConfigResponse(BaseModel):
+    status: str
+    config: Dict[str, Any]
+
+
+class ProviderRegistryHealthResponse(BaseModel):
+    status: str
+    registry: HealthConfigCoreProviders
+
+
+class ProviderPluginErrorItem(BaseModel):
+    plugin: str
+    error: str
+
+
+class ProviderPluginDiagnostics(BaseModel):
+    """Bounded plugin diagnostics for provider health endpoint.
+
+    This model is intentionally explicit so the OpenAPI schema reflects the
+    observable contract surface.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    summary: Optional[HealthProviderPluginSummary] = None
+    cache: Optional[HealthProviderPluginCache] = None
+    configured_count: int
+    loaded_count: int
+    error_count: int
+    errors_sample: List[ProviderPluginErrorItem] = Field(default_factory=list)
+    errors_truncated: bool = False
+    registered_count: int = 0
+    registered_sample: List[str] = Field(default_factory=list)
+
+
+class ProviderStatusSnapshot(BaseModel):
+    """Normalized provider status snapshot payload.
+
+    Providers may add extra fields; clients should only rely on the stable keys
+    declared here.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    name: str
+    provider_type: Optional[str] = None
+    status: str
+    last_error: Optional[str] = None
+    last_health_check_at: Optional[float] = None
+    last_health_check_latency_ms: Optional[float] = None
+
+
+class ProviderHealthItem(BaseModel):
+    domain: str
+    provider: str
+    ready: bool
+    snapshot: Optional[ProviderStatusSnapshot] = None
+    error: Optional[str] = None
+
+
+class ProviderHealthResponse(BaseModel):
+    status: str
+    total: int
+    ready: int
+    timeout_seconds: float
+    plugin_diagnostics: Optional[ProviderPluginDiagnostics] = None
+    results: List[ProviderHealthItem] = Field(default_factory=list)
 
 
 @router.get("/health", response_model=HealthResponse)
 async def health_alias() -> Dict[str, Any]:
     """Alias `/api/v1/health` to the root `/health` endpoint."""
     return build_health_payload()
+
+
+@router.get("/ml/hybrid-config", response_model=HybridRuntimeConfigResponse)
+@router.get("/health/ml/hybrid-config", response_model=HybridRuntimeConfigResponse)
+async def hybrid_runtime_config(api_key: str = Depends(get_api_key)):
+    from src.ml.hybrid_config import get_config
+
+    return HybridRuntimeConfigResponse(status="ok", config=get_config().to_dict())
+
+
+@router.get("/providers/registry", response_model=ProviderRegistryHealthResponse)
+@router.get("/health/providers/registry", response_model=ProviderRegistryHealthResponse)
+async def provider_registry_health(api_key: str = Depends(get_api_key)):
+    from src.core.providers import get_core_provider_registry_snapshot
+
+    start = time.perf_counter()
+    status = "ok"
+    try:
+        snapshot = get_core_provider_registry_snapshot()
+        if isinstance(snapshot, dict):
+            snapshot = sanitize_core_provider_registry_snapshot(snapshot)
+        return ProviderRegistryHealthResponse(
+            status="ok",
+            registry=snapshot,
+        )
+    except Exception:
+        status = "error"
+        raise
+    finally:
+        record_health_request("providers_registry", status, time.perf_counter() - start)
+
+
+@router.get("/providers/health", response_model=ProviderHealthResponse)
+@router.get("/health/providers/health", response_model=ProviderHealthResponse)
+async def provider_health(
+    api_key: str = Depends(get_api_key),
+    timeout_seconds: float = 0.75,
+):
+    """Run best-effort health checks for all bootstrapped core providers."""
+    from src.core.providers import (
+        ProviderRegistry,
+        bootstrap_core_provider_registry,
+        get_core_provider_registry_snapshot,
+    )
+
+    start = time.perf_counter()
+    status = "ok"
+    if timeout_seconds <= 0:
+        timeout_seconds = 0.75
+    timeout_seconds = float(min(timeout_seconds, 10.0))
+
+    try:
+        bootstrap_core_provider_registry()
+    except Exception:
+        status = "error"
+        raise
+
+    plugin_diagnostics: Optional[Dict[str, Any]] = None
+    try:
+        snapshot = get_core_provider_registry_snapshot(lazy_bootstrap=False)
+        plugins = snapshot.get("plugins") or {}
+
+        raw_errors = plugins.get("errors", [])
+        errors: List[Dict[str, str]] = []
+        if isinstance(raw_errors, list):
+            for item in raw_errors:
+                if not isinstance(item, dict):
+                    continue
+                plugin = item.get("plugin")
+                error = item.get("error")
+                if isinstance(plugin, str) and isinstance(error, str):
+                    errors.append(
+                        {
+                            "plugin": plugin,
+                            "error": sanitize_single_line_text(error) or error,
+                        }
+                    )
+        errors_sample = errors[:10]
+
+        raw_registered = plugins.get("registered") or {}
+        registered_total = 0
+        registered_sample: List[str] = []
+        if isinstance(raw_registered, dict):
+            for provider_ids in raw_registered.values():
+                if not isinstance(provider_ids, list):
+                    continue
+                registered_total += len(provider_ids)
+                for provider_id in provider_ids:
+                    if (
+                        len(registered_sample) < 25
+                        and isinstance(provider_id, str)
+                        and provider_id
+                    ):
+                        registered_sample.append(provider_id)
+
+        plugin_diagnostics = {
+            "summary": plugins.get("summary"),
+            "cache": plugins.get("cache"),
+            "configured_count": len(plugins.get("configured", [])),
+            "loaded_count": len(plugins.get("loaded", [])),
+            "error_count": len(errors),
+            "errors_sample": errors_sample,
+            "errors_truncated": len(errors) > len(errors_sample),
+            "registered_count": int(registered_total),
+            "registered_sample": registered_sample,
+        }
+    except Exception:
+        # Diagnostics are best-effort and should not fail endpoint response.
+        plugin_diagnostics = None
+
+    async def _run_provider_health_check(provider: Any) -> tuple[bool, Optional[str]]:
+        health_check = getattr(provider, "health_check", None)
+        if not callable(health_check):
+            return False, "health_check_missing"
+
+        try:
+            result = health_check(timeout_seconds=timeout_seconds)
+        except TypeError:
+            # Backward-compatible path for legacy providers that expose
+            # health_check() without timeout_seconds parameter.
+            result = health_check()
+
+        if inspect.isawaitable(result):
+            result = await result
+        return bool(result), getattr(provider, "last_error", None)
+
+    def _build_provider_snapshot(provider: Any) -> Dict[str, Any]:
+        provider_name = getattr(provider, "name", provider.__class__.__name__)
+        provider_type = getattr(provider, "provider_type", None)
+        status = getattr(provider, "status", None)
+        if hasattr(status, "value"):
+            status = status.value
+        if status is None:
+            status = "unknown"
+        last_error_raw = getattr(provider, "last_error", None)
+        last_error: Optional[str] = None
+        if last_error_raw is not None:
+            try:
+                last_error = str(last_error_raw)
+            except Exception:
+                last_error = None
+        if last_error:
+            last_error = sanitize_single_line_text(last_error) or last_error
+        last_health_check_at = getattr(provider, "last_health_check_at", None)
+        last_health_check_latency_ms = getattr(provider, "last_health_check_latency_ms", None)
+
+        snapshot: Dict[str, Any] = {}
+        status_snapshot = getattr(provider, "status_snapshot", None)
+        if callable(status_snapshot):
+            maybe = status_snapshot()
+            if isinstance(maybe, dict):
+                snapshot = dict(maybe)
+
+        # Ensure the stable keys always exist for API contract purposes.
+        if not isinstance(snapshot.get("name"), str) or not snapshot.get("name"):
+            snapshot["name"] = str(provider_name)
+        if "provider_type" not in snapshot or snapshot.get("provider_type") is None:
+            snapshot["provider_type"] = provider_type
+        if not isinstance(snapshot.get("status"), str) or not snapshot.get("status"):
+            snapshot["status"] = str(status)
+        if "last_error" not in snapshot:
+            snapshot["last_error"] = last_error
+        if "last_health_check_at" not in snapshot:
+            snapshot["last_health_check_at"] = last_health_check_at
+        if "last_health_check_latency_ms" not in snapshot:
+            snapshot["last_health_check_latency_ms"] = last_health_check_latency_ms
+
+        return snapshot
+
+    async def _check(domain: str, name: str) -> ProviderHealthItem:
+        started_at = time.perf_counter()
+        try:
+            provider = ProviderRegistry.get(domain, name)
+        except Exception as exc:  # noqa: BLE001
+            try:
+                core_provider_checks_total.labels(
+                    source="providers_health",
+                    domain=domain,
+                    provider=name,
+                    result="init_error",
+                ).inc()
+                core_provider_check_duration_seconds.labels(
+                    source="providers_health",
+                    domain=domain,
+                    provider=name,
+                ).observe(time.perf_counter() - started_at)
+            except Exception:
+                pass
+            return ProviderHealthItem(
+                domain=domain,
+                provider=name,
+                ready=False,
+                snapshot=None,
+                error=(
+                    sanitize_single_line_text(f"init_error: {exc}")
+                    or f"init_error: {exc}"
+                ),
+            )
+
+        ok = False
+        err: Optional[Any] = None
+        try:
+            ok, err = await _run_provider_health_check(provider)
+        except Exception as exc:  # noqa: BLE001
+            # Provider implementations should not raise, but keep this best-effort.
+            ok = False
+            err = str(exc)
+        finally:
+            duration = time.perf_counter() - started_at
+            try:
+                core_provider_checks_total.labels(
+                    source="providers_health",
+                    domain=domain,
+                    provider=name,
+                    result="ready" if ok else "down",
+                ).inc()
+                core_provider_check_duration_seconds.labels(
+                    source="providers_health",
+                    domain=domain,
+                    provider=name,
+                ).observe(duration)
+            except Exception:
+                pass
+
+        error_text: Optional[str] = None
+        if err is not None:
+            try:
+                error_text = str(err)
+            except Exception:
+                error_text = None
+        if error_text:
+            error_text = sanitize_single_line_text(error_text) or error_text
+        else:
+            error_text = None
+
+        return ProviderHealthItem(
+            domain=domain,
+            provider=name,
+            ready=bool(ok),
+            snapshot=_build_provider_snapshot(provider),
+            error=error_text,
+        )
+
+    tasks = [
+        _check(domain, name)
+        for domain in ProviderRegistry.list_domains()
+        for name in ProviderRegistry.list_providers(domain)
+    ]
+
+    results = list(await asyncio.gather(*tasks)) if tasks else []
+    results.sort(key=lambda item: (item.domain, item.provider))
+    ready_count = sum(1 for item in results if item.ready)
+    try:
+        return ProviderHealthResponse(
+            status="ok",
+            total=len(results),
+            ready=ready_count,
+            timeout_seconds=timeout_seconds,
+            plugin_diagnostics=plugin_diagnostics,
+            results=results,
+        )
+    except Exception:
+        status = "error"
+        raise
+    finally:
+        record_health_request("providers_health", status, time.perf_counter() - start)
 
 
 @router.get("/features/cache", response_model=FeatureCacheStatsResponse)
@@ -113,6 +476,26 @@ async def feature_cache_stats(api_key: str = Depends(get_api_key)):
         hits=hits,
         misses=misses,
         evictions=evictions,
+    )
+
+
+@router.get("/classifier/cache", response_model=ClassifierCacheStatsResponse)
+@router.get("/health/classifier/cache", response_model=ClassifierCacheStatsResponse)
+async def classifier_cache_stats(admin_token: str = Depends(get_admin_token)):
+    from src.inference.classifier_api import result_cache
+
+    stats = result_cache.stats()
+    hits = stats.get("hits", 0)
+    misses = stats.get("misses", 0)
+    total = hits + misses
+    hit_ratio = (hits / total) if total > 0 else None
+    return ClassifierCacheStatsResponse(
+        status="ok",
+        size=stats.get("size", 0),
+        max_size=stats.get("max_size", 0),
+        hits=hits,
+        misses=misses,
+        hit_ratio=hit_ratio,
     )
 
 
@@ -166,7 +549,9 @@ async def cache_tuning_recommendation(api_key: str = Depends(get_api_key)):
     elif eviction_ratio > 0.15:
         # Very high evictions -> aggressive increase
         recommended_capacity = int(capacity * 2.0)
-        reasons.append(f"Very high eviction rate ({eviction_ratio:.1%}) - double capacity")
+        reasons.append(
+            f"Very high eviction rate ({eviction_ratio:.1%}) - double capacity"
+        )
 
     # TTL tuning logic
     if hit_ratio < 0.5 and eviction_ratio < 0.05:
@@ -197,7 +582,9 @@ async def cache_tuning_recommendation(api_key: str = Depends(get_api_key)):
         ((recommended_capacity - capacity) / capacity * 100) if capacity > 0 else 0.0
     )
     ttl_change_pct = (
-        ((recommended_ttl - ttl_seconds) / ttl_seconds * 100) if ttl_seconds > 0 else 0.0
+        ((recommended_ttl - ttl_seconds) / ttl_seconds * 100)
+        if ttl_seconds > 0
+        else 0.0
     )
 
     try:
@@ -399,7 +786,9 @@ async def faiss_health(api_key: str = Depends(get_api_key)):
         degraded_reason=degraded_info["reason"],
         degraded_duration_seconds=degraded_info["degraded_duration_seconds"],
         degradation_history_count=degraded_info["history_count"],
-        degradation_history=degraded_info["history"] if degraded_info["history"] else None,
+        degradation_history=(
+            degraded_info["history"] if degraded_info["history"] else None
+        ),
         next_recovery_eta=next_recovery_eta,
         manual_recovery_in_progress=bool(_FAISS_MANUAL_RECOVERY_IN_PROGRESS),
     )
@@ -465,7 +854,10 @@ async def model_health(api_key: str = Depends(get_api_key)):
 
     model_health_checks_total.labels(status=status).inc()
     try:
-        from src.utils.analysis_metrics import model_rollback_level, model_snapshots_available
+        from src.utils.analysis_metrics import (
+            model_rollback_level,
+            model_snapshots_available,
+        )
 
         snapshots_available = sum(
             1
@@ -501,6 +893,276 @@ async def model_health(api_key: str = Depends(get_api_key)):
         rollback_reason=info.get("rollback_reason"),
         load_seq=info.get("load_seq", 0),
     )
+
+
+class V16ClassifierHealthResponse(BaseModel):
+    """V16分类器健康状态"""
+
+    status: str
+    loaded: bool
+    speed_mode: Optional[str] = None
+    cache_enabled: bool = False
+    cache_size: int = 0
+    cache_max_size: int = 0
+    cache_hits: int = 0
+    cache_misses: int = 0
+    cache_hit_ratio: Optional[float] = None
+    v6_model_loaded: bool = False
+    v14_model_loaded: bool = False
+    dwg_converter_available: bool = False
+    categories: Optional[List[str]] = None
+    last_error: Optional[str] = None
+
+
+class V16CacheClearResponse(BaseModel):
+    """V16缓存清除响应"""
+
+    status: str
+    cleared_entries: int = 0
+    previous_hits: int = 0
+    previous_misses: int = 0
+    message: Optional[str] = None
+
+
+class V16SpeedModeRequest(BaseModel):
+    """V16速度模式切换请求"""
+
+    speed_mode: str = Field(description="速度模式: accurate, balanced, fast, v6_only")
+
+
+class V16SpeedModeResponse(BaseModel):
+    """V16速度模式切换响应"""
+
+    status: str
+    previous_mode: Optional[str] = None
+    current_mode: Optional[str] = None
+    available_modes: List[str] = Field(
+        default_factory=lambda: ["accurate", "balanced", "fast", "v6_only"]
+    )
+    message: Optional[str] = None
+
+
+@router.get("/health/v16-classifier", response_model=V16ClassifierHealthResponse)
+@router.get("/v16-classifier/health", response_model=V16ClassifierHealthResponse)
+async def v16_classifier_health(api_key: str = Depends(get_api_key)):
+    """V16分类器健康检查"""
+    import os
+
+    try:
+        from src.core.analyzer import _get_v16_classifier
+        from src.utils.analysis_metrics import (
+            v16_classifier_loaded,
+            v16_classifier_cache_size,
+            v16_classifier_cache_max_size,
+            v16_classifier_cache_hits_total,
+            v16_classifier_cache_misses_total,
+        )
+
+        classifier = _get_v16_classifier()
+
+        if classifier is None:
+            disabled = os.getenv("DISABLE_V16_CLASSIFIER", "").lower() in (
+                "1",
+                "true",
+                "yes",
+            )
+            v16_classifier_loaded.set(0)
+            return V16ClassifierHealthResponse(
+                status="disabled" if disabled else "unavailable",
+                loaded=False,
+                last_error=(
+                    "V16 classifier disabled by environment"
+                    if disabled
+                    else "Model files not found or load failed"
+                ),
+            )
+
+        cache_hits = getattr(classifier, "cache_hits", 0)
+        cache_misses = getattr(classifier, "cache_misses", 0)
+        total = cache_hits + cache_misses
+        hit_ratio = cache_hits / total if total > 0 else None
+        current_cache_size = len(getattr(classifier, "feature_cache", {}))
+        max_cache_size = getattr(classifier, "cache_size", 0)
+
+        # Update Prometheus metrics
+        v16_classifier_loaded.set(1)
+        v16_classifier_cache_size.set(current_cache_size)
+        v16_classifier_cache_max_size.set(max_cache_size)
+
+        dwg_available = False
+        try:
+            from src.core.cad.dwg.converter import DWGConverter
+
+            converter = DWGConverter()
+            dwg_available = converter.is_available
+        except Exception:
+            pass
+
+        return V16ClassifierHealthResponse(
+            status="ok",
+            loaded=True,
+            speed_mode=getattr(classifier, "speed_mode", None),
+            cache_enabled=getattr(classifier, "enable_cache", False),
+            cache_size=current_cache_size,
+            cache_max_size=max_cache_size,
+            cache_hits=cache_hits,
+            cache_misses=cache_misses,
+            cache_hit_ratio=round(hit_ratio, 4) if hit_ratio is not None else None,
+            v6_model_loaded=getattr(classifier, "v6_model", None) is not None,
+            v14_model_loaded=getattr(classifier, "v14_model", None) is not None,
+            dwg_converter_available=dwg_available,
+            categories=getattr(classifier, "categories", None),
+        )
+    except Exception as e:
+        return V16ClassifierHealthResponse(
+            status="error",
+            loaded=False,
+            last_error=str(e),
+        )
+
+
+@router.post("/v16-classifier/cache/clear", response_model=V16CacheClearResponse)
+@router.post("/health/v16-classifier/cache/clear", response_model=V16CacheClearResponse)
+async def v16_classifier_cache_clear(
+    api_key: str = Depends(get_api_key),
+    admin_token: str = Depends(get_admin_token),
+):
+    """清除V16分类器缓存"""
+    try:
+        from src.core.analyzer import _get_v16_classifier
+
+        classifier = _get_v16_classifier()
+
+        if classifier is None:
+            return V16CacheClearResponse(
+                status="unavailable",
+                message="V16 classifier not loaded",
+            )
+
+        prev_hits = getattr(classifier, "cache_hits", 0)
+        prev_misses = getattr(classifier, "cache_misses", 0)
+        cache_size = len(getattr(classifier, "feature_cache", {}))
+
+        if hasattr(classifier, "feature_cache"):
+            classifier.feature_cache.clear()
+        if hasattr(classifier, "image_cache"):
+            classifier.image_cache.clear()
+        if hasattr(classifier, "cache_order"):
+            classifier.cache_order.clear()
+        if hasattr(classifier, "cache_hits"):
+            classifier.cache_hits = 0
+        if hasattr(classifier, "cache_misses"):
+            classifier.cache_misses = 0
+
+        return V16CacheClearResponse(
+            status="ok",
+            cleared_entries=cache_size,
+            previous_hits=prev_hits,
+            previous_misses=prev_misses,
+            message=f"Cleared {cache_size} cached entries",
+        )
+    except Exception as e:
+        return V16CacheClearResponse(
+            status="error",
+            message=str(e),
+        )
+
+
+@router.post("/v16-classifier/speed-mode", response_model=V16SpeedModeResponse)
+@router.post("/health/v16-classifier/speed-mode", response_model=V16SpeedModeResponse)
+async def v16_classifier_speed_mode(
+    req: V16SpeedModeRequest,
+    api_key: str = Depends(get_api_key),
+    admin_token: str = Depends(get_admin_token),
+):
+    """动态切换V16分类器速度模式"""
+    available_modes = ["accurate", "balanced", "fast", "v6_only"]
+    speed_mode_values = {"accurate": 0, "balanced": 1, "fast": 2, "v6_only": 3}
+
+    if req.speed_mode not in available_modes:
+        return V16SpeedModeResponse(
+            status="error",
+            available_modes=available_modes,
+            message=f"Invalid speed_mode: {req.speed_mode}. Must be one of {available_modes}",
+        )
+
+    try:
+        from src.core.analyzer import _get_v16_classifier
+        from src.utils.analysis_metrics import v16_classifier_speed_mode
+
+        classifier = _get_v16_classifier()
+
+        if classifier is None:
+            return V16SpeedModeResponse(
+                status="unavailable",
+                available_modes=available_modes,
+                message="V16 classifier not loaded",
+            )
+
+        previous_mode = getattr(classifier, "speed_mode", None)
+
+        from src.ml.part_classifier import SPEED_MODES
+
+        if req.speed_mode not in SPEED_MODES:
+            return V16SpeedModeResponse(
+                status="error",
+                previous_mode=previous_mode,
+                available_modes=available_modes,
+                message=f"Speed mode {req.speed_mode} not configured",
+            )
+
+        mode_config = SPEED_MODES[req.speed_mode]
+        classifier.speed_mode = req.speed_mode
+        classifier.v14_folds = mode_config["v14_folds"]
+        classifier.use_fast_render = mode_config["use_fast_render"]
+
+        # Update Prometheus metric
+        v16_classifier_speed_mode.set(speed_mode_values.get(req.speed_mode, -1))
+
+        return V16SpeedModeResponse(
+            status="ok",
+            previous_mode=previous_mode,
+            current_mode=req.speed_mode,
+            available_modes=available_modes,
+            message=f"Speed mode changed from {previous_mode} to {req.speed_mode}",
+        )
+    except Exception as e:
+        return V16SpeedModeResponse(
+            status="error",
+            available_modes=available_modes,
+            message=str(e),
+        )
+
+
+@router.get("/v16-classifier/speed-mode", response_model=V16SpeedModeResponse)
+@router.get("/health/v16-classifier/speed-mode", response_model=V16SpeedModeResponse)
+async def v16_classifier_speed_mode_get(api_key: str = Depends(get_api_key)):
+    """获取当前V16分类器速度模式"""
+    available_modes = ["accurate", "balanced", "fast", "v6_only"]
+
+    try:
+        from src.core.analyzer import _get_v16_classifier
+
+        classifier = _get_v16_classifier()
+
+        if classifier is None:
+            return V16SpeedModeResponse(
+                status="unavailable",
+                available_modes=available_modes,
+                message="V16 classifier not loaded",
+            )
+
+        return V16SpeedModeResponse(
+            status="ok",
+            current_mode=getattr(classifier, "speed_mode", None),
+            available_modes=available_modes,
+        )
+    except Exception as e:
+        return V16SpeedModeResponse(
+            status="error",
+            available_modes=available_modes,
+            message=str(e),
+        )
 
 
 __all__ = ["router"]

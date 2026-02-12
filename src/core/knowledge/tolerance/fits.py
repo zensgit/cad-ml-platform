@@ -7,11 +7,20 @@ Includes fundamental deviations for shafts (a-zc) and holes (A-ZC).
 Reference:
 - ISO 286-2:2010 - Tables of standard tolerance classes and limit deviations
 - GB/T 1800.2-2020 (Chinese equivalent)
+
+Note:
+- Deviation calculations currently support hole-basis fits using H or JS symbols,
+  and a subset of non-H hole symbols where fundamental deviations are available.
 """
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from functools import lru_cache
+import json
+import os
+import re
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .it_grades import ITGrade, get_tolerance_value
 
@@ -211,10 +220,235 @@ SHAFT_FUNDAMENTAL_DEVIATIONS: Dict[str, List[Tuple[float, float]]] = {
     ],
 }
 
+# Fundamental deviation values for holes (μm)
+# Loaded from ISO 286 table data when provided. Missing symbols will return None.
+HOLE_FUNDAMENTAL_DEVIATIONS: Dict[str, List[Tuple[float, float]]] = {}
+
+# Load optional hole deviation overrides (ISO 286 table data)
+_HOLE_DEVIATIONS_PATH = Path(
+    os.getenv("HOLE_DEVIATIONS_PATH", "data/knowledge/iso286_hole_deviations.json")
+)
+_ISO286_DEVIATIONS_PATH = Path(
+    os.getenv("ISO286_DEVIATIONS_PATH", "data/knowledge/iso286_deviations.json")
+)
+
+
+def _load_hole_deviation_overrides() -> Dict[str, List[Tuple[float, float]]]:
+    if not _HOLE_DEVIATIONS_PATH.exists():
+        return {}
+    try:
+        with open(_HOLE_DEVIATIONS_PATH, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+    raw = data.get("deviations", data) if isinstance(data, dict) else {}
+    overrides: Dict[str, List[Tuple[float, float]]] = {}
+    for symbol, table in raw.items():
+        if not isinstance(table, list):
+            continue
+        parsed: List[Tuple[float, float]] = []
+        for entry in table:
+            if not isinstance(entry, (list, tuple)) or len(entry) != 2:
+                continue
+            try:
+                size_upper = float(entry[0])
+                deviation = float(entry[1])
+            except (TypeError, ValueError):
+                continue
+            parsed.append((size_upper, deviation))
+        if parsed:
+            overrides[str(symbol).upper()] = parsed
+    return overrides
+
+
+_hole_overrides = _load_hole_deviation_overrides()
+if _hole_overrides:
+    HOLE_FUNDAMENTAL_DEVIATIONS.update(_hole_overrides)
+
+
+_EXTRA_HOLE_SYMBOLS: Set[str] = {"CD", "EF", "FG"}
+_KNOWN_HOLE_SYMBOLS: Set[str] = (
+    set(HOLE_SYMBOLS.keys()) | set(_hole_overrides.keys()) | _EXTRA_HOLE_SYMBOLS
+)
+_KNOWN_SHAFT_SYMBOLS: Set[str] = set(SHAFT_SYMBOLS.keys())
+
+
+def _normalize_symbol_token(
+    symbol_raw: str,
+    kind: str,
+    known_symbols: Set[str],
+    had_space: bool,
+) -> Optional[str]:
+    if not symbol_raw:
+        return None
+    symbol_norm = symbol_raw.upper() if kind == "holes" else symbol_raw.lower()
+    if symbol_norm in known_symbols:
+        return symbol_norm
+
+    candidates: List[str] = []
+    if had_space and len(symbol_norm) > 1:
+        candidates.append(symbol_norm[1:])
+    if len(symbol_norm) > 1:
+        candidates.append(symbol_norm[:-1])
+        candidates.append(symbol_norm[1:])
+    if len(symbol_raw) > 1 and symbol_raw[0].islower():
+        candidate = symbol_raw[1:]
+        candidate = candidate.upper() if kind == "holes" else candidate.lower()
+        candidates.append(candidate)
+    if len(symbol_raw) > 1 and symbol_raw[-1].islower():
+        candidate = symbol_raw[:-1]
+        candidate = candidate.upper() if kind == "holes" else candidate.lower()
+        candidates.append(candidate)
+
+    seen: Set[str] = set()
+    for candidate in candidates:
+        if candidate in seen:
+            continue
+        seen.add(candidate)
+        if candidate in known_symbols:
+            return candidate
+    return symbol_norm
+
+
+def _normalize_iso286_label(
+    raw_label: Any,
+    kind: str,
+    known_symbols: Set[str],
+) -> Optional[str]:
+    if raw_label is None:
+        return None
+    raw = str(raw_label).strip()
+    if not raw:
+        return None
+    had_space = any(ch.isspace() for ch in raw)
+    compact = "".join(raw.split())
+    match = re.match(r"([A-Za-z]+)(\d+)$", compact)
+    if not match:
+        return None
+    symbol_raw, grade = match.groups()
+    symbol_norm = _normalize_symbol_token(symbol_raw, kind, known_symbols, had_space)
+    if not symbol_norm:
+        return None
+    return f"{symbol_norm}{grade}"
+
+
+def _infer_symbol_kind(symbol: str) -> str:
+    has_upper = any(ch.isupper() for ch in symbol)
+    has_lower = any(ch.islower() for ch in symbol)
+    if has_upper and not has_lower:
+        return "holes"
+    if has_lower and not has_upper:
+        return "shafts"
+    if symbol.upper() in _KNOWN_HOLE_SYMBOLS:
+        return "holes"
+    if symbol.lower() in _KNOWN_SHAFT_SYMBOLS:
+        return "shafts"
+    return "holes"
+
+
+@lru_cache(maxsize=1)
+def _load_iso286_deviation_tables() -> Dict[str, Dict[str, List[Tuple[float, float, float]]]]:
+    """Load ISO 286 deviation tables (holes/shafts) from extracted JSON."""
+    if not _ISO286_DEVIATIONS_PATH.exists():
+        return {"holes": {}, "shafts": {}}
+    try:
+        data = json.loads(_ISO286_DEVIATIONS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {"holes": {}, "shafts": {}}
+
+    def _parse_table(
+        raw: Any,
+        kind: str,
+        known_symbols: Set[str],
+    ) -> Dict[str, List[Tuple[float, float, float]]]:
+        parsed: Dict[str, List[Tuple[float, float, float]]] = {}
+        if not isinstance(raw, dict):
+            return parsed
+        for label, rows in raw.items():
+            if not isinstance(rows, list):
+                continue
+            normalized = _normalize_iso286_label(label, kind, known_symbols)
+            if not normalized:
+                continue
+            cleaned: List[Tuple[float, float, float]] = []
+            for entry in rows:
+                if not isinstance(entry, (list, tuple)) or len(entry) < 3:
+                    continue
+                try:
+                    size_upper = float(entry[0])
+                    lower = float(entry[1])
+                    upper = float(entry[2])
+                except (TypeError, ValueError):
+                    continue
+                cleaned.append((size_upper, lower, upper))
+            if cleaned:
+                existing = parsed.get(normalized)
+                if existing is None or len(cleaned) > len(existing):
+                    parsed[normalized] = cleaned
+        return parsed
+
+    return {
+        "holes": _parse_table(data.get("holes", {}), "holes", _KNOWN_HOLE_SYMBOLS),
+        "shafts": _parse_table(data.get("shafts", {}), "shafts", _KNOWN_SHAFT_SYMBOLS),
+    }
+
+
+def get_limit_deviations(
+    symbol: str, grade: int, nominal_size_mm: float
+) -> Optional[Tuple[float, float]]:
+    """Get lower/upper deviations (μm) from ISO 286 table if available."""
+    if not symbol:
+        return None
+    symbol_clean = symbol.strip()
+    if not symbol_clean:
+        return None
+    try:
+        grade_int = int(grade)
+    except (TypeError, ValueError):
+        return None
+
+    tables = _load_iso286_deviation_tables()
+    kind = _infer_symbol_kind(symbol_clean)
+    symbol_norm = symbol_clean.upper() if kind == "holes" else symbol_clean.lower()
+    label = f"{symbol_norm}{grade_int}"
+    rows = tables[kind].get(label)
+    if not rows:
+        alt_kind = "shafts" if kind == "holes" else "holes"
+        alt_symbol = symbol_clean.lower() if alt_kind == "shafts" else symbol_clean.upper()
+        rows = tables[alt_kind].get(f"{alt_symbol}{grade_int}")
+    if not rows:
+        return None
+    for size_upper, lower, upper in rows:
+        if nominal_size_mm <= size_upper:
+            return lower, upper
+    return (rows[-1][1], rows[-1][2]) if rows else None
+
+def get_fundamental_deviation(symbol: str, nominal_size_mm: float) -> Optional[float]:
+    """Get fundamental deviation (μm) for hole/shaft symbol at nominal size."""
+    if not symbol:
+        return None
+    symbol_clean = symbol.strip()
+    if not symbol_clean:
+        return None
+    if symbol_clean.upper() == "H":
+        # Basic hole system: H hole lower deviation (EI) is always 0.
+        return 0.0
+    if symbol_clean.isupper():
+        deviations = HOLE_FUNDAMENTAL_DEVIATIONS.get(symbol_clean.upper())
+    else:
+        deviations = SHAFT_FUNDAMENTAL_DEVIATIONS.get(symbol_clean.lower())
+    if deviations is None:
+        return None
+    for size_upper, deviation in deviations:
+        if nominal_size_mm <= size_upper:
+            return deviation
+    return deviations[-1][1] if deviations else None
+
 
 # Common standard fits - Hole basis system (基孔制)
 # Format: "HoleShaft": (hole_symbol, hole_grade, shaft_symbol, shaft_grade)
-COMMON_FITS: Dict[str, Dict] = {
+COMMON_FITS: Dict[str, Dict[str, Any]] = {
     # Clearance fits (间隙配合)
     "H11/c11": {
         "hole": ("H", 11),
@@ -358,6 +592,67 @@ COMMON_FITS: Dict[str, Dict] = {
         "application_zh": "需加热或冷却装配的过盈配合",
         "application_en": "Interference fit requiring heat/cold assembly",
     },
+    # Shaft-basis / non-H hole symbols (partial support)
+    "D10/h9": {
+        "hole": ("D", 10),
+        "shaft": ("h", 9),
+        "type": FitType.TRANSITION,
+        "class": FitClass.LOCATION_TRANSITION,
+        "name_zh": "键槽滑动配合",
+        "name_en": "Keyway sliding fit",
+        "application_zh": "键与键槽滑动装配",
+        "application_en": "Key and keyway sliding assembly",
+    },
+    "A9/h9": {
+        "hole": ("A", 9),
+        "shaft": ("h", 9),
+        "type": FitType.CLEARANCE,
+        "class": FitClass.LOOSE_RUNNING,
+        "name_zh": "大间隙配合",
+        "name_en": "Large clearance fit",
+        "application_zh": "需要较大间隙的松动装配",
+        "application_en": "Loose assembly with large clearance",
+    },
+    "B9/h9": {
+        "hole": ("B", 9),
+        "shaft": ("h", 9),
+        "type": FitType.CLEARANCE,
+        "class": FitClass.LOOSE_RUNNING,
+        "name_zh": "大间隙配合",
+        "name_en": "Large clearance fit",
+        "application_zh": "需要较大间隙的松动装配",
+        "application_en": "Loose assembly with large clearance",
+    },
+    "C9/h9": {
+        "hole": ("C", 9),
+        "shaft": ("h", 9),
+        "type": FitType.CLEARANCE,
+        "class": FitClass.LOOSE_RUNNING,
+        "name_zh": "间隙配合",
+        "name_en": "Clearance fit",
+        "application_zh": "一般间隙装配",
+        "application_en": "General clearance assembly",
+    },
+    "N9/h9": {
+        "hole": ("N", 9),
+        "shaft": ("h", 9),
+        "type": FitType.TRANSITION,
+        "class": FitClass.LOCATION_TRANSITION,
+        "name_zh": "键槽定位配合",
+        "name_en": "Keyway locating fit",
+        "application_zh": "键与键槽定位装配",
+        "application_en": "Key and keyway locating assembly",
+    },
+    "P9/h9": {
+        "hole": ("P", 9),
+        "shaft": ("h", 9),
+        "type": FitType.INTERFERENCE,
+        "class": FitClass.LOCATION_INTERFERENCE,
+        "name_zh": "键槽过盈配合",
+        "name_en": "Keyway interference fit",
+        "application_zh": "键与键槽过盈装配",
+        "application_en": "Key and keyway interference assembly",
+    },
 }
 
 
@@ -375,6 +670,25 @@ def _get_fundamental_deviation(
             return deviation
 
     # Return last value for sizes beyond range
+    if deviations:
+        return deviations[-1][1]
+
+    return None
+
+
+def _get_hole_fundamental_deviation(
+    symbol: str,
+    nominal_size_mm: float,
+) -> Optional[float]:
+    """Get fundamental deviation (EI) for a hole symbol at given size."""
+    deviations = HOLE_FUNDAMENTAL_DEVIATIONS.get(symbol.upper())
+    if deviations is None:
+        return None
+
+    for size_upper, deviation in deviations:
+        if nominal_size_mm <= size_upper:
+            return deviation
+
     if deviations:
         return deviations[-1][1]
 
@@ -403,6 +717,9 @@ def get_fit_deviations(
     """
     Calculate deviations for a standard fit.
 
+    Note:
+        Currently supports hole-basis fits using H or JS hole symbols.
+
     Args:
         fit_code: Standard fit code (e.g., "H7/g6", "H7/h6")
         nominal_size_mm: Nominal dimension in mm
@@ -428,9 +745,22 @@ def get_fit_deviations(
     if hole_tolerance is None or shaft_tolerance is None:
         return None
 
-    # For H hole (basic hole system): lower deviation = 0
-    hole_lower = 0
-    hole_upper = hole_tolerance
+    hole_symbol_norm = str(hole_symbol).upper()
+    if hole_symbol_norm == "H":
+        # For H hole (basic hole system): lower deviation = 0
+        hole_lower = 0
+        hole_upper = hole_tolerance
+    elif hole_symbol_norm == "JS":
+        # Symmetric tolerance about zero for JS holes
+        hole_upper = hole_tolerance / 2
+        hole_lower = -hole_tolerance / 2
+    else:
+        # Other hole symbols require fundamental deviation tables (EI)
+        hole_fund_dev = _get_hole_fundamental_deviation(hole_symbol_norm, nominal_size_mm)
+        if hole_fund_dev is None:
+            return None
+        hole_lower = hole_fund_dev
+        hole_upper = hole_fund_dev + hole_tolerance
 
     # Get shaft fundamental deviation
     shaft_fund_dev = _get_fundamental_deviation(shaft_symbol, nominal_size_mm)

@@ -6,7 +6,13 @@
 	dashboard-import security-audit metrics-audit cardinality-check verify-metrics test-targeted e2e-smoke \
 	dedup2d-secure-smoke chrome-devtools cdp-console-demo cdp-network-demo cdp-perf-demo cdp-response-demo \
 	cdp-screenshot-demo cdp-trace-demo playwright-console-demo playwright-trace-demo playwright-install \
-	uvnet-checkpoint-inspect
+		uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance \
+		validate-openapi \
+		graph2d-review-summary validate-core-fast test-provider-core test-provider-contract \
+		audit-pydantic-v2 audit-pydantic-v2-regression \
+		audit-pydantic-style audit-pydantic-style-regression \
+		openapi-snapshot-update
+.PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
 .DEFAULT_GOAL := help
@@ -62,6 +68,115 @@ test: ## 运行测试
 	@echo "$(GREEN)Running tests...$(NC)"
 	$(PYTEST) $(TEST_DIR) -v --cov=$(SRC_DIR) --cov-report=term-missing --cov-report=html
 
+test-unit: ## 运行 unit 分层测试（快速质量门）
+	@echo "$(GREEN)Running unit tests...$(NC)"
+	bash scripts/test_with_local_api.sh --suite unit
+
+test-contract-local: ## 自动起停本地 API 后运行 contract 测试
+	@echo "$(GREEN)Running contract tests with local API...$(NC)"
+	bash scripts/test_with_local_api.sh --suite contract
+
+test-e2e-local: ## 自动起停本地 API 后运行 e2e 测试
+	@echo "$(GREEN)Running e2e tests with local API...$(NC)"
+	bash scripts/test_with_local_api.sh --suite e2e
+
+test-all-local: ## 自动起停本地 API 后运行全量 tests
+	@echo "$(GREEN)Running full tests with local API...$(NC)"
+	bash scripts/test_with_local_api.sh --suite all
+
+test-knowledge: ## 运行知识库相关测试
+	@echo "$(GREEN)Running knowledge tests...$(NC)"
+	$(PYTEST) $(TEST_DIR)/unit/knowledge -v --junitxml=reports/junit-knowledge.xml
+
+test-tolerance: ## 运行公差知识相关测试（unit + integration）
+	@echo "$(GREEN)Running tolerance tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/knowledge/test_tolerance.py \
+		$(TEST_DIR)/unit/test_tolerance_fundamental_deviation.py \
+		$(TEST_DIR)/unit/test_tolerance_limit_deviations.py \
+		$(TEST_DIR)/unit/test_tolerance_api_normalization.py \
+		$(TEST_DIR)/integration/test_tolerance_api_errors.py \
+		$(TEST_DIR)/integration/test_tolerance_api.py -v
+
+test-service-mesh: ## 运行 service-mesh 关键回归测试
+	@echo "$(GREEN)Running service-mesh tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_load_balancer_coverage.py \
+		$(TEST_DIR)/unit/test_service_discovery_coverage.py -v
+
+test-provider-core: ## 运行 provider 框架核心回归测试
+	@echo "$(GREEN)Running provider core tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_provider_registry_plugins.py \
+		$(TEST_DIR)/unit/test_provider_plugin_metrics_exposed.py \
+		$(TEST_DIR)/unit/test_bootstrap_coverage.py \
+		$(TEST_DIR)/unit/test_provider_plugin_example_classifier.py \
+		$(TEST_DIR)/unit/test_provider_registry_bootstrap.py \
+		$(TEST_DIR)/unit/test_provider_knowledge_providers.py \
+		$(TEST_DIR)/unit/test_provider_framework.py \
+		$(TEST_DIR)/unit/test_provider_readiness.py \
+		$(TEST_DIR)/unit/test_health_utils_coverage.py \
+		$(TEST_DIR)/unit/test_health_hybrid_config.py \
+		$(TEST_DIR)/unit/test_provider_health_endpoint.py \
+		$(TEST_DIR)/unit/test_provider_check_metrics_exposed.py -v
+
+test-provider-contract: ## 运行 provider 相关 API 契约回归测试
+	@echo "$(GREEN)Running provider contract tests...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/contract/test_api_contract.py \
+		-k "provider_health_endpoint_response_shape or health_payload_core_provider_plugin_summary_shape or provider_health_openapi_schema_contains_plugin_diagnostics or health_openapi_schema_contains_core_provider_plugin_summary" -v
+
+validate-iso286: ## 验证 ISO286/GB-T 1800 偏差表数据（快速）
+	@echo "$(GREEN)Validating ISO286 deviation tables...$(NC)"
+	$(PYTHON) scripts/validate_iso286_deviations.py --spot-check
+	$(PYTHON) scripts/validate_iso286_hole_deviations.py
+
+validate-tolerance: ## 一键校验公差知识（数据 + API/模块测试）
+	@echo "$(GREEN)Validating tolerance knowledge stack...$(NC)"
+	$(MAKE) validate-iso286
+	$(MAKE) test-tolerance
+
+validate-openapi: ## 校验 OpenAPI operationId 唯一性
+	@echo "$(GREEN)Validating OpenAPI operation IDs...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/contract/test_openapi_operation_ids.py \
+		$(TEST_DIR)/contract/test_openapi_schema_snapshot.py \
+		$(TEST_DIR)/unit/test_api_route_uniqueness.py -q
+
+openapi-snapshot-update: ## 更新 OpenAPI 快照基线
+	@echo "$(GREEN)Updating OpenAPI schema snapshot baseline...$(NC)"
+	$(PYTHON) scripts/ci/generate_openapi_schema_snapshot.py --output config/openapi_schema_snapshot.json
+
+validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core + provider-contract）
+	@echo "$(GREEN)Running core fast validation...$(NC)"
+	$(MAKE) validate-tolerance
+	$(MAKE) validate-openapi
+	$(MAKE) test-service-mesh
+	$(MAKE) test-provider-core
+	$(MAKE) test-provider-contract
+
+audit-pydantic-v2: ## 审计 Pydantic v2 兼容性风险模式（输出现状）
+	@echo "$(GREEN)Auditing pydantic v2 compatibility patterns...$(NC)"
+	$(PYTHON) scripts/ci/audit_pydantic_v2.py --roots src
+
+audit-pydantic-v2-regression: ## 基于 baseline 校验 Pydantic v2 兼容性模式不回退
+	@echo "$(GREEN)Checking pydantic v2 compatibility regression...$(NC)"
+	$(PYTHON) scripts/ci/audit_pydantic_v2.py \
+		--roots src \
+		--baseline config/pydantic_v2_audit_baseline.json \
+		--check-regression
+
+audit-pydantic-style: ## 审计 Pydantic 模型字段/配置风格（输出现状）
+	@echo "$(GREEN)Auditing pydantic model style...$(NC)"
+	$(PYTHON) scripts/ci/audit_pydantic_model_style.py --roots src
+
+audit-pydantic-style-regression: ## 基于 baseline 校验 Pydantic 模型风格不回退
+	@echo "$(GREEN)Checking pydantic model-style regression...$(NC)"
+	$(PYTHON) scripts/ci/audit_pydantic_model_style.py \
+		--roots src \
+		--baseline config/pydantic_model_style_baseline.json \
+		--check-regression
+
 test-dedupcad-vision: ## 运行测试（依赖 DedupCAD Vision 已启动）
 	@echo "$(GREEN)Running tests with DedupCAD Vision required...$(NC)"
 	@echo "$(YELLOW)Ensure dedupcad-vision is running at $${DEDUPCAD_VISION_URL:-http://localhost:58001}$(NC)"
@@ -77,6 +192,15 @@ test-assembly: ## 运行装配模块测试
 test-baseline: ## 运行基线评测
 	@echo "$(GREEN)Running baseline evaluation...$(NC)"
 	$(PYTHON) scripts/run_baseline_evaluation.py
+
+graph2d-freeze-baseline: ## 冻结当前 Graph2D 模型为可追踪基线包
+	@echo "$(GREEN)Freezing Graph2D baseline...$(NC)"
+	$(PYTHON) scripts/freeze_graph2d_baseline.py --checkpoint $${GRAPH2D_MODEL_PATH:-models/graph2d_merged_latest.pth}
+
+worktree-bootstrap: ## 创建并初始化并行开发 worktree（示例：make worktree-bootstrap BRANCH=feat/x TARGET=../repo-x）
+	@echo "$(GREEN)Bootstrapping worktree...$(NC)"
+	@test -n "$(BRANCH)" || (echo "$(RED)BRANCH is required$(NC)"; exit 1)
+	scripts/bootstrap_worktree.sh "$(BRANCH)" "$${TARGET:-}" "$${BASE:-main}"
 
 lint: ## 运行代码检查（仅 src/，使用 .flake8 配置）
 	@echo "$(GREEN)Running linters (src only)...$(NC)"
@@ -473,6 +597,17 @@ eval-trend: ## 生成评测趋势图（reports/eval_history/plots）
 eval-validate: ## 校验评测历史文件的 schema 合规性
 	@echo "$(GREEN)Validating evaluation history files...$(NC)"
 	$(PYTHON) scripts/validate_eval_history.py --dir reports/eval_history
+
+# Graph2D review summarization
+GRAPH2D_REVIEW_TEMPLATE ?= reports/experiments/20260123/soft_override_calibrated_added_review_template_20260124.csv
+GRAPH2D_REVIEW_OUT_DIR ?= reports/experiments/$$(date +%Y%m%d)
+
+graph2d-review-summary: ## 汇总 Graph2D soft-override 复核模板（生成 summary + correct-label counts）
+	@echo "$(GREEN)Summarizing Graph2D soft-override review...$(NC)"
+	$(PYTHON) scripts/summarize_soft_override_review.py \
+		--review-template "$(GRAPH2D_REVIEW_TEMPLATE)" \
+		--summary-out "$(GRAPH2D_REVIEW_OUT_DIR)/soft_override_review_summary.csv" \
+		--correct-labels-out "$(GRAPH2D_REVIEW_OUT_DIR)/soft_override_correct_label_counts.csv"
 
 eval-migrate: ## 迁移旧版评测历史到 v1.0.0 schema
 	@echo "$(YELLOW)Migrating legacy evaluation history files...$(NC)"

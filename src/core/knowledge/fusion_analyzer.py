@@ -69,6 +69,10 @@ class FusionAnalyzer:
     def __init__(self, ai_confidence_threshold: float = 0.7):
         self.ai_threshold = ai_confidence_threshold
         self.norm_schema = DEFAULT_NORM_SCHEMA
+        self.refresh_from_env()
+
+    def refresh_from_env(self) -> None:
+        """Reload override settings from environment variables."""
         self.graph2d_override_labels = self._load_graph2d_override_labels()
         self.graph2d_override_min_conf = self._load_graph2d_override_min_conf()
         self.graph2d_override_low_conf_labels = self._load_graph2d_override_low_conf_labels()
@@ -313,7 +317,14 @@ class FusionAnalyzer:
         return float(ai_conf) >= required_min
 
 # Singleton
-_fusion = FusionAnalyzer()
+_fusion: Optional[FusionAnalyzer] = None
 
-def get_fusion_analyzer() -> FusionAnalyzer:
+
+def get_fusion_analyzer(reset: bool = False, refresh_env: bool = False) -> FusionAnalyzer:
+    """Return a singleton FusionAnalyzer with optional env refresh."""
+    global _fusion
+    if _fusion is None or reset:
+        _fusion = FusionAnalyzer()
+    elif refresh_env:
+        _fusion.refresh_from_env()
     return _fusion

@@ -11,6 +11,7 @@ The `/health` endpoint has been enhanced to provide comprehensive configuration 
 
 Note: `timestamp` is an ISO 8601, timezone-aware UTC value (e.g., `2025-11-19T10:00:00+00:00`).
 Related: `GET /health/extended` includes the same base payload plus vector store and Faiss details.
+Classifier cache stats are available at `GET /api/v1/health/classifier/cache` (admin token required).
 
 ## Response Structure
 
@@ -46,7 +47,10 @@ Related: `GET /health/extended` includes the same base payload plus vector store
     "monitoring": {
       "error_ema_alpha": 0.2,
       "metrics_enabled": true|false,
-      "redis_enabled": true|false
+      "redis_enabled": true|false,
+      "classifier_rate_limit_per_min": 120,
+      "classifier_rate_limit_burst": 20,
+      "classifier_cache_max_size": 1000
     },
     "network": {
       "cors_origins": ["*"],
@@ -55,6 +59,37 @@ Related: `GET /health/extended` includes the same base payload plus vector store
     "debug": {
       "debug_mode": true|false,
       "log_level": "INFO|DEBUG|WARNING|ERROR"
+    },
+    "ml": {
+      "classification": {
+        "hybrid_enabled": true|false,
+        "hybrid_version": "1.1.0",
+        "hybrid_config_path": "config/hybrid_classifier.yaml",
+        "graph2d_model_path": "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
+        "filename_enabled": true|false,
+        "graph2d_enabled": true|false,
+        "titleblock_enabled": true|false,
+        "process_enabled": true|false
+      },
+      "sampling": {
+        "max_nodes": 200,
+        "strategy": "importance|random|hybrid",
+        "seed": 42,
+        "text_priority_ratio": 0.3
+      }
+    },
+    "core_providers": {
+      "bootstrapped": true,
+      "bootstrap_timestamp": 1738920000.123,
+      "total_domains": 4,
+      "total_providers": 11,
+      "domains": ["classifier", "knowledge", "ocr", "vision"],
+      "providers": {
+        "classifier": ["graph2d", "graph2d_ensemble", "hybrid", "v16", "v6"],
+        "knowledge": ["standards", "tolerance"],
+        "ocr": ["deepseek_hf", "paddle"],
+        "vision": ["deepseek_stub", "stub"]
+      }
     }
   }
 }
@@ -95,6 +130,28 @@ Related: `GET /health/extended` includes the same base payload plus vector store
 ### Debug Information
 - **debug_mode**: Whether debug mode is active
 - **log_level**: Current logging level
+
+### ML Configuration
+- **classification.hybrid_enabled**: Hybrid classifier master switch
+- **classification.*_enabled**: Per-branch switches (filename/graph2d/titleblock/process)
+- **classification.hybrid_config_path**: Active runtime config path
+- **classification.graph2d_model_path**: Active Graph2D checkpoint path
+- **sampling**: Effective DXF graph sampling parameters used in runtime
+
+### Core Provider Registry
+- **core_providers.bootstrapped**: Whether startup bootstrap executed
+- **core_providers.total_domains**: Number of registered domains
+- **core_providers.total_providers**: Total registered provider adapters
+- **core_providers.providers**: Domain-to-provider registry mapping
+
+## Provider Registry Endpoints
+
+```bash
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/api/v1/health/providers/registry
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/api/v1/providers/registry
+```
+
+Returns the runtime registry snapshot used by the new core provider framework.
 
 ## Use Cases
 
@@ -144,6 +201,24 @@ def check_config_drift(expected_config):
         alert("WARNING: Debug mode enabled in production!")
 ```
 
+### 5. Classifier Cache Inspection
+```bash
+curl -H "X-Admin-Token: $ADMIN_TOKEN" http://localhost:8000/api/v1/health/classifier/cache
+```
+Returns cache size, hit ratio, and hit/miss counts for the classifier API cache.
+
+### 6. Hybrid Config Runtime Inspection
+```bash
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/api/v1/health/ml/hybrid-config
+```
+Returns full effective hybrid classifier config (after file/env merge).
+
+### 7. Provider Registry Runtime Inspection
+```bash
+curl -H "X-API-Key: $API_KEY" http://localhost:8000/api/v1/health/providers/registry
+```
+Returns bootstrapped status, domain counts, and provider registration map.
+
 ## Benefits
 
 1. **Visibility**: Operations teams can see actual running configuration
@@ -182,5 +257,5 @@ The health endpoint configuration is automatically updated when settings change.
 
 ---
 
-*Last Updated: 2025-11-19*
-*Implementation: [`src/main.py:99-150`](../src/main.py#L99)*
+*Last Updated: 2026-02-07*
+*Implementation: [`src/api/health_utils.py`](../src/api/health_utils.py), [`src/api/v1/health.py`](../src/api/v1/health.py), [`src/core/providers/bootstrap.py`](../src/core/providers/bootstrap.py), [`src/main.py`](../src/main.py)*

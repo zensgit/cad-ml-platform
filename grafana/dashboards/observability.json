@@ -138,6 +138,36 @@
           "expr": "faiss_recovery_suppression_remaining_seconds"
         }
       ]
+    },
+    {
+      "type": "graph",
+      "title": "Classifier Cache Hit Rate (%)",
+      "description": "Hit ratio for classifier cache over 5m window",
+      "targets": [
+        {
+          "expr": "sum(rate(classification_cache_hits_total[5m])) / (sum(rate(classification_cache_hits_total[5m])) + sum(rate(classification_cache_miss_total[5m]))) * 100"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Classifier Cache Size",
+      "description": "Current number of cached classifier entries",
+      "targets": [
+        {
+          "expr": "classification_cache_size"
+        }
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Classifier Rate Limited (per min)",
+      "description": "Rate limited classifier requests per minute",
+      "targets": [
+        {
+          "expr": "sum(rate(classification_rate_limited_total[5m])) * 60"
+        }
+      ]
     }
   ]
 }

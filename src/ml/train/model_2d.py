@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 import torch
 from torch import nn
 
@@ -42,7 +44,7 @@ class SimpleGraphClassifier(nn.Module):
         self,
         x: torch.Tensor,
         edge_index: torch.Tensor,
-        edge_attr: torch.Tensor | None = None,
+        edge_attr: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         x = torch.relu(self.gcn1(x, edge_index))
         x = torch.relu(self.gcn2(x, edge_index))

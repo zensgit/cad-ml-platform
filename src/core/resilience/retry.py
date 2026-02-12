@@ -27,7 +27,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import logging
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, Optional, Tuple, Type, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +108,7 @@ def with_retry(
     min_wait: float = 1.0,
     max_wait: float = 60.0,
     multiplier: float = 2.0,
-    retry_exceptions: tuple[type[Exception], ...] | None = None,
+    retry_exceptions: Optional[Tuple[Type[Exception], ...]] = None,
     reraise: bool = True,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Create a configurable retry decorator.

@@ -1,0 +1,73 @@
+# Production Environment Overlay
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cad-ml-platform
+
+namePrefix: ""
+
+commonLabels:
+  environment: production
+
+resources:
+  - ../../base
+  - ingress.yaml
+  - servicemonitor.yaml
+
+replicas:
+  - name: cad-ml-api
+    count: 3
+
+images:
+  - name: cad-ml-platform
+    newName: ghcr.io/your-org/cad-ml-platform
+    newTag: v1.0.0  # Use semantic versioning
+
+configMapGenerator:
+  - name: cad-ml-config
+    behavior: merge
+    literals:
+      - APP_ENV=production
+      - LOG_LEVEL=INFO
+      - RATE_LIMIT_REQUESTS_PER_MINUTE=100
+      - METRICS_ENABLED=true
+
+patches:
+  # Production resources
+  - target:
+      kind: Deployment
+      name: cad-ml-api
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "1Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "500m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "2Gi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "2000m"
+      - op: add
+        path: /spec/template/spec/topologySpreadConstraints
+        value:
+          - maxSkew: 1
+            topologyKey: topology.kubernetes.io/zone
+            whenUnsatisfiable: ScheduleAnyway
+            labelSelector:
+              matchLabels:
+                app: cad-ml-api
+
+  # Production HPA settings
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: cad-ml-api
+    patch: |-
+      - op: replace
+        path: /spec/minReplicas
+        value: 3
+      - op: replace
+        path: /spec/maxReplicas
+        value: 20

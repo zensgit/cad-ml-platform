@@ -304,7 +304,8 @@ class WebhookDeliveryService:
     ) -> None:
         """Initialize delivery service."""
         self._rate_limiter = rate_limiter or WebhookRateLimiter()
-        self._delivery_queue: asyncio.Queue[DeliveryRecord] = asyncio.Queue()
+        # Queue is reserved for future background delivery workers; keep lazy to avoid loop requirements.
+        self._delivery_queue: Optional[asyncio.Queue[DeliveryRecord]] = None
         self._pending_retries: Dict[str, DeliveryRecord] = {}
         self._delivery_history: Dict[str, List[DeliveryRecord]] = {}
         self._lock = threading.RLock()

@@ -1,0 +1,200 @@
+# Blue-Green Deployment for CAD ML Platform
+# Uses two identical deployments with service switching
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cad-ml-platform
+  labels:
+    app.kubernetes.io/name: cad-ml-platform
+
+---
+# Blue Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cad-ml-api-blue
+  namespace: cad-ml-platform
+  labels:
+    app: cad-ml-api
+    slot: blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: cad-ml-api
+      slot: blue
+  template:
+    metadata:
+      labels:
+        app: cad-ml-api
+        slot: blue
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: api
+          image: cad-ml-platform:blue
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: DEPLOYMENT_SLOT
+              value: "blue"
+            - name: VERSION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['version']
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+      terminationGracePeriodSeconds: 30
+
+---
+# Green Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cad-ml-api-green
+  namespace: cad-ml-platform
+  labels:
+    app: cad-ml-api
+    slot: green
+spec:
+  replicas: 0  # Initially scaled down
+  selector:
+    matchLabels:
+      app: cad-ml-api
+      slot: green
+  template:
+    metadata:
+      labels:
+        app: cad-ml-api
+        slot: green
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: api
+          image: cad-ml-platform:green
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: DEPLOYMENT_SLOT
+              value: "green"
+            - name: VERSION
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['version']
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 10"]
+      terminationGracePeriodSeconds: 30
+
+---
+# Production Service (switches between blue and green)
+apiVersion: v1
+kind: Service
+metadata:
+  name: cad-ml-api
+  namespace: cad-ml-platform
+  labels:
+    app: cad-ml-api
+spec:
+  type: ClusterIP
+  selector:
+    app: cad-ml-api
+    slot: blue  # Changed during deployment
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+
+---
+# Blue Service (for direct access/testing)
+apiVersion: v1
+kind: Service
+metadata:
+  name: cad-ml-api-blue
+  namespace: cad-ml-platform
+  labels:
+    app: cad-ml-api
+    slot: blue
+spec:
+  type: ClusterIP
+  selector:
+    app: cad-ml-api
+    slot: blue
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+
+---
+# Green Service (for direct access/testing)
+apiVersion: v1
+kind: Service
+metadata:
+  name: cad-ml-api-green
+  namespace: cad-ml-platform
+  labels:
+    app: cad-ml-api
+    slot: green
+spec:
+  type: ClusterIP
+  selector:
+    app: cad-ml-api
+    slot: green
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000

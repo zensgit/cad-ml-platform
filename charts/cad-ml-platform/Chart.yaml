@@ -1,7 +1,26 @@
 apiVersion: v2
 name: cad-ml-platform
-description: A Helm chart for CAD ML Platform
+description: A Helm chart for CAD ML Platform - Enterprise CAD Analysis Service
 icon: https://raw.githubusercontent.com/cncf/artwork/master/projects/helm/icon/color/helm-icon-color.png
 type: application
-version: 0.1.0
-appVersion: "1.6.0"
+version: 0.2.0
+appVersion: "2.0.0"
+
+keywords:
+  - cad
+  - ml
+  - machine-learning
+  - ocr
+  - vision
+
+home: https://github.com/example/cad-ml-platform
+
+maintainers:
+  - name: CAD ML Team
+    email: team@example.com
+
+dependencies:
+  - name: redis
+    version: "18.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled

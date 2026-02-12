@@ -49,3 +49,40 @@ Selector labels
 app.kubernetes.io/name: {{ include "cad-ml-platform.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "cad-ml-platform.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "cad-ml-platform.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create image name
+*/}}
+{{- define "cad-ml-platform.image" -}}
+{{- $tag := .Values.image.tag | default .Chart.AppVersion -}}
+{{- printf "%s:%s" .Values.image.repository $tag -}}
+{{- end }}
+
+{{/*
+Dedup2D worker image
+*/}}
+{{- define "cad-ml-platform.dedup2d.workerImage" -}}
+{{- $repository := .Values.dedup2d.worker.image.repository | default .Values.image.repository -}}
+{{- $tag := .Values.dedup2d.worker.image.tag | default .Values.image.tag | default .Chart.AppVersion -}}
+{{- printf "%s:%s" $repository $tag -}}
+{{- end }}
+
+{{/*
+Dedup2D render worker image
+*/}}
+{{- define "cad-ml-platform.dedup2d.renderWorkerImage" -}}
+{{- $repository := .Values.dedup2d.renderWorker.image.repository | default .Values.image.repository -}}
+{{- $tag := .Values.dedup2d.renderWorker.image.tag | default .Values.image.tag | default .Chart.AppVersion -}}
+{{- printf "%s:%s" $repository $tag -}}
+{{- end }}

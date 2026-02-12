@@ -64,8 +64,15 @@ models/*.pkl
 models/*.h5
 models/*.pth
 models/*.onnx
+models/*.pt
 models/experimental/
 !models/.gitkeep
+
+# Local experiment artifacts
+claudedocs/suspicious_samples/
+claudedocs/v14_errors.json
+scripts/eval_v16_after_fix.py
+scripts/synthesize_dxf_v2.py
 
 # Config files with secrets
 config/config.yaml
@@ -124,8 +131,11 @@ reports/baselines/latest_snapshot.json
 # Large/local artifacts (keep reports and handoff folders in repo, ignore generated outputs)
 handoff/*.zip
 reports/*.csv
+!reports/DEV_ISO286_EI_REPORT_20260203.csv
+!reports/DEV_ISO286_EI_DIFF_6_vs_7_20260203.csv
 reports/*.json
 reports/*.jsonl
+reports/junit-knowledge.xml
 reports/replay/
 reports/replay_extended/
 

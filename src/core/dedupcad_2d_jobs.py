@@ -431,10 +431,10 @@ class Dedup2DJobStore:
                 self._cleanup_locked()
 
 
-_JOB_STORE: Dedup2DJobStore | None = None
+_JOB_STORE: Optional[Dedup2DJobStore] = None
 _JOB_STORE_LOCK = threading.Lock()
 _MULTI_WORKER_WARNING_ISSUED = False
-_GLOBAL_METRICS_CALLBACK: JobMetricsCallback | None = None
+_GLOBAL_METRICS_CALLBACK: Optional[JobMetricsCallback] = None
 
 
 def _check_multi_worker_warning() -> None:

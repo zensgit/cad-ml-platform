@@ -1,0 +1,267 @@
+# Istio Observability Configuration
+# Telemetry, tracing, and metrics
+
+---
+# Telemetry configuration
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: mesh-default
+  namespace: istio-system
+spec:
+  # Access logging
+  accessLogging:
+    - providers:
+        - name: envoy
+      filter:
+        expression: response.code >= 400  # Only log errors
+
+  # Tracing
+  tracing:
+    - providers:
+        - name: jaeger
+      randomSamplingPercentage: 10.0
+      customTags:
+        app.version:
+          literal:
+            value: "1.0.0"
+        request.id:
+          header:
+            name: x-request-id
+
+  # Metrics
+  metrics:
+    - providers:
+        - name: prometheus
+      overrides:
+        - match:
+            metric: ALL_METRICS
+            mode: CLIENT_AND_SERVER
+          tagOverrides:
+            request_protocol:
+              operation: UPSERT
+              value: request.protocol
+
+---
+# Application-specific telemetry
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: cad-ml-telemetry
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: cad-ml-platform
+
+  # Higher sampling for this app
+  tracing:
+    - randomSamplingPercentage: 50.0
+      customTags:
+        tenant.id:
+          header:
+            name: x-tenant-id
+        user.id:
+          header:
+            name: x-user-id
+
+  # Custom metrics
+  metrics:
+    - overrides:
+        - match:
+            metric: REQUEST_COUNT
+          tagOverrides:
+            api_version:
+              value: request.headers["x-api-version"]
+
+---
+# PrometheusOperator ServiceMonitor for Istio
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: istio-mesh
+  namespace: monitoring
+  labels:
+    app: istio
+spec:
+  selector:
+    matchExpressions:
+      - key: istio
+        operator: In
+        values:
+          - pilot
+          - mixer
+  namespaceSelector:
+    matchNames:
+      - istio-system
+  endpoints:
+    - port: http-monitoring
+      interval: 15s
+
+---
+# PodMonitor for Envoy sidecars
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: envoy-stats
+  namespace: monitoring
+spec:
+  selector:
+    matchExpressions:
+      - key: security.istio.io/tlsMode
+        operator: Exists
+  namespaceSelector:
+    any: true
+  podMetricsEndpoints:
+    - port: http-envoy-prom
+      path: /stats/prometheus
+      interval: 15s
+
+---
+# Grafana Dashboard ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: istio-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  # yamllint disable rule:line-length
+  istio-mesh.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "title": "Istio Mesh Dashboard",
+      "uid": "istio-mesh",
+      "panels": [
+        {
+          "title": "Request Rate",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "sum(rate(istio_requests_total{reporter=\"source\"}[5m]))",
+              "legendFormat": "Requests/s"
+            }
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0}
+        },
+        {
+          "title": "Success Rate",
+          "type": "gauge",
+          "targets": [
+            {
+              "expr": "sum(rate(istio_requests_total{reporter=\"source\",response_code!~\"5.*\"}[5m])) / sum(rate(istio_requests_total{reporter=\"source\"}[5m])) * 100",
+              "legendFormat": "Success %"
+            }
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0}
+        },
+        {
+          "title": "P99 Latency",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(istio_request_duration_milliseconds_bucket{reporter=\"source\"}[5m])) by (le))",
+              "legendFormat": "P99 ms"
+            }
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0}
+        },
+        {
+          "title": "Active Connections",
+          "type": "stat",
+          "targets": [
+            {
+              "expr": "sum(istio_tcp_connections_opened_total) - sum(istio_tcp_connections_closed_total)",
+              "legendFormat": "Connections"
+            }
+          ],
+          "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0}
+        },
+        {
+          "title": "Request Rate by Service",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(rate(istio_requests_total{reporter=\"source\"}[5m])) by (destination_service_name)",
+              "legendFormat": "{{destination_service_name}}"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+        },
+        {
+          "title": "Error Rate by Service",
+          "type": "timeseries",
+          "targets": [
+            {
+              "expr": "sum(rate(istio_requests_total{reporter=\"source\",response_code=~\"5.*\"}[5m])) by (destination_service_name)",
+              "legendFormat": "{{destination_service_name}}"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4}
+        },
+        {
+          "title": "Latency Distribution",
+          "type": "heatmap",
+          "targets": [
+            {
+              "expr": "sum(rate(istio_request_duration_milliseconds_bucket{reporter=\"source\"}[5m])) by (le)",
+              "legendFormat": "{{le}}"
+            }
+          ],
+          "gridPos": {"h": 8, "w": 24, "x": 0, "y": 12}
+        },
+        {
+          "title": "Circuit Breaker Status",
+          "type": "table",
+          "targets": [
+            {
+              "expr": "envoy_cluster_circuit_breakers_default_cx_open",
+              "legendFormat": "{{cluster_name}}"
+            }
+          ],
+          "gridPos": {"h": 6, "w": 12, "x": 0, "y": 20}
+        },
+        {
+          "title": "mTLS Status",
+          "type": "table",
+          "targets": [
+            {
+              "expr": "sum(istio_requests_total{connection_security_policy=\"mutual_tls\"}) by (destination_service_name) / sum(istio_requests_total) by (destination_service_name) * 100",
+              "legendFormat": "{{destination_service_name}}"
+            }
+          ],
+          "gridPos": {"h": 6, "w": 12, "x": 12, "y": 20}
+        }
+      ],
+      "schemaVersion": 38,
+      "version": 1
+    }
+  # yamllint enable rule:line-length
+
+---
+# Kiali configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kiali
+  namespace: istio-system
+data:
+  config.yaml: |
+    auth:
+      strategy: anonymous
+    deployment:
+      accessible_namespaces:
+        - "**"
+    external_services:
+      prometheus:
+        url: http://prometheus.monitoring:9090
+      tracing:
+        url: http://jaeger-query.tracing:16686
+      grafana:
+        url: http://grafana.monitoring:3000
+    server:
+      port: 20001
+      web_root: /kiali

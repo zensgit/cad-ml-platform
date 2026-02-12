@@ -1,0 +1,224 @@
+# CAD ML Platform - AlertManager Rules
+# Production alerting configuration
+
+groups:
+  # ============================================
+  # SLO Alerts
+  # ============================================
+  - name: cad-ml-platform-slo
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{app="cad-ml-platform", status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{app="cad-ml-platform"}[5m]))
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 1%)"
+          runbook_url: "https://docs.example.com/runbooks/high-error-rate"
+
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{app="cad-ml-platform"}[5m])) by (le)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High API latency detected"
+          description: "P95 latency is {{ $value | humanizeDuration }} (threshold: 500ms)"
+          runbook_url: "https://docs.example.com/runbooks/high-latency"
+
+      - alert: LowAvailability
+        expr: |
+          avg_over_time(up{app="cad-ml-platform"}[5m]) < 0.99
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Service availability below SLO"
+          description: "Availability is {{ $value | humanizePercentage }} (SLO: 99%)"
+
+  # ============================================
+  # Resource Alerts
+  # ============================================
+  - name: cad-ml-platform-resources
+    rules:
+      - alert: HighCPUUsage
+        expr: |
+          sum(rate(container_cpu_usage_seconds_total{pod=~".*cad-ml.*"}[5m])) by (pod)
+          /
+          sum(kube_pod_container_resource_limits{pod=~".*cad-ml.*", resource="cpu"}) by (pod)
+          > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High CPU usage on {{ $labels.pod }}"
+          description: "CPU usage is {{ $value | humanizePercentage }} of limit"
+
+      - alert: HighMemoryUsage
+        expr: |
+          sum(container_memory_usage_bytes{pod=~".*cad-ml.*"}) by (pod)
+          /
+          sum(kube_pod_container_resource_limits{pod=~".*cad-ml.*", resource="memory"}) by (pod)
+          > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "High memory usage on {{ $labels.pod }}"
+          description: "Memory usage is {{ $value | humanizePercentage }} of limit"
+
+      - alert: PodCrashLooping
+        expr: |
+          increase(kube_pod_container_status_restarts_total{pod=~".*cad-ml.*"}[1h]) > 3
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Pod {{ $labels.pod }} is crash looping"
+          description: "Pod has restarted {{ $value }} times in the last hour"
+
+      - alert: PodNotReady
+        expr: |
+          kube_pod_status_ready{pod=~".*cad-ml.*", condition="true"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Pod {{ $labels.pod }} is not ready"
+          description: "Pod has been not ready for more than 5 minutes"
+
+  # ============================================
+  # ML Model Alerts
+  # ============================================
+  - name: cad-ml-platform-model
+    rules:
+      - alert: ModelInferenceSlowdown
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(model_inference_duration_seconds_bucket{app="cad-ml-platform"}[5m])) by (le, model)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "Model {{ $labels.model }} inference is slow"
+          description: "P95 inference latency is {{ $value | humanizeDuration }}"
+
+      - alert: ModelAccuracyDrop
+        expr: |
+          model_accuracy{app="cad-ml-platform"} < 0.85
+        for: 15m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "Model {{ $labels.model }} accuracy dropped"
+          description: "Model accuracy is {{ $value | humanizePercentage }} (threshold: 85%)"
+
+      - alert: ModelPredictionErrors
+        expr: |
+          sum(rate(model_prediction_errors_total{app="cad-ml-platform"}[5m])) by (model) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "High model prediction error rate"
+          description: "Model {{ $labels.model }} has {{ $value }} errors/sec"
+
+  # ============================================
+  # Infrastructure Alerts
+  # ============================================
+  - name: cad-ml-platform-infra
+    rules:
+      - alert: RedisDown
+        expr: |
+          redis_up{app="cad-ml-platform"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Redis is down"
+          description: "Redis instance is not responding"
+
+      - alert: RedisHighMemory
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Redis memory usage is high"
+          description: "Redis memory usage is {{ $value | humanizePercentage }}"
+
+      - alert: QueueBacklog
+        expr: |
+          sum(redis_list_length{list=~".*queue.*"}) > 1000
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Job queue backlog is growing"
+          description: "Queue has {{ $value }} pending jobs"
+
+      - alert: DiskSpaceLow
+        expr: |
+          (
+            node_filesystem_avail_bytes{mountpoint="/"}
+            /
+            node_filesystem_size_bytes{mountpoint="/"}
+          ) < 0.15
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Low disk space"
+          description: "Only {{ $value | humanizePercentage }} disk space remaining"
+
+  # ============================================
+  # Rate Limiting Alerts
+  # ============================================
+  - name: cad-ml-platform-ratelimit
+    rules:
+      - alert: HighRateLimitHits
+        expr: |
+          sum(rate(rate_limit_hits_total{app="cad-ml-platform"}[5m])) > 10
+        for: 5m
+        labels:
+          severity: info
+          team: platform
+        annotations:
+          summary: "High rate of rate limit hits"
+          description: "{{ $value }} requests/sec being rate limited"
+
+      - alert: APIAbuseDetected
+        expr: |
+          sum(rate(rate_limit_hits_total{app="cad-ml-platform"}[5m])) by (client_id) > 50
+        for: 2m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "Potential API abuse from {{ $labels.client_id }}"
+          description: "Client hitting rate limits at {{ $value }} req/sec"

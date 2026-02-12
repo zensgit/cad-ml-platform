@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import Optional, Union
 
 
 def _get_env(name: str, default: str) -> str:
@@ -18,7 +19,7 @@ class Settings:
     # Service version (for /version endpoint)
     version: str = _get_env("DEDUPCAD2_VERSION", "0.2.5")
     port: int = int(_get_env("PORT", "58000"))
-    auth_token: str | None = _get_env("DEDUPCAD2_TOKEN", "") or None
+    auth_token: Optional[str] = _get_env("DEDUPCAD2_TOKEN", "") or None
     max_file_size_mb: int = int(_get_env("DEDUPCAD2_MAX_FILE_MB", "20"))
     cache_dir: str = _get_env("DEDUPCAD2_CACHE_DIR", "standalone-product/dedupcad2/cache")
     # Allow tests to bypass local-only restriction by setting DEDUPCAD2_TEST_MODE=1

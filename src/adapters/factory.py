@@ -32,20 +32,9 @@ class DxfAdapter(_BaseAdapter):
         bbox = BoundingBox()
         entity_counts: Dict[str, int] = {}
         try:
-            import tempfile
+            from src.utils.dxf_io import read_dxf_document_from_bytes
 
-            import ezdxf  # type: ignore
-
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
-                tmp.write(data)
-                tmp_path = tmp.name
-            try:
-                doc = ezdxf.readfile(tmp_path)
-            finally:
-                try:
-                    __import__("os").unlink(tmp_path)
-                except Exception:
-                    pass
+            doc = read_dxf_document_from_bytes(data)
             msp = doc.modelspace()
             msp_entities = list(msp)
             for e in msp_entities:

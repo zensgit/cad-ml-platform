@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -302,7 +302,7 @@ def convert_dwg_to_dxf_cmd(dwg_path: Path, out_dxf_path: Path, *, cmd_template: 
         raise RuntimeError("DWG->DXF command finished but output missing")
 
 
-def _default_oda_candidates() -> list[Path]:
+def _default_oda_candidates() -> List[Path]:
     candidates = [
         Path("/Applications/ODAFileConverter.app/Contents/MacOS/ODAFileConverter"),
         Path("/opt/ODAFileConverter/ODAFileConverter"),

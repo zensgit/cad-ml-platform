@@ -7,7 +7,7 @@ import tempfile
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Dict, Optional, Protocol, Union
 
 from .verifier import PrecisionVerifier
 
@@ -203,8 +203,8 @@ class HybridGeomJsonStore:
         return value
 
     def save(self, file_hash: str, geom_json: Dict[str, Any]) -> Optional[Path]:
-        local_exc: Exception | None = None
-        redis_exc: Exception | None = None
+        local_exc: Optional[Exception] = None
+        redis_exc: Optional[Exception] = None
         local_path: Optional[Path] = None
 
         try:

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
 from collections import Counter
@@ -26,17 +27,75 @@ def _require_torch() -> bool:
         return False
 
 
+def _load_yaml_defaults(config_path: str, section: str) -> Dict[str, Any]:
+    """Load optional CLI defaults from YAML."""
+    if not config_path:
+        return {}
+    path = Path(config_path)
+    if not path.exists():
+        return {}
+    try:
+        import yaml  # type: ignore
+    except Exception as exc:
+        print(f"Warning: yaml unavailable, ignore config {path}: {exc}")
+        return {}
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        print(f"Warning: failed to parse config {path}: {exc}")
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    section_payload = payload.get(section)
+    data = section_payload if isinstance(section_payload, dict) else payload
+    if not isinstance(data, dict):
+        return {}
+    return {str(k).replace("-", "_"): v for k, v in data.items()}
+
+
+def _apply_config_defaults(
+    parser: argparse.ArgumentParser, config_path: str, section: str
+) -> None:
+    defaults = _load_yaml_defaults(config_path, section)
+    if not defaults:
+        return
+    valid_keys = {action.dest for action in parser._actions}
+    filtered = {k: v for k, v in defaults.items() if k in valid_keys}
+    unknown = sorted(set(defaults.keys()) - set(filtered.keys()))
+    if unknown:
+        print(
+            f"Warning: ignored unknown keys in {config_path} ({section}): "
+            + ", ".join(unknown)
+        )
+    if filtered:
+        parser.set_defaults(**filtered)
+
+
+def _apply_dxf_sampling_env(args: argparse.Namespace) -> None:
+    mapping = {
+        "dxf_max_nodes": "DXF_MAX_NODES",
+        "dxf_sampling_strategy": "DXF_SAMPLING_STRATEGY",
+        "dxf_sampling_seed": "DXF_SAMPLING_SEED",
+        "dxf_text_priority_ratio": "DXF_TEXT_PRIORITY_RATIO",
+    }
+    for arg_name, env_name in mapping.items():
+        value = getattr(args, arg_name, None)
+        if value is not None:
+            os.environ[env_name] = str(value)
+
+
 def _collate(
-    batch: List[Tuple[Dict[str, Any], Any]]
-) -> Tuple[List[Any], List[Any], List[Any], List[Any], List[str]]:
-    xs, edges, edge_attrs, labels, filenames = [], [], [], [], []
+    batch: List[Tuple[Dict[str, Any], Any]],
+) -> Tuple[List[Any], List[Any], List[Any], List[Any], List[str], List[str]]:
+    xs, edges, edge_attrs, labels, filenames, file_paths = [], [], [], [], [], []
     for graph, label in batch:
         xs.append(graph["x"])
         edges.append(graph["edge_index"])
         edge_attrs.append(graph.get("edge_attr"))
         labels.append(label)
         filenames.append(graph.get("file_name", ""))
-    return xs, edges, edge_attrs, labels, filenames
+        file_paths.append(graph.get("file_path", ""))
+    return xs, edges, edge_attrs, labels, filenames, file_paths
 
 
 def _compute_class_weights(labels: List[int], num_classes: int, mode: str):
@@ -93,6 +152,47 @@ def _stratified_split(indices: List[int], labels: List[int], train_ratio: float)
     return train_idx, val_idx
 
 
+def _stratified_subsample(
+    indices: List[int], labels: List[int], max_samples: int, seed: int
+) -> List[int]:
+    """Select samples in a round-robin fashion across labels.
+
+    This avoids accidental single-class truncation when the manifest is
+    grouped/sorted by label and a small `--max-samples` is used.
+    """
+
+    if max_samples <= 0 or max_samples >= len(indices):
+        return list(indices)
+
+    label_to_indices: Dict[int, List[int]] = {}
+    for idx, label in zip(indices, labels):
+        label_to_indices.setdefault(label, []).append(idx)
+
+    rng = random.Random(seed)
+    for idxs in label_to_indices.values():
+        rng.shuffle(idxs)
+
+    label_order = sorted(
+        label_to_indices.keys(), key=lambda k: len(label_to_indices[k]), reverse=True
+    )
+    selected: List[int] = []
+
+    while len(selected) < max_samples:
+        progressed = False
+        for label in label_order:
+            idxs = label_to_indices[label]
+            if not idxs:
+                continue
+            selected.append(idxs.pop())
+            progressed = True
+            if len(selected) >= max_samples:
+                break
+        if not progressed:
+            break
+
+    return selected
+
+
 def _build_balanced_sampler(labels: List[int]):
     import torch
     from torch.utils.data import WeightedRandomSampler
@@ -124,7 +224,18 @@ def main() -> int:
     )
     from src.ml.train.model_2d import EdgeGraphSageClassifier, SimpleGraphClassifier
 
-    parser = argparse.ArgumentParser(description="Train 2D DXF graph classifier.")
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument(
+        "--config",
+        default="config/graph2d_training.yaml",
+        help="YAML config path for train_2d_graph defaults.",
+    )
+    pre_args, _ = pre_parser.parse_known_args()
+
+    parser = argparse.ArgumentParser(
+        description="Train 2D DXF graph classifier.",
+        parents=[pre_parser],
+    )
     parser.add_argument(
         "--manifest",
         default="reports/experiments/20260120/MECH_4000_DWG_LABEL_MANIFEST_MERGED_20260120.csv",
@@ -224,13 +335,19 @@ def main() -> int:
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-samples", type=int, default=0)
+    parser.add_argument(
+        "--max-samples-strategy",
+        choices=["head", "random", "stratified"],
+        default="stratified",
+        help="How to select samples when max-samples > 0.",
+    )
     parser.add_argument("--output", default="models/graph2d_merged_latest.pth")
     parser.add_argument(
         "--distill", action="store_true", help="Enable knowledge distillation training"
     )
     parser.add_argument(
         "--teacher",
-        choices=["filename", "hybrid"],
+        choices=["filename", "titleblock", "hybrid"],
         default="hybrid",
         help="Teacher model type for distillation",
     )
@@ -245,6 +362,12 @@ def main() -> int:
         type=float,
         default=3.0,
         help="Distillation temperature",
+    )
+    parser.add_argument(
+        "--distill-mask-filename",
+        action="store_true",
+        help="When distilling from titleblock/hybrid, pass a masked filename to the teacher "
+        "so it cannot use filename-based label signals (titleblock-only teacher signal).",
     )
     parser.add_argument(
         "--device",
@@ -274,7 +397,34 @@ def main() -> int:
         default=5,
         help="Number of warmup epochs for warmup_cosine scheduler.",
     )
+    parser.add_argument(
+        "--dxf-max-nodes",
+        type=int,
+        default=None,
+        help="Override DXF_MAX_NODES for importance sampling.",
+    )
+    parser.add_argument(
+        "--dxf-sampling-strategy",
+        choices=["importance", "random", "hybrid"],
+        default=None,
+        help="Override DXF_SAMPLING_STRATEGY for importance sampling.",
+    )
+    parser.add_argument(
+        "--dxf-sampling-seed",
+        type=int,
+        default=None,
+        help="Override DXF_SAMPLING_SEED for importance sampling.",
+    )
+    parser.add_argument(
+        "--dxf-text-priority-ratio",
+        type=float,
+        default=None,
+        help="Override DXF_TEXT_PRIORITY_RATIO for importance sampling.",
+    )
+
+    _apply_config_defaults(parser, pre_args.config, "train_2d_graph")
     args = parser.parse_args()
+    _apply_dxf_sampling_env(args)
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -292,13 +442,21 @@ def main() -> int:
         node_dim=args.node_dim,
         return_edge_attr=use_edge_attr,
     )
-    if args.max_samples and args.max_samples > 0:
-        dataset.samples = dataset.samples[: args.max_samples]
     if len(dataset) == 0:
         print("Empty dataset; aborting.")
         return 1
 
     indices = list(range(len(dataset)))
+    if args.max_samples and args.max_samples > 0 and args.max_samples < len(indices):
+        if args.max_samples_strategy == "head":
+            indices = indices[: args.max_samples]
+        elif args.max_samples_strategy == "random":
+            random.shuffle(indices)
+            indices = indices[: args.max_samples]
+        else:
+            labels = [dataset.samples[idx]["label_id"] for idx in indices]
+            indices = _stratified_subsample(indices, labels, args.max_samples, args.seed)
+
     random.shuffle(indices)
     if args.split_strategy == "stratified":
         labels = [dataset.samples[idx]["label_id"] for idx in indices]
@@ -376,6 +534,7 @@ def main() -> int:
     # Initialize Teacher if needed
     teacher_model = None
     distill_loss_fn = None
+    teacher_logits_cache: Dict[str, "torch.Tensor"] = {}
     if args.distill:
         print(f"Initializing teacher model: {args.teacher}")
         teacher_model = TeacherModel(
@@ -449,12 +608,16 @@ def main() -> int:
             idx = feature_idx.get(name)
             if idx is None or idx >= args.node_dim:
                 continue
-            x[:, idx] = (x[:, idx] + torch.randn_like(x[:, idx]) * scale).clamp(0.0, 1.0)
+            x[:, idx] = (x[:, idx] + torch.randn_like(x[:, idx]) * scale).clamp(
+                0.0, 1.0
+            )
         for name in ("dir_x", "dir_y"):
             idx = feature_idx.get(name)
             if idx is None or idx >= args.node_dim:
                 continue
-            x[:, idx] = (x[:, idx] + torch.randn_like(x[:, idx]) * scale).clamp(-1.0, 1.0)
+            x[:, idx] = (x[:, idx] + torch.randn_like(x[:, idx]) * scale).clamp(
+                -1.0, 1.0
+            )
         return x
 
     model.to(device)
@@ -470,7 +633,7 @@ def main() -> int:
         total_seen = 0
         for batch_data in train_loader:
             # Unpack batch (custom collate returns 5 items now including filenames)
-            xs, edges, edge_attrs, labels, filenames = batch_data
+            xs, edges, edge_attrs, labels, filenames, file_paths = batch_data
 
             optimizer.zero_grad()
             batch_loss = 0.0
@@ -500,7 +663,27 @@ def main() -> int:
                 # Calculate loss
                 if args.distill and teacher_model and distill_loss_fn:
                     # Generate teacher soft labels for this sample
-                    teacher_logits = teacher_model.generate_soft_labels([filename])
+                    file_bytes = None
+                    file_path = ""
+                    if i < len(file_paths):
+                        file_path = str(file_paths[i] or "")
+                    teacher_name = filename
+                    if args.distill_mask_filename and args.teacher in {"hybrid", "titleblock"}:
+                        teacher_name = "masked.dxf"
+                    teacher_logits = None
+                    if file_path and file_path in teacher_logits_cache:
+                        teacher_logits = teacher_logits_cache[file_path]
+                    else:
+                        if file_path:
+                            try:
+                                file_bytes = Path(file_path).read_bytes()
+                            except Exception:
+                                file_bytes = None
+                        teacher_logits = teacher_model.generate_soft_labels(
+                            [teacher_name], file_bytes_list=[file_bytes]
+                        )
+                        if file_path:
+                            teacher_logits_cache[file_path] = teacher_logits.detach().cpu()
                     teacher_logits = teacher_logits.to(device)
                     loss, _ = distill_loss_fn(logits, teacher_logits, label.view(1))
                 else:
@@ -522,8 +705,10 @@ def main() -> int:
         correct = 0
         total = 0
         with torch.no_grad():
-            for xs, edges, edge_attrs, labels, _ in val_loader:
-                for x, edge_index, edge_attr, label in zip(xs, edges, edge_attrs, labels):
+            for xs, edges, edge_attrs, labels, _, _ in val_loader:
+                for x, edge_index, edge_attr, label in zip(
+                    xs, edges, edge_attrs, labels
+                ):
                     if x.numel() == 0:
                         continue
                     x = x.to(device)
@@ -546,7 +731,9 @@ def main() -> int:
             best_val_acc = acc
             epochs_without_improvement = 0
             if args.save_best:
-                best_model_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+                best_model_state = {
+                    k: v.cpu().clone() for k, v in model.state_dict().items()
+                }
         else:
             epochs_without_improvement += 1
 
@@ -560,11 +747,18 @@ def main() -> int:
             lr_info = ""
 
         status = "← best" if improved else ""
-        print(f"Epoch {epoch}/{args.epochs} loss={avg_loss:.4f} val_acc={acc:.3f}{lr_info} {status}")
+        print(
+            f"Epoch {epoch}/{args.epochs} loss={avg_loss:.4f} val_acc={acc:.3f}{lr_info} {status}"
+        )
 
         # Early stopping check
-        if args.early_stop_patience > 0 and epochs_without_improvement >= args.early_stop_patience:
-            print(f"Early stopping at epoch {epoch} (no improvement for {args.early_stop_patience} epochs)")
+        if (
+            args.early_stop_patience > 0
+            and epochs_without_improvement >= args.early_stop_patience
+        ):
+            print(
+                f"Early stopping at epoch {epoch} (no improvement for {args.early_stop_patience} epochs)"
+            )
             print(f"Best validation accuracy: {best_val_acc:.3f}")
             break
 
@@ -572,7 +766,11 @@ def main() -> int:
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Use best model state if --save-best was enabled and we have one
-    save_state = best_model_state if (args.save_best and best_model_state is not None) else model.state_dict()
+    save_state = (
+        best_model_state
+        if (args.save_best and best_model_state is not None)
+        else model.state_dict()
+    )
 
     torch.save(
         {
@@ -584,6 +782,13 @@ def main() -> int:
             "model_type": args.model,
             "edge_dim": args.edge_dim if use_edge_attr else 0,
             "best_val_acc": best_val_acc,
+            "config_path": args.config,
+            "sampling_overrides": {
+                "dxf_max_nodes": args.dxf_max_nodes,
+                "dxf_sampling_strategy": args.dxf_sampling_strategy,
+                "dxf_sampling_seed": args.dxf_sampling_seed,
+                "dxf_text_priority_ratio": args.dxf_text_priority_ratio,
+            },
         },
         out_path,
     )

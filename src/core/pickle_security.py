@@ -136,7 +136,7 @@ def scan_pickle_opcodes(
         - dangerous: List[str] - Dangerous opcodes found (blocklist mode)
         - disallowed: List[str] - Disallowed opcodes (whitelist mode)
         - positions: List[Dict] - Position info (if include_positions=True)
-        - blocked_reason: str | None - Reason if blocked
+        - blocked_reason: Optional[str] - Reason if blocked
     """
     # Get data
     data = _get_pickle_data(source)

@@ -426,3 +426,215 @@ class TestRedisModuleHandling:
             use_redis = False
 
         assert use_redis is True
+
+
+class TestGetSyncClient:
+    """Tests for get_sync_client function."""
+
+    def test_get_sync_client_returns_existing(self):
+        """Test get_sync_client returns existing client."""
+        from src.utils import cache
+
+        original = cache._redis_sync_client
+        try:
+            mock_client = MagicMock()
+            cache._redis_sync_client = mock_client
+
+            result = cache.get_sync_client()
+            assert result is mock_client
+        finally:
+            cache._redis_sync_client = original
+
+    def test_get_sync_client_redis_sync_none(self):
+        """Test get_sync_client returns None when redis_sync not installed."""
+        from src.utils import cache
+
+        original_client = cache._redis_sync_client
+        original_redis = cache.redis_sync
+        try:
+            cache._redis_sync_client = None
+            cache.redis_sync = None
+
+            result = cache.get_sync_client()
+            assert result is None
+        finally:
+            cache._redis_sync_client = original_client
+            cache.redis_sync = original_redis
+
+    def test_get_sync_client_redis_disabled(self):
+        """Test get_sync_client returns None when Redis disabled."""
+        from src.utils import cache
+
+        original_client = cache._redis_sync_client
+        original_redis = cache.redis_sync
+        try:
+            cache._redis_sync_client = None
+            cache.redis_sync = MagicMock()  # Available but disabled
+
+            with patch("src.utils.cache.get_settings") as mock_settings:
+                mock_settings.return_value.REDIS_ENABLED = False
+
+                result = cache.get_sync_client()
+                assert result is None
+        finally:
+            cache._redis_sync_client = original_client
+            cache.redis_sync = original_redis
+
+    def test_get_sync_client_initializes_new(self):
+        """Test get_sync_client initializes new client."""
+        from src.utils import cache
+
+        original_client = cache._redis_sync_client
+        original_redis = cache.redis_sync
+        try:
+            cache._redis_sync_client = None
+
+            mock_redis_sync = MagicMock()
+            mock_new_client = MagicMock()
+            mock_redis_sync.Redis.from_url.return_value = mock_new_client
+            cache.redis_sync = mock_redis_sync
+
+            with patch("src.utils.cache.get_settings") as mock_settings:
+                mock_settings.return_value.REDIS_ENABLED = True
+                mock_settings.return_value.REDIS_URL = "redis://localhost:6379"
+
+                result = cache.get_sync_client()
+
+            assert result is mock_new_client
+            mock_new_client.ping.assert_called_once()
+        finally:
+            cache._redis_sync_client = original_client
+            cache.redis_sync = original_redis
+
+    def test_get_sync_client_double_check_locking(self):
+        """Test get_sync_client handles double-check locking."""
+        from src.utils import cache
+
+        original_client = cache._redis_sync_client
+        original_redis = cache.redis_sync
+        try:
+            # First call - initialize
+            cache._redis_sync_client = None
+            mock_redis_sync = MagicMock()
+            mock_client = MagicMock()
+            mock_redis_sync.Redis.from_url.return_value = mock_client
+            cache.redis_sync = mock_redis_sync
+
+            with patch("src.utils.cache.get_settings") as mock_settings:
+                mock_settings.return_value.REDIS_ENABLED = True
+                mock_settings.return_value.REDIS_URL = "redis://localhost:6379"
+
+                # First call initializes
+                result1 = cache.get_sync_client()
+                # Second call should return same client
+                result2 = cache.get_sync_client()
+
+            assert result1 is mock_client
+            assert result2 is mock_client
+            # from_url should only be called once
+            assert mock_redis_sync.Redis.from_url.call_count == 1
+        finally:
+            cache._redis_sync_client = original_client
+            cache.redis_sync = original_redis
+
+    def test_get_sync_client_init_failure(self):
+        """Test get_sync_client handles initialization failure."""
+        from src.utils import cache
+
+        original_client = cache._redis_sync_client
+        original_redis = cache.redis_sync
+        try:
+            cache._redis_sync_client = None
+
+            mock_redis_sync = MagicMock()
+            mock_redis_sync.Redis.from_url.side_effect = Exception("Connection refused")
+            cache.redis_sync = mock_redis_sync
+
+            with patch("src.utils.cache.get_settings") as mock_settings:
+                mock_settings.return_value.REDIS_ENABLED = True
+                mock_settings.return_value.REDIS_URL = "redis://localhost:6379"
+
+                result = cache.get_sync_client()
+
+            assert result is None
+        finally:
+            cache._redis_sync_client = original_client
+            cache.redis_sync = original_redis
+
+
+class TestDeleteCache:
+    """Tests for delete_cache function."""
+
+    @pytest.mark.asyncio
+    async def test_delete_cache_from_redis(self):
+        """Test delete_cache removes from Redis."""
+        from src.utils import cache
+
+        _require_redis_module(cache)
+        original_client = cache._redis_client
+        try:
+            mock_client = MagicMock()
+            mock_client.delete = AsyncMock()
+            cache._redis_client = mock_client
+
+            await cache.delete_cache("test_key")
+
+            mock_client.delete.assert_called_once_with("test_key")
+        finally:
+            cache._redis_client = original_client
+
+    @pytest.mark.asyncio
+    async def test_delete_cache_redis_error(self):
+        """Test delete_cache handles Redis error gracefully."""
+        from src.utils import cache
+
+        original_client = cache._redis_client
+        original_cache = cache._local_cache.copy()
+        try:
+            mock_client = MagicMock()
+            mock_client.delete = AsyncMock(side_effect=Exception("Redis error"))
+            cache._redis_client = mock_client
+            cache._local_cache["delete_key"] = ({"data": 1}, time.time() + 3600)
+
+            # Should not raise
+            await cache.delete_cache("delete_key")
+
+            # Should still remove from local cache
+            assert "delete_key" not in cache._local_cache
+        finally:
+            cache._redis_client = original_client
+            cache._local_cache.clear()
+            cache._local_cache.update(original_cache)
+
+    @pytest.mark.asyncio
+    async def test_delete_cache_no_redis(self):
+        """Test delete_cache works without Redis."""
+        from src.utils import cache
+
+        original_client = cache._redis_client
+        original_cache = cache._local_cache.copy()
+        try:
+            cache._redis_client = None
+            cache._local_cache["local_key"] = ({"data": 1}, time.time() + 3600)
+
+            await cache.delete_cache("local_key")
+
+            assert "local_key" not in cache._local_cache
+        finally:
+            cache._redis_client = original_client
+            cache._local_cache.clear()
+            cache._local_cache.update(original_cache)
+
+    @pytest.mark.asyncio
+    async def test_delete_cache_nonexistent(self):
+        """Test delete_cache handles nonexistent key."""
+        from src.utils import cache
+
+        original_client = cache._redis_client
+        try:
+            cache._redis_client = None
+
+            # Should not raise
+            await cache.delete_cache("nonexistent")
+        finally:
+            cache._redis_client = original_client

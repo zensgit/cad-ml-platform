@@ -1,0 +1,69 @@
+# Development Environment Overlay
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cad-ml-platform-dev
+
+namePrefix: dev-
+
+commonLabels:
+  environment: development
+
+resources:
+  - ../../base
+
+replicas:
+  - name: cad-ml-api
+    count: 1
+
+images:
+  - name: cad-ml-platform
+    newName: ghcr.io/your-org/cad-ml-platform
+    newTag: develop
+
+configMapGenerator:
+  - name: cad-ml-config
+    behavior: merge
+    literals:
+      - APP_ENV=development
+      - LOG_LEVEL=DEBUG
+      - RATE_LIMIT_ENABLED=false
+
+patches:
+  # Reduce resources for dev
+  - target:
+      kind: Deployment
+      name: cad-ml-api
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: "256Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: "100m"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: "512Mi"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "500m"
+
+  # Disable HPA for dev
+  - target:
+      kind: HorizontalPodAutoscaler
+      name: cad-ml-api
+    patch: |-
+      $patch: delete
+      apiVersion: autoscaling/v2
+      kind: HorizontalPodAutoscaler
+      metadata:
+        name: cad-ml-api
+
+  # Relax PDB for dev
+  - target:
+      kind: PodDisruptionBudget
+      name: cad-ml-api
+    patch: |-
+      - op: replace
+        path: /spec/minAvailable
+        value: 0

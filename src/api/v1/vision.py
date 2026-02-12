@@ -23,6 +23,7 @@ from src.core.vision import (
     create_vision_provider,
     get_available_providers,
 )
+from src.core.providers import ProviderRegistry, bootstrap_core_provider_registry
 
 router = APIRouter(tags=["vision"])
 
@@ -65,11 +66,23 @@ def get_vision_manager(provider_type: Optional[str] = None) -> VisionManager:
             fallback_to_stub=True,
         )
 
-        # Create OCRManager (simplified for Phase 2)
-        ocr_manager = OcrManager(
-            providers={},
-            confidence_fallback=0.85,
-        )
+        # Create OCRManager via core provider registry (best-effort).
+        # Keep this behavior additive: if providers cannot be registered, OCR will degrade
+        # gracefully (VisionManager returns description-only results).
+        bootstrap_core_provider_registry()
+        ocr_manager = OcrManager(confidence_fallback=0.85)
+        try:
+            ocr_manager.register_provider(
+                "paddle", ProviderRegistry.get("ocr", "paddle")
+            )
+        except Exception:
+            pass
+        try:
+            ocr_manager.register_provider(
+                "deepseek_hf", ProviderRegistry.get("ocr", "deepseek_hf")
+            )
+        except Exception:
+            pass
 
         # Create manager with both Vision and OCR
         _vision_manager = VisionManager(

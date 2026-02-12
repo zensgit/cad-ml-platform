@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict, deque
-from typing import Deque, Dict, List, Protocol
+from typing import Deque, Dict, List, Optional, Protocol
 
 from src.core.twin.connectivity import TelemetryFrame
 
@@ -28,7 +28,7 @@ class InMemoryTimeSeriesStore:
     def __init__(self, max_per_device: int = 1000):
         self._max_per_device = max_per_device
         self._store: Dict[str, Deque[TelemetryFrame]] = defaultdict(deque)
-        self._lock: asyncio.Lock | None = None
+        self._lock: Optional[asyncio.Lock] = None
 
     def _get_lock(self) -> asyncio.Lock:
         """Lazily create lock to avoid issues with missing event loop at import time."""

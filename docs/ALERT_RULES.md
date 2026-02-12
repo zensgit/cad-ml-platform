@@ -122,6 +122,37 @@ This document includes sample Prometheus alerting rules for OCR/Vision services.
         description: "More than 30% of /api/compare requests are failing over 10m."
         runbook_url: https://example.org/runbooks/compare_failure_rate
 
+    # 10) Classifier cache hit rate low
+    - alert: ClassifierCacheHitRateLow
+      expr: |
+        (
+          sum(rate(classification_cache_hits_total[15m]))
+          /
+          (sum(rate(classification_cache_hits_total[15m])) + sum(rate(classification_cache_miss_total[15m])))
+        ) < 0.2
+        and (sum(rate(classification_cache_hits_total[15m])) + sum(rate(classification_cache_miss_total[15m]))) > 0.05
+      for: 15m
+      labels:
+        severity: warning
+        team: classifier
+      annotations:
+        summary: "Classifier cache hit rate low"
+        description: "Classifier cache hit ratio below 20% for 15m. Investigate cache capacity or input variability."
+        runbook_url: docs/runbooks/classifier_cache_low_hit.md
+
+    # 11) Classifier rate limiting high
+    - alert: ClassifierRateLimitedHigh
+      expr: |
+        sum(rate(classification_rate_limited_total[5m])) > 0.083
+      for: 10m
+      labels:
+        severity: warning
+        team: classifier
+      annotations:
+        summary: "Classifier rate limiting high"
+        description: "Classifier rate limited requests exceed 5/min for 10m. Check burst settings and client behavior."
+        runbook_url: docs/runbooks/classifier_rate_limit_spike.md
+
     # 10) Compare not_found dominates
     - alert: CompareNotFoundDominant
       expr: |

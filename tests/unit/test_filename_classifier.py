@@ -12,6 +12,7 @@ def _write_synonyms(path: Path) -> None:
         "人孔": ["人孔"],
         "出料凸缘": ["出料凸缘"],
         "调节螺栓": ["调节螺栓"],
+        "拖车": ["拖车"],
         "传动件": ["传动件"],
     }
     path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
@@ -28,6 +29,11 @@ def test_extract_part_name_patterns(synonyms_file: Path) -> None:
     classifier = FilenameClassifier(synonyms_path=str(synonyms_file))
     assert classifier.extract_part_name("J2925001-01人孔v2.dxf") == "人孔"
     assert classifier.extract_part_name("BTJ01239901522-00拖轮组件v1.dxf") == "拖轮组件"
+    assert classifier.extract_part_name("BTJ01231201522-00拖车DN1500v1.dxf") == "拖车"
+    assert (
+        classifier.extract_part_name("J1424042-00出料正压隔离器v2-yuantus.dxf")
+        == "出料正压隔离器"
+    )
     assert (
         classifier.extract_part_name("比较_LTJ012306102-0084调节螺栓v1 vs v2.dxf")
         == "调节螺栓"
@@ -46,6 +52,13 @@ def test_match_label_exact_and_partial(synonyms_file: Path) -> None:
     assert label == "人孔"
     assert conf == pytest.approx(classifier.fuzzy_match_conf)
     assert match_type in {"partial_high", "partial_low"}
+
+    # Suffix normalization is done at extraction time; `predict()` should hit exact match.
+    result = classifier.predict("BTJ01231201522-00拖车DN1500v1.dxf")
+    assert result["extracted_name"] == "拖车"
+    assert result["label"] == "拖车"
+    assert result["confidence"] == pytest.approx(classifier.exact_match_conf)
+    assert result["match_type"] == "exact"
 
 
 class _DummyFilenameClassifier:
@@ -91,8 +104,9 @@ def test_hybrid_prefers_graph2d_when_filename_low(monkeypatch: pytest.MonkeyPatc
         graph2d_result={"label": "传动件", "confidence": 0.9},
     )
 
-    assert result.label == "传动件"
-    assert result.source == DecisionSource.GRAPH2D
+    # Guardrail: Graph2D should not override rule-based filename signal.
+    assert result.label == "人孔"
+    assert result.source == DecisionSource.FILENAME
 
 
 def test_hybrid_fusion_conflict(monkeypatch: pytest.MonkeyPatch) -> None:

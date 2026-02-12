@@ -1,0 +1,26 @@
+apiVersion: v2
+name: cad-assistant
+description: CAD Assistant - Intelligent Manufacturing Knowledge Assistant
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - cad
+  - assistant
+  - ai
+  - manufacturing
+  - knowledge-base
+maintainers:
+  - name: CAD ML Platform Team
+home: https://github.com/cad-ml-platform
+sources:
+  - https://github.com/cad-ml-platform/cad-assistant
+dependencies:
+  - name: redis
+    version: "17.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+  - name: postgresql
+    version: "12.x.x"
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled

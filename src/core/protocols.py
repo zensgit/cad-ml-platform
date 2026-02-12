@@ -4,14 +4,14 @@ Initial lightweight definitions; expand as real providers are integrated.
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, List, Optional, Protocol
 
 from pydantic import BaseModel
 
 
 class VisionDescription(BaseModel):  # minimal reuse if needed externally
     summary: str
-    details: list[str]
+    details: List[str]
     confidence: float
 
 
@@ -27,10 +27,10 @@ class VisionProviderProtocol(Protocol):
 
 
 class OcrResult(BaseModel):  # minimal placeholder; actual full model resides elsewhere
-    dimensions: list[dict[str, Any]]
-    symbols: list[dict[str, Any]]
-    title_block: dict[str, Any]
-    confidence: float | None = None
+    dimensions: List[dict]
+    symbols: List[dict]
+    title_block: dict
+    confidence: Optional[float] = None
 
 
 class OcrProviderProtocol(Protocol):
@@ -38,5 +38,5 @@ class OcrProviderProtocol(Protocol):
     def name(self) -> str:
         ...
 
-    async def extract(self, image_bytes: bytes, trace_id: str | None = None) -> OcrResult:
+    async def extract(self, image_bytes: bytes, trace_id: Optional[str] = None) -> OcrResult:
         ...

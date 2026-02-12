@@ -1,0 +1,158 @@
+[
+  {
+    "id": "filename_exact_renkou",
+    "filename": "J2925001-01人孔v2.dxf",
+    "expected_label": "人孔",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "filename_exact_outlet_flange",
+    "filename": "J0224025-06-01-03出料凸缘v2.dxf",
+    "expected_label": "出料凸缘",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "filename_exact_collector_assembly",
+    "filename": "J0224071-11捕集器组件v1.dxf",
+    "expected_label": "捕集器组件",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "filename_exact_adjust_bolt",
+    "filename": "LTJ012306102-0084调节螺栓v1.dxf",
+    "expected_label": "调节螺栓",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "filename_compare_prefix",
+    "filename": "比较_LTJ012306102-0084调节螺栓v1 vs LTJ012306102-0084调节螺栓v2.dxf",
+    "expected_label": "调节螺栓",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "filename_exact_drum_assembly",
+    "filename": "BTJ01239901522-00拖轮组件v2.dxf",
+    "expected_label": "拖轮组件",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "filename_exact_auto_feeder",
+    "filename": "BTJ01231101522-00自动进料装置v2.dxf",
+    "expected_label": "自动进料装置",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "filename_exact_collection_port",
+    "filename": "J0224070-04-07捕集口v2.dxf",
+    "expected_label": "捕集口",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "filename_exact_vacuum_assembly",
+    "filename": "J0224036-12真空组件v2.dxf",
+    "expected_label": "真空组件",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "filename_spec_suffix_dn",
+    "filename": "J0000000-00拖车DN1500v1.dxf",
+    "expected_label": "拖车",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "titleblock_override_part_name",
+    "filename": "J0000000-01UNKNOWNv1.dxf",
+    "expected_label": "人孔",
+    "expected_source": "titleblock",
+    "titleblock_texts": ["名称: 人孔", "图号: J0000000-01", "材料: 304"]
+  },
+  {
+    "id": "titleblock_override_outlet_flange",
+    "filename": "BTJ00000000000-00UNKNOWNv1.dxf",
+    "expected_label": "出料凸缘",
+    "expected_source": "titleblock",
+    "titleblock_texts": ["名称: 出料凸缘", "图号: BTJ00000000000-00", "材料: Q235"]
+  },
+  {
+    "id": "titleblock_override_adjust_bolt",
+    "filename": "LTJ000000000-0000UNKNOWNv1.dxf",
+    "expected_label": "调节螺栓",
+    "expected_source": "titleblock",
+    "titleblock_texts": ["零件: 调节螺栓", "图号: LTJ000000000-0000", "材料: 45钢"]
+  },
+  {
+    "id": "titleblock_partial_match",
+    "filename": "J0000000-02UNKNOWNv1.dxf",
+    "expected_label": "人孔",
+    "expected_source": "titleblock",
+    "titleblock_texts": ["名称: 人孔法", "图号: J0000000-02", "材料: 304"]
+  },
+  {
+    "id": "filename_exact_top_head_assembly",
+    "filename": "J1234567-01上封头组件v1.dxf",
+    "expected_label": "上封头组件",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "filename_exact_filter_bracket",
+    "filename": "J1234567-02过滤托架v1.dxf",
+    "expected_label": "过滤托架",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "filename_exact_torsion_spring",
+    "filename": "J1234567-03扭转弹簧v2.dxf",
+    "expected_label": "扭转弹簧",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "filename_parentheses_label",
+    "filename": "J1234567-04短轴承座(盖)v1.dxf",
+    "expected_label": "短轴承座(盖)",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "filename_long_chinese_label",
+    "filename": "J1234567-05蜗轮蜗杆传动出料机构v1.dxf",
+    "expected_label": "蜗轮蜗杆传动出料机构",
+    "expected_source": "filename",
+    "titleblock_texts": []
+  },
+  {
+    "id": "titleblock_override_filter_bracket",
+    "filename": "J0000000-03UNKNOWNv1.dxf",
+    "expected_label": "过滤托架",
+    "expected_source": "titleblock",
+    "titleblock_texts": ["名称: 过滤托架", "图号: J0000000-03", "材料: 304"]
+  },
+  {
+    "id": "graph2d_mismatch_does_not_override_filename",
+    "filename": "J2925001-01人孔v2.dxf",
+    "expected_label": "人孔",
+    "expected_source": "filename",
+    "titleblock_texts": [],
+    "graph2d_result": {"label": "传动件", "confidence": 0.99, "status": "ok"}
+  },
+  {
+    "id": "graph2d_only_fallback",
+    "filename": "J0000000-00UNKNOWNv1.dxf",
+    "expected_label": "壳体类",
+    "expected_source": "graph2d",
+    "titleblock_texts": [],
+    "graph2d_result": {"label": "壳体类", "confidence": 0.9, "status": "ok"}
+  }
+]

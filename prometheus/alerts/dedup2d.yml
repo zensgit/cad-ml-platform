@@ -49,7 +49,9 @@ groups:
 
       # File storage alerts
       - alert: Dedup2DFileUploadErrors
-        expr: sum(rate(dedup2d_file_uploads_total{status="error"}[5m])) / sum(rate(dedup2d_file_uploads_total[5m])) > 0.05
+        expr: |
+          sum(rate(dedup2d_file_uploads_total{status="error"}[5m]))
+          / sum(rate(dedup2d_file_uploads_total[5m])) > 0.05
         for: 5m
         labels:
           severity: warning
@@ -58,7 +60,9 @@ groups:
           description: "File upload error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
 
       - alert: Dedup2DFileDownloadErrors
-        expr: sum(rate(dedup2d_file_downloads_total{status="error"}[5m])) / sum(rate(dedup2d_file_downloads_total[5m])) > 0.05
+        expr: |
+          sum(rate(dedup2d_file_downloads_total{status="error"}[5m]))
+          / sum(rate(dedup2d_file_downloads_total[5m])) > 0.05
         for: 5m
         labels:
           severity: warning
@@ -67,7 +71,12 @@ groups:
           description: "File download error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
 
       - alert: Dedup2DStorageLatencyHigh
-        expr: histogram_quantile(0.95, sum(rate(dedup2d_file_operation_duration_seconds_bucket{operation="upload"}[5m])) by (le, backend)) > 5
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(dedup2d_file_operation_duration_seconds_bucket{operation="upload"}[5m]))
+            by (le, backend)
+          ) > 5
         for: 5m
         labels:
           severity: warning

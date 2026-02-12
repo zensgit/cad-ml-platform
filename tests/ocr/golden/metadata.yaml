@@ -6,8 +6,17 @@ dataset:
     hard: {count: 2, description: "模糊/倾斜"}
     edge: {count: 2, description: "极端案例"}
   annotation_schema:
-    dimensions: {type: str, value: float, tol_pos: float|None, tol_neg: float|None, unit: str, bbox: [int,int,int,int]}
-    symbols: {type: str, value: str, bbox: [int,int,int,int]}
+    dimensions:
+      type: str
+      value: float
+      tol_pos: float|None
+      tol_neg: float|None
+      unit: str
+      bbox: [int, int, int, int]
+    symbols:
+      type: str
+      value: str
+      bbox: [int, int, int, int]
 thresholds:
   week1:
     dimension_recall: 0.70

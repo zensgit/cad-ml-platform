@@ -1,0 +1,47 @@
+{
+  "version": "v16_super_ensemble_optimized",
+  "components": {
+    "v6": {
+      "path": "cad_classifier_v6.pt",
+      "weight": 0.3
+    },
+    "v14_ensemble": {
+      "path": "cad_classifier_v14_ensemble.pt",
+      "weight": 0.7
+    }
+  },
+  "training_data": "data/training_v7 (905 samples)",
+  "optimization_note": "V14权重提升到70%因为其在边界案例上表现更好",
+  "v6_accuracy": 0.9934,
+  "v14_ensemble_accuracy": 0.993,
+  "v16_accuracy": 0.9965,
+  "v16_errors": 3,
+  "remaining_errors": [
+    {
+      "file": "其他/old_0033.dxf",
+      "original": "调节螺栓v1.dxf",
+      "true": "其他",
+      "pred": "轴类",
+      "note": "V6和V14都预测错误"
+    },
+    {
+      "file": "连接件/old_0008.dxf",
+      "original": "圆螺母.dxf",
+      "true": "连接件",
+      "pred": "传动件",
+      "note": "V6和V14都预测错误"
+    }
+  ],
+  "weight_optimization": {
+    "tested_weights": [
+      {"v6": 0.3, "v14": 0.7, "accuracy": 0.9965, "errors": 3},
+      {"v6": 0.4, "v14": 0.6, "accuracy": 0.9965, "errors": 3},
+      {"v6": 0.5, "v14": 0.5, "accuracy": 0.9965, "errors": 3},
+      {"v6": 0.6, "v14": 0.4, "accuracy": 0.9965, "errors": 3},
+      {"v6": 0.7, "v14": 0.3, "accuracy": 0.9953, "errors": 4},
+      {"v6": 0.8, "v14": 0.2, "accuracy": 0.9953, "errors": 4}
+    ],
+    "selected": {"v6": 0.3, "v14": 0.7},
+    "reason": "V14在边界案例（弹簧、轴承、螺钉等）上表现更好"
+  }
+}

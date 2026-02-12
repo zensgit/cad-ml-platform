@@ -1,0 +1,318 @@
+# Istio Service Mesh Configuration for CAD ML Platform
+# Provides mTLS, traffic management, and observability
+
+---
+# Enable strict mTLS for namespace
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: default
+spec:
+  mtls:
+    mode: STRICT
+
+---
+# Authorization Policy - Deny all by default
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all
+  namespace: default
+spec:
+  {}  # Empty spec = deny all
+
+---
+# Authorization Policy - Allow specific services
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-cad-ml-api
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: cad-ml-platform
+  action: ALLOW
+  rules:
+    # Allow from API gateway
+    - from:
+        - source:
+            principals: ["cluster.local/ns/kong/sa/kong"]
+      to:
+        - operation:
+            methods: ["GET", "POST", "PUT", "DELETE"]
+            paths: ["/api/*", "/health", "/metrics"]
+    # Allow from other services in mesh
+    - from:
+        - source:
+            namespaces: ["default"]
+      to:
+        - operation:
+            methods: ["GET", "POST"]
+            paths: ["/internal/*"]
+
+---
+# Authorization Policy - Allow Prometheus scraping
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-prometheus
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: cad-ml-platform
+  action: ALLOW
+  rules:
+    - from:
+        - source:
+            namespaces: ["monitoring"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/metrics"]
+
+---
+# VirtualService for traffic routing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: cad-ml-platform
+  namespace: default
+spec:
+  hosts:
+    - cad-ml-platform
+    - cad-ml.example.com
+  gateways:
+    - istio-system/ingressgateway
+    - mesh
+  http:
+    # Canary routing based on header
+    - match:
+        - headers:
+            x-canary:
+              exact: "true"
+      route:
+        - destination:
+            host: cad-ml-platform
+            subset: canary
+          weight: 100
+
+    # A/B testing based on user segment
+    - match:
+        - headers:
+            x-user-segment:
+              exact: "beta"
+      route:
+        - destination:
+            host: cad-ml-platform
+            subset: beta
+          weight: 100
+
+    # Default traffic split
+    - route:
+        - destination:
+            host: cad-ml-platform
+            subset: stable
+          weight: 90
+        - destination:
+            host: cad-ml-platform
+            subset: canary
+          weight: 10
+
+      # Retry configuration
+      retries:
+        attempts: 3
+        perTryTimeout: 5s
+        retryOn: connect-failure,refused-stream,unavailable,cancelled,retriable-4xx
+
+      # Timeout
+      timeout: 30s
+
+      # Fault injection for testing
+      # fault:
+      #   delay:
+      #     percentage:
+      #       value: 0.1
+      #     fixedDelay: 5s
+
+---
+# DestinationRule for load balancing and circuit breaking
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: cad-ml-platform
+  namespace: default
+spec:
+  host: cad-ml-platform
+  trafficPolicy:
+    # Connection pool settings
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 5s
+      http:
+        h2UpgradePolicy: UPGRADE
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+        maxRequestsPerConnection: 100
+        maxRetries: 3
+
+    # Circuit breaker
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 30
+
+    # Load balancing
+    loadBalancer:
+      simple: LEAST_REQUEST
+      localityLbSetting:
+        enabled: true
+        failover:
+          - from: us-west1
+            to: us-east1
+
+    # TLS settings
+    tls:
+      mode: ISTIO_MUTUAL
+
+  # Subsets for traffic splitting
+  subsets:
+    - name: stable
+      labels:
+        version: stable
+      trafficPolicy:
+        connectionPool:
+          http:
+            http2MaxRequests: 1000
+
+    - name: canary
+      labels:
+        version: canary
+      trafficPolicy:
+        connectionPool:
+          http:
+            http2MaxRequests: 100
+
+    - name: beta
+      labels:
+        version: beta
+
+---
+# Gateway for external traffic
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: cad-ml-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - cad-ml.example.com
+      tls:
+        httpsRedirect: true
+
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - cad-ml.example.com
+      tls:
+        mode: SIMPLE
+        credentialName: cad-ml-tls-cert
+
+---
+# RequestAuthentication for JWT
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: cad-ml-platform
+  jwtRules:
+    - issuer: "https://auth.example.com"
+      jwksUri: "https://auth.example.com/.well-known/jwks.json"
+      audiences:
+        - cad-ml-platform
+      forwardOriginalToken: true
+      outputPayloadToHeader: x-jwt-payload
+
+---
+# Sidecar configuration for egress control
+apiVersion: networking.istio.io/v1beta1
+kind: Sidecar
+metadata:
+  name: default
+  namespace: default
+spec:
+  egress:
+    - hosts:
+        - "./*"  # Same namespace
+        - "istio-system/*"  # Istio components
+        - "monitoring/*"  # Monitoring
+        - "logging/*"  # Logging
+        - "redis/*"  # Redis
+  outboundTrafficPolicy:
+    mode: REGISTRY_ONLY  # Only allow registered services
+
+---
+# ServiceEntry for external services
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-api
+  namespace: default
+spec:
+  hosts:
+    - api.external-service.com
+  ports:
+    - number: 443
+      name: https
+      protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+
+---
+# EnvoyFilter for custom headers
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: add-custom-headers
+  namespace: default
+spec:
+  workloadSelector:
+    labels:
+      app: cad-ml-platform
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.lua
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            inlineCode: |
+              function envoy_on_response(response_handle)
+                response_handle:headers():add("x-served-by", "cad-ml-platform")
+                response_handle:headers():add("x-mesh-version", "istio-1.20")
+              end

@@ -190,7 +190,9 @@ groups:
           component: analysis
         annotations:
           summary: "Parse stage p95 latency exceeds target"
-          description: "Parse p95 {{ $value }}s > target {{ with query \"cad_ml:analysis_parse_latency_target_seconds\" }}{{ . | first | value }}s{{ end }}"
+          description: >-
+            Parse p95 {{ $value }}s > target
+            {{ with query "cad_ml:analysis_parse_latency_target_seconds" }}{{ . | first | value }}s{{ end }}
           runbook: "README.md#📟-runbooks-&-alerts"
       - alert: ParseFormatLatencyHigh
         expr: cad_ml:parse_format_p95_5m > cad_ml:analysis_parse_latency_target_seconds * 1.5

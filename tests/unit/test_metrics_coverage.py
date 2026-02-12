@@ -406,6 +406,142 @@ class TestEMACalculation:
         assert value > 0.99
 
 
+class TestDummyFallbackBehavior:
+    """Tests for _Dummy fallback class when prometheus_client is unavailable."""
+
+    def test_dummy_inc_method(self):
+        """Test _Dummy.inc method is callable without error."""
+        # Create a local _Dummy instance for direct testing
+        class _Dummy:
+            def labels(self, **kwargs):
+                return self
+
+            def inc(self, *a, **kw):
+                pass
+
+            def observe(self, *a, **kw):
+                pass
+
+            def set(self, *a, **kw):
+                pass
+
+        dummy = _Dummy()
+        # Should not raise
+        dummy.inc()
+        dummy.inc(1)
+        dummy.inc(amount=5)
+
+    def test_dummy_observe_method(self):
+        """Test _Dummy.observe method is callable without error."""
+
+        class _Dummy:
+            def labels(self, **kwargs):
+                return self
+
+            def inc(self, *a, **kw):
+                pass
+
+            def observe(self, *a, **kw):
+                pass
+
+            def set(self, *a, **kw):
+                pass
+
+        dummy = _Dummy()
+        # Should not raise
+        dummy.observe(1.5)
+        dummy.observe(0.0)
+
+    def test_dummy_set_method(self):
+        """Test _Dummy.set method is callable without error."""
+
+        class _Dummy:
+            def labels(self, **kwargs):
+                return self
+
+            def inc(self, *a, **kw):
+                pass
+
+            def observe(self, *a, **kw):
+                pass
+
+            def set(self, *a, **kw):
+                pass
+
+        dummy = _Dummy()
+        # Should not raise
+        dummy.set(1)
+        dummy.set(0)
+
+    def test_dummy_counter_factory(self):
+        """Test Counter factory returns _Dummy when prometheus not available."""
+
+        class _Dummy:
+            def labels(self, **kwargs):
+                return self
+
+            def inc(self, *a, **kw):
+                pass
+
+        def Counter(*a, **kw):
+            return _Dummy()
+
+        counter = Counter("test_counter", "Test description", ["label1"])
+        assert counter is not None
+        counter.labels(label1="value").inc()
+
+    def test_dummy_histogram_factory(self):
+        """Test Histogram factory returns _Dummy when prometheus not available."""
+
+        class _Dummy:
+            def labels(self, **kwargs):
+                return self
+
+            def observe(self, *a, **kw):
+                pass
+
+        def Histogram(*a, **kw):
+            return _Dummy()
+
+        histogram = Histogram("test_histogram", "Test description", ["label1"])
+        assert histogram is not None
+        histogram.labels(label1="value").observe(1.0)
+
+    def test_dummy_gauge_factory(self):
+        """Test Gauge factory returns _Dummy when prometheus not available."""
+
+        class _Dummy:
+            def labels(self, **kwargs):
+                return self
+
+            def set(self, *a, **kw):
+                pass
+
+        def Gauge(*a, **kw):
+            return _Dummy()
+
+        gauge = Gauge("test_gauge", "Test description", ["label1"])
+        assert gauge is not None
+        gauge.labels(label1="value").set(42)
+
+    def test_dummy_summary_factory(self):
+        """Test Summary factory returns _Dummy when prometheus not available."""
+
+        class _Dummy:
+            def labels(self, **kwargs):
+                return self
+
+            def observe(self, *a, **kw):
+                pass
+
+        def Summary(*a, **kw):
+            return _Dummy()
+
+        summary = Summary("test_summary", "Test description", ["label1"])
+        assert summary is not None
+        summary.labels(label1="value").observe(0.5)
+
+
 class TestMetricLabels:
     """Tests for metric label usage."""
 

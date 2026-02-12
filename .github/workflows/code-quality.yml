@@ -1,0 +1,216 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * 1'  # Weekly on Monday at 2 AM
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  # ============================================
+  # SonarQube-style analysis (using SonarCloud or local)
+  # ============================================
+  sonar-analysis:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt || true
+          pip install coverage pytest-cov radon xenon pylint
+
+      - name: Run tests with coverage
+        run: |
+          pytest tests/unit/ \
+            --cov=src \
+            --cov-report=xml \
+            --cov-report=term \
+            -q || true
+
+      - name: Code complexity analysis (Radon)
+        run: |
+          echo "## Cyclomatic Complexity" > quality-report.md
+          echo '```' >> quality-report.md
+          radon cc src/ -a -s >> quality-report.md || true
+          echo '```' >> quality-report.md
+          echo "" >> quality-report.md
+          echo "## Maintainability Index" >> quality-report.md
+          echo '```' >> quality-report.md
+          radon mi src/ -s >> quality-report.md || true
+          echo '```' >> quality-report.md
+
+      - name: Check complexity thresholds (Xenon)
+        run: |
+          xenon --max-absolute B --max-modules B --max-average A src/ || true
+
+      - name: Run Pylint
+        run: |
+          echo "" >> quality-report.md
+          echo "## Pylint Score" >> quality-report.md
+          echo '```' >> quality-report.md
+          pylint src/ --output-format=text --score=y 2>/dev/null | tail -5 >> quality-report.md || true
+          echo '```' >> quality-report.md
+
+      - name: Upload quality report
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-quality-report
+          path: |
+            quality-report.md
+            coverage.xml
+
+      - name: Comment PR with quality report
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('quality-report.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## 📊 Code Quality Report\n\n' + report
+            });
+
+  # ============================================
+  # Duplicate code detection
+  # ============================================
+  duplicate-detection:
+    name: Duplicate Code Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tools
+        run: pip install pylint
+
+      - name: Check for duplicates
+        run: |
+          pylint src/ --disable=all --enable=duplicate-code --min-similarity-lines=10 || true
+
+  # ============================================
+  # Documentation coverage
+  # ============================================
+  doc-coverage:
+    name: Documentation Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install tools
+        run: pip install interrogate
+
+      - name: Check docstring coverage
+        run: |
+          interrogate src/ -v --fail-under 50 || true
+
+  # ============================================
+  # Dead code detection
+  # ============================================
+  dead-code:
+    name: Dead Code Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install vulture
+        run: pip install vulture
+
+      - name: Find dead code
+        run: |
+          vulture src/ --min-confidence 80 || true
+
+  # ============================================
+  # Type checking with mypy
+  # ============================================
+  type-check:
+    name: Type Checking (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install mypy types-redis types-requests
+
+      - name: Run mypy (strict on core modules)
+        run: |
+          echo "## Mypy Type Check Report" > mypy-report.md
+          echo "" >> mypy-report.md
+          echo "### Core Modules (Strict)" >> mypy-report.md
+          echo '```' >> mypy-report.md
+          mypy src/api/ src/core/errors/ src/core/feature_flags/ \
+            --ignore-missing-imports \
+            --show-error-codes \
+            --no-error-summary \
+            --pretty 2>&1 | head -100 >> mypy-report.md || true
+          echo '```' >> mypy-report.md
+          echo "" >> mypy-report.md
+          echo "### Full Scan Summary" >> mypy-report.md
+          echo '```' >> mypy-report.md
+          mypy src/ --ignore-missing-imports --show-error-codes 2>&1 | tail -5 >> mypy-report.md || true
+          echo '```' >> mypy-report.md
+
+      - name: Upload mypy report
+        uses: actions/upload-artifact@v4
+        with:
+          name: mypy-report
+          path: mypy-report.md
+
+      - name: Comment PR with mypy issues
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('mypy-report.md')) {
+              const report = fs.readFileSync('mypy-report.md', 'utf8');
+              if (report.includes('error:')) {
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: '## 🔍 Type Check Report\n\n' + report.substring(0, 5000)
+                });
+              }
+            }
+

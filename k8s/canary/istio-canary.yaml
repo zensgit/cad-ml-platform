@@ -1,0 +1,197 @@
+# Canary Release with Istio for CAD ML Platform
+# Progressive rollout with automatic traffic management
+
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: cad-ml-api
+  namespace: cad-ml-platform
+spec:
+  hosts:
+    - cad-ml-api
+    - cad-ml-api.cad-ml-platform.svc.cluster.local
+  http:
+    - match:
+        - headers:
+            x-canary:
+              exact: "true"
+      route:
+        - destination:
+            host: cad-ml-api
+            subset: canary
+          weight: 100
+    - route:
+        - destination:
+            host: cad-ml-api
+            subset: stable
+          weight: 95
+        - destination:
+            host: cad-ml-api
+            subset: canary
+          weight: 5
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: cad-ml-api
+  namespace: cad-ml-platform
+spec:
+  host: cad-ml-api
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        h2UpgradePolicy: UPGRADE
+        http1MaxPendingRequests: 100
+        http2MaxRequests: 1000
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 60s
+      maxEjectionPercent: 50
+  subsets:
+    - name: stable
+      labels:
+        version: stable
+      trafficPolicy:
+        connectionPool:
+          http:
+            http1MaxPendingRequests: 100
+    - name: canary
+      labels:
+        version: canary
+      trafficPolicy:
+        connectionPool:
+          http:
+            http1MaxPendingRequests: 10
+
+---
+# Stable Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cad-ml-api-stable
+  namespace: cad-ml-platform
+  labels:
+    app: cad-ml-api
+    version: stable
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: cad-ml-api
+      version: stable
+  template:
+    metadata:
+      labels:
+        app: cad-ml-api
+        version: stable
+      annotations:
+        sidecar.istio.io/inject: "true"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+    spec:
+      containers:
+        - name: api
+          image: cad-ml-platform:stable
+          ports:
+            - containerPort: 8000
+          env:
+            - name: VERSION
+              value: "stable"
+            - name: DEPLOYMENT_TYPE
+              value: "canary-stable"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+---
+# Canary Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cad-ml-api-canary
+  namespace: cad-ml-platform
+  labels:
+    app: cad-ml-api
+    version: canary
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cad-ml-api
+      version: canary
+  template:
+    metadata:
+      labels:
+        app: cad-ml-api
+        version: canary
+      annotations:
+        sidecar.istio.io/inject: "true"
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+    spec:
+      containers:
+        - name: api
+          image: cad-ml-platform:canary
+          ports:
+            - containerPort: 8000
+          env:
+            - name: VERSION
+              value: "canary"
+            - name: DEPLOYMENT_TYPE
+              value: "canary"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+---
+# Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: cad-ml-api
+  namespace: cad-ml-platform
+  labels:
+    app: cad-ml-api
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+  selector:
+    app: cad-ml-api

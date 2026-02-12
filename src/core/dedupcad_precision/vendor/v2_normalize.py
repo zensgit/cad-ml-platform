@@ -1,5 +1,4 @@
-"""
-Schema v2 normalization for DedupCAD 2.0.
+"""Schema v2 normalization for DedupCAD 2.0.
 
 Converts extractor output (or raw JSON) into a normalized structure with:
 - unified units/rounding
@@ -8,7 +7,7 @@ Converts extractor output (or raw JSON) into a normalized structure with:
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Union
 
 try:
     from .config import Settings, get_settings
@@ -23,7 +22,7 @@ def _round(x: float, p: int = 3) -> float:
         return 0.0
 
 
-def _maybe_round(x: Any, p: int = 3) -> float | None:
+def _maybe_round(x: Any, p: int = 3) -> Optional[float]:
     if x is None:
         return None
     try:
@@ -32,7 +31,7 @@ def _maybe_round(x: Any, p: int = 3) -> float | None:
         return None
 
 
-def normalize_v2(data: Dict[str, Any], cfg: Settings | None = None) -> Dict[str, Any]:
+def normalize_v2(data: Dict[str, Any], cfg: Optional[Settings] = None) -> Dict[str, Any]:
     cfg = cfg or get_settings()
     layers_in = data.get("layers", {}) or {}
     entities_in = data.get("entities", []) or []

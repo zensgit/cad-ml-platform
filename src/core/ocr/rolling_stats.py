@@ -7,12 +7,13 @@ confidence/calibrated_confidence.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
 class RollingStats:
     alpha: float = 0.2  # smoothing factor (0,1]
-    _ema: float | None = None
+    _ema: Optional[float] = None
     _count: int = 0
 
     def update(self, value: float) -> float:
@@ -24,7 +25,7 @@ class RollingStats:
         return self._ema
 
     @property
-    def ema(self) -> float | None:
+    def ema(self) -> Optional[float]:
         return self._ema
 
     @property

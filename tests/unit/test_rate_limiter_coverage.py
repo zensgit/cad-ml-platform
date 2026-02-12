@@ -20,7 +20,8 @@ import pytest
 class TestRateLimiterInit:
     """Tests for RateLimiter initialization."""
 
-    def test_init_default_values(self):
+    @pytest.mark.asyncio
+    async def test_init_default_values(self):
         """Test RateLimiter initialization with defaults."""
         from src.utils.rate_limiter import RateLimiter
 
@@ -31,7 +32,8 @@ class TestRateLimiterInit:
         assert limiter.burst == 10
         assert limiter._local_tokens == 10.0
 
-    def test_init_custom_values(self):
+    @pytest.mark.asyncio
+    async def test_init_custom_values(self):
         """Test RateLimiter initialization with custom values."""
         from src.utils.rate_limiter import RateLimiter
 
@@ -40,7 +42,8 @@ class TestRateLimiterInit:
         assert limiter.qps == 5.0
         assert limiter.burst == 20
 
-    def test_init_burst_minimum_one(self):
+    @pytest.mark.asyncio
+    async def test_init_burst_minimum_one(self):
         """Test burst is at least 1."""
         from src.utils.rate_limiter import RateLimiter
 
@@ -271,7 +274,8 @@ class TestConcurrency:
 class TestKeyFormatting:
     """Tests for key formatting."""
 
-    def test_key_prefix(self):
+    @pytest.mark.asyncio
+    async def test_key_prefix(self):
         """Test key has correct prefix."""
         from src.utils.rate_limiter import RateLimiter
 

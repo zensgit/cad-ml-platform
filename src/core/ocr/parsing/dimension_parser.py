@@ -17,7 +17,7 @@ The parser is heuristic: it scans text left-to-right, assigns tolerances to the 
 from __future__ import annotations
 
 import re
-from typing import List
+from typing import List, Optional
 
 from src.core.ocr.base import DimensionInfo, DimensionType, SymbolInfo, SymbolType
 
@@ -58,7 +58,7 @@ def _norm_number(token: str) -> float:
     return float(token.replace("＋", "+").replace("－", "-").replace(" ", ""))
 
 
-def _to_mm(value: float, unit: str | None) -> float:
+def _to_mm(value: float, unit: Optional[str]) -> float:
     if not unit:
         return value
     u = unit.lower()

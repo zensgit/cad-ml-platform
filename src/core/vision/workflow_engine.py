@@ -450,7 +450,12 @@ class WorkflowEngine:
         self._executions: Dict[str, WorkflowExecution] = {}
         self._handlers: Dict[str, TaskHandler] = {}
         self._event_handlers: List[Callable[[WorkflowEvent], None]] = []
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     def register_workflow(self, definition: WorkflowDefinition) -> None:
         """Register a workflow definition."""
@@ -495,7 +500,7 @@ class WorkflowEngine:
             input_data=input_data or {},
         )
 
-        async with self._lock:
+        async with self._get_lock():
             self._executions[execution_id] = execution
 
         # Emit event
@@ -760,7 +765,7 @@ class WorkflowEngine:
 
     async def pause_workflow(self, execution_id: str) -> bool:
         """Pause a running workflow."""
-        async with self._lock:
+        async with self._get_lock():
             if execution_id not in self._executions:
                 return False
 
@@ -774,7 +779,7 @@ class WorkflowEngine:
 
     async def resume_workflow(self, execution_id: str) -> bool:
         """Resume a paused workflow."""
-        async with self._lock:
+        async with self._get_lock():
             if execution_id not in self._executions:
                 return False
 
@@ -788,7 +793,7 @@ class WorkflowEngine:
 
     async def cancel_workflow(self, execution_id: str) -> bool:
         """Cancel a running workflow."""
-        async with self._lock:
+        async with self._get_lock():
             if execution_id not in self._executions:
                 return False
 

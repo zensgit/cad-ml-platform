@@ -1,8 +1,20 @@
+import importlib
 import os
+import sys
 from pathlib import Path
 from typing import Callable, Iterator, Optional, TYPE_CHECKING
 
 import pytest
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+SRC_DIR = ROOT_DIR / "src"
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+if SRC_DIR.exists():
+    if "src" in sys.modules:
+        del sys.modules["src"]
+    importlib.invalidate_caches()
+    import src  # noqa: F401
 
 if TYPE_CHECKING:
     from fastapi.testclient import TestClient
@@ -30,6 +42,13 @@ _ENV_VARS_TO_ISOLATE = [
     "TELEMETRY_STORE_BACKEND",
     "FAISS_RECOVERY_STATE_PATH",
     "ADAPTIVE_RATE_LIMIT_ENABLED",
+    "PROVIDER_REGISTRY_CACHE_ENABLED",
+    "PART_CLASSIFIER_PROVIDER_ENABLED",
+    "PART_CLASSIFIER_PROVIDER_NAME",
+    "PART_CLASSIFIER_PROVIDER_TIMEOUT_SECONDS",
+    "PART_CLASSIFIER_PROVIDER_MAX_MB",
+    "PART_CLASSIFIER_PROVIDER_SHADOW_FORMATS",
+    "PART_CLASSIFIER_PROVIDER_INCLUDE_IN_CACHE_KEY",
 ]
 
 
@@ -63,54 +82,64 @@ def vector_store_isolation():
 
     Backs up and restores similarity globals to avoid cross-test interference.
     """
-    from src.core import similarity  # type: ignore
+    try:
+        from src.core import similarity  # type: ignore
 
-    backup_store = dict(similarity._VECTOR_STORE)
-    backup_meta = dict(similarity._VECTOR_META)
-    backup_ts = dict(similarity._VECTOR_TS)
-    backup_last_access = dict(similarity._VECTOR_LAST_ACCESS)
-    backup_degraded = similarity._VECTOR_DEGRADED
-    backup_degraded_reason = similarity._VECTOR_DEGRADED_REASON
-    backup_degraded_at = similarity._VECTOR_DEGRADED_AT
-    backup_default_store = getattr(similarity, "_DEFAULT_STORE", None)
-    # Backup faiss-specific globals
-    backup_faiss_index = similarity._FAISS_INDEX
-    backup_faiss_dim = similarity._FAISS_DIM
-    backup_faiss_id_map = dict(similarity._FAISS_ID_MAP) if similarity._FAISS_ID_MAP else {}
-    backup_faiss_reverse_map = (
-        dict(similarity._FAISS_REVERSE_MAP) if similarity._FAISS_REVERSE_MAP else {}
-    )
-    backup_faiss_next_recovery = getattr(similarity, "_FAISS_NEXT_RECOVERY_TS", None)
-    backup_faiss_suppress_until = getattr(similarity, "_FAISS_SUPPRESS_UNTIL_TS", None)
-    backup_degradation_history = list(getattr(similarity, "_DEGRADATION_HISTORY", []))
+        backup_store = dict(similarity._VECTOR_STORE)
+        backup_meta = dict(similarity._VECTOR_META)
+        backup_ts = dict(similarity._VECTOR_TS)
+        backup_last_access = dict(similarity._VECTOR_LAST_ACCESS)
+        backup_degraded = similarity._VECTOR_DEGRADED
+        backup_degraded_reason = similarity._VECTOR_DEGRADED_REASON
+        backup_degraded_at = similarity._VECTOR_DEGRADED_AT
+        backup_default_store = getattr(similarity, "_DEFAULT_STORE", None)
+        # Backup faiss-specific globals
+        backup_faiss_index = similarity._FAISS_INDEX
+        backup_faiss_dim = similarity._FAISS_DIM
+        backup_faiss_id_map = dict(similarity._FAISS_ID_MAP) if similarity._FAISS_ID_MAP else {}
+        backup_faiss_reverse_map = (
+            dict(similarity._FAISS_REVERSE_MAP) if similarity._FAISS_REVERSE_MAP else {}
+        )
+        backup_faiss_next_recovery = getattr(similarity, "_FAISS_NEXT_RECOVERY_TS", None)
+        backup_faiss_suppress_until = getattr(similarity, "_FAISS_SUPPRESS_UNTIL_TS", None)
+        backup_degradation_history = list(getattr(similarity, "_DEGRADATION_HISTORY", []))
+        _similarity_available = True
+    except (ImportError, AttributeError, KeyError, ModuleNotFoundError):
+        _similarity_available = False
+
     try:
         yield
     finally:
-        similarity._VECTOR_STORE.clear()
-        similarity._VECTOR_META.clear()
-        similarity._VECTOR_TS.clear()
-        similarity._VECTOR_LAST_ACCESS.clear()
-        similarity._VECTOR_STORE.update(backup_store)
-        similarity._VECTOR_META.update(backup_meta)
-        similarity._VECTOR_TS.update(backup_ts)
-        similarity._VECTOR_LAST_ACCESS.update(backup_last_access)
-        similarity._VECTOR_DEGRADED = backup_degraded
-        similarity._VECTOR_DEGRADED_REASON = backup_degraded_reason
-        similarity._VECTOR_DEGRADED_AT = backup_degraded_at
-        if hasattr(similarity, "_DEFAULT_STORE"):
-            similarity._DEFAULT_STORE = backup_default_store
-        # Restore faiss-specific globals
-        similarity._FAISS_INDEX = backup_faiss_index
-        similarity._FAISS_DIM = backup_faiss_dim
-        similarity._FAISS_ID_MAP = backup_faiss_id_map
-        similarity._FAISS_REVERSE_MAP = backup_faiss_reverse_map
-        if hasattr(similarity, "_FAISS_NEXT_RECOVERY_TS"):
-            similarity._FAISS_NEXT_RECOVERY_TS = backup_faiss_next_recovery
-        if hasattr(similarity, "_FAISS_SUPPRESS_UNTIL_TS"):
-            similarity._FAISS_SUPPRESS_UNTIL_TS = backup_faiss_suppress_until
-        if hasattr(similarity, "_DEGRADATION_HISTORY"):
-            similarity._DEGRADATION_HISTORY.clear()
-            similarity._DEGRADATION_HISTORY.extend(backup_degradation_history)
+        if _similarity_available:
+            try:
+                from src.core import similarity
+                similarity._VECTOR_STORE.clear()
+                similarity._VECTOR_META.clear()
+                similarity._VECTOR_TS.clear()
+                similarity._VECTOR_LAST_ACCESS.clear()
+                similarity._VECTOR_STORE.update(backup_store)
+                similarity._VECTOR_META.update(backup_meta)
+                similarity._VECTOR_TS.update(backup_ts)
+                similarity._VECTOR_LAST_ACCESS.update(backup_last_access)
+                similarity._VECTOR_DEGRADED = backup_degraded
+                similarity._VECTOR_DEGRADED_REASON = backup_degraded_reason
+                similarity._VECTOR_DEGRADED_AT = backup_degraded_at
+                if hasattr(similarity, "_DEFAULT_STORE"):
+                    similarity._DEFAULT_STORE = backup_default_store
+                # Restore faiss-specific globals
+                similarity._FAISS_INDEX = backup_faiss_index
+                similarity._FAISS_DIM = backup_faiss_dim
+                similarity._FAISS_ID_MAP = backup_faiss_id_map
+                similarity._FAISS_REVERSE_MAP = backup_faiss_reverse_map
+                if hasattr(similarity, "_FAISS_NEXT_RECOVERY_TS"):
+                    similarity._FAISS_NEXT_RECOVERY_TS = backup_faiss_next_recovery
+                if hasattr(similarity, "_FAISS_SUPPRESS_UNTIL_TS"):
+                    similarity._FAISS_SUPPRESS_UNTIL_TS = backup_faiss_suppress_until
+                if hasattr(similarity, "_DEGRADATION_HISTORY"):
+                    similarity._DEGRADATION_HISTORY.clear()
+                    similarity._DEGRADATION_HISTORY.extend(backup_degradation_history)
+            except (ImportError, AttributeError, KeyError, ModuleNotFoundError):
+                pass
 
 
 @pytest.fixture(autouse=True)
@@ -128,6 +157,29 @@ def feature_cache_isolation():
 
         reset_feature_cache_for_tests()
     except ImportError:
+        pass
+
+
+@pytest.fixture(autouse=True)
+def provider_registry_instance_isolation() -> Iterator[None]:
+    """Clear cached provider instances between tests.
+
+    ProviderRegistry supports singleton caching for default instances. Tests
+    frequently monkeypatch env vars and factories; clearing instances prevents
+    cross-test interference without removing provider class registrations.
+    """
+    try:
+        from src.core.providers.registry import ProviderRegistry
+
+        ProviderRegistry.clear_instances()
+    except Exception:
+        pass
+    yield
+    try:
+        from src.core.providers.registry import ProviderRegistry
+
+        ProviderRegistry.clear_instances()
+    except Exception:
         pass
 
 
@@ -165,7 +217,7 @@ def migration_history_isolation():
             backup_history = list(vectors_mod._VECTOR_MIGRATION_HISTORY)
         else:
             backup_history = None
-    except (ImportError, AttributeError):
+    except (ImportError, AttributeError, KeyError, ModuleNotFoundError):
         backup_history = None
     yield
     try:
@@ -177,7 +229,7 @@ def migration_history_isolation():
                 vectors_mod._VECTOR_MIGRATION_HISTORY.extend(backup_history)
         elif "_VECTOR_MIGRATION_HISTORY" in vectors_mod.__dict__:
             vectors_mod._VECTOR_MIGRATION_HISTORY.clear()
-    except (ImportError, AttributeError):
+    except (ImportError, AttributeError, KeyError, ModuleNotFoundError):
         pass
 
 
@@ -315,7 +367,7 @@ def analyze_module_isolation():
             from collections import deque
 
             backup_miss_events = deque(analyze_mod._CACHE_MISS_EVENTS)
-    except (ImportError, AttributeError):
+    except (ImportError, AttributeError, KeyError, ModuleNotFoundError):
         backup_drift = None
         backup_hit_events = None
         backup_miss_events = None
@@ -338,7 +390,7 @@ def analyze_module_isolation():
             analyze_mod._CACHE_MISS_EVENTS.clear()
             if backup_miss_events is not None:
                 analyze_mod._CACHE_MISS_EVENTS.extend(backup_miss_events)
-    except (ImportError, AttributeError):
+    except (ImportError, AttributeError, KeyError, ModuleNotFoundError):
         pass
 
 
@@ -360,7 +412,7 @@ def ocr_manager_isolation():
 
         # Reset the global manager singleton to force fresh creation
         ocr_mod._manager = None
-    except (ImportError, AttributeError):
+    except (ImportError, AttributeError, KeyError, ModuleNotFoundError):
         pass
 
     yield
@@ -370,7 +422,7 @@ def ocr_manager_isolation():
         import src.api.v1.ocr as ocr_mod
 
         ocr_mod._manager = None
-    except (ImportError, AttributeError):
+    except (ImportError, AttributeError, KeyError, ModuleNotFoundError):
         pass
 
 

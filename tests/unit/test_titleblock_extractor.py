@@ -41,6 +41,24 @@ def _build_doc_with_attribs():
     return msp
 
 
+def _build_doc_with_part_name_attrib(part_name: str):
+    ezdxf = pytest.importorskip("ezdxf")
+    doc = ezdxf.new()
+    msp = doc.modelspace()
+
+    # establish bbox
+    msp.add_line((0, 0), (100, 0))
+    msp.add_line((0, 0), (0, 100))
+
+    block = doc.blocks.new(name="TITLEBLOCK2")
+    block.add_attdef("图样名称", insert=(0, 0))
+
+    insert = msp.add_blockref("TITLEBLOCK2", (80, 10))
+    insert.add_attrib("图样名称", str(part_name), insert=(80, 10))
+
+    return msp
+
+
 def test_titleblock_extraction() -> None:
     from src.ml.titleblock_extractor import TitleBlockExtractor
 
@@ -75,3 +93,18 @@ def test_titleblock_extraction_from_attribs() -> None:
     assert info.part_name == "保护罩组件"
     assert info.drawing_number == "BTJ02230301120-03"
     assert info.material == "304"
+
+
+def test_titleblock_classifier_normalizes_spec_suffix() -> None:
+    from src.ml.titleblock_extractor import TitleBlockClassifier
+
+    msp = _build_doc_with_part_name_attrib("拖车DN1500")
+    synonyms = {"拖车": ["拖车"]}
+    classifier = TitleBlockClassifier(synonyms=synonyms)
+    result = classifier.predict(list(msp))
+
+    assert result["label"] == "拖车"
+    assert result["status"] == "matched"
+    assert result["confidence"] >= 0.8
+    assert result["title_block_info"]["part_name"] == "拖车DN1500"
+    assert result["title_block_info"]["part_name_normalized"] == "拖车"

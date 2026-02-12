@@ -9,6 +9,7 @@ import asyncio
 import logging
 import os
 import time
+from typing import Optional
 
 """DeepSeek HF OCR provider stub."""
 try:
@@ -61,7 +62,7 @@ class DeepSeekHfProvider(OcrClient):
     ):
         self._model = None
         self._tokenizer = None
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
         self.timeout_ms = timeout_ms
         self.model_name = os.getenv("DEEPSEEK_HF_MODEL", model_name)
         self._revision = os.getenv("DEEPSEEK_HF_REVISION", "").strip()
@@ -69,6 +70,12 @@ class DeepSeekHfProvider(OcrClient):
         self._parser = FallbackParser()
         self._align_with_paddle = align_with_paddle
         self._paddle = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        """Lazy init lock for Python 3.9 compatibility."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     async def warmup(self) -> None:
         if not self._model:
@@ -80,7 +87,7 @@ class DeepSeekHfProvider(OcrClient):
                 self._paddle = None
 
     async def _lazy_load(self):
-        async with self._lock:
+        async with self._get_lock():
             if self._model is None:
                 # If transformers are unavailable, record as a load error and fall back to stub.
                 if not (AutoModelForCausalLM and AutoTokenizer):
@@ -139,7 +146,7 @@ class DeepSeekHfProvider(OcrClient):
                     logger.error(f"Failed to load model: {e}")
                     self._model = "stub"
 
-    async def extract(self, image_bytes: bytes, trace_id: str | None = None) -> OcrResult:
+    async def extract(self, image_bytes: bytes, trace_id: Optional[str] = None) -> OcrResult:
         start = time.time()
         timer = StageTimer()
         timer.start("preprocess")

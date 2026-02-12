@@ -196,7 +196,7 @@ class OcrClient(Protocol):
     async def warmup(self) -> None:  # optional no-op
         ...
 
-    async def extract(self, image_bytes: bytes, trace_id: str | None = None) -> OcrResult:
+    async def extract(self, image_bytes: bytes, trace_id: Optional[str] = None) -> OcrResult:
         """Run OCR on raw image bytes and return structured result."""
         ...
 

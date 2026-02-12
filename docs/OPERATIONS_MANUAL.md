@@ -443,6 +443,32 @@ redis-cli INFO stats | grep hit_rate
 kubectl set env deployment/cad-ml-platform ENABLE_QUERY_CACHE=true
 ```
 
+#### Issue: Classifier cache misses or rate limiting
+
+**Symptoms**: Low classifier cache hit ratio, spikes in rate-limited requests
+```bash
+# Inspect classifier cache stats (admin token required)
+curl -s -H "X-Admin-Token: $ADMIN_TOKEN" \
+  http://localhost:8000/api/v1/health/classifier/cache | jq '.'
+
+# Confirm active cache + rate limit config in /health
+curl -s http://localhost:8000/health | \
+  jq '.config.monitoring | {classifier_rate_limit_per_min, classifier_rate_limit_burst, classifier_cache_max_size}'
+
+# Check rate-limited requests
+curl http://prometheus:9090/api/v1/query?query='rate(classification_rate_limited_total[5m])'
+```
+
+**Solution**:
+```bash
+# Increase cache size (requires restart)
+kubectl set env deployment/cad-ml-platform CLASSIFIER_CACHE_MAX_SIZE=2000
+
+# Loosen rate limits if client volume is expected
+kubectl set env deployment/cad-ml-platform CLASSIFIER_RATE_LIMIT_PER_MIN=240
+kubectl set env deployment/cad-ml-platform CLASSIFIER_RATE_LIMIT_BURST=40
+```
+
 #### Issue: Provider Failures
 
 **Symptoms**: Specific provider health <50

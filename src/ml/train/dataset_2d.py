@@ -10,7 +10,8 @@ import json
 import logging
 import math
 import os
-from typing import Any, Dict, List, Tuple
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import ezdxf
 import torch
@@ -147,8 +148,8 @@ class DXFDataset(Dataset):
             return empty_graph, label.long().squeeze()
 
     def _dxf_to_graph(
-        self, msp, node_dim: int | None = None, return_edge_attr: bool = False
-    ) -> Tuple[torch.Tensor, torch.Tensor] | Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, msp, node_dim: Optional[int] = None, return_edge_attr: bool = False
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
         """Convert DXF entities to Node Features and Adjacency."""
         node_dim = node_dim or DXF_NODE_DIM
         legacy_mode = node_dim <= len(DXF_NODE_FEATURES_LEGACY)
@@ -519,7 +520,7 @@ class DXFManifestDataset(Dataset):
         self,
         manifest_csv: str,
         dxf_dir: str,
-        label_map: Dict[str, int] | None = None,
+        label_map: Optional[Dict[str, int]] = None,
         node_dim: int = DXF_NODE_DIM,
         return_edge_attr: bool = False,
     ):
@@ -537,6 +538,7 @@ class DXFManifestDataset(Dataset):
                     continue
                 label = (row.get("label_cn") or "").strip()
                 file_name = (row.get("file_name") or "").strip()
+                relative_path = (row.get("relative_path") or "").strip()
                 if not label or not file_name:
                     continue
                 if label not in self.label_map:
@@ -544,6 +546,7 @@ class DXFManifestDataset(Dataset):
                 self.samples.append(
                     {
                         "file_name": file_name,
+                        "relative_path": relative_path or file_name,
                         "label": label,
                         "label_id": self.label_map[label],
                     }
@@ -555,12 +558,28 @@ class DXFManifestDataset(Dataset):
     def __getitem__(self, idx: int) -> Tuple[Dict[str, Any], torch.Tensor]:
         item = self.samples[idx]
         file_name = item["file_name"]
-        stem = os.path.splitext(file_name)[0]
-        file_path = os.path.join(self.dxf_dir, f"{stem}.dxf")
+        rel_path = str(item.get("relative_path") or file_name).strip() or file_name
+
+        base_dir = Path(self.dxf_dir)
+        candidates: List[Path] = []
+
+        rel_candidate = Path(rel_path)
+        candidates.append(rel_candidate if rel_candidate.is_absolute() else base_dir / rel_path)
+
+        # Backward compatible fallbacks for older manifests.
+        if file_name and file_name != rel_path:
+            candidates.append(base_dir / file_name)
+
+        stem = os.path.splitext(Path(file_name).name)[0]
+        if stem:
+            candidates.append(base_dir / f"{stem}.dxf")
+            candidates.append(base_dir / f"{stem}.DXF")
+
+        file_path = next((p for p in candidates if p.exists()), candidates[0])
         label = torch.tensor(item["label_id"], dtype=torch.long)
 
         try:
-            doc = ezdxf.readfile(file_path)
+            doc = ezdxf.readfile(str(file_path))
             msp = doc.modelspace()
             if self.return_edge_attr:
                 x, edge_index, edge_attr = self._dxf_to_graph(
@@ -571,15 +590,25 @@ class DXFManifestDataset(Dataset):
                     "edge_index": edge_index,
                     "edge_attr": edge_attr,
                     "file_name": file_name,
+                    "relative_path": rel_path,
+                    "file_path": str(file_path),
                 }, label
             x, edge_index = self._dxf_to_graph(msp, self.node_dim)
-            return {"x": x, "edge_index": edge_index, "file_name": file_name}, label
+            return {
+                "x": x,
+                "edge_index": edge_index,
+                "file_name": file_name,
+                "relative_path": rel_path,
+                "file_path": str(file_path),
+            }, label
         except Exception as e:
-            logger.error(f"Error parsing {file_name}: {e}")
+            logger.error("Error parsing %s (%s): %s", file_name, file_path, e)
             empty_graph = {
                 "x": torch.zeros(0, self.node_dim),
                 "edge_index": torch.zeros(2, 0, dtype=torch.long),
                 "file_name": file_name,
+                "relative_path": rel_path,
+                "file_path": str(file_path),
             }
             if self.return_edge_attr:
                 empty_graph["edge_attr"] = torch.zeros(0, DXF_EDGE_DIM)
@@ -589,8 +618,8 @@ class DXFManifestDataset(Dataset):
         return dict(self.label_map)
 
     def _dxf_to_graph(
-        self, msp, node_dim: int | None = None, return_edge_attr: bool = False
-    ) -> Tuple[torch.Tensor, torch.Tensor] | Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        self, msp, node_dim: Optional[int] = None, return_edge_attr: bool = False
+    ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
         # Reuse graph builder from DXFDataset
         return DXFDataset._dxf_to_graph(
             self, msp, node_dim=node_dim, return_edge_attr=return_edge_attr

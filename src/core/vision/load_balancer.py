@@ -199,7 +199,12 @@ class LoadBalancer:
         self._nodes = nodes
         self._config = config or LoadBalancerConfig()
         self._round_robin_index = 0
-        self._lock = asyncio.Lock()
+        self._lock: Optional[asyncio.Lock] = None
+
+    def _get_lock(self) -> asyncio.Lock:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     def add_node(self, node: ProviderNode) -> None:
         """Add a provider node."""
@@ -274,7 +279,7 @@ class LoadBalancer:
 
     async def _round_robin(self, nodes: List[ProviderNode]) -> ProviderNode:
         """Simple round-robin selection."""
-        async with self._lock:
+        async with self._get_lock():
             self._round_robin_index = self._round_robin_index % len(nodes)
             selected = nodes[self._round_robin_index]
             self._round_robin_index += 1
@@ -292,7 +297,7 @@ class LoadBalancer:
         if not weighted_nodes:
             return nodes[0]
 
-        async with self._lock:
+        async with self._get_lock():
             self._round_robin_index = self._round_robin_index % len(weighted_nodes)
             selected = weighted_nodes[self._round_robin_index]
             self._round_robin_index += 1

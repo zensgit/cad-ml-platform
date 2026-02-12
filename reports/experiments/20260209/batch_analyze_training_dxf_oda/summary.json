@@ -1,0 +1,114 @@
+{
+  "total": 110,
+  "success": 110,
+  "error": 0,
+  "confidence_buckets": {
+    "gte_0_8": 110
+  },
+  "label_counts": {
+    "罩": 4,
+    "防爆视灯组件": 2,
+    "人孔": 2,
+    "蜗杆": 3,
+    "侧推料组件": 2,
+    "出料凸缘": 2,
+    "扭转弹簧": 3,
+    "手轮组件": 2,
+    "下筒体组件": 2,
+    "下锥体组件": 3,
+    "捕集器组件": 2,
+    "支腿": 4,
+    "超声波法兰": 3,
+    "连接法兰(大)": 2,
+    "再沸器": 3,
+    "管束": 2,
+    "拖轮组件": 2,
+    "盖": 11,
+    "下封板": 2,
+    "上筒体组件": 3,
+    "拖车": 2,
+    "旋转组件": 4,
+    "挡板": 5,
+    "自动进料装置": 2,
+    "对接法兰": 2,
+    "调节螺栓": 3,
+    "轴承": 6,
+    "上封头组件": 3,
+    "过滤芯组件": 2,
+    "捕集口": 2,
+    "阀体": 2,
+    "过滤托架": 4,
+    "搅拌器组件": 2,
+    "真空组件": 2,
+    "箱体": 2,
+    "底板": 4,
+    "轴头组件": 2,
+    "人孔法兰": 2
+  },
+  "low_confidence_count": 0,
+  "soft_override_candidates": 0,
+  "sample_size": 110,
+  "filename": {
+    "label_present_count": 110,
+    "label_present_rate": 1.0,
+    "extracted_name_present_count": 110,
+    "extracted_name_present_rate": 1.0,
+    "match_type_counts": {
+      "exact": 110
+    },
+    "confidence": {
+      "mean_all": 0.95,
+      "median_all": 0.95,
+      "mean_nonzero": 0.95,
+      "median_nonzero": 0.95
+    }
+  },
+  "hybrid": {
+    "label_present_count": 110,
+    "label_present_rate": 1.0,
+    "source_counts": {
+      "filename": 110
+    },
+    "confidence": {
+      "mean_all": 0.95,
+      "median_all": 0.95,
+      "mean_nonzero": 0.95,
+      "median_nonzero": 0.95
+    }
+  },
+  "graph2d": {
+    "label_present_count": 110,
+    "label_present_rate": 1.0,
+    "status_counts": {
+      "ok": 110
+    },
+    "confidence": {
+      "mean_all": 0.345369,
+      "median_all": 0.314535,
+      "mean_nonzero": 0.345369,
+      "median_nonzero": 0.314535
+    }
+  },
+  "titleblock": {
+    "enabled": true,
+    "total_ok": 110,
+    "texts_present_count": 110,
+    "texts_present_rate": 1.0,
+    "any_signal_count": 110,
+    "any_signal_rate": 1.0,
+    "part_name_present_count": 110,
+    "part_name_present_rate": 1.0,
+    "label_present_count": 110,
+    "label_present_rate": 1.0,
+    "status_counts": {
+      "matched": 108,
+      "partial_match": 2
+    },
+    "confidence": {
+      "mean_all": 0.845455,
+      "median_all": 0.85,
+      "mean_nonzero": 0.845455,
+      "median_nonzero": 0.85
+    }
+  }
+}

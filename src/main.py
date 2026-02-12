@@ -24,9 +24,14 @@ from src.api.health_models import (
     ReadinessCheck,
     ReadinessResponse,
 )
-from src.api.health_utils import build_health_payload, metrics_enabled, record_health_request
+from src.api.health_utils import (
+    build_health_payload,
+    metrics_enabled,
+    record_health_request,
+)
 from src.api.middleware.integration_auth import IntegrationAuthMiddleware
 from src.core.config import get_settings
+from src.core.providers import bootstrap_core_provider_registry
 from src.core.similarity import (  # type: ignore
     FaissVectorStore,
     background_prune_task,
@@ -34,6 +39,7 @@ from src.core.similarity import (  # type: ignore
 )
 from src.models.loader import load_models
 from src.tasks.orphan_scan import orphan_scan_loop
+from src.utils.cache import get_client as get_redis_client
 from src.utils.cache import init_redis
 from src.utils.logging import setup_logging
 
@@ -47,12 +53,17 @@ logger = logging.getLogger(__name__)
 
 # 加载配置
 settings = get_settings()
-READINESS_CHECK_TIMEOUT_SECONDS = float(os.getenv("READINESS_CHECK_TIMEOUT_SECONDS", "0.5"))
+READINESS_CHECK_TIMEOUT_SECONDS = float(
+    os.getenv("READINESS_CHECK_TIMEOUT_SECONDS", "0.5")
+)
 
 
 def _validate_optional_feature_flags() -> None:
     graph2d_enabled = os.getenv("GRAPH2D_ENABLED", "false").lower() == "true"
-    graph2d_model = os.getenv("GRAPH2D_MODEL_PATH", "models/graph2d_parts_upsampled_20260122.pth")
+    graph2d_model = os.getenv(
+        "GRAPH2D_MODEL_PATH",
+        "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth",
+    )
     fusion_enabled = os.getenv("FUSION_ANALYZER_ENABLED", "false").lower() == "true"
     fusion_override = os.getenv("FUSION_ANALYZER_OVERRIDE", "false").lower() == "true"
     graph2d_fusion = os.getenv("GRAPH2D_FUSION_ENABLED", "false").lower() == "true"
@@ -74,9 +85,13 @@ def _validate_optional_feature_flags() -> None:
     if graph2d_fusion and not graph2d_enabled:
         logger.warning("GRAPH2D_FUSION_ENABLED=true requires GRAPH2D_ENABLED=true")
     if fusion_override and not fusion_enabled:
-        logger.warning("FUSION_ANALYZER_OVERRIDE=true requires FUSION_ANALYZER_ENABLED=true")
+        logger.warning(
+            "FUSION_ANALYZER_OVERRIDE=true requires FUSION_ANALYZER_ENABLED=true"
+        )
     if graph2d_override_labels and not graph2d_fusion:
-        logger.warning("FUSION_GRAPH2D_OVERRIDE_LABELS set but GRAPH2D_FUSION_ENABLED=false")
+        logger.warning(
+            "FUSION_GRAPH2D_OVERRIDE_LABELS set but GRAPH2D_FUSION_ENABLED=false"
+        )
     if graph2d_override_low_conf_labels and not graph2d_fusion:
         logger.warning(
             "FUSION_GRAPH2D_OVERRIDE_LOW_CONF_LABELS set but GRAPH2D_FUSION_ENABLED=false"
@@ -133,6 +148,15 @@ async def lifespan(app: FastAPI):
     # 启动时
     logger.info("Starting CAD ML Platform...")
     _validate_optional_feature_flags()
+    try:
+        snapshot = bootstrap_core_provider_registry()
+        logger.info(
+            "Core provider registry bootstrapped: domains=%s providers=%s",
+            snapshot.get("total_domains", 0),
+            snapshot.get("total_providers", 0),
+        )
+    except Exception:
+        logger.warning("Core provider registry bootstrap failed", exc_info=True)
 
     # Optional dev seeding of knowledge rules
     try:
@@ -150,7 +174,10 @@ async def lifespan(app: FastAPI):
     # 初始化Redis连接
     if settings.REDIS_ENABLED:
         await init_redis()
-        logger.info("Redis initialized")
+        if get_redis_client() is not None:
+            logger.info("Redis initialized")
+        else:
+            logger.warning("Redis unavailable; using in-memory cache fallback")
 
     # 加载ML模型
     await load_models()
@@ -159,12 +186,16 @@ async def lifespan(app: FastAPI):
     # 启动向量 TTL 定期清理任务
     import asyncio
 
-    prune_interval = float(__import__("os").getenv("VECTOR_PRUNE_INTERVAL_SECONDS", "30"))
+    prune_interval = float(
+        __import__("os").getenv("VECTOR_PRUNE_INTERVAL_SECONDS", "30")
+    )
     _prune_handle = asyncio.create_task(background_prune_task(prune_interval))
 
     # Faiss periodic export task
     faiss_path = __import__("os").getenv("FAISS_INDEX_PATH", "data/faiss_index.bin")
-    faiss_interval = float(__import__("os").getenv("FAISS_EXPORT_INTERVAL_SECONDS", "300"))
+    faiss_interval = float(
+        __import__("os").getenv("FAISS_EXPORT_INTERVAL_SECONDS", "300")
+    )
     # Auto import existing Faiss index at startup (best effort)
     try:
         # Load persisted recovery state first (next attempt timestamps etc.)
@@ -177,9 +208,13 @@ async def lifespan(app: FastAPI):
 
                 dim = getattr(_FAISS_INDEX, "d", None) if _FAISS_INDEX is not None else None  # type: ignore
                 size = getattr(_FAISS_INDEX, "ntotal", None) if _FAISS_INDEX is not None else None  # type: ignore
-                env_dim = int(__import__("os").getenv("FEATURE_VECTOR_EXPECTED_DIM", "0") or 0)
+                env_dim = int(
+                    __import__("os").getenv("FEATURE_VECTOR_EXPECTED_DIM", "0") or 0
+                )
                 if env_dim and dim and dim != env_dim:
-                    from src.utils.analysis_metrics import faiss_index_dim_mismatch_total
+                    from src.utils.analysis_metrics import (
+                        faiss_index_dim_mismatch_total,
+                    )
 
                     faiss_index_dim_mismatch_total.inc()
                     logger.warning(
@@ -189,7 +224,10 @@ async def lifespan(app: FastAPI):
                     )
                 else:
                     logger.info(
-                        "Faiss index auto-imported from %s (dim=%s, size=%s)", faiss_path, dim, size
+                        "Faiss index auto-imported from %s (dim=%s, size=%s)",
+                        faiss_path,
+                        dim,
+                        size,
                     )
     except Exception:
         logger.warning("Faiss index auto-import failed")
@@ -289,8 +327,13 @@ async def lifespan(app: FastAPI):
         async def _analysis_result_cleanup_loop() -> None:
             while True:
                 try:
-                    result = await cleanup_analysis_results(dry_run=False, sample_limit=0)
-                    if result.get("status") == "ok" and result.get("deleted_count", 0) > 0:
+                    result = await cleanup_analysis_results(
+                        dry_run=False, sample_limit=0
+                    )
+                    if (
+                        result.get("status") == "ok"
+                        and result.get("deleted_count", 0) > 0
+                    ):
                         logger.info(
                             "analysis_result_cleanup status=%s deleted=%s eligible=%s",
                             result.get("status"),
@@ -301,7 +344,9 @@ async def lifespan(app: FastAPI):
                     logger.warning("analysis_result_cleanup_failed", exc_info=True)
                 await asyncio.sleep(cleanup_interval)
 
-        _analysis_result_cleanup_handle = asyncio.create_task(_analysis_result_cleanup_loop())
+        _analysis_result_cleanup_handle = asyncio.create_task(
+            _analysis_result_cleanup_loop()
+        )
     else:
         _analysis_result_cleanup_handle = None
 
@@ -463,11 +508,27 @@ async def _run_readiness_check(
         if inspect.isawaitable(result):
             result = await asyncio.wait_for(result, timeout=timeout_seconds)
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
-        if result:
-            return ReadinessCheck(status="ready", duration_ms=duration_ms)
+        ok = bool(result)
+        degraded = False
+        detail = None
+        if isinstance(result, dict):
+            ok = bool(result.get("ok"))
+            degraded = bool(result.get("degraded", False))
+            detail = result.get("detail")
+        elif isinstance(result, tuple) and len(result) == 2:
+            ok = bool(result[0])
+            detail = str(result[1]) if result[1] else None
+
+        if ok:
+            return ReadinessCheck(
+                status="ready",
+                detail=detail,
+                duration_ms=duration_ms,
+                degraded=degraded,
+            )
         return ReadinessCheck(
             status="not_ready",
-            detail="check returned false",
+            detail=detail or "check returned false",
             duration_ms=duration_ms,
         )
     except asyncio.TimeoutError:
@@ -493,6 +554,44 @@ async def readiness_check(response: Response):
     start = time.perf_counter()
     from src.models.loader import models_loaded
     from src.utils.cache import redis_healthy
+    from src.core.providers.readiness import (
+        check_provider_readiness,
+        load_provider_readiness_config_from_env,
+    )
+
+    required_providers, optional_providers = load_provider_readiness_config_from_env()
+    providers_enabled = bool(required_providers or optional_providers)
+
+    async def _check_core_providers() -> dict[str, Any]:
+        summary = await check_provider_readiness(
+            required_providers,
+            optional_providers,
+            timeout_seconds=READINESS_CHECK_TIMEOUT_SECONDS,
+        )
+        error_map = {item.id: item.error for item in summary.results if item.error}
+        required_down = summary.required_down
+        optional_down = summary.optional_down
+        parts: list[str] = []
+        if required_down:
+            parts.append(
+                "required_down="
+                + ",".join(
+                    f"{pid}({error_map.get(pid) or 'down'})" for pid in required_down
+                )
+            )
+        if optional_down:
+            parts.append(
+                "optional_down="
+                + ",".join(
+                    f"{pid}({error_map.get(pid) or 'down'})" for pid in optional_down
+                )
+            )
+        detail = "; ".join(parts) if parts else None
+        return {
+            "ok": bool(summary.ok),
+            "degraded": bool(summary.degraded),
+            "detail": detail,
+        }
 
     checks = {
         "models_loaded": await _run_readiness_check(
@@ -503,6 +602,11 @@ async def readiness_check(response: Response):
         "redis": await _run_readiness_check(
             redis_healthy,
             settings.REDIS_ENABLED,
+            READINESS_CHECK_TIMEOUT_SECONDS,
+        ),
+        "core_providers": await _run_readiness_check(
+            _check_core_providers,
+            providers_enabled,
             READINESS_CHECK_TIMEOUT_SECONDS,
         ),
     }

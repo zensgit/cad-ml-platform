@@ -11,7 +11,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Set
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src.core.errors import ErrorCode
 
@@ -25,14 +25,21 @@ class VisionAnalyzeRequest(BaseModel):
     image_base64: Optional[str] = Field(None, description="Base64-encoded image data")
 
     # Vision-specific options
-    include_description: bool = Field(True, description="Include natural language description")
-    include_ocr: bool = Field(True, description="Include OCR dimension/symbol extraction")
+    include_description: bool = Field(
+        True, description="Include natural language description"
+    )
+    include_ocr: bool = Field(
+        True, description="Include OCR dimension/symbol extraction"
+    )
     include_cad_stats: bool = Field(
         False, description="Include CAD feature heuristic summary stats"
     )
 
     # OCR provider routing (passed to OCRManager if include_ocr=True)
-    ocr_provider: str = Field("auto", description="OCR provider: auto|paddle|deepseek")
+    ocr_provider: str = Field(
+        "auto",
+        description="OCR provider: auto|paddle|deepseek_hf (alias: deepseek)",
+    )
     cad_feature_thresholds: Optional[Dict[str, float]] = Field(
         None, description="Overrides for CAD feature heuristic thresholds"
     )
@@ -60,7 +67,9 @@ class VisionAnalyzeRequest(BaseModel):
         }
         unknown = set(value.keys()) - allowed
         if unknown:
-            raise ValueError(f"cad_feature_thresholds has unsupported keys: {sorted(unknown)}")
+            raise ValueError(
+                f"cad_feature_thresholds has unsupported keys: {sorted(unknown)}"
+            )
         for key, val in value.items():
             if not isinstance(val, (int, float)):
                 raise ValueError(f"cad_feature_thresholds[{key}] must be numeric")
@@ -76,8 +85,8 @@ class VisionAnalyzeRequest(BaseModel):
                 )
         return value
 
-    model_config = {
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "image_url": "https://example.com/drawing.png",
                 "include_description": True,
@@ -87,15 +96,19 @@ class VisionAnalyzeRequest(BaseModel):
                 "cad_feature_thresholds": {"line_aspect": 5.0, "arc_fill_min": 0.08},
             }
         }
-    }
+    )
 
 
 class VisionDescription(BaseModel):
     """Natural language description of the image."""
 
     summary: str = Field(..., description="High-level summary of the drawing")
-    details: List[str] = Field(default_factory=list, description="Detailed observations")
-    confidence: float = Field(..., ge=0.0, le=1.0, description="Overall confidence score")
+    details: List[str] = Field(
+        default_factory=list, description="Detailed observations"
+    )
+    confidence: float = Field(
+        ..., ge=0.0, le=1.0, description="Overall confidence score"
+    )
 
 
 class OcrResult(BaseModel):
@@ -104,7 +117,9 @@ class OcrResult(BaseModel):
     dimensions: List[Dict[str, Any]] = Field(default_factory=list)
     symbols: List[Dict[str, Any]] = Field(default_factory=list)
     title_block: Dict[str, Any] = Field(default_factory=dict)
-    fallback_level: Optional[str] = Field(None, description="json_strict|markdown_fence|text_regex")
+    fallback_level: Optional[str] = Field(
+        None, description="json_strict|markdown_fence|text_regex"
+    )
     confidence: Optional[float] = Field(None, ge=0.0, le=1.0)
 
 
@@ -114,12 +129,20 @@ class CadFeatureStats(BaseModel):
     line_count: int = Field(..., ge=0, description="Number of detected line segments")
     circle_count: int = Field(..., ge=0, description="Number of detected circles")
     arc_count: int = Field(..., ge=0, description="Number of detected arcs")
-    line_angle_bins: Dict[str, int] = Field(..., description="Line angle histogram buckets")
-    line_angle_avg: Optional[float] = Field(None, description="Average line angle in degrees")
-    arc_sweep_avg: Optional[float] = Field(None, description="Average arc sweep in degrees")
-    arc_sweep_bins: Dict[str, int] = Field(..., description="Arc sweep histogram buckets")
+    line_angle_bins: Dict[str, int] = Field(
+        ..., description="Line angle histogram buckets"
+    )
+    line_angle_avg: Optional[float] = Field(
+        None, description="Average line angle in degrees"
+    )
+    arc_sweep_avg: Optional[float] = Field(
+        None, description="Average arc sweep in degrees"
+    )
+    arc_sweep_bins: Dict[str, int] = Field(
+        ..., description="Arc sweep histogram buckets"
+    )
 
-    model_config = {"extra": "allow"}
+    model_config = ConfigDict(extra="allow")
 
 
 class VisionAnalyzeResponse(BaseModel):
@@ -142,7 +165,9 @@ class VisionAnalyzeResponse(BaseModel):
 
     # Metadata
     provider: str = Field(..., description="Vision provider used (e.g., deepseek_stub)")
-    processing_time_ms: float = Field(..., description="Total processing time in milliseconds")
+    processing_time_ms: float = Field(
+        ..., description="Total processing time in milliseconds"
+    )
 
     # Error handling
     error: Optional[str] = Field(None, description="Error message if success=False")
@@ -150,8 +175,8 @@ class VisionAnalyzeResponse(BaseModel):
         None, description="Machine-readable error code if success=False"
     )
 
-    model_config = {
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "success": True,
                 "description": {
@@ -165,10 +190,18 @@ class VisionAnalyzeResponse(BaseModel):
                 },
                 "ocr": {
                     "dimensions": [
-                        {"type": "diameter", "value": 20, "tolerance": 0.02, "unit": "mm"}
+                        {
+                            "type": "diameter",
+                            "value": 20,
+                            "tolerance": 0.02,
+                            "unit": "mm",
+                        }
                     ],
                     "symbols": [{"type": "surface_roughness", "value": "3.2"}],
-                    "title_block": {"drawing_number": "CAD-2025-001", "material": "Aluminum 6061"},
+                    "title_block": {
+                        "drawing_number": "CAD-2025-001",
+                        "material": "Aluminum 6061",
+                    },
                     "fallback_level": "json_strict",
                     "confidence": 0.95,
                 },
@@ -176,16 +209,28 @@ class VisionAnalyzeResponse(BaseModel):
                     "line_count": 2,
                     "circle_count": 1,
                     "arc_count": 0,
-                    "line_angle_bins": {"0-30": 2, "30-60": 0, "60-90": 0, "90-120": 0, "120-150": 0, "150-180": 0},
+                    "line_angle_bins": {
+                        "0-30": 2,
+                        "30-60": 0,
+                        "60-90": 0,
+                        "90-120": 0,
+                        "120-150": 0,
+                        "150-180": 0,
+                    },
                     "line_angle_avg": 12.5,
                     "arc_sweep_avg": None,
-                    "arc_sweep_bins": {"0-90": 0, "90-180": 0, "180-270": 0, "270-360": 0},
+                    "arc_sweep_bins": {
+                        "0-90": 0,
+                        "90-180": 0,
+                        "180-270": 0,
+                        "270-360": 0,
+                    },
                 },
                 "provider": "deepseek_stub",
                 "processing_time_ms": 234.5,
             }
         }
-    }
+    )
 
 
 # ========== Provider Abstract Base Class ==========

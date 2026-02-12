@@ -3,7 +3,7 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,8 @@ def _has_rules(path: Path) -> bool:
 
 
 def seed_knowledge_if_empty(
-    seed_dir: str | Path | None = None,
-    target_dir: str | Path | None = None,
+    seed_dir: Optional[Union[str, Path]] = None,
+    target_dir: Optional[Union[str, Path]] = None,
 ) -> bool:
     if os.getenv("KNOWLEDGE_AUTO_SEED", "0") != "1":
         return False

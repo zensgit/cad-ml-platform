@@ -111,8 +111,12 @@ except Exception:  # pragma: no cover - fallback dummy
         return _Dummy()
 
 
-analysis_requests_total = Counter("analysis_requests_total", "CAD analysis requests", ["status"])
-analysis_errors_total = Counter("analysis_errors_total", "CAD analysis errors", ["stage", "code"])
+analysis_requests_total = Counter(
+    "analysis_requests_total", "CAD analysis requests", ["status"]
+)
+analysis_errors_total = Counter(
+    "analysis_errors_total", "CAD analysis errors", ["stage", "code"]
+)
 compare_requests_total = Counter(
     "compare_requests_total",
     "Feature compare requests",
@@ -213,6 +217,23 @@ classification_latency_seconds = Histogram(
     buckets=[0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0],
 )
 
+analysis_part_classifier_requests_total = Counter(
+    "analysis_part_classifier_requests_total",
+    "In-process part classifier (provider) shadow invocations during analyze",
+    ["status", "provider"],
+)
+analysis_part_classifier_seconds = Histogram(
+    "analysis_part_classifier_seconds",
+    "Latency of part classifier (provider) shadow invocations during analyze",
+    ["provider"],
+    buckets=[0.001, 0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0],
+)
+analysis_part_classifier_skipped_total = Counter(
+    "analysis_part_classifier_skipped_total",
+    "Analyze part classifier shadow skips (by reason)",
+    ["reason"],
+)
+
 dfm_analysis_latency_seconds = Histogram(
     "dfm_analysis_latency_seconds",
     "Latency of DFM analysis stage (wall clock seconds)",
@@ -305,7 +326,21 @@ vector_migrate_total = Counter(
 vector_migrate_dimension_delta = Histogram(
     "vector_migrate_dimension_delta",
     "Dimension delta (new_dim - old_dim) during vector migration",
-    buckets=(-20, -10, -5, -2, -1, 0, 1, 2, 5, 10, 20, 50, 100),  # Dimension differences
+    buckets=(
+        -20,
+        -10,
+        -5,
+        -2,
+        -1,
+        0,
+        1,
+        2,
+        5,
+        10,
+        20,
+        50,
+        100,
+    ),  # Dimension differences
 )
 
 # Process rules audit endpoint requests
@@ -380,6 +415,83 @@ classification_model_version_total = Counter(
     "Observed classification model version usage",
     ["version"],
 )
+classification_rate_limited_total = Counter(
+    "classification_rate_limited_total",
+    "Classification API rate limited requests",
+)
+classification_cache_hits_total = Counter(
+    "classification_cache_hits_total",
+    "Classification API cache hits",
+)
+classification_cache_miss_total = Counter(
+    "classification_cache_miss_total",
+    "Classification API cache misses",
+)
+classification_cache_size = Gauge(
+    "classification_cache_size",
+    "Classification API cache size",
+)
+
+# V16 Classifier Metrics
+v16_classifier_loaded = Gauge(
+    "v16_classifier_loaded",
+    "V16 classifier load status (1=loaded, 0=not loaded)",
+)
+v16_classifier_cache_hits_total = Counter(
+    "v16_classifier_cache_hits_total",
+    "V16 classifier feature cache hits",
+)
+v16_classifier_cache_misses_total = Counter(
+    "v16_classifier_cache_misses_total",
+    "V16 classifier feature cache misses",
+)
+v16_classifier_cache_size = Gauge(
+    "v16_classifier_cache_size",
+    "V16 classifier feature cache current size",
+)
+v16_classifier_cache_max_size = Gauge(
+    "v16_classifier_cache_max_size",
+    "V16 classifier feature cache max capacity",
+)
+v16_classifier_inference_seconds = Histogram(
+    "v16_classifier_inference_seconds",
+    "V16 classifier single prediction latency",
+    buckets=[0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0],
+)
+v16_classifier_batch_seconds = Histogram(
+    "v16_classifier_batch_seconds",
+    "V16 classifier batch prediction latency",
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0],
+)
+v16_classifier_batch_size = Histogram(
+    "v16_classifier_batch_size",
+    "V16 classifier batch size distribution",
+    buckets=[1, 5, 10, 20, 50, 100],
+)
+v16_classifier_predictions_total = Counter(
+    "v16_classifier_predictions_total",
+    "V16 classifier total predictions",
+    ["category", "speed_mode"],
+)
+v16_classifier_speed_mode = Gauge(
+    "v16_classifier_speed_mode",
+    "V16 classifier current speed mode (0=accurate, 1=balanced, 2=fast, 3=v6_only)",
+)
+v16_classifier_needs_review_total = Counter(
+    "v16_classifier_needs_review_total",
+    "V16 classifier predictions flagged for review",
+)
+v16_batch_classify_requests_total = Counter(
+    "v16_batch_classify_requests_total",
+    "V16 batch classify API requests",
+    ["status"],  # success|partial|failed
+)
+v16_batch_classify_files_total = Counter(
+    "v16_batch_classify_files_total",
+    "V16 batch classify total files processed",
+    ["result"],  # success|failed
+)
+
 faiss_auto_rebuild_total = Counter(
     "faiss_auto_rebuild_total",
     "Faiss auto rebuild trigger outcomes",
@@ -513,17 +625,25 @@ drift_baseline_created_total = Counter(
 drift_baseline_refresh_total = Counter(
     "drift_baseline_refresh_total",
     "Total times drift baseline refreshed (manual or auto)",
-    ["type", "trigger"],  # labels - type: material|prediction, trigger: manual|auto|stale
+    [
+        "type",
+        "trigger",
+    ],  # labels - type: material|prediction, trigger: manual|auto|stale
 )
 model_security_fail_total = Counter(
     "model_security_fail_total",
     "Model security validation failures",
-    ["reason"],  # hash_mismatch|magic_number_invalid|forged_file|opcode_blocked|opcode_scan_error
+    [
+        "reason"
+    ],  # hash_mismatch|magic_number_invalid|forged_file|opcode_blocked|opcode_scan_error
 )
 vector_store_reload_total = Counter(
     "vector_store_reload_total",
     "Vector store backend reload requests",
-    ["status", "reason"],  # success|error, reason: ok|invalid_backend|auth_failed|init_error
+    [
+        "status",
+        "reason",
+    ],  # success|error, reason: ok|invalid_backend|auth_failed|init_error
 )
 
 # Model health check requests
@@ -735,6 +855,9 @@ __all__ = [
     "vector_stats_requests_total",
     "process_rule_version_total",
     "classification_latency_seconds",
+    "analysis_part_classifier_requests_total",
+    "analysis_part_classifier_seconds",
+    "analysis_part_classifier_skipped_total",
     "dfm_analysis_latency_seconds",
     "process_recommend_latency_seconds",
     "cost_estimation_latency_seconds",
@@ -769,6 +892,23 @@ __all__ = [
     "classification_model_inference_seconds",
     "classification_prediction_distribution",
     "classification_model_version_total",
+    "classification_cache_hits_total",
+    "classification_cache_miss_total",
+    "classification_cache_size",
+    "classification_rate_limited_total",
+    "v16_classifier_loaded",
+    "v16_classifier_cache_hits_total",
+    "v16_classifier_cache_misses_total",
+    "v16_classifier_cache_size",
+    "v16_classifier_cache_max_size",
+    "v16_classifier_inference_seconds",
+    "v16_classifier_batch_seconds",
+    "v16_classifier_batch_size",
+    "v16_classifier_predictions_total",
+    "v16_classifier_speed_mode",
+    "v16_classifier_needs_review_total",
+    "v16_batch_classify_requests_total",
+    "v16_batch_classify_files_total",
     "faiss_import_total",
     "faiss_import_duration_seconds",
     "faiss_auto_rebuild_total",

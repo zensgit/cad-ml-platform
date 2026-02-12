@@ -1,0 +1,410 @@
+# Redis Cluster Kubernetes Configuration
+# High-availability Redis deployment with Sentinel
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: redis
+  labels:
+    app.kubernetes.io/name: redis
+
+---
+# Redis ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: redis
+data:
+  redis.conf: |
+    # Network
+    bind 0.0.0.0
+    port 6379
+    protected-mode no
+
+    # Memory
+    maxmemory 1gb
+    maxmemory-policy allkeys-lru
+
+    # Persistence
+    appendonly yes
+    appendfsync everysec
+    auto-aof-rewrite-percentage 100
+    auto-aof-rewrite-min-size 64mb
+
+    # Replication
+    replica-read-only yes
+    replica-serve-stale-data yes
+
+    # Security
+    # requirepass ${REDIS_PASSWORD}
+
+    # Logging
+    loglevel notice
+
+    # Performance
+    tcp-backlog 511
+    timeout 0
+    tcp-keepalive 300
+
+    # Slow log
+    slowlog-log-slower-than 10000
+    slowlog-max-len 128
+
+  sentinel.conf: |
+    port 26379
+    sentinel monitor mymaster redis-master 6379 2
+    sentinel down-after-milliseconds mymaster 5000
+    sentinel failover-timeout mymaster 60000
+    sentinel parallel-syncs mymaster 1
+
+---
+# Redis Master StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-master
+  namespace: redis
+spec:
+  serviceName: redis-master
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+      role: master
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: master
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9121"
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          command:
+            - redis-server
+            - /etc/redis/redis.conf
+          ports:
+            - containerPort: 6379
+              name: redis
+          volumeMounts:
+            - name: config
+              mountPath: /etc/redis
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+
+        - name: redis-exporter
+          image: oliver006/redis_exporter:latest
+          ports:
+            - containerPort: 9121
+              name: metrics
+          env:
+            - name: REDIS_ADDR
+              value: "redis://localhost:6379"
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "10m"
+            limits:
+              memory: "64Mi"
+              cpu: "50m"
+
+      volumes:
+        - name: config
+          configMap:
+            name: redis-config
+            items:
+              - key: redis.conf
+                path: redis.conf
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+
+---
+# Redis Replica StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-replica
+  namespace: redis
+spec:
+  serviceName: redis-replica
+  replicas: 2
+  selector:
+    matchLabels:
+      app: redis
+      role: replica
+  template:
+    metadata:
+      labels:
+        app: redis
+        role: replica
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine
+          command:
+            - redis-server
+            - /etc/redis/redis.conf
+            - --replicaof
+            - redis-master
+            - "6379"
+          ports:
+            - containerPort: 6379
+              name: redis
+          volumeMounts:
+            - name: config
+              mountPath: /etc/redis
+            - name: data
+              mountPath: /data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+
+      volumes:
+        - name: config
+          configMap:
+            name: redis-config
+            items:
+              - key: redis.conf
+                path: redis.conf
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+
+---
+# Redis Sentinel StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-sentinel
+  namespace: redis
+spec:
+  serviceName: redis-sentinel
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis-sentinel
+  template:
+    metadata:
+      labels:
+        app: redis-sentinel
+    spec:
+      containers:
+        - name: sentinel
+          image: redis:7.2-alpine
+          command:
+            - redis-sentinel
+            - /etc/redis/sentinel.conf
+          ports:
+            - containerPort: 26379
+              name: sentinel
+          volumeMounts:
+            - name: config
+              mountPath: /etc/redis
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+
+      volumes:
+        - name: config
+          configMap:
+            name: redis-config
+            items:
+              - key: sentinel.conf
+                path: sentinel.conf
+
+---
+# Redis Master Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-master
+  namespace: redis
+  labels:
+    app: redis
+    role: master
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+    - name: metrics
+      port: 9121
+      targetPort: 9121
+  selector:
+    app: redis
+    role: master
+
+---
+# Redis Replica Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-replica
+  namespace: redis
+  labels:
+    app: redis
+    role: replica
+spec:
+  type: ClusterIP
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: 6379
+  selector:
+    app: redis
+    role: replica
+
+---
+# Redis Sentinel Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-sentinel
+  namespace: redis
+  labels:
+    app: redis-sentinel
+spec:
+  type: ClusterIP
+  ports:
+    - name: sentinel
+      port: 26379
+      targetPort: 26379
+  selector:
+    app: redis-sentinel
+
+---
+# Redis Headless Service (for StatefulSet DNS)
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-headless
+  namespace: redis
+spec:
+  clusterIP: None
+  ports:
+    - name: redis
+      port: 6379
+  selector:
+    app: redis
+
+---
+# Redis PodDisruptionBudget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: redis-pdb
+  namespace: redis
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: redis
+
+---
+# ServiceMonitor for Prometheus
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: redis-monitor
+  namespace: redis
+  labels:
+    app: redis
+spec:
+  selector:
+    matchLabels:
+      app: redis
+      role: master
+  endpoints:
+    - port: metrics
+      interval: 15s
+
+---
+# NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-network-policy
+  namespace: redis
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: default
+        - namespaceSelector:
+            matchLabels:
+              name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 26379
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 26379

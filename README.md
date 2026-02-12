@@ -46,6 +46,47 @@ CAD ML Platform 是一个完全独立的微服务平台，专门为CAD图纸和�
 - 🔌 **多语言SDK**: Python、JavaScript、Java客户端
 - 🚀 **高性能**: 缓存、并发、分布式处理
 
+### 🆕 企业级功能 (P7-P10)
+
+| 功能模块 | 描述 | 文档 |
+|----------|------|------|
+| **🌐 Web UI** | 现代化前端界面，支持流式响应显示 | `web/` |
+| **📡 流式响应** | Server-Sent Events (SSE) 实时输出 | `src/core/assistant/streaming.py` |
+| **🔀 多模型支持** | 5种负载均衡策略，自动故障转移 | `src/core/assistant/multi_model.py` |
+| **👥 多租户** | 租户隔离、配额管理、层级权限 | `src/core/assistant/multi_tenant.py` |
+| **🔐 RBAC** | 细粒度角色权限控制 | `src/core/assistant/rbac.py` |
+| **☸️ K8s 部署** | Helm Chart、HPA、PDB 生产配置 | `deploy/helm/` |
+
+#### 多模型负载均衡策略
+
+```python
+from src.core.assistant.multi_model import LoadBalancingStrategy
+
+# 支持的策略
+LoadBalancingStrategy.ROUND_ROBIN    # 轮询
+LoadBalancingStrategy.WEIGHTED       # 加权随机
+LoadBalancingStrategy.LEAST_LATENCY  # 最低延迟
+LoadBalancingStrategy.PRIORITY       # 优先级
+LoadBalancingStrategy.RANDOM         # 随机
+```
+
+#### 租户层级配额
+
+| 层级 | 对话数 | 消息/天 | API调用/分钟 | 允许模型 |
+|------|--------|---------|--------------|----------|
+| FREE | 10 | 100 | 10 | offline |
+| BASIC | 100 | 1,000 | 30 | offline, qwen |
+| PROFESSIONAL | 1,000 | 10,000 | 100 | offline, qwen, openai |
+| ENTERPRISE | ∞ | ∞ | 500 | all |
+
+#### RBAC 角色继承
+
+```
+guest → user → engineer → manager → admin
+  │       │        │         │        │
+  └─ read └─ CRUD  └─ knowledge └─ user_manage └─ system_config
+```
+
 ---
 
 ## 🏗️ 系统架构

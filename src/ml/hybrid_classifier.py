@@ -22,9 +22,12 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
+
+from src.ml.hybrid_config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +40,10 @@ DEFAULT_GRAPH2D_DRAWING_LABELS = {
     "模板",
 }
 
+
 class DecisionSource(str, Enum):
     """决策来源"""
+
     FILENAME = "filename"
     GRAPH2D = "graph2d"
     TITLEBLOCK = "titleblock"
@@ -50,6 +55,7 @@ class DecisionSource(str, Enum):
 @dataclass
 class ClassificationResult:
     """分类结果"""
+
     label: Optional[str] = None
     confidence: float = 0.0
     source: DecisionSource = DecisionSource.FALLBACK
@@ -84,14 +90,14 @@ class HybridClassifier:
 
     def __init__(
         self,
-        filename_weight: float = 0.7,
-        graph2d_weight: float = 0.3,
-        titleblock_weight: float = 0.2,
-        process_weight: float = 0.15,
-        filename_min_conf: float = 0.8,
-        graph2d_min_conf: float = 0.5,
-        titleblock_min_conf: float = 0.75,
-        process_min_conf: float = 0.3,
+        filename_weight: Optional[float] = None,
+        graph2d_weight: Optional[float] = None,
+        titleblock_weight: Optional[float] = None,
+        process_weight: Optional[float] = None,
+        filename_min_conf: Optional[float] = None,
+        graph2d_min_conf: Optional[float] = None,
+        titleblock_min_conf: Optional[float] = None,
+        process_min_conf: Optional[float] = None,
     ):
         """
         初始化混合分类器
@@ -106,28 +112,74 @@ class HybridClassifier:
             titleblock_min_conf: 标题栏分类最低置信度
             process_min_conf: 工艺特征分类最低置信度
         """
-        self.filename_weight = float(os.getenv("FILENAME_FUSION_WEIGHT", str(filename_weight)))
-        self.graph2d_weight = float(os.getenv("GRAPH2D_FUSION_WEIGHT", str(graph2d_weight)))
-        self.titleblock_weight = float(
-            os.getenv("TITLEBLOCK_FUSION_WEIGHT", str(titleblock_weight))
+        self._config = get_config()
+
+        self.filename_weight = self._resolve_float(
+            "FILENAME_FUSION_WEIGHT",
+            explicit=filename_weight,
+            default=self._config.filename.fusion_weight,
         )
-        self.process_weight = float(os.getenv("PROCESS_FUSION_WEIGHT", str(process_weight)))
-        self.filename_min_conf = float(os.getenv("FILENAME_MIN_CONF", str(filename_min_conf)))
-        self.graph2d_min_conf = float(os.getenv("GRAPH2D_MIN_CONF", str(graph2d_min_conf)))
-        self.titleblock_min_conf = float(
-            os.getenv("TITLEBLOCK_MIN_CONF", str(titleblock_min_conf))
+        self.graph2d_weight = self._resolve_float(
+            "GRAPH2D_FUSION_WEIGHT",
+            explicit=graph2d_weight,
+            default=self._config.graph2d.fusion_weight,
         )
-        self.process_min_conf = float(os.getenv("PROCESS_MIN_CONF", str(process_min_conf)))
-        self.titleblock_override_enabled = (
-            os.getenv("TITLEBLOCK_OVERRIDE_ENABLED", "false").lower() == "true"
+        self.titleblock_weight = self._resolve_float(
+            "TITLEBLOCK_FUSION_WEIGHT",
+            explicit=titleblock_weight,
+            default=self._config.titleblock.fusion_weight,
+        )
+        self.process_weight = self._resolve_float(
+            "PROCESS_FUSION_WEIGHT",
+            explicit=process_weight,
+            default=self._config.process.fusion_weight,
+        )
+
+        self.filename_min_conf = self._resolve_float(
+            "FILENAME_MIN_CONF",
+            explicit=filename_min_conf,
+            default=self._config.filename.min_confidence,
+        )
+        self.graph2d_min_conf = self._resolve_float(
+            "GRAPH2D_MIN_CONF",
+            explicit=graph2d_min_conf,
+            default=self._config.graph2d.min_confidence,
+        )
+        self.graph2d_min_margin = self._resolve_float(
+            "GRAPH2D_MIN_MARGIN",
+            explicit=None,
+            default=getattr(self._config.graph2d, "min_margin", 0.0),
+        )
+        self.titleblock_min_conf = self._resolve_float(
+            "TITLEBLOCK_MIN_CONF",
+            explicit=titleblock_min_conf,
+            default=self._config.titleblock.min_confidence,
+        )
+        self.process_min_conf = self._resolve_float(
+            "PROCESS_MIN_CONF",
+            explicit=process_min_conf,
+            default=self._config.process.min_confidence,
+        )
+
+        self.titleblock_override_enabled = self._resolve_bool(
+            "TITLEBLOCK_OVERRIDE_ENABLED", self._config.titleblock.override_enabled
         )
         drawing_labels_raw = os.getenv("GRAPH2D_DRAWING_TYPE_LABELS", "").strip()
         if drawing_labels_raw:
             self.graph2d_drawing_labels = {
-                label.strip() for label in drawing_labels_raw.split(",") if label.strip()
+                label.strip()
+                for label in drawing_labels_raw.split(",")
+                if label.strip()
             }
         else:
-            self.graph2d_drawing_labels = set(DEFAULT_GRAPH2D_DRAWING_LABELS)
+            self.graph2d_drawing_labels = set(self._config.graph2d.drawing_type_labels)
+
+        self.graph2d_exclude_labels = self._parse_label_set(
+            self._config.graph2d.exclude_labels
+        )
+        self.graph2d_allow_labels = self._parse_label_set(
+            self._config.graph2d.allow_labels
+        )
 
         # 懒加载分类器
         self._filename_classifier = None
@@ -148,6 +200,8 @@ class HybridClassifier:
                 "process_min_conf": self.process_min_conf,
                 "titleblock_override_enabled": self.titleblock_override_enabled,
                 "graph2d_drawing_labels": sorted(self.graph2d_drawing_labels),
+                "graph2d_exclude_labels": sorted(self.graph2d_exclude_labels),
+                "graph2d_allow_labels": sorted(self.graph2d_allow_labels),
             },
         )
 
@@ -155,8 +209,15 @@ class HybridClassifier:
     def filename_classifier(self):
         """懒加载 FilenameClassifier"""
         if self._filename_classifier is None:
-            from src.ml.filename_classifier import get_filename_classifier
-            self._filename_classifier = get_filename_classifier()
+            from src.ml.filename_classifier import FilenameClassifier
+
+            synonyms_path = self._resolve_str(
+                "FILENAME_SYNONYMS_PATH",
+                self._config.filename.synonyms_path,
+            )
+            self._filename_classifier = FilenameClassifier(
+                synonyms_path=synonyms_path or None
+            )
         return self._filename_classifier
 
     @property
@@ -164,8 +225,18 @@ class HybridClassifier:
         """懒加载 Graph2DClassifier"""
         if self._graph2d_classifier is None:
             try:
-                from src.ml.vision_2d import get_2d_classifier
-                self._graph2d_classifier = get_2d_classifier()
+                graph2d_ensemble_enabled = (
+                    os.getenv("GRAPH2D_ENSEMBLE_ENABLED", "false").strip().lower()
+                    == "true"
+                )
+                if graph2d_ensemble_enabled:
+                    from src.ml.vision_2d import get_ensemble_2d_classifier
+
+                    self._graph2d_classifier = get_ensemble_2d_classifier()
+                else:
+                    from src.ml.vision_2d import get_2d_classifier
+
+                    self._graph2d_classifier = get_2d_classifier()
             except Exception as e:
                 logger.warning(f"Graph2D classifier not available: {e}")
                 self._graph2d_classifier = None
@@ -199,23 +270,76 @@ class HybridClassifier:
 
     def _is_filename_enabled(self) -> bool:
         """检查文件名分类是否启用"""
-        return os.getenv("FILENAME_CLASSIFIER_ENABLED", "true").lower() == "true"
+        return self._resolve_bool(
+            "FILENAME_CLASSIFIER_ENABLED",
+            self._config.filename.enabled,
+        )
 
     def _is_graph2d_enabled(self) -> bool:
         """检查 Graph2D 分类是否启用"""
-        return os.getenv("GRAPH2D_ENABLED", "false").lower() == "true"
+        return self._resolve_bool("GRAPH2D_ENABLED", self._config.graph2d.enabled)
 
     def _is_hybrid_enabled(self) -> bool:
         """检查混合分类是否启用"""
-        return os.getenv("HYBRID_CLASSIFIER_ENABLED", "true").lower() == "true"
+        return self._resolve_bool("HYBRID_CLASSIFIER_ENABLED", self._config.enabled)
 
     def _is_titleblock_enabled(self) -> bool:
         """检查标题栏特征是否启用"""
-        return os.getenv("TITLEBLOCK_ENABLED", "false").lower() == "true"
+        return self._resolve_bool("TITLEBLOCK_ENABLED", self._config.titleblock.enabled)
 
     def _is_process_enabled(self) -> bool:
         """检查工艺特征分类是否启用"""
-        return os.getenv("PROCESS_FEATURES_ENABLED", "true").lower() == "true"
+        return self._resolve_bool(
+            "PROCESS_FEATURES_ENABLED", self._config.process.enabled
+        )
+
+    @staticmethod
+    def _resolve_bool(env_key: str, default: bool) -> bool:
+        raw = os.getenv(env_key)
+        if raw is None:
+            return bool(default)
+        return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+    @staticmethod
+    def _resolve_float(
+        env_key: str, explicit: Optional[float], default: float
+    ) -> float:
+        if explicit is not None:
+            base = explicit
+        else:
+            base = default
+        raw = os.getenv(env_key)
+        if raw is None:
+            return float(base)
+        try:
+            return float(raw)
+        except ValueError:
+            logger.warning("Invalid %s=%s, fallback to %s", env_key, raw, base)
+            return float(base)
+
+    @staticmethod
+    def _resolve_str(env_key: str, default: str) -> str:
+        raw = os.getenv(env_key)
+        if raw is None:
+            return default
+        return raw.strip()
+
+    @staticmethod
+    def _normalize_label(label: str) -> str:
+        text = str(label or "").strip()
+        if not text:
+            return ""
+        if all(ord(ch) < 128 for ch in text):
+            return text.lower()
+        return text
+
+    @classmethod
+    def _parse_label_set(cls, raw: str) -> set[str]:
+        if not raw:
+            return set()
+        tokens = [t.strip() for t in re.split(r"[,\s]+", str(raw)) if t.strip()]
+        normalized = {cls._normalize_label(t) for t in tokens}
+        return {t for t in normalized if t}
 
     def _is_graph2d_drawing_type(self, label: Optional[str]) -> bool:
         if not label:
@@ -272,36 +396,41 @@ class HybridClassifier:
                 result.decision_path.append("graph2d_error")
 
         graph2d_label_raw = graph2d_pred.get("label") if graph2d_pred else None
-        graph2d_conf_raw = float(graph2d_pred.get("confidence", 0)) if graph2d_pred else 0.0
+        graph2d_conf_raw = (
+            float(graph2d_pred.get("confidence", 0)) if graph2d_pred else 0.0
+        )
+        graph2d_margin_raw: Optional[float] = None
+        if graph2d_pred:
+            try:
+                if graph2d_pred.get("margin") is not None:
+                    graph2d_margin_raw = float(graph2d_pred.get("margin"))
+            except Exception:
+                graph2d_margin_raw = None
         graph2d_is_drawing_type = self._is_graph2d_drawing_type(graph2d_label_raw)
         if graph2d_pred:
             graph2d_pred = dict(graph2d_pred)
             graph2d_pred["is_drawing_type"] = graph2d_is_drawing_type
             result.graph2d_prediction = graph2d_pred
 
+        # 3. TitleBlock/Process 共享 DXF 解析（避免重复读文件）
+        dxf_entities: Optional[List[Any]] = None
+        if (self._is_titleblock_enabled() or self._is_process_enabled()) and file_bytes:
+            try:
+                from src.utils.dxf_io import read_dxf_entities_from_bytes
+
+                dxf_entities = read_dxf_entities_from_bytes(file_bytes)
+            except Exception as e:
+                logger.warning("DXF parse failed for hybrid classifiers: %s", e)
+                result.decision_path.append("dxf_parse_error")
+
         # 3. TitleBlock 分类
         titleblock_pred = None
-        if self._is_titleblock_enabled() and file_bytes:
+        if self._is_titleblock_enabled() and dxf_entities is not None:
             try:
-                import tempfile
-                import os as _os
-                import ezdxf  # type: ignore
-
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
-                    tmp.write(file_bytes)
-                    tmp_path = tmp.name
-                try:
-                    doc = ezdxf.readfile(tmp_path)
-                    msp = doc.modelspace()
-                    classifier = self.titleblock_classifier
-                    if classifier:
-                        titleblock_pred = classifier.predict(list(msp))
-                        result.decision_path.append("titleblock_predicted")
-                finally:
-                    try:
-                        _os.unlink(tmp_path)
-                    except Exception:
-                        pass
+                classifier = self.titleblock_classifier
+                if classifier:
+                    titleblock_pred = classifier.predict(dxf_entities)
+                    result.decision_path.append("titleblock_predicted")
             except Exception as e:
                 logger.warning("TitleBlock classification failed: %s", e)
                 result.decision_path.append("titleblock_error")
@@ -313,46 +442,35 @@ class HybridClassifier:
         process_pred = None
         process_label = None
         process_conf = 0.0
-        if self._is_process_enabled() and file_bytes:
+        if self._is_process_enabled() and dxf_entities is not None:
             try:
-                import tempfile
-                import os as _os
-                import ezdxf  # type: ignore
+                texts = []
+                for entity in dxf_entities:
+                    dtype = entity.dxftype()
+                    if dtype == "TEXT":
+                        texts.append(entity.dxf.text)
+                    elif dtype == "MTEXT":
+                        texts.append(entity.text)
+                    elif dtype == "ATTRIB":
+                        texts.append(entity.dxf.text)
+                for entity in dxf_entities:
+                    if entity.dxftype() == "INSERT":
+                        for attrib in getattr(entity, "attribs", []):
+                            texts.append(attrib.dxf.text)
+                combined_text = "\n".join(texts)
 
-                # 提取 DXF 文本
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".dxf") as tmp:
-                    tmp.write(file_bytes)
-                    tmp_path = tmp.name
-                try:
-                    doc = ezdxf.readfile(tmp_path)
-                    texts = []
-                    for entity in doc.modelspace():
-                        if entity.dxftype() == 'TEXT':
-                            texts.append(entity.dxf.text)
-                        elif entity.dxftype() == 'MTEXT':
-                            texts.append(entity.text)
-                        elif entity.dxftype() == 'ATTRIB':
-                            texts.append(entity.dxf.text)
-                    for entity in doc.modelspace():
-                        if entity.dxftype() == 'INSERT':
-                            for attrib in entity.attribs:
-                                texts.append(attrib.dxf.text)
-                    combined_text = '\n'.join(texts)
-
-                    if combined_text.strip():
-                        classifier = self.process_classifier
-                        if classifier:
-                            proc_result = classifier.predict_from_text(combined_text)
-                            if proc_result.suggested_labels and proc_result.confidence >= self.process_min_conf:
-                                process_pred = proc_result.to_dict()
-                                process_label = proc_result.suggested_labels[0]
-                                process_conf = proc_result.confidence
-                                result.decision_path.append("process_predicted")
-                finally:
-                    try:
-                        _os.unlink(tmp_path)
-                    except Exception:
-                        pass
+                if combined_text.strip():
+                    classifier = self.process_classifier
+                    if classifier:
+                        proc_result = classifier.predict_from_text(combined_text)
+                        if (
+                            proc_result.suggested_labels
+                            and proc_result.confidence >= self.process_min_conf
+                        ):
+                            process_pred = proc_result.to_dict()
+                            process_label = proc_result.suggested_labels[0]
+                            process_conf = proc_result.confidence
+                            result.decision_path.append("process_predicted")
             except Exception as e:
                 logger.warning("Process classification failed: %s", e)
                 result.decision_path.append("process_error")
@@ -362,17 +480,92 @@ class HybridClassifier:
 
         # 5. 融合决策
         filename_label = filename_pred.get("label") if filename_pred else None
-        filename_conf = float(filename_pred.get("confidence", 0)) if filename_pred else 0.0
+        filename_conf = (
+            float(filename_pred.get("confidence", 0)) if filename_pred else 0.0
+        )
 
         graph2d_label = graph2d_label_raw
         graph2d_conf = graph2d_conf_raw
         if graph2d_is_drawing_type:
             result.decision_path.append("graph2d_drawing_type_ignored")
+            if result.graph2d_prediction is not None:
+                result.graph2d_prediction["filtered"] = True
+                result.graph2d_prediction["filtered_reason"] = "drawing_type"
+            graph2d_label = None
+            graph2d_conf = 0.0
+        else:
+            graph2d_label = (
+                self._normalize_label(str(graph2d_label)) if graph2d_label else None
+            )
+
+        if graph2d_label:
+            if graph2d_label in self.graph2d_exclude_labels:
+                result.decision_path.append("graph2d_excluded_label_ignored")
+                if result.graph2d_prediction is not None:
+                    result.graph2d_prediction["filtered"] = True
+                    result.graph2d_prediction["filtered_reason"] = "excluded_label"
+                graph2d_label = None
+                graph2d_conf = 0.0
+            elif self.graph2d_allow_labels and (
+                graph2d_label not in self.graph2d_allow_labels
+            ):
+                result.decision_path.append("graph2d_not_in_allowlist_ignored")
+                if result.graph2d_prediction is not None:
+                    result.graph2d_prediction["filtered"] = True
+                    result.graph2d_prediction["filtered_reason"] = "not_in_allowlist"
+                graph2d_label = None
+                graph2d_conf = 0.0
+
+        # Graph2D confidence is sensitive to class count (many-class softmax tends to
+        # produce lower max probabilities). When class-count metadata is available,
+        # apply a conservative dynamic lower bound to avoid filtering everything.
+        effective_graph2d_min_conf = self.graph2d_min_conf
+        if result.graph2d_prediction is not None:
+            try:
+                label_map_size = int(result.graph2d_prediction.get("label_map_size") or 0)
+            except Exception:
+                label_map_size = 0
+            if label_map_size >= 20:
+                uniform = 1.0 / max(1, label_map_size)
+                dynamic_min = max(3.0 * uniform, 0.05)
+                effective_graph2d_min_conf = min(effective_graph2d_min_conf, dynamic_min)
+                result.graph2d_prediction["min_confidence_effective"] = effective_graph2d_min_conf
+
+        if graph2d_label and graph2d_conf < effective_graph2d_min_conf:
+            result.decision_path.append("graph2d_below_min_conf_ignored")
+            if result.graph2d_prediction is not None:
+                result.graph2d_prediction["filtered"] = True
+                result.graph2d_prediction["filtered_reason"] = "below_min_conf"
+            graph2d_label = None
+            graph2d_conf = 0.0
+
+        effective_graph2d_min_margin = self.graph2d_min_margin
+        if (
+            graph2d_label
+            and graph2d_margin_raw is not None
+            and graph2d_margin_raw < effective_graph2d_min_margin
+        ):
+            result.decision_path.append("graph2d_below_min_margin_ignored")
+            if result.graph2d_prediction is not None:
+                result.graph2d_prediction["filtered"] = True
+                result.graph2d_prediction["filtered_reason"] = "below_min_margin"
+                result.graph2d_prediction["min_margin_effective"] = effective_graph2d_min_margin
             graph2d_label = None
             graph2d_conf = 0.0
 
         titleblock_label = titleblock_pred.get("label") if titleblock_pred else None
-        titleblock_conf = float(titleblock_pred.get("confidence", 0.0)) if titleblock_pred else 0.0
+        titleblock_conf = (
+            float(titleblock_pred.get("confidence", 0.0)) if titleblock_pred else 0.0
+        )
+
+        # ProcessClassifier often predicts drawing-type labels (e.g. 零件图/装配图).
+        # Treat these as auxiliary signals: they can be used when no other label
+        # exists, but should not compete with part-name labels from filename/titleblock/graph2d.
+        process_is_drawing_type = bool(
+            process_label and self._is_graph2d_drawing_type(process_label)
+        )
+        process_label_for_fusion = process_label
+        process_conf_for_fusion = process_conf
 
         result.fusion_weights = {
             "filename": self.filename_weight,
@@ -381,14 +574,34 @@ class HybridClassifier:
             "process": self.process_weight,
         }
 
-        if (
-            titleblock_label
-            and filename_label
-            and titleblock_label != filename_label
-        ):
+        if titleblock_label and filename_label and titleblock_label != filename_label:
             result.decision_path.append("titleblock_filename_conflict")
             if filename_conf >= self.filename_min_conf:
                 result.decision_path.append("titleblock_ignored_filename_high_conf")
+
+        other_labels = {
+            self._normalize_label(label)
+            for label in (
+                filename_label,
+                titleblock_label,
+                # Only treat process labels as comparable when they're not drawing types.
+                process_label if not process_is_drawing_type else None,
+            )
+            if label
+        }
+        if graph2d_label and other_labels and graph2d_label not in other_labels:
+            # Guardrail: Graph2D cannot introduce a new label when rules/text found one.
+            result.decision_path.append("graph2d_non_matching_ignored")
+            if result.graph2d_prediction is not None:
+                result.graph2d_prediction["ignored_for_fusion"] = True
+                result.graph2d_prediction["ignored_reason"] = "non_matching"
+            graph2d_label = None
+            graph2d_conf = 0.0
+
+        if process_is_drawing_type and (filename_label or titleblock_label or graph2d_label):
+            result.decision_path.append("process_drawing_type_ignored_for_fusion")
+            process_label_for_fusion = None
+            process_conf_for_fusion = 0.0
 
         # 决策逻辑
         if filename_label and filename_conf >= self.filename_min_conf:
@@ -402,67 +615,95 @@ class HybridClassifier:
             self.titleblock_override_enabled
             and titleblock_label
             and titleblock_conf >= self.titleblock_min_conf
-            and filename_conf < 0.5
-            and (not graph2d_label or graph2d_conf < self.graph2d_min_conf)
+            and filename_conf < self.filename_min_conf
         ):
             result.label = titleblock_label
             result.confidence = titleblock_conf
             result.source = DecisionSource.TITLEBLOCK
             result.decision_path.append("titleblock_adopted")
 
-        elif graph2d_label and graph2d_conf >= self.graph2d_min_conf and filename_conf < 0.5:
-            # Graph2D 高置信度，文件名低置信度
-            result.label = graph2d_label
-            result.confidence = graph2d_conf
-            result.source = DecisionSource.GRAPH2D
-            result.decision_path.append("graph2d_adopted")
-
-        elif filename_label or graph2d_label or titleblock_label or process_label:
-            # 多源融合 (filename/graph2d/titleblock/process)
-            label_scores: Dict[str, float] = {}
-            label_sources: Dict[str, List[str]] = {}
-
-            def _add_score(label: Optional[str], conf: float, weight: float, source: str) -> None:
-                if not label:
-                    return
-                label_scores[label] = label_scores.get(label, 0.0) + conf * weight
-                label_sources.setdefault(label, []).append(source)
-
-            _add_score(filename_label, filename_conf, self.filename_weight, "filename")
-            _add_score(graph2d_label, graph2d_conf, self.graph2d_weight, "graph2d")
-            _add_score(titleblock_label, titleblock_conf, self.titleblock_weight, "titleblock")
-            _add_score(process_label, process_conf, self.process_weight, "process")
-
-            if label_scores:
-                best_label = max(label_scores.items(), key=lambda item: item[1])[0]
-                sources = label_sources.get(best_label, [])
-                bonus = 0.1 if len(sources) >= 2 else 0.0
-                fused_conf = min(1.0, label_scores[best_label] + bonus)
-                result.label = best_label
-                result.confidence = fused_conf
-                result.source = DecisionSource.FUSION
-                result.decision_path.append("fusion_scored")
-                if bonus > 0:
-                    result.decision_path.append("fusion_multi_source_bonus")
-
-        elif filename_label:
-            # 只有文件名预测
-            result.label = filename_label
-            result.confidence = filename_conf
-            result.source = DecisionSource.FILENAME
-            result.decision_path.append("filename_only")
-
-        elif graph2d_label:
-            # 只有 Graph2D 预测
-            result.label = graph2d_label
-            result.confidence = graph2d_conf
-            result.source = DecisionSource.GRAPH2D
-            result.decision_path.append("graph2d_only")
-
         else:
-            # 无预测
-            result.source = DecisionSource.FALLBACK
-            result.decision_path.append("no_prediction")
+            preds: List[tuple[str, str, float, DecisionSource]] = []
+            if filename_label:
+                preds.append(
+                    ("filename", filename_label, filename_conf, DecisionSource.FILENAME)
+                )
+            if titleblock_label:
+                preds.append(
+                    (
+                        "titleblock",
+                        titleblock_label,
+                        titleblock_conf,
+                        DecisionSource.TITLEBLOCK,
+                    )
+                )
+            if process_label_for_fusion:
+                preds.append(
+                    (
+                        "process",
+                        process_label_for_fusion,
+                        process_conf_for_fusion,
+                        DecisionSource.PROCESS,
+                    )
+                )
+            if graph2d_label:
+                preds.append(
+                    ("graph2d", graph2d_label, graph2d_conf, DecisionSource.GRAPH2D)
+                )
+
+            if len(preds) == 1:
+                src_key, label, conf, src = preds[0]
+                result.label = label
+                result.confidence = conf
+                result.source = src
+                result.decision_path.append(f"{src_key}_only")
+
+            elif preds:
+                # 多源融合 (filename/graph2d/titleblock/process)
+                label_scores: Dict[str, float] = {}
+                label_sources: Dict[str, List[str]] = {}
+
+                def _add_score(
+                    label: Optional[str], conf: float, weight: float, source: str
+                ) -> None:
+                    if not label:
+                        return
+                    label_scores[label] = label_scores.get(label, 0.0) + conf * weight
+                    label_sources.setdefault(label, []).append(source)
+
+                _add_score(
+                    filename_label, filename_conf, self.filename_weight, "filename"
+                )
+                _add_score(graph2d_label, graph2d_conf, self.graph2d_weight, "graph2d")
+                _add_score(
+                    titleblock_label,
+                    titleblock_conf,
+                    self.titleblock_weight,
+                    "titleblock",
+                )
+                _add_score(
+                    process_label_for_fusion,
+                    process_conf_for_fusion,
+                    self.process_weight,
+                    "process",
+                )
+
+                if label_scores:
+                    best_label = max(label_scores.items(), key=lambda item: item[1])[0]
+                    sources = label_sources.get(best_label, [])
+                    bonus = 0.1 if len(sources) >= 2 else 0.0
+                    fused_conf = min(1.0, label_scores[best_label] + bonus)
+                    result.label = best_label
+                    result.confidence = fused_conf
+                    result.source = DecisionSource.FUSION
+                    result.decision_path.append("fusion_scored")
+                    if bonus > 0:
+                        result.decision_path.append("fusion_multi_source_bonus")
+
+            else:
+                # 无预测
+                result.source = DecisionSource.FALLBACK
+                result.decision_path.append("no_prediction")
 
         logger.debug(
             "HybridClassifier decision",
