@@ -1,11 +1,12 @@
 {
-  "components_schema_count": 200,
+  "components_schema_count": 208,
   "components_schema_names": [
     "ActiveLearningSample",
     "AlternativeItem",
     "AlternativeResponse",
     "AnalysisResult",
     "AnalysisResultCleanupResponse",
+    "AngularToleranceResponse",
     "ApplicationItem",
     "ApplicationListResponse",
     "BatchClassifyResponse",
@@ -56,6 +57,7 @@
     "Dedup2DSearchResponse",
     "Dedup2DTenantConfig",
     "Dedup2DTenantConfigResponse",
+    "DesignStandardsStatusResponse",
     "DrawingField",
     "DrawingFieldCatalogResponse",
     "DrawingFieldDefinition",
@@ -85,6 +87,7 @@
     "FullCompatibilityResponse",
     "GalvanicAnodeCathode",
     "GalvanicCorrosionResponse",
+    "GeneralToleranceTableResponse",
     "HTTPValidationError",
     "HealthConfig",
     "HealthConfigCoreProviders",
@@ -109,6 +112,7 @@
     "KnowledgeReloadResponse",
     "KnowledgeStatusResponse",
     "LimitDeviationsResponse",
+    "LinearToleranceResponse",
     "MaterialClassifyRequest",
     "MaterialClassifyResponse",
     "MaterialCostItem",
@@ -135,6 +139,7 @@
     "OcrResponse",
     "OcrResult",
     "OrphanCleanupResponse",
+    "PreferredDiameterResponse",
     "ProcessRecommendationResponse",
     "ProcessRequirementsInput",
     "ProcessRouteRequest",
@@ -169,6 +174,9 @@
     "StatusResponse",
     "SuggestionResponse",
     "SupportedQueriesResponse",
+    "SurfaceFinishApplicationResponse",
+    "SurfaceFinishGradeResponse",
+    "SurfaceFinishSuggestResponse",
     "ThreadSpecResponse",
     "V16CacheClearResponse",
     "V16ClassifierHealthResponse",
@@ -203,8 +211,8 @@
     "WeldCompatibilityResponse"
   ],
   "openapi": "3.1.0",
-  "operation_count": 166,
-  "path_count": 161,
+  "operation_count": 174,
+  "path_count": 169,
   "paths": {
     "/": {
       "get": {
@@ -740,6 +748,86 @@
       "post": {
         "deprecated": false,
         "operationId": "dedup_2d_search_api_v1_dedup_2d_search_post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/design-standards/general-tolerances/angular": {
+      "get": {
+        "deprecated": false,
+        "operationId": "general_angular_tolerance_api_v1_design_standards_general_tolerances_angular_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/design-standards/general-tolerances/linear": {
+      "get": {
+        "deprecated": false,
+        "operationId": "general_linear_tolerance_api_v1_design_standards_general_tolerances_linear_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/design-standards/general-tolerances/table": {
+      "get": {
+        "deprecated": false,
+        "operationId": "general_tolerance_table_api_v1_design_standards_general_tolerances_table_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/design-standards/preferred-diameter": {
+      "get": {
+        "deprecated": false,
+        "operationId": "preferred_diameter_api_v1_design_standards_preferred_diameter_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/design-standards/status": {
+      "get": {
+        "deprecated": false,
+        "operationId": "design_standards_status_api_v1_design_standards_status_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/design-standards/surface-finish/application": {
+      "get": {
+        "deprecated": false,
+        "operationId": "surface_finish_application_api_v1_design_standards_surface_finish_application_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/design-standards/surface-finish/grade": {
+      "get": {
+        "deprecated": false,
+        "operationId": "surface_finish_grade_api_v1_design_standards_surface_finish_grade_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/design-standards/surface-finish/suggest": {
+      "get": {
+        "deprecated": false,
+        "operationId": "surface_finish_suggest_api_v1_design_standards_surface_finish_suggest_get",
         "responses": [
           "200",
           "422"

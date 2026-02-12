@@ -13,6 +13,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.core.providers.knowledge import (
+    DesignStandardsKnowledgeProviderAdapter,
     KnowledgeProviderConfig,
     StandardsKnowledgeProviderAdapter,
     ToleranceKnowledgeProviderAdapter,
@@ -167,6 +168,40 @@ class TestStandardsKnowledgeProviderAdapter:
         assert "examples" in result
 
 
+# --- DesignStandardsKnowledgeProviderAdapter Tests ---
+
+
+class TestDesignStandardsKnowledgeProviderAdapter:
+    """Tests for DesignStandardsKnowledgeProviderAdapter."""
+
+    @pytest.mark.asyncio
+    async def test_health_check_returns_true_when_all_checks_pass(self):
+        """health_check returns True when probes succeed."""
+        config = KnowledgeProviderConfig(
+            name="design_standards",
+            provider_type="knowledge",
+            provider_name="design_standards",
+        )
+        adapter = DesignStandardsKnowledgeProviderAdapter(config)
+        ok = await adapter.health_check()
+        assert ok is True
+
+    @pytest.mark.asyncio
+    async def test_process_returns_status(self):
+        """process returns status dict."""
+        config = KnowledgeProviderConfig(
+            name="design_standards",
+            provider_type="knowledge",
+            provider_name="design_standards",
+        )
+        adapter = DesignStandardsKnowledgeProviderAdapter(config)
+
+        result = await adapter.process(None)
+        assert result["status"] == "ok"
+        assert "counts" in result
+        assert "examples" in result
+
+
 # --- Bootstrap Tests ---
 
 
@@ -182,6 +217,11 @@ class TestBootstrapCoreKnowledgeProviders:
         """bootstrap registers knowledge/standards provider."""
         bootstrap_core_knowledge_providers()
         assert ProviderRegistry.exists("knowledge", "standards")
+
+    def test_bootstrap_registers_design_standards(self):
+        """bootstrap registers knowledge/design_standards provider."""
+        bootstrap_core_knowledge_providers()
+        assert ProviderRegistry.exists("knowledge", "design_standards")
 
     def test_bootstrap_is_idempotent(self):
         """bootstrap can be called multiple times without error."""
@@ -210,6 +250,15 @@ class TestBootstrapCoreKnowledgeProviders:
         assert provider.config.name == "standards"
         assert provider.config.provider_type == "knowledge"
         assert provider.config.provider_name == "standards"
+
+    def test_design_standards_provider_default_config_wiring(self):
+        """Default config for knowledge/design_standards."""
+        bootstrap_core_knowledge_providers()
+        provider = ProviderRegistry.get("knowledge", "design_standards")
+
+        assert provider.config.name == "design_standards"
+        assert provider.config.provider_type == "knowledge"
+        assert provider.config.provider_name == "design_standards"
 
 
 # --- KnowledgeProviderConfig Tests ---
