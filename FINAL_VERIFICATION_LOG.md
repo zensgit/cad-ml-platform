@@ -3734,3 +3734,9 @@
     - `pytest -q tests/unit/test_core_fast_gate_summary.py` (`2 passed`)
     - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `3 passed`, `103 passed`, `59 passed`, `4 passed`)
   - Report: `reports/DEV_CORE_FAST_SUMMARY_PARSER_20260212.md`
+- **OpenAPI Duplicate Warning Guard**:
+  - Added contract regression test to assert `/openapi.json` generation emits no `Duplicate Operation ID` warning.
+  - Validation:
+    - `make validate-openapi` (`4 passed`)
+    - `make validate-core-fast` (`ISO286 validators OK`, `48 passed`, `4 passed`, `103 passed`, `59 passed`, `4 passed`)
+  - Report: `reports/DEV_OPENAPI_DUPLICATE_WARNING_GUARD_20260212.md`
