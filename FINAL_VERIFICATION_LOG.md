@@ -3931,3 +3931,9 @@
   - Validation:
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_GRAPH2D_ENSEMBLE_DEFAULT_MODELS_ALIGN_TO_PART_LABELS_20260212.md`
+- **Graph2D Runbook Update + Health Default Ensemble Regression Test**:
+  - Updated `docs/runbooks/graph2d_recommended_runtime.md` to the current recommended Graph2D part-label model and temperature calibration guidance.
+  - Added a unit test to ensure `/health` reflects the same Graph2D ensemble defaults as the runtime when `GRAPH2D_ENSEMBLE_ENABLED=true` and `GRAPH2D_ENSEMBLE_MODELS` is unset.
+  - Validation:
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_GRAPH2D_RUNBOOK_AND_HEALTH_DEFAULT_ENSEMBLE_TEST_20260212.md`

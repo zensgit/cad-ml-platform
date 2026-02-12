@@ -326,6 +326,30 @@ class TestBuildHealthPayload:
             "graph2d_b.pth",
         ]
 
+    def test_build_health_payload_graph2d_ensemble_defaults_match_runtime(self, monkeypatch):
+        """When GRAPH2D_ENSEMBLE_ENABLED=true and no model list is configured, health
+        should reflect the same default model list as the runtime ensemble loader.
+        """
+        monkeypatch.setenv("GRAPH2D_ENSEMBLE_ENABLED", "true")
+        monkeypatch.delenv("GRAPH2D_ENSEMBLE_MODELS", raising=False)
+
+        from src.ml.hybrid_config import reset_config
+
+        reset_config()
+        try:
+            from src.api.health_utils import build_health_payload
+
+            payload = build_health_payload()
+        finally:
+            reset_config()
+
+        classification = payload["config"]["ml"]["classification"]
+        assert classification["graph2d_ensemble_enabled"] is True
+        assert classification["graph2d_ensemble_models_configured"] == 1
+        assert classification["graph2d_ensemble_models"] == [
+            "graph2d_training_dxf_oda_titleblock_distill_20260210.pth"
+        ]
+
 
 class TestHealthResponseModel:
     """Tests verifying HealthResponse model integration."""
