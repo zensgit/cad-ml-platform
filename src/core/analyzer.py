@@ -102,13 +102,15 @@ class CADAnalyzer:
         self, doc: CadDocument
     ) -> Optional[Dict[str, Any]]:
         """使用V16超级集成分类器（99.65%准确率）"""
-        classifier = _get_v16_classifier()
-        if classifier is None:
+        # Avoid loading heavyweight models when we don't have an on-disk file path.
+        # The analyze endpoint typically operates on uploaded bytes, so `CadDocument`
+        # does not carry a stable file path unless explicitly provided by an adapter.
+        file_path = getattr(doc, "file_path", None) or getattr(doc, "source_path", None)
+        if not file_path:
             return None
 
-        # 获取DXF文件路径
-        file_path = getattr(doc, 'file_path', None) or getattr(doc, 'source_path', None)
-        if not file_path:
+        classifier = _get_v16_classifier()
+        if classifier is None:
             return None
 
         try:
@@ -145,13 +147,12 @@ class CADAnalyzer:
         self, doc: CadDocument
     ) -> Optional[Dict[str, Any]]:
         """使用ML模型分类（V6回退方案）"""
-        classifier = _get_ml_classifier()
-        if classifier is None:
+        file_path = getattr(doc, "file_path", None) or getattr(doc, "source_path", None)
+        if not file_path:
             return None
 
-        # 获取DXF文件路径
-        file_path = getattr(doc, 'file_path', None) or getattr(doc, 'source_path', None)
-        if not file_path:
+        classifier = _get_ml_classifier()
+        if classifier is None:
             return None
 
         try:

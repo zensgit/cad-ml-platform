@@ -50,7 +50,14 @@ class Graph2DClassifier:
         self._load_temperature()
 
         if HAS_TORCH and os.path.exists(self.model_path):
-            self._load_model()
+            try:
+                self._load_model()
+            except Exception as exc:  # noqa: BLE001
+                # Keep model loading best-effort so environments with torch installed
+                # but missing/incompatible checkpoints do not fail import-time.
+                logger.warning("Failed to load Graph2D model %s: %s", self.model_path, exc)
+                self.model = None
+                self._loaded = False
 
     def _predict_probs(self, data: bytes, file_name: str) -> Dict[str, Any]:
         """Return the full probability vector for internal consumers (e.g. ensembles).

@@ -4037,3 +4037,10 @@
     - `make validate-core-fast` (passed)
     - `.venv/bin/python scripts/batch_analyze_dxf_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --max-files 30 --output-dir /tmp/dxf_batch_eval_unmasked_20260213_v3` (completed)
   - Report: `reports/DEV_DXF_BATCH_ANALYZE_FINE_LABEL_METRICS_20260213.md`
+- **Analyzer Lazy Model Load + Graph2D Safe Init**:
+  - Prevented `CADAnalyzer` from loading heavyweight V16/V6 classifiers when no `file_path` is available (common for byte-upload analysis requests).
+  - Made `Graph2DClassifier` checkpoint loading best-effort so incompatible/missing checkpoints do not crash import-time init.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_analyzer_lazy_model_load.py tests/unit/test_vision_2d_ensemble_voting.py -v` (29 passed)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_ANALYZER_LAZY_MODEL_LOAD_AND_GRAPH2D_SAFE_INIT_20260213.md`

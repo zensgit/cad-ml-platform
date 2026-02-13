@@ -89,6 +89,22 @@ class TestGraph2DClassifier:
 
         assert clf._loaded is False
 
+    def test_init_model_load_failure_is_best_effort(self, monkeypatch) -> None:
+        """Model loading errors should not crash Graph2DClassifier init."""
+        import src.ml.vision_2d as vision_2d
+
+        class _StubTorch:
+            @staticmethod
+            def load(*_args, **_kwargs):  # noqa: ANN001, ANN002, ANN003
+                raise RuntimeError("boom")
+
+        monkeypatch.setattr(vision_2d, "HAS_TORCH", True)
+        monkeypatch.setattr(vision_2d, "torch", _StubTorch)
+        monkeypatch.setattr(vision_2d.os.path, "exists", lambda _p: True)
+
+        clf = vision_2d.Graph2DClassifier(model_path="/tmp/fake_model.pth")
+        assert clf._loaded is False
+
     def test_predict_probs_model_unavailable(self, monkeypatch) -> None:
         """Test _predict_probs when model is not loaded."""
         import src.ml.vision_2d as vision_2d
@@ -437,4 +453,3 @@ class TestGetClassifiers:
         ens2 = vision_2d.get_ensemble_2d_classifier()
 
         assert ens1 is ens2
-
