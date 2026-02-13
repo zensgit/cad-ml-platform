@@ -144,11 +144,37 @@ def main() -> None:
             "to evaluate behavior when filenames do not carry semantic labels."
         ),
     )
+    parser.add_argument(
+        "--strip-text",
+        action="store_true",
+        help=(
+            "Strip TEXT/MTEXT/DIMENSION/ATTRIB entities from the uploaded DXF bytes "
+            "to simulate geometry-only inference (also strips block definitions to "
+            "avoid leaking titleblock text via INSERT virtual entities)."
+        ),
+    )
+    parser.add_argument(
+        "--geometry-only",
+        action="store_true",
+        help=(
+            "Convenience mode: implies --mask-filename and --strip-text, and disables "
+            "Hybrid text branches (TITLEBLOCK/PROCESS/FILENAME) via env vars so the "
+            "run focuses on Graph2D behavior."
+        ),
+    )
     args = parser.parse_args()
 
     dxf_dir = Path(args.dxf_dir)
     if not dxf_dir.exists():
         raise SystemExit(f"DXF dir not found: {dxf_dir}")
+
+    if bool(args.geometry_only):
+        args.mask_filename = True
+        args.strip_text = True
+        # Force-disable HybridClassifier text branches for this evaluation mode.
+        os.environ["TITLEBLOCK_ENABLED"] = "false"
+        os.environ["PROCESS_FEATURES_ENABLED"] = "false"
+        os.environ["FILENAME_CLASSIFIER_ENABLED"] = "false"
 
     manifest_path = Path(args.manifest) if args.manifest else None
     if manifest_path:
@@ -240,6 +266,22 @@ def main() -> None:
             rows.append({"file": str(item), "status": "read_error", "error": str(exc)})
             stats["error"] += 1
             continue
+
+        if bool(args.strip_text):
+            try:
+                from src.utils.dxf_io import strip_dxf_text_entities_from_bytes
+
+                payload = strip_dxf_text_entities_from_bytes(payload, strip_blocks=True)
+            except Exception as exc:
+                rows.append(
+                    {
+                        "file": str(item),
+                        "status": "strip_text_error",
+                        "error": str(exc),
+                    }
+                )
+                stats["error"] += 1
+                continue
 
         weak_true_payload: Dict[str, Any] = {}
         weak_true_label: Optional[str] = None
@@ -684,6 +726,8 @@ def main() -> None:
 
     summary = {
         "mask_filename": bool(args.mask_filename),
+        "strip_text": bool(args.strip_text),
+        "geometry_only": bool(args.geometry_only),
         "total": stats["total"],
         "success": stats["success"],
         "error": stats["error"],

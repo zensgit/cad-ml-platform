@@ -203,6 +203,50 @@ def test_read_dxf_entities_from_bytes() -> None:
     assert len(entities) >= 2
 
 
+def test_strip_dxf_text_entities_removes_modelspace_text() -> None:
+    ezdxf = pytest.importorskip("ezdxf")
+    from src.utils.dxf_io import read_dxf_document_from_bytes, strip_dxf_text_entities_from_bytes
+
+    doc = ezdxf.new(setup=True)
+    msp = doc.modelspace()
+    msp.add_line((0, 0), (100, 0))
+    msp.add_text("名称: 人孔", dxfattribs={"height": 2, "insert": (80, 10)})
+
+    buf = io.StringIO()
+    doc.write(buf)
+    payload = buf.getvalue().encode("utf-8")
+
+    stripped = strip_dxf_text_entities_from_bytes(payload)
+    parsed = read_dxf_document_from_bytes(stripped)
+
+    types = [e.dxftype() for e in parsed.modelspace()]
+    assert "TEXT" not in types
+    assert "LINE" in types
+
+
+def test_strip_dxf_text_entities_removes_block_text() -> None:
+    ezdxf = pytest.importorskip("ezdxf")
+    from src.utils.dxf_io import read_dxf_document_from_bytes, strip_dxf_text_entities_from_bytes
+
+    doc = ezdxf.new(setup=True)
+    block = doc.blocks.new(name="TITLEBLOCK")
+    block.add_text("人孔", dxfattribs={"height": 2, "insert": (0, 0)})
+
+    msp = doc.modelspace()
+    msp.add_blockref("TITLEBLOCK", insert=(0, 0))
+
+    buf = io.StringIO()
+    doc.write(buf)
+    payload = buf.getvalue().encode("utf-8")
+
+    stripped = strip_dxf_text_entities_from_bytes(payload, strip_blocks=True)
+    parsed = read_dxf_document_from_bytes(stripped)
+
+    parsed_block = parsed.blocks.get("TITLEBLOCK")
+    block_types = [e.dxftype() for e in parsed_block]
+    assert "TEXT" not in block_types
+
+
 def test_find_header_value_empty_value() -> None:
     """Test _find_header_value returns None for empty value."""
     pytest.importorskip("ezdxf")
@@ -226,4 +270,3 @@ def test_find_header_value_not_found() -> None:
     lines = ["  0", "SECTION", "  2", "HEADER"]
     result = _find_header_value(lines, "$ACADVER")
     assert result is None
-

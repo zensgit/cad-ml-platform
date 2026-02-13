@@ -4051,3 +4051,10 @@
     - `.venv/bin/python -m pytest tests/unit/test_hybrid_classifier_graph2d_guardrails.py tests/unit/test_hybrid_classifier_coverage.py tests/integration/test_analyze_dxf_hybrid_override.py -v` (54 passed)
     - `.venv/bin/python scripts/batch_analyze_dxf_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --max-files 30 --mask-filename --output-dir /tmp/dxf_batch_eval_masked_20260213_torch_v2` (completed)
   - Report: `reports/DEV_HYBRID_CLASSIFIER_FUSION_CONFIDENCE_RESCALING_20260213.md`
+- **DXF Geometry-Only Graph2D Baseline (Local)**:
+  - Added a geometry-only evaluation mode to strip DXF text/annotation entities and mask filenames to quantify true Graph2D geometry signal.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_dxf_io.py -v` (14 passed)
+    - `.venv/bin/python scripts/batch_analyze_dxf_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --max-files 30 --geometry-only --output-dir /tmp/dxf_batch_eval_geometry_only_20260213` (completed)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_DXF_GEOMETRY_ONLY_GRAPH2D_BASELINE_20260213.md`
