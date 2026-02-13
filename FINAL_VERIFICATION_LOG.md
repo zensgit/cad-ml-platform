@@ -4133,3 +4133,12 @@
   - Validation:
     - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --epochs 15 --diagnose-max-files 80 --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8` (completed; artifacts in `/tmp`)
   - Report: `reports/DEV_GRAPH2D_LOCAL_RETRAIN_COARSE_BATCHED_20260213.md`
+- **Graph2D Downweight Label Experiment (`紧固件`)**:
+  - Tested whether downweighting the most common false-positive class reduces confusion and improves coarse-bucket accuracy.
+  - Validation:
+    - `.venv/bin/python scripts/train_2d_graph.py ... --downweight-label 紧固件 --downweight-factor 0.3` (completed; artifacts in `/tmp`)
+    - `.venv/bin/python scripts/eval_2d_graph.py ...` (completed)
+    - `.venv/bin/python scripts/diagnose_graph2d_on_dxf_dir.py --manifest-csv ... --max-files 80` (completed)
+  - Outcome:
+    - Reduced `紧固件` prediction frequency, but decreased overall accuracy vs the baseline coarse-bucket run.
+  - Report: `reports/DEV_GRAPH2D_DOWNWEIGHT_LABEL_EXPERIMENT_20260213.md`
