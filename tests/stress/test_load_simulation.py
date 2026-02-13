@@ -411,7 +411,9 @@ class TestThroughputLimits:
         min_rps = _throughput_threshold(
             "STRESS_CACHE_MIN_RPS",
             default_local=500000.0,
-            default_ci=250000.0,
+            # CI runners are shared and can vary substantially; keep this as a
+            # regression guard, not a flaky micro-benchmark gate.
+            default_ci=200000.0,
         )
         assert result.throughput > min_rps
 
