@@ -3974,3 +3974,12 @@
     - `.venv/bin/python -m pytest tests/unit/test_vision_2d_ensemble_voting.py -v` (26 passed)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_VISION2D_TORCH_NAMEERROR_FIX_20260213.md`
+- **Stress Throughput Threshold CI Stabilization**:
+  - Stabilized stress throughput assertions to avoid false negatives on shared CI runners while preserving strict local defaults.
+  - Added env-configurable thresholds in `tests/stress/test_load_simulation.py`:
+    - `STRESS_MODEL_SELECTOR_MIN_RPS` (defaults: local 100k, CI 50k)
+    - `STRESS_CACHE_MIN_RPS` (defaults: local 500k, CI 250k)
+  - Validation:
+    - `CI=true .venv/bin/python -m pytest tests/stress/test_load_simulation.py -k "model_selector_throughput or cache_throughput" -v` (2 passed)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_STRESS_THROUGHPUT_THRESHOLD_CI_STABILIZATION_20260213.md`
