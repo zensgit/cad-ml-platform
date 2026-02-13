@@ -13,7 +13,7 @@ import statistics
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 # Ensure project root on sys.path for TestClient usage
 ROOT = Path(__file__).resolve().parents[1]
@@ -90,6 +90,35 @@ def _sanitize_file_column(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return sanitized
 
 
+def _canonicalize_label(label: Optional[str], matcher: Dict[str, str]) -> str:
+    """Canonicalize a label using the filename-synonyms matcher (best-effort)."""
+    if not label:
+        return ""
+    cleaned = str(label).strip()
+    if not cleaned:
+        return ""
+    return matcher.get(cleaned.lower(), cleaned)
+
+
+def _build_fieldnames(rows: List[Dict[str, Any]]) -> List[str]:
+    """Build stable CSV fieldnames covering all rows (avoids first-row schema issues)."""
+    keys: set[str] = set()
+    for row in rows:
+        keys.update(str(k) for k in row.keys())
+    return sorted(keys)
+
+
+def _score_against_true(
+    pred_label: Optional[str],
+    true_label: Optional[str],
+    matcher: Dict[str, str],
+) -> Tuple[bool, str, str]:
+    """Return (correct, pred_canon, true_canon) for label comparisons."""
+    pred_canon = _canonicalize_label(pred_label, matcher)
+    true_canon = _canonicalize_label(true_label, matcher)
+    return bool(pred_canon and true_canon and pred_canon == true_canon), pred_canon, true_canon
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Batch analyze DXF via local TestClient")
     parser.add_argument("--dxf-dir", required=True, help="DXF directory")
@@ -98,6 +127,15 @@ def main() -> None:
     parser.add_argument("--max-files", type=int, default=200)
     parser.add_argument("--seed", type=int, default=22)
     parser.add_argument("--min-confidence", type=float, default=0.6)
+    parser.add_argument(
+        "--weak-label-min-confidence",
+        type=float,
+        default=0.8,
+        help=(
+            "Minimum confidence for accepting a weak 'true label' derived from the original "
+            "filename via FilenameClassifier (default: 0.8)."
+        ),
+    )
     parser.add_argument(
         "--mask-filename",
         action="store_true",
@@ -125,6 +163,19 @@ def main() -> None:
     random.seed(args.seed)
     random.shuffle(files)
     files = files[: args.max_files]
+
+    # Weak-supervised "true labels" from the original file name (not the upload name).
+    weak_label_classifier = None
+    weak_label_matcher: Dict[str, str] = {}
+    weak_label_min_conf = float(args.weak_label_min_confidence)
+    try:
+        from src.ml.filename_classifier import FilenameClassifier
+
+        weak_label_classifier = FilenameClassifier()
+        weak_label_matcher = dict(getattr(weak_label_classifier, "matcher", {}) or {})
+    except Exception:
+        weak_label_classifier = None
+        weak_label_matcher = {}
 
     os.environ.setdefault("GRAPH2D_ENABLED", "true")
     os.environ.setdefault("GRAPH2D_FUSION_ENABLED", "true")
@@ -163,6 +214,20 @@ def main() -> None:
     label_conf = defaultdict(list)
     conf_buckets = Counter()
 
+    weak_true_status_counts: Counter[str] = Counter()
+    weak_true_match_type_counts: Counter[str] = Counter()
+    weak_true_label_counts: Counter[str] = Counter()
+    weak_true_covered = 0
+
+    accuracy_counters: Dict[str, Counter[str]] = {
+        "final_part_type": Counter(),
+        "hybrid_label": Counter(),
+        "graph2d_label": Counter(),
+        "titleblock_label": Counter(),
+        "hybrid_filename_label": Counter(),
+    }
+    confusion_final: Counter[Tuple[str, str]] = Counter()
+
     for idx, item in enumerate(files):
         stats["total"] += 1
         try:
@@ -171,6 +236,36 @@ def main() -> None:
             rows.append({"file": str(item), "status": "read_error", "error": str(exc)})
             stats["error"] += 1
             continue
+
+        weak_true_payload: Dict[str, Any] = {}
+        weak_true_label: Optional[str] = None
+        weak_true_conf = 0.0
+        weak_true_status = "disabled"
+        weak_true_match_type = "none"
+        weak_true_extracted_name: Optional[str] = None
+        weak_true_accepted = False
+        if weak_label_classifier is not None:
+            try:
+                weak_true_payload = weak_label_classifier.predict(item.name)
+            except Exception:
+                weak_true_payload = {}
+
+            weak_true_label = weak_true_payload.get("label")
+            weak_true_extracted_name = weak_true_payload.get("extracted_name")
+            weak_true_status = str(weak_true_payload.get("status") or "unknown")
+            weak_true_match_type = str(weak_true_payload.get("match_type") or "none")
+            try:
+                weak_true_conf = float(weak_true_payload.get("confidence") or 0.0)
+            except (TypeError, ValueError):
+                weak_true_conf = 0.0
+            if weak_true_status == "matched" and weak_true_label and weak_true_conf >= weak_label_min_conf:
+                weak_true_accepted = True
+
+            weak_true_status_counts[weak_true_status] += 1
+            weak_true_match_type_counts[weak_true_match_type] += 1
+            if weak_true_accepted:
+                weak_true_covered += 1
+                weak_true_label_counts[_canonicalize_label(weak_true_label, weak_label_matcher)] += 1
 
         upload_name = item.name
         if bool(args.mask_filename):
@@ -203,6 +298,55 @@ def main() -> None:
         part_type = classification.get("part_type")
         confidence = float(classification.get("confidence") or 0.0)
 
+        # Weak-label scoring (best-effort).
+        if weak_true_accepted and weak_label_matcher:
+            true_label = _canonicalize_label(weak_true_label, weak_label_matcher)
+            pred_final = _canonicalize_label(part_type, weak_label_matcher)
+            if pred_final:
+                accuracy_counters["final_part_type"]["evaluated"] += 1
+                if pred_final == true_label:
+                    accuracy_counters["final_part_type"]["correct"] += 1
+                else:
+                    confusion_final[(true_label, pred_final)] += 1
+            else:
+                accuracy_counters["final_part_type"]["missing_pred"] += 1
+
+            hybrid_label = (hybrid_decision.get("label") or "").strip()
+            pred_hybrid = _canonicalize_label(hybrid_label, weak_label_matcher)
+            if pred_hybrid:
+                accuracy_counters["hybrid_label"]["evaluated"] += 1
+                if pred_hybrid == true_label:
+                    accuracy_counters["hybrid_label"]["correct"] += 1
+            else:
+                accuracy_counters["hybrid_label"]["missing_pred"] += 1
+
+            g_label = (graph2d.get("label") or "").strip()
+            pred_graph2d = _canonicalize_label(g_label, weak_label_matcher)
+            if pred_graph2d:
+                accuracy_counters["graph2d_label"]["evaluated"] += 1
+                if pred_graph2d == true_label:
+                    accuracy_counters["graph2d_label"]["correct"] += 1
+            else:
+                accuracy_counters["graph2d_label"]["missing_pred"] += 1
+
+            t_label = (titleblock_pred.get("label") or "").strip()
+            pred_title = _canonicalize_label(t_label, weak_label_matcher)
+            if pred_title:
+                accuracy_counters["titleblock_label"]["evaluated"] += 1
+                if pred_title == true_label:
+                    accuracy_counters["titleblock_label"]["correct"] += 1
+            else:
+                accuracy_counters["titleblock_label"]["missing_pred"] += 1
+
+            h_fname_label = (filename_pred.get("label") or "").strip()
+            pred_fname = _canonicalize_label(h_fname_label, weak_label_matcher)
+            if pred_fname:
+                accuracy_counters["hybrid_filename_label"]["evaluated"] += 1
+                if pred_fname == true_label:
+                    accuracy_counters["hybrid_filename_label"]["correct"] += 1
+            else:
+                accuracy_counters["hybrid_filename_label"]["missing_pred"] += 1
+
         label_counts[part_type] += 1
         label_conf[part_type].append(confidence)
         if confidence < 0.4:
@@ -216,11 +360,18 @@ def main() -> None:
 
         rows.append({
             "file": str(item),
+            "upload_name": upload_name,
             "status": "ok",
             "part_type": part_type,
             "confidence": f"{confidence:.3f}",
             "confidence_source": classification.get("confidence_source"),
             "rule_version": classification.get("rule_version"),
+            "weak_true_label": _canonicalize_label(weak_true_label, weak_label_matcher) if weak_true_accepted else "",
+            "weak_true_confidence": f"{weak_true_conf:.3f}",
+            "weak_true_status": weak_true_status,
+            "weak_true_match_type": weak_true_match_type,
+            "weak_true_extracted_name": weak_true_extracted_name or "",
+            "weak_true_accepted": bool(weak_true_accepted),
             "graph2d_label": graph2d.get("label"),
             "graph2d_confidence": graph2d.get("confidence"),
             "graph2d_status": graph2d.get("status"),
@@ -270,14 +421,15 @@ def main() -> None:
 
     ok_rows = [r for r in rows if r.get("status") == "ok"]
 
+    fieldnames = _build_fieldnames(rows)
     with results_path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=rows[0].keys())
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
     sanitized_rows = _sanitize_file_column(rows)
     with results_sanitized_path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=sanitized_rows[0].keys())
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(sanitized_rows)
 
@@ -289,12 +441,12 @@ def main() -> None:
     ]
     if low_conf:
         with low_conf_path.open("w", encoding="utf-8", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=low_conf[0].keys())
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(low_conf)
         sanitized_low_conf = _sanitize_file_column(low_conf)
         with low_conf_sanitized_path.open("w", encoding="utf-8", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=sanitized_low_conf[0].keys())
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(sanitized_low_conf)
     else:
@@ -472,6 +624,7 @@ def main() -> None:
             titleblock_min_conf_effective = 0.0
 
     summary = {
+        "mask_filename": bool(args.mask_filename),
         "total": stats["total"],
         "success": stats["success"],
         "error": stats["error"],
@@ -480,6 +633,32 @@ def main() -> None:
         "low_confidence_count": len(low_conf),
         "soft_override_candidates": stats.get("soft_override_candidates", 0),
         "sample_size": len(files),
+        "weak_labels": {
+            "enabled": weak_label_classifier is not None,
+            "source": "filename",
+            "min_confidence": weak_label_min_conf,
+            "covered_count": weak_true_covered,
+            "covered_rate": (weak_true_covered / max(1, len(ok_rows))),
+            "status_counts": dict(weak_true_status_counts),
+            "match_type_counts": dict(weak_true_match_type_counts),
+            "label_counts": dict(weak_true_label_counts),
+            "accuracy": {
+                key: {
+                    "evaluated": int(counter.get("evaluated", 0)),
+                    "correct": int(counter.get("correct", 0)),
+                    "missing_pred": int(counter.get("missing_pred", 0)),
+                    "accuracy": (
+                        float(counter.get("correct", 0))
+                        / float(max(1, counter.get("evaluated", 0)))
+                    ),
+                }
+                for key, counter in accuracy_counters.items()
+            },
+            "top_confusions_final": [
+                {"true": true, "pred": pred, "count": int(count)}
+                for (true, pred), count in confusion_final.most_common(20)
+            ],
+        },
         "filename": {
             "label_present_count": filename_label_present,
             "label_present_rate": (filename_label_present / max(1, len(ok_rows))),

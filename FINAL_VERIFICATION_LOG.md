@@ -4013,3 +4013,11 @@
     - `.venv/bin/python -m pytest tests/unit/test_golden_dxf_hybrid_manifest.py -v` (passed)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_TITLEBLOCK_INSERT_VIRTUAL_ENTITIES_SUPPORT_20260213.md`
+- **DXF Batch Analyze Weak-Label Regression Metrics (Local)**:
+  - Enhanced `scripts/batch_analyze_dxf_local.py` with weak-supervised regression metrics derived from original DXF filenames via `FilenameClassifier` (works even when uploads are masked via `--mask-filename`).
+  - Added stable CSV schema generation (fieldname union) and summary-level weak-label coverage/accuracy + top confusions in `summary.json` (for automated evaluation without manual DXF review).
+  - Validation:
+    - `.venv/bin/python -m py_compile scripts/batch_analyze_dxf_local.py` (passed)
+    - `.venv/bin/python -m pytest tests/unit/test_freeze_graph2d_baseline.py tests/unit/test_graph2d_script_config.py -v` (4 passed)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_DXF_BATCH_ANALYZE_WEAK_LABEL_REGRESSION_METRICS_20260213.md`
