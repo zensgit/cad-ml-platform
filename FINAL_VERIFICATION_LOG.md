@@ -4171,3 +4171,6 @@
     - `.venv/bin/pytest tests/unit/test_dxf_manifest_dataset_strip_text_entities.py -q` (passed)
     - `/usr/bin/time -p env DXF_STRIP_TEXT_ENTITIES=true .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --epochs 1 --max-samples 40 --diagnose-max-files 20 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8` (completed; artifacts in `/tmp`)
   - Report: `reports/DEV_GRAPH2D_GEOMETRY_ONLY_STUDENT_20260214.md`
+- **Provider Framework Audit (Core vs Temp)**:
+  - Verified `src/core/providers/` is a core integration boundary (used by `/api/v1/analyze` and provider health endpoints), and `scripts/test_with_local_api.sh` is a canonical tiered validation runner.
+  - Report: `reports/DEV_PROVIDER_FRAMEWORK_AUDIT_20260214.md`
