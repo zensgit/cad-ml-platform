@@ -4044,3 +4044,10 @@
     - `.venv/bin/python -m pytest tests/unit/test_analyzer_lazy_model_load.py tests/unit/test_vision_2d_ensemble_voting.py -v` (29 passed)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_ANALYZER_LAZY_MODEL_LOAD_AND_GRAPH2D_SAFE_INIT_20260213.md`
+- **HybridClassifier Fusion Confidence Rescaling**:
+  - Rescaled HybridClassifier fusion confidence to reflect the strongest supporting signal (plus small agreement bonus) rather than being scaled down by fusion weights.
+  - This improves Hybrid auto-override behavior for placeholder base labels when titleblock and graph2d agree.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_hybrid_classifier_graph2d_guardrails.py tests/unit/test_hybrid_classifier_coverage.py tests/integration/test_analyze_dxf_hybrid_override.py -v` (54 passed)
+    - `.venv/bin/python scripts/batch_analyze_dxf_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --max-files 30 --mask-filename --output-dir /tmp/dxf_batch_eval_masked_20260213_torch_v2` (completed)
+  - Report: `reports/DEV_HYBRID_CLASSIFIER_FUSION_CONFIDENCE_RESCALING_20260213.md`

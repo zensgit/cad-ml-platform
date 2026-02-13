@@ -662,6 +662,7 @@ class HybridClassifier:
                 # 多源融合 (filename/graph2d/titleblock/process)
                 label_scores: Dict[str, float] = {}
                 label_sources: Dict[str, List[str]] = {}
+                label_support_confs: Dict[str, List[float]] = {}
 
                 def _add_score(
                     label: Optional[str], conf: float, weight: float, source: str
@@ -670,6 +671,7 @@ class HybridClassifier:
                         return
                     label_scores[label] = label_scores.get(label, 0.0) + conf * weight
                     label_sources.setdefault(label, []).append(source)
+                    label_support_confs.setdefault(label, []).append(float(conf))
 
                 _add_score(
                     filename_label, filename_conf, self.filename_weight, "filename"
@@ -690,9 +692,18 @@ class HybridClassifier:
 
                 if label_scores:
                     best_label = max(label_scores.items(), key=lambda item: item[1])[0]
-                    sources = label_sources.get(best_label, [])
-                    bonus = 0.1 if len(sources) >= 2 else 0.0
-                    fused_conf = min(1.0, label_scores[best_label] + bonus)
+                    # Confidence should reflect the strongest supporting signal, while
+                    # allowing a small boost when multiple sources agree. We keep
+                    # label selection weight-based, but avoid scaling confidence by
+                    # fusion weights (which are primarily for tie-breaking/selection).
+                    support_confs = label_support_confs.get(best_label, [])
+                    base_conf = max(support_confs) if support_confs else 0.0
+                    bonus = (
+                        min(0.1, 0.05 * (len(support_confs) - 1))
+                        if len(support_confs) >= 2
+                        else 0.0
+                    )
+                    fused_conf = min(1.0, float(base_conf) + float(bonus))
                     result.label = best_label
                     result.confidence = fused_conf
                     result.source = DecisionSource.FUSION
