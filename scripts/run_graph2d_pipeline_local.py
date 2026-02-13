@@ -207,6 +207,30 @@ def main() -> int:
         help="Max files to sample for diagnosis (default: 200).",
     )
     parser.add_argument(
+        "--graph-cache",
+        choices=["none", "memory"],
+        default="memory",
+        help="Enable DXFManifestDataset graph caching during training (default: memory).",
+    )
+    parser.add_argument(
+        "--graph-cache-max-items",
+        type=int,
+        default=0,
+        help="Max cached graphs in memory (0 = unlimited).",
+    )
+    parser.add_argument(
+        "--empty-edge-fallback",
+        choices=["fully_connected", "knn"],
+        default="fully_connected",
+        help="Fallback edge strategy when a DXF graph has no edges (default: fully_connected).",
+    )
+    parser.add_argument(
+        "--empty-edge-knn-k",
+        type=int,
+        default=8,
+        help="k for kNN fallback when --empty-edge-fallback=knn (default: 8).",
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         default=42,
@@ -218,6 +242,19 @@ def main() -> int:
     if not dxf_dir.exists():
         print(f"DXF dir not found: {dxf_dir}")
         return 2
+
+    # Dataset graph caching (training only).
+    if str(args.graph_cache).strip().lower() == "memory":
+        os.environ["DXF_MANIFEST_DATASET_CACHE"] = "memory"
+        os.environ["DXF_MANIFEST_DATASET_CACHE_MAX_ITEMS"] = str(
+            int(args.graph_cache_max_items)
+        )
+    else:
+        os.environ["DXF_MANIFEST_DATASET_CACHE"] = "none"
+
+    # Empty-edge fallback for DXF graphs.
+    os.environ["DXF_EMPTY_EDGE_FALLBACK"] = str(args.empty_edge_fallback)
+    os.environ["DXF_EMPTY_EDGE_K"] = str(int(args.empty_edge_knn_k))
 
     if args.work_dir:
         work_dir = Path(args.work_dir)
@@ -402,6 +439,12 @@ def main() -> int:
         "work_dir": str(work_dir),
         "dxf_dir": str(dxf_dir),
         "checkpoint": str(checkpoint_path),
+        "graph_build": {
+            "empty_edge_fallback": str(args.empty_edge_fallback),
+            "empty_edge_knn_k": int(args.empty_edge_knn_k),
+            "cache": str(args.graph_cache),
+            "cache_max_items": int(args.graph_cache_max_items),
+        },
         "manifest": {
             "raw": str(manifest_csv),
             "filtered": str(manifest_filtered_csv),

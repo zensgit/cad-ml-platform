@@ -10,6 +10,7 @@ import json
 import logging
 import math
 import os
+import hashlib
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -492,6 +493,49 @@ class DXFDataset(Dataset):
                         edge_features.append(_edge_feature(j, i))
 
         if not edges:
+            fallback = os.getenv("DXF_EMPTY_EDGE_FALLBACK", "fully_connected").strip().lower()
+            if fallback in {"knn", "k_nn", "nearest"}:
+                k_raw = os.getenv("DXF_EMPTY_EDGE_K", "8").strip()
+                try:
+                    k = int(k_raw)
+                except Exception:
+                    k = 8
+                k = max(1, min(k, num_nodes - 1))
+
+                edge_set: set[Tuple[int, int]] = set()
+                edges_knn: List[Tuple[int, int]] = []
+                edge_features_knn: List[List[float]] = []
+
+                # kNN on entity centers (in normalized space via _edge_feature()).
+                for i in range(num_nodes):
+                    cx_i, cy_i = node_meta[i]["center"]
+                    dists: List[Tuple[float, int]] = []
+                    for j in range(num_nodes):
+                        if i == j:
+                            continue
+                        cx_j, cy_j = node_meta[j]["center"]
+                        dx = cx_j - cx_i
+                        dy = cy_j - cy_i
+                        dists.append((dx * dx + dy * dy, j))
+                    dists.sort(key=lambda t: t[0])
+                    for _dist2, j in dists[:k]:
+                        if (i, j) not in edge_set:
+                            edge_set.add((i, j))
+                            edges_knn.append((i, j))
+                            if return_edge_attr:
+                                edge_features_knn.append(_edge_feature(i, j))
+                        if (j, i) not in edge_set:
+                            edge_set.add((j, i))
+                            edges_knn.append((j, i))
+                            if return_edge_attr:
+                                edge_features_knn.append(_edge_feature(j, i))
+
+                edge_index = torch.tensor(edges_knn, dtype=torch.long).t().contiguous()
+                if return_edge_attr:
+                    edge_attr = torch.tensor(edge_features_knn, dtype=torch.float)
+                    return x, edge_index, edge_attr
+                return x, edge_index
+
             row = torch.arange(num_nodes).repeat_interleave(num_nodes)
             col = torch.arange(num_nodes).repeat(num_nodes)
             mask = row != col
@@ -530,6 +574,14 @@ class DXFManifestDataset(Dataset):
         self.label_map = label_map or {}
         self.node_dim = node_dim
         self.return_edge_attr = return_edge_attr
+        cache_mode = os.getenv("DXF_MANIFEST_DATASET_CACHE", "").strip().lower()
+        self._cache_enabled = cache_mode in {"1", "true", "yes", "on", "memory"}
+        self._cache_max_items = int(
+            os.getenv("DXF_MANIFEST_DATASET_CACHE_MAX_ITEMS", "0").strip() or 0
+        )
+        self._graph_cache: Dict[str, Tuple[Dict[str, Any], torch.Tensor]] = {}
+        self._cache_order: List[str] = []
+        self._cache_stats = {"hits": 0, "misses": 0}
 
         with open(manifest_csv, "r", encoding="utf-8") as handle:
             reader = csv.DictReader(handle)
@@ -551,6 +603,68 @@ class DXFManifestDataset(Dataset):
                         "label_id": self.label_map[label],
                     }
                 )
+
+    def _graph_cache_key(self, file_path: Path) -> str:
+        """Generate a stable cache key for a DXF graph sample."""
+        try:
+            mtime = file_path.stat().st_mtime
+        except OSError:
+            mtime = 0.0
+
+        key_tokens = [
+            str(file_path.resolve()),
+            str(mtime),
+            str(self.node_dim),
+            "edge_attr=1" if self.return_edge_attr else "edge_attr=0",
+            os.getenv("DXF_MAX_NODES", ""),
+            os.getenv("DXF_SAMPLING_STRATEGY", ""),
+            os.getenv("DXF_SAMPLING_SEED", ""),
+            os.getenv("DXF_TEXT_PRIORITY_RATIO", ""),
+            os.getenv("DXF_EMPTY_EDGE_FALLBACK", ""),
+            os.getenv("DXF_EMPTY_EDGE_K", ""),
+        ]
+        raw = ":".join(key_tokens)
+        try:
+            digest = hashlib.md5(raw.encode("utf-8"), usedforsecurity=False).hexdigest()
+        except TypeError:  # pragma: no cover
+            digest = hashlib.md5(raw.encode("utf-8")).hexdigest()
+        return digest[:16]
+
+    def _cache_get(self, cache_key: str) -> Optional[Tuple[Dict[str, Any], torch.Tensor]]:
+        if not self._cache_enabled:
+            return None
+        value = self._graph_cache.get(cache_key)
+        if value is None:
+            self._cache_stats["misses"] += 1
+            return None
+        self._cache_stats["hits"] += 1
+        if cache_key in self._cache_order:
+            self._cache_order.remove(cache_key)
+        self._cache_order.append(cache_key)
+        return value
+
+    def _cache_put(self, cache_key: str, graph: Dict[str, Any], label: torch.Tensor) -> None:
+        if not self._cache_enabled:
+            return
+        while self._cache_max_items > 0 and len(self._cache_order) >= self._cache_max_items:
+            old_key = self._cache_order.pop(0)
+            self._graph_cache.pop(old_key, None)
+        self._graph_cache[cache_key] = (graph, label)
+        if cache_key in self._cache_order:
+            self._cache_order.remove(cache_key)
+        self._cache_order.append(cache_key)
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        total = int(self._cache_stats["hits"]) + int(self._cache_stats["misses"])
+        hit_rate = float(self._cache_stats["hits"]) / float(total) if total else 0.0
+        return {
+            "enabled": bool(self._cache_enabled),
+            "hits": int(self._cache_stats["hits"]),
+            "misses": int(self._cache_stats["misses"]),
+            "hit_rate": hit_rate,
+            "size": len(self._graph_cache),
+            "max_items": int(self._cache_max_items),
+        }
 
     def __len__(self) -> int:
         return len(self.samples)
@@ -578,6 +692,11 @@ class DXFManifestDataset(Dataset):
         file_path = next((p for p in candidates if p.exists()), candidates[0])
         label = torch.tensor(item["label_id"], dtype=torch.long)
 
+        cache_key = self._graph_cache_key(file_path)
+        cached = self._cache_get(cache_key)
+        if cached is not None:
+            return cached
+
         try:
             doc = ezdxf.readfile(str(file_path))
             msp = doc.modelspace()
@@ -594,13 +713,15 @@ class DXFManifestDataset(Dataset):
                     "file_path": str(file_path),
                 }, label
             x, edge_index = self._dxf_to_graph(msp, self.node_dim)
-            return {
+            graph = {
                 "x": x,
                 "edge_index": edge_index,
                 "file_name": file_name,
                 "relative_path": rel_path,
                 "file_path": str(file_path),
-            }, label
+            }
+            self._cache_put(cache_key, graph, label)
+            return graph, label
         except Exception as e:
             logger.error("Error parsing %s (%s): %s", file_name, file_path, e)
             empty_graph = {
@@ -612,6 +733,7 @@ class DXFManifestDataset(Dataset):
             }
             if self.return_edge_attr:
                 empty_graph["edge_attr"] = torch.zeros(0, DXF_EDGE_DIM)
+            self._cache_put(cache_key, empty_graph, label)
             return empty_graph, label
 
     def get_label_map(self) -> Dict[str, int]:

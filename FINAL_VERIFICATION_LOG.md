@@ -4098,3 +4098,11 @@
   - Validation:
     - `.venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --epochs 15 --diagnose-max-files 80` (completed; artifacts in `/tmp`)
   - Report: `reports/DEV_GRAPH2D_LOCAL_RETRAIN_TRAINING_DRAWINGS_COARSE_20260213.md`
+- **Graph2D DXF Graph Cache + kNN Empty-Edge Fallback (Opt-In)**:
+  - Added an opt-in kNN fallback for DXF graphs that have no edges to avoid fully-connected edge explosions.
+  - Added an opt-in in-memory graph cache for `DXFManifestDataset` to avoid repeated DXF parsing/graph building across epochs.
+  - Extended the local Graph2D pipeline script to configure these behaviors via flags and record them in the pipeline summary.
+  - Validation:
+    - `.venv/bin/python -m py_compile src/ml/train/dataset_2d.py scripts/run_graph2d_pipeline_local.py` (passed)
+    - `.venv/bin/python -m pytest tests/unit/test_dxf_graph_knn_empty_edge_fallback.py tests/unit/test_dxf_manifest_dataset_graph_cache.py -q` (passed)
+  - Report: `reports/DEV_GRAPH2D_DXF_GRAPH_CACHE_AND_KNN_EMPTY_EDGE_FALLBACK_20260213.md`
