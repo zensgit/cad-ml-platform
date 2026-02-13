@@ -1,0 +1,430 @@
+#!/usr/bin/env python3
+"""Run a local Graph2D pipeline on a DXF directory.
+
+This script is a thin orchestrator around existing building blocks:
+1) Build a weak-labeled manifest from DXF filenames
+2) Filter the manifest by weak-label confidence
+3) Train a Graph2D checkpoint
+4) Evaluate the checkpoint on a validation split
+5) Diagnose the checkpoint on a sampled subset (optionally scoring against weak labels)
+
+Outputs are written under --work-dir (default: /tmp/graph2d_pipeline_local_<timestamp>).
+The produced artifacts are intended for local iteration and should generally not be
+committed (they include file names and local paths).
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import Any, Dict, List, Tuple
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _run(cmd: List[str]) -> None:
+    printable = " ".join(cmd)
+    print(f"+ {printable}")
+    subprocess.run(cmd, cwd=str(REPO_ROOT), check=True)
+
+
+def _safe_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
+def _load_csv_rows(path: Path) -> Tuple[List[str], List[Dict[str, str]]]:
+    with path.open("r", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        rows = [row for row in reader if row]
+        fieldnames = list(reader.fieldnames or [])
+    return fieldnames, rows
+
+
+def _write_csv_rows(path: Path, fieldnames: List[str], rows: List[Dict[str, str]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def _filter_manifest_by_confidence(
+    input_csv: Path, output_csv: Path, *, min_confidence: float
+) -> Dict[str, Any]:
+    fieldnames, rows = _load_csv_rows(input_csv)
+    if not rows:
+        raise RuntimeError(f"empty_manifest: {input_csv}")
+
+    kept: List[Dict[str, str]] = []
+    dropped = 0
+
+    for row in rows:
+        label = (row.get("label_cn") or "").strip()
+        conf = _safe_float(row.get("label_confidence"), 0.0)
+        status = (row.get("label_status") or "").strip()
+        if not label:
+            dropped += 1
+            continue
+        if conf < float(min_confidence):
+            dropped += 1
+            continue
+        # Prefer keeping only manifest rows that produced a stable label.
+        if status and status not in {"matched", "dir_label"}:
+            # Keep "matched" labels; allow parent-dir labels for synthetic sets.
+            dropped += 1
+            continue
+        kept.append(row)
+
+    if not kept:
+        raise RuntimeError(
+            f"no_rows_after_filter: min_conf={min_confidence} input={input_csv}"
+        )
+
+    _write_csv_rows(output_csv, fieldnames, kept)
+    distinct_labels = sorted({(row.get("label_cn") or "").strip() for row in kept if row})
+    return {
+        "rows_in": len(rows),
+        "rows_out": len(kept),
+        "dropped": int(dropped),
+        "distinct_labels": len(distinct_labels),
+        "min_confidence": float(min_confidence),
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Run Graph2D pipeline (manifest -> train -> eval -> diagnose)."
+    )
+    parser.add_argument("--dxf-dir", required=True, help="DXF directory to scan/train on.")
+    parser.add_argument(
+        "--work-dir",
+        default="",
+        help="Working directory for artifacts (default: /tmp/graph2d_pipeline_local_<ts>).",
+    )
+    parser.add_argument(
+        "--min-label-confidence",
+        type=float,
+        default=0.8,
+        help="Minimum weak-label confidence to keep manifest rows (default: 0.8).",
+    )
+    parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--hidden-dim", type=int, default=64)
+    parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument(
+        "--model",
+        choices=["gcn", "edge_sage"],
+        default="gcn",
+        help="Graph2D model family to train (default: gcn).",
+    )
+    parser.add_argument(
+        "--loss",
+        choices=["cross_entropy", "focal", "logit_adjusted"],
+        default="focal",
+        help="Loss function (default: focal).",
+    )
+    parser.add_argument(
+        "--class-weighting",
+        choices=["none", "inverse", "sqrt"],
+        default="sqrt",
+        help="Optional class weighting strategy (default: sqrt).",
+    )
+    parser.add_argument(
+        "--sampler",
+        choices=["none", "balanced"],
+        default="balanced",
+        help="Optional training sampler (default: balanced).",
+    )
+    parser.add_argument(
+        "--max-samples",
+        type=int,
+        default=0,
+        help="Optional cap for training samples (default: 0 = no cap).",
+    )
+    parser.add_argument(
+        "--normalize-labels",
+        action="store_true",
+        help="Normalize fine-grained labels into coarse buckets via scripts/normalize_dxf_label_manifest.py.",
+    )
+    parser.add_argument(
+        "--normalize-default-label",
+        default="other",
+        help="Fallback label used by label normalization (default: other).",
+    )
+    parser.add_argument(
+        "--clean-min-count",
+        type=int,
+        default=0,
+        help="If >0, apply scripts/clean_dxf_label_manifest.py with this min-count to merge/drop low-frequency labels.",
+    )
+    parser.add_argument(
+        "--clean-drop-low",
+        action="store_true",
+        help="When cleaning labels, drop low-frequency classes instead of mapping to other.",
+    )
+    parser.add_argument(
+        "--device",
+        default="cpu",
+        help="Device for training (default: cpu).",
+    )
+    parser.add_argument(
+        "--dxf-max-nodes",
+        type=int,
+        default=200,
+        help="DXF_MAX_NODES override for importance sampling (default: 200).",
+    )
+    parser.add_argument(
+        "--dxf-sampling-strategy",
+        choices=["importance", "random", "hybrid"],
+        default="importance",
+        help="DXF_SAMPLING_STRATEGY override (default: importance).",
+    )
+    parser.add_argument(
+        "--dxf-sampling-seed",
+        type=int,
+        default=42,
+        help="DXF_SAMPLING_SEED override (default: 42).",
+    )
+    parser.add_argument(
+        "--dxf-text-priority-ratio",
+        type=float,
+        default=0.3,
+        help="DXF_TEXT_PRIORITY_RATIO override (default: 0.3).",
+    )
+    parser.add_argument(
+        "--diagnose-max-files",
+        type=int,
+        default=200,
+        help="Max files to sample for diagnosis (default: 200).",
+    )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Random seed (default: 42).",
+    )
+    args = parser.parse_args()
+
+    dxf_dir = Path(args.dxf_dir)
+    if not dxf_dir.exists():
+        print(f"DXF dir not found: {dxf_dir}")
+        return 2
+
+    if args.work_dir:
+        work_dir = Path(args.work_dir)
+    else:
+        stamp = time.strftime("%Y%m%d_%H%M%S")
+        work_dir = Path("/tmp") / f"graph2d_pipeline_local_{stamp}"
+    work_dir.mkdir(parents=True, exist_ok=True)
+
+    # Keep artifacts out of git by default; the repo-level .gitignore might not
+    # cover nested work dirs in reports/experiments, so we create a local ignore.
+    (work_dir / ".gitignore").write_text("*\n!.gitignore\n", encoding="utf-8")
+
+    manifest_csv = work_dir / "manifest.csv"
+    manifest_filtered_csv = work_dir / "manifest.filtered.csv"
+    manifest_normalized_csv = work_dir / "manifest.normalized.csv"
+    manifest_cleaned_csv = work_dir / "manifest.cleaned.csv"
+    checkpoint_path = work_dir / "graph2d_trained.pth"
+    eval_metrics_csv = work_dir / "eval_metrics.csv"
+    eval_errors_csv = work_dir / "eval_errors.csv"
+    diagnose_dir = work_dir / "diagnose"
+    diagnose_summary_json = diagnose_dir / "summary.json"
+
+    python = sys.executable
+    print(f"work_dir={work_dir}")
+
+    # 1) Manifest
+    _run(
+        [
+            python,
+            "scripts/build_dxf_label_manifest.py",
+            "--input-dir",
+            str(dxf_dir),
+            "--recursive",
+            "--label-mode",
+            "filename",
+            "--output-csv",
+            str(manifest_csv),
+        ]
+    )
+
+    # 2) Filter weak labels
+    filter_stats = _filter_manifest_by_confidence(
+        manifest_csv,
+        manifest_filtered_csv,
+        min_confidence=float(args.min_label_confidence),
+    )
+    print("manifest_filter=", json.dumps(filter_stats, ensure_ascii=False))
+
+    # 2b) Optional label normalization / cleaning (coarse buckets)
+    manifest_for_training = manifest_filtered_csv
+    if bool(args.normalize_labels):
+        _run(
+            [
+                python,
+                "scripts/normalize_dxf_label_manifest.py",
+                "--input-csv",
+                str(manifest_for_training),
+                "--output-csv",
+                str(manifest_normalized_csv),
+                "--default-label",
+                str(args.normalize_default_label),
+            ]
+        )
+        manifest_for_training = manifest_normalized_csv
+
+    if int(args.clean_min_count) > 0:
+        clean_cmd = [
+            python,
+            "scripts/clean_dxf_label_manifest.py",
+            "--input-csv",
+            str(manifest_for_training),
+            "--output-csv",
+            str(manifest_cleaned_csv),
+            "--min-count",
+            str(int(args.clean_min_count)),
+            "--other-label",
+            str(args.normalize_default_label),
+        ]
+        if bool(args.clean_drop_low):
+            clean_cmd.append("--drop-low")
+        _run(clean_cmd)
+        manifest_for_training = manifest_cleaned_csv
+
+    # 3) Train
+    train_cmd = [
+        python,
+        "scripts/train_2d_graph.py",
+        "--manifest",
+        str(manifest_for_training),
+        "--dxf-dir",
+        str(dxf_dir),
+        "--epochs",
+        str(int(args.epochs)),
+        "--batch-size",
+        str(int(args.batch_size)),
+        "--hidden-dim",
+        str(int(args.hidden_dim)),
+        "--lr",
+        str(float(args.lr)),
+        "--model",
+        str(args.model),
+        "--loss",
+        str(args.loss),
+        "--class-weighting",
+        str(args.class_weighting),
+        "--sampler",
+        str(args.sampler),
+        "--seed",
+        str(int(args.seed)),
+        "--output",
+        str(checkpoint_path),
+        "--device",
+        str(args.device),
+        "--dxf-max-nodes",
+        str(int(args.dxf_max_nodes)),
+        "--dxf-sampling-strategy",
+        str(args.dxf_sampling_strategy),
+        "--dxf-sampling-seed",
+        str(int(args.dxf_sampling_seed)),
+        "--dxf-text-priority-ratio",
+        str(float(args.dxf_text_priority_ratio)),
+    ]
+    if int(args.max_samples) > 0:
+        train_cmd.extend(["--max-samples", str(int(args.max_samples))])
+    _run(train_cmd)
+
+    # 4) Eval
+    _run(
+        [
+            python,
+            "scripts/eval_2d_graph.py",
+            "--manifest",
+            str(manifest_for_training),
+            "--dxf-dir",
+            str(dxf_dir),
+            "--checkpoint",
+            str(checkpoint_path),
+            "--batch-size",
+            str(int(args.batch_size)),
+            "--seed",
+            str(int(args.seed)),
+            "--output-metrics",
+            str(eval_metrics_csv),
+            "--output-errors",
+            str(eval_errors_csv),
+            "--dxf-max-nodes",
+            str(int(args.dxf_max_nodes)),
+            "--dxf-sampling-strategy",
+            str(args.dxf_sampling_strategy),
+            "--dxf-sampling-seed",
+            str(int(args.dxf_sampling_seed)),
+            "--dxf-text-priority-ratio",
+            str(float(args.dxf_text_priority_ratio)),
+        ]
+    )
+
+    # 5) Diagnose (score against weak labels from filename)
+    _run(
+        [
+            python,
+            "scripts/diagnose_graph2d_on_dxf_dir.py",
+            "--dxf-dir",
+            str(dxf_dir),
+            "--model-path",
+            str(checkpoint_path),
+            "--manifest-csv",
+            str(manifest_for_training),
+            "--true-label-min-confidence",
+            str(float(args.min_label_confidence)),
+            "--max-files",
+            str(int(args.diagnose_max_files)),
+            "--seed",
+            str(int(args.seed)),
+            "--output-dir",
+            str(diagnose_dir),
+        ]
+    )
+
+    # Summarize
+    summary: Dict[str, Any] = {
+        "status": "ok",
+        "work_dir": str(work_dir),
+        "dxf_dir": str(dxf_dir),
+        "checkpoint": str(checkpoint_path),
+        "manifest": {
+            "raw": str(manifest_csv),
+            "filtered": str(manifest_filtered_csv),
+            "normalized": str(manifest_normalized_csv) if args.normalize_labels else "",
+            "cleaned": str(manifest_cleaned_csv) if args.clean_min_count > 0 else "",
+            "manifest_for_training": str(manifest_for_training),
+            **filter_stats,
+        },
+        "eval": {
+            "metrics_csv": str(eval_metrics_csv),
+            "errors_csv": str(eval_errors_csv),
+        },
+        "diagnose": {
+            "summary_json": str(diagnose_summary_json),
+        },
+    }
+    summary_path = work_dir / "pipeline_summary.json"
+    summary_path.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    print(f"summary={summary_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

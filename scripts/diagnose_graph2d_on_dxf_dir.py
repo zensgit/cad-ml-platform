@@ -6,6 +6,7 @@ It reports:
 - label distribution
 - confidence distribution
 - (optional) accuracy when directory structure encodes labels (parent folder name)
+- (optional) accuracy when a manifest CSV provides labels
 """
 
 from __future__ import annotations
@@ -112,6 +113,11 @@ def main() -> int:
         help="Treat parent directory name as ground-truth label (for synthetic datasets).",
     )
     parser.add_argument(
+        "--manifest-csv",
+        default="",
+        help="Optional manifest CSV used as ground-truth labels (expects file_name + label_cn).",
+    )
+    parser.add_argument(
         "--labels-from-filename",
         action="store_true",
         help="Treat FilenameClassifier prediction as ground-truth label (weak supervision).",
@@ -146,10 +152,17 @@ def main() -> int:
     random.shuffle(files)
     files = files[: int(args.max_files)]
 
-    if bool(args.labels_from_parent_dir) and bool(args.labels_from_filename):
+    truth_modes = sum(
+        [
+            1 if bool(args.labels_from_parent_dir) else 0,
+            1 if bool(args.labels_from_filename) else 0,
+            1 if str(args.manifest_csv or "").strip() else 0,
+        ]
+    )
+    if truth_modes > 1:
         raise SystemExit(
             "Choose only one ground-truth mode: "
-            "--labels-from-parent-dir OR --labels-from-filename"
+            "--labels-from-parent-dir OR --labels-from-filename OR --manifest-csv"
         )
 
     from src.ml.vision_2d import Graph2DClassifier
@@ -170,6 +183,25 @@ def main() -> int:
         from src.ml.filename_classifier import FilenameClassifier
 
         filename_classifier = FilenameClassifier(synonyms_path=str(synonyms_path))
+
+    manifest_labels_by_relpath: Dict[str, Dict[str, str]] = {}
+    manifest_labels_by_name: Dict[str, Dict[str, str]] = {}
+    manifest_csv = Path(str(args.manifest_csv).strip()) if str(args.manifest_csv).strip() else None
+    if manifest_csv is not None and manifest_csv.exists():
+        with manifest_csv.open("r", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                if not row:
+                    continue
+                file_name = str(row.get("file_name") or "").strip()
+                label_cn = str(row.get("label_cn") or "").strip()
+                if not file_name or not label_cn:
+                    continue
+                rel_path = str(row.get("relative_path") or "").strip()
+                if rel_path:
+                    manifest_labels_by_relpath[rel_path] = row
+                if file_name not in manifest_labels_by_name:
+                    manifest_labels_by_name[file_name] = row
 
     rows: List[Dict[str, Any]] = []
     status_counts: Counter[str] = Counter()
@@ -216,6 +248,17 @@ def main() -> int:
             true_label_raw = p.parent.name
             true_label_source = "parent_dir"
             true_label_conf = 1.0
+        elif manifest_csv is not None and (manifest_labels_by_relpath or manifest_labels_by_name):
+            rel = ""
+            try:
+                rel = str(p.relative_to(dxf_dir))
+            except Exception:
+                rel = ""
+            row = manifest_labels_by_relpath.get(rel) or manifest_labels_by_name.get(p.name)
+            if row:
+                true_label_raw = str(row.get("label_cn") or "").strip()
+                true_label_source = "manifest"
+                true_label_conf = _safe_float(row.get("label_confidence"), 1.0) or 1.0
         elif bool(args.labels_from_filename) and filename_classifier is not None:
             payload = filename_classifier.predict(p.name)
             true_label_raw = str(payload.get("label") or "").strip()
@@ -260,7 +303,11 @@ def main() -> int:
     elapsed_s = time.time() - t0
     ok = int(status_counts.get("ok", 0))
     acc = None
-    if (bool(args.labels_from_parent_dir) or bool(args.labels_from_filename)) and true_counts:
+    if (
+        bool(args.labels_from_parent_dir)
+        or bool(args.labels_from_filename)
+        or bool(manifest_csv)
+    ) and true_counts:
         total_labeled = sum(true_counts.values())
         correct_total = sum(correct_counts.values())
         acc = float(correct_total) / float(total_labeled) if total_labeled else 0.0
@@ -274,6 +321,8 @@ def main() -> int:
         top_confusions.append(
             {"true_label": t, "pred_label": pred, "count": int(count)}
         )
+
+    truth_enabled = bool(args.labels_from_parent_dir) or bool(args.labels_from_filename) or bool(manifest_csv)
 
     summary: Dict[str, Any] = {
         "dxf_dir": (str(dxf_dir) if args.include_abs_paths else str(dxf_dir.name)),
@@ -289,18 +338,28 @@ def main() -> int:
             "p50": round(conf_p50, 4),
             "p90": round(conf_p90, 4),
         },
-        "true_labels": {
-            "source": ("parent_dir" if args.labels_from_parent_dir else ("filename" if args.labels_from_filename else "")),
-            "min_confidence": float(args.true_label_min_confidence),
-            "coverage": int(true_coverage),
-            "coverage_rate": round(float(true_coverage) / float(len(files)), 6),
-            "distinct_count": len(true_counts),
-            "top_true_labels": _summarize_counts(true_counts, topn=20),
-        }
-        if (args.labels_from_parent_dir or args.labels_from_filename)
-        else None,
-        "accuracy": acc,
-        "top_confusions": top_confusions if acc is not None else None,
+        "true_labels": (
+            {
+                "source": (
+                    "parent_dir"
+                    if args.labels_from_parent_dir
+                    else (
+                        "filename"
+                        if args.labels_from_filename
+                        else ("manifest" if manifest_csv else "")
+                    )
+                ),
+                "min_confidence": float(args.true_label_min_confidence),
+                "coverage": int(true_coverage),
+                "coverage_rate": round(float(true_coverage) / float(len(files)), 6),
+                "distinct_count": len(true_counts),
+                "top_true_labels": _summarize_counts(true_counts, topn=20),
+            }
+            if truth_enabled
+            else None
+        ),
+        "accuracy": acc if truth_enabled else None,
+        "top_confusions": top_confusions if (truth_enabled and acc is not None) else None,
         "per_class_accuracy": {
             label: {
                 "total": int(true_counts.get(label, 0)),
@@ -312,7 +371,7 @@ def main() -> int:
             }
             for label in sorted(true_counts.keys())
         }
-        if acc is not None
+        if (truth_enabled and acc is not None)
         else None,
     }
 
