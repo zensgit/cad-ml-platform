@@ -4186,3 +4186,9 @@
     - `.venv/bin/python -m pytest tests/unit/test_diagnose_graph2d_no_text_no_filename_flags.py -v` (passed)
     - `.venv/bin/python scripts/diagnose_graph2d_on_dxf_dir.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --model-path "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth" --manifest-csv /tmp/dxf_manifest_diag_20260214.csv --true-label-min-confidence 0.8 --max-files 20 --seed 42 --strip-text-entities --mask-filename` (completed; artifacts in `/tmp`)
   - Report: `reports/DEV_GRAPH2D_DIAGNOSE_NO_TEXT_NO_FILENAME_20260214.md`
+- **Graph2D Pipeline Strict Diagnose Wiring**:
+  - Added a flag to the local pipeline runner (`scripts/run_graph2d_pipeline_local.py`) to invoke strict diagnosis (strip DXF text entities + masked filename) as part of the end-to-end pipeline.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_run_graph2d_pipeline_local_distill_wiring.py tests/unit/test_run_graph2d_pipeline_local_diagnose_strict_wiring.py -v` (passed)
+    - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --epochs 1 --max-samples 40 --diagnose-max-files 20 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp`)
+  - Report: `reports/DEV_GRAPH2D_PIPELINE_STRICT_DIAGNOSE_MODE_20260214.md`

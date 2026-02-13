@@ -26,6 +26,7 @@ def _base_args() -> Namespace:
         distill_alpha=0.3,
         distill_temp=3.0,
         distill_mask_filename="auto",
+        diagnose_no_text_no_filename=False,
     )
 
 

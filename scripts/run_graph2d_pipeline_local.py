@@ -183,6 +183,41 @@ def _build_train_cmd(
     return train_cmd
 
 
+def _build_diagnose_cmd(
+    *,
+    python: str,
+    dxf_dir: Path,
+    checkpoint_path: Path,
+    manifest_csv: Path,
+    out_dir: Path,
+    args: argparse.Namespace,
+) -> List[str]:
+    cmd = [
+        python,
+        "scripts/diagnose_graph2d_on_dxf_dir.py",
+        "--dxf-dir",
+        str(dxf_dir),
+        "--model-path",
+        str(checkpoint_path),
+        "--manifest-csv",
+        str(manifest_csv),
+        "--true-label-min-confidence",
+        str(float(args.min_label_confidence)),
+        "--max-files",
+        str(int(args.diagnose_max_files)),
+        "--seed",
+        str(int(args.seed)),
+        "--output-dir",
+        str(out_dir),
+    ]
+
+    # Optional strict mode for stable regression metrics.
+    if bool(getattr(args, "diagnose_no_text_no_filename", False)):
+        cmd.extend(["--strip-text-entities", "--mask-filename"])
+
+    return cmd
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run Graph2D pipeline (manifest -> train -> eval -> diagnose)."
@@ -296,6 +331,14 @@ def main() -> int:
         type=int,
         default=200,
         help="Max files to sample for diagnosis (default: 200).",
+    )
+    parser.add_argument(
+        "--diagnose-no-text-no-filename",
+        action="store_true",
+        help=(
+            "Run diagnosis in strict mode (strip DXF text entities + mask filename) "
+            "to simulate production conditions."
+        ),
     )
     parser.add_argument(
         "--graph-cache",
@@ -514,26 +557,15 @@ def main() -> int:
     )
 
     # 5) Diagnose (score against weak labels from filename)
-    _run(
-        [
-            python,
-            "scripts/diagnose_graph2d_on_dxf_dir.py",
-            "--dxf-dir",
-            str(dxf_dir),
-            "--model-path",
-            str(checkpoint_path),
-            "--manifest-csv",
-            str(manifest_for_training),
-            "--true-label-min-confidence",
-            str(float(args.min_label_confidence)),
-            "--max-files",
-            str(int(args.diagnose_max_files)),
-            "--seed",
-            str(int(args.seed)),
-            "--output-dir",
-            str(diagnose_dir),
-        ]
+    diagnose_cmd = _build_diagnose_cmd(
+        python=python,
+        dxf_dir=dxf_dir,
+        checkpoint_path=checkpoint_path,
+        manifest_csv=Path(manifest_for_training),
+        out_dir=diagnose_dir,
+        args=args,
     )
+    _run(diagnose_cmd)
 
     # Summarize
     summary: Dict[str, Any] = {
@@ -571,6 +603,7 @@ def main() -> int:
         },
         "diagnose": {
             "summary_json": str(diagnose_summary_json),
+            "no_text_no_filename": bool(args.diagnose_no_text_no_filename),
         },
     }
     summary_path = work_dir / "pipeline_summary.json"
