@@ -100,6 +100,85 @@ def _filter_manifest_by_confidence(
     }
 
 
+def _resolve_distill_mask(teacher: str, mode: str) -> bool:
+    """Resolve whether to pass --distill-mask-filename to train_2d_graph.py.
+
+    mode:
+    - auto: mask for hybrid/titleblock teachers (prevents filename leakage)
+    - true: always mask
+    - false: never mask
+    """
+
+    token = str(mode or "").strip().lower()
+    if token in {"true", "1", "yes", "on"}:
+        return True
+    if token in {"false", "0", "no", "off"}:
+        return False
+    return str(teacher or "").strip().lower() in {"hybrid", "titleblock"}
+
+
+def _build_train_cmd(
+    *,
+    python: str,
+    manifest_csv: Path,
+    dxf_dir: Path,
+    checkpoint_path: Path,
+    args: argparse.Namespace,
+) -> List[str]:
+    """Build the train_2d_graph.py command based on pipeline args."""
+
+    train_cmd = [
+        python,
+        "scripts/train_2d_graph.py",
+        "--manifest",
+        str(manifest_csv),
+        "--dxf-dir",
+        str(dxf_dir),
+        "--epochs",
+        str(int(args.epochs)),
+        "--batch-size",
+        str(int(args.batch_size)),
+        "--hidden-dim",
+        str(int(args.hidden_dim)),
+        "--lr",
+        str(float(args.lr)),
+        "--model",
+        str(args.model),
+        "--loss",
+        str(args.loss),
+        "--class-weighting",
+        str(args.class_weighting),
+        "--sampler",
+        str(args.sampler),
+        "--seed",
+        str(int(args.seed)),
+        "--output",
+        str(checkpoint_path),
+        "--device",
+        str(args.device),
+        "--dxf-max-nodes",
+        str(int(args.dxf_max_nodes)),
+        "--dxf-sampling-strategy",
+        str(args.dxf_sampling_strategy),
+        "--dxf-sampling-seed",
+        str(int(args.dxf_sampling_seed)),
+        "--dxf-text-priority-ratio",
+        str(float(args.dxf_text_priority_ratio)),
+    ]
+    if int(args.max_samples) > 0:
+        train_cmd.extend(["--max-samples", str(int(args.max_samples))])
+
+    if bool(getattr(args, "distill", False)):
+        train_cmd.append("--distill")
+        train_cmd.extend(["--teacher", str(args.teacher)])
+        train_cmd.extend(["--distill-alpha", str(float(args.distill_alpha))])
+        train_cmd.extend(["--distill-temp", str(float(args.distill_temp))])
+        if _resolve_distill_mask(str(args.teacher), str(args.distill_mask_filename)):
+            train_cmd.append("--distill-mask-filename")
+
+    return train_cmd
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run Graph2D pipeline (manifest -> train -> eval -> diagnose)."
@@ -241,6 +320,38 @@ def main() -> int:
         default=42,
         help="Random seed (default: 42).",
     )
+    parser.add_argument(
+        "--distill",
+        action="store_true",
+        help="Enable knowledge distillation training (student=Graph2D, teacher=rules/text).",
+    )
+    parser.add_argument(
+        "--teacher",
+        choices=["filename", "titleblock", "hybrid"],
+        default="hybrid",
+        help="Teacher model type for distillation (default: hybrid).",
+    )
+    parser.add_argument(
+        "--distill-alpha",
+        type=float,
+        default=0.3,
+        help="Distillation alpha (CE weight) (default: 0.3).",
+    )
+    parser.add_argument(
+        "--distill-temp",
+        type=float,
+        default=3.0,
+        help="Distillation temperature (default: 3.0).",
+    )
+    parser.add_argument(
+        "--distill-mask-filename",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help=(
+            "Whether to mask the filename when calling hybrid/titleblock teachers "
+            "(prevents filename label leakage). Default: auto."
+        ),
+    )
     args = parser.parse_args()
 
     dxf_dir = Path(args.dxf_dir)
@@ -351,46 +462,13 @@ def main() -> int:
         manifest_for_training = manifest_cleaned_csv
 
     # 3) Train
-    train_cmd = [
-        python,
-        "scripts/train_2d_graph.py",
-        "--manifest",
-        str(manifest_for_training),
-        "--dxf-dir",
-        str(dxf_dir),
-        "--epochs",
-        str(int(args.epochs)),
-        "--batch-size",
-        str(int(args.batch_size)),
-        "--hidden-dim",
-        str(int(args.hidden_dim)),
-        "--lr",
-        str(float(args.lr)),
-        "--model",
-        str(args.model),
-        "--loss",
-        str(args.loss),
-        "--class-weighting",
-        str(args.class_weighting),
-        "--sampler",
-        str(args.sampler),
-        "--seed",
-        str(int(args.seed)),
-        "--output",
-        str(checkpoint_path),
-        "--device",
-        str(args.device),
-        "--dxf-max-nodes",
-        str(int(args.dxf_max_nodes)),
-        "--dxf-sampling-strategy",
-        str(args.dxf_sampling_strategy),
-        "--dxf-sampling-seed",
-        str(int(args.dxf_sampling_seed)),
-        "--dxf-text-priority-ratio",
-        str(float(args.dxf_text_priority_ratio)),
-    ]
-    if int(args.max_samples) > 0:
-        train_cmd.extend(["--max-samples", str(int(args.max_samples))])
+    train_cmd = _build_train_cmd(
+        python=python,
+        manifest_csv=Path(manifest_for_training),
+        dxf_dir=dxf_dir,
+        checkpoint_path=checkpoint_path,
+        args=args,
+    )
     _run(train_cmd)
 
     # 4) Eval
@@ -457,6 +535,15 @@ def main() -> int:
             "cache": str(args.graph_cache),
             "cache_max_items": int(args.graph_cache_max_items),
             "cache_dir": str(os.getenv("DXF_MANIFEST_DATASET_CACHE_DIR", "")),
+        },
+        "distillation": {
+            "enabled": bool(args.distill),
+            "teacher": str(args.teacher),
+            "alpha": float(args.distill_alpha),
+            "temperature": float(args.distill_temp),
+            "mask_filename": _resolve_distill_mask(
+                str(args.teacher), str(args.distill_mask_filename)
+            ),
         },
         "manifest": {
             "raw": str(manifest_csv),
