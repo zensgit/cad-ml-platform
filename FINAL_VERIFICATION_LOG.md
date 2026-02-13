@@ -4119,3 +4119,12 @@
     - `.venv/bin/python -m pytest tests/unit/test_dxf_manifest_dataset_graph_cache.py tests/unit/test_dxf_manifest_dataset_disk_cache.py -q` (passed)
     - `.venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --epochs 1 --max-samples 40 --diagnose-max-files 20 --graph-cache both --graph-cache-dir /tmp/graph2d_manifest_graph_cache_smoke_20260213` (completed)
   - Report: `reports/DEV_GRAPH2D_MANIFEST_EDGE_SAGE_CACHE_FIX_AND_DISK_CACHE_20260213.md`
+- **Graph2D Batched Training/Eval (No PyG Dependency)**:
+  - Added optional per-graph pooling via a `batch` vector to the 2D graph models, and updated training/evaluation scripts to batch graphs by concatenation + edge index shifting.
+  - This reduces per-epoch overhead by avoiding per-sample Python loops in `train_2d_graph.py`/`eval_2d_graph.py`.
+  - Validation:
+    - `.venv/bin/python -m py_compile src/ml/train/model_2d.py scripts/train_2d_graph.py scripts/eval_2d_graph.py` (passed)
+    - `.venv/bin/python -m pytest tests/unit/test_graph2d_batched_pooling.py tests/unit/test_graph2d_script_config.py -q` (passed)
+    - `.venv/bin/python -m flake8 scripts/train_2d_graph.py scripts/eval_2d_graph.py src/ml/train/model_2d.py tests/unit/test_graph2d_batched_pooling.py --max-line-length=100` (passed)
+    - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --epochs 1 --max-samples 40 --diagnose-max-files 20 --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8` (completed)
+  - Report: `reports/DEV_GRAPH2D_BATCHED_TRAINING_AND_EVAL_20260213.md`

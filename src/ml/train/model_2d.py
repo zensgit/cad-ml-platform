@@ -8,6 +8,36 @@ import torch
 from torch import nn
 
 
+def _global_mean_pool(
+    x: torch.Tensor, batch: Optional[torch.Tensor]
+) -> torch.Tensor:
+    """Mean-pool node embeddings into per-graph embeddings.
+
+    This mirrors the basic behavior of PyG's global_mean_pool, but keeps the
+    project dependency-light.
+    """
+
+    if x.size(0) == 0:
+        if batch is None:
+            return x.new_zeros((1, x.size(1)))
+        return x.new_zeros((0, x.size(1)))
+
+    if batch is None:
+        return x.mean(dim=0, keepdim=True)
+
+    if batch.numel() == 0:
+        return x.new_zeros((0, x.size(1)))
+
+    num_graphs = int(batch.max().item()) + 1
+    pooled = x.new_zeros((num_graphs, x.size(1)))
+    pooled.index_add_(0, batch, x)
+
+    counts = x.new_zeros((num_graphs,))
+    counts.index_add_(0, batch, x.new_ones((batch.size(0),), dtype=x.dtype))
+    counts = counts.clamp(min=1.0).unsqueeze(1)
+    return pooled / counts
+
+
 class SimpleGCNLayer(nn.Module):
     def __init__(self, in_dim: int, out_dim: int) -> None:
         super().__init__()
@@ -45,13 +75,11 @@ class SimpleGraphClassifier(nn.Module):
         x: torch.Tensor,
         edge_index: torch.Tensor,
         edge_attr: Optional[torch.Tensor] = None,
+        batch: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         x = torch.relu(self.gcn1(x, edge_index))
         x = torch.relu(self.gcn2(x, edge_index))
-        if x.size(0) == 0:
-            pooled = x.new_zeros((1, x.size(1)))
-        else:
-            pooled = x.mean(dim=0, keepdim=True)
+        pooled = _global_mean_pool(x, batch)
         pooled = self.dropout(pooled)
         return self.classifier(pooled)
 
@@ -97,13 +125,14 @@ class EdgeGraphSageClassifier(nn.Module):
         self.classifier = nn.Linear(hidden_dim, num_classes)
 
     def forward(
-        self, x: torch.Tensor, edge_index: torch.Tensor, edge_attr: torch.Tensor
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attr: torch.Tensor,
+        batch: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         x = torch.relu(self.sage1(x, edge_index, edge_attr))
         x = torch.relu(self.sage2(x, edge_index, edge_attr))
-        if x.size(0) == 0:
-            pooled = x.new_zeros((1, x.size(1)))
-        else:
-            pooled = x.mean(dim=0, keepdim=True)
+        pooled = _global_mean_pool(x, batch)
         pooled = self.dropout(pooled)
         return self.classifier(pooled)

@@ -86,16 +86,83 @@ def _apply_dxf_sampling_env(args: argparse.Namespace) -> None:
 
 def _collate(
     batch: List[Tuple[Dict[str, Any], Any]],
-) -> Tuple[List[Any], List[Any], List[Any], List[Any], List[str], List[str]]:
-    xs, edges, edge_attrs, labels, filenames, file_paths = [], [], [], [], [], []
-    for graph, label in batch:
-        xs.append(graph["x"])
-        edges.append(graph["edge_index"])
-        edge_attrs.append(graph.get("edge_attr"))
-        labels.append(label)
-        filenames.append(graph.get("file_name", ""))
-        file_paths.append(graph.get("file_path", ""))
-    return xs, edges, edge_attrs, labels, filenames, file_paths
+) -> Tuple[Any, Any, Any, Any, Any, List[str], List[str]]:
+    """Batch graphs by concatenating nodes and shifting edge indices.
+
+    This keeps training fast without requiring torch_geometric. The model
+    performs per-graph pooling using the returned ``batch`` vector.
+    """
+
+    import torch
+
+    x_list = []
+    edge_index_list = []
+    edge_attr_list = []
+    batch_vec_list = []
+    label_list = []
+    filenames: List[str] = []
+    file_paths: List[str] = []
+
+    node_offset = 0
+    has_edge_attr = False
+
+    for _graph_idx, (graph, label) in enumerate(batch):
+        x = graph["x"]
+        if hasattr(x, "numel") and x.numel() == 0:
+            continue
+
+        out_idx = len(label_list)
+        edge_index = graph["edge_index"]
+        edge_attr = graph.get("edge_attr")
+        if edge_attr is not None:
+            has_edge_attr = True
+
+        num_nodes = int(x.size(0))
+        x_list.append(x)
+        edge_index_list.append(edge_index + node_offset)
+        edge_attr_list.append(edge_attr)
+        batch_vec_list.append(torch.full((num_nodes,), out_idx, dtype=torch.long))
+
+        label_list.append(label)
+        filenames.append(str(graph.get("file_name", "")))
+        file_paths.append(str(graph.get("file_path", "")))
+
+        node_offset += num_nodes
+
+    if not x_list:
+        empty_x = torch.zeros((0, 0), dtype=torch.float)
+        empty_edge = torch.zeros((2, 0), dtype=torch.long)
+        empty_batch = torch.zeros((0,), dtype=torch.long)
+        empty_labels = torch.zeros((0,), dtype=torch.long)
+        return empty_x, empty_edge, None, empty_batch, empty_labels, [], []
+
+    x_batch = torch.cat(x_list, dim=0)
+    edge_index_batch = (
+        torch.cat(edge_index_list, dim=1)
+        if edge_index_list
+        else torch.zeros((2, 0), dtype=torch.long)
+    )
+    batch_vec = torch.cat(batch_vec_list, dim=0)
+
+    labels_batch = torch.cat([lbl.view(1) for lbl in label_list], dim=0)
+
+    edge_attr_batch = None
+    if has_edge_attr:
+        if any(attr is None for attr in edge_attr_list):
+            raise ValueError(
+                "Mixed edge_attr presence in batch; ensure all samples provide edge_attr."
+            )
+        edge_attr_batch = torch.cat(edge_attr_list, dim=0)
+
+    return (
+        x_batch,
+        edge_index_batch,
+        edge_attr_batch,
+        batch_vec,
+        labels_batch,
+        filenames,
+        file_paths,
+    )
 
 
 def _compute_class_weights(labels: List[int], num_classes: int, mode: str):
@@ -366,8 +433,11 @@ def main() -> int:
     parser.add_argument(
         "--distill-mask-filename",
         action="store_true",
-        help="When distilling from titleblock/hybrid, pass a masked filename to the teacher "
-        "so it cannot use filename-based label signals (titleblock-only teacher signal).",
+        help=(
+            "When distilling from titleblock/hybrid, pass a masked filename to the "
+            "teacher so it cannot use filename-based label signals "
+            "(titleblock-only teacher signal)."
+        ),
     )
     parser.add_argument(
         "--device",
@@ -378,7 +448,10 @@ def main() -> int:
         "--early-stop-patience",
         type=int,
         default=0,
-        help="Early stopping patience (0 to disable). Stop if val_acc doesn't improve for N epochs.",
+        help=(
+            "Early stopping patience (0 to disable). Stop if val_acc doesn't improve "
+            "for N epochs."
+        ),
     )
     parser.add_argument(
         "--save-best",
@@ -564,12 +637,14 @@ def main() -> int:
         logit_adj_tau=args.logit_adjustment_tau,
     )
 
+    downweight_factor = None
+    downweight_label_idx = None
     if args.downweight_label and args.downweight_label in label_map:
-        factor = max(0.05, min(1.0, float(args.downweight_factor)))
-        label_idx = label_map[args.downweight_label]
+        downweight_factor = max(0.05, min(1.0, float(args.downweight_factor)))
+        downweight_label_idx = int(label_map[args.downweight_label])
         print(
-            f"Downweighting label {args.downweight_label!r} (idx={label_idx}) "
-            f"with factor {factor:.2f}"
+            f"Downweighting label {args.downweight_label!r} (idx={downweight_label_idx}) "
+            f"with factor {downweight_factor:.2f}"
         )
 
     class_counts = None
@@ -588,6 +663,25 @@ def main() -> int:
         num_classes=num_classes,
         class_counts=class_counts,
     )
+    if downweight_factor is not None and downweight_label_idx is not None:
+        try:
+            if hasattr(criterion, "weight") and getattr(criterion, "weight") is not None:
+                weights = getattr(criterion, "weight").detach().clone()
+                weights[downweight_label_idx] = (
+                    weights[downweight_label_idx] * float(downweight_factor)
+                )
+                criterion.weight = weights  # type: ignore[attr-defined]
+            elif (
+                hasattr(criterion, "class_weights")
+                and getattr(criterion, "class_weights") is not None
+            ):
+                weights = getattr(criterion, "class_weights").detach().clone()
+                weights[downweight_label_idx] = (
+                    weights[downweight_label_idx] * float(downweight_factor)
+                )
+                criterion.class_weights = weights  # type: ignore[attr-defined]
+        except Exception as exc:
+            print(f"Warning: failed to apply downweighting: {exc}")
 
     class_stats = balancer.get_class_distribution(train_labels)
     print(
@@ -632,97 +726,105 @@ def main() -> int:
         total_loss = 0.0
         total_seen = 0
         for batch_data in train_loader:
-            # Unpack batch (custom collate returns 5 items now including filenames)
-            xs, edges, edge_attrs, labels, filenames, file_paths = batch_data
+            (
+                x,
+                edge_index,
+                edge_attr,
+                batch_vec,
+                labels_batch,
+                filenames,
+                file_paths,
+            ) = batch_data
+
+            if not hasattr(labels_batch, "numel") or labels_batch.numel() == 0:
+                continue
 
             optimizer.zero_grad()
-            batch_loss = 0.0
-            batch_count = 0
 
-            for i, (x, edge_index, edge_attr, label, filename) in enumerate(
-                zip(xs, edges, edge_attrs, labels, filenames)
-            ):
-                if x.numel() == 0:
-                    continue
+            x = x.to(device)
+            edge_index = edge_index.to(device)
+            batch_vec = batch_vec.to(device)
+            labels_batch = labels_batch.to(device).view(-1)
+            if edge_attr is not None:
+                edge_attr = edge_attr.to(device)
 
-                # Move to device
-                x = x.to(device)
-                edge_index = edge_index.to(device)
-                if edge_attr is not None:
-                    edge_attr = edge_attr.to(device)
-                label = label.to(device)
+            if args.augment:
+                x = x.clone()
+                num_graphs = int(labels_batch.size(0))
+                for graph_id in range(num_graphs):
+                    if random.random() < float(args.augment_prob):
+                        mask = batch_vec == graph_id
+                        if bool(mask.any()):
+                            x[mask] = _augment_features(x[mask])
 
-                if args.augment and random.random() < args.augment_prob:
-                    x = _augment_features(x)
+            if use_edge_attr:
+                logits = model(x, edge_index, edge_attr, batch=batch_vec)
+            else:
+                logits = model(x, edge_index, batch=batch_vec)
 
-                if use_edge_attr:
-                    logits = model(x, edge_index, edge_attr)
-                else:
-                    logits = model(x, edge_index)
-
-                # Calculate loss
-                if args.distill and teacher_model and distill_loss_fn:
-                    # Generate teacher soft labels for this sample
-                    file_bytes = None
-                    file_path = ""
-                    if i < len(file_paths):
-                        file_path = str(file_paths[i] or "")
+            if args.distill and teacher_model and distill_loss_fn:
+                teacher_logits_rows = []
+                for filename, file_path in zip(filenames, file_paths):
                     teacher_name = filename
-                    if args.distill_mask_filename and args.teacher in {"hybrid", "titleblock"}:
+                    if args.distill_mask_filename and args.teacher in {
+                        "hybrid",
+                        "titleblock",
+                    }:
                         teacher_name = "masked.dxf"
-                    teacher_logits = None
-                    if file_path and file_path in teacher_logits_cache:
-                        teacher_logits = teacher_logits_cache[file_path]
-                    else:
+
+                    cached = (
+                        teacher_logits_cache.get(file_path)
+                        if file_path
+                        else None
+                    )
+                    if cached is None:
+                        file_bytes = None
                         if file_path:
                             try:
                                 file_bytes = Path(file_path).read_bytes()
                             except Exception:
                                 file_bytes = None
-                        teacher_logits = teacher_model.generate_soft_labels(
+                        cached = teacher_model.generate_soft_labels(
                             [teacher_name], file_bytes_list=[file_bytes]
-                        )
+                        ).detach().cpu()
                         if file_path:
-                            teacher_logits_cache[file_path] = teacher_logits.detach().cpu()
-                    teacher_logits = teacher_logits.to(device)
-                    loss, _ = distill_loss_fn(logits, teacher_logits, label.view(1))
-                else:
-                    loss = criterion(logits, label.view(1))
+                            teacher_logits_cache[file_path] = cached
+                    teacher_logits_rows.append(cached)
 
-                batch_loss += loss
-                batch_count += 1
+                teacher_logits = torch.cat(teacher_logits_rows, dim=0).to(device)
+                loss, _ = distill_loss_fn(logits, teacher_logits, labels_batch)
+            else:
+                loss = criterion(logits, labels_batch)
 
-            if batch_count == 0:
-                continue
-            batch_loss = batch_loss / batch_count
-            batch_loss.backward()
+            loss.backward()
             optimizer.step()
-            total_loss += float(batch_loss.detach()) * batch_count
-            total_seen += batch_count
+
+            batch_size = int(labels_batch.size(0))
+            total_loss += float(loss.detach()) * batch_size
+            total_seen += batch_size
         avg_loss = total_loss / max(1, total_seen)
 
         model.eval()
         correct = 0
         total = 0
         with torch.no_grad():
-            for xs, edges, edge_attrs, labels, _, _ in val_loader:
-                for x, edge_index, edge_attr, label in zip(
-                    xs, edges, edge_attrs, labels
-                ):
-                    if x.numel() == 0:
-                        continue
-                    x = x.to(device)
-                    edge_index = edge_index.to(device)
-                    if edge_attr is not None:
-                        edge_attr = edge_attr.to(device)
-                    if use_edge_attr:
-                        logits = model(x, edge_index, edge_attr)
-                    else:
-                        logits = model(x, edge_index)
-                    pred = int(torch.argmax(logits, dim=1)[0])
-                    if pred == int(label):
-                        correct += 1
-                    total += 1
+            for batch_data in val_loader:
+                x, edge_index, edge_attr, batch_vec, labels_batch, _names, _paths = batch_data
+                if not hasattr(labels_batch, "numel") or labels_batch.numel() == 0:
+                    continue
+                x = x.to(device)
+                edge_index = edge_index.to(device)
+                batch_vec = batch_vec.to(device)
+                labels_batch = labels_batch.to(device).view(-1)
+                if edge_attr is not None:
+                    edge_attr = edge_attr.to(device)
+                if use_edge_attr:
+                    logits = model(x, edge_index, edge_attr, batch=batch_vec)
+                else:
+                    logits = model(x, edge_index, batch=batch_vec)
+                preds = logits.argmax(dim=1)
+                correct += int((preds == labels_batch).sum().item())
+                total += int(labels_batch.size(0))
         acc = correct / max(1, total)
 
         # Track best model and early stopping
@@ -757,7 +859,8 @@ def main() -> int:
             and epochs_without_improvement >= args.early_stop_patience
         ):
             print(
-                f"Early stopping at epoch {epoch} (no improvement for {args.early_stop_patience} epochs)"
+                f"Early stopping at epoch {epoch} "
+                f"(no improvement for {args.early_stop_patience} epochs)"
             )
             print(f"Best validation accuracy: {best_val_acc:.3f}")
             break

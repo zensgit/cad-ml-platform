@@ -152,15 +152,68 @@ def _stratified_subsample(
 
 def _collate(
     batch: List[Tuple[Dict[str, Any], Any]],
-) -> Tuple[List[Any], List[Any], List[Any], List[Any], List[str]]:
-    xs, edges, edge_attrs, labels, file_names = [], [], [], [], []
-    for graph, label in batch:
-        xs.append(graph["x"])
-        edges.append(graph["edge_index"])
-        edge_attrs.append(graph.get("edge_attr"))
-        labels.append(label)
+) -> Tuple[Any, Any, Any, Any, Any, List[str]]:
+    """Batch graphs by concatenating nodes and shifting edge indices."""
+
+    import torch
+
+    x_list = []
+    edge_index_list = []
+    edge_attr_list = []
+    batch_vec_list = []
+    label_list = []
+    file_names: List[str] = []
+
+    node_offset = 0
+    has_edge_attr = False
+
+    for _graph_idx, (graph, label) in enumerate(batch):
+        x = graph["x"]
+        if hasattr(x, "numel") and x.numel() == 0:
+            continue
+
+        out_idx = len(label_list)
+        edge_index = graph["edge_index"]
+        edge_attr = graph.get("edge_attr")
+        if edge_attr is not None:
+            has_edge_attr = True
+
+        num_nodes = int(x.size(0))
+        x_list.append(x)
+        edge_index_list.append(edge_index + node_offset)
+        edge_attr_list.append(edge_attr)
+        batch_vec_list.append(torch.full((num_nodes,), out_idx, dtype=torch.long))
+
+        label_list.append(label)
         file_names.append(str(graph.get("file_name", "")))
-    return xs, edges, edge_attrs, labels, file_names
+
+        node_offset += num_nodes
+
+    if not x_list:
+        empty_x = torch.zeros((0, 0), dtype=torch.float)
+        empty_edge = torch.zeros((2, 0), dtype=torch.long)
+        empty_batch = torch.zeros((0,), dtype=torch.long)
+        empty_labels = torch.zeros((0,), dtype=torch.long)
+        return empty_x, empty_edge, None, empty_batch, empty_labels, []
+
+    x_batch = torch.cat(x_list, dim=0)
+    edge_index_batch = (
+        torch.cat(edge_index_list, dim=1)
+        if edge_index_list
+        else torch.zeros((2, 0), dtype=torch.long)
+    )
+    batch_vec = torch.cat(batch_vec_list, dim=0)
+    labels_batch = torch.cat([lbl.view(1) for lbl in label_list], dim=0)
+
+    edge_attr_batch = None
+    if has_edge_attr:
+        if any(attr is None for attr in edge_attr_list):
+            raise ValueError(
+                "Mixed edge_attr presence in batch; ensure all samples provide edge_attr."
+            )
+        edge_attr_batch = torch.cat(edge_attr_list, dim=0)
+
+    return x_batch, edge_index_batch, edge_attr_batch, batch_vec, labels_batch, file_names
 
 
 def main() -> int:
@@ -326,26 +379,33 @@ def main() -> int:
     top2_correct = 0
 
     with torch.no_grad():
-        for xs, edges, edge_attrs, labels, file_names in val_loader:
-            for graph_x, edge_index, edge_attr, label, file_name in zip(
-                xs, edges, edge_attrs, labels, file_names
-            ):
-                if graph_x.numel() == 0:
-                    continue
-                if model_type == "edge_sage":
-                    logits = model(graph_x, edge_index, edge_attr)
-                else:
-                    logits = model(graph_x, edge_index)
-                probs = torch.softmax(logits, dim=1)[0]
-                pred_idx = int(torch.argmax(probs).item())
-                confidence = float(probs[pred_idx].item())
-                topk = min(2, probs.numel())
-                top_vals, top_idx = torch.topk(probs, k=topk)
-                margin = (
-                    float(top_vals[0].item() - top_vals[1].item()) if topk > 1 else 1.0
-                )
+        for batch_data in val_loader:
+            x, edge_index, edge_attr, batch_vec, labels_batch, file_names = batch_data
+            if not hasattr(labels_batch, "numel") or labels_batch.numel() == 0:
+                continue
 
-                label_id = int(label)
+            if model_type == "edge_sage":
+                logits = model(x, edge_index, edge_attr, batch=batch_vec)
+            else:
+                logits = model(x, edge_index, batch=batch_vec)
+
+            probs = torch.softmax(logits, dim=1)
+            pred_idx_batch = torch.argmax(probs, dim=1)
+            topk = min(2, int(probs.size(1)))
+            top_vals, top_idx = torch.topk(probs, k=topk, dim=1)
+            conf_batch = top_vals[:, 0]
+            if topk > 1:
+                margin_batch = top_vals[:, 0] - top_vals[:, 1]
+            else:
+                margin_batch = conf_batch.new_ones(conf_batch.size(0))
+
+            for i in range(int(labels_batch.size(0))):
+                label_id = int(labels_batch[i].item())
+                pred_idx = int(pred_idx_batch[i].item())
+                confidence = float(conf_batch[i].item())
+                margin = float(margin_batch[i].item())
+                file_name = file_names[i] if i < len(file_names) else ""
+
                 per_label_total[label_id] = per_label_total.get(label_id, 0) + 1
                 total += 1
 
@@ -366,7 +426,7 @@ def main() -> int:
                         }
                     )
 
-                if label_id in [int(idx) for idx in top_idx.tolist()]:
+                if label_id in [int(idx) for idx in top_idx[i].tolist()]:
                     top2_correct += 1
                     per_label_top2[label_id] = per_label_top2.get(label_id, 0) + 1
 
