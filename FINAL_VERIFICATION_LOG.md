@@ -4142,3 +4142,9 @@
   - Outcome:
     - Reduced `紧固件` prediction frequency, but decreased overall accuracy vs the baseline coarse-bucket run.
   - Report: `reports/DEV_GRAPH2D_DOWNWEIGHT_LABEL_EXPERIMENT_20260213.md`
+- **Graph2D Coarse Loss Strategy Comparison (CrossEntropy vs Focal vs Logit-Adjusted)**:
+  - Compared multiple loss/imbalance strategies on the same coarse-bucket dataset after the batched training/eval speedup.
+  - Validation:
+    - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss focal --class-weighting inverse --sampler balanced --epochs 15 --diagnose-max-files 80 --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8` (completed; artifacts in `/tmp`)
+    - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss logit_adjusted --class-weighting none --sampler balanced --epochs 15 --diagnose-max-files 80 --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8` (completed; artifacts in `/tmp`)
+  - Report: `reports/DEV_GRAPH2D_COARSE_LOSS_STRATEGY_COMPARISON_20260213.md`
