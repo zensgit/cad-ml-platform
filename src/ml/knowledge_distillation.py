@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 class TeacherType(str, Enum):
     """教师模型类型"""
+
     FILENAME = "filename"
     TITLEBLOCK = "titleblock"
     HYBRID = "hybrid"
@@ -36,8 +37,9 @@ class TeacherType(str, Enum):
 @dataclass
 class DistillationConfig:
     """蒸馏配置"""
-    alpha: float = 0.3          # CE 损失权重 (1-alpha 为 KL 权重)
-    temperature: float = 3.0    # 软标签温度
+
+    alpha: float = 0.3  # CE 损失权重 (1-alpha 为 KL 权重)
+    temperature: float = 3.0  # 软标签温度
     teacher_type: str = "hybrid"
     hard_label_weight: float = 0.7
     soft_label_weight: float = 0.3
@@ -57,7 +59,9 @@ class DistillationLoss(nn.Module):
     ):
         super().__init__()
         self.alpha = float(os.getenv("DISTILLATION_ALPHA", str(alpha)))
-        self.temperature = float(os.getenv("DISTILLATION_TEMPERATURE", str(temperature)))
+        self.temperature = float(
+            os.getenv("DISTILLATION_TEMPERATURE", str(temperature))
+        )
 
         logger.info(
             "DistillationLoss initialized",
@@ -93,7 +97,7 @@ class DistillationLoss(nn.Module):
         kl_loss = F.kl_div(student_soft, teacher_soft, reduction="batchmean")
 
         # 温度缩放
-        kl_loss = kl_loss * (self.temperature ** 2)
+        kl_loss = kl_loss * (self.temperature**2)
 
         # 总损失
         total_loss = self.alpha * ce_loss + (1 - self.alpha) * kl_loss
@@ -120,7 +124,9 @@ class TeacherModel:
         label_to_idx: Optional[Dict[str, int]] = None,
         num_classes: int = 144,
     ):
-        self.teacher_type = TeacherType(os.getenv("DISTILLATION_TEACHER_TYPE", teacher_type))
+        self.teacher_type = TeacherType(
+            os.getenv("DISTILLATION_TEACHER_TYPE", teacher_type)
+        )
         self.label_to_idx = label_to_idx or {}
         self.num_classes = num_classes
 
@@ -141,12 +147,15 @@ class TeacherModel:
         if self._classifier is None:
             if self.teacher_type == TeacherType.HYBRID:
                 from src.ml.hybrid_classifier import get_hybrid_classifier
+
                 self._classifier = get_hybrid_classifier()
             elif self.teacher_type == TeacherType.FILENAME:
                 from src.ml.filename_classifier import get_filename_classifier
+
                 self._classifier = get_filename_classifier()
             else:
                 from src.ml.titleblock_extractor import TitleBlockClassifier
+
                 self._classifier = TitleBlockClassifier()
         return self._classifier
 
@@ -202,10 +211,29 @@ class TeacherModel:
                             confidence = result.get("confidence", 0.0)
                         except Exception as exc:
                             logger.debug(
-                                "Titleblock teacher parse failed for %s: %s", filename, exc
+                                "Titleblock teacher parse failed for %s: %s",
+                                filename,
+                                exc,
                             )
 
-                if label and label not in self.label_to_idx and "other" in self.label_to_idx:
+                if label:
+                    label = str(label).strip()
+
+                if label and label not in self.label_to_idx:
+                    # Some training flows normalize fine labels into coarse buckets
+                    # (e.g. "对接法兰" -> "法兰"). Prefer that mapping before falling
+                    # back to "other"/uniform labels.
+                    from src.ml.label_normalization import normalize_dxf_label
+
+                    normalized = normalize_dxf_label(label, default=None)
+                    if normalized != label and normalized in self.label_to_idx:
+                        label = normalized
+
+                if (
+                    label
+                    and label not in self.label_to_idx
+                    and "other" in self.label_to_idx
+                ):
                     # When the distillation teacher predicts a label outside the
                     # student's label map (e.g., after manifest cleaning),
                     # fall back to "other" with a low confidence.
@@ -244,17 +272,21 @@ class TeacherModel:
             try:
                 if self.teacher_type == TeacherType.HYBRID:
                     result = self.classifier.classify(filename, file_bytes=file_bytes)
-                    predictions.append({
-                        "label": result.label,
-                        "confidence": result.confidence,
-                        "source": result.source.value,
-                    })
+                    predictions.append(
+                        {
+                            "label": result.label,
+                            "confidence": result.confidence,
+                            "source": result.source.value,
+                        }
+                    )
                 elif self.teacher_type == TeacherType.FILENAME:
                     result = self.classifier.predict(filename)
                     predictions.append(result)
                 else:
                     if not file_bytes:
-                        predictions.append({"label": None, "confidence": 0.0, "source": "titleblock"})
+                        predictions.append(
+                            {"label": None, "confidence": 0.0, "source": "titleblock"}
+                        )
                         continue
                     from src.utils.dxf_io import read_dxf_entities_from_bytes
 

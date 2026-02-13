@@ -4174,3 +4174,9 @@
 - **Provider Framework Audit (Core vs Temp)**:
   - Verified `src/core/providers/` is a core integration boundary (used by `/api/v1/analyze` and provider health endpoints), and `scripts/test_with_local_api.sh` is a canonical tiered validation runner.
   - Report: `reports/DEV_PROVIDER_FRAMEWORK_AUDIT_20260214.md`
+- **Graph2D Distillation Teacher Label Bucket Mapping**:
+  - Added a shared fine-label -> bucket-label mapping and applied it inside the distillation teacher to align teacher outputs with coarse-bucket student label spaces before falling back to `"other"`/uniform priors.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_label_normalization.py tests/unit/test_knowledge_distillation_teacher.py -v` (passed)
+    - `.venv/bin/flake8 src/ml/label_normalization.py src/ml/knowledge_distillation.py scripts/normalize_dxf_label_manifest.py tests/unit/test_knowledge_distillation_teacher.py tests/unit/test_label_normalization.py` (passed)
+  - Report: `reports/DEV_GRAPH2D_DISTILLATION_TEACHER_LABEL_BUCKET_MAPPING_20260214.md`

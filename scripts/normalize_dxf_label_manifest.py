@@ -5,58 +5,15 @@ from __future__ import annotations
 
 import argparse
 import csv
+import sys
 from collections import Counter
 from pathlib import Path
 
-LABEL_MAP = {
-    "罐体部分": "罐体",
-    "上封头组件": "罐体",
-    "下锥体组件": "罐体",
-    "上筒体组件": "罐体",
-    "下筒体组件": "罐体",
-    "再沸器": "设备",
-    "汽水分离器": "设备",
-    "自动进料装置": "设备",
-    "电加热箱": "设备",
-    "真空组件": "设备",
-    "出料正压隔离器": "设备",
-    "拖车": "设备",
-    "管束": "设备",
-    "阀体": "设备",
-    "蜗轮蜗杆传动出料机构": "传动件",
-    "旋转组件": "传动件",
-    "轴头组件": "传动件",
-    "搅拌桨组件": "传动件",
-    "搅拌轴组件": "传动件",
-    "搅拌器组件": "传动件",
-    "手轮组件": "传动件",
-    "拖轮组件": "传动件",
-    "液压开盖组件": "传动件",
-    "侧推料组件": "传动件",
-    "轴向定位轴承": "轴承件",
-    "轴承座": "轴承件",
-    "下轴承支架组件": "轴承件",
-    "短轴承座(盖)": "轴承件",
-    "支承座": "轴承件",
-    "超声波法兰": "法兰",
-    "出料凸缘": "法兰",
-    "对接法兰": "法兰",
-    "人孔法兰": "法兰",
-    "连接法兰(大)": "法兰",
-    "保护罩组件": "罩盖件",
-    "搅拌减速机机罩": "罩盖件",
-    "防爆视灯组件": "罩盖件",
-    "下封板": "罩盖件",
-    "过滤托架": "过滤组件",
-    "过滤芯组件": "过滤组件",
-    "捕集器组件": "过滤组件",
-    "捕集口": "开孔件",
-    "人孔": "开孔件",
-    "罐体支腿": "支撑件",
-    "底板": "支撑件",
-    "调节螺栓": "紧固件",
-    "扭转弹簧": "弹簧",
-}
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.ml.label_normalization import DXF_LABEL_BUCKET_MAP  # noqa: E402
 
 
 def _load_rows(path: Path) -> list[dict[str, str]]:
@@ -106,7 +63,7 @@ def main() -> int:
         label = (row.get("label_cn") or "").strip()
         if not label:
             continue
-        mapped = LABEL_MAP.get(label)
+        mapped = DXF_LABEL_BUCKET_MAP.get(label)
         if mapped is None:
             unmapped.add(label)
             if args.strict:
