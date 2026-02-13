@@ -3992,3 +3992,16 @@
     - `.venv/bin/python -m pytest tests/stress/test_load_simulation.py -k "concurrent_quota_operations or tenant_context_cleanup" -v` (2 passed)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_TENANT_CONTEXT_CONTEXTVARS_LEAK_FIX_20260213.md`
+- **Provider Registry Runtime Normalization Hardening**:
+  - Unified runtime provider-ID normalization/validation with registration semantics in `ProviderRegistry`.
+  - Added `normalize_provider_id(...)` and applied it to:
+    - `get_provider_class`, `get`, `exists`, `list_providers`, `unregister`
+  - Aligned readiness provider-id parsing (`parse_provider_id_list`) to the same normalization rules.
+  - Added regression tests for:
+    - whitespace-normalized runtime lookup/cache/unregister
+    - runtime rejection of separator-invalid IDs
+    - readiness parser handling of extra-separator tokens
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_registry_coverage.py tests/unit/test_readiness_coverage.py tests/unit/test_provider_framework.py -v` (69 passed)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_PROVIDER_REGISTRY_RUNTIME_NORMALIZATION_20260213.md`

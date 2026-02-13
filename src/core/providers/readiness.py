@@ -50,7 +50,13 @@ def parse_provider_id_list(raw: str) -> List[ProviderId]:
         name = name.strip()
         if not domain or not name:
             continue
-        results.append((domain, name))
+        try:
+            normalized_domain, normalized_name = ProviderRegistry.normalize_provider_id(
+                domain, name
+            )
+        except (TypeError, ValueError):
+            continue
+        results.append((normalized_domain, normalized_name))
     return results
 
 

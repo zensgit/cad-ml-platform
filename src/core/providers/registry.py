@@ -36,6 +36,14 @@ class ProviderRegistry:
             )
 
     @classmethod
+    def normalize_provider_id(cls, domain: str, provider_name: str) -> tuple[str, str]:
+        """Normalize and validate provider identifiers."""
+        return (
+            cls._normalize_token(domain, "domain"),
+            cls._normalize_token(provider_name, "provider_name"),
+        )
+
+    @classmethod
     def register(cls, domain: str, provider_name: str):
         """Decorator to register a provider class.
 
@@ -44,9 +52,8 @@ class ProviderRegistry:
             class DeepSeekProvider(...):
                 ...
         """
-        normalized_domain = cls._normalize_token(domain, "domain")
-        normalized_provider_name = cls._normalize_token(
-            provider_name, "provider_name"
+        normalized_domain, normalized_provider_name = cls.normalize_provider_id(
+            domain, provider_name
         )
 
         def _decorator(provider_cls: Type[BaseProvider]) -> Type[BaseProvider]:
@@ -70,11 +77,16 @@ class ProviderRegistry:
 
     @classmethod
     def get_provider_class(cls, domain: str, provider_name: str) -> Type[BaseProvider]:
+        normalized_domain, normalized_provider_name = cls.normalize_provider_id(
+            domain, provider_name
+        )
         with cls._lock:
-            domain_map = cls._providers.get(domain, {})
-            provider_cls = domain_map.get(provider_name)
+            domain_map = cls._providers.get(normalized_domain, {})
+            provider_cls = domain_map.get(normalized_provider_name)
         if provider_cls is None:
-            raise KeyError(f"Provider not found: {domain}/{provider_name}")
+            raise KeyError(
+                f"Provider not found: {normalized_domain}/{normalized_provider_name}"
+            )
         return provider_cls
 
     @classmethod
@@ -86,16 +98,19 @@ class ProviderRegistry:
         - If no *args/**kwargs are provided, return a cached singleton instance by
           default (controlled via PROVIDER_REGISTRY_CACHE_ENABLED).
         """
-        provider_cls = cls.get_provider_class(domain, provider_name)
+        normalized_domain, normalized_provider_name = cls.normalize_provider_id(
+            domain, provider_name
+        )
+        provider_cls = cls.get_provider_class(normalized_domain, normalized_provider_name)
         if args or kwargs or not cls._cache_enabled():
             return provider_cls(*args, **kwargs)
 
         with cls._lock:
-            domain_instances = cls._instances.setdefault(domain, {})
-            inst = domain_instances.get(provider_name)
+            domain_instances = cls._instances.setdefault(normalized_domain, {})
+            inst = domain_instances.get(normalized_provider_name)
             if inst is None or type(inst) is not provider_cls:
                 inst = provider_cls()
-                domain_instances[provider_name] = inst
+                domain_instances[normalized_provider_name] = inst
             return inst
 
     @classmethod
@@ -105,28 +120,35 @@ class ProviderRegistry:
 
     @classmethod
     def list_providers(cls, domain: str) -> List[str]:
+        normalized_domain = cls._normalize_token(domain, "domain")
         with cls._lock:
-            return sorted(cls._providers.get(domain, {}).keys())
+            return sorted(cls._providers.get(normalized_domain, {}).keys())
 
     @classmethod
     def exists(cls, domain: str, provider_name: str) -> bool:
+        normalized_domain, normalized_provider_name = cls.normalize_provider_id(
+            domain, provider_name
+        )
         with cls._lock:
-            return provider_name in cls._providers.get(domain, {})
+            return normalized_provider_name in cls._providers.get(normalized_domain, {})
 
     @classmethod
     def unregister(cls, domain: str, provider_name: str) -> bool:
+        normalized_domain, normalized_provider_name = cls.normalize_provider_id(
+            domain, provider_name
+        )
         with cls._lock:
-            domain_map = cls._providers.get(domain)
-            if not domain_map or provider_name not in domain_map:
+            domain_map = cls._providers.get(normalized_domain)
+            if not domain_map or normalized_provider_name not in domain_map:
                 return False
-            del domain_map[provider_name]
+            del domain_map[normalized_provider_name]
             if not domain_map:
-                del cls._providers[domain]
-            inst_map = cls._instances.get(domain)
-            if inst_map and provider_name in inst_map:
-                del inst_map[provider_name]
+                del cls._providers[normalized_domain]
+            inst_map = cls._instances.get(normalized_domain)
+            if inst_map and normalized_provider_name in inst_map:
+                del inst_map[normalized_provider_name]
             if inst_map is not None and not inst_map:
-                cls._instances.pop(domain, None)
+                cls._instances.pop(normalized_domain, None)
             return True
 
     @classmethod

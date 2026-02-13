@@ -268,6 +268,44 @@ class TestRegistration:
             ProviderRegistry.register("test", "provider:name")
 
 
+class TestRuntimeTokenNormalization:
+    """Runtime methods should normalize/validate provider IDs consistently."""
+
+    def test_runtime_methods_normalize_whitespace_tokens(self):
+        """Lookup/cache/unregister should work with surrounding whitespace."""
+        @ProviderRegistry.register("test", "demo")
+        class DemoProvider(DummyProvider):
+            pass
+
+        cls = ProviderRegistry.get_provider_class(" test ", " demo ")
+        assert cls is DemoProvider
+        assert ProviderRegistry.exists(" test ", " demo ") is True
+        assert ProviderRegistry.list_providers(" test ") == ["demo"]
+
+        inst1 = ProviderRegistry.get("test", "demo")
+        inst2 = ProviderRegistry.get(" test ", " demo ")
+        assert inst1 is inst2
+
+        assert ProviderRegistry.unregister(" test ", " demo ") is True
+        assert ProviderRegistry.exists("test", "demo") is False
+
+    @pytest.mark.parametrize(
+        "fn,args",
+        [
+            (ProviderRegistry.get_provider_class, ("bad/domain", "p")),
+            (ProviderRegistry.get_provider_class, ("bad:domain", "p")),
+            (ProviderRegistry.exists, ("ok", "bad/provider")),
+            (ProviderRegistry.exists, ("ok", "bad:provider")),
+            (ProviderRegistry.list_providers, ("bad/domain",)),
+            (ProviderRegistry.unregister, ("ok/domain", "p")),
+        ],
+    )
+    def test_runtime_methods_reject_separator_characters(self, fn, args):
+        """Runtime methods should reject reserved separators the same as register()."""
+        with pytest.raises(ValueError, match="cannot contain '/' or ':'"):
+            fn(*args)
+
+
 # --- List Methods Tests ---
 
 

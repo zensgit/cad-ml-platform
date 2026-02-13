@@ -129,6 +129,13 @@ class TestParseProviderIdList:
         result = parse_provider_id_list("  classifier/hybrid  ,  ocr/paddle  ")
         assert result == [("classifier", "hybrid"), ("ocr", "paddle")]
 
+    def test_invalid_tokens_with_extra_separators_are_ignored(self):
+        """Tokens producing invalid normalized IDs should be ignored."""
+        result = parse_provider_id_list(
+            "vision/openai/v2 ocr:deep:extra classifier/hybrid"
+        )
+        assert result == [("classifier", "hybrid")]
+
 
 # --- format_provider_id Tests ---
 
