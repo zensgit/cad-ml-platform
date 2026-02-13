@@ -4164,3 +4164,10 @@
     - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --epochs 1 --max-samples 40 --diagnose-max-files 20 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8 --distill --teacher hybrid` (completed; artifacts in `/tmp`)
     - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --epochs 1 --max-samples 40 --diagnose-max-files 20 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8 --distill --teacher titleblock` (completed; artifacts in `/tmp`)
   - Report: `reports/DEV_GRAPH2D_DISTILLATION_PIPELINE_WIRING_20260214.md`
+- **Graph2D Geometry-Only Student Mode (Strip DXF Text Entities)**:
+  - Added an opt-in mode for `DXFManifestDataset` to strip DXF text/annotation entities before graph construction to avoid leaking label text into student features.
+  - Validation:
+    - `.venv/bin/python -m py_compile src/ml/train/dataset_2d.py` (passed)
+    - `.venv/bin/pytest tests/unit/test_dxf_manifest_dataset_strip_text_entities.py -q` (passed)
+    - `/usr/bin/time -p env DXF_STRIP_TEXT_ENTITIES=true .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --epochs 1 --max-samples 40 --diagnose-max-files 20 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8` (completed; artifacts in `/tmp`)
+  - Report: `reports/DEV_GRAPH2D_GEOMETRY_ONLY_STUDENT_20260214.md`

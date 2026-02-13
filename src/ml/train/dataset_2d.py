@@ -648,6 +648,7 @@ class DXFManifestDataset(Dataset):
             os.getenv("DXF_TEXT_PRIORITY_RATIO", ""),
             os.getenv("DXF_EMPTY_EDGE_FALLBACK", ""),
             os.getenv("DXF_EMPTY_EDGE_K", ""),
+            os.getenv("DXF_STRIP_TEXT_ENTITIES", ""),
         ]
         raw = ":".join(key_tokens)
         try:
@@ -782,8 +783,25 @@ class DXFManifestDataset(Dataset):
                 return cached
 
         try:
-            doc = ezdxf.readfile(str(file_path))
-            msp = doc.modelspace()
+            strip_text = (
+                os.getenv("DXF_STRIP_TEXT_ENTITIES", "false").strip().lower()
+                in {"1", "true", "yes", "on"}
+            )
+            if strip_text:
+                from src.utils.dxf_io import (
+                    read_dxf_document_from_bytes,
+                    strip_dxf_text_entities_from_bytes,
+                )
+
+                raw_bytes = file_path.read_bytes()
+                stripped = strip_dxf_text_entities_from_bytes(
+                    raw_bytes, strip_blocks=True
+                )
+                doc = read_dxf_document_from_bytes(stripped)
+                msp = doc.modelspace()
+            else:
+                doc = ezdxf.readfile(str(file_path))
+                msp = doc.modelspace()
             if self.return_edge_attr:
                 x, edge_index, edge_attr = self._dxf_to_graph(
                     msp, self.node_dim, return_edge_attr=True
