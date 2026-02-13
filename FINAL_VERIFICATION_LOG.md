@@ -3983,3 +3983,12 @@
     - `CI=true .venv/bin/python -m pytest tests/stress/test_load_simulation.py -k "model_selector_throughput or cache_throughput" -v` (2 passed)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_STRESS_THROUGHPUT_THRESHOLD_CI_STABILIZATION_20260213.md`
+- **TenantContext ContextVar Leak Fix**:
+  - Replaced class-level mutable tenant context in `src/core/assistant/multi_tenant.py` with `ContextVar` token-based enter/exit restoration.
+  - Added thread-isolation regression test:
+    - `tests/unit/assistant/test_multi_tenant.py::TestTenantContext::test_context_isolation_across_threads`
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/assistant/test_multi_tenant.py -k "context_entry_exit or get_current_without_context or context_isolation_across_threads" -v` (3 passed)
+    - `.venv/bin/python -m pytest tests/stress/test_load_simulation.py -k "concurrent_quota_operations or tenant_context_cleanup" -v` (2 passed)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_TENANT_CONTEXT_CONTEXTVARS_LEAK_FIX_20260213.md`

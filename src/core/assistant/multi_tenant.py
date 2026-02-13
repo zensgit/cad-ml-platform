@@ -7,6 +7,7 @@ Provides tenant isolation, resource management, and tenant-specific configuratio
 import json
 import time
 import uuid
+from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -397,7 +398,10 @@ class TenantContext:
         ...     result = assistant.ask(query)
     """
 
-    _current_tenant: Optional[Tenant] = None
+    _current_tenant: ContextVar[Optional[Tenant]] = ContextVar(
+        "assistant_tenant_context",
+        default=None,
+    )
 
     def __init__(self, tenant: Tenant):
         """
@@ -407,22 +411,23 @@ class TenantContext:
             tenant: Tenant for this context
         """
         self.tenant = tenant
-        self._previous_tenant: Optional[Tenant] = None
+        self._token: Optional[Token] = None
 
     def __enter__(self) -> "TenantContext":
         """Enter tenant context."""
-        self._previous_tenant = TenantContext._current_tenant
-        TenantContext._current_tenant = self.tenant
+        self._token = TenantContext._current_tenant.set(self.tenant)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Exit tenant context."""
-        TenantContext._current_tenant = self._previous_tenant
+        if self._token is not None:
+            TenantContext._current_tenant.reset(self._token)
+            self._token = None
 
     @classmethod
     def get_current(cls) -> Optional[Tenant]:
         """Get current tenant from context."""
-        return cls._current_tenant
+        return cls._current_tenant.get()
 
     def check_quota(self, resource: str, amount: int = 1) -> bool:
         """Check quota in current context."""

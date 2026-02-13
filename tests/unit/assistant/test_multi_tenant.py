@@ -13,7 +13,9 @@ import pytest
 import tempfile
 import json
 import time
+import threading
 from pathlib import Path
+from typing import Dict, Optional
 
 from src.core.assistant.multi_tenant import (
     TenantStatus,
@@ -450,6 +452,34 @@ class TestTenantContext:
 
     def test_get_current_without_context(self):
         """Test get_current returns None outside context."""
+        assert TenantContext.get_current() is None
+
+    def test_context_isolation_across_threads(self, tenant):
+        """Tenant context should not leak between threads."""
+        thread_tenant = Tenant(
+            id="thread-tenant",
+            name="Thread Tenant",
+            tier=TenantTier.BASIC,
+            quota=TenantQuota.for_tier(TenantTier.BASIC),
+        )
+        observed: Dict[str, Optional[Tenant]] = {}
+
+        def worker() -> None:
+            observed["before"] = TenantContext.get_current()
+            with TenantContext(thread_tenant):
+                observed["inside"] = TenantContext.get_current()
+            observed["after"] = TenantContext.get_current()
+
+        with TenantContext(tenant):
+            t = threading.Thread(target=worker)
+            t.start()
+            t.join()
+
+            assert TenantContext.get_current() == tenant
+
+        assert observed["before"] is None
+        assert observed["inside"] == thread_tenant
+        assert observed["after"] is None
         assert TenantContext.get_current() is None
 
 
