@@ -575,13 +575,39 @@ class DXFManifestDataset(Dataset):
         self.node_dim = node_dim
         self.return_edge_attr = return_edge_attr
         cache_mode = os.getenv("DXF_MANIFEST_DATASET_CACHE", "").strip().lower()
-        self._cache_enabled = cache_mode in {"1", "true", "yes", "on", "memory"}
+        self._cache_memory_enabled = cache_mode in {
+            "1",
+            "true",
+            "yes",
+            "on",
+            "memory",
+            "both",
+            "memory+disk",
+            "disk+memory",
+        }
+        self._cache_disk_enabled = cache_mode in {"disk", "both", "memory+disk", "disk+memory"}
         self._cache_max_items = int(
             os.getenv("DXF_MANIFEST_DATASET_CACHE_MAX_ITEMS", "0").strip() or 0
         )
         self._graph_cache: Dict[str, Tuple[Dict[str, Any], torch.Tensor]] = {}
         self._cache_order: List[str] = []
         self._cache_stats = {"hits": 0, "misses": 0}
+        self._disk_cache_stats = {"hits": 0, "misses": 0, "writes": 0, "errors": 0}
+
+        self._disk_cache_dir: Optional[Path] = None
+        if self._cache_disk_enabled:
+            raw_dir = os.getenv("DXF_MANIFEST_DATASET_CACHE_DIR", "").strip()
+            self._disk_cache_dir = (
+                Path(raw_dir).expanduser()
+                if raw_dir
+                else Path("/tmp/dxf_manifest_dataset_graph_cache")
+            )
+            try:
+                self._disk_cache_dir.mkdir(parents=True, exist_ok=True)
+            except Exception as exc:
+                logger.warning("Failed to init disk graph cache dir %s: %s", self._disk_cache_dir, exc)
+                self._disk_cache_dir = None
+                self._cache_disk_enabled = False
 
         with open(manifest_csv, "r", encoding="utf-8") as handle:
             reader = csv.DictReader(handle)
@@ -631,7 +657,7 @@ class DXFManifestDataset(Dataset):
         return digest[:16]
 
     def _cache_get(self, cache_key: str) -> Optional[Tuple[Dict[str, Any], torch.Tensor]]:
-        if not self._cache_enabled:
+        if not self._cache_memory_enabled:
             return None
         value = self._graph_cache.get(cache_key)
         if value is None:
@@ -644,7 +670,7 @@ class DXFManifestDataset(Dataset):
         return value
 
     def _cache_put(self, cache_key: str, graph: Dict[str, Any], label: torch.Tensor) -> None:
-        if not self._cache_enabled:
+        if not self._cache_memory_enabled:
             return
         while self._cache_max_items > 0 and len(self._cache_order) >= self._cache_max_items:
             old_key = self._cache_order.pop(0)
@@ -654,16 +680,70 @@ class DXFManifestDataset(Dataset):
             self._cache_order.remove(cache_key)
         self._cache_order.append(cache_key)
 
+    def _disk_cache_path(self, cache_key: str) -> Optional[Path]:
+        if not self._cache_disk_enabled or self._disk_cache_dir is None:
+            return None
+        return self._disk_cache_dir / f"{cache_key}.pt"
+
+    def _disk_cache_get(
+        self, cache_key: str
+    ) -> Optional[Tuple[Dict[str, Any], torch.Tensor]]:
+        cache_path = self._disk_cache_path(cache_key)
+        if cache_path is None or not cache_path.exists():
+            self._disk_cache_stats["misses"] += 1
+            return None
+        try:
+            payload = torch.load(str(cache_path), map_location="cpu")
+            if not isinstance(payload, dict):
+                raise TypeError("invalid_cache_payload")
+            graph = payload.get("graph")
+            label = payload.get("label")
+            if not isinstance(graph, dict) or not isinstance(label, torch.Tensor):
+                raise TypeError("invalid_cache_types")
+        except Exception as exc:
+            self._disk_cache_stats["errors"] += 1
+            logger.warning("Failed to read disk graph cache %s: %s", cache_path, exc)
+            return None
+
+        self._disk_cache_stats["hits"] += 1
+        if self._cache_memory_enabled:
+            self._cache_put(cache_key, graph, label)
+        return graph, label
+
+    def _disk_cache_put(self, cache_key: str, graph: Dict[str, Any], label: torch.Tensor) -> None:
+        cache_path = self._disk_cache_path(cache_key)
+        if cache_path is None:
+            return
+        tmp_path = cache_path.with_suffix(f".{os.getpid()}.tmp")
+        try:
+            torch.save({"graph": graph, "label": label}, str(tmp_path))
+            os.replace(str(tmp_path), str(cache_path))
+            self._disk_cache_stats["writes"] += 1
+        except Exception as exc:
+            self._disk_cache_stats["errors"] += 1
+            logger.warning("Failed to write disk graph cache %s: %s", cache_path, exc)
+            try:
+                if tmp_path.exists():
+                    tmp_path.unlink()
+            except Exception:
+                pass
+
     def get_cache_stats(self) -> Dict[str, Any]:
         total = int(self._cache_stats["hits"]) + int(self._cache_stats["misses"])
         hit_rate = float(self._cache_stats["hits"]) / float(total) if total else 0.0
         return {
-            "enabled": bool(self._cache_enabled),
+            "memory_enabled": bool(self._cache_memory_enabled),
             "hits": int(self._cache_stats["hits"]),
             "misses": int(self._cache_stats["misses"]),
             "hit_rate": hit_rate,
             "size": len(self._graph_cache),
             "max_items": int(self._cache_max_items),
+            "disk_enabled": bool(self._cache_disk_enabled),
+            "disk_dir": str(self._disk_cache_dir) if self._disk_cache_dir else "",
+            "disk_hits": int(self._disk_cache_stats["hits"]),
+            "disk_misses": int(self._disk_cache_stats["misses"]),
+            "disk_writes": int(self._disk_cache_stats["writes"]),
+            "disk_errors": int(self._disk_cache_stats["errors"]),
         }
 
     def __len__(self) -> int:
@@ -696,6 +776,10 @@ class DXFManifestDataset(Dataset):
         cached = self._cache_get(cache_key)
         if cached is not None:
             return cached
+        if self._cache_disk_enabled:
+            cached = self._disk_cache_get(cache_key)
+            if cached is not None:
+                return cached
 
         try:
             doc = ezdxf.readfile(str(file_path))
@@ -704,14 +788,17 @@ class DXFManifestDataset(Dataset):
                 x, edge_index, edge_attr = self._dxf_to_graph(
                     msp, self.node_dim, return_edge_attr=True
                 )
-                return {
+                graph = {
                     "x": x,
                     "edge_index": edge_index,
                     "edge_attr": edge_attr,
                     "file_name": file_name,
                     "relative_path": rel_path,
                     "file_path": str(file_path),
-                }, label
+                }
+                self._cache_put(cache_key, graph, label)
+                self._disk_cache_put(cache_key, graph, label)
+                return graph, label
             x, edge_index = self._dxf_to_graph(msp, self.node_dim)
             graph = {
                 "x": x,
@@ -721,6 +808,7 @@ class DXFManifestDataset(Dataset):
                 "file_path": str(file_path),
             }
             self._cache_put(cache_key, graph, label)
+            self._disk_cache_put(cache_key, graph, label)
             return graph, label
         except Exception as e:
             logger.error("Error parsing %s (%s): %s", file_name, file_path, e)
@@ -734,6 +822,7 @@ class DXFManifestDataset(Dataset):
             if self.return_edge_attr:
                 empty_graph["edge_attr"] = torch.zeros(0, DXF_EDGE_DIM)
             self._cache_put(cache_key, empty_graph, label)
+            self._disk_cache_put(cache_key, empty_graph, label)
             return empty_graph, label
 
     def get_label_map(self) -> Dict[str, int]:

@@ -208,9 +208,14 @@ def main() -> int:
     )
     parser.add_argument(
         "--graph-cache",
-        choices=["none", "memory"],
+        choices=["none", "memory", "disk", "both"],
         default="memory",
         help="Enable DXFManifestDataset graph caching during training (default: memory).",
+    )
+    parser.add_argument(
+        "--graph-cache-dir",
+        default="",
+        help="Optional directory for disk graph cache (used when --graph-cache=disk|both).",
     )
     parser.add_argument(
         "--graph-cache-max-items",
@@ -243,19 +248,6 @@ def main() -> int:
         print(f"DXF dir not found: {dxf_dir}")
         return 2
 
-    # Dataset graph caching (training only).
-    if str(args.graph_cache).strip().lower() == "memory":
-        os.environ["DXF_MANIFEST_DATASET_CACHE"] = "memory"
-        os.environ["DXF_MANIFEST_DATASET_CACHE_MAX_ITEMS"] = str(
-            int(args.graph_cache_max_items)
-        )
-    else:
-        os.environ["DXF_MANIFEST_DATASET_CACHE"] = "none"
-
-    # Empty-edge fallback for DXF graphs.
-    os.environ["DXF_EMPTY_EDGE_FALLBACK"] = str(args.empty_edge_fallback)
-    os.environ["DXF_EMPTY_EDGE_K"] = str(int(args.empty_edge_knn_k))
-
     if args.work_dir:
         work_dir = Path(args.work_dir)
     else:
@@ -279,6 +271,26 @@ def main() -> int:
 
     python = sys.executable
     print(f"work_dir={work_dir}")
+
+    # Dataset graph caching (train/eval). Memory cache is per-process; disk cache
+    # allows sharing graph build results across subprocess steps.
+    graph_cache = str(args.graph_cache).strip().lower()
+    if graph_cache == "none":
+        os.environ["DXF_MANIFEST_DATASET_CACHE"] = "none"
+    else:
+        os.environ["DXF_MANIFEST_DATASET_CACHE"] = graph_cache
+        os.environ["DXF_MANIFEST_DATASET_CACHE_MAX_ITEMS"] = str(
+            int(args.graph_cache_max_items)
+        )
+        if graph_cache in {"disk", "both"}:
+            cache_dir = str(args.graph_cache_dir or "").strip()
+            if not cache_dir:
+                cache_dir = str(work_dir / "graph_cache")
+            os.environ["DXF_MANIFEST_DATASET_CACHE_DIR"] = cache_dir
+
+    # Empty-edge fallback for DXF graphs.
+    os.environ["DXF_EMPTY_EDGE_FALLBACK"] = str(args.empty_edge_fallback)
+    os.environ["DXF_EMPTY_EDGE_K"] = str(int(args.empty_edge_knn_k))
 
     # 1) Manifest
     _run(
@@ -444,6 +456,7 @@ def main() -> int:
             "empty_edge_knn_k": int(args.empty_edge_knn_k),
             "cache": str(args.graph_cache),
             "cache_max_items": int(args.graph_cache_max_items),
+            "cache_dir": str(os.getenv("DXF_MANIFEST_DATASET_CACHE_DIR", "")),
         },
         "manifest": {
             "raw": str(manifest_csv),

@@ -4111,3 +4111,11 @@
   - Validation:
     - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --epochs 15 --diagnose-max-files 80 --empty-edge-fallback knn --empty-edge-knn-k 8` (completed; artifacts in `/tmp`)
   - Report: `reports/DEV_GRAPH2D_LOCAL_RETRAIN_COARSE_KNN_CACHE_20260213.md`
+- **Graph2D Manifest Dataset Cache Fix (EdgeSage) + Disk Cache**:
+  - Fixed `DXFManifestDataset` caching so it applies to `edge_sage` training (`return_edge_attr=True`) instead of only the legacy no-edge-attr path.
+  - Added optional disk cache support to share graph builds across train/eval subprocess steps in the local pipeline.
+  - Extended `scripts/run_graph2d_pipeline_local.py` to configure disk cache via flags.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_dxf_manifest_dataset_graph_cache.py tests/unit/test_dxf_manifest_dataset_disk_cache.py -q` (passed)
+    - `.venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --epochs 1 --max-samples 40 --diagnose-max-files 20 --graph-cache both --graph-cache-dir /tmp/graph2d_manifest_graph_cache_smoke_20260213` (completed)
+  - Report: `reports/DEV_GRAPH2D_MANIFEST_EDGE_SAGE_CACHE_FIX_AND_DISK_CACHE_20260213.md`
