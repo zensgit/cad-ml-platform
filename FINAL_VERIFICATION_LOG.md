@@ -4086,3 +4086,10 @@
     - `.venv/bin/python -m pytest tests/unit/test_diagnose_graph2d_manifest_truth.py -q` (passed)
     - `.venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --epochs 1 --max-samples 80 --diagnose-max-files 30 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced` (completed; artifacts in `/tmp`)
   - Report: `reports/DEV_GRAPH2D_LOCAL_PIPELINE_AND_MANIFEST_DIAG_20260213.md`
+- **Graph2D Diagnose Manifest Strictness + Relative Paths**:
+  - Hardened `--manifest-csv` truth mode by failing fast when the manifest is missing or empty.
+  - Added `relative_path` column to `predictions.csv` for nested datasets / duplicate filenames.
+  - Validation:
+    - `.venv/bin/python -m py_compile scripts/diagnose_graph2d_on_dxf_dir.py` (passed)
+    - `.venv/bin/python -m pytest tests/unit/test_diagnose_graph2d_manifest_truth.py -q` (passed)
+  - Report: `reports/DEV_GRAPH2D_DIAGNOSE_MANIFEST_STRICT_AND_REL_PATH_20260213.md`

@@ -13,6 +13,8 @@ import types
 from pathlib import Path
 from typing import Any, Dict
 
+import pytest
+
 
 def _write_manifest(path: Path, rows: list[dict[str, str]]) -> None:
     fieldnames = list(rows[0].keys())
@@ -100,3 +102,37 @@ def test_diagnose_graph2d_supports_manifest_truth_mode(tmp_path, monkeypatch):
     assert summary["true_labels"]["coverage"] == 2
     assert summary["accuracy"] == 0.5
     assert summary["per_class_accuracy"] is not None
+
+    preds_path = out_dir / "predictions.csv"
+    assert preds_path.exists()
+    with preds_path.open("r", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert [r.get("relative_path") for r in rows] == ["a.dxf", "b.dxf"]
+
+
+def test_diagnose_graph2d_manifest_truth_requires_existing_manifest(tmp_path, monkeypatch):
+    import scripts.diagnose_graph2d_on_dxf_dir as diagnose
+
+    dxf_dir = tmp_path / "dxfs"
+    dxf_dir.mkdir()
+    (dxf_dir / "a.dxf").write_bytes(b"dummy-a")
+
+    argv = [
+        "diagnose_graph2d_on_dxf_dir.py",
+        "--dxf-dir",
+        str(dxf_dir),
+        "--model-path",
+        "dummy.pth",
+        "--manifest-csv",
+        str(tmp_path / "missing.csv"),
+        "--max-files",
+        "1",
+        "--seed",
+        "1",
+        "--output-dir",
+        str(tmp_path / "out"),
+    ]
+    monkeypatch.setattr(diagnose.sys, "argv", argv)
+
+    with pytest.raises(SystemExit):
+        diagnose.main()

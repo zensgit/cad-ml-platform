@@ -148,6 +148,9 @@ def main() -> int:
     if not files:
         raise SystemExit(f"No DXF files found under: {dxf_dir}")
 
+    manifest_csv_raw = str(args.manifest_csv or "").strip()
+    manifest_csv = Path(manifest_csv_raw) if manifest_csv_raw else None
+
     random.seed(int(args.seed))
     random.shuffle(files)
     files = files[: int(args.max_files)]
@@ -156,7 +159,7 @@ def main() -> int:
         [
             1 if bool(args.labels_from_parent_dir) else 0,
             1 if bool(args.labels_from_filename) else 0,
-            1 if str(args.manifest_csv or "").strip() else 0,
+            1 if manifest_csv is not None else 0,
         ]
     )
     if truth_modes > 1:
@@ -186,8 +189,11 @@ def main() -> int:
 
     manifest_labels_by_relpath: Dict[str, Dict[str, str]] = {}
     manifest_labels_by_name: Dict[str, Dict[str, str]] = {}
-    manifest_csv = Path(str(args.manifest_csv).strip()) if str(args.manifest_csv).strip() else None
-    if manifest_csv is not None and manifest_csv.exists():
+
+    if manifest_csv is not None and not manifest_csv.exists():
+        raise SystemExit(f"Manifest CSV not found: {manifest_csv}")
+
+    if manifest_csv is not None:
         with manifest_csv.open("r", encoding="utf-8") as handle:
             reader = csv.DictReader(handle)
             for row in reader:
@@ -202,6 +208,11 @@ def main() -> int:
                     manifest_labels_by_relpath[rel_path] = row
                 if file_name not in manifest_labels_by_name:
                     manifest_labels_by_name[file_name] = row
+        if not manifest_labels_by_relpath and not manifest_labels_by_name:
+            raise SystemExit(
+                "Manifest CSV had no usable rows. Expected columns: file_name, label_cn "
+                "(optional: relative_path, label_confidence)."
+            )
 
     rows: List[Dict[str, Any]] = []
     status_counts: Counter[str] = Counter()
@@ -240,6 +251,12 @@ def main() -> int:
         temperature = _safe_float(result.get("temperature"), 1.0)
         temperature_source = str(result.get("temperature_source") or "")
 
+        relative_path = ""
+        try:
+            relative_path = str(p.relative_to(dxf_dir))
+        except Exception:
+            relative_path = p.name
+
         true_label = ""
         true_label_raw = ""
         true_label_conf = 0.0
@@ -249,12 +266,7 @@ def main() -> int:
             true_label_source = "parent_dir"
             true_label_conf = 1.0
         elif manifest_csv is not None and (manifest_labels_by_relpath or manifest_labels_by_name):
-            rel = ""
-            try:
-                rel = str(p.relative_to(dxf_dir))
-            except Exception:
-                rel = ""
-            row = manifest_labels_by_relpath.get(rel) or manifest_labels_by_name.get(p.name)
+            row = manifest_labels_by_relpath.get(relative_path) or manifest_labels_by_name.get(p.name)
             if row:
                 true_label_raw = str(row.get("label_cn") or "").strip()
                 true_label_source = "manifest"
@@ -287,6 +299,7 @@ def main() -> int:
         rows.append(
             {
                 "file": p.name,
+                "relative_path": relative_path,
                 "true_label": true_label,
                 "true_label_raw": true_label_raw,
                 "true_label_confidence": f"{true_label_conf:.4f}",
