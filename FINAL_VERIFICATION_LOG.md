@@ -4093,3 +4093,8 @@
     - `.venv/bin/python -m py_compile scripts/diagnose_graph2d_on_dxf_dir.py` (passed)
     - `.venv/bin/python -m pytest tests/unit/test_diagnose_graph2d_manifest_truth.py -q` (passed)
   - Report: `reports/DEV_GRAPH2D_DIAGNOSE_MANIFEST_STRICT_AND_REL_PATH_20260213.md`
+- **Graph2D Local Retrain (Training Drawings, Coarse Buckets)**:
+  - Ran an end-to-end local retrain using coarse label normalization + balanced sampling to validate the pipeline and establish a coarse-bucket baseline.
+  - Validation:
+    - `.venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --epochs 15 --diagnose-max-files 80` (completed; artifacts in `/tmp`)
+  - Report: `reports/DEV_GRAPH2D_LOCAL_RETRAIN_TRAINING_DRAWINGS_COARSE_20260213.md`
