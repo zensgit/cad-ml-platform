@@ -163,7 +163,7 @@ def strip_dxf_entities_from_bytes(
 
     if strip_blocks:
         try:
-            for block in doc.blocks:  # type: ignore[attr-defined]
+            for block in doc.blocks:
                 _strip_layout(block)
         except Exception:  # noqa: BLE001
             pass

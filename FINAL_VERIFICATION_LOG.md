@@ -4058,3 +4058,9 @@
     - `.venv/bin/python scripts/batch_analyze_dxf_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --max-files 30 --geometry-only --output-dir /tmp/dxf_batch_eval_geometry_only_20260213` (completed)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_DXF_GEOMETRY_ONLY_GRAPH2D_BASELINE_20260213.md`
+- **CI Fix (mypy unused-ignore)**:
+  - Removed an unused `# type: ignore[...]` comment that caused `make type-check` to fail in GitHub Actions.
+  - Validation:
+    - `make type-check` (passed)
+    - `.venv/bin/python -m pytest tests/unit/test_dxf_io.py -q` (14 passed)
+  - Report: `reports/DEV_CI_MYPY_UNUSED_IGNORE_FIX_20260213.md`
