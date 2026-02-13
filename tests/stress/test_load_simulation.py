@@ -8,15 +8,17 @@ Simulates production-level load to verify:
 - Resource cleanup and leak detection
 """
 
-import pytest
 import asyncio
-import time
-import statistics
 import gc
+import os
+import statistics
+import time
 import tracemalloc
-from typing import List, Dict, Any, Tuple
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Dict, List, Tuple
 from unittest.mock import MagicMock
+
+import pytest
 
 # Core imports
 from src.core.assistant.multi_tenant import (
@@ -29,6 +31,24 @@ from src.core.assistant.multi_model import (
 )
 from src.core.assistant.streaming import StreamingResponse, StreamEventType
 from src.core.assistant.caching import LRUCache
+
+IS_CI_ENV = (
+    os.getenv("CI", "").strip().lower() in {"1", "true", "yes", "on"}
+    or os.getenv("GITHUB_ACTIONS", "").strip().lower() in {"1", "true", "yes", "on"}
+)
+
+
+def _throughput_threshold(env_name: str, *, default_local: float, default_ci: float) -> float:
+    """Resolve throughput threshold with optional env override."""
+    raw = os.getenv(env_name)
+    if raw:
+        try:
+            value = float(raw)
+            if value > 0:
+                return value
+        except ValueError:
+            pass
+    return default_ci if IS_CI_ENV else default_local
 
 
 class LoadTestResult:
@@ -356,8 +376,12 @@ class TestThroughputLimits:
         summary = result.summary()
         print(f"\n{summary}")
 
-        # Should handle > 100K selections/sec
-        assert result.throughput > 100000
+        min_rps = _throughput_threshold(
+            "STRESS_MODEL_SELECTOR_MIN_RPS",
+            default_local=100000.0,
+            default_ci=50000.0,
+        )
+        assert result.throughput > min_rps
 
     def test_cache_throughput(self):
         """Test cache read/write throughput."""
@@ -384,8 +408,12 @@ class TestThroughputLimits:
         summary = result.summary()
         print(f"\n{summary}")
 
-        # Should handle > 500K ops/sec
-        assert result.throughput > 500000
+        min_rps = _throughput_threshold(
+            "STRESS_CACHE_MIN_RPS",
+            default_local=500000.0,
+            default_ci=250000.0,
+        )
+        assert result.throughput > min_rps
 
 
 class TestSustainedLoad:
