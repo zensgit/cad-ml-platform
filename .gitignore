@@ -135,6 +135,7 @@ reports/*.csv
 !reports/DEV_ISO286_EI_DIFF_6_vs_7_20260203.csv
 reports/*.json
 reports/*.jsonl
+reports/security/*.json
 reports/junit-knowledge.xml
 reports/replay/
 reports/replay_extended/

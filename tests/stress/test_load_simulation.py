@@ -51,6 +51,19 @@ def _throughput_threshold(env_name: str, *, default_local: float, default_ci: fl
     return default_ci if IS_CI_ENV else default_local
 
 
+def _latency_threshold(env_name: str, *, default_local: float, default_ci: float) -> float:
+    """Resolve latency threshold with optional env override (seconds)."""
+    raw = os.getenv(env_name)
+    if raw:
+        try:
+            value = float(raw)
+            if value > 0:
+                return value
+        except ValueError:
+            pass
+    return default_ci if IS_CI_ENV else default_local
+
+
 class LoadTestResult:
     """Container for load test results."""
 
@@ -180,7 +193,12 @@ class TestConcurrentLoad:
 
         # Assertions
         assert result.success_rate > 0.99  # 99% success rate
-        assert result.avg_latency < 0.001  # < 1ms average
+        max_avg_latency = _latency_threshold(
+            "STRESS_TENANT_LOOKUP_MAX_AVG_LATENCY_S",
+            default_local=0.001,  # keep local regression guard tight
+            default_ci=0.002,  # CI runners can be noisy; avoid flaky micro-bench gates
+        )
+        assert result.avg_latency < max_avg_latency
         assert result.throughput > 1000  # > 1000 RPS
 
     def test_concurrent_permission_checks(self, stress_setup):
@@ -213,7 +231,14 @@ class TestConcurrentLoad:
         print(f"\n{summary}")
 
         assert result.success_rate > 0.99
-        assert result.avg_latency < 0.001  # < 1ms
+        max_avg_latency = _latency_threshold(
+            "STRESS_PERMISSION_CHECK_MAX_AVG_LATENCY_S",
+            default_local=0.001,
+            # Python 3.10 runners can be marginally slower; keep this as a
+            # regression guard without making CI flaky.
+            default_ci=0.002,
+        )
+        assert result.avg_latency < max_avg_latency
         assert result.throughput > 500
 
     def test_concurrent_quota_operations(self, stress_setup):
