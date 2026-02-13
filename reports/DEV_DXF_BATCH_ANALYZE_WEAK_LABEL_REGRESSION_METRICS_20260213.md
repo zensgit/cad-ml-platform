@@ -43,6 +43,12 @@ Executed:
 .venv/bin/python -m py_compile scripts/batch_analyze_dxf_local.py
 .venv/bin/python -m pytest tests/unit/test_freeze_graph2d_baseline.py tests/unit/test_graph2d_script_config.py -v
 make validate-core-fast
+.venv/bin/python scripts/batch_analyze_dxf_local.py \
+  --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" \
+  --max-files 5 \
+  --mask-filename \
+  --weak-label-min-confidence 0.8 \
+  --output-dir /tmp/dxf_batch_eval_smoke_20260213
 ```
 
 Results:
@@ -50,9 +56,10 @@ Results:
 - script compile check: OK
 - selected script/unit tests: `4 passed`
 - `make validate-core-fast`: passed
+- local smoke batch (`5` files, masked uploads): completed; `weak_labels.covered_rate=1.0`
+  - Note: In this environment `torch` is not installed, so `Graph2D` reports `status=model_unavailable`.
 
 ## Notes / Caveats
 
 - Weak labels are derived from naming conventions and synonym mappings and are not ground truth.
   Coverage and accuracy should be interpreted as regression signals, not final model quality.
-
