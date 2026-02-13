@@ -12,7 +12,9 @@ def _write_min_dxf(path: Path) -> None:
     doc.saveas(str(path))
 
 
-def test_manifest_dataset_strip_text_entities_removes_text_nodes(tmp_path: Path, monkeypatch) -> None:
+def test_manifest_dataset_strip_text_entities_removes_text_nodes(
+    tmp_path: Path, monkeypatch
+) -> None:
     dxf_path = tmp_path / "sample.dxf"
     _write_min_dxf(dxf_path)
 
@@ -44,7 +46,9 @@ def test_manifest_dataset_strip_text_entities_removes_text_nodes(tmp_path: Path,
     assert float(x2[:, is_text_idx].sum().item()) == 0.0
 
 
-def test_manifest_dataset_cache_key_includes_strip_flag(tmp_path: Path, monkeypatch) -> None:
+def test_manifest_dataset_cache_key_includes_strip_flag(
+    tmp_path: Path, monkeypatch
+) -> None:
     dxf_path = tmp_path / "sample.dxf"
     _write_min_dxf(dxf_path)
 

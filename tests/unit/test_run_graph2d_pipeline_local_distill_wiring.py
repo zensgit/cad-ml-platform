@@ -82,4 +82,3 @@ def test_pipeline_build_train_cmd_respects_mask_false() -> None:
 
     assert "--distill" in cmd
     assert "--distill-mask-filename" not in cmd
-

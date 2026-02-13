@@ -49,7 +49,9 @@ def _load_csv_rows(path: Path) -> Tuple[List[str], List[Dict[str, str]]]:
     return fieldnames, rows
 
 
-def _write_csv_rows(path: Path, fieldnames: List[str], rows: List[Dict[str, str]]) -> None:
+def _write_csv_rows(
+    path: Path, fieldnames: List[str], rows: List[Dict[str, str]]
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -90,7 +92,9 @@ def _filter_manifest_by_confidence(
         )
 
     _write_csv_rows(output_csv, fieldnames, kept)
-    distinct_labels = sorted({(row.get("label_cn") or "").strip() for row in kept if row})
+    distinct_labels = sorted(
+        {(row.get("label_cn") or "").strip() for row in kept if row}
+    )
     return {
         "rows_in": len(rows),
         "rows_out": len(kept),
@@ -183,7 +187,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run Graph2D pipeline (manifest -> train -> eval -> diagnose)."
     )
-    parser.add_argument("--dxf-dir", required=True, help="DXF directory to scan/train on.")
+    parser.add_argument(
+        "--dxf-dir", required=True, help="DXF directory to scan/train on."
+    )
     parser.add_argument(
         "--work-dir",
         default="",
@@ -232,7 +238,10 @@ def main() -> int:
     parser.add_argument(
         "--normalize-labels",
         action="store_true",
-        help="Normalize fine-grained labels into coarse buckets via scripts/normalize_dxf_label_manifest.py.",
+        help=(
+            "Normalize fine-grained labels into coarse buckets via "
+            "scripts/normalize_dxf_label_manifest.py."
+        ),
     )
     parser.add_argument(
         "--normalize-default-label",
@@ -243,7 +252,10 @@ def main() -> int:
         "--clean-min-count",
         type=int,
         default=0,
-        help="If >0, apply scripts/clean_dxf_label_manifest.py with this min-count to merge/drop low-frequency labels.",
+        help=(
+            "If >0, apply scripts/clean_dxf_label_manifest.py with this min-count "
+            "to merge/drop low-frequency labels."
+        ),
     )
     parser.add_argument(
         "--clean-drop-low",

@@ -105,7 +105,11 @@ def main() -> int:
         files = files[: int(args.max_files)]
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
-    out_dir = Path(args.output_dir) if str(args.output_dir).strip() else Path("/tmp") / f"titleblock_eval_{stamp}"
+    out_dir = (
+        Path(args.output_dir)
+        if str(args.output_dir).strip()
+        else Path("/tmp") / f"titleblock_eval_{stamp}"
+    )
     out_dir.mkdir(parents=True, exist_ok=True)
     # Keep local artifacts out of git by default.
     try:
@@ -113,7 +117,9 @@ def main() -> int:
     except Exception:
         pass
 
-    synonyms_path = str(args.synonyms_path).strip() or "data/knowledge/label_synonyms_template.json"
+    synonyms_path = (
+        str(args.synonyms_path).strip() or "data/knowledge/label_synonyms_template.json"
+    )
 
     from src.ml.filename_classifier import FilenameClassifier
     from src.ml.titleblock_extractor import TitleBlockClassifier
@@ -230,7 +236,9 @@ def main() -> int:
                 "titleblock_drawing_number": title_info.get("drawing_number"),
                 "titleblock_material": title_info.get("material"),
                 "titleblock_raw_texts_count": title_info.get("raw_texts_count"),
-                "titleblock_region_entities_count": title_info.get("region_entities_count"),
+                "titleblock_region_entities_count": title_info.get(
+                    "region_entities_count"
+                ),
                 "filename_status": fn_status,
                 "filename_label": fn_label or None,
                 "filename_confidence": round(fn_conf, 4),
@@ -250,7 +258,11 @@ def main() -> int:
     both_present = int(agree_counts.get("both_present", 0))
     agree = int(agree_counts.get("agree", 0))
     agree_rate = float(agree) / float(both_present) if both_present else 0.0
-    strict_agree_rate = float(strict_truth_agree) / float(strict_truth_total) if strict_truth_total else 0.0
+    strict_agree_rate = (
+        float(strict_truth_agree) / float(strict_truth_total)
+        if strict_truth_total
+        else 0.0
+    )
 
     summary: Dict[str, Any] = {
         "status": "ok",
@@ -283,7 +295,9 @@ def main() -> int:
             "summary_json": str(summary_json),
         },
     }
-    summary_json.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    summary_json.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     print(json.dumps(summary.get("agreement", {}), ensure_ascii=False))
     print(f"wrote={out_dir}")
@@ -292,4 +306,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

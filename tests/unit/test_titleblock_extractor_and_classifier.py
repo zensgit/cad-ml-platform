@@ -52,4 +52,3 @@ def test_titleblock_extractor_reads_insert_virtual_entities() -> None:
     info = extractor.extract_from_entities(entities)
 
     assert info.part_name == "人孔"
-

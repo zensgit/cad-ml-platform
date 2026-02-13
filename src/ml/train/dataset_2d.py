@@ -105,7 +105,7 @@ class DXFDataset(Dataset):
         item = self.samples[idx]
         file_name = item["file"]
         file_path = os.path.join(self.root_dir, file_name)
-        
+
         # Target: For this simple task, let's predict the number of holes (features count)
         # or classify if it has a specific feature.
         # Let's try: Count of Holes (Regression) or Has Slot (Classification)
@@ -117,7 +117,7 @@ class DXFDataset(Dataset):
         try:
             doc = ezdxf.readfile(file_path)
             msp = doc.modelspace()
-            
+
             # Build Graph
             if self.return_edge_attr:
                 x, edge_index, edge_attr = self._dxf_to_graph(
@@ -150,7 +150,10 @@ class DXFDataset(Dataset):
 
     def _dxf_to_graph(
         self, msp, node_dim: Optional[int] = None, return_edge_attr: bool = False
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    ) -> Union[
+        Tuple[torch.Tensor, torch.Tensor],
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+    ]:
         """Convert DXF entities to Node Features and Adjacency."""
         node_dim = node_dim or DXF_NODE_DIM
         legacy_mode = node_dim <= len(DXF_NODE_FEATURES_LEGACY)
@@ -176,7 +179,9 @@ class DXFDataset(Dataset):
                 sampled = sampler.sample(valid_entities)
                 valid_entities = sampled.sampled_entities
             except Exception as exc:
-                logger.warning("Importance sampling failed, using raw entities: %s", exc)
+                logger.warning(
+                    "Importance sampling failed, using raw entities: %s", exc
+                )
 
         if not valid_entities:
             empty_x = torch.zeros(0, node_dim)
@@ -279,7 +284,9 @@ class DXFDataset(Dataset):
                     if not raw_text:
                         raw_text = str(getattr(e, "text", "") or "")
                 text_len = float(len(raw_text.strip()))
-                insert = getattr(e.dxf, "insert", None) or getattr(e.dxf, "location", None)
+                insert = getattr(e.dxf, "insert", None) or getattr(
+                    e.dxf, "location", None
+                )
                 if insert is not None:
                     center_x = float(insert.x)
                     center_y = float(insert.y)
@@ -455,6 +462,7 @@ class DXFDataset(Dataset):
             return x, empty_edge
 
         eps = max(1e-3, max_dim * 1e-3)
+
         def _edge_feature(i: int, j: int) -> List[float]:
             meta_i = node_meta[i]
             meta_j = node_meta[j]
@@ -493,7 +501,9 @@ class DXFDataset(Dataset):
                         edge_features.append(_edge_feature(j, i))
 
         if not edges:
-            fallback = os.getenv("DXF_EMPTY_EDGE_FALLBACK", "fully_connected").strip().lower()
+            fallback = (
+                os.getenv("DXF_EMPTY_EDGE_FALLBACK", "fully_connected").strip().lower()
+            )
             if fallback in {"knn", "k_nn", "nearest"}:
                 k_raw = os.getenv("DXF_EMPTY_EDGE_K", "8").strip()
                 try:
@@ -585,7 +595,12 @@ class DXFManifestDataset(Dataset):
             "memory+disk",
             "disk+memory",
         }
-        self._cache_disk_enabled = cache_mode in {"disk", "both", "memory+disk", "disk+memory"}
+        self._cache_disk_enabled = cache_mode in {
+            "disk",
+            "both",
+            "memory+disk",
+            "disk+memory",
+        }
         self._cache_max_items = int(
             os.getenv("DXF_MANIFEST_DATASET_CACHE_MAX_ITEMS", "0").strip() or 0
         )
@@ -605,7 +620,11 @@ class DXFManifestDataset(Dataset):
             try:
                 self._disk_cache_dir.mkdir(parents=True, exist_ok=True)
             except Exception as exc:
-                logger.warning("Failed to init disk graph cache dir %s: %s", self._disk_cache_dir, exc)
+                logger.warning(
+                    "Failed to init disk graph cache dir %s: %s",
+                    self._disk_cache_dir,
+                    exc,
+                )
                 self._disk_cache_dir = None
                 self._cache_disk_enabled = False
 
@@ -657,7 +676,9 @@ class DXFManifestDataset(Dataset):
             digest = hashlib.md5(raw.encode("utf-8")).hexdigest()
         return digest[:16]
 
-    def _cache_get(self, cache_key: str) -> Optional[Tuple[Dict[str, Any], torch.Tensor]]:
+    def _cache_get(
+        self, cache_key: str
+    ) -> Optional[Tuple[Dict[str, Any], torch.Tensor]]:
         if not self._cache_memory_enabled:
             return None
         value = self._graph_cache.get(cache_key)
@@ -670,10 +691,15 @@ class DXFManifestDataset(Dataset):
         self._cache_order.append(cache_key)
         return value
 
-    def _cache_put(self, cache_key: str, graph: Dict[str, Any], label: torch.Tensor) -> None:
+    def _cache_put(
+        self, cache_key: str, graph: Dict[str, Any], label: torch.Tensor
+    ) -> None:
         if not self._cache_memory_enabled:
             return
-        while self._cache_max_items > 0 and len(self._cache_order) >= self._cache_max_items:
+        while (
+            self._cache_max_items > 0
+            and len(self._cache_order) >= self._cache_max_items
+        ):
             old_key = self._cache_order.pop(0)
             self._graph_cache.pop(old_key, None)
         self._graph_cache[cache_key] = (graph, label)
@@ -711,7 +737,9 @@ class DXFManifestDataset(Dataset):
             self._cache_put(cache_key, graph, label)
         return graph, label
 
-    def _disk_cache_put(self, cache_key: str, graph: Dict[str, Any], label: torch.Tensor) -> None:
+    def _disk_cache_put(
+        self, cache_key: str, graph: Dict[str, Any], label: torch.Tensor
+    ) -> None:
         cache_path = self._disk_cache_path(cache_key)
         if cache_path is None:
             return
@@ -759,7 +787,9 @@ class DXFManifestDataset(Dataset):
         candidates: List[Path] = []
 
         rel_candidate = Path(rel_path)
-        candidates.append(rel_candidate if rel_candidate.is_absolute() else base_dir / rel_path)
+        candidates.append(
+            rel_candidate if rel_candidate.is_absolute() else base_dir / rel_path
+        )
 
         # Backward compatible fallbacks for older manifests.
         if file_name and file_name != rel_path:
@@ -783,10 +813,9 @@ class DXFManifestDataset(Dataset):
                 return cached
 
         try:
-            strip_text = (
-                os.getenv("DXF_STRIP_TEXT_ENTITIES", "false").strip().lower()
-                in {"1", "true", "yes", "on"}
-            )
+            strip_text = os.getenv(
+                "DXF_STRIP_TEXT_ENTITIES", "false"
+            ).strip().lower() in {"1", "true", "yes", "on"}
             if strip_text:
                 from src.utils.dxf_io import (
                     read_dxf_document_from_bytes,
@@ -848,7 +877,10 @@ class DXFManifestDataset(Dataset):
 
     def _dxf_to_graph(
         self, msp, node_dim: Optional[int] = None, return_edge_attr: bool = False
-    ) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    ) -> Union[
+        Tuple[torch.Tensor, torch.Tensor],
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+    ]:
         # Reuse graph builder from DXFDataset
         return DXFDataset._dxf_to_graph(
             self, msp, node_dim=node_dim, return_edge_attr=return_edge_attr
