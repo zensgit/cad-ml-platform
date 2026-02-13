@@ -4180,3 +4180,9 @@
     - `.venv/bin/python -m pytest tests/unit/test_label_normalization.py tests/unit/test_knowledge_distillation_teacher.py -v` (passed)
     - `.venv/bin/flake8 src/ml/label_normalization.py src/ml/knowledge_distillation.py scripts/normalize_dxf_label_manifest.py tests/unit/test_knowledge_distillation_teacher.py tests/unit/test_label_normalization.py` (passed)
   - Report: `reports/DEV_GRAPH2D_DISTILLATION_TEACHER_LABEL_BUCKET_MAPPING_20260214.md`
+- **Graph2D Diagnose Mode (No DXF Text + Masked Filename)**:
+  - Extended the Graph2D diagnostic script with an evaluation mode that strips DXF text/annotation entities before inference and masks the filename input to simulate strict production conditions.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_diagnose_graph2d_no_text_no_filename_flags.py -v` (passed)
+    - `.venv/bin/python scripts/diagnose_graph2d_on_dxf_dir.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --model-path "models/graph2d_training_dxf_oda_titleblock_distill_20260210.pth" --manifest-csv /tmp/dxf_manifest_diag_20260214.csv --true-label-min-confidence 0.8 --max-files 20 --seed 42 --strip-text-entities --mask-filename` (completed; artifacts in `/tmp`)
+  - Report: `reports/DEV_GRAPH2D_DIAGNOSE_NO_TEXT_NO_FILENAME_20260214.md`

@@ -20,7 +20,7 @@ import sys
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -73,8 +73,13 @@ def _write_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
     if not rows:
         path.write_text("", encoding="utf-8")
         return
+    fieldnames = list(rows[0].keys())
+    for row in rows[1:]:
+        for key in row.keys():
+            if key not in fieldnames:
+                fieldnames.append(key)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0].keys()))
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
@@ -83,7 +88,7 @@ def _summarize_counts(counter: Counter[str], topn: int = 20) -> List[Tuple[str, 
     return [(k, int(v)) for k, v in counter.most_common(topn)]
 
 
-def main() -> int:
+def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Diagnose Graph2D classifier on a DXF directory."
     )
@@ -138,7 +143,23 @@ def main() -> int:
         action="store_true",
         help="Include absolute input directory path in summary output (default: false).",
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--strip-text-entities",
+        action="store_true",
+        help=(
+            "Strip DXF text/annotation entities before inference (simulate geometry-only). "
+            "This uses a bytes round-trip and is slower."
+        ),
+    )
+    parser.add_argument(
+        "--mask-filename",
+        action="store_true",
+        help=(
+            "Pass a fixed filename ('masked.dxf') into inference (simulate missing filename "
+            "signal for any downstream consumers)."
+        ),
+    )
+    args = parser.parse_args(argv)
 
     dxf_dir = Path(args.dxf_dir)
     if not dxf_dir.exists():
@@ -241,7 +262,38 @@ def main() -> int:
             status_counts["read_error"] += 1
             continue
 
-        result = clf.predict_from_bytes(data, p.name)
+        model_file_name = "masked.dxf" if bool(args.mask_filename) else p.name
+        infer_bytes = data
+        if bool(args.strip_text_entities):
+            try:
+                from src.utils.dxf_io import strip_dxf_text_entities_from_bytes
+
+                infer_bytes = strip_dxf_text_entities_from_bytes(
+                    data, strip_blocks=True
+                )
+            except Exception as exc:
+                rows.append(
+                    {
+                        "file": p.name,
+                        "relative_path": "",
+                        "model_file_name": model_file_name,
+                        "true_label": "",
+                        "true_label_raw": "",
+                        "true_label_confidence": "0.0000",
+                        "true_label_source": "",
+                        "pred_label": "",
+                        "pred_label_canon": "",
+                        "pred_confidence": "0.0000",
+                        "status": "strip_error",
+                        "error": str(exc),
+                        "temperature": "1.0000",
+                        "temperature_source": "",
+                    }
+                )
+                status_counts["strip_error"] += 1
+                continue
+
+        result = clf.predict_from_bytes(infer_bytes, model_file_name)
         status = str(result.get("status") or "")
         status_counts[status] += 1
 
@@ -265,14 +317,18 @@ def main() -> int:
             true_label_raw = p.parent.name
             true_label_source = "parent_dir"
             true_label_conf = 1.0
-        elif manifest_csv is not None and (manifest_labels_by_relpath or manifest_labels_by_name):
-            row = manifest_labels_by_relpath.get(relative_path) or manifest_labels_by_name.get(p.name)
+        elif manifest_csv is not None and (
+            manifest_labels_by_relpath or manifest_labels_by_name
+        ):
+            row = manifest_labels_by_relpath.get(
+                relative_path
+            ) or manifest_labels_by_name.get(p.name)
             if row:
                 true_label_raw = str(row.get("label_cn") or "").strip()
                 true_label_source = "manifest"
                 true_label_conf = _safe_float(row.get("label_confidence"), 1.0) or 1.0
         elif bool(args.labels_from_filename) and filename_classifier is not None:
-            payload = filename_classifier.predict(p.name)
+            payload = filename_classifier.predict(model_file_name)
             true_label_raw = str(payload.get("label") or "").strip()
             true_label_source = "filename"
             true_label_conf = _safe_float(payload.get("confidence"), 0.0)
@@ -300,6 +356,7 @@ def main() -> int:
             {
                 "file": p.name,
                 "relative_path": relative_path,
+                "model_file_name": model_file_name,
                 "true_label": true_label,
                 "true_label_raw": true_label_raw,
                 "true_label_confidence": f"{true_label_conf:.4f}",
@@ -335,11 +392,19 @@ def main() -> int:
             {"true_label": t, "pred_label": pred, "count": int(count)}
         )
 
-    truth_enabled = bool(args.labels_from_parent_dir) or bool(args.labels_from_filename) or bool(manifest_csv)
+    truth_enabled = (
+        bool(args.labels_from_parent_dir)
+        or bool(args.labels_from_filename)
+        or bool(manifest_csv)
+    )
 
     summary: Dict[str, Any] = {
         "dxf_dir": (str(dxf_dir) if args.include_abs_paths else str(dxf_dir.name)),
         "model_path": str(args.model_path),
+        "eval_options": {
+            "strip_text_entities": bool(args.strip_text_entities),
+            "mask_filename": bool(args.mask_filename),
+        },
         "sampled_files": len(files),
         "elapsed_seconds": round(elapsed_s, 3),
         "status_counts": dict(status_counts),
@@ -372,20 +437,25 @@ def main() -> int:
             else None
         ),
         "accuracy": acc if truth_enabled else None,
-        "top_confusions": top_confusions if (truth_enabled and acc is not None) else None,
-        "per_class_accuracy": {
-            label: {
-                "total": int(true_counts.get(label, 0)),
-                "correct": int(correct_counts.get(label, 0)),
-                "accuracy": round(
-                    float(correct_counts.get(label, 0)) / float(true_counts.get(label, 1)),
-                    4,
-                ),
+        "top_confusions": (
+            top_confusions if (truth_enabled and acc is not None) else None
+        ),
+        "per_class_accuracy": (
+            {
+                label: {
+                    "total": int(true_counts.get(label, 0)),
+                    "correct": int(correct_counts.get(label, 0)),
+                    "accuracy": round(
+                        float(correct_counts.get(label, 0))
+                        / float(true_counts.get(label, 1)),
+                        4,
+                    ),
+                }
+                for label in sorted(true_counts.keys())
             }
-            for label in sorted(true_counts.keys())
-        }
-        if (truth_enabled and acc is not None)
-        else None,
+            if (truth_enabled and acc is not None)
+            else None
+        ),
     }
 
     _write_csv(out_dir / "predictions.csv", rows)
