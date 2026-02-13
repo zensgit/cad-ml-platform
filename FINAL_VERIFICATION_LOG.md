@@ -4128,3 +4128,8 @@
     - `.venv/bin/python -m flake8 scripts/train_2d_graph.py scripts/eval_2d_graph.py src/ml/train/model_2d.py tests/unit/test_graph2d_batched_pooling.py --max-line-length=100` (passed)
     - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --epochs 1 --max-samples 40 --diagnose-max-files 20 --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8` (completed)
   - Report: `reports/DEV_GRAPH2D_BATCHED_TRAINING_AND_EVAL_20260213.md`
+- **Graph2D Local Retrain (Coarse Buckets, Batched Loop)**:
+  - Re-ran the local coarse-bucket pipeline after enabling batched training/evaluation to establish a new runtime baseline and inspect the updated confusion patterns.
+  - Validation:
+    - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --epochs 15 --diagnose-max-files 80 --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8` (completed; artifacts in `/tmp`)
+  - Report: `reports/DEV_GRAPH2D_LOCAL_RETRAIN_COARSE_BATCHED_20260213.md`
