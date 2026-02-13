@@ -4148,3 +4148,10 @@
     - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss focal --class-weighting inverse --sampler balanced --epochs 15 --diagnose-max-files 80 --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8` (completed; artifacts in `/tmp`)
     - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss logit_adjusted --class-weighting none --sampler balanced --epochs 15 --diagnose-max-files 80 --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8` (completed; artifacts in `/tmp`)
   - Report: `reports/DEV_GRAPH2D_COARSE_LOSS_STRATEGY_COMPARISON_20260213.md`
+- **DXF TitleBlock Coverage Evaluation (Offline, Weak-Label Agreement)**:
+  - Added an offline evaluator to measure titleblock extraction/classification coverage on real DXF drawings and compute weak agreement rates vs filename labels.
+  - Validation:
+    - `.venv/bin/python -m py_compile scripts/eval_titleblock_on_dxf_dir.py src/ml/titleblock_extractor.py` (passed)
+    - `.venv/bin/pytest tests/unit/test_titleblock_extractor_and_classifier.py -q` (passed)
+    - `/usr/bin/time -p .venv/bin/python scripts/eval_titleblock_on_dxf_dir.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --recursive --max-files 200` (completed; artifacts in `/tmp`)
+  - Report: `reports/DEV_DXF_TITLEBLOCK_COVERAGE_EVAL_20260214.md`
