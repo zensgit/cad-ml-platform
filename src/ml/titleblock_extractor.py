@@ -306,6 +306,49 @@ class TitleBlockExtractor:
                             float(insert.y),
                             getattr(attrib.dxf, "tag", "") or "",
                         )
+                    # Many drawings store title-block texts inside INSERT blocks
+                    # (static TEXT/MTEXT/DIMENSION) instead of ATTRIB values.
+                    # Use ezdxf's virtual_entities() to inspect transformed block
+                    # content in world coordinates (best-effort).
+                    try:
+                        virtual = getattr(e, "virtual_entities", None)
+                        if callable(virtual):
+                            for ve in virtual():
+                                try:
+                                    vtype = ve.dxftype()
+                                except Exception:
+                                    continue
+                                if vtype not in {"TEXT", "MTEXT", "DIMENSION", "ATTRIB"}:
+                                    continue
+                                v_insert = (
+                                    getattr(ve.dxf, "insert", None)
+                                    or getattr(ve.dxf, "location", None)
+                                )
+                                if v_insert is None:
+                                    continue
+                                vx, vy = float(v_insert.x), float(v_insert.y)
+                                if vtype == "TEXT":
+                                    text = str(getattr(ve.dxf, "text", "") or "")
+                                elif vtype == "MTEXT":
+                                    text = str(
+                                        getattr(ve, "plain_text", lambda: "")() or ""
+                                    )
+                                    if not text:
+                                        text = str(getattr(ve, "text", "") or "")
+                                elif vtype == "DIMENSION":
+                                    text = str(getattr(ve.dxf, "text", "") or "")
+                                elif vtype == "ATTRIB":
+                                    text = str(getattr(ve.dxf, "text", "") or "")
+                                else:
+                                    text = ""
+                                tag = (
+                                    str(getattr(ve.dxf, "tag", "") or "")
+                                    if vtype == "ATTRIB"
+                                    else ""
+                                )
+                                _record_text(text, vx, vy, tag)
+                    except Exception as exc:
+                        logger.debug("Error extracting insert virtual entities: %s", exc)
                     continue
 
                 if dtype not in {"TEXT", "MTEXT", "DIMENSION", "ATTRIB"}:

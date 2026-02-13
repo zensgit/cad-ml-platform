@@ -4005,3 +4005,11 @@
     - `.venv/bin/python -m pytest tests/unit/test_registry_coverage.py tests/unit/test_readiness_coverage.py tests/unit/test_provider_framework.py -v` (69 passed)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_PROVIDER_REGISTRY_RUNTIME_NORMALIZATION_20260213.md`
+- **TitleBlock INSERT Virtual Entities Support (DXF)**:
+  - Enhanced `TitleBlockExtractor` to extract static block TEXT/MTEXT/DIMENSION content inside `INSERT` blocks via ezdxf `virtual_entities()`.
+  - Added unit regression coverage for block-insert titleblock texts.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_titleblock_extractor.py -v` (5 passed)
+    - `.venv/bin/python -m pytest tests/unit/test_golden_dxf_hybrid_manifest.py -v` (passed)
+    - `make validate-core-fast` (passed)
+  - Report: `reports/DEV_TITLEBLOCK_INSERT_VIRTUAL_ENTITIES_SUPPORT_20260213.md`

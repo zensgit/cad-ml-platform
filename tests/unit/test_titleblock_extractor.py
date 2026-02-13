@@ -59,6 +59,24 @@ def _build_doc_with_part_name_attrib(part_name: str):
     return msp
 
 
+def _build_doc_with_block_text():
+    ezdxf = pytest.importorskip("ezdxf")
+    doc = ezdxf.new()
+    msp = doc.modelspace()
+
+    # establish bbox
+    msp.add_line((0, 0), (100, 0))
+    msp.add_line((0, 0), (0, 100))
+
+    block = doc.blocks.new(name="TITLEBLOCK_TEXT")
+    block.add_text("名称: 人孔", dxfattribs={"height": 2, "insert": (0, 0)})
+    block.add_text("材料: 304", dxfattribs={"height": 2, "insert": (0, -4)})
+
+    # Insert block in bottom-right quadrant (title block region).
+    msp.add_blockref("TITLEBLOCK_TEXT", (80, 10))
+    return msp
+
+
 def test_titleblock_extraction() -> None:
     from src.ml.titleblock_extractor import TitleBlockExtractor
 
@@ -92,6 +110,17 @@ def test_titleblock_extraction_from_attribs() -> None:
 
     assert info.part_name == "保护罩组件"
     assert info.drawing_number == "BTJ02230301120-03"
+    assert info.material == "304"
+
+
+def test_titleblock_extraction_from_block_text() -> None:
+    from src.ml.titleblock_extractor import TitleBlockExtractor
+
+    msp = _build_doc_with_block_text()
+    extractor = TitleBlockExtractor(region_x_ratio=0.6, region_y_ratio=0.4)
+    info = extractor.extract_from_msp(msp)
+
+    assert info.part_name == "人孔"
     assert info.material == "304"
 
 
