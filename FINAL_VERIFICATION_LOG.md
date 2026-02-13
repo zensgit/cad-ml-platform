@@ -4106,3 +4106,8 @@
     - `.venv/bin/python -m py_compile src/ml/train/dataset_2d.py scripts/run_graph2d_pipeline_local.py` (passed)
     - `.venv/bin/python -m pytest tests/unit/test_dxf_graph_knn_empty_edge_fallback.py tests/unit/test_dxf_manifest_dataset_graph_cache.py -q` (passed)
   - Report: `reports/DEV_GRAPH2D_DXF_GRAPH_CACHE_AND_KNN_EMPTY_EDGE_FALLBACK_20260213.md`
+- **Graph2D Local Retrain (Coarse Buckets, kNN Fallback + Cache)**:
+  - Ran a local end-to-end retrain with `--empty-edge-fallback knn` and `--graph-cache memory` to validate the new knobs in a real loop.
+  - Validation:
+    - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 2 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --epochs 15 --diagnose-max-files 80 --empty-edge-fallback knn --empty-edge-knn-k 8` (completed; artifacts in `/tmp`)
+  - Report: `reports/DEV_GRAPH2D_LOCAL_RETRAIN_COARSE_KNN_CACHE_20260213.md`
