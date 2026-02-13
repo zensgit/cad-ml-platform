@@ -13,14 +13,34 @@ These fields represent the primary, stable decision path (rules/Fusion). They ar
 
 ## Fine Label (Additive)
 
-When HybridClassifier is enabled, it can emit a fine-grained label without overriding `part_type`:
+When HybridClassifier is enabled, `/api/v1/analyze/` can emit a fine-grained label:
 
 - `fine_part_type`
 - `fine_confidence`
 - `fine_source`
 - `fine_rule_version`
 
-These fields are intended for UI/analysis, not as a hard override of `part_type`.
+By default these fields are **additive** (useful for UI/analysis), while `part_type` remains the
+stable rules/Fusion decision.
+
+### Hybrid Override (Optional)
+
+In some deployments we allow HybridClassifier to **override** the primary label when it is clearly
+better than the base decision (for example: DXF where the base rules produce placeholder buckets,
+but the filename/titleblock yields a high-confidence part name).
+
+When override is applied:
+
+- `part_type` / `confidence` / `rule_version` are replaced with the Hybrid label
+- `confidence_source` becomes `hybrid`
+- `hybrid_override_applied` is included with the previous base fields
+
+Override-related environment flags:
+
+- `HYBRID_CLASSIFIER_AUTO_OVERRIDE` (default `true`)
+- `HYBRID_CLASSIFIER_OVERRIDE` (default `false`, force override mode)
+- `HYBRID_OVERRIDE_MIN_CONF` (default `0.8`)
+- `HYBRID_OVERRIDE_BASE_MAX_CONF` (default `0.7`)
 
 ## Shadow Part Family (Provider, Additive)
 
@@ -72,4 +92,3 @@ Prometheus metrics emitted by the shadow integration:
 - `analysis_part_classifier_requests_total{status,provider}`
 - `analysis_part_classifier_seconds{provider}`
 - `analysis_part_classifier_skipped_total{reason}`
-

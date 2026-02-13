@@ -194,6 +194,7 @@ def main() -> None:
                 "batch_results_sanitized.csv",
                 "batch_low_confidence.csv",
                 "batch_low_confidence_sanitized.csv",
+                "fine_label_distribution.csv",
                 "",
             ]
         ),
@@ -213,6 +214,8 @@ def main() -> None:
     label_counts = Counter()
     label_conf = defaultdict(list)
     conf_buckets = Counter()
+    fine_label_counts = Counter()
+    fine_label_conf = defaultdict(list)
 
     weak_true_status_counts: Counter[str] = Counter()
     weak_true_match_type_counts: Counter[str] = Counter()
@@ -221,6 +224,7 @@ def main() -> None:
 
     accuracy_counters: Dict[str, Counter[str]] = {
         "final_part_type": Counter(),
+        "fine_part_type": Counter(),
         "hybrid_label": Counter(),
         "graph2d_label": Counter(),
         "titleblock_label": Counter(),
@@ -297,6 +301,10 @@ def main() -> None:
         soft_override = classification.get("soft_override_suggestion", {}) or {}
         part_type = classification.get("part_type")
         confidence = float(classification.get("confidence") or 0.0)
+        fine_part_type = classification.get("fine_part_type")
+        fine_confidence = float(classification.get("fine_confidence") or 0.0)
+        fine_source = classification.get("fine_source")
+        fine_rule_version = classification.get("fine_rule_version")
 
         # Weak-label scoring (best-effort).
         if weak_true_accepted and weak_label_matcher:
@@ -310,6 +318,14 @@ def main() -> None:
                     confusion_final[(true_label, pred_final)] += 1
             else:
                 accuracy_counters["final_part_type"]["missing_pred"] += 1
+
+            pred_fine = _canonicalize_label(fine_part_type, weak_label_matcher)
+            if pred_fine:
+                accuracy_counters["fine_part_type"]["evaluated"] += 1
+                if pred_fine == true_label:
+                    accuracy_counters["fine_part_type"]["correct"] += 1
+            else:
+                accuracy_counters["fine_part_type"]["missing_pred"] += 1
 
             hybrid_label = (hybrid_decision.get("label") or "").strip()
             pred_hybrid = _canonicalize_label(hybrid_label, weak_label_matcher)
@@ -349,6 +365,8 @@ def main() -> None:
 
         label_counts[part_type] += 1
         label_conf[part_type].append(confidence)
+        fine_label_counts[fine_part_type] += 1
+        fine_label_conf[fine_part_type].append(fine_confidence)
         if confidence < 0.4:
             conf_buckets["lt_0_4"] += 1
         elif confidence < 0.6:
@@ -366,6 +384,10 @@ def main() -> None:
             "confidence": f"{confidence:.3f}",
             "confidence_source": classification.get("confidence_source"),
             "rule_version": classification.get("rule_version"),
+            "fine_part_type": fine_part_type,
+            "fine_confidence": f"{fine_confidence:.3f}",
+            "fine_source": fine_source,
+            "fine_rule_version": fine_rule_version,
             "weak_true_label": _canonicalize_label(weak_true_label, weak_label_matcher) if weak_true_accepted else "",
             "weak_true_confidence": f"{weak_true_conf:.3f}",
             "weak_true_status": weak_true_status,
@@ -470,6 +492,24 @@ def main() -> None:
                 "avg_confidence": f"{avg_conf:.3f}",
             })
 
+    fine_label_dist_path = out_dir / "fine_label_distribution.csv"
+    with fine_label_dist_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["label", "count", "share", "avg_confidence"],
+        )
+        writer.writeheader()
+        for label, count in fine_label_counts.most_common():
+            avg_conf = sum(fine_label_conf[label]) / max(1, len(fine_label_conf[label]))
+            writer.writerow(
+                {
+                    "label": label,
+                    "count": count,
+                    "share": f"{count / max(1, stats['success']):.3f}",
+                    "avg_confidence": f"{avg_conf:.3f}",
+                }
+            )
+
     titleblock_status_counts: Counter[str] = Counter()
     titleblock_conf_all: List[float] = []
     titleblock_conf_nonzero: List[float] = []
@@ -488,6 +528,11 @@ def main() -> None:
     hybrid_label_present = 0
     hybrid_conf_all: List[float] = []
     hybrid_conf_nonzero: List[float] = []
+
+    fine_source_counts: Counter[str] = Counter()
+    fine_label_present = 0
+    fine_conf_all: List[float] = []
+    fine_conf_nonzero: List[float] = []
 
     graph2d_status_counts: Counter[str] = Counter()
     graph2d_label_present = 0
@@ -563,6 +608,20 @@ def main() -> None:
         if hconf > 0:
             hybrid_conf_nonzero.append(hconf)
 
+        # --- Fine label (API additive field; typically HybridClassifier output) ---
+        fine_source = (row.get("fine_source") or "").strip() or "unknown"
+        fine_source_counts[fine_source] += 1
+        fine_label = (row.get("fine_part_type") or "").strip()
+        if fine_label:
+            fine_label_present += 1
+        try:
+            fine_conf = float(row.get("fine_confidence") or 0.0)
+        except (TypeError, ValueError):
+            fine_conf = 0.0
+        fine_conf_all.append(fine_conf)
+        if fine_conf > 0:
+            fine_conf_nonzero.append(fine_conf)
+
         # --- Graph2D prediction ---
         g_status = (row.get("graph2d_status") or "").strip() or "unknown"
         graph2d_status_counts[g_status] += 1
@@ -630,6 +689,7 @@ def main() -> None:
         "error": stats["error"],
         "confidence_buckets": dict(conf_buckets),
         "label_counts": dict(label_counts),
+        "fine_label_counts": dict(fine_label_counts),
         "low_confidence_count": len(low_conf),
         "soft_override_candidates": stats.get("soft_override_candidates", 0),
         "sample_size": len(files),
@@ -685,6 +745,17 @@ def main() -> None:
                 "median_nonzero": round(_median(hybrid_conf_nonzero), 6),
             },
         },
+        "fine": {
+            "label_present_count": fine_label_present,
+            "label_present_rate": (fine_label_present / max(1, len(ok_rows))),
+            "source_counts": dict(fine_source_counts),
+            "confidence": {
+                "mean_all": round(_mean(fine_conf_all), 6),
+                "median_all": round(_median(fine_conf_all), 6),
+                "mean_nonzero": round(_mean(fine_conf_nonzero), 6),
+                "median_nonzero": round(_median(fine_conf_nonzero), 6),
+            },
+        },
         "graph2d": {
             "label_present_count": graph2d_label_present,
             "label_present_rate": (graph2d_label_present / max(1, len(ok_rows))),
@@ -738,6 +809,7 @@ def main() -> None:
     print(f"low_conf_sanitized: {low_conf_sanitized_path if low_conf else 'none'}")
     print(f"summary: {summary_path}")
     print(f"label_dist: {label_dist_path}")
+    print(f"fine_label_dist: {fine_label_dist_path}")
 
 
 if __name__ == "__main__":

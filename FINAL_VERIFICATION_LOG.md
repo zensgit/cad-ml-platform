@@ -4029,3 +4029,11 @@
     - `.venv/bin/python -m pytest tests/unit/test_freeze_graph2d_baseline.py tests/unit/test_graph2d_script_config.py -v` (4 passed)
     - `make validate-core-fast` (passed)
   - Report: `reports/DEV_DXF_BATCH_ANALYZE_WEAK_LABEL_REGRESSION_METRICS_20260213.md`
+- **DXF Batch Analyze Fine Label Metrics (Local)**:
+  - Extended `scripts/batch_analyze_dxf_local.py` to capture and summarize the DXF fine label fields (`fine_part_type`, `fine_confidence`, `fine_source`, `fine_rule_version`).
+  - Added weak-label accuracy scoring for `fine_part_type` and a dedicated `fine_label_distribution.csv` output for regression analysis.
+  - Validation:
+    - `.venv/bin/python -m py_compile scripts/batch_analyze_dxf_local.py` (passed)
+    - `make validate-core-fast` (passed)
+    - `.venv/bin/python scripts/batch_analyze_dxf_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --max-files 30 --output-dir /tmp/dxf_batch_eval_unmasked_20260213_v3` (completed)
+  - Report: `reports/DEV_DXF_BATCH_ANALYZE_FINE_LABEL_METRICS_20260213.md`
