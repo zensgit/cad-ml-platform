@@ -4197,3 +4197,14 @@
   - Validation:
     - `scripts/run_graph2d_pipeline_local.py --diagnose-no-text-no-filename` (completed for 4 runs; artifacts in `/tmp`)
   - Report: `reports/DEV_GRAPH2D_STRICT_REGRESSION_EXPERIMENT_20260214.md`
+- **DXFManifestDataset Cache: Do Not Cache Labels**:
+  - Fixed a bug where `DXFManifestDataset` cached label tensors in memory/disk; when reusing a shared disk cache across different manifests (fine labels vs coarse buckets), training could crash with out-of-bounds targets.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_dxf_manifest_dataset_disk_cache.py tests/unit/test_dxf_manifest_dataset_graph_cache.py tests/unit/test_dxf_manifest_dataset_disk_cache_label_is_not_cached.py -v` (passed)
+  - Report: `reports/DEV_DXF_MANIFEST_DATASET_CACHE_LABEL_LEAK_FIX_20260214.md`
+- **Graph2D Coarse Buckets + Strict Diagnose (Distill Experiment)**:
+  - Ran coarse-bucket (11-class) strict-mode experiments with geometry-only graphs and compared no-distill vs titleblock distillation.
+  - Validation:
+    - `env DXF_STRIP_TEXT_ENTITIES=true .venv/bin/python scripts/run_graph2d_pipeline_local.py --normalize-labels --clean-min-count 2 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp`)
+    - `env DXF_STRIP_TEXT_ENTITIES=true .venv/bin/python scripts/run_graph2d_pipeline_local.py --normalize-labels --clean-min-count 2 --distill --teacher titleblock --distill-alpha 0.7 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp`)
+  - Report: `reports/DEV_GRAPH2D_COARSE_BUCKET_STRICT_DISTILL_EXPERIMENT_20260214.md`
