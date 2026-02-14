@@ -291,6 +291,7 @@ def main() -> int:
         "DXF_TEXT_PRIORITY_RATIO": os.getenv("DXF_TEXT_PRIORITY_RATIO", ""),
         "DXF_FRAME_PRIORITY_RATIO": os.getenv("DXF_FRAME_PRIORITY_RATIO", ""),
         "DXF_LONG_LINE_RATIO": os.getenv("DXF_LONG_LINE_RATIO", ""),
+        "DXF_EDGE_AUGMENT_KNN_K": os.getenv("DXF_EDGE_AUGMENT_KNN_K", ""),
         "DXF_EMPTY_EDGE_FALLBACK": os.getenv("DXF_EMPTY_EDGE_FALLBACK", "fully_connected"),
         "DXF_EMPTY_EDGE_K": os.getenv("DXF_EMPTY_EDGE_K", "8"),
     }
@@ -382,7 +383,32 @@ def main() -> int:
                         adj_edges_directed.append((j, i))
 
             final_edge_mode = "epsilon"
-            final_edge_count = len(adj_edges_directed)
+            final_edges_directed = list(adj_edges_directed)
+            final_edge_count = len(final_edges_directed)
+
+            # Optional kNN augmentation (union with epsilon-adjacency).
+            augment_k = _safe_int(sampler_env.get("DXF_EDGE_AUGMENT_KNN_K", ""), 0)
+            if augment_k > 0 and final_edge_count > 0 and n > 1:
+                edge_set: set[Tuple[int, int]] = set(final_edges_directed)
+                k = max(1, min(int(augment_k), n - 1))
+                for a in range(n):
+                    cx_a, cy_a = centers[a]
+                    dist_list: List[Tuple[float, int]] = []
+                    for b in range(n):
+                        if a == b:
+                            continue
+                        cx_b, cy_b = centers[b]
+                        dx = cx_b - cx_a
+                        dy = cy_b - cy_a
+                        dist_list.append((dx * dx + dy * dy, b))
+                    dist_list.sort(key=lambda t: t[0])
+                    for _dist2, b in dist_list[:k]:
+                        edge_set.add((a, b))
+                        edge_set.add((b, a))
+                final_edges_directed = list(edge_set)
+                final_edge_count = len(final_edges_directed)
+                final_edge_mode = f"epsilon+knn:{k}"
+
             empty_fallback_mode = str(sampler_env["DXF_EMPTY_EDGE_FALLBACK"]).strip().lower()
             empty_fallback_k = _safe_int(sampler_env["DXF_EMPTY_EDGE_K"], 8)
             if final_edge_count == 0 and n > 1:
@@ -418,8 +444,6 @@ def main() -> int:
                     final_edges_directed = [
                         (a, b) for a in range(n) for b in range(n) if a != b
                     ]
-            else:
-                final_edges_directed = list(adj_edges_directed)
 
             density_den = max(1, n * (n - 1))
             adj_density = len(adj_edges_directed) / float(density_den)
@@ -510,4 +534,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

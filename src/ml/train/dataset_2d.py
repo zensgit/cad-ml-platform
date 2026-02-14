@@ -500,6 +500,42 @@ class DXFDataset(Dataset):
                         edge_features.append(_edge_feature(i, j))
                         edge_features.append(_edge_feature(j, i))
 
+        # Optional edge augmentation: add kNN edges on entity centers even when the
+        # epsilon-adjacency graph is non-empty. This helps avoid "island" nodes in
+        # sparse graphs and provides more consistent neighborhood structure for
+        # message passing models.
+        augment_raw = os.getenv("DXF_EDGE_AUGMENT_KNN_K", "").strip()
+        try:
+            augment_k = int(augment_raw) if augment_raw else 0
+        except Exception:
+            augment_k = 0
+        if augment_k > 0 and edges:
+            k = max(1, min(int(augment_k), num_nodes - 1))
+            edge_set: set[Tuple[int, int]] = set(edges)
+
+            for i in range(num_nodes):
+                cx_i, cy_i = node_meta[i]["center"]
+                dists: List[Tuple[float, int]] = []
+                for j in range(num_nodes):
+                    if i == j:
+                        continue
+                    cx_j, cy_j = node_meta[j]["center"]
+                    dx = cx_j - cx_i
+                    dy = cy_j - cy_i
+                    dists.append((dx * dx + dy * dy, j))
+                dists.sort(key=lambda t: t[0])
+                for _dist2, j in dists[:k]:
+                    if (i, j) not in edge_set:
+                        edge_set.add((i, j))
+                        edges.append((i, j))
+                        if return_edge_attr:
+                            edge_features.append(_edge_feature(i, j))
+                    if (j, i) not in edge_set:
+                        edge_set.add((j, i))
+                        edges.append((j, i))
+                        if return_edge_attr:
+                            edge_features.append(_edge_feature(j, i))
+
         if not edges:
             fallback = (
                 os.getenv("DXF_EMPTY_EDGE_FALLBACK", "fully_connected").strip().lower()
@@ -669,6 +705,7 @@ class DXFManifestDataset(Dataset):
             os.getenv("DXF_TEXT_PRIORITY_RATIO", ""),
             os.getenv("DXF_FRAME_PRIORITY_RATIO", ""),
             os.getenv("DXF_LONG_LINE_RATIO", ""),
+            os.getenv("DXF_EDGE_AUGMENT_KNN_K", ""),
             os.getenv("DXF_EMPTY_EDGE_FALLBACK", ""),
             os.getenv("DXF_EMPTY_EDGE_K", ""),
             os.getenv("DXF_STRIP_TEXT_ENTITIES", ""),

@@ -355,6 +355,15 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--dxf-edge-augment-knn-k",
+        type=int,
+        default=None,
+        help=(
+            "DXF_EDGE_AUGMENT_KNN_K override (adds kNN edges even when epsilon-adjacency "
+            "edges exist). Default: auto (0 normally; 8 when --student-geometry-only is set)."
+        ),
+    )
+    parser.add_argument(
         "--diagnose-max-files",
         type=int,
         default=200,
@@ -500,6 +509,11 @@ def main() -> int:
         )
     os.environ["DXF_EMPTY_EDGE_FALLBACK"] = str(args.empty_edge_fallback)
     os.environ["DXF_EMPTY_EDGE_K"] = str(int(args.empty_edge_knn_k))
+    if getattr(args, "dxf_edge_augment_knn_k", None) is None:
+        args.dxf_edge_augment_knn_k = (
+            8 if bool(getattr(args, "student_geometry_only", False)) else 0
+        )
+    os.environ["DXF_EDGE_AUGMENT_KNN_K"] = str(int(args.dxf_edge_augment_knn_k))
     if bool(getattr(args, "student_geometry_only", False)):
         os.environ["DXF_STRIP_TEXT_ENTITIES"] = "true"
         if getattr(args, "dxf_frame_priority_ratio", None) is None:
@@ -649,6 +663,7 @@ def main() -> int:
                 if args.dxf_long_line_ratio is not None
                 else None
             ),
+            "dxf_edge_augment_knn_k": int(args.dxf_edge_augment_knn_k),
             "cache": str(args.graph_cache),
             "cache_max_items": int(args.graph_cache_max_items),
             "cache_dir": str(os.getenv("DXF_MANIFEST_DATASET_CACHE_DIR", "")),

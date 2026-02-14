@@ -79,6 +79,7 @@ def _apply_dxf_sampling_env(args: argparse.Namespace) -> None:
         "dxf_text_priority_ratio": "DXF_TEXT_PRIORITY_RATIO",
         "dxf_frame_priority_ratio": "DXF_FRAME_PRIORITY_RATIO",
         "dxf_long_line_ratio": "DXF_LONG_LINE_RATIO",
+        "dxf_edge_augment_knn_k": "DXF_EDGE_AUGMENT_KNN_K",
     }
     for arg_name, env_name in mapping.items():
         value = getattr(args, arg_name, None)
@@ -512,6 +513,15 @@ def main() -> int:
         help=(
             "Override DXF_LONG_LINE_RATIO for importance sampling "
             "(caps non-frame long lines)."
+        ),
+    )
+    parser.add_argument(
+        "--dxf-edge-augment-knn-k",
+        type=int,
+        default=None,
+        help=(
+            "Override DXF_EDGE_AUGMENT_KNN_K (adds kNN edges even when epsilon-adjacency "
+            "edges exist)."
         ),
     )
 

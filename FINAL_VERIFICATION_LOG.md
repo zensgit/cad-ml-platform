@@ -4264,3 +4264,11 @@
     - `.venv/bin/python scripts/run_graph2d_pipeline_local.py --model gcn --distill --teacher titleblock --distill-alpha 0.1 --student-geometry-only --normalize-labels --clean-min-count 5 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp/graph2d_strict_cmp_20260214_153010`)
     - `.venv/bin/python scripts/run_graph2d_pipeline_local.py --model edge_sage --distill --teacher titleblock --distill-alpha 0.1 --student-geometry-only --normalize-labels --clean-min-count 5 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp/graph2d_strict_cmp_20260214_153010`)
   - Report: `reports/DEV_GRAPH2D_EDGE_SAGE_STRICT_EXPERIMENT_20260214.md`
+- **Graph2D Strict Graph Build: kNN Edge Augmentation (Epsilon + kNN Union)**:
+  - Added `DXF_EDGE_AUGMENT_KNN_K` to optionally add kNN edges (entity-center distance) even when the epsilon-adjacency graph is non-empty, reducing isolated nodes and improving connectivity for strict geometry-only runs.
+  - Wired `--dxf-edge-augment-knn-k` through pipeline/train/eval scripts; added caching-key coverage for the manifest dataset cache; updated strict graph audit to account for augmentation.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_dataset2d_edge_augment_knn.py -v` (passed)
+    - `.venv/bin/python scripts/run_graph2d_pipeline_local.py --student-geometry-only --normalize-labels --clean-min-count 5 --distill --teacher titleblock --distill-alpha 0.1 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp/graph2d_strict_cmp_aug_20260214_154435`; strict accuracy observed for `gcn`: `0.2273`)
+    - `DXF_EDGE_AUGMENT_KNN_K=8 .venv/bin/python scripts/audit_graph2d_strict_graph_quality.py --strip-text-entities` (completed; artifacts in `/tmp/graph2d_graph_audit_aug_20260214_154858`)
+  - Report: `reports/DEV_GRAPH2D_EDGE_AUGMENT_KNN_STRICT_20260214.md`
