@@ -4208,3 +4208,9 @@
     - `env DXF_STRIP_TEXT_ENTITIES=true .venv/bin/python scripts/run_graph2d_pipeline_local.py --normalize-labels --clean-min-count 2 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp`)
     - `env DXF_STRIP_TEXT_ENTITIES=true .venv/bin/python scripts/run_graph2d_pipeline_local.py --normalize-labels --clean-min-count 2 --distill --teacher titleblock --distill-alpha 0.7 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp`)
   - Report: `reports/DEV_GRAPH2D_COARSE_BUCKET_STRICT_DISTILL_EXPERIMENT_20260214.md`
+- **Graph2D Coarse Buckets (Clean>=5) + Strict Diagnose (Distill Experiment)**:
+  - Increased coarse-bucket cleaning to merge low-frequency buckets into `其他` and re-ran strict-mode experiments to reduce collapse and improve strict accuracy.
+  - Validation:
+    - `env DXF_STRIP_TEXT_ENTITIES=true .venv/bin/python scripts/run_graph2d_pipeline_local.py --normalize-labels --clean-min-count 5 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp`)
+    - `env DXF_STRIP_TEXT_ENTITIES=true .venv/bin/python scripts/run_graph2d_pipeline_local.py --normalize-labels --clean-min-count 5 --distill --teacher titleblock --distill-alpha 0.7 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp`)
+  - Report: `reports/DEV_GRAPH2D_COARSE_BUCKET_CLEAN_MIN5_STRICT_DISTILL_20260214.md`
