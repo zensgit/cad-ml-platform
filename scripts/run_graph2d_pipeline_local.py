@@ -169,6 +169,10 @@ def _build_train_cmd(
         "--dxf-text-priority-ratio",
         str(float(args.dxf_text_priority_ratio)),
     ]
+    if getattr(args, "dxf_frame_priority_ratio", None) is not None:
+        train_cmd.extend(
+            ["--dxf-frame-priority-ratio", str(float(args.dxf_frame_priority_ratio))]
+        )
     if int(args.max_samples) > 0:
         train_cmd.extend(["--max-samples", str(int(args.max_samples))])
 
@@ -327,6 +331,16 @@ def main() -> int:
         help="DXF_TEXT_PRIORITY_RATIO override (default: 0.3).",
     )
     parser.add_argument(
+        "--dxf-frame-priority-ratio",
+        type=float,
+        default=None,
+        help=(
+            "DXF_FRAME_PRIORITY_RATIO override (caps border/titleblock frame entities). "
+            "Default: unset (no cap). When --student-geometry-only is set, defaults "
+            "to 0.1."
+        ),
+    )
+    parser.add_argument(
         "--diagnose-max-files",
         type=int,
         default=200,
@@ -467,6 +481,8 @@ def main() -> int:
     os.environ["DXF_EMPTY_EDGE_K"] = str(int(args.empty_edge_knn_k))
     if bool(getattr(args, "student_geometry_only", False)):
         os.environ["DXF_STRIP_TEXT_ENTITIES"] = "true"
+        if getattr(args, "dxf_frame_priority_ratio", None) is None:
+            args.dxf_frame_priority_ratio = 0.1
 
     # 1) Manifest
     _run(
@@ -537,34 +553,40 @@ def main() -> int:
     _run(train_cmd)
 
     # 4) Eval
-    _run(
-        [
-            python,
-            "scripts/eval_2d_graph.py",
-            "--manifest",
-            str(manifest_for_training),
-            "--dxf-dir",
-            str(dxf_dir),
-            "--checkpoint",
-            str(checkpoint_path),
-            "--batch-size",
-            str(int(args.batch_size)),
-            "--seed",
-            str(int(args.seed)),
-            "--output-metrics",
-            str(eval_metrics_csv),
-            "--output-errors",
-            str(eval_errors_csv),
-            "--dxf-max-nodes",
-            str(int(args.dxf_max_nodes)),
-            "--dxf-sampling-strategy",
-            str(args.dxf_sampling_strategy),
-            "--dxf-sampling-seed",
-            str(int(args.dxf_sampling_seed)),
-            "--dxf-text-priority-ratio",
-            str(float(args.dxf_text_priority_ratio)),
-        ]
-    )
+    eval_cmd = [
+        python,
+        "scripts/eval_2d_graph.py",
+        "--manifest",
+        str(manifest_for_training),
+        "--dxf-dir",
+        str(dxf_dir),
+        "--checkpoint",
+        str(checkpoint_path),
+        "--batch-size",
+        str(int(args.batch_size)),
+        "--seed",
+        str(int(args.seed)),
+        "--output-metrics",
+        str(eval_metrics_csv),
+        "--output-errors",
+        str(eval_errors_csv),
+        "--dxf-max-nodes",
+        str(int(args.dxf_max_nodes)),
+        "--dxf-sampling-strategy",
+        str(args.dxf_sampling_strategy),
+        "--dxf-sampling-seed",
+        str(int(args.dxf_sampling_seed)),
+        "--dxf-text-priority-ratio",
+        str(float(args.dxf_text_priority_ratio)),
+    ]
+    if getattr(args, "dxf_frame_priority_ratio", None) is not None:
+        eval_cmd.extend(
+            [
+                "--dxf-frame-priority-ratio",
+                str(float(args.dxf_frame_priority_ratio)),
+            ]
+        )
+    _run(eval_cmd)
 
     # 5) Diagnose (score against weak labels from filename)
     diagnose_cmd = _build_diagnose_cmd(
@@ -587,6 +609,11 @@ def main() -> int:
             "empty_edge_fallback": str(args.empty_edge_fallback),
             "empty_edge_knn_k": int(args.empty_edge_knn_k),
             "student_geometry_only": bool(args.student_geometry_only),
+            "dxf_frame_priority_ratio": (
+                float(args.dxf_frame_priority_ratio)
+                if args.dxf_frame_priority_ratio is not None
+                else None
+            ),
             "cache": str(args.graph_cache),
             "cache_max_items": int(args.graph_cache_max_items),
             "cache_dir": str(os.getenv("DXF_MANIFEST_DATASET_CACHE_DIR", "")),

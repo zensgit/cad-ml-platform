@@ -4228,3 +4228,12 @@
     - `.venv/bin/python -m pytest tests/unit/test_knowledge_distillation_loss_hard_loss_fn.py -v` (passed)
     - `/usr/bin/time -p .venv/bin/python scripts/sweep_graph2d_strict_mode.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 5 --student-geometry-only --epochs 3 --diagnose-max-files 200 --max-runs 6` (completed; best strict accuracy observed: `0.2273`)
   - Report: `reports/DEV_GRAPH2D_DISTILLATION_HARD_LOSS_BALANCING_20260214.md`
+- **Graph2D Geometry-Only: Cap Frame Entities In Importance Sampling**:
+  - Added `DXF_FRAME_PRIORITY_RATIO` to cap the fraction of border/titleblock “frame” entities during DXF importance sampling.
+  - Fixed sampling so frame entities are not re-selected when filling remaining slots (non-frame geometry is preferred; frames only fill as fallback).
+  - Wired `--dxf-frame-priority-ratio` through train/eval/pipeline; default to `0.1` when running `--student-geometry-only` unless explicitly set.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_importance_sampler_frame_ratio.py -v` (passed)
+    - `.venv/bin/python -m pytest tests/unit/test_sweep_graph2d_strict_mode_parsers.py tests/unit/test_knowledge_distillation_loss_hard_loss_fn.py -v` (passed)
+    - `/usr/bin/time -p .venv/bin/python scripts/sweep_graph2d_strict_mode.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 5 --student-geometry-only --epochs 3 --diagnose-max-files 200 --max-runs 6` (completed; best strict accuracy observed: `0.2091`; artifacts in `/tmp/graph2d_strict_sweep_20260214_123346`)
+  - Report: `reports/DEV_GRAPH2D_GEOMETRY_ONLY_FRAME_CAP_SAMPLING_20260214.md`

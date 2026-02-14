@@ -8,6 +8,7 @@ Feature Flags:
     DXF_SAMPLING_STRATEGY: 采样策略 importance|random|hybrid (default: importance)
     DXF_SAMPLING_SEED: 随机种子，确保可重复性 (default: 42)
     DXF_TEXT_PRIORITY_RATIO: 文本实体优先占比上限 (default: 0.3)
+    DXF_FRAME_PRIORITY_RATIO: 边框/标题栏等“框架实体”占比上限 (default: 1.0 = 不限制)
 """
 
 from __future__ import annotations
@@ -78,6 +79,7 @@ class ImportanceSampler:
         strategy: str = "importance",
         seed: int = 42,
         text_priority_ratio: float = 0.3,
+        frame_priority_ratio: float = 1.0,
     ):
         """
         初始化采样器
@@ -92,6 +94,12 @@ class ImportanceSampler:
         self.strategy = SamplingStrategy(os.getenv("DXF_SAMPLING_STRATEGY", strategy))
         self.seed = int(os.getenv("DXF_SAMPLING_SEED", str(seed)))
         self.text_priority_ratio = float(os.getenv("DXF_TEXT_PRIORITY_RATIO", str(text_priority_ratio)))
+        self.text_priority_ratio = max(0.0, min(1.0, self.text_priority_ratio))
+        self.frame_priority_ratio = float(
+            os.getenv("DXF_FRAME_PRIORITY_RATIO", str(frame_priority_ratio))
+        )
+        # Keep ratios in [0,1] to avoid surprising sampling behavior.
+        self.frame_priority_ratio = max(0.0, min(1.0, self.frame_priority_ratio))
 
         # 设置随机种子确保可重复性
         random.seed(self.seed)
@@ -103,6 +111,7 @@ class ImportanceSampler:
                 "strategy": self.strategy.value,
                 "seed": self.seed,
                 "text_ratio": self.text_priority_ratio,
+                "frame_ratio": self.frame_priority_ratio,
             },
         )
 
@@ -275,6 +284,7 @@ class ImportanceSampler:
             "text_count": sum(1 for e in sampled if e.is_text),
             "border_count": sum(1 for e in sampled if e.is_border),
             "title_block_count": sum(1 for e in sampled if e.is_title_block),
+            "frame_count": sum(1 for e in sampled if (e.is_border or e.is_title_block)),
             "original_count": original_count,
         }
 
@@ -299,11 +309,46 @@ class ImportanceSampler:
         # 限制文本实体占比
         max_text = int(self.max_nodes * self.text_priority_ratio)
         text_entities = [e for e in sorted_entities if e.is_text][:max_text]
-        other_entities = [e for e in sorted_entities if not e.is_text]
+        selected = {e.index for e in text_entities}
+
+        # 限制“框架实体”占比：边框/标题栏的线段在多数图纸中高度相似，几何-only
+        # 场景下容易导致采样结果过于一致，从而造成模型输出塌缩。
+        max_frame = int(self.max_nodes * self.frame_priority_ratio)
+        frame_entities = [
+            e
+            for e in sorted_entities
+            if (not e.is_text)
+            and (e.is_border or e.is_title_block)
+            and e.index not in selected
+        ][:max_frame]
+        selected.update({e.index for e in frame_entities})
+
+        # Prefer non-frame geometry entities to avoid collapsing on title block/border.
+        other_entities = [
+            e
+            for e in sorted_entities
+            if (not e.is_text)
+            and (not (e.is_border or e.is_title_block))
+            and e.index not in selected
+        ]
+        # If we still need to fill slots (rare edge cases), allow remaining frame
+        # entities as a fallback so the graph size stays stable.
+        frame_overflow_entities = [
+            e
+            for e in sorted_entities
+            if (not e.is_text)
+            and (e.is_border or e.is_title_block)
+            and e.index not in selected
+        ]
 
         # 组合
-        remaining_slots = self.max_nodes - len(text_entities)
-        sampled = text_entities + other_entities[:remaining_slots]
+        sampled = list(text_entities) + list(frame_entities)
+        remaining_slots = self.max_nodes - len(sampled)
+        if remaining_slots > 0:
+            sampled.extend(other_entities[:remaining_slots])
+            remaining_slots = self.max_nodes - len(sampled)
+        if remaining_slots > 0:
+            sampled.extend(frame_overflow_entities[:remaining_slots])
 
         return sampled[:self.max_nodes]
 
