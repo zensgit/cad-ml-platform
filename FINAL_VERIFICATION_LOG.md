@@ -4289,3 +4289,11 @@
     - `scripts/run_graph2d_pipeline_local.py ... --dxf-eps-scale {0.001,0.002,0.005} --diagnose-no-text-no-filename` (completed; strict accuracy best remained at `0.001` on this corpus/config)
     - `scripts/audit_graph2d_strict_graph_quality.py --strip-text-entities` with `DXF_EPS_SCALE={0.002,0.005}` (completed; edges increased, accuracy regressed)
   - Report: `reports/DEV_GRAPH2D_EPS_SCALE_SWEEP_20260214.md`
+- **Graph2D Training: Optional Node-Dim Extra Features (V1)**:
+  - Added optional appended DXF node features (bbox dims / arc sweep / polyline vertex count) when training with `--node-dim > 19`, keeping existing checkpoints compatible.
+  - Added `--node-dim` to `scripts/run_graph2d_pipeline_local.py` and persisted `node_schema`/`edge_schema` in Graph2D checkpoints for debugging.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_dataset2d_node_extra_features.py -v` (passed)
+    - `.venv/bin/python scripts/run_graph2d_pipeline_local.py ... --node-dim 19` (strict diagnose accuracy: `0.2364`; artifacts: `/tmp/graph2d_pipeline_local_20260214_183427`)
+    - `.venv/bin/python scripts/run_graph2d_pipeline_local.py ... --node-dim 23` (strict diagnose accuracy: `0.1455`; artifacts: `/tmp/graph2d_pipeline_local_20260214_183608`)
+  - Report: `reports/DEV_GRAPH2D_NODE_DIM_EXTRA_FEATURES_20260214.md`

@@ -88,7 +88,9 @@ def _apply_dxf_sampling_env(args: argparse.Namespace) -> None:
         if value is not None:
             os.environ[env_name] = str(value)
 
-    token = str(getattr(args, "dxf_enhanced_keypoints", "auto") or "auto").strip().lower()
+    token = (
+        str(getattr(args, "dxf_enhanced_keypoints", "auto") or "auto").strip().lower()
+    )
     if token in {"true", "false"}:
         os.environ["DXF_ENHANCED_KEYPOINTS"] = token
 
@@ -292,11 +294,13 @@ def main() -> int:
     from torch.utils.data import DataLoader, Subset
 
     from src.ml.train.dataset_2d import (
-        DXFManifestDataset,
         DXF_EDGE_DIM,
+        DXF_EDGE_FEATURES,
         DXF_NODE_DIM,
         DXF_NODE_FEATURES,
+        DXF_NODE_FEATURES_EXTRA_V1,
         DXF_NODE_FEATURES_LEGACY,
+        DXFManifestDataset,
     )
     from src.ml.train.model_2d import EdgeGraphSageClassifier, SimpleGraphClassifier
 
@@ -588,7 +592,9 @@ def main() -> int:
             indices = indices[: args.max_samples]
         else:
             labels = [dataset.samples[idx]["label_id"] for idx in indices]
-            indices = _stratified_subsample(indices, labels, args.max_samples, args.seed)
+            indices = _stratified_subsample(
+                indices, labels, args.max_samples, args.seed
+            )
 
     random.shuffle(indices)
     if args.split_strategy == "stratified":
@@ -631,7 +637,7 @@ def main() -> int:
         )
         print(f"Using CosineAnnealingLR scheduler (T_max={args.epochs})")
     elif args.scheduler == "warmup_cosine":
-        from torch.optim.lr_scheduler import LambdaLR, CosineAnnealingLR, SequentialLR
+        from torch.optim.lr_scheduler import CosineAnnealingLR, LambdaLR, SequentialLR
 
         warmup_scheduler = LambdaLR(
             optimizer, lr_lambda=lambda ep: min(1.0, (ep + 1) / args.warmup_epochs)
@@ -727,10 +733,13 @@ def main() -> int:
         )
     if downweight_factor is not None and downweight_label_idx is not None:
         try:
-            if hasattr(criterion, "weight") and getattr(criterion, "weight") is not None:
+            if (
+                hasattr(criterion, "weight")
+                and getattr(criterion, "weight") is not None
+            ):
                 weights = getattr(criterion, "weight").detach().clone()
-                weights[downweight_label_idx] = (
-                    weights[downweight_label_idx] * float(downweight_factor)
+                weights[downweight_label_idx] = weights[downweight_label_idx] * float(
+                    downweight_factor
                 )
                 criterion.weight = weights  # type: ignore[attr-defined]
             elif (
@@ -738,8 +747,8 @@ def main() -> int:
                 and getattr(criterion, "class_weights") is not None
             ):
                 weights = getattr(criterion, "class_weights").detach().clone()
-                weights[downweight_label_idx] = (
-                    weights[downweight_label_idx] * float(downweight_factor)
+                weights[downweight_label_idx] = weights[downweight_label_idx] * float(
+                    downweight_factor
                 )
                 criterion.class_weights = weights  # type: ignore[attr-defined]
         except Exception as exc:
@@ -834,11 +843,7 @@ def main() -> int:
                     }:
                         teacher_name = "masked.dxf"
 
-                    cached = (
-                        teacher_logits_cache.get(file_path)
-                        if file_path
-                        else None
-                    )
+                    cached = teacher_logits_cache.get(file_path) if file_path else None
                     if cached is None:
                         file_bytes = None
                         if file_path:
@@ -846,9 +851,13 @@ def main() -> int:
                                 file_bytes = Path(file_path).read_bytes()
                             except Exception:
                                 file_bytes = None
-                        cached = teacher_model.generate_soft_labels(
-                            [teacher_name], file_bytes_list=[file_bytes]
-                        ).detach().cpu()
+                        cached = (
+                            teacher_model.generate_soft_labels(
+                                [teacher_name], file_bytes_list=[file_bytes]
+                            )
+                            .detach()
+                            .cpu()
+                        )
                         if file_path:
                             teacher_logits_cache[file_path] = cached
                     teacher_logits_rows.append(cached)
@@ -871,7 +880,9 @@ def main() -> int:
         total = 0
         with torch.no_grad():
             for batch_data in val_loader:
-                x, edge_index, edge_attr, batch_vec, labels_batch, _names, _paths = batch_data
+                x, edge_index, edge_attr, batch_vec, labels_batch, _names, _paths = (
+                    batch_data
+                )
                 if not hasattr(labels_batch, "numel") or labels_batch.numel() == 0:
                     continue
                 x = x.to(device)
@@ -937,15 +948,34 @@ def main() -> int:
         else model.state_dict()
     )
 
+    # Persist feature schemas in the checkpoint for debugging and future-proofing.
+    if args.node_dim <= len(DXF_NODE_FEATURES_LEGACY):
+        node_schema = list(DXF_NODE_FEATURES_LEGACY)[: int(args.node_dim)]
+    else:
+        node_schema = list(DXF_NODE_FEATURES)
+        if int(args.node_dim) > len(node_schema):
+            node_schema.extend(list(DXF_NODE_FEATURES_EXTRA_V1))
+        if int(args.node_dim) > len(node_schema):
+            node_schema.extend(
+                [f"extra_{i}" for i in range(int(args.node_dim) - len(node_schema))]
+            )
+        node_schema = node_schema[: int(args.node_dim)]
+
+    edge_schema: list[str] = []
+    if use_edge_attr:
+        edge_schema = list(DXF_EDGE_FEATURES)[: int(args.edge_dim)]
+
     torch.save(
         {
             "model_state_dict": save_state,
             "label_map": label_map,
             "node_dim": args.node_dim,
+            "node_schema": node_schema,
             "hidden_dim": args.hidden_dim,
             "loss_type": args.loss,
             "model_type": args.model,
             "edge_dim": args.edge_dim if use_edge_attr else 0,
+            "edge_schema": edge_schema,
             "best_val_acc": best_val_acc,
             "config_path": args.config,
             "sampling_overrides": {

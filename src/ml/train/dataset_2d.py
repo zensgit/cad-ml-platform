@@ -56,6 +56,17 @@ DXF_NODE_FEATURES = (
 )
 
 DXF_NODE_DIM = len(DXF_NODE_FEATURES)
+
+# Optional extra node features appended when node_dim exceeds DXF_NODE_DIM.
+# This is backward compatible with existing checkpoints because Graph2D models
+# load node_dim from the checkpoint and request that dimensionality when
+# building graphs.
+DXF_NODE_FEATURES_EXTRA_V1 = (
+    "bbox_w_norm",
+    "bbox_h_norm",
+    "arc_sweep_norm",
+    "polyline_vertex_norm",
+)
 DXF_EDGE_FEATURES = (
     "dx_norm",
     "dy_norm",
@@ -157,10 +168,9 @@ class DXFDataset(Dataset):
         """Convert DXF entities to Node Features and Adjacency."""
         node_dim = node_dim or DXF_NODE_DIM
         legacy_mode = node_dim <= len(DXF_NODE_FEATURES_LEGACY)
-        enhanced_keypoints = (
-            os.getenv("DXF_ENHANCED_KEYPOINTS", "false").strip().lower()
-            in {"1", "true", "yes", "on"}
-        )
+        enhanced_keypoints = os.getenv(
+            "DXF_ENHANCED_KEYPOINTS", "false"
+        ).strip().lower() in {"1", "true", "yes", "on"}
 
         entities = list(msp)
         valid_types = {
@@ -218,17 +228,23 @@ class DXFDataset(Dataset):
             pts: List[Tuple[float, float]] = []
             length = 0.0
             radius = 0.0
+            bbox_w = 0.0
+            bbox_h = 0.0
             center_x = 0.0
             center_y = 0.0
             dir_x = 0.0
             dir_y = 0.0
             text_len = 0.0
+            arc_sweep_norm = 0.0
+            polyline_vertex_norm = 0.0
             is_closed = 0.0
 
             if dtype == "LINE":
                 start = e.dxf.start
                 end = e.dxf.end
                 length = float(start.distance(end))
+                bbox_w = abs(float(end.x) - float(start.x))
+                bbox_h = abs(float(end.y) - float(start.y))
                 mid = (start + end) / 2
                 center_x = float(mid.x)
                 center_y = float(mid.y)
@@ -241,6 +257,9 @@ class DXFDataset(Dataset):
                 center = e.dxf.center
                 radius = float(e.dxf.radius)
                 length = radius * 2.0
+                bbox_w = radius * 2.0
+                bbox_h = radius * 2.0
+                arc_sweep_norm = 1.0 if radius > 0 else 0.0
                 center_x = float(center.x)
                 center_y = float(center.y)
                 pts = [(center_x, center_y)]
@@ -265,6 +284,7 @@ class DXFDataset(Dataset):
                 if delta < 0:
                     delta += 2 * math.pi
                 length = abs(radius * delta)
+                arc_sweep_norm = (delta / (2.0 * math.pi)) if delta > 0 else 0.0
                 sx = center_x + radius * math.cos(start_angle)
                 sy = center_y + radius * math.sin(start_angle)
                 ex = center_x + radius * math.cos(end_angle)
@@ -275,6 +295,34 @@ class DXFDataset(Dataset):
                     mx = center_x + radius * math.cos(mid_angle)
                     my = center_y + radius * math.sin(mid_angle)
                     pts.append((mx, my))
+                # Compute a tighter bounding box by including cardinal points that fall
+                # within the sweep. This improves scale/orientation features for arcs.
+                arc_bbox_pts = list(pts)
+                if radius > 0 and delta > 1e-9:
+                    start = start_angle % (2.0 * math.pi)
+                    sweep = float(delta)
+
+                    def _in_sweep(angle: float) -> bool:
+                        # Sweep is [start, start+sweep] on the circle, allowing wrap.
+                        a = angle % (2.0 * math.pi)
+                        end = start + sweep
+                        if end <= 2.0 * math.pi:
+                            return start <= a <= end
+                        return a >= start or a <= (end - 2.0 * math.pi)
+
+                    for angle in (0.0, 0.5 * math.pi, math.pi, 1.5 * math.pi):
+                        if _in_sweep(angle):
+                            arc_bbox_pts.append(
+                                (
+                                    center_x + radius * math.cos(angle),
+                                    center_y + radius * math.sin(angle),
+                                )
+                            )
+                if arc_bbox_pts:
+                    xs_arc = [p[0] for p in arc_bbox_pts]
+                    ys_arc = [p[1] for p in arc_bbox_pts]
+                    bbox_w = max(xs_arc) - min(xs_arc)
+                    bbox_h = max(ys_arc) - min(ys_arc)
                 dx = ex - sx
                 dy = ey - sy
                 norm = math.hypot(dx, dy)
@@ -287,6 +335,11 @@ class DXFDataset(Dataset):
                 if pts:
                     center_x = sum(p[0] for p in pts) / len(pts)
                     center_y = sum(p[1] for p in pts) / len(pts)
+                    xs_poly = [p[0] for p in pts]
+                    ys_poly = [p[1] for p in pts]
+                    bbox_w = max(xs_poly) - min(xs_poly)
+                    bbox_h = max(ys_poly) - min(ys_poly)
+                    polyline_vertex_norm = min(len(pts), 64) / 64.0
                     for a, b in zip(pts[:-1], pts[1:]):
                         dx = b[0] - a[0]
                         dy = b[1] - a[1]
@@ -311,6 +364,8 @@ class DXFDataset(Dataset):
                     center_y = float(insert.y)
                 height = float(getattr(e.dxf, "height", 1.0) or 1.0)
                 length = text_len * height
+                bbox_w = text_len * height
+                bbox_h = height
                 pts = [(center_x, center_y)]
             elif dtype == "DIMENSION":
                 raw_text = str(getattr(e.dxf, "text", "") or "")
@@ -325,6 +380,7 @@ class DXFDataset(Dataset):
                 if point is not None:
                     center_x = float(point.x)
                     center_y = float(point.y)
+                bbox_w = float(length)
                 pts = [(center_x, center_y)]
             elif dtype == "INSERT":
                 insert = getattr(e.dxf, "insert", None)
@@ -334,6 +390,8 @@ class DXFDataset(Dataset):
                 xscale = float(getattr(e.dxf, "xscale", 1.0) or 1.0)
                 yscale = float(getattr(e.dxf, "yscale", 1.0) or 1.0)
                 length = max(abs(xscale), abs(yscale))
+                bbox_w = abs(xscale)
+                bbox_h = abs(yscale)
                 pts = [(center_x, center_y)]
 
             if not pts:
@@ -358,6 +416,10 @@ class DXFDataset(Dataset):
                     "dtype": dtype,
                     "length": float(length),
                     "radius": float(radius),
+                    "bbox_w": float(bbox_w),
+                    "bbox_h": float(bbox_h),
+                    "arc_sweep_norm": float(arc_sweep_norm),
+                    "polyline_vertex_norm": float(polyline_vertex_norm),
                     "center": (float(center_x), float(center_y)),
                     "direction": (float(dir_x), float(dir_y)),
                     "pts": pts,
@@ -462,6 +524,17 @@ class DXFDataset(Dataset):
                     title_hint,
                     is_closed,
                 ]
+
+            if not legacy_mode and node_dim > len(feat):
+                bbox_w_norm = meta.get("bbox_w", 0.0) / max_dim if max_dim > 0 else 0.0
+                bbox_h_norm = meta.get("bbox_h", 0.0) / max_dim if max_dim > 0 else 0.0
+                extra = [
+                    float(max(0.0, min(bbox_w_norm, 1.0))),
+                    float(max(0.0, min(bbox_h_norm, 1.0))),
+                    float(max(0.0, min(meta.get("arc_sweep_norm", 0.0), 1.0))),
+                    float(max(0.0, min(meta.get("polyline_vertex_norm", 0.0), 1.0))),
+                ]
+                feat.extend(extra)
 
             if node_dim > len(feat):
                 feat.extend([0.0] * (node_dim - len(feat)))

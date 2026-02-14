@@ -146,6 +146,8 @@ def _build_train_cmd(
         str(int(args.hidden_dim)),
         "--lr",
         str(float(args.lr)),
+        "--node-dim",
+        str(int(getattr(args, "node_dim", 19))),
         "--model",
         str(args.model),
         "--loss",
@@ -248,6 +250,15 @@ def main() -> int:
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--hidden-dim", type=int, default=64)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument(
+        "--node-dim",
+        type=int,
+        default=19,
+        help=(
+            "Node feature dimension passed to train_2d_graph.py (default: 19). "
+            "Use >19 to enable appended extra node features in dataset_2d."
+        ),
+    )
     parser.add_argument(
         "--model",
         choices=["gcn", "edge_sage"],
@@ -535,13 +546,17 @@ def main() -> int:
     # Empty-edge fallback for DXF graphs.
     if getattr(args, "empty_edge_fallback", None) is None:
         args.empty_edge_fallback = (
-            "knn" if bool(getattr(args, "student_geometry_only", False)) else "fully_connected"
+            "knn"
+            if bool(getattr(args, "student_geometry_only", False))
+            else "fully_connected"
         )
     os.environ["DXF_EMPTY_EDGE_FALLBACK"] = str(args.empty_edge_fallback)
     os.environ["DXF_EMPTY_EDGE_K"] = str(int(args.empty_edge_knn_k))
     os.environ["DXF_EPS_SCALE"] = str(float(getattr(args, "dxf_eps_scale", 0.001)))
 
-    keypoints_token = str(getattr(args, "dxf_enhanced_keypoints", "auto") or "auto").strip().lower()
+    keypoints_token = (
+        str(getattr(args, "dxf_enhanced_keypoints", "auto") or "auto").strip().lower()
+    )
     if keypoints_token == "auto":
         dxf_enhanced_keypoints = bool(getattr(args, "student_geometry_only", False))
     else:
@@ -560,7 +575,9 @@ def main() -> int:
         .strip()
         .lower()
     )
-    dxf_edge_augment_strategy = "union_all" if strategy_token == "auto" else strategy_token
+    dxf_edge_augment_strategy = (
+        "union_all" if strategy_token == "auto" else strategy_token
+    )
     os.environ["DXF_EDGE_AUGMENT_STRATEGY"] = dxf_edge_augment_strategy
     args.dxf_edge_augment_strategy = dxf_edge_augment_strategy
     if bool(getattr(args, "student_geometry_only", False)):
@@ -698,6 +715,17 @@ def main() -> int:
         "work_dir": str(work_dir),
         "dxf_dir": str(dxf_dir),
         "checkpoint": str(checkpoint_path),
+        "training": {
+            "model": str(args.model),
+            "node_dim": int(getattr(args, "node_dim", 19)),
+            "hidden_dim": int(args.hidden_dim),
+            "epochs": int(args.epochs),
+            "batch_size": int(args.batch_size),
+            "lr": float(args.lr),
+            "loss": str(args.loss),
+            "class_weighting": str(args.class_weighting),
+            "sampler": str(args.sampler),
+        },
         "graph_build": {
             "empty_edge_fallback": str(args.empty_edge_fallback),
             "empty_edge_knn_k": int(args.empty_edge_knn_k),
@@ -713,9 +741,13 @@ def main() -> int:
                 else None
             ),
             "dxf_edge_augment_knn_k": int(args.dxf_edge_augment_knn_k),
-            "dxf_edge_augment_strategy": str(getattr(args, "dxf_edge_augment_strategy", "")),
+            "dxf_edge_augment_strategy": str(
+                getattr(args, "dxf_edge_augment_strategy", "")
+            ),
             "dxf_eps_scale": float(getattr(args, "dxf_eps_scale", 0.001)),
-            "dxf_enhanced_keypoints": bool(getattr(args, "dxf_enhanced_keypoints", False)),
+            "dxf_enhanced_keypoints": bool(
+                getattr(args, "dxf_enhanced_keypoints", False)
+            ),
             "cache": str(args.graph_cache),
             "cache_max_items": int(args.graph_cache_max_items),
             "cache_dir": str(os.getenv("DXF_MANIFEST_DATASET_CACHE_DIR", "")),
