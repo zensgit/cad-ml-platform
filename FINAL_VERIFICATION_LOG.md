@@ -4237,3 +4237,9 @@
     - `.venv/bin/python -m pytest tests/unit/test_sweep_graph2d_strict_mode_parsers.py tests/unit/test_knowledge_distillation_loss_hard_loss_fn.py -v` (passed)
     - `/usr/bin/time -p .venv/bin/python scripts/sweep_graph2d_strict_mode.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 5 --student-geometry-only --epochs 3 --diagnose-max-files 200 --max-runs 6` (completed; best strict accuracy observed: `0.2091`; artifacts in `/tmp/graph2d_strict_sweep_20260214_123346`)
   - Report: `reports/DEV_GRAPH2D_GEOMETRY_ONLY_FRAME_CAP_SAMPLING_20260214.md`
+- **Graph2D Geometry-Only: DXF Frame Ratio Micro-Sweep**:
+  - Swept `--dxf-frame-priority-ratio` across `{0.0, 0.05, 0.1, 0.2}` under strict diagnosis (strip DXF text + masked filename) while holding training config constant.
+  - Validation:
+    - `scripts/run_graph2d_pipeline_local.py --student-geometry-only --diagnose-no-text-no-filename --dxf-frame-priority-ratio <value>` (completed; artifacts in `/tmp/graph2d_frame_ratio_sweep_20260214_125929`)
+  - Result: `0.2` regressed toward collapse; `[0.0, 0.1]` performed the same on this dataset/config.
+  - Report: `reports/DEV_GRAPH2D_FRAME_RATIO_SWEEP_20260214.md`
