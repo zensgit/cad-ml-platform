@@ -4192,3 +4192,8 @@
     - `.venv/bin/python -m pytest tests/unit/test_run_graph2d_pipeline_local_distill_wiring.py tests/unit/test_run_graph2d_pipeline_local_diagnose_strict_wiring.py -v` (passed)
     - `/usr/bin/time -p .venv/bin/python scripts/run_graph2d_pipeline_local.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --epochs 1 --max-samples 40 --diagnose-max-files 20 --model edge_sage --loss cross_entropy --class-weighting inverse --sampler balanced --graph-cache both --empty-edge-fallback knn --empty-edge-knn-k 8 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp`)
   - Report: `reports/DEV_GRAPH2D_PIPELINE_STRICT_DIAGNOSE_MODE_20260214.md`
+- **Graph2D Strict-Mode Regression Experiment (Local DXF Drawings)**:
+  - Ran a small strict-mode experiment pack (diagnose strips DXF text entities + masks filename) to establish a repeatable baseline and compare baseline vs geometry-only vs distillation setups.
+  - Validation:
+    - `scripts/run_graph2d_pipeline_local.py --diagnose-no-text-no-filename` (completed for 4 runs; artifacts in `/tmp`)
+  - Report: `reports/DEV_GRAPH2D_STRICT_REGRESSION_EXPERIMENT_20260214.md`
