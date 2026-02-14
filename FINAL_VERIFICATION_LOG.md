@@ -4250,3 +4250,10 @@
     - `.venv/bin/python -m pytest tests/unit/test_importance_sampler_long_line_ratio.py -v` (passed)
     - `scripts/run_graph2d_pipeline_local.py --student-geometry-only --diagnose-no-text-no-filename --dxf-long-line-ratio <value>` (completed; artifacts in `/tmp/graph2d_long_line_ratio_sweep_20260214_131521`)
   - Report: `reports/DEV_GRAPH2D_GEOMETRY_ONLY_LONG_LINE_CAP_SAMPLING_20260214.md`
+- **Graph2D Strict Graph Quality Audit (DXF Graph Build)**:
+  - Added a dedicated audit script to measure strict-mode DXF graph build statistics (node cap rates, epsilon-adjacency edges, connected components, and empty-edge fallback usage).
+  - Validation:
+    - `.venv/bin/python -m py_compile scripts/audit_graph2d_strict_graph_quality.py` (passed)
+    - `DXF_* .venv/bin/python scripts/audit_graph2d_strict_graph_quality.py --strip-text-entities` (completed; artifacts in `/tmp/graph2d_graph_audit_20260214_151951_*`)
+  - Key finding: empty-edge fallback usage was `0/110` for the audited corpus; graphs were sparse and frequently hit the `DXF_MAX_NODES=200` cap.
+  - Report: `reports/DEV_GRAPH2D_STRICT_GRAPH_QUALITY_AUDIT_20260214.md`
