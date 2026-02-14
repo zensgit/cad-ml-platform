@@ -396,8 +396,11 @@ def main() -> int:
     parser.add_argument(
         "--empty-edge-fallback",
         choices=["fully_connected", "knn"],
-        default="fully_connected",
-        help="Fallback edge strategy when a DXF graph has no edges (default: fully_connected).",
+        default=None,
+        help=(
+            "Fallback edge strategy when a DXF graph has no edges. Default: auto "
+            "(fully_connected normally; knn when --student-geometry-only is set)."
+        ),
     )
     parser.add_argument(
         "--empty-edge-knn-k",
@@ -491,6 +494,10 @@ def main() -> int:
             os.environ["DXF_MANIFEST_DATASET_CACHE_DIR"] = cache_dir
 
     # Empty-edge fallback for DXF graphs.
+    if getattr(args, "empty_edge_fallback", None) is None:
+        args.empty_edge_fallback = (
+            "knn" if bool(getattr(args, "student_geometry_only", False)) else "fully_connected"
+        )
     os.environ["DXF_EMPTY_EDGE_FALLBACK"] = str(args.empty_edge_fallback)
     os.environ["DXF_EMPTY_EDGE_K"] = str(int(args.empty_edge_knn_k))
     if bool(getattr(args, "student_geometry_only", False)):

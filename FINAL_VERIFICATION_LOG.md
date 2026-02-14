@@ -4257,3 +4257,10 @@
     - `DXF_* .venv/bin/python scripts/audit_graph2d_strict_graph_quality.py --strip-text-entities` (completed; artifacts in `/tmp/graph2d_graph_audit_20260214_151951_*`)
   - Key finding: empty-edge fallback usage was `0/110` for the audited corpus; graphs were sparse and frequently hit the `DXF_MAX_NODES=200` cap.
   - Report: `reports/DEV_GRAPH2D_STRICT_GRAPH_QUALITY_AUDIT_20260214.md`
+- **Graph2D Strict Compare: GCN vs EdgeSage (Geometry-Only + Titleblock Distill)**:
+  - Ran strict-mode (strip DXF text + masked filename) pipeline runs with geometry-only student graphs and compared `gcn` vs `edge_sage` under the same training config.
+  - Result: both collapsed toward the majority bucket (`传动件`); `edge_sage` did not improve strict accuracy on the audited corpus/config.
+  - Validation:
+    - `.venv/bin/python scripts/run_graph2d_pipeline_local.py --model gcn --distill --teacher titleblock --distill-alpha 0.1 --student-geometry-only --normalize-labels --clean-min-count 5 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp/graph2d_strict_cmp_20260214_153010`)
+    - `.venv/bin/python scripts/run_graph2d_pipeline_local.py --model edge_sage --distill --teacher titleblock --distill-alpha 0.1 --student-geometry-only --normalize-labels --clean-min-count 5 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp/graph2d_strict_cmp_20260214_153010`)
+  - Report: `reports/DEV_GRAPH2D_EDGE_SAGE_STRICT_EXPERIMENT_20260214.md`
