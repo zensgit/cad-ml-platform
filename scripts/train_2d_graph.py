@@ -80,11 +80,16 @@ def _apply_dxf_sampling_env(args: argparse.Namespace) -> None:
         "dxf_frame_priority_ratio": "DXF_FRAME_PRIORITY_RATIO",
         "dxf_long_line_ratio": "DXF_LONG_LINE_RATIO",
         "dxf_edge_augment_knn_k": "DXF_EDGE_AUGMENT_KNN_K",
+        "dxf_edge_augment_strategy": "DXF_EDGE_AUGMENT_STRATEGY",
     }
     for arg_name, env_name in mapping.items():
         value = getattr(args, arg_name, None)
         if value is not None:
             os.environ[env_name] = str(value)
+
+    token = str(getattr(args, "dxf_enhanced_keypoints", "auto") or "auto").strip().lower()
+    if token in {"true", "false"}:
+        os.environ["DXF_ENHANCED_KEYPOINTS"] = token
 
 
 def _collate(
@@ -522,6 +527,24 @@ def main() -> int:
         help=(
             "Override DXF_EDGE_AUGMENT_KNN_K (adds kNN edges even when epsilon-adjacency "
             "edges exist)."
+        ),
+    )
+    parser.add_argument(
+        "--dxf-edge-augment-strategy",
+        choices=["union_all", "isolates_only"],
+        default=None,
+        help=(
+            "Override DXF_EDGE_AUGMENT_STRATEGY for kNN augmentation "
+            "(union_all or isolates_only)."
+        ),
+    )
+    parser.add_argument(
+        "--dxf-enhanced-keypoints",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help=(
+            "Controls DXF_ENHANCED_KEYPOINTS (improves circle/arc keypoints for epsilon "
+            "adjacency). Default: auto (do not override env)."
         ),
     )
 

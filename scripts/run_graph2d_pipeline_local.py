@@ -360,7 +360,28 @@ def main() -> int:
         default=None,
         help=(
             "DXF_EDGE_AUGMENT_KNN_K override (adds kNN edges even when epsilon-adjacency "
-            "edges exist). Default: auto (0 normally; 8 when --student-geometry-only is set)."
+            "edges exist). Default: auto (0 normally; geometry-only defaults to 0 when "
+            "enhanced keypoints are enabled, else 8)."
+        ),
+    )
+    parser.add_argument(
+        "--dxf-edge-augment-strategy",
+        choices=["auto", "union_all", "isolates_only"],
+        default="auto",
+        help=(
+            "Controls DXF_EDGE_AUGMENT_STRATEGY for kNN augmentation. "
+            "union_all adds kNN edges for all nodes; isolates_only only adds edges for "
+            "isolated nodes (degree=0) in the epsilon-adjacency graph. "
+            "Default: auto (union_all)."
+        ),
+    )
+    parser.add_argument(
+        "--dxf-enhanced-keypoints",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help=(
+            "Controls DXF_ENHANCED_KEYPOINTS (adds circle/arc keypoints to improve "
+            "epsilon-adjacency). Default: auto (enabled for --student-geometry-only)."
         ),
     )
     parser.add_argument(
@@ -509,11 +530,29 @@ def main() -> int:
         )
     os.environ["DXF_EMPTY_EDGE_FALLBACK"] = str(args.empty_edge_fallback)
     os.environ["DXF_EMPTY_EDGE_K"] = str(int(args.empty_edge_knn_k))
+
+    keypoints_token = str(getattr(args, "dxf_enhanced_keypoints", "auto") or "auto").strip().lower()
+    if keypoints_token == "auto":
+        dxf_enhanced_keypoints = bool(getattr(args, "student_geometry_only", False))
+    else:
+        dxf_enhanced_keypoints = keypoints_token == "true"
+    os.environ["DXF_ENHANCED_KEYPOINTS"] = "true" if dxf_enhanced_keypoints else "false"
+    args.dxf_enhanced_keypoints = dxf_enhanced_keypoints
+
     if getattr(args, "dxf_edge_augment_knn_k", None) is None:
-        args.dxf_edge_augment_knn_k = (
-            8 if bool(getattr(args, "student_geometry_only", False)) else 0
-        )
+        if bool(getattr(args, "student_geometry_only", False)):
+            args.dxf_edge_augment_knn_k = 0 if dxf_enhanced_keypoints else 8
+        else:
+            args.dxf_edge_augment_knn_k = 0
     os.environ["DXF_EDGE_AUGMENT_KNN_K"] = str(int(args.dxf_edge_augment_knn_k))
+    strategy_token = (
+        str(getattr(args, "dxf_edge_augment_strategy", "auto") or "auto")
+        .strip()
+        .lower()
+    )
+    dxf_edge_augment_strategy = "union_all" if strategy_token == "auto" else strategy_token
+    os.environ["DXF_EDGE_AUGMENT_STRATEGY"] = dxf_edge_augment_strategy
+    args.dxf_edge_augment_strategy = dxf_edge_augment_strategy
     if bool(getattr(args, "student_geometry_only", False)):
         os.environ["DXF_STRIP_TEXT_ENTITIES"] = "true"
         if getattr(args, "dxf_frame_priority_ratio", None) is None:
@@ -664,6 +703,8 @@ def main() -> int:
                 else None
             ),
             "dxf_edge_augment_knn_k": int(args.dxf_edge_augment_knn_k),
+            "dxf_edge_augment_strategy": str(getattr(args, "dxf_edge_augment_strategy", "")),
+            "dxf_enhanced_keypoints": bool(getattr(args, "dxf_enhanced_keypoints", False)),
             "cache": str(args.graph_cache),
             "cache_max_items": int(args.graph_cache_max_items),
             "cache_dir": str(os.getenv("DXF_MANIFEST_DATASET_CACHE_DIR", "")),

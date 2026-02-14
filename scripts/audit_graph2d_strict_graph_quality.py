@@ -87,6 +87,11 @@ def _touching(
     return False
 
 
+def _enhanced_keypoints_enabled() -> bool:
+    raw = os.getenv("DXF_ENHANCED_KEYPOINTS", "false").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
 def _entity_keypoints_and_center(entity: Any) -> Tuple[str, List[Tuple[float, float]], Tuple[float, float]]:
     dtype = str(entity.dxftype())
     pts: List[Tuple[float, float]] = []
@@ -106,6 +111,17 @@ def _entity_keypoints_and_center(entity: Any) -> Tuple[str, List[Tuple[float, fl
         cx = float(c.x)
         cy = float(c.y)
         pts = [(cx, cy)]
+        if _enhanced_keypoints_enabled():
+            radius = float(entity.dxf.radius)
+            if radius > 0:
+                pts.extend(
+                    [
+                        (cx + radius, cy),
+                        (cx - radius, cy),
+                        (cx, cy + radius),
+                        (cx, cy - radius),
+                    ]
+                )
         center = (cx, cy)
     elif dtype == "ARC":
         c = entity.dxf.center
@@ -114,11 +130,19 @@ def _entity_keypoints_and_center(entity: Any) -> Tuple[str, List[Tuple[float, fl
         radius = float(entity.dxf.radius)
         start_angle = math.radians(float(entity.dxf.start_angle))
         end_angle = math.radians(float(entity.dxf.end_angle))
+        delta = end_angle - start_angle
+        if delta < 0:
+            delta += 2 * math.pi
         sx = cx + radius * math.cos(start_angle)
         sy = cy + radius * math.sin(start_angle)
         ex = cx + radius * math.cos(end_angle)
         ey = cy + radius * math.sin(end_angle)
         pts = [(sx, sy), (ex, ey)]
+        if _enhanced_keypoints_enabled() and radius > 0 and delta > 1e-9:
+            mid_angle = start_angle + delta * 0.5
+            mx = cx + radius * math.cos(mid_angle)
+            my = cy + radius * math.sin(mid_angle)
+            pts.append((mx, my))
         center = (cx, cy)
     elif dtype == "LWPOLYLINE":
         try:
@@ -292,8 +316,10 @@ def main() -> int:
         "DXF_FRAME_PRIORITY_RATIO": os.getenv("DXF_FRAME_PRIORITY_RATIO", ""),
         "DXF_LONG_LINE_RATIO": os.getenv("DXF_LONG_LINE_RATIO", ""),
         "DXF_EDGE_AUGMENT_KNN_K": os.getenv("DXF_EDGE_AUGMENT_KNN_K", ""),
+        "DXF_EDGE_AUGMENT_STRATEGY": os.getenv("DXF_EDGE_AUGMENT_STRATEGY", ""),
         "DXF_EMPTY_EDGE_FALLBACK": os.getenv("DXF_EMPTY_EDGE_FALLBACK", "fully_connected"),
         "DXF_EMPTY_EDGE_K": os.getenv("DXF_EMPTY_EDGE_K", "8"),
+        "DXF_ENHANCED_KEYPOINTS": os.getenv("DXF_ENHANCED_KEYPOINTS", ""),
     }
 
     per_file: List[Dict[str, Any]] = []
@@ -388,10 +414,28 @@ def main() -> int:
 
             # Optional kNN augmentation (union with epsilon-adjacency).
             augment_k = _safe_int(sampler_env.get("DXF_EDGE_AUGMENT_KNN_K", ""), 0)
+            augment_strategy = str(
+                sampler_env.get("DXF_EDGE_AUGMENT_STRATEGY", "union_all") or "union_all"
+            ).strip().lower()
+            if augment_strategy not in {"union_all", "isolates_only"}:
+                augment_strategy = "union_all"
+
+            if augment_k > 0 and final_edge_count > 0 and n > 1:
+                augment_nodes: List[int]
+                if augment_strategy == "isolates_only":
+                    degrees = [0] * n
+                    for src, _dst in final_edges_directed:
+                        degrees[int(src)] += 1
+                    augment_nodes = [idx for idx, deg in enumerate(degrees) if deg == 0]
+                else:
+                    augment_nodes = list(range(n))
+                if not augment_nodes:
+                    augment_k = 0
+
             if augment_k > 0 and final_edge_count > 0 and n > 1:
                 edge_set: set[Tuple[int, int]] = set(final_edges_directed)
                 k = max(1, min(int(augment_k), n - 1))
-                for a in range(n):
+                for a in augment_nodes:
                     cx_a, cy_a = centers[a]
                     dist_list: List[Tuple[float, int]] = []
                     for b in range(n):
@@ -407,7 +451,7 @@ def main() -> int:
                         edge_set.add((b, a))
                 final_edges_directed = list(edge_set)
                 final_edge_count = len(final_edges_directed)
-                final_edge_mode = f"epsilon+knn:{k}"
+                final_edge_mode = f"epsilon+knn:{k}:{augment_strategy}"
 
             empty_fallback_mode = str(sampler_env["DXF_EMPTY_EDGE_FALLBACK"]).strip().lower()
             empty_fallback_k = _safe_int(sampler_env["DXF_EMPTY_EDGE_K"], 8)

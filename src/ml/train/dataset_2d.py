@@ -157,6 +157,10 @@ class DXFDataset(Dataset):
         """Convert DXF entities to Node Features and Adjacency."""
         node_dim = node_dim or DXF_NODE_DIM
         legacy_mode = node_dim <= len(DXF_NODE_FEATURES_LEGACY)
+        enhanced_keypoints = (
+            os.getenv("DXF_ENHANCED_KEYPOINTS", "false").strip().lower()
+            in {"1", "true", "yes", "on"}
+        )
 
         entities = list(msp)
         valid_types = {
@@ -240,6 +244,16 @@ class DXFDataset(Dataset):
                 center_x = float(center.x)
                 center_y = float(center.y)
                 pts = [(center_x, center_y)]
+                if enhanced_keypoints and radius > 0:
+                    # Cardinal points help circles connect to surrounding geometry.
+                    pts.extend(
+                        [
+                            (center_x + radius, center_y),
+                            (center_x - radius, center_y),
+                            (center_x, center_y + radius),
+                            (center_x, center_y - radius),
+                        ]
+                    )
             elif dtype == "ARC":
                 center = e.dxf.center
                 radius = float(e.dxf.radius)
@@ -256,6 +270,11 @@ class DXFDataset(Dataset):
                 ex = center_x + radius * math.cos(end_angle)
                 ey = center_y + radius * math.sin(end_angle)
                 pts = [(sx, sy), (ex, ey)]
+                if enhanced_keypoints and radius > 0 and delta > 1e-9:
+                    mid_angle = start_angle + delta * 0.5
+                    mx = center_x + radius * math.cos(mid_angle)
+                    my = center_y + radius * math.sin(mid_angle)
+                    pts.append((mx, my))
                 dx = ex - sx
                 dy = ey - sy
                 norm = math.hypot(dx, dy)
@@ -509,11 +528,29 @@ class DXFDataset(Dataset):
             augment_k = int(augment_raw) if augment_raw else 0
         except Exception:
             augment_k = 0
+        augment_strategy = (
+            os.getenv("DXF_EDGE_AUGMENT_STRATEGY", "union_all").strip().lower()
+        )
+        if augment_strategy not in {"union_all", "isolates_only"}:
+            augment_strategy = "union_all"
+
         if augment_k > 0 and edges:
             k = max(1, min(int(augment_k), num_nodes - 1))
             edge_set: set[Tuple[int, int]] = set(edges)
 
-            for i in range(num_nodes):
+            augment_nodes: List[int]
+            if augment_strategy == "isolates_only":
+                # Treat the epsilon-adjacency edges as undirected because we add
+                # edges in both directions above. A node is "isolated" if it has
+                # zero outgoing edges in the current directed list.
+                degrees = [0] * num_nodes
+                for src, _dst in edges:
+                    degrees[src] += 1
+                augment_nodes = [idx for idx, deg in enumerate(degrees) if deg == 0]
+            else:
+                augment_nodes = list(range(num_nodes))
+
+            for i in augment_nodes:
                 cx_i, cy_i = node_meta[i]["center"]
                 dists: List[Tuple[float, int]] = []
                 for j in range(num_nodes):
@@ -706,8 +743,10 @@ class DXFManifestDataset(Dataset):
             os.getenv("DXF_FRAME_PRIORITY_RATIO", ""),
             os.getenv("DXF_LONG_LINE_RATIO", ""),
             os.getenv("DXF_EDGE_AUGMENT_KNN_K", ""),
+            os.getenv("DXF_EDGE_AUGMENT_STRATEGY", ""),
             os.getenv("DXF_EMPTY_EDGE_FALLBACK", ""),
             os.getenv("DXF_EMPTY_EDGE_K", ""),
+            os.getenv("DXF_ENHANCED_KEYPOINTS", ""),
             os.getenv("DXF_STRIP_TEXT_ENTITIES", ""),
         ]
         raw = ":".join(key_tokens)

@@ -4272,3 +4272,13 @@
     - `.venv/bin/python scripts/run_graph2d_pipeline_local.py --student-geometry-only --normalize-labels --clean-min-count 5 --distill --teacher titleblock --distill-alpha 0.1 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp/graph2d_strict_cmp_aug_20260214_154435`; strict accuracy observed for `gcn`: `0.2273`)
     - `DXF_EDGE_AUGMENT_KNN_K=8 .venv/bin/python scripts/audit_graph2d_strict_graph_quality.py --strip-text-entities` (completed; artifacts in `/tmp/graph2d_graph_audit_aug_20260214_154858`)
   - Report: `reports/DEV_GRAPH2D_EDGE_AUGMENT_KNN_STRICT_20260214.md`
+- **Graph2D Strict Graph Build: Enhanced Keypoints + kNN Augment Strategy**:
+  - Added `DXF_ENHANCED_KEYPOINTS` to improve epsilon-adjacency for `CIRCLE`/`ARC` entities by adding extra keypoints (cardinal points for circles; mid-arc point for arcs).
+  - Added `DXF_EDGE_AUGMENT_STRATEGY` (`union_all` vs `isolates_only`) to control how kNN edge augmentation is applied when epsilon-adjacency is non-empty.
+  - Updated local pipeline defaults: when running `--student-geometry-only` with enhanced keypoints enabled, default `DXF_EDGE_AUGMENT_KNN_K=0` (kNN augmentation regressed strict accuracy on this corpus/config).
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_dataset2d_enhanced_keypoints.py tests/unit/test_dataset2d_edge_augment_strategy.py -v` (passed)
+    - `scripts/run_graph2d_pipeline_local.py ... --dxf-enhanced-keypoints true --dxf-edge-augment-knn-k 0 --diagnose-no-text-no-filename` (completed; strict accuracy observed: `0.2364`)
+    - `scripts/run_graph2d_pipeline_local.py ... --dxf-enhanced-keypoints true --dxf-edge-augment-knn-k 8 --dxf-edge-augment-strategy union_all --diagnose-no-text-no-filename` (completed; strict accuracy observed: `0.2273`)
+    - `scripts/run_graph2d_pipeline_local.py ... --dxf-enhanced-keypoints true --dxf-edge-augment-knn-k 8 --dxf-edge-augment-strategy isolates_only --diagnose-no-text-no-filename` (completed; strict accuracy observed: `0.2182`)
+  - Report: `reports/DEV_GRAPH2D_ENHANCED_KEYPOINTS_EDGE_AUGMENT_STRATEGY_20260214.md`
