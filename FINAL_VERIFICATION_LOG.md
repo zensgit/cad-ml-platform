@@ -4214,3 +4214,17 @@
     - `env DXF_STRIP_TEXT_ENTITIES=true .venv/bin/python scripts/run_graph2d_pipeline_local.py --normalize-labels --clean-min-count 5 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp`)
     - `env DXF_STRIP_TEXT_ENTITIES=true .venv/bin/python scripts/run_graph2d_pipeline_local.py --normalize-labels --clean-min-count 5 --distill --teacher titleblock --distill-alpha 0.7 --diagnose-no-text-no-filename` (completed; artifacts in `/tmp`)
   - Report: `reports/DEV_GRAPH2D_COARSE_BUCKET_CLEAN_MIN5_STRICT_DISTILL_20260214.md`
+- **Graph2D Strict Sweep Runner (Geometry-Only Student + Strict Diagnose)**:
+  - Added a strict-mode sweep runner to execute multiple Graph2D pipeline configurations and aggregate strict-mode metrics (strip DXF text entities + masked filename).
+  - Added a `--student-geometry-only` flag to the local pipeline runner to train/eval with `DXF_STRIP_TEXT_ENTITIES=true`.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_sweep_graph2d_strict_mode_parsers.py -v` (passed)
+    - `/usr/bin/time -p .venv/bin/python scripts/sweep_graph2d_strict_mode.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 5 --student-geometry-only --epochs 3 --diagnose-max-files 200` (completed; artifacts in `/tmp`)
+  - Report: `reports/DEV_GRAPH2D_STRICT_SWEEP_RUNNER_20260214.md`
+- **Graph2D Distillation: Use Balanced Hard-Loss Term**:
+  - Extended distillation to accept a custom hard-loss function (class weights/focal/logit-adjusted) instead of always using plain cross-entropy.
+  - Updated `scripts/train_2d_graph.py` to pass the selected `criterion` into `DistillationLoss(hard_loss_fn=...)` so distillation respects `--loss` / `--class-weighting`.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_knowledge_distillation_loss_hard_loss_fn.py -v` (passed)
+    - `/usr/bin/time -p .venv/bin/python scripts/sweep_graph2d_strict_mode.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --normalize-labels --clean-min-count 5 --student-geometry-only --epochs 3 --diagnose-max-files 200 --max-runs 6` (completed; best strict accuracy observed: `0.2273`)
+  - Report: `reports/DEV_GRAPH2D_DISTILLATION_HARD_LOSS_BALANCING_20260214.md`

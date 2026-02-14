@@ -358,6 +358,14 @@ def main() -> int:
         help="Max cached graphs in memory (0 = unlimited).",
     )
     parser.add_argument(
+        "--student-geometry-only",
+        action="store_true",
+        help=(
+            "Set DXF_STRIP_TEXT_ENTITIES=true for graph building during training/eval "
+            "(simulate geometry-only student input)."
+        ),
+    )
+    parser.add_argument(
         "--empty-edge-fallback",
         choices=["fully_connected", "knn"],
         default="fully_connected",
@@ -457,6 +465,8 @@ def main() -> int:
     # Empty-edge fallback for DXF graphs.
     os.environ["DXF_EMPTY_EDGE_FALLBACK"] = str(args.empty_edge_fallback)
     os.environ["DXF_EMPTY_EDGE_K"] = str(int(args.empty_edge_knn_k))
+    if bool(getattr(args, "student_geometry_only", False)):
+        os.environ["DXF_STRIP_TEXT_ENTITIES"] = "true"
 
     # 1) Manifest
     _run(
@@ -576,6 +586,7 @@ def main() -> int:
         "graph_build": {
             "empty_edge_fallback": str(args.empty_edge_fallback),
             "empty_edge_knn_k": int(args.empty_edge_knn_k),
+            "student_geometry_only": bool(args.student_geometry_only),
             "cache": str(args.graph_cache),
             "cache_max_items": int(args.graph_cache_max_items),
             "cache_dir": str(os.getenv("DXF_MANIFEST_DATASET_CACHE_DIR", "")),

@@ -615,10 +615,6 @@ def main() -> int:
             label_to_idx=label_map,
             num_classes=num_classes,
         )
-        distill_loss_fn = DistillationLoss(
-            alpha=args.distill_alpha,
-            temperature=args.distill_temp,
-        )
 
     balance_strategy = "none"
     if args.loss == "focal":
@@ -663,6 +659,12 @@ def main() -> int:
         num_classes=num_classes,
         class_counts=class_counts,
     )
+    if args.distill and teacher_model is not None:
+        distill_loss_fn = DistillationLoss(
+            alpha=args.distill_alpha,
+            temperature=args.distill_temp,
+            hard_loss_fn=criterion,
+        )
     if downweight_factor is not None and downweight_label_idx is not None:
         try:
             if hasattr(criterion, "weight") and getattr(criterion, "weight") is not None:

@@ -56,12 +56,14 @@ class DistillationLoss(nn.Module):
         self,
         alpha: float = 0.3,
         temperature: float = 3.0,
+        hard_loss_fn: Optional[nn.Module] = None,
     ):
         super().__init__()
         self.alpha = float(os.getenv("DISTILLATION_ALPHA", str(alpha)))
         self.temperature = float(
             os.getenv("DISTILLATION_TEMPERATURE", str(temperature))
         )
+        self.hard_loss_fn = hard_loss_fn
 
         logger.info(
             "DistillationLoss initialized",
@@ -88,8 +90,12 @@ class DistillationLoss(nn.Module):
         Returns:
             (total_loss, loss_components)
         """
-        # 硬标签 CE 损失
-        ce_loss = F.cross_entropy(student_logits, hard_labels)
+        # Hard-label loss (defaults to plain CE). When supplied, `hard_loss_fn`
+        # should have the same signature as CrossEntropyLoss: (logits, targets).
+        if self.hard_loss_fn is not None:
+            ce_loss = self.hard_loss_fn(student_logits, hard_labels)
+        else:
+            ce_loss = F.cross_entropy(student_logits, hard_labels)
 
         # 软标签 KL 散度损失
         student_soft = F.log_softmax(student_logits / self.temperature, dim=1)
