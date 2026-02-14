@@ -27,6 +27,31 @@ from typing import Any, Dict, List, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
+TRAINING_PROFILES: Dict[str, Dict[str, Any]] = {
+    "strict_node23_edgesage_v1": {
+        "model": "edge_sage",
+        "node_dim": 23,
+        "hidden_dim": 128,
+        "epochs": 10,
+        "loss": "focal",
+        "class_weighting": "sqrt",
+        "sampler": "balanced",
+        "distill": True,
+        "teacher": "titleblock",
+        "distill_alpha": 0.1,
+        "distill_temp": 3.0,
+        "distill_mask_filename": "auto",
+        "student_geometry_only": True,
+        "diagnose_no_text_no_filename": True,
+        "normalize_labels": True,
+        "clean_min_count": 5,
+        "dxf_enhanced_keypoints": "true",
+        "dxf_edge_augment_knn_k": 0,
+        "dxf_edge_augment_strategy": "union_all",
+        "dxf_eps_scale": 0.001,
+    }
+}
+
 
 def _run(cmd: List[str]) -> None:
     printable = " ".join(cmd)
@@ -228,12 +253,37 @@ def _build_diagnose_cmd(
     return cmd
 
 
+def _apply_training_profile(args: argparse.Namespace) -> argparse.Namespace:
+    token = str(getattr(args, "training_profile", "none") or "none").strip().lower()
+    if token in {"", "none"}:
+        args.training_profile = "none"
+        return args
+
+    profile = TRAINING_PROFILES.get(token)
+    if not profile:
+        raise ValueError(f"unknown training profile: {token}")
+
+    for key, value in profile.items():
+        setattr(args, key, value)
+    args.training_profile = token
+    return args
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run Graph2D pipeline (manifest -> train -> eval -> diagnose)."
     )
     parser.add_argument(
         "--dxf-dir", required=True, help="DXF directory to scan/train on."
+    )
+    parser.add_argument(
+        "--training-profile",
+        choices=["none", *sorted(TRAINING_PROFILES.keys())],
+        default="none",
+        help=(
+            "Apply an opinionated training profile. "
+            "When not 'none', profile values override related CLI args."
+        ),
     )
     parser.add_argument(
         "--work-dir",
@@ -497,6 +547,7 @@ def main() -> int:
         ),
     )
     args = parser.parse_args()
+    args = _apply_training_profile(args)
 
     dxf_dir = Path(args.dxf_dir)
     if not dxf_dir.exists():
@@ -715,6 +766,7 @@ def main() -> int:
         "work_dir": str(work_dir),
         "dxf_dir": str(dxf_dir),
         "checkpoint": str(checkpoint_path),
+        "training_profile": str(getattr(args, "training_profile", "none")),
         "training": {
             "model": str(args.model),
             "node_dim": int(getattr(args, "node_dim", 19)),

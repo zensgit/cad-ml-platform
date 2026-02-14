@@ -4311,3 +4311,18 @@
     - `.venv/bin/python scripts/run_graph2d_pipeline_local.py ... --node-dim 23 --epochs 10 --hidden-dim 128 --model edge_sage --seed 7` (artifacts: `/tmp/graph2d_pipeline_local_20260215_011723`)
   - Result: strict accuracy improved from prior best `0.2364` to `0.3818` on this corpus/protocol.
   - Report: `reports/DEV_GRAPH2D_NODE23_EDGE_SAGE_STRICT_TUNING_20260215.md`
+- **Graph2D Strict Profile Preset + Multi-Seed Sweep (1+2)**:
+  - Added reusable local pipeline training profile `strict_node23_edgesage_v1` in `scripts/run_graph2d_pipeline_local.py` (`--training-profile`), preserving default behavior via `none`.
+  - Added seed sweep runner `scripts/sweep_graph2d_profile_seeds.py` for reproducible multi-seed strict validation.
+  - Added unit tests:
+    - `tests/unit/test_run_graph2d_pipeline_local_profile.py`
+    - `tests/unit/test_sweep_graph2d_profile_seeds.py`
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_run_graph2d_pipeline_local_profile.py tests/unit/test_sweep_graph2d_profile_seeds.py tests/unit/test_run_graph2d_pipeline_local_distill_wiring.py tests/unit/test_run_graph2d_pipeline_local_diagnose_strict_wiring.py -v` (passed)
+    - `.venv/bin/python scripts/sweep_graph2d_profile_seeds.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --training-profile strict_node23_edgesage_v1 --seeds 7,21,42` (completed; artifacts in `/tmp/graph2d_profile_seed_sweep_20260215_013344`)
+  - Strict accuracy (3 seeds):
+    - seed 7: `0.3818`
+    - seed 21: `0.2818`
+    - seed 42: `0.3545`
+    - mean/min/max: `0.3394 / 0.2818 / 0.3818`
+  - Report: `reports/DEV_GRAPH2D_STRICT_PROFILE_AND_SEED_SWEEP_20260215.md`
