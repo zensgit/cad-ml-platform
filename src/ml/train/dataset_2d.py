@@ -668,6 +668,7 @@ class DXFManifestDataset(Dataset):
             os.getenv("DXF_SAMPLING_SEED", ""),
             os.getenv("DXF_TEXT_PRIORITY_RATIO", ""),
             os.getenv("DXF_FRAME_PRIORITY_RATIO", ""),
+            os.getenv("DXF_LONG_LINE_RATIO", ""),
             os.getenv("DXF_EMPTY_EDGE_FALLBACK", ""),
             os.getenv("DXF_EMPTY_EDGE_K", ""),
             os.getenv("DXF_STRIP_TEXT_ENTITIES", ""),

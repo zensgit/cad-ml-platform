@@ -4243,3 +4243,10 @@
     - `scripts/run_graph2d_pipeline_local.py --student-geometry-only --diagnose-no-text-no-filename --dxf-frame-priority-ratio <value>` (completed; artifacts in `/tmp/graph2d_frame_ratio_sweep_20260214_125929`)
   - Result: `0.2` regressed toward collapse; `[0.0, 0.1]` performed the same on this dataset/config.
   - Report: `reports/DEV_GRAPH2D_FRAME_RATIO_SWEEP_20260214.md`
+- **Graph2D Geometry-Only: Cap Non-Frame Long Lines In Importance Sampling**:
+  - Added `DXF_LONG_LINE_RATIO` to cap the fraction of sampled nodes that are non-frame long `LINE` entities (to avoid long-line dominance in geometry-only graphs).
+  - Wired `--dxf-long-line-ratio` through train/eval/pipeline; default to `0.4` when running `--student-geometry-only` unless explicitly set.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_importance_sampler_long_line_ratio.py -v` (passed)
+    - `scripts/run_graph2d_pipeline_local.py --student-geometry-only --diagnose-no-text-no-filename --dxf-long-line-ratio <value>` (completed; artifacts in `/tmp/graph2d_long_line_ratio_sweep_20260214_131521`)
+  - Report: `reports/DEV_GRAPH2D_GEOMETRY_ONLY_LONG_LINE_CAP_SAMPLING_20260214.md`

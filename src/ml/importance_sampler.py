@@ -9,6 +9,7 @@ Feature Flags:
     DXF_SAMPLING_SEED: 随机种子，确保可重复性 (default: 42)
     DXF_TEXT_PRIORITY_RATIO: 文本实体优先占比上限 (default: 0.3)
     DXF_FRAME_PRIORITY_RATIO: 边框/标题栏等“框架实体”占比上限 (default: 1.0 = 不限制)
+    DXF_LONG_LINE_RATIO: 非框架长直线占比上限 (default: 1.0 = 不限制)
 """
 
 from __future__ import annotations
@@ -80,6 +81,7 @@ class ImportanceSampler:
         seed: int = 42,
         text_priority_ratio: float = 0.3,
         frame_priority_ratio: float = 1.0,
+        long_line_ratio: float = 1.0,
     ):
         """
         初始化采样器
@@ -89,6 +91,7 @@ class ImportanceSampler:
             strategy: 采样策略 (importance/random/hybrid)
             seed: 随机种子
             text_priority_ratio: 文本实体占比上限
+            long_line_ratio: 非框架长直线占比上限
         """
         self.max_nodes = int(os.getenv("DXF_MAX_NODES", str(max_nodes)))
         self.strategy = SamplingStrategy(os.getenv("DXF_SAMPLING_STRATEGY", strategy))
@@ -100,6 +103,10 @@ class ImportanceSampler:
         )
         # Keep ratios in [0,1] to avoid surprising sampling behavior.
         self.frame_priority_ratio = max(0.0, min(1.0, self.frame_priority_ratio))
+        self.long_line_ratio = float(
+            os.getenv("DXF_LONG_LINE_RATIO", str(long_line_ratio))
+        )
+        self.long_line_ratio = max(0.0, min(1.0, self.long_line_ratio))
 
         # 设置随机种子确保可重复性
         random.seed(self.seed)
@@ -112,6 +119,7 @@ class ImportanceSampler:
                 "seed": self.seed,
                 "text_ratio": self.text_priority_ratio,
                 "frame_ratio": self.frame_priority_ratio,
+                "long_line_ratio": self.long_line_ratio,
             },
         )
 
@@ -345,7 +353,33 @@ class ImportanceSampler:
         sampled = list(text_entities) + list(frame_entities)
         remaining_slots = self.max_nodes - len(sampled)
         if remaining_slots > 0:
-            sampled.extend(other_entities[:remaining_slots])
+            if self.long_line_ratio >= 1.0:
+                sampled.extend(other_entities[:remaining_slots])
+            else:
+                max_long_lines = int(self.max_nodes * self.long_line_ratio)
+                long_lines = [
+                    e
+                    for e in other_entities
+                    if e.dtype == "LINE"
+                    and e.priority == EntityPriority.LONG_LINE.value
+                ]
+                non_long_lines = [
+                    e
+                    for e in other_entities
+                    if not (
+                        e.dtype == "LINE"
+                        and e.priority == EntityPriority.LONG_LINE.value
+                    )
+                ]
+                sampled.extend(non_long_lines[:remaining_slots])
+                remaining_slots = self.max_nodes - len(sampled)
+                if remaining_slots > 0:
+                    sampled.extend(long_lines[: min(max_long_lines, remaining_slots)])
+                    remaining_slots = self.max_nodes - len(sampled)
+                if remaining_slots > 0:
+                    # Fallback: if there is not enough non-long-line geometry,
+                    # keep graph size stable by allowing overflow long lines.
+                    sampled.extend(long_lines[max_long_lines:][:remaining_slots])
             remaining_slots = self.max_nodes - len(sampled)
         if remaining_slots > 0:
             sampled.extend(frame_overflow_entities[:remaining_slots])

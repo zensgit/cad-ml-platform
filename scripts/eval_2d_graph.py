@@ -76,6 +76,7 @@ def _apply_dxf_sampling_env(args: argparse.Namespace) -> None:
         "dxf_sampling_seed": "DXF_SAMPLING_SEED",
         "dxf_text_priority_ratio": "DXF_TEXT_PRIORITY_RATIO",
         "dxf_frame_priority_ratio": "DXF_FRAME_PRIORITY_RATIO",
+        "dxf_long_line_ratio": "DXF_LONG_LINE_RATIO",
     }
     for arg_name, env_name in mapping.items():
         value = getattr(args, arg_name, None)
@@ -311,6 +312,15 @@ def main() -> int:
         help=(
             "Override DXF_FRAME_PRIORITY_RATIO for importance sampling "
             "(caps border/titleblock frame entities)."
+        ),
+    )
+    parser.add_argument(
+        "--dxf-long-line-ratio",
+        type=float,
+        default=None,
+        help=(
+            "Override DXF_LONG_LINE_RATIO for importance sampling "
+            "(caps non-frame long lines)."
         ),
     )
     _apply_config_defaults(parser, pre_args.config, "eval_2d_graph")

@@ -173,6 +173,10 @@ def _build_train_cmd(
         train_cmd.extend(
             ["--dxf-frame-priority-ratio", str(float(args.dxf_frame_priority_ratio))]
         )
+    if getattr(args, "dxf_long_line_ratio", None) is not None:
+        train_cmd.extend(
+            ["--dxf-long-line-ratio", str(float(args.dxf_long_line_ratio))]
+        )
     if int(args.max_samples) > 0:
         train_cmd.extend(["--max-samples", str(int(args.max_samples))])
 
@@ -341,6 +345,16 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--dxf-long-line-ratio",
+        type=float,
+        default=None,
+        help=(
+            "DXF_LONG_LINE_RATIO override (caps non-frame long lines). "
+            "Default: unset (no cap). When --student-geometry-only is set, defaults "
+            "to 0.4."
+        ),
+    )
+    parser.add_argument(
         "--diagnose-max-files",
         type=int,
         default=200,
@@ -483,6 +497,8 @@ def main() -> int:
         os.environ["DXF_STRIP_TEXT_ENTITIES"] = "true"
         if getattr(args, "dxf_frame_priority_ratio", None) is None:
             args.dxf_frame_priority_ratio = 0.1
+        if getattr(args, "dxf_long_line_ratio", None) is None:
+            args.dxf_long_line_ratio = 0.4
 
     # 1) Manifest
     _run(
@@ -586,6 +602,13 @@ def main() -> int:
                 str(float(args.dxf_frame_priority_ratio)),
             ]
         )
+    if getattr(args, "dxf_long_line_ratio", None) is not None:
+        eval_cmd.extend(
+            [
+                "--dxf-long-line-ratio",
+                str(float(args.dxf_long_line_ratio)),
+            ]
+        )
     _run(eval_cmd)
 
     # 5) Diagnose (score against weak labels from filename)
@@ -612,6 +635,11 @@ def main() -> int:
             "dxf_frame_priority_ratio": (
                 float(args.dxf_frame_priority_ratio)
                 if args.dxf_frame_priority_ratio is not None
+                else None
+            ),
+            "dxf_long_line_ratio": (
+                float(args.dxf_long_line_ratio)
+                if args.dxf_long_line_ratio is not None
                 else None
             ),
             "cache": str(args.graph_cache),
