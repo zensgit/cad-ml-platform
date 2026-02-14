@@ -4297,3 +4297,17 @@
     - `.venv/bin/python scripts/run_graph2d_pipeline_local.py ... --node-dim 19` (strict diagnose accuracy: `0.2364`; artifacts: `/tmp/graph2d_pipeline_local_20260214_183427`)
     - `.venv/bin/python scripts/run_graph2d_pipeline_local.py ... --node-dim 23` (strict diagnose accuracy: `0.1455`; artifacts: `/tmp/graph2d_pipeline_local_20260214_183608`)
   - Report: `reports/DEV_GRAPH2D_NODE_DIM_EXTRA_FEATURES_20260214.md`
+- **Graph2D Strict Tuning: Node-Dim 23 + EdgeSage Capacity Sweep**:
+  - Ran strict-mode tuning experiments to test whether the optional extra node features can outperform the previous strict baseline when paired with stronger model settings.
+  - Compared:
+    - `gcn, node_dim=23, hidden_dim=64, epochs=10` (strict accuracy: `0.1364`)
+    - `gcn, node_dim=23, hidden_dim=128, epochs=10` (strict accuracy: `0.2545`)
+    - `edge_sage, node_dim=23, hidden_dim=128, epochs=10` (strict accuracy: `0.3545`)
+    - Re-check with different seed (`edge_sage`, seed=7): strict accuracy `0.3818`
+  - Validation:
+    - `.venv/bin/python scripts/run_graph2d_pipeline_local.py ... --node-dim 23 --epochs 10 --hidden-dim 64 --model gcn --seed 42` (artifacts: `/tmp/graph2d_pipeline_local_20260215_011143`)
+    - `.venv/bin/python scripts/run_graph2d_pipeline_local.py ... --node-dim 23 --epochs 10 --hidden-dim 128 --model gcn --seed 42` (artifacts: `/tmp/graph2d_pipeline_local_20260215_011345`)
+    - `.venv/bin/python scripts/run_graph2d_pipeline_local.py ... --node-dim 23 --epochs 10 --hidden-dim 128 --model edge_sage --seed 42` (artifacts: `/tmp/graph2d_pipeline_local_20260215_011529`)
+    - `.venv/bin/python scripts/run_graph2d_pipeline_local.py ... --node-dim 23 --epochs 10 --hidden-dim 128 --model edge_sage --seed 7` (artifacts: `/tmp/graph2d_pipeline_local_20260215_011723`)
+  - Result: strict accuracy improved from prior best `0.2364` to `0.3818` on this corpus/protocol.
+  - Report: `reports/DEV_GRAPH2D_NODE23_EDGE_SAGE_STRICT_TUNING_20260215.md`
