@@ -79,6 +79,7 @@ def _apply_dxf_sampling_env(args: argparse.Namespace) -> None:
         "dxf_long_line_ratio": "DXF_LONG_LINE_RATIO",
         "dxf_edge_augment_knn_k": "DXF_EDGE_AUGMENT_KNN_K",
         "dxf_edge_augment_strategy": "DXF_EDGE_AUGMENT_STRATEGY",
+        "dxf_eps_scale": "DXF_EPS_SCALE",
     }
     for arg_name, env_name in mapping.items():
         value = getattr(args, arg_name, None)
@@ -328,6 +329,12 @@ def main() -> int:
             "Override DXF_LONG_LINE_RATIO for importance sampling "
             "(caps non-frame long lines)."
         ),
+    )
+    parser.add_argument(
+        "--dxf-eps-scale",
+        type=float,
+        default=None,
+        help="Override DXF_EPS_SCALE for epsilon-adjacency (eps = max_dim * scale).",
     )
     parser.add_argument(
         "--dxf-edge-augment-knn-k",

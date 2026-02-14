@@ -319,6 +319,7 @@ def main() -> int:
         "DXF_EDGE_AUGMENT_STRATEGY": os.getenv("DXF_EDGE_AUGMENT_STRATEGY", ""),
         "DXF_EMPTY_EDGE_FALLBACK": os.getenv("DXF_EMPTY_EDGE_FALLBACK", "fully_connected"),
         "DXF_EMPTY_EDGE_K": os.getenv("DXF_EMPTY_EDGE_K", "8"),
+        "DXF_EPS_SCALE": os.getenv("DXF_EPS_SCALE", ""),
         "DXF_ENHANCED_KEYPOINTS": os.getenv("DXF_ENHANCED_KEYPOINTS", ""),
     }
 
@@ -399,7 +400,13 @@ def main() -> int:
 
             bbox = _compute_bbox(all_points)
             max_dim = _max_dim(bbox)
-            eps = max(1e-3, max_dim * 1e-3)
+            eps_scale_raw = str(sampler_env.get("DXF_EPS_SCALE", "") or "").strip()
+            try:
+                eps_scale = float(eps_scale_raw) if eps_scale_raw else 0.001
+            except Exception:
+                eps_scale = 0.001
+            eps_scale = max(1e-6, min(float(eps_scale), 0.05))
+            eps = max(1e-3, max_dim * eps_scale)
 
             n = len(sampled_entities)
             for i in range(n):

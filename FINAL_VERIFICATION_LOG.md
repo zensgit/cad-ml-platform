@@ -4282,3 +4282,10 @@
     - `scripts/run_graph2d_pipeline_local.py ... --dxf-enhanced-keypoints true --dxf-edge-augment-knn-k 8 --dxf-edge-augment-strategy union_all --diagnose-no-text-no-filename` (completed; strict accuracy observed: `0.2273`)
     - `scripts/run_graph2d_pipeline_local.py ... --dxf-enhanced-keypoints true --dxf-edge-augment-knn-k 8 --dxf-edge-augment-strategy isolates_only --diagnose-no-text-no-filename` (completed; strict accuracy observed: `0.2182`)
   - Report: `reports/DEV_GRAPH2D_ENHANCED_KEYPOINTS_EDGE_AUGMENT_STRATEGY_20260214.md`
+- **Graph2D Strict Graph Build: DXF_EPS_SCALE Sweep**:
+  - Added `DXF_EPS_SCALE` to make epsilon-adjacency distance configurable (`eps = max_dim * scale`), and wired it through local pipeline + audit to support controlled sweeps.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_dataset2d_eps_scale.py -v` (passed)
+    - `scripts/run_graph2d_pipeline_local.py ... --dxf-eps-scale {0.001,0.002,0.005} --diagnose-no-text-no-filename` (completed; strict accuracy best remained at `0.001` on this corpus/config)
+    - `scripts/audit_graph2d_strict_graph_quality.py --strip-text-entities` with `DXF_EPS_SCALE={0.002,0.005}` (completed; edges increased, accuracy regressed)
+  - Report: `reports/DEV_GRAPH2D_EPS_SCALE_SWEEP_20260214.md`

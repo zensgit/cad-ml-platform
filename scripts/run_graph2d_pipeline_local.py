@@ -355,6 +355,15 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--dxf-eps-scale",
+        type=float,
+        default=0.001,
+        help=(
+            "DXF_EPS_SCALE override for epsilon-adjacency distance "
+            "(eps = max_dim * scale). Default: 0.001."
+        ),
+    )
+    parser.add_argument(
         "--dxf-edge-augment-knn-k",
         type=int,
         default=None,
@@ -530,6 +539,7 @@ def main() -> int:
         )
     os.environ["DXF_EMPTY_EDGE_FALLBACK"] = str(args.empty_edge_fallback)
     os.environ["DXF_EMPTY_EDGE_K"] = str(int(args.empty_edge_knn_k))
+    os.environ["DXF_EPS_SCALE"] = str(float(getattr(args, "dxf_eps_scale", 0.001)))
 
     keypoints_token = str(getattr(args, "dxf_enhanced_keypoints", "auto") or "auto").strip().lower()
     if keypoints_token == "auto":
@@ -704,6 +714,7 @@ def main() -> int:
             ),
             "dxf_edge_augment_knn_k": int(args.dxf_edge_augment_knn_k),
             "dxf_edge_augment_strategy": str(getattr(args, "dxf_edge_augment_strategy", "")),
+            "dxf_eps_scale": float(getattr(args, "dxf_eps_scale", 0.001)),
             "dxf_enhanced_keypoints": bool(getattr(args, "dxf_enhanced_keypoints", False)),
             "cache": str(args.graph_cache),
             "cache_max_items": int(args.graph_cache_max_items),

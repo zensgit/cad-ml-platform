@@ -480,7 +480,14 @@ class DXFDataset(Dataset):
                 return x, empty_edge, torch.zeros(0, DXF_EDGE_DIM)
             return x, empty_edge
 
-        eps = max(1e-3, max_dim * 1e-3)
+        eps_scale_raw = os.getenv("DXF_EPS_SCALE", "0.001").strip()
+        try:
+            eps_scale = float(eps_scale_raw)
+        except Exception:
+            eps_scale = 0.001
+        # Clamp to a sane range to prevent accidental over-connection.
+        eps_scale = max(1e-6, min(eps_scale, 0.05))
+        eps = max(1e-3, max_dim * eps_scale)
 
         def _edge_feature(i: int, j: int) -> List[float]:
             meta_i = node_meta[i]
@@ -746,6 +753,7 @@ class DXFManifestDataset(Dataset):
             os.getenv("DXF_EDGE_AUGMENT_STRATEGY", ""),
             os.getenv("DXF_EMPTY_EDGE_FALLBACK", ""),
             os.getenv("DXF_EMPTY_EDGE_K", ""),
+            os.getenv("DXF_EPS_SCALE", ""),
             os.getenv("DXF_ENHANCED_KEYPOINTS", ""),
             os.getenv("DXF_STRIP_TEXT_ENTITIES", ""),
         ]
