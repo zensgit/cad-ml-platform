@@ -50,6 +50,33 @@ def _extract_top_pred_ratio(summary: Dict[str, Any]) -> Dict[str, Any]:
     return {"label": label, "count": count, "ratio": ratio}
 
 
+def _extract_low_conf_ratio(predictions_csv: Path, threshold: float) -> Dict[str, Any]:
+    if not predictions_csv.exists():
+        return {"threshold": float(threshold), "count": 0, "total": 0, "ratio": 0.0}
+    total = 0
+    low = 0
+    try:
+        with predictions_csv.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                conf = _safe_float(row.get("pred_confidence"), -1.0)
+                if conf < 0:
+                    continue
+                total += 1
+                if conf < float(threshold):
+                    low += 1
+    except Exception:
+        return {"threshold": float(threshold), "count": 0, "total": 0, "ratio": 0.0}
+    denom = total if total > 0 else 1
+    ratio = float(low) / float(denom)
+    return {
+        "threshold": float(threshold),
+        "count": int(low),
+        "total": int(total),
+        "ratio": float(ratio),
+    }
+
+
 def _read_json(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {}
@@ -186,6 +213,7 @@ def _evaluate_gate(
     min_strict_accuracy_min: float,
     min_manifest_distinct_labels: int,
     max_strict_top_pred_ratio: float,
+    max_strict_low_conf_ratio: float,
     require_all_ok: bool,
 ) -> Dict[str, Any]:
     failures: List[str] = []
@@ -238,10 +266,28 @@ def _evaluate_gate(
                 "strict_top_pred_ratio: "
                 f"above {float(max_strict_top_pred_ratio):.3f} for seeds [{bad_desc}]"
             )
+    if float(max_strict_low_conf_ratio) >= 0:
+        bad_rows = [
+            row
+            for row in rows
+            if _safe_float(row.get("strict_low_conf_ratio"), 0.0)
+            > float(max_strict_low_conf_ratio)
+        ]
+        if bad_rows:
+            bad_desc = ",".join(
+                f"{_safe_int(row.get('seed'), -1)}:{_safe_float(row.get('strict_low_conf_ratio'), 0.0):.3f}"
+                for row in bad_rows
+            )
+            failures.append(
+                "strict_low_conf_ratio: "
+                f"above {float(max_strict_low_conf_ratio):.3f} for seeds [{bad_desc}]"
+            )
 
     gate_enabled = bool(require_all_ok) or float(min_strict_accuracy_mean) >= 0 or float(
         min_strict_accuracy_min
-    ) >= 0 or int(min_manifest_distinct_labels) > 0 or float(max_strict_top_pred_ratio) >= 0
+    ) >= 0 or int(min_manifest_distinct_labels) > 0 or float(
+        max_strict_top_pred_ratio
+    ) >= 0 or float(max_strict_low_conf_ratio) >= 0
     return {
         "enabled": gate_enabled,
         "passed": len(failures) == 0,
@@ -251,6 +297,7 @@ def _evaluate_gate(
         "min_strict_accuracy_min": float(min_strict_accuracy_min),
         "min_manifest_distinct_labels": int(min_manifest_distinct_labels),
         "max_strict_top_pred_ratio": float(max_strict_top_pred_ratio),
+        "max_strict_low_conf_ratio": float(max_strict_low_conf_ratio),
         "num_runs": len(rows),
         "num_error_runs": int(num_errors),
     }
@@ -369,6 +416,24 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--strict-low-confidence-threshold",
+        type=float,
+        default=0.2,
+        help=(
+            "Confidence threshold used to calculate low-confidence ratio "
+            "(default: 0.2)."
+        ),
+    )
+    parser.add_argument(
+        "--max-strict-low-conf-ratio",
+        type=float,
+        default=-1.0,
+        help=(
+            "Fail gate when any run has low-confidence ratio above this threshold "
+            "(default: disabled)."
+        ),
+    )
+    parser.add_argument(
         "--require-all-ok",
         action="store_true",
         help="Fail gate when any seed run exits with error.",
@@ -444,6 +509,10 @@ def main() -> int:
         pipeline_summary = _read_json(run_dir / "pipeline_summary.json")
         strict_summary = _read_json(run_dir / "diagnose" / "summary.json")
         top_pred = _extract_top_pred_ratio(strict_summary)
+        low_conf = _extract_low_conf_ratio(
+            run_dir / "diagnose" / "predictions.csv",
+            threshold=float(args.strict_low_confidence_threshold),
+        )
 
         row: Dict[str, Any] = {
             "seed": int(seed),
@@ -468,6 +537,10 @@ def main() -> int:
             "strict_top_pred_label": str(top_pred.get("label") or ""),
             "strict_top_pred_count": _safe_int(top_pred.get("count"), 0),
             "strict_top_pred_ratio": _safe_float(top_pred.get("ratio"), 0.0),
+            "strict_low_conf_threshold": _safe_float(low_conf.get("threshold"), 0.0),
+            "strict_low_conf_count": _safe_int(low_conf.get("count"), 0),
+            "strict_low_conf_total": _safe_int(low_conf.get("total"), 0),
+            "strict_low_conf_ratio": _safe_float(low_conf.get("ratio"), 0.0),
             "training_model": str(
                 (pipeline_summary.get("training") or {}).get("model", "")
             ),
@@ -504,6 +577,11 @@ def main() -> int:
         for r in rows
         if _safe_float(r.get("strict_top_pred_ratio"), 0.0) > 0
     ]
+    low_conf_ratios = [
+        _safe_float(r.get("strict_low_conf_ratio"), 0.0)
+        for r in rows
+        if _safe_int(r.get("strict_low_conf_total"), 0) > 0
+    ]
     manifest_distinct_values = [
         _safe_int(r.get("manifest_distinct_labels"), 0)
         for r in rows
@@ -537,6 +615,15 @@ def main() -> int:
         "strict_top_pred_ratio_max": (
             round(max(top_pred_ratios), 6) if top_pred_ratios else 0.0
         ),
+        "strict_low_conf_threshold": float(args.strict_low_confidence_threshold),
+        "strict_low_conf_ratio_mean": (
+            round(sum(low_conf_ratios) / len(low_conf_ratios), 6)
+            if low_conf_ratios
+            else 0.0
+        ),
+        "strict_low_conf_ratio_max": (
+            round(max(low_conf_ratios), 6) if low_conf_ratios else 0.0
+        ),
         "manifest_distinct_labels_min": (
             min(manifest_distinct_values) if manifest_distinct_values else 0
         ),
@@ -554,6 +641,7 @@ def main() -> int:
         min_strict_accuracy_min=float(args.min_strict_accuracy_min),
         min_manifest_distinct_labels=int(args.min_manifest_distinct_labels),
         max_strict_top_pred_ratio=float(args.max_strict_top_pred_ratio),
+        max_strict_low_conf_ratio=float(args.max_strict_low_conf_ratio),
         require_all_ok=bool(args.require_all_ok),
     )
     summary["gate"] = gate

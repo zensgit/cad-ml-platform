@@ -212,6 +212,26 @@ jobs:
             --log-file /tmp/graph2d-seed-gate-ci.log \
             --title "Graph2D Seed Gate (CI Tests, Python ${{ matrix.python-version }})" \
             >> "$GITHUB_STEP_SUMMARY"
+      - name: Render Graph2D seed gate trend (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          python scripts/ci/render_graph2d_seed_gate_trend.py \
+            --summary-json /tmp/graph2d-seed-gate-ci-${{ matrix.python-version }}/seed_sweep_summary.json \
+            --title "Graph2D Seed Gate (CI Tests, Python ${{ matrix.python-version }})" \
+            --output-md /tmp/graph2d-seed-gate-ci-trend-${{ matrix.python-version }}.md
+      - name: Append Graph2D seed gate trend (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          if [ -f /tmp/graph2d-seed-gate-ci-trend-${{ matrix.python-version }}.md ]; then
+            cat /tmp/graph2d-seed-gate-ci-trend-${{ matrix.python-version }}.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload Graph2D seed gate trend artifact (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-seed-gate-trend-${{ matrix.python-version }}
+          path: /tmp/graph2d-seed-gate-ci-trend-${{ matrix.python-version }}.md
+          if-no-files-found: ignore
       - name: Run Graph2D strict seed gate channel (3.11 only, optional)
         if: matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
         env:
@@ -234,6 +254,26 @@ jobs:
             --log-file /tmp/graph2d-seed-gate-strict-ci.log \
             --title "Graph2D Strict Seed Gate (CI Tests, Python ${{ matrix.python-version }})" \
             >> "$GITHUB_STEP_SUMMARY"
+      - name: Render Graph2D strict seed gate trend (3.11 only, optional)
+        if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
+        run: |
+          python scripts/ci/render_graph2d_seed_gate_trend.py \
+            --summary-json /tmp/graph2d-seed-gate-strict-ci-${{ matrix.python-version }}/seed_sweep_summary.json \
+            --title "Graph2D Strict Seed Gate (CI Tests, Python ${{ matrix.python-version }})" \
+            --output-md /tmp/graph2d-seed-gate-strict-ci-trend-${{ matrix.python-version }}.md
+      - name: Append Graph2D strict seed gate trend (3.11 only, optional)
+        if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
+        run: |
+          if [ -f /tmp/graph2d-seed-gate-strict-ci-trend-${{ matrix.python-version }}.md ]; then
+            cat /tmp/graph2d-seed-gate-strict-ci-trend-${{ matrix.python-version }}.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload Graph2D strict seed gate trend artifact (3.11 only, optional)
+        if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-seed-gate-strict-trend-${{ matrix.python-version }}
+          path: /tmp/graph2d-seed-gate-strict-ci-trend-${{ matrix.python-version }}.md
+          if-no-files-found: ignore
       - name: Quick route smoke
         run: pytest -q -k test_routes_smoke || true
       - name: Run knowledge tests

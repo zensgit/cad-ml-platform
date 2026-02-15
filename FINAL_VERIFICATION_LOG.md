@@ -4433,3 +4433,42 @@
     - `make validate-graph2d-seed-gate` (passed; strict mean/min/max `0.3625 / 0.2917 / 0.4333`; top-pred ratio mean/max `0.6000 / 0.7083`)
     - `make validate-graph2d-seed-gate-strict` (passed; strict mean/min/max `0.9458 / 0.9417 / 0.9500`; top-pred ratio mean/max `0.2583 / 0.2750`)
   - Report: `reports/DEV_GRAPH2D_SEED_GATE_TOP_PRED_RATIO_GUARD_20260215.md`
+- **Graph2D Seed Gate Follow-up: Trend Artifact + Low-Confidence Guard + Baseline Snapshot (1+2+3)**:
+  - Added CI trend renderer:
+    - `scripts/ci/render_graph2d_seed_gate_trend.py`
+    - per-seed markdown trend rows with `strict_accuracy`, `strict_top_pred_ratio`, `strict_low_conf_ratio`, and ASCII bars.
+  - Updated CI workflow (`.github/workflows/ci.yml`):
+    - render + append trend markdown to `GITHUB_STEP_SUMMARY` for Graph2D seed gate,
+    - upload trend markdown artifact for standard channel,
+    - render/append/upload corresponding strict channel trend artifact when enabled.
+  - Added low-confidence ratio gate in `scripts/sweep_graph2d_profile_seeds.py`:
+    - new metrics from `diagnose/predictions.csv`:
+      - `strict_low_conf_threshold`, `strict_low_conf_count`, `strict_low_conf_total`, `strict_low_conf_ratio`
+    - new args:
+      - `--strict-low-confidence-threshold`
+      - `--max-strict-low-conf-ratio`
+    - summary metrics:
+      - `strict_low_conf_threshold`
+      - `strict_low_conf_ratio_mean/max`
+    - gate failure condition for over-threshold low-confidence ratio.
+  - Updated configs:
+    - `config/graph2d_seed_gate.yaml`:
+      - `strict_low_confidence_threshold: 0.20`
+      - `max_strict_low_conf_ratio: 0.20`
+    - `config/graph2d_seed_gate_strict.yaml`:
+      - `strict_low_confidence_threshold: 0.20`
+      - `max_strict_low_conf_ratio: 0.20`
+  - Updated CI summary renderer:
+    - `scripts/ci/summarize_graph2d_seed_gate.py` now includes
+      `Low-conf ratio < <threshold> (mean/max)` row.
+  - Added/updated tests:
+    - `tests/unit/test_sweep_graph2d_profile_seeds.py` (new low-conf gate case + signature updates)
+    - `tests/unit/test_graph2d_seed_gate_summary.py` (low-conf summary row assertions)
+    - `tests/unit/test_graph2d_seed_gate_trend.py` (trend markdown assertions)
+  - Validation:
+    - `pytest tests/unit/test_sweep_graph2d_profile_seeds.py tests/unit/test_graph2d_seed_gate_summary.py tests/unit/test_graph2d_seed_gate_trend.py -q` (`14 passed`)
+    - `make validate-graph2d-seed-gate` (passed; strict mean/min/max `0.3625 / 0.2917 / 0.4333`; top-pred mean/max `0.6000 / 0.7083`; low-conf (<0.2) mean/max `0.0500 / 0.0500`)
+    - `make validate-graph2d-seed-gate-strict` (passed; strict mean/min/max `0.9458 / 0.9417 / 0.9500`; top-pred mean/max `0.2583 / 0.2750`; low-conf (<0.2) mean/max `0.0500 / 0.0500`)
+  - Reports:
+    - `reports/DEV_GRAPH2D_SEED_GATE_TREND_LOW_CONF_GUARD_20260215.md`
+    - `reports/experiments/20260215/graph2d_seed_gate_baseline_snapshot_20260215.json`

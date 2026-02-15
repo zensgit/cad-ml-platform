@@ -16,6 +16,9 @@ def test_graph2d_seed_gate_summary_includes_pass_status() -> None:
         "strict_accuracy_max": 0.43,
         "strict_top_pred_ratio_mean": 0.61,
         "strict_top_pred_ratio_max": 0.73,
+        "strict_low_conf_threshold": 0.2,
+        "strict_low_conf_ratio_mean": 0.07,
+        "strict_low_conf_ratio_max": 0.11,
         "manifest_distinct_labels_min": 5,
         "manifest_distinct_labels_max": 5,
         "gate": {
@@ -31,6 +34,8 @@ def test_graph2d_seed_gate_summary_includes_pass_status() -> None:
     assert "0.360000 / 0.290000 / 0.430000" in text
     assert "Top-pred ratio (mean/max)" in text
     assert "`0.610000 / 0.730000`" in text
+    assert "Low-conf ratio < 0.200 (mean/max)" in text
+    assert "`0.070000 / 0.110000`" in text
     assert "Manifest distinct labels (min/max)" in text
     assert "`5 / 5`" in text
 

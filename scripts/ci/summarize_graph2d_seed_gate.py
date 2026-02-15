@@ -46,6 +46,9 @@ def build_summary(summary: Dict[str, Any], title: str, log_text: str = "") -> st
     strict_max = _safe_float(summary.get("strict_accuracy_max"), -1.0)
     top_pred_ratio_mean = _safe_float(summary.get("strict_top_pred_ratio_mean"), 0.0)
     top_pred_ratio_max = _safe_float(summary.get("strict_top_pred_ratio_max"), 0.0)
+    low_conf_threshold = _safe_float(summary.get("strict_low_conf_threshold"), 0.2)
+    low_conf_ratio_mean = _safe_float(summary.get("strict_low_conf_ratio_mean"), 0.0)
+    low_conf_ratio_max = _safe_float(summary.get("strict_low_conf_ratio_max"), 0.0)
     manifest_labels_min = _safe_int(summary.get("manifest_distinct_labels_min"), 0)
     manifest_labels_max = _safe_int(summary.get("manifest_distinct_labels_max"), 0)
 
@@ -71,6 +74,11 @@ def build_summary(summary: Dict[str, Any], title: str, log_text: str = "") -> st
     out.append(
         f"| Top-pred ratio (mean/max) | {_bool_mark(top_pred_ratio_max >= 0)} | "
         f"`{top_pred_ratio_mean:.6f} / {top_pred_ratio_max:.6f}` |"
+    )
+    out.append(
+        f"| Low-conf ratio < {low_conf_threshold:.3f} (mean/max) | "
+        f"{_bool_mark(low_conf_ratio_max >= 0)} | "
+        f"`{low_conf_ratio_mean:.6f} / {low_conf_ratio_max:.6f}` |"
     )
     out.append(
         f"| Manifest distinct labels (min/max) | {_bool_mark(manifest_labels_min > 0)} | "

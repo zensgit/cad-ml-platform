@@ -1,0 +1,34 @@
+{
+  "date": "2026-02-15",
+  "source": {
+    "standard_summary_json": "/tmp/graph2d-seed-gate/seed_sweep_summary.json",
+    "strict_summary_json": "/tmp/graph2d-seed-gate-strict/seed_sweep_summary.json"
+  },
+  "standard": {
+    "strict_accuracy_mean": 0.3625,
+    "strict_accuracy_min": 0.291667,
+    "strict_accuracy_max": 0.433333,
+    "strict_top_pred_ratio_mean": 0.6,
+    "strict_top_pred_ratio_max": 0.708333,
+    "strict_low_conf_threshold": 0.2,
+    "strict_low_conf_ratio_mean": 0.05,
+    "strict_low_conf_ratio_max": 0.05,
+    "manifest_distinct_labels_min": 5,
+    "manifest_distinct_labels_max": 5,
+    "gate_passed": true
+  },
+  "strict": {
+    "strict_accuracy_mean": 0.945833,
+    "strict_accuracy_min": 0.941667,
+    "strict_accuracy_max": 0.95,
+    "strict_top_pred_ratio_mean": 0.258333,
+    "strict_top_pred_ratio_max": 0.275,
+    "strict_low_conf_threshold": 0.2,
+    "strict_low_conf_ratio_mean": 0.05,
+    "strict_low_conf_ratio_max": 0.05,
+    "manifest_distinct_labels_min": 5,
+    "manifest_distinct_labels_max": 5,
+    "gate_passed": true
+  }
+}
+
