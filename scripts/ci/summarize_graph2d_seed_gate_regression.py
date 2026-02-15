@@ -100,7 +100,8 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
         f"low_conf_inc<={_safe_float(thresholds.get('max_low_conf_ratio_increase'), -1):.3f}, "
         f"labels_drop<={_safe_int(thresholds.get('max_distinct_labels_drop'), -1)}, "
         f"baseline_age<={_safe_int(thresholds.get('max_baseline_age_days'), -1)}d, "
-        f"snapshot_exists={bool(thresholds.get('require_snapshot_ref_exists', False))}` |"
+        f"snapshot_exists={bool(thresholds.get('require_snapshot_ref_exists', False))}, "
+        f"snapshot_match={bool(thresholds.get('require_snapshot_metrics_match', False))}` |"
     )
     out.append(
         "| Threshold source | ✅ | "
@@ -110,10 +111,11 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
     )
     out.append(
         "| Baseline metadata | "
-        f"{_bool_mark(_safe_int(baseline_metadata.get('age_days'), -1) >= 0 and bool(baseline_metadata.get('snapshot_exists', False)))} | "
+        f"{_bool_mark(_safe_int(baseline_metadata.get('age_days'), -1) >= 0 and bool(baseline_metadata.get('snapshot_exists', False)) and bool(baseline_metadata.get('snapshot_metrics_match', False)))} | "
         f"`date={baseline_metadata.get('date', '')}, "
         f"age_days={_safe_int(baseline_metadata.get('age_days'), -1)}, "
-        f"snapshot_exists={bool(baseline_metadata.get('snapshot_exists', False))}` |"
+        f"snapshot_exists={bool(baseline_metadata.get('snapshot_exists', False))}, "
+        f"snapshot_metrics_match={baseline_metadata.get('snapshot_metrics_match')}` |"
     )
     out.append("")
     if failures:

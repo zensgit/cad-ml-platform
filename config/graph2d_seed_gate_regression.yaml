@@ -6,6 +6,7 @@ graph2d_seed_gate_regression:
   max_distinct_labels_drop: 0
   max_baseline_age_days: 365
   require_snapshot_ref_exists: true
+  require_snapshot_metrics_match: true
   channels:
     standard:
       max_accuracy_mean_drop: 0.08

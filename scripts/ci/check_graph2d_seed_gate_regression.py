@@ -18,6 +18,7 @@ DEFAULT_THRESHOLDS: Dict[str, Any] = {
 DEFAULT_BASELINE_POLICY: Dict[str, Any] = {
     "max_baseline_age_days": 365,
     "require_snapshot_ref_exists": True,
+    "require_snapshot_metrics_match": True,
 }
 
 
@@ -148,6 +149,12 @@ def _resolve_baseline_policy(
     if require_snapshot_cli in {"true", "false"}:
         policy["require_snapshot_ref_exists"] = require_snapshot_cli == "true"
 
+    require_snapshot_match_cli = str(
+        cli_overrides.get("require_snapshot_metrics_match", "auto")
+    )
+    if require_snapshot_match_cli in {"true", "false"}:
+        policy["require_snapshot_metrics_match"] = require_snapshot_match_cli == "true"
+
     return {
         "max_baseline_age_days": _safe_int(
             policy.get("max_baseline_age_days"),
@@ -156,6 +163,10 @@ def _resolve_baseline_policy(
         "require_snapshot_ref_exists": _safe_bool(
             policy.get("require_snapshot_ref_exists"),
             DEFAULT_BASELINE_POLICY["require_snapshot_ref_exists"],
+        ),
+        "require_snapshot_metrics_match": _safe_bool(
+            policy.get("require_snapshot_metrics_match"),
+            DEFAULT_BASELINE_POLICY["require_snapshot_metrics_match"],
         ),
     }
 
@@ -169,6 +180,22 @@ def _resolve_snapshot_path(snapshot_ref: str, baseline_json_path: str) -> Path:
     if candidate_from_baseline.exists():
         return candidate_from_baseline
     return Path.cwd() / ref
+
+
+def _metrics_view(channel_payload: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "strict_accuracy_mean": _safe_float(channel_payload.get("strict_accuracy_mean"), -1.0),
+        "strict_accuracy_min": _safe_float(channel_payload.get("strict_accuracy_min"), -1.0),
+        "strict_top_pred_ratio_max": _safe_float(
+            channel_payload.get("strict_top_pred_ratio_max"), -1.0
+        ),
+        "strict_low_conf_ratio_max": _safe_float(
+            channel_payload.get("strict_low_conf_ratio_max"), -1.0
+        ),
+        "manifest_distinct_labels_min": _safe_int(
+            channel_payload.get("manifest_distinct_labels_min"), -1
+        ),
+    }
 
 
 def evaluate_regression(
@@ -185,6 +212,7 @@ def evaluate_regression(
     baseline_json_path: str = "",
     max_baseline_age_days: int = -1,
     require_snapshot_ref_exists: bool = False,
+    require_snapshot_metrics_match: bool = False,
 ) -> Dict[str, Any]:
     failures: List[str] = []
 
@@ -261,16 +289,49 @@ def evaluate_regression(
     snapshot_ref = str(source.get("snapshot_ref") or "").strip()
     snapshot_path = ""
     snapshot_exists = False
+    snapshot_metrics_match: bool | None = None
+    snapshot_channel_present = False
+    snapshot_metrics_diff: Dict[str, Any] = {}
     if snapshot_ref:
         resolved = _resolve_snapshot_path(snapshot_ref, baseline_json_path)
         snapshot_path = str(resolved)
         snapshot_exists = bool(resolved.exists())
+        if snapshot_exists:
+            snapshot_payload = _read_json(resolved)
+            snapshot_channel = (
+                snapshot_payload.get(str(channel))
+                if isinstance(snapshot_payload.get(str(channel)), dict)
+                else None
+            )
+            snapshot_channel_present = isinstance(snapshot_channel, dict)
+            if snapshot_channel_present:
+                left = _metrics_view(baseline_channel)
+                right = _metrics_view(snapshot_channel or {})
+                diff: Dict[str, Any] = {}
+                for key in left.keys():
+                    if left.get(key) != right.get(key):
+                        diff[key] = {"baseline": left.get(key), "snapshot": right.get(key)}
+                snapshot_metrics_diff = diff
+                snapshot_metrics_match = len(diff) == 0
+            else:
+                snapshot_metrics_match = False
     if bool(require_snapshot_ref_exists):
         if not snapshot_ref:
             failures.append("snapshot_ref: missing in baseline source")
         elif not snapshot_exists:
             failures.append(
                 f"snapshot_ref: path does not exist ({snapshot_ref} -> {snapshot_path})"
+            )
+    if bool(require_snapshot_metrics_match):
+        if not snapshot_ref:
+            failures.append("snapshot_metrics: snapshot_ref missing")
+        elif not snapshot_exists:
+            failures.append("snapshot_metrics: snapshot file missing")
+        elif not snapshot_channel_present:
+            failures.append(f"snapshot_metrics: channel '{channel}' missing in snapshot")
+        elif snapshot_metrics_match is False:
+            failures.append(
+                f"snapshot_metrics: channel '{channel}' differs from baseline"
             )
 
     return {
@@ -285,6 +346,7 @@ def evaluate_regression(
             "max_distinct_labels_drop": int(max_distinct_labels_drop),
             "max_baseline_age_days": int(max_baseline_age_days),
             "require_snapshot_ref_exists": bool(require_snapshot_ref_exists),
+            "require_snapshot_metrics_match": bool(require_snapshot_metrics_match),
         },
         "baseline_metadata": {
             "date": baseline_date,
@@ -292,6 +354,11 @@ def evaluate_regression(
             "snapshot_ref": snapshot_ref,
             "snapshot_path": snapshot_path,
             "snapshot_exists": bool(snapshot_exists),
+            "snapshot_channel_present": bool(snapshot_channel_present),
+            "snapshot_metrics_match": (
+                bool(snapshot_metrics_match) if snapshot_metrics_match is not None else None
+            ),
+            "snapshot_metrics_diff": snapshot_metrics_diff,
         },
         "baseline": {
             "strict_accuracy_mean": _safe_float(
@@ -387,6 +454,12 @@ def main() -> int:
         default="auto",
         help="Require baseline source.snapshot_ref to exist (auto uses config).",
     )
+    parser.add_argument(
+        "--require-snapshot-metrics-match",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help="Require snapshot_ref channel metrics to match baseline channel (auto uses config).",
+    )
     args = parser.parse_args()
 
     summary = _read_json(Path(args.summary_json))
@@ -421,6 +494,7 @@ def main() -> int:
         cli_overrides={
             "max_baseline_age_days": args.max_baseline_age_days,
             "require_snapshot_ref_exists": args.require_snapshot_ref_exists,
+            "require_snapshot_metrics_match": args.require_snapshot_metrics_match,
         },
     )
 
@@ -437,6 +511,7 @@ def main() -> int:
         baseline_json_path=str(args.baseline_json),
         max_baseline_age_days=int(policy["max_baseline_age_days"]),
         require_snapshot_ref_exists=bool(policy["require_snapshot_ref_exists"]),
+        require_snapshot_metrics_match=bool(policy["require_snapshot_metrics_match"]),
     )
     report["threshold_source"] = {
         "config": str(args.config),
@@ -453,6 +528,11 @@ def main() -> int:
                 "require_snapshot_ref_exists": (
                     args.require_snapshot_ref_exists
                     if str(args.require_snapshot_ref_exists) != "auto"
+                    else None
+                ),
+                "require_snapshot_metrics_match": (
+                    args.require_snapshot_metrics_match
+                    if str(args.require_snapshot_metrics_match) != "auto"
                     else None
                 ),
             }.items()

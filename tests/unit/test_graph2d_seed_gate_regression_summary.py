@@ -16,6 +16,7 @@ def test_regression_summary_includes_key_rows() -> None:
             "max_distinct_labels_drop": 0,
             "max_baseline_age_days": 365,
             "require_snapshot_ref_exists": True,
+            "require_snapshot_metrics_match": True,
         },
         "threshold_source": {
             "config": "config/graph2d_seed_gate_regression.yaml",
@@ -28,6 +29,9 @@ def test_regression_summary_includes_key_rows() -> None:
             "snapshot_ref": "reports/experiments/20260215/graph2d_seed_gate_baseline_snapshot_20260215.json",
             "snapshot_path": "/tmp/repo/reports/experiments/20260215/graph2d_seed_gate_baseline_snapshot_20260215.json",
             "snapshot_exists": True,
+            "snapshot_channel_present": True,
+            "snapshot_metrics_match": True,
+            "snapshot_metrics_diff": {},
         },
         "baseline": {
             "strict_accuracy_mean": 0.3625,
@@ -54,6 +58,8 @@ def test_regression_summary_includes_key_rows() -> None:
     assert "config/graph2d_seed_gate_regression.yaml" in text
     assert "Baseline metadata" in text
     assert "snapshot_exists=True" in text
+    assert "snapshot_match=True" in text
+    assert "snapshot_metrics_match=True" in text
 
 
 def test_regression_summary_prints_failures() -> None:

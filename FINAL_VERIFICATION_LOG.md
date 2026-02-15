@@ -4580,3 +4580,30 @@
     - `make validate-graph2d-seed-gate-strict-regression` (passed; baseline metadata `date=2026-02-15`, `age_days=0`, `snapshot_exists=true`)
   - Report:
     - `reports/DEV_GRAPH2D_SEED_GATE_BASELINE_FRESHNESS_GUARD_20260215.md`
+- **Graph2D Seed Gate Follow-up: Snapshot Metrics Match Guard (Continue)**:
+  - Enhanced `scripts/ci/check_graph2d_seed_gate_regression.py`:
+    - added policy:
+      - `require_snapshot_metrics_match`
+    - when enabled, verifies `source.snapshot_ref` channel metrics match stable baseline channel.
+    - added report fields:
+      - `baseline_metadata.snapshot_channel_present`
+      - `baseline_metadata.snapshot_metrics_match`
+      - `baseline_metadata.snapshot_metrics_diff`
+      - `thresholds.require_snapshot_metrics_match`
+  - Updated `config/graph2d_seed_gate_regression.yaml`:
+    - `require_snapshot_metrics_match: true`
+  - Updated `scripts/ci/summarize_graph2d_seed_gate_regression.py`:
+    - threshold row includes `snapshot_match`,
+    - baseline metadata row includes `snapshot_metrics_match`.
+  - Tests:
+    - updated `tests/unit/test_graph2d_seed_gate_regression_check.py`:
+      - baseline policy includes snapshot-match switch,
+      - added failure case for snapshot-metrics mismatch.
+    - updated `tests/unit/test_graph2d_seed_gate_regression_summary.py`:
+      - assertions for snapshot-match fields in markdown.
+  - Validation:
+    - `pytest tests/unit/test_graph2d_seed_gate_regression_check.py tests/unit/test_graph2d_seed_gate_regression_summary.py tests/unit/test_graph2d_seed_gate_baseline_update.py tests/unit/test_graph2d_seed_gate_summary.py tests/unit/test_graph2d_seed_gate_trend.py tests/unit/test_sweep_graph2d_profile_seeds.py -q` (`24 passed`)
+    - `make validate-graph2d-seed-gate-regression` (passed; `snapshot_metrics_match=true`, `snapshot_metrics_diff={}`)
+    - `make validate-graph2d-seed-gate-strict-regression` (passed; `snapshot_metrics_match=true`, `snapshot_metrics_diff={}`)
+  - Report:
+    - `reports/DEV_GRAPH2D_SEED_GATE_SNAPSHOT_MATCH_GUARD_20260215.md`
