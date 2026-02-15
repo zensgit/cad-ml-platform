@@ -190,6 +190,18 @@ jobs:
             --log-file /tmp/core-fast-gate-ci.log \
             --title "Core Fast Gate (CI Tests, Python ${{ matrix.python-version }})" \
             >> "$GITHUB_STEP_SUMMARY"
+      - name: Run Graph2D seed stability gate (3.11 only)
+        if: matrix.python-version == '3.11'
+        run: |
+          set -o pipefail
+          make validate-graph2d-seed-gate 2>&1 | tee /tmp/graph2d-seed-gate-ci.log
+      - name: Upload Graph2D seed gate log (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-seed-gate-ci-log-${{ matrix.python-version }}
+          path: /tmp/graph2d-seed-gate-ci.log
+          if-no-files-found: ignore
       - name: Quick route smoke
         run: pytest -q -k test_routes_smoke || true
       - name: Run knowledge tests

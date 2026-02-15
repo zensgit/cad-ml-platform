@@ -36,6 +36,50 @@ def _read_json(path: Path) -> Dict[str, Any]:
     return payload if isinstance(payload, dict) else {}
 
 
+def _load_yaml_defaults(config_path: str, section: str) -> Dict[str, Any]:
+    """Load optional CLI defaults from YAML."""
+    if not config_path:
+        return {}
+    path = Path(config_path)
+    if not path.exists():
+        return {}
+    try:
+        import yaml  # type: ignore
+    except Exception as exc:
+        print(f"Warning: yaml unavailable, ignore config {path}: {exc}")
+        return {}
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        print(f"Warning: failed to parse config {path}: {exc}")
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    section_payload = payload.get(section)
+    data = section_payload if isinstance(section_payload, dict) else payload
+    if not isinstance(data, dict):
+        return {}
+    return {str(k).replace("-", "_"): v for k, v in data.items()}
+
+
+def _apply_config_defaults(
+    parser: argparse.ArgumentParser, config_path: str, section: str
+) -> None:
+    defaults = _load_yaml_defaults(config_path, section)
+    if not defaults:
+        return
+    valid_keys = {action.dest for action in parser._actions}
+    filtered = {k: v for k, v in defaults.items() if k in valid_keys}
+    unknown = sorted(set(defaults.keys()) - set(filtered.keys()))
+    if unknown:
+        print(
+            f"Warning: ignored unknown keys in {config_path} ({section}): "
+            + ", ".join(unknown)
+        )
+    if filtered:
+        parser.set_defaults(**filtered)
+
+
 def _parse_seeds(raw: str) -> List[int]:
     tokens = [t.strip() for t in str(raw or "").split(",") if t.strip()]
     out: List[int] = []
@@ -65,6 +109,48 @@ def _run(cmd: List[str], dry_run: bool = False) -> None:
     if dry_run:
         return
     subprocess.run(cmd, cwd=str(REPO_ROOT), check=True)
+
+
+def _run_with_retries(
+    cmd: List[str],
+    *,
+    dry_run: bool,
+    retry_failures: int,
+    retry_backoff_seconds: float,
+) -> Dict[str, Any]:
+    max_attempts = 1 + max(0, int(retry_failures))
+    attempts = 0
+    while attempts < max_attempts:
+        attempts += 1
+        try:
+            _run(cmd, dry_run=dry_run)
+            return {
+                "status": "ok",
+                "error": "",
+                "attempts": attempts,
+                "return_code": 0,
+            }
+        except subprocess.CalledProcessError as exc:
+            if attempts >= max_attempts:
+                return {
+                    "status": "error",
+                    "error": f"pipeline_failed: rc={exc.returncode}",
+                    "attempts": attempts,
+                    "return_code": int(exc.returncode),
+                }
+            print(
+                "Warning: pipeline run failed"
+                f" (attempt {attempts}/{max_attempts}, rc={exc.returncode}); retrying."
+            )
+            delay = max(0.0, float(retry_backoff_seconds))
+            if delay > 0 and not dry_run:
+                time.sleep(delay)
+    return {
+        "status": "error",
+        "error": "pipeline_failed: rc=unknown",
+        "attempts": attempts,
+        "return_code": -1,
+    }
 
 
 def _evaluate_gate(
@@ -111,14 +197,29 @@ def _evaluate_gate(
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Sweep Graph2D local pipeline over random seeds for one profile."
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument(
+        "--config",
+        default="config/graph2d_seed_gate.yaml",
+        help="YAML config path for seed sweep defaults.",
     )
-    parser.add_argument("--dxf-dir", required=True, help="DXF directory")
+    pre_args, _ = pre_parser.parse_known_args()
+
+    parser = argparse.ArgumentParser(
+        description="Sweep Graph2D local pipeline over random seeds for one profile.",
+        parents=[pre_parser],
+    )
+    parser.add_argument("--dxf-dir", default="", help="DXF directory")
     parser.add_argument(
         "--training-profile",
         default="strict_node23_edgesage_v1",
         help="Profile passed to run_graph2d_pipeline_local.py",
+    )
+    parser.add_argument(
+        "--manifest-label-mode",
+        choices=["filename", "parent_dir"],
+        default="filename",
+        help="Weak-label mode passed to run_graph2d_pipeline_local.py (default: filename).",
     )
     parser.add_argument(
         "--seeds",
@@ -142,6 +243,30 @@ def main() -> int:
         help="Diagnosis max files (default: 200)",
     )
     parser.add_argument(
+        "--min-label-confidence",
+        type=float,
+        default=0.8,
+        help="Manifest label-confidence filter passed to pipeline (default: 0.8).",
+    )
+    parser.add_argument(
+        "--max-samples",
+        type=int,
+        default=0,
+        help="Optional max training samples per seed run (default: 0 = no cap).",
+    )
+    parser.add_argument(
+        "--retry-failures",
+        type=int,
+        default=0,
+        help="Retry failed seed runs up to N times (default: 0).",
+    )
+    parser.add_argument(
+        "--retry-backoff-seconds",
+        type=float,
+        default=0.0,
+        help="Sleep before retrying a failed seed run (default: 0).",
+    )
+    parser.add_argument(
         "--min-strict-accuracy-mean",
         type=float,
         default=-1.0,
@@ -159,8 +284,12 @@ def main() -> int:
         help="Fail gate when any seed run exits with error.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Print commands only")
+    _apply_config_defaults(parser, str(pre_args.config), "graph2d_seed_sweep")
     args = parser.parse_args()
 
+    if not str(args.dxf_dir).strip():
+        print("DXF dir is required. Pass --dxf-dir or provide dxf_dir in config.")
+        return 2
     dxf_dir = Path(args.dxf_dir)
     if not dxf_dir.exists():
         print(f"DXF dir not found: {dxf_dir}")
@@ -185,27 +314,37 @@ def main() -> int:
         run_dir = work_root / f"seed_{seed}"
         run_dir.mkdir(parents=True, exist_ok=True)
         started = time.time()
-        status = "ok"
-        error = ""
-        try:
-            cmd = [
-                str(args.python),
-                "scripts/run_graph2d_pipeline_local.py",
-                "--dxf-dir",
-                str(dxf_dir),
-                "--work-dir",
-                str(run_dir),
-                "--training-profile",
-                str(args.training_profile),
-                "--seed",
-                str(int(seed)),
-                "--diagnose-max-files",
-                str(int(args.diagnose_max_files)),
-            ]
-            _run(cmd, dry_run=bool(args.dry_run))
-        except subprocess.CalledProcessError as exc:
-            status = "error"
-            error = f"pipeline_failed: rc={exc.returncode}"
+        cmd = [
+            str(args.python),
+            "scripts/run_graph2d_pipeline_local.py",
+            "--dxf-dir",
+            str(dxf_dir),
+            "--work-dir",
+            str(run_dir),
+            "--training-profile",
+            str(args.training_profile),
+            "--manifest-label-mode",
+            str(args.manifest_label_mode),
+            "--seed",
+            str(int(seed)),
+            "--diagnose-max-files",
+            str(int(args.diagnose_max_files)),
+            "--min-label-confidence",
+            str(float(args.min_label_confidence)),
+        ]
+        if int(args.max_samples) > 0:
+            cmd.extend(["--max-samples", str(int(args.max_samples))])
+
+        run_result = _run_with_retries(
+            cmd=cmd,
+            dry_run=bool(args.dry_run),
+            retry_failures=int(args.retry_failures),
+            retry_backoff_seconds=float(args.retry_backoff_seconds),
+        )
+        status = str(run_result.get("status", "error"))
+        error = str(run_result.get("error", ""))
+        attempts = int(run_result.get("attempts", 0))
+        return_code = int(run_result.get("return_code", -1))
 
         elapsed = time.time() - started
         pipeline_summary = _read_json(run_dir / "pipeline_summary.json")
@@ -215,6 +354,8 @@ def main() -> int:
             "seed": int(seed),
             "status": status,
             "error": error,
+            "attempts": attempts,
+            "return_code": return_code,
             "elapsed_seconds": round(elapsed, 3),
             "work_dir": str(run_dir),
             "training_profile": str(args.training_profile),
@@ -258,11 +399,18 @@ def main() -> int:
 
     summary: Dict[str, Any] = {
         "status": "ok" if rows else "empty",
+        "config": str(args.config),
         "training_profile": str(args.training_profile),
+        "manifest_label_mode": str(args.manifest_label_mode),
         "seeds": seeds,
         "num_runs": len(rows),
         "num_success_runs": sum(1 for r in rows if str(r.get("status", "")) == "ok"),
         "num_error_runs": sum(1 for r in rows if str(r.get("status", "")) != "ok"),
+        "num_retried_runs": sum(1 for r in rows if int(r.get("attempts", 0)) > 1),
+        "retry_failures": int(max(0, int(args.retry_failures))),
+        "retry_backoff_seconds": float(max(0.0, float(args.retry_backoff_seconds))),
+        "max_samples": int(max(0, int(args.max_samples))),
+        "min_label_confidence": float(args.min_label_confidence),
         "strict_accuracy_mean": strict_accuracy_mean,
         "strict_accuracy_min": strict_accuracy_min,
         "strict_accuracy_max": strict_accuracy_max,

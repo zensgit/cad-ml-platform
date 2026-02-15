@@ -4347,3 +4347,27 @@
     - seed 84: `0.4000`
     - mean/min/max: `0.3400 / 0.2818 / 0.4000`
   - Report: `reports/DEV_GRAPH2D_SEED_SWEEP_STABILITY_GATE_20260215.md`
+- **Graph2D CI Seed Gate: Config + Retry + CI Wiring (1+2+3)**:
+  - Integrated Graph2D seed stability gate into CI (`.github/workflows/ci.yml`, Python 3.11 lane):
+    - run `make validate-graph2d-seed-gate`
+    - upload `/tmp/graph2d-seed-gate-ci.log` artifact.
+  - Added Make target:
+    - `validate-graph2d-seed-gate` in `Makefile`.
+  - Added config-based defaults for seed gate:
+    - `config/graph2d_seed_gate.yaml`
+    - script support via `--config` + YAML section `graph2d_seed_sweep`.
+  - Added retry support in `scripts/sweep_graph2d_profile_seeds.py`:
+    - `--retry-failures`, `--retry-backoff-seconds`
+    - per-seed `attempts` / `return_code` tracking and summary retry counters.
+  - Added manifest-label-mode wiring to pipeline:
+    - `scripts/run_graph2d_pipeline_local.py`: `--manifest-label-mode` (`filename|parent_dir`)
+    - helper `_build_manifest_cmd(...)`
+    - persisted `manifest.label_mode` in `pipeline_summary.json`.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_sweep_graph2d_profile_seeds.py tests/unit/test_run_graph2d_pipeline_local_manifest_wiring.py tests/unit/test_run_graph2d_pipeline_local_profile.py tests/unit/test_run_graph2d_pipeline_local_distill_wiring.py tests/unit/test_run_graph2d_pipeline_local_diagnose_strict_wiring.py -q` (`15 passed`)
+    - `make validate-graph2d-seed-gate` (completed; artifacts in `/tmp/graph2d_profile_seed_sweep_20260215_223401`; gate passed)
+  - CI default gate config result (synthetic_v2, seeds `7,21`):
+    - strict accuracy: `0.2917`, `0.4333`
+    - mean/min: `0.3625 / 0.2917`
+    - thresholds: `mean>=0.25`, `min>=0.20`, `require_all_ok=true`
+  - Report: `reports/DEV_GRAPH2D_CI_SEED_GATE_CONFIG_RETRY_20260215.md`

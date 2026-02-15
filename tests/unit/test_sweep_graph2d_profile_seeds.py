@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 
 def test_parse_seeds_comma_delimited() -> None:
     from scripts.sweep_graph2d_profile_seeds import _parse_seeds
@@ -60,3 +61,64 @@ def test_evaluate_gate_fails_when_require_all_ok_and_errors_exist() -> None:
     assert gate["passed"] is False
     assert gate["num_error_runs"] == 1
     assert any("require_all_ok" in failure for failure in gate["failures"])
+
+
+def test_load_yaml_defaults_reads_section_and_normalizes_keys(tmp_path) -> None:
+    from scripts.sweep_graph2d_profile_seeds import _load_yaml_defaults
+
+    cfg = tmp_path / "seed_gate.yaml"
+    cfg.write_text(
+        "graph2d_seed_sweep:\n"
+        "  seeds: \"7,21\"\n"
+        "  manifest-label-mode: parent_dir\n"
+        "  retry-failures: 2\n"
+        "  min-strict-accuracy-mean: 0.3\n",
+        encoding="utf-8",
+    )
+    defaults = _load_yaml_defaults(str(cfg), "graph2d_seed_sweep")
+    assert defaults["seeds"] == "7,21"
+    assert defaults["manifest_label_mode"] == "parent_dir"
+    assert int(defaults["retry_failures"]) == 2
+    assert float(defaults["min_strict_accuracy_mean"]) == 0.3
+
+
+def test_run_with_retries_succeeds_after_one_retry(monkeypatch) -> None:
+    import scripts.sweep_graph2d_profile_seeds as sweep
+
+    calls = {"count": 0}
+
+    def _fake_run(_cmd, dry_run=False):
+        _ = dry_run
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise subprocess.CalledProcessError(9, ["fake"])
+
+    monkeypatch.setattr(sweep, "_run", _fake_run)
+    out = sweep._run_with_retries(
+        ["fake"],
+        dry_run=False,
+        retry_failures=1,
+        retry_backoff_seconds=0.0,
+    )
+    assert out["status"] == "ok"
+    assert int(out["attempts"]) == 2
+    assert int(out["return_code"]) == 0
+
+
+def test_run_with_retries_returns_error_after_limit(monkeypatch) -> None:
+    import scripts.sweep_graph2d_profile_seeds as sweep
+
+    def _always_fail(_cmd, dry_run=False):
+        _ = dry_run
+        raise subprocess.CalledProcessError(5, ["fake"])
+
+    monkeypatch.setattr(sweep, "_run", _always_fail)
+    out = sweep._run_with_retries(
+        ["fake"],
+        dry_run=False,
+        retry_failures=1,
+        retry_backoff_seconds=0.0,
+    )
+    assert out["status"] == "error"
+    assert int(out["attempts"]) == 2
+    assert int(out["return_code"]) == 5

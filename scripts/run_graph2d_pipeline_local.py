@@ -253,6 +253,26 @@ def _build_diagnose_cmd(
     return cmd
 
 
+def _build_manifest_cmd(
+    *,
+    python: str,
+    dxf_dir: Path,
+    manifest_csv: Path,
+    label_mode: str,
+) -> List[str]:
+    return [
+        python,
+        "scripts/build_dxf_label_manifest.py",
+        "--input-dir",
+        str(dxf_dir),
+        "--recursive",
+        "--label-mode",
+        str(label_mode),
+        "--output-csv",
+        str(manifest_csv),
+    ]
+
+
 def _apply_training_profile(args: argparse.Namespace) -> argparse.Namespace:
     token = str(getattr(args, "training_profile", "none") or "none").strip().lower()
     if token in {"", "none"}:
@@ -295,6 +315,15 @@ def main() -> int:
         type=float,
         default=0.8,
         help="Minimum weak-label confidence to keep manifest rows (default: 0.8).",
+    )
+    parser.add_argument(
+        "--manifest-label-mode",
+        choices=["filename", "parent_dir"],
+        default="filename",
+        help=(
+            "Weak-label mode for build_dxf_label_manifest.py "
+            "(default: filename)."
+        ),
     )
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=4)
@@ -640,17 +669,12 @@ def main() -> int:
 
     # 1) Manifest
     _run(
-        [
-            python,
-            "scripts/build_dxf_label_manifest.py",
-            "--input-dir",
-            str(dxf_dir),
-            "--recursive",
-            "--label-mode",
-            "filename",
-            "--output-csv",
-            str(manifest_csv),
-        ]
+        _build_manifest_cmd(
+            python=python,
+            dxf_dir=dxf_dir,
+            manifest_csv=manifest_csv,
+            label_mode=str(args.manifest_label_mode),
+        )
     )
 
     # 2) Filter weak labels
@@ -815,6 +839,7 @@ def main() -> int:
         },
         "manifest": {
             "raw": str(manifest_csv),
+            "label_mode": str(args.manifest_label_mode),
             "filtered": str(manifest_filtered_csv),
             "normalized": str(manifest_normalized_csv) if args.normalize_labels else "",
             "cleaned": str(manifest_cleaned_csv) if args.clean_min_count > 0 else "",

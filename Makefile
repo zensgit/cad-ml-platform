@@ -9,6 +9,7 @@
 		uvnet-checkpoint-inspect graph2d-freeze-baseline worktree-bootstrap validate-iso286 validate-tolerance \
 		validate-openapi \
 		graph2d-review-summary validate-core-fast test-provider-core test-provider-contract \
+		validate-graph2d-seed-gate \
 		audit-pydantic-v2 audit-pydantic-v2-regression \
 		audit-pydantic-style audit-pydantic-style-regression \
 		openapi-snapshot-update
@@ -154,6 +155,11 @@ validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openap
 	$(MAKE) test-service-mesh
 	$(MAKE) test-provider-core
 	$(MAKE) test-provider-contract
+
+validate-graph2d-seed-gate: ## Graph2D 多seed稳定性门禁（可用于 CI）
+	@echo "$(GREEN)Running Graph2D seed stability gate...$(NC)"
+	$(PYTHON) scripts/sweep_graph2d_profile_seeds.py \
+		--config $${GRAPH2D_SEED_GATE_CONFIG:-config/graph2d_seed_gate.yaml}
 
 audit-pydantic-v2: ## 审计 Pydantic v2 兼容性风险模式（输出现状）
 	@echo "$(GREEN)Auditing pydantic v2 compatibility patterns...$(NC)"
