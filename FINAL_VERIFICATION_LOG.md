@@ -4607,3 +4607,30 @@
     - `make validate-graph2d-seed-gate-strict-regression` (passed; `snapshot_metrics_match=true`, `snapshot_metrics_diff={}`)
   - Report:
     - `reports/DEV_GRAPH2D_SEED_GATE_SNAPSHOT_MATCH_GUARD_20260215.md`
+- **Graph2D Seed Gate Follow-up: Integrity Hash Guard (Continue)**:
+  - Updated `scripts/ci/update_graph2d_seed_gate_baseline.py`:
+    - baseline payload now carries integrity signatures:
+      - `integrity.standard_channel_sha256`
+      - `integrity.strict_channel_sha256`
+      - `integrity.payload_core_sha256`
+  - Updated `scripts/ci/check_graph2d_seed_gate_regression.py`:
+    - added policy:
+      - `require_integrity_hash_match`
+    - validates baseline/snapshot channel hashes and baseline core hash.
+    - report metadata includes hash expected/actual/match fields and snapshot-vs-baseline hash consistency.
+  - Updated `config/graph2d_seed_gate_regression.yaml`:
+    - `require_integrity_hash_match: true`
+  - Updated `scripts/ci/summarize_graph2d_seed_gate_regression.py`:
+    - thresholds row includes `integrity_match`,
+    - baseline metadata row includes hash-match flags.
+  - Tests:
+    - updated `tests/unit/test_graph2d_seed_gate_baseline_update.py` (integrity fields assertions)
+    - updated `tests/unit/test_graph2d_seed_gate_regression_check.py` (integrity mismatch failure case)
+    - updated `tests/unit/test_graph2d_seed_gate_regression_summary.py` (integrity summary assertions)
+  - Validation:
+    - `pytest tests/unit/test_graph2d_seed_gate_regression_check.py tests/unit/test_graph2d_seed_gate_regression_summary.py tests/unit/test_graph2d_seed_gate_baseline_update.py tests/unit/test_graph2d_seed_gate_summary.py tests/unit/test_graph2d_seed_gate_trend.py tests/unit/test_sweep_graph2d_profile_seeds.py -q` (`25 passed`)
+    - `make update-graph2d-seed-gate-baseline` (passed; refreshed `config/graph2d_seed_gate_baseline.json` and `reports/experiments/20260216/graph2d_seed_gate_baseline_snapshot_20260216.json`)
+    - `make validate-graph2d-seed-gate-regression` (passed; integrity hash checks all true)
+    - `make validate-graph2d-seed-gate-strict-regression` (passed; integrity hash checks all true)
+  - Report:
+    - `reports/DEV_GRAPH2D_SEED_GATE_INTEGRITY_HASH_GUARD_20260216.md`

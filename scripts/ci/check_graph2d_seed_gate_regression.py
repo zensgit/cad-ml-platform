@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Dict, List
@@ -19,6 +20,7 @@ DEFAULT_BASELINE_POLICY: Dict[str, Any] = {
     "max_baseline_age_days": 365,
     "require_snapshot_ref_exists": True,
     "require_snapshot_metrics_match": True,
+    "require_integrity_hash_match": True,
 }
 
 
@@ -132,6 +134,15 @@ def _safe_bool(value: Any, default: bool = False) -> bool:
     return bool(default)
 
 
+def _canonical_json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _sha256_of(value: Any) -> str:
+    text = _canonical_json(value)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def _resolve_baseline_policy(
     *,
     config_payload: Dict[str, Any],
@@ -155,6 +166,10 @@ def _resolve_baseline_policy(
     if require_snapshot_match_cli in {"true", "false"}:
         policy["require_snapshot_metrics_match"] = require_snapshot_match_cli == "true"
 
+    require_integrity_cli = str(cli_overrides.get("require_integrity_hash_match", "auto"))
+    if require_integrity_cli in {"true", "false"}:
+        policy["require_integrity_hash_match"] = require_integrity_cli == "true"
+
     return {
         "max_baseline_age_days": _safe_int(
             policy.get("max_baseline_age_days"),
@@ -167,6 +182,10 @@ def _resolve_baseline_policy(
         "require_snapshot_metrics_match": _safe_bool(
             policy.get("require_snapshot_metrics_match"),
             DEFAULT_BASELINE_POLICY["require_snapshot_metrics_match"],
+        ),
+        "require_integrity_hash_match": _safe_bool(
+            policy.get("require_integrity_hash_match"),
+            DEFAULT_BASELINE_POLICY["require_integrity_hash_match"],
         ),
     }
 
@@ -213,6 +232,7 @@ def evaluate_regression(
     max_baseline_age_days: int = -1,
     require_snapshot_ref_exists: bool = False,
     require_snapshot_metrics_match: bool = False,
+    require_integrity_hash_match: bool = False,
 ) -> Dict[str, Any]:
     failures: List[str] = []
 
@@ -286,12 +306,51 @@ def evaluate_regression(
             )
 
     source = metadata.get("source") if isinstance(metadata.get("source"), dict) else {}
+    integrity = (
+        metadata.get("integrity") if isinstance(metadata.get("integrity"), dict) else {}
+    )
+    baseline_channel_hash_expected = str(
+        integrity.get(f"{str(channel)}_channel_sha256") or ""
+    ).strip()
+    baseline_channel_hash_actual = _sha256_of(baseline_channel)
+    baseline_channel_hash_match = (
+        bool(baseline_channel_hash_expected)
+        and baseline_channel_hash_expected == baseline_channel_hash_actual
+    )
+    baseline_core_hash_expected = str(integrity.get("payload_core_sha256") or "").strip()
+    baseline_core_hash_actual = _sha256_of(
+        {
+            "date": metadata.get("date"),
+            "source": metadata.get("source"),
+            "standard": metadata.get("standard"),
+            "strict": metadata.get("strict"),
+        }
+    )
+    baseline_core_hash_match = (
+        bool(baseline_core_hash_expected)
+        and baseline_core_hash_expected == baseline_core_hash_actual
+    )
+
+    if bool(require_integrity_hash_match):
+        if not baseline_channel_hash_expected:
+            failures.append(f"integrity: missing baseline {channel}_channel_sha256")
+        elif not baseline_channel_hash_match:
+            failures.append(f"integrity: baseline {channel}_channel_sha256 mismatch")
+        if not baseline_core_hash_expected:
+            failures.append("integrity: missing baseline payload_core_sha256")
+        elif not baseline_core_hash_match:
+            failures.append("integrity: baseline payload_core_sha256 mismatch")
+
     snapshot_ref = str(source.get("snapshot_ref") or "").strip()
     snapshot_path = ""
     snapshot_exists = False
     snapshot_metrics_match: bool | None = None
     snapshot_channel_present = False
     snapshot_metrics_diff: Dict[str, Any] = {}
+    snapshot_channel_hash_expected = ""
+    snapshot_channel_hash_actual = ""
+    snapshot_channel_hash_match: bool | None = None
+    snapshot_vs_baseline_hash_match: bool | None = None
     if snapshot_ref:
         resolved = _resolve_snapshot_path(snapshot_ref, baseline_json_path)
         snapshot_path = str(resolved)
@@ -303,6 +362,11 @@ def evaluate_regression(
                 if isinstance(snapshot_payload.get(str(channel)), dict)
                 else None
             )
+            snapshot_integrity = (
+                snapshot_payload.get("integrity")
+                if isinstance(snapshot_payload.get("integrity"), dict)
+                else {}
+            )
             snapshot_channel_present = isinstance(snapshot_channel, dict)
             if snapshot_channel_present:
                 left = _metrics_view(baseline_channel)
@@ -313,8 +377,23 @@ def evaluate_regression(
                         diff[key] = {"baseline": left.get(key), "snapshot": right.get(key)}
                 snapshot_metrics_diff = diff
                 snapshot_metrics_match = len(diff) == 0
+                snapshot_channel_hash_expected = str(
+                    snapshot_integrity.get(f"{str(channel)}_channel_sha256") or ""
+                ).strip()
+                snapshot_channel_hash_actual = _sha256_of(snapshot_channel or {})
+                snapshot_channel_hash_match = (
+                    bool(snapshot_channel_hash_expected)
+                    and snapshot_channel_hash_expected == snapshot_channel_hash_actual
+                )
+                snapshot_vs_baseline_hash_match = (
+                    bool(snapshot_channel_hash_expected)
+                    and bool(baseline_channel_hash_expected)
+                    and snapshot_channel_hash_expected == baseline_channel_hash_expected
+                )
             else:
                 snapshot_metrics_match = False
+                snapshot_channel_hash_match = False
+                snapshot_vs_baseline_hash_match = False
     if bool(require_snapshot_ref_exists):
         if not snapshot_ref:
             failures.append("snapshot_ref: missing in baseline source")
@@ -333,6 +412,21 @@ def evaluate_regression(
             failures.append(
                 f"snapshot_metrics: channel '{channel}' differs from baseline"
             )
+    if bool(require_integrity_hash_match):
+        if not snapshot_ref:
+            failures.append("integrity: snapshot_ref missing")
+        elif not snapshot_exists:
+            failures.append("integrity: snapshot file missing")
+        elif not snapshot_channel_present:
+            failures.append(f"integrity: channel '{channel}' missing in snapshot")
+        elif not snapshot_channel_hash_expected:
+            failures.append(f"integrity: missing snapshot {channel}_channel_sha256")
+        elif snapshot_channel_hash_match is False:
+            failures.append(f"integrity: snapshot {channel}_channel_sha256 mismatch")
+        elif snapshot_vs_baseline_hash_match is False:
+            failures.append(
+                f"integrity: snapshot and baseline {channel}_channel_sha256 differ"
+            )
 
     return {
         "channel": channel,
@@ -347,6 +441,7 @@ def evaluate_regression(
             "max_baseline_age_days": int(max_baseline_age_days),
             "require_snapshot_ref_exists": bool(require_snapshot_ref_exists),
             "require_snapshot_metrics_match": bool(require_snapshot_metrics_match),
+            "require_integrity_hash_match": bool(require_integrity_hash_match),
         },
         "baseline_metadata": {
             "date": baseline_date,
@@ -359,6 +454,24 @@ def evaluate_regression(
                 bool(snapshot_metrics_match) if snapshot_metrics_match is not None else None
             ),
             "snapshot_metrics_diff": snapshot_metrics_diff,
+            "baseline_channel_hash_expected": baseline_channel_hash_expected,
+            "baseline_channel_hash_actual": baseline_channel_hash_actual,
+            "baseline_channel_hash_match": bool(baseline_channel_hash_match),
+            "baseline_core_hash_expected": baseline_core_hash_expected,
+            "baseline_core_hash_actual": baseline_core_hash_actual,
+            "baseline_core_hash_match": bool(baseline_core_hash_match),
+            "snapshot_channel_hash_expected": snapshot_channel_hash_expected,
+            "snapshot_channel_hash_actual": snapshot_channel_hash_actual,
+            "snapshot_channel_hash_match": (
+                bool(snapshot_channel_hash_match)
+                if snapshot_channel_hash_match is not None
+                else None
+            ),
+            "snapshot_vs_baseline_hash_match": (
+                bool(snapshot_vs_baseline_hash_match)
+                if snapshot_vs_baseline_hash_match is not None
+                else None
+            ),
         },
         "baseline": {
             "strict_accuracy_mean": _safe_float(
@@ -460,6 +573,12 @@ def main() -> int:
         default="auto",
         help="Require snapshot_ref channel metrics to match baseline channel (auto uses config).",
     )
+    parser.add_argument(
+        "--require-integrity-hash-match",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help="Require integrity hashes to exist and match (auto uses config).",
+    )
     args = parser.parse_args()
 
     summary = _read_json(Path(args.summary_json))
@@ -495,6 +614,7 @@ def main() -> int:
             "max_baseline_age_days": args.max_baseline_age_days,
             "require_snapshot_ref_exists": args.require_snapshot_ref_exists,
             "require_snapshot_metrics_match": args.require_snapshot_metrics_match,
+            "require_integrity_hash_match": args.require_integrity_hash_match,
         },
     )
 
@@ -512,6 +632,7 @@ def main() -> int:
         max_baseline_age_days=int(policy["max_baseline_age_days"]),
         require_snapshot_ref_exists=bool(policy["require_snapshot_ref_exists"]),
         require_snapshot_metrics_match=bool(policy["require_snapshot_metrics_match"]),
+        require_integrity_hash_match=bool(policy["require_integrity_hash_match"]),
     )
     report["threshold_source"] = {
         "config": str(args.config),
@@ -533,6 +654,11 @@ def main() -> int:
                 "require_snapshot_metrics_match": (
                     args.require_snapshot_metrics_match
                     if str(args.require_snapshot_metrics_match) != "auto"
+                    else None
+                ),
+                "require_integrity_hash_match": (
+                    args.require_integrity_hash_match
+                    if str(args.require_integrity_hash_match) != "auto"
                     else None
                 ),
             }.items()

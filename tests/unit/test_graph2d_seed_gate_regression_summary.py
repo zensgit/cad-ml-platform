@@ -17,6 +17,7 @@ def test_regression_summary_includes_key_rows() -> None:
             "max_baseline_age_days": 365,
             "require_snapshot_ref_exists": True,
             "require_snapshot_metrics_match": True,
+            "require_integrity_hash_match": True,
         },
         "threshold_source": {
             "config": "config/graph2d_seed_gate_regression.yaml",
@@ -32,6 +33,10 @@ def test_regression_summary_includes_key_rows() -> None:
             "snapshot_channel_present": True,
             "snapshot_metrics_match": True,
             "snapshot_metrics_diff": {},
+            "baseline_channel_hash_match": True,
+            "snapshot_channel_hash_match": True,
+            "snapshot_vs_baseline_hash_match": True,
+            "baseline_core_hash_match": True,
         },
         "baseline": {
             "strict_accuracy_mean": 0.3625,
@@ -60,6 +65,8 @@ def test_regression_summary_includes_key_rows() -> None:
     assert "snapshot_exists=True" in text
     assert "snapshot_match=True" in text
     assert "snapshot_metrics_match=True" in text
+    assert "integrity_match=True" in text
+    assert "snapshot_vs_baseline_hash_match=True" in text
 
 
 def test_regression_summary_prints_failures() -> None:

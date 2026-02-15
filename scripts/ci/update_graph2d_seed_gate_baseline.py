@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Dict
@@ -30,6 +31,15 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return int(value)
     except Exception:
         return default
+
+
+def _canonical_json(value: Any) -> str:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _sha256_of(value: Any) -> str:
+    text = _canonical_json(value)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def _channel_payload(summary: Dict[str, Any]) -> Dict[str, Any]:
@@ -74,7 +84,7 @@ def build_baseline(
     strict_summary_path: str,
     snapshot_ref: str,
 ) -> Dict[str, Any]:
-    return {
+    payload: Dict[str, Any] = {
         "date": dt.date.today().isoformat(),
         "source": {
             "standard_summary_json": str(standard_summary_path),
@@ -84,6 +94,20 @@ def build_baseline(
         "standard": _channel_payload(standard_summary),
         "strict": _channel_payload(strict_summary),
     }
+    payload["integrity"] = {
+        "algorithm": "sha256-canonical-json",
+        "standard_channel_sha256": _sha256_of(payload["standard"]),
+        "strict_channel_sha256": _sha256_of(payload["strict"]),
+        "payload_core_sha256": _sha256_of(
+            {
+                "date": payload["date"],
+                "source": payload["source"],
+                "standard": payload["standard"],
+                "strict": payload["strict"],
+            }
+        ),
+    }
+    return payload
 
 
 def main() -> int:
@@ -164,4 +188,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

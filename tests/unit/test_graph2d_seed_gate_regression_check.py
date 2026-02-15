@@ -103,16 +103,19 @@ def test_resolve_baseline_policy_prefers_config_then_cli() -> None:
             "max_baseline_age_days": 120,
             "require_snapshot_ref_exists": False,
             "require_snapshot_metrics_match": False,
+            "require_integrity_hash_match": False,
         },
         cli_overrides={
             "max_baseline_age_days": 30,
             "require_snapshot_ref_exists": "true",
             "require_snapshot_metrics_match": "true",
+            "require_integrity_hash_match": "true",
         },
     )
     assert resolved["max_baseline_age_days"] == 30
     assert resolved["require_snapshot_ref_exists"] is True
     assert resolved["require_snapshot_metrics_match"] is True
+    assert resolved["require_integrity_hash_match"] is True
 
 
 def test_regression_check_fails_when_baseline_is_stale() -> None:
@@ -151,6 +154,8 @@ def test_regression_check_fails_when_baseline_is_stale() -> None:
         baseline_json_path="config/graph2d_seed_gate_baseline.json",
         max_baseline_age_days=30,
         require_snapshot_ref_exists=False,
+        require_snapshot_metrics_match=False,
+        require_integrity_hash_match=False,
     )
     assert report["status"] == "failed"
     failures = "\n".join(report["failures"])
@@ -192,6 +197,7 @@ def test_regression_check_fails_when_snapshot_ref_missing_required() -> None:
         max_baseline_age_days=365,
         require_snapshot_ref_exists=True,
         require_snapshot_metrics_match=False,
+        require_integrity_hash_match=False,
     )
     assert report["status"] == "failed"
     failures = "\n".join(report["failures"])
@@ -247,9 +253,74 @@ def test_regression_check_fails_when_snapshot_metrics_mismatch(tmp_path) -> None
         max_baseline_age_days=365,
         require_snapshot_ref_exists=True,
         require_snapshot_metrics_match=True,
+        require_integrity_hash_match=False,
     )
     assert report["status"] == "failed"
     failures = "\n".join(report["failures"])
     assert "snapshot_metrics: channel 'standard' differs from baseline" in failures
     assert report["baseline_metadata"]["snapshot_metrics_match"] is False
     assert report["baseline_metadata"]["snapshot_metrics_diff"]
+
+
+def test_regression_check_fails_when_integrity_hash_mismatch(tmp_path) -> None:
+    from scripts.ci.check_graph2d_seed_gate_regression import evaluate_regression
+
+    snapshot = tmp_path / "snapshot.json"
+    snapshot.write_text(
+        "{\n"
+        '  "integrity": {\n'
+        '    "standard_channel_sha256": "deadbeef"\n'
+        "  },\n"
+        '  "standard": {\n'
+        '    "strict_accuracy_mean": 0.36,\n'
+        '    "strict_accuracy_min": 0.29,\n'
+        '    "strict_top_pred_ratio_max": 0.70,\n'
+        '    "strict_low_conf_ratio_max": 0.05,\n'
+        '    "manifest_distinct_labels_min": 5\n'
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+
+    summary = {
+        "strict_accuracy_mean": 0.36,
+        "strict_accuracy_min": 0.29,
+        "strict_top_pred_ratio_max": 0.70,
+        "strict_low_conf_ratio_max": 0.05,
+        "manifest_distinct_labels_min": 5,
+    }
+    baseline = {
+        "date": "2026-02-15",
+        "source": {"snapshot_ref": str(snapshot)},
+        "integrity": {
+            "standard_channel_sha256": "badbadbad",
+            "payload_core_sha256": "badcore",
+        },
+        "standard": {
+            "strict_accuracy_mean": 0.36,
+            "strict_accuracy_min": 0.29,
+            "strict_top_pred_ratio_max": 0.70,
+            "strict_low_conf_ratio_max": 0.05,
+            "manifest_distinct_labels_min": 5,
+        },
+        "strict": {},
+    }
+    report = evaluate_regression(
+        summary=summary,
+        baseline_channel=baseline["standard"],
+        channel="standard",
+        max_accuracy_mean_drop=0.02,
+        max_accuracy_min_drop=0.02,
+        max_top_pred_ratio_increase=0.03,
+        max_low_conf_ratio_increase=0.01,
+        max_distinct_labels_drop=0,
+        baseline_payload=baseline,
+        baseline_json_path=str(tmp_path / "baseline.json"),
+        max_baseline_age_days=365,
+        require_snapshot_ref_exists=True,
+        require_snapshot_metrics_match=False,
+        require_integrity_hash_match=True,
+    )
+    assert report["status"] == "failed"
+    failures = "\n".join(report["failures"])
+    assert "integrity: baseline standard_channel_sha256 mismatch" in failures

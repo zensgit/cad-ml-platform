@@ -41,4 +41,11 @@ def test_build_baseline_contains_expected_metrics() -> None:
     assert payload["standard"]["gate_passed"] is True
     assert payload["strict"]["strict_top_pred_ratio_max"] == 0.27
     assert payload["source"]["snapshot_ref"].endswith("snap.json")
-
+    integrity = payload.get("integrity") or {}
+    assert integrity.get("algorithm") == "sha256-canonical-json"
+    assert isinstance(integrity.get("standard_channel_sha256"), str)
+    assert len(integrity.get("standard_channel_sha256") or "") == 64
+    assert isinstance(integrity.get("strict_channel_sha256"), str)
+    assert len(integrity.get("strict_channel_sha256") or "") == 64
+    assert isinstance(integrity.get("payload_core_sha256"), str)
+    assert len(integrity.get("payload_core_sha256") or "") == 64

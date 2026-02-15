@@ -101,7 +101,8 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
         f"labels_drop<={_safe_int(thresholds.get('max_distinct_labels_drop'), -1)}, "
         f"baseline_age<={_safe_int(thresholds.get('max_baseline_age_days'), -1)}d, "
         f"snapshot_exists={bool(thresholds.get('require_snapshot_ref_exists', False))}, "
-        f"snapshot_match={bool(thresholds.get('require_snapshot_metrics_match', False))}` |"
+        f"snapshot_match={bool(thresholds.get('require_snapshot_metrics_match', False))}, "
+        f"integrity_match={bool(thresholds.get('require_integrity_hash_match', False))}` |"
     )
     out.append(
         "| Threshold source | ✅ | "
@@ -111,11 +112,14 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
     )
     out.append(
         "| Baseline metadata | "
-        f"{_bool_mark(_safe_int(baseline_metadata.get('age_days'), -1) >= 0 and bool(baseline_metadata.get('snapshot_exists', False)) and bool(baseline_metadata.get('snapshot_metrics_match', False)))} | "
+        f"{_bool_mark(_safe_int(baseline_metadata.get('age_days'), -1) >= 0 and bool(baseline_metadata.get('snapshot_exists', False)) and bool(baseline_metadata.get('snapshot_metrics_match', False)) and bool(baseline_metadata.get('baseline_channel_hash_match', False)) and bool(baseline_metadata.get('snapshot_channel_hash_match', False)) and bool(baseline_metadata.get('snapshot_vs_baseline_hash_match', False)) and bool(baseline_metadata.get('baseline_core_hash_match', False)))} | "
         f"`date={baseline_metadata.get('date', '')}, "
         f"age_days={_safe_int(baseline_metadata.get('age_days'), -1)}, "
         f"snapshot_exists={bool(baseline_metadata.get('snapshot_exists', False))}, "
-        f"snapshot_metrics_match={baseline_metadata.get('snapshot_metrics_match')}` |"
+        f"snapshot_metrics_match={baseline_metadata.get('snapshot_metrics_match')}, "
+        f"baseline_hash_match={baseline_metadata.get('baseline_channel_hash_match')}, "
+        f"snapshot_hash_match={baseline_metadata.get('snapshot_channel_hash_match')}, "
+        f"snapshot_vs_baseline_hash_match={baseline_metadata.get('snapshot_vs_baseline_hash_match')}` |"
     )
     out.append("")
     if failures:
