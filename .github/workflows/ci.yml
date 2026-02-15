@@ -239,6 +239,7 @@ jobs:
           python scripts/ci/check_graph2d_seed_gate_regression.py \
             --summary-json /tmp/graph2d-seed-gate-ci-${{ matrix.python-version }}/seed_sweep_summary.json \
             --baseline-json config/graph2d_seed_gate_baseline.json \
+            --config config/graph2d_seed_gate_regression.yaml \
             --channel standard \
             --output-json /tmp/graph2d-seed-gate-regression-ci-${{ matrix.python-version }}.json \
             2>&1 | tee /tmp/graph2d-seed-gate-regression-ci.log
@@ -312,6 +313,7 @@ jobs:
           python scripts/ci/check_graph2d_seed_gate_regression.py \
             --summary-json /tmp/graph2d-seed-gate-strict-ci-${{ matrix.python-version }}/seed_sweep_summary.json \
             --baseline-json config/graph2d_seed_gate_baseline.json \
+            --config config/graph2d_seed_gate_regression.yaml \
             --channel strict \
             --output-json /tmp/graph2d-seed-gate-strict-regression-ci-${{ matrix.python-version }}.json \
             2>&1 | tee /tmp/graph2d-seed-gate-strict-regression-ci.log

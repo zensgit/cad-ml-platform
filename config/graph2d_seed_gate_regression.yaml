@@ -1,0 +1,20 @@
+graph2d_seed_gate_regression:
+  max_accuracy_mean_drop: 0.08
+  max_accuracy_min_drop: 0.08
+  max_top_pred_ratio_increase: 0.10
+  max_low_conf_ratio_increase: 0.05
+  max_distinct_labels_drop: 0
+  channels:
+    standard:
+      max_accuracy_mean_drop: 0.08
+      max_accuracy_min_drop: 0.08
+      max_top_pred_ratio_increase: 0.10
+      max_low_conf_ratio_increase: 0.05
+      max_distinct_labels_drop: 0
+    strict:
+      max_accuracy_mean_drop: 0.08
+      max_accuracy_min_drop: 0.08
+      max_top_pred_ratio_increase: 0.10
+      max_low_conf_ratio_increase: 0.05
+      max_distinct_labels_drop: 0
+

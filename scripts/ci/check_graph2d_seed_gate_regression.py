@@ -6,6 +6,14 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List
 
+DEFAULT_THRESHOLDS: Dict[str, Any] = {
+    "max_accuracy_mean_drop": 0.08,
+    "max_accuracy_min_drop": 0.08,
+    "max_top_pred_ratio_increase": 0.10,
+    "max_low_conf_ratio_increase": 0.05,
+    "max_distinct_labels_drop": 0,
+}
+
 
 def _safe_float(value: Any, default: float = 0.0) -> float:
     try:
@@ -29,6 +37,79 @@ def _read_json(path: Path) -> Dict[str, Any]:
     except Exception:
         return {}
     return payload if isinstance(payload, dict) else {}
+
+
+def _load_yaml_defaults(config_path: str, section: str) -> Dict[str, Any]:
+    if not config_path:
+        return {}
+    path = Path(config_path)
+    if not path.exists():
+        return {}
+    try:
+        import yaml  # type: ignore
+    except Exception:
+        return {}
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    data = payload.get(section)
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
+def _resolve_thresholds(
+    *,
+    channel: str,
+    config_payload: Dict[str, Any],
+    cli_overrides: Dict[str, Any],
+) -> Dict[str, Any]:
+    thresholds: Dict[str, Any] = dict(DEFAULT_THRESHOLDS)
+
+    for key in DEFAULT_THRESHOLDS.keys():
+        if key in config_payload:
+            thresholds[key] = config_payload.get(key)
+    channel_payload = config_payload.get("channels")
+    if isinstance(channel_payload, dict):
+        one_channel = channel_payload.get(str(channel))
+        if isinstance(one_channel, dict):
+            for key in DEFAULT_THRESHOLDS.keys():
+                if key in one_channel:
+                    thresholds[key] = one_channel.get(key)
+
+    for key, value in cli_overrides.items():
+        if value is not None:
+            thresholds[key] = value
+
+    return {
+        "max_accuracy_mean_drop": _safe_float(
+            thresholds.get("max_accuracy_mean_drop"), DEFAULT_THRESHOLDS["max_accuracy_mean_drop"]
+        ),
+        "max_accuracy_min_drop": _safe_float(
+            thresholds.get("max_accuracy_min_drop"), DEFAULT_THRESHOLDS["max_accuracy_min_drop"]
+        ),
+        "max_top_pred_ratio_increase": _safe_float(
+            thresholds.get(
+                "max_top_pred_ratio_increase",
+                DEFAULT_THRESHOLDS["max_top_pred_ratio_increase"],
+            ),
+        ),
+        "max_low_conf_ratio_increase": _safe_float(
+            thresholds.get(
+                "max_low_conf_ratio_increase",
+                DEFAULT_THRESHOLDS["max_low_conf_ratio_increase"],
+            ),
+        ),
+        "max_distinct_labels_drop": _safe_int(
+            thresholds.get(
+                "max_distinct_labels_drop",
+                DEFAULT_THRESHOLDS["max_distinct_labels_drop"],
+            ),
+        ),
+    }
 
 
 def evaluate_regression(
@@ -145,36 +226,41 @@ def main() -> int:
     parser.add_argument("--summary-json", required=True, help="Current seed sweep summary json")
     parser.add_argument("--baseline-json", required=True, help="Baseline snapshot json")
     parser.add_argument(
+        "--config",
+        default="config/graph2d_seed_gate_regression.yaml",
+        help="YAML config path for regression thresholds.",
+    )
+    parser.add_argument(
         "--channel", choices=["standard", "strict"], default="standard", help="Baseline channel"
     )
     parser.add_argument(
         "--max-accuracy-mean-drop",
         type=float,
-        default=0.08,
+        default=None,
         help="Allowed drop for strict_accuracy_mean",
     )
     parser.add_argument(
         "--max-accuracy-min-drop",
         type=float,
-        default=0.08,
+        default=None,
         help="Allowed drop for strict_accuracy_min",
     )
     parser.add_argument(
         "--max-top-pred-ratio-increase",
         type=float,
-        default=0.10,
+        default=None,
         help="Allowed increase for strict_top_pred_ratio_max",
     )
     parser.add_argument(
         "--max-low-conf-ratio-increase",
         type=float,
-        default=0.05,
+        default=None,
         help="Allowed increase for strict_low_conf_ratio_max",
     )
     parser.add_argument(
         "--max-distinct-labels-drop",
         type=int,
-        default=0,
+        default=None,
         help="Allowed drop for manifest_distinct_labels_min",
     )
     parser.add_argument(
@@ -199,16 +285,44 @@ def main() -> int:
         print(f"Missing channel '{args.channel}' in baseline json: {args.baseline_json}")
         return 2
 
+    config_payload = _load_yaml_defaults(str(args.config), "graph2d_seed_gate_regression")
+    thresholds = _resolve_thresholds(
+        channel=str(args.channel),
+        config_payload=config_payload,
+        cli_overrides={
+            "max_accuracy_mean_drop": args.max_accuracy_mean_drop,
+            "max_accuracy_min_drop": args.max_accuracy_min_drop,
+            "max_top_pred_ratio_increase": args.max_top_pred_ratio_increase,
+            "max_low_conf_ratio_increase": args.max_low_conf_ratio_increase,
+            "max_distinct_labels_drop": args.max_distinct_labels_drop,
+        },
+    )
+
     report = evaluate_regression(
         summary=summary,
         baseline_channel=baseline_channel,
         channel=str(args.channel),
-        max_accuracy_mean_drop=float(args.max_accuracy_mean_drop),
-        max_accuracy_min_drop=float(args.max_accuracy_min_drop),
-        max_top_pred_ratio_increase=float(args.max_top_pred_ratio_increase),
-        max_low_conf_ratio_increase=float(args.max_low_conf_ratio_increase),
-        max_distinct_labels_drop=int(args.max_distinct_labels_drop),
+        max_accuracy_mean_drop=float(thresholds["max_accuracy_mean_drop"]),
+        max_accuracy_min_drop=float(thresholds["max_accuracy_min_drop"]),
+        max_top_pred_ratio_increase=float(thresholds["max_top_pred_ratio_increase"]),
+        max_low_conf_ratio_increase=float(thresholds["max_low_conf_ratio_increase"]),
+        max_distinct_labels_drop=int(thresholds["max_distinct_labels_drop"]),
     )
+    report["threshold_source"] = {
+        "config": str(args.config),
+        "config_loaded": bool(config_payload),
+        "cli_overrides": {
+            key: value
+            for key, value in {
+                "max_accuracy_mean_drop": args.max_accuracy_mean_drop,
+                "max_accuracy_min_drop": args.max_accuracy_min_drop,
+                "max_top_pred_ratio_increase": args.max_top_pred_ratio_increase,
+                "max_low_conf_ratio_increase": args.max_low_conf_ratio_increase,
+                "max_distinct_labels_drop": args.max_distinct_labels_drop,
+            }.items()
+            if value is not None
+        },
+    }
     output = json.dumps(report, ensure_ascii=False, indent=2)
     if args.output_json:
         out_path = Path(args.output_json)
@@ -220,4 +334,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

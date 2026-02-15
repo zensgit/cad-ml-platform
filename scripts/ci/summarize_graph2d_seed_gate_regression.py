@@ -44,6 +44,11 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
     thresholds = (
         report.get("thresholds") if isinstance(report.get("thresholds"), dict) else {}
     )
+    threshold_source = (
+        report.get("threshold_source")
+        if isinstance(report.get("threshold_source"), dict)
+        else {}
+    )
 
     out: list[str] = []
     out.append(f"## {title}")
@@ -90,6 +95,12 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
         f"low_conf_inc<={_safe_float(thresholds.get('max_low_conf_ratio_increase'), -1):.3f}, "
         f"labels_drop<={_safe_int(thresholds.get('max_distinct_labels_drop'), -1)}` |"
     )
+    out.append(
+        "| Threshold source | ✅ | "
+        f"`config={threshold_source.get('config', '')}, "
+        f"loaded={bool(threshold_source.get('config_loaded', False))}, "
+        f"cli_overrides={len(threshold_source.get('cli_overrides') or {})}` |"
+    )
     out.append("")
     if failures:
         out.append("Regression failures:")
@@ -118,4 +129,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -15,6 +15,11 @@ def test_regression_summary_includes_key_rows() -> None:
             "max_low_conf_ratio_increase": 0.05,
             "max_distinct_labels_drop": 0,
         },
+        "threshold_source": {
+            "config": "config/graph2d_seed_gate_regression.yaml",
+            "config_loaded": True,
+            "cli_overrides": {},
+        },
         "baseline": {
             "strict_accuracy_mean": 0.3625,
             "strict_accuracy_min": 0.291667,
@@ -36,6 +41,8 @@ def test_regression_summary_includes_key_rows() -> None:
     assert "`passed`" in text
     assert "strict_top_pred_ratio_max (cur/base)" in text
     assert "strict_low_conf_ratio_max (cur/base)" in text
+    assert "Threshold source" in text
+    assert "config/graph2d_seed_gate_regression.yaml" in text
 
 
 def test_regression_summary_prints_failures() -> None:
@@ -49,4 +56,3 @@ def test_regression_summary_prints_failures() -> None:
     text = build_summary(report, "Graph2D Seed Gate Regression Check")
     assert "Regression failures:" in text
     assert "strict_accuracy_mean: current=0.100000 < allowed=0.200000" in text
-

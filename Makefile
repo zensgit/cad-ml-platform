@@ -175,6 +175,7 @@ validate-graph2d-seed-gate-regression: ## Graph2D seed gate 基线回归检查�
 	$(PYTHON) scripts/ci/check_graph2d_seed_gate_regression.py \
 		--summary-json $${GRAPH2D_SEED_GATE_SUMMARY_JSON:-/tmp/graph2d-seed-gate/seed_sweep_summary.json} \
 		--baseline-json $${GRAPH2D_SEED_GATE_BASELINE_JSON:-config/graph2d_seed_gate_baseline.json} \
+		--config $${GRAPH2D_SEED_GATE_REGRESSION_CONFIG:-config/graph2d_seed_gate_regression.yaml} \
 		--channel standard
 
 validate-graph2d-seed-gate-strict-regression: ## Graph2D seed gate 基线回归检查（strict）
@@ -182,6 +183,7 @@ validate-graph2d-seed-gate-strict-regression: ## Graph2D seed gate 基线回归�
 	$(PYTHON) scripts/ci/check_graph2d_seed_gate_regression.py \
 		--summary-json $${GRAPH2D_SEED_GATE_STRICT_SUMMARY_JSON:-/tmp/graph2d-seed-gate-strict/seed_sweep_summary.json} \
 		--baseline-json $${GRAPH2D_SEED_GATE_BASELINE_JSON:-config/graph2d_seed_gate_baseline.json} \
+		--config $${GRAPH2D_SEED_GATE_REGRESSION_CONFIG:-config/graph2d_seed_gate_regression.yaml} \
 		--channel strict
 
 update-graph2d-seed-gate-baseline: ## 用最新 seed gate summary 刷新稳定基线与日期快照

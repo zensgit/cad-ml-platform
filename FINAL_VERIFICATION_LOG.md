@@ -4526,3 +4526,29 @@
     - `make update-graph2d-seed-gate-baseline` (passed; refreshed stable baseline and dated snapshot)
   - Reports:
     - `reports/DEV_GRAPH2D_SEED_GATE_STABLE_BASELINE_PATH_20260215.md`
+- **Graph2D Seed Gate Follow-up: Regression Thresholds Config (Continue)**:
+  - Added threshold config:
+    - `config/graph2d_seed_gate_regression.yaml`
+    - supports global defaults + per-channel (`standard|strict`) overrides.
+  - Enhanced `scripts/ci/check_graph2d_seed_gate_regression.py`:
+    - added `--config` input,
+    - threshold precedence:
+      - built-in defaults -> config global -> config channel -> CLI explicit overrides,
+    - regression report now includes `threshold_source`.
+  - Updated `scripts/ci/summarize_graph2d_seed_gate_regression.py`:
+    - markdown includes `Threshold source` row.
+  - Updated `Makefile`:
+    - regression targets now pass
+      `--config $${GRAPH2D_SEED_GATE_REGRESSION_CONFIG:-config/graph2d_seed_gate_regression.yaml}`.
+  - Updated `.github/workflows/ci.yml`:
+    - standard/strict regression steps now pass
+      `--config config/graph2d_seed_gate_regression.yaml`.
+  - Tests:
+    - updated `tests/unit/test_graph2d_seed_gate_regression_check.py` (threshold resolution precedence case),
+    - updated `tests/unit/test_graph2d_seed_gate_regression_summary.py` (threshold source assertions).
+  - Validation:
+    - `pytest tests/unit/test_graph2d_seed_gate_regression_check.py tests/unit/test_graph2d_seed_gate_regression_summary.py tests/unit/test_graph2d_seed_gate_baseline_update.py tests/unit/test_graph2d_seed_gate_summary.py tests/unit/test_graph2d_seed_gate_trend.py tests/unit/test_sweep_graph2d_profile_seeds.py -q` (`20 passed`)
+    - `make validate-graph2d-seed-gate-regression` (passed; threshold source from config loaded)
+    - `make validate-graph2d-seed-gate-strict-regression` (passed; threshold source from config loaded)
+  - Report:
+    - `reports/DEV_GRAPH2D_SEED_GATE_REGRESSION_THRESHOLDS_CONFIG_20260215.md`
