@@ -4472,3 +4472,33 @@
   - Reports:
     - `reports/DEV_GRAPH2D_SEED_GATE_TREND_LOW_CONF_GUARD_20260215.md`
     - `reports/experiments/20260215/graph2d_seed_gate_baseline_snapshot_20260215.json`
+- **Graph2D Seed Gate Follow-up: Baseline Regression Guard (Continue)**:
+  - Added baseline regression checker:
+    - `scripts/ci/check_graph2d_seed_gate_regression.py`
+    - compares current summary vs baseline snapshot by channel (`standard|strict`).
+  - Added regression summary renderer:
+    - `scripts/ci/summarize_graph2d_seed_gate_regression.py`
+    - publishes pass/fail and baseline/current metric table to markdown.
+  - Added Make targets:
+    - `validate-graph2d-seed-gate-regression`
+    - `validate-graph2d-seed-gate-strict-regression`
+  - Integrated into CI workflow (`.github/workflows/ci.yml`):
+    - standard channel:
+      - run regression check,
+      - upload regression log/report artifacts,
+      - append markdown summary.
+    - strict optional channel:
+      - run strict regression check,
+      - upload strict regression log/report artifacts,
+      - append markdown summary.
+  - Added tests:
+    - `tests/unit/test_graph2d_seed_gate_regression_check.py`
+    - `tests/unit/test_graph2d_seed_gate_regression_summary.py`
+  - Validation:
+    - `pytest tests/unit/test_graph2d_seed_gate_regression_check.py tests/unit/test_graph2d_seed_gate_regression_summary.py tests/unit/test_graph2d_seed_gate_summary.py tests/unit/test_graph2d_seed_gate_trend.py tests/unit/test_sweep_graph2d_profile_seeds.py -q` (`18 passed`)
+    - `.venv/bin/python scripts/ci/check_graph2d_seed_gate_regression.py --summary-json /tmp/graph2d-seed-gate/seed_sweep_summary.json --baseline-json reports/experiments/20260215/graph2d_seed_gate_baseline_snapshot_20260215.json --channel standard --output-json /tmp/graph2d-seed-gate/regression_check.json` (passed)
+    - `.venv/bin/python scripts/ci/check_graph2d_seed_gate_regression.py --summary-json /tmp/graph2d-seed-gate-strict/seed_sweep_summary.json --baseline-json reports/experiments/20260215/graph2d_seed_gate_baseline_snapshot_20260215.json --channel strict --output-json /tmp/graph2d-seed-gate-strict/regression_check.json` (passed)
+    - `make validate-graph2d-seed-gate-regression` (passed)
+    - `make validate-graph2d-seed-gate-strict-regression` (passed)
+  - Report:
+    - `reports/DEV_GRAPH2D_SEED_GATE_BASELINE_REGRESSION_GUARD_20260215.md`

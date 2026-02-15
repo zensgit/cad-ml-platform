@@ -10,6 +10,7 @@
 		validate-openapi \
 		graph2d-review-summary validate-core-fast test-provider-core test-provider-contract \
 		validate-graph2d-seed-gate validate-graph2d-seed-gate-strict \
+		validate-graph2d-seed-gate-regression validate-graph2d-seed-gate-strict-regression \
 		audit-pydantic-v2 audit-pydantic-v2-regression \
 		audit-pydantic-style audit-pydantic-style-regression \
 		openapi-snapshot-update
@@ -167,6 +168,20 @@ validate-graph2d-seed-gate-strict: ## Graph2D 严格模式多seed稳定性门禁
 	$(PYTHON) scripts/sweep_graph2d_profile_seeds.py \
 		--config $${GRAPH2D_SEED_GATE_STRICT_CONFIG:-config/graph2d_seed_gate_strict.yaml} \
 		--work-root $${GRAPH2D_SEED_GATE_STRICT_WORK_ROOT:-/tmp/graph2d-seed-gate-strict}
+
+validate-graph2d-seed-gate-regression: ## Graph2D seed gate 基线回归检查（standard）
+	@echo "$(GREEN)Checking Graph2D seed gate regression (standard)...$(NC)"
+	$(PYTHON) scripts/ci/check_graph2d_seed_gate_regression.py \
+		--summary-json $${GRAPH2D_SEED_GATE_SUMMARY_JSON:-/tmp/graph2d-seed-gate/seed_sweep_summary.json} \
+		--baseline-json $${GRAPH2D_SEED_GATE_BASELINE_JSON:-reports/experiments/20260215/graph2d_seed_gate_baseline_snapshot_20260215.json} \
+		--channel standard
+
+validate-graph2d-seed-gate-strict-regression: ## Graph2D seed gate 基线回归检查（strict）
+	@echo "$(GREEN)Checking Graph2D seed gate regression (strict)...$(NC)"
+	$(PYTHON) scripts/ci/check_graph2d_seed_gate_regression.py \
+		--summary-json $${GRAPH2D_SEED_GATE_STRICT_SUMMARY_JSON:-/tmp/graph2d-seed-gate-strict/seed_sweep_summary.json} \
+		--baseline-json $${GRAPH2D_SEED_GATE_BASELINE_JSON:-reports/experiments/20260215/graph2d_seed_gate_baseline_snapshot_20260215.json} \
+		--channel strict
 
 audit-pydantic-v2: ## 审计 Pydantic v2 兼容性风险模式（输出现状）
 	@echo "$(GREEN)Auditing pydantic v2 compatibility patterns...$(NC)"

@@ -232,6 +232,37 @@ jobs:
           name: graph2d-seed-gate-trend-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-ci-trend-${{ matrix.python-version }}.md
           if-no-files-found: ignore
+      - name: Run Graph2D seed gate baseline regression check (3.11 only)
+        if: matrix.python-version == '3.11'
+        run: |
+          set -o pipefail
+          python scripts/ci/check_graph2d_seed_gate_regression.py \
+            --summary-json /tmp/graph2d-seed-gate-ci-${{ matrix.python-version }}/seed_sweep_summary.json \
+            --baseline-json reports/experiments/20260215/graph2d_seed_gate_baseline_snapshot_20260215.json \
+            --channel standard \
+            --output-json /tmp/graph2d-seed-gate-regression-ci-${{ matrix.python-version }}.json \
+            2>&1 | tee /tmp/graph2d-seed-gate-regression-ci.log
+      - name: Upload Graph2D seed gate regression log (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-seed-gate-regression-ci-log-${{ matrix.python-version }}
+          path: /tmp/graph2d-seed-gate-regression-ci.log
+          if-no-files-found: ignore
+      - name: Upload Graph2D seed gate regression report (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-seed-gate-regression-ci-${{ matrix.python-version }}
+          path: /tmp/graph2d-seed-gate-regression-ci-${{ matrix.python-version }}.json
+          if-no-files-found: ignore
+      - name: Append Graph2D seed gate regression summary (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          python scripts/ci/summarize_graph2d_seed_gate_regression.py \
+            --report-json /tmp/graph2d-seed-gate-regression-ci-${{ matrix.python-version }}.json \
+            --title "Graph2D Seed Gate Regression Check (CI Tests, Python ${{ matrix.python-version }})" \
+            >> "$GITHUB_STEP_SUMMARY"
       - name: Run Graph2D strict seed gate channel (3.11 only, optional)
         if: matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
         env:
@@ -274,6 +305,37 @@ jobs:
           name: graph2d-seed-gate-strict-trend-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-strict-ci-trend-${{ matrix.python-version }}.md
           if-no-files-found: ignore
+      - name: Run Graph2D strict seed gate baseline regression check (3.11 only, optional)
+        if: matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
+        run: |
+          set -o pipefail
+          python scripts/ci/check_graph2d_seed_gate_regression.py \
+            --summary-json /tmp/graph2d-seed-gate-strict-ci-${{ matrix.python-version }}/seed_sweep_summary.json \
+            --baseline-json reports/experiments/20260215/graph2d_seed_gate_baseline_snapshot_20260215.json \
+            --channel strict \
+            --output-json /tmp/graph2d-seed-gate-strict-regression-ci-${{ matrix.python-version }}.json \
+            2>&1 | tee /tmp/graph2d-seed-gate-strict-regression-ci.log
+      - name: Upload Graph2D strict seed gate regression log (3.11 only, optional)
+        if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-seed-gate-strict-regression-ci-log-${{ matrix.python-version }}
+          path: /tmp/graph2d-seed-gate-strict-regression-ci.log
+          if-no-files-found: ignore
+      - name: Upload Graph2D strict seed gate regression report (3.11 only, optional)
+        if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-seed-gate-strict-regression-ci-${{ matrix.python-version }}
+          path: /tmp/graph2d-seed-gate-strict-regression-ci-${{ matrix.python-version }}.json
+          if-no-files-found: ignore
+      - name: Append Graph2D strict seed gate regression summary (3.11 only, optional)
+        if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
+        run: |
+          python scripts/ci/summarize_graph2d_seed_gate_regression.py \
+            --report-json /tmp/graph2d-seed-gate-strict-regression-ci-${{ matrix.python-version }}.json \
+            --title "Graph2D Strict Seed Gate Regression Check (CI Tests, Python ${{ matrix.python-version }})" \
+            >> "$GITHUB_STEP_SUMMARY"
       - name: Quick route smoke
         run: pytest -q -k test_routes_smoke || true
       - name: Run knowledge tests
