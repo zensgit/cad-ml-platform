@@ -67,6 +67,49 @@ def _run(cmd: List[str], dry_run: bool = False) -> None:
     subprocess.run(cmd, cwd=str(REPO_ROOT), check=True)
 
 
+def _evaluate_gate(
+    *,
+    rows: List[Dict[str, Any]],
+    strict_accuracy_mean: float,
+    strict_accuracy_min: float,
+    min_strict_accuracy_mean: float,
+    min_strict_accuracy_min: float,
+    require_all_ok: bool,
+) -> Dict[str, Any]:
+    failures: List[str] = []
+    num_errors = sum(1 for row in rows if str(row.get("status", "")) != "ok")
+    if bool(require_all_ok) and num_errors > 0:
+        failures.append(f"require_all_ok: error_runs={num_errors}")
+    if float(min_strict_accuracy_mean) >= 0 and float(strict_accuracy_mean) < float(
+        min_strict_accuracy_mean
+    ):
+        failures.append(
+            "strict_accuracy_mean"
+            f": {strict_accuracy_mean:.6f} < {float(min_strict_accuracy_mean):.6f}"
+        )
+    if float(min_strict_accuracy_min) >= 0 and float(strict_accuracy_min) < float(
+        min_strict_accuracy_min
+    ):
+        failures.append(
+            "strict_accuracy_min"
+            f": {strict_accuracy_min:.6f} < {float(min_strict_accuracy_min):.6f}"
+        )
+
+    gate_enabled = bool(require_all_ok) or float(min_strict_accuracy_mean) >= 0 or float(
+        min_strict_accuracy_min
+    ) >= 0
+    return {
+        "enabled": gate_enabled,
+        "passed": len(failures) == 0,
+        "failures": failures,
+        "require_all_ok": bool(require_all_ok),
+        "min_strict_accuracy_mean": float(min_strict_accuracy_mean),
+        "min_strict_accuracy_min": float(min_strict_accuracy_min),
+        "num_runs": len(rows),
+        "num_error_runs": int(num_errors),
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Sweep Graph2D local pipeline over random seeds for one profile."
@@ -97,6 +140,23 @@ def main() -> int:
         type=int,
         default=200,
         help="Diagnosis max files (default: 200)",
+    )
+    parser.add_argument(
+        "--min-strict-accuracy-mean",
+        type=float,
+        default=-1.0,
+        help="Fail gate when strict mean accuracy is below this value (default: disabled).",
+    )
+    parser.add_argument(
+        "--min-strict-accuracy-min",
+        type=float,
+        default=-1.0,
+        help="Fail gate when strict min accuracy is below this value (default: disabled).",
+    )
+    parser.add_argument(
+        "--require-all-ok",
+        action="store_true",
+        help="Fail gate when any seed run exits with error.",
     )
     parser.add_argument("--dry-run", action="store_true", help="Print commands only")
     args = parser.parse_args()
@@ -191,28 +251,35 @@ def main() -> int:
         rows.append(row)
         print(json.dumps(row, ensure_ascii=False))
 
-    if rows:
-        acc_values = [r["strict_accuracy"] for r in rows if r["strict_accuracy"] >= 0]
-        summary = {
-            "status": "ok",
-            "training_profile": str(args.training_profile),
-            "seeds": seeds,
-            "num_runs": len(rows),
-            "strict_accuracy_mean": (
-                round(sum(acc_values) / len(acc_values), 6) if acc_values else -1.0
-            ),
-            "strict_accuracy_min": round(min(acc_values), 6) if acc_values else -1.0,
-            "strict_accuracy_max": round(max(acc_values), 6) if acc_values else -1.0,
-            "work_root": str(work_root),
-        }
-    else:
-        summary = {
-            "status": "empty",
-            "training_profile": str(args.training_profile),
-            "seeds": seeds,
-            "num_runs": 0,
-            "work_root": str(work_root),
-        }
+    acc_values = [r["strict_accuracy"] for r in rows if r["strict_accuracy"] >= 0]
+    strict_accuracy_mean = round(sum(acc_values) / len(acc_values), 6) if acc_values else -1.0
+    strict_accuracy_min = round(min(acc_values), 6) if acc_values else -1.0
+    strict_accuracy_max = round(max(acc_values), 6) if acc_values else -1.0
+
+    summary: Dict[str, Any] = {
+        "status": "ok" if rows else "empty",
+        "training_profile": str(args.training_profile),
+        "seeds": seeds,
+        "num_runs": len(rows),
+        "num_success_runs": sum(1 for r in rows if str(r.get("status", "")) == "ok"),
+        "num_error_runs": sum(1 for r in rows if str(r.get("status", "")) != "ok"),
+        "strict_accuracy_mean": strict_accuracy_mean,
+        "strict_accuracy_min": strict_accuracy_min,
+        "strict_accuracy_max": strict_accuracy_max,
+        "work_root": str(work_root),
+    }
+
+    gate = _evaluate_gate(
+        rows=rows,
+        strict_accuracy_mean=float(strict_accuracy_mean),
+        strict_accuracy_min=float(strict_accuracy_min),
+        min_strict_accuracy_mean=float(args.min_strict_accuracy_mean),
+        min_strict_accuracy_min=float(args.min_strict_accuracy_min),
+        require_all_ok=bool(args.require_all_ok),
+    )
+    summary["gate"] = gate
+    if bool(gate.get("enabled")) and not bool(gate.get("passed")):
+        summary["status"] = "gate_failed"
 
     results_csv = work_root / "seed_sweep_results.csv"
     results_json = work_root / "seed_sweep_results.json"
@@ -229,6 +296,10 @@ def main() -> int:
     print(f"results_csv={results_csv}")
     print(f"results_json={results_json}")
     print(f"summary_json={summary_json}")
+    print(f"gate={json.dumps(gate, ensure_ascii=False)}")
+    if bool(gate.get("enabled")) and not bool(gate.get("passed")):
+        print("Seed sweep gate failed.")
+        return 3
     return 0
 
 

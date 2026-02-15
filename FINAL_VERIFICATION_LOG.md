@@ -4326,3 +4326,24 @@
     - seed 42: `0.3545`
     - mean/min/max: `0.3394 / 0.2818 / 0.3818`
   - Report: `reports/DEV_GRAPH2D_STRICT_PROFILE_AND_SEED_SWEEP_20260215.md`
+- **Graph2D Seed Sweep: Stability Gate + 5-Seed Verification (Continue)**:
+  - Extended `scripts/sweep_graph2d_profile_seeds.py` with strict gate thresholds:
+    - `--min-strict-accuracy-mean`
+    - `--min-strict-accuracy-min`
+    - `--require-all-ok`
+  - Added gate evaluation and persisted gate status/failures in `seed_sweep_summary.json`.
+  - Added failure exit behavior (`rc=3`) when gate is enabled and not passed.
+  - Added/updated unit tests in:
+    - `tests/unit/test_sweep_graph2d_profile_seeds.py`
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_run_graph2d_pipeline_local_profile.py tests/unit/test_sweep_graph2d_profile_seeds.py tests/unit/test_run_graph2d_pipeline_local_distill_wiring.py tests/unit/test_run_graph2d_pipeline_local_diagnose_strict_wiring.py -v` (passed)
+    - `/usr/bin/time -p .venv/bin/python scripts/sweep_graph2d_profile_seeds.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --training-profile strict_node23_edgesage_v1 --seeds 7,13,21,42,84 --min-strict-accuracy-mean 0.30 --min-strict-accuracy-min 0.25 --require-all-ok` (completed; artifacts in `/tmp/graph2d_profile_seed_sweep_20260215_220844`; gate passed)
+    - `.venv/bin/python scripts/sweep_graph2d_profile_seeds.py --dxf-dir "/Users/huazhou/Downloads/训练图纸/训练图纸_dxf" --seeds 7 --dry-run --min-strict-accuracy-mean 0.1` (`rc=3`, expected gate fail smoke)
+  - Strict accuracy (5 seeds):
+    - seed 7: `0.3818`
+    - seed 13: `0.2818`
+    - seed 21: `0.2818`
+    - seed 42: `0.3545`
+    - seed 84: `0.4000`
+    - mean/min/max: `0.3400 / 0.2818 / 0.4000`
+  - Report: `reports/DEV_GRAPH2D_SEED_SWEEP_STABILITY_GATE_20260215.md`
