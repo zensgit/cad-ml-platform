@@ -4552,3 +4552,31 @@
     - `make validate-graph2d-seed-gate-strict-regression` (passed; threshold source from config loaded)
   - Report:
     - `reports/DEV_GRAPH2D_SEED_GATE_REGRESSION_THRESHOLDS_CONFIG_20260215.md`
+- **Graph2D Seed Gate Follow-up: Baseline Freshness Guard (Continue)**:
+  - Enhanced `scripts/ci/check_graph2d_seed_gate_regression.py`:
+    - added baseline-policy checks:
+      - `max_baseline_age_days`
+      - `require_snapshot_ref_exists`
+    - validates baseline date freshness and snapshot-ref path existence.
+    - regression report now contains:
+      - `baseline_metadata` (`date`, `age_days`, `snapshot_ref`, `snapshot_path`, `snapshot_exists`)
+      - threshold fields for freshness/snapshot policy.
+  - Updated `config/graph2d_seed_gate_regression.yaml`:
+    - `max_baseline_age_days: 365`
+    - `require_snapshot_ref_exists: true`
+  - Updated `scripts/ci/summarize_graph2d_seed_gate_regression.py`:
+    - threshold row includes baseline-age/snapshot policy,
+    - added `Baseline metadata` row.
+  - Tests:
+    - updated `tests/unit/test_graph2d_seed_gate_regression_check.py`:
+      - baseline policy resolution precedence,
+      - stale baseline failure,
+      - missing snapshot-ref failure.
+    - updated `tests/unit/test_graph2d_seed_gate_regression_summary.py`:
+      - baseline metadata/policy summary assertions.
+  - Validation:
+    - `pytest tests/unit/test_graph2d_seed_gate_regression_check.py tests/unit/test_graph2d_seed_gate_regression_summary.py tests/unit/test_graph2d_seed_gate_baseline_update.py tests/unit/test_graph2d_seed_gate_summary.py tests/unit/test_graph2d_seed_gate_trend.py tests/unit/test_sweep_graph2d_profile_seeds.py -q` (`23 passed`)
+    - `make validate-graph2d-seed-gate-regression` (passed; baseline metadata `date=2026-02-15`, `age_days=0`, `snapshot_exists=true`)
+    - `make validate-graph2d-seed-gate-strict-regression` (passed; baseline metadata `date=2026-02-15`, `age_days=0`, `snapshot_exists=true`)
+  - Report:
+    - `reports/DEV_GRAPH2D_SEED_GATE_BASELINE_FRESHNESS_GUARD_20260215.md`

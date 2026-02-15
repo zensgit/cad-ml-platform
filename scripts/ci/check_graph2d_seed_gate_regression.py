@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 from pathlib import Path
 from typing import Any, Dict, List
@@ -12,6 +13,11 @@ DEFAULT_THRESHOLDS: Dict[str, Any] = {
     "max_top_pred_ratio_increase": 0.10,
     "max_low_conf_ratio_increase": 0.05,
     "max_distinct_labels_drop": 0,
+}
+
+DEFAULT_BASELINE_POLICY: Dict[str, Any] = {
+    "max_baseline_age_days": 365,
+    "require_snapshot_ref_exists": True,
 }
 
 
@@ -112,6 +118,59 @@ def _resolve_thresholds(
     }
 
 
+def _safe_bool(value: Any, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return bool(default)
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "y", "on"}:
+        return True
+    if text in {"0", "false", "no", "n", "off"}:
+        return False
+    return bool(default)
+
+
+def _resolve_baseline_policy(
+    *,
+    config_payload: Dict[str, Any],
+    cli_overrides: Dict[str, Any],
+) -> Dict[str, Any]:
+    policy: Dict[str, Any] = dict(DEFAULT_BASELINE_POLICY)
+    for key in DEFAULT_BASELINE_POLICY.keys():
+        if key in config_payload:
+            policy[key] = config_payload.get(key)
+
+    if cli_overrides.get("max_baseline_age_days") is not None:
+        policy["max_baseline_age_days"] = cli_overrides.get("max_baseline_age_days")
+
+    require_snapshot_cli = str(cli_overrides.get("require_snapshot_ref_exists", "auto"))
+    if require_snapshot_cli in {"true", "false"}:
+        policy["require_snapshot_ref_exists"] = require_snapshot_cli == "true"
+
+    return {
+        "max_baseline_age_days": _safe_int(
+            policy.get("max_baseline_age_days"),
+            DEFAULT_BASELINE_POLICY["max_baseline_age_days"],
+        ),
+        "require_snapshot_ref_exists": _safe_bool(
+            policy.get("require_snapshot_ref_exists"),
+            DEFAULT_BASELINE_POLICY["require_snapshot_ref_exists"],
+        ),
+    }
+
+
+def _resolve_snapshot_path(snapshot_ref: str, baseline_json_path: str) -> Path:
+    ref = Path(str(snapshot_ref))
+    if ref.is_absolute():
+        return ref
+    baseline_parent = Path(baseline_json_path).resolve().parent
+    candidate_from_baseline = baseline_parent / ref
+    if candidate_from_baseline.exists():
+        return candidate_from_baseline
+    return Path.cwd() / ref
+
+
 def evaluate_regression(
     *,
     summary: Dict[str, Any],
@@ -122,6 +181,10 @@ def evaluate_regression(
     max_top_pred_ratio_increase: float,
     max_low_conf_ratio_increase: float,
     max_distinct_labels_drop: int,
+    baseline_payload: Dict[str, Any] | None = None,
+    baseline_json_path: str = "",
+    max_baseline_age_days: int = -1,
+    require_snapshot_ref_exists: bool = False,
 ) -> Dict[str, Any]:
     failures: List[str] = []
 
@@ -175,6 +238,41 @@ def evaluate_regression(
                 f"(baseline={base_labels_min}, max_drop={int(max_distinct_labels_drop)})"
             )
 
+    metadata = baseline_payload if isinstance(baseline_payload, dict) else {}
+    baseline_date = str(metadata.get("date") or "").strip()
+    baseline_age_days = -1
+    if baseline_date:
+        try:
+            baseline_age_days = (dt.date.today() - dt.date.fromisoformat(baseline_date)).days
+        except Exception:
+            failures.append(f"baseline_date: invalid format '{baseline_date}'")
+    if int(max_baseline_age_days) >= 0:
+        if not baseline_date:
+            failures.append("baseline_date: missing date in baseline payload")
+        elif baseline_age_days < 0:
+            failures.append(f"baseline_date: invalid age={baseline_age_days}")
+        elif baseline_age_days > int(max_baseline_age_days):
+            failures.append(
+                "baseline_date: "
+                f"age_days={baseline_age_days} exceeds max={int(max_baseline_age_days)}"
+            )
+
+    source = metadata.get("source") if isinstance(metadata.get("source"), dict) else {}
+    snapshot_ref = str(source.get("snapshot_ref") or "").strip()
+    snapshot_path = ""
+    snapshot_exists = False
+    if snapshot_ref:
+        resolved = _resolve_snapshot_path(snapshot_ref, baseline_json_path)
+        snapshot_path = str(resolved)
+        snapshot_exists = bool(resolved.exists())
+    if bool(require_snapshot_ref_exists):
+        if not snapshot_ref:
+            failures.append("snapshot_ref: missing in baseline source")
+        elif not snapshot_exists:
+            failures.append(
+                f"snapshot_ref: path does not exist ({snapshot_ref} -> {snapshot_path})"
+            )
+
     return {
         "channel": channel,
         "status": "passed" if not failures else "failed",
@@ -185,6 +283,15 @@ def evaluate_regression(
             "max_top_pred_ratio_increase": float(max_top_pred_ratio_increase),
             "max_low_conf_ratio_increase": float(max_low_conf_ratio_increase),
             "max_distinct_labels_drop": int(max_distinct_labels_drop),
+            "max_baseline_age_days": int(max_baseline_age_days),
+            "require_snapshot_ref_exists": bool(require_snapshot_ref_exists),
+        },
+        "baseline_metadata": {
+            "date": baseline_date,
+            "age_days": int(baseline_age_days),
+            "snapshot_ref": snapshot_ref,
+            "snapshot_path": snapshot_path,
+            "snapshot_exists": bool(snapshot_exists),
         },
         "baseline": {
             "strict_accuracy_mean": _safe_float(
@@ -268,6 +375,18 @@ def main() -> int:
         default="",
         help="Optional report output json path",
     )
+    parser.add_argument(
+        "--max-baseline-age-days",
+        type=int,
+        default=None,
+        help="Allowed baseline age in days (overrides config when set).",
+    )
+    parser.add_argument(
+        "--require-snapshot-ref-exists",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help="Require baseline source.snapshot_ref to exist (auto uses config).",
+    )
     args = parser.parse_args()
 
     summary = _read_json(Path(args.summary_json))
@@ -297,6 +416,13 @@ def main() -> int:
             "max_distinct_labels_drop": args.max_distinct_labels_drop,
         },
     )
+    policy = _resolve_baseline_policy(
+        config_payload=config_payload,
+        cli_overrides={
+            "max_baseline_age_days": args.max_baseline_age_days,
+            "require_snapshot_ref_exists": args.require_snapshot_ref_exists,
+        },
+    )
 
     report = evaluate_regression(
         summary=summary,
@@ -307,6 +433,10 @@ def main() -> int:
         max_top_pred_ratio_increase=float(thresholds["max_top_pred_ratio_increase"]),
         max_low_conf_ratio_increase=float(thresholds["max_low_conf_ratio_increase"]),
         max_distinct_labels_drop=int(thresholds["max_distinct_labels_drop"]),
+        baseline_payload=baseline,
+        baseline_json_path=str(args.baseline_json),
+        max_baseline_age_days=int(policy["max_baseline_age_days"]),
+        require_snapshot_ref_exists=bool(policy["require_snapshot_ref_exists"]),
     )
     report["threshold_source"] = {
         "config": str(args.config),
@@ -319,6 +449,12 @@ def main() -> int:
                 "max_top_pred_ratio_increase": args.max_top_pred_ratio_increase,
                 "max_low_conf_ratio_increase": args.max_low_conf_ratio_increase,
                 "max_distinct_labels_drop": args.max_distinct_labels_drop,
+                "max_baseline_age_days": args.max_baseline_age_days,
+                "require_snapshot_ref_exists": (
+                    args.require_snapshot_ref_exists
+                    if str(args.require_snapshot_ref_exists) != "auto"
+                    else None
+                ),
             }.items()
             if value is not None
         },

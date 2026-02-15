@@ -14,11 +14,20 @@ def test_regression_summary_includes_key_rows() -> None:
             "max_top_pred_ratio_increase": 0.10,
             "max_low_conf_ratio_increase": 0.05,
             "max_distinct_labels_drop": 0,
+            "max_baseline_age_days": 365,
+            "require_snapshot_ref_exists": True,
         },
         "threshold_source": {
             "config": "config/graph2d_seed_gate_regression.yaml",
             "config_loaded": True,
             "cli_overrides": {},
+        },
+        "baseline_metadata": {
+            "date": "2026-02-15",
+            "age_days": 0,
+            "snapshot_ref": "reports/experiments/20260215/graph2d_seed_gate_baseline_snapshot_20260215.json",
+            "snapshot_path": "/tmp/repo/reports/experiments/20260215/graph2d_seed_gate_baseline_snapshot_20260215.json",
+            "snapshot_exists": True,
         },
         "baseline": {
             "strict_accuracy_mean": 0.3625,
@@ -43,6 +52,8 @@ def test_regression_summary_includes_key_rows() -> None:
     assert "strict_low_conf_ratio_max (cur/base)" in text
     assert "Threshold source" in text
     assert "config/graph2d_seed_gate_regression.yaml" in text
+    assert "Baseline metadata" in text
+    assert "snapshot_exists=True" in text
 
 
 def test_regression_summary_prints_failures() -> None:

@@ -93,3 +93,102 @@ def test_resolve_thresholds_uses_channel_config_and_cli_override() -> None:
     assert resolved["max_accuracy_mean_drop"] == 0.04
     assert resolved["max_top_pred_ratio_increase"] == 0.02
     assert resolved["max_low_conf_ratio_increase"] == 0.05
+
+
+def test_resolve_baseline_policy_prefers_config_then_cli() -> None:
+    from scripts.ci.check_graph2d_seed_gate_regression import _resolve_baseline_policy
+
+    resolved = _resolve_baseline_policy(
+        config_payload={
+            "max_baseline_age_days": 120,
+            "require_snapshot_ref_exists": False,
+        },
+        cli_overrides={
+            "max_baseline_age_days": 30,
+            "require_snapshot_ref_exists": "true",
+        },
+    )
+    assert resolved["max_baseline_age_days"] == 30
+    assert resolved["require_snapshot_ref_exists"] is True
+
+
+def test_regression_check_fails_when_baseline_is_stale() -> None:
+    from scripts.ci.check_graph2d_seed_gate_regression import evaluate_regression
+
+    summary = {
+        "strict_accuracy_mean": 0.36,
+        "strict_accuracy_min": 0.29,
+        "strict_top_pred_ratio_max": 0.70,
+        "strict_low_conf_ratio_max": 0.05,
+        "manifest_distinct_labels_min": 5,
+    }
+    baseline = {
+        "date": "2000-01-01",
+        "source": {
+            "snapshot_ref": "reports/experiments/20260215/graph2d_seed_gate_baseline_snapshot_20260215.json"
+        },
+        "standard": {
+            "strict_accuracy_mean": 0.36,
+            "strict_accuracy_min": 0.29,
+            "strict_top_pred_ratio_max": 0.70,
+            "strict_low_conf_ratio_max": 0.05,
+            "manifest_distinct_labels_min": 5,
+        },
+    }
+    report = evaluate_regression(
+        summary=summary,
+        baseline_channel=baseline["standard"],
+        channel="standard",
+        max_accuracy_mean_drop=0.02,
+        max_accuracy_min_drop=0.02,
+        max_top_pred_ratio_increase=0.03,
+        max_low_conf_ratio_increase=0.01,
+        max_distinct_labels_drop=0,
+        baseline_payload=baseline,
+        baseline_json_path="config/graph2d_seed_gate_baseline.json",
+        max_baseline_age_days=30,
+        require_snapshot_ref_exists=False,
+    )
+    assert report["status"] == "failed"
+    failures = "\n".join(report["failures"])
+    assert "baseline_date: age_days=" in failures
+
+
+def test_regression_check_fails_when_snapshot_ref_missing_required() -> None:
+    from scripts.ci.check_graph2d_seed_gate_regression import evaluate_regression
+
+    summary = {
+        "strict_accuracy_mean": 0.36,
+        "strict_accuracy_min": 0.29,
+        "strict_top_pred_ratio_max": 0.70,
+        "strict_low_conf_ratio_max": 0.05,
+        "manifest_distinct_labels_min": 5,
+    }
+    baseline = {
+        "date": "2026-02-15",
+        "source": {},
+        "standard": {
+            "strict_accuracy_mean": 0.36,
+            "strict_accuracy_min": 0.29,
+            "strict_top_pred_ratio_max": 0.70,
+            "strict_low_conf_ratio_max": 0.05,
+            "manifest_distinct_labels_min": 5,
+        },
+    }
+    report = evaluate_regression(
+        summary=summary,
+        baseline_channel=baseline["standard"],
+        channel="standard",
+        max_accuracy_mean_drop=0.02,
+        max_accuracy_min_drop=0.02,
+        max_top_pred_ratio_increase=0.03,
+        max_low_conf_ratio_increase=0.01,
+        max_distinct_labels_drop=0,
+        baseline_payload=baseline,
+        baseline_json_path="config/graph2d_seed_gate_baseline.json",
+        max_baseline_age_days=365,
+        require_snapshot_ref_exists=True,
+    )
+    assert report["status"] == "failed"
+    failures = "\n".join(report["failures"])
+    assert "snapshot_ref: missing in baseline source" in failures

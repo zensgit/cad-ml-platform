@@ -4,6 +4,8 @@ graph2d_seed_gate_regression:
   max_top_pred_ratio_increase: 0.10
   max_low_conf_ratio_increase: 0.05
   max_distinct_labels_drop: 0
+  max_baseline_age_days: 365
+  require_snapshot_ref_exists: true
   channels:
     standard:
       max_accuracy_mean_drop: 0.08
@@ -17,4 +19,3 @@ graph2d_seed_gate_regression:
       max_top_pred_ratio_increase: 0.10
       max_low_conf_ratio_increase: 0.05
       max_distinct_labels_drop: 0
-

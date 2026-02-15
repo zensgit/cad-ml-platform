@@ -49,6 +49,11 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
         if isinstance(report.get("threshold_source"), dict)
         else {}
     )
+    baseline_metadata = (
+        report.get("baseline_metadata")
+        if isinstance(report.get("baseline_metadata"), dict)
+        else {}
+    )
 
     out: list[str] = []
     out.append(f"## {title}")
@@ -93,13 +98,22 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
         f"min_drop<={_safe_float(thresholds.get('max_accuracy_min_drop'), -1):.3f}, "
         f"top_pred_inc<={_safe_float(thresholds.get('max_top_pred_ratio_increase'), -1):.3f}, "
         f"low_conf_inc<={_safe_float(thresholds.get('max_low_conf_ratio_increase'), -1):.3f}, "
-        f"labels_drop<={_safe_int(thresholds.get('max_distinct_labels_drop'), -1)}` |"
+        f"labels_drop<={_safe_int(thresholds.get('max_distinct_labels_drop'), -1)}, "
+        f"baseline_age<={_safe_int(thresholds.get('max_baseline_age_days'), -1)}d, "
+        f"snapshot_exists={bool(thresholds.get('require_snapshot_ref_exists', False))}` |"
     )
     out.append(
         "| Threshold source | ✅ | "
         f"`config={threshold_source.get('config', '')}, "
         f"loaded={bool(threshold_source.get('config_loaded', False))}, "
         f"cli_overrides={len(threshold_source.get('cli_overrides') or {})}` |"
+    )
+    out.append(
+        "| Baseline metadata | "
+        f"{_bool_mark(_safe_int(baseline_metadata.get('age_days'), -1) >= 0 and bool(baseline_metadata.get('snapshot_exists', False)))} | "
+        f"`date={baseline_metadata.get('date', '')}, "
+        f"age_days={_safe_int(baseline_metadata.get('age_days'), -1)}, "
+        f"snapshot_exists={bool(baseline_metadata.get('snapshot_exists', False))}` |"
     )
     out.append("")
     if failures:
