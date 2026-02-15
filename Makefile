@@ -11,6 +11,7 @@
 		graph2d-review-summary validate-core-fast test-provider-core test-provider-contract \
 		validate-graph2d-seed-gate validate-graph2d-seed-gate-strict \
 		validate-graph2d-seed-gate-regression validate-graph2d-seed-gate-strict-regression \
+		validate-graph2d-seed-gate-baseline-health \
 		update-graph2d-seed-gate-baseline \
 		audit-pydantic-v2 audit-pydantic-v2-regression \
 		audit-pydantic-style audit-pydantic-style-regression \
@@ -185,6 +186,19 @@ validate-graph2d-seed-gate-strict-regression: ## Graph2D seed gate 基线回归�
 		--baseline-json $${GRAPH2D_SEED_GATE_BASELINE_JSON:-config/graph2d_seed_gate_baseline.json} \
 		--config $${GRAPH2D_SEED_GATE_REGRESSION_CONFIG:-config/graph2d_seed_gate_regression.yaml} \
 		--channel strict
+
+validate-graph2d-seed-gate-baseline-health: ## Graph2D 基线健康检查（不依赖当前 summary）
+	@echo "$(GREEN)Checking Graph2D seed gate baseline health (standard + strict)...$(NC)"
+	$(PYTHON) scripts/ci/check_graph2d_seed_gate_regression.py \
+		--baseline-json $${GRAPH2D_SEED_GATE_BASELINE_JSON:-config/graph2d_seed_gate_baseline.json} \
+		--config $${GRAPH2D_SEED_GATE_REGRESSION_CONFIG:-config/graph2d_seed_gate_regression.yaml} \
+		--channel standard \
+		--use-baseline-as-current
+	$(PYTHON) scripts/ci/check_graph2d_seed_gate_regression.py \
+		--baseline-json $${GRAPH2D_SEED_GATE_BASELINE_JSON:-config/graph2d_seed_gate_baseline.json} \
+		--config $${GRAPH2D_SEED_GATE_REGRESSION_CONFIG:-config/graph2d_seed_gate_regression.yaml} \
+		--channel strict \
+		--use-baseline-as-current
 
 update-graph2d-seed-gate-baseline: ## 用最新 seed gate summary 刷新稳定基线与日期快照
 	@echo "$(GREEN)Updating Graph2D seed gate baseline...$(NC)"

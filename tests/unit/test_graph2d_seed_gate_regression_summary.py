@@ -22,6 +22,7 @@ def test_regression_summary_includes_key_rows() -> None:
         "threshold_source": {
             "config": "config/graph2d_seed_gate_regression.yaml",
             "config_loaded": True,
+            "current_source": "/tmp/graph2d-seed-gate/seed_sweep_summary.json",
             "cli_overrides": {},
         },
         "baseline_metadata": {
@@ -61,6 +62,7 @@ def test_regression_summary_includes_key_rows() -> None:
     assert "strict_low_conf_ratio_max (cur/base)" in text
     assert "Threshold source" in text
     assert "config/graph2d_seed_gate_regression.yaml" in text
+    assert "/tmp/graph2d-seed-gate/seed_sweep_summary.json" in text
     assert "Baseline metadata" in text
     assert "snapshot_exists=True" in text
     assert "snapshot_match=True" in text

@@ -95,6 +95,32 @@ def test_resolve_thresholds_uses_channel_config_and_cli_override() -> None:
     assert resolved["max_low_conf_ratio_increase"] == 0.05
 
 
+def test_resolve_current_summary_uses_baseline_when_enabled() -> None:
+    from scripts.ci.check_graph2d_seed_gate_regression import _resolve_current_summary
+
+    baseline_channel = {
+        "strict_accuracy_mean": 0.36,
+        "strict_accuracy_min": 0.29,
+        "strict_top_pred_ratio_max": 0.70,
+        "strict_low_conf_ratio_max": 0.05,
+        "manifest_distinct_labels_min": 5,
+    }
+    summary_payload = {
+        "strict_accuracy_mean": 0.1,
+        "strict_accuracy_min": 0.1,
+        "strict_top_pred_ratio_max": 0.9,
+        "strict_low_conf_ratio_max": 0.9,
+        "manifest_distinct_labels_min": 1,
+    }
+    out = _resolve_current_summary(
+        use_baseline_as_current=True,
+        baseline_channel=baseline_channel,
+        summary_payload=summary_payload,
+    )
+    assert out["strict_accuracy_mean"] == 0.36
+    assert out["manifest_distinct_labels_min"] == 5
+
+
 def test_resolve_baseline_policy_prefers_config_then_cli() -> None:
     from scripts.ci.check_graph2d_seed_gate_regression import _resolve_baseline_policy
 

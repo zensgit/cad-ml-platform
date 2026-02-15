@@ -217,6 +217,17 @@ def _metrics_view(channel_payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _resolve_current_summary(
+    *,
+    use_baseline_as_current: bool,
+    baseline_channel: Dict[str, Any],
+    summary_payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    if bool(use_baseline_as_current):
+        return _metrics_view(baseline_channel)
+    return summary_payload if isinstance(summary_payload, dict) else {}
+
+
 def evaluate_regression(
     *,
     summary: Dict[str, Any],
@@ -510,7 +521,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Check Graph2D seed gate summary against baseline snapshot."
     )
-    parser.add_argument("--summary-json", required=True, help="Current seed sweep summary json")
+    parser.add_argument("--summary-json", default="", help="Current seed sweep summary json")
     parser.add_argument("--baseline-json", required=True, help="Baseline snapshot json")
     parser.add_argument(
         "--config",
@@ -579,12 +590,12 @@ def main() -> int:
         default="auto",
         help="Require integrity hashes to exist and match (auto uses config).",
     )
+    parser.add_argument(
+        "--use-baseline-as-current",
+        action="store_true",
+        help="Use baseline channel metrics as current summary (baseline health check mode).",
+    )
     args = parser.parse_args()
-
-    summary = _read_json(Path(args.summary_json))
-    if not summary:
-        print(f"Missing/invalid summary json: {args.summary_json}")
-        return 2
 
     baseline = _read_json(Path(args.baseline_json))
     if not baseline:
@@ -595,6 +606,21 @@ def main() -> int:
     if not isinstance(baseline_channel, dict):
         print(f"Missing channel '{args.channel}' in baseline json: {args.baseline_json}")
         return 2
+
+    summary_payload: Dict[str, Any] = {}
+    if not bool(args.use_baseline_as_current):
+        if not str(args.summary_json).strip():
+            print("summary-json is required unless --use-baseline-as-current is set")
+            return 2
+        summary_payload = _read_json(Path(args.summary_json))
+        if not summary_payload:
+            print(f"Missing/invalid summary json: {args.summary_json}")
+            return 2
+    summary = _resolve_current_summary(
+        use_baseline_as_current=bool(args.use_baseline_as_current),
+        baseline_channel=baseline_channel,
+        summary_payload=summary_payload,
+    )
 
     config_payload = _load_yaml_defaults(str(args.config), "graph2d_seed_gate_regression")
     thresholds = _resolve_thresholds(
@@ -637,6 +663,11 @@ def main() -> int:
     report["threshold_source"] = {
         "config": str(args.config),
         "config_loaded": bool(config_payload),
+        "current_source": (
+            "baseline_channel"
+            if bool(args.use_baseline_as_current)
+            else str(args.summary_json)
+        ),
         "cli_overrides": {
             key: value
             for key, value in {
@@ -659,6 +690,11 @@ def main() -> int:
                 "require_integrity_hash_match": (
                     args.require_integrity_hash_match
                     if str(args.require_integrity_hash_match) != "auto"
+                    else None
+                ),
+                "use_baseline_as_current": (
+                    bool(args.use_baseline_as_current)
+                    if bool(args.use_baseline_as_current)
                     else None
                 ),
             }.items()

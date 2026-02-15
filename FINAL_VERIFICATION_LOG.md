@@ -4634,3 +4634,29 @@
     - `make validate-graph2d-seed-gate-strict-regression` (passed; integrity hash checks all true)
   - Report:
     - `reports/DEV_GRAPH2D_SEED_GATE_INTEGRITY_HASH_GUARD_20260216.md`
+- **Graph2D Seed Gate Follow-up: Baseline Health Fast Gate (Continue)**:
+  - Enhanced `scripts/ci/check_graph2d_seed_gate_regression.py`:
+    - `--summary-json` no longer required when `--use-baseline-as-current` is enabled.
+    - new mode uses baseline channel metrics as current input for baseline-only health validation.
+    - `threshold_source` now includes `current_source`.
+  - Updated `scripts/ci/summarize_graph2d_seed_gate_regression.py`:
+    - `Threshold source` row now shows current-source path/mode.
+  - Updated `Makefile`:
+    - added `validate-graph2d-seed-gate-baseline-health` target
+      (runs standard+strict baseline-only health checks).
+  - Updated `.github/workflows/ci.yml` (tests job, Python 3.11):
+    - run baseline-health checks before Graph2D seed sweep,
+    - upload baseline-health logs + reports,
+    - append baseline-health summaries for standard and strict channels.
+  - Tests:
+    - updated `tests/unit/test_graph2d_seed_gate_regression_check.py`
+      (`_resolve_current_summary` baseline-current test),
+    - updated `tests/unit/test_graph2d_seed_gate_regression_summary.py`
+      (`current_source` summary assertion).
+  - Validation:
+    - `pytest tests/unit/test_graph2d_seed_gate_regression_check.py tests/unit/test_graph2d_seed_gate_regression_summary.py tests/unit/test_graph2d_seed_gate_baseline_update.py tests/unit/test_graph2d_seed_gate_summary.py tests/unit/test_graph2d_seed_gate_trend.py tests/unit/test_sweep_graph2d_profile_seeds.py -q` (`26 passed`)
+    - `make validate-graph2d-seed-gate-baseline-health` (passed)
+    - `make validate-graph2d-seed-gate-regression` (passed)
+    - `make validate-graph2d-seed-gate-strict-regression` (passed)
+  - Report:
+    - `reports/DEV_GRAPH2D_BASELINE_HEALTH_FAST_GATE_20260216.md`

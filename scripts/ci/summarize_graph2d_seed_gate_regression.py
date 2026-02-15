@@ -107,6 +107,7 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
     out.append(
         "| Threshold source | ✅ | "
         f"`config={threshold_source.get('config', '')}, "
+        f"current={threshold_source.get('current_source', '')}, "
         f"loaded={bool(threshold_source.get('config_loaded', False))}, "
         f"cli_overrides={len(threshold_source.get('cli_overrides') or {})}` |"
     )

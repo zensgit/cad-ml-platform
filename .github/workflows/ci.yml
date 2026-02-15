@@ -190,6 +190,53 @@ jobs:
             --log-file /tmp/core-fast-gate-ci.log \
             --title "Core Fast Gate (CI Tests, Python ${{ matrix.python-version }})" \
             >> "$GITHUB_STEP_SUMMARY"
+      - name: Run Graph2D baseline health check (3.11 only)
+        if: matrix.python-version == '3.11'
+        run: |
+          set -o pipefail
+          python scripts/ci/check_graph2d_seed_gate_regression.py \
+            --baseline-json config/graph2d_seed_gate_baseline.json \
+            --config config/graph2d_seed_gate_regression.yaml \
+            --channel standard \
+            --use-baseline-as-current \
+            --output-json /tmp/graph2d-seed-gate-baseline-health-standard-ci-${{ matrix.python-version }}.json \
+            2>&1 | tee /tmp/graph2d-seed-gate-baseline-health-standard-ci.log
+          python scripts/ci/check_graph2d_seed_gate_regression.py \
+            --baseline-json config/graph2d_seed_gate_baseline.json \
+            --config config/graph2d_seed_gate_regression.yaml \
+            --channel strict \
+            --use-baseline-as-current \
+            --output-json /tmp/graph2d-seed-gate-baseline-health-strict-ci-${{ matrix.python-version }}.json \
+            2>&1 | tee /tmp/graph2d-seed-gate-baseline-health-strict-ci.log
+      - name: Upload Graph2D baseline health logs (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-seed-gate-baseline-health-ci-log-${{ matrix.python-version }}
+          path: |
+            /tmp/graph2d-seed-gate-baseline-health-standard-ci.log
+            /tmp/graph2d-seed-gate-baseline-health-strict-ci.log
+          if-no-files-found: ignore
+      - name: Upload Graph2D baseline health reports (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-seed-gate-baseline-health-ci-${{ matrix.python-version }}
+          path: |
+            /tmp/graph2d-seed-gate-baseline-health-standard-ci-${{ matrix.python-version }}.json
+            /tmp/graph2d-seed-gate-baseline-health-strict-ci-${{ matrix.python-version }}.json
+          if-no-files-found: ignore
+      - name: Append Graph2D baseline health summary (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          python scripts/ci/summarize_graph2d_seed_gate_regression.py \
+            --report-json /tmp/graph2d-seed-gate-baseline-health-standard-ci-${{ matrix.python-version }}.json \
+            --title "Graph2D Baseline Health Check (Standard, Python ${{ matrix.python-version }})" \
+            >> "$GITHUB_STEP_SUMMARY"
+          python scripts/ci/summarize_graph2d_seed_gate_regression.py \
+            --report-json /tmp/graph2d-seed-gate-baseline-health-strict-ci-${{ matrix.python-version }}.json \
+            --title "Graph2D Baseline Health Check (Strict, Python ${{ matrix.python-version }})" \
+            >> "$GITHUB_STEP_SUMMARY"
       - name: Run Graph2D seed stability gate (3.11 only)
         if: matrix.python-version == '3.11'
         env:
