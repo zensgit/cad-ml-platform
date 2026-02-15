@@ -4371,3 +4371,28 @@
     - mean/min: `0.3625 / 0.2917`
     - thresholds: `mean>=0.25`, `min>=0.20`, `require_all_ok=true`
   - Report: `reports/DEV_GRAPH2D_CI_SEED_GATE_CONFIG_RETRY_20260215.md`
+- **Graph2D Seed Gate Follow-up (1+2): CI Summary + Strict Channel**:
+  - Added CI markdown summarizer:
+    - `scripts/ci/summarize_graph2d_seed_gate.py`
+    - tests: `tests/unit/test_graph2d_seed_gate_summary.py`
+  - Updated `.github/workflows/ci.yml`:
+    - append Graph2D seed-gate summary to `GITHUB_STEP_SUMMARY`;
+    - optional strict channel controlled by `vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'`:
+      - run strict gate
+      - upload strict log artifact
+      - append strict summary.
+  - Added strict channel config + Make target:
+    - `config/graph2d_seed_gate_strict.yaml`
+    - `make validate-graph2d-seed-gate-strict`
+  - Added strict non-normalized override path:
+    - `scripts/run_graph2d_pipeline_local.py`:
+      - `--force-normalize-labels`
+      - `--force-clean-min-count`
+      - `_apply_training_profile_overrides(...)`
+    - `scripts/sweep_graph2d_profile_seeds.py`:
+      - pass-through for strict override args.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_sweep_graph2d_profile_seeds.py tests/unit/test_run_graph2d_pipeline_local_profile.py tests/unit/test_run_graph2d_pipeline_local_manifest_wiring.py tests/unit/test_run_graph2d_pipeline_local_distill_wiring.py tests/unit/test_run_graph2d_pipeline_local_diagnose_strict_wiring.py tests/unit/test_graph2d_seed_gate_summary.py -q` (`18 passed`)
+    - `make validate-graph2d-seed-gate` (passed; `/tmp/graph2d-seed-gate/seed_sweep_summary.json`; mean/min/max `0.3625 / 0.2917 / 0.4333`)
+    - `make validate-graph2d-seed-gate-strict` (passed; `/tmp/graph2d-seed-gate-strict/seed_sweep_summary.json`; mean/min/max `0.9458 / 0.9417 / 0.9500`)
+  - Report: `reports/DEV_GRAPH2D_CI_SEED_GATE_SUMMARY_STRICT_CHANNEL_20260215.md`

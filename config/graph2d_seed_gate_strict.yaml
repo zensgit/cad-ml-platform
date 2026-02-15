@@ -1,0 +1,15 @@
+graph2d_seed_sweep:
+  dxf_dir: "data/synthetic_v2"
+  training_profile: "strict_node23_edgesage_v1"
+  manifest_label_mode: "parent_dir"
+  force_normalize_labels: "false"
+  force_clean_min_count: 0
+  seeds: "7,21"
+  diagnose_max_files: 120
+  min_label_confidence: 0.0
+  max_samples: 120
+  retry_failures: 1
+  retry_backoff_seconds: 1.0
+  min_strict_accuracy_mean: 0.20
+  min_strict_accuracy_min: 0.10
+  require_all_ok: true

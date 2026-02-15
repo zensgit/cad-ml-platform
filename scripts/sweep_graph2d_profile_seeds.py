@@ -255,6 +255,18 @@ def main() -> int:
         help="Optional max training samples per seed run (default: 0 = no cap).",
     )
     parser.add_argument(
+        "--force-normalize-labels",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help="Post-profile normalize-labels override passed to pipeline.",
+    )
+    parser.add_argument(
+        "--force-clean-min-count",
+        type=int,
+        default=-1,
+        help="Post-profile clean_min_count override passed to pipeline.",
+    )
+    parser.add_argument(
         "--retry-failures",
         type=int,
         default=0,
@@ -332,6 +344,10 @@ def main() -> int:
             "--min-label-confidence",
             str(float(args.min_label_confidence)),
         ]
+        if str(args.force_normalize_labels) != "auto":
+            cmd.extend(["--force-normalize-labels", str(args.force_normalize_labels)])
+        if int(args.force_clean_min_count) >= 0:
+            cmd.extend(["--force-clean-min-count", str(int(args.force_clean_min_count))])
         if int(args.max_samples) > 0:
             cmd.extend(["--max-samples", str(int(args.max_samples))])
 
@@ -411,6 +427,8 @@ def main() -> int:
         "retry_backoff_seconds": float(max(0.0, float(args.retry_backoff_seconds))),
         "max_samples": int(max(0, int(args.max_samples))),
         "min_label_confidence": float(args.min_label_confidence),
+        "force_normalize_labels": str(args.force_normalize_labels),
+        "force_clean_min_count": int(args.force_clean_min_count),
         "strict_accuracy_mean": strict_accuracy_mean,
         "strict_accuracy_min": strict_accuracy_min,
         "strict_accuracy_max": strict_accuracy_max,

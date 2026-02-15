@@ -192,6 +192,8 @@ jobs:
             >> "$GITHUB_STEP_SUMMARY"
       - name: Run Graph2D seed stability gate (3.11 only)
         if: matrix.python-version == '3.11'
+        env:
+          GRAPH2D_SEED_GATE_WORK_ROOT: /tmp/graph2d-seed-gate-ci-${{ matrix.python-version }}
         run: |
           set -o pipefail
           make validate-graph2d-seed-gate 2>&1 | tee /tmp/graph2d-seed-gate-ci.log
@@ -202,6 +204,36 @@ jobs:
           name: graph2d-seed-gate-ci-log-${{ matrix.python-version }}
           path: /tmp/graph2d-seed-gate-ci.log
           if-no-files-found: ignore
+      - name: Append Graph2D seed gate summary (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          python scripts/ci/summarize_graph2d_seed_gate.py \
+            --summary-json /tmp/graph2d-seed-gate-ci-${{ matrix.python-version }}/seed_sweep_summary.json \
+            --log-file /tmp/graph2d-seed-gate-ci.log \
+            --title "Graph2D Seed Gate (CI Tests, Python ${{ matrix.python-version }})" \
+            >> "$GITHUB_STEP_SUMMARY"
+      - name: Run Graph2D strict seed gate channel (3.11 only, optional)
+        if: matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
+        env:
+          GRAPH2D_SEED_GATE_STRICT_WORK_ROOT: /tmp/graph2d-seed-gate-strict-ci-${{ matrix.python-version }}
+        run: |
+          set -o pipefail
+          make validate-graph2d-seed-gate-strict 2>&1 | tee /tmp/graph2d-seed-gate-strict-ci.log
+      - name: Upload Graph2D strict seed gate log (3.11 only, optional)
+        if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-seed-gate-strict-ci-log-${{ matrix.python-version }}
+          path: /tmp/graph2d-seed-gate-strict-ci.log
+          if-no-files-found: ignore
+      - name: Append Graph2D strict seed gate summary (3.11 only, optional)
+        if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
+        run: |
+          python scripts/ci/summarize_graph2d_seed_gate.py \
+            --summary-json /tmp/graph2d-seed-gate-strict-ci-${{ matrix.python-version }}/seed_sweep_summary.json \
+            --log-file /tmp/graph2d-seed-gate-strict-ci.log \
+            --title "Graph2D Strict Seed Gate (CI Tests, Python ${{ matrix.python-version }})" \
+            >> "$GITHUB_STEP_SUMMARY"
       - name: Quick route smoke
         run: pytest -q -k test_routes_smoke || true
       - name: Run knowledge tests

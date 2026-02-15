@@ -71,6 +71,8 @@ def test_load_yaml_defaults_reads_section_and_normalizes_keys(tmp_path) -> None:
         "graph2d_seed_sweep:\n"
         "  seeds: \"7,21\"\n"
         "  manifest-label-mode: parent_dir\n"
+        "  force-normalize-labels: false\n"
+        "  force-clean-min-count: 0\n"
         "  retry-failures: 2\n"
         "  min-strict-accuracy-mean: 0.3\n",
         encoding="utf-8",
@@ -78,6 +80,8 @@ def test_load_yaml_defaults_reads_section_and_normalizes_keys(tmp_path) -> None:
     defaults = _load_yaml_defaults(str(cfg), "graph2d_seed_sweep")
     assert defaults["seeds"] == "7,21"
     assert defaults["manifest_label_mode"] == "parent_dir"
+    assert bool(defaults["force_normalize_labels"]) is False
+    assert int(defaults["force_clean_min_count"]) == 0
     assert int(defaults["retry_failures"]) == 2
     assert float(defaults["min_strict_accuracy_mean"]) == 0.3
 

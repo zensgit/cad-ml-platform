@@ -6,6 +6,8 @@ from argparse import Namespace
 def _base_args() -> Namespace:
     return Namespace(
         training_profile="none",
+        force_normalize_labels="auto",
+        force_clean_min_count=-1,
         model="gcn",
         node_dim=19,
         hidden_dim=64,
@@ -58,3 +60,20 @@ def test_apply_training_profile_strict_node23_edgesage_v1() -> None:
     assert bool(out.diagnose_no_text_no_filename) is True
     assert bool(out.normalize_labels) is True
     assert int(out.clean_min_count) == 5
+
+
+def test_apply_training_profile_overrides_can_disable_normalize_and_clean() -> None:
+    from scripts.run_graph2d_pipeline_local import (
+        _apply_training_profile,
+        _apply_training_profile_overrides,
+    )
+
+    args = _base_args()
+    args.training_profile = "strict_node23_edgesage_v1"
+    args.force_normalize_labels = "false"
+    args.force_clean_min_count = 0
+    out = _apply_training_profile_overrides(_apply_training_profile(args))
+
+    assert out.training_profile == "strict_node23_edgesage_v1"
+    assert bool(out.normalize_labels) is False
+    assert int(out.clean_min_count) == 0

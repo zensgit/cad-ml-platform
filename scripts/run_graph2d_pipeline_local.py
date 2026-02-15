@@ -289,6 +289,21 @@ def _apply_training_profile(args: argparse.Namespace) -> argparse.Namespace:
     return args
 
 
+def _apply_training_profile_overrides(args: argparse.Namespace) -> argparse.Namespace:
+    normalize_token = (
+        str(getattr(args, "force_normalize_labels", "auto") or "auto").strip().lower()
+    )
+    if normalize_token in {"true", "false"}:
+        args.normalize_labels = normalize_token == "true"
+    args.force_normalize_labels = normalize_token
+
+    clean_override = int(getattr(args, "force_clean_min_count", -1))
+    if clean_override >= 0:
+        args.clean_min_count = clean_override
+    args.force_clean_min_count = clean_override
+    return args
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run Graph2D pipeline (manifest -> train -> eval -> diagnose)."
@@ -394,6 +409,24 @@ def main() -> int:
         "--clean-drop-low",
         action="store_true",
         help="When cleaning labels, drop low-frequency classes instead of mapping to other.",
+    )
+    parser.add_argument(
+        "--force-normalize-labels",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help=(
+            "Optional override applied after training profile resolution. "
+            "'true' forces --normalize-labels on, 'false' forces it off."
+        ),
+    )
+    parser.add_argument(
+        "--force-clean-min-count",
+        type=int,
+        default=-1,
+        help=(
+            "Optional override applied after training profile resolution. "
+            "Use >=0 to force clean_min_count."
+        ),
     )
     parser.add_argument(
         "--device",
@@ -577,6 +610,7 @@ def main() -> int:
     )
     args = parser.parse_args()
     args = _apply_training_profile(args)
+    args = _apply_training_profile_overrides(args)
 
     dxf_dir = Path(args.dxf_dir)
     if not dxf_dir.exists():
@@ -840,6 +874,8 @@ def main() -> int:
         "manifest": {
             "raw": str(manifest_csv),
             "label_mode": str(args.manifest_label_mode),
+            "force_normalize_labels": str(args.force_normalize_labels),
+            "force_clean_min_count": int(args.force_clean_min_count),
             "filtered": str(manifest_filtered_csv),
             "normalized": str(manifest_normalized_csv) if args.normalize_labels else "",
             "cleaned": str(manifest_cleaned_csv) if args.clean_min_count > 0 else "",
