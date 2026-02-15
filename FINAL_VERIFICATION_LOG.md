@@ -4502,3 +4502,27 @@
     - `make validate-graph2d-seed-gate-strict-regression` (passed)
   - Report:
     - `reports/DEV_GRAPH2D_SEED_GATE_BASELINE_REGRESSION_GUARD_20260215.md`
+- **Graph2D Seed Gate Follow-up: Stable Baseline Path + Baseline Refresh Utility (Continue)**:
+  - Added canonical baseline file:
+    - `config/graph2d_seed_gate_baseline.json`
+  - Added baseline refresh utility:
+    - `scripts/ci/update_graph2d_seed_gate_baseline.py`
+    - writes both stable baseline and dated snapshot from current standard/strict summaries.
+  - Added unit test:
+    - `tests/unit/test_graph2d_seed_gate_baseline_update.py`
+  - Updated Makefile:
+    - default baseline path for
+      - `validate-graph2d-seed-gate-regression`
+      - `validate-graph2d-seed-gate-strict-regression`
+      now points to `config/graph2d_seed_gate_baseline.json`.
+    - added `update-graph2d-seed-gate-baseline` target.
+  - Updated CI workflow (`.github/workflows/ci.yml`):
+    - standard/strict baseline regression check steps now use
+      `config/graph2d_seed_gate_baseline.json`.
+  - Validation:
+    - `pytest tests/unit/test_graph2d_seed_gate_baseline_update.py tests/unit/test_graph2d_seed_gate_regression_check.py tests/unit/test_graph2d_seed_gate_regression_summary.py tests/unit/test_graph2d_seed_gate_summary.py tests/unit/test_graph2d_seed_gate_trend.py tests/unit/test_sweep_graph2d_profile_seeds.py -q` (`19 passed`)
+    - `make validate-graph2d-seed-gate-regression` (passed)
+    - `make validate-graph2d-seed-gate-strict-regression` (passed)
+    - `make update-graph2d-seed-gate-baseline` (passed; refreshed stable baseline and dated snapshot)
+  - Reports:
+    - `reports/DEV_GRAPH2D_SEED_GATE_STABLE_BASELINE_PATH_20260215.md`
