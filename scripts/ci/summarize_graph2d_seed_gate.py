@@ -44,6 +44,8 @@ def build_summary(summary: Dict[str, Any], title: str, log_text: str = "") -> st
     strict_mean = _safe_float(summary.get("strict_accuracy_mean"), -1.0)
     strict_min = _safe_float(summary.get("strict_accuracy_min"), -1.0)
     strict_max = _safe_float(summary.get("strict_accuracy_max"), -1.0)
+    manifest_labels_min = _safe_int(summary.get("manifest_distinct_labels_min"), 0)
+    manifest_labels_max = _safe_int(summary.get("manifest_distinct_labels_max"), 0)
 
     out: list[str] = []
     out.append(f"## {title}")
@@ -63,6 +65,10 @@ def build_summary(summary: Dict[str, Any], title: str, log_text: str = "") -> st
     out.append(
         f"| Strict accuracy (mean/min/max) | {_bool_mark(strict_mean >= 0 and strict_min >= 0)} | "
         f"`{strict_mean:.6f} / {strict_min:.6f} / {strict_max:.6f}` |"
+    )
+    out.append(
+        f"| Manifest distinct labels (min/max) | {_bool_mark(manifest_labels_min > 0)} | "
+        f"`{manifest_labels_min} / {manifest_labels_max}` |"
     )
     out.append(
         f"| Config | ✅ | `{summary.get('config', 'N/A')}` |"

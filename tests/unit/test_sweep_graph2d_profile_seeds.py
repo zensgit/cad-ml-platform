@@ -23,6 +23,7 @@ def test_evaluate_gate_passes_when_disabled() -> None:
         strict_accuracy_min=0.27,
         min_strict_accuracy_mean=-1.0,
         min_strict_accuracy_min=-1.0,
+        min_manifest_distinct_labels=-1,
         require_all_ok=False,
     )
     assert gate["enabled"] is False
@@ -39,6 +40,7 @@ def test_evaluate_gate_fails_when_mean_below_threshold() -> None:
         strict_accuracy_min=0.27,
         min_strict_accuracy_mean=0.30,
         min_strict_accuracy_min=-1.0,
+        min_manifest_distinct_labels=-1,
         require_all_ok=False,
     )
     assert gate["enabled"] is True
@@ -55,6 +57,7 @@ def test_evaluate_gate_fails_when_require_all_ok_and_errors_exist() -> None:
         strict_accuracy_min=0.30,
         min_strict_accuracy_mean=-1.0,
         min_strict_accuracy_min=-1.0,
+        min_manifest_distinct_labels=-1,
         require_all_ok=True,
     )
     assert gate["enabled"] is True
@@ -126,3 +129,23 @@ def test_run_with_retries_returns_error_after_limit(monkeypatch) -> None:
     assert out["status"] == "error"
     assert int(out["attempts"]) == 2
     assert int(out["return_code"]) == 5
+
+
+def test_evaluate_gate_fails_when_manifest_distinct_labels_below_threshold() -> None:
+    from scripts.sweep_graph2d_profile_seeds import _evaluate_gate
+
+    gate = _evaluate_gate(
+        rows=[
+            {"status": "ok", "seed": 7, "manifest_distinct_labels": 5},
+            {"status": "ok", "seed": 21, "manifest_distinct_labels": 1},
+        ],
+        strict_accuracy_mean=0.60,
+        strict_accuracy_min=0.50,
+        min_strict_accuracy_mean=-1.0,
+        min_strict_accuracy_min=-1.0,
+        min_manifest_distinct_labels=3,
+        require_all_ok=False,
+    )
+    assert gate["enabled"] is True
+    assert gate["passed"] is False
+    assert any("manifest_distinct_labels" in failure for failure in gate["failures"])

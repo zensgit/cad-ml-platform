@@ -4396,3 +4396,21 @@
     - `make validate-graph2d-seed-gate` (passed; `/tmp/graph2d-seed-gate/seed_sweep_summary.json`; mean/min/max `0.3625 / 0.2917 / 0.4333`)
     - `make validate-graph2d-seed-gate-strict` (passed; `/tmp/graph2d-seed-gate-strict/seed_sweep_summary.json`; mean/min/max `0.9458 / 0.9417 / 0.9500`)
   - Report: `reports/DEV_GRAPH2D_CI_SEED_GATE_SUMMARY_STRICT_CHANNEL_20260215.md`
+- **Graph2D Seed Gate Hardening: Label Diversity Guard (Continue)**:
+  - Added a label-diversity gate to `scripts/sweep_graph2d_profile_seeds.py`:
+    - new threshold: `--min-manifest-distinct-labels`
+    - gate fails when any seed run has too few distinct labels.
+  - Added per-run/summary diversity metrics:
+    - row: `manifest_distinct_labels`
+    - summary: `manifest_distinct_labels_min/max`.
+  - Updated both seed-gate configs:
+    - `config/graph2d_seed_gate.yaml`: `min_manifest_distinct_labels: 3`
+    - `config/graph2d_seed_gate_strict.yaml`: `min_manifest_distinct_labels: 3`
+  - Enhanced CI summary script:
+    - `scripts/ci/summarize_graph2d_seed_gate.py` now includes
+      `Manifest distinct labels (min/max)` row.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_sweep_graph2d_profile_seeds.py tests/unit/test_graph2d_seed_gate_summary.py tests/unit/test_run_graph2d_pipeline_local_profile.py tests/unit/test_run_graph2d_pipeline_local_manifest_wiring.py tests/unit/test_run_graph2d_pipeline_local_distill_wiring.py tests/unit/test_run_graph2d_pipeline_local_diagnose_strict_wiring.py -q` (`19 passed`)
+    - `make validate-graph2d-seed-gate` (passed; `/tmp/graph2d-seed-gate/seed_sweep_summary.json`; strict mean/min/max `0.3625 / 0.2917 / 0.4333`; distinct labels min/max `5 / 5`)
+    - `make validate-graph2d-seed-gate-strict` (passed; `/tmp/graph2d-seed-gate-strict/seed_sweep_summary.json`; strict mean/min/max `0.9458 / 0.9417 / 0.9500`; distinct labels min/max `5 / 5`)
+  - Report: `reports/DEV_GRAPH2D_SEED_GATE_LABEL_DIVERSITY_GUARD_20260215.md`

@@ -12,4 +12,5 @@ graph2d_seed_sweep:
   retry_backoff_seconds: 1.0
   min_strict_accuracy_mean: 0.20
   min_strict_accuracy_min: 0.10
+  min_manifest_distinct_labels: 3
   require_all_ok: true

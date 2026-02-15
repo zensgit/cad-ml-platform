@@ -26,6 +26,13 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
         return default
 
 
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
 def _read_json(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {}
@@ -160,6 +167,7 @@ def _evaluate_gate(
     strict_accuracy_min: float,
     min_strict_accuracy_mean: float,
     min_strict_accuracy_min: float,
+    min_manifest_distinct_labels: int,
     require_all_ok: bool,
 ) -> Dict[str, Any]:
     failures: List[str] = []
@@ -180,10 +188,26 @@ def _evaluate_gate(
             "strict_accuracy_min"
             f": {strict_accuracy_min:.6f} < {float(min_strict_accuracy_min):.6f}"
         )
+    if int(min_manifest_distinct_labels) > 0:
+        bad_rows = [
+            row
+            for row in rows
+            if _safe_int(row.get("manifest_distinct_labels"), 0)
+            < int(min_manifest_distinct_labels)
+        ]
+        if bad_rows:
+            bad_desc = ",".join(
+                f"{_safe_int(row.get('seed'), -1)}:{_safe_int(row.get('manifest_distinct_labels'), 0)}"
+                for row in bad_rows
+            )
+            failures.append(
+                "manifest_distinct_labels: "
+                f"below {int(min_manifest_distinct_labels)} for seeds [{bad_desc}]"
+            )
 
     gate_enabled = bool(require_all_ok) or float(min_strict_accuracy_mean) >= 0 or float(
         min_strict_accuracy_min
-    ) >= 0
+    ) >= 0 or int(min_manifest_distinct_labels) > 0
     return {
         "enabled": gate_enabled,
         "passed": len(failures) == 0,
@@ -191,6 +215,7 @@ def _evaluate_gate(
         "require_all_ok": bool(require_all_ok),
         "min_strict_accuracy_mean": float(min_strict_accuracy_mean),
         "min_strict_accuracy_min": float(min_strict_accuracy_min),
+        "min_manifest_distinct_labels": int(min_manifest_distinct_labels),
         "num_runs": len(rows),
         "num_error_runs": int(num_errors),
     }
@@ -291,6 +316,15 @@ def main() -> int:
         help="Fail gate when strict min accuracy is below this value (default: disabled).",
     )
     parser.add_argument(
+        "--min-manifest-distinct-labels",
+        type=int,
+        default=-1,
+        help=(
+            "Fail gate when any seed run has distinct labels below this threshold "
+            "(default: disabled)."
+        ),
+    )
+    parser.add_argument(
         "--require-all-ok",
         action="store_true",
         help="Fail gate when any seed run exits with error.",
@@ -389,6 +423,11 @@ def main() -> int:
             "training_model": str(
                 (pipeline_summary.get("training") or {}).get("model", "")
             ),
+            "manifest_distinct_labels": (
+                _safe_int((pipeline_summary.get("manifest") or {}).get("distinct_labels"), 0)
+                if isinstance(pipeline_summary.get("manifest"), dict)
+                else 0
+            ),
             "training_node_dim": (
                 int((pipeline_summary.get("training") or {}).get("node_dim", 0))
                 if isinstance(pipeline_summary.get("training"), dict)
@@ -412,6 +451,11 @@ def main() -> int:
     strict_accuracy_mean = round(sum(acc_values) / len(acc_values), 6) if acc_values else -1.0
     strict_accuracy_min = round(min(acc_values), 6) if acc_values else -1.0
     strict_accuracy_max = round(max(acc_values), 6) if acc_values else -1.0
+    manifest_distinct_values = [
+        _safe_int(r.get("manifest_distinct_labels"), 0)
+        for r in rows
+        if _safe_int(r.get("manifest_distinct_labels"), 0) > 0
+    ]
 
     summary: Dict[str, Any] = {
         "status": "ok" if rows else "empty",
@@ -432,6 +476,12 @@ def main() -> int:
         "strict_accuracy_mean": strict_accuracy_mean,
         "strict_accuracy_min": strict_accuracy_min,
         "strict_accuracy_max": strict_accuracy_max,
+        "manifest_distinct_labels_min": (
+            min(manifest_distinct_values) if manifest_distinct_values else 0
+        ),
+        "manifest_distinct_labels_max": (
+            max(manifest_distinct_values) if manifest_distinct_values else 0
+        ),
         "work_root": str(work_root),
     }
 
@@ -441,6 +491,7 @@ def main() -> int:
         strict_accuracy_min=float(strict_accuracy_min),
         min_strict_accuracy_mean=float(args.min_strict_accuracy_mean),
         min_strict_accuracy_min=float(args.min_strict_accuracy_min),
+        min_manifest_distinct_labels=int(args.min_manifest_distinct_labels),
         require_all_ok=bool(args.require_all_ok),
     )
     summary["gate"] = gate
