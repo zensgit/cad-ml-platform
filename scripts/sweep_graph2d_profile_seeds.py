@@ -33,6 +33,23 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def _extract_top_pred_ratio(summary: Dict[str, Any]) -> Dict[str, Any]:
+    sampled_files = _safe_int(summary.get("sampled_files"), 0)
+    top_pred = summary.get("top_pred_labels_canon")
+    if not isinstance(top_pred, list) or not top_pred:
+        top_pred = summary.get("top_pred_labels")
+    if not isinstance(top_pred, list) or not top_pred:
+        return {"label": "", "count": 0, "ratio": 0.0}
+    item = top_pred[0]
+    if not isinstance(item, (list, tuple)) or len(item) < 2:
+        return {"label": "", "count": 0, "ratio": 0.0}
+    label = str(item[0])
+    count = _safe_int(item[1], 0)
+    denom = sampled_files if sampled_files > 0 else 1
+    ratio = float(count) / float(denom)
+    return {"label": label, "count": count, "ratio": ratio}
+
+
 def _read_json(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {}
@@ -168,6 +185,7 @@ def _evaluate_gate(
     min_strict_accuracy_mean: float,
     min_strict_accuracy_min: float,
     min_manifest_distinct_labels: int,
+    max_strict_top_pred_ratio: float,
     require_all_ok: bool,
 ) -> Dict[str, Any]:
     failures: List[str] = []
@@ -204,10 +222,26 @@ def _evaluate_gate(
                 "manifest_distinct_labels: "
                 f"below {int(min_manifest_distinct_labels)} for seeds [{bad_desc}]"
             )
+    if float(max_strict_top_pred_ratio) >= 0:
+        bad_rows = [
+            row
+            for row in rows
+            if _safe_float(row.get("strict_top_pred_ratio"), 0.0)
+            > float(max_strict_top_pred_ratio)
+        ]
+        if bad_rows:
+            bad_desc = ",".join(
+                f"{_safe_int(row.get('seed'), -1)}:{_safe_float(row.get('strict_top_pred_ratio'), 0.0):.3f}"
+                for row in bad_rows
+            )
+            failures.append(
+                "strict_top_pred_ratio: "
+                f"above {float(max_strict_top_pred_ratio):.3f} for seeds [{bad_desc}]"
+            )
 
     gate_enabled = bool(require_all_ok) or float(min_strict_accuracy_mean) >= 0 or float(
         min_strict_accuracy_min
-    ) >= 0 or int(min_manifest_distinct_labels) > 0
+    ) >= 0 or int(min_manifest_distinct_labels) > 0 or float(max_strict_top_pred_ratio) >= 0
     return {
         "enabled": gate_enabled,
         "passed": len(failures) == 0,
@@ -216,6 +250,7 @@ def _evaluate_gate(
         "min_strict_accuracy_mean": float(min_strict_accuracy_mean),
         "min_strict_accuracy_min": float(min_strict_accuracy_min),
         "min_manifest_distinct_labels": int(min_manifest_distinct_labels),
+        "max_strict_top_pred_ratio": float(max_strict_top_pred_ratio),
         "num_runs": len(rows),
         "num_error_runs": int(num_errors),
     }
@@ -325,6 +360,15 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--max-strict-top-pred-ratio",
+        type=float,
+        default=-1.0,
+        help=(
+            "Fail gate when any run has top-prediction ratio above this threshold "
+            "(default: disabled)."
+        ),
+    )
+    parser.add_argument(
         "--require-all-ok",
         action="store_true",
         help="Fail gate when any seed run exits with error.",
@@ -399,6 +443,7 @@ def main() -> int:
         elapsed = time.time() - started
         pipeline_summary = _read_json(run_dir / "pipeline_summary.json")
         strict_summary = _read_json(run_dir / "diagnose" / "summary.json")
+        top_pred = _extract_top_pred_ratio(strict_summary)
 
         row: Dict[str, Any] = {
             "seed": int(seed),
@@ -420,6 +465,9 @@ def main() -> int:
                 if isinstance(strict_summary.get("confidence"), dict)
                 else 0.0
             ),
+            "strict_top_pred_label": str(top_pred.get("label") or ""),
+            "strict_top_pred_count": _safe_int(top_pred.get("count"), 0),
+            "strict_top_pred_ratio": _safe_float(top_pred.get("ratio"), 0.0),
             "training_model": str(
                 (pipeline_summary.get("training") or {}).get("model", "")
             ),
@@ -451,6 +499,11 @@ def main() -> int:
     strict_accuracy_mean = round(sum(acc_values) / len(acc_values), 6) if acc_values else -1.0
     strict_accuracy_min = round(min(acc_values), 6) if acc_values else -1.0
     strict_accuracy_max = round(max(acc_values), 6) if acc_values else -1.0
+    top_pred_ratios = [
+        _safe_float(r.get("strict_top_pred_ratio"), 0.0)
+        for r in rows
+        if _safe_float(r.get("strict_top_pred_ratio"), 0.0) > 0
+    ]
     manifest_distinct_values = [
         _safe_int(r.get("manifest_distinct_labels"), 0)
         for r in rows
@@ -476,6 +529,14 @@ def main() -> int:
         "strict_accuracy_mean": strict_accuracy_mean,
         "strict_accuracy_min": strict_accuracy_min,
         "strict_accuracy_max": strict_accuracy_max,
+        "strict_top_pred_ratio_mean": (
+            round(sum(top_pred_ratios) / len(top_pred_ratios), 6)
+            if top_pred_ratios
+            else 0.0
+        ),
+        "strict_top_pred_ratio_max": (
+            round(max(top_pred_ratios), 6) if top_pred_ratios else 0.0
+        ),
         "manifest_distinct_labels_min": (
             min(manifest_distinct_values) if manifest_distinct_values else 0
         ),
@@ -492,6 +553,7 @@ def main() -> int:
         min_strict_accuracy_mean=float(args.min_strict_accuracy_mean),
         min_strict_accuracy_min=float(args.min_strict_accuracy_min),
         min_manifest_distinct_labels=int(args.min_manifest_distinct_labels),
+        max_strict_top_pred_ratio=float(args.max_strict_top_pred_ratio),
         require_all_ok=bool(args.require_all_ok),
     )
     summary["gate"] = gate

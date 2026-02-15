@@ -4414,3 +4414,22 @@
     - `make validate-graph2d-seed-gate` (passed; `/tmp/graph2d-seed-gate/seed_sweep_summary.json`; strict mean/min/max `0.3625 / 0.2917 / 0.4333`; distinct labels min/max `5 / 5`)
     - `make validate-graph2d-seed-gate-strict` (passed; `/tmp/graph2d-seed-gate-strict/seed_sweep_summary.json`; strict mean/min/max `0.9458 / 0.9417 / 0.9500`; distinct labels min/max `5 / 5`)
   - Report: `reports/DEV_GRAPH2D_SEED_GATE_LABEL_DIVERSITY_GUARD_20260215.md`
+- **Graph2D Seed Gate Hardening: Top-Prediction Ratio Guard (Continue)**:
+  - Added a prediction concentration gate to `scripts/sweep_graph2d_profile_seeds.py`:
+    - new threshold: `--max-strict-top-pred-ratio`
+    - fails when any seed run has top-pred ratio above threshold.
+  - Added per-run fields:
+    - `strict_top_pred_label`, `strict_top_pred_count`, `strict_top_pred_ratio`
+  - Added summary fields:
+    - `strict_top_pred_ratio_mean`, `strict_top_pred_ratio_max`
+  - Updated configs:
+    - `config/graph2d_seed_gate.yaml`: `max_strict_top_pred_ratio: 0.90`
+    - `config/graph2d_seed_gate_strict.yaml`: `max_strict_top_pred_ratio: 0.90`
+  - Updated CI summary renderer:
+    - `scripts/ci/summarize_graph2d_seed_gate.py` now includes
+      `Top-pred ratio (mean/max)` row.
+  - Validation:
+    - `.venv/bin/python -m pytest tests/unit/test_sweep_graph2d_profile_seeds.py tests/unit/test_graph2d_seed_gate_summary.py -q` (`12 passed`)
+    - `make validate-graph2d-seed-gate` (passed; strict mean/min/max `0.3625 / 0.2917 / 0.4333`; top-pred ratio mean/max `0.6000 / 0.7083`)
+    - `make validate-graph2d-seed-gate-strict` (passed; strict mean/min/max `0.9458 / 0.9417 / 0.9500`; top-pred ratio mean/max `0.2583 / 0.2750`)
+  - Report: `reports/DEV_GRAPH2D_SEED_GATE_TOP_PRED_RATIO_GUARD_20260215.md`

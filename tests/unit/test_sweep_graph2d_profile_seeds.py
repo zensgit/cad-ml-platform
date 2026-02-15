@@ -24,6 +24,7 @@ def test_evaluate_gate_passes_when_disabled() -> None:
         min_strict_accuracy_mean=-1.0,
         min_strict_accuracy_min=-1.0,
         min_manifest_distinct_labels=-1,
+        max_strict_top_pred_ratio=-1.0,
         require_all_ok=False,
     )
     assert gate["enabled"] is False
@@ -41,6 +42,7 @@ def test_evaluate_gate_fails_when_mean_below_threshold() -> None:
         min_strict_accuracy_mean=0.30,
         min_strict_accuracy_min=-1.0,
         min_manifest_distinct_labels=-1,
+        max_strict_top_pred_ratio=-1.0,
         require_all_ok=False,
     )
     assert gate["enabled"] is True
@@ -58,6 +60,7 @@ def test_evaluate_gate_fails_when_require_all_ok_and_errors_exist() -> None:
         min_strict_accuracy_mean=-1.0,
         min_strict_accuracy_min=-1.0,
         min_manifest_distinct_labels=-1,
+        max_strict_top_pred_ratio=-1.0,
         require_all_ok=True,
     )
     assert gate["enabled"] is True
@@ -144,8 +147,30 @@ def test_evaluate_gate_fails_when_manifest_distinct_labels_below_threshold() -> 
         min_strict_accuracy_mean=-1.0,
         min_strict_accuracy_min=-1.0,
         min_manifest_distinct_labels=3,
+        max_strict_top_pred_ratio=-1.0,
         require_all_ok=False,
     )
     assert gate["enabled"] is True
     assert gate["passed"] is False
     assert any("manifest_distinct_labels" in failure for failure in gate["failures"])
+
+
+def test_evaluate_gate_fails_when_top_pred_ratio_above_threshold() -> None:
+    from scripts.sweep_graph2d_profile_seeds import _evaluate_gate
+
+    gate = _evaluate_gate(
+        rows=[
+            {"status": "ok", "seed": 7, "strict_top_pred_ratio": 0.45},
+            {"status": "ok", "seed": 21, "strict_top_pred_ratio": 0.95},
+        ],
+        strict_accuracy_mean=0.60,
+        strict_accuracy_min=0.50,
+        min_strict_accuracy_mean=-1.0,
+        min_strict_accuracy_min=-1.0,
+        min_manifest_distinct_labels=-1,
+        max_strict_top_pred_ratio=0.90,
+        require_all_ok=False,
+    )
+    assert gate["enabled"] is True
+    assert gate["passed"] is False
+    assert any("strict_top_pred_ratio" in failure for failure in gate["failures"])

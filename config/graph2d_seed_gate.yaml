@@ -11,4 +11,5 @@ graph2d_seed_sweep:
   min_strict_accuracy_mean: 0.25
   min_strict_accuracy_min: 0.20
   min_manifest_distinct_labels: 3
+  max_strict_top_pred_ratio: 0.90
   require_all_ok: true
