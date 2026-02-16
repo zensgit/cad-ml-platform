@@ -20,16 +20,31 @@ Added `scripts/ci/check_graph2d_context_drift_alerts.py`:
   - markdown summary,
 - default behavior is non-blocking (`exit 0`), optional `--fail-on-alert` supported.
 
+### 1.1) Config-driven alert policy
+
+Added `config/graph2d_context_drift_alerts.yaml`:
+
+- section: `graph2d_context_drift_alerts`
+- fields:
+  - `recent_runs`
+  - `default_key_threshold`
+  - `key_thresholds`
+  - `fail_on_alert`
+
+Updated `check_graph2d_context_drift_alerts.py`:
+
+- added `--config` and `--config-section`,
+- supports config defaults + CLI overrides,
+- report now includes `policy_source` metadata.
+
 ### 2) CI integration
 
 Updated `.github/workflows/ci.yml` (tests job, Python 3.11):
 
 - added non-blocking alert-check step:
   - `Check Graph2D context drift alerts (3.11 only, non-blocking)`
-- current thresholds:
-  - recent window: `5`
-  - default key threshold: `3`
-  - override: `max_samples=2`
+- thresholds now loaded from:
+  - `config/graph2d_context_drift_alerts.yaml`
 - appended alert markdown to Step Summary,
 - emitted GitHub warning annotations via:
   - `scripts/ci/emit_graph2d_context_drift_warnings.py`
@@ -59,7 +74,7 @@ pytest tests/unit/test_graph2d_context_drift_alerts.py \
        tests/unit/test_graph2d_context_drift_warning_emit.py -q
 ```
 
-Result: `13 passed`.
+Result: `14 passed`.
 
 Local alert smoke:
 
@@ -78,7 +93,7 @@ Observed:
 
 - status `alerted`,
 - alert message for `max_samples`,
-- markdown includes threshold table and alert block.
+- markdown includes threshold table, policy-source row, and alert block.
 
 Local warning emission smoke:
 

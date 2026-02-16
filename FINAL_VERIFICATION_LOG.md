@@ -4827,7 +4827,10 @@
     - evaluates recent-window drift-key totals against thresholds,
     - supports global threshold + per-key overrides,
     - outputs json/md reports,
-    - non-blocking by default (optional `--fail-on-alert`).
+    - non-blocking by default (optional `--fail-on-alert`),
+    - now supports config-driven policy (`--config`, `--config-section`).
+  - Added `config/graph2d_context_drift_alerts.yaml`:
+    - canonical drift alert policy for CI/local runs.
   - Added `scripts/ci/emit_graph2d_context_drift_warnings.py`:
     - converts alert json into GitHub `::warning` annotation lines.
   - Added tests:
@@ -4837,11 +4840,12 @@
       (warning-line emission and empty-alert handling).
   - Updated `.github/workflows/ci.yml` (tests job, Python 3.11):
     - added non-blocking context drift alert check step,
+    - thresholds now loaded from `config/graph2d_context_drift_alerts.yaml`,
     - appends alert markdown to `GITHUB_STEP_SUMMARY`,
     - emits `::warning` annotations via `emit_graph2d_context_drift_warnings.py`,
     - uploads alert artifacts (`json/md/log`).
   - Validation:
-    - `pytest tests/unit/test_graph2d_context_drift_alerts.py tests/unit/test_graph2d_context_drift_history.py tests/unit/test_graph2d_context_drift_key_counts.py tests/unit/test_graph2d_context_drift_warning_emit.py -q` (`13 passed`)
+    - `pytest tests/unit/test_graph2d_context_drift_alerts.py tests/unit/test_graph2d_context_drift_history.py tests/unit/test_graph2d_context_drift_key_counts.py tests/unit/test_graph2d_context_drift_warning_emit.py -q` (`14 passed`)
     - local alert smoke produced expected `status=alerted` and `max_samples` threshold hit.
   - Report:
     - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_ALERT_THRESHOLDS_20260216.md`

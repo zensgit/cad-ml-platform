@@ -1,0 +1,6 @@
+graph2d_context_drift_alerts:
+  recent_runs: 5
+  default_key_threshold: 3
+  fail_on_alert: false
+  key_thresholds:
+    max_samples: 2

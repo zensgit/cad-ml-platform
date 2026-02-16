@@ -64,6 +64,11 @@ def test_build_markdown_contains_alert_lines() -> None:
         "recent_runs": 3,
         "default_key_threshold": 3,
         "key_totals": {"max_samples": 4},
+        "policy_source": {
+            "config": "config/graph2d_context_drift_alerts.yaml",
+            "config_loaded": True,
+            "resolved_policy": {"key_thresholds": {"max_samples": 2}},
+        },
         "alerts": [
             {
                 "message": "context drift key 'max_samples' count 4 >= threshold 3",
@@ -75,3 +80,28 @@ def test_build_markdown_contains_alert_lines() -> None:
     assert "| Status | `alerted` |" in text
     assert "max_samples" in text
     assert "count 4 >= threshold 3" in text
+    assert "config/graph2d_context_drift_alerts.yaml" in text
+
+
+def test_resolve_alert_policy_prefers_cli_over_config() -> None:
+    from scripts.ci.check_graph2d_context_drift_alerts import _resolve_alert_policy
+
+    policy = _resolve_alert_policy(
+        config_payload={
+            "recent_runs": 9,
+            "default_key_threshold": 4,
+            "fail_on_alert": True,
+            "key_thresholds": {"max_samples": 5, "seeds": 7},
+        },
+        cli_overrides={
+            "recent_runs": 3,
+            "default_key_threshold": 2,
+            "key_threshold": ["max_samples=2"],
+            "fail_on_alert": "false",
+        },
+    )
+    assert policy["recent_runs"] == 3
+    assert policy["default_key_threshold"] == 2
+    assert policy["fail_on_alert"] is False
+    assert policy["key_thresholds"]["max_samples"] == 2
+    assert policy["key_thresholds"]["seeds"] == 7

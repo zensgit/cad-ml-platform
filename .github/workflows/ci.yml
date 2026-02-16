@@ -419,9 +419,7 @@ jobs:
           set -o pipefail
           python scripts/ci/check_graph2d_context_drift_alerts.py \
             --history-json /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json \
-            --recent-runs 5 \
-            --default-key-threshold 3 \
-            --key-threshold max_samples=2 \
+            --config config/graph2d_context_drift_alerts.yaml \
             --title "Graph2D Context Drift Alerts (CI Tests, Python ${{ matrix.python-version }})" \
             --output-json /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.json \
             --output-md /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.md \
