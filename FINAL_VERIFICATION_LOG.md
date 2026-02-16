@@ -4781,3 +4781,22 @@
     - `training_profile` is intentionally excluded in warn probe to avoid fixed-noise warning.
   - Report:
     - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_WARN_CHANNEL_CI_20260216.md`
+- **Graph2D Seed Gate Follow-up: Context Drift Key Counts Summary (Continue)**:
+  - Added `scripts/ci/render_graph2d_context_drift_key_counts.py`:
+    - aggregates context drift keys from one or more regression reports,
+    - renders per-report status + drift-key count markdown tables.
+  - Added tests:
+    - `tests/unit/test_graph2d_context_drift_key_counts.py`
+      (aggregation, empty input, no-drift cases).
+  - Updated `.github/workflows/ci.yml` (tests job, Python 3.11):
+    - render context drift key counts markdown from:
+      - `/tmp/graph2d-seed-gate-regression-ci-${{ matrix.python-version }}.json`
+      - `/tmp/graph2d-context-drift-warn-ci-${{ matrix.python-version }}.json`
+    - append markdown to `GITHUB_STEP_SUMMARY`,
+    - upload markdown artifact:
+      - `graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}`.
+  - Validation:
+    - `pytest tests/unit/test_graph2d_context_drift_key_counts.py tests/unit/test_graph2d_seed_gate_regression_check.py tests/unit/test_graph2d_seed_gate_regression_summary.py -q` (`22 passed`)
+    - local render smoke produced expected `Drift key | Count` table.
+  - Report:
+    - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_KEY_COUNTS_SUMMARY_20260216.md`

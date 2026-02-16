@@ -345,6 +345,27 @@ jobs:
             --report-json /tmp/graph2d-context-drift-warn-ci-${{ matrix.python-version }}.json \
             --title "Graph2D Context Drift Warn Probe (CI Tests, Python ${{ matrix.python-version }})" \
             >> "$GITHUB_STEP_SUMMARY"
+      - name: Render Graph2D context drift key counts (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          python scripts/ci/render_graph2d_context_drift_key_counts.py \
+            --report-json /tmp/graph2d-seed-gate-regression-ci-${{ matrix.python-version }}.json \
+            --report-json /tmp/graph2d-context-drift-warn-ci-${{ matrix.python-version }}.json \
+            --title "Graph2D Context Drift Key Counts (CI Tests, Python ${{ matrix.python-version }})" \
+            --output-md /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.md
+      - name: Append Graph2D context drift key counts (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          if [ -f /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.md ]; then
+            cat /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload Graph2D context drift key counts artifact (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}
+          path: /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.md
+          if-no-files-found: ignore
       - name: Run Graph2D strict seed gate channel (3.11 only, optional)
         if: matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
         env:
