@@ -164,6 +164,14 @@ jobs:
           key: pytest-cache-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('requirements*.txt') }}
           restore-keys: |
             pytest-cache-${{ runner.os }}-${{ matrix.python-version }}-
+      - name: Restore Graph2D context drift history cache (3.11 only)
+        if: matrix.python-version == '3.11'
+        uses: actions/cache/restore@v4
+        with:
+          path: /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json
+          key: graph2d-context-drift-history-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.python-version }}-${{ github.run_id }}
+          restore-keys: |
+            graph2d-context-drift-history-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.python-version }}-
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -366,6 +374,50 @@ jobs:
           name: graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}
           path: /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.md
           if-no-files-found: ignore
+      - name: Update Graph2D context drift history (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          set -o pipefail
+          python scripts/ci/update_graph2d_context_drift_history.py \
+            --history-json /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json \
+            --output-json /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json \
+            --max-runs 20 \
+            --run-id "${{ github.run_id }}" \
+            --run-number "${{ github.run_number }}" \
+            --ref-name "${{ github.ref_name }}" \
+            --sha "${{ github.sha }}" \
+            --report-json /tmp/graph2d-seed-gate-regression-ci-${{ matrix.python-version }}.json \
+            --report-json /tmp/graph2d-context-drift-warn-ci-${{ matrix.python-version }}.json \
+            2>&1 | tee /tmp/graph2d-context-drift-history-update-ci.log
+      - name: Render Graph2D context drift history trend (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          python scripts/ci/render_graph2d_context_drift_history.py \
+            --history-json /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json \
+            --title "Graph2D Context Drift History (CI Tests, Python ${{ matrix.python-version }})" \
+            --output-md /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.md
+      - name: Append Graph2D context drift history trend (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          if [ -f /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.md ]; then
+            cat /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload Graph2D context drift history artifacts (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-context-drift-history-ci-${{ matrix.python-version }}
+          path: |
+            /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json
+            /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.md
+            /tmp/graph2d-context-drift-history-update-ci.log
+          if-no-files-found: ignore
+      - name: Save Graph2D context drift history cache (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/cache/save@v4
+        with:
+          path: /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json
+          key: graph2d-context-drift-history-${{ runner.os }}-${{ github.ref_name }}-${{ matrix.python-version }}-${{ github.run_id }}
       - name: Run Graph2D strict seed gate channel (3.11 only, optional)
         if: matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
         env:

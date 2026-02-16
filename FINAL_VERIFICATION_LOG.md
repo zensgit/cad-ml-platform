@@ -4800,3 +4800,25 @@
     - local render smoke produced expected `Drift key | Count` table.
   - Report:
     - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_KEY_COUNTS_SUMMARY_20260216.md`
+- **Graph2D Seed Gate Follow-up: Context Drift Cross-Run History Trend (Continue)**:
+  - Added `scripts/ci/update_graph2d_context_drift_history.py`:
+    - builds run snapshot from current regression reports,
+    - tracks status/warnings/failures and `drift_key_counts`,
+    - appends+trims history with `--max-runs`.
+  - Added `scripts/ci/render_graph2d_context_drift_history.py`:
+    - renders per-run history table,
+    - renders recent-window drift key total table.
+  - Added tests:
+    - `tests/unit/test_graph2d_context_drift_history.py`
+      (append+trim, dedup by run-id, markdown rendering, empty history).
+  - Updated `.github/workflows/ci.yml` (tests job, Python 3.11):
+    - restore context drift history cache,
+    - update+render history after warn probe,
+    - append history markdown to `GITHUB_STEP_SUMMARY`,
+    - upload history artifacts (`json/md/log`),
+    - save updated history cache.
+  - Validation:
+    - `pytest tests/unit/test_graph2d_context_drift_history.py tests/unit/test_graph2d_context_drift_key_counts.py tests/unit/test_graph2d_seed_gate_regression_check.py tests/unit/test_graph2d_seed_gate_regression_summary.py -q` (`26 passed`)
+    - local history smoke produced expected per-run + recent-key tables.
+  - Report:
+    - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_HISTORY_TREND_20260216.md`
