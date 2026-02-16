@@ -18,6 +18,8 @@ def test_regression_summary_includes_key_rows() -> None:
             "require_snapshot_ref_exists": True,
             "require_snapshot_metrics_match": True,
             "require_integrity_hash_match": True,
+            "require_snapshot_date_match": True,
+            "require_snapshot_ref_date_match": True,
         },
         "threshold_source": {
             "config": "config/graph2d_seed_gate_regression.yaml",
@@ -38,6 +40,11 @@ def test_regression_summary_includes_key_rows() -> None:
             "snapshot_channel_hash_match": True,
             "snapshot_vs_baseline_hash_match": True,
             "baseline_core_hash_match": True,
+            "snapshot_payload_date": "2026-02-16",
+            "snapshot_date_match": True,
+            "snapshot_ref_date_stamp": "20260216",
+            "expected_date_stamp": "20260216",
+            "snapshot_ref_date_match": True,
         },
         "baseline": {
             "strict_accuracy_mean": 0.3625,
@@ -69,6 +76,8 @@ def test_regression_summary_includes_key_rows() -> None:
     assert "snapshot_metrics_match=True" in text
     assert "integrity_match=True" in text
     assert "snapshot_vs_baseline_hash_match=True" in text
+    assert "snapshot_date_match=True" in text
+    assert "snapshot_ref_date_match=True" in text
 
 
 def test_regression_summary_prints_failures() -> None:

@@ -21,6 +21,8 @@ DEFAULT_BASELINE_POLICY: Dict[str, Any] = {
     "require_snapshot_ref_exists": True,
     "require_snapshot_metrics_match": True,
     "require_integrity_hash_match": True,
+    "require_snapshot_date_match": True,
+    "require_snapshot_ref_date_match": True,
 }
 
 
@@ -170,6 +172,16 @@ def _resolve_baseline_policy(
     if require_integrity_cli in {"true", "false"}:
         policy["require_integrity_hash_match"] = require_integrity_cli == "true"
 
+    require_snapshot_date_cli = str(cli_overrides.get("require_snapshot_date_match", "auto"))
+    if require_snapshot_date_cli in {"true", "false"}:
+        policy["require_snapshot_date_match"] = require_snapshot_date_cli == "true"
+
+    require_snapshot_ref_date_cli = str(
+        cli_overrides.get("require_snapshot_ref_date_match", "auto")
+    )
+    if require_snapshot_ref_date_cli in {"true", "false"}:
+        policy["require_snapshot_ref_date_match"] = require_snapshot_ref_date_cli == "true"
+
     return {
         "max_baseline_age_days": _safe_int(
             policy.get("max_baseline_age_days"),
@@ -187,6 +199,14 @@ def _resolve_baseline_policy(
             policy.get("require_integrity_hash_match"),
             DEFAULT_BASELINE_POLICY["require_integrity_hash_match"],
         ),
+        "require_snapshot_date_match": _safe_bool(
+            policy.get("require_snapshot_date_match"),
+            DEFAULT_BASELINE_POLICY["require_snapshot_date_match"],
+        ),
+        "require_snapshot_ref_date_match": _safe_bool(
+            policy.get("require_snapshot_ref_date_match"),
+            DEFAULT_BASELINE_POLICY["require_snapshot_ref_date_match"],
+        ),
     }
 
 
@@ -199,6 +219,18 @@ def _resolve_snapshot_path(snapshot_ref: str, baseline_json_path: str) -> Path:
     if candidate_from_baseline.exists():
         return candidate_from_baseline
     return Path.cwd() / ref
+
+
+def _extract_date_stamp_from_snapshot_ref(snapshot_ref: str) -> str:
+    name = Path(str(snapshot_ref)).name
+    marker = "graph2d_seed_gate_baseline_snapshot_"
+    suffix = ".json"
+    if marker not in name or not name.endswith(suffix):
+        return ""
+    token = name.split(marker, 1)[1][:8]
+    if len(token) != 8 or not token.isdigit():
+        return ""
+    return token
 
 
 def _metrics_view(channel_payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -244,6 +276,8 @@ def evaluate_regression(
     require_snapshot_ref_exists: bool = False,
     require_snapshot_metrics_match: bool = False,
     require_integrity_hash_match: bool = False,
+    require_snapshot_date_match: bool = False,
+    require_snapshot_ref_date_match: bool = False,
 ) -> Dict[str, Any]:
     failures: List[str] = []
 
@@ -362,12 +396,26 @@ def evaluate_regression(
     snapshot_channel_hash_actual = ""
     snapshot_channel_hash_match: bool | None = None
     snapshot_vs_baseline_hash_match: bool | None = None
+    snapshot_payload_date = ""
+    snapshot_date_match: bool | None = None
+    snapshot_ref_date_stamp = _extract_date_stamp_from_snapshot_ref(snapshot_ref)
+    expected_date_stamp = baseline_date.replace("-", "") if baseline_date else ""
+    snapshot_ref_date_match: bool | None = None
+    if snapshot_ref_date_stamp:
+        snapshot_ref_date_match = bool(expected_date_stamp) and (
+            snapshot_ref_date_stamp == expected_date_stamp
+        )
     if snapshot_ref:
         resolved = _resolve_snapshot_path(snapshot_ref, baseline_json_path)
         snapshot_path = str(resolved)
         snapshot_exists = bool(resolved.exists())
         if snapshot_exists:
             snapshot_payload = _read_json(resolved)
+            snapshot_payload_date = str(snapshot_payload.get("date") or "").strip()
+            if snapshot_payload_date and baseline_date:
+                snapshot_date_match = snapshot_payload_date == baseline_date
+            elif snapshot_payload_date or baseline_date:
+                snapshot_date_match = False
             snapshot_channel = (
                 snapshot_payload.get(str(channel))
                 if isinstance(snapshot_payload.get(str(channel)), dict)
@@ -412,6 +460,26 @@ def evaluate_regression(
             failures.append(
                 f"snapshot_ref: path does not exist ({snapshot_ref} -> {snapshot_path})"
             )
+    if bool(require_snapshot_date_match):
+        if not snapshot_ref:
+            failures.append("snapshot_date: snapshot_ref missing")
+        elif not snapshot_exists:
+            failures.append("snapshot_date: snapshot file missing")
+        elif snapshot_date_match is not True:
+            failures.append(
+                f"snapshot_date: snapshot date '{snapshot_payload_date}' != baseline date '{baseline_date}'"
+            )
+    if bool(require_snapshot_ref_date_match):
+        if not snapshot_ref:
+            failures.append("snapshot_ref_date: snapshot_ref missing")
+        elif not expected_date_stamp:
+            failures.append("snapshot_ref_date: baseline date missing")
+        elif not snapshot_ref_date_stamp:
+            failures.append("snapshot_ref_date: cannot parse date from snapshot_ref name")
+        elif snapshot_ref_date_match is not True:
+            failures.append(
+                f"snapshot_ref_date: snapshot_ref stamp '{snapshot_ref_date_stamp}' != baseline stamp '{expected_date_stamp}'"
+            )
     if bool(require_snapshot_metrics_match):
         if not snapshot_ref:
             failures.append("snapshot_metrics: snapshot_ref missing")
@@ -453,6 +521,8 @@ def evaluate_regression(
             "require_snapshot_ref_exists": bool(require_snapshot_ref_exists),
             "require_snapshot_metrics_match": bool(require_snapshot_metrics_match),
             "require_integrity_hash_match": bool(require_integrity_hash_match),
+            "require_snapshot_date_match": bool(require_snapshot_date_match),
+            "require_snapshot_ref_date_match": bool(require_snapshot_ref_date_match),
         },
         "baseline_metadata": {
             "date": baseline_date,
@@ -481,6 +551,17 @@ def evaluate_regression(
             "snapshot_vs_baseline_hash_match": (
                 bool(snapshot_vs_baseline_hash_match)
                 if snapshot_vs_baseline_hash_match is not None
+                else None
+            ),
+            "snapshot_payload_date": snapshot_payload_date,
+            "snapshot_date_match": (
+                bool(snapshot_date_match) if snapshot_date_match is not None else None
+            ),
+            "snapshot_ref_date_stamp": snapshot_ref_date_stamp,
+            "expected_date_stamp": expected_date_stamp,
+            "snapshot_ref_date_match": (
+                bool(snapshot_ref_date_match)
+                if snapshot_ref_date_match is not None
                 else None
             ),
         },
@@ -591,6 +672,18 @@ def main() -> int:
         help="Require integrity hashes to exist and match (auto uses config).",
     )
     parser.add_argument(
+        "--require-snapshot-date-match",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help="Require snapshot payload date to match baseline date (auto uses config).",
+    )
+    parser.add_argument(
+        "--require-snapshot-ref-date-match",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help="Require snapshot_ref filename date stamp to match baseline date (auto uses config).",
+    )
+    parser.add_argument(
         "--use-baseline-as-current",
         action="store_true",
         help="Use baseline channel metrics as current summary (baseline health check mode).",
@@ -641,6 +734,8 @@ def main() -> int:
             "require_snapshot_ref_exists": args.require_snapshot_ref_exists,
             "require_snapshot_metrics_match": args.require_snapshot_metrics_match,
             "require_integrity_hash_match": args.require_integrity_hash_match,
+            "require_snapshot_date_match": args.require_snapshot_date_match,
+            "require_snapshot_ref_date_match": args.require_snapshot_ref_date_match,
         },
     )
 
@@ -659,6 +754,8 @@ def main() -> int:
         require_snapshot_ref_exists=bool(policy["require_snapshot_ref_exists"]),
         require_snapshot_metrics_match=bool(policy["require_snapshot_metrics_match"]),
         require_integrity_hash_match=bool(policy["require_integrity_hash_match"]),
+        require_snapshot_date_match=bool(policy["require_snapshot_date_match"]),
+        require_snapshot_ref_date_match=bool(policy["require_snapshot_ref_date_match"]),
     )
     report["threshold_source"] = {
         "config": str(args.config),
@@ -690,6 +787,16 @@ def main() -> int:
                 "require_integrity_hash_match": (
                     args.require_integrity_hash_match
                     if str(args.require_integrity_hash_match) != "auto"
+                    else None
+                ),
+                "require_snapshot_date_match": (
+                    args.require_snapshot_date_match
+                    if str(args.require_snapshot_date_match) != "auto"
+                    else None
+                ),
+                "require_snapshot_ref_date_match": (
+                    args.require_snapshot_ref_date_match
+                    if str(args.require_snapshot_ref_date_match) != "auto"
                     else None
                 ),
                 "use_baseline_as_current": (

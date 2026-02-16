@@ -102,7 +102,9 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
         f"baseline_age<={_safe_int(thresholds.get('max_baseline_age_days'), -1)}d, "
         f"snapshot_exists={bool(thresholds.get('require_snapshot_ref_exists', False))}, "
         f"snapshot_match={bool(thresholds.get('require_snapshot_metrics_match', False))}, "
-        f"integrity_match={bool(thresholds.get('require_integrity_hash_match', False))}` |"
+        f"integrity_match={bool(thresholds.get('require_integrity_hash_match', False))}, "
+        f"snapshot_date_match={bool(thresholds.get('require_snapshot_date_match', False))}, "
+        f"snapshot_ref_date_match={bool(thresholds.get('require_snapshot_ref_date_match', False))}` |"
     )
     out.append(
         "| Threshold source | ✅ | "
@@ -118,6 +120,8 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
         f"age_days={_safe_int(baseline_metadata.get('age_days'), -1)}, "
         f"snapshot_exists={bool(baseline_metadata.get('snapshot_exists', False))}, "
         f"snapshot_metrics_match={baseline_metadata.get('snapshot_metrics_match')}, "
+        f"snapshot_date_match={baseline_metadata.get('snapshot_date_match')}, "
+        f"snapshot_ref_date_match={baseline_metadata.get('snapshot_ref_date_match')}, "
         f"baseline_hash_match={baseline_metadata.get('baseline_channel_hash_match')}, "
         f"snapshot_hash_match={baseline_metadata.get('snapshot_channel_hash_match')}, "
         f"snapshot_vs_baseline_hash_match={baseline_metadata.get('snapshot_vs_baseline_hash_match')}` |"

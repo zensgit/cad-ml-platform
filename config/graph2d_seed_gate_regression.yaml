@@ -8,6 +8,8 @@ graph2d_seed_gate_regression:
   require_snapshot_ref_exists: true
   require_snapshot_metrics_match: true
   require_integrity_hash_match: true
+  require_snapshot_date_match: true
+  require_snapshot_ref_date_match: true
   channels:
     standard:
       max_accuracy_mean_drop: 0.08

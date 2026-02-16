@@ -4660,3 +4660,37 @@
     - `make validate-graph2d-seed-gate-strict-regression` (passed)
   - Report:
     - `reports/DEV_GRAPH2D_BASELINE_HEALTH_FAST_GATE_20260216.md`
+- **Graph2D Seed Gate Follow-up: Baseline Date Consistency Guard (Continue)**:
+  - Enhanced `scripts/ci/check_graph2d_seed_gate_regression.py`:
+    - added policy switches:
+      - `require_snapshot_date_match`
+      - `require_snapshot_ref_date_match`
+    - validates:
+      - snapshot payload date equals baseline date,
+      - snapshot-ref filename date stamp equals baseline date stamp.
+    - report metadata includes:
+      - `snapshot_payload_date`
+      - `snapshot_date_match`
+      - `snapshot_ref_date_stamp`
+      - `expected_date_stamp`
+      - `snapshot_ref_date_match`
+  - Updated `config/graph2d_seed_gate_regression.yaml`:
+    - `require_snapshot_date_match: true`
+    - `require_snapshot_ref_date_match: true`
+  - Updated `scripts/ci/summarize_graph2d_seed_gate_regression.py`:
+    - threshold row includes date-match switches,
+    - baseline metadata row includes date-match outcomes.
+  - Tests:
+    - updated `tests/unit/test_graph2d_seed_gate_regression_check.py`:
+      - baseline policy resolution includes new switches,
+      - added snapshot payload date mismatch failure test,
+      - added snapshot_ref filename date mismatch failure test.
+    - updated `tests/unit/test_graph2d_seed_gate_regression_summary.py`:
+      - added assertions for date-match fields.
+  - Validation:
+    - `pytest tests/unit/test_graph2d_seed_gate_regression_check.py tests/unit/test_graph2d_seed_gate_regression_summary.py tests/unit/test_graph2d_seed_gate_baseline_update.py tests/unit/test_graph2d_seed_gate_summary.py tests/unit/test_graph2d_seed_gate_trend.py tests/unit/test_sweep_graph2d_profile_seeds.py -q` (`28 passed`)
+    - `make validate-graph2d-seed-gate-baseline-health` (passed; date-match checks true)
+    - `make validate-graph2d-seed-gate-regression` (passed; date-match checks true)
+    - `make validate-graph2d-seed-gate-strict-regression` (passed; date-match checks true)
+  - Report:
+    - `reports/DEV_GRAPH2D_BASELINE_DATE_CONSISTENCY_GUARD_20260216.md`

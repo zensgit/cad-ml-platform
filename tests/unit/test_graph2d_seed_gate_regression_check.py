@@ -130,18 +130,24 @@ def test_resolve_baseline_policy_prefers_config_then_cli() -> None:
             "require_snapshot_ref_exists": False,
             "require_snapshot_metrics_match": False,
             "require_integrity_hash_match": False,
+            "require_snapshot_date_match": False,
+            "require_snapshot_ref_date_match": False,
         },
         cli_overrides={
             "max_baseline_age_days": 30,
             "require_snapshot_ref_exists": "true",
             "require_snapshot_metrics_match": "true",
             "require_integrity_hash_match": "true",
+            "require_snapshot_date_match": "true",
+            "require_snapshot_ref_date_match": "true",
         },
     )
     assert resolved["max_baseline_age_days"] == 30
     assert resolved["require_snapshot_ref_exists"] is True
     assert resolved["require_snapshot_metrics_match"] is True
     assert resolved["require_integrity_hash_match"] is True
+    assert resolved["require_snapshot_date_match"] is True
+    assert resolved["require_snapshot_ref_date_match"] is True
 
 
 def test_regression_check_fails_when_baseline_is_stale() -> None:
@@ -182,6 +188,8 @@ def test_regression_check_fails_when_baseline_is_stale() -> None:
         require_snapshot_ref_exists=False,
         require_snapshot_metrics_match=False,
         require_integrity_hash_match=False,
+        require_snapshot_date_match=False,
+        require_snapshot_ref_date_match=False,
     )
     assert report["status"] == "failed"
     failures = "\n".join(report["failures"])
@@ -224,6 +232,8 @@ def test_regression_check_fails_when_snapshot_ref_missing_required() -> None:
         require_snapshot_ref_exists=True,
         require_snapshot_metrics_match=False,
         require_integrity_hash_match=False,
+        require_snapshot_date_match=False,
+        require_snapshot_ref_date_match=False,
     )
     assert report["status"] == "failed"
     failures = "\n".join(report["failures"])
@@ -280,6 +290,8 @@ def test_regression_check_fails_when_snapshot_metrics_mismatch(tmp_path) -> None
         require_snapshot_ref_exists=True,
         require_snapshot_metrics_match=True,
         require_integrity_hash_match=False,
+        require_snapshot_date_match=False,
+        require_snapshot_ref_date_match=False,
     )
     assert report["status"] == "failed"
     failures = "\n".join(report["failures"])
@@ -346,7 +358,113 @@ def test_regression_check_fails_when_integrity_hash_mismatch(tmp_path) -> None:
         require_snapshot_ref_exists=True,
         require_snapshot_metrics_match=False,
         require_integrity_hash_match=True,
+        require_snapshot_date_match=False,
+        require_snapshot_ref_date_match=False,
     )
     assert report["status"] == "failed"
     failures = "\n".join(report["failures"])
     assert "integrity: baseline standard_channel_sha256 mismatch" in failures
+
+
+def test_regression_check_fails_when_snapshot_date_mismatch(tmp_path) -> None:
+    from scripts.ci.check_graph2d_seed_gate_regression import evaluate_regression
+
+    snapshot = tmp_path / "graph2d_seed_gate_baseline_snapshot_20260216.json"
+    snapshot.write_text(
+        "{\n"
+        '  "date": "2026-02-15",\n'
+        '  "standard": {\n'
+        '    "strict_accuracy_mean": 0.36,\n'
+        '    "strict_accuracy_min": 0.29,\n'
+        '    "strict_top_pred_ratio_max": 0.70,\n'
+        '    "strict_low_conf_ratio_max": 0.05,\n'
+        '    "manifest_distinct_labels_min": 5\n'
+        "  }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    summary = {
+        "strict_accuracy_mean": 0.36,
+        "strict_accuracy_min": 0.29,
+        "strict_top_pred_ratio_max": 0.70,
+        "strict_low_conf_ratio_max": 0.05,
+        "manifest_distinct_labels_min": 5,
+    }
+    baseline = {
+        "date": "2026-02-16",
+        "source": {"snapshot_ref": str(snapshot)},
+        "standard": {
+            "strict_accuracy_mean": 0.36,
+            "strict_accuracy_min": 0.29,
+            "strict_top_pred_ratio_max": 0.70,
+            "strict_low_conf_ratio_max": 0.05,
+            "manifest_distinct_labels_min": 5,
+        },
+    }
+    report = evaluate_regression(
+        summary=summary,
+        baseline_channel=baseline["standard"],
+        channel="standard",
+        max_accuracy_mean_drop=0.02,
+        max_accuracy_min_drop=0.02,
+        max_top_pred_ratio_increase=0.03,
+        max_low_conf_ratio_increase=0.01,
+        max_distinct_labels_drop=0,
+        baseline_payload=baseline,
+        baseline_json_path=str(tmp_path / "baseline.json"),
+        max_baseline_age_days=365,
+        require_snapshot_ref_exists=True,
+        require_snapshot_metrics_match=False,
+        require_integrity_hash_match=False,
+        require_snapshot_date_match=True,
+        require_snapshot_ref_date_match=False,
+    )
+    assert report["status"] == "failed"
+    failures = "\n".join(report["failures"])
+    assert "snapshot_date: snapshot date '2026-02-15' != baseline date '2026-02-16'" in failures
+
+
+def test_regression_check_fails_when_snapshot_ref_date_mismatch(tmp_path) -> None:
+    from scripts.ci.check_graph2d_seed_gate_regression import evaluate_regression
+
+    snapshot = tmp_path / "graph2d_seed_gate_baseline_snapshot_20260215.json"
+    snapshot.write_text("{\"date\":\"2026-02-16\", \"standard\": {}}", encoding="utf-8")
+    summary = {
+        "strict_accuracy_mean": 0.36,
+        "strict_accuracy_min": 0.29,
+        "strict_top_pred_ratio_max": 0.70,
+        "strict_low_conf_ratio_max": 0.05,
+        "manifest_distinct_labels_min": 5,
+    }
+    baseline = {
+        "date": "2026-02-16",
+        "source": {"snapshot_ref": str(snapshot)},
+        "standard": {
+            "strict_accuracy_mean": 0.36,
+            "strict_accuracy_min": 0.29,
+            "strict_top_pred_ratio_max": 0.70,
+            "strict_low_conf_ratio_max": 0.05,
+            "manifest_distinct_labels_min": 5,
+        },
+    }
+    report = evaluate_regression(
+        summary=summary,
+        baseline_channel=baseline["standard"],
+        channel="standard",
+        max_accuracy_mean_drop=0.02,
+        max_accuracy_min_drop=0.02,
+        max_top_pred_ratio_increase=0.03,
+        max_low_conf_ratio_increase=0.01,
+        max_distinct_labels_drop=0,
+        baseline_payload=baseline,
+        baseline_json_path=str(tmp_path / "baseline.json"),
+        max_baseline_age_days=365,
+        require_snapshot_ref_exists=True,
+        require_snapshot_metrics_match=False,
+        require_integrity_hash_match=False,
+        require_snapshot_date_match=False,
+        require_snapshot_ref_date_match=True,
+    )
+    assert report["status"] == "failed"
+    failures = "\n".join(report["failures"])
+    assert "snapshot_ref_date: snapshot_ref stamp '20260215' != baseline stamp '20260216'" in failures
