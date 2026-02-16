@@ -32,6 +32,7 @@ DEFAULT_BASELINE_POLICY: Dict[str, Any] = {
     "require_snapshot_date_match": True,
     "require_snapshot_ref_date_match": True,
     "require_context_match": True,
+    "context_mismatch_mode": "fail",
     "context_keys": DEFAULT_CONTEXT_KEYS,
 }
 
@@ -163,6 +164,13 @@ def _safe_context_keys(value: Any, default: List[str] | None = None) -> List[str
     return out
 
 
+def _safe_context_mismatch_mode(value: Any, default: str = "fail") -> str:
+    text = str(value).strip().lower() if value is not None else ""
+    if text in {"fail", "warn", "ignore"}:
+        return text
+    return str(default).strip().lower() or "fail"
+
+
 def _normalize_context_value(key: str, value: Any) -> Any:
     name = str(key).strip()
     if name in {
@@ -240,6 +248,10 @@ def _resolve_baseline_policy(
     if require_context_cli in {"true", "false"}:
         policy["require_context_match"] = require_context_cli == "true"
 
+    context_mode_cli = str(cli_overrides.get("context_mismatch_mode", "auto")).strip().lower()
+    if context_mode_cli in {"fail", "warn", "ignore"}:
+        policy["context_mismatch_mode"] = context_mode_cli
+
     if cli_overrides.get("context_keys") is not None:
         policy["context_keys"] = cli_overrides.get("context_keys")
 
@@ -271,6 +283,10 @@ def _resolve_baseline_policy(
         "require_context_match": _safe_bool(
             policy.get("require_context_match"),
             DEFAULT_BASELINE_POLICY["require_context_match"],
+        ),
+        "context_mismatch_mode": _safe_context_mismatch_mode(
+            policy.get("context_mismatch_mode"),
+            default=str(DEFAULT_BASELINE_POLICY["context_mismatch_mode"]),
         ),
         "context_keys": _safe_context_keys(
             policy.get("context_keys"),
@@ -361,9 +377,11 @@ def evaluate_regression(
     require_snapshot_date_match: bool = False,
     require_snapshot_ref_date_match: bool = False,
     require_context_match: bool = False,
+    context_mismatch_mode: str = "fail",
     context_keys: List[str] | None = None,
 ) -> Dict[str, Any]:
     failures: List[str] = []
+    warnings: List[str] = []
 
     def _check_min(
         metric: str,
@@ -427,12 +445,22 @@ def evaluate_regression(
     cur_context = current_context if isinstance(current_context, dict) else {}
     context_diff: Dict[str, Dict[str, Any]] = {}
     context_match: bool | None = None
+    effective_context_mode = _safe_context_mismatch_mode(context_mismatch_mode, "fail")
+
+    def _record_context_violation(message: str) -> None:
+        if effective_context_mode == "ignore":
+            return
+        if effective_context_mode == "warn":
+            warnings.append(message)
+            return
+        failures.append(message)
+
     if bool(require_context_match):
         if not baseline_context:
-            failures.append("context: missing baseline context")
+            _record_context_violation("context: missing baseline context")
             context_match = False
         elif not cur_context:
-            failures.append("context: missing current context")
+            _record_context_violation("context: missing current context")
             context_match = False
         else:
             for key in effective_context_keys:
@@ -453,7 +481,7 @@ def evaluate_regression(
                     }
             context_match = len(context_diff) == 0
             if not context_match:
-                failures.append(
+                _record_context_violation(
                     "context: mismatch on keys "
                     f"[{', '.join(sorted(context_diff.keys()))}]"
                 )
@@ -634,10 +662,12 @@ def evaluate_regression(
                 f"integrity: snapshot and baseline {channel}_channel_sha256 differ"
             )
 
+    status = "failed" if failures else ("passed_with_warnings" if warnings else "passed")
     return {
         "channel": channel,
-        "status": "passed" if not failures else "failed",
+        "status": status,
         "failures": failures,
+        "warnings": warnings,
         "thresholds": {
             "max_accuracy_mean_drop": float(max_accuracy_mean_drop),
             "max_accuracy_min_drop": float(max_accuracy_min_drop),
@@ -651,6 +681,7 @@ def evaluate_regression(
             "require_snapshot_date_match": bool(require_snapshot_date_match),
             "require_snapshot_ref_date_match": bool(require_snapshot_ref_date_match),
             "require_context_match": bool(require_context_match),
+            "context_mismatch_mode": effective_context_mode,
             "context_keys": effective_context_keys,
         },
         "baseline_metadata": {
@@ -697,6 +728,7 @@ def evaluate_regression(
             "current_context_present": bool(cur_context),
             "context_match": bool(context_match) if context_match is not None else None,
             "context_diff": context_diff,
+            "context_mismatch_mode": effective_context_mode,
             "context_keys": effective_context_keys,
         },
         "baseline": {
@@ -834,6 +866,15 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--context-mismatch-mode",
+        choices=["auto", "fail", "warn", "ignore"],
+        default="auto",
+        help=(
+            "Behavior when context check fails and require_context_match is enabled "
+            "(auto uses config)."
+        ),
+    )
+    parser.add_argument(
         "--use-baseline-as-current",
         action="store_true",
         help="Use baseline channel metrics as current summary (baseline health check mode).",
@@ -892,6 +933,7 @@ def main() -> int:
             "require_snapshot_date_match": args.require_snapshot_date_match,
             "require_snapshot_ref_date_match": args.require_snapshot_ref_date_match,
             "require_context_match": args.require_context_match,
+            "context_mismatch_mode": args.context_mismatch_mode,
             "context_keys": (
                 args.context_keys if str(args.context_keys).strip() else None
             ),
@@ -917,6 +959,7 @@ def main() -> int:
         require_snapshot_date_match=bool(policy["require_snapshot_date_match"]),
         require_snapshot_ref_date_match=bool(policy["require_snapshot_ref_date_match"]),
         require_context_match=bool(policy["require_context_match"]),
+        context_mismatch_mode=str(policy.get("context_mismatch_mode", "fail")),
         context_keys=list(policy.get("context_keys") or []),
     )
     report["threshold_source"] = {
@@ -971,6 +1014,11 @@ def main() -> int:
                     if str(args.context_keys).strip()
                     else None
                 ),
+                "context_mismatch_mode": (
+                    args.context_mismatch_mode
+                    if str(args.context_mismatch_mode) != "auto"
+                    else None
+                ),
                 "use_baseline_as_current": (
                     bool(args.use_baseline_as_current)
                     if bool(args.use_baseline_as_current)
@@ -986,7 +1034,7 @@ def main() -> int:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(output + "\n", encoding="utf-8")
     print(output)
-    return 0 if str(report.get("status")) == "passed" else 3
+    return 0 if str(report.get("status")) != "failed" else 3
 
 
 if __name__ == "__main__":

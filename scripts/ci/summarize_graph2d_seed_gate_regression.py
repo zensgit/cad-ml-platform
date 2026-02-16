@@ -38,6 +38,7 @@ def _read_json(path: Path) -> Dict[str, Any]:
 def build_summary(report: Dict[str, Any], title: str) -> str:
     status = str(report.get("status", "failed"))
     failures = report.get("failures") if isinstance(report.get("failures"), list) else []
+    warnings = report.get("warnings") if isinstance(report.get("warnings"), list) else []
     channel = str(report.get("channel", "unknown"))
     baseline = report.get("baseline") if isinstance(report.get("baseline"), dict) else {}
     current = report.get("current") if isinstance(report.get("current"), dict) else {}
@@ -54,6 +55,10 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
         if isinstance(report.get("baseline_metadata"), dict)
         else {}
     )
+    context_mode = str(thresholds.get("context_mismatch_mode", "fail")).strip().lower()
+    context_must_pass = bool(thresholds.get("require_context_match", False)) and (
+        context_mode == "fail"
+    )
 
     out: list[str] = []
     out.append(f"## {title}")
@@ -61,7 +66,10 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
     out.append("| Check | Status | Evidence |")
     out.append("|---|---|---|")
     out.append(f"| Channel | ✅ | `{channel}` |")
-    out.append(f"| Regression status | {_bool_mark(status == 'passed')} | `{status}` |")
+    out.append(f"| Regression status | {_bool_mark(status != 'failed')} | `{status}` |")
+    out.append(
+        f"| Warning count | {_bool_mark(len(warnings) == 0)} | `{len(warnings)}` |"
+    )
     out.append(
         "| strict_accuracy_mean (cur/base) | "
         f"{_bool_mark(_safe_float(current.get('strict_accuracy_mean'), -1) >= 0)} | "
@@ -106,6 +114,7 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
         f"snapshot_date_match={bool(thresholds.get('require_snapshot_date_match', False))}, "
         f"snapshot_ref_date_match={bool(thresholds.get('require_snapshot_ref_date_match', False))}, "
         f"context_match={bool(thresholds.get('require_context_match', False))}, "
+        f"context_mode={context_mode}, "
         f"context_keys={len(thresholds.get('context_keys') or [])}` |"
     )
     out.append(
@@ -117,7 +126,7 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
     )
     out.append(
         "| Baseline metadata | "
-        f"{_bool_mark(_safe_int(baseline_metadata.get('age_days'), -1) >= 0 and bool(baseline_metadata.get('snapshot_exists', False)) and bool(baseline_metadata.get('snapshot_metrics_match', False)) and bool(baseline_metadata.get('baseline_channel_hash_match', False)) and bool(baseline_metadata.get('snapshot_channel_hash_match', False)) and bool(baseline_metadata.get('snapshot_vs_baseline_hash_match', False)) and bool(baseline_metadata.get('baseline_core_hash_match', False)) and ((not bool(thresholds.get('require_context_match', False))) or bool(baseline_metadata.get('context_match', False))))} | "
+        f"{_bool_mark(_safe_int(baseline_metadata.get('age_days'), -1) >= 0 and bool(baseline_metadata.get('snapshot_exists', False)) and bool(baseline_metadata.get('snapshot_metrics_match', False)) and bool(baseline_metadata.get('baseline_channel_hash_match', False)) and bool(baseline_metadata.get('snapshot_channel_hash_match', False)) and bool(baseline_metadata.get('snapshot_vs_baseline_hash_match', False)) and bool(baseline_metadata.get('baseline_core_hash_match', False)) and ((not context_must_pass) or bool(baseline_metadata.get('context_match', False))))} | "
         f"`date={baseline_metadata.get('date', '')}, "
         f"age_days={_safe_int(baseline_metadata.get('age_days'), -1)}, "
         f"snapshot_exists={bool(baseline_metadata.get('snapshot_exists', False))}, "
@@ -134,6 +143,11 @@ def build_summary(report: Dict[str, Any], title: str) -> str:
         out.append("Regression failures:")
         out.append("```text")
         out.extend([str(item) for item in failures])
+        out.append("```")
+    if warnings:
+        out.append("Regression warnings:")
+        out.append("```text")
+        out.extend([str(item) for item in warnings])
         out.append("```")
     return "\n".join(out) + "\n"
 

@@ -4733,3 +4733,32 @@
     - `make validate-graph2d-seed-gate-strict-regression` (passed)
   - Report:
     - `reports/DEV_GRAPH2D_BASELINE_CONTEXT_MATCH_GUARD_20260216.md`
+- **Graph2D Seed Gate Follow-up: Context Mismatch Severity Mode (Continue)**:
+  - Updated `scripts/ci/check_graph2d_seed_gate_regression.py`:
+    - added `context_mismatch_mode` policy (`fail|warn|ignore`),
+    - added CLI `--context-mismatch-mode`,
+    - context mismatch now routed by severity mode:
+      - `fail` -> regression failure,
+      - `warn` -> `warnings[]` + `status=passed_with_warnings`,
+      - `ignore` -> no fail/warn (diff still reported in metadata),
+    - non-zero exit is now only for `status=failed`.
+  - Updated `scripts/ci/summarize_graph2d_seed_gate_regression.py`:
+    - status row accepts `passed_with_warnings` as pass,
+    - added warning count row,
+    - thresholds row includes `context_mode`,
+    - warning block rendered when present.
+  - Updated `config/graph2d_seed_gate_regression.yaml`:
+    - explicit `context_mismatch_mode: fail` (default behavior unchanged).
+  - Tests:
+    - updated `tests/unit/test_graph2d_seed_gate_regression_check.py`
+      (policy mode resolution + warn mode + ignore mode),
+    - updated `tests/unit/test_graph2d_seed_gate_regression_summary.py`
+      (warning count/context mode rendering + warning section).
+  - Validation:
+    - `pytest tests/unit/test_graph2d_seed_gate_regression_check.py tests/unit/test_graph2d_seed_gate_regression_summary.py -q` (`19 passed`)
+    - `pytest tests/unit/test_graph2d_seed_gate_baseline_update.py tests/unit/test_graph2d_seed_gate_summary.py tests/unit/test_graph2d_seed_gate_trend.py tests/unit/test_sweep_graph2d_profile_seeds.py -q` (`15 passed`)
+    - `make validate-graph2d-seed-gate-baseline-health` (passed)
+    - `make validate-graph2d-seed-gate-regression` (passed)
+    - `make validate-graph2d-seed-gate-strict-regression` (passed)
+  - Report:
+    - `reports/DEV_GRAPH2D_BASELINE_CONTEXT_MISMATCH_SEVERITY_20260216.md`

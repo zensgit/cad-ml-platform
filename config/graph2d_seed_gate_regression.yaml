@@ -11,6 +11,7 @@ graph2d_seed_gate_regression:
   require_snapshot_date_match: true
   require_snapshot_ref_date_match: true
   require_context_match: true
+  context_mismatch_mode: fail
   context_keys:
     - training_profile
     - manifest_label_mode

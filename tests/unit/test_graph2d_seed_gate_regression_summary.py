@@ -21,6 +21,7 @@ def test_regression_summary_includes_key_rows() -> None:
             "require_snapshot_date_match": True,
             "require_snapshot_ref_date_match": True,
             "require_context_match": True,
+            "context_mismatch_mode": "fail",
             "context_keys": [
                 "training_profile",
                 "manifest_label_mode",
@@ -71,6 +72,7 @@ def test_regression_summary_includes_key_rows() -> None:
     text = build_summary(report, "Graph2D Seed Gate Regression Check")
     assert "Graph2D Seed Gate Regression Check" in text
     assert "Regression status" in text
+    assert "Warning count" in text
     assert "`passed`" in text
     assert "strict_top_pred_ratio_max (cur/base)" in text
     assert "strict_low_conf_ratio_max (cur/base)" in text
@@ -86,6 +88,7 @@ def test_regression_summary_includes_key_rows() -> None:
     assert "snapshot_date_match=True" in text
     assert "snapshot_ref_date_match=True" in text
     assert "context_match=True" in text
+    assert "context_mode=fail" in text
     assert "context_keys=3" in text
 
 
@@ -100,3 +103,19 @@ def test_regression_summary_prints_failures() -> None:
     text = build_summary(report, "Graph2D Seed Gate Regression Check")
     assert "Regression failures:" in text
     assert "strict_accuracy_mean: current=0.100000 < allowed=0.200000" in text
+
+
+def test_regression_summary_prints_warnings() -> None:
+    from scripts.ci.summarize_graph2d_seed_gate_regression import build_summary
+
+    report = {
+        "channel": "strict",
+        "status": "passed_with_warnings",
+        "failures": [],
+        "warnings": ["context: mismatch on keys [training_profile]"],
+        "thresholds": {"context_mismatch_mode": "warn"},
+    }
+    text = build_summary(report, "Graph2D Seed Gate Regression Check")
+    assert "`passed_with_warnings`" in text
+    assert "context: mismatch on keys [training_profile]" in text
+    assert "Regression warnings:" in text
