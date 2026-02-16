@@ -412,6 +412,43 @@ jobs:
             /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.md
             /tmp/graph2d-context-drift-history-update-ci.log
           if-no-files-found: ignore
+      - name: Check Graph2D context drift alerts (3.11 only, non-blocking)
+        if: always() && matrix.python-version == '3.11'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python scripts/ci/check_graph2d_context_drift_alerts.py \
+            --history-json /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json \
+            --recent-runs 5 \
+            --default-key-threshold 3 \
+            --key-threshold max_samples=2 \
+            --title "Graph2D Context Drift Alerts (CI Tests, Python ${{ matrix.python-version }})" \
+            --output-json /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.json \
+            --output-md /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.md \
+            2>&1 | tee /tmp/graph2d-context-drift-alerts-ci.log
+      - name: Append Graph2D context drift alerts summary (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          if [ -f /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.md ]; then
+            cat /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Emit Graph2D context drift alert annotations (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          if [ -f /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.json ]; then
+            python scripts/ci/emit_graph2d_context_drift_warnings.py \
+              --report-json /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.json
+          fi
+      - name: Upload Graph2D context drift alerts artifacts (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-context-drift-alerts-ci-${{ matrix.python-version }}
+          path: |
+            /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.json
+            /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.md
+            /tmp/graph2d-context-drift-alerts-ci.log
+          if-no-files-found: ignore
       - name: Save Graph2D context drift history cache (3.11 only)
         if: always() && matrix.python-version == '3.11'
         uses: actions/cache/save@v4
