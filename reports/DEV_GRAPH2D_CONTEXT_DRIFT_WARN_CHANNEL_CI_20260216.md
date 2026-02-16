@@ -16,6 +16,9 @@ Updated `Makefile`:
   - compares current **standard** seed summary against **strict** baseline channel,
   - forces relaxed metric thresholds (`1.0`) to avoid metric-failure noise,
   - runs with `--context-mismatch-mode warn`,
+  - overrides context keys to shared fields only:
+    - `manifest_label_mode,seeds,num_runs,max_samples,min_label_confidence,strict_low_conf_threshold`,
+  - intentionally excludes `training_profile` from warn probe to avoid fixed-noise warnings,
   - surfaces context drift as `status=passed_with_warnings`.
 
 ### 2) CI workflow integration
@@ -41,10 +44,9 @@ make validate-graph2d-seed-gate-context-drift-warn
 
 Observed result:
 
-- `status=passed_with_warnings`
-- warning includes:
-  - `context: mismatch on keys [training_profile]`
-- gate remains non-blocking (exit code 0).
+- `status=passed`
+- `warnings=[]`
+- context check remains active on shared keys and still non-blocking by mode (`warn`).
 
 ## Notes
 

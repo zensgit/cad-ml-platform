@@ -4775,6 +4775,9 @@
       - `/tmp/graph2d-context-drift-warn-ci-${{ matrix.python-version }}.json`,
     - added Step Summary append via `summarize_graph2d_seed_gate_regression.py`.
   - Validation:
-    - `make validate-graph2d-seed-gate-context-drift-warn` (passed; `status=passed_with_warnings`, warning includes `context: mismatch on keys [training_profile]`)
+    - `make validate-graph2d-seed-gate-context-drift-warn` (passed; `status=passed`)
+    - probe now uses shared-only context keys:
+      - `manifest_label_mode,seeds,num_runs,max_samples,min_label_confidence,strict_low_conf_threshold`
+    - `training_profile` is intentionally excluded in warn probe to avoid fixed-noise warning.
   - Report:
     - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_WARN_CHANNEL_CI_20260216.md`

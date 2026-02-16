@@ -196,6 +196,7 @@ validate-graph2d-seed-gate-context-drift-warn: ## Graph2D 上下文漂移观测�
 		--config $${GRAPH2D_SEED_GATE_REGRESSION_CONFIG:-config/graph2d_seed_gate_regression.yaml} \
 		--channel strict \
 		--context-mismatch-mode warn \
+		--context-keys "$${GRAPH2D_CONTEXT_DRIFT_WARN_CONTEXT_KEYS:-manifest_label_mode,seeds,num_runs,max_samples,min_label_confidence,strict_low_conf_threshold}" \
 		--max-accuracy-mean-drop $${GRAPH2D_CONTEXT_DRIFT_WARN_MAX_ACCURACY_MEAN_DROP:-1.0} \
 		--max-accuracy-min-drop $${GRAPH2D_CONTEXT_DRIFT_WARN_MAX_ACCURACY_MIN_DROP:-1.0} \
 		--max-top-pred-ratio-increase $${GRAPH2D_CONTEXT_DRIFT_WARN_MAX_TOP_PRED_RATIO_INCREASE:-1.0} \
