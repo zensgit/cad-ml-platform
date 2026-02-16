@@ -311,6 +311,39 @@ jobs:
             --report-json /tmp/graph2d-seed-gate-regression-ci-${{ matrix.python-version }}.json \
             --title "Graph2D Seed Gate Regression Check (CI Tests, Python ${{ matrix.python-version }})" \
             >> "$GITHUB_STEP_SUMMARY"
+      - name: Run Graph2D context drift warn probe (3.11 only, non-blocking)
+        if: always() && matrix.python-version == '3.11'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python scripts/ci/check_graph2d_seed_gate_regression.py \
+            --summary-json /tmp/graph2d-seed-gate-ci-${{ matrix.python-version }}/seed_sweep_summary.json \
+            --baseline-json config/graph2d_seed_gate_baseline.json \
+            --config config/graph2d_seed_gate_regression.yaml \
+            --channel strict \
+            --context-mismatch-mode warn \
+            --max-accuracy-mean-drop 1.0 \
+            --max-accuracy-min-drop 1.0 \
+            --max-top-pred-ratio-increase 1.0 \
+            --max-low-conf-ratio-increase 1.0 \
+            --output-json /tmp/graph2d-context-drift-warn-ci-${{ matrix.python-version }}.json \
+            2>&1 | tee /tmp/graph2d-context-drift-warn-ci.log
+      - name: Upload Graph2D context drift warn probe artifacts (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-context-drift-warn-ci-${{ matrix.python-version }}
+          path: |
+            /tmp/graph2d-context-drift-warn-ci.log
+            /tmp/graph2d-context-drift-warn-ci-${{ matrix.python-version }}.json
+          if-no-files-found: ignore
+      - name: Append Graph2D context drift warn summary (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          python scripts/ci/summarize_graph2d_seed_gate_regression.py \
+            --report-json /tmp/graph2d-context-drift-warn-ci-${{ matrix.python-version }}.json \
+            --title "Graph2D Context Drift Warn Probe (CI Tests, Python ${{ matrix.python-version }})" \
+            >> "$GITHUB_STEP_SUMMARY"
       - name: Run Graph2D strict seed gate channel (3.11 only, optional)
         if: matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
         env:

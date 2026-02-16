@@ -4762,3 +4762,19 @@
     - `make validate-graph2d-seed-gate-strict-regression` (passed)
   - Report:
     - `reports/DEV_GRAPH2D_BASELINE_CONTEXT_MISMATCH_SEVERITY_20260216.md`
+- **Graph2D Seed Gate Follow-up: Context Drift Warn Channel in CI (Continue)**:
+  - Updated `Makefile`:
+    - added `validate-graph2d-seed-gate-context-drift-warn` target.
+    - probe compares standard summary against strict baseline channel with relaxed metric thresholds.
+    - context mismatch handled by `--context-mismatch-mode warn` (non-blocking observation).
+  - Updated `.github/workflows/ci.yml` (tests job, Python 3.11):
+    - added non-blocking step:
+      - `Run Graph2D context drift warn probe (3.11 only, non-blocking)`,
+    - added artifact upload:
+      - `/tmp/graph2d-context-drift-warn-ci.log`
+      - `/tmp/graph2d-context-drift-warn-ci-${{ matrix.python-version }}.json`,
+    - added Step Summary append via `summarize_graph2d_seed_gate_regression.py`.
+  - Validation:
+    - `make validate-graph2d-seed-gate-context-drift-warn` (passed; `status=passed_with_warnings`, warning includes `context: mismatch on keys [training_profile]`)
+  - Report:
+    - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_WARN_CHANNEL_CI_20260216.md`

@@ -11,6 +11,7 @@
 		graph2d-review-summary validate-core-fast test-provider-core test-provider-contract \
 		validate-graph2d-seed-gate validate-graph2d-seed-gate-strict \
 		validate-graph2d-seed-gate-regression validate-graph2d-seed-gate-strict-regression \
+		validate-graph2d-seed-gate-context-drift-warn \
 		validate-graph2d-seed-gate-baseline-health \
 		update-graph2d-seed-gate-baseline \
 		audit-pydantic-v2 audit-pydantic-v2-regression \
@@ -186,6 +187,19 @@ validate-graph2d-seed-gate-strict-regression: ## Graph2D seed gate 基线回归�
 		--baseline-json $${GRAPH2D_SEED_GATE_BASELINE_JSON:-config/graph2d_seed_gate_baseline.json} \
 		--config $${GRAPH2D_SEED_GATE_REGRESSION_CONFIG:-config/graph2d_seed_gate_regression.yaml} \
 		--channel strict
+
+validate-graph2d-seed-gate-context-drift-warn: ## Graph2D 上下文漂移观测（warn 通道，非阻塞）
+	@echo "$(GREEN)Checking Graph2D seed gate context drift probe (warn mode)...$(NC)"
+	$(PYTHON) scripts/ci/check_graph2d_seed_gate_regression.py \
+		--summary-json $${GRAPH2D_SEED_GATE_SUMMARY_JSON:-/tmp/graph2d-seed-gate/seed_sweep_summary.json} \
+		--baseline-json $${GRAPH2D_SEED_GATE_BASELINE_JSON:-config/graph2d_seed_gate_baseline.json} \
+		--config $${GRAPH2D_SEED_GATE_REGRESSION_CONFIG:-config/graph2d_seed_gate_regression.yaml} \
+		--channel strict \
+		--context-mismatch-mode warn \
+		--max-accuracy-mean-drop $${GRAPH2D_CONTEXT_DRIFT_WARN_MAX_ACCURACY_MEAN_DROP:-1.0} \
+		--max-accuracy-min-drop $${GRAPH2D_CONTEXT_DRIFT_WARN_MAX_ACCURACY_MIN_DROP:-1.0} \
+		--max-top-pred-ratio-increase $${GRAPH2D_CONTEXT_DRIFT_WARN_MAX_TOP_PRED_RATIO_INCREASE:-1.0} \
+		--max-low-conf-ratio-increase $${GRAPH2D_CONTEXT_DRIFT_WARN_MAX_LOW_CONF_RATIO_INCREASE:-1.0}
 
 validate-graph2d-seed-gate-baseline-health: ## Graph2D 基线健康检查（不依赖当前 summary）
 	@echo "$(GREEN)Checking Graph2D seed gate baseline health (standard + strict)...$(NC)"
