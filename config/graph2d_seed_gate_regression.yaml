@@ -10,6 +10,13 @@ graph2d_seed_gate_regression:
   require_integrity_hash_match: true
   require_snapshot_date_match: true
   require_snapshot_ref_date_match: true
+  require_context_match: true
+  context_keys:
+    - training_profile
+    - manifest_label_mode
+    - max_samples
+    - min_label_confidence
+    - strict_low_conf_threshold
   channels:
     standard:
       max_accuracy_mean_drop: 0.08

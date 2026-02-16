@@ -4694,3 +4694,42 @@
     - `make validate-graph2d-seed-gate-strict-regression` (passed; date-match checks true)
   - Report:
     - `reports/DEV_GRAPH2D_BASELINE_DATE_CONSISTENCY_GUARD_20260216.md`
+- **Graph2D Seed Gate Follow-up: Baseline Context Match Guard (Continue)**:
+  - Updated `scripts/ci/update_graph2d_seed_gate_baseline.py`:
+    - baseline channels now include `context`:
+      - `config`, `training_profile`, `manifest_label_mode`, `seeds`, `num_runs`,
+      - `max_samples`, `min_label_confidence`,
+      - `force_normalize_labels`, `force_clean_min_count`,
+      - `strict_low_conf_threshold`.
+  - Updated `scripts/ci/check_graph2d_seed_gate_regression.py`:
+    - added policy:
+      - `require_context_match`
+      - `context_keys`
+    - added CLI:
+      - `--require-context-match`
+      - `--context-keys`
+    - regression now validates current summary context against baseline context.
+    - report now includes:
+      - `baseline_metadata.context_match`
+      - `baseline_metadata.context_diff`
+      - `thresholds.context_keys`
+      - `baseline_context`
+      - `current_context`
+  - Updated `config/graph2d_seed_gate_regression.yaml`:
+    - enabled `require_context_match: true`
+    - configured default `context_keys`.
+  - Updated `scripts/ci/summarize_graph2d_seed_gate_regression.py`:
+    - threshold row shows context-check switches,
+    - baseline metadata row shows context match result.
+  - Tests:
+    - updated `tests/unit/test_graph2d_seed_gate_baseline_update.py`
+    - updated `tests/unit/test_graph2d_seed_gate_regression_check.py`
+    - updated `tests/unit/test_graph2d_seed_gate_regression_summary.py`
+  - Validation:
+    - `pytest tests/unit/test_graph2d_seed_gate_regression_check.py tests/unit/test_graph2d_seed_gate_regression_summary.py tests/unit/test_graph2d_seed_gate_baseline_update.py tests/unit/test_graph2d_seed_gate_summary.py tests/unit/test_graph2d_seed_gate_trend.py tests/unit/test_sweep_graph2d_profile_seeds.py -q` (`31 passed`)
+    - `make update-graph2d-seed-gate-baseline` (passed)
+    - `make validate-graph2d-seed-gate-baseline-health` (passed; both channels `context_match=true`)
+    - `make validate-graph2d-seed-gate-regression` (passed)
+    - `make validate-graph2d-seed-gate-strict-regression` (passed)
+  - Report:
+    - `reports/DEV_GRAPH2D_BASELINE_CONTEXT_MATCH_GUARD_20260216.md`

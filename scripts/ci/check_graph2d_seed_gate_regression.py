@@ -16,6 +16,14 @@ DEFAULT_THRESHOLDS: Dict[str, Any] = {
     "max_distinct_labels_drop": 0,
 }
 
+DEFAULT_CONTEXT_KEYS: List[str] = [
+    "training_profile",
+    "manifest_label_mode",
+    "max_samples",
+    "min_label_confidence",
+    "strict_low_conf_threshold",
+]
+
 DEFAULT_BASELINE_POLICY: Dict[str, Any] = {
     "max_baseline_age_days": 365,
     "require_snapshot_ref_exists": True,
@@ -23,6 +31,8 @@ DEFAULT_BASELINE_POLICY: Dict[str, Any] = {
     "require_integrity_hash_match": True,
     "require_snapshot_date_match": True,
     "require_snapshot_ref_date_match": True,
+    "require_context_match": True,
+    "context_keys": DEFAULT_CONTEXT_KEYS,
 }
 
 
@@ -136,6 +146,50 @@ def _safe_bool(value: Any, default: bool = False) -> bool:
     return bool(default)
 
 
+def _safe_context_keys(value: Any, default: List[str] | None = None) -> List[str]:
+    raw: List[str] = []
+    if isinstance(value, list):
+        raw = [str(item).strip() for item in value]
+    elif isinstance(value, str):
+        raw = [item.strip() for item in value.split(",")]
+    elif default is not None:
+        raw = [str(item).strip() for item in default]
+    out: List[str] = []
+    for item in raw:
+        if not item:
+            continue
+        if item not in out:
+            out.append(item)
+    return out
+
+
+def _normalize_context_value(key: str, value: Any) -> Any:
+    name = str(key).strip()
+    if name in {
+        "max_samples",
+        "num_runs",
+        "force_clean_min_count",
+    }:
+        return _safe_int(value, -1)
+    if name in {"min_label_confidence", "strict_low_conf_threshold"}:
+        return round(_safe_float(value, -1.0), 6)
+    if name == "seeds":
+        if not isinstance(value, list):
+            return []
+        out: List[int] = []
+        for item in value:
+            try:
+                out.append(int(item))
+            except Exception:
+                continue
+        return out
+    if isinstance(value, bool):
+        return bool(value)
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -182,6 +236,13 @@ def _resolve_baseline_policy(
     if require_snapshot_ref_date_cli in {"true", "false"}:
         policy["require_snapshot_ref_date_match"] = require_snapshot_ref_date_cli == "true"
 
+    require_context_cli = str(cli_overrides.get("require_context_match", "auto"))
+    if require_context_cli in {"true", "false"}:
+        policy["require_context_match"] = require_context_cli == "true"
+
+    if cli_overrides.get("context_keys") is not None:
+        policy["context_keys"] = cli_overrides.get("context_keys")
+
     return {
         "max_baseline_age_days": _safe_int(
             policy.get("max_baseline_age_days"),
@@ -206,6 +267,14 @@ def _resolve_baseline_policy(
         "require_snapshot_ref_date_match": _safe_bool(
             policy.get("require_snapshot_ref_date_match"),
             DEFAULT_BASELINE_POLICY["require_snapshot_ref_date_match"],
+        ),
+        "require_context_match": _safe_bool(
+            policy.get("require_context_match"),
+            DEFAULT_BASELINE_POLICY["require_context_match"],
+        ),
+        "context_keys": _safe_context_keys(
+            policy.get("context_keys"),
+            default=DEFAULT_CONTEXT_KEYS,
         ),
     }
 
@@ -260,9 +329,22 @@ def _resolve_current_summary(
     return summary_payload if isinstance(summary_payload, dict) else {}
 
 
+def _resolve_current_context(
+    *,
+    use_baseline_as_current: bool,
+    baseline_channel: Dict[str, Any],
+    summary_payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    if bool(use_baseline_as_current):
+        baseline_context = baseline_channel.get("context")
+        return baseline_context if isinstance(baseline_context, dict) else {}
+    return summary_payload if isinstance(summary_payload, dict) else {}
+
+
 def evaluate_regression(
     *,
     summary: Dict[str, Any],
+    current_context: Dict[str, Any] | None = None,
     baseline_channel: Dict[str, Any],
     channel: str,
     max_accuracy_mean_drop: float,
@@ -278,6 +360,8 @@ def evaluate_regression(
     require_integrity_hash_match: bool = False,
     require_snapshot_date_match: bool = False,
     require_snapshot_ref_date_match: bool = False,
+    require_context_match: bool = False,
+    context_keys: List[str] | None = None,
 ) -> Dict[str, Any]:
     failures: List[str] = []
 
@@ -330,6 +414,49 @@ def evaluate_regression(
                 f"current={cur_labels_min} < allowed={allowed_labels_min} "
                 f"(baseline={base_labels_min}, max_drop={int(max_distinct_labels_drop)})"
             )
+
+    effective_context_keys = _safe_context_keys(
+        context_keys,
+        default=DEFAULT_CONTEXT_KEYS,
+    )
+    baseline_context = (
+        baseline_channel.get("context")
+        if isinstance(baseline_channel.get("context"), dict)
+        else {}
+    )
+    cur_context = current_context if isinstance(current_context, dict) else {}
+    context_diff: Dict[str, Dict[str, Any]] = {}
+    context_match: bool | None = None
+    if bool(require_context_match):
+        if not baseline_context:
+            failures.append("context: missing baseline context")
+            context_match = False
+        elif not cur_context:
+            failures.append("context: missing current context")
+            context_match = False
+        else:
+            for key in effective_context_keys:
+                has_base = key in baseline_context
+                has_cur = key in cur_context
+                if not has_base or not has_cur:
+                    context_diff[key] = {
+                        "baseline": baseline_context.get(key, "<missing>"),
+                        "current": cur_context.get(key, "<missing>"),
+                    }
+                    continue
+                base_value = _normalize_context_value(key, baseline_context.get(key))
+                cur_value = _normalize_context_value(key, cur_context.get(key))
+                if base_value != cur_value:
+                    context_diff[key] = {
+                        "baseline": base_value,
+                        "current": cur_value,
+                    }
+            context_match = len(context_diff) == 0
+            if not context_match:
+                failures.append(
+                    "context: mismatch on keys "
+                    f"[{', '.join(sorted(context_diff.keys()))}]"
+                )
 
     metadata = baseline_payload if isinstance(baseline_payload, dict) else {}
     baseline_date = str(metadata.get("date") or "").strip()
@@ -523,6 +650,8 @@ def evaluate_regression(
             "require_integrity_hash_match": bool(require_integrity_hash_match),
             "require_snapshot_date_match": bool(require_snapshot_date_match),
             "require_snapshot_ref_date_match": bool(require_snapshot_ref_date_match),
+            "require_context_match": bool(require_context_match),
+            "context_keys": effective_context_keys,
         },
         "baseline_metadata": {
             "date": baseline_date,
@@ -564,6 +693,11 @@ def evaluate_regression(
                 if snapshot_ref_date_match is not None
                 else None
             ),
+            "baseline_context_present": bool(baseline_context),
+            "current_context_present": bool(cur_context),
+            "context_match": bool(context_match) if context_match is not None else None,
+            "context_diff": context_diff,
+            "context_keys": effective_context_keys,
         },
         "baseline": {
             "strict_accuracy_mean": _safe_float(
@@ -595,6 +729,8 @@ def evaluate_regression(
                 summary.get("manifest_distinct_labels_min"), -1
             ),
         },
+        "baseline_context": baseline_context,
+        "current_context": cur_context,
     }
 
 
@@ -684,6 +820,20 @@ def main() -> int:
         help="Require snapshot_ref filename date stamp to match baseline date (auto uses config).",
     )
     parser.add_argument(
+        "--require-context-match",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help="Require current summary context to match baseline context (auto uses config).",
+    )
+    parser.add_argument(
+        "--context-keys",
+        default="",
+        help=(
+            "Optional comma-separated context keys for context match check "
+            "(overrides config when set)."
+        ),
+    )
+    parser.add_argument(
         "--use-baseline-as-current",
         action="store_true",
         help="Use baseline channel metrics as current summary (baseline health check mode).",
@@ -714,6 +864,11 @@ def main() -> int:
         baseline_channel=baseline_channel,
         summary_payload=summary_payload,
     )
+    current_context = _resolve_current_context(
+        use_baseline_as_current=bool(args.use_baseline_as_current),
+        baseline_channel=baseline_channel,
+        summary_payload=summary_payload,
+    )
 
     config_payload = _load_yaml_defaults(str(args.config), "graph2d_seed_gate_regression")
     thresholds = _resolve_thresholds(
@@ -736,11 +891,16 @@ def main() -> int:
             "require_integrity_hash_match": args.require_integrity_hash_match,
             "require_snapshot_date_match": args.require_snapshot_date_match,
             "require_snapshot_ref_date_match": args.require_snapshot_ref_date_match,
+            "require_context_match": args.require_context_match,
+            "context_keys": (
+                args.context_keys if str(args.context_keys).strip() else None
+            ),
         },
     )
 
     report = evaluate_regression(
         summary=summary,
+        current_context=current_context,
         baseline_channel=baseline_channel,
         channel=str(args.channel),
         max_accuracy_mean_drop=float(thresholds["max_accuracy_mean_drop"]),
@@ -756,6 +916,8 @@ def main() -> int:
         require_integrity_hash_match=bool(policy["require_integrity_hash_match"]),
         require_snapshot_date_match=bool(policy["require_snapshot_date_match"]),
         require_snapshot_ref_date_match=bool(policy["require_snapshot_ref_date_match"]),
+        require_context_match=bool(policy["require_context_match"]),
+        context_keys=list(policy.get("context_keys") or []),
     )
     report["threshold_source"] = {
         "config": str(args.config),
@@ -797,6 +959,16 @@ def main() -> int:
                 "require_snapshot_ref_date_match": (
                     args.require_snapshot_ref_date_match
                     if str(args.require_snapshot_ref_date_match) != "auto"
+                    else None
+                ),
+                "require_context_match": (
+                    args.require_context_match
+                    if str(args.require_context_match) != "auto"
+                    else None
+                ),
+                "context_keys": (
+                    _safe_context_keys(str(args.context_keys))
+                    if str(args.context_keys).strip()
                     else None
                 ),
                 "use_baseline_as_current": (

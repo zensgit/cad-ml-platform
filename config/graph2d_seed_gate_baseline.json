@@ -16,7 +16,22 @@
     "strict_low_conf_ratio_max": 0.05,
     "manifest_distinct_labels_min": 5,
     "manifest_distinct_labels_max": 5,
-    "gate_passed": true
+    "gate_passed": true,
+    "context": {
+      "config": "config/graph2d_seed_gate.yaml",
+      "training_profile": "none",
+      "manifest_label_mode": "parent_dir",
+      "seeds": [
+        7,
+        21
+      ],
+      "num_runs": 2,
+      "max_samples": 120,
+      "min_label_confidence": 0.0,
+      "force_normalize_labels": "auto",
+      "force_clean_min_count": -1,
+      "strict_low_conf_threshold": 0.2
+    }
   },
   "strict": {
     "strict_accuracy_mean": 0.945833,
@@ -29,12 +44,27 @@
     "strict_low_conf_ratio_max": 0.05,
     "manifest_distinct_labels_min": 5,
     "manifest_distinct_labels_max": 5,
-    "gate_passed": true
+    "gate_passed": true,
+    "context": {
+      "config": "config/graph2d_seed_gate_strict.yaml",
+      "training_profile": "strict_node23_edgesage_v1",
+      "manifest_label_mode": "parent_dir",
+      "seeds": [
+        7,
+        21
+      ],
+      "num_runs": 2,
+      "max_samples": 120,
+      "min_label_confidence": 0.0,
+      "force_normalize_labels": "false",
+      "force_clean_min_count": 0,
+      "strict_low_conf_threshold": 0.2
+    }
   },
   "integrity": {
     "algorithm": "sha256-canonical-json",
-    "standard_channel_sha256": "18f169cba964d4d02821d8cb635c94c5a45ee11aed93128caadf74c394d98f88",
-    "strict_channel_sha256": "df0bf18f9d79d5e8be223fc4237bdccd840ced066980b85f0535638c36d81577",
-    "payload_core_sha256": "804a1becb99435c7bef67e0a7f6c5cc0c00a24f4837aefe1f8091c025eab3d56"
+    "standard_channel_sha256": "805f849de342cbf04ed3f232e17cc9b5e4611c164cfd2f1607863cf86f101d7e",
+    "strict_channel_sha256": "a96c74c66b452e8b22867894ca494d517ddf9b3ec9f952ee339429f0b93c46c9",
+    "payload_core_sha256": "2ad345a96aa68351b45dc7733b02cd2874f364554cb1313523dc528ac83d571c"
   }
 }

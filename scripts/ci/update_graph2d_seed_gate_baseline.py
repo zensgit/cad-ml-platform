@@ -33,6 +33,25 @@ def _safe_int(value: Any, default: int = 0) -> int:
         return default
 
 
+def _safe_str(value: Any, default: str = "") -> str:
+    if value is None:
+        return default
+    text = str(value).strip()
+    return text if text else default
+
+
+def _safe_int_list(value: Any) -> list[int]:
+    if not isinstance(value, list):
+        return []
+    out: list[int] = []
+    for item in value:
+        try:
+            out.append(int(item))
+        except Exception:
+            continue
+    return out
+
+
 def _canonical_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
@@ -40,6 +59,25 @@ def _canonical_json(value: Any) -> str:
 def _sha256_of(value: Any) -> str:
     text = _canonical_json(value)
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _context_payload(summary: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "config": _safe_str(summary.get("config"), ""),
+        "training_profile": _safe_str(summary.get("training_profile"), ""),
+        "manifest_label_mode": _safe_str(summary.get("manifest_label_mode"), ""),
+        "seeds": _safe_int_list(summary.get("seeds")),
+        "num_runs": _safe_int(summary.get("num_runs"), 0),
+        "max_samples": _safe_int(summary.get("max_samples"), 0),
+        "min_label_confidence": _safe_float(summary.get("min_label_confidence"), 0.0),
+        "force_normalize_labels": _safe_str(
+            summary.get("force_normalize_labels"), "auto"
+        ),
+        "force_clean_min_count": _safe_int(summary.get("force_clean_min_count"), -1),
+        "strict_low_conf_threshold": _safe_float(
+            summary.get("strict_low_conf_threshold"), 0.2
+        ),
+    }
 
 
 def _channel_payload(summary: Dict[str, Any]) -> Dict[str, Any]:
@@ -73,6 +111,7 @@ def _channel_payload(summary: Dict[str, Any]) -> Dict[str, Any]:
                 "passed", False
             )
         ),
+        "context": _context_payload(summary),
     }
 
 

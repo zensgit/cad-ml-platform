@@ -132,6 +132,8 @@ def test_resolve_baseline_policy_prefers_config_then_cli() -> None:
             "require_integrity_hash_match": False,
             "require_snapshot_date_match": False,
             "require_snapshot_ref_date_match": False,
+            "require_context_match": False,
+            "context_keys": ["training_profile", "max_samples"],
         },
         cli_overrides={
             "max_baseline_age_days": 30,
@@ -140,6 +142,8 @@ def test_resolve_baseline_policy_prefers_config_then_cli() -> None:
             "require_integrity_hash_match": "true",
             "require_snapshot_date_match": "true",
             "require_snapshot_ref_date_match": "true",
+            "require_context_match": "true",
+            "context_keys": "training_profile,manifest_label_mode",
         },
     )
     assert resolved["max_baseline_age_days"] == 30
@@ -148,6 +152,141 @@ def test_resolve_baseline_policy_prefers_config_then_cli() -> None:
     assert resolved["require_integrity_hash_match"] is True
     assert resolved["require_snapshot_date_match"] is True
     assert resolved["require_snapshot_ref_date_match"] is True
+    assert resolved["require_context_match"] is True
+    assert resolved["context_keys"] == ["training_profile", "manifest_label_mode"]
+
+
+def test_resolve_current_context_uses_baseline_when_enabled() -> None:
+    from scripts.ci.check_graph2d_seed_gate_regression import _resolve_current_context
+
+    baseline_channel = {
+        "context": {
+            "training_profile": "strict_node23_edgesage_v1",
+            "manifest_label_mode": "parent_dir",
+        }
+    }
+    summary_payload = {"training_profile": "none", "manifest_label_mode": "filename"}
+    out = _resolve_current_context(
+        use_baseline_as_current=True,
+        baseline_channel=baseline_channel,
+        summary_payload=summary_payload,
+    )
+    assert out["training_profile"] == "strict_node23_edgesage_v1"
+    assert out["manifest_label_mode"] == "parent_dir"
+
+
+def test_regression_check_passes_when_context_matches() -> None:
+    from scripts.ci.check_graph2d_seed_gate_regression import evaluate_regression
+
+    summary = {
+        "strict_accuracy_mean": 0.36,
+        "strict_accuracy_min": 0.29,
+        "strict_top_pred_ratio_max": 0.72,
+        "strict_low_conf_ratio_max": 0.05,
+        "manifest_distinct_labels_min": 5,
+    }
+    baseline = {
+        "strict_accuracy_mean": 0.37,
+        "strict_accuracy_min": 0.30,
+        "strict_top_pred_ratio_max": 0.70,
+        "strict_low_conf_ratio_max": 0.05,
+        "manifest_distinct_labels_min": 5,
+        "context": {
+            "training_profile": "none",
+            "manifest_label_mode": "parent_dir",
+            "max_samples": 120,
+            "min_label_confidence": 0.0,
+            "strict_low_conf_threshold": 0.2,
+        },
+    }
+    current_context = {
+        "training_profile": "none",
+        "manifest_label_mode": "parent_dir",
+        "max_samples": 120,
+        "min_label_confidence": 0.0,
+        "strict_low_conf_threshold": 0.2,
+    }
+    report = evaluate_regression(
+        summary=summary,
+        current_context=current_context,
+        baseline_channel=baseline,
+        channel="standard",
+        max_accuracy_mean_drop=0.02,
+        max_accuracy_min_drop=0.02,
+        max_top_pred_ratio_increase=0.03,
+        max_low_conf_ratio_increase=0.01,
+        max_distinct_labels_drop=0,
+        require_context_match=True,
+        context_keys=[
+            "training_profile",
+            "manifest_label_mode",
+            "max_samples",
+            "min_label_confidence",
+            "strict_low_conf_threshold",
+        ],
+    )
+    assert report["status"] == "passed"
+    assert report["baseline_metadata"]["context_match"] is True
+    assert report["baseline_metadata"]["context_diff"] == {}
+
+
+def test_regression_check_fails_when_context_mismatch() -> None:
+    from scripts.ci.check_graph2d_seed_gate_regression import evaluate_regression
+
+    summary = {
+        "strict_accuracy_mean": 0.36,
+        "strict_accuracy_min": 0.29,
+        "strict_top_pred_ratio_max": 0.72,
+        "strict_low_conf_ratio_max": 0.05,
+        "manifest_distinct_labels_min": 5,
+    }
+    baseline = {
+        "strict_accuracy_mean": 0.37,
+        "strict_accuracy_min": 0.30,
+        "strict_top_pred_ratio_max": 0.70,
+        "strict_low_conf_ratio_max": 0.05,
+        "manifest_distinct_labels_min": 5,
+        "context": {
+            "training_profile": "strict_node23_edgesage_v1",
+            "manifest_label_mode": "parent_dir",
+            "max_samples": 120,
+            "min_label_confidence": 0.0,
+            "strict_low_conf_threshold": 0.2,
+        },
+    }
+    current_context = {
+        "training_profile": "none",
+        "manifest_label_mode": "filename",
+        "max_samples": 120,
+        "min_label_confidence": 0.0,
+        "strict_low_conf_threshold": 0.25,
+    }
+    report = evaluate_regression(
+        summary=summary,
+        current_context=current_context,
+        baseline_channel=baseline,
+        channel="standard",
+        max_accuracy_mean_drop=0.02,
+        max_accuracy_min_drop=0.02,
+        max_top_pred_ratio_increase=0.03,
+        max_low_conf_ratio_increase=0.01,
+        max_distinct_labels_drop=0,
+        require_context_match=True,
+        context_keys=[
+            "training_profile",
+            "manifest_label_mode",
+            "max_samples",
+            "min_label_confidence",
+            "strict_low_conf_threshold",
+        ],
+    )
+    assert report["status"] == "failed"
+    failures = "\n".join(report["failures"])
+    assert "context: mismatch on keys" in failures
+    context_diff = report["baseline_metadata"]["context_diff"]
+    assert "training_profile" in context_diff
+    assert "manifest_label_mode" in context_diff
+    assert "strict_low_conf_threshold" in context_diff
 
 
 def test_regression_check_fails_when_baseline_is_stale() -> None:
