@@ -4892,3 +4892,26 @@
     - `.github/workflows/ci.yml` parsed via `yaml.safe_load` (`ci.yml: ok`)
   - Report:
     - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_POLICY_SOURCE_E2E_20260217.md`
+- **Graph2D Seed Gate Follow-up: Context Drift Render JSON Artifacts (Continue)**:
+  - Updated `scripts/ci/render_graph2d_context_drift_history.py`:
+    - added `build_summary(...)` machine-readable output,
+    - added optional `--output-json`,
+    - preserved markdown rendering behavior.
+  - Updated `scripts/ci/render_graph2d_context_drift_key_counts.py`:
+    - added `build_summary(...)` machine-readable output,
+    - added optional `--output-json`,
+    - preserved markdown rendering behavior.
+  - Updated `.github/workflows/ci.yml`:
+    - key-count render step now emits JSON summary artifact,
+    - history render step now emits JSON summary artifact,
+    - upload steps include these JSON files.
+  - Added tests:
+    - updated `tests/unit/test_graph2d_context_drift_history.py`,
+    - updated `tests/unit/test_graph2d_context_drift_key_counts.py`,
+    - updated `tests/unit/test_graph2d_context_drift_scripts_e2e.py`
+      (assert `--output-json` payloads).
+  - Validation:
+    - `pytest tests/unit/test_graph2d_context_drift_history.py tests/unit/test_graph2d_context_drift_key_counts.py tests/unit/test_graph2d_context_drift_alerts.py tests/unit/test_graph2d_context_drift_warning_emit.py tests/unit/test_graph2d_context_drift_scripts_e2e.py -q` (`27 passed`)
+    - `.github/workflows/ci.yml` parsed via `yaml.safe_load` (`ci.yml: ok`)
+  - Report:
+    - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_RENDER_JSON_OUTPUT_20260217.md`

@@ -105,6 +105,47 @@ def test_render_history_script_handles_missing_config(tmp_path: Path) -> None:
     assert "resolved_recent_runs=10" in content
 
 
+def test_render_history_script_writes_summary_json(tmp_path: Path) -> None:
+    history_json = tmp_path / "history.json"
+    history_json.write_text(
+        json.dumps(
+            [
+                {
+                    "run_number": "1001",
+                    "status": "passed",
+                    "warning_count": 0,
+                    "failure_count": 0,
+                    "drift_key_counts": {"max_samples": 2},
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    output_md = tmp_path / "history.md"
+    output_summary_json = tmp_path / "history_summary.json"
+    subprocess.run(
+        [
+            sys.executable,
+            str(RENDER_HISTORY_SCRIPT),
+            "--history-json",
+            str(history_json),
+            "--title",
+            "History",
+            "--output-md",
+            str(output_md),
+            "--output-json",
+            str(output_summary_json),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(output_summary_json.read_text(encoding="utf-8"))
+    assert payload["history_entries"] == 1
+    assert payload["recent_key_totals"]["max_samples"] == 2
+    assert payload["policy_source"]["resolved_policy"]["recent_runs"] == 5
+
+
 def test_render_key_counts_script_handles_invalid_config(tmp_path: Path) -> None:
     report_json = tmp_path / "report.json"
     report_json.write_text(json.dumps(_sample_report()), encoding="utf-8")
@@ -135,3 +176,32 @@ def test_render_key_counts_script_handles_invalid_config(tmp_path: Path) -> None
     assert "loaded=False" in content
     assert "resolved_recent_runs=5" in content
     assert "`max_samples` | 1" in content
+
+
+def test_render_key_counts_script_writes_summary_json(tmp_path: Path) -> None:
+    report_json = tmp_path / "report.json"
+    report_json.write_text(json.dumps(_sample_report()), encoding="utf-8")
+
+    output_md = tmp_path / "key_counts.md"
+    output_summary_json = tmp_path / "key_counts_summary.json"
+    subprocess.run(
+        [
+            sys.executable,
+            str(RENDER_KEY_COUNTS_SCRIPT),
+            "--report-json",
+            str(report_json),
+            "--title",
+            "Key Counts",
+            "--output-md",
+            str(output_md),
+            "--output-json",
+            str(output_summary_json),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(output_summary_json.read_text(encoding="utf-8"))
+    assert payload["report_count"] == 1
+    assert payload["key_counts"]["max_samples"] == 1
+    assert payload["policy_source"]["resolved_policy"]["recent_runs"] == 5

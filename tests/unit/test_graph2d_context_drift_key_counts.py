@@ -46,6 +46,39 @@ def test_build_markdown_counts_context_diff_keys() -> None:
     assert "`max_samples` | 1" in text
 
 
+def test_build_summary_contains_rows_counts_and_policy() -> None:
+    from scripts.ci.render_graph2d_context_drift_key_counts import build_summary
+
+    reports = [
+        (
+            "/tmp/report-a.json",
+            {
+                "channel": "standard",
+                "status": "passed_with_warnings",
+                "warnings": ["context mismatch"],
+                "failures": [],
+                "thresholds": {"context_mismatch_mode": "warn"},
+                "baseline_metadata": {
+                    "context_match": False,
+                    "context_diff": {"max_samples": {"baseline": 10, "current": 8}},
+                },
+            },
+        )
+    ]
+    summary = build_summary(
+        reports=reports,
+        policy_source={
+            "config": "config/graph2d_context_drift_alerts.yaml",
+            "config_loaded": True,
+            "resolved_policy": {"recent_runs": 5},
+        },
+    )
+    assert summary["report_count"] == 1
+    assert summary["key_counts"]["max_samples"] == 1
+    assert summary["rows"][0]["channel"] == "standard"
+    assert summary["policy_source"]["resolved_policy"]["recent_runs"] == 5
+
+
 def test_build_markdown_contains_policy_source() -> None:
     from scripts.ci.render_graph2d_context_drift_key_counts import build_markdown
 

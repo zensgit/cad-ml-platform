@@ -361,6 +361,7 @@ jobs:
             --report-json /tmp/graph2d-seed-gate-regression-ci-${{ matrix.python-version }}.json \
             --report-json /tmp/graph2d-context-drift-warn-ci-${{ matrix.python-version }}.json \
             --title "Graph2D Context Drift Key Counts (CI Tests, Python ${{ matrix.python-version }})" \
+            --output-json /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.json \
             --output-md /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.md
       - name: Append Graph2D context drift key counts (3.11 only)
         if: always() && matrix.python-version == '3.11'
@@ -373,7 +374,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}
-          path: /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.md
+          path: |
+            /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.md
+            /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.json
           if-no-files-found: ignore
       - name: Update Graph2D context drift history (3.11 only)
         if: always() && matrix.python-version == '3.11'
@@ -397,6 +400,7 @@ jobs:
             --config config/graph2d_context_drift_alerts.yaml \
             --history-json /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json \
             --title "Graph2D Context Drift History (CI Tests, Python ${{ matrix.python-version }})" \
+            --output-json /tmp/graph2d-context-drift-history-summary-ci-${{ matrix.python-version }}.json \
             --output-md /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.md
       - name: Append Graph2D context drift history trend (3.11 only)
         if: always() && matrix.python-version == '3.11'
@@ -411,6 +415,7 @@ jobs:
           name: graph2d-context-drift-history-ci-${{ matrix.python-version }}
           path: |
             /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json
+            /tmp/graph2d-context-drift-history-summary-ci-${{ matrix.python-version }}.json
             /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.md
             /tmp/graph2d-context-drift-history-update-ci.log
           if-no-files-found: ignore

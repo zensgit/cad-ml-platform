@@ -89,22 +89,56 @@ def _report_row(path: str, report: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def build_summary(
+    *,
+    reports: List[Tuple[str, Dict[str, Any]]],
+    policy_source: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    rows = [_report_row(path, payload) for path, payload in reports if payload]
+    policy = _as_dict(policy_source)
+    resolved_policy = _as_dict(policy.get("resolved_policy"))
+    key_counts: Dict[str, int] = {}
+    for row in rows:
+        for key in row["diff_keys"]:
+            key_counts[key] = key_counts.get(key, 0) + 1
+
+    return {
+        "report_count": len(rows),
+        "rows": rows,
+        "key_counts": key_counts,
+        "policy_source": {
+            "config": str(policy.get("config", "")),
+            "config_section": str(policy.get("config_section", "")),
+            "config_loaded": bool(policy.get("config_loaded", False)),
+            "resolved_policy": {
+                "recent_runs": _safe_int(resolved_policy.get("recent_runs"), 0),
+            },
+            "cli_overrides": _as_dict(policy.get("cli_overrides")),
+        },
+    }
+
+
 def build_markdown(
     *,
     reports: List[Tuple[str, Dict[str, Any]]],
     title: str,
     policy_source: Dict[str, Any] | None = None,
 ) -> str:
+    summary = build_summary(reports=reports, policy_source=policy_source)
     out: List[str] = []
     out.append(f"### {title}")
     out.append("")
 
-    rows = [_report_row(path, payload) for path, payload in reports if payload]
-    policy = _as_dict(policy_source)
+    rows = [
+        _as_dict(item)
+        for item in _as_list(summary.get("rows"))
+        if _as_dict(item)
+    ]
+    policy = _as_dict(summary.get("policy_source"))
     resolved_policy = _as_dict(policy.get("resolved_policy"))
     out.append("| Check | Value |")
     out.append("|---|---|")
-    out.append(f"| Report count | `{len(rows)}` |")
+    out.append(f"| Report count | `{_safe_int(summary.get('report_count'), 0)}` |")
     out.append(
         "| Policy source | "
         f"`config={policy.get('config', '')}, "
@@ -121,24 +155,20 @@ def build_markdown(
     out.append("| Report | Channel | Status | Context mode | Context match | Diff keys | Warn | Fail |")
     out.append("|---|---|---|---|---|---|---:|---:|")
     for row in rows:
-        diff_keys = ",".join(row["diff_keys"]) if row["diff_keys"] else "-"
+        diff_keys = ",".join(_as_list(row.get("diff_keys"))) if _as_list(row.get("diff_keys")) else "-"
         out.append(
             "| "
-            f"`{Path(str(row['path'])).name}` | "
-            f"`{row['channel']}` | "
-            f"`{row['status']}` | "
-            f"`{row['context_mode']}` | "
-            f"`{row['context_match']}` | "
+            f"`{Path(str(row.get('path', ''))).name}` | "
+            f"`{str(row.get('channel', ''))}` | "
+            f"`{str(row.get('status', ''))}` | "
+            f"`{str(row.get('context_mode', ''))}` | "
+            f"`{str(row.get('context_match', ''))}` | "
             f"`{diff_keys}` | "
-            f"{int(row['warnings'])} | "
-            f"{int(row['failures'])} |"
+            f"{_safe_int(row.get('warnings'), 0)} | "
+            f"{_safe_int(row.get('failures'), 0)} |"
         )
 
-    key_counts: Dict[str, int] = {}
-    for row in rows:
-        for key in row["diff_keys"]:
-            key_counts[key] = key_counts.get(key, 0) + 1
-
+    key_counts = _as_dict(summary.get("key_counts"))
     out.append("")
     if not key_counts:
         out.append("Context drift key counts: none.")
@@ -185,6 +215,11 @@ def main() -> int:
         default="",
         help="Optional markdown output path (stdout when omitted).",
     )
+    parser.add_argument(
+        "--output-json",
+        default="",
+        help="Optional summary json output path.",
+    )
     args = parser.parse_args()
 
     report_paths = [str(item).strip() for item in list(args.report_json or []) if str(item).strip()]
@@ -210,12 +245,23 @@ def main() -> int:
             if value is not None
         },
     }
+    summary = build_summary(
+        reports=reports,
+        policy_source=policy_source,
+    )
 
     markdown = build_markdown(
         reports=reports,
         title=str(args.title),
         policy_source=policy_source,
     )
+    if str(args.output_json).strip():
+        out_json = Path(str(args.output_json))
+        out_json.parent.mkdir(parents=True, exist_ok=True)
+        out_json.write_text(
+            json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     if str(args.output_md).strip():
         out_path = Path(str(args.output_md))
         out_path.parent.mkdir(parents=True, exist_ok=True)

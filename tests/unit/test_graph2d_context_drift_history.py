@@ -62,6 +62,40 @@ def test_build_history_markdown_contains_recent_totals() -> None:
     assert "`max_samples` | 1" in text
 
 
+def test_build_history_summary_contains_policy_and_recent_totals() -> None:
+    from scripts.ci.render_graph2d_context_drift_history import build_summary
+
+    history = [
+        {
+            "run_number": "101",
+            "status": "passed",
+            "warning_count": 0,
+            "failure_count": 0,
+            "drift_key_counts": {"max_samples": 1},
+        },
+        {
+            "run_number": "102",
+            "status": "passed",
+            "warning_count": 0,
+            "failure_count": 0,
+            "drift_key_counts": {"max_samples": 2},
+        },
+    ]
+    summary = build_summary(
+        history=history,
+        recent_runs=1,
+        policy_source={
+            "config": "config/graph2d_context_drift_alerts.yaml",
+            "config_loaded": True,
+            "resolved_policy": {"recent_runs": 5},
+        },
+    )
+    assert summary["history_entries"] == 2
+    assert summary["recent_window"] == 1
+    assert summary["recent_key_totals"]["max_samples"] == 2
+    assert summary["policy_source"]["resolved_policy"]["recent_runs"] == 5
+
+
 def test_build_history_markdown_respects_recent_window() -> None:
     from scripts.ci.render_graph2d_context_drift_history import build_markdown
 

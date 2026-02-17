@@ -64,58 +64,46 @@ def _resolve_recent_runs(config_payload: Dict[str, Any], cli_recent_runs: int | 
     return max(1, _safe_int(candidate, 10))
 
 
-def build_markdown(
+def build_summary(
     *,
     history: List[Dict[str, Any]],
-    title: str,
     recent_runs: int = 10,
     policy_source: Dict[str, Any] | None = None,
-) -> str:
-    out: List[str] = []
-    out.append(f"### {title}")
-    out.append("")
-
-    policy = _as_dict(policy_source)
-    resolved_policy = _as_dict(policy.get("resolved_policy"))
+) -> Dict[str, Any]:
     recent_window = max(1, _safe_int(recent_runs, 10))
+    recent = history[-recent_window:] if len(history) > recent_window else list(history)
+    aggregate: Dict[str, int] = {}
+    rows: List[Dict[str, Any]] = []
 
-    out.append("| Check | Value |")
-    out.append("|---|---|")
-    out.append(f"| History entries | `{len(history)}` |")
-    out.append(f"| Recent runs policy | `{recent_window}` |")
-    out.append(
-        "| Policy source | "
-        f"`config={policy.get('config', '')}, "
-        f"loaded={bool(policy.get('config_loaded', False))}, "
-        f"resolved_recent_runs={_safe_int(resolved_policy.get('recent_runs'), recent_window)}` |"
-    )
-    out.append("")
-
-    if not history:
-        out.append("No context drift history found.")
-        out.append("")
-        return "\n".join(out)
-
-    out.append("| Run | Status | Warnings | Failures | Drift keys |")
-    out.append("|---|---|---:|---:|---|")
     for item in history:
         one = _as_dict(item)
-        run_no = str(one.get("run_number", "")).strip() or str(one.get("run_id", "")).strip() or "unknown"
+        run_no = (
+            str(one.get("run_number", "")).strip()
+            or str(one.get("run_id", "")).strip()
+            or "unknown"
+        )
         status = str(one.get("status", "")).strip() or "unknown"
         warning_count = _safe_int(one.get("warning_count"), 0)
         failure_count = _safe_int(one.get("failure_count"), 0)
         key_counts = _as_dict(one.get("drift_key_counts"))
         keys_sorted = sorted(
-            [(str(key), _safe_int(value, 0)) for key, value in key_counts.items() if str(key).strip()],
+            [
+                (str(key), _safe_int(value, 0))
+                for key, value in key_counts.items()
+                if str(key).strip()
+            ],
             key=lambda kv: (-kv[1], kv[0]),
         )
-        key_text = ",".join([f"{key}:{count}" for key, count in keys_sorted]) if keys_sorted else "-"
-        out.append(
-            f"| `#{run_no}` | `{status}` | {warning_count} | {failure_count} | `{key_text}` |"
+        rows.append(
+            {
+                "run_number": run_no,
+                "status": status,
+                "warning_count": warning_count,
+                "failure_count": failure_count,
+                "drift_keys": [{"key": key, "count": count} for key, count in keys_sorted],
+            }
         )
 
-    recent = history[-recent_window:] if len(history) > recent_window else list(history)
-    aggregate: Dict[str, int] = {}
     for item in recent:
         key_counts = _as_dict(_as_dict(item).get("drift_key_counts"))
         for key, value in key_counts.items():
@@ -127,8 +115,99 @@ def build_markdown(
                 continue
             aggregate[token] = aggregate.get(token, 0) + count
 
+    policy = _as_dict(policy_source)
+    resolved_policy = _as_dict(policy.get("resolved_policy"))
+    return {
+        "history_entries": len(history),
+        "recent_window": len(recent),
+        "requested_recent_runs": recent_window,
+        "recent_key_totals": aggregate,
+        "rows": rows,
+        "policy_source": {
+            "config": str(policy.get("config", "")),
+            "config_section": str(policy.get("config_section", "")),
+            "config_loaded": bool(policy.get("config_loaded", False)),
+            "resolved_policy": {
+                "recent_runs": _safe_int(resolved_policy.get("recent_runs"), recent_window),
+            },
+            "cli_overrides": _as_dict(policy.get("cli_overrides")),
+        },
+    }
+
+
+def build_markdown(
+    *,
+    history: List[Dict[str, Any]],
+    title: str,
+    recent_runs: int = 10,
+    policy_source: Dict[str, Any] | None = None,
+) -> str:
+    summary = build_summary(
+        history=history,
+        recent_runs=recent_runs,
+        policy_source=policy_source,
+    )
+    out: List[str] = []
+    out.append(f"### {title}")
     out.append("")
-    out.append(f"Recent window size: `{len(recent)}`")
+
+    policy = _as_dict(summary.get("policy_source"))
+    resolved_policy = _as_dict(policy.get("resolved_policy"))
+    recent_window = _safe_int(summary.get("requested_recent_runs"), max(1, _safe_int(recent_runs, 10)))
+
+    out.append("| Check | Value |")
+    out.append("|---|---|")
+    out.append(f"| History entries | `{_safe_int(summary.get('history_entries'), 0)}` |")
+    out.append(f"| Recent runs policy | `{recent_window}` |")
+    out.append(
+        "| Policy source | "
+        f"`config={policy.get('config', '')}, "
+        f"loaded={bool(policy.get('config_loaded', False))}, "
+        f"resolved_recent_runs={_safe_int(resolved_policy.get('recent_runs'), recent_window)}` |"
+    )
+    out.append("")
+
+    rows = [
+        _as_dict(item)
+        for item in _as_list(summary.get("rows"))
+        if _as_dict(item)
+    ]
+    if not rows:
+        out.append("No context drift history found.")
+        out.append("")
+        return "\n".join(out)
+
+    out.append("| Run | Status | Warnings | Failures | Drift keys |")
+    out.append("|---|---|---:|---:|---|")
+    for row in rows:
+        keys_sorted = [
+            _as_dict(item)
+            for item in _as_list(row.get("drift_keys"))
+            if _as_dict(item)
+        ]
+        key_text = (
+            ",".join(
+                [
+                    f"{str(item.get('key', '')).strip()}:{_safe_int(item.get('count'), 0)}"
+                    for item in keys_sorted
+                    if str(item.get("key", "")).strip()
+                ]
+            )
+            if keys_sorted
+            else "-"
+        )
+        out.append(
+            f"| `#{str(row.get('run_number', '')).strip()}` | "
+            f"`{str(row.get('status', '')).strip()}` | "
+            f"{_safe_int(row.get('warning_count'), 0)} | "
+            f"{_safe_int(row.get('failure_count'), 0)} | "
+            f"`{key_text}` |"
+        )
+
+    aggregate = _as_dict(summary.get("recent_key_totals"))
+
+    out.append("")
+    out.append(f"Recent window size: `{_safe_int(summary.get('recent_window'), 0)}`")
     out.append("")
     if not aggregate:
         out.append("Recent drift key totals: none.")
@@ -170,6 +249,11 @@ def main() -> int:
         default="",
         help="Optional markdown output path (stdout when omitted).",
     )
+    parser.add_argument(
+        "--output-json",
+        default="",
+        help="Optional summary json output path.",
+    )
     args = parser.parse_args()
 
     payload = _read_json(Path(str(args.history_json)))
@@ -197,12 +281,24 @@ def main() -> int:
             if value is not None
         },
     }
+    summary = build_summary(
+        history=history,
+        recent_runs=recent_runs,
+        policy_source=policy_source,
+    )
     markdown = build_markdown(
         history=history,
         title=str(args.title),
         recent_runs=recent_runs,
         policy_source=policy_source,
     )
+    if str(args.output_json).strip():
+        out_json = Path(str(args.output_json))
+        out_json.parent.mkdir(parents=True, exist_ok=True)
+        out_json.write_text(
+            json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
     if str(args.output_md).strip():
         out_path = Path(str(args.output_md))
         out_path.parent.mkdir(parents=True, exist_ok=True)
