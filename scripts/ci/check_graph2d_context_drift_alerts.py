@@ -198,6 +198,56 @@ def evaluate_alerts(
     }
 
 
+def build_summary(report: Dict[str, Any]) -> Dict[str, Any]:
+    policy = _as_dict(report.get("policy_source"))
+    resolved_policy = _as_dict(policy.get("resolved_policy"))
+    alerts = [
+        _as_dict(item)
+        for item in _as_list(report.get("alerts"))
+        if _as_dict(item)
+    ]
+    key_totals = _as_dict(report.get("key_totals"))
+    return {
+        "status": str(report.get("status", "clear")),
+        "history_entries": _safe_int(report.get("history_size"), 0),
+        "recent_window": _safe_int(report.get("recent_runs"), 0),
+        "alert_count": len(alerts),
+        "key_totals": {
+            str(key): _safe_int(value, 0)
+            for key, value in key_totals.items()
+            if str(key).strip()
+        },
+        "rows": [
+            {
+                "key": str(item.get("key", "")),
+                "count": _safe_int(item.get("count"), 0),
+                "threshold": _safe_int(item.get("threshold"), 0),
+                "message": str(item.get("message", "")),
+            }
+            for item in alerts
+            if str(item.get("key", "")).strip()
+        ],
+        "policy_source": {
+            "config": str(policy.get("config", "")),
+            "config_section": str(policy.get("config_section", "")),
+            "config_loaded": bool(policy.get("config_loaded", False)),
+            "resolved_policy": {
+                "recent_runs": _safe_int(resolved_policy.get("recent_runs"), 0),
+                "default_key_threshold": _safe_int(
+                    resolved_policy.get("default_key_threshold"), 0
+                ),
+                "fail_on_alert": _safe_bool(resolved_policy.get("fail_on_alert"), False),
+                "key_thresholds": {
+                    str(key): _safe_int(value, 0)
+                    for key, value in _as_dict(resolved_policy.get("key_thresholds")).items()
+                    if str(key).strip()
+                },
+            },
+            "cli_overrides": _as_dict(policy.get("cli_overrides")),
+        },
+    }
+
+
 def build_markdown(report: Dict[str, Any], title: str) -> str:
     status = str(report.get("status", "clear"))
     alerts = _as_list(report.get("alerts"))
@@ -329,6 +379,7 @@ def main() -> int:
             if value is not None
         },
     }
+    report["summary"] = build_summary(report)
 
     json_text = json.dumps(report, ensure_ascii=False, indent=2)
     md_text = build_markdown(report, str(args.title))

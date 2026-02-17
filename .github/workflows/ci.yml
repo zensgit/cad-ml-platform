@@ -454,6 +454,22 @@ jobs:
             /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.md
             /tmp/graph2d-context-drift-alerts-ci.log
           if-no-files-found: ignore
+      - name: Build Graph2D context drift artifact index (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          python scripts/ci/index_graph2d_context_drift_artifacts.py \
+            --alerts-json /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.json \
+            --history-summary-json /tmp/graph2d-context-drift-history-summary-ci-${{ matrix.python-version }}.json \
+            --key-counts-summary-json /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.json \
+            --history-json /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json \
+            --output-json /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json
+      - name: Upload Graph2D context drift index artifact (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-context-drift-index-ci-${{ matrix.python-version }}
+          path: /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json
+          if-no-files-found: ignore
       - name: Save Graph2D context drift history cache (3.11 only)
         if: always() && matrix.python-version == '3.11'
         uses: actions/cache/save@v4

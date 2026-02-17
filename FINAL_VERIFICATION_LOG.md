@@ -4915,3 +4915,33 @@
     - `.github/workflows/ci.yml` parsed via `yaml.safe_load` (`ci.yml: ok`)
   - Report:
     - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_RENDER_JSON_OUTPUT_20260217.md`
+- **Graph2D Seed Gate Follow-up: Context Drift Pipeline Index + Local One-Command Run (Continue)**:
+  - Updated `scripts/ci/check_graph2d_context_drift_alerts.py`:
+    - added structured `summary` payload aligned with render summary style,
+    - preserved existing top-level alert fields for compatibility.
+  - Added `scripts/ci/index_graph2d_context_drift_artifacts.py`:
+    - aggregates alerts/history/key-count summaries into a single index json,
+    - includes `overview`, `artifacts`, `policy_sources`, and merged summaries.
+  - Updated `Makefile`:
+    - added `validate-graph2d-context-drift-pipeline` target to run:
+      - history update,
+      - key-count render,
+      - history render,
+      - alert check,
+      - artifact index build.
+  - Updated `.github/workflows/ci.yml`:
+    - added index build step for Python 3.11 context-drift artifacts,
+    - uploads `graph2d-context-drift-index-ci-${{ matrix.python-version }}` json.
+  - Added tests:
+    - `tests/unit/test_graph2d_context_drift_artifact_index.py`
+      (index aggregation + missing-input fallback + realistic payload),
+    - updated `tests/unit/test_graph2d_context_drift_alerts.py`
+      (structured summary assertions),
+    - updated `tests/unit/test_graph2d_context_drift_scripts_e2e.py`
+      (alerts summary e2e assertion).
+  - Validation:
+    - `pytest tests/unit/test_graph2d_context_drift_alerts.py tests/unit/test_graph2d_context_drift_history.py tests/unit/test_graph2d_context_drift_key_counts.py tests/unit/test_graph2d_context_drift_scripts_e2e.py tests/unit/test_graph2d_context_drift_artifact_index.py tests/unit/test_graph2d_context_drift_warning_emit.py -q` (`32 passed`)
+    - `.github/workflows/ci.yml` parsed via `yaml.safe_load` (`ci.yml: ok`)
+    - `make validate-graph2d-context-drift-pipeline` local smoke passed end-to-end.
+  - Report:
+    - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_PIPELINE_INDEX_20260217.md`

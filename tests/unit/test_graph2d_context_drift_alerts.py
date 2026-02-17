@@ -83,6 +83,45 @@ def test_build_markdown_contains_alert_lines() -> None:
     assert "config/graph2d_context_drift_alerts.yaml" in text
 
 
+def test_build_summary_contains_structured_rows() -> None:
+    from scripts.ci.check_graph2d_context_drift_alerts import build_summary
+
+    summary = build_summary(
+        {
+            "status": "alerted",
+            "history_size": 4,
+            "recent_runs": 3,
+            "key_totals": {"max_samples": 4},
+            "alerts": [
+                {
+                    "key": "max_samples",
+                    "count": 4,
+                    "threshold": 3,
+                    "message": "context drift key 'max_samples' count 4 >= threshold 3",
+                }
+            ],
+            "policy_source": {
+                "config": "config/graph2d_context_drift_alerts.yaml",
+                "config_section": "graph2d_context_drift_alerts",
+                "config_loaded": True,
+                "resolved_policy": {
+                    "recent_runs": 5,
+                    "default_key_threshold": 3,
+                    "fail_on_alert": False,
+                    "key_thresholds": {"max_samples": 2},
+                },
+                "cli_overrides": {},
+            },
+        }
+    )
+    assert summary["status"] == "alerted"
+    assert summary["history_entries"] == 4
+    assert summary["recent_window"] == 3
+    assert summary["alert_count"] == 1
+    assert summary["rows"][0]["key"] == "max_samples"
+    assert summary["policy_source"]["resolved_policy"]["recent_runs"] == 5
+
+
 def test_resolve_alert_policy_prefers_cli_over_config() -> None:
     from scripts.ci.check_graph2d_context_drift_alerts import _resolve_alert_policy
 

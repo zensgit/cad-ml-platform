@@ -202,6 +202,44 @@ validate-graph2d-seed-gate-context-drift-warn: ## Graph2D 上下文漂移观测�
 		--max-top-pred-ratio-increase $${GRAPH2D_CONTEXT_DRIFT_WARN_MAX_TOP_PRED_RATIO_INCREASE:-1.0} \
 		--max-low-conf-ratio-increase $${GRAPH2D_CONTEXT_DRIFT_WARN_MAX_LOW_CONF_RATIO_INCREASE:-1.0}
 
+validate-graph2d-context-drift-pipeline: ## Graph2D 上下文漂移全链路（更新+渲染+告警+索引）
+	@echo "$(GREEN)Running Graph2D context drift pipeline...$(NC)"
+	$(PYTHON) scripts/ci/update_graph2d_context_drift_history.py \
+		--config $${GRAPH2D_CONTEXT_DRIFT_CONFIG:-config/graph2d_context_drift_alerts.yaml} \
+		--history-json $${GRAPH2D_CONTEXT_DRIFT_HISTORY_JSON:-/tmp/graph2d-context-drift-history-local.json} \
+		--output-json $${GRAPH2D_CONTEXT_DRIFT_HISTORY_JSON:-/tmp/graph2d-context-drift-history-local.json} \
+		--run-id $${GRAPH2D_CONTEXT_DRIFT_RUN_ID:-local} \
+		--run-number $${GRAPH2D_CONTEXT_DRIFT_RUN_NUMBER:-local} \
+		--ref-name $${GRAPH2D_CONTEXT_DRIFT_REF_NAME:-local} \
+		--sha $${GRAPH2D_CONTEXT_DRIFT_SHA:-local} \
+		--report-json $${GRAPH2D_CONTEXT_DRIFT_REGRESSION_REPORT_JSON:-/tmp/graph2d-seed-gate-regression.json} \
+		--report-json $${GRAPH2D_CONTEXT_DRIFT_WARN_REPORT_JSON:-/tmp/graph2d-context-drift-warn.json}
+	$(PYTHON) scripts/ci/render_graph2d_context_drift_key_counts.py \
+		--config $${GRAPH2D_CONTEXT_DRIFT_CONFIG:-config/graph2d_context_drift_alerts.yaml} \
+		--report-json $${GRAPH2D_CONTEXT_DRIFT_REGRESSION_REPORT_JSON:-/tmp/graph2d-seed-gate-regression.json} \
+		--report-json $${GRAPH2D_CONTEXT_DRIFT_WARN_REPORT_JSON:-/tmp/graph2d-context-drift-warn.json} \
+		--title "Graph2D Context Drift Key Counts (Local)" \
+		--output-json $${GRAPH2D_CONTEXT_DRIFT_KEY_COUNTS_JSON:-/tmp/graph2d-context-drift-key-counts-local.json} \
+		--output-md $${GRAPH2D_CONTEXT_DRIFT_KEY_COUNTS_MD:-/tmp/graph2d-context-drift-key-counts-local.md}
+	$(PYTHON) scripts/ci/render_graph2d_context_drift_history.py \
+		--config $${GRAPH2D_CONTEXT_DRIFT_CONFIG:-config/graph2d_context_drift_alerts.yaml} \
+		--history-json $${GRAPH2D_CONTEXT_DRIFT_HISTORY_JSON:-/tmp/graph2d-context-drift-history-local.json} \
+		--title "Graph2D Context Drift History (Local)" \
+		--output-json $${GRAPH2D_CONTEXT_DRIFT_HISTORY_SUMMARY_JSON:-/tmp/graph2d-context-drift-history-summary-local.json} \
+		--output-md $${GRAPH2D_CONTEXT_DRIFT_HISTORY_MD:-/tmp/graph2d-context-drift-history-local.md}
+	$(PYTHON) scripts/ci/check_graph2d_context_drift_alerts.py \
+		--config $${GRAPH2D_CONTEXT_DRIFT_CONFIG:-config/graph2d_context_drift_alerts.yaml} \
+		--history-json $${GRAPH2D_CONTEXT_DRIFT_HISTORY_JSON:-/tmp/graph2d-context-drift-history-local.json} \
+		--title "Graph2D Context Drift Alerts (Local)" \
+		--output-json $${GRAPH2D_CONTEXT_DRIFT_ALERTS_JSON:-/tmp/graph2d-context-drift-alerts-local.json} \
+		--output-md $${GRAPH2D_CONTEXT_DRIFT_ALERTS_MD:-/tmp/graph2d-context-drift-alerts-local.md}
+	$(PYTHON) scripts/ci/index_graph2d_context_drift_artifacts.py \
+		--alerts-json $${GRAPH2D_CONTEXT_DRIFT_ALERTS_JSON:-/tmp/graph2d-context-drift-alerts-local.json} \
+		--history-summary-json $${GRAPH2D_CONTEXT_DRIFT_HISTORY_SUMMARY_JSON:-/tmp/graph2d-context-drift-history-summary-local.json} \
+		--key-counts-summary-json $${GRAPH2D_CONTEXT_DRIFT_KEY_COUNTS_JSON:-/tmp/graph2d-context-drift-key-counts-local.json} \
+		--history-json $${GRAPH2D_CONTEXT_DRIFT_HISTORY_JSON:-/tmp/graph2d-context-drift-history-local.json} \
+		--output-json $${GRAPH2D_CONTEXT_DRIFT_INDEX_JSON:-/tmp/graph2d-context-drift-index-local.json}
+
 validate-graph2d-seed-gate-baseline-health: ## Graph2D 基线健康检查（不依赖当前 summary）
 	@echo "$(GREEN)Checking Graph2D seed gate baseline health (standard + strict)...$(NC)"
 	$(PYTHON) scripts/ci/check_graph2d_seed_gate_regression.py \

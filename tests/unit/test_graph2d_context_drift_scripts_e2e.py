@@ -10,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 UPDATE_SCRIPT = REPO_ROOT / "scripts" / "ci" / "update_graph2d_context_drift_history.py"
 RENDER_HISTORY_SCRIPT = REPO_ROOT / "scripts" / "ci" / "render_graph2d_context_drift_history.py"
 RENDER_KEY_COUNTS_SCRIPT = REPO_ROOT / "scripts" / "ci" / "render_graph2d_context_drift_key_counts.py"
+CHECK_ALERTS_SCRIPT = REPO_ROOT / "scripts" / "ci" / "check_graph2d_context_drift_alerts.py"
 
 
 def _sample_report() -> dict:
@@ -205,3 +206,36 @@ def test_render_key_counts_script_writes_summary_json(tmp_path: Path) -> None:
     assert payload["report_count"] == 1
     assert payload["key_counts"]["max_samples"] == 1
     assert payload["policy_source"]["resolved_policy"]["recent_runs"] == 5
+
+
+def test_check_alerts_script_writes_structured_summary(tmp_path: Path) -> None:
+    history_json = tmp_path / "history.json"
+    history_json.write_text(
+        json.dumps(
+            [
+                {"run_number": "1", "drift_key_counts": {"max_samples": 1}},
+                {"run_number": "2", "drift_key_counts": {"max_samples": 1}},
+                {"run_number": "3", "drift_key_counts": {"max_samples": 1}},
+            ]
+        ),
+        encoding="utf-8",
+    )
+    report_json = tmp_path / "alerts.json"
+    subprocess.run(
+        [
+            sys.executable,
+            str(CHECK_ALERTS_SCRIPT),
+            "--history-json",
+            str(history_json),
+            "--output-json",
+            str(report_json),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(report_json.read_text(encoding="utf-8"))
+    summary = payload["summary"]
+    assert summary["status"] == "alerted"
+    assert summary["alert_count"] == 1
+    assert summary["rows"][0]["key"] == "max_samples"
