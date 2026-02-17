@@ -239,6 +239,10 @@ validate-graph2d-context-drift-pipeline: ## Graph2D 上下文漂移全链路（�
 		--key-counts-summary-json $${GRAPH2D_CONTEXT_DRIFT_KEY_COUNTS_JSON:-/tmp/graph2d-context-drift-key-counts-local.json} \
 		--history-json $${GRAPH2D_CONTEXT_DRIFT_HISTORY_JSON:-/tmp/graph2d-context-drift-history-local.json} \
 		--output-json $${GRAPH2D_CONTEXT_DRIFT_INDEX_JSON:-/tmp/graph2d-context-drift-index-local.json}
+	$(PYTHON) scripts/ci/summarize_graph2d_context_drift_index.py \
+		--index-json $${GRAPH2D_CONTEXT_DRIFT_INDEX_JSON:-/tmp/graph2d-context-drift-index-local.json} \
+		--title "Graph2D Context Drift Index (Local)" \
+		> $${GRAPH2D_CONTEXT_DRIFT_INDEX_MD:-/tmp/graph2d-context-drift-index-local.md}
 
 validate-graph2d-seed-gate-baseline-health: ## Graph2D 基线健康检查（不依赖当前 summary）
 	@echo "$(GREEN)Checking Graph2D seed gate baseline health (standard + strict)...$(NC)"

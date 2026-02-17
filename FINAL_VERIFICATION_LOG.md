@@ -4945,3 +4945,21 @@
     - `make validate-graph2d-context-drift-pipeline` local smoke passed end-to-end.
   - Report:
     - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_PIPELINE_INDEX_20260217.md`
+- **Graph2D Seed Gate Follow-up: Context Drift Index Markdown Summary (Continue)**:
+  - Added `scripts/ci/summarize_graph2d_context_drift_index.py`:
+    - renders index overview into markdown table (status/alerts/history/coverage/top-key),
+    - includes per-artifact presence and alert-row detail.
+  - Updated `.github/workflows/ci.yml`:
+    - append index markdown summary to `GITHUB_STEP_SUMMARY`,
+    - render and upload index markdown artifact alongside index json.
+  - Updated `Makefile`:
+    - `validate-graph2d-context-drift-pipeline` now also emits local index markdown:
+      - `${GRAPH2D_CONTEXT_DRIFT_INDEX_MD:-/tmp/graph2d-context-drift-index-local.md}`.
+  - Added tests:
+    - `tests/unit/test_graph2d_context_drift_index_summary.py`.
+  - Validation:
+    - `pytest tests/unit/test_graph2d_context_drift_index_summary.py tests/unit/test_graph2d_context_drift_artifact_index.py tests/unit/test_graph2d_context_drift_alerts.py tests/unit/test_graph2d_context_drift_history.py tests/unit/test_graph2d_context_drift_key_counts.py tests/unit/test_graph2d_context_drift_scripts_e2e.py tests/unit/test_graph2d_context_drift_warning_emit.py -q` (`34 passed`)
+    - `.github/workflows/ci.yml` parsed via `yaml.safe_load` (`ci.yml: ok`)
+    - `make validate-graph2d-context-drift-pipeline` local smoke passed and generated index markdown.
+  - Report:
+    - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_INDEX_SUMMARY_20260217.md`

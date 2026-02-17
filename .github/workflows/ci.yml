@@ -463,12 +463,32 @@ jobs:
             --key-counts-summary-json /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.json \
             --history-json /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json \
             --output-json /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json
+      - name: Append Graph2D context drift index summary (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          if [ -f /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json ]; then
+            python scripts/ci/summarize_graph2d_context_drift_index.py \
+              --index-json /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json \
+              --title "Graph2D Context Drift Index (CI Tests, Python ${{ matrix.python-version }})" \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Render Graph2D context drift index markdown artifact (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          if [ -f /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json ]; then
+            python scripts/ci/summarize_graph2d_context_drift_index.py \
+              --index-json /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json \
+              --title "Graph2D Context Drift Index (CI Tests, Python ${{ matrix.python-version }})" \
+              > /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.md
+          fi
       - name: Upload Graph2D context drift index artifact (3.11 only)
         if: always() && matrix.python-version == '3.11'
         uses: actions/upload-artifact@v4
         with:
           name: graph2d-context-drift-index-ci-${{ matrix.python-version }}
-          path: /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json
+          path: |
+            /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json
+            /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.md
           if-no-files-found: ignore
       - name: Save Graph2D context drift history cache (3.11 only)
         if: always() && matrix.python-version == '3.11'
