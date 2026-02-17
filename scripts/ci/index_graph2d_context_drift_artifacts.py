@@ -45,6 +45,27 @@ def _top_key(key_counts: Dict[str, Any]) -> Dict[str, Any]:
     return {"key": key, "count": int(count)}
 
 
+def _resolve_severity(
+    *,
+    status: str,
+    alert_count: int,
+    drift_key_count: int,
+    top_drift_key_count: int,
+    required_artifacts_present: int,
+    required_artifacts_total: int,
+) -> Dict[str, str]:
+    state = str(status).strip().lower()
+    if required_artifacts_present < required_artifacts_total:
+        return {"severity": "failed", "reason": "required artifacts missing"}
+    if state == "failed":
+        return {"severity": "failed", "reason": "upstream status failed"}
+    if state == "alerted" or int(alert_count) > 0:
+        return {"severity": "alerted", "reason": "threshold alerts present"}
+    if int(drift_key_count) > 0 and int(top_drift_key_count) > 0:
+        return {"severity": "warn", "reason": "context drift observed below alert threshold"}
+    return {"severity": "clear", "reason": "no context drift signal"}
+
+
 def _build_alerts_summary(alerts_report: Dict[str, Any]) -> Dict[str, Any]:
     summary = _as_dict(alerts_report.get("summary"))
     if summary:
@@ -74,42 +95,71 @@ def build_index(
     history_entry_count = len([_as_dict(row) for row in history_rows if _as_dict(row)])
     key_counts = _as_dict(key_counts_summary.get("key_counts"))
     top_key = _top_key(key_counts)
+    artifact_rows = {
+        "alerts_report": {
+            "path": str(artifact_paths.get("alerts_json", "")),
+            "exists": bool(str(artifact_paths.get("alerts_json", "")).strip())
+            and Path(str(artifact_paths.get("alerts_json", ""))).exists(),
+        },
+        "history_summary": {
+            "path": str(artifact_paths.get("history_summary_json", "")),
+            "exists": bool(str(artifact_paths.get("history_summary_json", "")).strip())
+            and Path(str(artifact_paths.get("history_summary_json", ""))).exists(),
+        },
+        "key_counts_summary": {
+            "path": str(artifact_paths.get("key_counts_summary_json", "")),
+            "exists": bool(str(artifact_paths.get("key_counts_summary_json", "")).strip())
+            and Path(str(artifact_paths.get("key_counts_summary_json", ""))).exists(),
+        },
+        "history_raw": {
+            "path": str(artifact_paths.get("history_json", "")),
+            "exists": bool(str(artifact_paths.get("history_json", "")).strip())
+            and Path(str(artifact_paths.get("history_json", ""))).exists(),
+        },
+    }
+    required_artifact_names = ["alerts_report", "history_summary", "key_counts_summary"]
+    required_present = len(
+        [
+            name
+            for name in required_artifact_names
+            if bool(_as_dict(artifact_rows.get(name)).get("exists", False))
+        ]
+    )
+    required_total = len(required_artifact_names)
+
+    status = str(alerts.get("status", "clear"))
+    alert_count = _safe_int(alerts.get("alert_count"), 0)
+    drift_key_count = len([k for k in key_counts.keys() if str(k).strip()])
+    severity_payload = _resolve_severity(
+        status=status,
+        alert_count=alert_count,
+        drift_key_count=drift_key_count,
+        top_drift_key_count=_safe_int(top_key.get("count"), 0),
+        required_artifacts_present=required_present,
+        required_artifacts_total=required_total,
+    )
 
     return {
+        "schema_version": "1.0.0",
         "generated_at": dt.datetime.now(tz=dt.timezone.utc).isoformat(),
         "overview": {
-            "status": str(alerts.get("status", "clear")),
-            "alert_count": _safe_int(alerts.get("alert_count"), 0),
+            "status": status,
+            "severity": str(severity_payload.get("severity", "clear")),
+            "severity_reason": str(severity_payload.get("reason", "")),
+            "alert_count": alert_count,
             "history_entries": max(
                 _safe_int(history_summary.get("history_entries"), 0),
                 history_entry_count,
             ),
             "recent_window": _safe_int(history_summary.get("recent_window"), 0),
-            "drift_key_count": len([k for k in key_counts.keys() if str(k).strip()]),
+            "drift_key_count": drift_key_count,
             "top_drift_key": top_key,
-        },
-        "artifacts": {
-            "alerts_report": {
-                "path": str(artifact_paths.get("alerts_json", "")),
-                "exists": bool(str(artifact_paths.get("alerts_json", "")).strip())
-                and Path(str(artifact_paths.get("alerts_json", ""))).exists(),
-            },
-            "history_summary": {
-                "path": str(artifact_paths.get("history_summary_json", "")),
-                "exists": bool(str(artifact_paths.get("history_summary_json", "")).strip())
-                and Path(str(artifact_paths.get("history_summary_json", ""))).exists(),
-            },
-            "key_counts_summary": {
-                "path": str(artifact_paths.get("key_counts_summary_json", "")),
-                "exists": bool(str(artifact_paths.get("key_counts_summary_json", "")).strip())
-                and Path(str(artifact_paths.get("key_counts_summary_json", ""))).exists(),
-            },
-            "history_raw": {
-                "path": str(artifact_paths.get("history_json", "")),
-                "exists": bool(str(artifact_paths.get("history_json", "")).strip())
-                and Path(str(artifact_paths.get("history_json", ""))).exists(),
+            "artifact_coverage": {
+                "present": required_present,
+                "total": required_total,
             },
         },
+        "artifacts": artifact_rows,
         "policy_sources": {
             "alerts": _as_dict(alerts.get("policy_source")),
             "history": _as_dict(history_summary.get("policy_source")),
@@ -172,6 +222,7 @@ def main() -> int:
     )
     print(f"index_json={out_path}")
     print(f"status={str(_as_dict(index_payload.get('overview')).get('status', 'clear'))}")
+    print(f"severity={str(_as_dict(index_payload.get('overview')).get('severity', 'clear'))}")
     print(f"alert_count={_safe_int(_as_dict(index_payload.get('overview')).get('alert_count'), 0)}")
     return 0
 

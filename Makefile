@@ -202,7 +202,7 @@ validate-graph2d-seed-gate-context-drift-warn: ## Graph2D 上下文漂移观测�
 		--max-top-pred-ratio-increase $${GRAPH2D_CONTEXT_DRIFT_WARN_MAX_TOP_PRED_RATIO_INCREASE:-1.0} \
 		--max-low-conf-ratio-increase $${GRAPH2D_CONTEXT_DRIFT_WARN_MAX_LOW_CONF_RATIO_INCREASE:-1.0}
 
-validate-graph2d-context-drift-pipeline: ## Graph2D 上下文漂移全链路（更新+渲染+告警+索引）
+validate-graph2d-context-drift-pipeline: ## Graph2D 上下文漂移全链路（更新+渲染+告警+索引+校验+归档）
 	@echo "$(GREEN)Running Graph2D context drift pipeline...$(NC)"
 	$(PYTHON) scripts/ci/update_graph2d_context_drift_history.py \
 		--config $${GRAPH2D_CONTEXT_DRIFT_CONFIG:-config/graph2d_context_drift_alerts.yaml} \
@@ -243,6 +243,22 @@ validate-graph2d-context-drift-pipeline: ## Graph2D 上下文漂移全链路（�
 		--index-json $${GRAPH2D_CONTEXT_DRIFT_INDEX_JSON:-/tmp/graph2d-context-drift-index-local.json} \
 		--title "Graph2D Context Drift Index (Local)" \
 		> $${GRAPH2D_CONTEXT_DRIFT_INDEX_MD:-/tmp/graph2d-context-drift-index-local.md}
+	$(PYTHON) scripts/ci/validate_graph2d_context_drift_index.py \
+		--index-json $${GRAPH2D_CONTEXT_DRIFT_INDEX_JSON:-/tmp/graph2d-context-drift-index-local.json} \
+		--schema-json $${GRAPH2D_CONTEXT_DRIFT_INDEX_SCHEMA_JSON:-config/graph2d_context_drift_index_schema.json}
+	$(PYTHON) scripts/ci/archive_graph2d_context_drift_artifacts.py \
+		--output-root $${GRAPH2D_CONTEXT_DRIFT_ARCHIVE_ROOT:-reports/experiments} \
+		--bucket $${GRAPH2D_CONTEXT_DRIFT_ARCHIVE_BUCKET:-graph2d_context_drift_local} \
+		--require-exists \
+		--artifact $${GRAPH2D_CONTEXT_DRIFT_ALERTS_JSON:-/tmp/graph2d-context-drift-alerts-local.json} \
+		--artifact $${GRAPH2D_CONTEXT_DRIFT_ALERTS_MD:-/tmp/graph2d-context-drift-alerts-local.md} \
+		--artifact $${GRAPH2D_CONTEXT_DRIFT_KEY_COUNTS_JSON:-/tmp/graph2d-context-drift-key-counts-local.json} \
+		--artifact $${GRAPH2D_CONTEXT_DRIFT_KEY_COUNTS_MD:-/tmp/graph2d-context-drift-key-counts-local.md} \
+		--artifact $${GRAPH2D_CONTEXT_DRIFT_HISTORY_JSON:-/tmp/graph2d-context-drift-history-local.json} \
+		--artifact $${GRAPH2D_CONTEXT_DRIFT_HISTORY_SUMMARY_JSON:-/tmp/graph2d-context-drift-history-summary-local.json} \
+		--artifact $${GRAPH2D_CONTEXT_DRIFT_HISTORY_MD:-/tmp/graph2d-context-drift-history-local.md} \
+		--artifact $${GRAPH2D_CONTEXT_DRIFT_INDEX_JSON:-/tmp/graph2d-context-drift-index-local.json} \
+		--artifact $${GRAPH2D_CONTEXT_DRIFT_INDEX_MD:-/tmp/graph2d-context-drift-index-local.md}
 
 validate-graph2d-seed-gate-baseline-health: ## Graph2D 基线健康检查（不依赖当前 summary）
 	@echo "$(GREEN)Checking Graph2D seed gate baseline health (standard + strict)...$(NC)"

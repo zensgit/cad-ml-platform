@@ -36,12 +36,27 @@ def _bool_mark(ok: bool) -> str:
     return "✅" if ok else "❌"
 
 
+def _severity_icon(value: str) -> str:
+    token = str(value).strip().lower()
+    if token == "clear":
+        return "🟢"
+    if token == "warn":
+        return "🟡"
+    if token == "alerted":
+        return "🟠"
+    if token == "failed":
+        return "🔴"
+    return "⚪"
+
+
 def build_summary(index_payload: Dict[str, Any], title: str) -> str:
     overview = _as_dict(index_payload.get("overview"))
     artifacts = _as_dict(index_payload.get("artifacts"))
     summaries = _as_dict(index_payload.get("summaries"))
 
     status = str(overview.get("status", "clear"))
+    severity = str(overview.get("severity", "")).strip().lower() or status
+    severity_reason = str(overview.get("severity_reason", "")).strip()
     alert_count = _safe_int(overview.get("alert_count"), 0)
     history_entries = _safe_int(overview.get("history_entries"), 0)
     recent_window = _safe_int(overview.get("recent_window"), 0)
@@ -59,8 +74,16 @@ def build_summary(index_payload: Dict[str, Any], title: str) -> str:
     out: List[str] = []
     out.append(f"## {title}")
     out.append("")
+    out.append(f"**Severity**: {_severity_icon(severity)} `{severity}`")
+    if severity_reason:
+        out.append(f"**Reason**: `{severity_reason}`")
+    out.append("")
     out.append("| Check | Status | Evidence |")
     out.append("|---|---|---|")
+    out.append(
+        f"| Severity | {_bool_mark(severity in {'clear', 'warn', 'alerted', 'failed'})} | "
+        f"`{_severity_icon(severity)} {severity}` |"
+    )
     out.append(
         f"| Status | {_bool_mark(status != 'failed')} | `{status}` |"
     )

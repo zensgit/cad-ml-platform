@@ -4963,3 +4963,41 @@
     - `make validate-graph2d-context-drift-pipeline` local smoke passed and generated index markdown.
   - Report:
     - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_INDEX_SUMMARY_20260217.md`
+- **Graph2D Seed Gate Follow-up: Context Drift Severity + Schema Validation + Archive Export (Continue)**:
+  - Updated `scripts/ci/index_graph2d_context_drift_artifacts.py`:
+    - added `schema_version`,
+    - added `overview.severity` / `severity_reason`,
+    - added `overview.artifact_coverage`,
+    - severity ladder: `clear|warn|alerted|failed`.
+  - Updated `scripts/ci/summarize_graph2d_context_drift_index.py`:
+    - added severity banner with color icons:
+      - `🟢 clear`, `🟡 warn`, `🟠 alerted`, `🔴 failed`.
+  - Added `scripts/ci/validate_graph2d_context_drift_index.py`:
+    - validates index json against schema and enforces non-zero on invalid payload.
+  - Added `config/graph2d_context_drift_index_schema.json`:
+    - canonical schema for context-drift index artifact.
+  - Added `scripts/ci/emit_graph2d_context_drift_index_annotations.py`:
+    - emits GitHub notice/warning/error annotations from index severity.
+  - Added `scripts/ci/archive_graph2d_context_drift_artifacts.py`:
+    - archives json/md artifacts to `reports/experiments/<date>/<bucket>/`,
+    - writes archive manifest and supports strict `--require-exists`.
+  - Updated `Makefile`:
+    - `validate-graph2d-context-drift-pipeline` now includes:
+      - schema validation,
+      - archive export.
+  - Updated `.github/workflows/ci.yml`:
+    - validates index schema in CI,
+    - emits severity annotation,
+    - archives context-drift artifacts into `reports/experiments/<date>/...`,
+    - uploads archive artifact and validation log.
+  - Added tests:
+    - `tests/unit/test_graph2d_context_drift_index_validation.py`
+    - `tests/unit/test_graph2d_context_drift_archive.py`
+    - `tests/unit/test_graph2d_context_drift_index_annotations.py`
+    - updated index/index-summary test suites for severity model.
+  - Validation:
+    - `pytest tests/unit/test_graph2d_context_drift_artifact_index.py tests/unit/test_graph2d_context_drift_index_summary.py tests/unit/test_graph2d_context_drift_index_validation.py tests/unit/test_graph2d_context_drift_archive.py tests/unit/test_graph2d_context_drift_index_annotations.py tests/unit/test_graph2d_context_drift_alerts.py tests/unit/test_graph2d_context_drift_history.py tests/unit/test_graph2d_context_drift_key_counts.py tests/unit/test_graph2d_context_drift_scripts_e2e.py tests/unit/test_graph2d_context_drift_warning_emit.py -q` (`40 passed`)
+    - `.github/workflows/ci.yml` parsed via `yaml.safe_load` (`ci.yml: ok`)
+    - local `make validate-graph2d-context-drift-pipeline` passed with archive output under `reports/experiments/<date>/graph2d_context_drift_local_test`.
+  - Report:
+    - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_SEVERITY_SCHEMA_ARCHIVE_20260217.md`

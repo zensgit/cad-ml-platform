@@ -8,6 +8,8 @@ def test_build_summary_contains_overview_and_artifacts() -> None:
         {
             "overview": {
                 "status": "alerted",
+                "severity": "alerted",
+                "severity_reason": "threshold alerts present",
                 "alert_count": 1,
                 "history_entries": 5,
                 "recent_window": 5,
@@ -28,6 +30,7 @@ def test_build_summary_contains_overview_and_artifacts() -> None:
         "Context Drift Index",
     )
     assert "Context Drift Index" in text
+    assert "**Severity**: 🟠 `alerted`" in text
     assert "| Alert count | ❌ | `1` |" in text
     assert "max_samples:3" in text
     assert "`key_counts_summary`" in text
@@ -39,5 +42,6 @@ def test_build_summary_handles_empty_payload_sections() -> None:
 
     text = build_summary({}, "Context Drift Index")
     assert "Context Drift Index" in text
+    assert "**Severity**: 🟢 `clear`" in text
     assert "| Status | ✅ | `clear` |" in text
     assert "| Artifact coverage | ✅ | `0/0` |" in text

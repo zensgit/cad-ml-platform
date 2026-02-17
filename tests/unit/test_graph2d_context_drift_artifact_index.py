@@ -30,13 +30,15 @@ def test_build_index_combines_core_summaries() -> None:
         },
         history_payload=[{"run_id": "1"}],
         artifact_paths={
-            "alerts_json": "/tmp/a.json",
-            "history_summary_json": "/tmp/b.json",
-            "key_counts_summary_json": "/tmp/c.json",
-            "history_json": "/tmp/d.json",
+            "alerts_json": "/__missing__/a.json",
+            "history_summary_json": "/__missing__/b.json",
+            "key_counts_summary_json": "/__missing__/c.json",
+            "history_json": "/__missing__/d.json",
         },
     )
+    assert payload["schema_version"] == "1.0.0"
     assert payload["overview"]["status"] == "alerted"
+    assert payload["overview"]["severity"] == "failed"
     assert payload["overview"]["alert_count"] == 2
     assert payload["overview"]["history_entries"] == 6
     assert payload["overview"]["drift_key_count"] == 2
@@ -66,6 +68,7 @@ def test_index_script_handles_missing_inputs(tmp_path: Path) -> None:
     )
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["overview"]["status"] == "clear"
+    assert payload["overview"]["severity"] == "failed"
     assert payload["overview"]["alert_count"] == 0
     assert payload["artifacts"]["alerts_report"]["exists"] is False
 
@@ -131,5 +134,6 @@ def test_index_script_with_realistic_payloads(tmp_path: Path) -> None:
     )
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["overview"]["status"] == "alerted"
+    assert payload["overview"]["severity"] == "alerted"
     assert payload["overview"]["top_drift_key"]["key"] == "max_samples"
     assert payload["artifacts"]["history_raw"]["exists"] is True

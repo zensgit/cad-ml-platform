@@ -463,6 +463,21 @@ jobs:
             --key-counts-summary-json /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.json \
             --history-json /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json \
             --output-json /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json
+      - name: Validate Graph2D context drift index schema (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          set -o pipefail
+          python scripts/ci/validate_graph2d_context_drift_index.py \
+            --index-json /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json \
+            --schema-json config/graph2d_context_drift_index_schema.json \
+            2>&1 | tee /tmp/graph2d-context-drift-index-validate-ci-${{ matrix.python-version }}.log
+      - name: Emit Graph2D context drift index annotation (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          if [ -f /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json ]; then
+            python scripts/ci/emit_graph2d_context_drift_index_annotations.py \
+              --index-json /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json
+          fi
       - name: Append Graph2D context drift index summary (3.11 only)
         if: always() && matrix.python-version == '3.11'
         run: |
@@ -481,6 +496,31 @@ jobs:
               --title "Graph2D Context Drift Index (CI Tests, Python ${{ matrix.python-version }})" \
               > /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.md
           fi
+      - name: Archive Graph2D context drift artifacts (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          set -euo pipefail
+          ARCHIVE_DATE="$(date -u +%Y%m%d)"
+          PY_VER="${{ matrix.python-version }}"
+          PY_VER_SAFE="${PY_VER//./_}"
+          ARCHIVE_BUCKET="graph2d_context_drift_ci_py${PY_VER_SAFE}"
+          python scripts/ci/archive_graph2d_context_drift_artifacts.py \
+            --output-root reports/experiments \
+            --date "${ARCHIVE_DATE}" \
+            --bucket "${ARCHIVE_BUCKET}" \
+            --require-exists \
+            --artifact /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.json \
+            --artifact /tmp/graph2d-context-drift-alerts-ci-${{ matrix.python-version }}.md \
+            --artifact /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.json \
+            --artifact /tmp/graph2d-context-drift-key-counts-ci-${{ matrix.python-version }}.md \
+            --artifact /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json \
+            --artifact /tmp/graph2d-context-drift-history-summary-ci-${{ matrix.python-version }}.json \
+            --artifact /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.md \
+            --artifact /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json \
+            --artifact /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.md \
+            --manifest-json /tmp/graph2d-context-drift-archive-manifest-ci-${{ matrix.python-version }}.json
+          echo "ARCHIVE_DATE=${ARCHIVE_DATE}" >> "$GITHUB_ENV"
+          echo "ARCHIVE_BUCKET=${ARCHIVE_BUCKET}" >> "$GITHUB_ENV"
       - name: Upload Graph2D context drift index artifact (3.11 only)
         if: always() && matrix.python-version == '3.11'
         uses: actions/upload-artifact@v4
@@ -489,6 +529,16 @@ jobs:
           path: |
             /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json
             /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.md
+            /tmp/graph2d-context-drift-index-validate-ci-${{ matrix.python-version }}.log
+          if-no-files-found: ignore
+      - name: Upload Graph2D context drift archive artifact (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph2d-context-drift-archive-ci-${{ matrix.python-version }}
+          path: |
+            reports/experiments/${{ env.ARCHIVE_DATE }}/${{ env.ARCHIVE_BUCKET }}
+            /tmp/graph2d-context-drift-archive-manifest-ci-${{ matrix.python-version }}.json
           if-no-files-found: ignore
       - name: Save Graph2D context drift history cache (3.11 only)
         if: always() && matrix.python-version == '3.11'

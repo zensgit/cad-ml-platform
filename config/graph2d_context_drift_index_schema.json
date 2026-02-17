@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Graph2D Context Drift Index Schema",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_at",
+    "overview",
+    "artifacts",
+    "policy_sources",
+    "summaries"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "generated_at": {
+      "type": "string"
+    },
+    "overview": {
+      "type": "object",
+      "required": [
+        "status",
+        "severity",
+        "severity_reason",
+        "alert_count",
+        "history_entries",
+        "recent_window",
+        "drift_key_count",
+        "top_drift_key",
+        "artifact_coverage"
+      ],
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "clear",
+            "warn",
+            "alerted",
+            "failed"
+          ]
+        },
+        "severity_reason": {
+          "type": "string"
+        },
+        "alert_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "history_entries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "recent_window": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "drift_key_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "top_drift_key": {
+          "type": "object",
+          "required": [
+            "key",
+            "count"
+          ],
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": true
+        },
+        "artifact_coverage": {
+          "type": "object",
+          "required": [
+            "present",
+            "total"
+          ],
+          "properties": {
+            "present": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "path",
+          "exists"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "exists": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "policy_sources": {
+      "type": "object"
+    },
+    "summaries": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}
