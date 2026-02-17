@@ -393,6 +393,7 @@ jobs:
         if: always() && matrix.python-version == '3.11'
         run: |
           python scripts/ci/render_graph2d_context_drift_history.py \
+            --config config/graph2d_context_drift_alerts.yaml \
             --history-json /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json \
             --title "Graph2D Context Drift History (CI Tests, Python ${{ matrix.python-version }})" \
             --output-md /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.md

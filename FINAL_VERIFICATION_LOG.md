@@ -4849,3 +4849,20 @@
     - local alert smoke produced expected `status=alerted` and `max_samples` threshold hit.
   - Report:
     - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_ALERT_THRESHOLDS_20260216.md`
+- **Graph2D Seed Gate Follow-up: Context Drift History Window Policy Alignment (Continue)**:
+  - Updated `scripts/ci/render_graph2d_context_drift_history.py`:
+    - recent window is now policy-driven (CLI > config > default),
+    - added `--config`, `--config-section`, and `--recent-runs`,
+    - recent aggregate now ignores non-positive drift counts.
+  - Updated `.github/workflows/ci.yml`:
+    - history-trend render step now explicitly passes
+      `--config config/graph2d_context_drift_alerts.yaml`.
+  - Added tests:
+    - `tests/unit/test_graph2d_context_drift_history.py`
+      (recent-window override + precedence resolution).
+  - Validation:
+    - `pytest tests/unit/test_graph2d_context_drift_history.py tests/unit/test_graph2d_context_drift_alerts.py tests/unit/test_graph2d_context_drift_key_counts.py tests/unit/test_graph2d_context_drift_warning_emit.py -q` (`16 passed`)
+    - `.github/workflows/ci.yml` parsed via `yaml.safe_load` (`ci.yml: ok`)
+    - local smoke confirmed config default window is `recent_runs=5`.
+  - Report:
+    - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_HISTORY_WINDOW_POLICY_20260217.md`

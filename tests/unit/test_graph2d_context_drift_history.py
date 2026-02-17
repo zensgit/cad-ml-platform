@@ -54,6 +54,35 @@ def test_build_history_markdown_contains_recent_totals() -> None:
     assert "`max_samples` | 1" in text
 
 
+def test_build_history_markdown_respects_recent_window() -> None:
+    from scripts.ci.render_graph2d_context_drift_history import build_markdown
+
+    history = []
+    for idx in range(1, 13):
+        history.append(
+            {
+                "run_number": str(100 + idx),
+                "status": "passed",
+                "warning_count": 0,
+                "failure_count": 0,
+                "drift_key_counts": {"training_profile": 1 if idx <= 7 else 0},
+            }
+        )
+
+    text = build_markdown(history=history, title="Context Drift History", recent_runs=5)
+    assert "Recent window size: `5`" in text
+    assert "`training_profile` | 0" not in text
+    assert "Recent drift key totals: none." in text
+
+
+def test_resolve_recent_runs_prefers_cli_override() -> None:
+    from scripts.ci.render_graph2d_context_drift_history import _resolve_recent_runs
+
+    assert _resolve_recent_runs({"recent_runs": 7}, 3) == 3
+    assert _resolve_recent_runs({"recent_runs": 7}, None) == 7
+    assert _resolve_recent_runs({}, None) == 10
+
+
 def test_build_history_markdown_handles_empty() -> None:
     from scripts.ci.render_graph2d_context_drift_history import build_markdown
 
