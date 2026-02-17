@@ -64,10 +64,33 @@ def _resolve_recent_runs(config_payload: Dict[str, Any], cli_recent_runs: int | 
     return max(1, _safe_int(candidate, 10))
 
 
-def build_markdown(*, history: List[Dict[str, Any]], title: str, recent_runs: int = 10) -> str:
+def build_markdown(
+    *,
+    history: List[Dict[str, Any]],
+    title: str,
+    recent_runs: int = 10,
+    policy_source: Dict[str, Any] | None = None,
+) -> str:
     out: List[str] = []
     out.append(f"### {title}")
     out.append("")
+
+    policy = _as_dict(policy_source)
+    resolved_policy = _as_dict(policy.get("resolved_policy"))
+    recent_window = max(1, _safe_int(recent_runs, 10))
+
+    out.append("| Check | Value |")
+    out.append("|---|---|")
+    out.append(f"| History entries | `{len(history)}` |")
+    out.append(f"| Recent runs policy | `{recent_window}` |")
+    out.append(
+        "| Policy source | "
+        f"`config={policy.get('config', '')}, "
+        f"loaded={bool(policy.get('config_loaded', False))}, "
+        f"resolved_recent_runs={_safe_int(resolved_policy.get('recent_runs'), recent_window)}` |"
+    )
+    out.append("")
+
     if not history:
         out.append("No context drift history found.")
         out.append("")
@@ -91,7 +114,6 @@ def build_markdown(*, history: List[Dict[str, Any]], title: str, recent_runs: in
             f"| `#{run_no}` | `{status}` | {warning_count} | {failure_count} | `{key_text}` |"
         )
 
-    recent_window = max(1, _safe_int(recent_runs, 10))
     recent = history[-recent_window:] if len(history) > recent_window else list(history)
     aggregate: Dict[str, int] = {}
     for item in recent:
@@ -160,7 +182,27 @@ def main() -> int:
 
     config_payload = _load_yaml_defaults(str(args.config), str(args.config_section))
     recent_runs = _resolve_recent_runs(config_payload, args.recent_runs)
-    markdown = build_markdown(history=history, title=str(args.title), recent_runs=recent_runs)
+    policy_source = {
+        "config": str(args.config),
+        "config_section": str(args.config_section),
+        "config_loaded": bool(config_payload),
+        "resolved_policy": {
+            "recent_runs": int(recent_runs),
+        },
+        "cli_overrides": {
+            key: value
+            for key, value in {
+                "recent_runs": args.recent_runs,
+            }.items()
+            if value is not None
+        },
+    }
+    markdown = build_markdown(
+        history=history,
+        title=str(args.title),
+        recent_runs=recent_runs,
+        policy_source=policy_source,
+    )
     if str(args.output_md).strip():
         out_path = Path(str(args.output_md))
         out_path.parent.mkdir(parents=True, exist_ok=True)

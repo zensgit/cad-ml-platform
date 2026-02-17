@@ -7,6 +7,10 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+DEFAULT_HISTORY_POLICY: Dict[str, Any] = {
+    "max_runs": 20,
+}
+
 
 def _read_json(path: Path) -> Any:
     if not path.exists():
@@ -23,6 +27,42 @@ def _as_dict(value: Any) -> Dict[str, Any]:
 
 def _as_list(value: Any) -> List[Any]:
     return value if isinstance(value, list) else []
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _load_yaml_defaults(config_path: str, section: str) -> Dict[str, Any]:
+    if not config_path:
+        return {}
+    path = Path(config_path)
+    if not path.exists():
+        return {}
+    try:
+        import yaml  # type: ignore
+    except Exception:
+        return {}
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    data = payload.get(section)
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
+def _resolve_max_runs(config_payload: Dict[str, Any], cli_max_runs: int | None) -> int:
+    if cli_max_runs is not None:
+        return max(1, int(cli_max_runs))
+    candidate = config_payload.get("max_runs", DEFAULT_HISTORY_POLICY.get("max_runs", 20))
+    return max(1, _safe_int(candidate, 20))
 
 
 def _extract_diff_keys(report: Dict[str, Any]) -> List[str]:
@@ -54,6 +94,7 @@ def _build_snapshot(
     run_number: str,
     ref_name: str,
     sha: str,
+    policy_source: Dict[str, Any],
 ) -> Dict[str, Any]:
     report_rows: List[Dict[str, Any]] = []
     key_count_items: List[Dict[str, int]] = []
@@ -100,6 +141,7 @@ def _build_snapshot(
         "failure_count": int(total_failures),
         "drift_key_counts": merged_counts,
         "reports": report_rows,
+        "policy_source": policy_source,
     }
 
 
@@ -133,6 +175,16 @@ def main() -> int:
         description="Update Graph2D context drift history using one or more regression reports."
     )
     parser.add_argument(
+        "--config",
+        default="config/graph2d_context_drift_alerts.yaml",
+        help="YAML config path for history policy.",
+    )
+    parser.add_argument(
+        "--config-section",
+        default="graph2d_context_drift_alerts",
+        help="Config section name in yaml.",
+    )
+    parser.add_argument(
         "--report-json",
         action="append",
         default=[],
@@ -151,7 +203,7 @@ def main() -> int:
     parser.add_argument(
         "--max-runs",
         type=int,
-        default=20,
+        default=None,
         help="Maximum number of history entries to keep.",
     )
     parser.add_argument("--run-id", default="", help="Run id (for dedup).")
@@ -165,12 +217,31 @@ def main() -> int:
         payload = _as_dict(_read_json(Path(path)))
         reports.append((path, payload))
 
+    config_payload = _load_yaml_defaults(str(args.config), str(args.config_section))
+    max_runs = _resolve_max_runs(config_payload, args.max_runs)
+    policy_source = {
+        "config": str(args.config),
+        "config_section": str(args.config_section),
+        "config_loaded": bool(config_payload),
+        "resolved_policy": {
+            "max_runs": int(max_runs),
+        },
+        "cli_overrides": {
+            key: value
+            for key, value in {
+                "max_runs": args.max_runs,
+            }.items()
+            if value is not None
+        },
+    }
+
     snapshot = _build_snapshot(
         reports=reports,
         run_id=str(args.run_id),
         run_number=str(args.run_number),
         ref_name=str(args.ref_name),
         sha=str(args.sha),
+        policy_source=policy_source,
     )
 
     history_payload = None
@@ -179,7 +250,7 @@ def main() -> int:
     updated = update_history(
         history_payload=history_payload,
         snapshot=snapshot,
-        max_runs=int(args.max_runs),
+        max_runs=int(max_runs),
     )
 
     out_path = Path(str(args.output_json))
@@ -187,6 +258,7 @@ def main() -> int:
     out_path.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"history_json={out_path}")
     print(f"history_entries={len(updated)}")
+    print(f"max_runs={int(max_runs)}")
     print(f"latest_status={snapshot.get('status')}")
     return 0
 

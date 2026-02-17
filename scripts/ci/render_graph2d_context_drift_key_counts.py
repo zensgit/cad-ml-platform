@@ -6,6 +6,10 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
+DEFAULT_KEY_COUNTS_POLICY: Dict[str, Any] = {
+    "recent_runs": 5,
+}
+
 
 def _read_json(path: Path) -> Dict[str, Any]:
     if not path.exists():
@@ -23,6 +27,42 @@ def _as_list(value: Any) -> List[Any]:
 
 def _as_dict(value: Any) -> Dict[str, Any]:
     return value if isinstance(value, dict) else {}
+
+
+def _safe_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _load_yaml_defaults(config_path: str, section: str) -> Dict[str, Any]:
+    if not config_path:
+        return {}
+    path = Path(config_path)
+    if not path.exists():
+        return {}
+    try:
+        import yaml  # type: ignore
+    except Exception:
+        return {}
+    try:
+        payload = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    data = payload.get(section)
+    if not isinstance(data, dict):
+        return {}
+    return data
+
+
+def _resolve_recent_runs(config_payload: Dict[str, Any], cli_recent_runs: int | None) -> int:
+    if cli_recent_runs is not None:
+        return max(1, int(cli_recent_runs))
+    candidate = config_payload.get("recent_runs", DEFAULT_KEY_COUNTS_POLICY.get("recent_runs", 5))
+    return max(1, _safe_int(candidate, 5))
 
 
 def _extract_context_diff_keys(report: Dict[str, Any]) -> List[str]:
@@ -49,12 +89,30 @@ def _report_row(path: str, report: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def build_markdown(*, reports: List[Tuple[str, Dict[str, Any]]], title: str) -> str:
+def build_markdown(
+    *,
+    reports: List[Tuple[str, Dict[str, Any]]],
+    title: str,
+    policy_source: Dict[str, Any] | None = None,
+) -> str:
     out: List[str] = []
     out.append(f"### {title}")
     out.append("")
 
     rows = [_report_row(path, payload) for path, payload in reports if payload]
+    policy = _as_dict(policy_source)
+    resolved_policy = _as_dict(policy.get("resolved_policy"))
+    out.append("| Check | Value |")
+    out.append("|---|---|")
+    out.append(f"| Report count | `{len(rows)}` |")
+    out.append(
+        "| Policy source | "
+        f"`config={policy.get('config', '')}, "
+        f"loaded={bool(policy.get('config_loaded', False))}, "
+        f"resolved_recent_runs={_safe_int(resolved_policy.get('recent_runs'), 0)}` |"
+    )
+    out.append("")
+
     if not rows:
         out.append("No regression reports found.")
         out.append("")
@@ -100,6 +158,22 @@ def main() -> int:
         description="Render Graph2D context drift key counts from one or more regression reports."
     )
     parser.add_argument(
+        "--config",
+        default="config/graph2d_context_drift_alerts.yaml",
+        help="YAML config path for drift key count policy metadata.",
+    )
+    parser.add_argument(
+        "--config-section",
+        default="graph2d_context_drift_alerts",
+        help="Config section name in yaml.",
+    )
+    parser.add_argument(
+        "--recent-runs",
+        type=int,
+        default=None,
+        help="Recent run policy override for metadata output.",
+    )
+    parser.add_argument(
         "--report-json",
         action="append",
         default=[],
@@ -119,7 +193,29 @@ def main() -> int:
         payload = _read_json(Path(path))
         reports.append((path, payload))
 
-    markdown = build_markdown(reports=reports, title=str(args.title))
+    config_payload = _load_yaml_defaults(str(args.config), str(args.config_section))
+    recent_runs = _resolve_recent_runs(config_payload, args.recent_runs)
+    policy_source = {
+        "config": str(args.config),
+        "config_section": str(args.config_section),
+        "config_loaded": bool(config_payload),
+        "resolved_policy": {
+            "recent_runs": int(recent_runs),
+        },
+        "cli_overrides": {
+            key: value
+            for key, value in {
+                "recent_runs": args.recent_runs,
+            }.items()
+            if value is not None
+        },
+    }
+
+    markdown = build_markdown(
+        reports=reports,
+        title=str(args.title),
+        policy_source=policy_source,
+    )
     if str(args.output_md).strip():
         out_path = Path(str(args.output_md))
         out_path.parent.mkdir(parents=True, exist_ok=True)

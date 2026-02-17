@@ -357,6 +357,7 @@ jobs:
         if: always() && matrix.python-version == '3.11'
         run: |
           python scripts/ci/render_graph2d_context_drift_key_counts.py \
+            --config config/graph2d_context_drift_alerts.yaml \
             --report-json /tmp/graph2d-seed-gate-regression-ci-${{ matrix.python-version }}.json \
             --report-json /tmp/graph2d-context-drift-warn-ci-${{ matrix.python-version }}.json \
             --title "Graph2D Context Drift Key Counts (CI Tests, Python ${{ matrix.python-version }})" \
@@ -379,9 +380,9 @@ jobs:
         run: |
           set -o pipefail
           python scripts/ci/update_graph2d_context_drift_history.py \
+            --config config/graph2d_context_drift_alerts.yaml \
             --history-json /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json \
             --output-json /tmp/graph2d-context-drift-history-ci-${{ matrix.python-version }}.json \
-            --max-runs 20 \
             --run-id "${{ github.run_id }}" \
             --run-number "${{ github.run_number }}" \
             --ref-name "${{ github.ref_name }}" \

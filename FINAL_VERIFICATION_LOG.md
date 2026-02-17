@@ -4866,3 +4866,29 @@
     - local smoke confirmed config default window is `recent_runs=5`.
   - Report:
     - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_HISTORY_WINDOW_POLICY_20260217.md`
+- **Graph2D Seed Gate Follow-up: Context Drift Policy Source + E2E Fallback Hardening (Continue)**:
+  - Updated `config/graph2d_context_drift_alerts.yaml`:
+    - added `max_runs: 20` to unify history retention policy source.
+  - Updated `scripts/ci/update_graph2d_context_drift_history.py`:
+    - added `--config` / `--config-section`,
+    - `--max-runs` is now CLI override (policy default from config),
+    - snapshot payload now includes unified `policy_source`,
+    - fallback order: CLI > config > built-in default.
+  - Updated `scripts/ci/render_graph2d_context_drift_history.py`:
+    - markdown now includes policy-source summary block.
+  - Updated `scripts/ci/render_graph2d_context_drift_key_counts.py`:
+    - added `--config` / `--config-section` / `--recent-runs`,
+    - markdown now includes policy-source summary block.
+  - Updated `.github/workflows/ci.yml`:
+    - key-count render step now passes config path,
+    - history update step now passes config path,
+    - removed hardcoded `--max-runs 20` in CI (now config-driven).
+  - Added tests:
+    - `tests/unit/test_graph2d_context_drift_scripts_e2e.py`
+      (missing/broken config fallback across update/render scripts),
+    - updated history/key-count unit suites for policy-source and policy resolution.
+  - Validation:
+    - `pytest tests/unit/test_graph2d_context_drift_history.py tests/unit/test_graph2d_context_drift_key_counts.py tests/unit/test_graph2d_context_drift_alerts.py tests/unit/test_graph2d_context_drift_warning_emit.py tests/unit/test_graph2d_context_drift_scripts_e2e.py -q` (`23 passed`)
+    - `.github/workflows/ci.yml` parsed via `yaml.safe_load` (`ci.yml: ok`)
+  - Report:
+    - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_POLICY_SOURCE_E2E_20260217.md`

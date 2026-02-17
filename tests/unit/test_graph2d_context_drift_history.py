@@ -27,6 +27,14 @@ def test_update_history_replaces_same_run_id() -> None:
     assert out[0]["status"] == "passed"
 
 
+def test_resolve_max_runs_prefers_cli_override() -> None:
+    from scripts.ci.update_graph2d_context_drift_history import _resolve_max_runs
+
+    assert _resolve_max_runs({"max_runs": 30}, 7) == 7
+    assert _resolve_max_runs({"max_runs": 30}, None) == 30
+    assert _resolve_max_runs({}, None) == 20
+
+
 def test_build_history_markdown_contains_recent_totals() -> None:
     from scripts.ci.render_graph2d_context_drift_history import build_markdown
 
@@ -81,6 +89,22 @@ def test_resolve_recent_runs_prefers_cli_override() -> None:
     assert _resolve_recent_runs({"recent_runs": 7}, 3) == 3
     assert _resolve_recent_runs({"recent_runs": 7}, None) == 7
     assert _resolve_recent_runs({}, None) == 10
+
+
+def test_build_history_markdown_contains_policy_source() -> None:
+    from scripts.ci.render_graph2d_context_drift_history import build_markdown
+
+    text = build_markdown(
+        history=[],
+        title="Context Drift History",
+        policy_source={
+            "config": "config/graph2d_context_drift_alerts.yaml",
+            "config_loaded": True,
+            "resolved_policy": {"recent_runs": 5},
+        },
+    )
+    assert "config/graph2d_context_drift_alerts.yaml" in text
+    assert "resolved_recent_runs=5" in text
 
 
 def test_build_history_markdown_handles_empty() -> None:

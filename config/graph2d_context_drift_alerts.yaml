@@ -1,4 +1,5 @@
 graph2d_context_drift_alerts:
+  max_runs: 20
   recent_runs: 5
   default_key_threshold: 3
   fail_on_alert: false

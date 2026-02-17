@@ -46,6 +46,30 @@ def test_build_markdown_counts_context_diff_keys() -> None:
     assert "`max_samples` | 1" in text
 
 
+def test_build_markdown_contains_policy_source() -> None:
+    from scripts.ci.render_graph2d_context_drift_key_counts import build_markdown
+
+    text = build_markdown(
+        reports=[],
+        title="Context Drift Keys",
+        policy_source={
+            "config": "config/graph2d_context_drift_alerts.yaml",
+            "config_loaded": True,
+            "resolved_policy": {"recent_runs": 5},
+        },
+    )
+    assert "config/graph2d_context_drift_alerts.yaml" in text
+    assert "resolved_recent_runs=5" in text
+
+
+def test_resolve_recent_runs_prefers_cli_override() -> None:
+    from scripts.ci.render_graph2d_context_drift_key_counts import _resolve_recent_runs
+
+    assert _resolve_recent_runs({"recent_runs": 7}, 3) == 3
+    assert _resolve_recent_runs({"recent_runs": 7}, None) == 7
+    assert _resolve_recent_runs({}, None) == 5
+
+
 def test_build_markdown_handles_empty_report_list() -> None:
     from scripts.ci.render_graph2d_context_drift_key_counts import build_markdown
 
