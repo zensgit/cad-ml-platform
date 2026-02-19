@@ -5023,3 +5023,29 @@
     - local `make validate-graph2d-context-drift-pipeline` passed and archived policy outputs under `reports/experiments/<date>/graph2d_context_drift_local_policy_test`.
   - Report:
     - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_GUARD_20260219.md`
+- **Graph2D Seed Gate Follow-up: Context Drift Index Policy Branch-Aware Hard Gate + CI Monitoring (Continue)**:
+  - Updated `.github/workflows/ci.yml`:
+    - index policy check is now branch-aware hard-gate capable:
+      - hard-gate when `GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_HARD_FAIL=true`,
+      - hard-gate on `release/*` and `hotfix/*`,
+      - otherwise non-blocking on regular branches.
+    - policy script now receives resolved `--fail-on-breach`.
+  - Updated `Makefile`:
+    - local context-drift pipeline accepts
+      `GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_FAIL_ON_BREACH` (default `auto`).
+  - Added tests:
+    - `tests/unit/test_graph2d_context_drift_index_policy.py`
+      (CLI override precedence for `fail_on_breach`).
+  - Validation:
+    - local targeted suite:
+      `pytest -q tests/unit/test_graph2d_context_drift_index_policy.py tests/unit/test_graph2d_context_drift_artifact_index.py tests/unit/test_graph2d_context_drift_index_summary.py tests/unit/test_graph2d_context_drift_index_validation.py tests/unit/test_graph2d_context_drift_archive.py tests/unit/test_graph2d_context_drift_index_annotations.py tests/unit/test_graph2d_context_drift_alerts.py tests/unit/test_graph2d_context_drift_history.py tests/unit/test_graph2d_context_drift_key_counts.py tests/unit/test_graph2d_context_drift_scripts_e2e.py tests/unit/test_graph2d_context_drift_warning_emit.py`
+      (`45 passed, 1 warning`)
+    - CI monitor (commit `3576a8f`) confirmed policy step execution and expected runtime decision on `main`:
+      - `index_policy_fail_on_breach=auto`
+      - policy output `status=pass`, `current_severity=clear`.
+    - CI failures on this commit were baseline issues unrelated to this change:
+      - missing `torch` in unit-collection environments,
+      - missing `data/synthetic_v2` for seed gate dataset,
+      - existing security-audit backlog (`code security issues`).
+  - Report:
+    - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_BRANCH_AWARE_CI_MONITOR_20260219.md`
