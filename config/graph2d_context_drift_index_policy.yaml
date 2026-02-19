@@ -1,0 +1,3 @@
+graph2d_context_drift_index_policy:
+  max_allowed_severity: alerted
+  fail_on_breach: false

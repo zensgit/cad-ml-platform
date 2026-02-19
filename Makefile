@@ -246,6 +246,12 @@ validate-graph2d-context-drift-pipeline: ## Graph2D 上下文漂移全链路（�
 	$(PYTHON) scripts/ci/validate_graph2d_context_drift_index.py \
 		--index-json $${GRAPH2D_CONTEXT_DRIFT_INDEX_JSON:-/tmp/graph2d-context-drift-index-local.json} \
 		--schema-json $${GRAPH2D_CONTEXT_DRIFT_INDEX_SCHEMA_JSON:-config/graph2d_context_drift_index_schema.json}
+	$(PYTHON) scripts/ci/check_graph2d_context_drift_index_policy.py \
+		--index-json $${GRAPH2D_CONTEXT_DRIFT_INDEX_JSON:-/tmp/graph2d-context-drift-index-local.json} \
+		--config $${GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_CONFIG:-config/graph2d_context_drift_index_policy.yaml} \
+		--title "Graph2D Context Drift Index Policy (Local)" \
+		--output-json $${GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_JSON:-/tmp/graph2d-context-drift-index-policy-local.json} \
+		--output-md $${GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_MD:-/tmp/graph2d-context-drift-index-policy-local.md}
 	$(PYTHON) scripts/ci/archive_graph2d_context_drift_artifacts.py \
 		--output-root $${GRAPH2D_CONTEXT_DRIFT_ARCHIVE_ROOT:-reports/experiments} \
 		--bucket $${GRAPH2D_CONTEXT_DRIFT_ARCHIVE_BUCKET:-graph2d_context_drift_local} \
@@ -258,7 +264,9 @@ validate-graph2d-context-drift-pipeline: ## Graph2D 上下文漂移全链路（�
 		--artifact $${GRAPH2D_CONTEXT_DRIFT_HISTORY_SUMMARY_JSON:-/tmp/graph2d-context-drift-history-summary-local.json} \
 		--artifact $${GRAPH2D_CONTEXT_DRIFT_HISTORY_MD:-/tmp/graph2d-context-drift-history-local.md} \
 		--artifact $${GRAPH2D_CONTEXT_DRIFT_INDEX_JSON:-/tmp/graph2d-context-drift-index-local.json} \
-		--artifact $${GRAPH2D_CONTEXT_DRIFT_INDEX_MD:-/tmp/graph2d-context-drift-index-local.md}
+		--artifact $${GRAPH2D_CONTEXT_DRIFT_INDEX_MD:-/tmp/graph2d-context-drift-index-local.md} \
+		--artifact $${GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_JSON:-/tmp/graph2d-context-drift-index-policy-local.json} \
+		--artifact $${GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_MD:-/tmp/graph2d-context-drift-index-policy-local.md}
 
 validate-graph2d-seed-gate-baseline-health: ## Graph2D 基线健康检查（不依赖当前 summary）
 	@echo "$(GREEN)Checking Graph2D seed gate baseline health (standard + strict)...$(NC)"

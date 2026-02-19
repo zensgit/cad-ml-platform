@@ -471,6 +471,24 @@ jobs:
             --index-json /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json \
             --schema-json config/graph2d_context_drift_index_schema.json \
             2>&1 | tee /tmp/graph2d-context-drift-index-validate-ci-${{ matrix.python-version }}.log
+      - name: Check Graph2D context drift index policy (3.11 only, non-blocking)
+        if: always() && matrix.python-version == '3.11'
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python scripts/ci/check_graph2d_context_drift_index_policy.py \
+            --index-json /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json \
+            --config config/graph2d_context_drift_index_policy.yaml \
+            --title "Graph2D Context Drift Index Policy (CI Tests, Python ${{ matrix.python-version }})" \
+            --output-json /tmp/graph2d-context-drift-index-policy-ci-${{ matrix.python-version }}.json \
+            --output-md /tmp/graph2d-context-drift-index-policy-ci-${{ matrix.python-version }}.md \
+            2>&1 | tee /tmp/graph2d-context-drift-index-policy-ci-${{ matrix.python-version }}.log
+      - name: Append Graph2D context drift index policy summary (3.11 only)
+        if: always() && matrix.python-version == '3.11'
+        run: |
+          if [ -f /tmp/graph2d-context-drift-index-policy-ci-${{ matrix.python-version }}.md ]; then
+            cat /tmp/graph2d-context-drift-index-policy-ci-${{ matrix.python-version }}.md >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Emit Graph2D context drift index annotation (3.11 only)
         if: always() && matrix.python-version == '3.11'
         run: |
@@ -530,6 +548,9 @@ jobs:
             /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json
             /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.md
             /tmp/graph2d-context-drift-index-validate-ci-${{ matrix.python-version }}.log
+            /tmp/graph2d-context-drift-index-policy-ci-${{ matrix.python-version }}.json
+            /tmp/graph2d-context-drift-index-policy-ci-${{ matrix.python-version }}.md
+            /tmp/graph2d-context-drift-index-policy-ci-${{ matrix.python-version }}.log
           if-no-files-found: ignore
       - name: Upload Graph2D context drift archive artifact (3.11 only)
         if: always() && matrix.python-version == '3.11'

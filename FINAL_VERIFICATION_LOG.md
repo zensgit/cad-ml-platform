@@ -5001,3 +5001,25 @@
     - local `make validate-graph2d-context-drift-pipeline` passed with archive output under `reports/experiments/<date>/graph2d_context_drift_local_test`.
   - Report:
     - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_SEVERITY_SCHEMA_ARCHIVE_20260217.md`
+- **Graph2D Seed Gate Follow-up: Context Drift Index Policy Guard (Continue)**:
+  - Added `config/graph2d_context_drift_index_policy.yaml`:
+    - `max_allowed_severity` / `fail_on_breach` policy defaults.
+  - Added `scripts/ci/check_graph2d_context_drift_index_policy.py`:
+    - checks index severity against policy threshold,
+    - emits json/md policy report with standard `policy_source`,
+    - optional non-zero exit when breach+fail mode is enabled.
+  - Updated `.github/workflows/ci.yml`:
+    - added non-blocking index policy check step,
+    - appends policy markdown to `GITHUB_STEP_SUMMARY`,
+    - uploads policy json/md/log with index artifacts.
+  - Updated `Makefile`:
+    - `validate-graph2d-context-drift-pipeline` now runs index policy check,
+    - archive step includes policy json/md outputs.
+  - Added tests:
+    - `tests/unit/test_graph2d_context_drift_index_policy.py`.
+  - Validation:
+    - `pytest tests/unit/test_graph2d_context_drift_index_policy.py tests/unit/test_graph2d_context_drift_artifact_index.py tests/unit/test_graph2d_context_drift_index_summary.py tests/unit/test_graph2d_context_drift_index_validation.py tests/unit/test_graph2d_context_drift_archive.py tests/unit/test_graph2d_context_drift_index_annotations.py tests/unit/test_graph2d_context_drift_alerts.py tests/unit/test_graph2d_context_drift_history.py tests/unit/test_graph2d_context_drift_key_counts.py tests/unit/test_graph2d_context_drift_scripts_e2e.py tests/unit/test_graph2d_context_drift_warning_emit.py -q` (`43 passed`)
+    - `.github/workflows/ci.yml` parsed via `yaml.safe_load` (`ci.yml: ok`)
+    - local `make validate-graph2d-context-drift-pipeline` passed and archived policy outputs under `reports/experiments/<date>/graph2d_context_drift_local_policy_test`.
+  - Report:
+    - `reports/DEV_GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_GUARD_20260219.md`
