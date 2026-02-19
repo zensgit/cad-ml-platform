@@ -5,7 +5,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 import ezdxf
+import pytest
 
+pytest.importorskip("torch")
 from src.ml.train.dataset_2d import DXFManifestDataset, DXF_NODE_DIM
 
 
@@ -61,4 +63,3 @@ def test_dxf_manifest_dataset_disk_cache_avoids_reparsing(tmp_path, monkeypatch)
 
     with patch("src.ml.train.dataset_2d.ezdxf.readfile", side_effect=RuntimeError("should_not_read")):
         _graph2, _label2 = dataset2[0]
-

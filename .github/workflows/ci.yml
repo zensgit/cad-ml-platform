@@ -251,7 +251,13 @@ jobs:
           GRAPH2D_SEED_GATE_WORK_ROOT: /tmp/graph2d-seed-gate-ci-${{ matrix.python-version }}
         run: |
           set -o pipefail
-          make validate-graph2d-seed-gate 2>&1 | tee /tmp/graph2d-seed-gate-ci.log
+          MISSING_DXF_DIR_MODE="skip"
+          if [ "${{ vars.GRAPH2D_SEED_GATE_REQUIRE_DATA }}" = "true" ] || [[ "${{ github.ref_name }}" == release/* ]] || [[ "${{ github.ref_name }}" == hotfix/* ]]; then
+            MISSING_DXF_DIR_MODE="fail"
+          fi
+          echo "seed_gate_missing_dxf_dir_mode=${MISSING_DXF_DIR_MODE}"
+          GRAPH2D_SEED_GATE_MISSING_DXF_DIR_MODE="${MISSING_DXF_DIR_MODE}" \
+            make validate-graph2d-seed-gate 2>&1 | tee /tmp/graph2d-seed-gate-ci.log
       - name: Upload Graph2D seed gate log (3.11 only)
         if: always() && matrix.python-version == '3.11'
         uses: actions/upload-artifact@v4
@@ -579,7 +585,13 @@ jobs:
           GRAPH2D_SEED_GATE_STRICT_WORK_ROOT: /tmp/graph2d-seed-gate-strict-ci-${{ matrix.python-version }}
         run: |
           set -o pipefail
-          make validate-graph2d-seed-gate-strict 2>&1 | tee /tmp/graph2d-seed-gate-strict-ci.log
+          MISSING_DXF_DIR_MODE="skip"
+          if [ "${{ vars.GRAPH2D_SEED_GATE_REQUIRE_DATA }}" = "true" ] || [[ "${{ github.ref_name }}" == release/* ]] || [[ "${{ github.ref_name }}" == hotfix/* ]]; then
+            MISSING_DXF_DIR_MODE="fail"
+          fi
+          echo "strict_seed_gate_missing_dxf_dir_mode=${MISSING_DXF_DIR_MODE}"
+          GRAPH2D_SEED_GATE_STRICT_MISSING_DXF_DIR_MODE="${MISSING_DXF_DIR_MODE}" \
+            make validate-graph2d-seed-gate-strict 2>&1 | tee /tmp/graph2d-seed-gate-strict-ci.log
       - name: Upload Graph2D strict seed gate log (3.11 only, optional)
         if: always() && matrix.python-version == '3.11' && vars.GRAPH2D_STRICT_SEED_GATE_ENABLED == 'true'
         uses: actions/upload-artifact@v4

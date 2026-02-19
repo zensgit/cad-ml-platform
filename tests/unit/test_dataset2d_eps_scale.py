@@ -1,5 +1,7 @@
 import ezdxf
+import pytest
 
+pytest.importorskip("torch")
 from src.ml.train.dataset_2d import DXFDataset
 
 
@@ -49,4 +51,3 @@ def test_eps_scale_controls_endpoint_connection_distance(monkeypatch):
     assert int(x_big.size(0)) == 3
     nodes_in_edges_big = set(edge_big.flatten().tolist()) if edge_big.numel() else set()
     assert 2 in nodes_in_edges_big
-

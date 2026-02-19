@@ -154,6 +154,78 @@ def _write_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def _write_skipped_outputs(
+    *,
+    work_root: Path,
+    args: argparse.Namespace,
+    seeds: List[int],
+    reason: str,
+) -> None:
+    work_root.mkdir(parents=True, exist_ok=True)
+    (work_root / ".gitignore").write_text("*\n!.gitignore\n", encoding="utf-8")
+
+    rows: List[Dict[str, Any]] = []
+    gate = {
+        "enabled": False,
+        "passed": True,
+        "failures": [],
+        "skipped": True,
+        "reason": str(reason),
+        "num_runs": 0,
+        "num_error_runs": 0,
+    }
+    summary: Dict[str, Any] = {
+        "status": "skipped_no_data",
+        "skip_reason": str(reason),
+        "skip_mode": str(args.missing_dxf_dir_mode),
+        "config": str(args.config),
+        "training_profile": str(args.training_profile),
+        "manifest_label_mode": str(args.manifest_label_mode),
+        "dxf_dir": str(args.dxf_dir or ""),
+        "seeds": list(seeds),
+        "num_runs": 0,
+        "num_success_runs": 0,
+        "num_error_runs": 0,
+        "num_retried_runs": 0,
+        "retry_failures": int(max(0, int(args.retry_failures))),
+        "retry_backoff_seconds": float(max(0.0, float(args.retry_backoff_seconds))),
+        "max_samples": int(max(0, int(args.max_samples))),
+        "min_label_confidence": float(args.min_label_confidence),
+        "force_normalize_labels": str(args.force_normalize_labels),
+        "force_clean_min_count": int(args.force_clean_min_count),
+        "strict_accuracy_mean": -1.0,
+        "strict_accuracy_min": -1.0,
+        "strict_accuracy_max": -1.0,
+        "strict_top_pred_ratio_mean": 0.0,
+        "strict_top_pred_ratio_max": 0.0,
+        "strict_low_conf_threshold": float(args.strict_low_confidence_threshold),
+        "strict_low_conf_ratio_mean": 0.0,
+        "strict_low_conf_ratio_max": 0.0,
+        "manifest_distinct_labels_min": 0,
+        "manifest_distinct_labels_max": 0,
+        "work_root": str(work_root),
+        "gate": gate,
+    }
+
+    results_csv = work_root / "seed_sweep_results.csv"
+    results_json = work_root / "seed_sweep_results.json"
+    summary_json = work_root / "seed_sweep_summary.json"
+
+    _write_csv(results_csv, rows)
+    results_json.write_text(
+        json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    summary_json.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+    print(f"skip_reason={reason}")
+    print(f"results_csv={results_csv}")
+    print(f"results_json={results_json}")
+    print(f"summary_json={summary_json}")
+    print(f"gate={json.dumps(gate, ensure_ascii=False)}")
+
+
 def _run(cmd: List[str], dry_run: bool = False) -> None:
     printable = " ".join(cmd)
     print(f"+ {printable}")
@@ -438,22 +510,15 @@ def main() -> int:
         action="store_true",
         help="Fail gate when any seed run exits with error.",
     )
+    parser.add_argument(
+        "--missing-dxf-dir-mode",
+        choices=["fail", "skip"],
+        default="fail",
+        help="Behavior when dxf dir is missing/empty (default: fail).",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print commands only")
     _apply_config_defaults(parser, str(pre_args.config), "graph2d_seed_sweep")
     args = parser.parse_args()
-
-    if not str(args.dxf_dir).strip():
-        print("DXF dir is required. Pass --dxf-dir or provide dxf_dir in config.")
-        return 2
-    dxf_dir = Path(args.dxf_dir)
-    if not dxf_dir.exists():
-        print(f"DXF dir not found: {dxf_dir}")
-        return 2
-
-    seeds = _parse_seeds(args.seeds)
-    if not seeds:
-        print("No seeds provided.")
-        return 2
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
     work_root = (
@@ -463,6 +528,45 @@ def main() -> int:
     )
     work_root.mkdir(parents=True, exist_ok=True)
     (work_root / ".gitignore").write_text("*\n!.gitignore\n", encoding="utf-8")
+
+    seeds: List[int] = []
+    try:
+        seeds = _parse_seeds(args.seeds)
+    except Exception as exc:
+        print(f"Invalid seeds '{args.seeds}': {exc}")
+        return 2
+
+    if not str(args.dxf_dir).strip():
+        reason = "DXF dir is required. Pass --dxf-dir or provide dxf_dir in config."
+        if str(args.missing_dxf_dir_mode) == "skip":
+            print(f"{reason} Skipping seed sweep by mode=skip.")
+            _write_skipped_outputs(
+                work_root=work_root,
+                args=args,
+                seeds=seeds,
+                reason=reason,
+            )
+            return 0
+        print(reason)
+        return 2
+    dxf_dir = Path(args.dxf_dir)
+    if not dxf_dir.exists():
+        reason = f"DXF dir not found: {dxf_dir}"
+        if str(args.missing_dxf_dir_mode) == "skip":
+            print(f"{reason} Skipping seed sweep by mode=skip.")
+            _write_skipped_outputs(
+                work_root=work_root,
+                args=args,
+                seeds=seeds,
+                reason=reason,
+            )
+            return 0
+        print(reason)
+        return 2
+
+    if not seeds:
+        print("No seeds provided.")
+        return 2
 
     rows: List[Dict[str, Any]] = []
     for seed in seeds:

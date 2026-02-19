@@ -147,6 +147,20 @@ def _safe_bool(value: Any, default: bool = False) -> bool:
     return bool(default)
 
 
+def _resolve_auto_toggle(value: str, *, default: bool) -> bool:
+    text = str(value or "auto").strip().lower()
+    if text == "true":
+        return True
+    if text == "false":
+        return False
+    return bool(default)
+
+
+def _is_skipped_summary(payload: Dict[str, Any]) -> bool:
+    status = str(payload.get("status") or "").strip().lower()
+    return status.startswith("skipped")
+
+
 def _safe_context_keys(value: Any, default: List[str] | None = None) -> List[str]:
     raw: List[str] = []
     if isinstance(value, list):
@@ -879,6 +893,14 @@ def main() -> int:
         action="store_true",
         help="Use baseline channel metrics as current summary (baseline health check mode).",
     )
+    parser.add_argument(
+        "--allow-skipped-summary",
+        choices=["auto", "true", "false"],
+        default="auto",
+        help=(
+            "Treat skipped seed-sweep summaries as warning-only (auto defaults to true)."
+        ),
+    )
     args = parser.parse_args()
 
     baseline = _read_json(Path(args.baseline_json))
@@ -939,29 +961,82 @@ def main() -> int:
             ),
         },
     )
-
-    report = evaluate_regression(
-        summary=summary,
-        current_context=current_context,
-        baseline_channel=baseline_channel,
-        channel=str(args.channel),
-        max_accuracy_mean_drop=float(thresholds["max_accuracy_mean_drop"]),
-        max_accuracy_min_drop=float(thresholds["max_accuracy_min_drop"]),
-        max_top_pred_ratio_increase=float(thresholds["max_top_pred_ratio_increase"]),
-        max_low_conf_ratio_increase=float(thresholds["max_low_conf_ratio_increase"]),
-        max_distinct_labels_drop=int(thresholds["max_distinct_labels_drop"]),
-        baseline_payload=baseline,
-        baseline_json_path=str(args.baseline_json),
-        max_baseline_age_days=int(policy["max_baseline_age_days"]),
-        require_snapshot_ref_exists=bool(policy["require_snapshot_ref_exists"]),
-        require_snapshot_metrics_match=bool(policy["require_snapshot_metrics_match"]),
-        require_integrity_hash_match=bool(policy["require_integrity_hash_match"]),
-        require_snapshot_date_match=bool(policy["require_snapshot_date_match"]),
-        require_snapshot_ref_date_match=bool(policy["require_snapshot_ref_date_match"]),
-        require_context_match=bool(policy["require_context_match"]),
-        context_mismatch_mode=str(policy.get("context_mismatch_mode", "fail")),
-        context_keys=list(policy.get("context_keys") or []),
+    allow_skipped_summary = _resolve_auto_toggle(
+        str(args.allow_skipped_summary),
+        default=True,
     )
+
+    if (
+        (not bool(args.use_baseline_as_current))
+        and bool(allow_skipped_summary)
+        and _is_skipped_summary(summary_payload)
+    ):
+        skip_status = str(summary_payload.get("status") or "skipped")
+        skip_reason = str(summary_payload.get("skip_reason") or "").strip()
+        message = f"current summary is skipped ({skip_status})"
+        if skip_reason:
+            message = f"{message}: {skip_reason}"
+        report = {
+            "channel": str(args.channel),
+            "status": "passed_with_warnings",
+            "failures": [],
+            "warnings": [message],
+            "thresholds": {
+                "max_accuracy_mean_drop": float(thresholds["max_accuracy_mean_drop"]),
+                "max_accuracy_min_drop": float(thresholds["max_accuracy_min_drop"]),
+                "max_top_pred_ratio_increase": float(
+                    thresholds["max_top_pred_ratio_increase"]
+                ),
+                "max_low_conf_ratio_increase": float(
+                    thresholds["max_low_conf_ratio_increase"]
+                ),
+                "max_distinct_labels_drop": int(thresholds["max_distinct_labels_drop"]),
+                "max_baseline_age_days": int(policy["max_baseline_age_days"]),
+                "require_snapshot_ref_exists": bool(policy["require_snapshot_ref_exists"]),
+                "require_snapshot_metrics_match": bool(
+                    policy["require_snapshot_metrics_match"]
+                ),
+                "require_integrity_hash_match": bool(policy["require_integrity_hash_match"]),
+                "require_snapshot_date_match": bool(policy["require_snapshot_date_match"]),
+                "require_snapshot_ref_date_match": bool(
+                    policy["require_snapshot_ref_date_match"]
+                ),
+                "require_context_match": bool(policy["require_context_match"]),
+                "context_mismatch_mode": str(policy.get("context_mismatch_mode", "fail")),
+                "context_keys": list(policy.get("context_keys") or []),
+            },
+            "baseline_metadata": {
+                "date": str(baseline.get("date") or ""),
+                "skipped_current_summary": True,
+                "skip_status": skip_status,
+                "skip_reason": skip_reason,
+            },
+            "baseline": _metrics_view(baseline_channel),
+            "current": _metrics_view(summary_payload),
+        }
+    else:
+        report = evaluate_regression(
+            summary=summary,
+            current_context=current_context,
+            baseline_channel=baseline_channel,
+            channel=str(args.channel),
+            max_accuracy_mean_drop=float(thresholds["max_accuracy_mean_drop"]),
+            max_accuracy_min_drop=float(thresholds["max_accuracy_min_drop"]),
+            max_top_pred_ratio_increase=float(thresholds["max_top_pred_ratio_increase"]),
+            max_low_conf_ratio_increase=float(thresholds["max_low_conf_ratio_increase"]),
+            max_distinct_labels_drop=int(thresholds["max_distinct_labels_drop"]),
+            baseline_payload=baseline,
+            baseline_json_path=str(args.baseline_json),
+            max_baseline_age_days=int(policy["max_baseline_age_days"]),
+            require_snapshot_ref_exists=bool(policy["require_snapshot_ref_exists"]),
+            require_snapshot_metrics_match=bool(policy["require_snapshot_metrics_match"]),
+            require_integrity_hash_match=bool(policy["require_integrity_hash_match"]),
+            require_snapshot_date_match=bool(policy["require_snapshot_date_match"]),
+            require_snapshot_ref_date_match=bool(policy["require_snapshot_ref_date_match"]),
+            require_context_match=bool(policy["require_context_match"]),
+            context_mismatch_mode=str(policy.get("context_mismatch_mode", "fail")),
+            context_keys=list(policy.get("context_keys") or []),
+        )
     report["threshold_source"] = {
         "config": str(args.config),
         "config_loaded": bool(config_payload),
@@ -1022,6 +1097,11 @@ def main() -> int:
                 "use_baseline_as_current": (
                     bool(args.use_baseline_as_current)
                     if bool(args.use_baseline_as_current)
+                    else None
+                ),
+                "allow_skipped_summary": (
+                    str(args.allow_skipped_summary)
+                    if str(args.allow_skipped_summary) != "auto"
                     else None
                 ),
             }.items()

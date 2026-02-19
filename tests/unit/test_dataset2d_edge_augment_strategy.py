@@ -1,5 +1,7 @@
 import ezdxf
+import pytest
 
+pytest.importorskip("torch")
 from src.ml.train.dataset_2d import DXFDataset
 
 
@@ -49,4 +51,3 @@ def test_edge_augment_strategy_isolates_only_skips_when_no_isolates(monkeypatch)
     pairs_iso = _edge_pairs(edge_iso)
     assert (0, 2) not in pairs_iso
     assert (2, 0) not in pairs_iso
-

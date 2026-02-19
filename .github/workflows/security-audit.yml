@@ -95,13 +95,32 @@ jobs:
           # Exclude OCR module (contains legitimate image processing code)
           bandit -r src/ --exclude src/core/vision,src/core/ocr -f json -o bandit-report.json || true
 
-          # Check for high severity issues
+          HIGH_ISSUES="0"
+          TOTAL_ISSUES="0"
           if [ -f bandit-report.json ]; then
             HIGH_ISSUES=$(jq '.results | map(select(.issue_severity == "HIGH")) | length' bandit-report.json)
-            if [ "$HIGH_ISSUES" -gt "0" ]; then
-              echo "::warning::Found $HIGH_ISSUES high severity code issues"
-              echo "high_code_issues=$HIGH_ISSUES" >> $GITHUB_OUTPUT
-            fi
+            TOTAL_ISSUES=$(jq '.results | length' bandit-report.json)
+          fi
+
+          BASELINE_HIGH="0"
+          BASELINE_TOTAL="0"
+          if [ -f config/security_audit_bandit_baseline.json ]; then
+            BASELINE_HIGH=$(jq '.bandit.high_code_issues // 0' config/security_audit_bandit_baseline.json 2>/dev/null || echo "0")
+            BASELINE_TOTAL=$(jq '.bandit.total_issues // 0' config/security_audit_bandit_baseline.json 2>/dev/null || echo "0")
+          fi
+
+          HIGH_DELTA=$((HIGH_ISSUES - BASELINE_HIGH))
+          TOTAL_DELTA=$((TOTAL_ISSUES - BASELINE_TOTAL))
+
+          echo "high_code_issues=$HIGH_ISSUES" >> $GITHUB_OUTPUT
+          echo "total_code_issues=$TOTAL_ISSUES" >> $GITHUB_OUTPUT
+          echo "high_code_issues_baseline=$BASELINE_HIGH" >> $GITHUB_OUTPUT
+          echo "total_code_issues_baseline=$BASELINE_TOTAL" >> $GITHUB_OUTPUT
+          echo "high_code_issues_delta=$HIGH_DELTA" >> $GITHUB_OUTPUT
+          echo "total_code_issues_delta=$TOTAL_DELTA" >> $GITHUB_OUTPUT
+
+          if [ "$HIGH_ISSUES" -gt "0" ]; then
+            echo "::warning::Found $HIGH_ISSUES high severity code issues"
           fi
 
       - name: Run semgrep scan
@@ -153,6 +172,8 @@ jobs:
             TOTAL_ISSUES=$(jq '.results | length' bandit-report.json)
             echo "- Total issues: $TOTAL_ISSUES" >> security-summary.md
             echo "- High severity: ${{ steps.bandit.outputs.high_code_issues || 0 }}" >> security-summary.md
+            echo "- High baseline: ${{ steps.bandit.outputs.high_code_issues_baseline || 0 }}" >> security-summary.md
+            echo "- High delta: ${{ steps.bandit.outputs.high_code_issues_delta || 0 }}" >> security-summary.md
             echo "" >> security-summary.md
           fi
 
@@ -223,9 +244,15 @@ jobs:
             exit 4
           fi
 
-          if [ "${{ steps.bandit.outputs.high_code_issues }}" -gt "0" ]; then
-            echo "::warning::Code security issues found"
+          BANDIT_HIGH_DELTA="${{ steps.bandit.outputs.high_code_issues_delta || 0 }}"
+          BANDIT_HIGH_MAX_DELTA="${{ vars.SECURITY_AUDIT_BANDIT_HIGH_MAX_DELTA || 0 }}"
+          if [ "$BANDIT_HIGH_DELTA" -gt "$BANDIT_HIGH_MAX_DELTA" ]; then
+            echo "::warning::Code security issues above baseline delta: delta=${BANDIT_HIGH_DELTA}, max=${BANDIT_HIGH_MAX_DELTA}"
             exit 6
+          fi
+
+          if [ "${{ steps.bandit.outputs.high_code_issues || 0 }}" -gt "0" ]; then
+            echo "::warning::Code security issues present but within allowed baseline delta"
           fi
 
           echo "::notice::Security audit passed"

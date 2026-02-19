@@ -5,7 +5,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 import ezdxf
+import pytest
 
+pytest.importorskip("torch")
 from src.ml.train.dataset_2d import DXF_NODE_DIM, DXFManifestDataset
 
 

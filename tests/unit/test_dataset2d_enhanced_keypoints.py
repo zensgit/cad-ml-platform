@@ -1,5 +1,7 @@
 import ezdxf
+import pytest
 
+pytest.importorskip("torch")
 from src.ml.train.dataset_2d import DXFDataset
 
 
@@ -46,4 +48,3 @@ def test_enhanced_keypoints_connect_circle_to_touching_line(monkeypatch):
     assert int(x_enh.size(0)) == 3
     nodes_in_edges_enh = set(edge_enh.flatten().tolist()) if edge_enh.numel() else set()
     assert 2 in nodes_in_edges_enh
-

@@ -1,5 +1,7 @@
 import ezdxf
+import pytest
 
+pytest.importorskip("torch")
 from src.ml.train.dataset_2d import DXFDataset
 
 
@@ -43,4 +45,3 @@ def test_edge_augment_knn_adds_edges_for_isolated_nodes(monkeypatch):
     nodes_in_edges_aug = set(edge_aug.flatten().tolist()) if edge_aug.numel() else set()
     assert 2 in nodes_in_edges_aug
     assert int(edge_aug.size(1)) > int(edge_base.size(1))
-

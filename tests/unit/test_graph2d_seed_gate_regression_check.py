@@ -723,3 +723,119 @@ def test_regression_check_fails_when_snapshot_ref_date_mismatch(tmp_path) -> Non
     assert report["status"] == "failed"
     failures = "\n".join(report["failures"])
     assert "snapshot_ref_date: snapshot_ref stamp '20260215' != baseline stamp '20260216'" in failures
+
+
+def test_allow_skipped_summary_cli_returns_warning_report(tmp_path) -> None:
+    import json
+    import sys
+
+    from scripts.ci import check_graph2d_seed_gate_regression as mod
+
+    baseline_json = tmp_path / "baseline.json"
+    summary_json = tmp_path / "summary.json"
+    output_json = tmp_path / "report.json"
+
+    baseline_json.write_text(
+        json.dumps(
+            {
+                "date": "2026-02-19",
+                "standard": {
+                    "strict_accuracy_mean": 0.37,
+                    "strict_accuracy_min": 0.30,
+                    "strict_top_pred_ratio_max": 0.70,
+                    "strict_low_conf_ratio_max": 0.05,
+                    "manifest_distinct_labels_min": 5,
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    summary_json.write_text(
+        json.dumps(
+            {
+                "status": "skipped_no_data",
+                "skip_reason": "DXF dir not found: data/synthetic_v2",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    old_argv = sys.argv
+    try:
+        sys.argv = [
+            "check_graph2d_seed_gate_regression.py",
+            "--summary-json",
+            str(summary_json),
+            "--baseline-json",
+            str(baseline_json),
+            "--channel",
+            "standard",
+            "--output-json",
+            str(output_json),
+        ]
+        rc = mod.main()
+    finally:
+        sys.argv = old_argv
+
+    assert rc == 0
+    report = json.loads(output_json.read_text(encoding="utf-8"))
+    assert report["status"] == "passed_with_warnings"
+    assert any("skipped" in str(item).lower() for item in report["warnings"])
+
+
+def test_allow_skipped_summary_false_keeps_failure_path(tmp_path) -> None:
+    import json
+    import sys
+
+    from scripts.ci import check_graph2d_seed_gate_regression as mod
+
+    baseline_json = tmp_path / "baseline.json"
+    summary_json = tmp_path / "summary.json"
+
+    baseline_json.write_text(
+        json.dumps(
+            {
+                "date": "2026-02-19",
+                "standard": {
+                    "strict_accuracy_mean": 0.37,
+                    "strict_accuracy_min": 0.30,
+                    "strict_top_pred_ratio_max": 0.70,
+                    "strict_low_conf_ratio_max": 0.05,
+                    "manifest_distinct_labels_min": 5,
+                },
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    summary_json.write_text(
+        json.dumps(
+            {
+                "status": "skipped_no_data",
+                "skip_reason": "DXF dir not found: data/synthetic_v2",
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    old_argv = sys.argv
+    try:
+        sys.argv = [
+            "check_graph2d_seed_gate_regression.py",
+            "--summary-json",
+            str(summary_json),
+            "--baseline-json",
+            str(baseline_json),
+            "--channel",
+            "standard",
+            "--allow-skipped-summary",
+            "false",
+        ]
+        rc = mod.main()
+    finally:
+        sys.argv = old_argv
+
+    assert rc == 3

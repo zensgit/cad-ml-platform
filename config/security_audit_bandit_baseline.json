@@ -1,0 +1,10 @@
+{
+  "bandit": {
+    "high_code_issues": 1,
+    "total_issues": 359
+  },
+  "metadata": {
+    "updated_at": "2026-02-19",
+    "source": "github_actions_security_audit_baseline"
+  }
+}

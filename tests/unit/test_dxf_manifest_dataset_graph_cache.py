@@ -4,7 +4,9 @@ import csv
 from pathlib import Path
 
 import ezdxf
+import pytest
 
+pytest.importorskip("torch")
 from src.ml.train.dataset_2d import DXFManifestDataset, DXF_NODE_DIM
 
 

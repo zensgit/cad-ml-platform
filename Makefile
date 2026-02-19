@@ -164,12 +164,14 @@ validate-graph2d-seed-gate: ## Graph2D 多seed稳定性门禁（可用于 CI）
 	@echo "$(GREEN)Running Graph2D seed stability gate...$(NC)"
 	$(PYTHON) scripts/sweep_graph2d_profile_seeds.py \
 		--config $${GRAPH2D_SEED_GATE_CONFIG:-config/graph2d_seed_gate.yaml} \
+		--missing-dxf-dir-mode $${GRAPH2D_SEED_GATE_MISSING_DXF_DIR_MODE:-fail} \
 		--work-root $${GRAPH2D_SEED_GATE_WORK_ROOT:-/tmp/graph2d-seed-gate}
 
 validate-graph2d-seed-gate-strict: ## Graph2D 严格模式多seed稳定性门禁通道
 	@echo "$(GREEN)Running Graph2D strict seed stability gate...$(NC)"
 	$(PYTHON) scripts/sweep_graph2d_profile_seeds.py \
 		--config $${GRAPH2D_SEED_GATE_STRICT_CONFIG:-config/graph2d_seed_gate_strict.yaml} \
+		--missing-dxf-dir-mode $${GRAPH2D_SEED_GATE_STRICT_MISSING_DXF_DIR_MODE:-$${GRAPH2D_SEED_GATE_MISSING_DXF_DIR_MODE:-fail}} \
 		--work-root $${GRAPH2D_SEED_GATE_STRICT_WORK_ROOT:-/tmp/graph2d-seed-gate-strict}
 
 validate-graph2d-seed-gate-regression: ## Graph2D seed gate 基线回归检查（standard）

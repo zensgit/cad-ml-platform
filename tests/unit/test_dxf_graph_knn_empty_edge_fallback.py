@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import ezdxf
+import pytest
 
+pytest.importorskip("torch")
 from src.ml.train.dataset_2d import DXFDataset, DXF_NODE_DIM
 
 
@@ -25,4 +27,3 @@ def test_dxf_graph_knn_fallback_bounds_edge_count(monkeypatch):
     assert edge_index.shape[0] == 2
     # Fully connected would be N*(N-1)=20 directed edges. kNN should be much smaller.
     assert 0 < int(edge_index.shape[1]) < 20
-

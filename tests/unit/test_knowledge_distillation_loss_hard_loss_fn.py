@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-import torch
+import pytest
+
+torch = pytest.importorskip("torch")
 from torch import nn
 
 from src.ml.knowledge_distillation import DistillationLoss
@@ -25,4 +27,3 @@ def test_distillation_loss_uses_custom_hard_loss_fn(monkeypatch) -> None:
     expected = hard_loss_fn(student_logits, hard_labels)
     assert torch.isclose(loss, expected)
     assert abs(components["ce_loss"] - expected.item()) < 1e-8
-
