@@ -2,6 +2,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import ezdxf
+import pytest
+
+pytest.importorskip("torch")
 
 
 def _write_min_dxf(path: Path) -> None:
