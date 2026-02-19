@@ -471,14 +471,20 @@ jobs:
             --index-json /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json \
             --schema-json config/graph2d_context_drift_index_schema.json \
             2>&1 | tee /tmp/graph2d-context-drift-index-validate-ci-${{ matrix.python-version }}.log
-      - name: Check Graph2D context drift index policy (3.11 only, non-blocking)
+      - name: Check Graph2D context drift index policy (3.11 only)
         if: always() && matrix.python-version == '3.11'
-        continue-on-error: true
+        continue-on-error: ${{ !(vars.GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_HARD_FAIL == 'true' || startsWith(github.ref_name, 'release/') || startsWith(github.ref_name, 'hotfix/')) }}
         run: |
           set -o pipefail
+          FAIL_ON_BREACH="auto"
+          if [ "${{ vars.GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_HARD_FAIL }}" = "true" ] || [[ "${{ github.ref_name }}" == release/* ]] || [[ "${{ github.ref_name }}" == hotfix/* ]]; then
+            FAIL_ON_BREACH="true"
+          fi
+          echo "index_policy_fail_on_breach=${FAIL_ON_BREACH}"
           python scripts/ci/check_graph2d_context_drift_index_policy.py \
             --index-json /tmp/graph2d-context-drift-index-ci-${{ matrix.python-version }}.json \
             --config config/graph2d_context_drift_index_policy.yaml \
+            --fail-on-breach "${FAIL_ON_BREACH}" \
             --title "Graph2D Context Drift Index Policy (CI Tests, Python ${{ matrix.python-version }})" \
             --output-json /tmp/graph2d-context-drift-index-policy-ci-${{ matrix.python-version }}.json \
             --output-md /tmp/graph2d-context-drift-index-policy-ci-${{ matrix.python-version }}.md \

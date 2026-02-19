@@ -249,6 +249,7 @@ validate-graph2d-context-drift-pipeline: ## Graph2D 上下文漂移全链路（�
 	$(PYTHON) scripts/ci/check_graph2d_context_drift_index_policy.py \
 		--index-json $${GRAPH2D_CONTEXT_DRIFT_INDEX_JSON:-/tmp/graph2d-context-drift-index-local.json} \
 		--config $${GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_CONFIG:-config/graph2d_context_drift_index_policy.yaml} \
+		--fail-on-breach $${GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_FAIL_ON_BREACH:-auto} \
 		--title "Graph2D Context Drift Index Policy (Local)" \
 		--output-json $${GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_JSON:-/tmp/graph2d-context-drift-index-policy-local.json} \
 		--output-md $${GRAPH2D_CONTEXT_DRIFT_INDEX_POLICY_MD:-/tmp/graph2d-context-drift-index-policy-local.md}

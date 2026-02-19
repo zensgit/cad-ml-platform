@@ -47,3 +47,25 @@ def test_build_markdown_contains_policy_source() -> None:
     assert "Index Policy" in text
     assert "config/graph2d_context_drift_index_policy.yaml" in text
     assert "resolved_max_allowed=alerted" in text
+
+
+def test_resolve_policy_prefers_cli_fail_on_breach() -> None:
+    from scripts.ci.check_graph2d_context_drift_index_policy import _resolve_policy
+
+    policy = _resolve_policy(
+        config_payload={"max_allowed_severity": "warn", "fail_on_breach": False},
+        cli_overrides={"max_allowed_severity": None, "fail_on_breach": "true"},
+    )
+    assert policy["max_allowed_severity"] == "warn"
+    assert policy["fail_on_breach"] is True
+
+
+def test_resolve_policy_uses_config_when_cli_auto() -> None:
+    from scripts.ci.check_graph2d_context_drift_index_policy import _resolve_policy
+
+    policy = _resolve_policy(
+        config_payload={"max_allowed_severity": "alerted", "fail_on_breach": True},
+        cli_overrides={"max_allowed_severity": None, "fail_on_breach": "auto"},
+    )
+    assert policy["max_allowed_severity"] == "alerted"
+    assert policy["fail_on_breach"] is True
