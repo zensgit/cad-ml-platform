@@ -172,9 +172,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     manifest_csv_raw = str(args.manifest_csv or "").strip()
     manifest_csv = Path(manifest_csv_raw) if manifest_csv_raw else None
 
-    random.seed(int(args.seed))
-    random.shuffle(files)
-    files = files[: int(args.max_files)]
+    # Keep processing order deterministic across platforms/runs.
+    files = sorted(files, key=lambda p: str(p))
+
+    max_files = int(args.max_files)
+    if max_files < len(files):
+        rng = random.Random(int(args.seed))
+        rng.shuffle(files)
+        files = files[:max_files]
+        # Preserve stable output ordering after random sampling.
+        files = sorted(files, key=lambda p: str(p))
 
     truth_modes = sum(
         [
