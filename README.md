@@ -204,6 +204,33 @@ kubectl apply -f deployments/kubernetes/
 - 制造决策输出: `docs/MANUFACTURING_DECISION_OUTPUT.md`
 - 回放验证: `docs/REPLAY_VALIDATION.md`
 
+### 实验目录归档自动化
+
+为了避免 `reports/experiments` 持续膨胀，仓库提供了统一归档脚本与 Make 目标：
+
+```bash
+# 默认是 dry-run（只生成计划，不删除）
+make archive-experiments
+
+# 实际归档并删除源目录（按保留窗口自动选择）
+make archive-experiments \
+  ARCHIVE_EXPERIMENTS_KEEP_DAYS=7 \
+  ARCHIVE_EXPERIMENTS_EXTRA_ARGS="--delete-source"
+
+# 指定目录归档（可重复 --dir）
+python3 scripts/ci/archive_experiment_dirs.py \
+  --experiments-root reports/experiments \
+  --archive-root "$HOME/Downloads/cad-ml-platform-experiment-archives" \
+  --dir 20260217 --dir 20260219 \
+  --delete-source \
+  --manifest-json reports/archive_experiments_manifest.json
+```
+
+说明：
+- 脚本路径：`scripts/ci/archive_experiment_dirs.py`
+- 默认归档输出：`$HOME/Downloads/cad-ml-platform-experiment-archives`
+- 每次会输出 manifest（默认：`reports/archive_experiments_manifest.json`）
+
 ---
 
 ## 🔬 评估与可观测性

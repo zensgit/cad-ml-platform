@@ -14,9 +14,10 @@
 		validate-graph2d-seed-gate-context-drift-warn \
 		validate-graph2d-seed-gate-baseline-health \
 		update-graph2d-seed-gate-baseline \
-		audit-pydantic-v2 audit-pydantic-v2-regression \
-		audit-pydantic-style audit-pydantic-style-regression \
-		openapi-snapshot-update
+	audit-pydantic-v2 audit-pydantic-v2-regression \
+	audit-pydantic-style audit-pydantic-style-regression \
+	openapi-snapshot-update \
+	archive-experiments
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -37,6 +38,12 @@ MYPY := $(PYTHON) -m mypy
 FLAKE8 := $(PYTHON) -m flake8
 PROMETHEUS_URL ?= http://localhost:9091
 UVNET_CHECKPOINT ?= models/uvnet_v1.pth
+ARCHIVE_EXPERIMENTS_ROOT ?= reports/experiments
+ARCHIVE_EXPERIMENTS_OUT ?= $(HOME)/Downloads/cad-ml-platform-experiment-archives
+ARCHIVE_EXPERIMENTS_KEEP_DAYS ?= 7
+ARCHIVE_EXPERIMENTS_TODAY ?=
+ARCHIVE_EXPERIMENTS_MANIFEST ?= reports/archive_experiments_manifest.json
+ARCHIVE_EXPERIMENTS_EXTRA_ARGS ?= --dry-run
 
 # 项目路径
 SRC_DIR := src
@@ -151,6 +158,17 @@ validate-openapi: ## 校验 OpenAPI operationId 唯一性
 openapi-snapshot-update: ## 更新 OpenAPI 快照基线
 	@echo "$(GREEN)Updating OpenAPI schema snapshot baseline...$(NC)"
 	$(PYTHON) scripts/ci/generate_openapi_schema_snapshot.py --output config/openapi_schema_snapshot.json
+
+archive-experiments: ## 归档 reports/experiments 日期目录（默认 dry-run）
+	@echo "$(GREEN)Archiving experiment directories...$(NC)"
+	$(PYTHON) scripts/ci/archive_experiment_dirs.py \
+		--experiments-root "$(ARCHIVE_EXPERIMENTS_ROOT)" \
+		--archive-root "$(ARCHIVE_EXPERIMENTS_OUT)" \
+		--keep-latest-days "$(ARCHIVE_EXPERIMENTS_KEEP_DAYS)" \
+		--today "$(ARCHIVE_EXPERIMENTS_TODAY)" \
+		--manifest-json "$(ARCHIVE_EXPERIMENTS_MANIFEST)" \
+		$(ARCHIVE_EXPERIMENTS_EXTRA_ARGS)
+	@echo "$(GREEN)Archive manifest: $(ARCHIVE_EXPERIMENTS_MANIFEST)$(NC)"
 
 validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core + provider-contract）
 	@echo "$(GREEN)Running core fast validation...$(NC)"
