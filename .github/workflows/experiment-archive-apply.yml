@@ -1,0 +1,163 @@
+name: Experiment Archive Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      approval_phrase:
+        description: "Type I_UNDERSTAND_DELETE_SOURCE to proceed"
+        required: true
+        default: ""
+      experiments_root:
+        description: "Experiment root directory"
+        required: false
+        default: "reports/experiments"
+      archive_root:
+        description: "Archive root directory (runner-local path). Leave empty to use runner temp."
+        required: false
+        default: ""
+      keep_latest_days:
+        description: "Keep latest N days (used when dirs_csv is empty)"
+        required: false
+        default: "7"
+      dirs_csv:
+        description: "Optional explicit date dirs, comma-separated (e.g. 20260217,20260219)"
+        required: false
+        default: ""
+      today:
+        description: "Optional YYYYMMDD override"
+        required: false
+        default: ""
+      require_exists:
+        description: "Fail if any explicit dir is missing"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate-approval:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate approval phrase
+        run: |
+          if [ "${{ github.event.inputs.approval_phrase }}" != "I_UNDERSTAND_DELETE_SOURCE" ]; then
+            echo "::error::Approval phrase mismatch. Expected I_UNDERSTAND_DELETE_SOURCE."
+            exit 1
+          fi
+
+  apply:
+    needs: validate-approval
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # Configure this environment with required reviewers to enforce manual approval.
+    environment: experiment-archive-approval
+    env:
+      EXPERIMENTS_ROOT: ${{ github.event.inputs.experiments_root || 'reports/experiments' }}
+      INPUT_ARCHIVE_ROOT: ${{ github.event.inputs.archive_root || '' }}
+      KEEP_LATEST_DAYS: ${{ github.event.inputs.keep_latest_days || '7' }}
+      DIRS_CSV: ${{ github.event.inputs.dirs_csv || '' }}
+      TODAY_OVERRIDE: ${{ github.event.inputs.today || '' }}
+      REQUIRE_EXISTS: ${{ github.event.inputs.require_exists }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Apply archive with delete-source
+        id: archive_apply
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_ARCHIVE_ROOT}" ]; then
+            ARCHIVE_ROOT="${INPUT_ARCHIVE_ROOT}"
+          else
+            ARCHIVE_ROOT="${RUNNER_TEMP}/cad-ml-platform-experiment-archives"
+          fi
+          mkdir -p "${ARCHIVE_ROOT}"
+
+          MANIFEST_PATH="${RUNNER_TEMP}/archive_experiments_apply_manifest.json"
+          LOG_PATH="${RUNNER_TEMP}/archive_experiments_apply.log"
+
+          ARGS=(
+            --experiments-root "${EXPERIMENTS_ROOT}"
+            --archive-root "${ARCHIVE_ROOT}"
+            --keep-latest-days "${KEEP_LATEST_DAYS}"
+            --today "${TODAY_OVERRIDE}"
+            --manifest-json "${MANIFEST_PATH}"
+            --delete-source
+          )
+          if [ "${REQUIRE_EXISTS}" = "true" ]; then
+            ARGS+=(--require-exists)
+          fi
+
+          if [ -n "${DIRS_CSV}" ]; then
+            IFS=',' read -r -a TOKENS <<< "${DIRS_CSV}"
+            for token in "${TOKENS[@]}"; do
+              token="$(echo "${token}" | xargs)"
+              if [ -n "${token}" ]; then
+                ARGS+=(--dir "${token}")
+              fi
+            done
+          fi
+
+          python3 scripts/ci/archive_experiment_dirs.py "${ARGS[@]}" | tee "${LOG_PATH}"
+
+          echo "manifest_path=${MANIFEST_PATH}" >> "${GITHUB_OUTPUT}"
+          echo "log_path=${LOG_PATH}" >> "${GITHUB_OUTPUT}"
+          echo "archive_root=${ARCHIVE_ROOT}" >> "${GITHUB_OUTPUT}"
+
+      - name: Append apply summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest_path = Path(os.environ["MANIFEST_PATH"])
+          data = json.loads(manifest_path.read_text(encoding="utf-8"))
+          lines = [
+              "## Experiment Archive Apply Summary",
+              f"- status: `{data.get('status')}`",
+              f"- experiments_root: `{data.get('experiments_root')}`",
+              f"- archive_root: `{data.get('archive_root')}`",
+              f"- selected_count: `{data.get('selected_count')}`",
+              f"- archived_count: `{data.get('archived_count')}`",
+              f"- deleted_count: `{data.get('deleted_count')}`",
+              f"- missing_count: `{data.get('missing_count')}`",
+              f"- explicit_dirs: `{','.join(data.get('explicit_dirs') or [])}`",
+          ]
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+        env:
+          MANIFEST_PATH: ${{ steps.archive_apply.outputs.manifest_path }}
+
+      - name: Upload apply manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: experiment-archive-apply-manifest-${{ github.run_id }}
+          path: ${{ steps.archive_apply.outputs.manifest_path }}
+          retention-days: 30
+
+      - name: Upload apply log
+        uses: actions/upload-artifact@v4
+        with:
+          name: experiment-archive-apply-log-${{ github.run_id }}
+          path: ${{ steps.archive_apply.outputs.log_path }}
+          retention-days: 30
+
+      - name: Upload generated archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: experiment-archive-files-${{ github.run_id }}
+          path: ${{ steps.archive_apply.outputs.archive_root }}/*.tar.gz
+          if-no-files-found: warn
+          retention-days: 30

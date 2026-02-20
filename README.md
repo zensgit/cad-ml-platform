@@ -230,6 +230,10 @@ python3 scripts/ci/archive_experiment_dirs.py \
 - 脚本路径：`scripts/ci/archive_experiment_dirs.py`
 - 默认归档输出：`$HOME/Downloads/cad-ml-platform-experiment-archives`
 - 每次会输出 manifest（默认：`reports/archive_experiments_manifest.json`）
+- GitHub Actions:
+  - `Experiment Archive Dry Run`：每日 02:30 UTC 定时 dry-run，并上传 manifest/log artifact。
+  - `Experiment Archive Apply`：手动触发真实归档（`--delete-source`）；需输入确认短语。
+  - `Experiment Archive Apply` 使用 environment `experiment-archive-approval`，可在仓库设置中配置 required reviewers 形成人工审批门。
 
 ---
 

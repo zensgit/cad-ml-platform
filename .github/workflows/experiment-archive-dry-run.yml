@@ -1,0 +1,113 @@
+name: Experiment Archive Dry Run
+
+on:
+  schedule:
+    # Every day at 02:30 UTC
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+    inputs:
+      experiments_root:
+        description: "Experiment root directory"
+        required: false
+        default: "reports/experiments"
+      archive_root:
+        description: "Archive root directory (runner-local path)"
+        required: false
+        default: ""
+      keep_latest_days:
+        description: "Keep latest N days, archive older date dirs"
+        required: false
+        default: "7"
+      today:
+        description: "Optional YYYYMMDD override"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPERIMENTS_ROOT: ${{ github.event.inputs.experiments_root || 'reports/experiments' }}
+      KEEP_LATEST_DAYS: ${{ github.event.inputs.keep_latest_days || '7' }}
+      TODAY_OVERRIDE: ${{ github.event.inputs.today || '' }}
+      INPUT_ARCHIVE_ROOT: ${{ github.event.inputs.archive_root || '' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run archive dry-run
+        id: archive_dry_run
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -n "${INPUT_ARCHIVE_ROOT}" ]; then
+            ARCHIVE_ROOT="${INPUT_ARCHIVE_ROOT}"
+          else
+            ARCHIVE_ROOT="${RUNNER_TEMP}/cad-ml-platform-experiment-archives"
+          fi
+          mkdir -p "${ARCHIVE_ROOT}"
+
+          MANIFEST_PATH="${RUNNER_TEMP}/archive_experiments_dry_run_manifest.json"
+          LOG_PATH="${RUNNER_TEMP}/archive_experiments_dry_run.log"
+
+          python3 scripts/ci/archive_experiment_dirs.py \
+            --experiments-root "${EXPERIMENTS_ROOT}" \
+            --archive-root "${ARCHIVE_ROOT}" \
+            --keep-latest-days "${KEEP_LATEST_DAYS}" \
+            --today "${TODAY_OVERRIDE}" \
+            --manifest-json "${MANIFEST_PATH}" \
+            --dry-run | tee "${LOG_PATH}"
+
+          echo "manifest_path=${MANIFEST_PATH}" >> "${GITHUB_OUTPUT}"
+          echo "log_path=${LOG_PATH}" >> "${GITHUB_OUTPUT}"
+          echo "archive_root=${ARCHIVE_ROOT}" >> "${GITHUB_OUTPUT}"
+
+      - name: Append dry-run summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          manifest_path = Path(os.environ["MANIFEST_PATH"])
+          data = json.loads(manifest_path.read_text(encoding="utf-8"))
+          lines = [
+              "## Experiment Archive Dry Run Summary",
+              f"- status: `{data.get('status')}`",
+              f"- experiments_root: `{data.get('experiments_root')}`",
+              f"- archive_root: `{data.get('archive_root')}`",
+              f"- selected_count: `{data.get('selected_count')}`",
+              f"- missing_count: `{data.get('missing_count')}`",
+              f"- keep_latest_days: `{data.get('keep_latest_days')}`",
+              f"- cutoff_date: `{data.get('cutoff_date')}`",
+          ]
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
+        env:
+          MANIFEST_PATH: ${{ steps.archive_dry_run.outputs.manifest_path }}
+
+      - name: Upload dry-run manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: experiment-archive-dry-run-manifest-${{ github.run_id }}
+          path: ${{ steps.archive_dry_run.outputs.manifest_path }}
+          retention-days: 14
+
+      - name: Upload dry-run log
+        uses: actions/upload-artifact@v4
+        with:
+          name: experiment-archive-dry-run-log-${{ github.run_id }}
+          path: ${{ steps.archive_dry_run.outputs.log_path }}
+          retention-days: 14
