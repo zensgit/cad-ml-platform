@@ -16,6 +16,7 @@
 1. Sort files before any sampling.
 2. Only sample when `max_files < len(files)`.
 3. Re-sort sampled files before inference/output.
+4. Runtime fix commit: `8d92d83`.
 
 ## Test Hardening
 - File: `tests/unit/test_diagnose_graph2d_manifest_truth.py`
@@ -29,17 +30,17 @@
   - `pytest -q tests/unit/test_diagnose_graph2d_manifest_truth.py -q`
 - Result: passed.
 
-## CI Verification (commit: `8d92d83`)
+## CI Verification (commit: `8a41a32`)
 - `CI Tiered Tests`: success  
-  `https://github.com/zensgit/cad-ml-platform/actions/runs/22209271632`
+  `https://github.com/zensgit/cad-ml-platform/actions/runs/22225267111`
 - `CI`: success  
-  `https://github.com/zensgit/cad-ml-platform/actions/runs/22209271642`
+  `https://github.com/zensgit/cad-ml-platform/actions/runs/22225267135`
 - `CI Enhanced`: success  
-  `https://github.com/zensgit/cad-ml-platform/actions/runs/22209271637`
+  `https://github.com/zensgit/cad-ml-platform/actions/runs/22225267110`
 - `Code Quality`: success  
-  `https://github.com/zensgit/cad-ml-platform/actions/runs/22209271645`
+  `https://github.com/zensgit/cad-ml-platform/actions/runs/22225267130`
 - `Multi-Architecture Docker Build`: success  
-  `https://github.com/zensgit/cad-ml-platform/actions/runs/22209271646`
+  `https://github.com/zensgit/cad-ml-platform/actions/runs/22225267138`
 
 ## Outcome
 - The manifest-truth diagnose path now has deterministic output ordering.
