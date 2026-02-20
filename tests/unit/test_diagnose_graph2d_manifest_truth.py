@@ -74,6 +74,11 @@ def test_diagnose_graph2d_supports_manifest_truth_mode(tmp_path, monkeypatch):
 
     # Act: run the script main() with manifest truth enabled.
     import scripts.diagnose_graph2d_on_dxf_dir as diagnose
+    # Stabilize file traversal order in test; old implementation shuffled even
+    # when max-files covered all files, which produced flaky CSV ordering.
+    monkeypatch.setattr(
+        diagnose, "_collect_dxfs", lambda _root: [dxf_dir / "a.dxf", dxf_dir / "b.dxf"]
+    )
 
     out_dir = tmp_path / "out"
     argv = [
@@ -108,6 +113,93 @@ def test_diagnose_graph2d_supports_manifest_truth_mode(tmp_path, monkeypatch):
     with preds_path.open("r", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     assert [r.get("relative_path") for r in rows] == ["a.dxf", "b.dxf"]
+
+
+def test_diagnose_graph2d_manifest_truth_sorted_after_sampling(tmp_path, monkeypatch):
+    dxf_dir = tmp_path / "dxfs"
+    dxf_dir.mkdir()
+    (dxf_dir / "a.dxf").write_bytes(b"dummy-a")
+    (dxf_dir / "b.dxf").write_bytes(b"dummy-b")
+    (dxf_dir / "c.dxf").write_bytes(b"dummy-c")
+
+    manifest_csv = tmp_path / "manifest.csv"
+    _write_manifest(
+        manifest_csv,
+        rows=[
+            {
+                "file_name": "a.dxf",
+                "label_cn": "bucket_a",
+                "relative_path": "a.dxf",
+                "label_confidence": "0.9500",
+            },
+            {
+                "file_name": "b.dxf",
+                "label_cn": "bucket_b",
+                "relative_path": "b.dxf",
+                "label_confidence": "0.9500",
+            },
+            {
+                "file_name": "c.dxf",
+                "label_cn": "bucket_c",
+                "relative_path": "c.dxf",
+                "label_confidence": "0.9500",
+            },
+        ],
+    )
+
+    class StubGraph2DClassifier:
+        def __init__(self, model_path: str):
+            self.model_path = model_path
+            self.label_map = {"bucket_a": 0, "bucket_b": 1, "bucket_c": 2}
+
+        def predict_from_bytes(self, data: bytes, file_name: str) -> Dict[str, Any]:
+            _ = (data, file_name)
+            return {
+                "status": "ok",
+                "label": "bucket_a",
+                "confidence": 0.9,
+                "temperature": 1.0,
+                "temperature_source": "test",
+            }
+
+    fake_vision = types.ModuleType("src.ml.vision_2d")
+    fake_vision.Graph2DClassifier = StubGraph2DClassifier  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "src.ml.vision_2d", fake_vision)
+
+    import scripts.diagnose_graph2d_on_dxf_dir as diagnose
+
+    # Force a known input order to ensure this test is platform independent.
+    monkeypatch.setattr(
+        diagnose,
+        "_collect_dxfs",
+        lambda _root: [dxf_dir / "a.dxf", dxf_dir / "b.dxf", dxf_dir / "c.dxf"],
+    )
+
+    out_dir = tmp_path / "out"
+    argv = [
+        "diagnose_graph2d_on_dxf_dir.py",
+        "--dxf-dir",
+        str(dxf_dir),
+        "--model-path",
+        "dummy.pth",
+        "--manifest-csv",
+        str(manifest_csv),
+        "--max-files",
+        "2",
+        "--seed",
+        "1",
+        "--output-dir",
+        str(out_dir),
+    ]
+    monkeypatch.setattr(diagnose.sys, "argv", argv)
+    rc = diagnose.main()
+
+    assert rc == 0
+    with (out_dir / "predictions.csv").open("r", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    relative_paths = [r.get("relative_path") or "" for r in rows]
+    assert len(relative_paths) == 2
+    assert relative_paths == sorted(relative_paths)
 
 
 def test_diagnose_graph2d_manifest_truth_requires_existing_manifest(tmp_path, monkeypatch):
