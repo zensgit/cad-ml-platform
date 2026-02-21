@@ -17,6 +17,39 @@ WORKFLOW_NAME_BY_MODE = {
 }
 
 
+def _extract_short_error(
+    result: subprocess.CompletedProcess[str], fallback: str
+) -> str:
+    output = (result.stderr or result.stdout or "").strip()
+    if not output:
+        return fallback
+    return output.splitlines()[0]
+
+
+def check_gh_ready() -> tuple[bool, str]:
+    version_result = subprocess.run(
+        ["gh", "--version"], capture_output=True, text=True, check=False
+    )
+    if version_result.returncode != 0:
+        return (
+            False,
+            "gh is not available: "
+            f"{_extract_short_error(version_result, 'failed to run gh --version')}",
+        )
+
+    auth_result = subprocess.run(
+        ["gh", "auth", "status"], capture_output=True, text=True, check=False
+    )
+    if auth_result.returncode != 0:
+        return (
+            False,
+            "gh auth is not ready: "
+            f"{_extract_short_error(auth_result, 'failed to run gh auth status')}",
+        )
+
+    return True, ""
+
+
 def resolve_workflow_name(mode: str) -> str:
     workflow_name = WORKFLOW_NAME_BY_MODE.get(mode)
     if workflow_name is None:
@@ -56,7 +89,11 @@ def build_workflow_run_command(args: argparse.Namespace) -> list[str]:
     return command
 
 
-def _build_find_latest_run_command(workflow_name: str, ref: str) -> list[str]:
+def _build_list_dispatched_runs_command(
+    workflow_name: str,
+    ref: str,
+    limit: int = 20,
+) -> list[str]:
     return [
         "gh",
         "run",
@@ -68,32 +105,40 @@ def _build_find_latest_run_command(workflow_name: str, ref: str) -> list[str]:
         "--event",
         "workflow_dispatch",
         "--json",
-        "databaseId,createdAt",
+        "databaseId",
         "--limit",
-        "20",
+        str(max(1, int(limit))),
     ]
 
 
-def find_latest_dispatched_run_id(workflow_name: str, ref: str) -> int | None:
-    command = _build_find_latest_run_command(workflow_name, ref)
+def list_dispatched_run_ids(
+    workflow_name: str,
+    ref: str,
+    limit: int = 20,
+) -> list[int]:
+    command = _build_list_dispatched_runs_command(workflow_name, ref, limit=limit)
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     if result.returncode != 0:
-        return None
+        return []
 
     try:
         payload = json.loads(result.stdout)
     except json.JSONDecodeError:
-        return None
+        return []
 
-    if not isinstance(payload, list) or not payload:
-        return None
+    if not isinstance(payload, list):
+        return []
 
-    latest = max(payload, key=lambda item: str(item.get("createdAt", "")))
-    run_id = latest.get("databaseId")
-    try:
-        return int(run_id)
-    except (TypeError, ValueError):
-        return None
+    run_ids: list[int] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        run_id = item.get("databaseId")
+        try:
+            run_ids.append(int(run_id))
+        except (TypeError, ValueError):
+            continue
+    return run_ids
 
 
 def watch_run(run_id: int) -> int:
@@ -102,21 +147,26 @@ def watch_run(run_id: int) -> int:
     return int(result.returncode)
 
 
-def _wait_for_new_run_id(
+def wait_for_new_dispatched_run_id(
     workflow_name: str,
     ref: str,
-    previous_run_id: int | None,
+    known_run_ids: list[int],
+    timeout_seconds: int,
+    poll_interval_seconds: int,
 ) -> int | None:
-    for _ in range(20):
-        run_id = find_latest_dispatched_run_id(workflow_name, ref)
-        if run_id is None:
-            time.sleep(3)
-            continue
+    known = set(known_run_ids)
+    deadline = time.time() + max(0, int(timeout_seconds))
+    poll_interval = max(1, int(poll_interval_seconds))
 
-        if previous_run_id is None or run_id != previous_run_id:
-            return run_id
-        time.sleep(3)
-    return None
+    while True:
+        run_ids = list_dispatched_run_ids(workflow_name, ref)
+        for run_id in run_ids:
+            if run_id not in known:
+                return run_id
+
+        if time.time() >= deadline:
+            return None
+        time.sleep(poll_interval)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -146,6 +196,18 @@ def _build_parser() -> argparse.ArgumentParser:
         "--print-only",
         action="store_true",
         help="Print commands without executing them.",
+    )
+    parser.add_argument(
+        "--wait-timeout-seconds",
+        type=int,
+        default=120,
+        help="Watch-only: max seconds to wait for a newly dispatched run id.",
+    )
+    parser.add_argument(
+        "--poll-interval-seconds",
+        type=int,
+        default=3,
+        help="Watch-only: polling interval when waiting for new run id.",
     )
 
     parser.add_argument(
@@ -206,14 +268,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(shlex.join(dispatch_command))
         if bool(args.watch):
             print(
-                shlex.join(_build_find_latest_run_command(workflow_name, str(args.ref)))
+                shlex.join(
+                    _build_list_dispatched_runs_command(workflow_name, str(args.ref))
+                )
             )
             print("gh run watch <run_id> --exit-status")
         return 0
 
-    previous_run_id: int | None = None
+    is_ready, reason = check_gh_ready()
+    if not is_ready:
+        print(f"error: {reason}")
+        return 1
+
+    known_run_ids: list[int] = []
     if bool(args.watch):
-        previous_run_id = find_latest_dispatched_run_id(workflow_name, str(args.ref))
+        known_run_ids = list_dispatched_run_ids(workflow_name, str(args.ref))
 
     dispatch_result = subprocess.run(dispatch_command, check=False)
     if dispatch_result.returncode != 0:
@@ -222,11 +291,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     if not bool(args.watch):
         return 0
 
-    run_id = _wait_for_new_run_id(workflow_name, str(args.ref), previous_run_id)
+    run_id = wait_for_new_dispatched_run_id(
+        workflow_name=workflow_name,
+        ref=str(args.ref),
+        known_run_ids=known_run_ids,
+        timeout_seconds=int(args.wait_timeout_seconds),
+        poll_interval_seconds=int(args.poll_interval_seconds),
+    )
     if run_id is None:
         print(
-            "error: failed to find latest workflow_dispatch run for "
-            f"workflow={workflow_name!r} ref={args.ref!r}."
+            "error: timed out waiting for a new workflow_dispatch run id "
+            f"for workflow={workflow_name!r} ref={args.ref!r} "
+            f"within {args.wait_timeout_seconds}s."
         )
         return 1
 

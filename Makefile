@@ -53,6 +53,8 @@ ARCHIVE_WORKFLOW_DIRS_CSV ?=
 ARCHIVE_WORKFLOW_REQUIRE_EXISTS ?= true
 ARCHIVE_WORKFLOW_WATCH ?= 0
 ARCHIVE_WORKFLOW_PRINT_ONLY ?= 0
+ARCHIVE_WORKFLOW_WAIT_TIMEOUT ?= 120
+ARCHIVE_WORKFLOW_POLL_INTERVAL ?= 3
 
 # 项目路径
 SRC_DIR := src
@@ -192,6 +194,8 @@ archive-workflow-dry-run-gh: ## 通过 workflow_dispatch 触发 Experiment Archi
 		--archive-root "$(ARCHIVE_WORKFLOW_ARCHIVE_ROOT)" \
 		--keep-latest-days "$(ARCHIVE_WORKFLOW_KEEP_DAYS)" \
 		--today "$(ARCHIVE_WORKFLOW_TODAY)" \
+		--wait-timeout-seconds "$(ARCHIVE_WORKFLOW_WAIT_TIMEOUT)" \
+		--poll-interval-seconds "$(ARCHIVE_WORKFLOW_POLL_INTERVAL)" \
 		$$watch_flag $$print_only_flag
 
 archive-workflow-apply-gh: ## 通过 workflow_dispatch 触发 Experiment Archive Apply（需审批短语）
@@ -211,6 +215,8 @@ archive-workflow-apply-gh: ## 通过 workflow_dispatch 触发 Experiment Archive
 		--approval-phrase "$${ARCHIVE_APPROVAL_PHRASE}" \
 		--dirs-csv "$(ARCHIVE_WORKFLOW_DIRS_CSV)" \
 		--require-exists "$(ARCHIVE_WORKFLOW_REQUIRE_EXISTS)" \
+		--wait-timeout-seconds "$(ARCHIVE_WORKFLOW_WAIT_TIMEOUT)" \
+		--poll-interval-seconds "$(ARCHIVE_WORKFLOW_POLL_INTERVAL)" \
 		$$watch_flag $$print_only_flag
 
 validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core + provider-contract）
