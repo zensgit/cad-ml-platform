@@ -17,7 +17,7 @@
 	audit-pydantic-v2 audit-pydantic-v2-regression \
 	audit-pydantic-style audit-pydantic-style-regression \
 	openapi-snapshot-update \
-	archive-experiments
+	archive-experiments archive-workflow-dry-run-gh archive-workflow-apply-gh
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -44,6 +44,15 @@ ARCHIVE_EXPERIMENTS_KEEP_DAYS ?= 7
 ARCHIVE_EXPERIMENTS_TODAY ?=
 ARCHIVE_EXPERIMENTS_MANIFEST ?= reports/archive_experiments_manifest.json
 ARCHIVE_EXPERIMENTS_EXTRA_ARGS ?= --dry-run
+ARCHIVE_WORKFLOW_REF ?= main
+ARCHIVE_WORKFLOW_EXPERIMENTS_ROOT ?= reports/experiments
+ARCHIVE_WORKFLOW_ARCHIVE_ROOT ?=
+ARCHIVE_WORKFLOW_KEEP_DAYS ?= 7
+ARCHIVE_WORKFLOW_TODAY ?=
+ARCHIVE_WORKFLOW_DIRS_CSV ?=
+ARCHIVE_WORKFLOW_REQUIRE_EXISTS ?= true
+ARCHIVE_WORKFLOW_WATCH ?= 0
+ARCHIVE_WORKFLOW_PRINT_ONLY ?= 0
 
 # 项目路径
 SRC_DIR := src
@@ -169,6 +178,40 @@ archive-experiments: ## 归档 reports/experiments 日期目录（默认 dry-run
 		--manifest-json "$(ARCHIVE_EXPERIMENTS_MANIFEST)" \
 		$(ARCHIVE_EXPERIMENTS_EXTRA_ARGS)
 	@echo "$(GREEN)Archive manifest: $(ARCHIVE_EXPERIMENTS_MANIFEST)$(NC)"
+
+archive-workflow-dry-run-gh: ## 通过 workflow_dispatch 触发 Experiment Archive Dry Run
+	@echo "$(GREEN)Dispatching experiment archive dry-run workflow...$(NC)"
+	@watch_flag=""; \
+	if [ "$(ARCHIVE_WORKFLOW_WATCH)" = "1" ]; then watch_flag="--watch"; fi; \
+	print_only_flag=""; \
+	if [ "$(ARCHIVE_WORKFLOW_PRINT_ONLY)" = "1" ]; then print_only_flag="--print-only"; fi; \
+	$(PYTHON) scripts/ci/dispatch_experiment_archive_workflow.py \
+		--mode dry-run \
+		--ref "$(ARCHIVE_WORKFLOW_REF)" \
+		--experiments-root "$(ARCHIVE_WORKFLOW_EXPERIMENTS_ROOT)" \
+		--archive-root "$(ARCHIVE_WORKFLOW_ARCHIVE_ROOT)" \
+		--keep-latest-days "$(ARCHIVE_WORKFLOW_KEEP_DAYS)" \
+		--today "$(ARCHIVE_WORKFLOW_TODAY)" \
+		$$watch_flag $$print_only_flag
+
+archive-workflow-apply-gh: ## 通过 workflow_dispatch 触发 Experiment Archive Apply（需审批短语）
+	@echo "$(GREEN)Dispatching experiment archive apply workflow...$(NC)"
+	@test -n "$${ARCHIVE_APPROVAL_PHRASE:-}" || (echo "$(RED)ARCHIVE_APPROVAL_PHRASE is required$(NC)"; exit 1)
+	@watch_flag=""; \
+	if [ "$(ARCHIVE_WORKFLOW_WATCH)" = "1" ]; then watch_flag="--watch"; fi; \
+	print_only_flag=""; \
+	if [ "$(ARCHIVE_WORKFLOW_PRINT_ONLY)" = "1" ]; then print_only_flag="--print-only"; fi; \
+	$(PYTHON) scripts/ci/dispatch_experiment_archive_workflow.py \
+		--mode apply \
+		--ref "$(ARCHIVE_WORKFLOW_REF)" \
+		--experiments-root "$(ARCHIVE_WORKFLOW_EXPERIMENTS_ROOT)" \
+		--archive-root "$(ARCHIVE_WORKFLOW_ARCHIVE_ROOT)" \
+		--keep-latest-days "$(ARCHIVE_WORKFLOW_KEEP_DAYS)" \
+		--today "$(ARCHIVE_WORKFLOW_TODAY)" \
+		--approval-phrase "$${ARCHIVE_APPROVAL_PHRASE}" \
+		--dirs-csv "$(ARCHIVE_WORKFLOW_DIRS_CSV)" \
+		--require-exists "$(ARCHIVE_WORKFLOW_REQUIRE_EXISTS)" \
+		$$watch_flag $$print_only_flag
 
 validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core + provider-contract）
 	@echo "$(GREEN)Running core fast validation...$(NC)"

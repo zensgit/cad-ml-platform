@@ -235,6 +235,41 @@ python3 scripts/ci/archive_experiment_dirs.py \
   - `Experiment Archive Apply`：手动触发真实归档（`--delete-source`）；需输入确认短语。
   - `Experiment Archive Apply` 使用 environment `experiment-archive-approval`，可在仓库设置中配置 required reviewers 形成人工审批门。
 
+#### gh workflow_dispatch（本地触发）
+
+当需要在本地通过 `gh` 触发归档工作流时，可使用 Make 封装目标（底层脚本：`scripts/ci/dispatch_experiment_archive_workflow.py`）：
+
+```bash
+# 触发 dry-run workflow_dispatch（仅调度，不做删除）
+make archive-workflow-dry-run-gh \
+  ARCHIVE_WORKFLOW_REF=main \
+  ARCHIVE_WORKFLOW_EXPERIMENTS_ROOT=reports/experiments \
+  ARCHIVE_WORKFLOW_KEEP_DAYS=7 \
+  ARCHIVE_WORKFLOW_TODAY=20260221 \
+  ARCHIVE_WORKFLOW_WATCH=1 \
+  ARCHIVE_WORKFLOW_PRINT_ONLY=0
+
+# 触发 apply workflow_dispatch（会进入删除源目录流程）
+ARCHIVE_APPROVAL_PHRASE=I_UNDERSTAND_DELETE_SOURCE \
+make archive-workflow-apply-gh \
+  ARCHIVE_WORKFLOW_REF=main \
+  ARCHIVE_WORKFLOW_EXPERIMENTS_ROOT=reports/experiments \
+  ARCHIVE_WORKFLOW_KEEP_DAYS=7 \
+  ARCHIVE_WORKFLOW_DIRS_CSV=20260217,20260219 \
+  ARCHIVE_WORKFLOW_REQUIRE_EXISTS=true \
+  ARCHIVE_WORKFLOW_WATCH=1 \
+  ARCHIVE_WORKFLOW_PRINT_ONLY=0
+```
+
+说明：
+- `archive-workflow-dry-run-gh` 固定 `mode=dry-run`，支持覆盖 `ARCHIVE_WORKFLOW_REF`、`ARCHIVE_WORKFLOW_EXPERIMENTS_ROOT`、`ARCHIVE_WORKFLOW_KEEP_DAYS`、`ARCHIVE_WORKFLOW_TODAY`、`ARCHIVE_WORKFLOW_WATCH`、`ARCHIVE_WORKFLOW_PRINT_ONLY`。
+- `archive-workflow-apply-gh` 固定 `mode=apply`，额外支持 `ARCHIVE_WORKFLOW_DIRS_CSV`、`ARCHIVE_WORKFLOW_REQUIRE_EXISTS`，并强制从环境变量读取 `ARCHIVE_APPROVAL_PHRASE`。
+
+安全提示：
+- 建议先执行 `ARCHIVE_WORKFLOW_PRINT_ONLY=1` 或 dry-run，确认 dispatch 参数无误后再执行 apply。
+- `ARCHIVE_APPROVAL_PHRASE` 仅通过环境变量临时传入，不要写入仓库文件或脚本常量。
+- 使用 `ARCHIVE_WORKFLOW_DIRS_CSV` 做精确目录控制时，建议同时保留 `ARCHIVE_WORKFLOW_REQUIRE_EXISTS=true`，避免目录拼写错误被静默忽略。
+
 ---
 
 ## 🔬 评估与可观测性
