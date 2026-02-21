@@ -67,5 +67,21 @@ make archive-workflow-apply-gh \
 - `make validate-archive-workflow-dispatcher`
   - 结果：通过（24 passed）。
 
+## CI 收口（2026-02-21）
+- 提交：`75b27fd`（`test: add make-level regression gate for archive workflow dispatcher`）
+- 结论：该提交对应的 push 工作流全部成功。
+- 关键工作流：
+  - `CI`：run `22257919241`（success）
+  - `CI Enhanced`：run `22257919249`（success）
+  - `CI Tiered Tests`：run `22257919245`（success）
+  - `Code Quality`：run `22257919247`（success）
+  - `Multi-Architecture Docker Build`：run `22257919244`（success）
+  - `Security Audit`：run `22257919248`（success）
+  - `Observability Checks`：run `22257919259`（success）
+  - `Stress and Observability Checks`：run `22257919253`（success）
+  - `Self-Check`：run `22257919242`（success）
+  - `GHCR Publish`：run `22257919243`（success）
+  - `Evaluation Report`：run `22257919240`（success）
+
 ## 备注
 - 本次已同时交付：dispatch 脚本、脚本单测、workflow YAML 静态防回归测试、Make/README 集成。
