@@ -17,7 +17,8 @@
 	audit-pydantic-v2 audit-pydantic-v2-regression \
 	audit-pydantic-style audit-pydantic-style-regression \
 	openapi-snapshot-update \
-	archive-experiments archive-workflow-dry-run-gh archive-workflow-apply-gh
+	archive-experiments archive-workflow-dry-run-gh archive-workflow-apply-gh \
+	validate-archive-workflow-dispatcher
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -218,6 +219,14 @@ archive-workflow-apply-gh: ## 通过 workflow_dispatch 触发 Experiment Archive
 		--wait-timeout-seconds "$(ARCHIVE_WORKFLOW_WAIT_TIMEOUT)" \
 		--poll-interval-seconds "$(ARCHIVE_WORKFLOW_POLL_INTERVAL)" \
 		$$watch_flag $$print_only_flag
+
+validate-archive-workflow-dispatcher: ## 一键校验 archive workflow dispatcher（脚本/工作流/Make 参数透传）
+	@echo "$(GREEN)Validating archive workflow dispatcher...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_dispatch_experiment_archive_workflow.py \
+		$(TEST_DIR)/unit/test_experiment_archive_workflows.py \
+		$(TEST_DIR)/unit/test_archive_experiment_dirs.py \
+		$(TEST_DIR)/unit/test_archive_workflow_make_targets.py -q
 
 validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core + provider-contract）
 	@echo "$(GREEN)Running core fast validation...$(NC)"

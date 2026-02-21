@@ -23,6 +23,8 @@
   - dispatch 前执行 `gh --version` + `gh auth status` 预检。
   - watch 模式改为“已知 run id 集合 + 新 run id 发现”机制，降低并发触发下误跟踪旧 run 的概率。
   - 超时与轮询间隔可配置（默认 `120s` / `3s`）。
+- 新增一键回归门：`make validate-archive-workflow-dispatcher`。
+  - 覆盖 dispatcher 单测 + workflow YAML 安全门测试 + Make 目标透传测试。
 
 ## 使用方式
 ```bash
@@ -62,6 +64,8 @@ make archive-workflow-apply-gh \
   - 结果：通过，打印 apply dispatch/list/watch 命令，不执行实际触发。
 - `pytest -q tests/unit/test_dispatch_experiment_archive_workflow.py tests/unit/test_experiment_archive_workflows.py tests/unit/test_archive_experiment_dirs.py`
   - 结果：通过（20 passed）。
+- `make validate-archive-workflow-dispatcher`
+  - 结果：通过（24 passed）。
 
 ## 备注
 - 本次已同时交付：dispatch 脚本、脚本单测、workflow YAML 静态防回归测试、Make/README 集成。

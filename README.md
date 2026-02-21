@@ -275,6 +275,15 @@ make archive-workflow-apply-gh \
 - `ARCHIVE_APPROVAL_PHRASE` 仅通过环境变量临时传入，不要写入仓库文件或脚本常量。
 - 使用 `ARCHIVE_WORKFLOW_DIRS_CSV` 做精确目录控制时，建议同时保留 `ARCHIVE_WORKFLOW_REQUIRE_EXISTS=true`，避免目录拼写错误被静默忽略。
 
+回归校验：
+```bash
+make validate-archive-workflow-dispatcher
+```
+该目标会同时验证：
+- dispatcher 单测
+- workflow YAML 安全门回归测试
+- Make 目标参数透传与 `print-only` 输出行为
+
 ---
 
 ## 🔬 评估与可观测性
