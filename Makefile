@@ -18,7 +18,8 @@
 	audit-pydantic-style audit-pydantic-style-regression \
 	openapi-snapshot-update \
 	archive-experiments archive-workflow-dry-run-gh archive-workflow-apply-gh \
-	validate-archive-workflow-dispatcher
+	validate-archive-workflow-dispatcher \
+	watch-commit-workflows validate-watch-commit-workflows
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -56,6 +57,13 @@ ARCHIVE_WORKFLOW_WATCH ?= 0
 ARCHIVE_WORKFLOW_PRINT_ONLY ?= 0
 ARCHIVE_WORKFLOW_WAIT_TIMEOUT ?= 120
 ARCHIVE_WORKFLOW_POLL_INTERVAL ?= 3
+CI_WATCH_SHA ?= HEAD
+CI_WATCH_EVENTS ?= push
+CI_WATCH_REQUIRED_WORKFLOWS ?= CI,CI Enhanced,CI Tiered Tests,Code Quality,Multi-Architecture Docker Build,Security Audit,Observability Checks,Self-Check,GHCR Publish,Evaluation Report
+CI_WATCH_TIMEOUT ?= 1800
+CI_WATCH_POLL_INTERVAL ?= 20
+CI_WATCH_LIST_LIMIT ?= 100
+CI_WATCH_PRINT_ONLY ?= 0
 
 # 项目路径
 SRC_DIR := src
@@ -227,6 +235,25 @@ validate-archive-workflow-dispatcher: ## 一键校验 archive workflow dispatche
 		$(TEST_DIR)/unit/test_experiment_archive_workflows.py \
 		$(TEST_DIR)/unit/test_archive_experiment_dirs.py \
 		$(TEST_DIR)/unit/test_archive_workflow_make_targets.py -q
+
+watch-commit-workflows: ## 监控指定提交 SHA 的 CI 工作流并等待完成
+	@echo "$(GREEN)Watching commit workflows...$(NC)"
+	@print_only_flag=""; \
+	if [ "$(CI_WATCH_PRINT_ONLY)" = "1" ]; then print_only_flag="--print-only"; fi; \
+	$(PYTHON) scripts/ci/watch_commit_workflows.py \
+		--sha "$(CI_WATCH_SHA)" \
+		--events-csv "$(CI_WATCH_EVENTS)" \
+		--require-workflows-csv "$(CI_WATCH_REQUIRED_WORKFLOWS)" \
+		--wait-timeout-seconds "$(CI_WATCH_TIMEOUT)" \
+		--poll-interval-seconds "$(CI_WATCH_POLL_INTERVAL)" \
+		--list-limit "$(CI_WATCH_LIST_LIMIT)" \
+		$$print_only_flag
+
+validate-watch-commit-workflows: ## 校验 commit workflow watcher（脚本 + Make 参数透传）
+	@echo "$(GREEN)Validating commit workflow watcher...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_watch_commit_workflows.py \
+		$(TEST_DIR)/unit/test_watch_commit_workflows_make_target.py -q
 
 validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core + provider-contract）
 	@echo "$(GREEN)Running core fast validation...$(NC)"

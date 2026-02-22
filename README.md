@@ -284,6 +284,37 @@ make validate-archive-workflow-dispatcher
 - workflow YAML 安全门回归测试
 - Make 目标参数透传与 `print-only` 输出行为
 
+#### 按提交 SHA 统一盯 CI
+
+当需要一次性跟踪某个提交触发的全部核心 CI 工作流（而不是手动逐条 `gh run watch`）时，可使用：
+
+```bash
+# 监控当前 HEAD（默认 push 事件）
+make watch-commit-workflows
+
+# 预览命令（不执行）
+make watch-commit-workflows CI_WATCH_PRINT_ONLY=1
+
+# 指定 SHA / 事件 / 必需工作流 / 超时
+make watch-commit-workflows \
+  CI_WATCH_SHA=9411c05568e11baeff28ef363fb464cfaab2195f \
+  CI_WATCH_EVENTS=push \
+  CI_WATCH_REQUIRED_WORKFLOWS="CI,CI Enhanced,CI Tiered Tests,Code Quality,Multi-Architecture Docker Build,Security Audit,Observability Checks,Self-Check,GHCR Publish,Evaluation Report" \
+  CI_WATCH_TIMEOUT=1800 \
+  CI_WATCH_POLL_INTERVAL=20 \
+  CI_WATCH_LIST_LIMIT=100
+```
+
+说明：
+- 脚本路径：`scripts/ci/watch_commit_workflows.py`
+- 成功条件：观察到的工作流全部 `completed` 且结论均为 `success/skipped`，并满足 `CI_WATCH_REQUIRED_WORKFLOWS`。
+- 失败条件：出现非成功结论（如 `failure/cancelled/timed_out`）或超时。
+
+回归校验：
+```bash
+make validate-watch-commit-workflows
+```
+
 ---
 
 ## 🔬 评估与可观测性
