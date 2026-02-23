@@ -13,6 +13,7 @@
     - `--wait-timeout-seconds`、`--poll-interval-seconds`
     - `--list-limit`、`--print-only`
     - `--missing-required-mode`（`fail-fast` / `wait`）
+    - `--failure-mode`（`fail-fast` / `wait-all`）
   - 运行逻辑：
     - 预检 `gh --version` 与 `gh auth status`
     - 拉取 `gh run list`，按 `headSha + event` 过滤
@@ -47,6 +48,8 @@
   - 结果：通过，仅打印 `gh run list` 预览命令与事件/必需工作流配置，不执行实际轮询。
 - `make watch-commit-workflows CI_WATCH_PRINT_ONLY=1 CI_WATCH_MISSING_REQUIRED_MODE=fail-fast`
   - 结果：通过，预览输出包含 `# missing_required_mode=fail-fast`。
+- `make watch-commit-workflows CI_WATCH_PRINT_ONLY=1 CI_WATCH_FAILURE_MODE=fail-fast`
+  - 结果：通过，预览输出包含 `# failure_mode=fail-fast`。
 - `make validate-watch-commit-workflows`
   - 结果：通过（11 passed）。
 - `make validate-archive-workflow-dispatcher`

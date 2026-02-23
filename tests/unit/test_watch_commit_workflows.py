@@ -297,6 +297,139 @@ def test_main_returns_non_zero_when_detecting_failure(monkeypatch: Any) -> None:
     assert rc == 1
 
 
+def test_main_failure_fail_fast_before_all_completed(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    _patch_parsed_args(
+        monkeypatch,
+        _Args(
+            sha="HEAD",
+            events_csv="push",
+            event=[],
+            require_workflows_csv="CI,Code Quality",
+            require_workflow=[],
+            wait_timeout_seconds=120,
+            poll_interval_seconds=1,
+            list_limit=100,
+            failure_mode="fail-fast",
+            print_only=False,
+        ),
+    )
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "resolve_head_sha", lambda _value: "sha")
+    monkeypatch.setattr(
+        mod,
+        "list_runs_for_sha",
+        lambda **_kwargs: [
+            mod.WorkflowRun(
+                database_id=301,
+                workflow_name="CI",
+                status="completed",
+                conclusion="failure",
+                url="u1",
+                event="push",
+            ),
+            mod.WorkflowRun(
+                database_id=302,
+                workflow_name="Code Quality",
+                status="in_progress",
+                conclusion="",
+                url="u2",
+                event="push",
+            ),
+        ],
+    )
+    sleep_calls = {"count": 0}
+
+    def _fake_sleep(_seconds: float) -> None:
+        sleep_calls["count"] += 1
+
+    monkeypatch.setattr(mod.time, "sleep", _fake_sleep)
+
+    rc = _invoke_main(mod)
+    assert rc == 1
+    assert sleep_calls["count"] == 0
+
+
+def test_main_failure_wait_all_mode_waits_until_all_completed(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    _patch_parsed_args(
+        monkeypatch,
+        _Args(
+            sha="HEAD",
+            events_csv="push",
+            event=[],
+            require_workflows_csv="CI,Code Quality",
+            require_workflow=[],
+            wait_timeout_seconds=120,
+            poll_interval_seconds=1,
+            list_limit=100,
+            failure_mode="wait-all",
+            print_only=False,
+        ),
+    )
+
+    snapshots: list[list[mod.WorkflowRun]] = [
+        [
+            mod.WorkflowRun(
+                database_id=401,
+                workflow_name="CI",
+                status="completed",
+                conclusion="failure",
+                url="u1",
+                event="push",
+            ),
+            mod.WorkflowRun(
+                database_id=402,
+                workflow_name="Code Quality",
+                status="in_progress",
+                conclusion="",
+                url="u2",
+                event="push",
+            ),
+        ],
+        [
+            mod.WorkflowRun(
+                database_id=401,
+                workflow_name="CI",
+                status="completed",
+                conclusion="failure",
+                url="u1",
+                event="push",
+            ),
+            mod.WorkflowRun(
+                database_id=402,
+                workflow_name="Code Quality",
+                status="completed",
+                conclusion="success",
+                url="u2",
+                event="push",
+            ),
+        ],
+    ]
+
+    def _fake_list_runs_for_sha(**_kwargs: Any) -> list[mod.WorkflowRun]:
+        if snapshots:
+            return snapshots.pop(0)
+        return []
+
+    sleep_calls = {"count": 0}
+
+    def _fake_sleep(_seconds: float) -> None:
+        sleep_calls["count"] += 1
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "resolve_head_sha", lambda _value: "sha")
+    monkeypatch.setattr(mod, "list_runs_for_sha", _fake_list_runs_for_sha)
+    monkeypatch.setattr(mod.time, "sleep", _fake_sleep)
+
+    rc = _invoke_main(mod)
+    assert rc == 1
+    assert sleep_calls["count"] >= 1
+
+
 def test_main_timeout_when_required_workflow_missing(monkeypatch: Any) -> None:
     from scripts.ci import watch_commit_workflows as mod
 

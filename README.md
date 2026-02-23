@@ -301,6 +301,7 @@ make watch-commit-workflows \
   CI_WATCH_EVENTS=push \
   CI_WATCH_REQUIRED_WORKFLOWS="CI,CI Enhanced,CI Tiered Tests,Code Quality,Multi-Architecture Docker Build,Security Audit,Observability Checks,Self-Check,GHCR Publish,Evaluation Report" \
   CI_WATCH_MISSING_REQUIRED_MODE=fail-fast \
+  CI_WATCH_FAILURE_MODE=fail-fast \
   CI_WATCH_TIMEOUT=1800 \
   CI_WATCH_POLL_INTERVAL=20 \
   CI_WATCH_LIST_LIMIT=100
@@ -313,6 +314,9 @@ make watch-commit-workflows \
 - `CI_WATCH_MISSING_REQUIRED_MODE` 支持：
   - `fail-fast`：当已观察到的工作流都完成但必需工作流缺失时立即失败（默认）。
   - `wait`：继续等待直到超时，适合需要等待延迟触发工作流的场景。
+- `CI_WATCH_FAILURE_MODE` 支持：
+  - `fail-fast`：检测到任意工作流出现非成功结论后立即失败（默认）。
+  - `wait-all`：等待所有工作流完成后再按最终结论返回失败。
 - 对于可能按路径/条件触发的工作流（例如 `Stress and Observability Checks`），建议按需追加到 `CI_WATCH_REQUIRED_WORKFLOWS`，避免 docs-only 提交出现“缺失必需工作流”的误等待。
 
 回归校验：

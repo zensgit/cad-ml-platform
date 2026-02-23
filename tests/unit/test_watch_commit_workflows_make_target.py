@@ -36,6 +36,7 @@ def test_make_n_watch_commit_workflows_contains_expected_flags() -> None:
     assert '--poll-interval-seconds "20"' in result.stdout
     assert '--list-limit "100"' in result.stdout
     assert '--missing-required-mode "fail-fast"' in result.stdout
+    assert '--failure-mode "fail-fast"' in result.stdout
 
 
 def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
@@ -54,3 +55,4 @@ def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
     assert "# events=['push', 'workflow_dispatch']" in result.stdout
     assert "# required_workflows=['CI', 'Code Quality']" in result.stdout
     assert "# missing_required_mode=fail-fast" in result.stdout
+    assert "# failure_mode=fail-fast" in result.stdout

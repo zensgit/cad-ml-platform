@@ -222,6 +222,15 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--failure-mode",
+        choices=("fail-fast", "wait-all"),
+        default="fail-fast",
+        help=(
+            "Behavior when non-success conclusions are detected. "
+            "fail-fast returns immediately; wait-all waits for all workflows."
+        ),
+    )
+    parser.add_argument(
         "--print-only",
         action="store_true",
         help="Print the gh command and exit without execution.",
@@ -270,11 +279,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     command_preview = _build_list_runs_command(int(args.list_limit))
+    missing_required_mode = str(args.missing_required_mode or "fail-fast")
+    failure_mode = str(args.failure_mode or "fail-fast")
+
     if bool(args.print_only):
         _log(shlex.join(command_preview))
         _log(f"# events={sorted(events)}")
         _log(f"# required_workflows={required_workflows}")
-        _log(f"# missing_required_mode={str(args.missing_required_mode)}")
+        _log(f"# missing_required_mode={missing_required_mode}")
+        _log(f"# failure_mode={failure_mode}")
         return 0
 
     is_ready, reason = check_gh_ready()
@@ -320,16 +333,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         all_completed = has_runs and all(run.status == "completed" for run in runs)
         have_required = not missing_required
 
-        if all_completed and missing_required and str(args.missing_required_mode) == "fail-fast":
+        failed = [
+            run
+            for run in runs
+            if run.status == "completed" and run.conclusion not in SUCCESS_CONCLUSIONS
+        ]
+        if failed and failure_mode == "fail-fast":
+            _log("error: detected non-success workflow conclusions.")
+            return 1
+
+        if all_completed and missing_required and missing_required_mode == "fail-fast":
             _log("error: required workflows are missing after observed runs completed.")
             return 1
 
         if all_completed and have_required:
-            failed = [
-                run
-                for run in runs
-                if run.conclusion not in SUCCESS_CONCLUSIONS
-            ]
             if failed:
                 _log("error: detected non-success workflow conclusions.")
                 return 1
