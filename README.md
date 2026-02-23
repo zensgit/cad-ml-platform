@@ -320,6 +320,14 @@ make watch-commit-workflows \
 make validate-watch-commit-workflows
 ```
 
+合并回归：
+```bash
+make validate-ci-watchers
+```
+该目标会串行执行：
+- `make validate-watch-commit-workflows`
+- `make validate-archive-workflow-dispatcher`
+
 ---
 
 ## 🔬 评估与可观测性

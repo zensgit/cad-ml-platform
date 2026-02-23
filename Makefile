@@ -19,7 +19,8 @@
 	openapi-snapshot-update \
 	archive-experiments archive-workflow-dry-run-gh archive-workflow-apply-gh \
 	validate-archive-workflow-dispatcher \
-	watch-commit-workflows validate-watch-commit-workflows
+	watch-commit-workflows validate-watch-commit-workflows \
+	validate-ci-watchers
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -256,6 +257,11 @@ validate-watch-commit-workflows: ## 校验 commit workflow watcher（脚本 + Ma
 	$(PYTEST) \
 		$(TEST_DIR)/unit/test_watch_commit_workflows.py \
 		$(TEST_DIR)/unit/test_watch_commit_workflows_make_target.py -q
+
+validate-ci-watchers: ## 一键校验 CI watchers（commit + archive dispatcher）
+	@echo "$(GREEN)Validating CI watcher stack...$(NC)"
+	$(MAKE) validate-watch-commit-workflows
+	$(MAKE) validate-archive-workflow-dispatcher
 
 validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core + provider-contract）
 	@echo "$(GREEN)Running core fast validation...$(NC)"

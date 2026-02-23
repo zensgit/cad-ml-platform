@@ -26,6 +26,7 @@
 - Make 集成：
   - `watch-commit-workflows`
   - `validate-watch-commit-workflows`
+  - `validate-ci-watchers`（commit watcher + archive dispatcher 合并回归）
   - 默认必需工作流集合使用“稳定 core push 集合”；`Stress and Observability Checks` 按需追加（避免 docs-only 提交误报缺失）。
 - README：
   - 增补“按提交 SHA 统一盯 CI”使用说明与回归命令。
@@ -50,6 +51,8 @@
   - 结果：通过（11 passed）。
 - `make validate-archive-workflow-dispatcher`
   - 结果：通过（24 passed），确认新改动未回归既有 archive dispatcher 能力。
+- `make validate-ci-watchers`
+  - 结果：通过（串行执行上述两个校验目标）。
 
 ## 实战验证（2026-02-23）
 - 提交：`c2163e4`（`fix: improve commit workflow watcher defaults and streaming output`）
