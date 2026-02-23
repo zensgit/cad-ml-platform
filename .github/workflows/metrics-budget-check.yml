@@ -287,7 +287,7 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Download analysis
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: metrics-analysis
 
@@ -345,7 +345,7 @@ jobs:
 
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
 
       - name: Create comment
         uses: actions/github-script@v6
