@@ -311,6 +311,7 @@ def test_main_timeout_when_required_workflow_missing(monkeypatch: Any) -> None:
             wait_timeout_seconds=2,
             poll_interval_seconds=1,
             list_limit=100,
+            missing_required_mode="wait",
             print_only=False,
         ),
     )
@@ -343,6 +344,53 @@ def test_main_timeout_when_required_workflow_missing(monkeypatch: Any) -> None:
 
     rc = _invoke_main(mod)
     assert rc == 1
+
+
+def test_main_fail_fast_when_required_workflow_missing(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    _patch_parsed_args(
+        monkeypatch,
+        _Args(
+            sha="HEAD",
+            events_csv="push",
+            event=[],
+            require_workflows_csv="CI,Code Quality",
+            require_workflow=[],
+            wait_timeout_seconds=120,
+            poll_interval_seconds=1,
+            list_limit=100,
+            missing_required_mode="fail-fast",
+            print_only=False,
+        ),
+    )
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "resolve_head_sha", lambda _value: "sha")
+    monkeypatch.setattr(
+        mod,
+        "list_runs_for_sha",
+        lambda **_kwargs: [
+            mod.WorkflowRun(
+                database_id=201,
+                workflow_name="CI",
+                status="completed",
+                conclusion="success",
+                url="u1",
+                event="push",
+            )
+        ],
+    )
+    sleep_calls = {"count": 0}
+
+    def _fake_sleep(_seconds: float) -> None:
+        sleep_calls["count"] += 1
+
+    monkeypatch.setattr(mod.time, "sleep", _fake_sleep)
+
+    rc = _invoke_main(mod)
+    assert rc == 1
+    assert sleep_calls["count"] == 0
 
 
 def test_main_argument_validation_for_poll_interval(monkeypatch: Any) -> None:

@@ -32,10 +32,10 @@ def test_make_n_watch_commit_workflows_contains_expected_flags() -> None:
     assert "scripts/ci/watch_commit_workflows.py" in result.stdout
     assert '--sha "HEAD"' in result.stdout
     assert '--events-csv "push"' in result.stdout
-    assert "Stress and Observability Checks" in result.stdout
     assert '--wait-timeout-seconds "1800"' in result.stdout
     assert '--poll-interval-seconds "20"' in result.stdout
     assert '--list-limit "100"' in result.stdout
+    assert '--missing-required-mode "fail-fast"' in result.stdout
 
 
 def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
@@ -53,3 +53,4 @@ def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
     assert "gh run list --json" in result.stdout
     assert "# events=['push', 'workflow_dispatch']" in result.stdout
     assert "# required_workflows=['CI', 'Code Quality']" in result.stdout
+    assert "# missing_required_mode=fail-fast" in result.stdout

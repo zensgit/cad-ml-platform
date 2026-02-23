@@ -12,6 +12,7 @@
     - `--require-workflows-csv` / `--require-workflow`（必需工作流白名单）
     - `--wait-timeout-seconds`、`--poll-interval-seconds`
     - `--list-limit`、`--print-only`
+    - `--missing-required-mode`（`fail-fast` / `wait`）
   - 运行逻辑：
     - 预检 `gh --version` 与 `gh auth status`
     - 拉取 `gh run list`，按 `headSha + event` 过滤
@@ -25,7 +26,7 @@
 - Make 集成：
   - `watch-commit-workflows`
   - `validate-watch-commit-workflows`
-  - 默认必需工作流集合补齐：`Stress and Observability Checks`。
+  - 默认必需工作流集合使用“稳定 core push 集合”；`Stress and Observability Checks` 按需追加（避免 docs-only 提交误报缺失）。
 - README：
   - 增补“按提交 SHA 统一盯 CI”使用说明与回归命令。
 
@@ -43,6 +44,8 @@
   - 结果：通过，展开命令包含 `scripts/ci/watch_commit_workflows.py` 以及 `--sha/--events-csv/--require-workflows-csv/--wait-timeout-seconds/--poll-interval-seconds/--list-limit` 参数。
 - `make watch-commit-workflows CI_WATCH_PRINT_ONLY=1 CI_WATCH_SHA=abc123 CI_WATCH_EVENTS=push,workflow_dispatch CI_WATCH_REQUIRED_WORKFLOWS='CI,Code Quality' CI_WATCH_TIMEOUT=30 CI_WATCH_POLL_INTERVAL=2 CI_WATCH_LIST_LIMIT=50`
   - 结果：通过，仅打印 `gh run list` 预览命令与事件/必需工作流配置，不执行实际轮询。
+- `make watch-commit-workflows CI_WATCH_PRINT_ONLY=1 CI_WATCH_MISSING_REQUIRED_MODE=fail-fast`
+  - 结果：通过，预览输出包含 `# missing_required_mode=fail-fast`。
 - `make validate-watch-commit-workflows`
   - 结果：通过（11 passed）。
 - `make validate-archive-workflow-dispatcher`

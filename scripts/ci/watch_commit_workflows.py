@@ -213,6 +213,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="gh run list limit (default: 100).",
     )
     parser.add_argument(
+        "--missing-required-mode",
+        choices=("fail-fast", "wait"),
+        default="fail-fast",
+        help=(
+            "Behavior when required workflows are missing and all observed runs "
+            "are completed (default: fail-fast)."
+        ),
+    )
+    parser.add_argument(
         "--print-only",
         action="store_true",
         help="Print the gh command and exit without execution.",
@@ -265,6 +274,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _log(shlex.join(command_preview))
         _log(f"# events={sorted(events)}")
         _log(f"# required_workflows={required_workflows}")
+        _log(f"# missing_required_mode={str(args.missing_required_mode)}")
         return 0
 
     is_ready, reason = check_gh_ready()
@@ -309,6 +319,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         has_runs = bool(runs)
         all_completed = has_runs and all(run.status == "completed" for run in runs)
         have_required = not missing_required
+
+        if all_completed and missing_required and str(args.missing_required_mode) == "fail-fast":
+            _log("error: required workflows are missing after observed runs completed.")
+            return 1
 
         if all_completed and have_required:
             failed = [
