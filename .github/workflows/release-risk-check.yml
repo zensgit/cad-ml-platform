@@ -113,7 +113,7 @@ jobs:
 
       - name: Comment PR with Risk Report
         if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -238,7 +238,7 @@ jobs:
 
       - name: Post status check
         if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
