@@ -299,7 +299,7 @@ make watch-commit-workflows CI_WATCH_PRINT_ONLY=1
 make watch-commit-workflows \
   CI_WATCH_SHA=9411c05568e11baeff28ef363fb464cfaab2195f \
   CI_WATCH_EVENTS=push \
-  CI_WATCH_REQUIRED_WORKFLOWS="CI,CI Enhanced,CI Tiered Tests,Code Quality,Multi-Architecture Docker Build,Security Audit,Observability Checks,Self-Check,GHCR Publish,Evaluation Report" \
+  CI_WATCH_REQUIRED_WORKFLOWS="CI,CI Enhanced,CI Tiered Tests,Code Quality,Multi-Architecture Docker Build,Security Audit,Observability Checks,Self-Check,GHCR Publish,Evaluation Report,Stress and Observability Checks" \
   CI_WATCH_TIMEOUT=1800 \
   CI_WATCH_POLL_INTERVAL=20 \
   CI_WATCH_LIST_LIMIT=100

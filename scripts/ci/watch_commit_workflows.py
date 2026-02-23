@@ -22,6 +22,10 @@ class WorkflowRun:
     event: str
 
 
+def _log(message: str) -> None:
+    print(message, flush=True)
+
+
 def _extract_short_error(
     result: subprocess.CompletedProcess[str], fallback: str
 ) -> str:
@@ -224,16 +228,16 @@ def _print_snapshot(runs: Sequence[WorkflowRun], missing_required: Sequence[str]
         for run in runs
         if run.status == "completed" and run.conclusion not in SUCCESS_CONCLUSIONS
     )
-    print(
+    _log(
         "status: "
         f"observed={total} completed={completed} failed={failed} "
         f"missing_required={len(missing_required)}"
     )
     for run in runs:
         conclusion = run.conclusion or "-"
-        print(f" - {run.workflow_name}: {run.status}/{conclusion} ({run.database_id})")
+        _log(f" - {run.workflow_name}: {run.status}/{conclusion} ({run.database_id})")
     if missing_required:
-        print(f" missing required workflows: {', '.join(missing_required)}")
+        _log(f" missing required workflows: {', '.join(missing_required)}")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -241,13 +245,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if int(args.wait_timeout_seconds) < 0:
-        print("error: --wait-timeout-seconds must be >= 0")
+        _log("error: --wait-timeout-seconds must be >= 0")
         return 2
     if int(args.poll_interval_seconds) <= 0:
-        print("error: --poll-interval-seconds must be > 0")
+        _log("error: --poll-interval-seconds must be > 0")
         return 2
     if int(args.list_limit) <= 0:
-        print("error: --list-limit must be > 0")
+        _log("error: --list-limit must be > 0")
         return 2
 
     events = set(_merge_items(_split_csv_items(str(args.events_csv)), list(args.event)))
@@ -258,20 +262,20 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     command_preview = _build_list_runs_command(int(args.list_limit))
     if bool(args.print_only):
-        print(shlex.join(command_preview))
-        print(f"# events={sorted(events)}")
-        print(f"# required_workflows={required_workflows}")
+        _log(shlex.join(command_preview))
+        _log(f"# events={sorted(events)}")
+        _log(f"# required_workflows={required_workflows}")
         return 0
 
     is_ready, reason = check_gh_ready()
     if not is_ready:
-        print(f"error: {reason}")
+        _log(f"error: {reason}")
         return 1
 
     try:
         head_sha = resolve_head_sha(str(args.sha))
     except RuntimeError as exc:
-        print(f"error: {exc}")
+        _log(f"error: {exc}")
         return 1
 
     deadline = time.time() + int(args.wait_timeout_seconds)
@@ -285,7 +289,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 limit=int(args.list_limit),
             )
         except RuntimeError as exc:
-            print(f"error: {exc}")
+            _log(f"error: {exc}")
             return 1
 
         runs = latest_runs_by_workflow(all_runs)
@@ -313,18 +317,18 @@ def main(argv: Sequence[str] | None = None) -> int:
                 if run.conclusion not in SUCCESS_CONCLUSIONS
             ]
             if failed:
-                print("error: detected non-success workflow conclusions.")
+                _log("error: detected non-success workflow conclusions.")
                 return 1
-            print("all observed workflows completed successfully.")
+            _log("all observed workflows completed successfully.")
             return 0
 
         if time.time() >= deadline:
             if not has_runs:
-                print("error: timeout while waiting for matching workflows to appear.")
+                _log("error: timeout while waiting for matching workflows to appear.")
             elif missing_required:
-                print("error: timeout with missing required workflows.")
+                _log("error: timeout with missing required workflows.")
             else:
-                print("error: timeout while waiting for workflows to complete.")
+                _log("error: timeout while waiting for workflows to complete.")
             return 1
         time.sleep(int(args.poll_interval_seconds))
 

@@ -20,9 +20,12 @@
       - 所有观察到的工作流 `completed`
       - 且结论均为 `success/skipped`
       - 且满足“必需工作流”集合
+  - 运行体验增强：
+    - 状态输出改为 `flush=True`，避免长轮询时终端无输出导致“假卡住”。
 - Make 集成：
   - `watch-commit-workflows`
   - `validate-watch-commit-workflows`
+  - 默认必需工作流集合补齐：`Stress and Observability Checks`。
 - README：
   - 增补“按提交 SHA 统一盯 CI”使用说明与回归命令。
 
