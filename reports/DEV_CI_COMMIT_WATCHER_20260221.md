@@ -47,3 +47,21 @@
   - 结果：通过（11 passed）。
 - `make validate-archive-workflow-dispatcher`
   - 结果：通过（24 passed），确认新改动未回归既有 archive dispatcher 能力。
+
+## 实战验证（2026-02-23）
+- 提交：`c2163e4`（`fix: improve commit workflow watcher defaults and streaming output`）
+- 命令：
+  - `make watch-commit-workflows CI_WATCH_SHA=c2163e4ea91956a5560d73de30ebcadef5b016b9 CI_WATCH_TIMEOUT=5400 CI_WATCH_POLL_INTERVAL=20`
+- 结果：脚本实时输出阶段进度并最终返回成功（`all observed workflows completed successfully.`）。
+- push 工作流结果（全部 success）：
+  - `CI`：`22306644788`
+  - `CI Enhanced`：`22306644830`
+  - `CI Tiered Tests`：`22306644813`
+  - `Code Quality`：`22306644783`
+  - `Evaluation Report`：`22306644819`
+  - `GHCR Publish`：`22306644789`
+  - `Multi-Architecture Docker Build`：`22306644807`
+  - `Observability Checks`：`22306644815`
+  - `Security Audit`：`22306644809`
+  - `Self-Check`：`22306644839`
+  - `Stress and Observability Checks`：`22306644811`
