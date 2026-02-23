@@ -49,6 +49,12 @@ def _merge_items(*groups: Sequence[str]) -> list[str]:
     return merged
 
 
+def _int_with_default(value: object, default: int) -> int:
+    if value is None:
+        return int(default)
+    return int(value)
+
+
 def check_gh_ready() -> tuple[bool, str]:
     version_result = subprocess.run(
         ["gh", "--version"], capture_output=True, text=True, check=False
@@ -207,6 +213,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Polling interval in seconds (default: 20).",
     )
     parser.add_argument(
+        "--heartbeat-interval-seconds",
+        type=int,
+        default=120,
+        help=(
+            "Print heartbeat when state is unchanged for N seconds. "
+            "Set 0 to disable (default: 120)."
+        ),
+    )
+    parser.add_argument(
         "--list-limit",
         type=int,
         default=100,
@@ -262,13 +277,21 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if int(args.wait_timeout_seconds) < 0:
+    wait_timeout_seconds = _int_with_default(args.wait_timeout_seconds, 1800)
+    poll_interval_seconds = _int_with_default(args.poll_interval_seconds, 20)
+    heartbeat_interval_seconds = _int_with_default(args.heartbeat_interval_seconds, 120)
+    list_limit = _int_with_default(args.list_limit, 100)
+
+    if wait_timeout_seconds < 0:
         _log("error: --wait-timeout-seconds must be >= 0")
         return 2
-    if int(args.poll_interval_seconds) <= 0:
+    if poll_interval_seconds <= 0:
         _log("error: --poll-interval-seconds must be > 0")
         return 2
-    if int(args.list_limit) <= 0:
+    if heartbeat_interval_seconds < 0:
+        _log("error: --heartbeat-interval-seconds must be >= 0")
+        return 2
+    if list_limit <= 0:
         _log("error: --list-limit must be > 0")
         return 2
 
@@ -278,7 +301,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         list(args.require_workflow),
     )
 
-    command_preview = _build_list_runs_command(int(args.list_limit))
+    command_preview = _build_list_runs_command(list_limit)
     missing_required_mode = str(args.missing_required_mode or "fail-fast")
     failure_mode = str(args.failure_mode or "fail-fast")
 
@@ -288,6 +311,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _log(f"# required_workflows={required_workflows}")
         _log(f"# missing_required_mode={missing_required_mode}")
         _log(f"# failure_mode={failure_mode}")
+        _log(f"# heartbeat_interval_seconds={heartbeat_interval_seconds}")
         return 0
 
     is_ready, reason = check_gh_ready()
@@ -301,15 +325,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         _log(f"error: {exc}")
         return 1
 
-    deadline = time.time() + int(args.wait_timeout_seconds)
+    deadline = time.time() + wait_timeout_seconds
     last_snapshot_key: tuple[object, ...] | None = None
+    last_progress_log_at = time.time()
 
     while True:
         try:
             all_runs = list_runs_for_sha(
                 head_sha=head_sha,
                 events=events,
-                limit=int(args.list_limit),
+                limit=list_limit,
             )
         except RuntimeError as exc:
             _log(f"error: {exc}")
@@ -328,6 +353,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         if snapshot_key != last_snapshot_key:
             _print_snapshot(runs, missing_required)
             last_snapshot_key = snapshot_key
+            last_progress_log_at = time.time()
+        elif heartbeat_interval_seconds > 0:
+            now = time.time()
+            if now - last_progress_log_at >= heartbeat_interval_seconds:
+                _log(
+                    "heartbeat: workflows unchanged, still waiting "
+                    f"(observed={len(runs)})."
+                )
+                last_progress_log_at = now
 
         has_runs = bool(runs)
         all_completed = has_runs and all(run.status == "completed" for run in runs)
@@ -361,7 +395,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             else:
                 _log("error: timeout while waiting for workflows to complete.")
             return 1
-        time.sleep(int(args.poll_interval_seconds))
+        time.sleep(poll_interval_seconds)
 
 
 if __name__ == "__main__":

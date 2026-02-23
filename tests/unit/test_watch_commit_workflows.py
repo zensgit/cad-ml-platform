@@ -546,3 +546,26 @@ def test_main_argument_validation_for_poll_interval(monkeypatch: Any) -> None:
 
     rc = _invoke_main(mod)
     assert rc == 2
+
+
+def test_main_argument_validation_for_heartbeat_interval(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    _patch_parsed_args(
+        monkeypatch,
+        _Args(
+            sha="HEAD",
+            events_csv="push",
+            event=[],
+            require_workflows_csv="",
+            require_workflow=[],
+            wait_timeout_seconds=10,
+            poll_interval_seconds=1,
+            heartbeat_interval_seconds=-1,
+            list_limit=100,
+            print_only=False,
+        ),
+    )
+
+    rc = _invoke_main(mod)
+    assert rc == 2

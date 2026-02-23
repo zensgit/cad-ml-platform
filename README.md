@@ -304,6 +304,7 @@ make watch-commit-workflows \
   CI_WATCH_FAILURE_MODE=fail-fast \
   CI_WATCH_TIMEOUT=1800 \
   CI_WATCH_POLL_INTERVAL=20 \
+  CI_WATCH_HEARTBEAT_INTERVAL=120 \
   CI_WATCH_LIST_LIMIT=100
 ```
 
@@ -317,6 +318,9 @@ make watch-commit-workflows \
 - `CI_WATCH_FAILURE_MODE` 支持：
   - `fail-fast`：检测到任意工作流出现非成功结论后立即失败（默认）。
   - `wait-all`：等待所有工作流完成后再按最终结论返回失败。
+- `CI_WATCH_HEARTBEAT_INTERVAL`：
+  - 默认 `120` 秒；当状态长时间无变化时输出心跳日志，避免误判“卡住”。
+  - 设为 `0` 可禁用心跳日志。
 - 对于可能按路径/条件触发的工作流（例如 `Stress and Observability Checks`），建议按需追加到 `CI_WATCH_REQUIRED_WORKFLOWS`，避免 docs-only 提交出现“缺失必需工作流”的误等待。
 
 回归校验：

@@ -63,6 +63,7 @@ CI_WATCH_EVENTS ?= push
 CI_WATCH_REQUIRED_WORKFLOWS ?= CI,CI Enhanced,CI Tiered Tests,Code Quality,Multi-Architecture Docker Build,Security Audit,Observability Checks,Self-Check,GHCR Publish,Evaluation Report
 CI_WATCH_TIMEOUT ?= 1800
 CI_WATCH_POLL_INTERVAL ?= 20
+CI_WATCH_HEARTBEAT_INTERVAL ?= 120
 CI_WATCH_LIST_LIMIT ?= 100
 CI_WATCH_MISSING_REQUIRED_MODE ?= fail-fast
 CI_WATCH_FAILURE_MODE ?= fail-fast
@@ -249,6 +250,7 @@ watch-commit-workflows: ## 监控指定提交 SHA 的 CI 工作流并等待完�
 		--require-workflows-csv "$(CI_WATCH_REQUIRED_WORKFLOWS)" \
 		--wait-timeout-seconds "$(CI_WATCH_TIMEOUT)" \
 		--poll-interval-seconds "$(CI_WATCH_POLL_INTERVAL)" \
+		--heartbeat-interval-seconds "$(CI_WATCH_HEARTBEAT_INTERVAL)" \
 		--list-limit "$(CI_WATCH_LIST_LIMIT)" \
 		--missing-required-mode "$(CI_WATCH_MISSING_REQUIRED_MODE)" \
 		--failure-mode "$(CI_WATCH_FAILURE_MODE)" \

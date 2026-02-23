@@ -14,6 +14,7 @@
     - `--list-limit`、`--print-only`
     - `--missing-required-mode`（`fail-fast` / `wait`）
     - `--failure-mode`（`fail-fast` / `wait-all`）
+    - `--heartbeat-interval-seconds`（默认 120；0 表示关闭）
   - 运行逻辑：
     - 预检 `gh --version` 与 `gh auth status`
     - 拉取 `gh run list`，按 `headSha + event` 过滤
@@ -50,6 +51,8 @@
   - 结果：通过，预览输出包含 `# missing_required_mode=fail-fast`。
 - `make watch-commit-workflows CI_WATCH_PRINT_ONLY=1 CI_WATCH_FAILURE_MODE=fail-fast`
   - 结果：通过，预览输出包含 `# failure_mode=fail-fast`。
+- `make watch-commit-workflows CI_WATCH_PRINT_ONLY=1 CI_WATCH_HEARTBEAT_INTERVAL=120`
+  - 结果：通过，预览输出包含 `# heartbeat_interval_seconds=120`。
 - `make validate-watch-commit-workflows`
   - 结果：通过（11 passed）。
 - `make validate-archive-workflow-dispatcher`
