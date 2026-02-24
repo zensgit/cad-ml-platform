@@ -611,6 +611,71 @@ def test_main_argument_validation_for_heartbeat_interval(monkeypatch: Any) -> No
     assert rc == 2
 
 
+def test_main_argument_validation_for_success_conclusions_empty(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    _patch_parsed_args(
+        monkeypatch,
+        _Args(
+            sha="HEAD",
+            events_csv="push",
+            event=[],
+            require_workflows_csv="",
+            require_workflow=[],
+            success_conclusions_csv=" , ",
+            wait_timeout_seconds=10,
+            poll_interval_seconds=1,
+            heartbeat_interval_seconds=1,
+            list_limit=100,
+            print_only=False,
+        ),
+    )
+
+    rc = _invoke_main(mod)
+    assert rc == 2
+
+
+def test_main_allows_neutral_when_configured(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    _patch_parsed_args(
+        monkeypatch,
+        _Args(
+            sha="HEAD",
+            events_csv="push",
+            event=[],
+            require_workflows_csv="CI",
+            require_workflow=[],
+            success_conclusions_csv="success,skipped,neutral",
+            wait_timeout_seconds=20,
+            poll_interval_seconds=1,
+            heartbeat_interval_seconds=1,
+            list_limit=100,
+            print_only=False,
+        ),
+    )
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "resolve_head_sha", lambda _value: "sha")
+    monkeypatch.setattr(
+        mod,
+        "list_runs_for_sha",
+        lambda **_kwargs: [
+            mod.WorkflowRun(
+                database_id=777,
+                workflow_name="CI",
+                status="completed",
+                conclusion="neutral",
+                url="u1",
+                event="push",
+            )
+        ],
+    )
+
+    rc = _invoke_main(mod)
+    assert rc == 0
+
+
 def test_main_print_only_writes_summary_json(tmp_path: Any, monkeypatch: Any) -> None:
     from scripts.ci import watch_commit_workflows as mod
 
@@ -636,6 +701,7 @@ def test_main_print_only_writes_summary_json(tmp_path: Any, monkeypatch: Any) ->
     payload = json.loads(summary_path.read_text(encoding="utf-8"))
     assert payload["exit_code"] == 0
     assert payload["reason"] == "print_only"
+    assert payload["success_conclusions"] == ["skipped", "success"]
     assert payload["counts"]["observed"] == 0
     assert payload["events"] == ["push"]
 

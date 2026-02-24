@@ -10,7 +10,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Sequence
 
-SUCCESS_CONCLUSIONS = {"success", "skipped"}
+DEFAULT_SUCCESS_CONCLUSIONS = ("success", "skipped")
 
 
 @dataclass(frozen=True)
@@ -73,6 +73,7 @@ def _build_summary_payload(
     resolved_sha: str,
     events: Sequence[str],
     required_workflows: Sequence[str],
+    success_conclusions: Sequence[str],
     missing_required_mode: str,
     failure_mode: str,
     wait_timeout_seconds: int,
@@ -87,10 +88,12 @@ def _build_summary_payload(
     missing_required: Sequence[str],
 ) -> dict[str, Any]:
     completed_count = sum(1 for run in runs if run.status == "completed")
+    normalized_success_conclusions = {item.lower() for item in success_conclusions}
     failed_runs = [
         run
         for run in runs
-        if run.status == "completed" and run.conclusion not in SUCCESS_CONCLUSIONS
+        if run.status == "completed"
+        and (run.conclusion or "").lower() not in normalized_success_conclusions
     ]
     return {
         "version": 1,
@@ -98,6 +101,7 @@ def _build_summary_payload(
         "resolved_sha": resolved_sha,
         "events": list(events),
         "required_workflows": list(required_workflows),
+        "success_conclusions": list(success_conclusions),
         "missing_required_mode": missing_required_mode,
         "failure_mode": failure_mode,
         "wait_timeout_seconds": wait_timeout_seconds,
@@ -326,6 +330,14 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--success-conclusions-csv",
+        default=",".join(DEFAULT_SUCCESS_CONCLUSIONS),
+        help=(
+            "Comma-separated workflow conclusions treated as success "
+            "(default: success,skipped)."
+        ),
+    )
+    parser.add_argument(
         "--print-only",
         action="store_true",
         help="Print the gh command and exit without execution.",
@@ -338,13 +350,18 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _print_snapshot(runs: Sequence[WorkflowRun], missing_required: Sequence[str]) -> None:
+def _print_snapshot(
+    runs: Sequence[WorkflowRun],
+    missing_required: Sequence[str],
+    success_conclusions: set[str],
+) -> None:
     total = len(runs)
     completed = sum(1 for run in runs if run.status == "completed")
     failed = sum(
         1
         for run in runs
-        if run.status == "completed" and run.conclusion not in SUCCESS_CONCLUSIONS
+        if run.status == "completed"
+        and (run.conclusion or "").lower() not in success_conclusions
     )
     _log(
         "status: "
@@ -385,6 +402,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         _split_csv_items(str(args.require_workflows_csv)),
         list(args.require_workflow),
     )
+    success_conclusions_csv = str(
+        args.success_conclusions_csv or ",".join(DEFAULT_SUCCESS_CONCLUSIONS)
+    )
+    success_conclusions = {
+        item.lower() for item in _split_csv_items(success_conclusions_csv) if item.strip()
+    }
+    if not success_conclusions:
+        _log("error: --success-conclusions-csv must include at least one conclusion")
+        return 2
 
     command_preview = _build_list_runs_command(list_limit)
     missing_required_mode = str(args.missing_required_mode or "fail-fast")
@@ -404,6 +430,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             resolved_sha=resolved_sha,
             events=sorted(events),
             required_workflows=required_workflows,
+            success_conclusions=sorted(success_conclusions),
             missing_required_mode=missing_required_mode,
             failure_mode=failure_mode,
             wait_timeout_seconds=wait_timeout_seconds,
@@ -429,6 +456,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _log(shlex.join(command_preview))
         _log(f"# events={sorted(events)}")
         _log(f"# required_workflows={required_workflows}")
+        _log(f"# success_conclusions={sorted(success_conclusions)}")
         _log(f"# missing_required_mode={missing_required_mode}")
         _log(f"# failure_mode={failure_mode}")
         _log(f"# heartbeat_interval_seconds={heartbeat_interval_seconds}")
@@ -474,7 +502,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             tuple(missing_required),
         )
         if snapshot_key != last_snapshot_key:
-            _print_snapshot(runs, missing_required)
+            _print_snapshot(runs, missing_required, success_conclusions)
             last_snapshot_key = snapshot_key
             last_progress_log_at = time.time()
         elif heartbeat_interval_seconds > 0:
@@ -493,7 +521,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         failed = [
             run
             for run in runs
-            if run.status == "completed" and run.conclusion not in SUCCESS_CONCLUSIONS
+            if run.status == "completed"
+            and (run.conclusion or "").lower() not in success_conclusions
         ]
         if failed and failure_mode == "fail-fast":
             _log("error: detected non-success workflow conclusions.")

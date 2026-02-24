@@ -67,6 +67,7 @@ CI_WATCH_HEARTBEAT_INTERVAL ?= 120
 CI_WATCH_LIST_LIMIT ?= 100
 CI_WATCH_MISSING_REQUIRED_MODE ?= fail-fast
 CI_WATCH_FAILURE_MODE ?= fail-fast
+CI_WATCH_SUCCESS_CONCLUSIONS ?= success,skipped
 CI_WATCH_SUMMARY_JSON ?=
 CI_WATCH_SUMMARY_DIR ?= reports/ci
 CI_WATCH_PRINT_ONLY ?= 0
@@ -256,6 +257,7 @@ watch-commit-workflows: ## 监控指定提交 SHA 的 CI 工作流并等待完�
 		--list-limit "$(CI_WATCH_LIST_LIMIT)" \
 		--missing-required-mode "$(CI_WATCH_MISSING_REQUIRED_MODE)" \
 		--failure-mode "$(CI_WATCH_FAILURE_MODE)" \
+		--success-conclusions-csv "$(CI_WATCH_SUCCESS_CONCLUSIONS)" \
 		--summary-json-out "$(CI_WATCH_SUMMARY_JSON)" \
 		$$print_only_flag
 
