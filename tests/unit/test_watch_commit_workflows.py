@@ -151,6 +151,57 @@ def test_list_runs_for_sha_raises_on_nonzero(monkeypatch: Any) -> None:
         raise AssertionError("expected RuntimeError")
 
 
+def test_extract_auth_error_details_prefers_actionable_lines() -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    result = subprocess.CompletedProcess(
+        args=[],
+        returncode=1,
+        stdout=(
+            "github.com\n"
+            "  X Failed to log in to github.com account zensgit (default)\n"
+            "  - The token in default is invalid.\n"
+            "  - To re-authenticate, run: gh auth login -h github.com\n"
+        ),
+        stderr="",
+    )
+
+    message = mod._extract_auth_error_details(result, "fallback")
+    assert "Failed to log in" in message
+    assert "token in default is invalid" in message
+    assert "gh auth login -h github.com" in message
+
+
+def test_check_gh_ready_reports_auth_context(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    responses = [
+        subprocess.CompletedProcess(args=[], returncode=0, stdout="gh version", stderr=""),
+        subprocess.CompletedProcess(
+            args=[],
+            returncode=1,
+            stdout=(
+                "github.com\n"
+                "  X Failed to log in to github.com account zensgit (default)\n"
+                "  - The token in default is invalid.\n"
+                "  - To re-authenticate, run: gh auth login -h github.com\n"
+            ),
+            stderr="",
+        ),
+    ]
+
+    def _fake_run(*_args: Any, **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        if not responses:
+            raise AssertionError("unexpected subprocess.run call")
+        return responses.pop(0)
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+    ok, reason = mod.check_gh_ready()
+    assert ok is False
+    assert "gh auth is not ready" in reason
+    assert "token in default is invalid" in reason
+
+
 def test_resolve_head_sha_expands_non_head_value(monkeypatch: Any) -> None:
     from scripts.ci import watch_commit_workflows as mod
 

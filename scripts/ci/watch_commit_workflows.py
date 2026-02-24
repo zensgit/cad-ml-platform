@@ -36,6 +36,30 @@ def _extract_short_error(
     return output.splitlines()[0]
 
 
+def _extract_auth_error_details(
+    result: subprocess.CompletedProcess[str], fallback: str
+) -> str:
+    output = f"{result.stderr or ''}\n{result.stdout or ''}".strip()
+    if not output:
+        return fallback
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    if not lines:
+        return fallback
+    interesting = [
+        line
+        for line in lines
+        if (
+            "failed to log in" in line.lower()
+            or "token" in line.lower()
+            or "re-authenticate" in line.lower()
+            or "gh auth login" in line.lower()
+        )
+    ]
+    if interesting:
+        return " | ".join(interesting[:3])
+    return lines[0]
+
+
 def _split_csv_items(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
@@ -156,7 +180,7 @@ def check_gh_ready() -> tuple[bool, str]:
         return (
             False,
             "gh auth is not ready: "
-            f"{_extract_short_error(auth_result, 'failed to run gh auth status')}",
+            f"{_extract_auth_error_details(auth_result, 'failed to run gh auth status')}",
         )
     return True, ""
 

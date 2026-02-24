@@ -41,6 +41,13 @@ File: `README.md`
 
 - Added usage of `CI_WATCH_SUCCESS_CONCLUSIONS`.
 - Added guidance for workflows that return `neutral`.
+- Added auth troubleshooting note (`gh auth login -h github.com`).
+
+### 2.5 Auth Error Message Hardening
+File: `scripts/ci/watch_commit_workflows.py`
+
+- Improved `gh auth status` failure parsing so invalid-token scenarios return actionable details.
+- Avoids generic `github.com` error text and includes re-authentication hints directly in watcher output.
 
 ## 3. Validation
 
@@ -52,3 +59,6 @@ PYTHONDONTWRITEBYTECODE=1 pytest -q \
 
 Expected:
 - watcher suite passes with new config behavior and regression coverage.
+
+Observed:
+- `24 passed, 1 warning`
