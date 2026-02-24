@@ -26,6 +26,8 @@ File: `Makefile`
 - Added:
   - `check-gh-actions-ready`
   - `validate-check-gh-actions-ready`
+- Added convenience wrapper:
+  - `watch-commit-workflows-safe` (runs readiness precheck before watcher)
 - `validate-ci-watchers` now includes `validate-check-gh-actions-ready` first.
 
 ### 2.3 Test Coverage

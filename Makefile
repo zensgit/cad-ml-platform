@@ -21,7 +21,8 @@
 	validate-archive-workflow-dispatcher \
 	watch-commit-workflows validate-watch-commit-workflows \
 	validate-ci-watchers clean-ci-watch-summaries \
-	check-gh-actions-ready validate-check-gh-actions-ready
+	check-gh-actions-ready validate-check-gh-actions-ready \
+	watch-commit-workflows-safe
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -263,6 +264,10 @@ watch-commit-workflows: ## 监控指定提交 SHA 的 CI 工作流并等待完�
 		--success-conclusions-csv "$(CI_WATCH_SUCCESS_CONCLUSIONS)" \
 		--summary-json-out "$(CI_WATCH_SUMMARY_JSON)" \
 		$$print_only_flag
+
+watch-commit-workflows-safe: ## 先做 gh readiness 预检，再执行 commit workflow watcher
+	@$(MAKE) check-gh-actions-ready
+	@$(MAKE) watch-commit-workflows
 
 validate-watch-commit-workflows: ## 校验 commit workflow watcher（脚本 + Make 参数透传）
 	@echo "$(GREEN)Validating commit workflow watcher...$(NC)"

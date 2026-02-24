@@ -72,3 +72,10 @@ def test_make_n_clean_ci_watch_summaries_contains_expected_pattern() -> None:
     result = _run_make("-n", "clean-ci-watch-summaries")
     assert result.returncode == 0, result.stderr
     assert "watch_commit_*_summary.json" in result.stdout
+
+
+def test_make_n_watch_commit_workflows_safe_runs_precheck_then_watch() -> None:
+    result = _run_make("-n", "watch-commit-workflows-safe")
+    assert result.returncode == 0, result.stderr
+    assert "make check-gh-actions-ready" in result.stdout
+    assert "make watch-commit-workflows" in result.stdout

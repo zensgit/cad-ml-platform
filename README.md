@@ -292,6 +292,9 @@ make validate-archive-workflow-dispatcher
 # 监控当前 HEAD（默认 push 事件）
 make watch-commit-workflows
 
+# 先做 gh readiness 预检，再盯 CI
+make watch-commit-workflows-safe
+
 # 预览命令（不执行）
 make watch-commit-workflows CI_WATCH_PRINT_ONLY=1
 
