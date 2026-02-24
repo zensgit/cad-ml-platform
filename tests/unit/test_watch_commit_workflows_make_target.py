@@ -36,6 +36,7 @@ def test_make_n_watch_commit_workflows_contains_expected_flags() -> None:
     assert '--poll-interval-seconds "20"' in result.stdout
     assert '--heartbeat-interval-seconds "120"' in result.stdout
     assert '--list-limit "100"' in result.stdout
+    assert '--max-list-failures "3"' in result.stdout
     assert '--missing-required-mode "fail-fast"' in result.stdout
     assert '--failure-mode "fail-fast"' in result.stdout
     assert '--success-conclusions-csv "success,skipped"' in result.stdout
@@ -52,6 +53,7 @@ def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
         "CI_WATCH_TIMEOUT=30",
         "CI_WATCH_POLL_INTERVAL=2",
         "CI_WATCH_LIST_LIMIT=50",
+        "CI_WATCH_MAX_LIST_FAILURES=5",
         "CI_WATCH_SUCCESS_CONCLUSIONS=success,skipped,neutral",
         "CI_WATCH_SUMMARY_JSON=/tmp/ci-watch-summary.json",
     )
@@ -63,6 +65,7 @@ def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
     assert "# missing_required_mode=fail-fast" in result.stdout
     assert "# failure_mode=fail-fast" in result.stdout
     assert "# heartbeat_interval_seconds=120" in result.stdout
+    assert "# max_list_failures=5" in result.stdout
 
 
 def test_make_n_clean_ci_watch_summaries_contains_expected_pattern() -> None:

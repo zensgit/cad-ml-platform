@@ -104,12 +104,14 @@ def _build_summary_payload(
     poll_interval_seconds: int,
     heartbeat_interval_seconds: int,
     list_limit: int,
+    max_list_failures: int,
     exit_code: int,
     reason: str,
     started_at: float,
     finished_at: float,
     runs: Sequence[WorkflowRun],
     missing_required: Sequence[str],
+    consecutive_list_failures: int,
 ) -> dict[str, Any]:
     completed_count = sum(1 for run in runs if run.status == "completed")
     normalized_success_conclusions = {item.lower() for item in success_conclusions}
@@ -132,11 +134,13 @@ def _build_summary_payload(
         "poll_interval_seconds": poll_interval_seconds,
         "heartbeat_interval_seconds": heartbeat_interval_seconds,
         "list_limit": list_limit,
+        "max_list_failures": max_list_failures,
         "exit_code": exit_code,
         "reason": reason,
         "started_at_unix": started_at,
         "finished_at_unix": finished_at,
         "duration_seconds": max(0.0, finished_at - started_at),
+        "consecutive_list_failures": consecutive_list_failures,
         "counts": {
             "observed": len(runs),
             "completed": completed_count,
@@ -336,6 +340,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="gh run list limit (default: 100).",
     )
     parser.add_argument(
+        "--max-list-failures",
+        type=int,
+        default=3,
+        help=(
+            "Allowed consecutive gh run list failures before aborting "
+            "(default: 3)."
+        ),
+    )
+    parser.add_argument(
         "--missing-required-mode",
         choices=("fail-fast", "wait"),
         default="fail-fast",
@@ -407,6 +420,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     poll_interval_seconds = _int_with_default(args.poll_interval_seconds, 20)
     heartbeat_interval_seconds = _int_with_default(args.heartbeat_interval_seconds, 120)
     list_limit = _int_with_default(args.list_limit, 100)
+    max_list_failures = _int_with_default(args.max_list_failures, 3)
 
     if wait_timeout_seconds < 0:
         _log("error: --wait-timeout-seconds must be >= 0")
@@ -419,6 +433,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     if list_limit <= 0:
         _log("error: --list-limit must be > 0")
+        return 2
+    if max_list_failures < 0:
+        _log("error: --max-list-failures must be >= 0")
         return 2
 
     events = set(_merge_items(_split_csv_items(str(args.events_csv)), list(args.event)))
@@ -445,6 +462,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     started_at = time.time()
     last_runs: list[WorkflowRun] = []
     last_missing_required: list[str] = []
+    consecutive_list_failures = 0
 
     def _return_with_summary(exit_code: int, reason: str) -> int:
         if not summary_json_out:
@@ -461,12 +479,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             poll_interval_seconds=poll_interval_seconds,
             heartbeat_interval_seconds=heartbeat_interval_seconds,
             list_limit=list_limit,
+            max_list_failures=max_list_failures,
             exit_code=exit_code,
             reason=reason,
             started_at=started_at,
             finished_at=time.time(),
             runs=last_runs,
             missing_required=last_missing_required,
+            consecutive_list_failures=consecutive_list_failures,
         )
         try:
             _write_summary_json(summary_json_out, payload)
@@ -484,6 +504,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         _log(f"# missing_required_mode={missing_required_mode}")
         _log(f"# failure_mode={failure_mode}")
         _log(f"# heartbeat_interval_seconds={heartbeat_interval_seconds}")
+        _log(f"# max_list_failures={max_list_failures}")
         return _return_with_summary(0, "print_only")
 
     is_ready, reason = check_gh_ready()
@@ -509,9 +530,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 events=events,
                 limit=list_limit,
             )
+            consecutive_list_failures = 0
         except RuntimeError as exc:
-            _log(f"error: {exc}")
-            return _return_with_summary(1, "gh_run_list_failed")
+            consecutive_list_failures += 1
+            _log(
+                "warning: failed to list gh runs "
+                f"({consecutive_list_failures}/{max_list_failures + 1}): {exc}"
+            )
+            if consecutive_list_failures > max_list_failures:
+                _log("error: exceeded max consecutive gh run list failures.")
+                return _return_with_summary(1, "gh_run_list_failed")
+            if time.time() >= deadline:
+                _log("error: timeout while retrying gh run list.")
+                return _return_with_summary(1, "timeout_list_runs")
+            time.sleep(poll_interval_seconds)
+            continue
 
         runs = latest_runs_by_workflow(all_runs)
         workflow_names = {run.workflow_name for run in runs}

@@ -662,6 +662,30 @@ def test_main_argument_validation_for_heartbeat_interval(monkeypatch: Any) -> No
     assert rc == 2
 
 
+def test_main_argument_validation_for_max_list_failures(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    _patch_parsed_args(
+        monkeypatch,
+        _Args(
+            sha="HEAD",
+            events_csv="push",
+            event=[],
+            require_workflows_csv="",
+            require_workflow=[],
+            wait_timeout_seconds=10,
+            poll_interval_seconds=1,
+            heartbeat_interval_seconds=1,
+            list_limit=100,
+            max_list_failures=-1,
+            print_only=False,
+        ),
+    )
+
+    rc = _invoke_main(mod)
+    assert rc == 2
+
+
 def test_main_argument_validation_for_success_conclusions_empty(monkeypatch: Any) -> None:
     from scripts.ci import watch_commit_workflows as mod
 
@@ -727,6 +751,100 @@ def test_main_allows_neutral_when_configured(monkeypatch: Any) -> None:
     assert rc == 0
 
 
+def test_main_retries_run_list_failures_then_succeeds(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    _patch_parsed_args(
+        monkeypatch,
+        _Args(
+            sha="HEAD",
+            events_csv="push",
+            event=[],
+            require_workflows_csv="CI",
+            require_workflow=[],
+            wait_timeout_seconds=60,
+            poll_interval_seconds=1,
+            heartbeat_interval_seconds=5,
+            list_limit=100,
+            max_list_failures=1,
+            print_only=False,
+        ),
+    )
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "resolve_head_sha", lambda _value: "sha")
+    attempts = {"count": 0}
+
+    def _fake_list_runs_for_sha(**_kwargs: Any) -> list[mod.WorkflowRun]:
+        attempts["count"] += 1
+        if attempts["count"] == 1:
+            raise RuntimeError("network temporary failure")
+        return [
+            mod.WorkflowRun(
+                database_id=801,
+                workflow_name="CI",
+                status="completed",
+                conclusion="success",
+                url="u1",
+                event="push",
+            )
+        ]
+
+    sleep_calls = {"count": 0}
+
+    def _fake_sleep(_seconds: float) -> None:
+        sleep_calls["count"] += 1
+
+    monkeypatch.setattr(mod, "list_runs_for_sha", _fake_list_runs_for_sha)
+    monkeypatch.setattr(mod.time, "sleep", _fake_sleep)
+
+    rc = _invoke_main(mod)
+    assert rc == 0
+    assert attempts["count"] == 2
+    assert sleep_calls["count"] >= 1
+
+
+def test_main_fails_after_exceeding_max_list_failures(
+    tmp_path: Any, monkeypatch: Any
+) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    summary_path = tmp_path / "watch-summary-failed.json"
+    _patch_parsed_args(
+        monkeypatch,
+        _Args(
+            sha="HEAD",
+            events_csv="push",
+            event=[],
+            require_workflows_csv="CI",
+            require_workflow=[],
+            wait_timeout_seconds=60,
+            poll_interval_seconds=1,
+            heartbeat_interval_seconds=5,
+            list_limit=100,
+            max_list_failures=1,
+            summary_json_out=str(summary_path),
+            print_only=False,
+        ),
+    )
+
+    monkeypatch.setattr(mod, "check_gh_ready", lambda: (True, ""))
+    monkeypatch.setattr(mod, "resolve_head_sha", lambda _value: "sha")
+    monkeypatch.setattr(
+        mod,
+        "list_runs_for_sha",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("network down")),
+    )
+    monkeypatch.setattr(mod.time, "sleep", lambda _seconds: None)
+
+    rc = _invoke_main(mod)
+    assert rc == 1
+    payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    assert payload["reason"] == "gh_run_list_failed"
+    assert payload["consecutive_list_failures"] == 2
+    assert payload["max_list_failures"] == 1
+
+
 def test_main_print_only_writes_summary_json(tmp_path: Any, monkeypatch: Any) -> None:
     from scripts.ci import watch_commit_workflows as mod
 
@@ -753,6 +871,8 @@ def test_main_print_only_writes_summary_json(tmp_path: Any, monkeypatch: Any) ->
     assert payload["exit_code"] == 0
     assert payload["reason"] == "print_only"
     assert payload["success_conclusions"] == ["skipped", "success"]
+    assert payload["max_list_failures"] == 3
+    assert payload["consecutive_list_failures"] == 0
     assert payload["counts"]["observed"] == 0
     assert payload["events"] == ["push"]
 

@@ -301,6 +301,7 @@ make watch-commit-workflows \
   CI_WATCH_EVENTS=push \
   CI_WATCH_REQUIRED_WORKFLOWS="CI,CI Enhanced,CI Tiered Tests,Code Quality,Multi-Architecture Docker Build,Security Audit,Observability Checks,Self-Check,GHCR Publish,Evaluation Report" \
   CI_WATCH_SUCCESS_CONCLUSIONS="success,skipped,neutral" \
+  CI_WATCH_MAX_LIST_FAILURES=3 \
   CI_WATCH_MISSING_REQUIRED_MODE=fail-fast \
   CI_WATCH_FAILURE_MODE=fail-fast \
   CI_WATCH_SUMMARY_JSON=reports/ci/watch_commit_summary.json \
@@ -324,6 +325,9 @@ make watch-commit-workflows \
 - `CI_WATCH_SUCCESS_CONCLUSIONS`：
   - 逗号分隔的“视为成功”结论，默认 `success,skipped`。
   - 如 workflow 会返回 `neutral`，可设置 `CI_WATCH_SUCCESS_CONCLUSIONS=success,skipped,neutral`。
+- `CI_WATCH_MAX_LIST_FAILURES`：
+  - 允许连续 `gh run list` 失败次数，默认 `3`。
+  - 网络抖动时 watcher 会先重试，超过阈值才失败。
 - `CI_WATCH_SUMMARY_JSON`：
   - 可选；设置后会输出机器可读 JSON 总结（包含最终 reason、counts、missing_required、runs 快照）。
   - 适合与本地脚本或报告流水线联动。
