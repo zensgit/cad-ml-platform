@@ -339,6 +339,11 @@ make watch-commit-workflows \
 make validate-watch-commit-workflows
 ```
 
+环境诊断（gh CLI / 认证 / Actions API）：
+```bash
+make check-gh-actions-ready
+```
+
 清理 watcher 运行产物：
 ```bash
 make clean-ci-watch-summaries
@@ -349,6 +354,7 @@ make clean-ci-watch-summaries
 make validate-ci-watchers
 ```
 该目标会串行执行：
+- `make validate-check-gh-actions-ready`
 - `make validate-watch-commit-workflows`
 - `make validate-archive-workflow-dispatcher`
 

@@ -20,7 +20,8 @@
 	archive-experiments archive-workflow-dry-run-gh archive-workflow-apply-gh \
 	validate-archive-workflow-dispatcher \
 	watch-commit-workflows validate-watch-commit-workflows \
-	validate-ci-watchers clean-ci-watch-summaries
+	validate-ci-watchers clean-ci-watch-summaries \
+	check-gh-actions-ready validate-check-gh-actions-ready
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -267,8 +268,17 @@ validate-watch-commit-workflows: ## 校验 commit workflow watcher（脚本 + Ma
 		$(TEST_DIR)/unit/test_watch_commit_workflows.py \
 		$(TEST_DIR)/unit/test_watch_commit_workflows_make_target.py -q
 
+check-gh-actions-ready: ## 检查 gh CLI / 认证 / Actions API 可用性
+	@echo "$(GREEN)Checking gh Actions readiness...$(NC)"
+	$(PYTHON) scripts/ci/check_gh_actions_ready.py
+
+validate-check-gh-actions-ready: ## 校验 gh readiness 检查脚本
+	@echo "$(GREEN)Validating gh readiness checker...$(NC)"
+	$(PYTEST) $(TEST_DIR)/unit/test_check_gh_actions_ready.py -q
+
 validate-ci-watchers: ## 一键校验 CI watchers（commit + archive dispatcher）
 	@echo "$(GREEN)Validating CI watcher stack...$(NC)"
+	$(MAKE) validate-check-gh-actions-ready
 	$(MAKE) validate-watch-commit-workflows
 	$(MAKE) validate-archive-workflow-dispatcher
 
