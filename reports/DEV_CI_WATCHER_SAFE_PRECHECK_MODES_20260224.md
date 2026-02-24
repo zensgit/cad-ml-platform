@@ -20,6 +20,8 @@ File: `Makefile`
 - `check-gh-actions-ready` now supports:
   - writing JSON output via `GH_READY_JSON`
   - optional `--skip-actions-api` via `GH_READY_SKIP_ACTIONS_API=1`
+- Added soft mode target:
+  - `check-gh-actions-ready-soft` (uses `--allow-fail`, always exits 0)
 
 ### 2.3 Safe Watcher Target
 File: `Makefile`
@@ -32,7 +34,9 @@ File: `Makefile`
 File: `scripts/ci/check_gh_actions_ready.py`
 
 - Added `--skip-actions-api`.
+- Added `--allow-fail`.
 - JSON payload now includes `skip_actions_api` flag.
+- JSON payload now includes `allow_fail` flag.
 
 ### 2.5 Tests
 Files:

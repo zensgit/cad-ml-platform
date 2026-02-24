@@ -102,6 +102,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip `gh run list` connectivity check (useful for auth-only diagnosis).",
     )
+    parser.add_argument(
+        "--allow-fail",
+        action="store_true",
+        help="Always exit with code 0 after checks, even when some checks fail.",
+    )
     return parser
 
 
@@ -126,6 +131,7 @@ def main() -> int:
     payload = {
         "version": 1,
         "skip_actions_api": bool(args.skip_actions_api),
+        "allow_fail": bool(args.allow_fail),
         "checks": [
             {"name": check.name, "ok": check.ok, "message": check.message} for check in checks
         ],
@@ -136,6 +142,8 @@ def main() -> int:
         _write_json(json_out, payload)
         print(f"json written: {json_out}", flush=True)
 
+    if bool(args.allow_fail):
+        return 0
     return 0 if payload["ok"] else 1
 
 

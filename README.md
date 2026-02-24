@@ -356,6 +356,10 @@ make validate-watch-commit-workflows
 ```bash
 make check-gh-actions-ready
 ```
+- 软模式（总是返回 0，适合与非严格流水线结合）：
+```bash
+make check-gh-actions-ready-soft
+```
 - `GH_READY_JSON`：预检 JSON 输出路径（默认 `reports/ci/gh_readiness_latest.json`）。
 - `GH_READY_SKIP_ACTIONS_API=1`：跳过 `gh run list` 连通性检查，仅验证 gh CLI + auth。
 

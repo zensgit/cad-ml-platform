@@ -273,7 +273,7 @@ watch-commit-workflows-safe: ## 先做 gh readiness 预检，再执行 commit wo
 		$(MAKE) check-gh-actions-ready; \
 	else \
 		echo "$(YELLOW)[warn] CI_WATCH_PRECHECK_STRICT=0: precheck failures will be ignored$(NC)"; \
-		$(MAKE) check-gh-actions-ready || true; \
+		$(MAKE) check-gh-actions-ready-soft; \
 	fi
 	@$(MAKE) watch-commit-workflows
 
@@ -290,6 +290,15 @@ check-gh-actions-ready: ## 检查 gh CLI / 认证 / Actions API 可用性
 	$(PYTHON) scripts/ci/check_gh_actions_ready.py \
 		--json-out "$(GH_READY_JSON)" \
 		$$skip_actions_flag
+
+check-gh-actions-ready-soft: ## 检查 gh readiness（软模式：失败不返回非零）
+	@echo "$(GREEN)Checking gh Actions readiness (soft mode)...$(NC)"
+	@skip_actions_flag=""; \
+	if [ "$(GH_READY_SKIP_ACTIONS_API)" = "1" ]; then skip_actions_flag="--skip-actions-api"; fi; \
+	$(PYTHON) scripts/ci/check_gh_actions_ready.py \
+		--json-out "$(GH_READY_JSON)" \
+		$$skip_actions_flag \
+		--allow-fail
 
 validate-check-gh-actions-ready: ## 校验 gh readiness 检查脚本
 	@echo "$(GREEN)Validating gh readiness checker...$(NC)"
