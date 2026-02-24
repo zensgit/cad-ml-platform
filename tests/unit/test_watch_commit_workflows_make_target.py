@@ -96,6 +96,15 @@ def test_make_n_watch_commit_workflows_safe_runs_precheck_then_watch() -> None:
     assert "CI_WATCH_PRECHECK_STRICT" in result.stdout
 
 
+def test_make_n_watch_commit_workflows_safe_auto_contains_auto_paths() -> None:
+    result = _run_make("-n", "watch-commit-workflows-safe-auto")
+    assert result.returncode == 0, result.stderr
+    assert "git rev-parse" in result.stdout
+    assert "gh_readiness_watch_" in result.stdout
+    assert "watch_commit_" in result.stdout
+    assert "make watch-commit-workflows-safe" in result.stdout
+
+
 def test_make_n_check_gh_actions_ready_contains_json_and_skip_flag_logic() -> None:
     result = _run_make("-n", "check-gh-actions-ready")
     assert result.returncode == 0, result.stderr

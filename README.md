@@ -298,6 +298,9 @@ make watch-commit-workflows-safe
 # 非严格模式（预检失败也继续执行 watcher）
 make watch-commit-workflows-safe CI_WATCH_PRECHECK_STRICT=0
 
+# 自动按解析后的提交 SHA 生成 readiness/watch 产物文件名
+make watch-commit-workflows-safe-auto
+
 # 预览命令（不执行）
 make watch-commit-workflows CI_WATCH_PRINT_ONLY=1
 

@@ -23,7 +23,7 @@
 	validate-ci-watchers clean-ci-watch-summaries \
 	check-gh-actions-ready validate-check-gh-actions-ready \
 	watch-commit-workflows-safe clean-gh-readiness-summaries \
-	clean-ci-watch-artifacts
+	clean-ci-watch-artifacts watch-commit-workflows-safe-auto
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -277,6 +277,17 @@ watch-commit-workflows-safe: ## 先做 gh readiness 预检，再执行 commit wo
 		$(MAKE) check-gh-actions-ready-soft; \
 	fi
 	@$(MAKE) watch-commit-workflows
+
+watch-commit-workflows-safe-auto: ## 自动按提交 SHA 命名产物并执行 safe watcher
+	@set -e; \
+	sha="$$(git rev-parse "$(CI_WATCH_SHA)")"; \
+	ready_json="$(CI_WATCH_SUMMARY_DIR)/gh_readiness_watch_$${sha}.json"; \
+	watch_json="$(CI_WATCH_SUMMARY_DIR)/watch_commit_$${sha}_summary.json"; \
+	echo "$(GREEN)Auto watch artifacts$(NC): $$ready_json | $$watch_json"; \
+	$(MAKE) watch-commit-workflows-safe \
+		CI_WATCH_SHA="$$sha" \
+		GH_READY_JSON="$$ready_json" \
+		CI_WATCH_SUMMARY_JSON="$$watch_json"
 
 validate-watch-commit-workflows: ## 校验 commit workflow watcher（脚本 + Make 参数透传）
 	@echo "$(GREEN)Validating commit workflow watcher...$(NC)"
