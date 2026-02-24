@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import argparse
 import json
+from pathlib import Path
 import shlex
 import subprocess
 import time
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Any, Sequence
 
 SUCCESS_CONCLUSIONS = {"success", "skipped"}
 
@@ -53,6 +54,84 @@ def _int_with_default(value: object, default: int) -> int:
     if value is None:
         return int(default)
     return int(value)
+
+
+def _serialize_run(run: WorkflowRun) -> dict[str, Any]:
+    return {
+        "database_id": run.database_id,
+        "workflow_name": run.workflow_name,
+        "status": run.status,
+        "conclusion": run.conclusion,
+        "event": run.event,
+        "url": run.url,
+    }
+
+
+def _build_summary_payload(
+    *,
+    requested_sha: str,
+    resolved_sha: str,
+    events: Sequence[str],
+    required_workflows: Sequence[str],
+    missing_required_mode: str,
+    failure_mode: str,
+    wait_timeout_seconds: int,
+    poll_interval_seconds: int,
+    heartbeat_interval_seconds: int,
+    list_limit: int,
+    exit_code: int,
+    reason: str,
+    started_at: float,
+    finished_at: float,
+    runs: Sequence[WorkflowRun],
+    missing_required: Sequence[str],
+) -> dict[str, Any]:
+    completed_count = sum(1 for run in runs if run.status == "completed")
+    failed_runs = [
+        run
+        for run in runs
+        if run.status == "completed" and run.conclusion not in SUCCESS_CONCLUSIONS
+    ]
+    return {
+        "version": 1,
+        "requested_sha": requested_sha,
+        "resolved_sha": resolved_sha,
+        "events": list(events),
+        "required_workflows": list(required_workflows),
+        "missing_required_mode": missing_required_mode,
+        "failure_mode": failure_mode,
+        "wait_timeout_seconds": wait_timeout_seconds,
+        "poll_interval_seconds": poll_interval_seconds,
+        "heartbeat_interval_seconds": heartbeat_interval_seconds,
+        "list_limit": list_limit,
+        "exit_code": exit_code,
+        "reason": reason,
+        "started_at_unix": started_at,
+        "finished_at_unix": finished_at,
+        "duration_seconds": max(0.0, finished_at - started_at),
+        "counts": {
+            "observed": len(runs),
+            "completed": completed_count,
+            "failed": len(failed_runs),
+            "missing_required": len(missing_required),
+        },
+        "missing_required": list(missing_required),
+        "failed_workflows": [run.workflow_name for run in failed_runs],
+        "runs": [_serialize_run(run) for run in runs],
+    }
+
+
+def _write_summary_json(path_value: str, payload: dict[str, Any]) -> None:
+    path = Path(path_value).expanduser()
+    if path.parent != Path("."):
+        path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        path.write_text(
+            f"{json.dumps(payload, ensure_ascii=False, indent=2)}\n",
+            encoding="utf-8",
+        )
+    except OSError as exc:
+        raise RuntimeError(f"failed to write summary json: {exc}") from exc
 
 
 def check_gh_ready() -> tuple[bool, str]:
@@ -250,6 +329,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print the gh command and exit without execution.",
     )
+    parser.add_argument(
+        "--summary-json-out",
+        default="",
+        help="Optional output file path for machine-readable final summary JSON.",
+    )
     return parser
 
 
@@ -304,6 +388,41 @@ def main(argv: Sequence[str] | None = None) -> int:
     command_preview = _build_list_runs_command(list_limit)
     missing_required_mode = str(args.missing_required_mode or "fail-fast")
     failure_mode = str(args.failure_mode or "fail-fast")
+    summary_json_out = str(args.summary_json_out or "").strip()
+    requested_sha = str(args.sha or "HEAD")
+    resolved_sha = requested_sha
+    started_at = time.time()
+    last_runs: list[WorkflowRun] = []
+    last_missing_required: list[str] = []
+
+    def _return_with_summary(exit_code: int, reason: str) -> int:
+        if not summary_json_out:
+            return exit_code
+        payload = _build_summary_payload(
+            requested_sha=requested_sha,
+            resolved_sha=resolved_sha,
+            events=sorted(events),
+            required_workflows=required_workflows,
+            missing_required_mode=missing_required_mode,
+            failure_mode=failure_mode,
+            wait_timeout_seconds=wait_timeout_seconds,
+            poll_interval_seconds=poll_interval_seconds,
+            heartbeat_interval_seconds=heartbeat_interval_seconds,
+            list_limit=list_limit,
+            exit_code=exit_code,
+            reason=reason,
+            started_at=started_at,
+            finished_at=time.time(),
+            runs=last_runs,
+            missing_required=last_missing_required,
+        )
+        try:
+            _write_summary_json(summary_json_out, payload)
+        except RuntimeError as exc:
+            _log(f"error: {exc}")
+            return 1
+        _log(f"summary json written: {summary_json_out}")
+        return exit_code
 
     if bool(args.print_only):
         _log(shlex.join(command_preview))
@@ -312,18 +431,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         _log(f"# missing_required_mode={missing_required_mode}")
         _log(f"# failure_mode={failure_mode}")
         _log(f"# heartbeat_interval_seconds={heartbeat_interval_seconds}")
-        return 0
+        return _return_with_summary(0, "print_only")
 
     is_ready, reason = check_gh_ready()
     if not is_ready:
         _log(f"error: {reason}")
-        return 1
+        return _return_with_summary(1, "gh_not_ready")
 
     try:
-        head_sha = resolve_head_sha(str(args.sha))
+        head_sha = resolve_head_sha(requested_sha)
+        resolved_sha = head_sha
     except RuntimeError as exc:
         _log(f"error: {exc}")
-        return 1
+        return _return_with_summary(1, "resolve_head_sha_failed")
 
     deadline = time.time() + wait_timeout_seconds
     last_snapshot_key: tuple[object, ...] | None = None
@@ -338,13 +458,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
         except RuntimeError as exc:
             _log(f"error: {exc}")
-            return 1
+            return _return_with_summary(1, "gh_run_list_failed")
 
         runs = latest_runs_by_workflow(all_runs)
         workflow_names = {run.workflow_name for run in runs}
         missing_required = [
             name for name in required_workflows if name not in workflow_names
         ]
+        last_runs = list(runs)
+        last_missing_required = list(missing_required)
 
         snapshot_key = (
             tuple((run.workflow_name, run.status, run.conclusion) for run in runs),
@@ -374,27 +496,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         ]
         if failed and failure_mode == "fail-fast":
             _log("error: detected non-success workflow conclusions.")
-            return 1
+            return _return_with_summary(1, "non_success_conclusion")
 
         if all_completed and missing_required and missing_required_mode == "fail-fast":
             _log("error: required workflows are missing after observed runs completed.")
-            return 1
+            return _return_with_summary(1, "missing_required_fail_fast")
 
         if all_completed and have_required:
             if failed:
                 _log("error: detected non-success workflow conclusions.")
-                return 1
+                return _return_with_summary(1, "non_success_conclusion")
             _log("all observed workflows completed successfully.")
-            return 0
+            return _return_with_summary(0, "all_workflows_success")
 
         if time.time() >= deadline:
             if not has_runs:
                 _log("error: timeout while waiting for matching workflows to appear.")
+                return _return_with_summary(1, "timeout_no_runs")
             elif missing_required:
                 _log("error: timeout with missing required workflows.")
+                return _return_with_summary(1, "timeout_missing_required")
             else:
                 _log("error: timeout while waiting for workflows to complete.")
-            return 1
+                return _return_with_summary(1, "timeout_waiting_completion")
         time.sleep(poll_interval_seconds)
 
 

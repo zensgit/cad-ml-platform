@@ -38,6 +38,7 @@ def test_make_n_watch_commit_workflows_contains_expected_flags() -> None:
     assert '--list-limit "100"' in result.stdout
     assert '--missing-required-mode "fail-fast"' in result.stdout
     assert '--failure-mode "fail-fast"' in result.stdout
+    assert '--summary-json-out ""' in result.stdout
 
 
 def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
@@ -50,6 +51,7 @@ def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
         "CI_WATCH_TIMEOUT=30",
         "CI_WATCH_POLL_INTERVAL=2",
         "CI_WATCH_LIST_LIMIT=50",
+        "CI_WATCH_SUMMARY_JSON=/tmp/ci-watch-summary.json",
     )
     assert result.returncode == 0, result.stderr
     assert "gh run list --json" in result.stdout
