@@ -22,7 +22,8 @@
 	watch-commit-workflows validate-watch-commit-workflows \
 	validate-ci-watchers clean-ci-watch-summaries \
 	check-gh-actions-ready validate-check-gh-actions-ready \
-	watch-commit-workflows-safe
+	watch-commit-workflows-safe clean-gh-readiness-summaries \
+	clean-ci-watch-artifacts
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -310,10 +311,19 @@ validate-ci-watchers: ## 一键校验 CI watchers（commit + archive dispatcher�
 	$(MAKE) validate-watch-commit-workflows
 	$(MAKE) validate-archive-workflow-dispatcher
 
-clean-ci-watch-summaries: ## 清理 commit workflow watcher 运行时 summary JSON
-	@echo "$(GREEN)Cleaning commit workflow watcher summary artifacts...$(NC)"
+clean-ci-watch-summaries: ## 清理 watcher 运行时 summary JSON
+	@echo "$(GREEN)Cleaning watcher summary artifacts...$(NC)"
 	@mkdir -p "$(CI_WATCH_SUMMARY_DIR)"
-	@rm -f "$(CI_WATCH_SUMMARY_DIR)"/watch_commit_*_summary.json
+	@rm -f "$(CI_WATCH_SUMMARY_DIR)"/watch_*_summary.json
+
+clean-gh-readiness-summaries: ## 清理 gh readiness 运行时 JSON
+	@echo "$(GREEN)Cleaning gh readiness artifacts...$(NC)"
+	@mkdir -p "$(CI_WATCH_SUMMARY_DIR)"
+	@rm -f "$(CI_WATCH_SUMMARY_DIR)"/gh_readiness*.json
+
+clean-ci-watch-artifacts: ## 清理 watcher + readiness 全部运行时 JSON
+	@$(MAKE) clean-ci-watch-summaries
+	@$(MAKE) clean-gh-readiness-summaries
 
 validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core + provider-contract）
 	@echo "$(GREEN)Running core fast validation...$(NC)"

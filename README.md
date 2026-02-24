@@ -366,6 +366,8 @@ make check-gh-actions-ready-soft
 清理 watcher 运行产物：
 ```bash
 make clean-ci-watch-summaries
+make clean-gh-readiness-summaries
+make clean-ci-watch-artifacts
 ```
 
 合并回归：

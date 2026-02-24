@@ -71,7 +71,20 @@ def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
 def test_make_n_clean_ci_watch_summaries_contains_expected_pattern() -> None:
     result = _run_make("-n", "clean-ci-watch-summaries")
     assert result.returncode == 0, result.stderr
-    assert "watch_commit_*_summary.json" in result.stdout
+    assert "watch_*_summary.json" in result.stdout
+
+
+def test_make_n_clean_gh_readiness_summaries_contains_expected_pattern() -> None:
+    result = _run_make("-n", "clean-gh-readiness-summaries")
+    assert result.returncode == 0, result.stderr
+    assert "gh_readiness*.json" in result.stdout
+
+
+def test_make_n_clean_ci_watch_artifacts_calls_both_targets() -> None:
+    result = _run_make("-n", "clean-ci-watch-artifacts")
+    assert result.returncode == 0, result.stderr
+    assert "make clean-ci-watch-summaries" in result.stdout
+    assert "make clean-gh-readiness-summaries" in result.stdout
 
 
 def test_make_n_watch_commit_workflows_safe_runs_precheck_then_watch() -> None:
