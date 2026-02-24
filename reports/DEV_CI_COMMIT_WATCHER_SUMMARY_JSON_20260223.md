@@ -48,6 +48,17 @@ Added coverage for:
 File: `README.md`
 
 - Added `CI_WATCH_SUMMARY_JSON` usage example and behavior notes in watcher section.
+- Clarified that `CI_WATCH_SHA` supports `HEAD`/short SHA/full SHA and is normalized via `git rev-parse`.
+
+### 2.5 SHA Resolution Fix
+File: `scripts/ci/watch_commit_workflows.py`
+
+- Fixed `resolve_head_sha` behavior for non-`HEAD` input:
+  - previous behavior: short SHA was used as-is and failed exact match against `gh run list` full `headSha`.
+  - current behavior: always resolve input through `git rev-parse <value>` and match with full SHA.
+- Added unit coverage for:
+  - short SHA expansion
+  - empty input fallback to `HEAD`
 
 ## 3. Validation
 
@@ -56,7 +67,7 @@ File: `README.md`
 pytest -q tests/unit/test_watch_commit_workflows.py tests/unit/test_watch_commit_workflows_make_target.py
 ```
 Result:
-- `17 passed, 1 warning`
+- `19 passed, 1 warning`
 
 ### 3.2 Lint (changed files)
 ```bash
@@ -70,7 +81,7 @@ Result:
 make validate-watch-commit-workflows
 ```
 Result:
-- `17 passed`
+- `19 passed`
 
 ### 3.4 Runtime Smoke Check (print-only + JSON)
 ```bash
@@ -86,8 +97,19 @@ Result:
 make validate-ci-watchers
 ```
 Result:
-- commit watcher suite: `17 passed`
+- commit watcher suite: `19 passed`
 - archive dispatcher suite: `24 passed`
+
+### 3.6 Runtime Smoke Check (short SHA)
+```bash
+make watch-commit-workflows \
+  CI_WATCH_SHA=530897b \
+  CI_WATCH_EVENTS=push \
+  CI_WATCH_SUMMARY_JSON=reports/ci/watch_commit_530897b_shortsha_summary.json
+```
+Result:
+- short SHA path successfully resolves and matches all workflows.
+- run completed with `observed=11 completed=11 failed=0`.
 
 ## 4. Rollback
 - Revert these files to rollback this feature:

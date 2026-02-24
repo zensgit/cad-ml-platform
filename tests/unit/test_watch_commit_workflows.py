@@ -151,6 +151,46 @@ def test_list_runs_for_sha_raises_on_nonzero(monkeypatch: Any) -> None:
         raise AssertionError("expected RuntimeError")
 
 
+def test_resolve_head_sha_expands_non_head_value(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    captured: dict[str, Any] = {}
+
+    def _fake_run(args: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        captured["args"] = args
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout="530897b01c818a697ed46660f8b17bc8b1bb14c5\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+    resolved = mod.resolve_head_sha("530897b")
+    assert captured["args"] == ["git", "rev-parse", "530897b"]
+    assert resolved == "530897b01c818a697ed46660f8b17bc8b1bb14c5"
+
+
+def test_resolve_head_sha_uses_head_when_empty(monkeypatch: Any) -> None:
+    from scripts.ci import watch_commit_workflows as mod
+
+    captured: dict[str, Any] = {}
+
+    def _fake_run(args: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        captured["args"] = args
+        return subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout="abc123\n",
+            stderr="",
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+    resolved = mod.resolve_head_sha("")
+    assert captured["args"] == ["git", "rev-parse", "HEAD"]
+    assert resolved == "abc123"
+
+
 def test_main_print_only_does_not_execute_runtime_checks(monkeypatch: Any) -> None:
     from scripts.ci import watch_commit_workflows as mod
 

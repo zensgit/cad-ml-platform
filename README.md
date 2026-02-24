@@ -311,6 +311,7 @@ make watch-commit-workflows \
 
 说明：
 - 脚本路径：`scripts/ci/watch_commit_workflows.py`
+- `CI_WATCH_SHA` 支持 `HEAD`、短 SHA、完整 SHA；内部会通过 `git rev-parse` 解析为完整提交哈希后再匹配 workflow run。
 - 成功条件：观察到的工作流全部 `completed` 且结论均为 `success/skipped`，并满足 `CI_WATCH_REQUIRED_WORKFLOWS`。
 - 失败条件：出现非成功结论（如 `failure/cancelled/timed_out`）或超时。
 - `CI_WATCH_MISSING_REQUIRED_MODE` 支持：

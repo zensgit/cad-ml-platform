@@ -159,19 +159,20 @@ def check_gh_ready() -> tuple[bool, str]:
 
 def resolve_head_sha(value: str) -> str:
     normalized = value.strip()
-    if normalized and normalized.upper() != "HEAD":
-        return normalized
+    target = normalized if normalized else "HEAD"
 
     result = subprocess.run(
-        ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=False
+        ["git", "rev-parse", target], capture_output=True, text=True, check=False
     )
     if result.returncode != 0:
-        message = _extract_short_error(result, "failed to run git rev-parse HEAD")
-        raise RuntimeError(f"failed to resolve HEAD sha: {message}")
+        message = _extract_short_error(
+            result, f"failed to run git rev-parse {target}"
+        )
+        raise RuntimeError(f"failed to resolve sha for {target}: {message}")
 
     sha = result.stdout.strip()
     if not sha:
-        raise RuntimeError("failed to resolve HEAD sha: empty output")
+        raise RuntimeError(f"failed to resolve sha for {target}: empty output")
     return sha
 
 
