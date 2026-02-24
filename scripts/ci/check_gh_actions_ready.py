@@ -97,12 +97,27 @@ def _build_parser() -> argparse.ArgumentParser:
         default="",
         help="Optional path to write structured check results.",
     )
+    parser.add_argument(
+        "--skip-actions-api",
+        action="store_true",
+        help="Skip `gh run list` connectivity check (useful for auth-only diagnosis).",
+    )
     return parser
 
 
 def main() -> int:
     args = _build_parser().parse_args()
-    checks = [_check_gh_version(), _check_gh_auth(), _check_actions_api()]
+    checks = [_check_gh_version(), _check_gh_auth()]
+    if bool(args.skip_actions_api):
+        checks.append(
+            CheckResult(
+                ok=True,
+                name="gh_actions_api",
+                message="skipped by --skip-actions-api",
+            )
+        )
+    else:
+        checks.append(_check_actions_api())
 
     for check in checks:
         prefix = "ok" if check.ok else "error"
@@ -110,6 +125,7 @@ def main() -> int:
 
     payload = {
         "version": 1,
+        "skip_actions_api": bool(args.skip_actions_api),
         "checks": [
             {"name": check.name, "ok": check.ok, "message": check.message} for check in checks
         ],

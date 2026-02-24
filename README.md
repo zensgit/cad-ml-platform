@@ -295,6 +295,9 @@ make watch-commit-workflows
 # 先做 gh readiness 预检，再盯 CI
 make watch-commit-workflows-safe
 
+# 非严格模式（预检失败也继续执行 watcher）
+make watch-commit-workflows-safe CI_WATCH_PRECHECK_STRICT=0
+
 # 预览命令（不执行）
 make watch-commit-workflows CI_WATCH_PRINT_ONLY=1
 
@@ -331,6 +334,9 @@ make watch-commit-workflows \
 - `CI_WATCH_MAX_LIST_FAILURES`：
   - 允许连续 `gh run list` 失败次数，默认 `3`。
   - 网络抖动时 watcher 会先重试，超过阈值才失败。
+- `CI_WATCH_PRECHECK_STRICT`：
+  - `1`（默认）：`watch-commit-workflows-safe` 预检失败即终止。
+  - `0`：预检失败仅告警，继续执行 watcher（适合排障时保留后续日志）。
 - `CI_WATCH_SUMMARY_JSON`：
   - 可选；设置后会输出机器可读 JSON 总结（包含最终 reason、counts、missing_required、runs 快照）。
   - 适合与本地脚本或报告流水线联动。
@@ -350,6 +356,8 @@ make validate-watch-commit-workflows
 ```bash
 make check-gh-actions-ready
 ```
+- `GH_READY_JSON`：预检 JSON 输出路径（默认 `reports/ci/gh_readiness_latest.json`）。
+- `GH_READY_SKIP_ACTIONS_API=1`：跳过 `gh run list` 连通性检查，仅验证 gh CLI + auth。
 
 清理 watcher 运行产物：
 ```bash

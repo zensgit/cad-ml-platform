@@ -147,3 +147,38 @@ def test_extract_error_prefers_keyword_lines() -> None:
     )
     message = mod._extract_error(result, "fallback")
     assert message == "error connecting to api.github.com"
+
+
+def test_main_skip_actions_api_bypasses_run_list(tmp_path: Any, monkeypatch: Any) -> None:
+    from scripts.ci import check_gh_actions_ready as mod
+
+    called_commands: list[list[str]] = []
+
+    def _fake_run(command: list[str], **_kwargs: Any) -> subprocess.CompletedProcess[str]:
+        called_commands.append(command)
+        if command == ["gh", "--version"]:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout="gh version\n",
+                stderr="",
+            )
+        if command == ["gh", "auth", "status"]:
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=0,
+                stdout="Logged in\n",
+                stderr="",
+            )
+        raise AssertionError(f"unexpected command: {command}")
+
+    monkeypatch.setattr(mod.subprocess, "run", _fake_run)
+    output_path = tmp_path / "gh-ready-skip.json"
+    rc = _invoke_main(mod, ["--skip-actions-api", "--json-out", str(output_path)])
+    assert rc == 0
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["ok"] is True
+    assert payload["skip_actions_api"] is True
+    assert payload["checks"][-1]["name"] == "gh_actions_api"
+    assert payload["checks"][-1]["message"] == "skipped by --skip-actions-api"
+    assert ["gh", "run", "list", "--limit", "1"] not in called_commands

@@ -74,6 +74,9 @@ CI_WATCH_SUCCESS_CONCLUSIONS ?= success,skipped
 CI_WATCH_SUMMARY_JSON ?=
 CI_WATCH_SUMMARY_DIR ?= reports/ci
 CI_WATCH_PRINT_ONLY ?= 0
+CI_WATCH_PRECHECK_STRICT ?= 1
+GH_READY_JSON ?= reports/ci/gh_readiness_latest.json
+GH_READY_SKIP_ACTIONS_API ?= 0
 
 # 项目路径
 SRC_DIR := src
@@ -266,7 +269,12 @@ watch-commit-workflows: ## 监控指定提交 SHA 的 CI 工作流并等待完�
 		$$print_only_flag
 
 watch-commit-workflows-safe: ## 先做 gh readiness 预检，再执行 commit workflow watcher
-	@$(MAKE) check-gh-actions-ready
+	@if [ "$(CI_WATCH_PRECHECK_STRICT)" = "1" ]; then \
+		$(MAKE) check-gh-actions-ready; \
+	else \
+		echo "$(YELLOW)[warn] CI_WATCH_PRECHECK_STRICT=0: precheck failures will be ignored$(NC)"; \
+		$(MAKE) check-gh-actions-ready || true; \
+	fi
 	@$(MAKE) watch-commit-workflows
 
 validate-watch-commit-workflows: ## 校验 commit workflow watcher（脚本 + Make 参数透传）
@@ -277,7 +285,11 @@ validate-watch-commit-workflows: ## 校验 commit workflow watcher（脚本 + Ma
 
 check-gh-actions-ready: ## 检查 gh CLI / 认证 / Actions API 可用性
 	@echo "$(GREEN)Checking gh Actions readiness...$(NC)"
-	$(PYTHON) scripts/ci/check_gh_actions_ready.py
+	@skip_actions_flag=""; \
+	if [ "$(GH_READY_SKIP_ACTIONS_API)" = "1" ]; then skip_actions_flag="--skip-actions-api"; fi; \
+	$(PYTHON) scripts/ci/check_gh_actions_ready.py \
+		--json-out "$(GH_READY_JSON)" \
+		$$skip_actions_flag
 
 validate-check-gh-actions-ready: ## 校验 gh readiness 检查脚本
 	@echo "$(GREEN)Validating gh readiness checker...$(NC)"

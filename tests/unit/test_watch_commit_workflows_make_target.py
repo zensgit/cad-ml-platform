@@ -79,3 +79,13 @@ def test_make_n_watch_commit_workflows_safe_runs_precheck_then_watch() -> None:
     assert result.returncode == 0, result.stderr
     assert "make check-gh-actions-ready" in result.stdout
     assert "make watch-commit-workflows" in result.stdout
+    assert "CI_WATCH_PRECHECK_STRICT" in result.stdout
+
+
+def test_make_n_check_gh_actions_ready_contains_json_and_skip_flag_logic() -> None:
+    result = _run_make("-n", "check-gh-actions-ready")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/check_gh_actions_ready.py" in result.stdout
+    assert '--json-out "reports/ci/gh_readiness_latest.json"' in result.stdout
+    assert "$skip_actions_flag" in result.stdout
+    assert "--skip-actions-api" in result.stdout
