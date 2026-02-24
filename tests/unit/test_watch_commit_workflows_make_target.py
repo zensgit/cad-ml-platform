@@ -60,3 +60,9 @@ def test_make_watch_commit_workflows_print_only_outputs_preview() -> None:
     assert "# missing_required_mode=fail-fast" in result.stdout
     assert "# failure_mode=fail-fast" in result.stdout
     assert "# heartbeat_interval_seconds=120" in result.stdout
+
+
+def test_make_n_clean_ci_watch_summaries_contains_expected_pattern() -> None:
+    result = _run_make("-n", "clean-ci-watch-summaries")
+    assert result.returncode == 0, result.stderr
+    assert "watch_commit_*_summary.json" in result.stdout

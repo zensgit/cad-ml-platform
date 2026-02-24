@@ -136,6 +136,8 @@ reports/*.csv
 reports/*.json
 reports/*.jsonl
 reports/security/*.json
+reports/ci/*.json
+!reports/ci/.gitkeep
 reports/junit-knowledge.xml
 reports/replay/
 reports/replay_extended/

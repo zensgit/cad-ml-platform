@@ -323,6 +323,7 @@ make watch-commit-workflows \
 - `CI_WATCH_SUMMARY_JSON`：
   - 可选；设置后会输出机器可读 JSON 总结（包含最终 reason、counts、missing_required、runs 快照）。
   - 适合与本地脚本或报告流水线联动。
+  - 默认建议写到 `reports/ci/`，该目录下的 `*.json` 被视为运行产物并默认忽略提交。
 - `CI_WATCH_HEARTBEAT_INTERVAL`：
   - 默认 `120` 秒；当状态长时间无变化时输出心跳日志，避免误判“卡住”。
   - 设为 `0` 可禁用心跳日志。
@@ -331,6 +332,11 @@ make watch-commit-workflows \
 回归校验：
 ```bash
 make validate-watch-commit-workflows
+```
+
+清理 watcher 运行产物：
+```bash
+make clean-ci-watch-summaries
 ```
 
 合并回归：

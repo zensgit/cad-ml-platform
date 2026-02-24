@@ -20,7 +20,7 @@
 	archive-experiments archive-workflow-dry-run-gh archive-workflow-apply-gh \
 	validate-archive-workflow-dispatcher \
 	watch-commit-workflows validate-watch-commit-workflows \
-	validate-ci-watchers
+	validate-ci-watchers clean-ci-watch-summaries
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -68,6 +68,7 @@ CI_WATCH_LIST_LIMIT ?= 100
 CI_WATCH_MISSING_REQUIRED_MODE ?= fail-fast
 CI_WATCH_FAILURE_MODE ?= fail-fast
 CI_WATCH_SUMMARY_JSON ?=
+CI_WATCH_SUMMARY_DIR ?= reports/ci
 CI_WATCH_PRINT_ONLY ?= 0
 
 # 项目路径
@@ -268,6 +269,11 @@ validate-ci-watchers: ## 一键校验 CI watchers（commit + archive dispatcher�
 	@echo "$(GREEN)Validating CI watcher stack...$(NC)"
 	$(MAKE) validate-watch-commit-workflows
 	$(MAKE) validate-archive-workflow-dispatcher
+
+clean-ci-watch-summaries: ## 清理 commit workflow watcher 运行时 summary JSON
+	@echo "$(GREEN)Cleaning commit workflow watcher summary artifacts...$(NC)"
+	@mkdir -p "$(CI_WATCH_SUMMARY_DIR)"
+	@rm -f "$(CI_WATCH_SUMMARY_DIR)"/watch_commit_*_summary.json
 
 validate-core-fast: ## 一键执行当前稳定核心回归（tolerance + openapi + service-mesh + provider-core + provider-contract）
 	@echo "$(GREEN)Running core fast validation...$(NC)"
