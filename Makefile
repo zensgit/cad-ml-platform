@@ -18,12 +18,13 @@
 	audit-pydantic-style audit-pydantic-style-regression \
 	openapi-snapshot-update \
 	archive-experiments archive-workflow-dry-run-gh archive-workflow-apply-gh \
-	validate-archive-workflow-dispatcher \
-	watch-commit-workflows validate-watch-commit-workflows \
-	validate-ci-watchers clean-ci-watch-summaries \
-	check-gh-actions-ready validate-check-gh-actions-ready \
-	watch-commit-workflows-safe clean-gh-readiness-summaries \
-	clean-ci-watch-artifacts watch-commit-workflows-safe-auto
+		validate-archive-workflow-dispatcher \
+		watch-commit-workflows validate-watch-commit-workflows \
+		validate-ci-watchers clean-ci-watch-summaries \
+		check-gh-actions-ready validate-check-gh-actions-ready \
+		watch-commit-workflows-safe clean-gh-readiness-summaries \
+		clean-ci-watch-artifacts watch-commit-workflows-safe-auto \
+		generate-ci-watch-validation-report validate-generate-ci-watch-validation-report
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -77,6 +78,12 @@ CI_WATCH_SUMMARY_DIR ?= reports/ci
 CI_WATCH_ARTIFACT_SHA_LEN ?= 12
 CI_WATCH_PRINT_ONLY ?= 0
 CI_WATCH_PRECHECK_STRICT ?= 1
+CI_WATCH_REPORT_SUMMARY_JSON ?=
+CI_WATCH_REPORT_READINESS_JSON ?=
+CI_WATCH_REPORT_OUTPUT_MD ?=
+CI_WATCH_REPORT_DIR ?= reports
+CI_WATCH_REPORT_SHA_LEN ?= 7
+CI_WATCH_REPORT_DATE ?=
 GH_READY_JSON ?= reports/ci/gh_readiness_latest.json
 GH_READY_SKIP_ACTIONS_API ?= 0
 
@@ -296,6 +303,17 @@ watch-commit-workflows-safe-auto: ## 自动按提交 SHA 命名产物并执行 s
 		GH_READY_JSON="$$ready_json" \
 		CI_WATCH_SUMMARY_JSON="$$watch_json"
 
+generate-ci-watch-validation-report: ## 根据 watcher 产物生成 CI 验证 Markdown 报告
+	@echo "$(GREEN)Generating CI watcher validation report...$(NC)"
+	$(PYTHON) scripts/ci/generate_ci_watcher_validation_report.py \
+		--summary-dir "$(CI_WATCH_SUMMARY_DIR)" \
+		--summary-json "$(CI_WATCH_REPORT_SUMMARY_JSON)" \
+		--readiness-json "$(CI_WATCH_REPORT_READINESS_JSON)" \
+		--output-md "$(CI_WATCH_REPORT_OUTPUT_MD)" \
+		--report-dir "$(CI_WATCH_REPORT_DIR)" \
+		--report-sha-len "$(CI_WATCH_REPORT_SHA_LEN)" \
+		--date "$(CI_WATCH_REPORT_DATE)"
+
 validate-watch-commit-workflows: ## 校验 commit workflow watcher（脚本 + Make 参数透传）
 	@echo "$(GREEN)Validating commit workflow watcher...$(NC)"
 	$(PYTEST) \
@@ -323,10 +341,15 @@ validate-check-gh-actions-ready: ## 校验 gh readiness 检查脚本
 	@echo "$(GREEN)Validating gh readiness checker...$(NC)"
 	$(PYTEST) $(TEST_DIR)/unit/test_check_gh_actions_ready.py -q
 
+validate-generate-ci-watch-validation-report: ## 校验 CI watcher 验证报告生成脚本
+	@echo "$(GREEN)Validating CI watcher validation report generator...$(NC)"
+	$(PYTEST) $(TEST_DIR)/unit/test_generate_ci_watcher_validation_report.py -q
+
 validate-ci-watchers: ## 一键校验 CI watchers（commit + archive dispatcher）
 	@echo "$(GREEN)Validating CI watcher stack...$(NC)"
 	$(MAKE) validate-check-gh-actions-ready
 	$(MAKE) validate-watch-commit-workflows
+	$(MAKE) validate-generate-ci-watch-validation-report
 	$(MAKE) validate-archive-workflow-dispatcher
 
 clean-ci-watch-summaries: ## 清理 watcher 运行时 summary JSON

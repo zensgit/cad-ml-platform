@@ -127,3 +127,15 @@ def test_make_n_check_gh_actions_ready_soft_contains_allow_fail() -> None:
     assert result.returncode == 0, result.stderr
     assert "scripts/ci/check_gh_actions_ready.py" in result.stdout
     assert "--allow-fail" in result.stdout
+
+
+def test_make_n_generate_ci_watch_validation_report_contains_expected_flags() -> None:
+    result = _run_make("-n", "generate-ci-watch-validation-report")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/generate_ci_watcher_validation_report.py" in result.stdout
+    assert '--summary-dir "reports/ci"' in result.stdout
+    assert '--summary-json ""' in result.stdout
+    assert '--readiness-json ""' in result.stdout
+    assert '--output-md ""' in result.stdout
+    assert '--report-dir "reports"' in result.stdout
+    assert '--report-sha-len "7"' in result.stdout

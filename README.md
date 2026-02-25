@@ -379,6 +379,20 @@ make clean-gh-readiness-summaries
 make clean-ci-watch-artifacts
 ```
 
+生成 CI 验证报告（Markdown）：
+```bash
+# 自动选取最新 watch_commit_*_summary.json
+make generate-ci-watch-validation-report
+
+# 指定 summary/readiness 与输出路径
+make generate-ci-watch-validation-report \
+  CI_WATCH_REPORT_SUMMARY_JSON=reports/ci/watch_commit_<sha>_summary.json \
+  CI_WATCH_REPORT_READINESS_JSON=reports/ci/gh_readiness_watch_<sha>.json \
+  CI_WATCH_REPORT_OUTPUT_MD=reports/DEV_CI_WATCHER_SAFE_AUTO_SUCCESS_VALIDATION_<SHA7>_YYYYMMDD.md
+```
+- `CI_WATCH_REPORT_SHA_LEN`：默认 `7`，用于自动输出文件名中的 SHA 前缀长度。
+- `CI_WATCH_REPORT_DATE`：默认当天（`YYYYMMDD`）。
+
 合并回归：
 ```bash
 make validate-ci-watchers
@@ -386,6 +400,7 @@ make validate-ci-watchers
 该目标会串行执行：
 - `make validate-check-gh-actions-ready`
 - `make validate-watch-commit-workflows`
+- `make validate-generate-ci-watch-validation-report`
 - `make validate-archive-workflow-dispatcher`
 
 ---
