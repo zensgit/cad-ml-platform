@@ -16,6 +16,9 @@ File: `Makefile`
   - auto-derives artifact paths:
     - `$(CI_WATCH_SUMMARY_DIR)/gh_readiness_watch_<sha>.json`
     - `$(CI_WATCH_SUMMARY_DIR)/watch_commit_<sha>_summary.json`
+  - new variable `CI_WATCH_ARTIFACT_SHA_LEN` controls `<sha>` length:
+    - default `12`
+    - `0` means full resolved SHA
   - invokes `watch-commit-workflows-safe` with computed paths
 
 ### 2.2 Tests

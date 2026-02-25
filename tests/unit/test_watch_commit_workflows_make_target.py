@@ -100,9 +100,17 @@ def test_make_n_watch_commit_workflows_safe_auto_contains_auto_paths() -> None:
     result = _run_make("-n", "watch-commit-workflows-safe-auto")
     assert result.returncode == 0, result.stderr
     assert "git rev-parse" in result.stdout
+    assert 'sha_len="12"' in result.stdout
+    assert "cut -c1-$sha_len" in result.stdout
     assert "gh_readiness_watch_" in result.stdout
     assert "watch_commit_" in result.stdout
     assert "make watch-commit-workflows-safe" in result.stdout
+
+
+def test_make_n_watch_commit_workflows_safe_auto_custom_sha_len() -> None:
+    result = _run_make("-n", "watch-commit-workflows-safe-auto", "CI_WATCH_ARTIFACT_SHA_LEN=8")
+    assert result.returncode == 0, result.stderr
+    assert 'sha_len="8"' in result.stdout
 
 
 def test_make_n_check_gh_actions_ready_contains_json_and_skip_flag_logic() -> None:

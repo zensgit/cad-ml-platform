@@ -74,6 +74,7 @@ CI_WATCH_FAILURE_MODE ?= fail-fast
 CI_WATCH_SUCCESS_CONCLUSIONS ?= success,skipped
 CI_WATCH_SUMMARY_JSON ?=
 CI_WATCH_SUMMARY_DIR ?= reports/ci
+CI_WATCH_ARTIFACT_SHA_LEN ?= 12
 CI_WATCH_PRINT_ONLY ?= 0
 CI_WATCH_PRECHECK_STRICT ?= 1
 GH_READY_JSON ?= reports/ci/gh_readiness_latest.json
@@ -280,12 +281,18 @@ watch-commit-workflows-safe: ## 先做 gh readiness 预检，再执行 commit wo
 
 watch-commit-workflows-safe-auto: ## 自动按提交 SHA 命名产物并执行 safe watcher
 	@set -e; \
-	sha="$$(git rev-parse "$(CI_WATCH_SHA)")"; \
-	ready_json="$(CI_WATCH_SUMMARY_DIR)/gh_readiness_watch_$${sha}.json"; \
-	watch_json="$(CI_WATCH_SUMMARY_DIR)/watch_commit_$${sha}_summary.json"; \
-	echo "$(GREEN)Auto watch artifacts$(NC): $$ready_json | $$watch_json"; \
+	full_sha="$$(git rev-parse "$(CI_WATCH_SHA)")"; \
+	sha_len="$(CI_WATCH_ARTIFACT_SHA_LEN)"; \
+	case "$$sha_len" in \
+		''|*[!0-9]*) echo "$(RED)error: CI_WATCH_ARTIFACT_SHA_LEN must be a non-negative integer$(NC)"; exit 2;; \
+	esac; \
+	short_sha="$$full_sha"; \
+	if [ "$$sha_len" -gt 0 ]; then short_sha="$$(printf '%s' "$$full_sha" | cut -c1-$$sha_len)"; fi; \
+	ready_json="$(CI_WATCH_SUMMARY_DIR)/gh_readiness_watch_$${short_sha}.json"; \
+	watch_json="$(CI_WATCH_SUMMARY_DIR)/watch_commit_$${short_sha}_summary.json"; \
+	echo "$(GREEN)Auto watch artifacts$(NC): $$ready_json | $$watch_json (resolved_sha=$$full_sha)"; \
 	$(MAKE) watch-commit-workflows-safe \
-		CI_WATCH_SHA="$$sha" \
+		CI_WATCH_SHA="$$full_sha" \
 		GH_READY_JSON="$$ready_json" \
 		CI_WATCH_SUMMARY_JSON="$$watch_json"
 

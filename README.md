@@ -301,6 +301,9 @@ make watch-commit-workflows-safe CI_WATCH_PRECHECK_STRICT=0
 # 自动按解析后的提交 SHA 生成 readiness/watch 产物文件名
 make watch-commit-workflows-safe-auto
 
+# 自定义产物文件名里的 SHA 长度（默认 12）
+make watch-commit-workflows-safe-auto CI_WATCH_ARTIFACT_SHA_LEN=8
+
 # 预览命令（不执行）
 make watch-commit-workflows CI_WATCH_PRINT_ONLY=1
 
@@ -340,6 +343,9 @@ make watch-commit-workflows \
 - `CI_WATCH_PRECHECK_STRICT`：
   - `1`（默认）：`watch-commit-workflows-safe` 预检失败即终止。
   - `0`：预检失败仅告警，继续执行 watcher（适合排障时保留后续日志）。
+- `CI_WATCH_ARTIFACT_SHA_LEN`：
+  - `watch-commit-workflows-safe-auto` 产物文件名使用的 SHA 前缀长度，默认 `12`。
+  - 设为 `0` 表示使用完整 40 位 SHA。
 - `CI_WATCH_SUMMARY_JSON`：
   - 可选；设置后会输出机器可读 JSON 总结（包含最终 reason、counts、missing_required、runs 快照）。
   - 适合与本地脚本或报告流水线联动。
