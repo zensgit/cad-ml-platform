@@ -188,6 +188,10 @@ class HybridClassifier:
             explicit=history_min_conf,
             default=self._config.history_sequence.min_confidence,
         )
+        self.history_shadow_only = self._resolve_bool(
+            "HISTORY_SEQUENCE_SHADOW_ONLY",
+            getattr(self._config.history_sequence, "shadow_only", False),
+        )
         self.reject_enabled = self._resolve_bool(
             "HYBRID_REJECT_ENABLED",
             getattr(self._config.rejection, "enabled", False),
@@ -264,6 +268,7 @@ class HybridClassifier:
                 "titleblock_min_conf": self.titleblock_min_conf,
                 "process_min_conf": self.process_min_conf,
                 "history_min_conf": self.history_min_conf,
+                "history_shadow_only": self.history_shadow_only,
                 "reject_enabled": self.reject_enabled,
                 "reject_min_conf": self.reject_min_conf,
                 "auto_enable_titleblock": self.auto_enable_titleblock,
@@ -858,6 +863,12 @@ class HybridClassifier:
         history_conf = (
             float(history_pred.get("confidence", 0.0)) if history_pred else 0.0
         )
+        history_shadow_mode = bool(history_pred) and self.history_shadow_only
+        if history_shadow_mode and result.history_prediction is not None:
+            result.history_prediction = dict(result.history_prediction)
+            result.history_prediction["shadow_only"] = True
+            result.history_prediction["used_for_fusion"] = False
+            result.decision_path.append("history_shadow_only")
         if history_label and history_conf < self.history_min_conf:
             result.decision_path.append("history_below_min_conf_ignored")
             if result.history_prediction is not None:
@@ -901,7 +912,7 @@ class HybridClassifier:
             for label in (
                 filename_label,
                 titleblock_label,
-                history_label,
+                None if history_shadow_mode else history_label,
                 # Only treat process labels as comparable when they're not drawing types.
                 process_label_normalized if not process_is_drawing_type else None,
             )
@@ -963,7 +974,8 @@ class HybridClassifier:
             result.decision_path.append("titleblock_adopted")
 
         elif (
-            history_label
+            not history_shadow_mode
+            and history_label
             and history_conf >= self.history_min_conf
             and filename_conf < self.filename_min_conf
         ):
@@ -1013,7 +1025,7 @@ class HybridClassifier:
                         DecisionSource.PROCESS,
                     )
                 )
-            if history_label:
+            if history_label and not history_shadow_mode:
                 preds.append(
                     (
                         "history_sequence",
@@ -1147,7 +1159,7 @@ class HybridClassifier:
                         "process",
                     )
                     _add_score(
-                        history_label,
+                        history_label if not history_shadow_mode else None,
                         str(history_label_raw or history_label),
                         history_conf,
                         self.history_weight,
@@ -1189,6 +1201,27 @@ class HybridClassifier:
                     "num_sources": 0,
                 }
                 result.decision_path.append("no_prediction")
+
+        if history_shadow_mode and result.history_prediction is not None:
+            shadow_predictions = {}
+            if result.fusion_metadata:
+                shadow_predictions = dict(
+                    result.fusion_metadata.get("shadow_predictions") or {}
+                )
+            shadow_predictions["history_sequence"] = {
+                "label": str(history_label_raw or ""),
+                "confidence": float(
+                    result.history_prediction.get("confidence", 0.0) or 0.0
+                ),
+                "status": str(result.history_prediction.get("status") or ""),
+            }
+            if result.fusion_metadata is None:
+                result.fusion_metadata = {
+                    "strategy": "none",
+                    "agreement_score": 0.0,
+                    "num_sources": 0,
+                }
+            result.fusion_metadata["shadow_predictions"] = shadow_predictions
 
         if (
             self.reject_enabled
