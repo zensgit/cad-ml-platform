@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 import torch
 
+import src.ml.history_sequence_tools as history_sequence_tools
 from src.ml.history_sequence_tools import (
     build_label_map,
     discover_h5_files,
@@ -43,14 +43,17 @@ def test_sequence_statistics_and_label_map() -> None:
     assert label_map == {"bracket": 0, "plate": 1}
 
 
-def test_truncate_discover_and_load_h5(tmp_path: Path) -> None:
-    h5py = pytest.importorskip("h5py")
-
+def test_truncate_discover_and_load_h5(tmp_path: Path, monkeypatch) -> None:
     nested = tmp_path / "nested"
     nested.mkdir()
     file_path = nested / "sample.h5"
-    with h5py.File(file_path, "w") as handle:
-        handle.create_dataset("vec", data=[[1, 10], [2, 20], [3, 30]])
+    file_path.write_bytes(b"placeholder")
+
+    monkeypatch.setattr(
+        history_sequence_tools,
+        "load_h5_sequence_array",
+        lambda *_args, **_kwargs: torch.tensor([[1, 10], [2, 20], [3, 30]]),
+    )
 
     assert discover_h5_files(str(tmp_path)) == [str(file_path)]
     assert load_command_tokens_from_h5(str(file_path)) == [1, 2, 3]

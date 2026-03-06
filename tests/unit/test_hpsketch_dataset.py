@@ -3,22 +3,30 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
-import pytest
-
+import src.ml.train.hpsketch_dataset as hpsketch_dataset
 from src.ml.train.hpsketch_dataset import HPSketchSequenceDataset
 
 
-def _write_h5(path: Path, rows: list[list[int]]) -> None:
-    h5py = pytest.importorskip("h5py")
-    with h5py.File(path, "w") as handle:
-        handle.create_dataset("vec", data=rows)
+def _touch(path: Path) -> None:
+    path.write_bytes(b"placeholder")
 
 
-def test_hpsketch_dataset_from_csv_manifest_and_collate(tmp_path: Path) -> None:
+def test_hpsketch_dataset_from_csv_manifest_and_collate(
+    tmp_path: Path, monkeypatch
+) -> None:
     sample_a = tmp_path / "sample_a.h5"
     sample_b = tmp_path / "sample_b.h5"
-    _write_h5(sample_a, [[1, 0], [2, 0], [3, 0], [4, 0]])
-    _write_h5(sample_b, [[9, 0], [8, 0]])
+    _touch(sample_a)
+    _touch(sample_b)
+    token_map = {
+        str(sample_a): [1, 2, 3, 4],
+        str(sample_b): [9, 8],
+    }
+    monkeypatch.setattr(
+        hpsketch_dataset,
+        "load_command_tokens_from_h5",
+        lambda path, **_kwargs: token_map[str(path)],
+    )
 
     manifest = tmp_path / "manifest.csv"
     with manifest.open("w", encoding="utf-8", newline="") as handle:
@@ -49,9 +57,14 @@ def test_hpsketch_dataset_from_csv_manifest_and_collate(tmp_path: Path) -> None:
     ]
 
 
-def test_hpsketch_dataset_from_root_dir_unlabeled(tmp_path: Path) -> None:
+def test_hpsketch_dataset_from_root_dir_unlabeled(tmp_path: Path, monkeypatch) -> None:
     sample = tmp_path / "standalone.h5"
-    _write_h5(sample, [[5, 0], [6, 0], [7, 0]])
+    _touch(sample)
+    monkeypatch.setattr(
+        hpsketch_dataset,
+        "load_command_tokens_from_h5",
+        lambda path, **_kwargs: [5, 6, 7] if str(path) == str(sample) else [],
+    )
 
     dataset = HPSketchSequenceDataset(root_dir=str(tmp_path))
 

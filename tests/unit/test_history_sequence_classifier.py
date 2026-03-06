@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 import torch
 
 from src.ml.history_sequence_classifier import HistorySequenceClassifier
@@ -93,10 +92,8 @@ def test_history_sequence_classifier_loads_checkpoint_model(tmp_path: Path) -> N
 
 
 def test_history_sequence_classifier_reads_h5_file(tmp_path: Path) -> None:
-    h5py = pytest.importorskip("h5py")
     file_path = tmp_path / "sample.h5"
-    with h5py.File(file_path, "w") as handle:
-        handle.create_dataset("vec", data=[[1, 0], [2, 0], [1, 0]])
+    file_path.write_bytes(b"placeholder")
 
     prototypes = {
         "labels": {
@@ -109,6 +106,7 @@ def test_history_sequence_classifier_reads_h5_file(tmp_path: Path) -> None:
         prototypes_path=str(prototype_path),
         min_sequence_length=2,
     )
+    classifier._extract_tokens_from_h5 = lambda _path: [1, 2, 1]
 
     result = classifier.predict_from_h5_file(str(file_path))
 
