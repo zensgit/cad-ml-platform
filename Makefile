@@ -347,12 +347,13 @@ validate-generate-ci-watch-validation-report: ## 校验 CI watcher 验证报告�
 	@echo "$(GREEN)Validating CI watcher validation report generator...$(NC)"
 	$(PYTEST) $(TEST_DIR)/unit/test_generate_ci_watcher_validation_report.py -q
 
-validate-ci-watchers: ## 一键校验 CI watchers（commit + archive dispatcher）
+validate-ci-watchers: ## 一键校验 CI watchers（commit + archive + Graph2D strict e2e dispatcher）
 	@echo "$(GREEN)Validating CI watcher stack...$(NC)"
 	$(MAKE) validate-check-gh-actions-ready
 	$(MAKE) validate-watch-commit-workflows
 	$(MAKE) validate-generate-ci-watch-validation-report
 	$(MAKE) validate-archive-workflow-dispatcher
+	$(MAKE) validate-graph2d-review-pack-gate-strict-e2e
 
 clean-ci-watch-summaries: ## 清理 watcher 运行时 summary JSON
 	@echo "$(GREEN)Cleaning watcher summary artifacts...$(NC)"

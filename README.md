@@ -402,6 +402,7 @@ make validate-ci-watchers
 - `make validate-watch-commit-workflows`
 - `make validate-generate-ci-watch-validation-report`
 - `make validate-archive-workflow-dispatcher`
+- `make validate-graph2d-review-pack-gate-strict-e2e`
 
 #### Graph2D Review Gate Strict E2E（双通道验收）
 

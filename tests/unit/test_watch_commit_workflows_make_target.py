@@ -139,3 +139,13 @@ def test_make_n_generate_ci_watch_validation_report_contains_expected_flags() ->
     assert '--output-md ""' in result.stdout
     assert '--report-dir "reports"' in result.stdout
     assert '--report-sha-len "7"' in result.stdout
+
+
+def test_make_n_validate_ci_watchers_includes_graph2d_strict_e2e_validation() -> None:
+    result = _run_make("-n", "validate-ci-watchers")
+    assert result.returncode == 0, result.stderr
+    assert "make validate-check-gh-actions-ready" in result.stdout
+    assert "make validate-watch-commit-workflows" in result.stdout
+    assert "make validate-generate-ci-watch-validation-report" in result.stdout
+    assert "make validate-archive-workflow-dispatcher" in result.stdout
+    assert "make validate-graph2d-review-pack-gate-strict-e2e" in result.stdout

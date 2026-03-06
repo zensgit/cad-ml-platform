@@ -189,3 +189,38 @@ Observed runs:
 
 Generated summary artifact:
 - `reports/experiments/20260306/graph2d_review_pack_gate_strict_e2e.json`
+
+## Latest Re-Validation (This Turn)
+
+### Aggregated CI watcher validation
+
+`validate-ci-watchers` now includes strict e2e dispatcher validation:
+
+```bash
+make validate-ci-watchers
+```
+
+Observed result:
+- `validate-check-gh-actions-ready`: `6 passed`
+- `validate-watch-commit-workflows`: `36 passed`
+- `validate-generate-ci-watch-validation-report`: `3 passed`
+- `validate-archive-workflow-dispatcher`: `24 passed`
+- `validate-graph2d-review-pack-gate-strict-e2e`: `16 passed`
+
+### Latest strict toggle e2e runs
+
+Re-ran:
+
+```bash
+make graph2d-review-pack-gate-strict-e2e
+```
+
+Observed runs:
+- strict=false: `22744739258` → `success`
+- strict=true: `22744776451` → `failure` (expected)
+
+Key strict failure step in strict=true run:
+- `Fail workflow when Graph2D review gate strict check requires blocking`: `failure`
+
+Summary artifact refreshed:
+- `reports/experiments/20260306/graph2d_review_pack_gate_strict_e2e.json`
