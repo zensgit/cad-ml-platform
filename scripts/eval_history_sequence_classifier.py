@@ -86,13 +86,11 @@ def _collect_labeled_h5(
             )
             if label:
                 pairs.append((h5_path, label))
-    else:  # pragma: no cover - argparse choices should guard
+    else:  # pragma: no cover
         raise ValueError(f"Unsupported label_source: {label_source}")
 
     random.Random(int(seed)).shuffle(pairs)
-    if max_files > 0:
-        return pairs[:max_files]
-    return pairs
+    return pairs[:max_files] if max_files > 0 else pairs
 
 
 def _default_output_dir() -> Path:
@@ -108,66 +106,23 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--label-source",
         choices=["manifest", "filename"],
         default="manifest",
-        help="How to get labels for each .h5 sample",
     )
-    parser.add_argument(
-        "--manifest-h5-col", default="h5_path", help="Manifest h5 column"
-    )
-    parser.add_argument(
-        "--manifest-label-col", default="label", help="Manifest label column"
-    )
-    parser.add_argument("--synonyms-path", default="", help="Label synonyms JSON path")
-    parser.add_argument(
-        "--filename-min-conf",
-        type=float,
-        default=0.8,
-        help="Minimum filename label confidence when label-source=filename",
-    )
-    parser.add_argument(
-        "--prototypes-path", default="", help="History prototype JSON path"
-    )
-    parser.add_argument(
-        "--model-path", default="", help="Optional Torch checkpoint path"
-    )
-    parser.add_argument(
-        "--prototype-token-weight",
-        type=float,
-        default=1.0,
-        help="Prototype token-score weight",
-    )
-    parser.add_argument(
-        "--prototype-bigram-weight",
-        type=float,
-        default=1.0,
-        help="Prototype bigram-score weight",
-    )
-    parser.add_argument(
-        "--min-seq-len", type=int, default=4, help="Minimum sequence length"
-    )
-    parser.add_argument("--vec-key", default="vec", help="HDF5 dataset key")
-    parser.add_argument(
-        "--command-col", type=int, default=0, help="Command token column"
-    )
-    parser.add_argument(
-        "--low-conf-threshold",
-        type=float,
-        default=0.5,
-        help="Threshold for low-confidence rate",
-    )
-    parser.add_argument(
-        "--max-files", type=int, default=0, help="Maximum files to evaluate"
-    )
-    parser.add_argument("--seed", type=int, default=22, help="Shuffle seed")
-    parser.add_argument(
-        "--no-recursive",
-        action="store_true",
-        help="Disable recursive file discovery for --h5-dir",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="",
-        help="Output directory for CSV/JSON reports",
-    )
+    parser.add_argument("--manifest-h5-col", default="h5_path")
+    parser.add_argument("--manifest-label-col", default="label")
+    parser.add_argument("--synonyms-path", default="")
+    parser.add_argument("--filename-min-conf", type=float, default=0.8)
+    parser.add_argument("--prototypes-path", default="")
+    parser.add_argument("--model-path", default="")
+    parser.add_argument("--prototype-token-weight", type=float, default=1.0)
+    parser.add_argument("--prototype-bigram-weight", type=float, default=1.0)
+    parser.add_argument("--min-seq-len", type=int, default=4)
+    parser.add_argument("--vec-key", default="vec")
+    parser.add_argument("--command-col", type=int, default=0)
+    parser.add_argument("--low-conf-threshold", type=float, default=0.5)
+    parser.add_argument("--max-files", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=22)
+    parser.add_argument("--no-recursive", action="store_true")
+    parser.add_argument("--output-dir", default="")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     manifest_path = Path(args.manifest).expanduser() if args.manifest else None
@@ -242,11 +197,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 "source": source,
                 "sequence_length": int(payload.get("sequence_length") or 0),
                 "unique_commands": int(payload.get("unique_commands") or 0),
-                "ok": (
-                    "Y"
-                    if (status == "ok" and pred_label == str(expected_label))
-                    else "N"
-                ),
+                "ok": "Y" if (status == "ok" and pred_label == str(expected_label)) else "N",
             }
         )
 
@@ -290,7 +241,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         writer.writerows(rows)
     summary_path = output_dir / "summary.json"
     summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"
+        json.dumps(summary, ensure_ascii=False, indent=2),
+        encoding="utf-8",
     )
 
     print(

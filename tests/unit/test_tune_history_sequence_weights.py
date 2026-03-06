@@ -70,9 +70,7 @@ def test_tune_history_sequence_weights_picks_bigram_weight(tmp_path: Path) -> No
     )
     assert proc.returncode == 0, proc.stderr or proc.stdout
 
-    best_path = output_dir / "best_config.json"
-    assert best_path.exists()
-    payload = json.loads(best_path.read_text(encoding="utf-8"))
+    payload = json.loads((output_dir / "best_config.json").read_text(encoding="utf-8"))
     best = payload.get("best") or {}
     assert float(best.get("bigram_weight", -1.0)) == 1.0
     assert float(best.get("accuracy_overall", 0.0)) >= 0.99

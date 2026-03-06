@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Grid-search token/bigram prototype weights for history-sequence classifier."""
+"""Grid-search token and bigram weights for history-sequence prototypes."""
 
 from __future__ import annotations
 
@@ -85,13 +85,11 @@ def _collect_labeled_h5(
             )
             if label:
                 pairs.append((h5_path, label))
-    else:  # pragma: no cover - argparse choices guard this
+    else:  # pragma: no cover
         raise ValueError(f"unsupported label_source: {label_source}")
 
     random.Random(int(seed)).shuffle(pairs)
-    if max_files > 0:
-        return pairs[:max_files]
-    return pairs
+    return pairs[:max_files] if max_files > 0 else pairs
 
 
 def _parse_float_grid(raw: str, *, default: Sequence[float]) -> List[float]:
@@ -106,8 +104,8 @@ def _parse_float_grid(raw: str, *, default: Sequence[float]) -> List[float]:
         values.append(float(part))
     if not values:
         return [float(v) for v in default]
-    seen: set[float] = set()
     deduped: List[float] = []
+    seen: set[float] = set()
     for value in values:
         if value in seen:
             continue
@@ -194,72 +192,33 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "--label-source",
         choices=["manifest", "filename"],
         default="manifest",
-        help="How to get labels for each .h5 sample",
     )
-    parser.add_argument(
-        "--manifest-h5-col", default="h5_path", help="Manifest h5 column"
-    )
-    parser.add_argument(
-        "--manifest-label-col", default="label", help="Manifest label column"
-    )
-    parser.add_argument("--synonyms-path", default="", help="Label synonyms JSON path")
-    parser.add_argument(
-        "--filename-min-conf",
-        type=float,
-        default=0.8,
-        help="Minimum filename label confidence when label-source=filename",
-    )
-    parser.add_argument(
-        "--prototypes-path",
-        required=True,
-        help="History prototype JSON path",
-    )
-    parser.add_argument(
-        "--model-path", default="", help="Optional Torch checkpoint path"
-    )
-    parser.add_argument(
-        "--token-weight-grid",
-        default="0.5,1.0,1.5",
-        help="Comma-separated token weights to evaluate",
-    )
-    parser.add_argument(
-        "--bigram-weight-grid",
-        default="0.0,0.5,1.0,1.5",
-        help="Comma-separated bigram weights to evaluate",
-    )
+    parser.add_argument("--manifest-h5-col", default="h5_path")
+    parser.add_argument("--manifest-label-col", default="label")
+    parser.add_argument("--synonyms-path", default="")
+    parser.add_argument("--filename-min-conf", type=float, default=0.8)
+    parser.add_argument("--prototypes-path", required=True)
+    parser.add_argument("--model-path", default="")
+    parser.add_argument("--token-weight-grid", default="0.5,1.0,1.5")
+    parser.add_argument("--bigram-weight-grid", default="0.0,0.5,1.0,1.5")
     parser.add_argument(
         "--objective",
-        choices=["accuracy_overall", "macro_f1_overall", "accuracy_on_ok", "macro_f1_on_ok"],
+        choices=[
+            "accuracy_overall",
+            "macro_f1_overall",
+            "accuracy_on_ok",
+            "macro_f1_on_ok",
+        ],
         default="macro_f1_overall",
-        help="Metric used to select the best config",
     )
-    parser.add_argument(
-        "--min-seq-len", type=int, default=4, help="Minimum sequence length"
-    )
-    parser.add_argument("--vec-key", default="vec", help="HDF5 dataset key")
-    parser.add_argument(
-        "--command-col", type=int, default=0, help="Command token column"
-    )
-    parser.add_argument(
-        "--low-conf-threshold",
-        type=float,
-        default=0.5,
-        help="Threshold for low-confidence rate",
-    )
-    parser.add_argument(
-        "--max-files", type=int, default=0, help="Maximum files to evaluate"
-    )
-    parser.add_argument("--seed", type=int, default=22, help="Shuffle seed")
-    parser.add_argument(
-        "--no-recursive",
-        action="store_true",
-        help="Disable recursive file discovery for --h5-dir",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="",
-        help="Output directory for CSV/JSON reports",
-    )
+    parser.add_argument("--min-seq-len", type=int, default=4)
+    parser.add_argument("--vec-key", default="vec")
+    parser.add_argument("--command-col", type=int, default=0)
+    parser.add_argument("--low-conf-threshold", type=float, default=0.5)
+    parser.add_argument("--max-files", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=22)
+    parser.add_argument("--no-recursive", action="store_true")
+    parser.add_argument("--output-dir", default="")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     manifest_path = Path(args.manifest).expanduser() if args.manifest else None
@@ -297,18 +256,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     rows: List[Dict[str, Any]] = []
     for token_weight in token_grid:
         for bigram_weight in bigram_grid:
-            row = _evaluate_with_weights(
-                pairs=pairs,
-                prototypes_path=prototypes_path,
-                model_path=str(args.model_path or ""),
-                min_seq_len=int(args.min_seq_len),
-                vec_key=str(args.vec_key),
-                command_col=int(args.command_col),
-                token_weight=float(token_weight),
-                bigram_weight=float(bigram_weight),
-                low_conf_threshold=float(args.low_conf_threshold),
+            rows.append(
+                _evaluate_with_weights(
+                    pairs=pairs,
+                    prototypes_path=prototypes_path,
+                    model_path=str(args.model_path or ""),
+                    min_seq_len=int(args.min_seq_len),
+                    vec_key=str(args.vec_key),
+                    command_col=int(args.command_col),
+                    token_weight=float(token_weight),
+                    bigram_weight=float(bigram_weight),
+                    low_conf_threshold=float(args.low_conf_threshold),
+                )
             )
-            rows.append(row)
 
     objective = str(args.objective)
     best_row = max(
