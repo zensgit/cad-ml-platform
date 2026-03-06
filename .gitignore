@@ -141,6 +141,7 @@ reports/ci/*.json
 reports/junit-knowledge.xml
 reports/replay/
 reports/replay_extended/
+reports/experiments/*/graph2d_review_pack_gate_strict_e2e.json
 
 # Virtual environments
 .venv/
