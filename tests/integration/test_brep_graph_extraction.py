@@ -29,6 +29,7 @@ def test_extract_brep_graph_from_box() -> None:
     assert graph["valid_3d"] is True
     assert graph["node_schema"] == BREP_GRAPH_NODE_FEATURES
     assert graph["edge_schema"] == BREP_GRAPH_EDGE_FEATURES
+    assert graph["graph_schema_version"] == "v2"
     assert graph["node_count"] == len(graph["node_features"])
     assert graph["edge_count"] == len(graph["edge_features"])
 
@@ -39,8 +40,16 @@ def test_extract_brep_graph_from_box() -> None:
         assert len(node) == node_dim
         assert node[0] == pytest.approx(1.0)
         assert sum(node[:8]) == pytest.approx(1.0)
+        assert node[-1] == pytest.approx(1.0)
 
     assert len(graph["edge_index"]) == len(graph["edge_features"])
     for src, dst in graph["edge_index"]:
         assert 0 <= src < graph["node_count"]
         assert 0 <= dst < graph["node_count"]
+
+    metadata = graph.get("graph_metadata") or {}
+    assert metadata.get("undirected_edge_count") == 12
+    assert metadata.get("directed_edge_count") == 24
+    assert len(metadata.get("undirected_edge_index") or []) == 12
+    bbox = metadata.get("bbox") or {}
+    assert bbox.get("diag", 0.0) > 0.0

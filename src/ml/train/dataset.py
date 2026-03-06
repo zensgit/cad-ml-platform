@@ -207,6 +207,7 @@ class ABCDataset(Dataset):
             graph_schema_version=graph.get("graph_schema_version", "v1"),
             node_schema=graph.get("node_schema"),
             edge_schema=graph.get("edge_schema"),
+            graph_metadata=graph.get("graph_metadata"),
         )
 
     def _graph_container(
@@ -217,6 +218,7 @@ class ABCDataset(Dataset):
         graph_schema_version: str,
         node_schema: Optional[Tuple[str, ...]],
         edge_schema: Optional[Tuple[str, ...]],
+        graph_metadata: Optional[Dict[str, Any]] = None,
     ) -> Any:
         use_pyg = self.graph_backend in {"pyg", "auto"} and self._pyg_data is not None
         if self.graph_backend == "pyg" and self._pyg_data is None:
@@ -229,6 +231,7 @@ class ABCDataset(Dataset):
                 graph_schema_version=graph_schema_version,
                 node_schema=node_schema,
                 edge_schema=edge_schema,
+                graph_metadata=graph_metadata,
             )
         return {
             "x": x,
@@ -237,6 +240,7 @@ class ABCDataset(Dataset):
             "graph_schema_version": graph_schema_version,
             "node_schema": node_schema,
             "edge_schema": edge_schema,
+            "graph_metadata": graph_metadata,
         }
 
     def _empty_graph_sample(self, node_dim: int, edge_dim: int) -> Any:
@@ -244,9 +248,10 @@ class ABCDataset(Dataset):
             x=torch.zeros((0, node_dim), dtype=torch.float32),
             edge_index=torch.zeros((2, 0), dtype=torch.long),
             edge_attr=torch.zeros((0, edge_dim), dtype=torch.float32),
-            graph_schema_version="v1",
+            graph_schema_version="v2",
             node_schema=None,
             edge_schema=None,
+            graph_metadata=None,
         )
 
 

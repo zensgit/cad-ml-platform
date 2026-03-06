@@ -8,8 +8,11 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
-from src.core.geometry.engine import BREP_GRAPH_EDGE_FEATURES, BREP_GRAPH_NODE_FEATURES
-from src.ml.train.dataset import ABCDataset
+from src.core.geometry.engine import (  # noqa: E402
+    BREP_GRAPH_EDGE_FEATURES,
+    BREP_GRAPH_NODE_FEATURES,
+)
+from src.ml.train.dataset import ABCDataset  # noqa: E402
 
 
 class _StubGeometryEngine:
@@ -19,12 +22,13 @@ class _StubGeometryEngine:
     def extract_brep_graph(self, shape: Any) -> dict[str, Any]:
         return {
             "valid_3d": True,
-            "graph_schema_version": "v1",
+            "graph_schema_version": "v2",
             "node_schema": BREP_GRAPH_NODE_FEATURES,
             "edge_schema": BREP_GRAPH_EDGE_FEATURES,
             "node_features": [[1.0] * len(BREP_GRAPH_NODE_FEATURES)],
             "edge_index": [],
             "edge_features": [],
+            "graph_metadata": {"undirected_edge_count": 0, "directed_edge_count": 0},
         }
 
 
@@ -46,8 +50,12 @@ def test_dataset_graph_output_dict(monkeypatch: pytest.MonkeyPatch, tmp_path) ->
     sample, label = dataset[0]
 
     assert isinstance(sample, dict)
-    assert sample["graph_schema_version"] == "v1"
+    assert sample["graph_schema_version"] == "v2"
     assert sample["x"].shape == (1, len(BREP_GRAPH_NODE_FEATURES))
     assert sample["edge_index"].shape == (2, 0)
     assert sample["edge_attr"].shape == (0, len(BREP_GRAPH_EDGE_FEATURES))
+    assert sample["graph_metadata"] == {
+        "undirected_edge_count": 0,
+        "directed_edge_count": 0,
+    }
     assert isinstance(label, int)
