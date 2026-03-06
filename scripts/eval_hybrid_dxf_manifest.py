@@ -172,6 +172,136 @@ def _write_csv(path: Path, rows: List[Dict[str, Any]]) -> None:
         writer.writerows(rows)
 
 
+def _json_cell(value: Any) -> str:
+    if not value:
+        return ""
+    return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+
+def _collect_prep_fields(results_payload: Dict[str, Any]) -> Dict[str, Any]:
+    from src.ml.vision_3d import prepare_brep_features_for_report
+
+    classification = results_payload.get("classification", {}) or {}
+    history_pred = classification.get("history_prediction", {}) or {}
+    history_input = classification.get("history_sequence_input", {}) or {}
+    raw_brep_hints = (
+        classification.get("brep_feature_hints")
+        or results_payload.get("brep_feature_hints")
+        or {}
+    )
+    brep_summary = prepare_brep_features_for_report(
+        results_payload.get("features_3d", {}) or {},
+        brep_feature_hints=raw_brep_hints if isinstance(raw_brep_hints, dict) else None,
+    )
+
+    return {
+        "history_label": history_pred.get("label"),
+        "history_confidence": history_pred.get("confidence"),
+        "history_status": history_pred.get("status"),
+        "history_source": history_pred.get("source"),
+        "history_shadow_only": history_pred.get("shadow_only"),
+        "history_used_for_fusion": history_pred.get("used_for_fusion"),
+        "history_input_resolved": history_input.get("resolved"),
+        "history_input_source": history_input.get("source"),
+        "brep_valid_3d": brep_summary.get("valid_3d"),
+        "brep_faces": brep_summary.get("faces"),
+        "brep_primary_surface_type": brep_summary.get("primary_surface_type"),
+        "brep_primary_surface_ratio": brep_summary.get("primary_surface_ratio"),
+        "brep_surface_types": _json_cell(brep_summary.get("surface_types") or {}),
+        "brep_feature_hints": _json_cell(brep_summary.get("feature_hints") or {}),
+        "brep_feature_hint_top_label": brep_summary.get("top_hint_label"),
+        "brep_feature_hint_top_score": brep_summary.get("top_hint_score"),
+        "brep_embedding_dim": brep_summary.get("embedding_dim"),
+    }
+
+
+def _build_ok_row(case: EvalCase, results_payload: Dict[str, Any]) -> Dict[str, Any]:
+    classification = results_payload.get("classification", {}) or {}
+    graph2d = classification.get("graph2d_prediction", {}) or {}
+    filename_pred = classification.get("filename_prediction", {}) or {}
+    titleblock_pred = classification.get("titleblock_prediction", {}) or {}
+    hybrid_decision = classification.get("hybrid_decision", {}) or {}
+
+    row = {
+        "file_name": case.file_name,
+        "relative_path": case.relative_path,
+        "source_dir": case.source_dir,
+        "true_label": case.true_label,
+        "status": "ok",
+        "part_type": classification.get("part_type"),
+        "confidence": classification.get("confidence"),
+        "fine_part_type": classification.get("fine_part_type"),
+        "fine_confidence": classification.get("fine_confidence"),
+        "graph2d_label": graph2d.get("label"),
+        "graph2d_confidence": graph2d.get("confidence"),
+        "filename_label": filename_pred.get("label"),
+        "filename_confidence": filename_pred.get("confidence"),
+        "titleblock_label": titleblock_pred.get("label"),
+        "titleblock_confidence": titleblock_pred.get("confidence"),
+        "hybrid_label": hybrid_decision.get("label"),
+        "hybrid_confidence": hybrid_decision.get("confidence"),
+        "hybrid_source": hybrid_decision.get("source"),
+        "decision_path": json.dumps(
+            hybrid_decision.get("decision_path") or [],
+            ensure_ascii=False,
+        ),
+        "source_contributions": json.dumps(
+            classification.get("source_contributions") or {}, ensure_ascii=False
+        ),
+        "hybrid_explanation_summary": (
+            (classification.get("hybrid_explanation") or {}).get("summary")
+        ),
+    }
+    row.update(_collect_prep_fields(results_payload))
+    return row
+
+
+def _summarize_prep_signals(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+    history_status_counts: Counter[str] = Counter()
+    brep_top_hint_counts: Counter[str] = Counter()
+    history_prediction_count = 0
+    history_input_resolved_count = 0
+    history_used_for_fusion_true = 0
+    history_used_for_fusion_false = 0
+    history_shadow_only_true = 0
+    brep_valid_3d_count = 0
+    brep_feature_hints_count = 0
+
+    for row in rows:
+        if row.get("history_label") or row.get("history_status"):
+            history_prediction_count += 1
+        if row.get("history_input_resolved") is True:
+            history_input_resolved_count += 1
+        if row.get("history_used_for_fusion") is True:
+            history_used_for_fusion_true += 1
+        if row.get("history_used_for_fusion") is False:
+            history_used_for_fusion_false += 1
+        if row.get("history_shadow_only") is True:
+            history_shadow_only_true += 1
+        history_status = str(row.get("history_status") or "").strip()
+        if history_status:
+            history_status_counts[history_status] += 1
+
+        if row.get("brep_valid_3d") is True:
+            brep_valid_3d_count += 1
+        top_hint_label = str(row.get("brep_feature_hint_top_label") or "").strip()
+        if top_hint_label:
+            brep_feature_hints_count += 1
+            brep_top_hint_counts[top_hint_label] += 1
+
+    return {
+        "history_prediction_count": history_prediction_count,
+        "history_input_resolved_count": history_input_resolved_count,
+        "history_used_for_fusion_true": history_used_for_fusion_true,
+        "history_used_for_fusion_false": history_used_for_fusion_false,
+        "history_shadow_only_true": history_shadow_only_true,
+        "history_status_counts": dict(history_status_counts),
+        "brep_valid_3d_count": brep_valid_3d_count,
+        "brep_feature_hints_count": brep_feature_hints_count,
+        "brep_top_hint_counts": dict(brep_top_hint_counts.most_common(10)),
+    }
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         description="Evaluate hybrid DXF classification against a labeled manifest."
@@ -273,44 +403,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             )
             continue
 
-        result = response.json().get("results", {}).get("classification", {})
-        graph2d = result.get("graph2d_prediction", {}) or {}
-        filename_pred = result.get("filename_prediction", {}) or {}
-        titleblock_pred = result.get("titleblock_prediction", {}) or {}
-        hybrid_decision = result.get("hybrid_decision", {}) or {}
+        results_payload = response.json().get("results", {}) or {}
         status_counts["ok"] += 1
-        rows.append(
-            {
-                "file_name": case.file_name,
-                "relative_path": case.relative_path,
-                "source_dir": case.source_dir,
-                "true_label": case.true_label,
-                "status": "ok",
-                "part_type": result.get("part_type"),
-                "confidence": result.get("confidence"),
-                "fine_part_type": result.get("fine_part_type"),
-                "fine_confidence": result.get("fine_confidence"),
-                "graph2d_label": graph2d.get("label"),
-                "graph2d_confidence": graph2d.get("confidence"),
-                "filename_label": filename_pred.get("label"),
-                "filename_confidence": filename_pred.get("confidence"),
-                "titleblock_label": titleblock_pred.get("label"),
-                "titleblock_confidence": titleblock_pred.get("confidence"),
-                "hybrid_label": hybrid_decision.get("label"),
-                "hybrid_confidence": hybrid_decision.get("confidence"),
-                "hybrid_source": hybrid_decision.get("source"),
-                "decision_path": json.dumps(
-                    hybrid_decision.get("decision_path") or [],
-                    ensure_ascii=False,
-                ),
-                "source_contributions": json.dumps(
-                    result.get("source_contributions") or {}, ensure_ascii=False
-                ),
-                "hybrid_explanation_summary": (
-                    (result.get("hybrid_explanation") or {}).get("summary")
-                ),
-            }
-        )
+        rows.append(_build_ok_row(case, results_payload))
 
     ok_rows = [row for row in rows if row.get("status") == "ok"]
     accuracy = _score_rows(
@@ -371,6 +466,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             "hybrid_label": _confidence_stats(ok_rows, "hybrid_confidence"),
             "fine_part_type": _confidence_stats(ok_rows, "fine_confidence"),
         },
+        "prep_signals": _summarize_prep_signals(ok_rows),
     }
     (out_dir / "summary.json").write_text(
         json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8"

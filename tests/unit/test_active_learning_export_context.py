@@ -61,6 +61,8 @@ def test_export_training_data_keeps_score_breakdown_and_uncertainty_reason(
         payload = json.loads(handle.readline())
 
     assert payload["doc_id"] == "doc-context-1"
+    assert payload["sample_type"] == "hybrid_rejection"
+    assert payload["feedback_priority"] == "high"
     assert payload["uncertainty_reason"] == (
         "hybrid_rejected:below_min_confidence+low_confidence"
     )
@@ -75,3 +77,26 @@ def test_export_training_data_keeps_score_breakdown_and_uncertainty_reason(
         "confidence": 0.58,
         "status": "ok",
     }
+
+
+def test_export_training_data_marks_low_confidence_feedback_priority(
+    learner: ActiveLearner,
+) -> None:
+    sample = learner.flag_for_review(
+        doc_id="doc-context-2",
+        predicted_type="壳体类",
+        confidence=0.52,
+        alternatives=[],
+        score_breakdown={},
+        uncertainty_reason="low_confidence",
+    )
+    learner.submit_feedback(sample.id, "壳体类")
+
+    exported = learner.export_training_data(format="jsonl")
+
+    assert exported["status"] == "ok"
+    with open(exported["file"], "r", encoding="utf-8") as handle:
+        payload = json.loads(handle.readline())
+
+    assert payload["sample_type"] == "low_confidence"
+    assert payload["feedback_priority"] == "medium"

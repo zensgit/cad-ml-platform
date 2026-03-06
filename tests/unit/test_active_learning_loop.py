@@ -108,6 +108,8 @@ class TestActiveLearningLoop:
             data = json.loads(f.readline())
             assert data["doc_id"] == "doc1"
             assert data["true_type"] == "screw"
+            assert data["sample_type"] == "review"
+            assert data["feedback_priority"] == "high"
 
         # Verify status update
         assert self.learner._samples[sample.id].status == SampleStatus.EXPORTED
@@ -222,4 +224,3 @@ class TestActiveLearningLoadSamples:
         assert "active_learning" in str(learner._data_dir)
 
         reset_active_learner()
-

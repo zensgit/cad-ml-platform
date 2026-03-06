@@ -18,12 +18,14 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.adapters.factory import AdapterFactory
 from src.api.dependencies import get_api_key
 from src.core.analyzer import CADAnalyzer
+from src.core.classification import labels_conflict, normalize_coarse_label
 from src.core.errors_extended import (
     ErrorCode,
     build_error,
     create_extended_error,
     create_migration_error,
 )
+from src.core.knowledge.analysis_summary import build_knowledge_summary
 from src.core.feature_extractor import FeatureExtractor
 from src.core.ocr.manager import OcrManager
 from src.core.ocr.providers.deepseek_hf import DeepSeekHfProvider
@@ -1727,6 +1729,83 @@ async def analyze_cad_file(
                             "decision_confidence": hybrid_conf,
                             "label": hybrid_label,
                         }
+
+                cls_payload["final_decision_source"] = str(
+                    cls_payload.get("confidence_source") or "rules"
+                )
+                cls_payload["coarse_part_type"] = normalize_coarse_label(
+                    cls_payload.get("part_type")
+                )
+                cls_payload["coarse_fine_part_type"] = normalize_coarse_label(
+                    cls_payload.get("fine_part_type")
+                )
+                cls_payload["coarse_hybrid_label"] = normalize_coarse_label(
+                    ((cls_payload.get("hybrid_decision") or {}).get("label"))
+                )
+                cls_payload["coarse_graph2d_label"] = normalize_coarse_label(
+                    ((cls_payload.get("graph2d_prediction") or {}).get("label"))
+                )
+                cls_payload["coarse_filename_label"] = normalize_coarse_label(
+                    ((cls_payload.get("filename_prediction") or {}).get("label"))
+                )
+                cls_payload["coarse_titleblock_label"] = normalize_coarse_label(
+                    ((cls_payload.get("titleblock_prediction") or {}).get("label"))
+                )
+                cls_payload["coarse_history_label"] = normalize_coarse_label(
+                    ((cls_payload.get("history_prediction") or {}).get("label"))
+                )
+                cls_payload["coarse_process_label"] = normalize_coarse_label(
+                    ((cls_payload.get("process_prediction") or {}).get("label"))
+                )
+                cls_payload["coarse_part_family"] = normalize_coarse_label(
+                    cls_payload.get("part_family")
+                )
+
+                branch_conflicts = {
+                    "hybrid_vs_graph2d": labels_conflict(
+                        cls_payload.get("coarse_hybrid_label"),
+                        cls_payload.get("coarse_graph2d_label"),
+                    ),
+                    "filename_vs_graph2d": labels_conflict(
+                        cls_payload.get("coarse_filename_label"),
+                        cls_payload.get("coarse_graph2d_label"),
+                    ),
+                    "titleblock_vs_graph2d": labels_conflict(
+                        cls_payload.get("coarse_titleblock_label"),
+                        cls_payload.get("coarse_graph2d_label"),
+                    ),
+                    "history_vs_final": labels_conflict(
+                        cls_payload.get("coarse_history_label"),
+                        cls_payload.get("coarse_part_type"),
+                    ),
+                }
+                cls_payload["branch_conflicts"] = {
+                    key: value for key, value in branch_conflicts.items() if value
+                }
+                cls_payload["has_branch_conflict"] = bool(
+                    cls_payload["branch_conflicts"]
+                )
+
+                knowledge_payload = build_knowledge_summary(
+                    text_signals=text_signals,
+                    text_items=doc.metadata.get("text_content")
+                    if isinstance(doc.metadata.get("text_content"), list)
+                    else None,
+                    geometric_features=l2_features,
+                    entity_counts=ent_counts,
+                    fine_part_type=cls_payload.get("fine_part_type"),
+                    coarse_part_type=cls_payload.get("coarse_part_type"),
+                )
+                cls_payload["knowledge_checks"] = knowledge_payload.get(
+                    "knowledge_checks", []
+                )
+                cls_payload["violations"] = knowledge_payload.get("violations", [])
+                cls_payload["standards_candidates"] = knowledge_payload.get(
+                    "standards_candidates", []
+                )
+                cls_payload["knowledge_hints"] = knowledge_payload.get(
+                    "knowledge_hints", []
+                )
                 results["classification"] = cls_payload
                 # Active learning: flag low-confidence samples for review
                 try:
@@ -1746,11 +1825,18 @@ async def analyze_cad_file(
                     if not isinstance(hybrid_rejection_payload, dict):
                         hybrid_rejection_payload = None
                     is_low_confidence = confidence_value < threshold
+                    has_branch_conflict = bool(cls_payload.get("has_branch_conflict"))
+                    has_knowledge_violations = bool(cls_payload.get("violations"))
                     if (
                         enabled
-                        and (is_low_confidence or hybrid_rejection_payload is not None)
+                        and (
+                            is_low_confidence
+                            or hybrid_rejection_payload is not None
+                            or has_branch_conflict
+                            or has_knowledge_violations
+                        )
                     ):
-                        uncertainty_reason = "low_confidence"
+                        reason_parts: List[str] = []
                         if hybrid_rejection_payload is not None:
                             rejection_reason = (
                                 str(
@@ -1759,11 +1845,28 @@ async def analyze_cad_file(
                                 ).strip()
                                 or "unknown"
                             )
-                            uncertainty_reason = f"hybrid_rejected:{rejection_reason}"
-                            if is_low_confidence:
-                                uncertainty_reason = (
-                                    f"{uncertainty_reason}+low_confidence"
-                                )
+                            reason_parts.append(
+                                f"hybrid_rejected:{rejection_reason}"
+                            )
+                        if has_knowledge_violations:
+                            reason_parts.append("knowledge_conflict")
+                        if has_branch_conflict:
+                            reason_parts.append("branch_conflict")
+                        if is_low_confidence:
+                            reason_parts.append("low_confidence")
+                        uncertainty_reason = "+".join(reason_parts) or "low_confidence"
+                        if has_knowledge_violations:
+                            sample_type = "knowledge_conflict"
+                            feedback_priority = "critical"
+                        elif has_branch_conflict:
+                            sample_type = "branch_conflict"
+                            feedback_priority = "high"
+                        elif hybrid_rejection_payload is not None:
+                            sample_type = "hybrid_rejection"
+                            feedback_priority = "high"
+                        else:
+                            sample_type = "low_confidence"
+                            feedback_priority = "medium"
                         from src.core.active_learning import get_active_learner
 
                         learner = get_active_learner()
@@ -1773,6 +1876,14 @@ async def analyze_cad_file(
                             confidence=float(cls_payload.get("confidence", 0.0)),
                             alternatives=cls_payload.get("alternatives", []),
                             score_breakdown={
+                                "coarse_part_type": cls_payload.get("coarse_part_type"),
+                                "fine_part_type": cls_payload.get("fine_part_type"),
+                                "coarse_hybrid_label": cls_payload.get(
+                                    "coarse_hybrid_label"
+                                ),
+                                "coarse_graph2d_label": cls_payload.get(
+                                    "coarse_graph2d_label"
+                                ),
                                 "rule_version": cls_payload.get("rule_version"),
                                 "model_version": cls_payload.get("model_version"),
                                 "confidence_source": cls_payload.get(
@@ -1802,8 +1913,20 @@ async def analyze_cad_file(
                                 "hybrid_explanation": cls_payload.get(
                                     "hybrid_explanation"
                                 ),
+                                "knowledge_checks": cls_payload.get(
+                                    "knowledge_checks"
+                                ),
+                                "violations": cls_payload.get("violations"),
+                                "standards_candidates": cls_payload.get(
+                                    "standards_candidates"
+                                ),
+                                "branch_conflicts": cls_payload.get(
+                                    "branch_conflicts"
+                                ),
                             },
                             uncertainty_reason=uncertainty_reason,
+                            sample_type=sample_type,
+                            feedback_priority=feedback_priority,
                         )
                 except Exception as e:
                     logger.warning(f"Active learning flag failed: {e}")
