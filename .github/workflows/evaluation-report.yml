@@ -46,6 +46,10 @@ on:
         description: 'Override: enable strict fail on review-pack gate failed (true/false)'
         required: false
         default: ''
+      review_pack_input_csv:
+        description: 'Optional review-pack input CSV path (relative to repository root)'
+        required: false
+        default: ''
 
 env:
   PYTHON_VERSION: '3.11'
@@ -302,10 +306,13 @@ jobs:
       id: graph2d_review_pack
       continue-on-error: true
       run: |
-        INPUT_CSV="${GRAPH2D_REVIEW_PACK_INPUT_CSV:-}"
+        INPUT_CSV="${{ github.event.inputs.review_pack_input_csv || '' }}"
+        if [[ -z "$INPUT_CSV" ]]; then
+          INPUT_CSV="${GRAPH2D_REVIEW_PACK_INPUT_CSV:-}"
+        fi
         if [[ -z "$INPUT_CSV" ]]; then
           echo "enabled=false" >> $GITHUB_OUTPUT
-          echo "No GRAPH2D_REVIEW_PACK_INPUT_CSV configured; skip."
+          echo "No review-pack input configured (dispatch input + GRAPH2D_REVIEW_PACK_INPUT_CSV); skip."
           exit 0
         fi
         if [[ ! -f "$INPUT_CSV" ]]; then

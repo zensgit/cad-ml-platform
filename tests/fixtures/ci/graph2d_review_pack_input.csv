@@ -1,0 +1,11 @@
+status,file,confidence,graph2d_label,hybrid_label
+ok,sample_01.dxf,0.10,传动件,传动件
+ok,sample_02.dxf,0.12,传动件,传动件
+ok,sample_03.dxf,0.14,传动件,传动件
+ok,sample_04.dxf,0.16,传动件,传动件
+ok,sample_05.dxf,0.18,传动件,传动件
+ok,sample_06.dxf,0.20,传动件,传动件
+ok,sample_07.dxf,0.22,传动件,传动件
+ok,sample_08.dxf,0.24,传动件,传动件
+ok,sample_09.dxf,0.26,传动件,传动件
+ok,sample_10.dxf,0.28,传动件,传动件

@@ -45,6 +45,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "review_gate_max_conflict_rate" in dispatch_inputs
     assert "review_gate_max_low_confidence_rate" in dispatch_inputs
     assert "review_gate_strict" in dispatch_inputs
+    assert "review_pack_input_csv" in dispatch_inputs
 
 
 def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> None:
@@ -52,6 +53,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     review_step = _get_step(workflow, "evaluate", "Build hybrid rejection review pack (optional)")
     review_script = review_step["run"]
     assert "scripts/export_hybrid_rejection_review_pack.py" in review_script
+    assert "github.event.inputs.review_pack_input_csv" in review_script
     assert "--low-confidence-threshold" in review_script
     assert "--top-k" in review_script
 
