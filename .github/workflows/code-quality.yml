@@ -83,11 +83,18 @@ jobs:
           script: |
             const fs = require('fs');
             const report = fs.readFileSync('quality-report.md', 'utf8');
-            github.rest.issues.createComment({
+            const maxCommentChars = 65000;
+            const prefix = '## 📊 Code Quality Report\n\n';
+            const artifactNote = '\n\n...[truncated] Full report is available in the `code-quality-report` artifact.';
+            let body = prefix + report;
+            if (body.length > maxCommentChars) {
+              body = body.slice(0, maxCommentChars - artifactNote.length) + artifactNote;
+            }
+            await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '## 📊 Code Quality Report\n\n' + report
+              body
             });
 
   # ============================================
@@ -213,4 +220,3 @@ jobs:
                 });
               }
             }
-
