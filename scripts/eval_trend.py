@@ -43,9 +43,11 @@ def load_history() -> tuple[list[dict], list[dict]]:
             with f.open("r", encoding="utf-8") as fh:
                 data = json.load(fh)
             data["_file"] = str(f.relative_to(ROOT))
-            if data.get("type") == "combined":
+            item_type = str(data.get("type") or "").strip().lower()
+            if item_type == "combined":
                 combined.append(data)
-            elif "metrics" in data:  # OCR-only format from eval_with_history.sh
+            elif item_type == "ocr" or (not item_type and "metrics" in data):
+                # OCR-only format from eval_with_history.sh (legacy files may miss `type`).
                 ocr_only.append(data)
         except Exception:
             continue
