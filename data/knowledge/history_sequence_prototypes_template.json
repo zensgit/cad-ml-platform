@@ -1,0 +1,35 @@
+{
+  "version": "0.1.0",
+  "notes": "Template for HPSketch command-sequence prototype scoring. Replace labels/tokens with production calibration data.",
+  "labels": {
+    "轴类": {
+      "bias": 0.0,
+      "token_weights": {
+        "0": 0.2,
+        "6": 0.15,
+        "10": 0.35,
+        "15": 0.25
+      },
+      "bigram_weights": {
+        "6,10": 0.4,
+        "10,10": 0.25,
+        "10,15": 0.2
+      }
+    },
+    "连接件": {
+      "bias": 0.0,
+      "token_weights": {
+        "1": 0.25,
+        "2": 0.2,
+        "10": 0.2,
+        "11": 0.2,
+        "15": 0.15
+      },
+      "bigram_weights": {
+        "1,2": 0.35,
+        "2,10": 0.25,
+        "10,11": 0.2
+      }
+    }
+  }
+}

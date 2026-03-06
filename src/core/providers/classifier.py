@@ -36,6 +36,7 @@ class ClassifierRequest:
     filename: str
     file_bytes: Optional[bytes] = None
     file_path: Optional[str] = None
+    history_file_path: Optional[str] = None
 
 
 class HybridClassifierProviderAdapter(
@@ -64,11 +65,22 @@ class HybridClassifierProviderAdapter(
             )
         if not request.filename:
             raise ValueError("filename cannot be empty")
-        result = self._wrapped_classifier.classify(
-            filename=request.filename,
-            file_bytes=request.file_bytes,
-            graph2d_result=kwargs.get("graph2d_result"),
-        )
+        try:
+            result = self._wrapped_classifier.classify(
+                filename=request.filename,
+                file_bytes=request.file_bytes,
+                graph2d_result=kwargs.get("graph2d_result"),
+                history_result=kwargs.get("history_result"),
+                history_file_path=request.history_file_path,
+            )
+        except TypeError:
+            # Backward-compatible fallback for older wrappers/stubs that do not
+            # yet accept history_* keyword arguments.
+            result = self._wrapped_classifier.classify(
+                filename=request.filename,
+                file_bytes=request.file_bytes,
+                graph2d_result=kwargs.get("graph2d_result"),
+            )
         return result.to_dict()
 
     async def _health_check_impl(self) -> bool:

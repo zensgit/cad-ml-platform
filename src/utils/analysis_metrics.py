@@ -168,6 +168,12 @@ analysis_rejections_total = Counter(
     "analysis_rejections_total", "Rejected analyses due to limits", ["reason"]
 )
 
+analysis_hybrid_rejections_total = Counter(
+    "analysis_hybrid_rejections_total",
+    "Hybrid classifier rejection events observed during analyze pipeline",
+    ["reason", "raw_source"],
+)
+
 analysis_error_code_total = Counter(
     "analysis_error_code_total", "Extended error code occurrences", ["code"]
 )
@@ -849,6 +855,7 @@ __all__ = [
     "v4_shape_entropy",
     "analysis_material_usage_total",
     "analysis_rejections_total",
+    "analysis_hybrid_rejections_total",
     "analysis_error_code_total",
     "analysis_parse_latency_budget_ratio",
     "analysis_vector_count",

@@ -304,14 +304,20 @@ def main() -> None:
                 weak_true_conf = float(weak_true_payload.get("confidence") or 0.0)
             except (TypeError, ValueError):
                 weak_true_conf = 0.0
-            if weak_true_status == "matched" and weak_true_label and weak_true_conf >= weak_label_min_conf:
+            if (
+                weak_true_status == "matched"
+                and weak_true_label
+                and weak_true_conf >= weak_label_min_conf
+            ):
                 weak_true_accepted = True
 
             weak_true_status_counts[weak_true_status] += 1
             weak_true_match_type_counts[weak_true_match_type] += 1
             if weak_true_accepted:
                 weak_true_covered += 1
-                weak_true_label_counts[_canonicalize_label(weak_true_label, weak_label_matcher)] += 1
+                weak_true_label_counts[
+                    _canonicalize_label(weak_true_label, weak_label_matcher)
+                ] += 1
 
         upload_name = item.name
         if bool(args.mask_filename):
@@ -338,6 +344,22 @@ def main() -> None:
         graph2d = classification.get("graph2d_prediction", {}) or {}
         filename_pred = classification.get("filename_prediction", {}) or {}
         hybrid_decision = classification.get("hybrid_decision", {}) or {}
+        hybrid_rejection = hybrid_decision.get("rejection", {}) or {}
+        hybrid_source_contributions = (
+            classification.get("source_contributions")
+            or hybrid_decision.get("source_contributions")
+            or {}
+        )
+        hybrid_fusion_metadata = (
+            classification.get("fusion_metadata")
+            or hybrid_decision.get("fusion_metadata")
+            or {}
+        )
+        hybrid_explanation = (
+            classification.get("hybrid_explanation")
+            or hybrid_decision.get("explanation")
+            or {}
+        )
         titleblock_pred = classification.get("titleblock_prediction", {}) or {}
         fusion = classification.get("fusion_decision", {}) or {}
         soft_override = classification.get("soft_override_suggestion", {}) or {}
@@ -430,7 +452,11 @@ def main() -> None:
             "fine_confidence": f"{fine_confidence:.3f}",
             "fine_source": fine_source,
             "fine_rule_version": fine_rule_version,
-            "weak_true_label": _canonicalize_label(weak_true_label, weak_label_matcher) if weak_true_accepted else "",
+            "weak_true_label": (
+                _canonicalize_label(weak_true_label, weak_label_matcher)
+                if weak_true_accepted
+                else ""
+            ),
             "weak_true_confidence": f"{weak_true_conf:.3f}",
             "weak_true_status": weak_true_status,
             "weak_true_match_type": weak_true_match_type,
@@ -453,6 +479,23 @@ def main() -> None:
             "hybrid_confidence": hybrid_decision.get("confidence"),
             "hybrid_source": hybrid_decision.get("source"),
             "hybrid_path": ";".join(hybrid_decision.get("decision_path", []) or []),
+            "hybrid_source_contributions": json.dumps(
+                hybrid_source_contributions, ensure_ascii=False, sort_keys=True
+            ),
+            "hybrid_fusion_strategy": hybrid_fusion_metadata.get("strategy"),
+            "hybrid_fusion_agreement_score": hybrid_fusion_metadata.get(
+                "agreement_score"
+            ),
+            "hybrid_explanation_summary": hybrid_explanation.get("summary"),
+            "hybrid_explanation": json.dumps(
+                hybrid_explanation, ensure_ascii=False, sort_keys=True
+            ),
+            "hybrid_rejected": bool(hybrid_rejection),
+            "hybrid_rejection_reason": hybrid_rejection.get("reason"),
+            "hybrid_rejection_min_confidence": hybrid_rejection.get("min_confidence"),
+            "hybrid_rejection_raw_source": hybrid_rejection.get("raw_source"),
+            "hybrid_rejection_raw_label": hybrid_rejection.get("raw_label"),
+            "hybrid_rejection_raw_confidence": hybrid_rejection.get("raw_confidence"),
             "titleblock_label": titleblock_pred.get("label"),
             "titleblock_confidence": titleblock_pred.get("confidence"),
             "titleblock_status": titleblock_pred.get("status"),

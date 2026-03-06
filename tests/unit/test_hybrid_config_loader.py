@@ -69,3 +69,22 @@ def test_hybrid_config_graph2d_env_fallback(monkeypatch) -> None:
     cfg2 = HybridClassifierConfig.from_sources(config_path=None)
     assert cfg2.graph2d.exclude_labels == "fusion_exclude"
     assert cfg2.graph2d.allow_labels == "fusion_allow"
+
+
+def test_hybrid_config_rejection_from_file_and_env(tmp_path: Path, monkeypatch) -> None:
+    cfg_path = tmp_path / "hybrid.yaml"
+    cfg_path.write_text(
+        "\n".join(
+            [
+                "rejection:",
+                "  enabled: false",
+                "  min_confidence: 0.42",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HYBRID_REJECT_ENABLED", "true")
+    monkeypatch.setenv("HYBRID_REJECT_MIN_CONFIDENCE", "0.77")
+    cfg = HybridClassifierConfig.from_sources(config_path=cfg_path)
+    assert cfg.rejection.enabled is True
+    assert cfg.rejection.min_confidence == 0.77

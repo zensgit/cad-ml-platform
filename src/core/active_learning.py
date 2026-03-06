@@ -177,6 +177,8 @@ class ActiveLearner:
                     "true_type": sample.true_type,
                     "confidence": sample.confidence,
                     "alternatives": sample.alternatives,
+                    "score_breakdown": sample.score_breakdown,
+                    "uncertainty_reason": sample.uncertainty_reason,
                 }
                 f.write(json.dumps(export_data) + "\n")
                 sample.status = SampleStatus.EXPORTED

@@ -343,11 +343,34 @@ jobs:
         from pathlib import Path
 
         payload = json.loads(Path(os.environ["GRAPH2D_REVIEW_PACK_SUMMARY_JSON"]).read_text(encoding="utf-8"))
+        def compact_named(items, limit=3):
+            out = []
+            for item in (items or [])[:limit]:
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get("name") or "").strip()
+                count = item.get("count")
+                if not name:
+                    continue
+                out.append(f"{name}({count})")
+            return "; ".join(out)
+
+        def compact_texts(items, limit=2):
+            out = []
+            for value in (items or [])[:limit]:
+                text = str(value or "").replace("\n", " ").replace("\r", " ").strip()
+                if text:
+                    out.append(text[:160])
+            return " | ".join(out)
+
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
             f.write(f"candidate_rows={payload.get('candidate_rows', 0)}\n")
             f.write(f"hybrid_rejected_count={payload.get('hybrid_rejected_count', 0)}\n")
             f.write(f"conflict_count={payload.get('conflict_count', 0)}\n")
             f.write(f"low_confidence_count={payload.get('low_confidence_count', 0)}\n")
+            f.write(f"top_review_reasons={compact_named(payload.get('top_review_reasons'))}\n")
+            f.write(f"top_primary_sources={compact_named(payload.get('top_primary_sources'))}\n")
+            f.write(f"sample_explanations={compact_texts(payload.get('sample_explanations'))}\n")
         PY
 
     - name: Run Graph2D train recipe sweep (optional)
@@ -719,6 +742,9 @@ jobs:
           echo "- Graph2D review hybrid_rejected: ${{ steps.graph2d_review_pack.outputs.hybrid_rejected_count }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review conflicts: ${{ steps.graph2d_review_pack.outputs.conflict_count }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review low_confidence: ${{ steps.graph2d_review_pack.outputs.low_confidence_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D review top reasons: ${{ steps.graph2d_review_pack.outputs.top_review_reasons }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D review top sources: ${{ steps.graph2d_review_pack.outputs.top_primary_sources }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D review example explanations: ${{ steps.graph2d_review_pack.outputs.sample_explanations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review output: ${{ steps.graph2d_review_pack.outputs.output_csv }}" >> $GITHUB_STEP_SUMMARY
           if [[ "${{ steps.graph2d_review_gate.outputs.enabled }}" == "true" ]]; then
             echo "- Graph2D review gate status: ${{ steps.graph2d_review_gate.outputs.status }} (exit=${{ steps.graph2d_review_gate.outputs.exit_code }})" >> $GITHUB_STEP_SUMMARY
@@ -782,6 +808,9 @@ jobs:
             const reviewCandidates = '${{ steps.graph2d_review_pack.outputs.candidate_rows }}';
             const reviewRejected = '${{ steps.graph2d_review_pack.outputs.hybrid_rejected_count }}';
             const reviewConflicts = '${{ steps.graph2d_review_pack.outputs.conflict_count }}';
+            const reviewTopReasons = '${{ steps.graph2d_review_pack.outputs.top_review_reasons }}';
+            const reviewTopSources = '${{ steps.graph2d_review_pack.outputs.top_primary_sources }}';
+            const reviewExampleExplanations = '${{ steps.graph2d_review_pack.outputs.sample_explanations }}';
             const reviewGateStatusRaw = '${{ steps.graph2d_review_gate.outputs.status }}';
             const reviewGateExitCode = '${{ steps.graph2d_review_gate.outputs.exit_code }}';
             const reviewGateHeadline = '${{ steps.graph2d_review_gate.outputs.headline }}';
@@ -800,6 +829,9 @@ jobs:
 
             const reviewPackStatus = reviewPackEnabled
               ? `🧪 candidates=${reviewCandidates}, rejected=${reviewRejected}, conflict=${reviewConflicts}`
+              : '⏭️ skipped';
+            const reviewPackInsights = reviewPackEnabled
+              ? `reasons=${reviewTopReasons || 'n/a'}, sources=${reviewTopSources || 'n/a'}, examples=${reviewExampleExplanations || 'n/a'}`
               : '⏭️ skipped';
             const reviewGateStatus = reviewGateEnabled
               ? `${reviewGateStatusRaw} (exit=${reviewGateExitCode}, headline=${reviewGateHeadline || 'n/a'})`
@@ -841,6 +873,7 @@ jobs:
             | **Anomaly Detection** | ${hasAnomalies ? '⚠️ Anomalies detected' : '✅ No anomalies'} |
             | **Security Audit** | ${securityStatus === 'pass' ? '✅ Passed' : '⚠️ Issues found'} |
             | **Graph2D Review Pack** | ${reviewPackStatus} |
+            | **Graph2D Review Insights** | ${reviewPackInsights} |
             | **Graph2D Review Gate** | ${reviewGateStatus} |
             | **Graph2D Review Gate Strict** | ${reviewGateStrictStatus} |
             | **Graph2D Train Sweep** | ${trainSweepStatus} |

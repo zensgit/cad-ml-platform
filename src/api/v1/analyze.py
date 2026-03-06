@@ -9,6 +9,7 @@ import logging
 import os
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
@@ -38,6 +39,7 @@ from src.utils.analysis_metrics import (
     analysis_error_code_total,
     analysis_errors_total,
     analysis_feature_vector_dimension,
+    analysis_hybrid_rejections_total,
     analysis_material_usage_total,
     analysis_parallel_enabled,
     analysis_parse_latency_budget_ratio,
@@ -111,6 +113,93 @@ def _graph2d_is_coarse_label(label: Optional[str]) -> bool:
     return label.strip() in labels
 
 
+def _resolve_history_sequence_file_path(
+    *,
+    file_name: str,
+    file_format: str,
+    analysis_options: "AnalysisOptions",
+) -> tuple[Optional[str], Optional[str]]:
+    """Resolve optional history-sequence `.h5` path for hybrid inference."""
+
+    allowed_root: Optional[Path] = None
+    allowed_root_raw = os.getenv("HISTORY_SEQUENCE_ALLOWED_ROOT", "").strip()
+    if allowed_root_raw:
+        root = Path(allowed_root_raw).expanduser()
+        if root.exists() and root.is_dir():
+            allowed_root = root.resolve()
+        else:
+            logger.warning("HISTORY_SEQUENCE_ALLOWED_ROOT is invalid: %s", root)
+
+    def _resolve_existing_h5(path_raw: str) -> Optional[Path]:
+        candidate = Path(path_raw).expanduser()
+        try:
+            resolved = candidate.resolve(strict=True)
+        except Exception:
+            return None
+        if not resolved.is_file() or resolved.suffix.lower() != ".h5":
+            return None
+        if allowed_root is not None:
+            try:
+                resolved.relative_to(allowed_root)
+            except ValueError:
+                return None
+        return resolved
+
+    # 1) Per-request explicit path from options.
+    explicit = str(getattr(analysis_options, "history_file_path", "") or "").strip()
+    if explicit:
+        path = _resolve_existing_h5(explicit)
+        if path is not None:
+            return str(path), "options"
+        logger.warning("history_file_path from options is invalid: %s", explicit)
+
+    # 2) Global explicit path from environment.
+    env_path_raw = os.getenv("HISTORY_SEQUENCE_FILE_PATH", "").strip()
+    if env_path_raw:
+        env_path = _resolve_existing_h5(env_path_raw)
+        if env_path is not None:
+            return str(env_path), "env"
+        logger.warning("HISTORY_SEQUENCE_FILE_PATH is invalid: %s", env_path_raw)
+
+    # Sidecar auto-discovery only applies to 2D drawing uploads by filename.
+    if str(file_format or "").strip().lower() not in {"dxf", "dwg"}:
+        return None, None
+
+    # 3) Sidecar auto-discovery by uploaded file stem.
+    sidecar_dir_raw = os.getenv("HISTORY_SEQUENCE_SIDECAR_DIR", "").strip()
+    if not sidecar_dir_raw:
+        return None, None
+    sidecar_dir = Path(sidecar_dir_raw).expanduser()
+    if not sidecar_dir.exists() or not sidecar_dir.is_dir():
+        logger.warning("HISTORY_SEQUENCE_SIDECAR_DIR is invalid: %s", sidecar_dir)
+        return None, None
+
+    file_name_clean = Path(str(file_name or "")).name
+    stem = Path(file_name_clean).stem
+    if not stem:
+        return None, None
+
+    exact = _resolve_existing_h5(str(sidecar_dir / f"{stem}.h5"))
+    if exact is not None:
+        return str(exact), "sidecar_exact"
+
+    suffix = _resolve_existing_h5(str(sidecar_dir / f"{stem}_1.h5"))
+    if suffix is not None:
+        return str(suffix), "sidecar_suffix_1"
+
+    allow_glob = os.getenv(
+        "HISTORY_SEQUENCE_SIDECAR_GLOB_ENABLED", "true"
+    ).strip().lower() in {"1", "true", "yes", "on"}
+    if allow_glob:
+        matches = sorted(sidecar_dir.glob(f"{stem}*.h5"))
+        if matches:
+            match = _resolve_existing_h5(str(matches[0]))
+            if match is not None:
+                return str(match), "sidecar_glob"
+
+    return None, None
+
+
 # Drift state (in-memory); keys: materials, predictions, baseline_materials, baseline_predictions
 _DRIFT_STATE: Dict[str, Any] = {
     "materials": [],
@@ -137,6 +226,10 @@ class AnalysisOptions(BaseModel):
     )
     ocr_provider: str = Field(
         default="auto", description="OCR provider策略 auto|paddle|deepseek_hf"
+    )
+    history_file_path: Optional[str] = Field(
+        default=None,
+        description="历史命令序列文件路径（可选，.h5）",
     )
 
 
@@ -373,21 +466,16 @@ async def analyze_cad_file(
         analysis_cache_key = f"analysis:{file.filename}:{content_hash}:{options}"
         # Include optional PartClassifier shadow settings in cache key to avoid
         # cross-hitting cached payloads with/without shadow-only fields.
-        include_part_shadow = (
-            os.getenv("PART_CLASSIFIER_PROVIDER_INCLUDE_IN_CACHE_KEY", "true")
-            .strip()
-            .lower()
-            not in {"0", "false", "no", "off"}
-        )
+        include_part_shadow = os.getenv(
+            "PART_CLASSIFIER_PROVIDER_INCLUDE_IN_CACHE_KEY", "true"
+        ).strip().lower() not in {"0", "false", "no", "off"}
         if include_part_shadow:
             suffix = str(file.filename or "").rsplit(".", 1)[-1].lower()
             shadow_formats_raw = os.getenv(
                 "PART_CLASSIFIER_PROVIDER_SHADOW_FORMATS", "dxf,dwg"
             )
             shadow_formats = {
-                t.strip().lower()
-                for t in shadow_formats_raw.split(",")
-                if t.strip()
+                t.strip().lower() for t in shadow_formats_raw.split(",") if t.strip()
             }
             if suffix in shadow_formats:
                 shadow_enabled = (
@@ -399,9 +487,7 @@ async def analyze_cad_file(
                 shadow_provider = (
                     os.getenv("PART_CLASSIFIER_PROVIDER_NAME", "v16").strip() or "v16"
                 )
-                analysis_cache_key = (
-                    f"{analysis_cache_key}:part_shadow={int(shadow_enabled)}:{shadow_provider}"
-                )
+                analysis_cache_key = f"{analysis_cache_key}:part_shadow={int(shadow_enabled)}:{shadow_provider}"
         cached = await get_cached_result(analysis_cache_key)
         if cached:
             logger.info(f"Cache hit for {file.filename}")
@@ -1017,7 +1103,9 @@ async def analyze_cad_file(
                             # soft-override threshold defaults) can key off min_confidence.
                             graph2d_result["min_confidence"] = graph2d_min_conf
                             graph2d_result["min_margin"] = graph2d_min_margin
-                            graph2d_result["ensemble_enabled"] = graph2d_ensemble_enabled
+                            graph2d_result["ensemble_enabled"] = (
+                                graph2d_ensemble_enabled
+                            )
                             cls_payload["graph2d_prediction"] = graph2d_result
 
                             if graph2d_result.get("status") != "model_unavailable":
@@ -1095,8 +1183,12 @@ async def analyze_cad_file(
                                     graph2d_label in graph2d_exclude
                                 )
                                 graph2d_result["allowed"] = graph2d_allowed
-                                graph2d_result["is_drawing_type"] = graph2d_is_drawing_type
-                                graph2d_result["is_coarse_label"] = graph2d_is_coarse_label
+                                graph2d_result["is_drawing_type"] = (
+                                    graph2d_is_drawing_type
+                                )
+                                graph2d_result["is_coarse_label"] = (
+                                    graph2d_is_coarse_label
+                                )
                                 if (
                                     graph2d_result["passed_threshold"]
                                     and graph2d_result.get("passed_margin", True)
@@ -1120,12 +1212,31 @@ async def analyze_cad_file(
                         )
                         from src.core.providers.classifier import ClassifierRequest
 
+                        (
+                            history_file_path,
+                            history_file_path_source,
+                        ) = _resolve_history_sequence_file_path(
+                            file_name=str(file.filename or ""),
+                            file_format=file_format,
+                            analysis_options=analysis_options,
+                        )
+                        cls_payload["history_sequence_input"] = {
+                            "resolved": bool(history_file_path),
+                            "source": history_file_path_source,
+                            "file_name": (
+                                Path(history_file_path).name
+                                if history_file_path
+                                else None
+                            ),
+                        }
+
                         bootstrap_core_provider_registry()
                         provider = ProviderRegistry.get("classifier", "hybrid")
                         hybrid_result = await provider.process(
                             ClassifierRequest(
                                 filename=file.filename,
                                 file_bytes=content,
+                                history_file_path=history_file_path,
                             ),
                             graph2d_result=graph2d_result,
                         )
@@ -1135,7 +1246,47 @@ async def analyze_cad_file(
                         cls_payload["titleblock_prediction"] = hybrid_result.get(
                             "titleblock_prediction"
                         )
+                        cls_payload["history_prediction"] = hybrid_result.get(
+                            "history_prediction"
+                        )
+                        cls_payload["process_prediction"] = hybrid_result.get(
+                            "process_prediction"
+                        )
+                        cls_payload["decision_path"] = hybrid_result.get(
+                            "decision_path"
+                        )
+                        cls_payload["source_contributions"] = hybrid_result.get(
+                            "source_contributions"
+                        )
+                        cls_payload["fusion_metadata"] = hybrid_result.get(
+                            "fusion_metadata"
+                        )
+                        cls_payload["hybrid_explanation"] = hybrid_result.get(
+                            "explanation"
+                        )
                         cls_payload["hybrid_decision"] = hybrid_result
+                        hybrid_rejection = hybrid_result.get("rejection")
+                        if isinstance(hybrid_rejection, dict):
+                            cls_payload["hybrid_rejection"] = hybrid_rejection
+                            cls_payload["hybrid_rejected"] = True
+                            rejection_reason = (
+                                str(hybrid_rejection.get("reason") or "unknown").strip()
+                                or "unknown"
+                            )
+                            rejection_source = (
+                                str(
+                                    hybrid_rejection.get("raw_source")
+                                    or hybrid_result.get("source")
+                                    or "unknown"
+                                ).strip()
+                                or "unknown"
+                            )
+                            analysis_hybrid_rejections_total.labels(
+                                reason=rejection_reason,
+                                raw_source=rejection_source,
+                            ).inc()
+                        else:
+                            cls_payload["hybrid_rejected"] = False
                         hybrid_label = str(hybrid_result.get("label") or "").strip()
                         if hybrid_label:
                             cls_payload["fine_part_type"] = hybrid_label
@@ -1217,7 +1368,9 @@ async def analyze_cad_file(
                                     ProviderRegistry,
                                     bootstrap_core_provider_registry,
                                 )
-                                from src.core.providers.classifier import ClassifierRequest
+                                from src.core.providers.classifier import (
+                                    ClassifierRequest,
+                                )
 
                                 bootstrap_core_provider_registry()
                                 provider = ProviderRegistry.get(
@@ -1249,12 +1402,18 @@ async def analyze_cad_file(
                                         "error": str(exc),
                                     }
 
-                                raw_status = str(part_result.get("status") or "").strip().lower()
+                                raw_status = (
+                                    str(part_result.get("status") or "").strip().lower()
+                                )
                                 if raw_status == "ok":
                                     status_label = "success"
                                 elif raw_status in {"timeout"}:
                                     status_label = "timeout"
-                                elif raw_status in {"unavailable", "no_prediction", "model_unavailable"}:
+                                elif raw_status in {
+                                    "unavailable",
+                                    "no_prediction",
+                                    "model_unavailable",
+                                }:
                                     status_label = "unavailable"
                                 elif raw_status == "file_too_large":
                                     status_label = "skipped"
@@ -1330,7 +1489,9 @@ async def analyze_cad_file(
                     graph2d_passed_margin = bool(
                         graph2d_result.get("passed_margin", True)
                     )
-                    graph2d_min_margin = float(graph2d_result.get("min_margin", 0.0) or 0.0)
+                    graph2d_min_margin = float(
+                        graph2d_result.get("min_margin", 0.0) or 0.0
+                    )
                     graph2d_is_drawing_type = bool(
                         graph2d_result.get("is_drawing_type", False)
                     )
@@ -1580,10 +1741,29 @@ async def analyze_cad_file(
                             "ACTIVE_LEARNING_CONFIDENCE_THRESHOLD", "0.6"
                         )
                     )
+                    confidence_value = float(cls_payload.get("confidence", 1.0) or 1.0)
+                    hybrid_rejection_payload = cls_payload.get("hybrid_rejection")
+                    if not isinstance(hybrid_rejection_payload, dict):
+                        hybrid_rejection_payload = None
+                    is_low_confidence = confidence_value < threshold
                     if (
                         enabled
-                        and float(cls_payload.get("confidence", 1.0)) < threshold
+                        and (is_low_confidence or hybrid_rejection_payload is not None)
                     ):
+                        uncertainty_reason = "low_confidence"
+                        if hybrid_rejection_payload is not None:
+                            rejection_reason = (
+                                str(
+                                    hybrid_rejection_payload.get("reason")
+                                    or "unknown"
+                                ).strip()
+                                or "unknown"
+                            )
+                            uncertainty_reason = f"hybrid_rejected:{rejection_reason}"
+                            if is_low_confidence:
+                                uncertainty_reason = (
+                                    f"{uncertainty_reason}+low_confidence"
+                                )
                         from src.core.active_learning import get_active_learner
 
                         learner = get_active_learner()
@@ -1601,8 +1781,17 @@ async def analyze_cad_file(
                                 "confidence_breakdown": cls_payload.get(
                                     "confidence_breakdown"
                                 ),
+                                "hybrid_rejection": hybrid_rejection_payload,
+                                "decision_path": cls_payload.get("decision_path"),
+                                "source_contributions": cls_payload.get(
+                                    "source_contributions"
+                                ),
+                                "fusion_metadata": cls_payload.get("fusion_metadata"),
+                                "hybrid_explanation": cls_payload.get(
+                                    "hybrid_explanation"
+                                ),
                             },
-                            uncertainty_reason="low_confidence",
+                            uncertainty_reason=uncertainty_reason,
                         )
                 except Exception as e:
                     logger.warning(f"Active learning flag failed: {e}")

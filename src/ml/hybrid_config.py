@@ -117,6 +117,45 @@ class ProcessConfig:
 
 
 @dataclass
+class HistorySequenceConfig:
+    """历史命令序列特征配置（HPSketch）"""
+
+    enabled: bool = False
+    min_confidence: float = 0.55
+    fusion_weight: float = 0.2
+    prototypes_path: str = "data/knowledge/history_sequence_prototypes_template.json"
+    model_path: str = ""
+    prototype_token_weight: float = 1.0
+    prototype_bigram_weight: float = 1.0
+
+
+@dataclass
+class RejectionConfig:
+    """低置信度拒识策略"""
+
+    enabled: bool = False
+    min_confidence: float = 0.0
+
+
+@dataclass
+class AutoEnableConfig:
+    """按证据自动启用分支"""
+
+    titleblock_on_text: bool = True
+    history_on_path: bool = True
+
+
+@dataclass
+class DecisionConfig:
+    """融合与解释输出配置"""
+
+    advanced_fusion_enabled: bool = True
+    fusion_strategy: str = "weighted_average"
+    auto_select_fusion: bool = False
+    explanation_enabled: bool = True
+
+
+@dataclass
 class SamplingConfig:
     """节点采样配置"""
 
@@ -169,6 +208,12 @@ class HybridClassifierConfig:
     graph2d: Graph2DConfig = field(default_factory=Graph2DConfig)
     titleblock: TitleBlockConfig = field(default_factory=TitleBlockConfig)
     process: ProcessConfig = field(default_factory=ProcessConfig)
+    history_sequence: HistorySequenceConfig = field(
+        default_factory=HistorySequenceConfig
+    )
+    rejection: RejectionConfig = field(default_factory=RejectionConfig)
+    auto_enable: AutoEnableConfig = field(default_factory=AutoEnableConfig)
+    decision: DecisionConfig = field(default_factory=DecisionConfig)
     sampling: SamplingConfig = field(default_factory=SamplingConfig)
     class_balance: ClassBalanceConfig = field(default_factory=ClassBalanceConfig)
     multimodal: MultimodalFusionConfig = field(default_factory=MultimodalFusionConfig)
@@ -209,6 +254,29 @@ class HybridClassifierConfig:
                 "enabled": self.process.enabled,
                 "min_confidence": self.process.min_confidence,
                 "fusion_weight": self.process.fusion_weight,
+            },
+            "history_sequence": {
+                "enabled": self.history_sequence.enabled,
+                "min_confidence": self.history_sequence.min_confidence,
+                "fusion_weight": self.history_sequence.fusion_weight,
+                "prototypes_path": self.history_sequence.prototypes_path,
+                "model_path": self.history_sequence.model_path,
+                "prototype_token_weight": self.history_sequence.prototype_token_weight,
+                "prototype_bigram_weight": self.history_sequence.prototype_bigram_weight,
+            },
+            "rejection": {
+                "enabled": self.rejection.enabled,
+                "min_confidence": self.rejection.min_confidence,
+            },
+            "auto_enable": {
+                "titleblock_on_text": self.auto_enable.titleblock_on_text,
+                "history_on_path": self.auto_enable.history_on_path,
+            },
+            "decision": {
+                "advanced_fusion_enabled": self.decision.advanced_fusion_enabled,
+                "fusion_strategy": self.decision.fusion_strategy,
+                "auto_select_fusion": self.decision.auto_select_fusion,
+                "explanation_enabled": self.decision.explanation_enabled,
             },
             "sampling": {
                 "max_nodes": self.sampling.max_nodes,
@@ -327,6 +395,76 @@ class HybridClassifierConfig:
             )
             self.process.fusion_weight = _to_float(
                 process.get("fusion_weight"), self.process.fusion_weight
+            )
+
+        history_sequence = payload.get("history_sequence", {})
+        if isinstance(history_sequence, dict):
+            self.history_sequence.enabled = _to_bool(
+                history_sequence.get("enabled"), self.history_sequence.enabled
+            )
+            self.history_sequence.min_confidence = _to_float(
+                history_sequence.get("min_confidence"),
+                self.history_sequence.min_confidence,
+            )
+            self.history_sequence.fusion_weight = _to_float(
+                history_sequence.get("fusion_weight"),
+                self.history_sequence.fusion_weight,
+            )
+            self.history_sequence.prototypes_path = _to_str(
+                history_sequence.get("prototypes_path"),
+                self.history_sequence.prototypes_path,
+            )
+            self.history_sequence.model_path = _to_str(
+                history_sequence.get("model_path"),
+                self.history_sequence.model_path,
+            )
+            self.history_sequence.prototype_token_weight = _to_float(
+                history_sequence.get("prototype_token_weight"),
+                self.history_sequence.prototype_token_weight,
+            )
+            self.history_sequence.prototype_bigram_weight = _to_float(
+                history_sequence.get("prototype_bigram_weight"),
+                self.history_sequence.prototype_bigram_weight,
+            )
+
+        rejection = payload.get("rejection", {})
+        if isinstance(rejection, dict):
+            self.rejection.enabled = _to_bool(
+                rejection.get("enabled"), self.rejection.enabled
+            )
+            self.rejection.min_confidence = _to_float(
+                rejection.get("min_confidence"),
+                self.rejection.min_confidence,
+            )
+
+        auto_enable = payload.get("auto_enable", {})
+        if isinstance(auto_enable, dict):
+            self.auto_enable.titleblock_on_text = _to_bool(
+                auto_enable.get("titleblock_on_text"),
+                self.auto_enable.titleblock_on_text,
+            )
+            self.auto_enable.history_on_path = _to_bool(
+                auto_enable.get("history_on_path"),
+                self.auto_enable.history_on_path,
+            )
+
+        decision = payload.get("decision", {})
+        if isinstance(decision, dict):
+            self.decision.advanced_fusion_enabled = _to_bool(
+                decision.get("advanced_fusion_enabled"),
+                self.decision.advanced_fusion_enabled,
+            )
+            self.decision.fusion_strategy = _to_str(
+                decision.get("fusion_strategy"),
+                self.decision.fusion_strategy,
+            )
+            self.decision.auto_select_fusion = _to_bool(
+                decision.get("auto_select_fusion"),
+                self.decision.auto_select_fusion,
+            )
+            self.decision.explanation_enabled = _to_bool(
+                decision.get("explanation_enabled"),
+                self.decision.explanation_enabled,
             )
 
         sampling = payload.get("sampling", {})
@@ -476,6 +614,68 @@ class HybridClassifierConfig:
         )
         self.process.fusion_weight = _to_float(
             os.getenv("PROCESS_FUSION_WEIGHT"), self.process.fusion_weight
+        )
+
+        self.history_sequence.enabled = _to_bool(
+            os.getenv("HISTORY_SEQUENCE_ENABLED"), self.history_sequence.enabled
+        )
+        self.history_sequence.min_confidence = _to_float(
+            os.getenv("HISTORY_SEQUENCE_MIN_CONF"),
+            self.history_sequence.min_confidence,
+        )
+        self.history_sequence.fusion_weight = _to_float(
+            os.getenv("HISTORY_SEQUENCE_FUSION_WEIGHT"),
+            self.history_sequence.fusion_weight,
+        )
+        self.history_sequence.prototypes_path = _to_str(
+            os.getenv("HISTORY_SEQUENCE_PROTOTYPES_PATH"),
+            self.history_sequence.prototypes_path,
+        )
+        self.history_sequence.model_path = _to_str(
+            os.getenv("HISTORY_SEQUENCE_MODEL_PATH"),
+            self.history_sequence.model_path,
+        )
+        self.history_sequence.prototype_token_weight = _to_float(
+            os.getenv("HISTORY_SEQUENCE_PROTOTYPE_TOKEN_WEIGHT"),
+            self.history_sequence.prototype_token_weight,
+        )
+        self.history_sequence.prototype_bigram_weight = _to_float(
+            os.getenv("HISTORY_SEQUENCE_PROTOTYPE_BIGRAM_WEIGHT"),
+            self.history_sequence.prototype_bigram_weight,
+        )
+
+        self.rejection.enabled = _to_bool(
+            os.getenv("HYBRID_REJECT_ENABLED"), self.rejection.enabled
+        )
+        self.rejection.min_confidence = _to_float(
+            os.getenv("HYBRID_REJECT_MIN_CONFIDENCE"),
+            self.rejection.min_confidence,
+        )
+
+        self.auto_enable.titleblock_on_text = _to_bool(
+            os.getenv("TITLEBLOCK_AUTO_ENABLE"),
+            self.auto_enable.titleblock_on_text,
+        )
+        self.auto_enable.history_on_path = _to_bool(
+            os.getenv("HISTORY_SEQUENCE_AUTO_ENABLE"),
+            self.auto_enable.history_on_path,
+        )
+
+        self.decision.advanced_fusion_enabled = _to_bool(
+            os.getenv("HYBRID_ADVANCED_FUSION_ENABLED"),
+            self.decision.advanced_fusion_enabled,
+        )
+        self.decision.fusion_strategy = _to_str(
+            os.getenv("HYBRID_FUSION_STRATEGY"),
+            self.decision.fusion_strategy,
+        )
+        self.decision.auto_select_fusion = _to_bool(
+            os.getenv("HYBRID_AUTO_SELECT_FUSION"),
+            self.decision.auto_select_fusion,
+        )
+        self.decision.explanation_enabled = _to_bool(
+            os.getenv("HYBRID_EXPLANATION_ENABLED"),
+            self.decision.explanation_enabled,
         )
 
         self.sampling.max_nodes = _to_int(

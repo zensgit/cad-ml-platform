@@ -1,0 +1,4 @@
+status,file,confidence,graph2d_label,hybrid_label,hybrid_rejected,hybrid_rejection_reason,hybrid_path,hybrid_fusion_strategy,hybrid_source_contributions,hybrid_explanation_summary
+ok,context_01.dxf,0.39,传动件,人孔,true,below_min_confidence,filename_extracted;fusion_scored;fusion_engine_weighted_average,weighted_average,"{""filename"": 0.61, ""titleblock"": 0.22, ""history_sequence"": 0.11}","综合 文件名, 标题栏, 历史序列 多源信息，融合得出 人孔"
+ok,context_02.dxf,0.44,壳体类,壳体类,false,,titleblock_auto_enabled;titleblock_predicted;titleblock_adopted,direct_threshold,"{""titleblock"": 0.68}","基于标题栏信息，分类为 壳体类"
+ok,context_03.dxf,0.33,传动件,阀体,true,below_min_confidence,history_auto_enabled;history_predicted;final_below_reject_min_conf,direct_threshold,"{""history_sequence"": 0.29}","历史序列支持 阀体，但最终低于拒识阈值"

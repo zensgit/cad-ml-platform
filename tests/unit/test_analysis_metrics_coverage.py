@@ -20,6 +20,7 @@ class TestAnalysisMetricsExist:
     def test_core_counters_exist(self):
         """Test core counter metrics are defined."""
         from src.utils.analysis_metrics import (
+            analysis_hybrid_rejections_total,
             analysis_cache_hits_total,
             analysis_cache_miss_total,
             analysis_error_code_total,
@@ -31,6 +32,7 @@ class TestAnalysisMetricsExist:
         assert analysis_requests_total is not None
         assert analysis_errors_total is not None
         assert analysis_rejections_total is not None
+        assert analysis_hybrid_rejections_total is not None
         assert analysis_error_code_total is not None
         assert analysis_cache_hits_total is not None
         assert analysis_cache_miss_total is not None

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import csv
 import json
 from pathlib import Path
@@ -32,6 +33,49 @@ def _to_bool(value: Any) -> bool:
 
 def _clean_label(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _parse_json_object(value: Any) -> Dict[str, Any]:
+    if isinstance(value, dict):
+        return dict(value)
+    text = _clean_label(value)
+    if not text:
+        return {}
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return {}
+    if isinstance(parsed, dict):
+        return parsed
+    return {}
+
+
+def _primary_sources(value: Any, top_k: int = 3) -> str:
+    payload = _parse_json_object(value)
+    if not payload:
+        return ""
+    ranked: List[tuple[str, float]] = []
+    for key, raw_value in payload.items():
+        try:
+            ranked.append((str(key), float(raw_value)))
+        except (TypeError, ValueError):
+            continue
+    ranked.sort(key=lambda item: (-item[1], item[0]))
+    return ";".join(source for source, _ in ranked[: max(1, int(top_k))])
+
+
+def _split_semicolon_tokens(value: Any) -> List[str]:
+    text = _clean_label(value)
+    if not text:
+        return []
+    return [token.strip() for token in text.split(";") if token.strip()]
+
+
+def _top_named_counts(counter: Counter[str], limit: int = 5) -> List[Dict[str, Any]]:
+    return [
+        {"name": name, "count": int(count)}
+        for name, count in counter.most_common(max(0, int(limit)))
+    ]
 
 
 def _has_hybrid_rejection(row: Dict[str, Any]) -> bool:
@@ -106,6 +150,20 @@ def _collect_candidates(
         out["review_has_hybrid_rejection"] = has_rejection
         out["review_has_hybrid_graph2d_conflict"] = has_conflict
         out["review_is_low_confidence"] = low_confidence
+        out["review_primary_sources"] = _primary_sources(
+            row.get("hybrid_source_contributions")
+            or row.get("source_contributions")
+        )
+        out["review_explanation_summary"] = _clean_label(
+            row.get("hybrid_explanation_summary")
+            or _parse_json_object(row.get("hybrid_explanation")).get("summary")
+        )
+        out["review_decision_path"] = _clean_label(
+            row.get("hybrid_path") or row.get("decision_path")
+        )
+        out["review_fusion_strategy"] = _clean_label(
+            row.get("hybrid_fusion_strategy")
+        )
         candidates.append(out)
 
     candidates.sort(
@@ -142,6 +200,31 @@ def _build_summary(
     candidate_rows: List[Dict[str, Any]],
     low_confidence_threshold: float,
 ) -> Dict[str, Any]:
+    review_reason_counter: Counter[str] = Counter()
+    primary_source_counter: Counter[str] = Counter()
+    sample_explanations: List[str] = []
+    sample_candidates: List[Dict[str, Any]] = []
+
+    for row in candidate_rows:
+        review_reason_counter.update(_split_semicolon_tokens(row.get("review_reasons")))
+        primary_source_counter.update(
+            _split_semicolon_tokens(row.get("review_primary_sources"))
+        )
+
+        explanation_summary = _clean_label(row.get("review_explanation_summary"))
+        if explanation_summary and explanation_summary not in sample_explanations:
+            sample_explanations.append(explanation_summary)
+
+        if len(sample_candidates) < 3:
+            sample_candidates.append(
+                {
+                    "file": _clean_label(row.get("file")),
+                    "reasons": _clean_label(row.get("review_reasons")),
+                    "primary_sources": _clean_label(row.get("review_primary_sources")),
+                    "explanation_summary": explanation_summary,
+                }
+            )
+
     return {
         "input_csv": str(input_csv),
         "output_csv": str(output_csv),
@@ -159,6 +242,10 @@ def _build_summary(
         "low_confidence_count": sum(
             1 for row in candidate_rows if _to_bool(row.get("review_is_low_confidence"))
         ),
+        "top_review_reasons": _top_named_counts(review_reason_counter),
+        "top_primary_sources": _top_named_counts(primary_source_counter),
+        "sample_explanations": sample_explanations[:3],
+        "sample_candidates": sample_candidates,
     }
 
 

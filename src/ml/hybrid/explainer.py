@@ -200,6 +200,10 @@ class HybridExplainer:
                 "zh": "工艺特征",
                 "en": "Process features",
             },
+            "history_sequence": {
+                "zh": "历史序列",
+                "en": "History sequence",
+            },
         }
 
     def explain(
@@ -342,6 +346,25 @@ class HybridExplainer:
                 description=f"工艺分类为 {labels[0] if labels else 'N/A'}，置信度 {conf:.1%}",
             ))
 
+        # History sequence features
+        if getattr(result, "history_prediction", None):
+            hp = result.history_prediction
+            label = hp.get("label")
+            conf = hp.get("confidence", 0)
+
+            if label == result.label:
+                contrib = conf * result.fusion_weights.get("history_sequence", 0.2)
+            else:
+                contrib = -conf * result.fusion_weights.get("history_sequence", 0.2)
+
+            contributions.append(FeatureContribution(
+                feature_name="history_sequence_label",
+                feature_value=label,
+                contribution=contrib,
+                source="history_sequence",
+                description=f"历史序列分类为 {label}，置信度 {conf:.1%}",
+            ))
+
         # Sort by contribution magnitude
         contributions.sort(key=lambda x: abs(x.contribution), reverse=True)
         explanation.feature_contributions = contributions[:self.max_features]
@@ -365,19 +388,33 @@ class HybridExplainer:
                 "graph2d_error": "几何分类失败",
                 "graph2d_drawing_type_ignored": "忽略绘图类型标签",
                 "titleblock_predicted": "从标题栏提取信息",
+                "titleblock_auto_enabled": "检测到文本信号，自动启用标题栏分支",
                 "titleblock_error": "标题栏提取失败",
                 "process_predicted": "分析工艺特征",
                 "process_error": "工艺分析失败",
+                "history_auto_enabled": "检测到历史文件，自动启用历史序列分支",
+                "history_predicted": "分析历史序列信号",
+                "history_high_conf_adopted": "采用高置信度历史序列预测",
+                "history_below_min_conf_ignored": "忽略低置信度历史序列预测",
                 "filename_high_conf_adopted": "采用高置信度文件名预测",
                 "graph2d_adopted": "采用几何分类预测",
                 "titleblock_adopted": "采用标题栏预测",
                 "fusion_scored": "执行多源融合",
+                "fusion_engine_weighted_average": "使用加权平均融合策略",
+                "fusion_engine_voting": "使用投票融合策略",
+                "fusion_engine_dempster_shafer": "使用证据融合策略",
+                "fusion_engine_attention": "使用注意力融合策略",
+                "fusion_high_agreement": "多源高度一致",
                 "fusion_multi_source_bonus": "多源一致性加分",
                 "filename_only": "仅使用文件名预测",
                 "graph2d_only": "仅使用几何预测",
+                "history_sequence_only": "仅使用历史序列预测",
                 "no_prediction": "无有效预测",
                 "titleblock_filename_conflict": "标题栏与文件名冲突",
                 "titleblock_ignored_filename_high_conf": "忽略标题栏（文件名置信度高）",
+                "graph2d_non_matching_ignored": "忽略与规则信号不一致的几何结果",
+                "process_drawing_type_ignored_for_fusion": "忽略仅表示图纸类型的工艺信号",
+                "final_below_reject_min_conf": "最终结果低于拒识阈值，回退为待复核",
             }
 
             source = step.split("_")[0] if "_" in step else "system"
@@ -402,28 +439,58 @@ class HybridExplainer:
 
     def _calculate_source_contributions(self, result: Any, explanation: Explanation) -> None:
         """Calculate contribution from each source."""
+        precomputed = getattr(result, "source_contributions", None)
+        if isinstance(precomputed, dict) and precomputed:
+            mapped: Dict[str, float] = {}
+            for source, contrib in precomputed.items():
+                source_key = str(source)
+                source_name = self._feature_descriptions.get(source_key, {}).get(
+                    self.language,
+                    source_key,
+                )
+                mapped[source_name] = float(contrib)
+            explanation.source_contributions = mapped
+            return
+
         contributions = {}
 
         if result.filename_prediction:
             fp = result.filename_prediction
             if fp.get("label") == result.label:
-                contributions["文件名"] = fp.get("confidence", 0) * result.fusion_weights.get("filename", 0.7)
+                contributions["文件名"] = fp.get("confidence", 0) * result.fusion_weights.get(
+                    "filename", 0.7
+                )
 
         if result.graph2d_prediction:
             gp = result.graph2d_prediction
-            if gp.get("label") == result.label and not gp.get("is_drawing_type", False):
-                contributions["几何分析"] = gp.get("confidence", 0) * result.fusion_weights.get("graph2d", 0.3)
+            if gp.get("label") == result.label and not gp.get(
+                "is_drawing_type", False
+            ):
+                contributions["几何分析"] = gp.get("confidence", 0) * result.fusion_weights.get(
+                    "graph2d", 0.3
+                )
 
         if result.titleblock_prediction:
             tp = result.titleblock_prediction
             if tp.get("label") == result.label:
-                contributions["标题栏"] = tp.get("confidence", 0) * result.fusion_weights.get("titleblock", 0.2)
+                contributions["标题栏"] = tp.get("confidence", 0) * result.fusion_weights.get(
+                    "titleblock", 0.2
+                )
 
         if result.process_prediction:
             pp = result.process_prediction
             labels = pp.get("suggested_labels", [])
             if labels and labels[0] == result.label:
-                contributions["工艺特征"] = pp.get("confidence", 0) * result.fusion_weights.get("process", 0.15)
+                contributions["工艺特征"] = pp.get("confidence", 0) * result.fusion_weights.get(
+                    "process", 0.15
+                )
+
+        if getattr(result, "history_prediction", None):
+            hp = result.history_prediction
+            if hp.get("label") == result.label:
+                contributions["历史序列"] = hp.get("confidence", 0) * result.fusion_weights.get(
+                    "history_sequence", 0.2
+                )
 
         explanation.source_contributions = contributions
 
@@ -438,7 +505,9 @@ class HybridExplainer:
             if label and label != result.label:
                 alternatives[label] = max(alternatives.get(label, 0), conf * 0.7)
 
-        if result.graph2d_prediction and not result.graph2d_prediction.get("is_drawing_type", False):
+        if result.graph2d_prediction and not result.graph2d_prediction.get(
+            "is_drawing_type", False
+        ):
             label = result.graph2d_prediction.get("label")
             conf = result.graph2d_prediction.get("confidence", 0)
             if label and label != result.label:
@@ -456,6 +525,12 @@ class HybridExplainer:
             for label in labels:
                 if label != result.label:
                     alternatives[label] = max(alternatives.get(label, 0), conf * 0.15)
+
+        if getattr(result, "history_prediction", None):
+            label = result.history_prediction.get("label")
+            conf = result.history_prediction.get("confidence", 0)
+            if label and label != result.label:
+                alternatives[label] = max(alternatives.get(label, 0), conf * 0.2)
 
         # Sort by confidence
         explanation.alternative_labels = sorted(
@@ -477,14 +552,20 @@ class HybridExplainer:
         predictions = []
         if result.filename_prediction:
             predictions.append(result.filename_prediction.get("label"))
-        if result.graph2d_prediction and not result.graph2d_prediction.get("is_drawing_type", False):
+        if result.graph2d_prediction and not result.graph2d_prediction.get(
+            "is_drawing_type", False
+        ):
             predictions.append(result.graph2d_prediction.get("label"))
         if result.titleblock_prediction:
             predictions.append(result.titleblock_prediction.get("label"))
+        if getattr(result, "history_prediction", None):
+            predictions.append(result.history_prediction.get("label"))
 
         predictions = [p for p in predictions if p]
         if len(set(predictions)) > 1:
-            disagreement = 1 - (max(predictions.count(p) for p in set(predictions)) / len(predictions))
+            disagreement = 1 - (
+                max(predictions.count(p) for p in set(predictions)) / len(predictions)
+            )
             uncertainty_score += disagreement * 0.4
             uncertainty_sources.append("多源预测不一致")
 
@@ -493,6 +574,8 @@ class HybridExplainer:
             uncertainty_score += 0.1
             uncertainty_sources.append("缺少几何分析")
         if not result.titleblock_prediction:
+            uncertainty_score += 0.05
+        if not getattr(result, "history_prediction", None):
             uncertainty_score += 0.05
 
         # Fallback decision
@@ -516,6 +599,9 @@ class HybridExplainer:
 
         elif result.source.value == "titleblock":
             return f"基于标题栏信息，分类为 {result.label}"
+
+        elif result.source.value == "history_sequence":
+            return f"基于历史命令序列，分类为 {result.label}"
 
         elif result.source.value == "fusion":
             sources = [k for k, v in explanation.source_contributions.items() if v > 0]

@@ -56,6 +56,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "github.event.inputs.review_pack_input_csv" in review_script
     assert "--low-confidence-threshold" in review_script
     assert "--top-k" in review_script
+    assert "top_review_reasons=" in review_script
+    assert "top_primary_sources=" in review_script
+    assert "sample_explanations=" in review_script
 
     sweep_step = _get_step(workflow, "evaluate", "Run Graph2D train recipe sweep (optional)")
     sweep_script = sweep_step["run"]
@@ -113,6 +116,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Graph2D review candidates" in summary_script
     assert "Graph2D review gate status" in summary_script
     assert "Graph2D review gate headline" in summary_script
+    assert "Graph2D review top reasons" in summary_script
+    assert "Graph2D review top sources" in summary_script
+    assert "Graph2D review example explanations" in summary_script
     assert "Graph2D review gate strict_mode" in summary_script
     assert "Graph2D train sweep total_runs" in summary_script
     assert "Graph2D train sweep best run script" in summary_script
@@ -122,5 +128,6 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Graph2D Review Gate" in pr_comment_script
     assert "Graph2D Review Gate Strict" in pr_comment_script
     assert "Graph2D Train Sweep" in pr_comment_script
+    assert "Graph2D Review Insights" in pr_comment_script
     assert "Graph2D Signal Lights" in pr_comment_script
     assert "script=${sweepBestRunScript}" in pr_comment_script

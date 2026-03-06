@@ -101,3 +101,7 @@ def test_export_review_pack_filters_and_ranks(tmp_path: Path) -> None:
     assert summary["total_rows"] == 4
     assert summary["candidate_rows"] == 3
     assert summary["hybrid_rejected_count"] == 1
+    top_reason_names = {item["name"] for item in summary["top_review_reasons"]}
+    assert "hybrid_rejected:below_min_confidence" in top_reason_names
+    assert "low_confidence" in top_reason_names
+    assert summary["top_primary_sources"] == []

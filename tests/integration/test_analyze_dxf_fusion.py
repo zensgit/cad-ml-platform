@@ -1,11 +1,12 @@
 import io
 import json
 import os
+from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from src.main import app
-
 
 client = TestClient(app)
 
@@ -85,6 +86,160 @@ def test_analyze_dxf_adds_fine_label_fields_from_hybrid(monkeypatch):
     assert classification.get("fine_confidence") == 0.95
     assert classification.get("fine_source") == "filename_exact"
     assert classification.get("fine_rule_version") == "HybridClassifier-v1"
+
+
+def test_analyze_dxf_hybrid_resolves_history_sidecar_path(monkeypatch, tmp_path: Path):
+    captured: dict[str, str] = {}
+    history_path = tmp_path / "Bolt_M6x20.h5"
+    history_path.write_bytes(b"")
+
+    class _StubHybridClassifier:
+        class _Result:
+            def __init__(self, payload):  # noqa: ANN001
+                self._payload = payload
+
+            def to_dict(self):  # noqa: D401
+                return dict(self._payload)
+
+        def classify(  # noqa: ANN201
+            self,
+            filename,
+            file_bytes=None,  # noqa: ANN001
+            graph2d_result=None,  # noqa: ANN001
+            history_result=None,  # noqa: ANN001
+            history_file_path=None,  # noqa: ANN001
+        ):
+            captured["history_file_path"] = str(history_file_path or "")
+            return self._Result(
+                {
+                    "label": "人孔",
+                    "confidence": 0.9,
+                    "source": "history_sequence",
+                    "history_prediction": {
+                        "label": "人孔",
+                        "confidence": 0.9,
+                        "status": "ok",
+                        "file_path": str(history_file_path or ""),
+                    },
+                    "filename_prediction": None,
+                    "titleblock_prediction": None,
+                }
+            )
+
+    monkeypatch.setenv("PROVIDER_REGISTRY_CACHE_ENABLED", "false")
+    monkeypatch.setenv("GRAPH2D_ENABLED", "false")
+    monkeypatch.setenv("HYBRID_CLASSIFIER_ENABLED", "true")
+    monkeypatch.setenv("HISTORY_SEQUENCE_ENABLED", "true")
+    monkeypatch.setenv("HISTORY_SEQUENCE_SIDECAR_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        "src.core.providers.classifier.HybridClassifierProviderAdapter._build_default_classifier",
+        lambda self: _StubHybridClassifier(),
+    )
+
+    dxf_payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
+    options = {"extract_features": True, "classify_parts": True}
+    resp = client.post(
+        "/api/v1/analyze/",
+        files={
+            "file": ("Bolt_M6x20.dxf", io.BytesIO(dxf_payload), "application/dxf"),
+        },
+        data={"options": json.dumps(options)},
+        headers={"x-api-key": os.getenv("API_KEY", "test")},
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    classification = data.get("results", {}).get("classification", {})
+    history_input = classification.get("history_sequence_input") or {}
+    hybrid = classification.get("hybrid_decision") or {}
+
+    assert captured.get("history_file_path") == str(history_path)
+    assert history_input.get("resolved") is True
+    assert history_input.get("source") == "sidecar_exact"
+    assert history_input.get("file_name") == "Bolt_M6x20.h5"
+    assert (hybrid.get("history_prediction") or {}).get("file_path") == str(
+        history_path
+    )
+
+
+def test_analyze_dxf_hybrid_rejection_adds_payload_and_active_learning_reason(
+    monkeypatch,
+):
+    captured: dict[str, object] = {}
+
+    class _StubLearner:
+        def flag_for_review(self, **kwargs):  # noqa: ANN003, ANN201
+            captured.update(kwargs)
+            return {"status": "ok"}
+
+    class _StubHybridClassifier:
+        class _Result:
+            def __init__(self, payload):  # noqa: ANN001
+                self._payload = payload
+
+            def to_dict(self):  # noqa: D401
+                return dict(self._payload)
+
+        def classify(  # noqa: ANN201
+            self,
+            filename,
+            file_bytes=None,  # noqa: ANN001
+            graph2d_result=None,  # noqa: ANN001
+            history_result=None,  # noqa: ANN001
+            history_file_path=None,  # noqa: ANN001
+        ):
+            return self._Result(
+                {
+                    "label": None,
+                    "confidence": 0.0,
+                    "source": "fallback",
+                    "filename_prediction": {"label": "人孔", "confidence": 0.65},
+                    "titleblock_prediction": None,
+                    "rejection": {
+                        "reason": "below_min_confidence",
+                        "min_confidence": 0.8,
+                        "raw_label": "人孔",
+                        "raw_confidence": 0.65,
+                        "raw_source": "filename",
+                    },
+                }
+            )
+
+    monkeypatch.setenv("PROVIDER_REGISTRY_CACHE_ENABLED", "false")
+    monkeypatch.setenv("GRAPH2D_ENABLED", "false")
+    monkeypatch.setenv("HYBRID_CLASSIFIER_ENABLED", "true")
+    monkeypatch.setenv("ACTIVE_LEARNING_ENABLED", "true")
+    monkeypatch.setenv("ACTIVE_LEARNING_CONFIDENCE_THRESHOLD", "0.01")
+    monkeypatch.setattr(
+        "src.core.providers.classifier.HybridClassifierProviderAdapter._build_default_classifier",
+        lambda self: _StubHybridClassifier(),
+    )
+    monkeypatch.setattr(
+        "src.core.active_learning.get_active_learner", lambda: _StubLearner()
+    )
+
+    dxf_payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
+    options = {"extract_features": True, "classify_parts": True}
+    resp = client.post(
+        "/api/v1/analyze/",
+        files={
+            "file": ("Bolt_M6x20.dxf", io.BytesIO(dxf_payload), "application/dxf"),
+        },
+        data={"options": json.dumps(options)},
+        headers={"x-api-key": os.getenv("API_KEY", "test")},
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    classification = data.get("results", {}).get("classification", {})
+    rejection = classification.get("hybrid_rejection") or {}
+    assert classification.get("hybrid_rejected") is True
+    assert rejection.get("reason") == "below_min_confidence"
+    assert (classification.get("hybrid_decision") or {}).get("rejection") == rejection
+
+    assert captured.get("uncertainty_reason") == "hybrid_rejected:below_min_confidence"
+    score_breakdown = captured.get("score_breakdown") or {}
+    assert (score_breakdown.get("hybrid_rejection") or {}).get("reason") == (
+        "below_min_confidence"
+    )
 
 
 def test_analyze_dxf_adds_part_classifier_prediction_when_enabled(monkeypatch):
@@ -236,10 +391,6 @@ def test_analyze_dxf_fusion_inputs(monkeypatch):
     assert "l2" in fusion_inputs
     assert "l3" in fusion_inputs
 
-
-import pytest
-
-
 def test_analyze_dxf_graph2d_override(monkeypatch):
     """Test Graph2D override functionality.
 
@@ -247,6 +398,7 @@ def test_analyze_dxf_graph2d_override(monkeypatch):
     Due to module import caching, the mock may not take effect in all test
     execution orders. The test validates the fusion pipeline works correctly.
     """
+
     class _StubGraph2D:
         def predict_from_bytes(self, data, file_name):  # noqa: ANN001
             return {"label": "模板", "confidence": 0.92, "status": "ok"}
@@ -289,7 +441,10 @@ def test_analyze_dxf_graph2d_override(monkeypatch):
         classification = data.get("results", {}).get("classification", {})
         # Validate fusion pipeline is working - the primary assertions
         assert classification.get("confidence_source") == "fusion"
-        assert classification.get("rule_version") in ("L2-Fusion-v1", "FusionAnalyzer-v1")
+        assert classification.get("rule_version") in (
+            "L2-Fusion-v1",
+            "FusionAnalyzer-v1",
+        )
         # part_type should be classified (may vary depending on mock effectiveness)
         assert classification.get("part_type") is not None
     finally:

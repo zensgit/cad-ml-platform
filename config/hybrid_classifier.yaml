@@ -38,6 +38,29 @@ process:
   min_confidence: 0.3
   fusion_weight: 0.15
 
+history_sequence:
+  enabled: false
+  min_confidence: 0.55
+  fusion_weight: 0.2
+  prototypes_path: "data/knowledge/history_sequence_prototypes_template.json"
+  model_path: ""
+  prototype_token_weight: 1.0
+  prototype_bigram_weight: 1.0
+
+rejection:
+  enabled: false
+  min_confidence: 0.35
+
+auto_enable:
+  titleblock_on_text: true
+  history_on_path: true
+
+decision:
+  advanced_fusion_enabled: true
+  fusion_strategy: "weighted_average"
+  auto_select_fusion: false
+  explanation_enabled: true
+
 sampling:
   max_nodes: 200
   strategy: "importance"
