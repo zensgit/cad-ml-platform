@@ -120,6 +120,46 @@ Check:
 - history-sequence eval record under `reports/eval_history/`
 - generated env file with selected history weights
 
+## Hybrid DXF Evaluation
+
+### 1. Evaluate final API/hybrid outputs against manifest labels
+
+```bash
+python3 scripts/eval_hybrid_dxf_manifest.py \
+  --dxf-dir <dxf-dir> \
+  --manifest <manifest.csv> \
+  --graph2d-model-path <graph2d-checkpoint.pth> \
+  --output-dir reports/experiments/$(date +%Y%m%d)/hybrid_dxf_manifest_eval
+```
+
+Check:
+
+- `results.csv`
+- `summary.json`
+- branch accuracy for:
+  - `final_part_type`
+  - `graph2d_label`
+  - `filename_label`
+  - `titleblock_label`
+  - `hybrid_label`
+  - `fine_part_type`
+
+### 2. Optional geometry-only hybrid comparison
+
+```bash
+python3 scripts/eval_hybrid_dxf_manifest.py \
+  --dxf-dir <dxf-dir> \
+  --manifest <manifest.csv> \
+  --graph2d-model-path <graph2d-checkpoint.pth> \
+  --output-dir reports/experiments/$(date +%Y%m%d)/hybrid_dxf_manifest_eval_geometry_only \
+  --geometry-only
+```
+
+Check:
+
+- whether `graph2d_label` tracks the standalone Graph2D diagnosis
+- whether `final_part_type` collapses once filename/titleblock signals are removed
+
 ## Safety Notes
 
 - Run these commands in a clean worktree, not the dirty main worktree.
