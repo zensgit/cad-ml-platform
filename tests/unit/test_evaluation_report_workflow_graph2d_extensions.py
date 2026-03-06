@@ -23,8 +23,13 @@ def _get_step(workflow: dict, job_name: str, step_name: str) -> dict:
 def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     workflow = _load_workflow()
     env = workflow["env"]
+    permissions = workflow["jobs"]["evaluate"]["permissions"]
 
     assert "GRAPH2D_REVIEW_PACK_INPUT_CSV" in env
+    assert "GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_NAME" in env
+    assert "GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_RUN_ID" in env
+    assert "GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY" in env
+    assert "GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_PATH" in env
     assert "GRAPH2D_REVIEW_PACK_OUTPUT_CSV" in env
     assert "GRAPH2D_REVIEW_PACK_SUMMARY_JSON" in env
     assert "GRAPH2D_REVIEW_PACK_LOW_CONF_THRESHOLD" in env
@@ -46,14 +51,32 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "review_gate_max_low_confidence_rate" in dispatch_inputs
     assert "review_gate_strict" in dispatch_inputs
     assert "review_pack_input_csv" in dispatch_inputs
+    assert "review_pack_input_artifact_name" in dispatch_inputs
+    assert "review_pack_input_artifact_run_id" in dispatch_inputs
+    assert "review_pack_input_artifact_repository" in dispatch_inputs
+    assert "review_pack_input_artifact_path" in dispatch_inputs
+    assert permissions["actions"] == "read"
 
 
 def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> None:
     workflow = _load_workflow()
+    download_step = _get_step(
+        workflow, "evaluate", "Download review-pack input artifact (optional)"
+    )
+    assert download_step["uses"] == "actions/download-artifact@v4"
+    assert "review_pack_input_artifact_name" in download_step["if"]
+    download_with = download_step["with"]
+    assert "run-id" in download_with
+    assert "repository" in download_with
+    assert "github-token" in download_with
+
     review_step = _get_step(workflow, "evaluate", "Build hybrid rejection review pack (optional)")
     review_script = review_step["run"]
     assert "scripts/export_hybrid_rejection_review_pack.py" in review_script
     assert "github.event.inputs.review_pack_input_csv" in review_script
+    assert "review_pack_input_artifact_path" in review_script
+    assert "find \"$ARTIFACT_INPUT_DIR\" -type f -name '*.csv'" in review_script
+    assert "input_source=" in review_script
     assert "--low-confidence-threshold" in review_script
     assert "--top-k" in review_script
     assert "top_review_reasons=" in review_script
@@ -113,6 +136,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
 
     summary_step = _get_step(workflow, "evaluate", "Create job summary")
     summary_script = summary_step["run"]
+    assert "Graph2D review input" in summary_script
     assert "Graph2D review candidates" in summary_script
     assert "Graph2D review gate status" in summary_script
     assert "Graph2D review gate headline" in summary_script
@@ -125,6 +149,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
 
     pr_comment_step = _get_step(workflow, "evaluate", "Comment PR with results")
     pr_comment_script = pr_comment_step["with"]["script"]
+    assert "reviewInputCsv" in pr_comment_script
+    assert "reviewInputSource" in pr_comment_script
     assert "Graph2D Review Gate" in pr_comment_script
     assert "Graph2D Review Gate Strict" in pr_comment_script
     assert "Graph2D Train Sweep" in pr_comment_script

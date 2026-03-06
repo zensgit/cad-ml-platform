@@ -50,6 +50,22 @@ on:
         description: 'Optional review-pack input CSV path (relative to repository root)'
         required: false
         default: ''
+      review_pack_input_artifact_name:
+        description: 'Optional artifact name containing review-pack input CSV'
+        required: false
+        default: ''
+      review_pack_input_artifact_run_id:
+        description: 'Optional workflow run id used to download review-pack input artifact'
+        required: false
+        default: ''
+      review_pack_input_artifact_repository:
+        description: 'Optional repository for review-pack input artifact (owner/repo)'
+        required: false
+        default: ''
+      review_pack_input_artifact_path:
+        description: 'Optional path to CSV inside downloaded artifact'
+        required: false
+        default: ''
 
 env:
   PYTHON_VERSION: '3.11'
@@ -70,6 +86,10 @@ env:
   GRAPH2D_BLIND_SUMMARY_JSON: ${{ vars.GRAPH2D_BLIND_SUMMARY_JSON }}
   GRAPH2D_BLIND_GATE_CONFIG: ${{ vars.GRAPH2D_BLIND_GATE_CONFIG || 'config/graph2d_blind_gate.yaml' }}
   GRAPH2D_REVIEW_PACK_INPUT_CSV: ${{ vars.GRAPH2D_REVIEW_PACK_INPUT_CSV }}
+  GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_NAME: ${{ vars.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_NAME }}
+  GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_RUN_ID: ${{ vars.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_RUN_ID }}
+  GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY: ${{ vars.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY }}
+  GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_PATH: ${{ vars.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_PATH }}
   GRAPH2D_REVIEW_PACK_OUTPUT_CSV: ${{ vars.GRAPH2D_REVIEW_PACK_OUTPUT_CSV || 'reports/history_sequence_eval/hybrid_review_pack.csv' }}
   GRAPH2D_REVIEW_PACK_SUMMARY_JSON: ${{ vars.GRAPH2D_REVIEW_PACK_SUMMARY_JSON || 'reports/history_sequence_eval/hybrid_review_pack_summary.json' }}
   GRAPH2D_REVIEW_PACK_LOW_CONF_THRESHOLD: ${{ vars.GRAPH2D_REVIEW_PACK_LOW_CONF_THRESHOLD || '0.6' }}
@@ -91,6 +111,7 @@ jobs:
     name: Run Evaluation and Generate Report
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       contents: read
       issues: write
       pull-requests: write
@@ -302,6 +323,21 @@ jobs:
             f.write(f"low_conf_rate={metrics.get('low_conf_rate', 0)}\n")
         PY
 
+    - name: Download review-pack input artifact (optional)
+      id: graph2d_review_pack_input_artifact
+      if: >-
+        (github.event.inputs.review_pack_input_artifact_name != '' ||
+        env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_NAME != '') &&
+        (github.event.inputs.review_pack_input_artifact_run_id != '' ||
+        env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_RUN_ID != '')
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{ github.event.inputs.review_pack_input_artifact_name || env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_NAME }}
+        repository: ${{ github.event.inputs.review_pack_input_artifact_repository || env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_REPOSITORY || github.repository }}
+        run-id: ${{ github.event.inputs.review_pack_input_artifact_run_id || env.GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_RUN_ID }}
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        path: .tmp/graph2d-review-pack-input
+
     - name: Build hybrid rejection review pack (optional)
       id: graph2d_review_pack
       continue-on-error: true
@@ -310,14 +346,38 @@ jobs:
         if [[ -z "$INPUT_CSV" ]]; then
           INPUT_CSV="${GRAPH2D_REVIEW_PACK_INPUT_CSV:-}"
         fi
-        if [[ -z "$INPUT_CSV" ]]; then
-          echo "enabled=false" >> $GITHUB_OUTPUT
-          echo "No review-pack input configured (dispatch input + GRAPH2D_REVIEW_PACK_INPUT_CSV); skip."
-          exit 0
+        ARTIFACT_INPUT_PATH="${{ github.event.inputs.review_pack_input_artifact_path || '' }}"
+        if [[ -z "$ARTIFACT_INPUT_PATH" ]]; then
+          ARTIFACT_INPUT_PATH="${GRAPH2D_REVIEW_PACK_INPUT_ARTIFACT_PATH:-}"
         fi
-        if [[ ! -f "$INPUT_CSV" ]]; then
+        ARTIFACT_INPUT_DIR=".tmp/graph2d-review-pack-input"
+        RESOLVED_INPUT_CSV=""
+        INPUT_SOURCE=""
+
+        if [[ -n "$INPUT_CSV" && -f "$INPUT_CSV" ]]; then
+          RESOLVED_INPUT_CSV="$INPUT_CSV"
+          INPUT_SOURCE="workspace"
+        fi
+
+        if [[ -z "$RESOLVED_INPUT_CSV" && -d "$ARTIFACT_INPUT_DIR" ]]; then
+          if [[ -n "$ARTIFACT_INPUT_PATH" && -f "$ARTIFACT_INPUT_DIR/$ARTIFACT_INPUT_PATH" ]]; then
+            RESOLVED_INPUT_CSV="$ARTIFACT_INPUT_DIR/$ARTIFACT_INPUT_PATH"
+            INPUT_SOURCE="artifact"
+          else
+            FOUND_ARTIFACT_CSV="$(find "$ARTIFACT_INPUT_DIR" -type f -name '*.csv' | sort | head -n 1 || true)"
+            if [[ -n "$FOUND_ARTIFACT_CSV" ]]; then
+              RESOLVED_INPUT_CSV="$FOUND_ARTIFACT_CSV"
+              INPUT_SOURCE="artifact"
+            fi
+          fi
+        fi
+
+        if [[ -z "$RESOLVED_INPUT_CSV" && -n "$INPUT_CSV" ]]; then
+          echo "Configured review-pack input CSV not found in workspace: $INPUT_CSV"
+        fi
+        if [[ -z "$RESOLVED_INPUT_CSV" ]]; then
           echo "enabled=false" >> $GITHUB_OUTPUT
-          echo "Review-pack input CSV not found: $INPUT_CSV"
+          echo "No review-pack input configured/found (workspace path or downloaded artifact); skip."
           exit 0
         fi
 
@@ -327,14 +387,15 @@ jobs:
         mkdir -p "$(dirname "$SUMMARY_JSON")"
 
         python3 scripts/export_hybrid_rejection_review_pack.py \
-          --input-csv "$INPUT_CSV" \
+          --input-csv "$RESOLVED_INPUT_CSV" \
           --output-csv "$OUTPUT_CSV" \
           --summary-json "$SUMMARY_JSON" \
           --low-confidence-threshold "${GRAPH2D_REVIEW_PACK_LOW_CONF_THRESHOLD:-0.6}" \
           --top-k "${GRAPH2D_REVIEW_PACK_TOP_K:-200}"
 
         echo "enabled=true" >> $GITHUB_OUTPUT
-        echo "input_csv=$INPUT_CSV" >> $GITHUB_OUTPUT
+        echo "input_csv=$RESOLVED_INPUT_CSV" >> $GITHUB_OUTPUT
+        echo "input_source=${INPUT_SOURCE:-unknown}" >> $GITHUB_OUTPUT
         echo "output_csv=$OUTPUT_CSV" >> $GITHUB_OUTPUT
         echo "summary_json=$SUMMARY_JSON" >> $GITHUB_OUTPUT
         python3 - <<'PY'
@@ -738,6 +799,7 @@ jobs:
           echo "- Graph2D blind gate: skipped (no configured summary path)" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "${{ steps.graph2d_review_pack.outputs.enabled }}" == "true" ]]; then
+          echo "- Graph2D review input: ${{ steps.graph2d_review_pack.outputs.input_csv }} (source=${{ steps.graph2d_review_pack.outputs.input_source || 'unknown' }})" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review candidates: ${{ steps.graph2d_review_pack.outputs.candidate_rows }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review hybrid_rejected: ${{ steps.graph2d_review_pack.outputs.hybrid_rejected_count }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review conflicts: ${{ steps.graph2d_review_pack.outputs.conflict_count }}" >> $GITHUB_STEP_SUMMARY
@@ -805,6 +867,8 @@ jobs:
             const reviewPackEnabled = '${{ steps.graph2d_review_pack.outputs.enabled }}' === 'true';
             const reviewGateEnabled = '${{ steps.graph2d_review_gate.outputs.enabled }}' === 'true';
             const trainSweepEnabled = '${{ steps.graph2d_train_sweep.outputs.enabled }}' === 'true';
+            const reviewInputCsv = '${{ steps.graph2d_review_pack.outputs.input_csv }}';
+            const reviewInputSource = '${{ steps.graph2d_review_pack.outputs.input_source }}';
             const reviewCandidates = '${{ steps.graph2d_review_pack.outputs.candidate_rows }}';
             const reviewRejected = '${{ steps.graph2d_review_pack.outputs.hybrid_rejected_count }}';
             const reviewConflicts = '${{ steps.graph2d_review_pack.outputs.conflict_count }}';
@@ -828,7 +892,7 @@ jobs:
             const sweepFailedRunsInt = parseInt(sweepFailedRuns || '0', 10);
 
             const reviewPackStatus = reviewPackEnabled
-              ? `🧪 candidates=${reviewCandidates}, rejected=${reviewRejected}, conflict=${reviewConflicts}`
+              ? `🧪 input=${reviewInputCsv} (source=${reviewInputSource || 'unknown'}), candidates=${reviewCandidates}, rejected=${reviewRejected}, conflict=${reviewConflicts}`
               : '⏭️ skipped';
             const reviewPackInsights = reviewPackEnabled
               ? `reasons=${reviewTopReasons || 'n/a'}, sources=${reviewTopSources || 'n/a'}, examples=${reviewExampleExplanations || 'n/a'}`
