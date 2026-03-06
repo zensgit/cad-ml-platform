@@ -129,3 +129,36 @@ PY
 ```
 
 Result: `ok`.
+
+## End-to-End Dispatch Validation (Strict Toggle)
+
+To avoid dependency on repository variable configuration, workflow dispatch now supports:
+- `review_pack_input_csv`
+
+Fixture used:
+- `tests/fixtures/ci/graph2d_review_pack_input.csv`
+
+Dispatch runs on commit `8fe0383`:
+
+1. strict disabled (`review_gate_strict=false`)
+   - Run: `22743533017`
+   - URL: `https://github.com/zensgit/cad-ml-platform/actions/runs/22743533017`
+   - Result: `success`
+   - Key step conclusions:
+     - `Build hybrid rejection review pack (optional)`: `success`
+     - `Check Graph2D review-pack gate (optional)`: `success` (gate script runs with `continue-on-error`)
+     - `Evaluate Graph2D review gate strict mode (optional)`: `success`
+     - `Fail workflow when Graph2D review gate strict check requires blocking`: `skipped`
+
+2. strict enabled (`review_gate_strict=true`)
+   - Run: `22743533942`
+   - URL: `https://github.com/zensgit/cad-ml-platform/actions/runs/22743533942`
+   - Result: `failure` (expected)
+   - Key step conclusions:
+     - `Build hybrid rejection review pack (optional)`: `success`
+     - `Check Graph2D review-pack gate (optional)`: `success` (non-blocking gate evaluation)
+     - `Evaluate Graph2D review gate strict mode (optional)`: `success`
+     - `Fail workflow when Graph2D review gate strict check requires blocking`: `failure`
+   - Failed step log includes:
+     - `gate status is 'failed'`
+     - `Failure reason: gate_failed_under_strict_mode`
