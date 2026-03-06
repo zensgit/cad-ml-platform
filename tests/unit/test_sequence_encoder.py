@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-import torch
+import importlib
 
-from src.ml.train.sequence_encoder import (
-    SequenceCommandClassifier,
-    SequenceCommandEncoder,
-)
+import pytest
+
+torch = pytest.importorskip("torch")
+
+sequence_encoder = importlib.import_module("src.ml.train.sequence_encoder")
+SequenceCommandClassifier = sequence_encoder.SequenceCommandClassifier
+SequenceCommandEncoder = sequence_encoder.SequenceCommandEncoder
 
 
 def test_sequence_encoder_output_shape_and_padding_inference() -> None:
@@ -49,4 +52,3 @@ def test_sequence_command_classifier_output_shape() -> None:
     logits = model(inputs, lengths=lengths)
 
     assert logits.shape == (2, 4)
-

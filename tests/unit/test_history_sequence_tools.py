@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import torch
-
 import src.ml.history_sequence_tools as history_sequence_tools
 from src.ml.history_sequence_tools import (
     build_label_map,
@@ -15,15 +13,31 @@ from src.ml.history_sequence_tools import (
 )
 
 
+class FakeArray:
+    def __init__(self, values):
+        self._values = values
+        if values and isinstance(values[0], list):
+            self.ndim = 2
+            self.shape = (len(values), len(values[0]))
+        else:
+            self.ndim = 1
+            self.shape = (len(values),)
+
+    def tolist(self):
+        return self._values
+
+    def __getitem__(self, item):
+        if isinstance(item, tuple):
+            rows, col = item
+            if rows != slice(None):
+                raise TypeError("FakeArray only supports full-row slicing")
+            return FakeArray([row[col] for row in self._values])
+        return self._values[item]
+
+
 def test_extract_command_tokens_from_2d_tensor() -> None:
-    sequence = torch.tensor(
-        [
-            [9, 100],
-            [3, 200],
-            [-1, 300],
-            [7, 400],
-        ],
-        dtype=torch.long,
+    sequence = FakeArray(
+        [[9, 100], [3, 200], [-1, 300], [7, 400]],
     )
 
     tokens = extract_command_tokens(sequence, command_col=0, min_token=0)
@@ -52,7 +66,7 @@ def test_truncate_discover_and_load_h5(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(
         history_sequence_tools,
         "load_h5_sequence_array",
-        lambda *_args, **_kwargs: torch.tensor([[1, 10], [2, 20], [3, 30]]),
+        lambda *_args, **_kwargs: FakeArray([[1, 10], [2, 20], [3, 30]]),
     )
 
     assert discover_h5_files(str(tmp_path)) == [str(file_path)]

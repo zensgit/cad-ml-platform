@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 import csv
+import importlib
 from pathlib import Path
 
-import src.ml.train.hpsketch_dataset as hpsketch_dataset
-from src.ml.train.hpsketch_dataset import HPSketchSequenceDataset
+import pytest
+
+pytest.importorskip("torch")
+
+hpsketch_dataset = importlib.import_module("src.ml.train.hpsketch_dataset")
+HPSketchSequenceDataset = hpsketch_dataset.HPSketchSequenceDataset
 
 
 def _touch(path: Path) -> None:

@@ -3,10 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import torch
+import pytest
 
 from src.ml.history_sequence_classifier import HistorySequenceClassifier
-from src.ml.train.sequence_encoder import SequenceCommandClassifier
 
 
 def test_history_sequence_classifier_uses_prototypes_and_returns_summary(
@@ -45,6 +44,9 @@ def test_history_sequence_classifier_uses_prototypes_and_returns_summary(
 
 
 def test_history_sequence_classifier_loads_checkpoint_model(tmp_path: Path) -> None:
+    torch = pytest.importorskip("torch")
+    from src.ml.train.sequence_encoder import SequenceCommandClassifier
+
     checkpoint_path = tmp_path / "history.ckpt"
     model = SequenceCommandClassifier(
         vocab_size=16,
