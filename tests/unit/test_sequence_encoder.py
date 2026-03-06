@@ -52,3 +52,10 @@ def test_sequence_command_classifier_output_shape() -> None:
     logits = model(inputs, lengths=lengths)
 
     assert logits.shape == (2, 4)
+
+
+def test_sequence_encoder_rejects_non_2d_tokens() -> None:
+    model = SequenceCommandEncoder(vocab_size=32)
+
+    with pytest.raises(ValueError):
+        model(torch.randint(0, 32, (2, 3, 4)))
