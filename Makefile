@@ -22,9 +22,10 @@
 		watch-commit-workflows validate-watch-commit-workflows \
 		validate-ci-watchers clean-ci-watch-summaries \
 		check-gh-actions-ready validate-check-gh-actions-ready \
-		watch-commit-workflows-safe clean-gh-readiness-summaries \
-		clean-ci-watch-artifacts watch-commit-workflows-safe-auto \
-		generate-ci-watch-validation-report validate-generate-ci-watch-validation-report
+			watch-commit-workflows-safe clean-gh-readiness-summaries \
+			clean-ci-watch-artifacts watch-commit-workflows-safe-auto \
+			generate-ci-watch-validation-report validate-generate-ci-watch-validation-report \
+			graph2d-review-pack graph2d-review-pack-gate graph2d-train-sweep
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -951,6 +952,25 @@ eval-validate: ## 校验评测历史文件的 schema 合规性
 # Graph2D review summarization
 GRAPH2D_REVIEW_TEMPLATE ?= reports/experiments/20260123/soft_override_calibrated_added_review_template_20260124.csv
 GRAPH2D_REVIEW_OUT_DIR ?= reports/experiments/$$(date +%Y%m%d)
+GRAPH2D_REVIEW_PACK_INPUT ?= reports/experiments/20260122/batch_analysis/batch_results.csv
+GRAPH2D_REVIEW_PACK_OUTPUT ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_review_pack.csv
+GRAPH2D_REVIEW_PACK_SUMMARY ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_review_pack_summary.json
+GRAPH2D_REVIEW_PACK_LOW_CONF_THRESHOLD ?= 0.6
+GRAPH2D_REVIEW_PACK_TOP_K ?= 200
+GRAPH2D_REVIEW_PACK_GATE_CONFIG ?= config/graph2d_review_pack_gate.yaml
+GRAPH2D_REVIEW_PACK_GATE_REPORT ?= $(GRAPH2D_REVIEW_OUT_DIR)/hybrid_review_pack_gate_report.json
+GRAPH2D_REVIEW_PACK_GATE_MIN_TOTAL_ROWS ?=
+GRAPH2D_REVIEW_PACK_GATE_MAX_CANDIDATE_RATE ?=
+GRAPH2D_REVIEW_PACK_GATE_MAX_HYBRID_REJECTED_RATE ?=
+GRAPH2D_REVIEW_PACK_GATE_MAX_CONFLICT_RATE ?=
+GRAPH2D_REVIEW_PACK_GATE_MAX_LOW_CONFIDENCE_RATE ?=
+GRAPH2D_TRAIN_SWEEP_RECIPES ?= baseline,focal_balanced
+GRAPH2D_TRAIN_SWEEP_SEEDS ?= 7,21,42
+GRAPH2D_TRAIN_SWEEP_MAX_RUNS ?= 0
+GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON ?= []
+GRAPH2D_TRAIN_SWEEP_WORK_ROOT ?= /tmp/graph2d_train_recipe_sweep
+GRAPH2D_TRAIN_SWEEP_EXECUTE ?= 0
+GRAPH2D_TRAIN_SWEEP_FAIL_ON_ERROR ?= 0
 
 graph2d-review-summary: ## 汇总 Graph2D soft-override 复核模板（生成 summary + correct-label counts）
 	@echo "$(GREEN)Summarizing Graph2D soft-override review...$(NC)"
@@ -958,6 +978,42 @@ graph2d-review-summary: ## 汇总 Graph2D soft-override 复核模板（生成 su
 		--review-template "$(GRAPH2D_REVIEW_TEMPLATE)" \
 		--summary-out "$(GRAPH2D_REVIEW_OUT_DIR)/soft_override_review_summary.csv" \
 		--correct-labels-out "$(GRAPH2D_REVIEW_OUT_DIR)/soft_override_correct_label_counts.csv"
+
+graph2d-review-pack: ## 导出 Graph2D/Hybrid 复核优先清单（拒判/低置信/冲突）
+	@echo "$(GREEN)Exporting Graph2D review pack...$(NC)"
+	$(PYTHON) scripts/export_hybrid_rejection_review_pack.py \
+		--input-csv "$(GRAPH2D_REVIEW_PACK_INPUT)" \
+		--output-csv "$(GRAPH2D_REVIEW_PACK_OUTPUT)" \
+		--summary-json "$(GRAPH2D_REVIEW_PACK_SUMMARY)" \
+		--low-confidence-threshold "$(GRAPH2D_REVIEW_PACK_LOW_CONF_THRESHOLD)" \
+		--top-k "$(GRAPH2D_REVIEW_PACK_TOP_K)"
+
+graph2d-review-pack-gate: ## 对 Graph2D 复核包执行质量门禁（基于 summary.json）
+	@echo "$(GREEN)Checking Graph2D review pack gate...$(NC)"
+	@extra_flags=""; \
+	if [ -n "$(GRAPH2D_REVIEW_PACK_GATE_MIN_TOTAL_ROWS)" ]; then extra_flags="$$extra_flags --min-total-rows $(GRAPH2D_REVIEW_PACK_GATE_MIN_TOTAL_ROWS)"; fi; \
+	if [ -n "$(GRAPH2D_REVIEW_PACK_GATE_MAX_CANDIDATE_RATE)" ]; then extra_flags="$$extra_flags --max-candidate-rate $(GRAPH2D_REVIEW_PACK_GATE_MAX_CANDIDATE_RATE)"; fi; \
+	if [ -n "$(GRAPH2D_REVIEW_PACK_GATE_MAX_HYBRID_REJECTED_RATE)" ]; then extra_flags="$$extra_flags --max-hybrid-rejected-rate $(GRAPH2D_REVIEW_PACK_GATE_MAX_HYBRID_REJECTED_RATE)"; fi; \
+	if [ -n "$(GRAPH2D_REVIEW_PACK_GATE_MAX_CONFLICT_RATE)" ]; then extra_flags="$$extra_flags --max-conflict-rate $(GRAPH2D_REVIEW_PACK_GATE_MAX_CONFLICT_RATE)"; fi; \
+	if [ -n "$(GRAPH2D_REVIEW_PACK_GATE_MAX_LOW_CONFIDENCE_RATE)" ]; then extra_flags="$$extra_flags --max-low-confidence-rate $(GRAPH2D_REVIEW_PACK_GATE_MAX_LOW_CONFIDENCE_RATE)"; fi; \
+	$(PYTHON) scripts/ci/check_graph2d_review_pack_gate.py \
+		--summary-json "$(GRAPH2D_REVIEW_PACK_SUMMARY)" \
+		--config "$(GRAPH2D_REVIEW_PACK_GATE_CONFIG)" \
+		--output "$(GRAPH2D_REVIEW_PACK_GATE_REPORT)" \
+		$$extra_flags
+
+graph2d-train-sweep: ## 执行 Graph2D 训练 recipe×seed 扫描（可选执行训练）
+	@echo "$(GREEN)Running Graph2D train recipe sweep...$(NC)"
+	@extra_flags=""; \
+	if [ "$(GRAPH2D_TRAIN_SWEEP_EXECUTE)" = "1" ]; then extra_flags="$$extra_flags --execute"; fi; \
+	if [ "$(GRAPH2D_TRAIN_SWEEP_FAIL_ON_ERROR)" = "1" ]; then extra_flags="$$extra_flags --fail-on-error"; fi; \
+	$(PYTHON) scripts/sweep_graph2d_train_recipes.py \
+		--recipes "$(GRAPH2D_TRAIN_SWEEP_RECIPES)" \
+		--seeds "$(GRAPH2D_TRAIN_SWEEP_SEEDS)" \
+		--max-runs "$(GRAPH2D_TRAIN_SWEEP_MAX_RUNS)" \
+		--base-args-json '$(GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON)' \
+		--work-root "$(GRAPH2D_TRAIN_SWEEP_WORK_ROOT)" \
+		$$extra_flags
 
 eval-migrate: ## 迁移旧版评测历史到 v1.0.0 schema
 	@echo "$(YELLOW)Migrating legacy evaluation history files...$(NC)"

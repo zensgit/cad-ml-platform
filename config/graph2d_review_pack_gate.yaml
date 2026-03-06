@@ -1,0 +1,6 @@
+graph2d_review_pack_gate:
+  min_total_rows: 10
+  max_candidate_rate: 0.70
+  max_hybrid_rejected_rate: 0.60
+  max_conflict_rate: 0.50
+  max_low_confidence_rate: 0.70

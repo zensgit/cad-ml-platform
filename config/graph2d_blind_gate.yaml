@@ -1,0 +1,11 @@
+graph2d_blind_gate:
+  # Blind means no filename/text signal:
+  # diagnose_graph2d_on_dxf_dir.py must run with:
+  #   --strip-text-entities --mask-filename --manifest-csv ...
+  min_accuracy: 0.25
+  max_top_pred_ratio: 0.65
+  min_distinct_pred_labels: 5
+  max_low_conf_rate: 0.80
+  low_conf_threshold: 0.20
+  require_strip_text_entities: true
+  require_mask_filename: true

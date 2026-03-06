@@ -22,6 +22,30 @@ on:
         description: 'Minimum OCR score threshold'
         required: false
         default: '0.9'
+      review_gate_min_total_rows:
+        description: 'Override: review-pack gate min_total_rows'
+        required: false
+        default: ''
+      review_gate_max_candidate_rate:
+        description: 'Override: review-pack gate max_candidate_rate'
+        required: false
+        default: ''
+      review_gate_max_hybrid_rejected_rate:
+        description: 'Override: review-pack gate max_hybrid_rejected_rate'
+        required: false
+        default: ''
+      review_gate_max_conflict_rate:
+        description: 'Override: review-pack gate max_conflict_rate'
+        required: false
+        default: ''
+      review_gate_max_low_confidence_rate:
+        description: 'Override: review-pack gate max_low_confidence_rate'
+        required: false
+        default: ''
+      review_gate_strict:
+        description: 'Override: enable strict fail on review-pack gate failed (true/false)'
+        required: false
+        default: ''
 
 env:
   PYTHON_VERSION: '3.11'
@@ -30,6 +54,33 @@ env:
   # Optimize Matplotlib in CI
   MPLCONFIGDIR: /tmp/matplotlib
   XDG_CACHE_HOME: /tmp/cache
+  HISTORY_SEQUENCE_EVAL_MANIFEST: ${{ vars.HISTORY_SEQUENCE_EVAL_MANIFEST }}
+  HISTORY_SEQUENCE_EVAL_H5_DIR: ${{ vars.HISTORY_SEQUENCE_EVAL_H5_DIR }}
+  HISTORY_SEQUENCE_FILENAME_MIN_CONF: ${{ vars.HISTORY_SEQUENCE_FILENAME_MIN_CONF || '0.8' }}
+  HISTORY_SEQUENCE_PROTOTYPE_TOKEN_WEIGHT: ${{ vars.HISTORY_SEQUENCE_PROTOTYPE_TOKEN_WEIGHT || '1.0' }}
+  HISTORY_SEQUENCE_PROTOTYPE_BIGRAM_WEIGHT: ${{ vars.HISTORY_SEQUENCE_PROTOTYPE_BIGRAM_WEIGHT || '1.0' }}
+  HISTORY_SEQUENCE_TUNE_ENABLE: ${{ vars.HISTORY_SEQUENCE_TUNE_ENABLE || 'false' }}
+  HISTORY_SEQUENCE_TUNE_OBJECTIVE: ${{ vars.HISTORY_SEQUENCE_TUNE_OBJECTIVE || 'macro_f1_overall' }}
+  HISTORY_SEQUENCE_TUNE_TOKEN_WEIGHT_GRID: ${{ vars.HISTORY_SEQUENCE_TUNE_TOKEN_WEIGHT_GRID || '0.5,1.0,1.5' }}
+  HISTORY_SEQUENCE_TUNE_BIGRAM_WEIGHT_GRID: ${{ vars.HISTORY_SEQUENCE_TUNE_BIGRAM_WEIGHT_GRID || '0.0,0.5,1.0,1.5' }}
+  GRAPH2D_BLIND_SUMMARY_JSON: ${{ vars.GRAPH2D_BLIND_SUMMARY_JSON }}
+  GRAPH2D_BLIND_GATE_CONFIG: ${{ vars.GRAPH2D_BLIND_GATE_CONFIG || 'config/graph2d_blind_gate.yaml' }}
+  GRAPH2D_REVIEW_PACK_INPUT_CSV: ${{ vars.GRAPH2D_REVIEW_PACK_INPUT_CSV }}
+  GRAPH2D_REVIEW_PACK_OUTPUT_CSV: ${{ vars.GRAPH2D_REVIEW_PACK_OUTPUT_CSV || 'reports/history_sequence_eval/hybrid_review_pack.csv' }}
+  GRAPH2D_REVIEW_PACK_SUMMARY_JSON: ${{ vars.GRAPH2D_REVIEW_PACK_SUMMARY_JSON || 'reports/history_sequence_eval/hybrid_review_pack_summary.json' }}
+  GRAPH2D_REVIEW_PACK_LOW_CONF_THRESHOLD: ${{ vars.GRAPH2D_REVIEW_PACK_LOW_CONF_THRESHOLD || '0.6' }}
+  GRAPH2D_REVIEW_PACK_TOP_K: ${{ vars.GRAPH2D_REVIEW_PACK_TOP_K || '200' }}
+  GRAPH2D_REVIEW_PACK_GATE_CONFIG: ${{ vars.GRAPH2D_REVIEW_PACK_GATE_CONFIG || 'config/graph2d_review_pack_gate.yaml' }}
+  GRAPH2D_REVIEW_PACK_GATE_REPORT: ${{ vars.GRAPH2D_REVIEW_PACK_GATE_REPORT || 'reports/history_sequence_eval/graph2d_review_pack_gate_report.json' }}
+  GRAPH2D_REVIEW_PACK_GATE_STRICT: ${{ vars.GRAPH2D_REVIEW_PACK_GATE_STRICT || 'false' }}
+  GRAPH2D_TRAIN_SWEEP_ENABLE: ${{ vars.GRAPH2D_TRAIN_SWEEP_ENABLE || 'false' }}
+  GRAPH2D_TRAIN_SWEEP_EXECUTE: ${{ vars.GRAPH2D_TRAIN_SWEEP_EXECUTE || 'false' }}
+  GRAPH2D_TRAIN_SWEEP_FAIL_ON_ERROR: ${{ vars.GRAPH2D_TRAIN_SWEEP_FAIL_ON_ERROR || 'false' }}
+  GRAPH2D_TRAIN_SWEEP_RECIPES: ${{ vars.GRAPH2D_TRAIN_SWEEP_RECIPES || 'baseline,focal_balanced' }}
+  GRAPH2D_TRAIN_SWEEP_SEEDS: ${{ vars.GRAPH2D_TRAIN_SWEEP_SEEDS || '7,21,42' }}
+  GRAPH2D_TRAIN_SWEEP_MAX_RUNS: ${{ vars.GRAPH2D_TRAIN_SWEEP_MAX_RUNS || '0' }}
+  GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON: ${{ vars.GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON || '[]' }}
+  GRAPH2D_TRAIN_SWEEP_WORK_ROOT: ${{ vars.GRAPH2D_TRAIN_SWEEP_WORK_ROOT || 'reports/history_sequence_eval/graph2d_train_recipe_sweep' }}
 
 jobs:
   evaluate:
@@ -88,9 +139,400 @@ jobs:
         echo "vision_score=$(grep -oP 'Vision Score: \K[0-9.]+' eval_output.txt || echo '0')" >> $GITHUB_OUTPUT
         echo "ocr_score=$(grep -oP 'OCR Score: \K[0-9.]+' eval_output.txt || echo '0')" >> $GITHUB_OUTPUT
 
+    - name: Run history-sequence evaluation (optional)
+      id: history_eval
+      continue-on-error: true
+      run: |
+        mkdir -p reports/history_sequence_eval
+        MANIFEST="${HISTORY_SEQUENCE_EVAL_MANIFEST:-}"
+        H5_DIR="${HISTORY_SEQUENCE_EVAL_H5_DIR:-}"
+        if [[ -z "$MANIFEST" && -z "$H5_DIR" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No history-sequence dataset configured; skip."
+          exit 0
+        fi
+
+        LABEL_SOURCE="manifest"
+        if [[ -z "$MANIFEST" ]]; then
+          LABEL_SOURCE="filename"
+        fi
+
+        BUILD_CMD=(
+          python3 scripts/build_history_sequence_prototypes.py
+          --label-source "$LABEL_SOURCE"
+          --output reports/history_sequence_eval/prototypes.json
+          --filename-min-conf "${HISTORY_SEQUENCE_FILENAME_MIN_CONF:-0.8}"
+        )
+        if [[ -n "$MANIFEST" ]]; then
+          BUILD_CMD+=(--manifest "$MANIFEST")
+        fi
+        if [[ -n "$H5_DIR" ]]; then
+          BUILD_CMD+=(--h5-dir "$H5_DIR")
+        fi
+        "${BUILD_CMD[@]}"
+
+        TOKEN_WEIGHT="${HISTORY_SEQUENCE_PROTOTYPE_TOKEN_WEIGHT:-1.0}"
+        BIGRAM_WEIGHT="${HISTORY_SEQUENCE_PROTOTYPE_BIGRAM_WEIGHT:-1.0}"
+        WEIGHT_SOURCE="configured"
+        TUNE_BEST_CONFIG=""
+        if [[ "${HISTORY_SEQUENCE_TUNE_ENABLE:-false}" == "true" ]]; then
+          TUNE_CMD=(
+            python3 scripts/tune_history_sequence_weights.py
+            --label-source "$LABEL_SOURCE"
+            --prototypes-path reports/history_sequence_eval/prototypes.json
+            --output-dir reports/history_sequence_eval/tuning
+            --objective "${HISTORY_SEQUENCE_TUNE_OBJECTIVE:-macro_f1_overall}"
+            --token-weight-grid "${HISTORY_SEQUENCE_TUNE_TOKEN_WEIGHT_GRID:-0.5,1.0,1.5}"
+            --bigram-weight-grid "${HISTORY_SEQUENCE_TUNE_BIGRAM_WEIGHT_GRID:-0.0,0.5,1.0,1.5}"
+            --filename-min-conf "${HISTORY_SEQUENCE_FILENAME_MIN_CONF:-0.8}"
+          )
+          if [[ -n "$MANIFEST" ]]; then
+            TUNE_CMD+=(--manifest "$MANIFEST")
+          fi
+          if [[ -n "$H5_DIR" ]]; then
+            TUNE_CMD+=(--h5-dir "$H5_DIR")
+          fi
+          "${TUNE_CMD[@]}"
+          TUNE_BEST_CONFIG="reports/history_sequence_eval/tuning/best_config.json"
+          if [[ -f "$TUNE_BEST_CONFIG" ]]; then
+            read TOKEN_WEIGHT BIGRAM_WEIGHT < <(python3 -c 'import json; from pathlib import Path; payload=json.loads(Path("reports/history_sequence_eval/tuning/best_config.json").read_text(encoding="utf-8")); best=payload.get("best") or {}; print(best.get("token_weight", 1.0), best.get("bigram_weight", 1.0))')
+            WEIGHT_SOURCE="tuned"
+          fi
+        fi
+
+        RECOMMENDED_ENV="reports/history_sequence_eval/recommended_history_sequence.env"
+        cat > "$RECOMMENDED_ENV" <<ENV
+        # Auto-generated by evaluation-report.yml
+        HISTORY_SEQUENCE_PROTOTYPE_TOKEN_WEIGHT=${TOKEN_WEIGHT}
+        HISTORY_SEQUENCE_PROTOTYPE_BIGRAM_WEIGHT=${BIGRAM_WEIGHT}
+        HISTORY_SEQUENCE_PROTOTYPES_PATH=reports/history_sequence_eval/prototypes.json
+        ENV
+
+        EVAL_CMD=(
+          python3 scripts/eval_history_sequence_classifier.py
+          --label-source "$LABEL_SOURCE"
+          --prototypes-path reports/history_sequence_eval/prototypes.json
+          --output-dir reports/history_sequence_eval
+          --filename-min-conf "${HISTORY_SEQUENCE_FILENAME_MIN_CONF:-0.8}"
+          --prototype-token-weight "$TOKEN_WEIGHT"
+          --prototype-bigram-weight "$BIGRAM_WEIGHT"
+        )
+        if [[ -n "$MANIFEST" ]]; then
+          EVAL_CMD+=(--manifest "$MANIFEST")
+        fi
+        if [[ -n "$H5_DIR" ]]; then
+          EVAL_CMD+=(--h5-dir "$H5_DIR")
+        fi
+        "${EVAL_CMD[@]}"
+
+        SUMMARY_PATH="reports/history_sequence_eval/summary.json"
+        if [[ -f "$SUMMARY_PATH" ]]; then
+          echo "enabled=true" >> $GITHUB_OUTPUT
+          echo "summary_path=$SUMMARY_PATH" >> $GITHUB_OUTPUT
+          echo "recommended_env=reports/history_sequence_eval/recommended_history_sequence.env" >> $GITHUB_OUTPUT
+          echo "selected_token_weight=$TOKEN_WEIGHT" >> $GITHUB_OUTPUT
+          echo "selected_bigram_weight=$BIGRAM_WEIGHT" >> $GITHUB_OUTPUT
+          echo "weight_source=$WEIGHT_SOURCE" >> $GITHUB_OUTPUT
+          echo "tune_objective=${HISTORY_SEQUENCE_TUNE_OBJECTIVE:-macro_f1_overall}" >> $GITHUB_OUTPUT
+          python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(Path("reports/history_sequence_eval/summary.json").read_text(encoding="utf-8"))
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"coverage={payload.get('coverage', 0)}\n")
+            f.write(f"accuracy_overall={payload.get('accuracy_overall', 0)}\n")
+            f.write(f"macro_f1_overall={payload.get('macro_f1_overall', 0)}\n")
+        PY
+        else
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "History-sequence summary not found; skip artifact."
+        fi
+
     - name: Validate evaluation history
       run: |
         python3 scripts/validate_eval_history.py --dir reports/eval_history
+
+    - name: Check Graph2D blind gate (optional)
+      id: graph2d_blind_gate
+      run: |
+        SUMMARY_PATH="${GRAPH2D_BLIND_SUMMARY_JSON:-}"
+        if [[ -z "$SUMMARY_PATH" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No GRAPH2D_BLIND_SUMMARY_JSON configured; skip."
+          exit 0
+        fi
+        if [[ ! -f "$SUMMARY_PATH" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Graph2D blind summary not found: $SUMMARY_PATH"
+          exit 0
+        fi
+
+        REPORT_PATH="reports/history_sequence_eval/graph2d_blind_gate_report.json"
+        python3 scripts/ci/check_graph2d_blind_gate.py \
+          --summary-json "$SUMMARY_PATH" \
+          --config "${GRAPH2D_BLIND_GATE_CONFIG:-config/graph2d_blind_gate.yaml}" \
+          --output "$REPORT_PATH"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "summary_path=$SUMMARY_PATH" >> $GITHUB_OUTPUT
+        echo "report_path=$REPORT_PATH" >> $GITHUB_OUTPUT
+
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path("reports/history_sequence_eval/graph2d_blind_gate_report.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        metrics = payload.get("metrics") or {}
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={payload.get('status', 'unknown')}\n")
+            f.write(f"accuracy={metrics.get('accuracy', 0)}\n")
+            f.write(f"top_pred_ratio={metrics.get('top_pred_ratio', 0)}\n")
+            f.write(f"distinct_pred_labels={metrics.get('distinct_pred_labels', 0)}\n")
+            f.write(f"low_conf_rate={metrics.get('low_conf_rate', 0)}\n")
+        PY
+
+    - name: Build hybrid rejection review pack (optional)
+      id: graph2d_review_pack
+      continue-on-error: true
+      run: |
+        INPUT_CSV="${GRAPH2D_REVIEW_PACK_INPUT_CSV:-}"
+        if [[ -z "$INPUT_CSV" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No GRAPH2D_REVIEW_PACK_INPUT_CSV configured; skip."
+          exit 0
+        fi
+        if [[ ! -f "$INPUT_CSV" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Review-pack input CSV not found: $INPUT_CSV"
+          exit 0
+        fi
+
+        OUTPUT_CSV="${GRAPH2D_REVIEW_PACK_OUTPUT_CSV:-reports/history_sequence_eval/hybrid_review_pack.csv}"
+        SUMMARY_JSON="${GRAPH2D_REVIEW_PACK_SUMMARY_JSON:-reports/history_sequence_eval/hybrid_review_pack_summary.json}"
+        mkdir -p "$(dirname "$OUTPUT_CSV")"
+        mkdir -p "$(dirname "$SUMMARY_JSON")"
+
+        python3 scripts/export_hybrid_rejection_review_pack.py \
+          --input-csv "$INPUT_CSV" \
+          --output-csv "$OUTPUT_CSV" \
+          --summary-json "$SUMMARY_JSON" \
+          --low-confidence-threshold "${GRAPH2D_REVIEW_PACK_LOW_CONF_THRESHOLD:-0.6}" \
+          --top-k "${GRAPH2D_REVIEW_PACK_TOP_K:-200}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "input_csv=$INPUT_CSV" >> $GITHUB_OUTPUT
+        echo "output_csv=$OUTPUT_CSV" >> $GITHUB_OUTPUT
+        echo "summary_json=$SUMMARY_JSON" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(Path(os.environ["GRAPH2D_REVIEW_PACK_SUMMARY_JSON"]).read_text(encoding="utf-8"))
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"candidate_rows={payload.get('candidate_rows', 0)}\n")
+            f.write(f"hybrid_rejected_count={payload.get('hybrid_rejected_count', 0)}\n")
+            f.write(f"conflict_count={payload.get('conflict_count', 0)}\n")
+            f.write(f"low_confidence_count={payload.get('low_confidence_count', 0)}\n")
+        PY
+
+    - name: Run Graph2D train recipe sweep (optional)
+      id: graph2d_train_sweep
+      continue-on-error: true
+      run: |
+        if [[ "${GRAPH2D_TRAIN_SWEEP_ENABLE:-false}" != "true" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "GRAPH2D_TRAIN_SWEEP_ENABLE is not true; skip."
+          exit 0
+        fi
+
+        WORK_ROOT="${GRAPH2D_TRAIN_SWEEP_WORK_ROOT:-reports/history_sequence_eval/graph2d_train_recipe_sweep}"
+        mkdir -p "$WORK_ROOT"
+        CMD=(
+          python3 scripts/sweep_graph2d_train_recipes.py
+          --recipes "${GRAPH2D_TRAIN_SWEEP_RECIPES:-baseline,focal_balanced}"
+          --seeds "${GRAPH2D_TRAIN_SWEEP_SEEDS:-7,21,42}"
+          --max-runs "${GRAPH2D_TRAIN_SWEEP_MAX_RUNS:-0}"
+          --base-args-json "${GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON:-[]}"
+          --work-root "$WORK_ROOT"
+        )
+        if [[ "${GRAPH2D_TRAIN_SWEEP_EXECUTE:-false}" == "true" ]]; then
+          CMD+=(--execute)
+          if [[ "${GRAPH2D_TRAIN_SWEEP_FAIL_ON_ERROR:-false}" == "true" ]]; then
+            CMD+=(--fail-on-error)
+          fi
+        fi
+
+        set +e
+        "${CMD[@]}"
+        SWEEP_EXIT_CODE=$?
+        set -e
+
+        SUMMARY_JSON="$WORK_ROOT/train_recipe_sweep_summary.json"
+        RESULTS_CSV="$WORK_ROOT/train_recipe_sweep_results.csv"
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "exit_code=$SWEEP_EXIT_CODE" >> $GITHUB_OUTPUT
+        echo "work_root=$WORK_ROOT" >> $GITHUB_OUTPUT
+        echo "summary_json=$SUMMARY_JSON" >> $GITHUB_OUTPUT
+        echo "results_csv=$RESULTS_CSV" >> $GITHUB_OUTPUT
+
+        if [[ -f "$SUMMARY_JSON" ]]; then
+          python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(Path(os.environ["GRAPH2D_TRAIN_SWEEP_WORK_ROOT"]).joinpath("train_recipe_sweep_summary.json").read_text(encoding="utf-8"))
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"total_runs={payload.get('total_runs', 0)}\n")
+            f.write(f"executed_runs={payload.get('executed_runs', 0)}\n")
+            f.write(f"failed_runs={payload.get('failed_runs', 0)}\n")
+            f.write(f"best_recipe={payload.get('best_recipe', '')}\n")
+            f.write(f"best_seed={payload.get('best_seed', '')}\n")
+            f.write(f"best_val_acc={payload.get('best_val_acc', 0)}\n")
+            f.write(f"recommended_env_file={payload.get('recommended_env_file', '')}\n")
+            f.write(f"best_run_script={payload.get('best_run_script', '')}\n")
+        PY
+        fi
+
+    - name: Check Graph2D review-pack gate (optional)
+      id: graph2d_review_gate
+      continue-on-error: true
+      run: |
+        if [[ "${{ steps.graph2d_review_pack.outputs.enabled }}" != "true" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Review pack step not enabled; skip gate."
+          exit 0
+        fi
+
+        SUMMARY_JSON="${{ steps.graph2d_review_pack.outputs.summary_json }}"
+        if [[ -z "$SUMMARY_JSON" || ! -f "$SUMMARY_JSON" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Review pack summary not found: $SUMMARY_JSON"
+          exit 0
+        fi
+
+        REPORT_PATH="${GRAPH2D_REVIEW_PACK_GATE_REPORT:-reports/history_sequence_eval/graph2d_review_pack_gate_report.json}"
+        mkdir -p "$(dirname "$REPORT_PATH")"
+        OVERRIDE_MIN_TOTAL_ROWS="${{ github.event.inputs.review_gate_min_total_rows || '' }}"
+        OVERRIDE_MAX_CANDIDATE_RATE="${{ github.event.inputs.review_gate_max_candidate_rate || '' }}"
+        OVERRIDE_MAX_HYBRID_REJECTED_RATE="${{ github.event.inputs.review_gate_max_hybrid_rejected_rate || '' }}"
+        OVERRIDE_MAX_CONFLICT_RATE="${{ github.event.inputs.review_gate_max_conflict_rate || '' }}"
+        OVERRIDE_MAX_LOW_CONF_RATE="${{ github.event.inputs.review_gate_max_low_confidence_rate || '' }}"
+
+        CMD=(
+          python3 scripts/ci/check_graph2d_review_pack_gate.py
+          --summary-json "$SUMMARY_JSON"
+          --config "${GRAPH2D_REVIEW_PACK_GATE_CONFIG:-config/graph2d_review_pack_gate.yaml}"
+          --output "$REPORT_PATH"
+        )
+        if [[ -n "$OVERRIDE_MIN_TOTAL_ROWS" ]]; then
+          CMD+=(--min-total-rows "$OVERRIDE_MIN_TOTAL_ROWS")
+        fi
+        if [[ -n "$OVERRIDE_MAX_CANDIDATE_RATE" ]]; then
+          CMD+=(--max-candidate-rate "$OVERRIDE_MAX_CANDIDATE_RATE")
+        fi
+        if [[ -n "$OVERRIDE_MAX_HYBRID_REJECTED_RATE" ]]; then
+          CMD+=(--max-hybrid-rejected-rate "$OVERRIDE_MAX_HYBRID_REJECTED_RATE")
+        fi
+        if [[ -n "$OVERRIDE_MAX_CONFLICT_RATE" ]]; then
+          CMD+=(--max-conflict-rate "$OVERRIDE_MAX_CONFLICT_RATE")
+        fi
+        if [[ -n "$OVERRIDE_MAX_LOW_CONF_RATE" ]]; then
+          CMD+=(--max-low-confidence-rate "$OVERRIDE_MAX_LOW_CONF_RATE")
+        fi
+
+        set +e
+        "${CMD[@]}"
+        GATE_EXIT_CODE=$?
+        set -e
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "summary_json=$SUMMARY_JSON" >> $GITHUB_OUTPUT
+        echo "report_path=$REPORT_PATH" >> $GITHUB_OUTPUT
+        echo "exit_code=$GATE_EXIT_CODE" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(Path(os.environ["GRAPH2D_REVIEW_PACK_GATE_REPORT"]).read_text(encoding="utf-8"))
+        metrics = payload.get("metrics") or {}
+        failures = payload.get("failures") if isinstance(payload.get("failures"), list) else []
+        warnings = payload.get("warnings") if isinstance(payload.get("warnings"), list) else []
+        first_failure = str(failures[0]).replace("\n", " ").replace("\r", " ").strip() if failures else ""
+        first_warning = str(warnings[0]).replace("\n", " ").replace("\r", " ").strip() if warnings else ""
+        headline = "passed"
+        if payload.get("status") != "passed":
+            headline = f"failed: {first_failure or 'unknown reason'}"
+        elif first_warning:
+            headline = f"passed_with_warning: {first_warning}"
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={payload.get('status', 'unknown')}\n")
+            f.write(f"candidate_rate={metrics.get('candidate_rate', 0)}\n")
+            f.write(f"hybrid_rejected_rate={metrics.get('hybrid_rejected_rate', 0)}\n")
+            f.write(f"conflict_rate={metrics.get('conflict_rate', 0)}\n")
+            f.write(f"low_confidence_rate={metrics.get('low_confidence_rate', 0)}\n")
+            f.write(f"failure_count={len(failures)}\n")
+            f.write(f"warning_count={len(warnings)}\n")
+            f.write(f"first_failure={first_failure}\n")
+            f.write(f"first_warning={first_warning}\n")
+            f.write(f"headline={headline}\n")
+        PY
+
+    - name: Emit Graph2D review gate annotations (optional)
+      if: steps.graph2d_review_gate.outputs.enabled == 'true'
+      continue-on-error: true
+      run: |
+        REPORT="${{ steps.graph2d_review_gate.outputs.report_path }}"
+        if [[ -z "$REPORT" || ! -f "$REPORT" ]]; then
+          echo "No review gate report found; skip annotations."
+          exit 0
+        fi
+        python3 scripts/ci/emit_graph2d_review_pack_gate_annotations.py \
+          --report-json "$REPORT"
+
+    - name: Evaluate Graph2D review gate strict mode (optional)
+      id: graph2d_review_gate_strict
+      if: steps.graph2d_review_gate.outputs.enabled == 'true'
+      continue-on-error: true
+      run: |
+        STRICT_OVERRIDE="${{ github.event.inputs.review_gate_strict || '' }}"
+        STRICT_VALUE="${GRAPH2D_REVIEW_PACK_GATE_STRICT:-false}"
+        if [[ -n "$STRICT_OVERRIDE" ]]; then
+          STRICT_VALUE="$STRICT_OVERRIDE"
+        fi
+        token="$(echo "$STRICT_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        is_strict="false"
+        if [[ "$token" == "1" || "$token" == "true" || "$token" == "yes" || "$token" == "on" ]]; then
+          is_strict="true"
+        fi
+        gate_status="${{ steps.graph2d_review_gate.outputs.status }}"
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "strict_mode=$is_strict" >> $GITHUB_OUTPUT
+        echo "gate_status=$gate_status" >> $GITHUB_OUTPUT
+        if [[ "$is_strict" != "true" ]]; then
+          echo "should_fail=false" >> $GITHUB_OUTPUT
+          echo "reason=strict_mode_disabled" >> $GITHUB_OUTPUT
+          echo "Graph2D review gate strict mode disabled."
+          exit 0
+        fi
+        if [[ "$gate_status" != "passed" ]]; then
+          echo "should_fail=true" >> $GITHUB_OUTPUT
+          echo "reason=gate_failed_under_strict_mode" >> $GITHUB_OUTPUT
+          echo "Graph2D review gate strict mode enabled and gate status is not passed."
+          exit 0
+        fi
+        echo "should_fail=false" >> $GITHUB_OUTPUT
+        echo "reason=gate_passed_under_strict_mode" >> $GITHUB_OUTPUT
+        echo "Graph2D review gate strict mode enabled and gate passed."
 
     - name: Generate trend charts
       run: |
@@ -172,6 +614,33 @@ jobs:
         path: reports/eval_history/*.json
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload history-sequence evaluation
+      if: steps.history_eval.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: history-sequence-eval-${{ github.run_number }}
+        path: reports/history_sequence_eval
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload Graph2D review pack
+      if: steps.graph2d_review_pack.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: graph2d-review-pack-${{ github.run_number }}
+        path: |
+          ${{ steps.graph2d_review_pack.outputs.output_csv }}
+          ${{ steps.graph2d_review_pack.outputs.summary_json }}
+          ${{ steps.graph2d_review_gate.outputs.report_path }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload Graph2D train sweep
+      if: steps.graph2d_train_sweep.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: graph2d-train-sweep-${{ github.run_number }}
+        path: ${{ steps.graph2d_train_sweep.outputs.work_root }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Send notifications
       if: always()
       env:
@@ -217,6 +686,60 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## Artifacts" >> $GITHUB_STEP_SUMMARY
         echo "- [Download Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+        if [[ "${{ steps.history_eval.outputs.enabled }}" == "true" ]]; then
+          echo "- History coverage: ${{ steps.history_eval.outputs.coverage }}" >> $GITHUB_STEP_SUMMARY
+          echo "- History accuracy(overall): ${{ steps.history_eval.outputs.accuracy_overall }}" >> $GITHUB_STEP_SUMMARY
+          echo "- History macro-F1(overall): ${{ steps.history_eval.outputs.macro_f1_overall }}" >> $GITHUB_STEP_SUMMARY
+          echo "- History selected token weight: ${{ steps.history_eval.outputs.selected_token_weight }}" >> $GITHUB_STEP_SUMMARY
+          echo "- History selected bigram weight: ${{ steps.history_eval.outputs.selected_bigram_weight }}" >> $GITHUB_STEP_SUMMARY
+          echo "- History weight source: ${{ steps.history_eval.outputs.weight_source }}" >> $GITHUB_STEP_SUMMARY
+          echo "- History tune objective: ${{ steps.history_eval.outputs.tune_objective }}" >> $GITHUB_STEP_SUMMARY
+          echo "- History recommended env: ${{ steps.history_eval.outputs.recommended_env }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- History sequence eval: skipped (no configured dataset)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.graph2d_blind_gate.outputs.enabled }}" == "true" ]]; then
+          echo "- Graph2D blind gate status: ${{ steps.graph2d_blind_gate.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D blind accuracy: ${{ steps.graph2d_blind_gate.outputs.accuracy }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D blind top_pred_ratio: ${{ steps.graph2d_blind_gate.outputs.top_pred_ratio }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D blind distinct_pred_labels: ${{ steps.graph2d_blind_gate.outputs.distinct_pred_labels }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D blind low_conf_rate: ${{ steps.graph2d_blind_gate.outputs.low_conf_rate }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Graph2D blind gate: skipped (no configured summary path)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.graph2d_review_pack.outputs.enabled }}" == "true" ]]; then
+          echo "- Graph2D review candidates: ${{ steps.graph2d_review_pack.outputs.candidate_rows }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D review hybrid_rejected: ${{ steps.graph2d_review_pack.outputs.hybrid_rejected_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D review conflicts: ${{ steps.graph2d_review_pack.outputs.conflict_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D review low_confidence: ${{ steps.graph2d_review_pack.outputs.low_confidence_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D review output: ${{ steps.graph2d_review_pack.outputs.output_csv }}" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ steps.graph2d_review_gate.outputs.enabled }}" == "true" ]]; then
+            echo "- Graph2D review gate status: ${{ steps.graph2d_review_gate.outputs.status }} (exit=${{ steps.graph2d_review_gate.outputs.exit_code }})" >> $GITHUB_STEP_SUMMARY
+            echo "- Graph2D review gate headline: ${{ steps.graph2d_review_gate.outputs.headline }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Graph2D review gate candidate_rate: ${{ steps.graph2d_review_gate.outputs.candidate_rate }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Graph2D review gate hybrid_rejected_rate: ${{ steps.graph2d_review_gate.outputs.hybrid_rejected_rate }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Graph2D review gate conflict_rate: ${{ steps.graph2d_review_gate.outputs.conflict_rate }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Graph2D review gate low_confidence_rate: ${{ steps.graph2d_review_gate.outputs.low_confidence_rate }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Graph2D review gate strict_mode: ${{ steps.graph2d_review_gate_strict.outputs.strict_mode || 'false' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Graph2D review gate strict_should_fail: ${{ steps.graph2d_review_gate_strict.outputs.should_fail || 'false' }}" >> $GITHUB_STEP_SUMMARY
+            echo "- Graph2D review gate strict_reason: ${{ steps.graph2d_review_gate_strict.outputs.reason || 'n/a' }}" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Graph2D review gate: skipped" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "- Graph2D review pack: skipped (no configured input csv)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.graph2d_train_sweep.outputs.enabled }}" == "true" ]]; then
+          echo "- Graph2D train sweep exit_code: ${{ steps.graph2d_train_sweep.outputs.exit_code }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D train sweep total_runs: ${{ steps.graph2d_train_sweep.outputs.total_runs }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D train sweep executed_runs: ${{ steps.graph2d_train_sweep.outputs.executed_runs }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D train sweep failed_runs: ${{ steps.graph2d_train_sweep.outputs.failed_runs }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D train sweep best: ${{ steps.graph2d_train_sweep.outputs.best_recipe }} seed=${{ steps.graph2d_train_sweep.outputs.best_seed }} acc=${{ steps.graph2d_train_sweep.outputs.best_val_acc }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D train sweep recommended env: ${{ steps.graph2d_train_sweep.outputs.recommended_env_file }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D train sweep best run script: ${{ steps.graph2d_train_sweep.outputs.best_run_script }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Graph2D train sweep: skipped (GRAPH2D_TRAIN_SWEEP_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
+        fi
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "---" >> $GITHUB_STEP_SUMMARY
         echo "*Generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')*" >> $GITHUB_STEP_SUMMARY
@@ -246,6 +769,50 @@ jobs:
 
             const hasAnomalies = '${{ steps.insights.outputs.has_anomalies }}' === 'true';
             const securityStatus = '${{ steps.security.outputs.security_status }}';
+            const reviewPackEnabled = '${{ steps.graph2d_review_pack.outputs.enabled }}' === 'true';
+            const reviewGateEnabled = '${{ steps.graph2d_review_gate.outputs.enabled }}' === 'true';
+            const trainSweepEnabled = '${{ steps.graph2d_train_sweep.outputs.enabled }}' === 'true';
+            const reviewCandidates = '${{ steps.graph2d_review_pack.outputs.candidate_rows }}';
+            const reviewRejected = '${{ steps.graph2d_review_pack.outputs.hybrid_rejected_count }}';
+            const reviewConflicts = '${{ steps.graph2d_review_pack.outputs.conflict_count }}';
+            const reviewGateStatusRaw = '${{ steps.graph2d_review_gate.outputs.status }}';
+            const reviewGateExitCode = '${{ steps.graph2d_review_gate.outputs.exit_code }}';
+            const reviewGateHeadline = '${{ steps.graph2d_review_gate.outputs.headline }}';
+            const reviewGateStrictMode = '${{ steps.graph2d_review_gate_strict.outputs.strict_mode }}';
+            const reviewGateStrictShouldFail = '${{ steps.graph2d_review_gate_strict.outputs.should_fail }}';
+            const reviewGateStrictReason = '${{ steps.graph2d_review_gate_strict.outputs.reason }}';
+            const sweepTotalRuns = '${{ steps.graph2d_train_sweep.outputs.total_runs }}';
+            const sweepFailedRuns = '${{ steps.graph2d_train_sweep.outputs.failed_runs }}';
+            const sweepBestRecipe = '${{ steps.graph2d_train_sweep.outputs.best_recipe }}';
+            const sweepBestSeed = '${{ steps.graph2d_train_sweep.outputs.best_seed }}';
+            const sweepRecommendedEnv = '${{ steps.graph2d_train_sweep.outputs.recommended_env_file }}';
+            const sweepBestRunScript = '${{ steps.graph2d_train_sweep.outputs.best_run_script }}';
+            const reviewCandidateCount = parseInt(reviewCandidates || '0', 10);
+            const sweepTotalRunsInt = parseInt(sweepTotalRuns || '0', 10);
+            const sweepFailedRunsInt = parseInt(sweepFailedRuns || '0', 10);
+
+            const reviewPackStatus = reviewPackEnabled
+              ? `🧪 candidates=${reviewCandidates}, rejected=${reviewRejected}, conflict=${reviewConflicts}`
+              : '⏭️ skipped';
+            const reviewGateStatus = reviewGateEnabled
+              ? `${reviewGateStatusRaw} (exit=${reviewGateExitCode}, headline=${reviewGateHeadline || 'n/a'})`
+              : '⏭️ skipped';
+            const reviewGateStrictStatus = reviewGateEnabled
+              ? `strict=${reviewGateStrictMode || 'false'}, should_fail=${reviewGateStrictShouldFail || 'false'}, reason=${reviewGateStrictReason || 'n/a'}`
+              : '⏭️ skipped';
+            const trainSweepStatus = trainSweepEnabled
+              ? `runs=${sweepTotalRuns}, failed=${sweepFailedRuns}, best=${sweepBestRecipe}@${sweepBestSeed}, env=${sweepRecommendedEnv}, script=${sweepBestRunScript}`
+              : '⏭️ skipped';
+
+            const reviewPackLight = !reviewPackEnabled
+              ? '⚪'
+              : (reviewCandidateCount > 0 ? '🟡' : '🟢');
+            const reviewGateLight = !reviewGateEnabled
+              ? '⚪'
+              : (reviewGateStatusRaw === 'passed' ? '🟢' : '🔴');
+            const trainSweepLight = !trainSweepEnabled
+              ? '⚪'
+              : (sweepTotalRunsInt <= 0 ? '🟡' : (sweepFailedRunsInt > 0 ? '🔴' : '🟢'));
 
             const body = `## 📊 CAD ML Platform - Evaluation Results
 
@@ -266,6 +833,17 @@ jobs:
             |-------|--------|
             | **Anomaly Detection** | ${hasAnomalies ? '⚠️ Anomalies detected' : '✅ No anomalies'} |
             | **Security Audit** | ${securityStatus === 'pass' ? '✅ Passed' : '⚠️ Issues found'} |
+            | **Graph2D Review Pack** | ${reviewPackStatus} |
+            | **Graph2D Review Gate** | ${reviewGateStatus} |
+            | **Graph2D Review Gate Strict** | ${reviewGateStrictStatus} |
+            | **Graph2D Train Sweep** | ${trainSweepStatus} |
+
+            ### Graph2D Signal Lights
+            | Signal | State | Detail |
+            |--------|-------|--------|
+            | **Review Pack** | ${reviewPackLight} | ${reviewPackStatus} |
+            | **Review Gate** | ${reviewGateLight} | ${reviewGateStatus} |
+            | **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
 
             ### Quick Actions
             - 📋 [View Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
@@ -305,6 +883,13 @@ jobs:
           } catch (error) {
             console.warn(`PR comment skipped: ${error.message}`);
           }
+
+    - name: Fail workflow when Graph2D review gate strict check requires blocking
+      if: steps.graph2d_review_gate_strict.outputs.should_fail == 'true'
+      run: |
+        echo "Graph2D review gate strict mode is enabled and gate status is '${{ steps.graph2d_review_gate_strict.outputs.gate_status }}'."
+        echo "Failure reason: ${{ steps.graph2d_review_gate_strict.outputs.reason }}"
+        exit 1
 
   deploy-pages:
     name: Deploy Report to GitHub Pages
