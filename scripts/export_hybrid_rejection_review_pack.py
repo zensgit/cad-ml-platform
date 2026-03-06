@@ -78,6 +78,14 @@ def _top_named_counts(counter: Counter[str], limit: int = 5) -> List[Dict[str, A
     ]
 
 
+def _shadow_sources(value: Any) -> str:
+    payload = _parse_json_object(value)
+    if not payload:
+        return ""
+    names = sorted(str(key).strip() for key in payload.keys() if str(key).strip())
+    return ";".join(names)
+
+
 def _has_hybrid_rejection(row: Dict[str, Any]) -> bool:
     if _to_bool(row.get("hybrid_rejected")):
         return True
@@ -164,6 +172,14 @@ def _collect_candidates(
         out["review_fusion_strategy"] = _clean_label(
             row.get("hybrid_fusion_strategy")
         )
+        out["review_shadow_sources"] = _shadow_sources(
+            row.get("hybrid_shadow_predictions")
+        )
+        out["review_history_shadow_only"] = _to_bool(row.get("history_shadow_only"))
+        out["review_history_shadow_label"] = _clean_label(row.get("history_label"))
+        out["review_history_shadow_confidence"] = _clean_label(
+            row.get("history_confidence")
+        )
         candidates.append(out)
 
     candidates.sort(
@@ -202,6 +218,7 @@ def _build_summary(
 ) -> Dict[str, Any]:
     review_reason_counter: Counter[str] = Counter()
     primary_source_counter: Counter[str] = Counter()
+    shadow_source_counter: Counter[str] = Counter()
     sample_explanations: List[str] = []
     sample_candidates: List[Dict[str, Any]] = []
 
@@ -209,6 +226,9 @@ def _build_summary(
         review_reason_counter.update(_split_semicolon_tokens(row.get("review_reasons")))
         primary_source_counter.update(
             _split_semicolon_tokens(row.get("review_primary_sources"))
+        )
+        shadow_source_counter.update(
+            _split_semicolon_tokens(row.get("review_shadow_sources"))
         )
 
         explanation_summary = _clean_label(row.get("review_explanation_summary"))
@@ -221,6 +241,7 @@ def _build_summary(
                     "file": _clean_label(row.get("file")),
                     "reasons": _clean_label(row.get("review_reasons")),
                     "primary_sources": _clean_label(row.get("review_primary_sources")),
+                    "shadow_sources": _clean_label(row.get("review_shadow_sources")),
                     "explanation_summary": explanation_summary,
                 }
             )
@@ -244,6 +265,7 @@ def _build_summary(
         ),
         "top_review_reasons": _top_named_counts(review_reason_counter),
         "top_primary_sources": _top_named_counts(primary_source_counter),
+        "top_shadow_sources": _top_named_counts(shadow_source_counter),
         "sample_explanations": sample_explanations[:3],
         "sample_candidates": sample_candidates,
     }

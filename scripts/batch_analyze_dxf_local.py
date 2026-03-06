@@ -355,12 +355,18 @@ def main() -> None:
             or hybrid_decision.get("fusion_metadata")
             or {}
         )
+        hybrid_shadow_predictions = (
+            hybrid_fusion_metadata.get("shadow_predictions") or {}
+            if isinstance(hybrid_fusion_metadata, dict)
+            else {}
+        )
         hybrid_explanation = (
             classification.get("hybrid_explanation")
             or hybrid_decision.get("explanation")
             or {}
         )
         titleblock_pred = classification.get("titleblock_prediction", {}) or {}
+        history_pred = classification.get("history_prediction", {}) or {}
         fusion = classification.get("fusion_decision", {}) or {}
         soft_override = classification.get("soft_override_suggestion", {}) or {}
         part_type = classification.get("part_type")
@@ -486,6 +492,9 @@ def main() -> None:
             "hybrid_fusion_agreement_score": hybrid_fusion_metadata.get(
                 "agreement_score"
             ),
+            "hybrid_shadow_predictions": json.dumps(
+                hybrid_shadow_predictions, ensure_ascii=False, sort_keys=True
+            ),
             "hybrid_explanation_summary": hybrid_explanation.get("summary"),
             "hybrid_explanation": json.dumps(
                 hybrid_explanation, ensure_ascii=False, sort_keys=True
@@ -514,6 +523,11 @@ def main() -> None:
             "titleblock_region_entities_count": (
                 titleblock_pred.get("title_block_info", {}) or {}
             ).get("region_entities_count"),
+            "history_label": history_pred.get("label"),
+            "history_confidence": history_pred.get("confidence"),
+            "history_status": history_pred.get("status"),
+            "history_shadow_only": history_pred.get("shadow_only"),
+            "history_used_for_fusion": history_pred.get("used_for_fusion"),
             "fusion_label": fusion.get("primary_label"),
             "fusion_confidence": fusion.get("confidence"),
             "soft_override_eligible": soft_override.get("eligible"),
