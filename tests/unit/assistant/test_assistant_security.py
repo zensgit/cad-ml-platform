@@ -463,6 +463,26 @@ class TestSecurityAuditor:
         events = auditor.get_events(start_time=start_time)
         assert len(events) == 1
 
+    def test_get_events_filter_by_zero_start_time(self, auditor):
+        """Test zero start_time is treated as an active filter."""
+        with patch("time.time", side_effect=[0.0, 1.0]):
+            auditor.log_authentication("user-1", True)
+            auditor.log_authentication("user-2", True)
+
+        events = auditor.get_events(start_time=0.0)
+        assert len(events) == 1
+        assert events[0]["identifier"] == "user-2"
+
+    def test_get_events_excludes_boundary_timestamp(self, auditor):
+        """Test events exactly at the boundary are excluded."""
+        with patch("time.time", side_effect=[10.0, 11.0]):
+            auditor.log_authentication("user-1", True)
+            auditor.log_authentication("user-2", True)
+
+        events = auditor.get_events(start_time=10.0)
+        assert len(events) == 1
+        assert events[0]["identifier"] == "user-2"
+
     def test_get_events_limit(self, auditor):
         """Test limiting events returned."""
         for i in range(10):
