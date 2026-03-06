@@ -1786,7 +1786,19 @@ async def analyze_cad_file(
                                 "source_contributions": cls_payload.get(
                                     "source_contributions"
                                 ),
+                                "history_prediction": cls_payload.get(
+                                    "history_prediction"
+                                ),
                                 "fusion_metadata": cls_payload.get("fusion_metadata"),
+                                "shadow_predictions": (
+                                    (cls_payload.get("fusion_metadata") or {}).get(
+                                        "shadow_predictions"
+                                    )
+                                    if isinstance(
+                                        cls_payload.get("fusion_metadata"), dict
+                                    )
+                                    else None
+                                ),
                                 "hybrid_explanation": cls_payload.get(
                                     "hybrid_explanation"
                                 ),

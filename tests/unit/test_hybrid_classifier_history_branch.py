@@ -139,3 +139,76 @@ def test_hybrid_fusion_normalizes_ascii_labels_without_splitting(monkeypatch) ->
     assert result.confidence >= 0.84
     assert "fusion_multi_source_bonus" in result.decision_path
     reset_config()
+
+
+def test_hybrid_classifier_history_shadow_only_does_not_override_graph2d(
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("FILENAME_CLASSIFIER_ENABLED", "false")
+    monkeypatch.setenv("GRAPH2D_ENABLED", "false")
+    monkeypatch.setenv("TITLEBLOCK_ENABLED", "false")
+    monkeypatch.setenv("PROCESS_FEATURES_ENABLED", "false")
+    monkeypatch.setenv("HISTORY_SEQUENCE_ENABLED", "true")
+    monkeypatch.setenv("HISTORY_SEQUENCE_SHADOW_ONLY", "true")
+
+    reset_config()
+    classifier = HybridClassifier(history_min_conf=0.4, history_weight=0.5)
+    result = classifier.classify(
+        filename="sample.dxf",
+        graph2d_result={"label": "板件", "confidence": 0.72, "label_map_size": 10},
+        history_result={
+            "status": "ok",
+            "label": "轴类",
+            "confidence": 0.91,
+            "source": "history_sequence_prototype",
+        },
+    )
+
+    assert result.label == "板件"
+    assert result.source == DecisionSource.GRAPH2D
+    assert "history_shadow_only" in result.decision_path
+    assert "history_high_conf_adopted" not in result.decision_path
+    assert result.history_prediction is not None
+    assert result.history_prediction.get("shadow_only") is True
+    assert result.history_prediction.get("used_for_fusion") is False
+    assert (result.fusion_metadata or {}).get("shadow_predictions", {}).get(
+        "history_sequence", {}
+    ).get("label") == "轴类"
+    reset_config()
+
+
+def test_hybrid_classifier_history_shadow_only_still_preserves_filename_decision(
+    monkeypatch,
+) -> None:
+    class _FilenameStub:
+        def predict(self, filename):  # noqa: ANN001, ANN201
+            return {"label": "法兰", "confidence": 0.96, "source": "filename"}
+
+    monkeypatch.setenv("FILENAME_CLASSIFIER_ENABLED", "true")
+    monkeypatch.setenv("GRAPH2D_ENABLED", "false")
+    monkeypatch.setenv("TITLEBLOCK_ENABLED", "false")
+    monkeypatch.setenv("PROCESS_FEATURES_ENABLED", "false")
+    monkeypatch.setenv("HISTORY_SEQUENCE_ENABLED", "true")
+    monkeypatch.setenv("HISTORY_SEQUENCE_SHADOW_ONLY", "true")
+
+    reset_config()
+    classifier = HybridClassifier(filename_min_conf=0.8)
+    classifier._filename_classifier = _FilenameStub()  # noqa: SLF001
+
+    result = classifier.classify(
+        filename="sample.dxf",
+        history_result={
+            "status": "ok",
+            "label": "轴类",
+            "confidence": 0.91,
+            "source": "history_sequence_prototype",
+        },
+    )
+
+    assert result.label == "法兰"
+    assert result.source == DecisionSource.FILENAME
+    assert "filename_high_conf_adopted" in result.decision_path
+    assert "history_shadow_only" in result.decision_path
+    assert result.history_prediction is not None
+    assert result.history_prediction.get("shadow_only") is True
+    reset_config()

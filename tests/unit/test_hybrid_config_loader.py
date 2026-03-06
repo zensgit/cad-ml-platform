@@ -88,3 +88,23 @@ def test_hybrid_config_rejection_from_file_and_env(tmp_path: Path, monkeypatch) 
     cfg = HybridClassifierConfig.from_sources(config_path=cfg_path)
     assert cfg.rejection.enabled is True
     assert cfg.rejection.min_confidence == 0.77
+
+
+def test_hybrid_config_history_shadow_only_from_file_and_env(
+    tmp_path: Path, monkeypatch
+) -> None:
+    cfg_path = tmp_path / "hybrid.yaml"
+    cfg_path.write_text(
+        "\n".join(
+            [
+                "history_sequence:",
+                "  enabled: true",
+                "  shadow_only: false",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("HISTORY_SEQUENCE_SHADOW_ONLY", "true")
+    cfg = HybridClassifierConfig.from_sources(config_path=cfg_path)
+    assert cfg.history_sequence.enabled is True
+    assert cfg.history_sequence.shadow_only is True

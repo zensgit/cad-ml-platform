@@ -46,9 +46,24 @@ def test_analyze_dxf_active_learning_keeps_hybrid_context(monkeypatch):
                         "strategy": "weighted_average",
                         "agreement_score": 0.5,
                         "num_sources": 1,
+                        "shadow_predictions": {
+                            "history_sequence": {
+                                "label": "人孔",
+                                "confidence": 0.58,
+                                "status": "ok",
+                            }
+                        },
+                    },
+                    "history_prediction": {
+                        "label": "人孔",
+                        "confidence": 0.58,
+                        "status": "ok",
+                        "shadow_only": True,
+                        "used_for_fusion": False,
                     },
                     "decision_path": [
                         "filename_extracted",
+                        "history_shadow_only",
                         "final_below_reject_min_conf",
                     ],
                     "explanation": {
@@ -92,8 +107,11 @@ def test_analyze_dxf_active_learning_keeps_hybrid_context(monkeypatch):
     score_breakdown = captured.get("score_breakdown") or {}
     assert score_breakdown["decision_path"] == [
         "filename_extracted",
+        "history_shadow_only",
         "final_below_reject_min_conf",
     ]
     assert score_breakdown["source_contributions"]["filename"] == 0.434
     assert score_breakdown["fusion_metadata"]["strategy"] == "weighted_average"
+    assert score_breakdown["history_prediction"]["shadow_only"] is True
+    assert score_breakdown["shadow_predictions"]["history_sequence"]["label"] == "人孔"
     assert score_breakdown["hybrid_explanation"]["summary"].startswith("文件名支持")

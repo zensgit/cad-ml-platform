@@ -35,6 +35,19 @@ def test_export_training_data_keeps_score_breakdown_and_uncertainty_reason(
         score_breakdown={
             "decision_path": ["fusion_scored", "fusion_engine_weighted_average"],
             "source_contributions": {"filename": 0.61, "titleblock": 0.22},
+            "history_prediction": {
+                "label": "人孔",
+                "confidence": 0.58,
+                "shadow_only": True,
+                "used_for_fusion": False,
+            },
+            "shadow_predictions": {
+                "history_sequence": {
+                    "label": "人孔",
+                    "confidence": 0.58,
+                    "status": "ok",
+                }
+            },
             "hybrid_explanation": {"summary": "综合 文件名, 标题栏 多源信息"},
         },
         uncertainty_reason="hybrid_rejected:below_min_confidence+low_confidence",
@@ -56,3 +69,9 @@ def test_export_training_data_keeps_score_breakdown_and_uncertainty_reason(
         "fusion_engine_weighted_average",
     ]
     assert payload["score_breakdown"]["source_contributions"]["filename"] == 0.61
+    assert payload["score_breakdown"]["history_prediction"]["shadow_only"] is True
+    assert payload["score_breakdown"]["shadow_predictions"]["history_sequence"] == {
+        "label": "人孔",
+        "confidence": 0.58,
+        "status": "ok",
+    }

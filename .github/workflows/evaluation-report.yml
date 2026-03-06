@@ -370,6 +370,7 @@ jobs:
             f.write(f"low_confidence_count={payload.get('low_confidence_count', 0)}\n")
             f.write(f"top_review_reasons={compact_named(payload.get('top_review_reasons'))}\n")
             f.write(f"top_primary_sources={compact_named(payload.get('top_primary_sources'))}\n")
+            f.write(f"top_shadow_sources={compact_named(payload.get('top_shadow_sources'))}\n")
             f.write(f"sample_explanations={compact_texts(payload.get('sample_explanations'))}\n")
         PY
 
@@ -744,6 +745,7 @@ jobs:
           echo "- Graph2D review low_confidence: ${{ steps.graph2d_review_pack.outputs.low_confidence_count }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review top reasons: ${{ steps.graph2d_review_pack.outputs.top_review_reasons }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review top sources: ${{ steps.graph2d_review_pack.outputs.top_primary_sources }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D review shadow sources: ${{ steps.graph2d_review_pack.outputs.top_shadow_sources }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review example explanations: ${{ steps.graph2d_review_pack.outputs.sample_explanations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review output: ${{ steps.graph2d_review_pack.outputs.output_csv }}" >> $GITHUB_STEP_SUMMARY
           if [[ "${{ steps.graph2d_review_gate.outputs.enabled }}" == "true" ]]; then
@@ -810,6 +812,7 @@ jobs:
             const reviewConflicts = '${{ steps.graph2d_review_pack.outputs.conflict_count }}';
             const reviewTopReasons = '${{ steps.graph2d_review_pack.outputs.top_review_reasons }}';
             const reviewTopSources = '${{ steps.graph2d_review_pack.outputs.top_primary_sources }}';
+            const reviewTopShadowSources = '${{ steps.graph2d_review_pack.outputs.top_shadow_sources }}';
             const reviewExampleExplanations = '${{ steps.graph2d_review_pack.outputs.sample_explanations }}';
             const reviewGateStatusRaw = '${{ steps.graph2d_review_gate.outputs.status }}';
             const reviewGateExitCode = '${{ steps.graph2d_review_gate.outputs.exit_code }}';
@@ -831,7 +834,7 @@ jobs:
               ? `🧪 candidates=${reviewCandidates}, rejected=${reviewRejected}, conflict=${reviewConflicts}`
               : '⏭️ skipped';
             const reviewPackInsights = reviewPackEnabled
-              ? `reasons=${reviewTopReasons || 'n/a'}, sources=${reviewTopSources || 'n/a'}, examples=${reviewExampleExplanations || 'n/a'}`
+              ? `reasons=${reviewTopReasons || 'n/a'}, sources=${reviewTopSources || 'n/a'}, shadow=${reviewTopShadowSources || 'n/a'}, examples=${reviewExampleExplanations || 'n/a'}`
               : '⏭️ skipped';
             const reviewGateStatus = reviewGateEnabled
               ? `${reviewGateStatusRaw} (exit=${reviewGateExitCode}, headline=${reviewGateHeadline || 'n/a'})`
