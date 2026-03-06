@@ -26,7 +26,7 @@
 				clean-ci-watch-artifacts watch-commit-workflows-safe-auto \
 				generate-ci-watch-validation-report validate-generate-ci-watch-validation-report \
 				graph2d-review-pack graph2d-review-pack-gate graph2d-train-sweep \
-				graph2d-review-pack-gate-strict-e2e
+				graph2d-review-pack-gate-strict-e2e validate-graph2d-review-pack-gate-strict-e2e
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -1037,6 +1037,13 @@ graph2d-review-pack-gate-strict-e2e: ## 触发 strict=false/true 两次 workflow
 		--list-limit "$(GRAPH2D_REVIEW_PACK_GATE_E2E_LIST_LIMIT)" \
 		--output-json "$(GRAPH2D_REVIEW_PACK_GATE_E2E_OUTPUT_JSON)" \
 		$$extra_flags
+
+validate-graph2d-review-pack-gate-strict-e2e: ## 校验 strict e2e dispatcher（脚本 + Make 参数透传 + workflow 绑定）
+	@echo "$(GREEN)Validating Graph2D review-pack gate strict e2e dispatcher...$(NC)"
+	$(PYTEST) \
+		$(TEST_DIR)/unit/test_dispatch_graph2d_review_gate_strict_e2e.py \
+		$(TEST_DIR)/unit/test_graph2d_parallel_make_targets.py \
+		$(TEST_DIR)/unit/test_evaluation_report_workflow_graph2d_extensions.py -q
 
 eval-migrate: ## 迁移旧版评测历史到 v1.0.0 schema
 	@echo "$(YELLOW)Migrating legacy evaluation history files...$(NC)"

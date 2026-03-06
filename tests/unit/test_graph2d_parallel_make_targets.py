@@ -89,3 +89,11 @@ def test_make_n_graph2d_review_pack_gate_strict_e2e_print_only_flag() -> None:
     )
     assert result.returncode == 0, result.stderr
     assert "--print-only" in result.stdout
+
+
+def test_make_n_validate_graph2d_review_pack_gate_strict_e2e_runs_expected_tests() -> None:
+    result = _run_make("-n", "validate-graph2d-review-pack-gate-strict-e2e")
+    assert result.returncode == 0, result.stderr
+    assert "test_dispatch_graph2d_review_gate_strict_e2e.py" in result.stdout
+    assert "test_graph2d_parallel_make_targets.py" in result.stdout
+    assert "test_evaluation_report_workflow_graph2d_extensions.py" in result.stdout

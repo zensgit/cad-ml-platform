@@ -403,6 +403,34 @@ make validate-ci-watchers
 - `make validate-generate-ci-watch-validation-report`
 - `make validate-archive-workflow-dispatcher`
 
+#### Graph2D Review Gate Strict E2E（双通道验收）
+
+当需要一条命令完成 `review_pack_input_csv` 下的 strict 双通道验证（`strict=false` 应通过、`strict=true` 应阻断）时，可使用：
+
+```bash
+# 仅预览 dispatch/watch 命令，不实际触发
+make graph2d-review-pack-gate-strict-e2e GRAPH2D_REVIEW_PACK_GATE_E2E_PRINT_ONLY=1
+
+# 实际执行（会触发两次 workflow_dispatch 并等待完成）
+make graph2d-review-pack-gate-strict-e2e
+```
+
+常用覆盖参数：
+
+```bash
+make graph2d-review-pack-gate-strict-e2e \
+  GRAPH2D_REVIEW_PACK_GATE_E2E_REF=main \
+  GRAPH2D_REVIEW_PACK_GATE_E2E_INPUT=tests/fixtures/ci/graph2d_review_pack_input.csv \
+  GRAPH2D_REVIEW_PACK_GATE_E2E_TIMEOUT=300 \
+  GRAPH2D_REVIEW_PACK_GATE_E2E_OUTPUT_JSON=reports/experiments/$$(date +%Y%m%d)/graph2d_review_pack_gate_strict_e2e.json
+```
+
+本地回归（不触发远端 workflow）：
+
+```bash
+make validate-graph2d-review-pack-gate-strict-e2e
+```
+
 ---
 
 ## 🔬 评估与可观测性
