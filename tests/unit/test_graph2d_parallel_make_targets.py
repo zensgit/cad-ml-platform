@@ -65,3 +65,27 @@ def test_make_n_graph2d_train_sweep_contains_expected_flags() -> None:
     assert '--seeds "' in result.stdout
     assert "--base-args-json" in result.stdout
     assert "$extra_flags" in result.stdout
+
+
+def test_make_n_graph2d_review_pack_gate_strict_e2e_contains_expected_flags() -> None:
+    result = _run_make("-n", "graph2d-review-pack-gate-strict-e2e")
+    assert result.returncode == 0, result.stderr
+    assert "scripts/ci/dispatch_graph2d_review_gate_strict_e2e.py" in result.stdout
+    assert '--workflow "' in result.stdout
+    assert '--ref "' in result.stdout
+    assert "--review-pack-input-csv" in result.stdout
+    assert "--wait-timeout-seconds" in result.stdout
+    assert "--poll-interval-seconds" in result.stdout
+    assert "--list-limit" in result.stdout
+    assert "--output-json" in result.stdout
+    assert "$extra_flags" in result.stdout
+
+
+def test_make_n_graph2d_review_pack_gate_strict_e2e_print_only_flag() -> None:
+    result = _run_make(
+        "-n",
+        "graph2d-review-pack-gate-strict-e2e",
+        "GRAPH2D_REVIEW_PACK_GATE_E2E_PRINT_ONLY=1",
+    )
+    assert result.returncode == 0, result.stderr
+    assert "--print-only" in result.stdout

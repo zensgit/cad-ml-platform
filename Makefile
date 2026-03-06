@@ -21,11 +21,12 @@
 		validate-archive-workflow-dispatcher \
 		watch-commit-workflows validate-watch-commit-workflows \
 		validate-ci-watchers clean-ci-watch-summaries \
-		check-gh-actions-ready validate-check-gh-actions-ready \
-			watch-commit-workflows-safe clean-gh-readiness-summaries \
-			clean-ci-watch-artifacts watch-commit-workflows-safe-auto \
-			generate-ci-watch-validation-report validate-generate-ci-watch-validation-report \
-			graph2d-review-pack graph2d-review-pack-gate graph2d-train-sweep
+			check-gh-actions-ready validate-check-gh-actions-ready \
+				watch-commit-workflows-safe clean-gh-readiness-summaries \
+				clean-ci-watch-artifacts watch-commit-workflows-safe-auto \
+				generate-ci-watch-validation-report validate-generate-ci-watch-validation-report \
+				graph2d-review-pack graph2d-review-pack-gate graph2d-train-sweep \
+				graph2d-review-pack-gate-strict-e2e
 .PHONY: test-unit test-contract-local test-e2e-local test-all-local test-tolerance test-service-mesh test-provider-core test-provider-contract validate-openapi
 
 # 默认目标
@@ -971,6 +972,14 @@ GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON ?= []
 GRAPH2D_TRAIN_SWEEP_WORK_ROOT ?= /tmp/graph2d_train_recipe_sweep
 GRAPH2D_TRAIN_SWEEP_EXECUTE ?= 0
 GRAPH2D_TRAIN_SWEEP_FAIL_ON_ERROR ?= 0
+GRAPH2D_REVIEW_PACK_GATE_E2E_WORKFLOW ?= evaluation-report.yml
+GRAPH2D_REVIEW_PACK_GATE_E2E_REF ?= main
+GRAPH2D_REVIEW_PACK_GATE_E2E_INPUT ?= tests/fixtures/ci/graph2d_review_pack_input.csv
+GRAPH2D_REVIEW_PACK_GATE_E2E_TIMEOUT ?= 300
+GRAPH2D_REVIEW_PACK_GATE_E2E_POLL_INTERVAL ?= 3
+GRAPH2D_REVIEW_PACK_GATE_E2E_LIST_LIMIT ?= 20
+GRAPH2D_REVIEW_PACK_GATE_E2E_OUTPUT_JSON ?= $(GRAPH2D_REVIEW_OUT_DIR)/graph2d_review_pack_gate_strict_e2e.json
+GRAPH2D_REVIEW_PACK_GATE_E2E_PRINT_ONLY ?= 0
 
 graph2d-review-summary: ## 汇总 Graph2D soft-override 复核模板（生成 summary + correct-label counts）
 	@echo "$(GREEN)Summarizing Graph2D soft-override review...$(NC)"
@@ -1013,6 +1022,20 @@ graph2d-train-sweep: ## 执行 Graph2D 训练 recipe×seed 扫描（可选执行
 		--max-runs "$(GRAPH2D_TRAIN_SWEEP_MAX_RUNS)" \
 		--base-args-json '$(GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON)' \
 		--work-root "$(GRAPH2D_TRAIN_SWEEP_WORK_ROOT)" \
+		$$extra_flags
+
+graph2d-review-pack-gate-strict-e2e: ## 触发 strict=false/true 两次 workflow_dispatch 并断言预期结论
+	@echo "$(GREEN)Running Graph2D review-pack gate strict e2e via GitHub Actions...$(NC)"
+	@extra_flags=""; \
+	if [ "$(GRAPH2D_REVIEW_PACK_GATE_E2E_PRINT_ONLY)" = "1" ]; then extra_flags="$$extra_flags --print-only"; fi; \
+	$(PYTHON) scripts/ci/dispatch_graph2d_review_gate_strict_e2e.py \
+		--workflow "$(GRAPH2D_REVIEW_PACK_GATE_E2E_WORKFLOW)" \
+		--ref "$(GRAPH2D_REVIEW_PACK_GATE_E2E_REF)" \
+		--review-pack-input-csv "$(GRAPH2D_REVIEW_PACK_GATE_E2E_INPUT)" \
+		--wait-timeout-seconds "$(GRAPH2D_REVIEW_PACK_GATE_E2E_TIMEOUT)" \
+		--poll-interval-seconds "$(GRAPH2D_REVIEW_PACK_GATE_E2E_POLL_INTERVAL)" \
+		--list-limit "$(GRAPH2D_REVIEW_PACK_GATE_E2E_LIST_LIMIT)" \
+		--output-json "$(GRAPH2D_REVIEW_PACK_GATE_E2E_OUTPUT_JSON)" \
 		$$extra_flags
 
 eval-migrate: ## 迁移旧版评测历史到 v1.0.0 schema

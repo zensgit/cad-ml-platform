@@ -162,3 +162,30 @@ Dispatch runs on commit `8fe0383`:
    - Failed step log includes:
      - `gate status is 'failed'`
      - `Failure reason: gate_failed_under_strict_mode`
+
+## Make Target Automation
+
+Added script:
+- `scripts/ci/dispatch_graph2d_review_gate_strict_e2e.py`
+
+Added make target:
+- `graph2d-review-pack-gate-strict-e2e`
+
+Default behavior:
+1. Dispatch `evaluation-report.yml` with `strict=false` and wait for completion.
+2. Dispatch `evaluation-report.yml` with `strict=true` and wait for completion.
+3. Assert conclusions are `success` then `failure`.
+4. Emit JSON summary artifact.
+
+Real run via make target:
+
+```bash
+make graph2d-review-pack-gate-strict-e2e
+```
+
+Observed runs:
+- strict=false: `22744089501` → `success`
+- strict=true: `22744124251` → `failure` (expected)
+
+Generated summary artifact:
+- `reports/experiments/20260306/graph2d_review_pack_gate_strict_e2e.json`
