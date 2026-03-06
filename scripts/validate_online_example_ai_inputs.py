@@ -10,7 +10,10 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import h5py
+try:
+    import h5py
+except ModuleNotFoundError:  # pragma: no cover - optional dependency in CI
+    h5py = None
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -24,9 +27,13 @@ def inspect_h5_input(path: Path) -> Dict[str, Any]:
     payload: Dict[str, Any] = {
         "path": str(path),
         "exists": path.exists(),
+        "has_h5py": h5py is not None,
     }
     if not path.exists():
         payload["status"] = "missing"
+        return payload
+    if h5py is None:
+        payload["status"] = "skipped_no_h5py"
         return payload
 
     with h5py.File(path, "r") as handle:
