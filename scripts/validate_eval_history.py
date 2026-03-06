@@ -39,7 +39,8 @@ SCHEMAS = {
         "conditional_fields": {
             "combined": ["vision_metrics", "ocr_metrics", "combined"],
             "ocr": ["metrics"],
-            "vision": ["metrics"]
+            "vision": ["metrics"],
+            "history_sequence": ["history_metrics", "artifacts", "tuning"]
         },
         "run_context_fields": ["runner", "machine", "os", "python", "start_time"],
         "optional_run_context": ["ci_job_id", "ci_workflow"]
@@ -136,6 +137,27 @@ def validate_file(filepath: Path, strict: bool = False) -> Tuple[bool, List[str]
             if score_field in combined:
                 if not (0 <= combined[score_field] <= 1):
                     issues.append(f"combined {score_field} out of range: {combined[score_field]}")
+
+    if "history_metrics" in data:
+        hmetrics = data["history_metrics"]
+        for field in ["coverage", "accuracy_overall", "macro_f1_overall"]:
+            if field in hmetrics:
+                value = hmetrics[field]
+                if not (0 <= value <= 1):
+                    issues.append(f"history_metrics {field} out of range: {value}")
+
+    if "tuning" in data:
+        tuning = data["tuning"]
+        for field in [
+            "configured_token_weight",
+            "configured_bigram_weight",
+            "selected_token_weight",
+            "selected_bigram_weight",
+        ]:
+            if field in tuning:
+                value = tuning[field]
+                if value < 0:
+                    issues.append(f"tuning {field} out of range: {value}")
 
     return len(issues) == 0, issues
 
@@ -294,6 +316,12 @@ def main():
         with open(filepath, "r") as f:
             data = json.load(f)
         version = detect_schema_version(data)
+
+        if version != "0.0.0" and json_schema is not None:
+            schema_ok, schema_issues = validate_with_json_schema(data, json_schema)
+            if not schema_ok:
+                is_valid = False
+                issues.extend(schema_issues)
 
         status = "✓ VALID" if is_valid else "✗ INVALID"
         if version == "0.0.0":

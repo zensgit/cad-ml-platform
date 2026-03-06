@@ -41,7 +41,7 @@
     "type": {
       "type": "string",
       "description": "Evaluation type",
-      "enum": ["combined", "ocr", "vision"],
+      "enum": ["combined", "ocr", "vision", "history_sequence"],
       "examples": ["combined"]
     },
     "run_context": {
@@ -234,6 +234,75 @@
           "maximum": 1
         }
       }
+    },
+    "history_metrics": {
+      "type": "object",
+      "description": "History-sequence evaluation metrics",
+      "required": [
+        "coverage",
+        "accuracy_overall",
+        "macro_f1_overall"
+      ],
+      "properties": {
+        "coverage": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "accuracy_overall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "macro_f1_overall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": true
+    },
+    "artifacts": {
+      "type": "object",
+      "description": "Artifact paths produced by evaluation tooling",
+      "required": [
+        "summary_json",
+        "results_csv",
+        "prototypes_json",
+        "tune_best_config_json",
+        "recommended_env_file"
+      ],
+      "properties": {
+        "summary_json": { "type": "string", "minLength": 1 },
+        "results_csv": { "type": "string", "minLength": 1 },
+        "prototypes_json": { "type": "string", "minLength": 1 },
+        "tune_best_config_json": { "type": ["string", "null"] },
+        "recommended_env_file": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": true
+    },
+    "tuning": {
+      "type": "object",
+      "description": "Weight selection metadata for history-sequence evaluation",
+      "required": [
+        "enabled",
+        "source",
+        "objective",
+        "configured_token_weight",
+        "configured_bigram_weight",
+        "selected_token_weight",
+        "selected_bigram_weight"
+      ],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "source": { "type": "string", "enum": ["configured", "tuned"] },
+        "objective": { "type": "string", "minLength": 1 },
+        "configured_token_weight": { "type": "number", "minimum": 0 },
+        "configured_bigram_weight": { "type": "number", "minimum": 0 },
+        "selected_token_weight": { "type": "number", "minimum": 0 },
+        "selected_bigram_weight": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": true
     }
   },
   "oneOf": [
@@ -254,6 +323,12 @@
         "type": { "const": "vision" }
       },
       "required": ["vision_metrics"]
+    },
+    {
+      "properties": {
+        "type": { "const": "history_sequence" }
+      },
+      "required": ["history_metrics", "artifacts", "tuning"]
     }
   ],
   "additionalProperties": false,
