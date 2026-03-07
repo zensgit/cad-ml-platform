@@ -194,6 +194,54 @@ class QdrantVectorStore:
             payload["final_decision_source"] = contract["decision_source"]
         return payload
 
+    @staticmethod
+    def _build_query_filter(filter_conditions: Optional[Dict[str, Any]]):
+        if not filter_conditions:
+            return None
+
+        must_conditions = []
+        for key, value in filter_conditions.items():
+            if value is None:
+                continue
+            if isinstance(value, list):
+                must_conditions.append(
+                    models.FieldCondition(
+                        key=key,
+                        match=models.MatchAny(any=value),
+                    )
+                )
+            elif isinstance(value, dict):
+                if "gte" in value or "lte" in value:
+                    must_conditions.append(
+                        models.FieldCondition(
+                            key=key,
+                            range=models.Range(
+                                gte=value.get("gte"),
+                                lte=value.get("lte"),
+                            ),
+                        )
+                    )
+            else:
+                must_conditions.append(
+                    models.FieldCondition(
+                        key=key,
+                        match=models.MatchValue(value=value),
+                    )
+                )
+
+        if not must_conditions:
+            return None
+        return models.Filter(must=must_conditions)
+
+    @staticmethod
+    def _to_result(hit: Any, with_vectors: bool = False) -> VectorSearchResult:
+        return VectorSearchResult(
+            id=str(hit.id),
+            score=getattr(hit, "score", 1.0),
+            metadata=getattr(hit, "payload", None) or {},
+            vector=getattr(hit, "vector", None) if with_vectors else None,
+        )
+
     def health_check(self) -> bool:
         """Check if Qdrant is healthy and accessible.
 
@@ -335,43 +383,7 @@ class QdrantVectorStore:
         """
         self._ensure_collection()
 
-        # Build filter
-        query_filter = None
-        if filter_conditions:
-            must_conditions = []
-
-            for key, value in filter_conditions.items():
-                if isinstance(value, list):
-                    # Multiple values - use "should" (OR)
-                    must_conditions.append(
-                        models.FieldCondition(
-                            key=key,
-                            match=models.MatchAny(any=value),
-                        )
-                    )
-                elif isinstance(value, dict):
-                    # Range filter
-                    if "gte" in value or "lte" in value:
-                        must_conditions.append(
-                            models.FieldCondition(
-                                key=key,
-                                range=models.Range(
-                                    gte=value.get("gte"),
-                                    lte=value.get("lte"),
-                                ),
-                            )
-                        )
-                else:
-                    # Exact match
-                    must_conditions.append(
-                        models.FieldCondition(
-                            key=key,
-                            match=models.MatchValue(value=value),
-                        )
-                    )
-
-            if must_conditions:
-                query_filter = models.Filter(must=must_conditions)
+        query_filter = self._build_query_filter(filter_conditions)
 
         try:
             results = self.client.search(
@@ -382,18 +394,39 @@ class QdrantVectorStore:
                 score_threshold=score_threshold,
                 with_vectors=with_vectors,
             )
-
-            return [
-                VectorSearchResult(
-                    id=str(hit.id),
-                    score=hit.score,
-                    metadata=hit.payload or {},
-                    vector=hit.vector if with_vectors else None,
-                )
-                for hit in results
-            ]
+            return [self._to_result(hit, with_vectors=with_vectors) for hit in results]
         except Exception as e:
             logger.error(f"Search failed: {e}")
+            raise
+
+    async def list_vectors(
+        self,
+        offset: int = 0,
+        limit: int = 50,
+        filter_conditions: Optional[Dict[str, Any]] = None,
+        with_vectors: bool = False,
+    ) -> tuple[List[VectorSearchResult], int]:
+        """List vectors with optional server-side filtering."""
+        self._ensure_collection()
+        query_filter = self._build_query_filter(filter_conditions)
+
+        try:
+            total = self.client.count(
+                collection_name=self.config.collection_name,
+                count_filter=query_filter,
+            ).count
+            scroll_limit = max(offset + limit, limit)
+            points, _ = self.client.scroll(
+                collection_name=self.config.collection_name,
+                scroll_filter=query_filter,
+                limit=scroll_limit,
+                with_payload=True,
+                with_vectors=with_vectors,
+            )
+            items = points[offset : offset + limit]
+            return [self._to_result(point, with_vectors=with_vectors) for point in items], total
+        except Exception as e:
+            logger.error(f"List failed: {e}")
             raise
 
     async def get_vector(self, vector_id: str) -> Optional[VectorSearchResult]:
@@ -460,16 +493,7 @@ class QdrantVectorStore:
         """
         self._ensure_collection()
 
-        must_conditions = []
-        for key, value in filter_conditions.items():
-            must_conditions.append(
-                models.FieldCondition(
-                    key=key,
-                    match=models.MatchValue(value=value),
-                )
-            )
-
-        query_filter = models.Filter(must=must_conditions)
+        query_filter = self._build_query_filter(filter_conditions)
 
         try:
             # Get count before delete
@@ -524,16 +548,7 @@ class QdrantVectorStore:
         """
         self._ensure_collection()
 
-        query_filter = None
-        if filter_conditions:
-            must_conditions = [
-                models.FieldCondition(
-                    key=key,
-                    match=models.MatchValue(value=value),
-                )
-                for key, value in filter_conditions.items()
-            ]
-            query_filter = models.Filter(must=must_conditions)
+        query_filter = self._build_query_filter(filter_conditions)
 
         result = self.client.count(
             collection_name=self.config.collection_name,

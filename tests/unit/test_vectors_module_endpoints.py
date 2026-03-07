@@ -8,6 +8,20 @@ from src.core.errors_extended import ErrorCode
 from src.main import app
 
 
+class DummyQdrantResult:
+    def __init__(
+        self,
+        vector_id: str,
+        score: float,
+        metadata: Dict[str, object],
+        vector: Optional[list[float]] = None,
+    ) -> None:
+        self.id = vector_id
+        self.score = score
+        self.metadata = metadata
+        self.vector = vector
+
+
 class DummyRedis:
     def __init__(self, data: Dict[object, Dict[object, str]]) -> None:
         self._data = data
@@ -361,3 +375,104 @@ def test_vectors_search_with_coarse_contract_filters():
     assert all(item["coarse_part_type"] == "开孔件" for item in results)
     assert all(item["decision_source"] == "hybrid" for item in results)
     assert all(item["is_coarse_label"] is False for item in results)
+
+
+def test_vectors_list_qdrant_source_supports_coarse_contract_filters():
+    client = TestClient(app)
+
+    class DummyQdrantStore:
+        async def list_vectors(self, offset, limit, filter_conditions=None, with_vectors=False):
+            assert offset == 0
+            assert limit == 10
+            assert filter_conditions == {
+                "coarse_part_type": "开孔件",
+                "decision_source": "hybrid",
+                "is_coarse_label": False,
+            }
+            return (
+                [
+                    DummyQdrantResult(
+                        "qdrant-1",
+                        1.0,
+                        {
+                            "part_type": "人孔",
+                            "fine_part_type": "人孔",
+                            "coarse_part_type": "开孔件",
+                            "decision_source": "hybrid",
+                            "is_coarse_label": False,
+                            "material": "steel",
+                        },
+                        vector=[0.1] * 7,
+                    )
+                ],
+                1,
+            )
+
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.vectors._get_qdrant_store_or_none",
+        return_value=DummyQdrantStore(),
+    ):
+        resp = client.get(
+            "/api/v1/vectors?source=qdrant&limit=10&coarse_part_type_filter=开孔件"
+            "&decision_source_filter=hybrid&is_coarse_label_filter=false",
+            headers={"X-API-Key": "test"},
+        )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert len(data["vectors"]) == 1
+    assert data["vectors"][0]["id"] == "qdrant-1"
+    assert data["vectors"][0]["coarse_part_type"] == "开孔件"
+    assert data["vectors"][0]["decision_source"] == "hybrid"
+    assert data["vectors"][0]["is_coarse_label"] is False
+
+
+def test_vectors_search_uses_qdrant_native_filters_when_enabled():
+    client = TestClient(app)
+
+    class DummyQdrantStore:
+        async def search_similar(self, query_vector, top_k=10, filter_conditions=None, **kwargs):
+            assert query_vector == [0.2] * 7
+            assert top_k == 5
+            assert filter_conditions == {
+                "coarse_part_type": "开孔件",
+                "decision_source": "hybrid",
+                "is_coarse_label": False,
+            }
+            return [
+                DummyQdrantResult(
+                    "qdrant-search-1",
+                    0.93,
+                    {
+                        "part_type": "人孔",
+                        "fine_part_type": "人孔",
+                        "coarse_part_type": "开孔件",
+                        "decision_source": "hybrid",
+                        "is_coarse_label": False,
+                        "material": "steel",
+                    },
+                )
+            ]
+
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.vectors._get_qdrant_store_or_none",
+        return_value=DummyQdrantStore(),
+    ):
+        resp = client.post(
+            "/api/v1/vectors/search",
+            json={
+                "vector": [0.2] * 7,
+                "k": 5,
+                "coarse_part_type_filter": "开孔件",
+                "decision_source_filter": "hybrid",
+                "is_coarse_label_filter": False,
+            },
+            headers={"X-API-Key": "test"},
+        )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["total"] == 1
+    assert data["results"][0]["id"] == "qdrant-search-1"
+    assert data["results"][0]["coarse_part_type"] == "开孔件"
+    assert data["results"][0]["decision_source"] == "hybrid"
+    assert data["results"][0]["is_coarse_label"] is False
