@@ -17,6 +17,7 @@ import pickle
 import logging
 import argparse
 import numpy as np
+from collections import Counter
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Tuple, Optional
@@ -25,6 +26,7 @@ from typing import List, Dict, Any, Tuple, Optional
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.core.active_learning import get_active_learner  # noqa: E402
+from src.core.classification.coarse_labels import normalize_coarse_label  # noqa: E402
 
 # Configure logging
 logging.basicConfig(
@@ -64,6 +66,38 @@ def _load_samples(
                 doc_ids.append(doc_id)
                 labels.append(label)
     return doc_ids, labels
+
+
+def _build_training_summary(
+    labels: List[str],
+    label_field: str,
+    vector_count: Optional[int] = None,
+) -> Dict[str, Any]:
+    label_distribution = dict(sorted(Counter(labels).items()))
+    coarse_labels = [
+        normalize_coarse_label(label) or str(label).strip()
+        for label in labels
+        if str(label).strip()
+    ]
+    coarse_distribution = dict(sorted(Counter(coarse_labels).items()))
+    return {
+        "label_field": label_field,
+        "sample_count": len(labels),
+        "vector_count": vector_count if vector_count is not None else len(labels),
+        "unique_label_count": len(label_distribution),
+        "unique_coarse_label_count": len(coarse_distribution),
+        "label_distribution": label_distribution,
+        "coarse_label_distribution": coarse_distribution,
+    }
+
+
+def _write_training_summary(path: str, summary: Dict[str, Any]) -> None:
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 def fetch_vectors_for_samples(
     doc_ids: List[str],
@@ -167,6 +201,11 @@ def main():
         choices=["true_fine_type", "true_coarse_type", "true_type"],
         help="Feedback label field used for training targets",
     )
+    parser.add_argument(
+        "--summary-out",
+        default=None,
+        help="Optional JSON path to persist training label summary",
+    )
     args = parser.parse_args()
 
     learner = get_active_learner()
@@ -191,6 +230,12 @@ def main():
     # 2. Load vectors
     logger.info("Loading training vectors...")
     X, y = load_training_data(data_file, label_field=args.label_field)
+    summary = _build_training_summary(list(y), args.label_field, vector_count=len(X))
+    if args.summary_out:
+        _write_training_summary(args.summary_out, summary)
+        logger.info(f"Saved training summary to {args.summary_out}")
+    else:
+        logger.info(f"Training label summary: {summary}")
 
     if len(X) == 0:
         logger.error("No vectors found for training samples")
