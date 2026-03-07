@@ -36,6 +36,27 @@ def _get_qdrant_store_or_none():
         return None
 
 
+async def _list_qdrant_vector_ids(qdrant_store) -> List[str]:
+    scan_limit = max(int(os.getenv("MAINTENANCE_VECTOR_SCAN_LIMIT", "5000")), 1)
+    total = await qdrant_store.count()
+    remaining = min(total, scan_limit)
+    ids: List[str] = []
+    offset = 0
+    page_size = min(500, remaining or 1)
+    while offset < remaining:
+        batch_size = min(page_size, remaining - offset)
+        results, _ = await qdrant_store.list_vectors(
+            offset=offset,
+            limit=batch_size,
+            with_vectors=False,
+        )
+        if not results:
+            break
+        ids.extend(result.id for result in results)
+        offset += len(results)
+    return ids
+
+
 class OrphanCleanupResponse(BaseModel):
     """孤儿向量清理响应"""
 
@@ -255,11 +276,15 @@ async def cleanup_orphan_vectors(
 
     orphan_ids: List[str] = []
     redis_errors = 0
+    qdrant_store = _get_qdrant_store_or_none()
 
     # Find orphan vectors
     if client is not None:
-        with _VECTOR_LOCK:
-            keys_snapshot = list(_VECTOR_STORE.keys())
+        if qdrant_store is not None:
+            keys_snapshot = await _list_qdrant_vector_ids(qdrant_store)
+        else:
+            with _VECTOR_LOCK:
+                keys_snapshot = list(_VECTOR_STORE.keys())
 
         for vid in keys_snapshot:
             try:
@@ -292,8 +317,11 @@ async def cleanup_orphan_vectors(
                 continue
     else:
         logger.warning("No cache client available, assuming all vectors are orphans")
-        with _VECTOR_LOCK:
-            orphan_ids = list(_VECTOR_STORE.keys())
+        if qdrant_store is not None:
+            orphan_ids = await _list_qdrant_vector_ids(qdrant_store)
+        else:
+            with _VECTOR_LOCK:
+                orphan_ids = list(_VECTOR_STORE.keys())
 
     orphan_count = len(orphan_ids)
 
@@ -319,27 +347,37 @@ async def cleanup_orphan_vectors(
 
     # Execute deletion
     deleted_count = 0
-    with _VECTOR_LOCK:
+    if qdrant_store is not None:
         for oid in orphan_ids:
             try:
-                if oid in _VECTOR_STORE:
-                    del _VECTOR_STORE[oid]
+                if await qdrant_store.delete_vector(oid):
                     deleted_count += 1
                     vector_cold_pruned_total.inc()
             except Exception as e:
-                logger.error(f"Error deleting orphan vector {oid}: {e}")
+                logger.error(f"Error deleting orphan qdrant vector {oid}: {e}")
                 continue
-
-    # Also clean up metadata if exists
-    from src.core.similarity import _VECTOR_META  # type: ignore
-
-    with _VECTOR_LOCK:
-        for oid in orphan_ids:
-            if oid in _VECTOR_META:
+    else:
+        with _VECTOR_LOCK:
+            for oid in orphan_ids:
                 try:
-                    del _VECTOR_META[oid]
-                except Exception:
-                    pass
+                    if oid in _VECTOR_STORE:
+                        del _VECTOR_STORE[oid]
+                        deleted_count += 1
+                        vector_cold_pruned_total.inc()
+                except Exception as e:
+                    logger.error(f"Error deleting orphan vector {oid}: {e}")
+                    continue
+
+        # Also clean up metadata if exists
+        from src.core.similarity import _VECTOR_META  # type: ignore
+
+        with _VECTOR_LOCK:
+            for oid in orphan_ids:
+                if oid in _VECTOR_META:
+                    try:
+                        del _VECTOR_META[oid]
+                    except Exception:
+                        pass
 
     logger.info(f"Cleaned up {deleted_count} orphan vectors out of {orphan_count}")
 
