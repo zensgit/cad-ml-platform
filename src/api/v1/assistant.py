@@ -33,6 +33,17 @@ class QuerySource(BaseModel):
     summary: str = Field(..., description="内容摘要")
 
 
+class QueryEvidence(BaseModel):
+    """Structured evidence for a grounded assistant answer."""
+
+    reference_id: str = Field(..., description="证据引用编号")
+    source: str = Field(..., description="知识来源模块")
+    summary: str = Field(..., description="证据摘要")
+    relevance: float = Field(..., description="相关性分数 (0-1)")
+    match_type: str = Field(..., description="命中方式")
+    key_facts: List[str] = Field(default_factory=list, description="关键事实列表")
+
+
 class QueryResponse(BaseModel):
     """Assistant query response."""
 
@@ -40,6 +51,7 @@ class QueryResponse(BaseModel):
     answer: str = Field(..., description="回答内容")
     confidence: float = Field(..., description="置信度 (0-1)")
     sources: List[str] = Field(default_factory=list, description="参考来源")
+    evidence: List[QueryEvidence] = Field(default_factory=list, description="结构化证据")
     intent: Optional[str] = Field(None, description="识别的意图")
     entities: Optional[Dict[str, Any]] = Field(None, description="提取的实体")
 
@@ -142,6 +154,7 @@ async def query_assistant(request: QueryRequest) -> QueryResponse:
             answer=response.answer,
             confidence=response.confidence,
             sources=response.sources,
+            evidence=[QueryEvidence(**item.to_dict()) for item in response.evidence],
             intent=response.metadata.get("intent") if request.verbose else None,
             entities=response.metadata.get("entities") if request.verbose else None,
         )
@@ -153,6 +166,7 @@ async def query_assistant(request: QueryRequest) -> QueryResponse:
             answer=f"处理查询时发生错误: {str(e)}",
             confidence=0.0,
             sources=[],
+            evidence=[],
         )
 
 
