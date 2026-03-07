@@ -2,8 +2,10 @@ import json
 from pathlib import Path
 
 from scripts.eval_hybrid_dxf_manifest import (
+    _coarse_eval_label,
     EvalCase,
     _build_ok_row,
+    _exact_eval_label,
     _load_manifest_cases,
     _summarize_knowledge_signals,
     _score_rows,
@@ -38,7 +40,7 @@ def test_load_manifest_cases_prefers_relative_path(tmp_path: Path) -> None:
     assert cases[1].file_path == dxf_dir / "part2.dxf"
 
 
-def test_score_rows_normalizes_fine_labels_to_coarse() -> None:
+def test_score_rows_supports_exact_and_coarse_evaluation() -> None:
     rows = [
         {
             "true_label": "设备",
@@ -58,22 +60,36 @@ def test_score_rows_normalizes_fine_labels_to_coarse() -> None:
     ]
     alias_map = {"other": "其他"}
 
-    summary = _score_rows(
+    coarse_summary = _score_rows(
         rows,
         branch_to_column={
             "hybrid_label": "hybrid_label",
             "graph2d_label": "graph2d_label",
         },
         alias_map=alias_map,
+        normalizer=_coarse_eval_label,
+    )
+    exact_summary = _score_rows(
+        rows,
+        branch_to_column={
+            "hybrid_label": "hybrid_label",
+            "graph2d_label": "graph2d_label",
+        },
+        alias_map=alias_map,
+        normalizer=_exact_eval_label,
     )
 
-    assert summary["hybrid_label"]["evaluated"] == 3
-    assert summary["hybrid_label"]["correct"] == 2
-    assert summary["hybrid_label"]["accuracy"] == 2 / 3
+    assert coarse_summary["hybrid_label"]["evaluated"] == 3
+    assert coarse_summary["hybrid_label"]["correct"] == 2
+    assert coarse_summary["hybrid_label"]["accuracy"] == 2 / 3
 
-    assert summary["graph2d_label"]["evaluated"] == 2
-    assert summary["graph2d_label"]["correct"] == 2
-    assert summary["graph2d_label"]["missing_pred"] == 1
+    assert coarse_summary["graph2d_label"]["evaluated"] == 2
+    assert coarse_summary["graph2d_label"]["correct"] == 2
+    assert coarse_summary["graph2d_label"]["missing_pred"] == 1
+
+    assert exact_summary["hybrid_label"]["evaluated"] == 3
+    assert exact_summary["hybrid_label"]["correct"] == 0
+    assert exact_summary["graph2d_label"]["correct"] == 1
 
 
 def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> None:
@@ -88,17 +104,23 @@ def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> N
         "classification": {
             "part_type": "轴承件",
             "confidence": 0.81,
+            "coarse_part_type": "轴承件",
             "fine_part_type": "深沟球轴承",
             "fine_confidence": 0.73,
+            "coarse_fine_part_type": "轴承件",
             "graph2d_prediction": {"label": "轴承件", "confidence": 0.7},
+            "coarse_graph2d_label": "轴承件",
             "filename_prediction": {"label": "轴承件", "confidence": 0.8},
+            "coarse_filename_label": "轴承件",
             "titleblock_prediction": {"label": "深沟球轴承", "confidence": 0.66},
+            "coarse_titleblock_label": "轴承件",
             "hybrid_decision": {
                 "label": "深沟球轴承",
                 "confidence": 0.77,
                 "source": "fusion",
                 "decision_path": ["history_shadow_only", "fusion_scored"],
             },
+            "coarse_hybrid_label": "轴承件",
             "source_contributions": {"history_sequence": 0.2, "graph2d": 0.8},
             "hybrid_explanation": {"summary": "graph2d dominated"},
             "history_prediction": {
@@ -139,6 +161,14 @@ def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> N
 
     row = _build_ok_row(case, results_payload)
 
+    assert row["true_label_exact"] == "轴承件"
+    assert row["true_label_coarse"] == "轴承件"
+    assert row["coarse_part_type"] == "轴承件"
+    assert row["coarse_fine_part_type"] == "轴承件"
+    assert row["coarse_graph2d_label"] == "轴承件"
+    assert row["coarse_filename_label"] == "轴承件"
+    assert row["coarse_titleblock_label"] == "轴承件"
+    assert row["coarse_hybrid_label"] == "轴承件"
     assert row["history_label"] == "轴承件"
     assert row["history_used_for_fusion"] is False
     assert row["history_input_resolved"] is True
