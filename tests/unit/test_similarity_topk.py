@@ -78,3 +78,61 @@ def test_similarity_topk_exposes_coarse_contract_metadata():
     finally:
         for vid in ids:
             client.post("/api/v1/vectors/delete", json={"id": vid}, headers={"X-API-Key": "test"})
+
+
+def test_similarity_topk_supports_coarse_contract_filters():
+    ids = {
+        "topk-filter-a": {
+            "vector": [0.21] * 7,
+            "meta": {
+                "part_type": "人孔",
+                "fine_part_type": "人孔",
+                "coarse_part_type": "开孔件",
+                "final_decision_source": "hybrid",
+                "is_coarse_label": "false",
+            },
+        },
+        "topk-filter-b": {
+            "vector": [0.22] * 7,
+            "meta": {
+                "part_type": "法兰",
+                "fine_part_type": "法兰",
+                "coarse_part_type": "法兰",
+                "final_decision_source": "filename",
+                "is_coarse_label": "true",
+            },
+        },
+    }
+    try:
+        for vid, payload in ids.items():
+            register = client.post(
+                "/api/v1/vectors/register",
+                json={"id": vid, **payload},
+                headers={"X-API-Key": "test"},
+            )
+            assert register.status_code == 200
+
+        resp = client.post(
+            "/api/v1/analyze/similarity/topk",
+            json={
+                "target_id": "topk-filter-a",
+                "k": 3,
+                "exclude_self": False,
+                "coarse_part_type_filter": "开孔件",
+                "decision_source_filter": "hybrid",
+                "is_coarse_label_filter": False,
+            },
+            headers={"X-API-Key": "test"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["results"]
+        ids_out = {item["id"] for item in data["results"]}
+        assert "topk-filter-a" in ids_out
+        assert "topk-filter-b" not in ids_out
+        assert all(item["coarse_part_type"] == "开孔件" for item in data["results"])
+        assert all(item["decision_source"] == "hybrid" for item in data["results"])
+        assert all(item["is_coarse_label"] is False for item in data["results"])
+    finally:
+        for vid in ids:
+            client.post("/api/v1/vectors/delete", json={"id": vid}, headers={"X-API-Key": "test"})

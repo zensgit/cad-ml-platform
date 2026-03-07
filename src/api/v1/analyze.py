@@ -357,6 +357,13 @@ class SimilarityTopKQuery(BaseModel):
     offset: int = Field(default=0, description="结果偏移用于分页")
     material_filter: Optional[str] = Field(default=None, description="按材料过滤")
     complexity_filter: Optional[str] = Field(default=None, description="按复杂度过滤")
+    fine_part_type_filter: Optional[str] = Field(default=None, description="按细分类过滤")
+    coarse_part_type_filter: Optional[str] = Field(default=None, description="按粗分类过滤")
+    decision_source_filter: Optional[str] = Field(default=None, description="按决策来源过滤")
+    is_coarse_label_filter: Optional[bool] = Field(
+        default=None,
+        description="是否按 coarse label 标记过滤",
+    )
 
 
 class SimilarityTopKItem(BaseModel):
@@ -378,6 +385,34 @@ class SimilarityTopKResponse(BaseModel):
     results: list[SimilarityTopKItem]
     status: Optional[str] = None
     error: Optional[Dict[str, Any]] = None
+
+
+def _matches_similarity_topk_filters(
+    payload: SimilarityTopKQuery,
+    meta: Dict[str, Any],
+    label_contract: Dict[str, Any],
+) -> bool:
+    if payload.material_filter and meta.get("material") != payload.material_filter:
+        return False
+    if payload.complexity_filter and meta.get("complexity") != payload.complexity_filter:
+        return False
+    if payload.fine_part_type_filter and (
+        label_contract.get("fine_part_type") != payload.fine_part_type_filter
+    ):
+        return False
+    if payload.coarse_part_type_filter and (
+        label_contract.get("coarse_part_type") != payload.coarse_part_type_filter
+    ):
+        return False
+    if payload.decision_source_filter and (
+        label_contract.get("decision_source") != payload.decision_source_filter
+    ):
+        return False
+    if payload.is_coarse_label_filter is not None and (
+        label_contract.get("is_coarse_label") is not payload.is_coarse_label_filter
+    ):
+        return False
+    return True
 
 
 class VectorDeleteRequest(BaseModel):  # deprecated moved to vectors.py
@@ -2670,14 +2705,9 @@ async def similarity_topk(
         if payload.exclude_self and vid == payload.target_id:
             continue
         meta = meta_store.meta(vid) or {}
-        if payload.material_filter and meta.get("material") != payload.material_filter:
-            continue
-        if (
-            payload.complexity_filter
-            and meta.get("complexity") != payload.complexity_filter
-        ):
-            continue
         label_contract = extract_vector_label_contract(meta)
+        if not _matches_similarity_topk_filters(payload, meta, label_contract):
+            continue
         items.append(
             SimilarityTopKItem(
                 id=vid,
