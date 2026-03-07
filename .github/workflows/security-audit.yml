@@ -198,7 +198,7 @@ jobs:
 
       - name: Comment on PR
         if: github.event_name == 'pull_request' && always()
-        uses: actions/github-script@v6
+        uses: actions/github-script@v8
         continue-on-error: true
         with:
           script: |
