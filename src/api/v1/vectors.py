@@ -1099,6 +1099,17 @@ class VectorMigrationPendingResponse(BaseModel):
     distribution_complete: bool = True
 
 
+class VectorMigrationPendingSummaryResponse(BaseModel):
+    target_version: str
+    observed_by_from_version: Dict[str, int]
+    total_pending: Optional[int] = None
+    pending_ratio: Optional[float] = None
+    backend: str = "memory"
+    scanned_vectors: Optional[int] = None
+    scan_limit: Optional[int] = None
+    distribution_complete: bool = True
+
+
 class VectorMigrationPendingRunRequest(BaseModel):
     limit: int = Field(default=50, ge=1, le=200, description="最多处理多少个待迁移向量")
     dry_run: bool = Field(default=False, description="是否只做试运行")
@@ -1632,6 +1643,7 @@ async def _collect_vector_migration_pending_candidates(
         items: list[VectorMigrationPendingItem] = []
         pending_ids: list[str] = []
         total_pending = 0
+        observed_by_from_version: Dict[str, int] = {}
         while scanned < max_scan:
             batch_limit = min(200, max_scan - scanned)
             points, _ = await qdrant_store.list_vectors(
@@ -1647,6 +1659,9 @@ async def _collect_vector_migration_pending_candidates(
                 if from_version == target_version:
                     continue
                 total_pending += 1
+                observed_by_from_version[from_version] = (
+                    observed_by_from_version.get(from_version, 0) + 1
+                )
                 pending_ids.append(str(point.id))
                 if len(items) < limit:
                     items.append(
@@ -1667,6 +1682,7 @@ async def _collect_vector_migration_pending_candidates(
             "pending_ids": pending_ids[:limit],
             "listed_count": len(items),
             "total_pending": total_pending if distribution_complete else None,
+            "observed_by_from_version": observed_by_from_version,
             "backend": "qdrant",
             "scanned_vectors": scanned,
             "scan_limit": scan_limit,
@@ -1679,6 +1695,7 @@ async def _collect_vector_migration_pending_candidates(
     pending_ids: list[str] = []
     scanned = 0
     total_pending = 0
+    observed_by_from_version: Dict[str, int] = {}
     for vid, meta in _VECTOR_META.items():
         if vid not in _VECTOR_STORE:
             continue
@@ -1687,6 +1704,7 @@ async def _collect_vector_migration_pending_candidates(
         if from_version == target_version:
             continue
         total_pending += 1
+        observed_by_from_version[from_version] = observed_by_from_version.get(from_version, 0) + 1
         pending_ids.append(str(vid))
         if len(items) < limit:
             items.append(
@@ -1703,6 +1721,7 @@ async def _collect_vector_migration_pending_candidates(
         "pending_ids": pending_ids[:limit],
         "listed_count": len(items),
         "total_pending": total_pending,
+        "observed_by_from_version": observed_by_from_version,
         "backend": "memory",
         "scanned_vectors": scanned,
         "scan_limit": scan_limit,
@@ -1723,6 +1742,29 @@ async def migrate_pending(limit: int = 50, api_key: str = Depends(get_api_key)):
         items=pending["items"],
         listed_count=pending["listed_count"],
         total_pending=pending["total_pending"],
+        backend=pending["backend"],
+        scanned_vectors=pending["scanned_vectors"],
+        scan_limit=pending["scan_limit"],
+        distribution_complete=pending["distribution_complete"],
+    )
+
+
+@router.get("/migrate/pending/summary", response_model=VectorMigrationPendingSummaryResponse)
+async def migrate_pending_summary(api_key: str = Depends(get_api_key)):
+    target_version = _resolve_vector_migration_target_version()
+    pending = await _collect_vector_migration_pending_candidates(
+        limit=1,
+        target_version=target_version,
+    )
+    pending_ratio: Optional[float] = None
+    if pending["distribution_complete"]:
+        scanned_vectors = int(pending["scanned_vectors"] or 0)
+        pending_ratio = round(int(pending["total_pending"] or 0) / max(scanned_vectors, 1), 4)
+    return VectorMigrationPendingSummaryResponse(
+        target_version=pending["target_version"],
+        observed_by_from_version=pending["observed_by_from_version"],
+        total_pending=pending["total_pending"],
+        pending_ratio=pending_ratio,
         backend=pending["backend"],
         scanned_vectors=pending["scanned_vectors"],
         scan_limit=pending["scan_limit"],
