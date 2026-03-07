@@ -39,6 +39,8 @@ def test_vector_migration_plan_memory_returns_ranked_batches():
     assert data["pending_ratio"] == 0.8
     assert data["max_batches"] == 2
     assert data["default_run_limit"] == 1
+    assert data["estimated_runs_by_version"] == {"v3": 1, "v2": 2, "v1": 1}
+    assert data["estimated_total_runs"] == 4
     assert data["batches"] == [
         {
             "priority": 1,
@@ -109,6 +111,8 @@ def test_vector_migration_plan_qdrant_partial_requires_override():
     assert data["distribution_complete"] is False
     assert data["total_pending"] is None
     assert data["pending_ratio"] is None
+    assert data["estimated_runs_by_version"] == {"v3": 1}
+    assert data["estimated_total_runs"] == 1
     assert data["batches"] == [
         {
             "priority": 1,
@@ -154,6 +158,8 @@ def test_vector_migration_plan_applies_from_version_filter():
     assert data["recommended_from_versions"] == ["v2"]
     assert data["largest_pending_from_version"] == "v2"
     assert data["largest_pending_count"] == 2
+    assert data["estimated_runs_by_version"] == {"v2": 1}
+    assert data["estimated_total_runs"] == 1
     assert data["batches"] == [
         {
             "priority": 1,

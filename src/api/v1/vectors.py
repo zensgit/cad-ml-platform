@@ -1140,6 +1140,8 @@ class VectorMigrationPlanResponse(BaseModel):
     distribution_complete: bool = True
     max_batches: int
     default_run_limit: int
+    estimated_total_runs: int = 0
+    estimated_runs_by_version: Dict[str, int] = Field(default_factory=dict)
     batches: List[VectorMigrationPlanBatch] = Field(default_factory=list)
 
 
@@ -1927,6 +1929,10 @@ async def migrate_plan(
             pending["backend"] == "qdrant" and not pending["distribution_complete"]
         ),
     )
+    estimated_runs_by_version = {
+        str(from_version): max((int(count) + default_run_limit - 1) // default_run_limit, 1)
+        for from_version, count in pending["observed_by_from_version"].items()
+    }
     return VectorMigrationPlanResponse(
         target_version=pending["target_version"],
         from_version_filter=pending["from_version_filter"],
@@ -1942,6 +1948,8 @@ async def migrate_plan(
         distribution_complete=pending["distribution_complete"],
         max_batches=max_batches,
         default_run_limit=default_run_limit,
+        estimated_total_runs=sum(estimated_runs_by_version.values()),
+        estimated_runs_by_version=estimated_runs_by_version,
         batches=batches,
     )
 
