@@ -144,6 +144,17 @@ def _priority_rank(priority: Optional[str]) -> int:
     return order.get(str(priority or "").strip().lower(), -1)
 
 
+def _sample_type_rank(sample_type: Optional[str]) -> int:
+    order = {
+        "review": 0,
+        "low_confidence": 1,
+        "hybrid_rejection": 2,
+        "branch_conflict": 3,
+        "knowledge_conflict": 4,
+    }
+    return order.get(str(sample_type or "").strip().lower(), -1)
+
+
 class ActiveLearner:
     """Manages active learning samples and feedback collection."""
 
@@ -340,6 +351,101 @@ class ActiveLearner:
         """Get pending samples for review."""
         pending = [s for s in self._samples.values() if s.status == SampleStatus.PENDING]
         return [_normalize_sample(sample) for sample in pending[:limit]]
+
+    def get_review_queue(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        status: str = "pending",
+        sample_type: Optional[str] = None,
+        feedback_priority: Optional[str] = None,
+        sort_by: str = "priority",
+    ) -> Dict[str, Any]:
+        """Return a ranked review queue with filtering and lightweight summary."""
+        normalized_status = str(status or "pending").strip().lower() or "pending"
+        normalized_sample_type = str(sample_type or "").strip() or None
+        normalized_priority = str(feedback_priority or "").strip() or None
+        normalized_sort_by = str(sort_by or "priority").strip().lower() or "priority"
+
+        samples = [_normalize_sample(sample) for sample in self._samples.values()]
+        if normalized_status != "all":
+            samples = [
+                sample
+                for sample in samples
+                if sample.status.value == normalized_status
+            ]
+        if normalized_sample_type:
+            samples = [
+                sample
+                for sample in samples
+                if _derive_sample_type(sample) == normalized_sample_type
+            ]
+        if normalized_priority:
+            samples = [
+                sample
+                for sample in samples
+                if _derive_feedback_priority(sample) == normalized_priority
+            ]
+
+        summary: Dict[str, Any] = {
+            "status": normalized_status,
+            "total": len(samples),
+            "by_sample_type": {},
+            "by_feedback_priority": {},
+        }
+        for sample in samples:
+            derived_sample_type = _derive_sample_type(sample)
+            derived_priority = _derive_feedback_priority(sample)
+            summary["by_sample_type"][derived_sample_type] = (
+                summary["by_sample_type"].get(derived_sample_type, 0) + 1
+            )
+            summary["by_feedback_priority"][derived_priority] = (
+                summary["by_feedback_priority"].get(derived_priority, 0) + 1
+            )
+
+        def _priority_sort_key(sample: ActiveLearningSample) -> tuple[int, int, float, datetime]:
+            return (
+                _priority_rank(_derive_feedback_priority(sample)),
+                _sample_type_rank(_derive_sample_type(sample)),
+                -float(sample.confidence),
+                -sample.created_at.timestamp(),
+            )
+
+        def _confidence_sort_key(sample: ActiveLearningSample) -> tuple[float, int, float]:
+            return (
+                float(sample.confidence),
+                -_priority_rank(_derive_feedback_priority(sample)),
+                sample.created_at.timestamp(),
+            )
+
+        def _created_at_sort_key(sample: ActiveLearningSample) -> tuple[float, int, float]:
+            return (
+                sample.created_at.timestamp(),
+                -_priority_rank(_derive_feedback_priority(sample)),
+                float(sample.confidence),
+            )
+
+        sort_key = _priority_sort_key
+        reverse = True
+        if normalized_sort_by == "confidence":
+            sort_key = _confidence_sort_key
+            reverse = False
+        elif normalized_sort_by == "created_at":
+            sort_key = _created_at_sort_key
+            reverse = False
+
+        ranked = sorted(samples, key=sort_key, reverse=reverse)
+        window = ranked[offset : offset + limit]
+        return {
+            "total": len(ranked),
+            "returned": len(window),
+            "limit": limit,
+            "offset": offset,
+            "has_more": offset + len(window) < len(ranked),
+            "sort_by": normalized_sort_by,
+            "summary": summary,
+            "items": window,
+        }
 
     def get_sample(self, sample_id: str) -> Optional[ActiveLearningSample]:
         """Get a sample by ID."""
