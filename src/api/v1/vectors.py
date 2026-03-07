@@ -1146,6 +1146,9 @@ class VectorMigrationPlanResponse(BaseModel):
     blocking_reasons: List[str] = Field(default_factory=list)
     recommended_first_batch: Optional[VectorMigrationPlanBatch] = None
     recommended_first_request_payload: Optional[Dict[str, Any]] = None
+    planned_pending_count: int = 0
+    remaining_pending_count: Optional[int] = None
+    planned_pending_ratio: Optional[float] = None
     batches: List[VectorMigrationPlanBatch] = Field(default_factory=list)
 
 
@@ -1941,6 +1944,15 @@ async def migrate_plan(
     recommended_first_request_payload = None
     if recommended_first_batch is not None:
         recommended_first_request_payload = dict(recommended_first_batch.request_payload)
+    planned_pending_count = sum(int(batch.pending_count) for batch in batches)
+    remaining_pending_count: Optional[int] = None
+    planned_pending_ratio: Optional[float] = None
+    if pending["distribution_complete"] and pending["total_pending"] is not None:
+        remaining_pending_count = max(int(pending["total_pending"]) - planned_pending_count, 0)
+        planned_pending_ratio = round(
+            planned_pending_count / max(int(pending["total_pending"]), 1),
+            4,
+        )
     estimated_runs_by_version = {
         str(from_version): max((int(count) + default_run_limit - 1) // default_run_limit, 1)
         for from_version, count in pending["observed_by_from_version"].items()
@@ -1966,6 +1978,9 @@ async def migrate_plan(
         blocking_reasons=blocking_reasons,
         recommended_first_batch=recommended_first_batch,
         recommended_first_request_payload=recommended_first_request_payload,
+        planned_pending_count=planned_pending_count,
+        remaining_pending_count=remaining_pending_count,
+        planned_pending_ratio=planned_pending_ratio,
         batches=batches,
     )
 

@@ -43,6 +43,9 @@ def test_vector_migration_plan_memory_returns_ranked_batches():
     assert data["estimated_total_runs"] == 4
     assert data["plan_ready"] is True
     assert data["blocking_reasons"] == []
+    assert data["planned_pending_count"] == 3
+    assert data["remaining_pending_count"] == 1
+    assert data["planned_pending_ratio"] == 0.75
     assert data["recommended_first_request_payload"] == {
         "limit": 1,
         "dry_run": True,
@@ -137,6 +140,9 @@ def test_vector_migration_plan_qdrant_partial_requires_override():
     assert data["estimated_total_runs"] == 1
     assert data["plan_ready"] is False
     assert data["blocking_reasons"] == ["partial_scan_override_required"]
+    assert data["planned_pending_count"] == 1
+    assert data["remaining_pending_count"] is None
+    assert data["planned_pending_ratio"] is None
     assert data["recommended_first_request_payload"] == {
         "limit": 1,
         "dry_run": True,
@@ -206,6 +212,9 @@ def test_vector_migration_plan_applies_from_version_filter():
     assert data["estimated_total_runs"] == 1
     assert data["plan_ready"] is True
     assert data["blocking_reasons"] == []
+    assert data["planned_pending_count"] == 2
+    assert data["remaining_pending_count"] == 0
+    assert data["planned_pending_ratio"] == 1.0
     assert data["recommended_first_request_payload"] == {
         "limit": 2,
         "dry_run": True,
