@@ -87,6 +87,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_check_row_count=" in review_script
     assert "standards_candidate_row_count=" in review_script
     assert "top_knowledge_conflicts=" in review_script
+    assert "top_review_priorities=" in review_script
+    assert "top_confidence_bands=" in review_script
     assert "top_knowledge_check_categories=" in review_script
     assert "top_standard_candidate_types=" in review_script
     assert "top_knowledge_hint_labels=" in review_script
@@ -152,6 +154,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Graph2D review gate status" in summary_script
     assert "Graph2D review gate headline" in summary_script
     assert "Graph2D review top reasons" in summary_script
+    assert "Graph2D review priorities" in summary_script
+    assert "Graph2D review confidence bands" in summary_script
     assert "Graph2D review coarse labels" in summary_script
     assert "Graph2D review fine labels" in summary_script
     assert "Graph2D review rejection reasons" in summary_script
@@ -178,6 +182,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Graph2D Train Sweep" in pr_comment_script
     assert "Graph2D Review Insights" in pr_comment_script
     assert "knowledge=" in pr_comment_script
+    assert "priorities=" in pr_comment_script
+    assert "bands=" in pr_comment_script
     assert "Graph2D Signal Lights" in pr_comment_script
     assert "reviewTopShadowSources" in pr_comment_script
     assert "script=${sweepBestRunScript}" in pr_comment_script

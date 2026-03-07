@@ -101,6 +101,11 @@ def test_analyze_dxf_exposes_coarse_labels_and_knowledge_outputs(monkeypatch):
     assert classification.get("coarse_filename_label") == "开孔件"
     assert classification.get("coarse_graph2d_label") == "传动件"
     assert classification.get("has_branch_conflict") is True
+    assert classification.get("needs_review") is True
+    assert classification.get("confidence_band") == "high"
+    assert classification.get("review_priority") == "critical"
+    assert "knowledge_conflict" in (classification.get("review_reasons") or [])
+    assert "branch_conflict" in (classification.get("review_reasons") or [])
 
     knowledge_checks = classification.get("knowledge_checks") or []
     categories = {item.get("category") for item in knowledge_checks}

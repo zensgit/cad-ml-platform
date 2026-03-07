@@ -192,6 +192,10 @@ def _has_conflict(row: Dict[str, Any]) -> bool:
     return hybrid_label != graph2d_label
 
 
+def _existing_review_reasons(row: Dict[str, Any]) -> List[str]:
+    return _split_semicolon_tokens(row.get("review_reasons"))
+
+
 def _priority_score(
     *,
     has_rejection: bool,
@@ -223,33 +227,47 @@ def _collect_candidates(
         confidence = _to_float(row.get("confidence"), default=0.0)
         has_rejection = _has_hybrid_rejection(row)
         has_conflict = _has_conflict(row)
-        low_confidence = confidence <= low_confidence_threshold
-        if not (has_rejection or has_conflict or low_confidence):
+        low_confidence = _to_bool(row.get("review_is_low_confidence")) or (
+            confidence <= low_confidence_threshold
+        )
+        existing_needs_review = _to_bool(row.get("needs_review"))
+        if not (existing_needs_review or has_rejection or has_conflict or low_confidence):
             continue
 
-        reason_parts: List[str] = []
-        if has_rejection:
-            reason_parts.append(
-                f"hybrid_rejected:{_clean_label(row.get('hybrid_rejection_reason')) or 'unknown'}"
-            )
-        if has_conflict:
-            reason_parts.append("hybrid_graph2d_conflict")
-        if low_confidence:
-            reason_parts.append("low_confidence")
+        reason_parts = _existing_review_reasons(row)
+        if not reason_parts:
+            if has_rejection:
+                rejection_reason = (
+                    _clean_label(row.get("hybrid_rejection_reason")) or "unknown"
+                )
+                reason_parts.append(
+                    f"hybrid_rejected:{rejection_reason}"
+                )
+            if has_conflict:
+                reason_parts.append("hybrid_graph2d_conflict")
+            if low_confidence:
+                reason_parts.append("low_confidence")
 
-        score = _priority_score(
-            has_rejection=has_rejection,
-            has_conflict=has_conflict,
-            low_confidence=low_confidence,
-            confidence=confidence,
-            low_confidence_threshold=low_confidence_threshold,
-        )
+        existing_score = row.get("review_priority_score")
+        score = _to_float(existing_score, default=-1.0)
+        if score < 0.0:
+            score = _priority_score(
+                has_rejection=has_rejection,
+                has_conflict=has_conflict,
+                low_confidence=low_confidence,
+                confidence=confidence,
+                low_confidence_threshold=low_confidence_threshold,
+            )
         out = dict(row)
         out["review_priority_score"] = f"{score:.3f}"
+        out["review_priority"] = _clean_label(row.get("review_priority"))
         out["review_reasons"] = ";".join(reason_parts)
         out["review_has_hybrid_rejection"] = has_rejection
         out["review_has_hybrid_graph2d_conflict"] = has_conflict
         out["review_is_low_confidence"] = low_confidence
+        out["review_confidence_band"] = _clean_label(
+            row.get("confidence_band") or row.get("review_confidence_band")
+        )
         out["review_coarse_label"] = _coarse_label(row)
         out["review_fine_label"] = _fine_label(row)
         out["review_rejection_reason"] = _rejection_reason(row)
@@ -324,6 +342,8 @@ def _build_summary(
     low_confidence_threshold: float,
 ) -> Dict[str, Any]:
     review_reason_counter: Counter[str] = Counter()
+    review_priority_counter: Counter[str] = Counter()
+    confidence_band_counter: Counter[str] = Counter()
     coarse_label_counter: Counter[str] = Counter()
     fine_label_counter: Counter[str] = Counter()
     rejection_reason_counter: Counter[str] = Counter()
@@ -338,6 +358,12 @@ def _build_summary(
 
     for row in candidate_rows:
         review_reason_counter.update(_split_semicolon_tokens(row.get("review_reasons")))
+        review_priority = _clean_label(row.get("review_priority"))
+        if review_priority:
+            review_priority_counter[review_priority] += 1
+        confidence_band = _clean_label(row.get("review_confidence_band"))
+        if confidence_band:
+            confidence_band_counter[confidence_band] += 1
         coarse_label_counter.update(_split_semicolon_tokens(row.get("review_coarse_label")))
         fine_label_counter.update(_split_semicolon_tokens(row.get("review_fine_label")))
         rejection_reason_counter.update(
@@ -372,6 +398,8 @@ def _build_summary(
                     "file": _clean_label(row.get("file")),
                     "coarse_label": _clean_label(row.get("review_coarse_label")),
                     "fine_label": _clean_label(row.get("review_fine_label")),
+                    "review_priority": _clean_label(row.get("review_priority")),
+                    "confidence_band": _clean_label(row.get("review_confidence_band")),
                     "rejection_reason": _clean_label(row.get("review_rejection_reason")),
                     "knowledge_conflict": _clean_label(
                         row.get("review_knowledge_conflict")
@@ -426,6 +454,8 @@ def _build_summary(
             if _clean_label(row.get("review_standard_candidate_types"))
         ),
         "top_review_reasons": _top_named_counts(review_reason_counter),
+        "top_review_priorities": _top_named_counts(review_priority_counter),
+        "top_confidence_bands": _top_named_counts(confidence_band_counter),
         "top_coarse_labels": _top_named_counts(coarse_label_counter),
         "top_fine_labels": _top_named_counts(fine_label_counter),
         "top_rejection_reasons": _top_named_counts(rejection_reason_counter),
