@@ -33,6 +33,9 @@ def test_vector_migration_pending_summary_memory():
     assert data["total_pending"] == 3
     assert data["pending_ratio"] == 0.75
     assert data["observed_by_from_version"] == {"v3": 1, "v2": 2}
+    assert data["recommended_from_versions"] == ["v2", "v3"]
+    assert data["largest_pending_from_version"] == "v2"
+    assert data["largest_pending_count"] == 2
 
 
 def test_vector_migration_pending_summary_qdrant_complete():
@@ -137,3 +140,6 @@ def test_vector_migration_pending_summary_applies_from_version_filter():
     assert data["total_pending"] == 2
     assert data["pending_ratio"] == 0.5
     assert data["observed_by_from_version"] == {"v2": 2}
+    assert data["recommended_from_versions"] == ["v2"]
+    assert data["largest_pending_from_version"] == "v2"
+    assert data["largest_pending_count"] == 2

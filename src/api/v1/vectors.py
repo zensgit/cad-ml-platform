@@ -1104,6 +1104,9 @@ class VectorMigrationPendingSummaryResponse(BaseModel):
     target_version: str
     from_version_filter: Optional[str] = None
     observed_by_from_version: Dict[str, int]
+    recommended_from_versions: List[str] = Field(default_factory=list)
+    largest_pending_from_version: Optional[str] = None
+    largest_pending_count: Optional[int] = None
     total_pending: Optional[int] = None
     pending_ratio: Optional[float] = None
     backend: str = "memory"
@@ -1781,6 +1784,21 @@ async def migrate_pending_summary(
         from_version_filter=from_version_filter,
     )
     pending_ratio: Optional[float] = None
+    recommended_from_versions = [
+        key
+        for key, _ in sorted(
+            pending["observed_by_from_version"].items(),
+            key=lambda item: (-int(item[1]), str(item[0])),
+        )
+    ]
+    largest_pending_from_version = (
+        recommended_from_versions[0] if recommended_from_versions else None
+    )
+    largest_pending_count = None
+    if largest_pending_from_version is not None:
+        largest_pending_count = int(
+            pending["observed_by_from_version"].get(largest_pending_from_version, 0)
+        )
     if pending["distribution_complete"]:
         scanned_vectors = int(pending["scanned_vectors"] or 0)
         pending_ratio = round(int(pending["total_pending"] or 0) / max(scanned_vectors, 1), 4)
@@ -1788,6 +1806,9 @@ async def migrate_pending_summary(
         target_version=pending["target_version"],
         from_version_filter=pending["from_version_filter"],
         observed_by_from_version=pending["observed_by_from_version"],
+        recommended_from_versions=recommended_from_versions,
+        largest_pending_from_version=largest_pending_from_version,
+        largest_pending_count=largest_pending_count,
         total_pending=pending["total_pending"],
         pending_ratio=pending_ratio,
         backend=pending["backend"],
