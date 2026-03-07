@@ -1,5 +1,5 @@
 {
-  "components_schema_count": 229,
+  "components_schema_count": 230,
   "components_schema_names": [
     "ActiveLearningSample",
     "AlternativeItem",
@@ -168,6 +168,7 @@
     "RecommendationItem",
     "RecommendationPropertiesItem",
     "RecommendationResponse",
+    "ReviewQueueExportResponse",
     "ReviewQueueResponse",
     "ReviewQueueStatsResponse",
     "ReviewQueueSummaryResponse",
@@ -232,8 +233,8 @@
     "WeldingType"
   ],
   "openapi": "3.1.0",
-  "operation_count": 185,
-  "path_count": 180,
+  "operation_count": 186,
+  "path_count": 181,
   "paths": {
     "/": {
       "get": {
@@ -278,6 +279,16 @@
       "get": {
         "deprecated": false,
         "operationId": "get_review_queue_api_v1_active_learning_review_queue_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/active-learning/review-queue/export": {
+      "get": {
+        "deprecated": false,
+        "operationId": "export_review_queue_api_v1_active_learning_review_queue_export_get",
         "responses": [
           "200",
           "422"

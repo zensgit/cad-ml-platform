@@ -1,3 +1,5 @@
+import csv
+import json
 from pathlib import Path
 
 import pytest
@@ -256,6 +258,48 @@ def test_active_learning_review_queue_summary_includes_decision_source_and_reaso
     assert summary["by_uncertainty_reason"]["low_confidence"] == 1
     assert summary["by_review_reason"]["missing_critical_fields"] == 1
     assert summary["by_review_reason"]["low_confidence"] == 1
+
+
+def test_active_learning_review_queue_export_csv(client):
+    learner = get_active_learner()
+    learner.flag_for_review(
+        doc_id="doc-export-1",
+        predicted_type="法兰",
+        confidence=0.55,
+        alternatives=[],
+        score_breakdown={
+            "final_decision_source": "hybrid",
+            "review_reasons": ["missing_critical_fields"],
+        },
+        uncertainty_reason="low_confidence",
+    )
+
+    resp = client.get("/api/v1/active-learning/review-queue/export")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["count"] == 1
+    assert body["format"] == "csv"
+    assert body["summary"]["by_decision_source"]["hybrid"] == 1
+
+    export_path = Path(body["file"])
+    assert export_path.exists()
+    with export_path.open() as handle:
+        rows = list(csv.DictReader(handle))
+    assert len(rows) == 1
+    assert rows[0]["doc_id"] == "doc-export-1"
+    assert json.loads(rows[0]["review_reasons"]) == ["missing_critical_fields"]
+
+
+def test_active_learning_review_queue_export_jsonl_empty_returns_error(client):
+    resp = client.get(
+        "/api/v1/active-learning/review-queue/export",
+        params={"format": "jsonl"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "error"
+    assert "No review queue samples to export" in body["message"]
 
 
 def test_active_learning_review_queue_stats_endpoint(client):

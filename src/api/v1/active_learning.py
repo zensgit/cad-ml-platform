@@ -86,6 +86,16 @@ class ReviewQueueResponse(BaseModel):
     items: List[ActiveLearningSample] = Field(default_factory=list)
 
 
+class ReviewQueueExportResponse(BaseModel):
+    status: str
+    count: Optional[int] = None
+    file: Optional[str] = None
+    format: Optional[str] = None
+    sort_by: Optional[str] = None
+    summary: Optional[ReviewQueueSummaryResponse] = None
+    message: Optional[str] = None
+
+
 @router.get("/pending", response_model=List[ActiveLearningSample])
 async def get_pending_samples(
     limit: int = 10,
@@ -143,6 +153,39 @@ async def get_review_queue_stats(
         feedback_priority=feedback_priority,
     )
     return ReviewQueueStatsResponse(**payload)
+
+
+@router.get("/review-queue/export", response_model=ReviewQueueExportResponse)
+async def export_review_queue(
+    status: str = "pending",
+    sample_type: Optional[str] = None,
+    feedback_priority: Optional[str] = None,
+    sort_by: str = "priority",
+    format: str = "csv",  # noqa: A002
+    api_key: str = Depends(get_api_key),
+):
+    """导出审核队列，便于人工复核与 benchmark 样本整理。"""
+    learner = get_active_learner()
+    payload = learner.export_review_queue(
+        status=status,
+        sample_type=sample_type,
+        feedback_priority=feedback_priority,
+        sort_by=sort_by,
+        format=format,
+    )
+    if payload.get("status") != "ok":
+        return ReviewQueueExportResponse(
+            status="error",
+            message=str(payload.get("message", "Export failed")),
+        )
+    return ReviewQueueExportResponse(
+        status="ok",
+        count=payload.get("count"),
+        file=payload.get("file"),
+        format=payload.get("format"),
+        sort_by=payload.get("sort_by"),
+        summary=ReviewQueueSummaryResponse(**payload.get("summary", {})),
+    )
 
 
 @router.post("/feedback", response_model=FeedbackResponse)
