@@ -16,6 +16,7 @@ from src.core.assembly.confidence_calibrator import ConfidenceCalibrationSystem
 from src.core.errors import ErrorCode
 from src.core.ocr.exceptions import OcrError
 from src.core.ocr.manager import OcrManager
+from src.core.ocr.parsing.identifier_parser import build_field_evidence
 from src.core.providers import ProviderRegistry, bootstrap_core_provider_registry
 from src.middleware.rate_limit import rate_limit
 from src.security.input_validator import validate_and_read, validate_bytes
@@ -66,6 +67,10 @@ class OcrResponse(BaseModel):
     identifiers: List[Dict[str, Any]] = Field(
         default_factory=list,
         description="Structured identifiers with OCR evidence",
+    )
+    field_evidence: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Per-field OCR evidence derived from identifiers",
     )
     material: Optional[str] = Field(
         None, description="Extracted material from title block"
@@ -176,6 +181,7 @@ def _input_error_response(provider: str, detail: str) -> OcrResponse:
         symbols=[],
         title_block={},
         identifiers=[],
+        field_evidence={},
         material=None,
         material_info=None,
         process_requirements=None,
@@ -213,6 +219,7 @@ async def _run_ocr_extract(
             symbols=[],
             title_block={},
             identifiers=[],
+            field_evidence={},
             material=None,
             material_info=None,
             process_requirements=None,
@@ -320,6 +327,7 @@ async def _run_ocr_extract(
         symbols=[s.model_dump() for s in result.symbols],
         title_block=result.title_block.model_dump(),
         identifiers=[identifier.model_dump() for identifier in result.identifiers],
+        field_evidence=build_field_evidence(result.identifiers),
         material=result.title_block.material,
         material_info=material_info,
         process_requirements=(
@@ -395,6 +403,7 @@ async def ocr_extract(
             symbols=[],
             title_block={},
             identifiers=[],
+            field_evidence={},
             material=None,
             material_info=None,
             process_requirements=None,
@@ -424,6 +433,7 @@ async def ocr_extract(
             symbols=[],
             title_block={},
             identifiers=[],
+            field_evidence={},
             material=None,
             material_info=None,
             process_requirements=None,
