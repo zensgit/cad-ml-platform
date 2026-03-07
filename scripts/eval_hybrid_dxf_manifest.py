@@ -13,7 +13,7 @@ import time
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -59,13 +59,17 @@ def _canonicalize_label(label: Optional[str], alias_map: Dict[str, str]) -> str:
     return alias_map.get(cleaned.lower(), cleaned)
 
 
-def _normalize_eval_label(label: Optional[str], alias_map: Dict[str, str]) -> str:
-    from src.ml.label_normalization import normalize_dxf_label
+def _exact_eval_label(label: Optional[str], alias_map: Dict[str, str]) -> str:
+    return _canonicalize_label(label, alias_map)
+
+
+def _coarse_eval_label(label: Optional[str], alias_map: Dict[str, str]) -> str:
+    from src.core.classification import normalize_coarse_label
 
     canonical = _canonicalize_label(label, alias_map)
     if not canonical:
         return ""
-    return normalize_dxf_label(canonical)
+    return str(normalize_coarse_label(canonical) or "")
 
 
 @dataclass
@@ -124,6 +128,7 @@ def _score_rows(
     *,
     branch_to_column: Dict[str, str],
     alias_map: Dict[str, str],
+    normalizer: Callable[[Optional[str], Dict[str, str]], str],
 ) -> Dict[str, Dict[str, Any]]:
     summary: Dict[str, Dict[str, Any]] = {}
     for branch, column in branch_to_column.items():
@@ -132,8 +137,8 @@ def _score_rows(
         missing = 0
         confusion: Counter[Tuple[str, str]] = Counter()
         for row in rows:
-            true_label = _normalize_eval_label(row.get("true_label"), alias_map)
-            pred_label = _normalize_eval_label(row.get(column), alias_map)
+            true_label = normalizer(row.get("true_label"), alias_map)
+            pred_label = normalizer(row.get(column), alias_map)
             if not true_label:
                 continue
             if not pred_label:
@@ -227,20 +232,28 @@ def _build_ok_row(case: EvalCase, results_payload: Dict[str, Any]) -> Dict[str, 
         "relative_path": case.relative_path,
         "source_dir": case.source_dir,
         "true_label": case.true_label,
+        "true_label_exact": case.true_label,
+        "true_label_coarse": _coarse_eval_label(case.true_label, {}),
         "status": "ok",
         "part_type": classification.get("part_type"),
         "confidence": classification.get("confidence"),
+        "coarse_part_type": classification.get("coarse_part_type"),
         "fine_part_type": classification.get("fine_part_type"),
         "fine_confidence": classification.get("fine_confidence"),
+        "coarse_fine_part_type": classification.get("coarse_fine_part_type"),
         "graph2d_label": graph2d.get("label"),
         "graph2d_confidence": graph2d.get("confidence"),
+        "coarse_graph2d_label": classification.get("coarse_graph2d_label"),
         "filename_label": filename_pred.get("label"),
         "filename_confidence": filename_pred.get("confidence"),
+        "coarse_filename_label": classification.get("coarse_filename_label"),
         "titleblock_label": titleblock_pred.get("label"),
         "titleblock_confidence": titleblock_pred.get("confidence"),
+        "coarse_titleblock_label": classification.get("coarse_titleblock_label"),
         "hybrid_label": hybrid_decision.get("label"),
         "hybrid_confidence": hybrid_decision.get("confidence"),
         "hybrid_source": hybrid_decision.get("source"),
+        "coarse_hybrid_label": classification.get("coarse_hybrid_label"),
         "decision_path": json.dumps(
             hybrid_decision.get("decision_path") or [],
             ensure_ascii=False,
@@ -419,6 +432,20 @@ def main(argv: Optional[List[str]] = None) -> int:
             "fine_part_type": "fine_part_type",
         },
         alias_map=alias_map,
+        normalizer=_coarse_eval_label,
+    )
+    exact_accuracy = _score_rows(
+        ok_rows,
+        branch_to_column={
+            "final_part_type": "part_type",
+            "graph2d_label": "graph2d_label",
+            "filename_label": "filename_label",
+            "titleblock_label": "titleblock_label",
+            "hybrid_label": "hybrid_label",
+            "fine_part_type": "fine_part_type",
+        },
+        alias_map=alias_map,
+        normalizer=_exact_eval_label,
     )
 
     def _confidence_stats(rows_in: List[Dict[str, Any]], column: str) -> Dict[str, Any]:
@@ -458,6 +485,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             "graph2d_model_path": bool(str(args.graph2d_model_path or "").strip()),
         },
         "accuracy": accuracy,
+        "exact_accuracy": exact_accuracy,
+        "coarse_accuracy": accuracy,
         "confidence": {
             "final_part_type": _confidence_stats(ok_rows, "confidence"),
             "graph2d_label": _confidence_stats(ok_rows, "graph2d_confidence"),
