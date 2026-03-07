@@ -14,12 +14,56 @@ from typing import Any, Dict, List, Optional
 
 import anyio
 
+from src.core.classification.coarse_labels import normalize_coarse_label
 from src.core.dedupcad_precision import GeomJsonStoreProtocol, PrecisionVerifier
 from src.core.dedupcad_precision.vendor.json_diff import compare_json
 from src.core.dedupcad_vision import DedupCadVisionClient
+from src.ml.filename_classifier import get_filename_classifier
 
 _VERSION_GATE_MODES = {"off", "auto", "file_name", "meta"}
 _VERSION_SUFFIX_RE = re.compile(r"(?:[_\-\s]?v\d+)$", re.IGNORECASE)
+
+
+def _build_match_label_contract(match: Dict[str, Any]) -> Dict[str, Any]:
+    file_name = str(match.get("file_name") or "").strip()
+    payload = {
+        "fine_part_type": None,
+        "coarse_part_type": None,
+        "decision_source": None,
+        "is_coarse_label": None,
+    }
+    if not file_name:
+        return payload
+
+    try:
+        prediction = get_filename_classifier().predict(file_name)
+    except Exception:
+        return payload
+
+    fine_type = str(prediction.get("label") or "").strip() or None
+    coarse_type = normalize_coarse_label(fine_type)
+    match_type = str(prediction.get("match_type") or "").strip() or "matched"
+    is_coarse_label = None
+    if fine_type and coarse_type:
+        is_coarse_label = fine_type == coarse_type
+
+    payload["fine_part_type"] = fine_type
+    payload["coarse_part_type"] = coarse_type
+    payload["decision_source"] = f"dedup_filename_{match_type}" if fine_type else None
+    payload["is_coarse_label"] = is_coarse_label
+    return payload
+
+
+def _enrich_match_label_contracts(response: Dict[str, Any]) -> Dict[str, Any]:
+    for key in ("duplicates", "similar"):
+        matches = response.get(key) or []
+        if not isinstance(matches, list):
+            continue
+        for match in matches:
+            if not isinstance(match, dict):
+                continue
+            match.update(_build_match_label_contract(match))
+    return response
 
 
 def _normalize_weights(visual_w: float, geom_w: float) -> tuple[float, float]:
@@ -324,6 +368,7 @@ async def run_dedup_2d_pipeline(
         enable_ml=enable_ml,
         enable_geometric=enable_geometric,
     )
+    response = _enrich_match_label_contracts(response)
 
     if query_geom is None:
         return response
@@ -361,7 +406,7 @@ async def run_dedup_2d_pipeline(
         timing["total_ms"] = float(timing.get("total_ms") or 0.0) + precision_ms
     except Exception:
         timing["total_ms"] = precision_ms
-    return response
+    return _enrich_match_label_contracts(response)
 
 
 __all__ = ["run_dedup_2d_pipeline"]

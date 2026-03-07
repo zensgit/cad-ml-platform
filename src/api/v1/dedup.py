@@ -658,6 +658,10 @@ class Dedup2DMatchItem(BaseModel):
     drawing_id: str
     file_hash: str
     file_name: str
+    fine_part_type: Optional[str] = None
+    coarse_part_type: Optional[str] = None
+    decision_source: Optional[str] = None
+    is_coarse_label: Optional[bool] = None
     similarity: float
     visual_similarity: Optional[float] = None
     precision_score: Optional[float] = None
