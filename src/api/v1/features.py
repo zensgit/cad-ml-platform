@@ -25,6 +25,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _get_qdrant_store_or_none():
+    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
+        return None
+    try:
+        from src.core.vector_stores import get_vector_store as get_managed_vector_store
+
+        return get_managed_vector_store("qdrant")
+    except Exception:
+        return None
+
+
 class FeatureSlotDiff(BaseModel):
     """特征槽位差异"""
 
@@ -60,25 +71,56 @@ async def features_diff(id_a: str, id_b: str, api_key: str = Depends(get_api_key
     Returns:
         特征差异详情
     """
-    # Import locally to avoid circular imports
-    from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+    qdrant_store = _get_qdrant_store_or_none()
+    meta_a: Dict[str, Any] = {}
+    meta_b: Dict[str, Any] = {}
+    if qdrant_store is not None:
+        result_a = await qdrant_store.get_vector(id_a)
+        result_b = await qdrant_store.get_vector(id_b)
+        if result_a is None or result_b is None:
+            ext = create_extended_error(
+                ErrorCode.DATA_NOT_FOUND,
+                "Vector not found",
+                stage="features_diff",
+                context={"id": f"{id_a},{id_b}"},
+            )
+            features_diff_requests_total.labels(status="not_found").inc()
+            return FeaturesDiffResponse(
+                id_a=id_a,
+                id_b=id_b,
+                dimension=None,
+                diffs=[],
+                status="not_found",
+                error=ext.to_dict(),
+            )
+        va = list(result_a.vector or [])
+        vb = list(result_b.vector or [])
+        meta_a = dict(result_a.metadata or {})
+        meta_b = dict(result_b.metadata or {})
+    else:
+        # Import locally to avoid circular imports
+        from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
 
-    # Check if both vectors exist
-    if id_a not in _VECTOR_STORE or id_b not in _VECTOR_STORE:
-        ext = create_extended_error(
-            ErrorCode.DATA_NOT_FOUND,
-            "Vector not found",
-            stage="features_diff",
-            context={"id": f"{id_a},{id_b}"},
-        )
-        features_diff_requests_total.labels(status="not_found").inc()
-        return FeaturesDiffResponse(
-            id_a=id_a, id_b=id_b, dimension=None, diffs=[], status="not_found", error=ext.to_dict()
-        )
-
-    # Get vectors
-    va = _VECTOR_STORE[id_a]
-    vb = _VECTOR_STORE[id_b]
+        if id_a not in _VECTOR_STORE or id_b not in _VECTOR_STORE:
+            ext = create_extended_error(
+                ErrorCode.DATA_NOT_FOUND,
+                "Vector not found",
+                stage="features_diff",
+                context={"id": f"{id_a},{id_b}"},
+            )
+            features_diff_requests_total.labels(status="not_found").inc()
+            return FeaturesDiffResponse(
+                id_a=id_a,
+                id_b=id_b,
+                dimension=None,
+                diffs=[],
+                status="not_found",
+                error=ext.to_dict(),
+            )
+        va = _VECTOR_STORE[id_a]
+        vb = _VECTOR_STORE[id_b]
+        meta_a = _VECTOR_META.get(id_a, {})
+        meta_b = _VECTOR_META.get(id_b, {})
 
     # Check dimension match
     if len(va) != len(vb):
@@ -96,10 +138,9 @@ async def features_diff(id_a: str, id_b: str, api_key: str = Depends(get_api_key
         )
 
     # Build per-slot diff using feature_slots if available
-    slots_a = _VECTOR_META.get(id_a, {}).get("feature_version")
     feature_version = (
-        slots_a
-        or _VECTOR_META.get(id_b, {}).get("feature_version")
+        meta_a.get("feature_version")
+        or meta_b.get("feature_version")
         or os.getenv("FEATURE_VERSION", "v1")
     )
 
