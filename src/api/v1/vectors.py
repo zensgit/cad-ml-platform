@@ -1017,6 +1017,9 @@ class VectorMigrationSummaryResponse(BaseModel):
     total_migrations: int
     history_size: int
     statuses: List[str]
+    backend: str = "memory"
+    current_version_distribution: Optional[Dict[str, int]] = None
+    current_total_vectors: Optional[int] = None
 
 
 class VectorMigrationPreviewResponse(BaseModel):
@@ -1423,11 +1426,34 @@ async def migrate_summary(api_key: str = Depends(get_api_key)):
             aggregate[k] = aggregate.get(k, 0) + int(v)
     total_migrations = sum(aggregate.values())
     statuses = sorted(aggregate.keys())
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        current_version_distribution, current_total_vectors, _ = await _collect_qdrant_feature_versions(
+            qdrant_store
+        )
+        backend = "qdrant"
+    else:
+        from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+
+        current_version_distribution = {}
+        current_total_vectors = 0
+        for vid, meta in _VECTOR_META.items():
+            if vid not in _VECTOR_STORE:
+                continue
+            current_total_vectors += 1
+            version = meta.get("feature_version", "unknown")
+            current_version_distribution[version] = (
+                current_version_distribution.get(version, 0) + 1
+            )
+        backend = "memory"
     return VectorMigrationSummaryResponse(
         counts=aggregate,
         total_migrations=total_migrations,
         history_size=len(history),
         statuses=statuses,
+        backend=backend,
+        current_version_distribution=current_version_distribution,
+        current_total_vectors=current_total_vectors,
     )
 
 
