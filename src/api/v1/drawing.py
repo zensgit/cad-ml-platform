@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 import binascii
 import logging
-import re
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -25,6 +24,7 @@ from src.core.errors import ErrorCode
 from src.core.ocr.base import OcrResult, ProcessRequirements, SymbolType, TitleBlock
 from src.core.ocr.exceptions import OcrError
 from src.core.ocr.parsing.identifier_parser import build_field_evidence
+from src.core.ocr.response_summary import build_engineering_signals, build_field_coverage
 from src.middleware.rate_limit import rate_limit
 from src.security.input_validator import validate_and_read, validate_bytes
 from src.utils.idempotency import check_idempotency, store_idempotency
@@ -88,12 +88,6 @@ class DrawingRecognitionResponse(BaseModel):
     code: Optional[ErrorCode] = None
 
 
-STANDARD_CANDIDATE_PATTERN = re.compile(
-    r"(?:GB/T|GB|ISO|DIN|ANSI|ASME|ASTM|JIS|EN)\s*[-/]?\s*[A-Z0-9.\-]+",
-    re.IGNORECASE,
-)
-
-
 def _build_fields(
     title_block: TitleBlock,
     confidence: Optional[float],
@@ -135,81 +129,6 @@ def _build_field_confidence(
         else:
             result[key] = confidence
     return result
-
-
-def _build_field_coverage(title_block: TitleBlock) -> Dict[str, Any]:
-    recognized_keys = [key for key in FIELD_LABELS if getattr(title_block, key, None)]
-    missing_keys = [key for key in FIELD_LABELS if key not in recognized_keys]
-    total_fields = len(FIELD_LABELS)
-    recognized_count = len(recognized_keys)
-    coverage_ratio = (recognized_count / total_fields) if total_fields else 0.0
-    return {
-        "recognized_count": recognized_count,
-        "total_fields": total_fields,
-        "coverage_ratio": round(coverage_ratio, 4),
-        "recognized_keys": recognized_keys,
-        "missing_keys": missing_keys,
-    }
-
-
-def _extract_standard_candidates(process_requirements: ProcessRequirements) -> List[str]:
-    candidates: List[str] = []
-    seen = set()
-
-    def _add(value: Optional[str]) -> None:
-        if not value:
-            return
-        normalized = value.strip()
-        if not normalized:
-            return
-        normalized = re.sub(r"\s+", "", normalized)
-        upper = normalized.upper()
-        if upper in seen:
-            return
-        seen.add(upper)
-        candidates.append(normalized)
-
-    for surface_treatment in process_requirements.surface_treatments:
-        _add(surface_treatment.standard)
-
-    notes_blob = "\n".join(process_requirements.general_notes)
-    if process_requirements.raw_text:
-        notes_blob = f"{notes_blob}\n{process_requirements.raw_text}".strip()
-    for match in STANDARD_CANDIDATE_PATTERN.finditer(notes_blob):
-        _add(match.group(0).replace(" ", ""))
-    return candidates
-
-
-def _build_engineering_signals(result: OcrResult) -> Dict[str, Any]:
-    process_requirements = result.process_requirements
-    symbol_types = sorted({symbol.type.value for symbol in result.symbols})
-    gdt_symbol_types = sorted(
-        {
-            symbol.type.value
-            for symbol in result.symbols
-            if symbol.type != SymbolType.surface_roughness
-        }
-    )
-    materials_detected = []
-    if result.title_block.material:
-        materials_detected.append(result.title_block.material)
-
-    return {
-        "dimension_count": len(result.dimensions),
-        "symbol_count": len(result.symbols),
-        "symbol_types": symbol_types,
-        "gdt_symbol_types": gdt_symbol_types,
-        "has_surface_finish": SymbolType.surface_roughness.value in symbol_types,
-        "has_gdt": bool(gdt_symbol_types),
-        "process_requirement_counts": {
-            "heat_treatments": len(process_requirements.heat_treatments),
-            "surface_treatments": len(process_requirements.surface_treatments),
-            "welding": len(process_requirements.welding),
-            "general_notes": len(process_requirements.general_notes),
-        },
-        "materials_detected": materials_detected,
-        "standards_candidates": _extract_standard_candidates(process_requirements),
-    }
 
 
 def _input_error_response(provider: str, detail: str) -> DrawingRecognitionResponse:
@@ -323,8 +242,13 @@ async def _run_recognition(
         dimensions=[d.model_dump() for d in result.dimensions],
         symbols=[s.model_dump() for s in result.symbols],
         process_requirements=result.process_requirements,
-        field_coverage=_build_field_coverage(result.title_block),
-        engineering_signals=_build_engineering_signals(result),
+        field_coverage=build_field_coverage(result.title_block, FIELD_LABELS.keys()),
+        engineering_signals=build_engineering_signals(
+            title_block=result.title_block,
+            dimensions=[d.model_dump() for d in result.dimensions],
+            symbols=result.symbols,
+            process_requirements=result.process_requirements,
+        ),
     )
 
     logger.info(

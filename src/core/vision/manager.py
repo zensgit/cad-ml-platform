@@ -16,6 +16,7 @@ from typing import Any, Dict, Optional
 import src.core.config as config
 from src.core.errors import ErrorCode
 from src.core.ocr.parsing.identifier_parser import build_field_evidence
+from src.core.ocr.response_summary import build_engineering_signals, build_field_coverage
 from src.core.resilience.adaptive_decorator import adaptive_rate_limit
 from src.utils.metrics import (
     update_vision_error_ema,
@@ -369,6 +370,16 @@ class VisionManager:
                 title_block=title_block_dict,
                 identifiers=identifiers_dict,
                 field_evidence=build_field_evidence(getattr(ocr_raw_result, "identifiers", [])),
+                field_coverage=build_field_coverage(
+                    ocr_raw_result.title_block,
+                    type(ocr_raw_result.title_block).model_fields.keys(),
+                ),
+                engineering_signals=build_engineering_signals(
+                    title_block=ocr_raw_result.title_block,
+                    dimensions=dimensions_dict,
+                    symbols=ocr_raw_result.symbols,
+                    process_requirements=ocr_raw_result.process_requirements,
+                ),
                 fallback_level=getattr(ocr_raw_result, "fallback_level", None),
                 confidence=ocr_raw_result.calibrated_confidence or ocr_raw_result.confidence,
             )
