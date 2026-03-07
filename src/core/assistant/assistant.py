@@ -12,6 +12,7 @@ from enum import Enum
 from .query_analyzer import QueryAnalyzer, AnalyzedQuery, QueryIntent
 from .knowledge_retriever import KnowledgeRetriever, RetrievalResult
 from .context_assembler import ContextAssembler, AssembledContext
+from .explainability import AssistantEvidence, build_assistant_evidence
 from .llm_providers import (
     BaseLLMProvider,
     LLMConfig,
@@ -71,6 +72,7 @@ class AssistantResponse:
     answer: str
     confidence: float
     sources: List[str] = field(default_factory=list)
+    evidence: List[AssistantEvidence] = field(default_factory=list)
     context_used: Optional[AssembledContext] = None
     conversation_id: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -226,17 +228,20 @@ class CADAssistant:
 
         # 6. Build response
         sources = [f"{r.source.value}: {r.summary}" for r in results]
+        evidence = build_assistant_evidence(results)
 
         return AssistantResponse(
             answer=answer,
             confidence=confidence,
             sources=sources,
+            evidence=evidence,
             context_used=context if self.config.verbose else None,
             conversation_id=conversation_id,
             metadata={
                 "intent": analyzed.intent.value,
                 "entities": analyzed.entities,
                 "retrieval_count": len(results),
+                "evidence_count": len(evidence),
             },
         )
 
@@ -273,14 +278,17 @@ class CADAssistant:
         confidence = analyzed.confidence * 0.9 if results else 0.5
 
         sources = [f"{r.source.value}: {r.summary}" for r in results]
+        evidence = build_assistant_evidence(results)
 
         return AssistantResponse(
             answer=answer,
             confidence=confidence,
             sources=sources,
+            evidence=evidence,
             metadata={
                 "intent": analyzed.intent.value,
                 "has_additional_context": True,
+                "evidence_count": len(evidence),
             },
         )
 

@@ -187,6 +187,8 @@ class TestAssistantAPI:
         assert "success" in data
         assert "answer" in data
         assert "confidence" in data
+        assert "evidence" in data
+        assert isinstance(data["evidence"], list)
 
     def test_query_tolerance_precision(self, client):
         """Test tolerance precision query endpoint."""
@@ -229,6 +231,24 @@ class TestAssistantAPI:
         # Verbose mode should include intent and entities
         if data["success"]:
             assert "intent" in data
+            assert "evidence" in data
+
+    def test_query_returns_structured_evidence(self, client):
+        """Test query returns stable structured evidence."""
+        response = client.post(
+            "/assistant/query",
+            json={"query": "M10螺纹的底孔是多少？"},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["evidence"]
+        evidence = data["evidence"][0]
+        assert evidence["reference_id"] == "E1"
+        assert evidence["source"] == "threads"
+        assert "key_facts" in evidence
+        assert any("攻丝底孔" in fact for fact in evidence["key_facts"])
 
     def test_suggest_endpoint(self, client):
         """Test suggestion endpoint."""
