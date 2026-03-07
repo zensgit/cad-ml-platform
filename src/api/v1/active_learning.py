@@ -61,6 +61,24 @@ class ExportResponse(BaseModel):
     message: Optional[str] = None
 
 
+class ReviewQueueSummaryResponse(BaseModel):
+    status: str
+    total: int
+    by_sample_type: Dict[str, int] = Field(default_factory=dict)
+    by_feedback_priority: Dict[str, int] = Field(default_factory=dict)
+
+
+class ReviewQueueResponse(BaseModel):
+    total: int
+    returned: int
+    limit: int
+    offset: int
+    has_more: bool
+    sort_by: str
+    summary: ReviewQueueSummaryResponse
+    items: List[ActiveLearningSample] = Field(default_factory=list)
+
+
 @router.get("/pending", response_model=List[ActiveLearningSample])
 async def get_pending_samples(
     limit: int = 10,
@@ -69,6 +87,38 @@ async def get_pending_samples(
     """获取待审核样本"""
     learner = get_active_learner()
     return learner.get_pending_samples(limit=limit)
+
+
+@router.get("/review-queue", response_model=ReviewQueueResponse)
+async def get_review_queue(
+    limit: int = 20,
+    offset: int = 0,
+    status: str = "pending",
+    sample_type: Optional[str] = None,
+    feedback_priority: Optional[str] = None,
+    sort_by: str = "priority",
+    api_key: str = Depends(get_api_key),
+):
+    """获取带排序和筛选能力的审核队列。"""
+    learner = get_active_learner()
+    payload = learner.get_review_queue(
+        limit=limit,
+        offset=offset,
+        status=status,
+        sample_type=sample_type,
+        feedback_priority=feedback_priority,
+        sort_by=sort_by,
+    )
+    return ReviewQueueResponse(
+        total=int(payload.get("total", 0)),
+        returned=int(payload.get("returned", 0)),
+        limit=int(payload.get("limit", limit)),
+        offset=int(payload.get("offset", offset)),
+        has_more=bool(payload.get("has_more", False)),
+        sort_by=str(payload.get("sort_by", sort_by)),
+        summary=ReviewQueueSummaryResponse(**payload.get("summary", {})),
+        items=payload.get("items", []),
+    )
 
 
 @router.post("/feedback", response_model=FeedbackResponse)

@@ -151,3 +151,85 @@ def test_active_learning_export_labeled(client, tmp_path, monkeypatch):
     assert body["count"] == 1
     export_path = Path(body["file"])
     assert export_path.exists()
+
+
+def test_active_learning_review_queue_orders_by_priority_then_confidence(client):
+    learner = get_active_learner()
+    critical = learner.flag_for_review(
+        doc_id="doc-critical",
+        predicted_type="法兰",
+        confidence=0.82,
+        alternatives=[],
+        score_breakdown={"review_priority": "critical"},
+        uncertainty_reason="knowledge_conflict",
+    )
+    high = learner.flag_for_review(
+        doc_id="doc-high",
+        predicted_type="人孔",
+        confidence=0.41,
+        alternatives=[],
+        score_breakdown={},
+        uncertainty_reason="hybrid_rejected:below_min_confidence",
+    )
+    medium = learner.flag_for_review(
+        doc_id="doc-medium",
+        predicted_type="bolt",
+        confidence=0.22,
+        alternatives=[],
+        score_breakdown={},
+        uncertainty_reason="low_confidence",
+    )
+
+    resp = client.get("/api/v1/active-learning/review-queue")
+    assert resp.status_code == 200
+
+    body = resp.json()
+    assert body["total"] == 3
+    assert body["returned"] == 3
+    assert body["sort_by"] == "priority"
+    assert [item["id"] for item in body["items"]] == [critical.id, high.id, medium.id]
+    assert body["summary"]["by_feedback_priority"]["critical"] == 1
+    assert body["summary"]["by_feedback_priority"]["high"] == 1
+    assert body["summary"]["by_feedback_priority"]["medium"] == 1
+
+
+def test_active_learning_review_queue_supports_filters_and_pagination(client):
+    learner = get_active_learner()
+    first = learner.flag_for_review(
+        doc_id="doc-queue-1",
+        predicted_type="法兰",
+        confidence=0.61,
+        alternatives=[],
+        score_breakdown={},
+        uncertainty_reason="low_confidence",
+    )
+    learner.flag_for_review(
+        doc_id="doc-queue-2",
+        predicted_type="人孔",
+        confidence=0.31,
+        alternatives=[],
+        score_breakdown={},
+        uncertainty_reason="hybrid_rejected:below_min_confidence",
+    )
+    learner.submit_feedback(first.id, "法兰")
+
+    filtered = client.get(
+        "/api/v1/active-learning/review-queue",
+        params={"status": "pending", "feedback_priority": "high"},
+    )
+    assert filtered.status_code == 200
+    filtered_body = filtered.json()
+    assert filtered_body["total"] == 1
+    assert filtered_body["items"][0]["doc_id"] == "doc-queue-2"
+    assert filtered_body["summary"]["by_sample_type"]["hybrid_rejection"] == 1
+
+    paged = client.get(
+        "/api/v1/active-learning/review-queue",
+        params={"status": "all", "limit": 1, "offset": 1, "sort_by": "created_at"},
+    )
+    assert paged.status_code == 200
+    paged_body = paged.json()
+    assert paged_body["total"] == 2
+    assert paged_body["returned"] == 1
+    assert paged_body["offset"] == 1
+    assert paged_body["has_more"] is False
