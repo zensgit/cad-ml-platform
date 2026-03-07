@@ -1010,6 +1010,9 @@ class VectorMigrationStatusResponse(BaseModel):
     pending_vectors: Optional[int] = None
     feature_versions: Optional[Dict[str, int]] = None
     history: Optional[List[Dict[str, Any]]] = None
+    backend: str = "memory"
+    current_total_vectors: Optional[int] = None
+    scanned_vectors: Optional[int] = None
 
 
 class VectorMigrationSummaryResponse(BaseModel):
@@ -1391,16 +1394,21 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
 async def migrate_status(api_key: str = Depends(get_api_key)):
     qdrant_store = _get_qdrant_store_or_none()
     if qdrant_store is not None:
-        versions, _, _ = await _collect_qdrant_feature_versions(qdrant_store)
+        versions, total_available, scanned = await _collect_qdrant_feature_versions(qdrant_store)
+        backend = "qdrant"
     else:
         from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
 
         versions = {}
+        total_available = 0
         for vid, meta in _VECTOR_META.items():
             if vid not in _VECTOR_STORE:
                 continue
+            total_available += 1
             ver = meta.get("feature_version", "unknown")
             versions[ver] = versions.get(ver, 0) + 1
+        scanned = total_available
+        backend = "memory"
     history = globals().get("_VECTOR_MIGRATION_HISTORY", [])
     last = history[-1] if history else None
     return VectorMigrationStatusResponse(
@@ -1413,6 +1421,9 @@ async def migrate_status(api_key: str = Depends(get_api_key)):
         pending_vectors=None,
         feature_versions=versions,
         history=history,
+        backend=backend,
+        current_total_vectors=total_available,
+        scanned_vectors=scanned,
     )
 
 
