@@ -33,6 +33,9 @@ async def test_hybrid_provider_process_and_health_check() -> None:
     result = await provider.process(ClassifierRequest(filename="J2925001-01人孔v2.dxf"))
     assert isinstance(result, dict)
     assert {"label", "confidence", "source"}.issubset(result.keys())
+    assert result["fine_label"] == result["label"]
+    assert result["coarse_label"] == "开孔件"
+    assert result["decision_source"] == result["source"]
 
     ok = await provider.health_check()
     assert ok is True
@@ -49,6 +52,9 @@ async def test_graph2d_provider_process_returns_status_dict() -> None:
     )
     assert isinstance(result, dict)
     assert "status" in result
+    assert result["decision_source"] == "graph2d"
+    assert "coarse_label" in result
+    assert "fine_label" in result
 
     ok = await provider.health_check()
     assert isinstance(ok, bool)
