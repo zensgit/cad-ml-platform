@@ -1077,6 +1077,7 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
     from src.core.similarity import (
         _VECTOR_META,
         _VECTOR_STORE,
+        extract_vector_label_contract,
         get_degraded_mode_info,
         get_vector_store,
     )
@@ -1190,6 +1191,7 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
                 if payload.format and meta.get("format") != payload.format:
                     continue
 
+                label_contract = extract_vector_label_contract(meta)
                 similar.append(
                     {
                         "id": result_id,
@@ -1198,6 +1200,11 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
                         "complexity": meta.get("complexity"),
                         "format": meta.get("format"),
                         "dimension": len(_VECTOR_STORE.get(result_id, [])),
+                        "part_type": label_contract.get("part_type"),
+                        "fine_part_type": label_contract.get("fine_part_type"),
+                        "coarse_part_type": label_contract.get("coarse_part_type"),
+                        "decision_source": label_contract.get("decision_source"),
+                        "is_coarse_label": label_contract.get("is_coarse_label"),
                     }
                 )
 

@@ -7,7 +7,12 @@ from pydantic import BaseModel, Field
 
 from src.api.dependencies import get_api_key
 from src.core.errors_extended import ErrorCode, build_error
-from src.core.similarity import InMemoryVectorStore, _cosine
+from src.core.similarity import (
+    InMemoryVectorStore,
+    _VECTOR_META,
+    _cosine,
+    extract_vector_label_contract,
+)
 from src.utils.analysis_metrics import compare_requests_total
 
 router = APIRouter()
@@ -27,6 +32,11 @@ class CompareResponse(BaseModel):
     method: str
     dimension: int
     reference_id: str
+    reference_part_type: str | None = None
+    reference_fine_part_type: str | None = None
+    reference_coarse_part_type: str | None = None
+    reference_decision_source: str | None = None
+    reference_is_coarse_label: bool | None = None
 
 
 @router.post("", response_model=CompareResponse)
@@ -78,6 +88,8 @@ async def compare_features(
     score = _cosine(reference, payload.query_features)
     similarity = round(score, 4)
     compare_requests_total.labels(status="success").inc()
+    meta = _VECTOR_META.get(candidate_id, {})
+    label_contract = extract_vector_label_contract(meta)
     return CompareResponse(
         similarity=similarity,
         score=similarity,
@@ -87,4 +99,9 @@ async def compare_features(
         method="cosine",
         dimension=len(reference),
         reference_id=candidate_id,
+        reference_part_type=label_contract.get("part_type"),
+        reference_fine_part_type=label_contract.get("fine_part_type"),
+        reference_coarse_part_type=label_contract.get("coarse_part_type"),
+        reference_decision_source=label_contract.get("decision_source"),
+        reference_is_coarse_label=label_contract.get("is_coarse_label"),
     )

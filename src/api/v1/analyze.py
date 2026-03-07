@@ -2278,6 +2278,37 @@ async def analyze_cad_file(
             if l3_dim is not None:
                 meta["l3_3d_dim"] = str(l3_dim)
 
+            classification_meta = results.get("classification", {})
+            if isinstance(classification_meta, dict):
+                final_part_type = str(
+                    classification_meta.get("part_type") or ""
+                ).strip()
+                fine_part_type = str(
+                    classification_meta.get("fine_part_type") or final_part_type
+                ).strip()
+                coarse_part_type = str(
+                    classification_meta.get("coarse_part_type")
+                    or normalize_coarse_label(fine_part_type or final_part_type)
+                    or ""
+                ).strip()
+                final_decision_source = str(
+                    classification_meta.get("final_decision_source")
+                    or classification_meta.get("decision_source")
+                    or classification_meta.get("confidence_source")
+                    or ""
+                ).strip()
+                if final_part_type:
+                    meta["part_type"] = final_part_type
+                if fine_part_type:
+                    meta["fine_part_type"] = fine_part_type
+                if coarse_part_type:
+                    meta["coarse_part_type"] = coarse_part_type
+                    meta["is_coarse_label"] = str(
+                        bool(fine_part_type and fine_part_type == coarse_part_type)
+                    ).lower()
+                if final_decision_source:
+                    meta["final_decision_source"] = final_decision_source
+
             accepted = register_vector(
                 analysis_id,
                 feature_vector,
