@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from src.core.classification.coarse_labels import normalize_coarse_label
 from src.core.active_learning import get_active_learner, reset_active_learner, SampleStatus
 from src.main import app
 
@@ -41,6 +42,10 @@ def test_active_learning_pending_limit(client):
     assert len(payload) == 1
     assert payload[0]["id"] == sample_one.id
     assert payload[0]["status"] == SampleStatus.PENDING.value
+    assert payload[0]["predicted_fine_type"] == "bolt"
+    assert payload[0]["predicted_coarse_type"] == normalize_coarse_label("bolt")
+    assert payload[0]["sample_type"] == "low_confidence"
+    assert payload[0]["feedback_priority"] == "medium"
 
 
 def test_active_learning_feedback_missing_sample_returns_404(client):
@@ -107,6 +112,13 @@ def test_active_learning_stats_retrain_ready(client):
     assert body["labeled_samples"] == 1
     assert body["threshold"] == 1
     assert body["stats"]["total"] == 1
+    assert body["sample_type_stats"]["low_confidence"] == 1
+    assert body["feedback_priority_stats"]["medium"] == 1
+    assert body["predicted_fine_stats"]["bolt"] == 1
+    assert body["predicted_coarse_stats"][normalize_coarse_label("bolt")] == 1
+    assert body["labeled_true_fine_stats"]["bolt"] == 1
+    assert body["labeled_true_coarse_stats"][normalize_coarse_label("bolt")] == 1
+    assert body["correction_count"] == 0
 
 
 def test_active_learning_export_no_samples(client):

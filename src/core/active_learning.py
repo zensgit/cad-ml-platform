@@ -38,6 +38,9 @@ class ActiveLearningSample(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     doc_id: str
     predicted_type: str
+    predicted_fine_type: Optional[str] = None
+    predicted_coarse_type: Optional[str] = None
+    predicted_is_coarse_label: Optional[bool] = None
     confidence: float
     sample_type: Optional[str] = None
     feedback_priority: Optional[str] = None
@@ -52,6 +55,28 @@ class ActiveLearningSample(BaseModel):
     reviewer_id: Optional[str] = None
     feedback_time: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+def _normalize_predicted_contract(
+    predicted_type: Optional[str],
+) -> tuple[Optional[str], Optional[str], Optional[bool]]:
+    fine_type = str(predicted_type or "").strip() or None
+    coarse_type = normalize_coarse_label(fine_type)
+    is_coarse_label = None
+    if fine_type and coarse_type:
+        is_coarse_label = fine_type == coarse_type
+    return fine_type, coarse_type, is_coarse_label
+
+
+def _normalize_sample(sample: ActiveLearningSample) -> ActiveLearningSample:
+    fine_type, coarse_type, is_coarse_label = _normalize_predicted_contract(sample.predicted_type)
+    sample.predicted_fine_type = sample.predicted_fine_type or fine_type
+    sample.predicted_coarse_type = sample.predicted_coarse_type or coarse_type
+    if sample.predicted_is_coarse_label is None:
+        sample.predicted_is_coarse_label = is_coarse_label
+    sample.sample_type = _derive_sample_type(sample)
+    sample.feedback_priority = _derive_feedback_priority(sample)
+    return sample
 
 
 def _has_hybrid_rejection(sample: ActiveLearningSample) -> bool:
@@ -134,7 +159,7 @@ class ActiveLearner:
                 for line in f:
                     if line.strip():
                         data = json.loads(line)
-                        sample = ActiveLearningSample(**data)
+                        sample = _normalize_sample(ActiveLearningSample(**data))
                         self._samples[sample.id] = sample
 
     def _persist_sample(self, sample: ActiveLearningSample) -> None:
@@ -166,9 +191,13 @@ class ActiveLearner:
         feedback_priority: Optional[str] = None,
     ) -> ActiveLearningSample:
         """Flag a sample for human review."""
+        fine_type, coarse_type, is_coarse_label = _normalize_predicted_contract(predicted_type)
         sample = ActiveLearningSample(
             doc_id=doc_id,
             predicted_type=predicted_type,
+            predicted_fine_type=fine_type,
+            predicted_coarse_type=coarse_type,
+            predicted_is_coarse_label=is_coarse_label,
             confidence=confidence,
             sample_type=sample_type,
             feedback_priority=feedback_priority,
@@ -176,6 +205,7 @@ class ActiveLearner:
             score_breakdown=score_breakdown,
             uncertainty_reason=uncertainty_reason,
         )
+        sample = _normalize_sample(sample)
         self._samples[sample.id] = sample
         self._persist_sample(sample)
         return sample
@@ -247,7 +277,10 @@ class ActiveLearner:
                 export_data = {
                     "doc_id": sample.doc_id,
                     "predicted_type": sample.predicted_type,
-                    "predicted_coarse_type": normalize_coarse_label(sample.predicted_type),
+                    "predicted_fine_type": sample.predicted_fine_type or sample.predicted_type,
+                    "predicted_coarse_type": sample.predicted_coarse_type
+                    or normalize_coarse_label(sample.predicted_type),
+                    "predicted_is_coarse_label": sample.predicted_is_coarse_label,
                     "true_type": sample.true_type,
                     "true_fine_type": sample.true_fine_type or sample.true_type,
                     "true_coarse_type": sample.true_coarse_type,
@@ -273,11 +306,14 @@ class ActiveLearner:
     def get_pending_samples(self, limit: int = 10) -> List[ActiveLearningSample]:
         """Get pending samples for review."""
         pending = [s for s in self._samples.values() if s.status == SampleStatus.PENDING]
-        return pending[:limit]
+        return [_normalize_sample(sample) for sample in pending[:limit]]
 
     def get_sample(self, sample_id: str) -> Optional[ActiveLearningSample]:
         """Get a sample by ID."""
-        return self._samples.get(sample_id)
+        sample = self._samples.get(sample_id)
+        if sample is None:
+            return None
+        return _normalize_sample(sample)
 
     def get_stats(self) -> Dict[str, int]:
         """Get statistics about samples."""
@@ -286,6 +322,49 @@ class ActiveLearner:
             stats[sample.status.value] += 1
         stats["total"] = len(self._samples)
         return stats
+
+    def get_stats_summary(self) -> Dict[str, Any]:
+        """Get richer observability counters for review and retraining."""
+        summary: Dict[str, Any] = {
+            "status": self.get_stats(),
+            "sample_type": {},
+            "feedback_priority": {},
+            "predicted_coarse_type": {},
+            "predicted_fine_type": {},
+            "labeled_true_coarse_type": {},
+            "labeled_true_fine_type": {},
+            "correction_count": 0,
+        }
+        for raw_sample in self._samples.values():
+            sample = _normalize_sample(raw_sample)
+            sample_type = _derive_sample_type(sample)
+            feedback_priority = _derive_feedback_priority(sample)
+            predicted_coarse = sample.predicted_coarse_type or "unknown"
+            predicted_fine = sample.predicted_fine_type or sample.predicted_type or "unknown"
+
+            summary["sample_type"][sample_type] = summary["sample_type"].get(sample_type, 0) + 1
+            summary["feedback_priority"][feedback_priority] = (
+                summary["feedback_priority"].get(feedback_priority, 0) + 1
+            )
+            summary["predicted_coarse_type"][predicted_coarse] = (
+                summary["predicted_coarse_type"].get(predicted_coarse, 0) + 1
+            )
+            summary["predicted_fine_type"][predicted_fine] = (
+                summary["predicted_fine_type"].get(predicted_fine, 0) + 1
+            )
+
+            if sample.status == SampleStatus.LABELED:
+                true_coarse = sample.true_coarse_type or "unknown"
+                true_fine = sample.true_fine_type or sample.true_type or "unknown"
+                summary["labeled_true_coarse_type"][true_coarse] = (
+                    summary["labeled_true_coarse_type"].get(true_coarse, 0) + 1
+                )
+                summary["labeled_true_fine_type"][true_fine] = (
+                    summary["labeled_true_fine_type"].get(true_fine, 0) + 1
+                )
+                if predicted_fine != true_fine:
+                    summary["correction_count"] += 1
+        return summary
 
 
 # Singleton instance
