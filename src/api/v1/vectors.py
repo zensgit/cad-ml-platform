@@ -1104,12 +1104,56 @@ class VectorMigrationPendingSummaryResponse(BaseModel):
     target_version: str
     from_version_filter: Optional[str] = None
     observed_by_from_version: Dict[str, int]
+    recommended_from_versions: List[str] = Field(default_factory=list)
+    largest_pending_from_version: Optional[str] = None
+    largest_pending_count: Optional[int] = None
     total_pending: Optional[int] = None
     pending_ratio: Optional[float] = None
     backend: str = "memory"
     scanned_vectors: Optional[int] = None
     scan_limit: Optional[int] = None
     distribution_complete: bool = True
+
+
+class VectorMigrationPlanBatch(BaseModel):
+    priority: int
+    from_version: str
+    pending_count: int
+    suggested_run_limit: int
+    allow_partial_scan_required: bool = False
+    request_payload: Dict[str, Any]
+    notes: List[str] = Field(default_factory=list)
+
+
+class VectorMigrationPlanResponse(BaseModel):
+    target_version: str
+    from_version_filter: Optional[str] = None
+    observed_by_from_version: Dict[str, int]
+    recommended_from_versions: List[str] = Field(default_factory=list)
+    largest_pending_from_version: Optional[str] = None
+    largest_pending_count: Optional[int] = None
+    total_pending: Optional[int] = None
+    pending_ratio: Optional[float] = None
+    backend: str = "memory"
+    scanned_vectors: Optional[int] = None
+    scan_limit: Optional[int] = None
+    distribution_complete: bool = True
+    max_batches: int
+    default_run_limit: int
+    estimated_total_runs: int = 0
+    estimated_runs_by_version: Dict[str, int] = Field(default_factory=dict)
+    plan_ready: bool = False
+    blocking_reasons: List[str] = Field(default_factory=list)
+    recommended_first_batch: Optional[VectorMigrationPlanBatch] = None
+    recommended_first_request_payload: Optional[Dict[str, Any]] = None
+    planned_pending_count: int = 0
+    remaining_pending_count: Optional[int] = None
+    planned_pending_ratio: Optional[float] = None
+    coverage_complete: bool = False
+    truncated_by_max_batches: bool = False
+    unplanned_from_versions: List[str] = Field(default_factory=list)
+    suggested_next_max_batches: Optional[int] = None
+    batches: List[VectorMigrationPlanBatch] = Field(default_factory=list)
 
 
 class VectorMigrationPendingRunRequest(BaseModel):
@@ -1781,6 +1825,21 @@ async def migrate_pending_summary(
         from_version_filter=from_version_filter,
     )
     pending_ratio: Optional[float] = None
+    recommended_from_versions = [
+        key
+        for key, _ in sorted(
+            pending["observed_by_from_version"].items(),
+            key=lambda item: (-int(item[1]), str(item[0])),
+        )
+    ]
+    largest_pending_from_version = (
+        recommended_from_versions[0] if recommended_from_versions else None
+    )
+    largest_pending_count = None
+    if largest_pending_from_version is not None:
+        largest_pending_count = int(
+            pending["observed_by_from_version"].get(largest_pending_from_version, 0)
+        )
     if pending["distribution_complete"]:
         scanned_vectors = int(pending["scanned_vectors"] or 0)
         pending_ratio = round(int(pending["total_pending"] or 0) / max(scanned_vectors, 1), 4)
@@ -1788,12 +1847,159 @@ async def migrate_pending_summary(
         target_version=pending["target_version"],
         from_version_filter=pending["from_version_filter"],
         observed_by_from_version=pending["observed_by_from_version"],
+        recommended_from_versions=recommended_from_versions,
+        largest_pending_from_version=largest_pending_from_version,
+        largest_pending_count=largest_pending_count,
         total_pending=pending["total_pending"],
         pending_ratio=pending_ratio,
         backend=pending["backend"],
         scanned_vectors=pending["scanned_vectors"],
         scan_limit=pending["scan_limit"],
         distribution_complete=pending["distribution_complete"],
+    )
+
+
+def _build_vector_migration_plan_batches(
+    *,
+    observed_by_from_version: Dict[str, int],
+    max_batches: int,
+    default_run_limit: int,
+    allow_partial_scan_required: bool,
+) -> List[VectorMigrationPlanBatch]:
+    ordered = sorted(
+        observed_by_from_version.items(),
+        key=lambda item: (-int(item[1]), str(item[0])),
+    )[:max_batches]
+    batches: List[VectorMigrationPlanBatch] = []
+    for index, (from_version, count) in enumerate(ordered):
+        pending_count = int(count)
+        suggested_run_limit = min(pending_count, default_run_limit)
+        notes: List[str] = []
+        if pending_count > suggested_run_limit:
+            notes.append("split_batch_required")
+        else:
+            notes.append("single_batch_ready")
+        if allow_partial_scan_required:
+            notes.append("partial_scan_override_required")
+        batches.append(
+            VectorMigrationPlanBatch(
+                priority=index + 1,
+                from_version=str(from_version),
+                pending_count=pending_count,
+                suggested_run_limit=suggested_run_limit,
+                allow_partial_scan_required=allow_partial_scan_required,
+                request_payload={
+                    "limit": suggested_run_limit,
+                    "dry_run": True,
+                    "from_version_filter": str(from_version),
+                    "allow_partial_scan": allow_partial_scan_required,
+                },
+                notes=notes,
+            )
+        )
+    return batches
+
+
+@router.get("/migrate/plan", response_model=VectorMigrationPlanResponse)
+async def migrate_plan(
+    from_version_filter: Optional[str] = Query(default=None),
+    max_batches: int = Query(default=3, ge=1, le=10),
+    default_run_limit: int = Query(default=50, ge=1, le=200),
+    api_key: str = Depends(get_api_key),
+):
+    target_version = _resolve_vector_migration_target_version()
+    pending = await _collect_vector_migration_pending_candidates(
+        limit=1,
+        target_version=target_version,
+        from_version_filter=from_version_filter,
+    )
+    pending_ratio: Optional[float] = None
+    recommended_from_versions = [
+        key
+        for key, _ in sorted(
+            pending["observed_by_from_version"].items(),
+            key=lambda item: (-int(item[1]), str(item[0])),
+        )
+    ]
+    largest_pending_from_version = (
+        recommended_from_versions[0] if recommended_from_versions else None
+    )
+    largest_pending_count = None
+    if largest_pending_from_version is not None:
+        largest_pending_count = int(
+            pending["observed_by_from_version"].get(largest_pending_from_version, 0)
+        )
+    if pending["distribution_complete"]:
+        scanned_vectors = int(pending["scanned_vectors"] or 0)
+        pending_ratio = round(int(pending["total_pending"] or 0) / max(scanned_vectors, 1), 4)
+    allow_partial_scan_required = pending["backend"] == "qdrant" and not pending["distribution_complete"]
+    batches = _build_vector_migration_plan_batches(
+        observed_by_from_version=pending["observed_by_from_version"],
+        max_batches=max_batches,
+        default_run_limit=default_run_limit,
+        allow_partial_scan_required=allow_partial_scan_required,
+    )
+    blocking_reasons: List[str] = []
+    if allow_partial_scan_required:
+        blocking_reasons.append("partial_scan_override_required")
+    if not batches:
+        blocking_reasons.append("no_pending_vectors")
+    recommended_first_batch = batches[0] if batches else None
+    recommended_first_request_payload = None
+    if recommended_first_batch is not None:
+        recommended_first_request_payload = dict(recommended_first_batch.request_payload)
+    planned_pending_count = sum(int(batch.pending_count) for batch in batches)
+    planned_from_versions = {str(batch.from_version) for batch in batches}
+    unplanned_from_versions = [
+        from_version
+        for from_version in recommended_from_versions
+        if str(from_version) not in planned_from_versions
+    ]
+    remaining_pending_count: Optional[int] = None
+    planned_pending_ratio: Optional[float] = None
+    if pending["distribution_complete"] and pending["total_pending"] is not None:
+        remaining_pending_count = max(int(pending["total_pending"]) - planned_pending_count, 0)
+        planned_pending_ratio = round(
+            planned_pending_count / max(int(pending["total_pending"]), 1),
+            4,
+        )
+    coverage_complete = bool(batches) and not unplanned_from_versions
+    suggested_next_max_batches: Optional[int] = None
+    if unplanned_from_versions:
+        suggested_next_max_batches = len(recommended_from_versions)
+    estimated_runs_by_version = {
+        str(from_version): max((int(count) + default_run_limit - 1) // default_run_limit, 1)
+        for from_version, count in pending["observed_by_from_version"].items()
+    }
+    return VectorMigrationPlanResponse(
+        target_version=pending["target_version"],
+        from_version_filter=pending["from_version_filter"],
+        observed_by_from_version=pending["observed_by_from_version"],
+        recommended_from_versions=recommended_from_versions,
+        largest_pending_from_version=largest_pending_from_version,
+        largest_pending_count=largest_pending_count,
+        total_pending=pending["total_pending"],
+        pending_ratio=pending_ratio,
+        backend=pending["backend"],
+        scanned_vectors=pending["scanned_vectors"],
+        scan_limit=pending["scan_limit"],
+        distribution_complete=pending["distribution_complete"],
+        max_batches=max_batches,
+        default_run_limit=default_run_limit,
+        estimated_total_runs=sum(estimated_runs_by_version.values()),
+        estimated_runs_by_version=estimated_runs_by_version,
+        plan_ready=bool(batches) and not blocking_reasons,
+        blocking_reasons=blocking_reasons,
+        recommended_first_batch=recommended_first_batch,
+        recommended_first_request_payload=recommended_first_request_payload,
+        planned_pending_count=planned_pending_count,
+        remaining_pending_count=remaining_pending_count,
+        planned_pending_ratio=planned_pending_ratio,
+        coverage_complete=coverage_complete,
+        truncated_by_max_batches=bool(unplanned_from_versions),
+        unplanned_from_versions=unplanned_from_versions,
+        suggested_next_max_batches=suggested_next_max_batches,
+        batches=batches,
     )
 
 
