@@ -1,5 +1,5 @@
 {
-  "components_schema_count": 212,
+  "components_schema_count": 213,
   "components_schema_names": [
     "ActiveLearningSample",
     "AlternativeItem",
@@ -83,6 +83,7 @@
     "FeaturesDiffResponse",
     "FeedbackRequest",
     "FeedbackResponse",
+    "FeedbackStatsResponse",
     "FitDeviationsResponse",
     "FullCompatibilityResponse",
     "GalvanicAnodeCathode",
@@ -215,8 +216,8 @@
     "WeldCompatibilityResponse"
   ],
   "openapi": "3.1.0",
-  "operation_count": 178,
-  "path_count": 173,
+  "operation_count": 179,
+  "path_count": 174,
   "paths": {
     "/": {
       "get": {
@@ -1037,6 +1038,16 @@
       "post": {
         "deprecated": false,
         "operationId": "submit_feedback_api_v1_feedback__post",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/feedback/stats": {
+      "get": {
+        "deprecated": false,
+        "operationId": "get_feedback_stats_api_v1_feedback_stats_get",
         "responses": [
           "200",
           "422"

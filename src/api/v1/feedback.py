@@ -4,6 +4,9 @@ Feedback API.
 Collects user corrections to improve L3/L4 models (Data Flywheel).
 """
 
+import json
+import os
+import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -53,6 +56,21 @@ class FeedbackResponse(BaseModel):
     status: str
     feedback_id: str
     message: str
+
+
+class FeedbackStatsResponse(BaseModel):
+    status: str
+    total: int
+    correction_count: int
+    coarse_correction_count: int
+    average_rating: Optional[float] = None
+    by_review_outcome: Dict[str, int] = Field(default_factory=dict)
+    by_review_reason: Dict[str, int] = Field(default_factory=dict)
+    by_corrected_fine_part_type: Dict[str, int] = Field(default_factory=dict)
+    by_corrected_coarse_part_type: Dict[str, int] = Field(default_factory=dict)
+    by_original_fine_part_type: Dict[str, int] = Field(default_factory=dict)
+    by_original_coarse_part_type: Dict[str, int] = Field(default_factory=dict)
+    by_original_decision_source: Dict[str, int] = Field(default_factory=dict)
 
 
 def _clean_optional_text(value: Optional[str]) -> Optional[str]:
@@ -105,16 +123,98 @@ def _normalize_feedback_entry(payload: FeedbackRequest) -> Dict[str, Any]:
     return entry
 
 
+def _feedback_log_path() -> str:
+    return os.getenv("FEEDBACK_LOG_PATH", "data/feedback_log.jsonl")
+
+
+def _read_feedback_entries() -> List[Dict[str, Any]]:
+    log_path = _feedback_log_path()
+    if not os.path.exists(log_path):
+        return []
+
+    entries: List[Dict[str, Any]] = []
+    with open(log_path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            entries.append(json.loads(line))
+    return entries
+
+
+def _increment(counter: Dict[str, int], value: Optional[str]) -> None:
+    text = _clean_optional_text(value)
+    if not text:
+        return
+    counter[text] = counter.get(text, 0) + 1
+
+
+def _build_feedback_stats(entries: List[Dict[str, Any]]) -> FeedbackStatsResponse:
+    total = len(entries)
+    correction_count = 0
+    coarse_correction_count = 0
+    rating_sum = 0
+    rating_count = 0
+
+    by_review_outcome: Dict[str, int] = {}
+    by_review_reason: Dict[str, int] = {}
+    by_corrected_fine_part_type: Dict[str, int] = {}
+    by_corrected_coarse_part_type: Dict[str, int] = {}
+    by_original_fine_part_type: Dict[str, int] = {}
+    by_original_coarse_part_type: Dict[str, int] = {}
+    by_original_decision_source: Dict[str, int] = {}
+
+    for entry in entries:
+        corrected_fine = _clean_optional_text(entry.get("corrected_fine_part_type"))
+        corrected_coarse = _clean_optional_text(entry.get("corrected_coarse_part_type"))
+        original_fine = _clean_optional_text(entry.get("original_fine_part_type"))
+        original_coarse = _clean_optional_text(entry.get("original_coarse_part_type"))
+
+        _increment(by_review_outcome, entry.get("review_outcome"))
+        _increment(by_corrected_fine_part_type, corrected_fine)
+        _increment(by_corrected_coarse_part_type, corrected_coarse)
+        _increment(by_original_fine_part_type, original_fine)
+        _increment(by_original_coarse_part_type, original_coarse)
+        _increment(by_original_decision_source, entry.get("original_decision_source"))
+
+        for reason in entry.get("review_reasons", []):
+            _increment(by_review_reason, reason)
+
+        if corrected_fine and original_fine and corrected_fine != original_fine:
+            correction_count += 1
+        if corrected_coarse and original_coarse and corrected_coarse != original_coarse:
+            coarse_correction_count += 1
+
+        rating = entry.get("rating")
+        if isinstance(rating, (int, float)):
+            rating_sum += int(rating)
+            rating_count += 1
+
+    average_rating = None
+    if rating_count:
+        average_rating = round(rating_sum / rating_count, 4)
+
+    return FeedbackStatsResponse(
+        status="success",
+        total=total,
+        correction_count=correction_count,
+        coarse_correction_count=coarse_correction_count,
+        average_rating=average_rating,
+        by_review_outcome=by_review_outcome,
+        by_review_reason=by_review_reason,
+        by_corrected_fine_part_type=by_corrected_fine_part_type,
+        by_corrected_coarse_part_type=by_corrected_coarse_part_type,
+        by_original_fine_part_type=by_original_fine_part_type,
+        by_original_coarse_part_type=by_original_coarse_part_type,
+        by_original_decision_source=by_original_decision_source,
+    )
+
+
 @router.post("/", response_model=FeedbackResponse)
 async def submit_feedback(payload: FeedbackRequest, api_key: str = Depends(get_api_key)):
     """
     Submit feedback for an analysis result.
     This data is logged and used to fine-tune future models.
     """
-    import json
-    import os
-    import uuid
-
     feedback_id = str(uuid.uuid4())
 
     # In a real system, this would write to a database (PostgreSQL/MongoDB).
@@ -126,7 +226,7 @@ async def submit_feedback(payload: FeedbackRequest, api_key: str = Depends(get_a
         **_normalize_feedback_entry(payload),
     }
 
-    log_path = os.getenv("FEEDBACK_LOG_PATH", "data/feedback_log.jsonl")
+    log_path = _feedback_log_path()
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
 
     try:
@@ -140,3 +240,13 @@ async def submit_feedback(payload: FeedbackRequest, api_key: str = Depends(get_a
         feedback_id=feedback_id,
         message="Feedback received. Thank you for helping improve the AI.",
     )
+
+
+@router.get("/stats", response_model=FeedbackStatsResponse)
+async def get_feedback_stats(api_key: str = Depends(get_api_key)):
+    """Return aggregated feedback observability counters."""
+    try:
+        entries = _read_feedback_entries()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read feedback: {str(exc)}")
+    return _build_feedback_stats(entries)
