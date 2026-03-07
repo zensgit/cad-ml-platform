@@ -100,6 +100,29 @@ class TestOcrResponseModel:
                     "source": "ocr_line",
                 }
             },
+            field_coverage={
+                "recognized_count": 1,
+                "total_fields": 10,
+                "coverage_ratio": 0.1,
+                "recognized_keys": ["drawing_number"],
+                "missing_keys": ["revision"],
+            },
+            engineering_signals={
+                "dimension_count": 1,
+                "symbol_count": 1,
+                "symbol_types": ["perpendicular"],
+                "gdt_symbol_types": ["perpendicular"],
+                "has_surface_finish": False,
+                "has_gdt": True,
+                "process_requirement_counts": {
+                    "heat_treatments": 0,
+                    "surface_treatments": 0,
+                    "welding": 0,
+                    "general_notes": 0,
+                },
+                "materials_detected": [],
+                "standards_candidates": [],
+            },
         )
 
         assert response.success is True
@@ -107,6 +130,8 @@ class TestOcrResponseModel:
         assert response.confidence == 0.95
         assert response.identifiers[0]["identifier_type"] == "drawing_number"
         assert response.field_evidence["drawing_number"]["value"] == "DWG-001"
+        assert response.field_coverage["recognized_count"] == 1
+        assert response.engineering_signals["has_gdt"] is True
 
     def test_model_creation_failure(self):
         """Test OcrResponse model creation for failure case."""
@@ -163,6 +188,8 @@ class TestOcrExtractEndpoint:
 
         assert response.identifiers[0]["identifier_type"] == "drawing_number"
         assert response.field_evidence["drawing_number"]["bbox"] == [10, 10, 50, 10]
+        assert response.field_coverage["recognized_count"] == 1
+        assert response.engineering_signals["dimension_count"] == 0
 
     @pytest.mark.asyncio
     async def test_ocr_extract_idempotency_hit(self):
