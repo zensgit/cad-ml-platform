@@ -24,7 +24,11 @@ from src.core.errors import ErrorCode
 from src.core.ocr.base import OcrResult, ProcessRequirements, SymbolType, TitleBlock
 from src.core.ocr.exceptions import OcrError
 from src.core.ocr.parsing.identifier_parser import build_field_evidence
-from src.core.ocr.response_summary import build_engineering_signals, build_field_coverage
+from src.core.ocr.response_summary import (
+    build_engineering_signals,
+    build_field_coverage,
+    build_review_hints,
+)
 from src.middleware.rate_limit import rate_limit
 from src.security.input_validator import validate_and_read, validate_bytes
 from src.utils.idempotency import check_idempotency, store_idempotency
@@ -84,6 +88,7 @@ class DrawingRecognitionResponse(BaseModel):
     process_requirements: ProcessRequirements = Field(default_factory=ProcessRequirements)
     field_coverage: Dict[str, Any] = Field(default_factory=dict)
     engineering_signals: Dict[str, Any] = Field(default_factory=dict)
+    review_hints: Dict[str, Any] = Field(default_factory=dict)
     error: Optional[str] = None
     code: Optional[ErrorCode] = None
 
@@ -225,6 +230,13 @@ async def _run_recognition(
         )
 
     confidence = result.calibrated_confidence or result.confidence
+    field_coverage = build_field_coverage(result.title_block, FIELD_LABELS.keys())
+    engineering_signals = build_engineering_signals(
+        title_block=result.title_block,
+        dimensions=[d.model_dump() for d in result.dimensions],
+        symbols=result.symbols,
+        process_requirements=result.process_requirements,
+    )
     response = DrawingRecognitionResponse(
         success=True,
         provider=result.provider or provider,
@@ -242,12 +254,13 @@ async def _run_recognition(
         dimensions=[d.model_dump() for d in result.dimensions],
         symbols=[s.model_dump() for s in result.symbols],
         process_requirements=result.process_requirements,
-        field_coverage=build_field_coverage(result.title_block, FIELD_LABELS.keys()),
-        engineering_signals=build_engineering_signals(
+        field_coverage=field_coverage,
+        engineering_signals=engineering_signals,
+        review_hints=build_review_hints(
             title_block=result.title_block,
-            dimensions=[d.model_dump() for d in result.dimensions],
-            symbols=result.symbols,
-            process_requirements=result.process_requirements,
+            identifiers=result.identifiers,
+            field_coverage=field_coverage,
+            engineering_signals=engineering_signals,
         ),
     )
 

@@ -121,6 +121,7 @@ class OcrResult(BaseModel):
     field_evidence: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     field_coverage: Dict[str, Any] = Field(default_factory=dict)
     engineering_signals: Dict[str, Any] = Field(default_factory=dict)
+    review_hints: Dict[str, Any] = Field(default_factory=dict)
     fallback_level: Optional[str] = Field(
         None, description="json_strict|markdown_fence|text_regex"
     )
@@ -251,6 +252,25 @@ class VisionAnalyzeResponse(BaseModel):
                         },
                         "materials_detected": ["Aluminum 6061"],
                         "standards_candidates": [],
+                    },
+                    "review_hints": {
+                        "critical_fields": [
+                            "drawing_number",
+                            "part_name",
+                            "revision",
+                            "material",
+                        ],
+                        "present_critical_fields": ["drawing_number", "material"],
+                        "missing_critical_fields": ["part_name", "revision"],
+                        "has_identifiers": True,
+                        "has_dimensions": True,
+                        "has_symbols": True,
+                        "has_process_requirements": False,
+                        "has_standards_candidates": False,
+                        "review_recommended": True,
+                        "review_reasons": ["missing_critical_fields"],
+                        "readiness_score": 0.54,
+                        "readiness_band": "medium",
                     },
                     "fallback_level": "json_strict",
                     "confidence": 0.95,

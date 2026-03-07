@@ -123,6 +123,20 @@ class TestOcrResponseModel:
                 "materials_detected": [],
                 "standards_candidates": [],
             },
+            review_hints={
+                "critical_fields": ["drawing_number", "part_name", "revision", "material"],
+                "present_critical_fields": ["drawing_number"],
+                "missing_critical_fields": ["part_name", "revision", "material"],
+                "has_identifiers": True,
+                "has_dimensions": True,
+                "has_symbols": True,
+                "has_process_requirements": False,
+                "has_standards_candidates": False,
+                "review_recommended": True,
+                "review_reasons": ["missing_critical_fields"],
+                "readiness_score": 0.4,
+                "readiness_band": "low",
+            },
         )
 
         assert response.success is True
@@ -132,6 +146,7 @@ class TestOcrResponseModel:
         assert response.field_evidence["drawing_number"]["value"] == "DWG-001"
         assert response.field_coverage["recognized_count"] == 1
         assert response.engineering_signals["has_gdt"] is True
+        assert response.review_hints["review_recommended"] is True
 
     def test_model_creation_failure(self):
         """Test OcrResponse model creation for failure case."""
@@ -190,6 +205,12 @@ class TestOcrExtractEndpoint:
         assert response.field_evidence["drawing_number"]["bbox"] == [10, 10, 50, 10]
         assert response.field_coverage["recognized_count"] == 1
         assert response.engineering_signals["dimension_count"] == 0
+        assert response.review_hints["missing_critical_fields"] == [
+            "part_name",
+            "revision",
+            "material",
+        ]
+        assert response.review_hints["review_recommended"] is True
 
     @pytest.mark.asyncio
     async def test_ocr_extract_idempotency_hit(self):
