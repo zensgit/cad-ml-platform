@@ -1235,14 +1235,27 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
     # FeatureExtractor expects 'feature_version' parameter; pass target_version explicitly.
     extractor = FeatureExtractor(feature_version=target_version)
     from src.utils.analysis_metrics import vector_migrate_dimension_delta, vector_migrate_total
+    qdrant_store = _get_qdrant_store_or_none()
 
     for vid in payload.ids:
-        if vid not in _VECTOR_STORE:
-            items.append(VectorMigrateItem(id=vid, status="not_found", error="not_found"))
-            skipped += 1
-            vector_migrate_total.labels(status="not_found").inc()
-            continue
-        meta = _VECTOR_META.get(vid, {})
+        if qdrant_store is not None:
+            target = await qdrant_store.get_vector(vid)
+            if target is None:
+                items.append(VectorMigrateItem(id=vid, status="not_found", error="not_found"))
+                skipped += 1
+                vector_migrate_total.labels(status="not_found").inc()
+                continue
+            meta = dict(target.metadata or {})
+            vec = list(target.vector or [])
+        else:
+            if vid not in _VECTOR_STORE:
+                items.append(VectorMigrateItem(id=vid, status="not_found", error="not_found"))
+                skipped += 1
+                vector_migrate_total.labels(status="not_found").inc()
+                continue
+            meta = _VECTOR_META.get(vid, {})
+            vec = _VECTOR_STORE[vid]
+
         from_version = meta.get("feature_version", "v1")
         if from_version == target_version:
             items.append(
@@ -1253,7 +1266,6 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
             skipped += 1
             vector_migrate_total.labels(status="skipped").inc()
             continue
-        vec = _VECTOR_STORE[vid]
         dimension_before = len(vec)
         try:
             base_vector, l3_tail, _ = _prepare_vector_for_upgrade(
@@ -1294,7 +1306,11 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
                     meta["l3_3d_dim"] = str(len(l3_tail))
                 else:
                     meta.pop("l3_3d_dim", None)
-                _VECTOR_META[vid] = meta
+                if qdrant_store is not None:
+                    await qdrant_store.register_vector(vid, new_features, metadata=meta)
+                else:
+                    _VECTOR_STORE[vid] = new_features
+                    _VECTOR_META[vid] = meta
                 # Track downgrade separately if target lower than source
                 if (from_version, target_version) in {
                     ("v4", "v3"),
