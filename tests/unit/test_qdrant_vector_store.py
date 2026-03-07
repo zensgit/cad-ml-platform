@@ -264,6 +264,33 @@ class TestQdrantVectorStore:
         assert call_args[1]["query_filter"] is not None
 
     @pytest.mark.asyncio
+    async def test_list_vectors_with_filter(self, vector_store, mock_qdrant_client):
+        """Test filtered vector listing with Qdrant scroll/count."""
+        vector_store._initialized = True
+        mock_count_result = MagicMock()
+        mock_count_result.count = 3
+        mock_qdrant_client.count.return_value = mock_count_result
+        mock_point = MagicMock()
+        mock_point.id = "doc-123"
+        mock_point.payload = {"material": "steel", "coarse_part_type": "开孔件"}
+        mock_point.vector = [0.1, 0.2, 0.3]
+        mock_qdrant_client.scroll.return_value = ([mock_point], None)
+
+        results, total = await vector_store.list_vectors(
+            offset=0,
+            limit=10,
+            filter_conditions={"coarse_part_type": "开孔件"},
+            with_vectors=True,
+        )
+
+        assert total == 3
+        assert len(results) == 1
+        assert results[0].id == "doc-123"
+        assert results[0].metadata["coarse_part_type"] == "开孔件"
+        assert results[0].vector == [0.1, 0.2, 0.3]
+        assert mock_qdrant_client.scroll.call_args.kwargs["scroll_filter"] is not None
+
+    @pytest.mark.asyncio
     async def test_get_vector(self, vector_store, mock_qdrant_client):
         """Test retrieving a specific vector."""
         vector_store._initialized = True
