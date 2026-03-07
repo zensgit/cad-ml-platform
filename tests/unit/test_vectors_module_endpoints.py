@@ -94,6 +94,50 @@ def test_vectors_list_pagination_memory():
     assert data["vectors"][0]["is_coarse_label"] is False
 
 
+def test_vectors_list_supports_coarse_contract_filters_memory():
+    client = TestClient(app)
+    vector_store = {"vec1": [1.0], "vec2": [2.0], "vec3": [3.0]}
+    vector_meta = {
+        "vec1": {
+            "material": "steel",
+            "complexity": "low",
+            "format": "dxf",
+            "part_type": "人孔",
+            "fine_part_type": "人孔",
+            "coarse_part_type": "开孔件",
+            "final_decision_source": "hybrid",
+            "is_coarse_label": "false",
+        },
+        "vec2": {
+            "material": "aluminum",
+            "complexity": "mid",
+            "format": "dwg",
+            "part_type": "法兰",
+            "fine_part_type": "法兰",
+            "coarse_part_type": "法兰",
+            "final_decision_source": "filename",
+            "is_coarse_label": "true",
+        },
+        "vec3": {"material": "steel", "complexity": "high", "format": "step"},
+    }
+    with patch("src.core.similarity._VECTOR_STORE", vector_store), patch(
+        "src.core.similarity._VECTOR_META", vector_meta
+    ), patch("src.core.similarity._BACKEND", "memory"):
+        r = client.get(
+            "/api/v1/vectors?source=memory&coarse_part_type_filter=开孔件"
+            "&decision_source_filter=hybrid&is_coarse_label_filter=false",
+            headers={"X-API-Key": "test"},
+        )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 1
+    assert len(data["vectors"]) == 1
+    assert data["vectors"][0]["id"] == "vec1"
+    assert data["vectors"][0]["coarse_part_type"] == "开孔件"
+    assert data["vectors"][0]["decision_source"] == "hybrid"
+    assert data["vectors"][0]["is_coarse_label"] is False
+
+
 def test_vectors_list_redis_source():
     client = TestClient(app)
     redis_data = {
@@ -130,6 +174,59 @@ def test_vectors_list_redis_source():
     assert len(data["vectors"]) == 1
     assert data["vectors"][0]["id"] == "vec2"
     assert data["vectors"][0]["dimension"] == 2
+    assert data["vectors"][0]["coarse_part_type"] == "开孔件"
+    assert data["vectors"][0]["decision_source"] == "hybrid"
+    assert data["vectors"][0]["is_coarse_label"] is False
+
+
+def test_vectors_list_redis_supports_coarse_contract_filters():
+    client = TestClient(app)
+    redis_data = {
+        b"vector:vec1": {
+            b"v": "1,2,3",
+            b"m": json.dumps(
+                {
+                    "material": "steel",
+                    "complexity": "low",
+                    "format": "dxf",
+                    "part_type": "人孔",
+                    "fine_part_type": "人孔",
+                    "coarse_part_type": "开孔件",
+                    "final_decision_source": "hybrid",
+                    "is_coarse_label": "false",
+                }
+            ),
+        },
+        b"vector:vec2": {
+            b"v": "4,5",
+            b"m": json.dumps(
+                {
+                    "material": "steel",
+                    "complexity": "mid",
+                    "format": "dwg",
+                    "part_type": "法兰",
+                    "fine_part_type": "法兰",
+                    "coarse_part_type": "法兰",
+                    "final_decision_source": "filename",
+                    "is_coarse_label": "true",
+                }
+            ),
+        },
+    }
+    dummy = DummyRedis(redis_data)
+    with patch("src.api.v1.vectors.get_client", return_value=dummy), patch(
+        "src.core.similarity._BACKEND", "redis"
+    ):
+        r = client.get(
+            "/api/v1/vectors?source=redis&coarse_part_type_filter=开孔件"
+            "&decision_source_filter=hybrid&is_coarse_label_filter=false",
+            headers={"X-API-Key": "test"},
+        )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == 1
+    assert len(data["vectors"]) == 1
+    assert data["vectors"][0]["id"] == "vec1"
     assert data["vectors"][0]["coarse_part_type"] == "开孔件"
     assert data["vectors"][0]["decision_source"] == "hybrid"
     assert data["vectors"][0]["is_coarse_label"] is False
