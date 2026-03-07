@@ -108,6 +108,42 @@ def _build_fieldnames(rows: List[Dict[str, Any]]) -> List[str]:
     return sorted(keys)
 
 
+def _json_cell(value: Any) -> str:
+    if not value:
+        return ""
+    return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+
+def _extract_knowledge_context(classification: Dict[str, Any]) -> Dict[str, Any]:
+    knowledge_checks = classification.get("knowledge_checks") or []
+    violations = classification.get("violations") or []
+    standards_candidates = classification.get("standards_candidates") or []
+    knowledge_hints = classification.get("knowledge_hints") or []
+
+    def _token_join(items: Any, key: str) -> str:
+        if not isinstance(items, list):
+            return ""
+        tokens: List[str] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            token = str(item.get(key) or "").strip()
+            if token:
+                tokens.append(token)
+        return ";".join(tokens)
+
+    return {
+        "knowledge_checks": _json_cell(knowledge_checks),
+        "violations": _json_cell(violations),
+        "standards_candidates": _json_cell(standards_candidates),
+        "knowledge_hints": _json_cell(knowledge_hints),
+        "knowledge_check_categories": _token_join(knowledge_checks, "category"),
+        "knowledge_violation_categories": _token_join(violations, "category"),
+        "knowledge_standard_types": _token_join(standards_candidates, "type"),
+        "knowledge_hint_labels": _token_join(knowledge_hints, "label"),
+    }
+
+
 def _score_against_true(
     pred_label: Optional[str],
     true_label: Optional[str],
@@ -446,7 +482,7 @@ def main() -> None:
         else:
             conf_buckets["gte_0_8"] += 1
 
-        rows.append({
+        row = {
             "file": str(item),
             "upload_name": upload_name,
             "status": "ok",
@@ -535,7 +571,9 @@ def main() -> None:
             "soft_override_confidence": soft_override.get("confidence"),
             "soft_override_threshold": soft_override.get("threshold"),
             "soft_override_reason": soft_override.get("reason"),
-        })
+        }
+        row.update(_extract_knowledge_context(classification))
+        rows.append(row)
         stats["success"] += 1
         if soft_override.get("eligible"):
             stats["soft_override_candidates"] += 1
@@ -627,6 +665,14 @@ def main() -> None:
     hybrid_label_present = 0
     hybrid_conf_all: List[float] = []
     hybrid_conf_nonzero: List[float] = []
+    knowledge_check_category_counts: Counter[str] = Counter()
+    knowledge_violation_category_counts: Counter[str] = Counter()
+    knowledge_standard_type_counts: Counter[str] = Counter()
+    knowledge_hint_label_counts: Counter[str] = Counter()
+    knowledge_rows_with_checks = 0
+    knowledge_rows_with_violations = 0
+    knowledge_rows_with_standards = 0
+    knowledge_rows_with_hints = 0
 
     fine_source_counts: Counter[str] = Counter()
     fine_label_present = 0
@@ -706,6 +752,35 @@ def main() -> None:
         hybrid_conf_all.append(hconf)
         if hconf > 0:
             hybrid_conf_nonzero.append(hconf)
+
+        check_categories = [
+            token
+            for token in str(row.get("knowledge_check_categories") or "").split(";")
+            if token
+        ]
+        violation_categories = [
+            token
+            for token in str(row.get("knowledge_violation_categories") or "").split(";")
+            if token
+        ]
+        standard_types = [
+            token for token in str(row.get("knowledge_standard_types") or "").split(";") if token
+        ]
+        hint_labels = [
+            token for token in str(row.get("knowledge_hint_labels") or "").split(";") if token
+        ]
+        if check_categories:
+            knowledge_rows_with_checks += 1
+            knowledge_check_category_counts.update(check_categories)
+        if violation_categories:
+            knowledge_rows_with_violations += 1
+            knowledge_violation_category_counts.update(violation_categories)
+        if standard_types:
+            knowledge_rows_with_standards += 1
+            knowledge_standard_type_counts.update(standard_types)
+        if hint_labels:
+            knowledge_rows_with_hints += 1
+            knowledge_hint_label_counts.update(hint_labels)
 
         # --- Fine label (API additive field; typically HybridClassifier output) ---
         fine_source = (row.get("fine_source") or "").strip() or "unknown"
@@ -845,6 +920,22 @@ def main() -> None:
                 "mean_nonzero": round(_mean(hybrid_conf_nonzero), 6),
                 "median_nonzero": round(_median(hybrid_conf_nonzero), 6),
             },
+        },
+        "knowledge": {
+            "rows_with_checks": knowledge_rows_with_checks,
+            "rows_with_violations": knowledge_rows_with_violations,
+            "rows_with_standards": knowledge_rows_with_standards,
+            "rows_with_hints": knowledge_rows_with_hints,
+            "top_check_categories": dict(
+                knowledge_check_category_counts.most_common(10)
+            ),
+            "top_violation_categories": dict(
+                knowledge_violation_category_counts.most_common(10)
+            ),
+            "top_standard_types": dict(
+                knowledge_standard_type_counts.most_common(10)
+            ),
+            "top_hint_labels": dict(knowledge_hint_label_counts.most_common(10)),
         },
         "fine": {
             "label_present_count": fine_label_present,

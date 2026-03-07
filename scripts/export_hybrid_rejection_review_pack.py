@@ -50,6 +50,30 @@ def _parse_json_object(value: Any) -> Dict[str, Any]:
     return {}
 
 
+def _parse_json_list(value: Any) -> List[Dict[str, Any]]:
+    if isinstance(value, list):
+        return [item for item in value if isinstance(item, dict)]
+    text = _clean_label(value)
+    if not text:
+        return []
+    try:
+        parsed = json.loads(text)
+    except Exception:
+        return []
+    if isinstance(parsed, list):
+        return [item for item in parsed if isinstance(item, dict)]
+    return []
+
+
+def _knowledge_tokens(value: Any, *, key: str) -> str:
+    tokens: List[str] = []
+    for item in _parse_json_list(value):
+        token = str(item.get(key) or "").strip()
+        if token:
+            tokens.append(token)
+    return ";".join(tokens)
+
+
 def _primary_sources(value: Any, top_k: int = 3) -> str:
     payload = _parse_json_object(value)
     if not payload:
@@ -232,6 +256,15 @@ def _collect_candidates(
         out["review_knowledge_conflict"] = _knowledge_conflict(row)
         out["review_knowledge_conflict_note"] = _knowledge_conflict_note(row)
         out["review_has_knowledge_conflict"] = bool(out["review_knowledge_conflict"])
+        out["review_knowledge_check_categories"] = _knowledge_tokens(
+            row.get("knowledge_checks"), key="category"
+        )
+        out["review_standard_candidate_types"] = _knowledge_tokens(
+            row.get("standards_candidates"), key="type"
+        )
+        out["review_knowledge_hint_labels"] = _knowledge_tokens(
+            row.get("knowledge_hints"), key="label"
+        )
         out["review_primary_sources"] = _primary_sources(
             row.get("hybrid_source_contributions")
             or row.get("source_contributions")
@@ -295,6 +328,9 @@ def _build_summary(
     fine_label_counter: Counter[str] = Counter()
     rejection_reason_counter: Counter[str] = Counter()
     knowledge_conflict_counter: Counter[str] = Counter()
+    knowledge_check_category_counter: Counter[str] = Counter()
+    standard_candidate_type_counter: Counter[str] = Counter()
+    knowledge_hint_label_counter: Counter[str] = Counter()
     primary_source_counter: Counter[str] = Counter()
     shadow_source_counter: Counter[str] = Counter()
     sample_explanations: List[str] = []
@@ -309,6 +345,15 @@ def _build_summary(
         )
         knowledge_conflict_counter.update(
             _split_semicolon_tokens(row.get("review_knowledge_conflict"))
+        )
+        knowledge_check_category_counter.update(
+            _split_semicolon_tokens(row.get("review_knowledge_check_categories"))
+        )
+        standard_candidate_type_counter.update(
+            _split_semicolon_tokens(row.get("review_standard_candidate_types"))
+        )
+        knowledge_hint_label_counter.update(
+            _split_semicolon_tokens(row.get("review_knowledge_hint_labels"))
         )
         primary_source_counter.update(
             _split_semicolon_tokens(row.get("review_primary_sources"))
@@ -333,6 +378,15 @@ def _build_summary(
                     ),
                     "knowledge_conflict_note": _clean_label(
                         row.get("review_knowledge_conflict_note")
+                    ),
+                    "knowledge_check_categories": _clean_label(
+                        row.get("review_knowledge_check_categories")
+                    ),
+                    "standard_candidate_types": _clean_label(
+                        row.get("review_standard_candidate_types")
+                    ),
+                    "knowledge_hint_labels": _clean_label(
+                        row.get("review_knowledge_hint_labels")
                     ),
                     "reasons": _clean_label(row.get("review_reasons")),
                     "primary_sources": _clean_label(row.get("review_primary_sources")),
@@ -361,11 +415,28 @@ def _build_summary(
         "knowledge_conflict_count": sum(
             1 for row in candidate_rows if _to_bool(row.get("review_has_knowledge_conflict"))
         ),
+        "knowledge_check_row_count": sum(
+            1
+            for row in candidate_rows
+            if _clean_label(row.get("review_knowledge_check_categories"))
+        ),
+        "standards_candidate_row_count": sum(
+            1
+            for row in candidate_rows
+            if _clean_label(row.get("review_standard_candidate_types"))
+        ),
         "top_review_reasons": _top_named_counts(review_reason_counter),
         "top_coarse_labels": _top_named_counts(coarse_label_counter),
         "top_fine_labels": _top_named_counts(fine_label_counter),
         "top_rejection_reasons": _top_named_counts(rejection_reason_counter),
         "top_knowledge_conflicts": _top_named_counts(knowledge_conflict_counter),
+        "top_knowledge_check_categories": _top_named_counts(
+            knowledge_check_category_counter
+        ),
+        "top_standard_candidate_types": _top_named_counts(
+            standard_candidate_type_counter
+        ),
+        "top_knowledge_hint_labels": _top_named_counts(knowledge_hint_label_counter),
         "top_primary_sources": _top_named_counts(primary_source_counter),
         "top_shadow_sources": _top_named_counts(shadow_source_counter),
         "sample_explanations": sample_explanations[:3],

@@ -84,7 +84,12 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "top_fine_labels=" in review_script
     assert "top_rejection_reasons=" in review_script
     assert "knowledge_conflict_count=" in review_script
+    assert "knowledge_check_row_count=" in review_script
+    assert "standards_candidate_row_count=" in review_script
     assert "top_knowledge_conflicts=" in review_script
+    assert "top_knowledge_check_categories=" in review_script
+    assert "top_standard_candidate_types=" in review_script
+    assert "top_knowledge_hint_labels=" in review_script
     assert "top_primary_sources=" in review_script
     assert "top_shadow_sources=" in review_script
     assert "sample_explanations=" in review_script
@@ -152,6 +157,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Graph2D review rejection reasons" in summary_script
     assert "Graph2D review knowledge_conflicts" in summary_script
     assert "Graph2D review knowledge conflict details" in summary_script
+    assert "Graph2D review knowledge rows" in summary_script
+    assert "Graph2D review standards rows" in summary_script
+    assert "Graph2D review knowledge categories" in summary_script
+    assert "Graph2D review standard candidates" in summary_script
+    assert "Graph2D review knowledge hints" in summary_script
     assert "Graph2D review top sources" in summary_script
     assert "Graph2D review shadow sources" in summary_script
     assert "Graph2D review example explanations" in summary_script
@@ -167,6 +177,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Graph2D Review Gate Strict" in pr_comment_script
     assert "Graph2D Train Sweep" in pr_comment_script
     assert "Graph2D Review Insights" in pr_comment_script
+    assert "knowledge=" in pr_comment_script
     assert "Graph2D Signal Lights" in pr_comment_script
     assert "reviewTopShadowSources" in pr_comment_script
     assert "script=${sweepBestRunScript}" in pr_comment_script
