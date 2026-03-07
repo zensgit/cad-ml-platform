@@ -11,6 +11,7 @@ import logging
 import os
 from typing import Any, Dict, List, Optional
 
+from src.core.classification.coarse_labels import normalize_coarse_label
 from src.core.process_rules import recommend as recommend_process_rules
 from src.models.cad_document import CadDocument
 
@@ -23,6 +24,28 @@ _ml_classifier_loaded: bool = False
 # V16分类器延迟加载
 _v16_classifier: Optional[Any] = None
 _v16_classifier_loaded: bool = False
+
+
+def _augment_classification_contract(
+    payload: Dict[str, Any],
+    *,
+    source: str,
+) -> Dict[str, Any]:
+    """Attach stable fine/coarse classification contract fields."""
+    fine_type_raw = payload.get("fine_type", payload.get("type"))
+    fine_type = str(fine_type_raw or "").strip() or None
+    coarse_type = normalize_coarse_label(fine_type)
+    payload["fine_type"] = fine_type
+    payload["coarse_type"] = coarse_type
+    payload["is_coarse_type"] = bool(fine_type and fine_type == coarse_type)
+    payload["decision_source"] = str(source).strip()
+
+    review_reason = str(payload.get("review_reason") or "").strip()
+    if review_reason:
+        payload.setdefault("review_reasons", [review_reason])
+    else:
+        payload.setdefault("review_reasons", [])
+    return payload
 
 
 def _get_v16_classifier(speed_mode: str = "fast") -> Optional[Any]:
@@ -138,7 +161,10 @@ class CADAnalyzer:
                 response["top2_category"] = result.top2_category
                 response["top2_confidence"] = round(result.top2_confidence, 4)
 
-            return response
+            return _augment_classification_contract(
+                response,
+                source=getattr(result, "model_version", "v16"),
+            )
         except Exception as e:
             logger.warning(f"V16分类失败: {e}，将回退到V6")
             return None
@@ -160,7 +186,8 @@ class CADAnalyzer:
             if result is None:
                 return None
 
-            return {
+            return _augment_classification_contract(
+                {
                 "type": result.category,
                 "confidence": round(result.confidence, 4),
                 "probabilities": {k: round(v, 4) for k, v in result.probabilities.items()},
@@ -170,7 +197,9 @@ class CADAnalyzer:
                 ],
                 "classifier": "ml_v6",
                 "rule_version": os.getenv("CLASSIFICATION_RULE_VERSION", "v6"),
-            }
+                },
+                source="ml_v6",
+            )
         except Exception as e:
             logger.warning(f"ML分类失败: {e}")
             return None
@@ -192,7 +221,8 @@ class CADAnalyzer:
         else:
             part_type = "complex_assembly"
         confidence = 0.6 if part_type != "complex_assembly" else 0.55
-        return {
+        return _augment_classification_contract(
+            {
             "type": part_type,
             "confidence": confidence,
             "characteristics": [
@@ -202,7 +232,9 @@ class CADAnalyzer:
             ],
             "classifier": "rule_based",
             "rule_version": os.getenv("CLASSIFICATION_RULE_VERSION", "v1"),
-        }
+            },
+            source="rule_based",
+        )
 
     async def check_quality(
         self, doc: CadDocument, features: Dict[str, List[Any]]
