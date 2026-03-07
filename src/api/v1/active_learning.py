@@ -45,6 +45,8 @@ class StatsResponse(BaseModel):
     retrain_ready: bool
     labeled_samples: int
     threshold: int
+    remaining_samples: int = 0
+    retrain_recommendation: str = ""
 
 
 class ExportRequest(BaseModel):
@@ -116,6 +118,8 @@ async def get_active_learning_stats(api_key: str = Depends(get_api_key)):
         retrain_ready=bool(retrain.get("ready")),
         labeled_samples=int(retrain.get("labeled_samples", 0)),
         threshold=int(retrain.get("threshold", 0)),
+        remaining_samples=int(retrain.get("remaining_samples", 0)),
+        retrain_recommendation=str(retrain.get("recommendation", "")),
     )
 
 

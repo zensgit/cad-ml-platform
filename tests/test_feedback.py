@@ -39,10 +39,16 @@ def test_submit_feedback_success_writes_log(tmp_path, monkeypatch):
     assert entry["corrected_fine_part_type"] == "人孔"
     assert entry["corrected_coarse_part_type"] == "开孔件"
     assert entry["corrected_is_coarse_label"] is False
+    assert entry["correct_label"] == "人孔"
+    assert entry["correct_fine_label"] == "人孔"
+    assert entry["correct_coarse_label"] == "开孔件"
     assert entry["original_part_type"] == "法兰"
     assert entry["original_fine_part_type"] == "法兰"
     assert entry["original_coarse_part_type"] == "法兰"
     assert entry["original_is_coarse_label"] is True
+    assert entry["original_label"] == "法兰"
+    assert entry["original_fine_label"] == "法兰"
+    assert entry["original_coarse_label"] == "法兰"
     assert entry["original_decision_source"] == "hybrid"
     assert entry["review_outcome"] == "updated"
     assert entry["review_reasons"] == ["low_confidence", "branch_conflict"]

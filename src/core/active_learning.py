@@ -261,10 +261,19 @@ class ActiveLearner:
     def check_retrain_threshold(self) -> Dict[str, Any]:
         """Check if retrain threshold is reached."""
         labeled_count = sum(1 for s in self._samples.values() if s.status == SampleStatus.LABELED)
+        remaining = max(self._retrain_threshold - labeled_count, 0)
+        if labeled_count >= self._retrain_threshold:
+            recommendation = "threshold_met"
+        elif remaining == 1:
+            recommendation = "need_1_more_labeled_sample"
+        else:
+            recommendation = f"need_{remaining}_more_labeled_samples"
         return {
             "ready": labeled_count >= self._retrain_threshold,
             "labeled_samples": labeled_count,
             "threshold": self._retrain_threshold,
+            "remaining_samples": remaining,
+            "recommendation": recommendation,
         }
 
     def export_training_data(
@@ -291,6 +300,7 @@ class ActiveLearner:
             for sample in samples_to_export:
                 export_data = {
                     "doc_id": sample.doc_id,
+                    "analysis_id": sample.doc_id,
                     "predicted_type": sample.predicted_type,
                     "predicted_fine_type": sample.predicted_fine_type or sample.predicted_type,
                     "predicted_coarse_type": sample.predicted_coarse_type
@@ -307,6 +317,14 @@ class ActiveLearner:
                     "score_breakdown": sample.score_breakdown,
                     "uncertainty_reason": sample.uncertainty_reason,
                 }
+                export_data["correct_label"] = (
+                    export_data["true_fine_type"] or export_data["true_type"]
+                )
+                export_data["correct_fine_label"] = export_data["true_fine_type"]
+                export_data["correct_coarse_label"] = export_data["true_coarse_type"]
+                export_data["original_label"] = export_data["predicted_fine_type"]
+                export_data["original_fine_label"] = export_data["predicted_fine_type"]
+                export_data["original_coarse_label"] = export_data["predicted_coarse_type"]
                 f.write(json.dumps(export_data) + "\n")
                 sample.status = SampleStatus.EXPORTED
 

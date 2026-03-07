@@ -111,6 +111,8 @@ def test_active_learning_stats_retrain_ready(client):
     assert body["retrain_ready"] is True
     assert body["labeled_samples"] == 1
     assert body["threshold"] == 1
+    assert body["remaining_samples"] == 0
+    assert body["retrain_recommendation"] == "threshold_met"
     assert body["stats"]["total"] == 1
     assert body["sample_type_stats"]["low_confidence"] == 1
     assert body["feedback_priority_stats"]["medium"] == 1
