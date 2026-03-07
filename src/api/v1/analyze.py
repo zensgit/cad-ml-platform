@@ -263,12 +263,19 @@ class BatchClassifyResultItem(BaseModel):
 
     file_name: str = Field(description="文件名")
     category: Optional[str] = Field(default=None, description="分类类别")
+    fine_category: Optional[str] = Field(default=None, description="细粒度分类类别")
+    coarse_category: Optional[str] = Field(default=None, description="归一化粗粒度分类类别")
+    is_coarse_label: Optional[bool] = Field(
+        default=None, description="分类类别是否已经是粗粒度标签"
+    )
     confidence: Optional[float] = Field(default=None, description="置信度")
     probabilities: Optional[Dict[str, float]] = Field(
         default=None, description="各类别概率"
     )
     needs_review: bool = Field(default=False, description="是否需要人工复核")
     review_reason: Optional[str] = Field(default=None, description="复核原因")
+    top2_category: Optional[str] = Field(default=None, description="第二候选类别")
+    top2_confidence: Optional[float] = Field(default=None, description="第二候选置信度")
     classifier: Optional[str] = Field(default=None, description="使用的分类器版本")
     error: Optional[str] = Field(default=None, description="错误信息")
 
@@ -286,6 +293,41 @@ class BatchClassifyResponse(BaseModel):
 class SimilarityQuery(BaseModel):
     reference_id: str = Field(description="参考分析ID")
     target_id: str = Field(description="目标分析ID")
+
+
+def _build_batch_classify_item(
+    *,
+    file_name: str,
+    category: Optional[str],
+    confidence: Optional[float],
+    probabilities: Optional[Dict[str, float]],
+    classifier: Optional[str],
+    needs_review: bool = False,
+    review_reason: Optional[str] = None,
+    top2_category: Optional[str] = None,
+    top2_confidence: Optional[float] = None,
+    error: Optional[str] = None,
+) -> BatchClassifyResultItem:
+    fine_category = str(category or "").strip() or None
+    coarse_category = normalize_coarse_label(fine_category)
+    is_coarse_label = None
+    if fine_category:
+        is_coarse_label = fine_category == coarse_category
+    return BatchClassifyResultItem(
+        file_name=file_name,
+        category=fine_category,
+        fine_category=fine_category,
+        coarse_category=coarse_category,
+        is_coarse_label=is_coarse_label,
+        confidence=confidence,
+        probabilities=probabilities,
+        needs_review=needs_review,
+        review_reason=review_reason,
+        top2_category=top2_category,
+        top2_confidence=top2_confidence,
+        classifier=classifier,
+        error=error,
+    )
 
 
 class SimilarityResult(BaseModel):
@@ -3452,7 +3494,7 @@ async def batch_classify(
                     if ml_classifier:
                         result = ml_classifier.predict(temp_path)
                         if result:
-                            results[i] = BatchClassifyResultItem(
+                            results[i] = _build_batch_classify_item(
                                 file_name=results[i].file_name,
                                 category=result.category,
                                 confidence=round(result.confidence, 4),
@@ -3461,6 +3503,14 @@ async def batch_classify(
                                     for k, v in result.probabilities.items()
                                 },
                                 classifier="ml_v6",
+                                needs_review=bool(
+                                    getattr(result, "needs_review", False)
+                                ),
+                                review_reason=getattr(result, "review_reason", None),
+                                top2_category=getattr(result, "top2_category", None),
+                                top2_confidence=getattr(
+                                    result, "top2_confidence", None
+                                ),
                             )
                         else:
                             results[i] = BatchClassifyResultItem(
@@ -3489,7 +3539,7 @@ async def batch_classify(
                 if valid_idx < len(batch_results):
                     result = batch_results[valid_idx]
                     if result:
-                        results[i] = BatchClassifyResultItem(
+                        results[i] = _build_batch_classify_item(
                             file_name=item.file_name,
                             category=result.category,
                             confidence=round(result.confidence, 4),
@@ -3498,6 +3548,8 @@ async def batch_classify(
                             },
                             needs_review=getattr(result, "needs_review", False),
                             review_reason=getattr(result, "review_reason", None),
+                            top2_category=getattr(result, "top2_category", None),
+                            top2_confidence=getattr(result, "top2_confidence", None),
                             classifier=getattr(result, "model_version", "v16"),
                         )
                     else:
