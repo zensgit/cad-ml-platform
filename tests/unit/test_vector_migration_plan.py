@@ -41,6 +41,28 @@ def test_vector_migration_plan_memory_returns_ranked_batches():
     assert data["default_run_limit"] == 1
     assert data["estimated_runs_by_version"] == {"v3": 1, "v2": 2, "v1": 1}
     assert data["estimated_total_runs"] == 4
+    assert data["plan_ready"] is True
+    assert data["blocking_reasons"] == []
+    assert data["recommended_first_request_payload"] == {
+        "limit": 1,
+        "dry_run": True,
+        "from_version_filter": "v2",
+        "allow_partial_scan": False,
+    }
+    assert data["recommended_first_batch"] == {
+        "priority": 1,
+        "from_version": "v2",
+        "pending_count": 2,
+        "suggested_run_limit": 1,
+        "allow_partial_scan_required": False,
+        "request_payload": {
+            "limit": 1,
+            "dry_run": True,
+            "from_version_filter": "v2",
+            "allow_partial_scan": False,
+        },
+        "notes": ["split_batch_required"],
+    }
     assert data["batches"] == [
         {
             "priority": 1,
@@ -113,6 +135,28 @@ def test_vector_migration_plan_qdrant_partial_requires_override():
     assert data["pending_ratio"] is None
     assert data["estimated_runs_by_version"] == {"v3": 1}
     assert data["estimated_total_runs"] == 1
+    assert data["plan_ready"] is False
+    assert data["blocking_reasons"] == ["partial_scan_override_required"]
+    assert data["recommended_first_request_payload"] == {
+        "limit": 1,
+        "dry_run": True,
+        "from_version_filter": "v3",
+        "allow_partial_scan": True,
+    }
+    assert data["recommended_first_batch"] == {
+        "priority": 1,
+        "from_version": "v3",
+        "pending_count": 1,
+        "suggested_run_limit": 1,
+        "allow_partial_scan_required": True,
+        "request_payload": {
+            "limit": 1,
+            "dry_run": True,
+            "from_version_filter": "v3",
+            "allow_partial_scan": True,
+        },
+        "notes": ["single_batch_ready", "partial_scan_override_required"],
+    }
     assert data["batches"] == [
         {
             "priority": 1,
@@ -160,6 +204,28 @@ def test_vector_migration_plan_applies_from_version_filter():
     assert data["largest_pending_count"] == 2
     assert data["estimated_runs_by_version"] == {"v2": 1}
     assert data["estimated_total_runs"] == 1
+    assert data["plan_ready"] is True
+    assert data["blocking_reasons"] == []
+    assert data["recommended_first_request_payload"] == {
+        "limit": 2,
+        "dry_run": True,
+        "from_version_filter": "v2",
+        "allow_partial_scan": False,
+    }
+    assert data["recommended_first_batch"] == {
+        "priority": 1,
+        "from_version": "v2",
+        "pending_count": 2,
+        "suggested_run_limit": 2,
+        "allow_partial_scan_required": False,
+        "request_payload": {
+            "limit": 2,
+            "dry_run": True,
+            "from_version_filter": "v2",
+            "allow_partial_scan": False,
+        },
+        "notes": ["single_batch_ready"],
+    }
     assert data["batches"] == [
         {
             "priority": 1,

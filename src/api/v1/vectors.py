@@ -1142,6 +1142,10 @@ class VectorMigrationPlanResponse(BaseModel):
     default_run_limit: int
     estimated_total_runs: int = 0
     estimated_runs_by_version: Dict[str, int] = Field(default_factory=dict)
+    plan_ready: bool = False
+    blocking_reasons: List[str] = Field(default_factory=list)
+    recommended_first_batch: Optional[VectorMigrationPlanBatch] = None
+    recommended_first_request_payload: Optional[Dict[str, Any]] = None
     batches: List[VectorMigrationPlanBatch] = Field(default_factory=list)
 
 
@@ -1921,14 +1925,22 @@ async def migrate_plan(
     if pending["distribution_complete"]:
         scanned_vectors = int(pending["scanned_vectors"] or 0)
         pending_ratio = round(int(pending["total_pending"] or 0) / max(scanned_vectors, 1), 4)
+    allow_partial_scan_required = pending["backend"] == "qdrant" and not pending["distribution_complete"]
     batches = _build_vector_migration_plan_batches(
         observed_by_from_version=pending["observed_by_from_version"],
         max_batches=max_batches,
         default_run_limit=default_run_limit,
-        allow_partial_scan_required=(
-            pending["backend"] == "qdrant" and not pending["distribution_complete"]
-        ),
+        allow_partial_scan_required=allow_partial_scan_required,
     )
+    blocking_reasons: List[str] = []
+    if allow_partial_scan_required:
+        blocking_reasons.append("partial_scan_override_required")
+    if not batches:
+        blocking_reasons.append("no_pending_vectors")
+    recommended_first_batch = batches[0] if batches else None
+    recommended_first_request_payload = None
+    if recommended_first_batch is not None:
+        recommended_first_request_payload = dict(recommended_first_batch.request_payload)
     estimated_runs_by_version = {
         str(from_version): max((int(count) + default_run_limit - 1) // default_run_limit, 1)
         for from_version, count in pending["observed_by_from_version"].items()
@@ -1950,6 +1962,10 @@ async def migrate_plan(
         default_run_limit=default_run_limit,
         estimated_total_runs=sum(estimated_runs_by_version.values()),
         estimated_runs_by_version=estimated_runs_by_version,
+        plan_ready=bool(batches) and not blocking_reasons,
+        blocking_reasons=blocking_reasons,
+        recommended_first_batch=recommended_first_batch,
+        recommended_first_request_payload=recommended_first_request_payload,
         batches=batches,
     )
 
