@@ -13,13 +13,16 @@ INSTALL_PROJECT_REQUIREMENTS="${INSTALL_PROJECT_REQUIREMENTS:-1}"
 INSTALL_PYTORCH="${INSTALL_PYTORCH:-0}"
 INSTALL_PYG="${INSTALL_PYG:-0}"
 RUN_ONLINE_SMOKE="${RUN_ONLINE_SMOKE:-0}"
+RUN_STEP_DIR_EVAL="${RUN_STEP_DIR_EVAL:-0}"
 H5_FILE="${H5_FILE:-/private/tmp/cad-ai-example-data-20260307/HPSketch/data/0000/00000007_1.h5}"
 STEP_FILE="${STEP_FILE:-/private/tmp/cad-ai-example-data-20260307/foxtrot/examples/cube_hole.step}"
 SMOKE_OUTPUT="${SMOKE_OUTPUT:-${ROOT_DIR}/reports/experiments/${DATE}/online_example_ai_inputs_validation_micromamba.json}"
+STEP_DIR="${STEP_DIR:-/private/tmp/cad-ai-example-data-20260307/foxtrot/examples}"
+STEP_DIR_OUTPUT="${STEP_DIR_OUTPUT:-${ROOT_DIR}/reports/experiments/${DATE}/brep_step_dir_eval_foxtrot}"
 
 usage() {
   cat <<EOF
-Usage: $(basename "$0") [--run-smoke] [--with-pytorch] [--with-pyg]
+Usage: $(basename "$0") [--run-smoke] [--run-step-dir-eval] [--with-pytorch] [--with-pyg]
 
 Bootstrap a macOS ARM64 micromamba environment for pythonocc-based STEP/B-Rep
 validation without requiring a preinstalled Conda distribution.
@@ -33,12 +36,16 @@ Environment variables:
   INSTALL_PYTORCH              Install pytorch+torchvision from pytorch channel (default: ${INSTALL_PYTORCH})
   INSTALL_PYG                  Install torch-geometric extras via pip (default: ${INSTALL_PYG})
   RUN_ONLINE_SMOKE             Run validate_online_example_ai_inputs.py after setup (default: ${RUN_ONLINE_SMOKE})
+  RUN_STEP_DIR_EVAL            Run eval_brep_step_dir.py after setup (default: ${RUN_STEP_DIR_EVAL})
   H5_FILE                      HPSketch sample path for smoke validation
   STEP_FILE                    STEP sample path for smoke validation
   SMOKE_OUTPUT                 JSON output path for smoke validation
+  STEP_DIR                     STEP directory for batch evaluation
+  STEP_DIR_OUTPUT              Output directory for batch STEP evaluation
 
 Flags:
   --run-smoke                  Set RUN_ONLINE_SMOKE=1
+  --run-step-dir-eval          Set RUN_STEP_DIR_EVAL=1
   --with-pytorch               Set INSTALL_PYTORCH=1
   --with-pyg                   Set INSTALL_PYG=1 (implies --with-pytorch)
   --skip-project-requirements  Set INSTALL_PROJECT_REQUIREMENTS=0
@@ -54,6 +61,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --with-pytorch)
       INSTALL_PYTORCH=1
+      shift
+      ;;
+    --run-step-dir-eval)
+      RUN_STEP_DIR_EVAL=1
       shift
       ;;
     --with-pyg)
@@ -171,11 +182,23 @@ run_smoke_validation() {
     --output "${SMOKE_OUTPUT}"
 }
 
+run_step_dir_eval() {
+  if [[ "${RUN_STEP_DIR_EVAL}" != "1" ]]; then
+    return
+  fi
+
+  echo "Running STEP directory evaluation..."
+  micromamba_run python "${ROOT_DIR}/scripts/eval_brep_step_dir.py" \
+    --step-dir "${STEP_DIR}" \
+    --output-dir "${STEP_DIR_OUTPUT}"
+}
+
 download_micromamba
 create_or_update_env
 install_project_requirements
 install_optional_ml_stack
 run_smoke_validation
+run_step_dir_eval
 
 cat <<EOF
 
@@ -191,6 +214,12 @@ Run STEP/B-Rep smoke manually:
     python ${ROOT_DIR}/scripts/validate_online_example_ai_inputs.py \\
     --step-file ${STEP_FILE} \\
     --output ${SMOKE_OUTPUT}
+
+Run STEP directory evaluation manually:
+  ${MAMBA_BIN} run -r ${MAMBA_ROOT_PREFIX} -n ${ENV_NAME} \\
+    python ${ROOT_DIR}/scripts/eval_brep_step_dir.py \\
+    --step-dir ${STEP_DIR} \\
+    --output-dir ${STEP_DIR_OUTPUT}
 
 Check pythonocc availability:
   ${MAMBA_BIN} run -r ${MAMBA_ROOT_PREFIX} -n ${ENV_NAME} \\

@@ -50,6 +50,7 @@ That combination blocks both:
    - PyTorch Geometric extras
 5. can optionally run:
    - `scripts/validate_online_example_ai_inputs.py`
+   - `scripts/eval_brep_step_dir.py`
 
 ## Usage
 
@@ -63,6 +64,12 @@ Run online example smoke after setup:
 
 ```bash
 bash scripts/setup_mac_m4_micromamba.sh --run-smoke
+```
+
+Run directory-level STEP evaluation after setup:
+
+```bash
+bash scripts/setup_mac_m4_micromamba.sh --run-step-dir-eval
 ```
 
 Include PyTorch and PyG:
@@ -89,9 +96,12 @@ Supported overrides:
 - `INSTALL_PYTORCH`
 - `INSTALL_PYG`
 - `RUN_ONLINE_SMOKE`
+- `RUN_STEP_DIR_EVAL`
 - `H5_FILE`
 - `STEP_FILE`
 - `SMOKE_OUTPUT`
+- `STEP_DIR`
+- `STEP_DIR_OUTPUT`
 
 ## Validation
 
@@ -115,6 +125,15 @@ Optional online example smoke:
   python scripts/validate_online_example_ai_inputs.py \
   --step-file /private/tmp/cad-ai-example-data-20260307/foxtrot/examples/cube_hole.step \
   --output reports/experiments/20260307/online_example_ai_inputs_validation_micromamba.json
+```
+
+Optional directory-level STEP evaluation:
+
+```bash
+~/.local/bin/micromamba run -r ~/.micromamba -n cad-ml-brep-m4 \
+  python scripts/eval_brep_step_dir.py \
+  --step-dir /private/tmp/cad-ai-example-data-20260307/foxtrot/examples \
+  --output-dir reports/experiments/20260307/brep_step_dir_eval_foxtrot
 ```
 
 ### Runtime validation completed on this machine
@@ -175,6 +194,21 @@ Observed result:
 - `sample_size=3`
 - `status_counts.ok=3`
 - `valid_3d_count=3`
+- `graph_schema_version_counts.v2=3`
+
+Executed through the setup wrapper as well:
+
+```bash
+INSTALL_PROJECT_REQUIREMENTS=0 RUN_STEP_DIR_EVAL=1 RUN_ONLINE_SMOKE=0 \
+  bash scripts/setup_mac_m4_micromamba.sh
+```
+
+Observed integration result:
+
+- existing environment reused successfully
+- `eval_brep_step_dir.py` invoked automatically
+- `sample_size=3`
+- `status_counts.ok=3`
 - `graph_schema_version_counts.v2=3`
 
 Related validation note:
