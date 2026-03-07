@@ -233,3 +233,54 @@ def test_active_learning_review_queue_supports_filters_and_pagination(client):
     assert paged_body["returned"] == 1
     assert paged_body["offset"] == 1
     assert paged_body["has_more"] is False
+
+
+def test_active_learning_review_queue_summary_includes_decision_source_and_reasons(client):
+    learner = get_active_learner()
+    learner.flag_for_review(
+        doc_id="doc-summary-1",
+        predicted_type="法兰",
+        confidence=0.55,
+        alternatives=[],
+        score_breakdown={
+            "final_decision_source": "hybrid",
+            "review_reasons": ["missing_critical_fields", "low_confidence"],
+        },
+        uncertainty_reason="low_confidence",
+    )
+
+    resp = client.get("/api/v1/active-learning/review-queue")
+    assert resp.status_code == 200
+    summary = resp.json()["summary"]
+    assert summary["by_decision_source"]["hybrid"] == 1
+    assert summary["by_uncertainty_reason"]["low_confidence"] == 1
+    assert summary["by_review_reason"]["missing_critical_fields"] == 1
+    assert summary["by_review_reason"]["low_confidence"] == 1
+
+
+def test_active_learning_review_queue_stats_endpoint(client):
+    learner = get_active_learner()
+    learner.flag_for_review(
+        doc_id="doc-stats-1",
+        predicted_type="bolt",
+        confidence=0.2,
+        alternatives=[],
+        score_breakdown={"decision_source": "graph2d"},
+        uncertainty_reason="low_confidence",
+    )
+    learner.flag_for_review(
+        doc_id="doc-stats-2",
+        predicted_type="人孔",
+        confidence=0.4,
+        alternatives=[],
+        score_breakdown={"decision_source": "hybrid", "review_reasons": ["branch_conflict"]},
+        uncertainty_reason="branch_conflict",
+    )
+
+    resp = client.get("/api/v1/active-learning/review-queue/stats")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 2
+    assert body["by_decision_source"]["graph2d"] == 1
+    assert body["by_decision_source"]["hybrid"] == 1
+    assert body["by_review_reason"]["branch_conflict"] == 1

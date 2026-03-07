@@ -352,20 +352,16 @@ class ActiveLearner:
         pending = [s for s in self._samples.values() if s.status == SampleStatus.PENDING]
         return [_normalize_sample(sample) for sample in pending[:limit]]
 
-    def get_review_queue(
+    def _filter_review_queue_samples(
         self,
-        limit: int = 20,
-        offset: int = 0,
+        *,
         status: str = "pending",
         sample_type: Optional[str] = None,
         feedback_priority: Optional[str] = None,
-        sort_by: str = "priority",
-    ) -> Dict[str, Any]:
-        """Return a ranked review queue with filtering and lightweight summary."""
+    ) -> List[ActiveLearningSample]:
         normalized_status = str(status or "pending").strip().lower() or "pending"
         normalized_sample_type = str(sample_type or "").strip() or None
         normalized_priority = str(feedback_priority or "").strip() or None
-        normalized_sort_by = str(sort_by or "priority").strip().lower() or "priority"
 
         samples = [_normalize_sample(sample) for sample in self._samples.values()]
         if normalized_status != "all":
@@ -386,22 +382,74 @@ class ActiveLearner:
                 for sample in samples
                 if _derive_feedback_priority(sample) == normalized_priority
             ]
+        return samples
 
+    def _build_review_queue_summary(
+        self,
+        samples: List[ActiveLearningSample],
+        *,
+        status: str,
+    ) -> Dict[str, Any]:
         summary: Dict[str, Any] = {
-            "status": normalized_status,
+            "status": status,
             "total": len(samples),
             "by_sample_type": {},
             "by_feedback_priority": {},
+            "by_decision_source": {},
+            "by_uncertainty_reason": {},
+            "by_review_reason": {},
         }
         for sample in samples:
             derived_sample_type = _derive_sample_type(sample)
             derived_priority = _derive_feedback_priority(sample)
+            decision_source = str(
+                sample.score_breakdown.get("final_decision_source")
+                or sample.score_breakdown.get("decision_source")
+                or "unknown"
+            )
+            uncertainty_reason = str(sample.uncertainty_reason or "unknown")
+            review_reasons = sample.score_breakdown.get("review_reasons") or []
+            if not review_reasons and uncertainty_reason:
+                review_reasons = [uncertainty_reason]
+
             summary["by_sample_type"][derived_sample_type] = (
                 summary["by_sample_type"].get(derived_sample_type, 0) + 1
             )
             summary["by_feedback_priority"][derived_priority] = (
                 summary["by_feedback_priority"].get(derived_priority, 0) + 1
             )
+            summary["by_decision_source"][decision_source] = (
+                summary["by_decision_source"].get(decision_source, 0) + 1
+            )
+            summary["by_uncertainty_reason"][uncertainty_reason] = (
+                summary["by_uncertainty_reason"].get(uncertainty_reason, 0) + 1
+            )
+            for reason in review_reasons:
+                reason_key = str(reason or "").strip() or "unknown"
+                summary["by_review_reason"][reason_key] = (
+                    summary["by_review_reason"].get(reason_key, 0) + 1
+                )
+        return summary
+
+    def get_review_queue(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        status: str = "pending",
+        sample_type: Optional[str] = None,
+        feedback_priority: Optional[str] = None,
+        sort_by: str = "priority",
+    ) -> Dict[str, Any]:
+        """Return a ranked review queue with filtering and lightweight summary."""
+        normalized_status = str(status or "pending").strip().lower() or "pending"
+        normalized_sort_by = str(sort_by or "priority").strip().lower() or "priority"
+
+        samples = self._filter_review_queue_samples(
+            status=normalized_status,
+            sample_type=sample_type,
+            feedback_priority=feedback_priority,
+        )
+        summary = self._build_review_queue_summary(samples, status=normalized_status)
 
         def _priority_sort_key(sample: ActiveLearningSample) -> tuple[int, int, float, datetime]:
             return (
@@ -446,6 +494,21 @@ class ActiveLearner:
             "summary": summary,
             "items": window,
         }
+
+    def get_review_queue_stats(
+        self,
+        *,
+        status: str = "pending",
+        sample_type: Optional[str] = None,
+        feedback_priority: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        normalized_status = str(status or "pending").strip().lower() or "pending"
+        samples = self._filter_review_queue_samples(
+            status=normalized_status,
+            sample_type=sample_type,
+            feedback_priority=feedback_priority,
+        )
+        return self._build_review_queue_summary(samples, status=normalized_status)
 
     def get_sample(self, sample_id: str) -> Optional[ActiveLearningSample]:
         """Get a sample by ID."""
