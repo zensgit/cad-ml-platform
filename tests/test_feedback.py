@@ -79,3 +79,52 @@ def test_submit_feedback_accepts_explicit_fine_and_coarse_labels(tmp_path, monke
     assert entry["original_part_type"] == "捕集口"
     assert entry["original_fine_part_type"] == "捕集口"
     assert entry["original_coarse_part_type"] == "开孔件"
+
+
+def test_feedback_stats_returns_empty_summary_when_log_missing(tmp_path, monkeypatch):
+    log_path = tmp_path / "missing_feedback.jsonl"
+    monkeypatch.setenv("FEEDBACK_LOG_PATH", str(log_path))
+
+    resp = client.get("/api/v1/feedback/stats")
+    assert resp.status_code == 200
+
+    body = resp.json()
+    assert body["status"] == "success"
+    assert body["total"] == 0
+    assert body["correction_count"] == 0
+    assert body["coarse_correction_count"] == 0
+    assert body["by_review_reason"] == {}
+
+
+def test_feedback_stats_aggregates_coarse_and_fine_corrections(tmp_path, monkeypatch):
+    log_path = tmp_path / "feedback.jsonl"
+    monkeypatch.setenv("FEEDBACK_LOG_PATH", str(log_path))
+
+    updated_payload = _payload()
+    client.post("/api/v1/feedback/", json=updated_payload)
+
+    accepted_payload = _payload()
+    accepted_payload["analysis_id"] = "analysis-456"
+    accepted_payload["corrected_part_type"] = "法兰"
+    accepted_payload["original_part_type"] = "法兰"
+    accepted_payload["review_outcome"] = "accepted"
+    accepted_payload["review_reasons"] = ["confirmed"]
+    accepted_payload["rating"] = 5
+    client.post("/api/v1/feedback/", json=accepted_payload)
+
+    resp = client.get("/api/v1/feedback/stats")
+    assert resp.status_code == 200
+
+    body = resp.json()
+    assert body["total"] == 2
+    assert body["correction_count"] == 1
+    assert body["coarse_correction_count"] == 1
+    assert body["average_rating"] == 4.5
+    assert body["by_review_outcome"] == {"updated": 1, "accepted": 1}
+    assert body["by_review_reason"]["low_confidence"] == 1
+    assert body["by_review_reason"]["branch_conflict"] == 1
+    assert body["by_review_reason"]["confirmed"] == 1
+    assert body["by_corrected_coarse_part_type"]["开孔件"] == 1
+    assert body["by_corrected_coarse_part_type"]["法兰"] == 1
+    assert body["by_original_coarse_part_type"]["法兰"] == 2
+    assert body["by_original_decision_source"]["hybrid"] == 2
