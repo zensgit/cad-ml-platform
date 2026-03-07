@@ -46,6 +46,13 @@ def test_vector_migration_plan_memory_returns_ranked_batches():
             "pending_count": 2,
             "suggested_run_limit": 1,
             "allow_partial_scan_required": False,
+            "request_payload": {
+                "limit": 1,
+                "dry_run": True,
+                "from_version_filter": "v2",
+                "allow_partial_scan": False,
+            },
+            "notes": ["split_batch_required"],
         },
         {
             "priority": 2,
@@ -53,6 +60,13 @@ def test_vector_migration_plan_memory_returns_ranked_batches():
             "pending_count": 1,
             "suggested_run_limit": 1,
             "allow_partial_scan_required": False,
+            "request_payload": {
+                "limit": 1,
+                "dry_run": True,
+                "from_version_filter": "v1",
+                "allow_partial_scan": False,
+            },
+            "notes": ["single_batch_ready"],
         },
     ]
 
@@ -102,6 +116,13 @@ def test_vector_migration_plan_qdrant_partial_requires_override():
             "pending_count": 1,
             "suggested_run_limit": 1,
             "allow_partial_scan_required": True,
+            "request_payload": {
+                "limit": 1,
+                "dry_run": True,
+                "from_version_filter": "v3",
+                "allow_partial_scan": True,
+            },
+            "notes": ["single_batch_ready", "partial_scan_override_required"],
         }
     ]
 
@@ -140,5 +161,12 @@ def test_vector_migration_plan_applies_from_version_filter():
             "pending_count": 2,
             "suggested_run_limit": 2,
             "allow_partial_scan_required": False,
+            "request_payload": {
+                "limit": 2,
+                "dry_run": True,
+                "from_version_filter": "v2",
+                "allow_partial_scan": False,
+            },
+            "notes": ["single_batch_ready"],
         }
     ]

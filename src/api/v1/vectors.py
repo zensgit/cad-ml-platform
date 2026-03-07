@@ -1121,6 +1121,8 @@ class VectorMigrationPlanBatch(BaseModel):
     pending_count: int
     suggested_run_limit: int
     allow_partial_scan_required: bool = False
+    request_payload: Dict[str, Any]
+    notes: List[str] = Field(default_factory=list)
 
 
 class VectorMigrationPlanResponse(BaseModel):
@@ -1855,16 +1857,34 @@ def _build_vector_migration_plan_batches(
         observed_by_from_version.items(),
         key=lambda item: (-int(item[1]), str(item[0])),
     )[:max_batches]
-    return [
-        VectorMigrationPlanBatch(
-            priority=index + 1,
-            from_version=str(from_version),
-            pending_count=int(count),
-            suggested_run_limit=min(int(count), default_run_limit),
-            allow_partial_scan_required=allow_partial_scan_required,
+    batches: List[VectorMigrationPlanBatch] = []
+    for index, (from_version, count) in enumerate(ordered):
+        pending_count = int(count)
+        suggested_run_limit = min(pending_count, default_run_limit)
+        notes: List[str] = []
+        if pending_count > suggested_run_limit:
+            notes.append("split_batch_required")
+        else:
+            notes.append("single_batch_ready")
+        if allow_partial_scan_required:
+            notes.append("partial_scan_override_required")
+        batches.append(
+            VectorMigrationPlanBatch(
+                priority=index + 1,
+                from_version=str(from_version),
+                pending_count=pending_count,
+                suggested_run_limit=suggested_run_limit,
+                allow_partial_scan_required=allow_partial_scan_required,
+                request_payload={
+                    "limit": suggested_run_limit,
+                    "dry_run": True,
+                    "from_version_filter": str(from_version),
+                    "allow_partial_scan": allow_partial_scan_required,
+                },
+                notes=notes,
+            )
         )
-        for index, (from_version, count) in enumerate(ordered)
-    ]
+    return batches
 
 
 @router.get("/migrate/plan", response_model=VectorMigrationPlanResponse)
