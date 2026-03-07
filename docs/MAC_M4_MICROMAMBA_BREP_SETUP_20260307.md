@@ -159,6 +159,28 @@ Interpretation:
 - the existing `extract_brep_graph()` pipeline is producing the expected `v2`
   graph metadata on this machine
 
+### Directory-level STEP validation also completed
+
+After environment bootstrap, the same machine successfully ran:
+
+```bash
+~/.local/bin/micromamba run -r ~/.micromamba -n cad-ml-brep-m4 \
+  python scripts/eval_brep_step_dir.py \
+  --step-dir /private/tmp/cad-ai-example-data-20260307/foxtrot/examples \
+  --output-dir reports/experiments/20260307/brep_step_dir_eval_foxtrot
+```
+
+Observed result:
+
+- `sample_size=3`
+- `status_counts.ok=3`
+- `valid_3d_count=3`
+- `graph_schema_version_counts.v2=3`
+
+Related validation note:
+
+- `docs/BREP_STEP_DIR_EVAL_VALIDATION_20260307.md`
+
 ## Current limitations
 
 - The current machine still lacks an active Docker daemon, so docker-based
