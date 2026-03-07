@@ -18,7 +18,7 @@ def test_similarity_reference_not_found():
 
 
 def test_similarity_dimension_mismatch():
-    # Create two analyses with different feature dimensions by toggling options (semantic length same now; simulate by manual vector injection)
+    # Force a mismatch by mutating one stored vector after registration.
     r1 = client.post(
         "/api/v1/analyze",
         files={"file": ("a.dxf", b"1", "application/octet-stream")},

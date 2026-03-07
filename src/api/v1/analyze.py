@@ -336,6 +336,16 @@ class SimilarityResult(BaseModel):
     score: float
     method: str
     dimension: int
+    reference_part_type: Optional[str] = None
+    reference_fine_part_type: Optional[str] = None
+    reference_coarse_part_type: Optional[str] = None
+    reference_decision_source: Optional[str] = None
+    reference_is_coarse_label: Optional[bool] = None
+    target_part_type: Optional[str] = None
+    target_fine_part_type: Optional[str] = None
+    target_coarse_part_type: Optional[str] = None
+    target_decision_source: Optional[str] = None
+    target_is_coarse_label: Optional[bool] = None
     status: Optional[str] = None
     error: Optional[Dict[str, Any]] = None
 
@@ -2523,7 +2533,11 @@ async def similarity_query(
     payload: SimilarityQuery, api_key: str = Depends(get_api_key)
 ):
     """在已存在的向量之间计算相似度。"""
-    from src.core.similarity import _VECTOR_STORE  # type: ignore
+    from src.core.similarity import (  # type: ignore
+        _VECTOR_META,
+        _VECTOR_STORE,
+        extract_vector_label_contract,
+    )
 
     if payload.reference_id not in _VECTOR_STORE:
         # ErrorCode and build_error imported at module level
@@ -2585,12 +2599,24 @@ async def similarity_query(
     from src.core.similarity import _cosine  # type: ignore
 
     score = _cosine(ref, tgt)
+    reference_contract = extract_vector_label_contract(_VECTOR_META.get(payload.reference_id))
+    target_contract = extract_vector_label_contract(_VECTOR_META.get(payload.target_id))
     return SimilarityResult(
         reference_id=payload.reference_id,
         target_id=payload.target_id,
         score=round(score, 4),
         method="cosine",
         dimension=len(ref),
+        reference_part_type=reference_contract.get("part_type"),
+        reference_fine_part_type=reference_contract.get("fine_part_type"),
+        reference_coarse_part_type=reference_contract.get("coarse_part_type"),
+        reference_decision_source=reference_contract.get("decision_source"),
+        reference_is_coarse_label=reference_contract.get("is_coarse_label"),
+        target_part_type=target_contract.get("part_type"),
+        target_fine_part_type=target_contract.get("fine_part_type"),
+        target_coarse_part_type=target_contract.get("coarse_part_type"),
+        target_decision_source=target_contract.get("decision_source"),
+        target_is_coarse_label=target_contract.get("is_coarse_label"),
     )
 
 
