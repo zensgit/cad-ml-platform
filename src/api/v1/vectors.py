@@ -1099,6 +1099,15 @@ class VectorMigrationPendingResponse(BaseModel):
     distribution_complete: bool = True
 
 
+class VectorMigrationPendingRunRequest(BaseModel):
+    limit: int = Field(default=50, ge=1, le=200, description="最多处理多少个待迁移向量")
+    dry_run: bool = Field(default=False, description="是否只做试运行")
+    allow_partial_scan: bool = Field(
+        default=False,
+        description="Qdrant 扫描不完整时是否仍允许按已扫描结果执行",
+    )
+
+
 class VectorMigrationPreviewResponse(BaseModel):
     """迁移预览响应 - 不执行实际写入"""
 
@@ -1607,10 +1616,11 @@ class VectorMigrationTrendsResponse(BaseModel):
     )
 
 
-@router.get("/migrate/pending", response_model=VectorMigrationPendingResponse)
-async def migrate_pending(limit: int = 50, api_key: str = Depends(get_api_key)):
-    limit = max(min(int(limit or 0), 200), 1)
-    target_version = _resolve_vector_migration_target_version()
+async def _collect_vector_migration_pending_candidates(
+    *,
+    limit: int,
+    target_version: str,
+) -> Dict[str, Any]:
     qdrant_store = _get_qdrant_store_or_none()
     scan_limit = _resolve_vector_migration_scan_limit()
 
@@ -1620,6 +1630,7 @@ async def migrate_pending(limit: int = 50, api_key: str = Depends(get_api_key)):
         scanned = 0
         offset = 0
         items: list[VectorMigrationPendingItem] = []
+        pending_ids: list[str] = []
         total_pending = 0
         while scanned < max_scan:
             batch_limit = min(200, max_scan - scanned)
@@ -1636,6 +1647,7 @@ async def migrate_pending(limit: int = 50, api_key: str = Depends(get_api_key)):
                 if from_version == target_version:
                     continue
                 total_pending += 1
+                pending_ids.append(str(point.id))
                 if len(items) < limit:
                     items.append(
                         VectorMigrationPendingItem(
@@ -1649,22 +1661,24 @@ async def migrate_pending(limit: int = 50, api_key: str = Depends(get_api_key)):
             offset += consumed
 
         distribution_complete = scanned >= total_available
-        return VectorMigrationPendingResponse(
-            target_version=target_version,
-            items=items,
-            listed_count=len(items),
-            total_pending=total_pending if distribution_complete else None,
-            backend="qdrant",
-            scanned_vectors=scanned,
-            scan_limit=scan_limit,
-            distribution_complete=distribution_complete,
-        )
+        return {
+            "target_version": target_version,
+            "items": items,
+            "pending_ids": pending_ids[:limit],
+            "listed_count": len(items),
+            "total_pending": total_pending if distribution_complete else None,
+            "backend": "qdrant",
+            "scanned_vectors": scanned,
+            "scan_limit": scan_limit,
+            "distribution_complete": distribution_complete,
+        }
 
     from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
 
-    items = []
-    total_pending = 0
+    items: list[VectorMigrationPendingItem] = []
+    pending_ids: list[str] = []
     scanned = 0
+    total_pending = 0
     for vid, meta in _VECTOR_META.items():
         if vid not in _VECTOR_STORE:
             continue
@@ -1673,6 +1687,7 @@ async def migrate_pending(limit: int = 50, api_key: str = Depends(get_api_key)):
         if from_version == target_version:
             continue
         total_pending += 1
+        pending_ids.append(str(vid))
         if len(items) < limit:
             items.append(
                 VectorMigrationPendingItem(
@@ -1682,15 +1697,72 @@ async def migrate_pending(limit: int = 50, api_key: str = Depends(get_api_key)):
                 )
             )
 
-    return VectorMigrationPendingResponse(
+    return {
+        "target_version": target_version,
+        "items": items,
+        "pending_ids": pending_ids[:limit],
+        "listed_count": len(items),
+        "total_pending": total_pending,
+        "backend": "memory",
+        "scanned_vectors": scanned,
+        "scan_limit": scan_limit,
+        "distribution_complete": True,
+    }
+
+
+@router.get("/migrate/pending", response_model=VectorMigrationPendingResponse)
+async def migrate_pending(limit: int = 50, api_key: str = Depends(get_api_key)):
+    limit = max(min(int(limit or 0), 200), 1)
+    target_version = _resolve_vector_migration_target_version()
+    pending = await _collect_vector_migration_pending_candidates(
+        limit=limit,
         target_version=target_version,
-        items=items,
-        listed_count=len(items),
-        total_pending=total_pending,
-        backend="memory",
-        scanned_vectors=scanned,
-        scan_limit=scan_limit,
-        distribution_complete=True,
+    )
+    return VectorMigrationPendingResponse(
+        target_version=pending["target_version"],
+        items=pending["items"],
+        listed_count=pending["listed_count"],
+        total_pending=pending["total_pending"],
+        backend=pending["backend"],
+        scanned_vectors=pending["scanned_vectors"],
+        scan_limit=pending["scan_limit"],
+        distribution_complete=pending["distribution_complete"],
+    )
+
+
+@router.post("/migrate/pending/run", response_model=VectorMigrateResponse)
+async def migrate_pending_run(
+    payload: VectorMigrationPendingRunRequest,
+    api_key: str = Depends(get_api_key),
+):
+    target_version = _resolve_vector_migration_target_version()
+    pending = await _collect_vector_migration_pending_candidates(
+        limit=payload.limit,
+        target_version=target_version,
+    )
+    if pending["backend"] == "qdrant" and not pending["distribution_complete"]:
+        if not payload.allow_partial_scan:
+            raise HTTPException(
+                status_code=409,
+                detail=build_error(
+                    ErrorCode.CONSTRAINT_VIOLATION,
+                    stage="vector_migrate_pending_run",
+                    message=(
+                        "Qdrant distribution scan is partial; raise VECTOR_MIGRATION_SCAN_LIMIT "
+                        "or set allow_partial_scan=true"
+                    ),
+                    target_version=target_version,
+                    scanned_vectors=pending["scanned_vectors"],
+                    scan_limit=pending["scan_limit"],
+                ),
+            )
+    return await migrate_vectors(
+        VectorMigrateRequest(
+            ids=pending["pending_ids"],
+            to_version=target_version,
+            dry_run=payload.dry_run,
+        ),
+        api_key=api_key,
     )
 
 
