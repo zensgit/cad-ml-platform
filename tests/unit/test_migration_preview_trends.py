@@ -368,6 +368,45 @@ class TestMigrationTrendsEndpoint:
 
         assert response.version_distribution == {"v4": 2, "v3": 1, "v1": 1}
         assert response.v4_adoption_rate == 0.5
+        assert response.current_total_vectors == 4
+        assert response.scanned_vectors == 4
+        assert response.distribution_complete is True
+
+    @pytest.mark.asyncio
+    async def test_trends_qdrant_scan_limit_marks_partial_distribution(self):
+        """Trends should expose partial distribution when scan limit truncates Qdrant stats."""
+        from src.api.v1.vectors import migrate_trends
+
+        class DummyPoint:
+            def __init__(self, metadata):
+                self.metadata = metadata
+
+        class DummyQdrantStore:
+            async def count(self):
+                return 4
+
+            async def list_vectors(self, offset=0, limit=50, with_vectors=False):
+                items = [
+                    DummyPoint({"feature_version": "v4"}),
+                    DummyPoint({"feature_version": "v3"}),
+                    DummyPoint({"feature_version": "v2"}),
+                    DummyPoint({"feature_version": "v1"}),
+                ]
+                return items[offset : offset + limit], 4
+
+        with patch.dict(
+            "os.environ",
+            {"VECTOR_STORE_BACKEND": "qdrant", "VECTOR_MIGRATION_SCAN_LIMIT": "2"},
+        ), patch(
+            "src.api.v1.vectors._get_qdrant_store_or_none",
+            return_value=DummyQdrantStore(),
+        ):
+            response = await migrate_trends(window_hours=24, api_key="test")
+
+        assert response.current_total_vectors == 4
+        assert response.scanned_vectors == 2
+        assert response.scan_limit == 2
+        assert response.distribution_complete is False
 
     @pytest.mark.asyncio
     async def test_trends_time_window_filtering(self, mock_store_with_versions):
