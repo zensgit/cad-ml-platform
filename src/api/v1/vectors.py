@@ -108,32 +108,53 @@ class VectorSearchResponse(BaseModel):
     total: int
 
 
+def _matches_vector_label_filters(
+    *,
+    material_filter: Optional[str],
+    complexity_filter: Optional[str],
+    fine_part_type_filter: Optional[str],
+    coarse_part_type_filter: Optional[str],
+    decision_source_filter: Optional[str],
+    is_coarse_label_filter: Optional[bool],
+    meta: Dict[str, Any],
+    label_contract: Dict[str, Any],
+) -> bool:
+    if material_filter and meta.get("material") != material_filter:
+        return False
+    if complexity_filter and meta.get("complexity") != complexity_filter:
+        return False
+    if fine_part_type_filter and label_contract.get("fine_part_type") != fine_part_type_filter:
+        return False
+    if (
+        coarse_part_type_filter
+        and label_contract.get("coarse_part_type") != coarse_part_type_filter
+    ):
+        return False
+    if decision_source_filter and label_contract.get("decision_source") != decision_source_filter:
+        return False
+    if (
+        is_coarse_label_filter is not None
+        and label_contract.get("is_coarse_label") is not is_coarse_label_filter
+    ):
+        return False
+    return True
+
+
 def _matches_vector_search_filters(
     payload: VectorSearchRequest,
     meta: Dict[str, Any],
     label_contract: Dict[str, Any],
 ) -> bool:
-    if payload.material_filter and meta.get("material") != payload.material_filter:
-        return False
-    if payload.complexity_filter and meta.get("complexity") != payload.complexity_filter:
-        return False
-    if payload.fine_part_type_filter and (
-        label_contract.get("fine_part_type") != payload.fine_part_type_filter
-    ):
-        return False
-    if payload.coarse_part_type_filter and (
-        label_contract.get("coarse_part_type") != payload.coarse_part_type_filter
-    ):
-        return False
-    if payload.decision_source_filter and (
-        label_contract.get("decision_source") != payload.decision_source_filter
-    ):
-        return False
-    if payload.is_coarse_label_filter is not None and (
-        label_contract.get("is_coarse_label") is not payload.is_coarse_label_filter
-    ):
-        return False
-    return True
+    return _matches_vector_label_filters(
+        material_filter=payload.material_filter,
+        complexity_filter=payload.complexity_filter,
+        fine_part_type_filter=payload.fine_part_type_filter,
+        coarse_part_type_filter=payload.coarse_part_type_filter,
+        decision_source_filter=payload.decision_source_filter,
+        is_coarse_label_filter=payload.is_coarse_label_filter,
+        meta=meta,
+        label_contract=label_contract,
+    )
 
 
 @router.post("/delete", response_model=VectorDeleteResponse)
@@ -190,6 +211,15 @@ async def list_vectors(
     ),
     offset: int = Query(default=0, ge=0, description="结果偏移用于分页"),
     limit: int = Query(default=50, ge=1, description="返回数量上限"),
+    material_filter: Optional[str] = Query(default=None, description="材料过滤"),
+    complexity_filter: Optional[str] = Query(default=None, description="复杂度过滤"),
+    fine_part_type_filter: Optional[str] = Query(default=None, description="细分类过滤"),
+    coarse_part_type_filter: Optional[str] = Query(default=None, description="粗分类过滤"),
+    decision_source_filter: Optional[str] = Query(default=None, description="决策来源过滤"),
+    is_coarse_label_filter: Optional[bool] = Query(
+        default=None,
+        description="是否仅返回 coarse label 样本",
+    ),
     api_key: str = Depends(get_api_key),
 ):
     from src.core.similarity import _BACKEND, _VECTOR_META, _VECTOR_STORE  # type: ignore
@@ -212,8 +242,30 @@ async def list_vectors(
     if resolved == "redis":
         client = get_client()
         if client is not None:
-            return await _list_vectors_redis(client, offset, limit, scan_limit)
-    return _list_vectors_memory(_VECTOR_STORE, _VECTOR_META, offset, limit)
+            return await _list_vectors_redis(
+                client,
+                offset,
+                limit,
+                scan_limit,
+                material_filter,
+                complexity_filter,
+                fine_part_type_filter,
+                coarse_part_type_filter,
+                decision_source_filter,
+                is_coarse_label_filter,
+            )
+    return _list_vectors_memory(
+        _VECTOR_STORE,
+        _VECTOR_META,
+        offset,
+        limit,
+        material_filter,
+        complexity_filter,
+        fine_part_type_filter,
+        coarse_part_type_filter,
+        decision_source_filter,
+        is_coarse_label_filter,
+    )
 
 
 @router.post("/register", response_model=VectorRegisterResponse)
@@ -322,29 +374,51 @@ def _list_vectors_memory(
     vector_meta: Dict[str, Dict[str, str]],
     offset: int,
     limit: int,
+    material_filter: Optional[str],
+    complexity_filter: Optional[str],
+    fine_part_type_filter: Optional[str],
+    coarse_part_type_filter: Optional[str],
+    decision_source_filter: Optional[str],
+    is_coarse_label_filter: Optional[bool],
 ) -> VectorListResponse:
     from src.core.similarity import extract_vector_label_contract
 
     items: list[VectorListItem] = []
+    matched_total = 0
     entries = list(vector_store.items())
-    for vid, vec in entries[offset : offset + limit]:
+    for vid, vec in entries:
         meta = vector_meta.get(vid, {})
         label_contract = extract_vector_label_contract(meta)
-        items.append(
-            VectorListItem(
-                id=vid,
-                dimension=len(vec),
-                material=meta.get("material"),
-                complexity=meta.get("complexity"),
-                format=meta.get("format"),
-                part_type=label_contract.get("part_type"),
-                fine_part_type=label_contract.get("fine_part_type"),
-                coarse_part_type=label_contract.get("coarse_part_type"),
-                decision_source=label_contract.get("decision_source"),
-                is_coarse_label=label_contract.get("is_coarse_label"),
+        if not _matches_vector_label_filters(
+            material_filter=material_filter,
+            complexity_filter=complexity_filter,
+            fine_part_type_filter=fine_part_type_filter,
+            coarse_part_type_filter=coarse_part_type_filter,
+            decision_source_filter=decision_source_filter,
+            is_coarse_label_filter=is_coarse_label_filter,
+            meta=meta,
+            label_contract=label_contract,
+        ):
+            continue
+        matched_total += 1
+        if matched_total <= offset:
+            continue
+        if len(items) < limit:
+            items.append(
+                VectorListItem(
+                    id=vid,
+                    dimension=len(vec),
+                    material=meta.get("material"),
+                    complexity=meta.get("complexity"),
+                    format=meta.get("format"),
+                    part_type=label_contract.get("part_type"),
+                    fine_part_type=label_contract.get("fine_part_type"),
+                    coarse_part_type=label_contract.get("coarse_part_type"),
+                    decision_source=label_contract.get("decision_source"),
+                    is_coarse_label=label_contract.get("is_coarse_label"),
+                )
             )
-        )
-    return VectorListResponse(total=len(vector_store), vectors=items)
+    return VectorListResponse(total=matched_total, vectors=items)
 
 
 async def _list_vectors_redis(
@@ -352,11 +426,17 @@ async def _list_vectors_redis(
     offset: int,
     limit: int,
     scan_limit: int,
+    material_filter: Optional[str],
+    complexity_filter: Optional[str],
+    fine_part_type_filter: Optional[str],
+    coarse_part_type_filter: Optional[str],
+    decision_source_filter: Optional[str],
+    is_coarse_label_filter: Optional[bool],
 ) -> VectorListResponse:
     from src.core.similarity import extract_vector_label_contract
 
     items: list[VectorListItem] = []
-    total = 0
+    matched_total = 0
     scanned = 0
     cursor = 0
     while True:
@@ -370,9 +450,6 @@ async def _list_vectors_redis(
             raw_vec = data.get("v") or data.get(b"v")
             if not raw_vec:
                 continue
-            total += 1
-            if total <= offset:
-                continue
             raw_meta = data.get("m") or data.get(b"m")
             meta: Dict[str, Any] = {}
             if raw_meta:
@@ -384,27 +461,38 @@ async def _list_vectors_redis(
             key_str = key.decode() if isinstance(key, (bytes, bytearray)) else str(key)
             vid = key_str.split("vector:", 1)[1] if "vector:" in key_str else key_str
             label_contract = extract_vector_label_contract(meta)
-            items.append(
-                VectorListItem(
-                    id=vid,
-                    dimension=vec_dim,
-                    material=meta.get("material"),
-                    complexity=meta.get("complexity"),
-                    format=meta.get("format"),
-                    part_type=label_contract.get("part_type"),
-                    fine_part_type=label_contract.get("fine_part_type"),
-                    coarse_part_type=label_contract.get("coarse_part_type"),
-                    decision_source=label_contract.get("decision_source"),
-                    is_coarse_label=label_contract.get("is_coarse_label"),
+            if not _matches_vector_label_filters(
+                material_filter=material_filter,
+                complexity_filter=complexity_filter,
+                fine_part_type_filter=fine_part_type_filter,
+                coarse_part_type_filter=coarse_part_type_filter,
+                decision_source_filter=decision_source_filter,
+                is_coarse_label_filter=is_coarse_label_filter,
+                meta=meta,
+                label_contract=label_contract,
+            ):
+                continue
+            matched_total += 1
+            if matched_total <= offset:
+                continue
+            if len(items) < limit:
+                items.append(
+                    VectorListItem(
+                        id=vid,
+                        dimension=vec_dim,
+                        material=meta.get("material"),
+                        complexity=meta.get("complexity"),
+                        format=meta.get("format"),
+                        part_type=label_contract.get("part_type"),
+                        fine_part_type=label_contract.get("fine_part_type"),
+                        coarse_part_type=label_contract.get("coarse_part_type"),
+                        decision_source=label_contract.get("decision_source"),
+                        is_coarse_label=label_contract.get("is_coarse_label"),
+                    )
                 )
-            )
-            if len(items) >= limit:
-                break
-        if len(items) >= limit:
-            break
         if cursor == 0:
             break
-    return VectorListResponse(total=total, vectors=items)
+    return VectorListResponse(total=matched_total, vectors=items)
 
 
 def _coerce_int(value: Optional[str]) -> Optional[int]:
