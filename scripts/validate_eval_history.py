@@ -140,11 +140,49 @@ def validate_file(filepath: Path, strict: bool = False) -> Tuple[bool, List[str]
 
     if "history_metrics" in data:
         hmetrics = data["history_metrics"]
-        for field in ["coverage", "accuracy_overall", "macro_f1_overall"]:
+        for field in [
+            "coverage",
+            "accuracy_overall",
+            "macro_f1_overall",
+            "coarse_accuracy_on_ok",
+            "coarse_accuracy_overall",
+            "coarse_macro_f1_on_ok",
+            "coarse_macro_f1_overall",
+        ]:
             if field in hmetrics:
                 value = hmetrics[field]
                 if not (0 <= value <= 1):
                     issues.append(f"history_metrics {field} out of range: {value}")
+
+        for field in ["exact_top_mismatches", "coarse_top_mismatches"]:
+            if field not in hmetrics:
+                continue
+            value = hmetrics[field]
+            if not isinstance(value, list):
+                issues.append(f"history_metrics {field} must be a list")
+                continue
+            for index, item in enumerate(value):
+                if not isinstance(item, dict):
+                    issues.append(
+                        f"history_metrics {field}[{index}] must be an object"
+                    )
+                    continue
+                expected = str(item.get("expected") or "").strip()
+                predicted = str(item.get("predicted") or "").strip()
+                count = item.get("count")
+                if not expected or not predicted:
+                    issues.append(
+                        f"history_metrics {field}[{index}] missing expected/predicted"
+                    )
+                try:
+                    if int(count) < 0:
+                        issues.append(
+                            f"history_metrics {field}[{index}] count out of range: {count}"
+                        )
+                except Exception:
+                    issues.append(
+                        f"history_metrics {field}[{index}] count must be integer"
+                    )
 
     if "tuning" in data:
         tuning = data["tuning"]
