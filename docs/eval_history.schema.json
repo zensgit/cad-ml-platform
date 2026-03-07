@@ -258,6 +258,52 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        },
+        "coarse_accuracy_on_ok": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "coarse_accuracy_overall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "coarse_macro_f1_on_ok": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "coarse_macro_f1_overall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "exact_top_mismatches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["expected", "predicted", "count"],
+            "properties": {
+              "expected": { "type": "string", "minLength": 1 },
+              "predicted": { "type": "string", "minLength": 1 },
+              "count": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "coarse_top_mismatches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["expected", "predicted", "count"],
+            "properties": {
+              "expected": { "type": "string", "minLength": 1 },
+              "predicted": { "type": "string", "minLength": 1 },
+              "count": { "type": "integer", "minimum": 0 }
+            },
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": true
