@@ -6,6 +6,7 @@ Maintenance API endpoints
 from __future__ import annotations
 
 import logging
+import os
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -22,6 +23,17 @@ from src.utils.analysis_result_store import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _get_qdrant_store_or_none():
+    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
+        return None
+    try:
+        from src.core.vector_stores import get_vector_store as get_managed_vector_store
+
+        return get_managed_vector_store("qdrant")
+    except Exception:
+        return None
 
 
 class OrphanCleanupResponse(BaseModel):
@@ -410,13 +422,25 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
     Returns:
         维护相关的统计数据
     """
-    from src.core.similarity import _VECTOR_LOCK, _VECTOR_META, _VECTOR_STORE  # type: ignore
     from src.utils.cache import get_client
 
     try:
-        with _VECTOR_LOCK:
-            total_vectors = len(_VECTOR_STORE)
-            metadata_entries = len(_VECTOR_META)
+        qdrant_store = _get_qdrant_store_or_none()
+        if qdrant_store is not None:
+            total_vectors = await qdrant_store.count()
+            metadata_entries = total_vectors
+            backend = "qdrant"
+        else:
+            from src.core.similarity import (  # type: ignore
+                _VECTOR_LOCK,
+                _VECTOR_META,
+                _VECTOR_STORE,
+            )
+
+            with _VECTOR_LOCK:
+                total_vectors = len(_VECTOR_STORE)
+                metadata_entries = len(_VECTOR_META)
+            backend = "memory"
     except Exception as e:
         err = build_error(
             ErrorCode.INTERNAL_ERROR,
@@ -430,7 +454,11 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
         raise HTTPException(status_code=500, detail=err)
 
     stats = {
-        "vector_store": {"total_vectors": total_vectors, "metadata_entries": metadata_entries},
+        "vector_store": {
+            "backend": backend,
+            "total_vectors": total_vectors,
+            "metadata_entries": metadata_entries,
+        },
         "cache": {"available": False, "size": 0},
         "maintenance": {"orphan_check_available": False, "last_cleanup": None},
         "analysis_result_store": {},

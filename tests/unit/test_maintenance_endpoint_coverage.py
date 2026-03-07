@@ -311,7 +311,28 @@ class TestGetMaintenanceStatsEndpoint:
 
                         assert result["vector_store"]["total_vectors"] == 2
                         assert result["vector_store"]["metadata_entries"] == 1
+                        assert result["vector_store"]["backend"] == "memory"
                         assert result["cache"]["available"] is False
+
+    @pytest.mark.asyncio
+    async def test_get_stats_qdrant_backend(self):
+        """Test get_maintenance_stats uses qdrant backend when enabled."""
+        from src.api.v1.maintenance import get_maintenance_stats
+
+        class DummyQdrantStore:
+            async def count(self, filter_conditions=None):
+                assert filter_conditions is None
+                return 7
+
+        with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+            "src.core.vector_stores.get_vector_store",
+            return_value=DummyQdrantStore(),
+        ), patch("src.utils.cache.get_client", return_value=None):
+            result = await get_maintenance_stats(api_key="test")
+
+        assert result["vector_store"]["backend"] == "qdrant"
+        assert result["vector_store"]["total_vectors"] == 7
+        assert result["vector_store"]["metadata_entries"] == 7
 
     @pytest.mark.asyncio
     async def test_get_stats_with_cache(self):
