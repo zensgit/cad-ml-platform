@@ -84,7 +84,8 @@ def test_analyze_dxf_exposes_coarse_labels_and_knowledge_outputs(monkeypatch):
         "/api/v1/analyze/",
         files={
             "file": (
-                "M10x1.25_ISO2768-mK_IT7_位置度0.2_A_C_B_人孔.dxf",
+                "M10x1.25_ISO2768-mK_GBT1804-M_IT7_位置度0.2_A_C_B_"
+                "材料304_Ra3.2_N8_人孔.dxf",
                 io.BytesIO(dxf_payload),
                 "application/dxf",
             ),
@@ -107,4 +108,17 @@ def test_analyze_dxf_exposes_coarse_labels_and_knowledge_outputs(monkeypatch):
     assert "general_tolerance" in categories
     assert "it_grade" in categories
     assert "gdt" in categories
+    assert "material" in categories
+    assert "surface_finish" in categories
+
+    standards = classification.get("standards_candidates") or []
+    assert any(item.get("designation") == "GB/T 1804-M" for item in standards)
+    assert any(
+        item.get("type") == "material" and item.get("grade") == "S30408"
+        for item in standards
+    )
+    assert any(
+        item.get("type") == "surface_finish" and item.get("grade") == "N8"
+        for item in standards
+    )
     assert classification.get("violations")

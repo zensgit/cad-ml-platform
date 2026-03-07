@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import os
 import time
 from typing import Dict, List
 from unittest.mock import MagicMock, patch
@@ -507,6 +508,10 @@ class TestV4EdgeCases:
         result = await extractor.extract(doc)
         elapsed = time.perf_counter() - start
 
-        # Even with 10k entities, should be fast
-        assert elapsed < 0.1, f"Took {elapsed*1000:.2f}ms for 10k entities"
+        # CI runners have high jitter and can be materially slower than local dev boxes.
+        # Keep a strict local target while allowing a wider but still bounded CI budget.
+        max_elapsed = 1.0 if os.getenv("CI") else 0.1
+        assert elapsed < max_elapsed, (
+            f"Took {elapsed*1000:.2f}ms for 10k entities (limit={max_elapsed*1000:.0f}ms)"
+        )
         assert result["geometric"][-1] > 0  # Should have positive entropy

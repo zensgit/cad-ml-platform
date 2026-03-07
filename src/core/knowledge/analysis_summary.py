@@ -7,7 +7,13 @@ import json
 from typing import Any, Dict, List, Optional, Sequence
 
 from src.core.classification.coarse_labels import normalize_coarse_label
+from src.core.materials import classify_material_detailed
 from src.core.knowledge.dynamic.manager import get_knowledge_manager
+from src.core.knowledge.design_standards.surface_finish import (
+    SurfaceFinishGrade,
+    get_ra_value,
+    suggest_surface_finish,
+)
 from src.core.knowledge.gdt.application import interpret_feature_control_frame
 from src.core.knowledge.gdt.datums import validate_datum_sequence
 from src.core.knowledge.standards.threads import (
@@ -16,6 +22,7 @@ from src.core.knowledge.standards.threads import (
 )
 from src.core.knowledge.tolerance.it_grades import get_grade_info
 from src.core.knowledge.design_standards.general_tolerances import (
+    GeneralToleranceClass,
     GeneralToleranceSpec,
 )
 
@@ -27,14 +34,27 @@ ISO_2768_RE = re.compile(
     r"(?<![A-Za-z0-9])ISO\s*2768\s*-\s*([FMCV][HKL]?)(?=$|[^A-Za-z0-9])",
     re.IGNORECASE,
 )
+GBT_1804_RE = re.compile(
+    r"(?<![A-Za-z0-9])(?:GB\s*/\s*T|GBT)\s*1804\s*[-－]?\s*([FMCV])(?=$|[^A-Za-z0-9])",
+    re.IGNORECASE,
+)
 IT_GRADE_RE = re.compile(
     r"(?<![A-Za-z0-9])IT(?:01|0|[1-9]|1[0-8])(?=$|[^A-Za-z0-9])",
+    re.IGNORECASE,
+)
+SURFACE_RA_RE = re.compile(
+    r"(?<![A-Za-z0-9])RA\s*([0-9]+(?:\.[0-9]+)?)(?=$|[^A-Za-z0-9.])",
+    re.IGNORECASE,
+)
+SURFACE_GRADE_RE = re.compile(
+    r"(?<![A-Za-z0-9])(N(?:[1-9]|1[0-2]))(?=$|[^A-Za-z0-9])",
     re.IGNORECASE,
 )
 GDT_HINT_RE = re.compile(
     r"(直线度|平面度|圆度|圆柱度|垂直度|平行度|倾斜度|位置度|同心度|对称度|圆跳动|全跳动|线轮廓度|面轮廓度)[^\n;|]*",
     re.IGNORECASE,
 )
+MATERIAL_LABEL_RE = re.compile(r"(?:材料|材质)\s*[:：]?\s*(.+)", re.IGNORECASE)
 
 
 def _dedupe(items: Sequence[str]) -> List[str]:
@@ -68,6 +88,60 @@ def _format_iso_2768_designation(raw_designation: str) -> str:
     if cleaned.startswith("ISO2768-"):
         return f"ISO 2768-{cleaned.split('-', 1)[1]}"
     return cleaned
+
+
+def _format_gbt_1804_designation(raw_class: str) -> str:
+    cleaned = str(raw_class or "").strip().upper()
+    return f"GB/T 1804-{cleaned}"
+
+
+def _extract_material_candidates(snippets: Sequence[str]) -> List[str]:
+    candidates: List[str] = []
+    for snippet in snippets:
+        match = MATERIAL_LABEL_RE.search(str(snippet or ""))
+        if not match:
+            continue
+        candidate = str(match.group(1) or "").strip()
+        if not candidate:
+            continue
+        candidate = re.split(r"[\n\r;|,，]", candidate, maxsplit=1)[0].strip()
+        if candidate:
+            candidates.append(candidate)
+    return _dedupe(candidates)
+
+
+def _resolve_material_candidate(raw_candidate: str) -> Optional[Dict[str, Any]]:
+    candidate = str(raw_candidate or "").strip()
+    if not candidate:
+        return None
+
+    candidate = re.split(
+        r"R[Aa]\s*[0-9]|表面粗糙度|粗糙度|位置度|直线度|平面度|"
+        r"IT(?:01|0|[1-9]|1[0-8])|ISO|GBT|GB/T|N(?:[1-9]|1[0-2])|"
+        r"图号|名称|零件|人孔",
+        candidate,
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )[0].strip()
+    if not candidate:
+        return None
+
+    info = classify_material_detailed(candidate)
+    if info is not None:
+        return {"raw": candidate, "info": info}
+
+    tokens = [
+        token
+        for token in re.split(r"\s+", candidate)
+        if token and token not in {"表面粗糙度", "粗糙度"}
+    ]
+    for end in range(1, min(len(tokens), 4) + 1):
+        probe = " ".join(tokens[:end]).strip()
+        info = classify_material_detailed(probe)
+        if info is not None:
+            return {"raw": probe, "info": info}
+
+    return None
 
 
 def _dedupe_dict_rows(rows: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -164,6 +238,39 @@ def build_knowledge_summary(
             }
         )
 
+    gbt_matches = _dedupe(
+        _format_gbt_1804_designation(match.group(1))
+        for match in GBT_1804_RE.finditer(search_text)
+    )
+    for designation in gbt_matches:
+        linear_code = designation.rsplit("-", 1)[-1].lower()
+        try:
+            spec_class = GeneralToleranceClass(linear_code)
+        except ValueError:
+            continue
+        checks.append(
+            {
+                "category": "general_tolerance",
+                "item": designation,
+                "value": {
+                    "linear_class": spec_class.value,
+                    "angular_class": spec_class.value,
+                    "equivalent_iso_designation": f"ISO 2768-{spec_class.value.upper()}",
+                },
+                "confidence": 0.9,
+                "source": "text",
+                "status": "ok",
+            }
+        )
+        standards_candidates.append(
+            {
+                "type": "general_tolerance",
+                "designation": designation,
+                "linear_class": spec_class.value,
+                "equivalent_designation": f"ISO 2768-{spec_class.value.upper()}",
+            }
+        )
+
     grade_matches = _dedupe(
         match.group(0).upper() for match in IT_GRADE_RE.finditer(search_text)
     )
@@ -179,6 +286,66 @@ def build_knowledge_summary(
                 "confidence": 0.85,
                 "source": "text",
                 "status": "ok",
+            }
+        )
+
+    ra_matches = _dedupe(match.group(1) for match in SURFACE_RA_RE.finditer(search_text))
+    for ra_text in ra_matches:
+        try:
+            ra_um = float(ra_text)
+        except (TypeError, ValueError):
+            continue
+        grade = suggest_surface_finish(ra_um)
+        checks.append(
+            {
+                "category": "surface_finish",
+                "item": f"Ra {ra_text}",
+                "value": {
+                    "ra_um": ra_um,
+                    "grade": grade.value,
+                    "standard_ra_um": get_ra_value(grade),
+                },
+                "confidence": 0.88,
+                "source": "text",
+                "status": "ok",
+            }
+        )
+        standards_candidates.append(
+            {
+                "type": "surface_finish",
+                "designation": f"Ra {ra_text}",
+                "grade": grade.value,
+                "ra_um": ra_um,
+            }
+        )
+
+    surface_grade_matches = _dedupe(
+        match.group(1).upper() for match in SURFACE_GRADE_RE.finditer(search_text)
+    )
+    for grade_text in surface_grade_matches:
+        try:
+            grade = SurfaceFinishGrade(grade_text)
+        except ValueError:
+            continue
+        checks.append(
+            {
+                "category": "surface_finish",
+                "item": grade.value,
+                "value": {
+                    "grade": grade.value,
+                    "ra_um": get_ra_value(grade),
+                },
+                "confidence": 0.88,
+                "source": "text",
+                "status": "ok",
+            }
+        )
+        standards_candidates.append(
+            {
+                "type": "surface_finish",
+                "designation": grade.value,
+                "grade": grade.value,
+                "ra_um": get_ra_value(grade),
             }
         )
 
@@ -230,6 +397,38 @@ def build_knowledge_summary(
                     "source": "gdt",
                 }
             )
+
+    material_candidates = _extract_material_candidates(snippets)
+    for candidate in material_candidates:
+        resolved = _resolve_material_candidate(candidate)
+        if resolved is None:
+            continue
+        material_item = str(resolved["raw"])
+        material_info = resolved["info"]
+        checks.append(
+            {
+                "category": "material",
+                "item": material_item,
+                "value": {
+                    "grade": material_info.grade,
+                    "name": material_info.name,
+                    "group": material_info.group.value,
+                    "category": material_info.category.value,
+                    "standards": material_info.standards[:5],
+                },
+                "confidence": 0.92,
+                "source": "text",
+                "status": "ok",
+            }
+        )
+        standards_candidates.append(
+            {
+                "type": "material",
+                "designation": material_item,
+                "grade": material_info.grade,
+                "group": material_info.group.value,
+            }
+        )
 
     knowledge_hints: Dict[str, float] = {}
     try:
