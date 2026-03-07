@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 from src.core.similarity import register_vector
 from src.main import app
@@ -49,3 +50,64 @@ def test_vector_distribution_endpoint():
     assert data["by_coarse_part_type"]["开孔件"] >= 2
     assert data["by_decision_source"]["hybrid"] >= 2
     assert 0.0 <= data["dominant_coarse_ratio"] <= 1.0
+
+
+def test_vector_distribution_qdrant_backend():
+    class DummyQdrantResult:
+        def __init__(self, vector_id, metadata, vector):
+            self.id = vector_id
+            self.metadata = metadata
+            self.vector = vector
+
+    class DummyQdrantStore:
+        async def list_vectors(self, offset=0, limit=5000, with_vectors=False, **kwargs):
+            return (
+                [
+                    DummyQdrantResult(
+                        "dist-q1",
+                        {
+                            "material": "steel",
+                            "complexity": "low",
+                            "format": "dxf",
+                            "coarse_part_type": "开孔件",
+                            "final_decision_source": "hybrid",
+                        },
+                        [0.1, 0.2, 0.3],
+                    ),
+                    DummyQdrantResult(
+                        "dist-q2",
+                        {
+                            "material": "steel",
+                            "complexity": "mid",
+                            "format": "step",
+                            "coarse_part_type": "开孔件",
+                            "final_decision_source": "hybrid",
+                        },
+                        [0.4, 0.5, 0.6],
+                    ),
+                    DummyQdrantResult(
+                        "dist-q3",
+                        {
+                            "material": "aluminum",
+                            "complexity": "high",
+                            "format": "step",
+                            "coarse_part_type": "传动件",
+                            "final_decision_source": "graph2d",
+                        },
+                        [0.7, 0.8],
+                    ),
+                ],
+                3,
+            )
+
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.vectors_stats._get_qdrant_store_or_none",
+        return_value=DummyQdrantStore(),
+    ), patch("src.core.similarity._BACKEND", "qdrant"):
+        resp = client.get("/api/v1/vectors_stats/distribution", headers={"x-api-key": "test"})
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["total"] == 3
+    assert data["by_coarse_part_type"]["开孔件"] == 2
+    assert data["by_decision_source"]["hybrid"] == 2
+    assert data["dominant_coarse_ratio"] == 0.6667
