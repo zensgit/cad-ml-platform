@@ -66,6 +66,8 @@ def test_vector_migration_status_qdrant_versions():
     assert data["backend"] == "qdrant"
     assert data["current_total_vectors"] == 3
     assert data["scanned_vectors"] == 3
+    assert data["distribution_complete"] is True
+    assert data["scan_limit"] >= 3
 
 
 def test_vector_migration_summary_qdrant_versions():
@@ -96,3 +98,5 @@ def test_vector_migration_summary_qdrant_versions():
     assert data["backend"] == "qdrant"
     assert data["current_total_vectors"] == 3
     assert data["current_version_distribution"] == {"v4": 2, "v2": 1}
+    assert data["distribution_complete"] is True
+    assert data["scanned_vectors"] == 3

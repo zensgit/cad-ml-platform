@@ -175,6 +175,14 @@ def _get_qdrant_store_or_none():
         return None
 
 
+def _resolve_vector_migration_scan_limit(default: int = 5000) -> int:
+    try:
+        resolved = int(os.getenv("VECTOR_MIGRATION_SCAN_LIMIT", str(default)))
+    except (TypeError, ValueError):
+        resolved = default
+    return max(int(resolved or 0), 1)
+
+
 async def _collect_qdrant_feature_versions(
     qdrant_store,
     *,
@@ -182,10 +190,7 @@ async def _collect_qdrant_feature_versions(
 ) -> tuple[Dict[str, int], int, int]:
     resolved_scan_limit = scan_limit
     if resolved_scan_limit is None:
-        try:
-            resolved_scan_limit = int(os.getenv("VECTOR_MIGRATION_SCAN_LIMIT", "5000"))
-        except (TypeError, ValueError):
-            resolved_scan_limit = 5000
+        resolved_scan_limit = _resolve_vector_migration_scan_limit()
     resolved_scan_limit = max(int(resolved_scan_limit or 0), 1)
 
     total_available = int(await qdrant_store.count())
@@ -1013,6 +1018,8 @@ class VectorMigrationStatusResponse(BaseModel):
     backend: str = "memory"
     current_total_vectors: Optional[int] = None
     scanned_vectors: Optional[int] = None
+    scan_limit: Optional[int] = None
+    distribution_complete: bool = True
 
 
 class VectorMigrationSummaryResponse(BaseModel):
@@ -1023,6 +1030,9 @@ class VectorMigrationSummaryResponse(BaseModel):
     backend: str = "memory"
     current_version_distribution: Optional[Dict[str, int]] = None
     current_total_vectors: Optional[int] = None
+    scanned_vectors: Optional[int] = None
+    scan_limit: Optional[int] = None
+    distribution_complete: bool = True
 
 
 class VectorMigrationPreviewResponse(BaseModel):
@@ -1393,9 +1403,11 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
 @router.get("/migrate/status", response_model=VectorMigrationStatusResponse)
 async def migrate_status(api_key: str = Depends(get_api_key)):
     qdrant_store = _get_qdrant_store_or_none()
+    scan_limit = _resolve_vector_migration_scan_limit()
     if qdrant_store is not None:
         versions, total_available, scanned = await _collect_qdrant_feature_versions(qdrant_store)
         backend = "qdrant"
+        distribution_complete = scanned >= total_available
     else:
         from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
 
@@ -1409,6 +1421,7 @@ async def migrate_status(api_key: str = Depends(get_api_key)):
             versions[ver] = versions.get(ver, 0) + 1
         scanned = total_available
         backend = "memory"
+        distribution_complete = True
     history = globals().get("_VECTOR_MIGRATION_HISTORY", [])
     last = history[-1] if history else None
     return VectorMigrationStatusResponse(
@@ -1424,6 +1437,8 @@ async def migrate_status(api_key: str = Depends(get_api_key)):
         backend=backend,
         current_total_vectors=total_available,
         scanned_vectors=scanned,
+        scan_limit=scan_limit,
+        distribution_complete=distribution_complete,
     )
 
 
@@ -1438,11 +1453,15 @@ async def migrate_summary(api_key: str = Depends(get_api_key)):
     total_migrations = sum(aggregate.values())
     statuses = sorted(aggregate.keys())
     qdrant_store = _get_qdrant_store_or_none()
+    scan_limit = _resolve_vector_migration_scan_limit()
     if qdrant_store is not None:
-        current_version_distribution, current_total_vectors, _ = await _collect_qdrant_feature_versions(
-            qdrant_store
-        )
+        (
+            current_version_distribution,
+            current_total_vectors,
+            scanned_vectors,
+        ) = await _collect_qdrant_feature_versions(qdrant_store)
         backend = "qdrant"
+        distribution_complete = scanned_vectors >= current_total_vectors
     else:
         from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
 
@@ -1457,6 +1476,8 @@ async def migrate_summary(api_key: str = Depends(get_api_key)):
                 current_version_distribution.get(version, 0) + 1
             )
         backend = "memory"
+        scanned_vectors = current_total_vectors
+        distribution_complete = True
     return VectorMigrationSummaryResponse(
         counts=aggregate,
         total_migrations=total_migrations,
@@ -1465,6 +1486,9 @@ async def migrate_summary(api_key: str = Depends(get_api_key)):
         backend=backend,
         current_version_distribution=current_version_distribution,
         current_total_vectors=current_total_vectors,
+        scanned_vectors=scanned_vectors,
+        scan_limit=scan_limit,
+        distribution_complete=distribution_complete,
     )
 
 
@@ -1481,6 +1505,10 @@ class VectorMigrationTrendsResponse(BaseModel):
     downgrade_rate: float = Field(description="降级比例")
     error_rate: float = Field(description="错误比例")
     time_range: Dict[str, Optional[str]] = Field(description="统计时间范围")
+    current_total_vectors: Optional[int] = Field(default=None, description="当前向量总数")
+    scanned_vectors: Optional[int] = Field(default=None, description="版本分布扫描数量")
+    scan_limit: Optional[int] = Field(default=None, description="版本分布扫描上限")
+    distribution_complete: bool = Field(default=True, description="版本分布是否为全量结果")
 
 
 @router.get("/migrate/trends", response_model=VectorMigrationTrendsResponse)
@@ -1534,10 +1562,12 @@ async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_
 
     # Calculate v4 adoption rate from current vectors
     qdrant_store = _get_qdrant_store_or_none()
+    scan_limit = _resolve_vector_migration_scan_limit()
     if qdrant_store is not None:
-        version_distribution, total_vectors, _ = await _collect_qdrant_feature_versions(
+        version_distribution, total_vectors, scanned_vectors = await _collect_qdrant_feature_versions(
             qdrant_store
         )
+        distribution_complete = scanned_vectors >= total_vectors
     else:
         from src.core.similarity import _VECTOR_META, _VECTOR_STORE
 
@@ -1548,6 +1578,8 @@ async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_
             version = meta.get("feature_version", "v1")
             version_distribution[version] = version_distribution.get(version, 0) + 1
             total_vectors += 1
+        scanned_vectors = total_vectors
+        distribution_complete = True
 
     v4_count = version_distribution.get("v4", 0)
     v4_adoption_rate = v4_count / max(total_vectors, 1)
@@ -1583,6 +1615,10 @@ async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_
         downgrade_rate=round(downgrade_rate, 4),
         error_rate=round(error_rate, 4),
         time_range=time_range,
+        current_total_vectors=total_vectors,
+        scanned_vectors=scanned_vectors,
+        scan_limit=scan_limit,
+        distribution_complete=distribution_complete,
     )
 
 
