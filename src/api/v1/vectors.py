@@ -1082,6 +1082,23 @@ class VectorMigrationSummaryResponse(BaseModel):
     migration_ready: bool = False
 
 
+class VectorMigrationPendingItem(BaseModel):
+    id: str
+    from_version: str
+    to_version: str
+
+
+class VectorMigrationPendingResponse(BaseModel):
+    target_version: str
+    items: List[VectorMigrationPendingItem]
+    listed_count: int
+    total_pending: Optional[int] = None
+    backend: str = "memory"
+    scanned_vectors: Optional[int] = None
+    scan_limit: Optional[int] = None
+    distribution_complete: bool = True
+
+
 class VectorMigrationPreviewResponse(BaseModel):
     """迁移预览响应 - 不执行实际写入"""
 
@@ -1587,6 +1604,93 @@ class VectorMigrationTrendsResponse(BaseModel):
     )
     migration_ready: bool = Field(
         default=False, description="是否已经全部迁移到目标版本"
+    )
+
+
+@router.get("/migrate/pending", response_model=VectorMigrationPendingResponse)
+async def migrate_pending(limit: int = 50, api_key: str = Depends(get_api_key)):
+    limit = max(min(int(limit or 0), 200), 1)
+    target_version = _resolve_vector_migration_target_version()
+    qdrant_store = _get_qdrant_store_or_none()
+    scan_limit = _resolve_vector_migration_scan_limit()
+
+    if qdrant_store is not None:
+        total_available = int(await qdrant_store.count())
+        max_scan = min(total_available, scan_limit)
+        scanned = 0
+        offset = 0
+        items: list[VectorMigrationPendingItem] = []
+        total_pending = 0
+        while scanned < max_scan:
+            batch_limit = min(200, max_scan - scanned)
+            points, _ = await qdrant_store.list_vectors(
+                offset=offset,
+                limit=batch_limit,
+                with_vectors=False,
+            )
+            if not points:
+                break
+            for point in points:
+                meta = point.metadata or {}
+                from_version = str(meta.get("feature_version") or "unknown")
+                if from_version == target_version:
+                    continue
+                total_pending += 1
+                if len(items) < limit:
+                    items.append(
+                        VectorMigrationPendingItem(
+                            id=str(point.id),
+                            from_version=from_version,
+                            to_version=target_version,
+                        )
+                    )
+            consumed = len(points)
+            scanned += consumed
+            offset += consumed
+
+        distribution_complete = scanned >= total_available
+        return VectorMigrationPendingResponse(
+            target_version=target_version,
+            items=items,
+            listed_count=len(items),
+            total_pending=total_pending if distribution_complete else None,
+            backend="qdrant",
+            scanned_vectors=scanned,
+            scan_limit=scan_limit,
+            distribution_complete=distribution_complete,
+        )
+
+    from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+
+    items = []
+    total_pending = 0
+    scanned = 0
+    for vid, meta in _VECTOR_META.items():
+        if vid not in _VECTOR_STORE:
+            continue
+        scanned += 1
+        from_version = str(meta.get("feature_version") or "unknown")
+        if from_version == target_version:
+            continue
+        total_pending += 1
+        if len(items) < limit:
+            items.append(
+                VectorMigrationPendingItem(
+                    id=str(vid),
+                    from_version=from_version,
+                    to_version=target_version,
+                )
+            )
+
+    return VectorMigrationPendingResponse(
+        target_version=target_version,
+        items=items,
+        listed_count=len(items),
+        total_pending=total_pending,
+        backend="memory",
+        scanned_vectors=scanned,
+        scan_limit=scan_limit,
+        distribution_complete=True,
     )
 
 
