@@ -22,6 +22,8 @@ router = APIRouter()
 class FeedbackRequest(BaseModel):
     sample_id: str = Field(..., description="样本ID")
     true_type: str = Field(..., description="人工标注类型")
+    true_fine_type: Optional[str] = Field(default=None, description="人工标注细粒度类型")
+    true_coarse_type: Optional[str] = Field(default=None, description="人工标注粗粒度类型")
     reviewer_id: Optional[str] = Field(default=None, description="审核人ID")
 
 
@@ -70,6 +72,8 @@ async def submit_feedback(
     result = learner.submit_feedback(
         sample_id=payload.sample_id,
         true_type=payload.true_type,
+        true_fine_type=payload.true_fine_type,
+        true_coarse_type=payload.true_coarse_type,
         reviewer_id=payload.reviewer_id,
     )
     if result.get("status") != "ok":
