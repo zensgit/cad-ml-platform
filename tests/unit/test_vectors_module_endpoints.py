@@ -64,7 +64,16 @@ def test_vectors_list_pagination_memory():
     vector_store = {"vec1": [1.0], "vec2": [2.0], "vec3": [3.0]}
     vector_meta = {
         "vec1": {"material": "steel", "complexity": "low", "format": "dxf"},
-        "vec2": {"material": "aluminum", "complexity": "mid", "format": "dwg"},
+        "vec2": {
+            "material": "aluminum",
+            "complexity": "mid",
+            "format": "dwg",
+            "part_type": "人孔",
+            "fine_part_type": "人孔",
+            "coarse_part_type": "开孔件",
+            "final_decision_source": "hybrid",
+            "is_coarse_label": "false",
+        },
         "vec3": {"material": "steel", "complexity": "high", "format": "step"},
     }
     with patch("src.core.similarity._VECTOR_STORE", vector_store), patch(
@@ -78,6 +87,11 @@ def test_vectors_list_pagination_memory():
     assert data["total"] == 3
     assert len(data["vectors"]) == 1
     assert data["vectors"][0]["id"] == "vec2"
+    assert data["vectors"][0]["part_type"] == "人孔"
+    assert data["vectors"][0]["fine_part_type"] == "人孔"
+    assert data["vectors"][0]["coarse_part_type"] == "开孔件"
+    assert data["vectors"][0]["decision_source"] == "hybrid"
+    assert data["vectors"][0]["is_coarse_label"] is False
 
 
 def test_vectors_list_redis_source():
@@ -89,7 +103,18 @@ def test_vectors_list_redis_source():
         },
         b"vector:vec2": {
             b"v": "4,5",
-            b"m": json.dumps({"material": "aluminum", "complexity": "mid", "format": "dwg"}),
+            b"m": json.dumps(
+                {
+                    "material": "aluminum",
+                    "complexity": "mid",
+                    "format": "dwg",
+                    "part_type": "人孔",
+                    "fine_part_type": "人孔",
+                    "coarse_part_type": "开孔件",
+                    "final_decision_source": "hybrid",
+                    "is_coarse_label": "false",
+                }
+            ),
         },
     }
     dummy = DummyRedis(redis_data)
@@ -105,6 +130,9 @@ def test_vectors_list_redis_source():
     assert len(data["vectors"]) == 1
     assert data["vectors"][0]["id"] == "vec2"
     assert data["vectors"][0]["dimension"] == 2
+    assert data["vectors"][0]["coarse_part_type"] == "开孔件"
+    assert data["vectors"][0]["decision_source"] == "hybrid"
+    assert data["vectors"][0]["is_coarse_label"] is False
 
 
 def test_vectors_register_and_search():
@@ -112,7 +140,15 @@ def test_vectors_register_and_search():
     payload = {
         "id": "vec1",
         "vector": [0.1] * 7,
-        "meta": {"material": "steel", "complexity": "low"},
+        "meta": {
+            "material": "steel",
+            "complexity": "low",
+            "part_type": "人孔",
+            "fine_part_type": "人孔",
+            "coarse_part_type": "开孔件",
+            "final_decision_source": "hybrid",
+            "is_coarse_label": "false",
+        },
     }
     resp = client.post(
         "/api/v1/vectors/register",
@@ -131,6 +167,12 @@ def test_vectors_register_and_search():
     assert search.status_code == 200
     results = search.json()["results"]
     assert any(item["id"] == "vec1" for item in results)
+    vec1 = next(item for item in results if item["id"] == "vec1")
+    assert vec1["part_type"] == "人孔"
+    assert vec1["fine_part_type"] == "人孔"
+    assert vec1["coarse_part_type"] == "开孔件"
+    assert vec1["decision_source"] == "hybrid"
+    assert vec1["is_coarse_label"] is False
 
 
 def test_vectors_search_with_filters():

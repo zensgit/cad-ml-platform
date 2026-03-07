@@ -38,3 +38,43 @@ def test_similarity_topk_flow():
     # Score bounds
     for item in data_inc["results"]:
         assert 0.0 <= item["score"] <= 1.0
+
+
+def test_similarity_topk_exposes_coarse_contract_metadata():
+    ids = {"topk-contract-a": [0.1] * 7, "topk-contract-b": [0.11] * 7}
+    try:
+        for vid, vector in ids.items():
+            register = client.post(
+                "/api/v1/vectors/register",
+                json={
+                    "id": vid,
+                    "vector": vector,
+                    "meta": {
+                        "part_type": "人孔",
+                        "fine_part_type": "人孔",
+                        "coarse_part_type": "开孔件",
+                        "final_decision_source": "hybrid",
+                        "is_coarse_label": "false",
+                    },
+                },
+                headers={"X-API-Key": "test"},
+            )
+            assert register.status_code == 200
+
+        resp = client.post(
+            "/api/v1/analyze/similarity/topk",
+            json={"target_id": "topk-contract-a", "k": 2, "exclude_self": False},
+            headers={"X-API-Key": "test"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["results"]
+        first = next(item for item in data["results"] if item["id"] == "topk-contract-a")
+        assert first["part_type"] == "人孔"
+        assert first["fine_part_type"] == "人孔"
+        assert first["coarse_part_type"] == "开孔件"
+        assert first["decision_source"] == "hybrid"
+        assert first["is_coarse_label"] is False
+    finally:
+        for vid in ids:
+            client.post("/api/v1/vectors/delete", json={"id": vid}, headers={"X-API-Key": "test"})

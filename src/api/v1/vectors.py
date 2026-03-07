@@ -58,6 +58,11 @@ class VectorListItem(BaseModel):
     material: Optional[str] = None
     complexity: Optional[str] = None
     format: Optional[str] = None
+    part_type: Optional[str] = None
+    fine_part_type: Optional[str] = None
+    coarse_part_type: Optional[str] = None
+    decision_source: Optional[str] = None
+    is_coarse_label: Optional[bool] = None
 
 
 class VectorListResponse(BaseModel):
@@ -219,7 +224,12 @@ async def search_vectors(
     payload: VectorSearchRequest,
     api_key: str = Depends(get_api_key),
 ):
-    from src.core.similarity import _VECTOR_META, _VECTOR_STORE, get_vector_store
+    from src.core.similarity import (
+        _VECTOR_META,
+        _VECTOR_STORE,
+        extract_vector_label_contract,
+        get_vector_store,
+    )
 
     store = get_vector_store()
     query_k = payload.k
@@ -237,6 +247,7 @@ async def search_vectors(
             continue
         if payload.complexity_filter and meta.get("complexity") != payload.complexity_filter:
             continue
+        label_contract = extract_vector_label_contract(meta)
         items.append(
             {
                 "id": vid,
@@ -245,6 +256,11 @@ async def search_vectors(
                 "complexity": meta.get("complexity"),
                 "format": meta.get("format"),
                 "dimension": len(_VECTOR_STORE.get(vid, [])),
+                "part_type": label_contract.get("part_type"),
+                "fine_part_type": label_contract.get("fine_part_type"),
+                "coarse_part_type": label_contract.get("coarse_part_type"),
+                "decision_source": label_contract.get("decision_source"),
+                "is_coarse_label": label_contract.get("is_coarse_label"),
             }
         )
         if len(items) >= payload.k:
@@ -265,10 +281,13 @@ def _list_vectors_memory(
     offset: int,
     limit: int,
 ) -> VectorListResponse:
+    from src.core.similarity import extract_vector_label_contract
+
     items: list[VectorListItem] = []
     entries = list(vector_store.items())
     for vid, vec in entries[offset : offset + limit]:
         meta = vector_meta.get(vid, {})
+        label_contract = extract_vector_label_contract(meta)
         items.append(
             VectorListItem(
                 id=vid,
@@ -276,6 +295,11 @@ def _list_vectors_memory(
                 material=meta.get("material"),
                 complexity=meta.get("complexity"),
                 format=meta.get("format"),
+                part_type=label_contract.get("part_type"),
+                fine_part_type=label_contract.get("fine_part_type"),
+                coarse_part_type=label_contract.get("coarse_part_type"),
+                decision_source=label_contract.get("decision_source"),
+                is_coarse_label=label_contract.get("is_coarse_label"),
             )
         )
     return VectorListResponse(total=len(vector_store), vectors=items)
@@ -287,6 +311,8 @@ async def _list_vectors_redis(
     limit: int,
     scan_limit: int,
 ) -> VectorListResponse:
+    from src.core.similarity import extract_vector_label_contract
+
     items: list[VectorListItem] = []
     total = 0
     scanned = 0
@@ -315,6 +341,7 @@ async def _list_vectors_redis(
             vec_dim = len([p for p in str(raw_vec).split(",") if p])
             key_str = key.decode() if isinstance(key, (bytes, bytearray)) else str(key)
             vid = key_str.split("vector:", 1)[1] if "vector:" in key_str else key_str
+            label_contract = extract_vector_label_contract(meta)
             items.append(
                 VectorListItem(
                     id=vid,
@@ -322,6 +349,11 @@ async def _list_vectors_redis(
                     material=meta.get("material"),
                     complexity=meta.get("complexity"),
                     format=meta.get("format"),
+                    part_type=label_contract.get("part_type"),
+                    fine_part_type=label_contract.get("fine_part_type"),
+                    coarse_part_type=label_contract.get("coarse_part_type"),
+                    decision_source=label_contract.get("decision_source"),
+                    is_coarse_label=label_contract.get("is_coarse_label"),
                 )
             )
             if len(items) >= limit:
