@@ -60,3 +60,31 @@ def test_load_samples_falls_back_to_legacy_true_type(tmp_path: Path) -> None:
 
     assert doc_ids == ["doc-3"]
     assert labels == ["法兰"]
+
+
+def test_build_training_summary_tracks_coarse_distribution() -> None:
+    summary = module._build_training_summary(
+        ["人孔", "捕集口", "法兰"],
+        label_field="true_fine_type",
+        vector_count=3,
+    )
+
+    assert summary["label_field"] == "true_fine_type"
+    assert summary["sample_count"] == 3
+    assert summary["vector_count"] == 3
+    assert summary["unique_label_count"] == 3
+    assert summary["unique_coarse_label_count"] == 2
+    assert summary["label_distribution"]["人孔"] == 1
+    assert summary["coarse_label_distribution"]["开孔件"] == 2
+    assert summary["coarse_label_distribution"]["法兰"] == 1
+
+
+def test_write_training_summary_writes_json(tmp_path: Path) -> None:
+    output = tmp_path / "summary.json"
+    summary = module._build_training_summary(["法兰"], label_field="true_type")
+
+    module._write_training_summary(str(output), summary)
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["sample_count"] == 1
+    assert payload["label_distribution"] == {"法兰": 1}
