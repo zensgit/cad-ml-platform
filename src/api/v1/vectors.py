@@ -213,6 +213,43 @@ async def _collect_qdrant_feature_versions(
     return versions, total_available, scanned
 
 
+async def _collect_qdrant_preview_samples(
+    qdrant_store,
+    *,
+    limit: int,
+) -> tuple[list[tuple[str, list[float], Dict[str, Any]]], int, Dict[str, int]]:
+    total_available = int(await qdrant_store.count())
+    items, _ = await qdrant_store.list_vectors(
+        offset=0,
+        limit=max(limit, 1),
+        with_vectors=True,
+    )
+    samples: list[tuple[str, list[float], Dict[str, Any]]] = []
+    by_version: Dict[str, int] = {}
+    for item in items:
+        meta = dict(item.metadata or {})
+        version = str(meta.get("feature_version") or "v1")
+        by_version[version] = by_version.get(version, 0) + 1
+        samples.append((str(item.id), list(item.vector or []), meta))
+    if total_available > len(items):
+        offset = len(items)
+        scan_limit = min(total_available, 5000)
+        while offset < scan_limit:
+            batch, _ = await qdrant_store.list_vectors(
+                offset=offset,
+                limit=min(200, scan_limit - offset),
+                with_vectors=False,
+            )
+            if not batch:
+                break
+            for item in batch:
+                meta = dict(item.metadata or {})
+                version = str(meta.get("feature_version") or "v1")
+                by_version[version] = by_version.get(version, 0) + 1
+            offset += len(batch)
+    return samples, total_available, by_version
+
+
 def _matches_vector_label_filters(
     *,
     material_filter: Optional[str],
@@ -1034,14 +1071,25 @@ async def preview_migration(to_version: str, limit: int = 10, api_key: str = Dep
     # Get extractor for target version
     extractor = FeatureExtractor(feature_version=to_version)
 
-    # Collect version distribution
-    by_version: Dict[str, int] = {}
-    total_vectors = len(_VECTOR_STORE)
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        preview_source, total_vectors, by_version = await _collect_qdrant_preview_samples(
+            qdrant_store,
+            limit=limit,
+        )
+    else:
+        # Collect version distribution
+        by_version = {}
+        total_vectors = len(_VECTOR_STORE)
+        preview_source = []
 
-    for vid in _VECTOR_STORE.keys():
-        meta = _VECTOR_META.get(vid, {})
-        current_version = meta.get("feature_version", "v1")
-        by_version[current_version] = by_version.get(current_version, 0) + 1
+        for vid in _VECTOR_STORE.keys():
+            meta = _VECTOR_META.get(vid, {})
+            current_version = meta.get("feature_version", "v1")
+            by_version[current_version] = by_version.get(current_version, 0) + 1
+
+        for vid in list(_VECTOR_STORE.keys())[:limit]:
+            preview_source.append((vid, _VECTOR_STORE[vid], _VECTOR_META.get(vid, {})))
 
     # Preview sample vectors
     preview_items: list[VectorMigrateItem] = []
@@ -1050,10 +1098,8 @@ async def preview_migration(to_version: str, limit: int = 10, api_key: str = Dep
     warnings: list[str] = []
     sampled = 0
 
-    for vid in list(_VECTOR_STORE.keys())[:limit]:
-        meta = _VECTOR_META.get(vid, {})
+    for vid, vec, meta in preview_source:
         from_version = meta.get("feature_version", "v1")
-        vec = _VECTOR_STORE[vid]
         dimension_before = len(vec)
 
         if from_version == to_version:

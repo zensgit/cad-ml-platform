@@ -159,6 +159,86 @@ class TestMigrationPreviewEndpoint:
 
         assert exc_info.value.status_code == 422
 
+    @pytest.mark.asyncio
+    async def test_preview_qdrant_version_distribution(self):
+        """Preview should use Qdrant samples and version distribution when enabled."""
+        from src.api.v1.vectors import preview_migration
+
+        class DummyPoint:
+            def __init__(self, vector, metadata, point_id):
+                self.vector = vector
+                self.metadata = metadata
+                self.id = point_id
+
+        class DummyQdrantStore:
+            async def count(self):
+                return 4
+
+            async def list_vectors(self, offset=0, limit=50, with_vectors=False):
+                items = [
+                    DummyPoint([1.0] * 22, {"feature_version": "v3"}, "vec1"),
+                    DummyPoint([2.0] * 24, {"feature_version": "v4"}, "vec2"),
+                    DummyPoint([3.0] * 12, {"feature_version": "v2"}, "vec3"),
+                    DummyPoint([4.0] * 22, {"feature_version": "v3"}, "vec4"),
+                ]
+                batch = items[offset : offset + limit]
+                if not with_vectors:
+                    batch = [DummyPoint([], item.metadata, item.id) for item in batch]
+                return batch, 4
+
+        with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+            "src.api.v1.vectors._get_qdrant_store_or_none",
+            return_value=DummyQdrantStore(),
+        ):
+            response = await preview_migration(to_version="v4", limit=2, api_key="test")
+
+        assert response.total_vectors == 4
+        assert response.by_version == {"v3": 2, "v4": 1, "v2": 1}
+        assert len(response.preview_items) == 2
+        assert {item.id for item in response.preview_items} == {"vec1", "vec2"}
+
+    @pytest.mark.asyncio
+    async def test_preview_qdrant_respects_limit_and_with_vectors(self):
+        """Preview should only materialize vectors for the requested preview limit."""
+        from src.api.v1.vectors import preview_migration
+
+        class DummyPoint:
+            def __init__(self, vector, metadata, point_id):
+                self.vector = vector
+                self.metadata = metadata
+                self.id = point_id
+
+        class DummyQdrantStore:
+            def __init__(self):
+                self.calls = []
+
+            async def count(self):
+                return 3
+
+            async def list_vectors(self, offset=0, limit=50, with_vectors=False):
+                self.calls.append((offset, limit, with_vectors))
+                items = [
+                    DummyPoint([1.0] * 7, {"feature_version": "v1"}, "vec1"),
+                    DummyPoint([2.0] * 12, {"feature_version": "v2"}, "vec2"),
+                    DummyPoint([3.0] * 24, {"feature_version": "v4"}, "vec3"),
+                ]
+                batch = items[offset : offset + limit]
+                if not with_vectors:
+                    batch = [DummyPoint([], item.metadata, item.id) for item in batch]
+                return batch, 3
+
+        store = DummyQdrantStore()
+        with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+            "src.api.v1.vectors._get_qdrant_store_or_none",
+            return_value=store,
+        ):
+            response = await preview_migration(to_version="v4", limit=1, api_key="test")
+
+        assert response.total_vectors == 3
+        assert len(response.preview_items) == 1
+        assert store.calls[0] == (0, 1, True)
+        assert store.calls[1] == (1, 2, False)
+
 
 class TestMigrationTrendsEndpoint:
     """Test migration trends endpoint."""
