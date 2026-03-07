@@ -8,6 +8,7 @@ from scripts.eval_hybrid_dxf_manifest import (
     _exact_eval_label,
     _load_manifest_cases,
     _summarize_knowledge_signals,
+    _summarize_review_signals,
     _score_rows,
     _summarize_prep_signals,
 )
@@ -104,6 +105,11 @@ def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> N
         "classification": {
             "part_type": "轴承件",
             "confidence": 0.81,
+            "needs_review": True,
+            "confidence_band": "medium",
+            "review_priority": "high",
+            "review_priority_score": 2.4,
+            "review_reasons": ["branch_conflict", "low_confidence"],
             "coarse_part_type": "轴承件",
             "fine_part_type": "深沟球轴承",
             "fine_confidence": 0.73,
@@ -169,6 +175,11 @@ def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> N
     assert row["coarse_filename_label"] == "轴承件"
     assert row["coarse_titleblock_label"] == "轴承件"
     assert row["coarse_hybrid_label"] == "轴承件"
+    assert row["needs_review"] is True
+    assert row["confidence_band"] == "medium"
+    assert row["review_priority"] == "high"
+    assert row["review_priority_score"] == 2.4
+    assert row["review_reasons"] == "branch_conflict;low_confidence"
     assert row["history_label"] == "轴承件"
     assert row["history_used_for_fusion"] is False
     assert row["history_input_resolved"] is True
@@ -262,3 +273,41 @@ def test_summarize_knowledge_signals_counts_categories_and_candidates() -> None:
     assert summary["top_standard_types"]["general_tolerance"] == 1
     assert summary["top_violation_categories"]["knowledge_conflict"] == 1
     assert summary["top_hint_labels"]["轴类"] == 1
+
+
+def test_summarize_review_signals_counts_bands_and_priorities() -> None:
+    summary = _summarize_review_signals(
+        [
+            {
+                "needs_review": True,
+                "confidence_band": "rejected",
+                "review_priority": "critical",
+                "review_reasons": "hybrid_rejected:below_min_confidence;knowledge_conflict",
+            },
+            {
+                "needs_review": True,
+                "confidence_band": "low",
+                "review_priority": "medium",
+                "review_reasons": "low_confidence",
+            },
+            {
+                "needs_review": False,
+                "confidence_band": "high",
+                "review_priority": "none",
+                "review_reasons": "",
+            },
+        ]
+    )
+
+    assert summary["needs_review_count"] == 2
+    assert summary["confidence_band_counts"] == {"rejected": 1, "low": 1, "high": 1}
+    assert summary["review_priority_counts"] == {
+        "critical": 1,
+        "medium": 1,
+        "none": 1,
+    }
+    assert summary["top_review_reasons"] == {
+        "hybrid_rejected:below_min_confidence": 1,
+        "knowledge_conflict": 1,
+        "low_confidence": 1,
+    }

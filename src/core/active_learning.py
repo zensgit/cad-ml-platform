@@ -65,6 +65,14 @@ def _is_low_confidence_sample(sample: ActiveLearningSample) -> bool:
 def _derive_sample_type(sample: ActiveLearningSample) -> str:
     if sample.sample_type:
         return str(sample.sample_type)
+    if sample.score_breakdown.get("review_has_knowledge_conflict"):
+        return "knowledge_conflict"
+    if sample.score_breakdown.get("review_has_branch_conflict"):
+        return "branch_conflict"
+    if sample.score_breakdown.get("review_has_hybrid_rejection"):
+        return "hybrid_rejection"
+    if sample.score_breakdown.get("review_is_low_confidence"):
+        return "low_confidence"
     if _has_hybrid_rejection(sample):
         return "hybrid_rejection"
     if sample.score_breakdown.get("violations"):
@@ -79,6 +87,9 @@ def _derive_sample_type(sample: ActiveLearningSample) -> str:
 def _derive_feedback_priority(sample: ActiveLearningSample) -> str:
     if sample.feedback_priority:
         return str(sample.feedback_priority)
+    review_priority = str(sample.score_breakdown.get("review_priority") or "").strip()
+    if review_priority:
+        return review_priority
     is_correction = (
         sample.true_type is not None
         and str(sample.true_type).strip() != ""

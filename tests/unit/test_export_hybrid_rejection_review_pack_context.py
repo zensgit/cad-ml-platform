@@ -28,6 +28,11 @@ def test_export_review_pack_preserves_explanation_context(tmp_path: Path) -> Non
                 "status": "ok",
                 "file": "sample.dxf",
                 "confidence": "0.39",
+                "needs_review": "true",
+                "confidence_band": "rejected",
+                "review_priority": "critical",
+                "review_priority_score": "4.0",
+                "review_reasons": "hybrid_rejected:below_min_confidence;knowledge_conflict",
                 "graph2d_label": "传动件",
                 "hybrid_label": "人孔",
                 "hybrid_rejected": "true",
@@ -100,6 +105,8 @@ def test_export_review_pack_preserves_explanation_context(tmp_path: Path) -> Non
     assert rows[0]["review_explanation_summary"].startswith("综合 文件名")
     assert rows[0]["review_decision_path"].endswith("fusion_engine_weighted_average")
     assert rows[0]["review_fusion_strategy"] == "weighted_average"
+    assert rows[0]["review_priority"] == "critical"
+    assert rows[0]["review_confidence_band"] == "rejected"
     assert rows[0]["review_coarse_label"] == "传动件"
     assert rows[0]["review_fine_label"] == "人孔"
     assert rows[0]["review_rejection_reason"] == "below_min_confidence"
@@ -114,6 +121,8 @@ def test_export_review_pack_preserves_explanation_context(tmp_path: Path) -> Non
     assert summary["knowledge_conflict_count"] == 1
     assert summary["knowledge_check_row_count"] == 1
     assert summary["standards_candidate_row_count"] == 1
+    assert summary["top_review_priorities"][0] == {"name": "critical", "count": 1}
+    assert summary["top_confidence_bands"][0] == {"name": "rejected", "count": 1}
     assert summary["top_coarse_labels"][0] == {"name": "传动件", "count": 1}
     assert summary["top_fine_labels"][0] == {"name": "人孔", "count": 1}
     assert summary["top_rejection_reasons"][0] == {
@@ -139,6 +148,8 @@ def test_export_review_pack_preserves_explanation_context(tmp_path: Path) -> Non
     assert summary["sample_candidates"][0]["file"] == "sample.dxf"
     assert summary["sample_candidates"][0]["coarse_label"] == "传动件"
     assert summary["sample_candidates"][0]["fine_label"] == "人孔"
+    assert summary["sample_candidates"][0]["review_priority"] == "critical"
+    assert summary["sample_candidates"][0]["confidence_band"] == "rejected"
     assert summary["sample_candidates"][0]["rejection_reason"] == "below_min_confidence"
     assert summary["sample_candidates"][0]["knowledge_conflict"] == "high"
     assert summary["sample_candidates"][0]["knowledge_check_categories"] == (

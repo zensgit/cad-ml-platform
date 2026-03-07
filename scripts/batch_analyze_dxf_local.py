@@ -571,6 +571,11 @@ def main() -> None:
             "soft_override_confidence": soft_override.get("confidence"),
             "soft_override_threshold": soft_override.get("threshold"),
             "soft_override_reason": soft_override.get("reason"),
+            "needs_review": classification.get("needs_review"),
+            "confidence_band": classification.get("confidence_band"),
+            "review_priority": classification.get("review_priority"),
+            "review_priority_score": classification.get("review_priority_score"),
+            "review_reasons": ";".join(classification.get("review_reasons") or []),
         }
         row.update(_extract_knowledge_context(classification))
         rows.append(row)

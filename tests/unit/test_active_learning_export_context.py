@@ -100,3 +100,32 @@ def test_export_training_data_marks_low_confidence_feedback_priority(
 
     assert payload["sample_type"] == "low_confidence"
     assert payload["feedback_priority"] == "medium"
+
+
+def test_export_training_data_uses_review_governance_when_present(
+    learner: ActiveLearner,
+) -> None:
+    sample = learner.flag_for_review(
+        doc_id="doc-context-3",
+        predicted_type="法兰",
+        confidence=0.83,
+        alternatives=[],
+        score_breakdown={
+            "review_priority": "critical",
+            "review_has_knowledge_conflict": True,
+            "review_has_branch_conflict": False,
+            "review_has_hybrid_rejection": False,
+            "review_is_low_confidence": False,
+        },
+        uncertainty_reason="knowledge_conflict",
+    )
+    learner.submit_feedback(sample.id, "法兰")
+
+    exported = learner.export_training_data(format="jsonl")
+
+    assert exported["status"] == "ok"
+    with open(exported["file"], "r", encoding="utf-8") as handle:
+        payload = json.loads(handle.readline())
+
+    assert payload["sample_type"] == "knowledge_conflict"
+    assert payload["feedback_priority"] == "critical"

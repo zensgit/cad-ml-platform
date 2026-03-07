@@ -18,7 +18,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from src.adapters.factory import AdapterFactory
 from src.api.dependencies import get_api_key
 from src.core.analyzer import CADAnalyzer
-from src.core.classification import labels_conflict, normalize_coarse_label
+from src.core.classification import (
+    build_review_governance,
+    labels_conflict,
+    normalize_coarse_label,
+)
 from src.core.errors_extended import (
     ErrorCode,
     build_error,
@@ -1806,6 +1810,24 @@ async def analyze_cad_file(
                 cls_payload["knowledge_hints"] = knowledge_payload.get(
                     "knowledge_hints", []
                 )
+                review_low_conf_threshold = _safe_float_env(
+                    "ANALYSIS_REVIEW_LOW_CONFIDENCE_THRESHOLD",
+                    _safe_float_env("ACTIVE_LEARNING_CONFIDENCE_THRESHOLD", 0.6),
+                )
+                review_high_conf_threshold = _safe_float_env(
+                    "ANALYSIS_REVIEW_HIGH_CONFIDENCE_THRESHOLD",
+                    0.85,
+                )
+                cls_payload.update(
+                    build_review_governance(
+                        confidence=cls_payload.get("confidence", 0.0),
+                        hybrid_rejection=cls_payload.get("hybrid_rejection"),
+                        branch_conflicts=cls_payload.get("branch_conflicts"),
+                        violations=cls_payload.get("violations"),
+                        low_confidence_threshold=review_low_conf_threshold,
+                        high_confidence_threshold=review_high_conf_threshold,
+                    )
+                )
                 results["classification"] = cls_payload
                 # Active learning: flag low-confidence samples for review
                 try:
@@ -1815,58 +1837,32 @@ async def analyze_cad_file(
                         .lower()
                         == "true"
                     )
-                    threshold = float(
-                        __import__("os").getenv(
-                            "ACTIVE_LEARNING_CONFIDENCE_THRESHOLD", "0.6"
-                        )
-                    )
-                    confidence_value = float(cls_payload.get("confidence", 1.0) or 1.0)
                     hybrid_rejection_payload = cls_payload.get("hybrid_rejection")
                     if not isinstance(hybrid_rejection_payload, dict):
                         hybrid_rejection_payload = None
-                    is_low_confidence = confidence_value < threshold
-                    has_branch_conflict = bool(cls_payload.get("has_branch_conflict"))
-                    has_knowledge_violations = bool(cls_payload.get("violations"))
-                    if (
-                        enabled
-                        and (
-                            is_low_confidence
-                            or hybrid_rejection_payload is not None
-                            or has_branch_conflict
-                            or has_knowledge_violations
+                    needs_review = bool(cls_payload.get("needs_review"))
+                    if enabled and needs_review:
+                        review_reasons = [
+                            str(reason).strip()
+                            for reason in (cls_payload.get("review_reasons") or [])
+                            if str(reason).strip()
+                        ]
+                        uncertainty_reason = (
+                            "+".join(review_reasons) or "low_confidence"
                         )
-                    ):
-                        reason_parts: List[str] = []
-                        if hybrid_rejection_payload is not None:
-                            rejection_reason = (
-                                str(
-                                    hybrid_rejection_payload.get("reason")
-                                    or "unknown"
-                                ).strip()
-                                or "unknown"
-                            )
-                            reason_parts.append(
-                                f"hybrid_rejected:{rejection_reason}"
-                            )
-                        if has_knowledge_violations:
-                            reason_parts.append("knowledge_conflict")
-                        if has_branch_conflict:
-                            reason_parts.append("branch_conflict")
-                        if is_low_confidence:
-                            reason_parts.append("low_confidence")
-                        uncertainty_reason = "+".join(reason_parts) or "low_confidence"
-                        if has_knowledge_violations:
+                        review_priority = str(
+                            cls_payload.get("review_priority") or "medium"
+                        ).strip() or "medium"
+                        if cls_payload.get("review_has_knowledge_conflict"):
                             sample_type = "knowledge_conflict"
-                            feedback_priority = "critical"
-                        elif has_branch_conflict:
+                        elif cls_payload.get("review_has_branch_conflict"):
                             sample_type = "branch_conflict"
-                            feedback_priority = "high"
-                        elif hybrid_rejection_payload is not None:
+                        elif cls_payload.get("review_has_hybrid_rejection"):
                             sample_type = "hybrid_rejection"
-                            feedback_priority = "high"
-                        else:
+                        elif cls_payload.get("review_is_low_confidence"):
                             sample_type = "low_confidence"
-                            feedback_priority = "medium"
+                        else:
+                            sample_type = "review"
                         from src.core.active_learning import get_active_learner
 
                         learner = get_active_learner()
@@ -1923,10 +1919,17 @@ async def analyze_cad_file(
                                 "branch_conflicts": cls_payload.get(
                                     "branch_conflicts"
                                 ),
+                                "needs_review": cls_payload.get("needs_review"),
+                                "confidence_band": cls_payload.get("confidence_band"),
+                                "review_priority": cls_payload.get("review_priority"),
+                                "review_priority_score": cls_payload.get(
+                                    "review_priority_score"
+                                ),
+                                "review_reasons": cls_payload.get("review_reasons"),
                             },
                             uncertainty_reason=uncertainty_reason,
                             sample_type=sample_type,
-                            feedback_priority=feedback_priority,
+                            feedback_priority=review_priority,
                         )
                 except Exception as e:
                     logger.warning(f"Active learning flag failed: {e}")

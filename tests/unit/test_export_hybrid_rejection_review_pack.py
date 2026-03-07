@@ -41,6 +41,11 @@ def test_export_review_pack_filters_and_ranks(tmp_path: Path) -> None:
                 "status": "ok",
                 "file": "a.dxf",
                 "confidence": "0.88",
+                "needs_review": "true",
+                "confidence_band": "rejected",
+                "review_priority": "high",
+                "review_priority_score": "3.0",
+                "review_reasons": "hybrid_rejected:below_min_confidence",
                 "graph2d_label": "传动件",
                 "hybrid_label": "",
                 "hybrid_rejected": "true",
@@ -98,6 +103,8 @@ def test_export_review_pack_filters_and_ranks(tmp_path: Path) -> None:
     assert rows[0]["review_coarse_label"] == "传动件"
     assert rows[0]["review_rejection_reason"] == "below_min_confidence"
     assert rows[0]["review_has_hybrid_rejection"] == "True"
+    assert rows[0]["review_priority"] == "high"
+    assert rows[0]["review_confidence_band"] == "rejected"
     assert "hybrid_rejected:below_min_confidence" in rows[0]["review_reasons"]
     assert any(r["file"] == "b.dxf" and r["review_is_low_confidence"] == "True" for r in rows)
     assert any(
@@ -114,6 +121,8 @@ def test_export_review_pack_filters_and_ranks(tmp_path: Path) -> None:
     assert summary["knowledge_conflict_count"] == 0
     assert summary["knowledge_check_row_count"] == 1
     assert summary["standards_candidate_row_count"] == 1
+    assert summary["top_review_priorities"] == [{"name": "high", "count": 1}]
+    assert summary["top_confidence_bands"][0] == {"name": "rejected", "count": 1}
     top_reason_names = {item["name"] for item in summary["top_review_reasons"]}
     assert "hybrid_rejected:below_min_confidence" in top_reason_names
     assert "low_confidence" in top_reason_names

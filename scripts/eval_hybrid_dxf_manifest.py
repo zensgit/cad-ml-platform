@@ -257,6 +257,37 @@ def _collect_prep_fields(results_payload: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _collect_review_fields(results_payload: Dict[str, Any]) -> Dict[str, Any]:
+    from src.core.classification import build_review_governance
+
+    classification = results_payload.get("classification", {}) or {}
+    review_payload = build_review_governance(
+        confidence=classification.get("confidence", 0.0),
+        hybrid_rejection=classification.get("hybrid_rejection"),
+        branch_conflicts=classification.get("branch_conflicts"),
+        violations=classification.get("violations"),
+    )
+    return {
+        "needs_review": classification.get(
+            "needs_review", review_payload.get("needs_review")
+        ),
+        "confidence_band": classification.get(
+            "confidence_band", review_payload.get("confidence_band")
+        ),
+        "review_priority": classification.get(
+            "review_priority", review_payload.get("review_priority")
+        ),
+        "review_priority_score": classification.get(
+            "review_priority_score", review_payload.get("review_priority_score")
+        ),
+        "review_reasons": ";".join(
+            classification.get("review_reasons")
+            or review_payload.get("review_reasons")
+            or []
+        ),
+    }
+
+
 def _build_ok_row(case: EvalCase, results_payload: Dict[str, Any]) -> Dict[str, Any]:
     classification = results_payload.get("classification", {}) or {}
     graph2d = classification.get("graph2d_prediction", {}) or {}
@@ -303,6 +334,7 @@ def _build_ok_row(case: EvalCase, results_payload: Dict[str, Any]) -> Dict[str, 
         ),
     }
     row.update(_collect_knowledge_fields(results_payload))
+    row.update(_collect_review_fields(results_payload))
     row.update(_collect_prep_fields(results_payload))
     return row
 
@@ -369,6 +401,37 @@ def _summarize_knowledge_signals(rows: Iterable[Dict[str, Any]]) -> Dict[str, An
         "top_violation_categories": _top(violation_category_counts),
         "top_standard_types": _top(standard_type_counts),
         "top_hint_labels": _top(hint_label_counts),
+    }
+
+
+def _summarize_review_signals(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+    confidence_band_counts: Counter[str] = Counter()
+    review_priority_counts: Counter[str] = Counter()
+    review_reason_counts: Counter[str] = Counter()
+    needs_review_count = 0
+
+    for row in rows:
+        if row.get("needs_review") is True:
+            needs_review_count += 1
+        confidence_band = str(row.get("confidence_band") or "").strip()
+        if confidence_band:
+            confidence_band_counts[confidence_band] += 1
+        review_priority = str(row.get("review_priority") or "").strip()
+        if review_priority:
+            review_priority_counts[review_priority] += 1
+        reason_tokens = [
+            token for token in str(row.get("review_reasons") or "").split(";") if token
+        ]
+        review_reason_counts.update(reason_tokens)
+
+    def _top(counter: Counter[str]) -> Dict[str, int]:
+        return {name: int(count) for name, count in counter.most_common(10)}
+
+    return {
+        "needs_review_count": needs_review_count,
+        "confidence_band_counts": _top(confidence_band_counts),
+        "review_priority_counts": _top(review_priority_counts),
+        "top_review_reasons": _top(review_reason_counts),
     }
 
 
@@ -599,6 +662,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             "fine_part_type": _confidence_stats(ok_rows, "fine_confidence"),
         },
         "knowledge_signals": _summarize_knowledge_signals(ok_rows),
+        "review_signals": _summarize_review_signals(ok_rows),
         "prep_signals": _summarize_prep_signals(ok_rows),
     }
     (out_dir / "summary.json").write_text(
