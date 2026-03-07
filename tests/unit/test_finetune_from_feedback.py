@@ -62,6 +62,25 @@ def test_load_samples_falls_back_to_legacy_true_type(tmp_path: Path) -> None:
     assert labels == ["法兰"]
 
 
+def test_load_samples_accepts_feedback_aliases_and_analysis_id(tmp_path: Path) -> None:
+    path = tmp_path / "feedback.jsonl"
+    _write_jsonl(
+        path,
+        [
+            {
+                "analysis_id": "analysis-4",
+                "correct_label": "人孔",
+                "correct_coarse_label": "开孔件",
+            }
+        ],
+    )
+
+    doc_ids, labels = module._load_samples(str(path), label_field="true_fine_type")
+
+    assert doc_ids == ["analysis-4"]
+    assert labels == ["人孔"]
+
+
 def test_build_training_summary_tracks_coarse_distribution() -> None:
     summary = module._build_training_summary(
         ["人孔", "捕集口", "法兰"],

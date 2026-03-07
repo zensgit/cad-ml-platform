@@ -40,7 +40,14 @@ def _resolve_feedback_label(
     data: Dict[str, Any],
     label_field: str,
 ) -> Optional[str]:
-    candidates = [label_field, "true_fine_type", "true_type", "true_coarse_type"]
+    alias_map = {
+        "true_fine_type": ["correct_label", "correct_fine_label"],
+        "true_coarse_type": ["correct_coarse_label"],
+        "true_type": ["correct_label"],
+    }
+    candidates = [label_field]
+    candidates.extend(alias_map.get(label_field, []))
+    candidates.extend(["true_fine_type", "true_type", "true_coarse_type"])
     for field_name in candidates:
         value = data.get(field_name)
         text = str(value or "").strip()
@@ -60,7 +67,7 @@ def _load_samples(
             if not line.strip():
                 continue
             data = json.loads(line)
-            doc_id = data.get("doc_id")
+            doc_id = data.get("doc_id") or data.get("analysis_id")
             label = _resolve_feedback_label(data, label_field)
             if doc_id and label:
                 doc_ids.append(doc_id)

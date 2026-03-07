@@ -110,6 +110,9 @@ def _normalize_feedback_entry(payload: FeedbackRequest) -> Dict[str, Any]:
     entry["corrected_is_coarse_label"] = bool(
         corrected_fine and corrected_fine == corrected_coarse
     )
+    entry["correct_label"] = corrected_fine
+    entry["correct_fine_label"] = corrected_fine
+    entry["correct_coarse_label"] = corrected_coarse
 
     entry["original_part_type"] = original_fine
     entry["original_fine_part_type"] = original_fine
@@ -117,6 +120,9 @@ def _normalize_feedback_entry(payload: FeedbackRequest) -> Dict[str, Any]:
     entry["original_is_coarse_label"] = bool(
         original_fine and original_fine == original_coarse
     )
+    entry["original_label"] = original_fine
+    entry["original_fine_label"] = original_fine
+    entry["original_coarse_label"] = original_coarse
     entry["original_decision_source"] = _clean_optional_text(payload.original_decision_source)
     entry["review_outcome"] = _clean_optional_text(payload.review_outcome)
     entry["review_reasons"] = _clean_reasons(payload.review_reasons)
