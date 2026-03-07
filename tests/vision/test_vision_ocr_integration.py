@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from src.core.ocr.base import DimensionInfo, DimensionType
+from src.core.ocr.base import IdentifierInfo
 from src.core.ocr.base import OcrResult as OcrCoreResult
 from src.core.ocr.base import SymbolInfo, SymbolType, TitleBlock
 from src.core.ocr.exceptions import OcrError
@@ -24,7 +25,11 @@ from src.core.vision import VisionAnalyzeRequest, VisionManager, create_stub_pro
 def sample_image_bytes() -> bytes:
     """Return sample image bytes (1x1 PNG)."""
     # Minimal 1x1 PNG (black pixel)
-    png_bytes = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00\x00\x00\x00:~\x9bU\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82'
+    png_bytes = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x00\x00\x00\x00:~\x9bU\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00"
+        b"\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
     return png_bytes
 
 
@@ -68,6 +73,18 @@ def mock_ocr_result() -> OcrCoreResult:
             material="Aluminum 6061",
             part_name="Test Part"
         ),
+        identifiers=[
+            IdentifierInfo(
+                identifier_type="drawing_number",
+                label="Drawing Number",
+                value="CAD-2025-001",
+                normalized_value="CAD-2025-001",
+                source_text="Drawing No: CAD-2025-001",
+                bbox=[10, 10, 100, 12],
+                confidence=0.9,
+                source="ocr_line",
+            )
+        ],
         confidence=0.93,
         calibrated_confidence=0.91
     )
@@ -157,6 +174,8 @@ async def test_vision_ocr_integration_success(sample_image_base64, mock_ocr_mana
     # Check title block conversion
     assert response.ocr.title_block["drawing_number"] == "CAD-2025-001"
     assert response.ocr.title_block["material"] == "Aluminum 6061"
+    assert response.ocr.identifiers[0]["identifier_type"] == "drawing_number"
+    assert response.ocr.identifiers[0]["bbox"] == [10, 10, 100, 12]
 
     # Check confidence (should use calibrated_confidence if available)
     assert response.ocr.confidence == 0.91  # calibrated_confidence
@@ -194,10 +213,14 @@ async def test_vision_ocr_integration_degradation(sample_image_base64, mock_ocr_
     response = await manager.analyze(request)
 
     # Assertions
-    assert response.success is True, "Analysis should succeed (vision works, OCR failed gracefully)"
+    assert response.success is True, (
+        "Analysis should succeed (vision works, OCR failed gracefully)"
+    )
 
     # Vision description should still be present
-    assert response.description is not None, "Vision description should be present despite OCR failure"
+    assert response.description is not None, (
+        "Vision description should be present despite OCR failure"
+    )
     assert "cylindrical part" in response.description.summary.lower()
     assert response.description.confidence > 0.0
 

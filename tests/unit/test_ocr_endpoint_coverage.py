@@ -22,6 +22,7 @@ from src.core.errors import ErrorCode
 from src.core.ocr.base import (
     DimensionInfo,
     DimensionType,
+    IdentifierInfo,
     OcrResult,
     SymbolInfo,
     SymbolType,
@@ -76,11 +77,24 @@ class TestOcrResponseModel:
             dimensions=[{"type": "diameter", "value": 10.5, "unit": "mm"}],
             symbols=[{"type": "perpendicular", "value": "0.05"}],
             title_block={"drawing_number": "DWG-001"},
+            identifiers=[
+                {
+                    "identifier_type": "drawing_number",
+                    "label": "Drawing Number",
+                    "value": "DWG-001",
+                    "normalized_value": "DWG-001",
+                    "source_text": "图号: DWG-001",
+                    "bbox": [10, 10, 50, 10],
+                    "confidence": 0.92,
+                    "source": "ocr_line",
+                }
+            ],
         )
 
         assert response.success is True
         assert response.provider == "paddle"
         assert response.confidence == 0.95
+        assert response.identifiers[0]["identifier_type"] == "drawing_number"
 
     def test_model_creation_failure(self):
         """Test OcrResponse model creation for failure case."""
@@ -95,6 +109,7 @@ class TestOcrResponseModel:
             dimensions=[],
             symbols=[],
             title_block={},
+            identifiers=[],
             error="Provider unavailable",
             code=ErrorCode.PROVIDER_DOWN,
         )
@@ -105,6 +120,36 @@ class TestOcrResponseModel:
 
 class TestOcrExtractEndpoint:
     """Tests for ocr_extract endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_run_ocr_extract_returns_identifiers(self):
+        from src.api.v1.ocr import _run_ocr_extract
+
+        result = OcrResult(
+            text="图号: DWG-001",
+            title_block=TitleBlock(drawing_number="DWG-001"),
+            identifiers=[
+                IdentifierInfo(
+                    identifier_type="drawing_number",
+                    label="Drawing Number",
+                    value="DWG-001",
+                    normalized_value="DWG-001",
+                    source_text="图号: DWG-001",
+                    bbox=[10, 10, 50, 10],
+                    confidence=0.92,
+                    source="ocr_line",
+                )
+            ],
+            confidence=0.9,
+        )
+
+        mock_manager = MagicMock()
+        mock_manager.extract = AsyncMock(return_value=result)
+
+        with patch("src.api.v1.ocr.get_manager", return_value=mock_manager):
+            response = await _run_ocr_extract(b"img", "auto", "trace-1")
+
+        assert response.identifiers[0]["identifier_type"] == "drawing_number"
 
     @pytest.mark.asyncio
     async def test_ocr_extract_idempotency_hit(self):

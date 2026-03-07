@@ -7,7 +7,7 @@ import base64
 import binascii
 import logging
 import uuid
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, File, Header, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
@@ -63,6 +63,10 @@ class OcrResponse(BaseModel):
     dimensions: List
     symbols: List
     title_block: Dict
+    identifiers: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Structured identifiers with OCR evidence",
+    )
     material: Optional[str] = Field(
         None, description="Extracted material from title block"
     )
@@ -171,6 +175,7 @@ def _input_error_response(provider: str, detail: str) -> OcrResponse:
         dimensions=[],
         symbols=[],
         title_block={},
+        identifiers=[],
         material=None,
         material_info=None,
         process_requirements=None,
@@ -207,6 +212,7 @@ async def _run_ocr_extract(
             dimensions=[],
             symbols=[],
             title_block={},
+            identifiers=[],
             material=None,
             material_info=None,
             process_requirements=None,
@@ -313,6 +319,7 @@ async def _run_ocr_extract(
         dimensions=[d.model_dump() for d in result.dimensions],
         symbols=[s.model_dump() for s in result.symbols],
         title_block=result.title_block.model_dump(),
+        identifiers=[identifier.model_dump() for identifier in result.identifiers],
         material=result.title_block.material,
         material_info=material_info,
         process_requirements=(
@@ -387,6 +394,7 @@ async def ocr_extract(
             dimensions=[],
             symbols=[],
             title_block={},
+            identifiers=[],
             material=None,
             material_info=None,
             process_requirements=None,
@@ -415,6 +423,7 @@ async def ocr_extract(
             dimensions=[],
             symbols=[],
             title_block={},
+            identifiers=[],
             material=None,
             material_info=None,
             process_requirements=None,

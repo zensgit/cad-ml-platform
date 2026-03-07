@@ -76,6 +76,7 @@ class DrawingRecognitionResponse(BaseModel):
     title_block: Dict[str, Optional[str]] = Field(default_factory=dict)
     field_confidence: Dict[str, Optional[float]] = Field(default_factory=dict)
     fields: List[DrawingField] = Field(default_factory=list)
+    identifiers: List[Dict[str, Any]] = Field(default_factory=list)
     dimensions: List[Dict[str, Any]] = Field(default_factory=list)
     symbols: List[Dict[str, Any]] = Field(default_factory=list)
     process_requirements: ProcessRequirements = Field(default_factory=ProcessRequirements)
@@ -315,6 +316,7 @@ async def _run_recognition(
             result.title_block_confidence,
         ),
         fields=_build_fields(result.title_block, confidence, result.title_block_confidence),
+        identifiers=[identifier.model_dump() for identifier in result.identifiers],
         dimensions=[d.model_dump() for d in result.dimensions],
         symbols=[s.model_dump() for s in result.symbols],
         process_requirements=result.process_requirements,
