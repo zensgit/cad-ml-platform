@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -16,6 +18,17 @@ from src.core.similarity import (
 from src.utils.analysis_metrics import compare_requests_total
 
 router = APIRouter()
+
+
+def _get_qdrant_store_or_none():
+    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
+        return None
+    try:
+        from src.core.vector_stores import get_vector_store as get_managed_vector_store
+
+        return get_managed_vector_store("qdrant")
+    except Exception:
+        return None
 
 
 class CompareRequest(BaseModel):
@@ -63,8 +76,19 @@ async def compare_features(
         )
         raise HTTPException(status_code=400, detail=err)
 
-    store = InMemoryVectorStore()
-    reference = store.get(candidate_id)
+    qdrant_store = _get_qdrant_store_or_none()
+    reference = None
+    meta = {}
+    if qdrant_store is not None:
+        result = await qdrant_store.get_vector(candidate_id)
+        if result is not None:
+            reference = list(result.vector or [])
+            meta = dict(result.metadata or {})
+    else:
+        store = InMemoryVectorStore()
+        reference = store.get(candidate_id)
+        if reference is not None:
+            meta = _VECTOR_META.get(candidate_id, {})
     if reference is None:
         compare_requests_total.labels(status="not_found").inc()
         err = build_error(
@@ -88,7 +112,6 @@ async def compare_features(
     score = _cosine(reference, payload.query_features)
     similarity = round(score, 4)
     compare_requests_total.labels(status="success").inc()
-    meta = _VECTOR_META.get(candidate_id, {})
     label_contract = extract_vector_label_contract(meta)
     return CompareResponse(
         similarity=similarity,

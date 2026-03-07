@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from unittest.mock import patch
 
 from src.main import app
 
@@ -88,3 +89,61 @@ def test_similarity_endpoint_exposes_reference_and_target_label_contracts():
         for vid in ids:
             sim_module._VECTOR_STORE.pop(vid, None)
             sim_module._VECTOR_META.pop(vid, None)
+
+
+def test_similarity_endpoint_uses_qdrant_for_analyze_registered_vectors():
+    class DummyQdrantResult:
+        def __init__(self, vector_id, metadata=None, vector=None):
+            self.id = vector_id
+            self.metadata = metadata or {}
+            self.vector = vector
+
+    class DummyQdrantStore:
+        def __init__(self):
+            self._vectors = {}
+
+        async def register_vector(self, vector_id, vector, metadata=None):
+            self._vectors[vector_id] = DummyQdrantResult(
+                vector_id,
+                metadata=dict(metadata or {}),
+                vector=list(vector),
+            )
+            return True
+
+        async def get_vector(self, vector_id):
+            return self._vectors.get(vector_id)
+
+    store = DummyQdrantStore()
+    file1 = ("qa.dxf", b"0", "application/octet-stream")
+    file2 = ("qb.dxf", b"0", "application/octet-stream")
+    opts = {"options": (None, '{"extract_features": true, "classify_parts": false}')}
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.core.vector_stores.get_vector_store",
+        return_value=store,
+    ):
+        r1 = client.post(
+            "/api/v1/analyze",
+            files={"file": file1},
+            data=opts,
+            headers={"X-API-Key": "test"},
+        )
+        r2 = client.post(
+            "/api/v1/analyze",
+            files={"file": file2},
+            data=opts,
+            headers={"X-API-Key": "test"},
+        )
+        assert r1.status_code == 200 and r2.status_code == 200
+        id1 = r1.json()["id"]
+        id2 = r2.json()["id"]
+        resp = client.post(
+            "/api/v1/analyze/similarity",
+            json={"reference_id": id1, "target_id": id2},
+            headers={"X-API-Key": "test"},
+        )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["reference_id"] == id1
+    assert data["target_id"] == id2
+    assert data["dimension"] >= 0
+    assert "score" in data

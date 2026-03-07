@@ -79,6 +79,49 @@ def _safe_float_env(name: str, default: float) -> float:
         return float(default)
 
 
+def _get_qdrant_store_or_none():
+    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
+        return None
+    try:
+        from src.core.vector_stores import get_vector_store as get_managed_vector_store
+
+        return get_managed_vector_store("qdrant")
+    except Exception:
+        return None
+
+
+async def _compute_similarity_qdrant(
+    qdrant_store,
+    reference_id: str,
+    candidate_vector: list[float],
+) -> Dict[str, Any]:
+    from src.core.similarity import _cosine
+
+    reference = await qdrant_store.get_vector(reference_id)
+    if reference is None:
+        return {
+            "reference_id": reference_id,
+            "status": "reference_not_found",
+            "score": 0.0,
+        }
+    ref_vector = list(reference.vector or [])
+    if len(ref_vector) != len(candidate_vector):
+        return {
+            "reference_id": reference_id,
+            "status": "dimension_mismatch",
+            "score": 0.0,
+            "method": "cosine",
+            "dimension": min(len(ref_vector), len(candidate_vector)),
+        }
+    score = _cosine(ref_vector, candidate_vector)
+    return {
+        "reference_id": reference_id,
+        "score": round(score, 4),
+        "method": "cosine",
+        "dimension": len(candidate_vector),
+    }
+
+
 DEFAULT_GRAPH2D_DRAWING_LABELS = {
     "零件图",
     "机械制图",
@@ -2359,11 +2402,22 @@ async def analyze_cad_file(
                 if final_decision_source:
                     meta["final_decision_source"] = final_decision_source
 
-            accepted = register_vector(
-                analysis_id,
-                feature_vector,
-                meta=meta,
-            )
+            qdrant_store = _get_qdrant_store_or_none()
+            stored_in_qdrant = False
+            if qdrant_store is not None:
+                await qdrant_store.register_vector(
+                    analysis_id,
+                    feature_vector,
+                    metadata=meta,
+                )
+                accepted = True
+                stored_in_qdrant = True
+            else:
+                accepted = register_vector(
+                    analysis_id,
+                    feature_vector,
+                    meta=meta,
+                )
             if accepted:
                 vector_store_material_total.labels(material=m_used).inc()
                 # Optional FAISS backend add if enabled
@@ -2375,24 +2429,42 @@ async def analyze_cad_file(
                         pass
                 analysis_feature_vector_dimension.observe(len(feature_vector))
                 # enrich meta with dimension breakdown for future migrations
-                try:
-                    _VECTOR_META = __import__("src.core.similarity", fromlist=["_VECTOR_META"])._VECTOR_META  # type: ignore
-                    _VECTOR_META[analysis_id].update(meta)
-                except Exception:
-                    pass
+                if not stored_in_qdrant:
+                    try:
+                        _VECTOR_META = __import__(
+                            "src.core.similarity", fromlist=["_VECTOR_META"]
+                        )._VECTOR_META  # type: ignore
+                        _VECTOR_META[analysis_id].update(meta)
+                    except Exception:
+                        pass
         except Exception:
             pass
 
         if analysis_options.calculate_similarity and analysis_options.reference_id:
-            sim = compute_similarity(analysis_options.reference_id, feature_vector)
+            qdrant_store = _get_qdrant_store_or_none()
+            if qdrant_store is not None:
+                sim = await _compute_similarity_qdrant(
+                    qdrant_store,
+                    analysis_options.reference_id,
+                    feature_vector,
+                )
+            else:
+                sim = compute_similarity(analysis_options.reference_id, feature_vector)
             results["similarity"] = sim
-        elif analysis_options.reference_id and not has_vector(
-            analysis_options.reference_id
-        ):
-            results["similarity"] = {
-                "reference_id": analysis_options.reference_id,
-                "status": "reference_not_found",
-            }
+        elif analysis_options.reference_id:
+            qdrant_store = _get_qdrant_store_or_none()
+            if qdrant_store is not None:
+                reference = await qdrant_store.get_vector(analysis_options.reference_id)
+                if reference is None:
+                    results["similarity"] = {
+                        "reference_id": analysis_options.reference_id,
+                        "status": "reference_not_found",
+                    }
+            elif not has_vector(analysis_options.reference_id):
+                results["similarity"] = {
+                    "reference_id": analysis_options.reference_id,
+                    "status": "reference_not_found",
+                }
         if "similarity" in results:
             stage_times["similarity"] = (
                 time.time() - started - sum(stage_times.values())
@@ -2568,50 +2640,95 @@ async def similarity_query(
     payload: SimilarityQuery, api_key: str = Depends(get_api_key)
 ):
     """在已存在的向量之间计算相似度。"""
-    from src.core.similarity import (  # type: ignore
-        _VECTOR_META,
-        _VECTOR_STORE,
-        extract_vector_label_contract,
-    )
+    from src.core.similarity import extract_vector_label_contract
 
-    if payload.reference_id not in _VECTOR_STORE:
-        # ErrorCode and build_error imported at module level
-        err = build_error(
-            ErrorCode.DATA_NOT_FOUND,
-            stage="similarity",
-            message="Reference vector not found",
-            id=payload.reference_id,
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        ref_result = await qdrant_store.get_vector(payload.reference_id)
+        if ref_result is None:
+            err = build_error(
+                ErrorCode.DATA_NOT_FOUND,
+                stage="similarity",
+                message="Reference vector not found",
+                id=payload.reference_id,
+            )
+            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
+            return SimilarityResult(
+                reference_id=payload.reference_id,
+                target_id=payload.target_id,
+                score=0.0,
+                method="cosine",
+                dimension=0,
+                status="reference_not_found",
+                error=err,
+            )
+        tgt_result = await qdrant_store.get_vector(payload.target_id)
+        if tgt_result is None:
+            err = build_error(
+                ErrorCode.DATA_NOT_FOUND,
+                stage="similarity",
+                message="Target vector not found",
+                id=payload.target_id,
+            )
+            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
+            return SimilarityResult(
+                reference_id=payload.reference_id,
+                target_id=payload.target_id,
+                score=0.0,
+                method="cosine",
+                dimension=0,
+                status="target_not_found",
+                error=err,
+            )
+        ref = list(ref_result.vector or [])
+        tgt = list(tgt_result.vector or [])
+        reference_contract = extract_vector_label_contract(ref_result.metadata)
+        target_contract = extract_vector_label_contract(tgt_result.metadata)
+    else:
+        from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+
+        if payload.reference_id not in _VECTOR_STORE:
+            # ErrorCode and build_error imported at module level
+            err = build_error(
+                ErrorCode.DATA_NOT_FOUND,
+                stage="similarity",
+                message="Reference vector not found",
+                id=payload.reference_id,
+            )
+            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
+            return SimilarityResult(
+                reference_id=payload.reference_id,
+                target_id=payload.target_id,
+                score=0.0,
+                method="cosine",
+                dimension=0,
+                status="reference_not_found",
+                error=err,
+            )
+        if payload.target_id not in _VECTOR_STORE:
+            # ErrorCode and build_error imported at module level
+            err = build_error(
+                ErrorCode.DATA_NOT_FOUND,
+                stage="similarity",
+                message="Target vector not found",
+                id=payload.target_id,
+            )
+            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
+            return SimilarityResult(
+                reference_id=payload.reference_id,
+                target_id=payload.target_id,
+                score=0.0,
+                method="cosine",
+                dimension=0,
+                status="target_not_found",
+                error=err,
+            )
+        ref = _VECTOR_STORE[payload.reference_id]
+        tgt = _VECTOR_STORE[payload.target_id]
+        reference_contract = extract_vector_label_contract(
+            _VECTOR_META.get(payload.reference_id)
         )
-        analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
-        return SimilarityResult(
-            reference_id=payload.reference_id,
-            target_id=payload.target_id,
-            score=0.0,
-            method="cosine",
-            dimension=0,
-            status="reference_not_found",
-            error=err,
-        )
-    if payload.target_id not in _VECTOR_STORE:
-        # ErrorCode and build_error imported at module level
-        err = build_error(
-            ErrorCode.DATA_NOT_FOUND,
-            stage="similarity",
-            message="Target vector not found",
-            id=payload.target_id,
-        )
-        analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
-        return SimilarityResult(
-            reference_id=payload.reference_id,
-            target_id=payload.target_id,
-            score=0.0,
-            method="cosine",
-            dimension=0,
-            status="target_not_found",
-            error=err,
-        )
-    ref = _VECTOR_STORE[payload.reference_id]
-    tgt = _VECTOR_STORE[payload.target_id]
+        target_contract = extract_vector_label_contract(_VECTOR_META.get(payload.target_id))
     if len(ref) != len(tgt):
         # ErrorCode and build_error imported at module level
         err = build_error(
@@ -2634,8 +2751,6 @@ async def similarity_query(
     from src.core.similarity import _cosine  # type: ignore
 
     score = _cosine(ref, tgt)
-    reference_contract = extract_vector_label_contract(_VECTOR_META.get(payload.reference_id))
-    target_contract = extract_vector_label_contract(_VECTOR_META.get(payload.target_id))
     return SimilarityResult(
         reference_id=payload.reference_id,
         target_id=payload.target_id,
