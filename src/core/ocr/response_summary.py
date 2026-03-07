@@ -11,6 +11,12 @@ STANDARD_CANDIDATE_PATTERN = re.compile(
     r"(?:GB/T|GB|ISO|DIN|ANSI|ASME|ASTM|JIS|EN)\s*[-/]?\s*[A-Z0-9.\-]+",
     re.IGNORECASE,
 )
+CRITICAL_TITLE_BLOCK_FIELDS = (
+    "drawing_number",
+    "part_name",
+    "revision",
+    "material",
+)
 
 
 def build_field_coverage(
@@ -89,4 +95,70 @@ def build_engineering_signals(
         },
         "materials_detected": materials_detected,
         "standards_candidates": extract_standard_candidates(process_requirements),
+    }
+
+
+def build_review_hints(
+    *,
+    title_block: TitleBlock,
+    identifiers: List[Dict[str, Any]] | List[Any],
+    field_coverage: Dict[str, Any],
+    engineering_signals: Dict[str, Any],
+) -> Dict[str, Any]:
+    recognized_keys = set(field_coverage.get("recognized_keys", []))
+    present_critical_fields = [
+        field for field in CRITICAL_TITLE_BLOCK_FIELDS if getattr(title_block, field, None)
+    ]
+    missing_critical_fields = [
+        field for field in CRITICAL_TITLE_BLOCK_FIELDS if field not in recognized_keys
+    ]
+
+    has_identifiers = bool(identifiers)
+    has_dimensions = bool(engineering_signals.get("dimension_count", 0))
+    has_symbols = bool(engineering_signals.get("symbol_count", 0))
+    process_counts = engineering_signals.get("process_requirement_counts", {})
+    has_process_requirements = any(process_counts.values()) if process_counts else False
+    has_standards_candidates = bool(engineering_signals.get("standards_candidates", []))
+    has_materials = bool(engineering_signals.get("materials_detected", []))
+
+    readiness_score = (
+        float(field_coverage.get("coverage_ratio", 0.0)) * 0.45
+        + (0.2 if has_identifiers else 0.0)
+        + (0.15 if has_dimensions else 0.0)
+        + (0.1 if has_symbols else 0.0)
+        + (0.1 if (has_process_requirements or has_standards_candidates or has_materials) else 0.0)
+    )
+    readiness_score = round(min(readiness_score, 1.0), 4)
+    if readiness_score >= 0.75:
+        readiness_band = "high"
+    elif readiness_score >= 0.45:
+        readiness_band = "medium"
+    else:
+        readiness_band = "low"
+
+    review_reasons: List[str] = []
+    if missing_critical_fields:
+        review_reasons.append("missing_critical_fields")
+    if not has_identifiers:
+        review_reasons.append("no_identifiers")
+    if not has_dimensions:
+        review_reasons.append("no_dimensions")
+    if not (has_process_requirements or has_standards_candidates or has_materials):
+        review_reasons.append("limited_engineering_context")
+    if readiness_band == "low":
+        review_reasons.append("low_readiness_score")
+
+    return {
+        "critical_fields": list(CRITICAL_TITLE_BLOCK_FIELDS),
+        "present_critical_fields": present_critical_fields,
+        "missing_critical_fields": missing_critical_fields,
+        "has_identifiers": has_identifiers,
+        "has_dimensions": has_dimensions,
+        "has_symbols": has_symbols,
+        "has_process_requirements": has_process_requirements,
+        "has_standards_candidates": has_standards_candidates,
+        "review_recommended": bool(review_reasons),
+        "review_reasons": review_reasons,
+        "readiness_score": readiness_score,
+        "readiness_band": readiness_band,
     }

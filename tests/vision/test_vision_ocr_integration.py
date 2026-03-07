@@ -179,6 +179,8 @@ async def test_vision_ocr_integration_success(sample_image_base64, mock_ocr_mana
     assert response.ocr.field_evidence["drawing_number"]["value"] == "CAD-2025-001"
     assert response.ocr.field_coverage["recognized_count"] == 3
     assert response.ocr.engineering_signals["has_surface_finish"] is True
+    assert response.ocr.review_hints["review_recommended"] is True
+    assert "revision" in response.ocr.review_hints["missing_critical_fields"]
 
     # Check confidence (should use calibrated_confidence if available)
     assert response.ocr.confidence == 0.91  # calibrated_confidence
