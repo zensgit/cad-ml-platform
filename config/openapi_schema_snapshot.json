@@ -1,5 +1,5 @@
 {
-  "components_schema_count": 222,
+  "components_schema_count": 229,
   "components_schema_names": [
     "ActiveLearningSample",
     "AlternativeItem",
@@ -108,6 +108,8 @@
     "HealthRuntime",
     "HealthServices",
     "HeatTreatmentCompatibilityResponse",
+    "HeatTreatmentInfo",
+    "HeatTreatmentType",
     "HybridRuntimeConfigResponse",
     "ITToleranceResponse",
     "KnowledgeReloadResponse",
@@ -143,6 +145,7 @@
     "PreferredDiameterResponse",
     "PreferredDiametersListResponse",
     "ProcessRecommendationResponse",
+    "ProcessRequirements",
     "ProcessRequirementsInput",
     "ProcessRouteRequest",
     "ProcessRouteResponse",
@@ -185,6 +188,8 @@
     "SurfaceFinishGradeResponse",
     "SurfaceFinishGradesListResponse",
     "SurfaceFinishSuggestResponse",
+    "SurfaceTreatmentInfo",
+    "SurfaceTreatmentType",
     "ThreadSpecResponse",
     "V16CacheClearResponse",
     "V16ClassifierHealthResponse",
@@ -222,7 +227,9 @@
     "VisionAnalyzeRequest",
     "VisionAnalyzeResponse",
     "VisionDescription",
-    "WeldCompatibilityResponse"
+    "WeldCompatibilityResponse",
+    "WeldingInfo",
+    "WeldingType"
   ],
   "openapi": "3.1.0",
   "operation_count": 185,
