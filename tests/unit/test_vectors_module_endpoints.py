@@ -476,3 +476,95 @@ def test_vectors_search_uses_qdrant_native_filters_when_enabled():
     assert data["results"][0]["coarse_part_type"] == "开孔件"
     assert data["results"][0]["decision_source"] == "hybrid"
     assert data["results"][0]["is_coarse_label"] is False
+
+
+def test_vectors_register_uses_qdrant_when_enabled():
+    client = TestClient(app)
+
+    class DummyQdrantStore:
+        def __init__(self) -> None:
+            self.calls = []
+
+        async def register_vector(self, vector_id, vector, metadata=None):
+            self.calls.append((vector_id, vector, metadata))
+            return True
+
+    store = DummyQdrantStore()
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.vectors._get_qdrant_store_or_none",
+        return_value=store,
+    ):
+        resp = client.post(
+            "/api/v1/vectors/register",
+            json={"id": "qdrant-reg", "vector": [0.1] * 7, "meta": {"material": "steel"}},
+            headers={"X-API-Key": "test"},
+        )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "accepted"
+    assert store.calls
+    _, _, metadata = store.calls[0]
+    assert metadata["material"] == "steel"
+    assert metadata["total_dim"] == "7"
+
+
+def test_vectors_delete_uses_qdrant_when_enabled():
+    client = TestClient(app)
+
+    class DummyQdrantStore:
+        async def get_vector(self, vector_id):
+            return DummyQdrantResult(vector_id, 1.0, {}, vector=[0.1] * 7)
+
+        async def delete_vector(self, vector_id):
+            return vector_id == "qdrant-del"
+
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.vectors._get_qdrant_store_or_none",
+        return_value=DummyQdrantStore(),
+    ):
+        resp = client.post(
+            "/api/v1/vectors/delete",
+            json={"id": "qdrant-del"},
+            headers={"X-API-Key": "test"},
+        )
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "deleted"
+
+
+def test_vectors_update_uses_qdrant_when_enabled():
+    client = TestClient(app)
+
+    class DummyQdrantStore:
+        def __init__(self) -> None:
+            self.calls = []
+
+        async def get_vector(self, vector_id):
+            return DummyQdrantResult(
+                vector_id,
+                1.0,
+                {"material": "steel", "feature_version": "v2", "created_at": "x"},
+                vector=[0.1] * 7,
+            )
+
+        async def register_vector(self, vector_id, vector, metadata=None):
+            self.calls.append((vector_id, vector, metadata))
+            return True
+
+    store = DummyQdrantStore()
+    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        "src.api.v1.vectors._get_qdrant_store_or_none",
+        return_value=store,
+    ):
+        resp = client.post(
+            "/api/v1/vectors/update",
+            json={"id": "qdrant-upd", "replace": [0.2] * 7, "complexity": "high"},
+            headers={"X-API-Key": "test"},
+        )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "updated"
+    assert data["dimension"] == 7
+    assert data["feature_version"] == "v2"
+    _, vector, metadata = store.calls[0]
+    assert vector == [0.2] * 7
+    assert metadata["complexity"] == "high"
+    assert metadata["total_dim"] == "7"
