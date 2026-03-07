@@ -24,10 +24,22 @@ class DummyRedis:
 
 def test_vector_stats_counts():
     # register some vectors
-    for m in ["steel", "aluminum", "steel"]:
+    for m, coarse, source in [
+        ("steel", "开孔件", "hybrid"),
+        ("aluminum", "传动件", "graph2d"),
+        ("steel", "开孔件", "hybrid"),
+    ]:
         vid = str(uuid.uuid4())
         register_vector(
-            vid, [0.1, 0.2, 0.3], meta={"material": m, "complexity": "low", "format": "dxf"}
+            vid,
+            [0.1, 0.2, 0.3],
+            meta={
+                "material": m,
+                "complexity": "low",
+                "format": "dxf",
+                "coarse_part_type": coarse,
+                "final_decision_source": source,
+            },
         )
     resp = client.get("/api/v1/vectors_stats/stats", headers={"X-API-Key": "test"})
     assert resp.status_code == 200
@@ -35,6 +47,8 @@ def test_vector_stats_counts():
     assert data["total"] >= 3
     assert "steel" in data["by_material"]
     assert data["by_material"]["steel"] >= 2
+    assert data["by_coarse_part_type"]["开孔件"] >= 2
+    assert data["by_decision_source"]["hybrid"] >= 2
 
 
 def test_vector_stats_redis_backend():
@@ -52,6 +66,8 @@ def test_vector_stats_redis_backend():
                     "material": "aluminum",
                     "complexity": "mid",
                     "format": "dwg",
+                    "coarse_part_type": "传动件",
+                    "final_decision_source": "graph2d",
                     "feature_version": "v3",
                 }
             ),
@@ -68,4 +84,6 @@ def test_vector_stats_redis_backend():
     assert data["total"] == 2
     assert data["by_material"]["steel"] == 1
     assert data["by_material"]["aluminum"] == 1
+    assert data["by_coarse_part_type"]["传动件"] == 1
+    assert data["by_decision_source"]["graph2d"] == 1
     assert data["versions"]["v4"] == 1
