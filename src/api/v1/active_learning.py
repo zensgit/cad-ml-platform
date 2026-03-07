@@ -66,6 +66,13 @@ class ReviewQueueSummaryResponse(BaseModel):
     total: int
     by_sample_type: Dict[str, int] = Field(default_factory=dict)
     by_feedback_priority: Dict[str, int] = Field(default_factory=dict)
+    by_decision_source: Dict[str, int] = Field(default_factory=dict)
+    by_uncertainty_reason: Dict[str, int] = Field(default_factory=dict)
+    by_review_reason: Dict[str, int] = Field(default_factory=dict)
+
+
+class ReviewQueueStatsResponse(ReviewQueueSummaryResponse):
+    pass
 
 
 class ReviewQueueResponse(BaseModel):
@@ -119,6 +126,23 @@ async def get_review_queue(
         summary=ReviewQueueSummaryResponse(**payload.get("summary", {})),
         items=payload.get("items", []),
     )
+
+
+@router.get("/review-queue/stats", response_model=ReviewQueueStatsResponse)
+async def get_review_queue_stats(
+    status: str = "pending",
+    sample_type: Optional[str] = None,
+    feedback_priority: Optional[str] = None,
+    api_key: str = Depends(get_api_key),
+):
+    """获取审核队列聚合统计。"""
+    learner = get_active_learner()
+    payload = learner.get_review_queue_stats(
+        status=status,
+        sample_type=sample_type,
+        feedback_priority=feedback_priority,
+    )
+    return ReviewQueueStatsResponse(**payload)
 
 
 @router.post("/feedback", response_model=FeedbackResponse)
