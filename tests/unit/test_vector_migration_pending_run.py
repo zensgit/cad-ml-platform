@@ -117,3 +117,29 @@ def test_vector_migration_pending_run_qdrant_partial_allows_override():
     assert data["total"] == 1
     assert data["dry_run_total"] == 1
     assert data["items"][0]["id"] == "vec2"
+
+
+def test_vector_migration_pending_run_applies_from_version_filter():
+    vectors = {
+        "vec1": [1.0] * 24,
+        "vec2": [2.0] * 22,
+        "vec3": [3.0] * 12,
+    }
+    meta = {
+        "vec1": {"feature_version": "v4"},
+        "vec2": {"feature_version": "v3"},
+        "vec3": {"feature_version": "v2"},
+    }
+    with patch("src.core.similarity._VECTOR_STORE", vectors), patch(
+        "src.core.similarity._VECTOR_META", meta
+    ):
+        response = client.post(
+            "/api/v1/vectors/migrate/pending/run",
+            json={"limit": 10, "dry_run": True, "from_version_filter": "v2"},
+            headers={"x-api-key": "test"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total"] == 1
+    assert data["items"][0]["id"] == "vec3"

@@ -108,3 +108,32 @@ def test_vector_migration_pending_summary_qdrant_partial_hides_exact_total():
     assert data["total_pending"] is None
     assert data["pending_ratio"] is None
     assert data["observed_by_from_version"] == {"v3": 1}
+
+
+def test_vector_migration_pending_summary_applies_from_version_filter():
+    vectors = {
+        "vec1": [1.0] * 24,
+        "vec2": [2.0] * 22,
+        "vec3": [3.0] * 12,
+        "vec4": [4.0] * 12,
+    }
+    meta = {
+        "vec1": {"feature_version": "v4"},
+        "vec2": {"feature_version": "v3"},
+        "vec3": {"feature_version": "v2"},
+        "vec4": {"feature_version": "v2"},
+    }
+    with patch("src.core.similarity._VECTOR_STORE", vectors), patch(
+        "src.core.similarity._VECTOR_META", meta
+    ):
+        response = client.get(
+            "/api/v1/vectors/migrate/pending/summary?from_version_filter=v2",
+            headers={"x-api-key": "test"},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["from_version_filter"] == "v2"
+    assert data["total_pending"] == 2
+    assert data["pending_ratio"] == 0.5
+    assert data["observed_by_from_version"] == {"v2": 2}

@@ -1090,6 +1090,7 @@ class VectorMigrationPendingItem(BaseModel):
 
 class VectorMigrationPendingResponse(BaseModel):
     target_version: str
+    from_version_filter: Optional[str] = None
     items: List[VectorMigrationPendingItem]
     listed_count: int
     total_pending: Optional[int] = None
@@ -1101,6 +1102,7 @@ class VectorMigrationPendingResponse(BaseModel):
 
 class VectorMigrationPendingSummaryResponse(BaseModel):
     target_version: str
+    from_version_filter: Optional[str] = None
     observed_by_from_version: Dict[str, int]
     total_pending: Optional[int] = None
     pending_ratio: Optional[float] = None
@@ -1113,6 +1115,10 @@ class VectorMigrationPendingSummaryResponse(BaseModel):
 class VectorMigrationPendingRunRequest(BaseModel):
     limit: int = Field(default=50, ge=1, le=200, description="最多处理多少个待迁移向量")
     dry_run: bool = Field(default=False, description="是否只做试运行")
+    from_version_filter: Optional[str] = Field(
+        default=None,
+        description="仅处理指定来源版本的待迁移向量",
+    )
     allow_partial_scan: bool = Field(
         default=False,
         description="Qdrant 扫描不完整时是否仍允许按已扫描结果执行",
@@ -1631,9 +1637,11 @@ async def _collect_vector_migration_pending_candidates(
     *,
     limit: int,
     target_version: str,
+    from_version_filter: Optional[str] = None,
 ) -> Dict[str, Any]:
     qdrant_store = _get_qdrant_store_or_none()
     scan_limit = _resolve_vector_migration_scan_limit()
+    normalized_filter = str(from_version_filter or "").strip() or None
 
     if qdrant_store is not None:
         total_available = int(await qdrant_store.count())
@@ -1658,6 +1666,8 @@ async def _collect_vector_migration_pending_candidates(
                 from_version = str(meta.get("feature_version") or "unknown")
                 if from_version == target_version:
                     continue
+                if normalized_filter and from_version != normalized_filter:
+                    continue
                 total_pending += 1
                 observed_by_from_version[from_version] = (
                     observed_by_from_version.get(from_version, 0) + 1
@@ -1678,6 +1688,7 @@ async def _collect_vector_migration_pending_candidates(
         distribution_complete = scanned >= total_available
         return {
             "target_version": target_version,
+            "from_version_filter": normalized_filter,
             "items": items,
             "pending_ids": pending_ids[:limit],
             "listed_count": len(items),
@@ -1703,6 +1714,8 @@ async def _collect_vector_migration_pending_candidates(
         from_version = str(meta.get("feature_version") or "unknown")
         if from_version == target_version:
             continue
+        if normalized_filter and from_version != normalized_filter:
+            continue
         total_pending += 1
         observed_by_from_version[from_version] = observed_by_from_version.get(from_version, 0) + 1
         pending_ids.append(str(vid))
@@ -1717,6 +1730,7 @@ async def _collect_vector_migration_pending_candidates(
 
     return {
         "target_version": target_version,
+        "from_version_filter": normalized_filter,
         "items": items,
         "pending_ids": pending_ids[:limit],
         "listed_count": len(items),
@@ -1730,15 +1744,21 @@ async def _collect_vector_migration_pending_candidates(
 
 
 @router.get("/migrate/pending", response_model=VectorMigrationPendingResponse)
-async def migrate_pending(limit: int = 50, api_key: str = Depends(get_api_key)):
+async def migrate_pending(
+    limit: int = 50,
+    from_version_filter: Optional[str] = Query(default=None),
+    api_key: str = Depends(get_api_key),
+):
     limit = max(min(int(limit or 0), 200), 1)
     target_version = _resolve_vector_migration_target_version()
     pending = await _collect_vector_migration_pending_candidates(
         limit=limit,
         target_version=target_version,
+        from_version_filter=from_version_filter,
     )
     return VectorMigrationPendingResponse(
         target_version=pending["target_version"],
+        from_version_filter=pending["from_version_filter"],
         items=pending["items"],
         listed_count=pending["listed_count"],
         total_pending=pending["total_pending"],
@@ -1750,11 +1770,15 @@ async def migrate_pending(limit: int = 50, api_key: str = Depends(get_api_key)):
 
 
 @router.get("/migrate/pending/summary", response_model=VectorMigrationPendingSummaryResponse)
-async def migrate_pending_summary(api_key: str = Depends(get_api_key)):
+async def migrate_pending_summary(
+    from_version_filter: Optional[str] = Query(default=None),
+    api_key: str = Depends(get_api_key),
+):
     target_version = _resolve_vector_migration_target_version()
     pending = await _collect_vector_migration_pending_candidates(
         limit=1,
         target_version=target_version,
+        from_version_filter=from_version_filter,
     )
     pending_ratio: Optional[float] = None
     if pending["distribution_complete"]:
@@ -1762,6 +1786,7 @@ async def migrate_pending_summary(api_key: str = Depends(get_api_key)):
         pending_ratio = round(int(pending["total_pending"] or 0) / max(scanned_vectors, 1), 4)
     return VectorMigrationPendingSummaryResponse(
         target_version=pending["target_version"],
+        from_version_filter=pending["from_version_filter"],
         observed_by_from_version=pending["observed_by_from_version"],
         total_pending=pending["total_pending"],
         pending_ratio=pending_ratio,
@@ -1781,6 +1806,7 @@ async def migrate_pending_run(
     pending = await _collect_vector_migration_pending_candidates(
         limit=payload.limit,
         target_version=target_version,
+        from_version_filter=payload.from_version_filter,
     )
     if pending["backend"] == "qdrant" and not pending["distribution_complete"]:
         if not payload.allow_partial_scan:
