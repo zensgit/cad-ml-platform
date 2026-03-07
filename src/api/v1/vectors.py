@@ -1149,6 +1149,10 @@ class VectorMigrationPlanResponse(BaseModel):
     planned_pending_count: int = 0
     remaining_pending_count: Optional[int] = None
     planned_pending_ratio: Optional[float] = None
+    coverage_complete: bool = False
+    truncated_by_max_batches: bool = False
+    unplanned_from_versions: List[str] = Field(default_factory=list)
+    suggested_next_max_batches: Optional[int] = None
     batches: List[VectorMigrationPlanBatch] = Field(default_factory=list)
 
 
@@ -1945,6 +1949,12 @@ async def migrate_plan(
     if recommended_first_batch is not None:
         recommended_first_request_payload = dict(recommended_first_batch.request_payload)
     planned_pending_count = sum(int(batch.pending_count) for batch in batches)
+    planned_from_versions = {str(batch.from_version) for batch in batches}
+    unplanned_from_versions = [
+        from_version
+        for from_version in recommended_from_versions
+        if str(from_version) not in planned_from_versions
+    ]
     remaining_pending_count: Optional[int] = None
     planned_pending_ratio: Optional[float] = None
     if pending["distribution_complete"] and pending["total_pending"] is not None:
@@ -1953,6 +1963,10 @@ async def migrate_plan(
             planned_pending_count / max(int(pending["total_pending"]), 1),
             4,
         )
+    coverage_complete = bool(batches) and not unplanned_from_versions
+    suggested_next_max_batches: Optional[int] = None
+    if unplanned_from_versions:
+        suggested_next_max_batches = len(recommended_from_versions)
     estimated_runs_by_version = {
         str(from_version): max((int(count) + default_run_limit - 1) // default_run_limit, 1)
         for from_version, count in pending["observed_by_from_version"].items()
@@ -1981,6 +1995,10 @@ async def migrate_plan(
         planned_pending_count=planned_pending_count,
         remaining_pending_count=remaining_pending_count,
         planned_pending_ratio=planned_pending_ratio,
+        coverage_complete=coverage_complete,
+        truncated_by_max_batches=bool(unplanned_from_versions),
+        unplanned_from_versions=unplanned_from_versions,
+        suggested_next_max_batches=suggested_next_max_batches,
         batches=batches,
     )
 
