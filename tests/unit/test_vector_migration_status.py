@@ -63,6 +63,9 @@ def test_vector_migration_status_qdrant_versions():
     assert response.status_code == 200
     data = response.json()
     assert data["feature_versions"] == {"v4": 2, "v3": 1}
+    assert data["backend"] == "qdrant"
+    assert data["current_total_vectors"] == 3
+    assert data["scanned_vectors"] == 3
 
 
 def test_vector_migration_summary_qdrant_versions():
