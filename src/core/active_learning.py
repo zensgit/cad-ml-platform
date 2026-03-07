@@ -134,6 +134,16 @@ def _derive_feedback_priority(sample: ActiveLearningSample) -> str:
     return "normal"
 
 
+def _priority_rank(priority: Optional[str]) -> int:
+    order = {
+        "normal": 0,
+        "medium": 1,
+        "high": 2,
+        "critical": 3,
+    }
+    return order.get(str(priority or "").strip().lower(), -1)
+
+
 class ActiveLearner:
     """Manages active learning samples and feedback collection."""
 
@@ -234,6 +244,11 @@ class ActiveLearner:
         sample.reviewer_id = reviewer_id
         sample.feedback_time = datetime.utcnow()
         sample.status = SampleStatus.LABELED
+        derived_priority = _derive_feedback_priority(
+            sample.model_copy(update={"feedback_priority": None})
+        )
+        if _priority_rank(derived_priority) > _priority_rank(sample.feedback_priority):
+            sample.feedback_priority = derived_priority
 
         self._update_sample_file()
 
