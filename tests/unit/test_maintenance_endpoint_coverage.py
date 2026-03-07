@@ -256,7 +256,7 @@ class TestCleanupOrphanVectorsEndpoint:
 
         store = DummyQdrantStore()
         with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
-            "src.core.vector_stores.get_vector_store",
+            "src.api.v1.maintenance._get_qdrant_store_or_none",
             return_value=store,
         ), patch("src.utils.cache.get_client", return_value=None):
             result = await cleanup_orphan_vectors(
@@ -305,7 +305,7 @@ class TestCleanupOrphanVectorsEndpoint:
         mock_client.get = mock_get
         store = DummyQdrantStore()
         with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
-            "src.core.vector_stores.get_vector_store",
+            "src.api.v1.maintenance._get_qdrant_store_or_none",
             return_value=store,
         ), patch("src.utils.cache.get_client", return_value=mock_client):
             result = await cleanup_orphan_vectors(
@@ -415,7 +415,7 @@ class TestGetMaintenanceStatsEndpoint:
                 return 7
 
         with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
-            "src.core.vector_stores.get_vector_store",
+            "src.api.v1.maintenance._get_qdrant_store_or_none",
             return_value=DummyQdrantStore(),
         ), patch("src.utils.cache.get_client", return_value=None):
             result = await get_maintenance_stats(api_key="test")
