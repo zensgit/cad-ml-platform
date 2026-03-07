@@ -6,11 +6,11 @@ set -euo pipefail
 # Optional: can also run history-sequence evaluation when env is configured.
 
 ROOT_DIR="$(cd "$(dirname "$0")"/.. && pwd)"
-REPORT_DIR="$ROOT_DIR/reports/eval_history"
-OCR_SCRIPT="$ROOT_DIR/tests/ocr/run_golden_evaluation.py"
-HISTORY_BUILD_SCRIPT="$ROOT_DIR/scripts/build_history_sequence_prototypes.py"
-HISTORY_EVAL_SCRIPT="$ROOT_DIR/scripts/eval_history_sequence_classifier.py"
-HISTORY_TUNE_SCRIPT="$ROOT_DIR/scripts/tune_history_sequence_weights.py"
+REPORT_DIR="${EVAL_HISTORY_REPORT_DIR:-$ROOT_DIR/reports/eval_history}"
+OCR_SCRIPT="${EVAL_HISTORY_OCR_SCRIPT:-$ROOT_DIR/tests/ocr/run_golden_evaluation.py}"
+HISTORY_BUILD_SCRIPT="${EVAL_HISTORY_BUILD_SCRIPT:-$ROOT_DIR/scripts/build_history_sequence_prototypes.py}"
+HISTORY_EVAL_SCRIPT="${EVAL_HISTORY_EVAL_SCRIPT:-$ROOT_DIR/scripts/eval_history_sequence_classifier.py}"
+HISTORY_TUNE_SCRIPT="${EVAL_HISTORY_TUNE_SCRIPT:-$ROOT_DIR/scripts/tune_history_sequence_weights.py}"
 
 mkdir -p "$REPORT_DIR"
 
@@ -233,6 +233,48 @@ payload = json.loads(Path("$history_summary").read_text(encoding="utf-8"))
 print(payload.get("macro_f1_overall", 0))
 PY
 )
+history_coarse_accuracy_on_ok=$(python3 - <<PY
+import json
+from pathlib import Path
+payload = json.loads(Path("$history_summary").read_text(encoding="utf-8"))
+print(payload.get("coarse_accuracy_on_ok", 0))
+PY
+)
+history_coarse_accuracy_overall=$(python3 - <<PY
+import json
+from pathlib import Path
+payload = json.loads(Path("$history_summary").read_text(encoding="utf-8"))
+print(payload.get("coarse_accuracy_overall", 0))
+PY
+)
+history_coarse_macro_f1_on_ok=$(python3 - <<PY
+import json
+from pathlib import Path
+payload = json.loads(Path("$history_summary").read_text(encoding="utf-8"))
+print(payload.get("coarse_macro_f1_on_ok", 0))
+PY
+)
+history_coarse_macro_f1_overall=$(python3 - <<PY
+import json
+from pathlib import Path
+payload = json.loads(Path("$history_summary").read_text(encoding="utf-8"))
+print(payload.get("coarse_macro_f1_overall", 0))
+PY
+)
+history_exact_top_mismatches=$(python3 - <<PY
+import json
+from pathlib import Path
+payload = json.loads(Path("$history_summary").read_text(encoding="utf-8"))
+print(json.dumps(payload.get("exact_top_mismatches", []), ensure_ascii=False))
+PY
+)
+history_coarse_top_mismatches=$(python3 - <<PY
+import json
+from pathlib import Path
+payload = json.loads(Path("$history_summary").read_text(encoding="utf-8"))
+print(json.dumps(payload.get("coarse_top_mismatches", []), ensure_ascii=False))
+PY
+)
 
 history_tune_best_config_json="null"
 if [[ -n "$history_tune_best_config" && -f "$history_tune_best_config" ]]; then
@@ -259,12 +301,24 @@ cat > "$history_outfile" <<JSON
   "metrics": {
     "coverage": ${history_coverage:-0},
     "accuracy_overall": ${history_accuracy:-0},
-    "macro_f1_overall": ${history_macro_f1:-0}
+    "macro_f1_overall": ${history_macro_f1:-0},
+    "coarse_accuracy_on_ok": ${history_coarse_accuracy_on_ok:-0},
+    "coarse_accuracy_overall": ${history_coarse_accuracy_overall:-0},
+    "coarse_macro_f1_on_ok": ${history_coarse_macro_f1_on_ok:-0},
+    "coarse_macro_f1_overall": ${history_coarse_macro_f1_overall:-0},
+    "exact_top_mismatches": ${history_exact_top_mismatches:-[]},
+    "coarse_top_mismatches": ${history_coarse_top_mismatches:-[]}
   },
   "history_metrics": {
     "coverage": ${history_coverage:-0},
     "accuracy_overall": ${history_accuracy:-0},
-    "macro_f1_overall": ${history_macro_f1:-0}
+    "macro_f1_overall": ${history_macro_f1:-0},
+    "coarse_accuracy_on_ok": ${history_coarse_accuracy_on_ok:-0},
+    "coarse_accuracy_overall": ${history_coarse_accuracy_overall:-0},
+    "coarse_macro_f1_on_ok": ${history_coarse_macro_f1_on_ok:-0},
+    "coarse_macro_f1_overall": ${history_coarse_macro_f1_overall:-0},
+    "exact_top_mismatches": ${history_exact_top_mismatches:-[]},
+    "coarse_top_mismatches": ${history_coarse_top_mismatches:-[]}
   },
   "artifacts": {
     "summary_json": "$history_summary",

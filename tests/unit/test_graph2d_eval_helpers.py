@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from typing import Any, Dict
@@ -104,3 +105,110 @@ def test_eval_with_history_script_has_valid_bash_syntax() -> None:
         check=False,
     )
     assert proc.returncode == 0, proc.stderr or proc.stdout
+
+
+def test_eval_with_history_writes_coarse_history_metrics(tmp_path: Path) -> None:
+    script = Path(__file__).resolve().parents[2] / "scripts" / "eval_with_history.sh"
+    report_dir = tmp_path / "eval_history"
+    history_output_dir = tmp_path / "history_eval"
+
+    ocr_script = tmp_path / "fake_ocr.py"
+    ocr_script.write_text(
+        "\n".join(
+            [
+                "#!/usr/bin/env python3",
+                'print(\'dimension_recall=0.8 brier_score=0.1 edge_f1=0.2\')',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    ocr_script.chmod(0o755)
+
+    build_script = tmp_path / "fake_build.py"
+    build_script.write_text(
+        "\n".join(
+            [
+                "#!/usr/bin/env python3",
+                "import json, pathlib, sys",
+                "out = pathlib.Path(sys.argv[sys.argv.index('--output') + 1])",
+                "out.parent.mkdir(parents=True, exist_ok=True)",
+                "payload = {'labels': {'轴类': {'token_weights': {'1': 1.0}}}}",
+                "out.write_text(",
+                "    json.dumps(payload, ensure_ascii=False),",
+                "    encoding='utf-8',",
+                ")",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    build_script.chmod(0o755)
+
+    eval_script = tmp_path / "fake_eval.py"
+    eval_script.write_text(
+        "\n".join(
+            [
+                "#!/usr/bin/env python3",
+                "import csv, json, pathlib, sys",
+                "out = pathlib.Path(sys.argv[sys.argv.index('--output-dir') + 1])",
+                "out.mkdir(parents=True, exist_ok=True)",
+                "summary = {",
+                "  'coverage': 1.0,",
+                "  'accuracy_overall': 0.5,",
+                "  'macro_f1_overall': 0.5,",
+                "  'coarse_accuracy_on_ok': 1.0,",
+                "  'coarse_accuracy_overall': 1.0,",
+                "  'coarse_macro_f1_on_ok': 1.0,",
+                "  'coarse_macro_f1_overall': 1.0,",
+                "  'exact_top_mismatches': [{'expected': '捕集口', 'predicted': '人孔', 'count': 1}],",
+                "  'coarse_top_mismatches': []",
+                "}",
+                "(out / 'summary.json').write_text(",
+                "    json.dumps(summary, ensure_ascii=False),",
+                "    encoding='utf-8',",
+                ")",
+                "with (out / 'results.csv').open('w', encoding='utf-8', newline='') as handle:",
+                "    writer = csv.DictWriter(handle, fieldnames=['ok'])",
+                "    writer.writeheader()",
+                "    writer.writerow({'ok': 'Y'})",
+                "print(",
+                "    json.dumps({'summary_path': str(out / 'summary.json')}, ensure_ascii=False)",
+                ")",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    eval_script.chmod(0o755)
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "EVAL_HISTORY_REPORT_DIR": str(report_dir),
+            "EVAL_HISTORY_OCR_SCRIPT": str(ocr_script),
+            "EVAL_HISTORY_BUILD_SCRIPT": str(build_script),
+            "EVAL_HISTORY_EVAL_SCRIPT": str(eval_script),
+            "HISTORY_SEQUENCE_EVAL_ENABLE": "true",
+            "HISTORY_SEQUENCE_EVAL_H5_DIR": str(tmp_path),
+            "HISTORY_SEQUENCE_EVAL_OUTPUT_DIR": str(history_output_dir),
+        }
+    )
+
+    proc = subprocess.run(
+        ["bash", str(script)],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=Path(__file__).resolve().parents[2],
+        env=env,
+    )
+    assert proc.returncode == 0, proc.stderr or proc.stdout
+
+    history_files = sorted(report_dir.glob("*_history_sequence.json"))
+    assert history_files
+    payload = json.loads(history_files[-1].read_text(encoding="utf-8"))
+    history_metrics = payload["history_metrics"]
+    assert history_metrics["coarse_accuracy_overall"] == 1.0
+    assert history_metrics["coarse_macro_f1_overall"] == 1.0
+    assert history_metrics["exact_top_mismatches"] == [
+        {"expected": "捕集口", "predicted": "人孔", "count": 1}
+    ]
+    assert history_metrics["coarse_top_mismatches"] == []
