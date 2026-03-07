@@ -41,7 +41,7 @@ def test_features_diff_uses_qdrant_when_enabled():
             return payloads.get(vector_id)
 
     with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
-        "src.core.vector_stores.get_vector_store",
+        "src.api.v1.features._get_qdrant_store_or_none",
         return_value=DummyQdrantStore(),
     ):
         r = client.get("/api/v1/features/diff?id_a=qa&id_b=qb", headers={"x-api-key": "test"})
@@ -58,7 +58,7 @@ def test_features_diff_qdrant_not_found():
             return None
 
     with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
-        "src.core.vector_stores.get_vector_store",
+        "src.api.v1.features._get_qdrant_store_or_none",
         return_value=DummyQdrantStore(),
     ):
         r = client.get(
@@ -86,7 +86,7 @@ def test_features_diff_qdrant_dimension_mismatch():
             return None
 
     with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
-        "src.core.vector_stores.get_vector_store",
+        "src.api.v1.features._get_qdrant_store_or_none",
         return_value=DummyQdrantStore(),
     ):
         r = client.get("/api/v1/features/diff?id_a=qa&id_b=qb", headers={"x-api-key": "test"})
