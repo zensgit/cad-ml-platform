@@ -1,5 +1,5 @@
 {
-  "components_schema_count": 217,
+  "components_schema_count": 219,
   "components_schema_names": [
     "ActiveLearningSample",
     "AlternativeItem",
@@ -201,6 +201,8 @@
     "VectorMigrationPendingResponse",
     "VectorMigrationPendingRunRequest",
     "VectorMigrationPendingSummaryResponse",
+    "VectorMigrationPlanBatch",
+    "VectorMigrationPlanResponse",
     "VectorMigrationPreviewResponse",
     "VectorMigrationStatusResponse",
     "VectorMigrationSummaryResponse",
@@ -220,8 +222,8 @@
     "WeldCompatibilityResponse"
   ],
   "openapi": "3.1.0",
-  "operation_count": 182,
-  "path_count": 177,
+  "operation_count": 183,
+  "path_count": 178,
   "paths": {
     "/": {
       "get": {
@@ -1840,6 +1842,16 @@
       "get": {
         "deprecated": false,
         "operationId": "migrate_pending_summary_api_v1_vectors_migrate_pending_summary_get",
+        "responses": [
+          "200",
+          "422"
+        ]
+      }
+    },
+    "/api/v1/vectors/migrate/plan": {
+      "get": {
+        "deprecated": false,
+        "operationId": "migrate_plan_api_v1_vectors_migrate_plan_get",
         "responses": [
           "200",
           "422"
