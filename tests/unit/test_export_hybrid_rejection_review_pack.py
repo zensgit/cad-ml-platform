@@ -88,6 +88,8 @@ def test_export_review_pack_filters_and_ranks(tmp_path: Path) -> None:
         rows = list(csv.DictReader(handle))
     assert len(rows) == 3
     assert rows[0]["file"] == "a.dxf"
+    assert rows[0]["review_coarse_label"] == "传动件"
+    assert rows[0]["review_rejection_reason"] == "below_min_confidence"
     assert rows[0]["review_has_hybrid_rejection"] == "True"
     assert "hybrid_rejected:below_min_confidence" in rows[0]["review_reasons"]
     assert any(r["file"] == "b.dxf" and r["review_is_low_confidence"] == "True" for r in rows)
@@ -95,13 +97,22 @@ def test_export_review_pack_filters_and_ranks(tmp_path: Path) -> None:
         r["file"] == "c.dxf" and r["review_has_hybrid_graph2d_conflict"] == "True"
         for r in rows
     )
+    assert any(r["file"] == "c.dxf" and r["review_fine_label"] == "人孔" for r in rows)
     assert not any(r["file"] == "d.dxf" for r in rows)
 
     summary = json.loads(summary_json.read_text(encoding="utf-8"))
     assert summary["total_rows"] == 4
     assert summary["candidate_rows"] == 3
     assert summary["hybrid_rejected_count"] == 1
+    assert summary["knowledge_conflict_count"] == 0
     top_reason_names = {item["name"] for item in summary["top_review_reasons"]}
     assert "hybrid_rejected:below_min_confidence" in top_reason_names
     assert "low_confidence" in top_reason_names
+    top_coarse_names = {item["name"] for item in summary["top_coarse_labels"]}
+    assert top_coarse_names == {"传动件", "壳体类"}
+    top_fine_names = {item["name"] for item in summary["top_fine_labels"]}
+    assert top_fine_names == {"壳体类", "人孔"}
+    assert summary["top_rejection_reasons"] == [
+        {"name": "below_min_confidence", "count": 1}
+    ]
     assert summary["top_primary_sources"] == []

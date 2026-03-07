@@ -80,6 +80,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--low-confidence-threshold" in review_script
     assert "--top-k" in review_script
     assert "top_review_reasons=" in review_script
+    assert "top_coarse_labels=" in review_script
+    assert "top_fine_labels=" in review_script
+    assert "top_rejection_reasons=" in review_script
+    assert "knowledge_conflict_count=" in review_script
+    assert "top_knowledge_conflicts=" in review_script
     assert "top_primary_sources=" in review_script
     assert "top_shadow_sources=" in review_script
     assert "sample_explanations=" in review_script
@@ -142,6 +147,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Graph2D review gate status" in summary_script
     assert "Graph2D review gate headline" in summary_script
     assert "Graph2D review top reasons" in summary_script
+    assert "Graph2D review coarse labels" in summary_script
+    assert "Graph2D review fine labels" in summary_script
+    assert "Graph2D review rejection reasons" in summary_script
+    assert "Graph2D review knowledge_conflicts" in summary_script
+    assert "Graph2D review knowledge conflict details" in summary_script
     assert "Graph2D review top sources" in summary_script
     assert "Graph2D review shadow sources" in summary_script
     assert "Graph2D review example explanations" in summary_script

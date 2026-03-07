@@ -37,6 +37,8 @@ class ActiveLearningSample(BaseModel):
     doc_id: str
     predicted_type: str
     confidence: float
+    sample_type: Optional[str] = None
+    feedback_priority: Optional[str] = None
     alternatives: List[Dict[str, Any]] = Field(default_factory=list)
     score_breakdown: Dict[str, Any] = Field(default_factory=dict)
     uncertainty_reason: str
@@ -45,6 +47,50 @@ class ActiveLearningSample(BaseModel):
     reviewer_id: Optional[str] = None
     feedback_time: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+def _has_hybrid_rejection(sample: ActiveLearningSample) -> bool:
+    reason = str(sample.uncertainty_reason or "").strip()
+    if reason.startswith("hybrid_rejected:"):
+        return True
+    hybrid_rejection = sample.score_breakdown.get("hybrid_rejection")
+    return isinstance(hybrid_rejection, dict) and bool(hybrid_rejection)
+
+
+def _is_low_confidence_sample(sample: ActiveLearningSample) -> bool:
+    reason = str(sample.uncertainty_reason or "").strip()
+    return "low_confidence" in reason
+
+
+def _derive_sample_type(sample: ActiveLearningSample) -> str:
+    if sample.sample_type:
+        return str(sample.sample_type)
+    if _has_hybrid_rejection(sample):
+        return "hybrid_rejection"
+    if sample.score_breakdown.get("violations"):
+        return "knowledge_conflict"
+    if sample.score_breakdown.get("branch_conflicts"):
+        return "branch_conflict"
+    if _is_low_confidence_sample(sample):
+        return "low_confidence"
+    return "review"
+
+
+def _derive_feedback_priority(sample: ActiveLearningSample) -> str:
+    if sample.feedback_priority:
+        return str(sample.feedback_priority)
+    is_correction = (
+        sample.true_type is not None
+        and str(sample.true_type).strip() != ""
+        and sample.predicted_type != sample.true_type
+    )
+    if sample.score_breakdown.get("violations"):
+        return "critical"
+    if _has_hybrid_rejection(sample) or is_correction:
+        return "high"
+    if _is_low_confidence_sample(sample):
+        return "medium"
+    return "normal"
 
 
 class ActiveLearner:
@@ -100,12 +146,16 @@ class ActiveLearner:
         alternatives: List[Dict[str, Any]],
         score_breakdown: Dict[str, Any],
         uncertainty_reason: str,
+        sample_type: Optional[str] = None,
+        feedback_priority: Optional[str] = None,
     ) -> ActiveLearningSample:
         """Flag a sample for human review."""
         sample = ActiveLearningSample(
             doc_id=doc_id,
             predicted_type=predicted_type,
             confidence=confidence,
+            sample_type=sample_type,
+            feedback_priority=feedback_priority,
             alternatives=alternatives,
             score_breakdown=score_breakdown,
             uncertainty_reason=uncertainty_reason,
@@ -176,6 +226,8 @@ class ActiveLearner:
                     "predicted_type": sample.predicted_type,
                     "true_type": sample.true_type,
                     "confidence": sample.confidence,
+                    "sample_type": _derive_sample_type(sample),
+                    "feedback_priority": _derive_feedback_priority(sample),
                     "alternatives": sample.alternatives,
                     "score_breakdown": sample.score_breakdown,
                     "uncertainty_reason": sample.uncertainty_reason,

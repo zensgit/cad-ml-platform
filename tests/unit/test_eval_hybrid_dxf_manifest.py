@@ -1,8 +1,12 @@
+import json
 from pathlib import Path
 
 from scripts.eval_hybrid_dxf_manifest import (
+    EvalCase,
+    _build_ok_row,
     _load_manifest_cases,
     _score_rows,
+    _summarize_prep_signals,
 )
 
 
@@ -69,3 +73,109 @@ def test_score_rows_normalizes_fine_labels_to_coarse() -> None:
     assert summary["graph2d_label"]["evaluated"] == 2
     assert summary["graph2d_label"]["correct"] == 2
     assert summary["graph2d_label"]["missing_pred"] == 1
+
+
+def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> None:
+    case = EvalCase(
+        file_path=tmp_path / "sample.dxf",
+        file_name="sample.dxf",
+        true_label="轴承件",
+        source_dir="nested",
+        relative_path="nested/sample.dxf",
+    )
+    results_payload = {
+        "classification": {
+            "part_type": "轴承件",
+            "confidence": 0.81,
+            "fine_part_type": "深沟球轴承",
+            "fine_confidence": 0.73,
+            "graph2d_prediction": {"label": "轴承件", "confidence": 0.7},
+            "filename_prediction": {"label": "轴承件", "confidence": 0.8},
+            "titleblock_prediction": {"label": "深沟球轴承", "confidence": 0.66},
+            "hybrid_decision": {
+                "label": "深沟球轴承",
+                "confidence": 0.77,
+                "source": "fusion",
+                "decision_path": ["history_shadow_only", "fusion_scored"],
+            },
+            "source_contributions": {"history_sequence": 0.2, "graph2d": 0.8},
+            "hybrid_explanation": {"summary": "graph2d dominated"},
+            "history_prediction": {
+                "label": "轴承件",
+                "confidence": 0.62,
+                "status": "ok",
+                "source": "history_sequence_prototype",
+                "shadow_only": True,
+                "used_for_fusion": False,
+            },
+            "history_sequence_input": {
+                "resolved": True,
+                "source": "sidecar_exact",
+            },
+        },
+        "features_3d": {
+            "valid_3d": True,
+            "faces": 20,
+            "surface_types": {"cylinder": 15, "plane": 5},
+            "embedding_dim": 128,
+        },
+    }
+
+    row = _build_ok_row(case, results_payload)
+
+    assert row["history_label"] == "轴承件"
+    assert row["history_used_for_fusion"] is False
+    assert row["history_input_resolved"] is True
+    assert row["history_input_source"] == "sidecar_exact"
+    assert row["brep_valid_3d"] is True
+    assert row["brep_faces"] == 20
+    assert row["brep_primary_surface_type"] == "cylinder"
+    assert row["brep_primary_surface_ratio"] == 0.75
+    assert row["brep_feature_hint_top_label"] == "shaft"
+    assert row["brep_feature_hint_top_score"] == 0.6
+    assert row["brep_embedding_dim"] == 128
+    assert json.loads(row["brep_feature_hints"]) == {"bolt": 0.4, "shaft": 0.6}
+
+
+def test_summarize_prep_signals_counts_history_and_brep_rows() -> None:
+    summary = _summarize_prep_signals(
+        [
+            {
+                "history_label": "轴承件",
+                "history_status": "ok",
+                "history_input_resolved": True,
+                "history_used_for_fusion": False,
+                "history_shadow_only": True,
+                "brep_valid_3d": True,
+                "brep_feature_hint_top_label": "shaft",
+            },
+            {
+                "history_label": "法兰",
+                "history_status": "ok",
+                "history_input_resolved": False,
+                "history_used_for_fusion": True,
+                "history_shadow_only": False,
+                "brep_valid_3d": True,
+                "brep_feature_hint_top_label": "bearing",
+            },
+            {
+                "history_label": "",
+                "history_status": "",
+                "history_input_resolved": False,
+                "history_used_for_fusion": None,
+                "history_shadow_only": None,
+                "brep_valid_3d": False,
+                "brep_feature_hint_top_label": "",
+            },
+        ]
+    )
+
+    assert summary["history_prediction_count"] == 2
+    assert summary["history_input_resolved_count"] == 1
+    assert summary["history_used_for_fusion_true"] == 1
+    assert summary["history_used_for_fusion_false"] == 1
+    assert summary["history_shadow_only_true"] == 1
+    assert summary["history_status_counts"] == {"ok": 2}
+    assert summary["brep_valid_3d_count"] == 2
+    assert summary["brep_feature_hints_count"] == 2
+    assert summary["brep_top_hint_counts"] == {"shaft": 1, "bearing": 1}

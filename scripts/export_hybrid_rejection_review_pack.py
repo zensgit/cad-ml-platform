@@ -86,6 +86,74 @@ def _shadow_sources(value: Any) -> str:
     return ";".join(names)
 
 
+def _first_nonempty(row: Dict[str, Any], *keys: str) -> str:
+    for key in keys:
+        text = _clean_label(row.get(key))
+        if text:
+            return text
+    return ""
+
+
+def _normalized_optional_signal(value: Any, *, truthy_label: str = "present") -> str:
+    if isinstance(value, bool):
+        return truthy_label if value else ""
+    payload = _parse_json_object(value)
+    if payload:
+        for key in ("level", "status", "name", "type", "reason"):
+            token = _normalized_optional_signal(payload.get(key), truthy_label=truthy_label)
+            if token:
+                return token
+        return truthy_label
+    text = _clean_label(value)
+    if not text:
+        return ""
+    lowered = text.lower()
+    if lowered in {"0", "false", "n/a", "na", "no", "none", "null", "off"}:
+        return ""
+    if lowered in {"1", "true", "yes", "y", "on"}:
+        return truthy_label
+    return text
+
+
+def _coarse_label(row: Dict[str, Any]) -> str:
+    return _first_nonempty(row, "graph2d_label", "part_type")
+
+
+def _fine_label(row: Dict[str, Any]) -> str:
+    return _first_nonempty(row, "hybrid_label", "fine_part_type")
+
+
+def _rejection_reason(row: Dict[str, Any]) -> str:
+    reason = _clean_label(row.get("hybrid_rejection_reason"))
+    if reason:
+        return reason
+    return "unknown" if _has_hybrid_rejection(row) else ""
+
+
+def _knowledge_conflict(row: Dict[str, Any]) -> str:
+    for key in (
+        "knowledge_conflict",
+        "knowledge_conflict_level",
+        "fusion_consistency_check",
+        "consistency_check",
+    ):
+        token = _normalized_optional_signal(row.get(key), truthy_label="present")
+        if token:
+            return token
+    return ""
+
+
+def _knowledge_conflict_note(row: Dict[str, Any]) -> str:
+    return _first_nonempty(
+        row,
+        "knowledge_conflict_reason",
+        "knowledge_conflict_note",
+        "knowledge_conflict_notes",
+        "fusion_consistency_notes",
+        "consistency_notes",
+    )
+
+
 def _has_hybrid_rejection(row: Dict[str, Any]) -> bool:
     if _to_bool(row.get("hybrid_rejected")):
         return True
@@ -93,7 +161,7 @@ def _has_hybrid_rejection(row: Dict[str, Any]) -> bool:
 
 
 def _has_conflict(row: Dict[str, Any]) -> bool:
-    hybrid_label = _clean_label(row.get("hybrid_label") or row.get("fine_part_type"))
+    hybrid_label = _fine_label(row)
     graph2d_label = _clean_label(row.get("graph2d_label"))
     if not hybrid_label or not graph2d_label:
         return False
@@ -158,6 +226,12 @@ def _collect_candidates(
         out["review_has_hybrid_rejection"] = has_rejection
         out["review_has_hybrid_graph2d_conflict"] = has_conflict
         out["review_is_low_confidence"] = low_confidence
+        out["review_coarse_label"] = _coarse_label(row)
+        out["review_fine_label"] = _fine_label(row)
+        out["review_rejection_reason"] = _rejection_reason(row)
+        out["review_knowledge_conflict"] = _knowledge_conflict(row)
+        out["review_knowledge_conflict_note"] = _knowledge_conflict_note(row)
+        out["review_has_knowledge_conflict"] = bool(out["review_knowledge_conflict"])
         out["review_primary_sources"] = _primary_sources(
             row.get("hybrid_source_contributions")
             or row.get("source_contributions")
@@ -217,6 +291,10 @@ def _build_summary(
     low_confidence_threshold: float,
 ) -> Dict[str, Any]:
     review_reason_counter: Counter[str] = Counter()
+    coarse_label_counter: Counter[str] = Counter()
+    fine_label_counter: Counter[str] = Counter()
+    rejection_reason_counter: Counter[str] = Counter()
+    knowledge_conflict_counter: Counter[str] = Counter()
     primary_source_counter: Counter[str] = Counter()
     shadow_source_counter: Counter[str] = Counter()
     sample_explanations: List[str] = []
@@ -224,6 +302,14 @@ def _build_summary(
 
     for row in candidate_rows:
         review_reason_counter.update(_split_semicolon_tokens(row.get("review_reasons")))
+        coarse_label_counter.update(_split_semicolon_tokens(row.get("review_coarse_label")))
+        fine_label_counter.update(_split_semicolon_tokens(row.get("review_fine_label")))
+        rejection_reason_counter.update(
+            _split_semicolon_tokens(row.get("review_rejection_reason"))
+        )
+        knowledge_conflict_counter.update(
+            _split_semicolon_tokens(row.get("review_knowledge_conflict"))
+        )
         primary_source_counter.update(
             _split_semicolon_tokens(row.get("review_primary_sources"))
         )
@@ -239,6 +325,15 @@ def _build_summary(
             sample_candidates.append(
                 {
                     "file": _clean_label(row.get("file")),
+                    "coarse_label": _clean_label(row.get("review_coarse_label")),
+                    "fine_label": _clean_label(row.get("review_fine_label")),
+                    "rejection_reason": _clean_label(row.get("review_rejection_reason")),
+                    "knowledge_conflict": _clean_label(
+                        row.get("review_knowledge_conflict")
+                    ),
+                    "knowledge_conflict_note": _clean_label(
+                        row.get("review_knowledge_conflict_note")
+                    ),
                     "reasons": _clean_label(row.get("review_reasons")),
                     "primary_sources": _clean_label(row.get("review_primary_sources")),
                     "shadow_sources": _clean_label(row.get("review_shadow_sources")),
@@ -263,7 +358,14 @@ def _build_summary(
         "low_confidence_count": sum(
             1 for row in candidate_rows if _to_bool(row.get("review_is_low_confidence"))
         ),
+        "knowledge_conflict_count": sum(
+            1 for row in candidate_rows if _to_bool(row.get("review_has_knowledge_conflict"))
+        ),
         "top_review_reasons": _top_named_counts(review_reason_counter),
+        "top_coarse_labels": _top_named_counts(coarse_label_counter),
+        "top_fine_labels": _top_named_counts(fine_label_counter),
+        "top_rejection_reasons": _top_named_counts(rejection_reason_counter),
+        "top_knowledge_conflicts": _top_named_counts(knowledge_conflict_counter),
         "top_primary_sources": _top_named_counts(primary_source_counter),
         "top_shadow_sources": _top_named_counts(shadow_source_counter),
         "sample_explanations": sample_explanations[:3],
