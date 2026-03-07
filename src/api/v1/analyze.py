@@ -355,6 +355,11 @@ class SimilarityTopKItem(BaseModel):
     material: Optional[str] = None
     complexity: Optional[str] = None
     format: Optional[str] = None
+    part_type: Optional[str] = None
+    fine_part_type: Optional[str] = None
+    coarse_part_type: Optional[str] = None
+    decision_source: Optional[str] = None
+    is_coarse_label: Optional[bool] = None
 
 
 class SimilarityTopKResponse(BaseModel):
@@ -2594,7 +2599,10 @@ async def similarity_topk(
     payload: SimilarityTopKQuery, api_key: str = Depends(get_api_key)
 ):
     """基于已存储向量的 Top-K 相似检索。"""
-    from src.core.similarity import InMemoryVectorStore  # type: ignore
+    from src.core.similarity import (
+        InMemoryVectorStore,
+        extract_vector_label_contract,
+    )  # type: ignore
 
     store = InMemoryVectorStore()
     if not store.exists(payload.target_id):
@@ -2631,8 +2639,6 @@ async def similarity_topk(
     vector_query_latency_seconds.labels(backend=backend).observe(_time.time() - t0)
     items: list[SimilarityTopKItem] = []
     sliced = raw[payload.offset : payload.offset + payload.k]
-    from src.core.similarity import InMemoryVectorStore  # type: ignore
-
     meta_store = InMemoryVectorStore()
     for vid, score in sliced:
         if payload.exclude_self and vid == payload.target_id:
@@ -2645,6 +2651,7 @@ async def similarity_topk(
             and meta.get("complexity") != payload.complexity_filter
         ):
             continue
+        label_contract = extract_vector_label_contract(meta)
         items.append(
             SimilarityTopKItem(
                 id=vid,
@@ -2652,6 +2659,11 @@ async def similarity_topk(
                 material=meta.get("material"),
                 complexity=meta.get("complexity"),
                 format=meta.get("format"),
+                part_type=label_contract.get("part_type"),
+                fine_part_type=label_contract.get("fine_part_type"),
+                coarse_part_type=label_contract.get("coarse_part_type"),
+                decision_source=label_contract.get("decision_source"),
+                is_coarse_label=label_contract.get("is_coarse_label"),
             )
         )
     return SimilarityTopKResponse(
