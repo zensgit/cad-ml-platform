@@ -173,6 +173,47 @@ class TestBatchSimilarityEmptyResults:
             sim_module._VECTOR_STORE.pop("test-similar-001", None)
             sim_module._VECTOR_META.pop("test-similar-001", None)
 
+    def test_similarity_results_include_coarse_contract_metadata(self):
+        """Return coarse/fine semantic metadata for similar vectors when available."""
+        from src.core import similarity as sim_module
+
+        original_meta = sim_module._VECTOR_META.get("test-empty-002")
+        sim_module._VECTOR_META["test-empty-002"] = {
+            "feature_version": "v1",
+            "material": "aluminum",
+            "part_type": "人孔",
+            "fine_part_type": "人孔",
+            "coarse_part_type": "开孔件",
+            "final_decision_source": "hybrid",
+            "is_coarse_label": "false",
+        }
+
+        try:
+            response = client.post(
+                "/api/v1/vectors/similarity/batch",
+                json={
+                    "ids": ["test-empty-001"],
+                    "top_k": 5,
+                    "min_score": 0.0,
+                },
+                headers={"X-API-Key": "test"},
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            similar = data["items"][0]["similar"]
+            candidate = next(item for item in similar if item["id"] == "test-empty-002")
+            assert candidate["part_type"] == "人孔"
+            assert candidate["fine_part_type"] == "人孔"
+            assert candidate["coarse_part_type"] == "开孔件"
+            assert candidate["decision_source"] == "hybrid"
+            assert candidate["is_coarse_label"] is False
+        finally:
+            if original_meta is None:
+                sim_module._VECTOR_META.pop("test-empty-002", None)
+            else:
+                sim_module._VECTOR_META["test-empty-002"] = original_meta
+
     def test_empty_results_with_filter_criteria(self):
         """Test empty results when filter criteria eliminates all matches."""
         response = client.post(

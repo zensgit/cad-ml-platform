@@ -127,3 +127,74 @@ def test_analyze_dxf_exposes_coarse_labels_and_knowledge_outputs(monkeypatch):
         for item in standards
     )
     assert classification.get("violations")
+
+
+def test_analyze_dxf_registers_similarity_meta_with_coarse_contract(monkeypatch):
+    from src.core import similarity as sim_module
+
+    class _StubHybridClassifier:
+        class _Result:
+            def __init__(self, payload):  # noqa: ANN001
+                self._payload = payload
+
+            def to_dict(self):  # noqa: D401
+                return dict(self._payload)
+
+        def classify(  # noqa: ANN201
+            self,
+            filename,
+            file_bytes=None,  # noqa: ANN001
+            graph2d_result=None,  # noqa: ANN001
+            history_result=None,  # noqa: ANN001
+            history_file_path=None,  # noqa: ANN001
+        ):
+            return self._Result(
+                {
+                    "label": "人孔",
+                    "confidence": 0.91,
+                    "source": "fusion",
+                    "filename_prediction": {"label": "人孔", "confidence": 0.86},
+                    "titleblock_prediction": {"label": "人孔", "confidence": 0.81},
+                    "explanation": {"summary": "综合 文件名, 标题栏 多源信息，融合得出 人孔"},
+                }
+            )
+
+    class _StubGraph2D:
+        def predict_from_bytes(self, data, file_name):  # noqa: ANN001
+            return {"label": "传动件", "confidence": 0.82, "status": "ok"}
+
+    monkeypatch.setenv("PROVIDER_REGISTRY_CACHE_ENABLED", "false")
+    monkeypatch.setenv("GRAPH2D_ENABLED", "true")
+    monkeypatch.setenv("HYBRID_CLASSIFIER_ENABLED", "true")
+    monkeypatch.setenv("ACTIVE_LEARNING_ENABLED", "false")
+    monkeypatch.setattr(
+        "src.core.providers.classifier.HybridClassifierProviderAdapter._build_default_classifier",
+        lambda self: _StubHybridClassifier(),
+    )
+    monkeypatch.setattr(
+        "src.core.providers.classifier.Graph2DClassifierProviderAdapter._build_default_classifier",
+        lambda self: _StubGraph2D(),
+    )
+
+    dxf_payload = b"0\nSECTION\n2\nENTITIES\n0\nENDSEC\n0\nEOF\n"
+    resp = client.post(
+        "/api/v1/analyze/",
+        files={"file": ("vector_meta_renkong.dxf", io.BytesIO(dxf_payload), "application/dxf")},
+        data={"options": json.dumps({"extract_features": True, "classify_parts": True})},
+        headers={"x-api-key": os.getenv("API_KEY", "test")},
+    )
+
+    assert resp.status_code == 200, resp.text
+    payload = resp.json()
+    analysis_id = payload["id"]
+    meta = sim_module._VECTOR_META.get(analysis_id) or {}
+
+    try:
+        assert meta.get("part_type") == "人孔"
+        assert meta.get("fine_part_type") == "人孔"
+        assert meta.get("coarse_part_type") == "开孔件"
+        assert meta.get("final_decision_source") == "hybrid"
+        assert meta.get("is_coarse_label") == "false"
+    finally:
+        sim_module._VECTOR_STORE.pop(analysis_id, None)
+        sim_module._VECTOR_META.pop(analysis_id, None)
