@@ -15,6 +15,17 @@ from src.utils.cache import get_client
 router = APIRouter()
 
 
+def _get_qdrant_store_or_none():
+    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
+        return None
+    try:
+        from src.core.vector_stores import get_vector_store as get_managed_vector_store
+
+        return get_managed_vector_store("qdrant")
+    except Exception:
+        return None
+
+
 class VectorStatsResponse(BaseModel):
     backend: str
     total: int
@@ -123,6 +134,10 @@ async def _summarize_vectors(
     Dict[str, int],
     float,
 ]:
+    if backend == "qdrant":
+        qdrant_store = _get_qdrant_store_or_none()
+        if qdrant_store is not None:
+            return await _summarize_vectors_qdrant(qdrant_store)
     if backend == "redis":
         client = get_client()
         if client is not None:
@@ -247,6 +262,66 @@ async def _summarize_vectors_redis(
             versions[ver] = versions.get(ver, 0) + 1
         if cursor == 0:
             break
+    avg_dim = (dim_sum / total) if total else 0.0
+    return (
+        total,
+        by_material,
+        by_complexity,
+        by_format,
+        by_coarse_part_type,
+        by_decision_source,
+        versions,
+        avg_dim,
+    )
+
+
+async def _summarize_vectors_qdrant(
+    qdrant_store,
+) -> Tuple[
+    int,
+    Dict[str, int],
+    Dict[str, int],
+    Dict[str, int],
+    Dict[str, int],
+    Dict[str, int],
+    Dict[str, int],
+    float,
+]:
+    from src.core.similarity import extract_vector_label_contract
+
+    scan_limit = int(os.getenv("VECTOR_STATS_SCAN_LIMIT", "5000"))
+    results, _ = await qdrant_store.list_vectors(
+        offset=0,
+        limit=scan_limit,
+        with_vectors=True,
+    )
+
+    total = len(results)
+    dim_sum = 0.0
+    by_material: Dict[str, int] = {}
+    by_complexity: Dict[str, int] = {}
+    by_format: Dict[str, int] = {}
+    by_coarse_part_type: Dict[str, int] = {}
+    by_decision_source: Dict[str, int] = {}
+    versions: Dict[str, int] = {}
+
+    for result in results:
+        meta = result.metadata or {}
+        m = meta.get("material", "unknown")
+        c = meta.get("complexity", "unknown")
+        f = meta.get("format", "unknown")
+        ver = meta.get("feature_version", "unknown")
+        label_contract = extract_vector_label_contract(meta)
+        coarse_label = label_contract.get("coarse_part_type") or "unknown"
+        decision_source = label_contract.get("decision_source") or "unknown"
+        by_material[m] = by_material.get(m, 0) + 1
+        by_complexity[c] = by_complexity.get(c, 0) + 1
+        by_format[f] = by_format.get(f, 0) + 1
+        by_coarse_part_type[coarse_label] = by_coarse_part_type.get(coarse_label, 0) + 1
+        by_decision_source[decision_source] = by_decision_source.get(decision_source, 0) + 1
+        versions[ver] = versions.get(ver, 0) + 1
+        dim_sum += len(result.vector or [])
+
     avg_dim = (dim_sum / total) if total else 0.0
     return (
         total,
