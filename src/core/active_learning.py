@@ -11,6 +11,7 @@ import logging
 import os
 import tempfile
 import uuid
+import csv
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
@@ -352,6 +353,47 @@ class ActiveLearner:
         pending = [s for s in self._samples.values() if s.status == SampleStatus.PENDING]
         return [_normalize_sample(sample) for sample in pending[:limit]]
 
+    def _rank_review_queue_samples(
+        self,
+        samples: List[ActiveLearningSample],
+        *,
+        sort_by: str,
+    ) -> tuple[List[ActiveLearningSample], str]:
+        normalized_sort_by = str(sort_by or "priority").strip().lower() or "priority"
+
+        def _priority_sort_key(sample: ActiveLearningSample) -> tuple[int, int, float, datetime]:
+            return (
+                _priority_rank(_derive_feedback_priority(sample)),
+                _sample_type_rank(_derive_sample_type(sample)),
+                -float(sample.confidence),
+                -sample.created_at.timestamp(),
+            )
+
+        def _confidence_sort_key(sample: ActiveLearningSample) -> tuple[float, int, float]:
+            return (
+                float(sample.confidence),
+                -_priority_rank(_derive_feedback_priority(sample)),
+                sample.created_at.timestamp(),
+            )
+
+        def _created_at_sort_key(sample: ActiveLearningSample) -> tuple[float, int, float]:
+            return (
+                sample.created_at.timestamp(),
+                -_priority_rank(_derive_feedback_priority(sample)),
+                float(sample.confidence),
+            )
+
+        sort_key = _priority_sort_key
+        reverse = True
+        if normalized_sort_by == "confidence":
+            sort_key = _confidence_sort_key
+            reverse = False
+        elif normalized_sort_by == "created_at":
+            sort_key = _created_at_sort_key
+            reverse = False
+
+        return sorted(samples, key=sort_key, reverse=reverse), normalized_sort_by
+
     def _filter_review_queue_samples(
         self,
         *,
@@ -450,39 +492,10 @@ class ActiveLearner:
             feedback_priority=feedback_priority,
         )
         summary = self._build_review_queue_summary(samples, status=normalized_status)
-
-        def _priority_sort_key(sample: ActiveLearningSample) -> tuple[int, int, float, datetime]:
-            return (
-                _priority_rank(_derive_feedback_priority(sample)),
-                _sample_type_rank(_derive_sample_type(sample)),
-                -float(sample.confidence),
-                -sample.created_at.timestamp(),
-            )
-
-        def _confidence_sort_key(sample: ActiveLearningSample) -> tuple[float, int, float]:
-            return (
-                float(sample.confidence),
-                -_priority_rank(_derive_feedback_priority(sample)),
-                sample.created_at.timestamp(),
-            )
-
-        def _created_at_sort_key(sample: ActiveLearningSample) -> tuple[float, int, float]:
-            return (
-                sample.created_at.timestamp(),
-                -_priority_rank(_derive_feedback_priority(sample)),
-                float(sample.confidence),
-            )
-
-        sort_key = _priority_sort_key
-        reverse = True
-        if normalized_sort_by == "confidence":
-            sort_key = _confidence_sort_key
-            reverse = False
-        elif normalized_sort_by == "created_at":
-            sort_key = _created_at_sort_key
-            reverse = False
-
-        ranked = sorted(samples, key=sort_key, reverse=reverse)
+        ranked, normalized_sort_by = self._rank_review_queue_samples(
+            samples,
+            sort_by=normalized_sort_by,
+        )
         window = ranked[offset : offset + limit]
         return {
             "total": len(ranked),
@@ -509,6 +522,122 @@ class ActiveLearner:
             feedback_priority=feedback_priority,
         )
         return self._build_review_queue_summary(samples, status=normalized_status)
+
+    def export_review_queue(
+        self,
+        *,
+        status: str = "pending",
+        sample_type: Optional[str] = None,
+        feedback_priority: Optional[str] = None,
+        sort_by: str = "priority",
+        format: str = "csv",  # noqa: A002
+    ) -> Dict[str, Any]:
+        normalized_status = str(status or "pending").strip().lower() or "pending"
+        normalized_format = str(format or "csv").strip().lower() or "csv"
+        if normalized_format not in {"csv", "jsonl"}:
+            return {"status": "error", "message": f"Unsupported export format: {normalized_format}"}
+
+        samples = self._filter_review_queue_samples(
+            status=normalized_status,
+            sample_type=sample_type,
+            feedback_priority=feedback_priority,
+        )
+        if not samples:
+            return {"status": "error", "message": "No review queue samples to export"}
+
+        summary = self._build_review_queue_summary(samples, status=normalized_status)
+        ranked, normalized_sort_by = self._rank_review_queue_samples(samples, sort_by=sort_by)
+
+        export_dir = self._data_dir / "exports"
+        export_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+        export_file = export_dir / f"review_queue_{timestamp}.{normalized_format}"
+
+        rows: List[Dict[str, Any]] = []
+        for sample in ranked:
+            review_reasons = sample.score_breakdown.get("review_reasons")
+            if not isinstance(review_reasons, list):
+                review_reasons = []
+            rows.append(
+                {
+                    "id": sample.id,
+                    "doc_id": sample.doc_id,
+                    "status": sample.status.value,
+                    "confidence": sample.confidence,
+                    "predicted_type": sample.predicted_type,
+                    "predicted_fine_type": sample.predicted_fine_type,
+                    "predicted_coarse_type": sample.predicted_coarse_type,
+                    "predicted_is_coarse_label": sample.predicted_is_coarse_label,
+                    "sample_type": _derive_sample_type(sample),
+                    "feedback_priority": _derive_feedback_priority(sample),
+                    "uncertainty_reason": sample.uncertainty_reason,
+                    "decision_source": str(
+                        sample.score_breakdown.get("final_decision_source")
+                        or sample.score_breakdown.get("decision_source")
+                        or "unknown"
+                    ),
+                    "review_reasons": review_reasons,
+                    "true_type": sample.true_type,
+                    "true_fine_type": sample.true_fine_type,
+                    "true_coarse_type": sample.true_coarse_type,
+                    "reviewer_id": sample.reviewer_id,
+                    "created_at": sample.created_at.isoformat(),
+                    "feedback_time": sample.feedback_time.isoformat()
+                    if sample.feedback_time
+                    else None,
+                    "score_breakdown": sample.score_breakdown,
+                }
+            )
+
+        if normalized_format == "jsonl":
+            with open(export_file, "w") as handle:
+                for row in rows:
+                    handle.write(json.dumps(row, ensure_ascii=False) + "\n")
+        else:
+            fieldnames = [
+                "id",
+                "doc_id",
+                "status",
+                "confidence",
+                "predicted_type",
+                "predicted_fine_type",
+                "predicted_coarse_type",
+                "predicted_is_coarse_label",
+                "sample_type",
+                "feedback_priority",
+                "uncertainty_reason",
+                "decision_source",
+                "review_reasons",
+                "true_type",
+                "true_fine_type",
+                "true_coarse_type",
+                "reviewer_id",
+                "created_at",
+                "feedback_time",
+                "score_breakdown",
+            ]
+            with open(export_file, "w", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fieldnames)
+                writer.writeheader()
+                for row in rows:
+                    writer.writerow(
+                        {
+                            **row,
+                            "review_reasons": json.dumps(row["review_reasons"], ensure_ascii=False),
+                            "score_breakdown": json.dumps(
+                                row["score_breakdown"], ensure_ascii=False
+                            ),
+                        }
+                    )
+
+        return {
+            "status": "ok",
+            "count": len(rows),
+            "file": str(export_file),
+            "format": normalized_format,
+            "sort_by": normalized_sort_by,
+            "summary": summary,
+        }
 
     def get_sample(self, sample_id: str) -> Optional[ActiveLearningSample]:
         """Get a sample by ID."""
