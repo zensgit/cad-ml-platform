@@ -2775,13 +2775,11 @@ async def similarity_topk(
     payload: SimilarityTopKQuery, api_key: str = Depends(get_api_key)
 ):
     """基于已存储向量的 Top-K 相似检索。"""
-    backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
-    if backend == "qdrant":
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
         try:
             from src.core.similarity import extract_vector_label_contract
-            from src.core.vector_stores import get_vector_store as get_managed_vector_store
 
-            qdrant_store = get_managed_vector_store("qdrant")
             target = await qdrant_store.get_vector(payload.target_id)
             if target is None:
                 ext = create_extended_error(
@@ -2848,6 +2846,8 @@ async def similarity_topk(
             )
         except Exception:
             pass
+
+    backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
 
     from src.core.similarity import (
         InMemoryVectorStore,
