@@ -209,3 +209,58 @@ def test_vectors_search_with_filters():
     results = search.json()["results"]
     assert results
     assert all(item["material"] == "steel" for item in results)
+
+
+def test_vectors_search_with_coarse_contract_filters():
+    client = TestClient(app)
+    client.post(
+        "/api/v1/vectors/register",
+        json={
+            "id": "manhole_vec",
+            "vector": [0.25] * 7,
+            "meta": {
+                "part_type": "人孔",
+                "fine_part_type": "人孔",
+                "coarse_part_type": "开孔件",
+                "final_decision_source": "hybrid",
+                "is_coarse_label": "false",
+            },
+        },
+        headers={"X-API-Key": "test"},
+    )
+    client.post(
+        "/api/v1/vectors/register",
+        json={
+            "id": "flange_vec",
+            "vector": [0.25] * 7,
+            "meta": {
+                "part_type": "法兰",
+                "fine_part_type": "法兰",
+                "coarse_part_type": "法兰",
+                "final_decision_source": "filename",
+                "is_coarse_label": "true",
+            },
+        },
+        headers={"X-API-Key": "test"},
+    )
+
+    search = client.post(
+        "/api/v1/vectors/search",
+        json={
+            "vector": [0.25] * 7,
+            "k": 5,
+            "coarse_part_type_filter": "开孔件",
+            "decision_source_filter": "hybrid",
+            "is_coarse_label_filter": False,
+        },
+        headers={"X-API-Key": "test"},
+    )
+    assert search.status_code == 200
+    results = search.json()["results"]
+    assert results
+    ids = {item["id"] for item in results}
+    assert "manhole_vec" in ids
+    assert "flange_vec" not in ids
+    assert all(item["coarse_part_type"] == "开孔件" for item in results)
+    assert all(item["decision_source"] == "hybrid" for item in results)
+    assert all(item["is_coarse_label"] is False for item in results)

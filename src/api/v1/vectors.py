@@ -94,11 +94,46 @@ class VectorSearchRequest(BaseModel):
     k: int = Field(default=10, ge=1, le=100, description="返回数量")
     material_filter: Optional[str] = Field(default=None, description="材料过滤")
     complexity_filter: Optional[str] = Field(default=None, description="复杂度过滤")
+    fine_part_type_filter: Optional[str] = Field(default=None, description="细分类过滤")
+    coarse_part_type_filter: Optional[str] = Field(default=None, description="粗分类过滤")
+    decision_source_filter: Optional[str] = Field(default=None, description="决策来源过滤")
+    is_coarse_label_filter: Optional[bool] = Field(
+        default=None,
+        description="是否仅返回 coarse label 样本",
+    )
 
 
 class VectorSearchResponse(BaseModel):
     results: list[Dict[str, Any]]
     total: int
+
+
+def _matches_vector_search_filters(
+    payload: VectorSearchRequest,
+    meta: Dict[str, Any],
+    label_contract: Dict[str, Any],
+) -> bool:
+    if payload.material_filter and meta.get("material") != payload.material_filter:
+        return False
+    if payload.complexity_filter and meta.get("complexity") != payload.complexity_filter:
+        return False
+    if payload.fine_part_type_filter and (
+        label_contract.get("fine_part_type") != payload.fine_part_type_filter
+    ):
+        return False
+    if payload.coarse_part_type_filter and (
+        label_contract.get("coarse_part_type") != payload.coarse_part_type_filter
+    ):
+        return False
+    if payload.decision_source_filter and (
+        label_contract.get("decision_source") != payload.decision_source_filter
+    ):
+        return False
+    if payload.is_coarse_label_filter is not None and (
+        label_contract.get("is_coarse_label") is not payload.is_coarse_label_filter
+    ):
+        return False
+    return True
 
 
 @router.post("/delete", response_model=VectorDeleteResponse)
@@ -233,7 +268,16 @@ async def search_vectors(
 
     store = get_vector_store()
     query_k = payload.k
-    if payload.material_filter or payload.complexity_filter:
+    if any(
+        [
+            payload.material_filter,
+            payload.complexity_filter,
+            payload.fine_part_type_filter,
+            payload.coarse_part_type_filter,
+            payload.decision_source_filter,
+            payload.is_coarse_label_filter is not None,
+        ]
+    ):
         query_k = min(payload.k * 5, payload.k + 100)
     results = store.query(payload.vector, top_k=query_k)
     seen: set[str] = set()
@@ -243,11 +287,9 @@ async def search_vectors(
             continue
         seen.add(vid)
         meta = _VECTOR_META.get(vid) or store.meta(vid) or {}
-        if payload.material_filter and meta.get("material") != payload.material_filter:
-            continue
-        if payload.complexity_filter and meta.get("complexity") != payload.complexity_filter:
-            continue
         label_contract = extract_vector_label_contract(meta)
+        if not _matches_vector_search_filters(payload, meta, label_contract):
+            continue
         items.append(
             {
                 "id": vid,
