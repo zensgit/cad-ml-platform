@@ -105,3 +105,5 @@ def test_eval_history_sequence_classifier_from_manifest(tmp_path: Path) -> None:
     assert summary["ok_count"] == 2
     assert summary["accuracy_overall"] >= 0.99
     assert summary["macro_f1_overall"] >= 0.99
+    assert summary["coarse_accuracy_overall"] >= 0.99
+    assert summary["coarse_macro_f1_overall"] >= 0.99

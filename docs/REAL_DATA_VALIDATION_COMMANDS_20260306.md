@@ -37,8 +37,12 @@ Check:
 - `results.csv`
 - `coverage`
 - `accuracy_overall`
+- `coarse_accuracy_overall`
 - `macro_f1_overall`
+- `coarse_macro_f1_overall`
 - `low_conf_rate`
+- `exact_top_mismatches`
+- `coarse_top_mismatches`
 
 ### 3. Tune token/bigram weights
 

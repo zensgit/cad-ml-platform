@@ -25,6 +25,7 @@ from src.ml.history_sequence_tools import (  # noqa: E402
     load_h5_label_pairs_from_manifest,
     macro_f1,
 )
+from src.core.classification.coarse_labels import normalize_coarse_label  # noqa: E402
 
 _SIDE_SUFFIX_RE = re.compile(r"_\d+$")
 
@@ -98,6 +99,38 @@ def _default_output_dir() -> Path:
     return Path("reports") / "experiments" / date_str / "history_sequence_eval"
 
 
+def _normalized_coarse_label(label: str) -> str:
+    coarse = normalize_coarse_label(label)
+    cleaned = str(label or "").strip()
+    return str(coarse or cleaned)
+
+
+def _top_mismatches(
+    expected_labels: Sequence[str],
+    predicted_labels: Sequence[str],
+    *,
+    top_k: int = 5,
+) -> List[Dict[str, Any]]:
+    counts: Counter[Tuple[str, str]] = Counter()
+    for expected, predicted in zip(expected_labels, predicted_labels):
+        expected_text = str(expected or "").strip()
+        predicted_text = str(predicted or "").strip()
+        if not expected_text or not predicted_text or expected_text == predicted_text:
+            continue
+        counts[(expected_text, predicted_text)] += 1
+
+    rows: List[Dict[str, Any]] = []
+    for (expected, predicted), count in counts.most_common(max(0, int(top_k))):
+        rows.append(
+            {
+                "expected": expected,
+                "predicted": predicted,
+                "count": int(count),
+            }
+        )
+    return rows
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--manifest", default="", help="JSON/CSV manifest path")
@@ -169,12 +202,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     predicted_all: List[str] = []
     expected_ok: List[str] = []
     predicted_ok: List[str] = []
+    expected_coarse_all: List[str] = []
+    predicted_coarse_all: List[str] = []
+    expected_coarse_ok: List[str] = []
+    predicted_coarse_ok: List[str] = []
     low_conf_count = 0
 
     for h5_path, expected_label in pairs:
         payload = classifier.predict_from_h5_file(str(h5_path))
         status = str(payload.get("status") or "")
         pred_label = str(payload.get("label") or "")
+        expected_coarse = _normalized_coarse_label(str(expected_label))
+        pred_coarse = _normalized_coarse_label(pred_label)
         conf = float(payload.get("confidence", 0.0) or 0.0)
         source = str(payload.get("source") or "")
         status_counts[status or "unknown"] += 1
@@ -183,21 +222,32 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
         expected_all.append(str(expected_label))
         predicted_all.append(pred_label)
+        expected_coarse_all.append(expected_coarse)
+        predicted_coarse_all.append(pred_coarse)
         if status == "ok":
             expected_ok.append(str(expected_label))
             predicted_ok.append(pred_label)
+            expected_coarse_ok.append(expected_coarse)
+            predicted_coarse_ok.append(pred_coarse)
 
         rows.append(
             {
                 "h5_path": str(h5_path),
                 "expected_label": str(expected_label),
+                "expected_coarse_label": expected_coarse,
                 "predicted_label": pred_label,
+                "predicted_coarse_label": pred_coarse,
                 "status": status,
                 "confidence": round(conf, 6),
                 "source": source,
                 "sequence_length": int(payload.get("sequence_length") or 0),
                 "unique_commands": int(payload.get("unique_commands") or 0),
                 "ok": "Y" if (status == "ok" and pred_label == str(expected_label)) else "N",
+                "coarse_ok": (
+                    "Y"
+                    if (status == "ok" and pred_coarse == expected_coarse)
+                    else "N"
+                ),
             }
         )
 
@@ -211,6 +261,17 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     overall_correct = sum(
         1 for row in rows if row["predicted_label"] == row["expected_label"]
     )
+    coarse_ok_correct = sum(
+        1
+        for row in rows
+        if row["status"] == "ok"
+        and row["predicted_coarse_label"] == row["expected_coarse_label"]
+    )
+    coarse_overall_correct = sum(
+        1
+        for row in rows
+        if row["predicted_coarse_label"] == row["expected_coarse_label"]
+    )
 
     summary = {
         "total": total,
@@ -218,13 +279,32 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "coverage": round(ok_count / total, 6) if total else 0.0,
         "accuracy_on_ok": round(ok_correct / ok_count, 6) if ok_count else 0.0,
         "accuracy_overall": round(overall_correct / total, 6) if total else 0.0,
+        "coarse_accuracy_on_ok": (
+            round(coarse_ok_correct / ok_count, 6) if ok_count else 0.0
+        ),
+        "coarse_accuracy_overall": (
+            round(coarse_overall_correct / total, 6) if total else 0.0
+        ),
         "macro_f1_on_ok": (
             round(macro_f1(expected_ok, predicted_ok), 6) if ok_count else 0.0
         ),
         "macro_f1_overall": round(macro_f1(expected_all, predicted_all), 6),
+        "coarse_macro_f1_on_ok": (
+            round(macro_f1(expected_coarse_ok, predicted_coarse_ok), 6)
+            if ok_count
+            else 0.0
+        ),
+        "coarse_macro_f1_overall": round(
+            macro_f1(expected_coarse_all, predicted_coarse_all), 6
+        ),
         "low_conf_threshold": float(args.low_conf_threshold),
         "low_conf_rate": round(low_conf_count / total, 6) if total else 0.0,
         "status_counts": dict(status_counts),
+        "exact_top_mismatches": _top_mismatches(expected_all, predicted_all),
+        "coarse_top_mismatches": _top_mismatches(
+            expected_coarse_all,
+            predicted_coarse_all,
+        ),
         "label_source": str(args.label_source),
         "prototypes_path": str(args.prototypes_path or ""),
         "model_path": str(args.model_path or ""),
