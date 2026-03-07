@@ -117,6 +117,7 @@ class OcrResult(BaseModel):
     dimensions: List[Dict[str, Any]] = Field(default_factory=list)
     symbols: List[Dict[str, Any]] = Field(default_factory=list)
     title_block: Dict[str, Any] = Field(default_factory=dict)
+    identifiers: List[Dict[str, Any]] = Field(default_factory=list)
     fallback_level: Optional[str] = Field(
         None, description="json_strict|markdown_fence|text_regex"
     )
@@ -202,6 +203,18 @@ class VisionAnalyzeResponse(BaseModel):
                         "drawing_number": "CAD-2025-001",
                         "material": "Aluminum 6061",
                     },
+                    "identifiers": [
+                        {
+                            "identifier_type": "drawing_number",
+                            "label": "Drawing Number",
+                            "value": "CAD-2025-001",
+                            "normalized_value": "CAD-2025-001",
+                            "source_text": "Drawing No: CAD-2025-001",
+                            "bbox": [10, 10, 120, 12],
+                            "confidence": 0.92,
+                            "source": "ocr_line",
+                        }
+                    ],
                     "fallback_level": "json_strict",
                     "confidence": 0.95,
                 },

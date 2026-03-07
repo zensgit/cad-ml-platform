@@ -358,11 +358,15 @@ class VisionManager:
             dimensions_dict = [dim.model_dump() for dim in ocr_raw_result.dimensions]
             symbols_dict = [sym.model_dump() for sym in ocr_raw_result.symbols]
             title_block_dict = ocr_raw_result.title_block.model_dump()
+            identifiers_dict = [
+                identifier.model_dump() for identifier in getattr(ocr_raw_result, "identifiers", [])
+            ]
 
             return OcrResult(
                 dimensions=dimensions_dict,
                 symbols=symbols_dict,
                 title_block=title_block_dict,
+                identifiers=identifiers_dict,
                 fallback_level=getattr(ocr_raw_result, "fallback_level", None),
                 confidence=ocr_raw_result.calibrated_confidence or ocr_raw_result.confidence,
             )

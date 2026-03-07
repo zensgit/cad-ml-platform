@@ -11,6 +11,7 @@ from src.core.ocr.base import (
     DimensionType,
     HeatTreatmentInfo,
     HeatTreatmentType,
+    IdentifierInfo,
     OcrResult,
     ProcessRequirements,
     SurfaceTreatmentInfo,
@@ -83,6 +84,28 @@ class DummyManager:
                 general_notes=["未注公差按GB/T1804-m执行", "去毛刺倒钝"],
                 raw_text="未注公差按GB/T1804-m执行; 氩弧焊 焊丝ER50-6; 表面镀锌 GB/T 13912",
             ),
+            identifiers=[
+                IdentifierInfo(
+                    identifier_type="drawing_number",
+                    label="Drawing Number",
+                    value="DWG-123",
+                    normalized_value="DWG-123",
+                    source_text="图号: DWG-123",
+                    bbox=[10, 10, 80, 12],
+                    confidence=0.93,
+                    source="ocr_line",
+                ),
+                IdentifierInfo(
+                    identifier_type="material",
+                    label="Material",
+                    value="Aluminum",
+                    normalized_value="Aluminum",
+                    source_text="材料: Aluminum",
+                    bbox=[10, 30, 80, 12],
+                    confidence=0.71,
+                    source="ocr_line",
+                ),
+            ],
             confidence=0.9,
             processing_time_ms=12,
         )
@@ -113,6 +136,9 @@ def test_drawing_recognize_smoke(monkeypatch) -> None:
     assert field_confidence["drawing_number"] == 0.93
     assert field_confidence["material"] == 0.71
     assert field_confidence["part_name"] == 0.9
+    assert data["identifiers"][0]["identifier_type"] == "drawing_number"
+    assert data["identifiers"][0]["bbox"] == [10, 10, 80, 12]
+    assert data["identifiers"][1]["identifier_type"] == "material"
     assert data["dimensions"]
     assert data["process_requirements"]["heat_treatments"][0]["type"] == "quenching"
     assert data["process_requirements"]["surface_treatments"][0]["standard"] == "GB/T 13912"

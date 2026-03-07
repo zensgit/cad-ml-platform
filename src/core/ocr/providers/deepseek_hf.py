@@ -33,6 +33,7 @@ from ..base import (
 from ..parsing.bbox_mapper import assign_bboxes, polygon_to_bbox
 from ..parsing.dimension_parser import parse_dimensions_and_symbols
 from ..parsing.fallback_parser import FallbackParser
+from ..parsing.identifier_parser import extract_identifiers
 from ..parsing.title_block_parser import parse_title_block
 from ..preprocessing.image_enhancer import enhance_image_for_ocr
 from ..stage_timer import StageTimer
@@ -204,9 +205,13 @@ class DeepSeekHfProvider(OcrClient):
         dimensions = []
         symbols = []
         title_block_data = {}
+        provider_title_block_data = {}
         title_block_confidence = {}
+        identifiers = []
+        ocr_lines = []
         if parsed.success and parsed.data:
             title_block_data = parsed.data.get("title_block", {}) or {}
+            provider_title_block_data = dict(title_block_data)
             candidate_confidence = parsed.data.get("title_block_confidence", {}) or {}
             if isinstance(candidate_confidence, dict):
                 for key, value in candidate_confidence.items():
@@ -266,7 +271,6 @@ class DeepSeekHfProvider(OcrClient):
         if self._align_with_paddle and self._paddle is not None:
             try:
                 ocr_result = self._paddle.ocr(processed_bytes, cls=True)
-                ocr_lines = []
                 for line in ocr_result:
                     for box, (txt, score) in line:
                         ocr_lines.append(
@@ -281,6 +285,13 @@ class DeepSeekHfProvider(OcrClient):
             except Exception:
                 pass
         timer.end("align")
+        identifiers = extract_identifiers(
+            text=text,
+            ocr_lines=ocr_lines,
+            title_block_values=provider_title_block_data or title_block_data,
+            field_confidence=title_block_confidence,
+            default_source="provider_json" if provider_title_block_data else "regex_text",
+        )
         timer.start("postprocess")
         stage_latencies = timer.durations_ms()
         for stage, ms in stage_latencies.items():
@@ -292,6 +303,7 @@ class DeepSeekHfProvider(OcrClient):
             symbols=symbols,
             title_block=title_block,
             title_block_confidence=title_block_confidence,
+            identifiers=identifiers,
             confidence=0.9,
             fallback_level=parsed.fallback_level.value,
             processing_time_ms=int((time.time() - start) * 1000),
