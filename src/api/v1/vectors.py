@@ -175,6 +175,44 @@ def _get_qdrant_store_or_none():
         return None
 
 
+async def _collect_qdrant_feature_versions(
+    qdrant_store,
+    *,
+    scan_limit: int | None = None,
+) -> tuple[Dict[str, int], int, int]:
+    resolved_scan_limit = scan_limit
+    if resolved_scan_limit is None:
+        try:
+            resolved_scan_limit = int(os.getenv("VECTOR_MIGRATION_SCAN_LIMIT", "5000"))
+        except (TypeError, ValueError):
+            resolved_scan_limit = 5000
+    resolved_scan_limit = max(int(resolved_scan_limit or 0), 1)
+
+    total_available = int(await qdrant_store.count())
+    versions: Dict[str, int] = {}
+    scanned = 0
+    offset = 0
+
+    while scanned < min(total_available, resolved_scan_limit):
+        batch_limit = min(200, resolved_scan_limit - scanned)
+        items, _ = await qdrant_store.list_vectors(
+            offset=offset,
+            limit=batch_limit,
+            with_vectors=False,
+        )
+        if not items:
+            break
+        for item in items:
+            meta = item.metadata or {}
+            version = str(meta.get("feature_version") or "unknown")
+            versions[version] = versions.get(version, 0) + 1
+        consumed = len(items)
+        scanned += consumed
+        offset += consumed
+
+    return versions, total_available, scanned
+
+
 def _matches_vector_label_filters(
     *,
     material_filter: Optional[str],
@@ -1286,14 +1324,18 @@ async def migrate_vectors(payload: VectorMigrateRequest, api_key: str = Depends(
 
 @router.get("/migrate/status", response_model=VectorMigrationStatusResponse)
 async def migrate_status(api_key: str = Depends(get_api_key)):
-    from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        versions, _, _ = await _collect_qdrant_feature_versions(qdrant_store)
+    else:
+        from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
 
-    versions: Dict[str, int] = {}
-    for vid, meta in _VECTOR_META.items():
-        if vid not in _VECTOR_STORE:
-            continue
-        ver = meta.get("feature_version", "unknown")
-        versions[ver] = versions.get(ver, 0) + 1
+        versions = {}
+        for vid, meta in _VECTOR_META.items():
+            if vid not in _VECTOR_STORE:
+                continue
+            ver = meta.get("feature_version", "unknown")
+            versions[ver] = versions.get(ver, 0) + 1
     history = globals().get("_VECTOR_MIGRATION_HISTORY", [])
     last = history[-1] if history else None
     return VectorMigrationStatusResponse(
@@ -1354,8 +1396,6 @@ async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_
     Returns:
         迁移趋势统计，包含成功率、v4采用率、维度变化等
     """
-    from src.core.similarity import _VECTOR_META, _VECTOR_STORE
-
     history = globals().get("_VECTOR_MIGRATION_HISTORY", [])
 
     # Filter history by time window
@@ -1394,13 +1434,21 @@ async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_
     error_rate = total_errors / max(attempted, 1)
 
     # Calculate v4 adoption rate from current vectors
-    version_distribution: Dict[str, int] = {}
-    total_vectors = 0
-    for vid in _VECTOR_STORE.keys():
-        meta = _VECTOR_META.get(vid, {})
-        version = meta.get("feature_version", "v1")
-        version_distribution[version] = version_distribution.get(version, 0) + 1
-        total_vectors += 1
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        version_distribution, total_vectors, _ = await _collect_qdrant_feature_versions(
+            qdrant_store
+        )
+    else:
+        from src.core.similarity import _VECTOR_META, _VECTOR_STORE
+
+        version_distribution = {}
+        total_vectors = 0
+        for vid in _VECTOR_STORE.keys():
+            meta = _VECTOR_META.get(vid, {})
+            version = meta.get("feature_version", "v1")
+            version_distribution[version] = version_distribution.get(version, 0) + 1
+            total_vectors += 1
 
     v4_count = version_distribution.get("v4", 0)
     v4_adoption_rate = v4_count / max(total_vectors, 1)

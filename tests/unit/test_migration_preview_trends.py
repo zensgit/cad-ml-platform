@@ -256,6 +256,40 @@ class TestMigrationTrendsEndpoint:
         assert response.version_distribution == {"v3": 2, "v4": 3}
 
     @pytest.mark.asyncio
+    async def test_trends_qdrant_version_distribution(self):
+        """Trends should read version distribution from Qdrant when enabled."""
+        import src.api.v1.vectors as vectors_module
+        from src.api.v1.vectors import migrate_trends
+
+        class DummyPoint:
+            def __init__(self, metadata):
+                self.metadata = metadata
+
+        class DummyQdrantStore:
+            async def count(self):
+                return 4
+
+            async def list_vectors(self, offset=0, limit=50, with_vectors=False):
+                items = [
+                    DummyPoint({"feature_version": "v4"}),
+                    DummyPoint({"feature_version": "v4"}),
+                    DummyPoint({"feature_version": "v3"}),
+                    DummyPoint({"feature_version": "v1"}),
+                ]
+                return items[offset : offset + limit], 4
+
+        vectors_module._VECTOR_MIGRATION_HISTORY = []
+
+        with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+            "src.api.v1.vectors._get_qdrant_store_or_none",
+            return_value=DummyQdrantStore(),
+        ):
+            response = await migrate_trends(window_hours=24, api_key="test")
+
+        assert response.version_distribution == {"v4": 2, "v3": 1, "v1": 1}
+        assert response.v4_adoption_rate == 0.5
+
+    @pytest.mark.asyncio
     async def test_trends_time_window_filtering(self, mock_store_with_versions):
         """Trends should filter by time window."""
         import src.api.v1.vectors as vectors_module
