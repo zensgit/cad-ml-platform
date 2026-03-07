@@ -69,7 +69,13 @@ Observed summary:
 
 - `sample_size=3`
 - `status_counts.ok=3`
+- `shape_loaded_count=3`
 - `valid_3d_count=3`
+- `hint_coverage_count=2`
+- `assembly_count=1`
+- `avg_faces_ok=7.3333`
+- `avg_nodes_ok=7.3333`
+- `avg_edges_ok=26.6667`
 - `graph_schema_version_counts.v2=3`
 - `primary_surface_type_counts.plane=3`
 - `top_hint_label_counts.block=2`

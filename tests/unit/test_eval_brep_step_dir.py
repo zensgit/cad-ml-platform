@@ -65,21 +65,36 @@ def test_summarize_rows_counts_surface_types_and_hints() -> None:
         [
             {
                 "status": "ok",
+                "shape_loaded": True,
                 "brep_valid_3d": True,
+                "faces": 7,
+                "node_count": 7,
+                "edge_count": 28,
+                "is_assembly": False,
                 "primary_surface_type": "plane",
                 "top_hint_label": "block",
                 "graph_schema_version": "v2",
             },
             {
                 "status": "ok",
+                "shape_loaded": True,
                 "brep_valid_3d": True,
+                "faces": 6,
+                "node_count": 6,
+                "edge_count": 24,
+                "is_assembly": True,
                 "primary_surface_type": "plane",
                 "top_hint_label": "block",
                 "graph_schema_version": "v2",
             },
             {
                 "status": "load_failed",
+                "shape_loaded": False,
                 "brep_valid_3d": False,
+                "faces": 0,
+                "node_count": 0,
+                "edge_count": 0,
+                "is_assembly": False,
                 "primary_surface_type": "",
                 "top_hint_label": "",
                 "graph_schema_version": "",
@@ -89,7 +104,13 @@ def test_summarize_rows_counts_surface_types_and_hints() -> None:
 
     assert summary["sample_size"] == 3
     assert summary["status_counts"] == {"ok": 2, "load_failed": 1}
+    assert summary["shape_loaded_count"] == 2
     assert summary["valid_3d_count"] == 2
+    assert summary["hint_coverage_count"] == 2
+    assert summary["assembly_count"] == 1
+    assert summary["avg_faces_ok"] == 6.5
+    assert summary["avg_nodes_ok"] == 6.5
+    assert summary["avg_edges_ok"] == 26.0
     assert summary["primary_surface_type_counts"] == {"plane": 2}
     assert summary["top_hint_label_counts"] == {"block": 2}
     assert summary["graph_schema_version_counts"] == {"v2": 2}

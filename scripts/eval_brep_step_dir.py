@@ -156,24 +156,48 @@ def _summarize_rows(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
     primary_surface_counts: Counter[str] = Counter()
     top_hint_counts: Counter[str] = Counter()
     schema_counts: Counter[str] = Counter()
+    shape_loaded_count = 0
     valid_count = 0
+    hint_coverage_count = 0
+    assembly_count = 0
+    ok_rows: List[Dict[str, Any]] = []
     for row in row_list:
         status_counts[str(row.get("status") or "")] += 1
+        if bool(row.get("shape_loaded")):
+            shape_loaded_count += 1
         if bool(row.get("brep_valid_3d")):
             valid_count += 1
+        if bool(row.get("is_assembly")):
+            assembly_count += 1
         primary_surface = str(row.get("primary_surface_type") or "").strip()
         if primary_surface:
             primary_surface_counts[primary_surface] += 1
         top_hint = str(row.get("top_hint_label") or "").strip()
         if top_hint:
             top_hint_counts[top_hint] += 1
+            hint_coverage_count += 1
         schema = str(row.get("graph_schema_version") or "").strip()
         if schema:
             schema_counts[schema] += 1
+        if str(row.get("status") or "") == "ok":
+            ok_rows.append(row)
+
+    def _avg_int(key: str) -> float:
+        if not ok_rows:
+            return 0.0
+        total = sum(int(item.get(key) or 0) for item in ok_rows)
+        return round(total / len(ok_rows), 4)
+
     return {
         "sample_size": len(row_list),
         "status_counts": dict(status_counts),
+        "shape_loaded_count": shape_loaded_count,
         "valid_3d_count": valid_count,
+        "hint_coverage_count": hint_coverage_count,
+        "assembly_count": assembly_count,
+        "avg_faces_ok": _avg_int("faces"),
+        "avg_nodes_ok": _avg_int("node_count"),
+        "avg_edges_ok": _avg_int("edge_count"),
         "primary_surface_type_counts": dict(primary_surface_counts),
         "top_hint_label_counts": dict(top_hint_counts),
         "graph_schema_version_counts": dict(schema_counts),

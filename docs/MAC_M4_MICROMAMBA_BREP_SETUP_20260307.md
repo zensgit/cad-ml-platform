@@ -194,6 +194,7 @@ Observed result:
 - `sample_size=3`
 - `status_counts.ok=3`
 - `valid_3d_count=3`
+- `assembly_count=1`
 - `graph_schema_version_counts.v2=3`
 
 Executed through the setup wrapper as well:
@@ -209,6 +210,7 @@ Observed integration result:
 - `eval_brep_step_dir.py` invoked automatically
 - `sample_size=3`
 - `status_counts.ok=3`
+- `assembly_count=1`
 - `graph_schema_version_counts.v2=3`
 
 Related validation note:
