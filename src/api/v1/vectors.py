@@ -1537,6 +1537,117 @@ async def batch_similarity(payload: BatchSimilarityRequest, api_key: str = Depen
     successful = 0
     failed = 0
 
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        from src.core.similarity import extract_vector_label_contract
+
+        filter_conditions = _build_vector_filter_conditions(
+            material_filter=payload.material,
+            complexity_filter=payload.complexity,
+            fine_part_type_filter=None,
+            coarse_part_type_filter=None,
+            decision_source_filter=None,
+            is_coarse_label_filter=None,
+        )
+
+        for vid in payload.ids:
+            target = await qdrant_store.get_vector(vid)
+            if target is None:
+                items.append(
+                    BatchSimilarityItem(
+                        id=vid,
+                        status="not_found",
+                        error=build_error(
+                            ErrorCode.DATA_NOT_FOUND,
+                            stage="batch_similarity",
+                            message="Vector not found",
+                            id=vid,
+                        ),
+                    )
+                )
+                failed += 1
+                continue
+
+            try:
+                query_vector = list(target.vector or [])
+                results = await qdrant_store.search_similar(
+                    query_vector,
+                    top_k=payload.top_k + 1,
+                    filter_conditions=filter_conditions or None,
+                    score_threshold=payload.min_score,
+                    with_vectors=True,
+                )
+
+                similar: list[Dict[str, Any]] = []
+                for result in results:
+                    if result.id == vid:
+                        continue
+                    meta = result.metadata or {}
+                    label_contract = extract_vector_label_contract(meta)
+                    dimension = len(result.vector or [])
+                    if dimension <= 0:
+                        try:
+                            dimension = int(meta.get("total_dim") or 0)
+                        except (TypeError, ValueError):
+                            dimension = 0
+                    similar.append(
+                        {
+                            "id": result.id,
+                            "score": round(float(result.score), 4),
+                            "material": meta.get("material"),
+                            "complexity": meta.get("complexity"),
+                            "format": meta.get("format"),
+                            "dimension": dimension,
+                            "part_type": label_contract.get("part_type"),
+                            "fine_part_type": label_contract.get("fine_part_type"),
+                            "coarse_part_type": label_contract.get("coarse_part_type"),
+                            "decision_source": label_contract.get("decision_source"),
+                            "is_coarse_label": label_contract.get("is_coarse_label"),
+                        }
+                    )
+                    if len(similar) >= payload.top_k:
+                        break
+
+                items.append(BatchSimilarityItem(id=vid, status="success", similar=similar))
+                successful += 1
+            except Exception as e:
+                items.append(
+                    BatchSimilarityItem(
+                        id=vid,
+                        status="error",
+                        error=build_error(
+                            ErrorCode.INTERNAL_ERROR,
+                            stage="batch_similarity",
+                            message="Query failed",
+                            id=vid,
+                            detail=str(e),
+                        ),
+                    )
+                )
+                failed += 1
+
+        duration = time.time() - start_time
+        vector_query_batch_latency_seconds.labels(batch_size_range=size_range).observe(duration)
+
+        if successful > 0 and all((not it.similar) for it in items if it.status == "success"):
+            try:
+                from src.utils.analysis_metrics import analysis_rejections_total
+
+                analysis_rejections_total.labels(reason="batch_empty_results").inc()
+            except Exception:
+                pass
+
+        return BatchSimilarityResponse(
+            total=len(payload.ids),
+            successful=successful,
+            failed=failed,
+            items=items,
+            batch_id=batch_id,
+            duration_ms=round(duration * 1000, 2),
+            fallback=None,
+            degraded=False,
+        )
+
     # Get vector store using factory (handles backend selection and fallback)
     store = get_vector_store()
 
