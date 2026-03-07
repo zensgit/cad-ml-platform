@@ -89,12 +89,24 @@ class TestOcrResponseModel:
                     "source": "ocr_line",
                 }
             ],
+            field_evidence={
+                "drawing_number": {
+                    "label": "Drawing Number",
+                    "value": "DWG-001",
+                    "normalized_value": "DWG-001",
+                    "source_text": "图号: DWG-001",
+                    "bbox": [10, 10, 50, 10],
+                    "confidence": 0.92,
+                    "source": "ocr_line",
+                }
+            },
         )
 
         assert response.success is True
         assert response.provider == "paddle"
         assert response.confidence == 0.95
         assert response.identifiers[0]["identifier_type"] == "drawing_number"
+        assert response.field_evidence["drawing_number"]["value"] == "DWG-001"
 
     def test_model_creation_failure(self):
         """Test OcrResponse model creation for failure case."""
@@ -150,6 +162,7 @@ class TestOcrExtractEndpoint:
             response = await _run_ocr_extract(b"img", "auto", "trace-1")
 
         assert response.identifiers[0]["identifier_type"] == "drawing_number"
+        assert response.field_evidence["drawing_number"]["bbox"] == [10, 10, 50, 10]
 
     @pytest.mark.asyncio
     async def test_ocr_extract_idempotency_hit(self):

@@ -176,6 +176,7 @@ async def test_vision_ocr_integration_success(sample_image_base64, mock_ocr_mana
     assert response.ocr.title_block["material"] == "Aluminum 6061"
     assert response.ocr.identifiers[0]["identifier_type"] == "drawing_number"
     assert response.ocr.identifiers[0]["bbox"] == [10, 10, 100, 12]
+    assert response.ocr.field_evidence["drawing_number"]["value"] == "CAD-2025-001"
 
     # Check confidence (should use calibrated_confidence if available)
     assert response.ocr.confidence == 0.91  # calibrated_confidence

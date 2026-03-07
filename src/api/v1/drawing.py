@@ -24,6 +24,7 @@ from src.api.v1.ocr import (
 from src.core.errors import ErrorCode
 from src.core.ocr.base import OcrResult, ProcessRequirements, SymbolType, TitleBlock
 from src.core.ocr.exceptions import OcrError
+from src.core.ocr.parsing.identifier_parser import build_field_evidence
 from src.middleware.rate_limit import rate_limit
 from src.security.input_validator import validate_and_read, validate_bytes
 from src.utils.idempotency import check_idempotency, store_idempotency
@@ -77,6 +78,7 @@ class DrawingRecognitionResponse(BaseModel):
     field_confidence: Dict[str, Optional[float]] = Field(default_factory=dict)
     fields: List[DrawingField] = Field(default_factory=list)
     identifiers: List[Dict[str, Any]] = Field(default_factory=list)
+    field_evidence: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     dimensions: List[Dict[str, Any]] = Field(default_factory=list)
     symbols: List[Dict[str, Any]] = Field(default_factory=list)
     process_requirements: ProcessRequirements = Field(default_factory=ProcessRequirements)
@@ -317,6 +319,7 @@ async def _run_recognition(
         ),
         fields=_build_fields(result.title_block, confidence, result.title_block_confidence),
         identifiers=[identifier.model_dump() for identifier in result.identifiers],
+        field_evidence=build_field_evidence(result.identifiers),
         dimensions=[d.model_dump() for d in result.dimensions],
         symbols=[s.model_dump() for s in result.symbols],
         process_requirements=result.process_requirements,

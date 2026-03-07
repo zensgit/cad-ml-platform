@@ -139,6 +139,8 @@ def test_drawing_recognize_smoke(monkeypatch) -> None:
     assert data["identifiers"][0]["identifier_type"] == "drawing_number"
     assert data["identifiers"][0]["bbox"] == [10, 10, 80, 12]
     assert data["identifiers"][1]["identifier_type"] == "material"
+    assert data["field_evidence"]["drawing_number"]["value"] == "DWG-123"
+    assert data["field_evidence"]["drawing_number"]["bbox"] == [10, 10, 80, 12]
     assert data["dimensions"]
     assert data["process_requirements"]["heat_treatments"][0]["type"] == "quenching"
     assert data["process_requirements"]["surface_treatments"][0]["standard"] == "GB/T 13912"
@@ -186,3 +188,4 @@ def test_drawing_recognize_base64_smoke(monkeypatch) -> None:
     assert data["success"] is True
     assert data["title_block"]["drawing_number"] == "DWG-123"
     assert data["engineering_signals"]["process_requirement_counts"]["welding"] == 1
+    assert data["field_evidence"]["material"]["value"] == "Aluminum"

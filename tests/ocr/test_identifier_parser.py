@@ -1,4 +1,4 @@
-from src.core.ocr.parsing.identifier_parser import extract_identifiers
+from src.core.ocr.parsing.identifier_parser import build_field_evidence, extract_identifiers
 
 
 def test_extract_identifiers_from_same_line_with_bbox_and_confidence():
@@ -57,3 +57,15 @@ def test_extract_identifiers_falls_back_to_text_and_deduplicates():
     assert drawing_numbers[0].source == "ocr_line"
     assert len(materials) == 1
     assert materials[0].source == "regex_text"
+
+
+def test_build_field_evidence_from_identifiers():
+    identifiers = extract_identifiers(
+        ocr_lines=[{"text": "图号: DWG-999", "bbox": [1, 2, 3, 4], "score": 0.97}]
+    )
+
+    evidence = build_field_evidence(identifiers)
+
+    assert evidence["drawing_number"]["value"] == "DWG-999"
+    assert evidence["drawing_number"]["bbox"] == [1, 2, 3, 4]
+    assert evidence["drawing_number"]["source"] == "ocr_line"

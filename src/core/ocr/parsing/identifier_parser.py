@@ -231,3 +231,22 @@ def extract_identifiers(
             )
 
     return identifiers
+
+
+def build_field_evidence(
+    identifiers: Iterable[IdentifierInfo],
+) -> Dict[str, Dict[str, Any]]:
+    evidence: Dict[str, Dict[str, Any]] = {}
+    for identifier in identifiers:
+        if identifier.identifier_type in evidence:
+            continue
+        evidence[identifier.identifier_type] = {
+            "label": identifier.label,
+            "value": identifier.value,
+            "normalized_value": identifier.normalized_value,
+            "source_text": identifier.source_text,
+            "bbox": identifier.bbox,
+            "confidence": identifier.confidence,
+            "source": identifier.source,
+        }
+    return evidence
