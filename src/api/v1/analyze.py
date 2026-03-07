@@ -2660,6 +2660,80 @@ async def similarity_topk(
     payload: SimilarityTopKQuery, api_key: str = Depends(get_api_key)
 ):
     """基于已存储向量的 Top-K 相似检索。"""
+    backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
+    if backend == "qdrant":
+        try:
+            from src.core.similarity import extract_vector_label_contract
+            from src.core.vector_stores import get_vector_store as get_managed_vector_store
+
+            qdrant_store = get_managed_vector_store("qdrant")
+            target = await qdrant_store.get_vector(payload.target_id)
+            if target is None:
+                ext = create_extended_error(
+                    ErrorCode.DATA_NOT_FOUND, "Target vector not found", stage="similarity"
+                )
+                analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
+                return SimilarityTopKResponse(
+                    target_id=payload.target_id,
+                    k=payload.k,
+                    results=[],
+                    status="target_not_found",
+                    error=ext.to_dict(),
+                )
+            query_vector = target.vector or []
+            filter_conditions: Dict[str, Any] = {}
+            if payload.material_filter:
+                filter_conditions["material"] = payload.material_filter
+            if payload.complexity_filter:
+                filter_conditions["complexity"] = payload.complexity_filter
+            if payload.fine_part_type_filter:
+                filter_conditions["fine_part_type"] = payload.fine_part_type_filter
+            if payload.coarse_part_type_filter:
+                filter_conditions["coarse_part_type"] = payload.coarse_part_type_filter
+            if payload.decision_source_filter:
+                filter_conditions["decision_source"] = payload.decision_source_filter
+            if payload.is_coarse_label_filter is not None:
+                filter_conditions["is_coarse_label"] = payload.is_coarse_label_filter
+            query_k = max(payload.k + payload.offset + 1, min(payload.k * 5, payload.k + 100))
+            raw = await qdrant_store.search_similar(
+                query_vector,
+                top_k=query_k,
+                filter_conditions=filter_conditions or None,
+            )
+            items: list[SimilarityTopKItem] = []
+            matched = 0
+            for result in raw:
+                if payload.exclude_self and result.id == payload.target_id:
+                    continue
+                if matched < payload.offset:
+                    matched += 1
+                    continue
+                meta = result.metadata or {}
+                label_contract = extract_vector_label_contract(meta)
+                items.append(
+                    SimilarityTopKItem(
+                        id=result.id,
+                        score=round(float(result.score), 4),
+                        material=meta.get("material"),
+                        complexity=meta.get("complexity"),
+                        format=meta.get("format"),
+                        part_type=label_contract.get("part_type"),
+                        fine_part_type=label_contract.get("fine_part_type"),
+                        coarse_part_type=label_contract.get("coarse_part_type"),
+                        decision_source=label_contract.get("decision_source"),
+                        is_coarse_label=label_contract.get("is_coarse_label"),
+                    )
+                )
+                if len(items) >= payload.k:
+                    break
+            return SimilarityTopKResponse(
+                target_id=payload.target_id,
+                k=payload.k,
+                results=items,
+            )
+        except Exception:
+            pass
+
     from src.core.similarity import (
         InMemoryVectorStore,
         extract_vector_label_contract,
@@ -2682,7 +2756,6 @@ async def similarity_topk(
     base_vec = store.get(payload.target_id)
     assert base_vec is not None  # for type checker
     # Choose backend dynamically
-    backend = os.getenv("VECTOR_STORE_BACKEND", "memory")
     import time as _time
 
     t0 = _time.time()

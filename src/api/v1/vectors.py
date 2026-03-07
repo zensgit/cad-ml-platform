@@ -108,6 +108,73 @@ class VectorSearchResponse(BaseModel):
     total: int
 
 
+def _build_vector_filter_conditions(
+    *,
+    material_filter: Optional[str],
+    complexity_filter: Optional[str],
+    fine_part_type_filter: Optional[str],
+    coarse_part_type_filter: Optional[str],
+    decision_source_filter: Optional[str],
+    is_coarse_label_filter: Optional[bool],
+) -> Dict[str, Any]:
+    conditions: Dict[str, Any] = {}
+    if material_filter:
+        conditions["material"] = material_filter
+    if complexity_filter:
+        conditions["complexity"] = complexity_filter
+    if fine_part_type_filter:
+        conditions["fine_part_type"] = fine_part_type_filter
+    if coarse_part_type_filter:
+        conditions["coarse_part_type"] = coarse_part_type_filter
+    if decision_source_filter:
+        conditions["decision_source"] = decision_source_filter
+    if is_coarse_label_filter is not None:
+        conditions["is_coarse_label"] = is_coarse_label_filter
+    return conditions
+
+
+def _build_vector_search_filter_conditions(payload: VectorSearchRequest) -> Dict[str, Any]:
+    return _build_vector_filter_conditions(
+        material_filter=payload.material_filter,
+        complexity_filter=payload.complexity_filter,
+        fine_part_type_filter=payload.fine_part_type_filter,
+        coarse_part_type_filter=payload.coarse_part_type_filter,
+        decision_source_filter=payload.decision_source_filter,
+        is_coarse_label_filter=payload.is_coarse_label_filter,
+    )
+
+
+def _vector_item_payload(
+    vector_id: str,
+    dimension: int,
+    meta: Dict[str, Any],
+    label_contract: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "id": vector_id,
+        "dimension": dimension,
+        "material": meta.get("material"),
+        "complexity": meta.get("complexity"),
+        "format": meta.get("format"),
+        "part_type": label_contract.get("part_type"),
+        "fine_part_type": label_contract.get("fine_part_type"),
+        "coarse_part_type": label_contract.get("coarse_part_type"),
+        "decision_source": label_contract.get("decision_source"),
+        "is_coarse_label": label_contract.get("is_coarse_label"),
+    }
+
+
+def _get_qdrant_store_or_none():
+    if os.getenv("VECTOR_STORE_BACKEND", "memory") != "qdrant":
+        return None
+    try:
+        from src.core.vector_stores import get_vector_store as get_managed_vector_store
+
+        return get_managed_vector_store("qdrant")
+    except Exception:
+        return None
+
+
 def _matches_vector_label_filters(
     *,
     material_filter: Optional[str],
@@ -224,7 +291,7 @@ async def list_vectors(
 ):
     from src.core.similarity import _BACKEND, _VECTOR_META, _VECTOR_STORE  # type: ignore
 
-    allowed_sources = {"auto", "memory", "redis"}
+    allowed_sources = {"auto", "memory", "redis", "qdrant"}
     if source not in allowed_sources:
         err = build_error(
             ErrorCode.INPUT_VALIDATION_FAILED,
@@ -239,6 +306,39 @@ async def list_vectors(
     limit = min(limit, max_limit)
     scan_limit = int(os.getenv("VECTOR_LIST_SCAN_LIMIT", "5000"))
     resolved = _resolve_list_source(source, _BACKEND)
+    if resolved == "qdrant":
+        qdrant_store = _get_qdrant_store_or_none()
+        if qdrant_store is not None:
+            from src.core.similarity import extract_vector_label_contract
+
+            results, total = await qdrant_store.list_vectors(
+                offset=offset,
+                limit=limit,
+                filter_conditions=_build_vector_filter_conditions(
+                    material_filter=material_filter,
+                    complexity_filter=complexity_filter,
+                    fine_part_type_filter=fine_part_type_filter,
+                    coarse_part_type_filter=coarse_part_type_filter,
+                    decision_source_filter=decision_source_filter,
+                    is_coarse_label_filter=is_coarse_label_filter,
+                ),
+                with_vectors=True,
+            )
+            items = []
+            for result in results:
+                meta = result.metadata or {}
+                label_contract = extract_vector_label_contract(meta)
+                items.append(
+                    VectorListItem(
+                        **_vector_item_payload(
+                            result.id,
+                            len(result.vector or []),
+                            meta,
+                            label_contract,
+                        )
+                    )
+                )
+            return VectorListResponse(total=total, vectors=items)
     if resolved == "redis":
         client = get_client()
         if client is not None:
@@ -318,6 +418,32 @@ async def search_vectors(
         get_vector_store,
     )
 
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        results = await qdrant_store.search_similar(
+            payload.vector,
+            top_k=payload.k,
+            filter_conditions=_build_vector_search_filter_conditions(payload),
+            with_vectors=True,
+        )
+        items = []
+        for result in results:
+            meta = result.metadata or {}
+            label_contract = extract_vector_label_contract(meta)
+            items.append(
+                {
+                    "id": result.id,
+                    "score": round(float(result.score), 4),
+                    **_vector_item_payload(
+                        result.id,
+                        len(result.vector or []),
+                        meta,
+                        label_contract,
+                    ),
+                }
+            )
+        return VectorSearchResponse(results=items, total=len(items))
+
     store = get_vector_store()
     query_k = payload.k
     if any(
@@ -343,19 +469,13 @@ async def search_vectors(
         if not _matches_vector_search_filters(payload, meta, label_contract):
             continue
         items.append(
-            {
-                "id": vid,
-                "score": round(float(score), 4),
-                "material": meta.get("material"),
-                "complexity": meta.get("complexity"),
-                "format": meta.get("format"),
-                "dimension": len(_VECTOR_STORE.get(vid, [])),
-                "part_type": label_contract.get("part_type"),
-                "fine_part_type": label_contract.get("fine_part_type"),
-                "coarse_part_type": label_contract.get("coarse_part_type"),
-                "decision_source": label_contract.get("decision_source"),
-                "is_coarse_label": label_contract.get("is_coarse_label"),
-            }
+            {"id": vid, "score": round(float(score), 4)}
+            | _vector_item_payload(
+                vid,
+                len(_VECTOR_STORE.get(vid, [])),
+                meta,
+                label_contract,
+            )
         )
         if len(items) >= payload.k:
             break
@@ -365,7 +485,11 @@ async def search_vectors(
 
 def _resolve_list_source(source: str, backend: str) -> str:
     if source == "auto":
-        return "redis" if backend == "redis" else "memory"
+        if backend == "redis":
+            return "redis"
+        if backend == "qdrant":
+            return "qdrant"
+        return "memory"
     return source
 
 
