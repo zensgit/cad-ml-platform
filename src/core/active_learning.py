@@ -18,6 +18,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+from src.core.classification.coarse_labels import normalize_coarse_label
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,6 +46,9 @@ class ActiveLearningSample(BaseModel):
     uncertainty_reason: str
     status: SampleStatus = SampleStatus.PENDING
     true_type: Optional[str] = None
+    true_fine_type: Optional[str] = None
+    true_coarse_type: Optional[str] = None
+    true_is_coarse_label: Optional[bool] = None
     reviewer_id: Optional[str] = None
     feedback_time: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -179,6 +184,8 @@ class ActiveLearner:
         self,
         sample_id: str,
         true_type: str,
+        true_fine_type: Optional[str] = None,
+        true_coarse_type: Optional[str] = None,
         reviewer_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Submit feedback for a sample."""
@@ -186,9 +193,14 @@ class ActiveLearner:
             return {"status": "error", "message": "Sample not found"}
 
         sample = self._samples[sample_id]
-        is_correction = sample.predicted_type != true_type
+        fine_type = str(true_fine_type or true_type or "").strip()
+        coarse_type = normalize_coarse_label(true_coarse_type or fine_type)
+        is_correction = sample.predicted_type != fine_type
 
-        sample.true_type = true_type
+        sample.true_type = fine_type or None
+        sample.true_fine_type = fine_type or None
+        sample.true_coarse_type = coarse_type
+        sample.true_is_coarse_label = bool(fine_type and fine_type == coarse_type)
         sample.reviewer_id = reviewer_id
         sample.feedback_time = datetime.utcnow()
         sample.status = SampleStatus.LABELED
@@ -235,7 +247,11 @@ class ActiveLearner:
                 export_data = {
                     "doc_id": sample.doc_id,
                     "predicted_type": sample.predicted_type,
+                    "predicted_coarse_type": normalize_coarse_label(sample.predicted_type),
                     "true_type": sample.true_type,
+                    "true_fine_type": sample.true_fine_type or sample.true_type,
+                    "true_coarse_type": sample.true_coarse_type,
+                    "true_is_coarse_label": sample.true_is_coarse_label,
                     "confidence": sample.confidence,
                     "sample_type": _derive_sample_type(sample),
                     "feedback_priority": _derive_feedback_priority(sample),

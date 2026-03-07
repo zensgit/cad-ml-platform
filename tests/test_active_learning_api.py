@@ -67,7 +67,13 @@ def test_active_learning_feedback_updates_sample(client):
     )
     resp = client.post(
         "/api/v1/active-learning/feedback",
-        json={"sample_id": sample.id, "true_type": "screw", "reviewer_id": "user-1"},
+        json={
+            "sample_id": sample.id,
+            "true_type": "人孔",
+            "true_fine_type": "人孔",
+            "true_coarse_type": "开孔件",
+            "reviewer_id": "user-1",
+        },
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -76,7 +82,10 @@ def test_active_learning_feedback_updates_sample(client):
     updated = learner.get_sample(sample.id)
     assert updated is not None
     assert updated.status == SampleStatus.LABELED
-    assert updated.true_type == "screw"
+    assert updated.true_type == "人孔"
+    assert updated.true_fine_type == "人孔"
+    assert updated.true_coarse_type == "开孔件"
+    assert updated.true_is_coarse_label is False
     assert updated.reviewer_id == "user-1"
 
 
