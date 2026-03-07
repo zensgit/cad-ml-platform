@@ -183,6 +183,40 @@ def _resolve_vector_migration_scan_limit(default: int = 5000) -> int:
     return max(int(resolved or 0), 1)
 
 
+def _resolve_vector_migration_target_version(default: str = "v4") -> str:
+    allowed_versions = {"v1", "v2", "v3", "v4"}
+    raw = str(os.getenv("VECTOR_MIGRATION_TARGET_VERSION", default) or default).strip().lower()
+    if raw in allowed_versions:
+        return raw
+    return default
+
+
+def _build_vector_migration_readiness(
+    version_distribution: Dict[str, int],
+    *,
+    total_vectors: int,
+    distribution_complete: bool,
+) -> Dict[str, Any]:
+    target_version = _resolve_vector_migration_target_version()
+    readiness: Dict[str, Any] = {
+        "target_version": target_version,
+        "target_version_vectors": None,
+        "target_version_ratio": None,
+        "pending_vectors": None,
+        "migration_ready": False,
+    }
+    if not distribution_complete:
+        return readiness
+
+    target_vectors = int(version_distribution.get(target_version, 0))
+    pending_vectors = max(int(total_vectors) - target_vectors, 0)
+    readiness["target_version_vectors"] = target_vectors
+    readiness["target_version_ratio"] = round(target_vectors / max(int(total_vectors), 1), 4)
+    readiness["pending_vectors"] = pending_vectors
+    readiness["migration_ready"] = pending_vectors == 0
+    return readiness
+
+
 async def _collect_qdrant_feature_versions(
     qdrant_store,
     *,
@@ -677,7 +711,11 @@ async def _list_vectors_redis(
     scanned = 0
     cursor = 0
     while True:
-        cursor, batch = await client.scan(cursor=cursor, match="vector:*", count=500)  # type: ignore[attr-defined]
+        cursor, batch = await client.scan(  # type: ignore[attr-defined]
+            cursor=cursor,
+            match="vector:*",
+            count=500,
+        )
         for key in batch:
             scanned += 1
             if scan_limit > 0 and scanned > scan_limit:
@@ -1020,6 +1058,10 @@ class VectorMigrationStatusResponse(BaseModel):
     scanned_vectors: Optional[int] = None
     scan_limit: Optional[int] = None
     distribution_complete: bool = True
+    target_version: str = "v4"
+    target_version_vectors: Optional[int] = None
+    target_version_ratio: Optional[float] = None
+    migration_ready: bool = False
 
 
 class VectorMigrationSummaryResponse(BaseModel):
@@ -1033,6 +1075,11 @@ class VectorMigrationSummaryResponse(BaseModel):
     scanned_vectors: Optional[int] = None
     scan_limit: Optional[int] = None
     distribution_complete: bool = True
+    target_version: str = "v4"
+    target_version_vectors: Optional[int] = None
+    target_version_ratio: Optional[float] = None
+    pending_vectors: Optional[int] = None
+    migration_ready: bool = False
 
 
 class VectorMigrationPreviewResponse(BaseModel):
@@ -1422,6 +1469,11 @@ async def migrate_status(api_key: str = Depends(get_api_key)):
         scanned = total_available
         backend = "memory"
         distribution_complete = True
+    readiness = _build_vector_migration_readiness(
+        versions,
+        total_vectors=total_available,
+        distribution_complete=distribution_complete,
+    )
     history = globals().get("_VECTOR_MIGRATION_HISTORY", [])
     last = history[-1] if history else None
     return VectorMigrationStatusResponse(
@@ -1431,7 +1483,7 @@ async def migrate_status(api_key: str = Depends(get_api_key)):
         last_total=last.get("total") if last else None,
         last_migrated=last.get("migrated") if last else None,
         last_skipped=last.get("skipped") if last else None,
-        pending_vectors=None,
+        pending_vectors=readiness["pending_vectors"],
         feature_versions=versions,
         history=history,
         backend=backend,
@@ -1439,6 +1491,10 @@ async def migrate_status(api_key: str = Depends(get_api_key)):
         scanned_vectors=scanned,
         scan_limit=scan_limit,
         distribution_complete=distribution_complete,
+        target_version=readiness["target_version"],
+        target_version_vectors=readiness["target_version_vectors"],
+        target_version_ratio=readiness["target_version_ratio"],
+        migration_ready=readiness["migration_ready"],
     )
 
 
@@ -1478,6 +1534,11 @@ async def migrate_summary(api_key: str = Depends(get_api_key)):
         backend = "memory"
         scanned_vectors = current_total_vectors
         distribution_complete = True
+    readiness = _build_vector_migration_readiness(
+        current_version_distribution,
+        total_vectors=current_total_vectors,
+        distribution_complete=distribution_complete,
+    )
     return VectorMigrationSummaryResponse(
         counts=aggregate,
         total_migrations=total_migrations,
@@ -1489,6 +1550,11 @@ async def migrate_summary(api_key: str = Depends(get_api_key)):
         scanned_vectors=scanned_vectors,
         scan_limit=scan_limit,
         distribution_complete=distribution_complete,
+        target_version=readiness["target_version"],
+        target_version_vectors=readiness["target_version_vectors"],
+        target_version_ratio=readiness["target_version_ratio"],
+        pending_vectors=readiness["pending_vectors"],
+        migration_ready=readiness["migration_ready"],
     )
 
 
@@ -1509,6 +1575,19 @@ class VectorMigrationTrendsResponse(BaseModel):
     scanned_vectors: Optional[int] = Field(default=None, description="版本分布扫描数量")
     scan_limit: Optional[int] = Field(default=None, description="版本分布扫描上限")
     distribution_complete: bool = Field(default=True, description="版本分布是否为全量结果")
+    target_version: str = Field(default="v4", description="readiness 目标特征版本")
+    target_version_vectors: Optional[int] = Field(
+        default=None, description="目标版本向量数，仅在全量分布时返回"
+    )
+    target_version_ratio: Optional[float] = Field(
+        default=None, description="目标版本占比，仅在全量分布时返回"
+    )
+    pending_vectors: Optional[int] = Field(
+        default=None, description="待迁移向量数，仅在全量分布时返回"
+    )
+    migration_ready: bool = Field(
+        default=False, description="是否已经全部迁移到目标版本"
+    )
 
 
 @router.get("/migrate/trends", response_model=VectorMigrationTrendsResponse)
@@ -1564,8 +1643,8 @@ async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_
     qdrant_store = _get_qdrant_store_or_none()
     scan_limit = _resolve_vector_migration_scan_limit()
     if qdrant_store is not None:
-        version_distribution, total_vectors, scanned_vectors = await _collect_qdrant_feature_versions(
-            qdrant_store
+        version_distribution, total_vectors, scanned_vectors = (
+            await _collect_qdrant_feature_versions(qdrant_store)
         )
         distribution_complete = scanned_vectors >= total_vectors
     else:
@@ -1603,6 +1682,11 @@ async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_
         else None,
         "end": datetime.utcnow().isoformat(),
     }
+    readiness = _build_vector_migration_readiness(
+        version_distribution,
+        total_vectors=total_vectors,
+        distribution_complete=distribution_complete,
+    )
 
     return VectorMigrationTrendsResponse(
         total_migrations=total_migrations,
@@ -1619,6 +1703,11 @@ async def migrate_trends(window_hours: int = 24, api_key: str = Depends(get_api_
         scanned_vectors=scanned_vectors,
         scan_limit=scan_limit,
         distribution_complete=distribution_complete,
+        target_version=readiness["target_version"],
+        target_version_vectors=readiness["target_version_vectors"],
+        target_version_ratio=readiness["target_version_ratio"],
+        pending_vectors=readiness["pending_vectors"],
+        migration_ready=readiness["migration_ready"],
     )
 
 

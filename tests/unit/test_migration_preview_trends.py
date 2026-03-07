@@ -371,6 +371,11 @@ class TestMigrationTrendsEndpoint:
         assert response.current_total_vectors == 4
         assert response.scanned_vectors == 4
         assert response.distribution_complete is True
+        assert response.target_version == "v4"
+        assert response.target_version_vectors == 2
+        assert response.target_version_ratio == 0.5
+        assert response.pending_vectors == 2
+        assert response.migration_ready is False
 
     @pytest.mark.asyncio
     async def test_trends_qdrant_scan_limit_marks_partial_distribution(self):
@@ -407,6 +412,11 @@ class TestMigrationTrendsEndpoint:
         assert response.scanned_vectors == 2
         assert response.scan_limit == 2
         assert response.distribution_complete is False
+        assert response.target_version == "v4"
+        assert response.target_version_vectors is None
+        assert response.target_version_ratio is None
+        assert response.pending_vectors is None
+        assert response.migration_ready is False
 
     @pytest.mark.asyncio
     async def test_trends_time_window_filtering(self, mock_store_with_versions):
