@@ -226,6 +226,28 @@ def _matches_vector_search_filters(
 
 @router.post("/delete", response_model=VectorDeleteResponse)
 async def delete_vector(payload: VectorDeleteRequest, api_key: str = Depends(get_api_key)):
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        existing = await qdrant_store.get_vector(payload.id)
+        if existing is None:
+            err = build_error(
+                ErrorCode.DATA_NOT_FOUND,
+                stage="vector_delete",
+                message="Vector not found",
+                id=payload.id,
+            )
+            raise HTTPException(status_code=404, detail=err)
+        deleted = await qdrant_store.delete_vector(payload.id)
+        if deleted:
+            return VectorDeleteResponse(id=payload.id, status="deleted")
+        err = build_error(
+            ErrorCode.INTERNAL_ERROR,
+            stage="vector_delete",
+            message="Delete failed",
+            id=payload.id,
+        )
+        raise HTTPException(status_code=500, detail=err)
+
     from src.core.similarity import (  # type: ignore
         _BACKEND,
         _VECTOR_META,
@@ -373,6 +395,17 @@ async def register_vector_endpoint(
     payload: VectorRegisterRequest,
     api_key: str = Depends(get_api_key),
 ):
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        meta = dict(payload.meta or {})
+        meta.setdefault("total_dim", str(len(payload.vector)))
+        await qdrant_store.register_vector(payload.id, payload.vector, metadata=meta)
+        return VectorRegisterResponse(
+            id=payload.id,
+            status="accepted",
+            dimension=len(payload.vector),
+        )
+
     from src.core.similarity import FaissVectorStore, last_vector_error, register_vector
 
     meta = dict(payload.meta or {})
@@ -676,6 +709,105 @@ class VectorUpdateResponse(BaseModel):
 
 @router.post("/update", response_model=VectorUpdateResponse)
 async def update_vector(payload: VectorUpdateRequest, api_key: str = Depends(get_api_key)):
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is not None:
+        from src.utils.analysis_metrics import analysis_error_code_total
+
+        current = await qdrant_store.get_vector(payload.id)
+        if current is None:
+            err = build_error(
+                ErrorCode.DATA_NOT_FOUND,
+                stage="vector_update",
+                message="Vector not found",
+                id=payload.id,
+            )
+            analysis_error_code_total.labels(code=ErrorCode.DATA_NOT_FOUND.value).inc()
+            return VectorUpdateResponse(id=payload.id, status="not_found", error=err)
+
+        vec = list(current.vector or [])
+        meta = dict(current.metadata or {})
+        original_dim = len(vec)
+        enforce = __import__("os").getenv("ANALYSIS_VECTOR_DIM_CHECK", "0") == "1"
+        try:
+            if payload.replace is not None:
+                if len(payload.replace) != original_dim:
+                    if enforce:
+                        err = build_error(
+                            ErrorCode.DIMENSION_MISMATCH,
+                            stage="vector_update",
+                            message=f"Expected {original_dim}, got {len(payload.replace)}",
+                            id=payload.id,
+                            expected=original_dim,
+                            found=len(payload.replace),
+                        )
+                        analysis_error_code_total.labels(
+                            code=ErrorCode.DIMENSION_MISMATCH.value
+                        ).inc()
+                        from src.utils.analysis_metrics import vector_dimension_rejections_total
+
+                        vector_dimension_rejections_total.labels(
+                            reason="dimension_mismatch_replace"
+                        ).inc()
+                        raise HTTPException(status_code=409, detail=err)
+                    return VectorUpdateResponse(
+                        id=payload.id,
+                        status="dimension_mismatch",
+                        dimension=original_dim,
+                        error={
+                            "code": ErrorCode.DIMENSION_MISMATCH.value,
+                            "expected": original_dim,
+                            "found": len(payload.replace),
+                            "id": payload.id,
+                        },
+                    )
+                vec = [float(x) for x in payload.replace]
+            elif payload.append is not None:
+                if enforce and original_dim != 0:
+                    new_dim = original_dim + len(payload.append)
+                    if new_dim != original_dim:
+                        err = build_error(
+                            ErrorCode.DIMENSION_MISMATCH,
+                            stage="vector_update",
+                            message=f"Append changes dimension {original_dim}->{new_dim}",
+                            id=payload.id,
+                            expected=original_dim,
+                            found=new_dim,
+                        )
+                        analysis_error_code_total.labels(
+                            code=ErrorCode.DIMENSION_MISMATCH.value
+                        ).inc()
+                        from src.utils.analysis_metrics import vector_dimension_rejections_total
+
+                        vector_dimension_rejections_total.labels(
+                            reason="dimension_mismatch_append"
+                        ).inc()
+                        raise HTTPException(status_code=409, detail=err)
+                vec = vec + [float(float(x)) for x in payload.append]
+
+            if payload.material is not None:
+                meta["material"] = payload.material
+            if payload.complexity is not None:
+                meta["complexity"] = payload.complexity
+            if payload.format is not None:
+                meta["format"] = payload.format
+            meta["total_dim"] = str(len(vec))
+
+            await qdrant_store.register_vector(payload.id, vec, metadata=meta)
+            return VectorUpdateResponse(
+                id=payload.id,
+                status="updated",
+                dimension=len(vec),
+                feature_version=meta.get("feature_version"),
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            err = build_error(
+                ErrorCode.INTERNAL_ERROR, stage="vector_update", message=str(e), id=payload.id
+            )
+            analysis_error_code_total.labels(code=ErrorCode.INTERNAL_ERROR.value).inc()
+            return VectorUpdateResponse(id=payload.id, status="error", error=err)
+
     from src.core.similarity import _VECTOR_META, _VECTOR_STORE  # type: ignore
     from src.utils.analysis_metrics import analysis_error_code_total
 
