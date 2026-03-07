@@ -54,6 +54,23 @@ def test_export_review_pack_preserves_explanation_context(tmp_path: Path) -> Non
                 "hybrid_explanation_summary": "综合 文件名, 标题栏, 历史序列 多源信息，融合得出 人孔",
                 "fusion_consistency_check": "high",
                 "fusion_consistency_notes": "知识规则与细分类预测冲突",
+                "knowledge_checks": json.dumps(
+                    [
+                        {"category": "material", "item": "304"},
+                        {"category": "surface_finish", "item": "Ra3.2"},
+                    ],
+                    ensure_ascii=False,
+                ),
+                "standards_candidates": json.dumps(
+                    [
+                        {"type": "material", "designation": "304"},
+                        {"type": "surface_finish", "designation": "Ra 3.2"},
+                    ],
+                    ensure_ascii=False,
+                ),
+                "knowledge_hints": json.dumps(
+                    [{"label": "人孔", "score": 0.92}], ensure_ascii=False
+                ),
             }
         ],
     )
@@ -89,9 +106,14 @@ def test_export_review_pack_preserves_explanation_context(tmp_path: Path) -> Non
     assert rows[0]["review_has_knowledge_conflict"] == "True"
     assert rows[0]["review_knowledge_conflict"] == "high"
     assert rows[0]["review_knowledge_conflict_note"] == "知识规则与细分类预测冲突"
+    assert rows[0]["review_knowledge_check_categories"] == "material;surface_finish"
+    assert rows[0]["review_standard_candidate_types"] == "material;surface_finish"
+    assert rows[0]["review_knowledge_hint_labels"] == "人孔"
 
     summary = json.loads(summary_json.read_text(encoding="utf-8"))
     assert summary["knowledge_conflict_count"] == 1
+    assert summary["knowledge_check_row_count"] == 1
+    assert summary["standards_candidate_row_count"] == 1
     assert summary["top_coarse_labels"][0] == {"name": "传动件", "count": 1}
     assert summary["top_fine_labels"][0] == {"name": "人孔", "count": 1}
     assert summary["top_rejection_reasons"][0] == {
@@ -99,6 +121,15 @@ def test_export_review_pack_preserves_explanation_context(tmp_path: Path) -> Non
         "count": 1,
     }
     assert summary["top_knowledge_conflicts"][0] == {"name": "high", "count": 1}
+    assert summary["top_knowledge_check_categories"][0] == {
+        "name": "material",
+        "count": 1,
+    }
+    assert summary["top_standard_candidate_types"][0] == {
+        "name": "material",
+        "count": 1,
+    }
+    assert summary["top_knowledge_hint_labels"][0] == {"name": "人孔", "count": 1}
     assert summary["top_primary_sources"][0] == {"name": "filename", "count": 1}
     assert summary["top_shadow_sources"][0] == {
         "name": "history_sequence",
@@ -110,4 +141,11 @@ def test_export_review_pack_preserves_explanation_context(tmp_path: Path) -> Non
     assert summary["sample_candidates"][0]["fine_label"] == "人孔"
     assert summary["sample_candidates"][0]["rejection_reason"] == "below_min_confidence"
     assert summary["sample_candidates"][0]["knowledge_conflict"] == "high"
+    assert summary["sample_candidates"][0]["knowledge_check_categories"] == (
+        "material;surface_finish"
+    )
+    assert summary["sample_candidates"][0]["standard_candidate_types"] == (
+        "material;surface_finish"
+    )
+    assert summary["sample_candidates"][0]["knowledge_hint_labels"] == "人孔"
     assert summary["sample_candidates"][0]["shadow_sources"] == "history_sequence"

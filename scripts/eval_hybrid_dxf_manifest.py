@@ -178,6 +178,43 @@ def _json_cell(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True)
 
 
+def _json_list_cell(value: Any) -> str:
+    if not isinstance(value, list) or not value:
+        return ""
+    return json.dumps(value, ensure_ascii=False, sort_keys=True)
+
+
+def _collect_knowledge_fields(results_payload: Dict[str, Any]) -> Dict[str, Any]:
+    classification = results_payload.get("classification", {}) or {}
+    knowledge_checks = classification.get("knowledge_checks") or []
+    violations = classification.get("violations") or []
+    standards_candidates = classification.get("standards_candidates") or []
+    knowledge_hints = classification.get("knowledge_hints") or []
+
+    def _token_join(items: Any, key: str) -> str:
+        if not isinstance(items, list):
+            return ""
+        tokens: List[str] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            token = str(item.get(key) or "").strip()
+            if token:
+                tokens.append(token)
+        return ";".join(tokens)
+
+    return {
+        "knowledge_checks": _json_list_cell(knowledge_checks),
+        "violations": _json_list_cell(violations),
+        "standards_candidates": _json_list_cell(standards_candidates),
+        "knowledge_hints": _json_list_cell(knowledge_hints),
+        "knowledge_check_categories": _token_join(knowledge_checks, "category"),
+        "knowledge_violation_categories": _token_join(violations, "category"),
+        "knowledge_standard_types": _token_join(standards_candidates, "type"),
+        "knowledge_hint_labels": _token_join(knowledge_hints, "label"),
+    }
+
+
 def _collect_prep_fields(results_payload: Dict[str, Any]) -> Dict[str, Any]:
     from src.ml.vision_3d import prepare_brep_features_for_report
 
@@ -252,8 +289,74 @@ def _build_ok_row(case: EvalCase, results_payload: Dict[str, Any]) -> Dict[str, 
             (classification.get("hybrid_explanation") or {}).get("summary")
         ),
     }
+    row.update(_collect_knowledge_fields(results_payload))
     row.update(_collect_prep_fields(results_payload))
     return row
+
+
+def _summarize_knowledge_signals(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+    check_category_counts: Counter[str] = Counter()
+    violation_category_counts: Counter[str] = Counter()
+    standard_type_counts: Counter[str] = Counter()
+    hint_label_counts: Counter[str] = Counter()
+    rows_with_checks = 0
+    rows_with_violations = 0
+    rows_with_standards_candidates = 0
+    rows_with_hints = 0
+    total_checks = 0
+    total_violations = 0
+    total_standards_candidates = 0
+    total_hints = 0
+
+    for row in rows:
+        check_tokens = [
+            token for token in str(row.get("knowledge_check_categories") or "").split(";") if token
+        ]
+        violation_tokens = [
+            token
+            for token in str(row.get("knowledge_violation_categories") or "").split(";")
+            if token
+        ]
+        standard_tokens = [
+            token for token in str(row.get("knowledge_standard_types") or "").split(";") if token
+        ]
+        hint_tokens = [
+            token for token in str(row.get("knowledge_hint_labels") or "").split(";") if token
+        ]
+        if check_tokens:
+            rows_with_checks += 1
+            total_checks += len(check_tokens)
+            check_category_counts.update(check_tokens)
+        if violation_tokens:
+            rows_with_violations += 1
+            total_violations += len(violation_tokens)
+            violation_category_counts.update(violation_tokens)
+        if standard_tokens:
+            rows_with_standards_candidates += 1
+            total_standards_candidates += len(standard_tokens)
+            standard_type_counts.update(standard_tokens)
+        if hint_tokens:
+            rows_with_hints += 1
+            total_hints += len(hint_tokens)
+            hint_label_counts.update(hint_tokens)
+
+    def _top(counter: Counter[str]) -> Dict[str, int]:
+        return {name: int(count) for name, count in counter.most_common(10)}
+
+    return {
+        "rows_with_checks": rows_with_checks,
+        "rows_with_violations": rows_with_violations,
+        "rows_with_standards_candidates": rows_with_standards_candidates,
+        "rows_with_hints": rows_with_hints,
+        "total_checks": total_checks,
+        "total_violations": total_violations,
+        "total_standards_candidates": total_standards_candidates,
+        "total_hints": total_hints,
+        "top_check_categories": _top(check_category_counts),
+        "top_violation_categories": _top(violation_category_counts),
+        "top_standard_types": _top(standard_type_counts),
+        "top_hint_labels": _top(hint_label_counts),
+    }
 
 
 def _summarize_prep_signals(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
@@ -466,6 +569,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             "hybrid_label": _confidence_stats(ok_rows, "hybrid_confidence"),
             "fine_part_type": _confidence_stats(ok_rows, "fine_confidence"),
         },
+        "knowledge_signals": _summarize_knowledge_signals(ok_rows),
         "prep_signals": _summarize_prep_signals(ok_rows),
     }
     (out_dir / "summary.json").write_text(

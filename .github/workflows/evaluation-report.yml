@@ -430,11 +430,16 @@ jobs:
             f.write(f"conflict_count={payload.get('conflict_count', 0)}\n")
             f.write(f"low_confidence_count={payload.get('low_confidence_count', 0)}\n")
             f.write(f"knowledge_conflict_count={payload.get('knowledge_conflict_count', 0)}\n")
+            f.write(f"knowledge_check_row_count={payload.get('knowledge_check_row_count', 0)}\n")
+            f.write(f"standards_candidate_row_count={payload.get('standards_candidate_row_count', 0)}\n")
             f.write(f"top_review_reasons={compact_named(payload.get('top_review_reasons'))}\n")
             f.write(f"top_coarse_labels={compact_named(payload.get('top_coarse_labels'))}\n")
             f.write(f"top_fine_labels={compact_named(payload.get('top_fine_labels'))}\n")
             f.write(f"top_rejection_reasons={compact_named(payload.get('top_rejection_reasons'))}\n")
             f.write(f"top_knowledge_conflicts={compact_named(payload.get('top_knowledge_conflicts'))}\n")
+            f.write(f"top_knowledge_check_categories={compact_named(payload.get('top_knowledge_check_categories'))}\n")
+            f.write(f"top_standard_candidate_types={compact_named(payload.get('top_standard_candidate_types'))}\n")
+            f.write(f"top_knowledge_hint_labels={compact_named(payload.get('top_knowledge_hint_labels'))}\n")
             f.write(f"top_primary_sources={compact_named(payload.get('top_primary_sources'))}\n")
             f.write(f"top_shadow_sources={compact_named(payload.get('top_shadow_sources'))}\n")
             f.write(f"sample_explanations={compact_texts(payload.get('sample_explanations'))}\n")
@@ -811,11 +816,16 @@ jobs:
           echo "- Graph2D review conflicts: ${{ steps.graph2d_review_pack.outputs.conflict_count }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review low_confidence: ${{ steps.graph2d_review_pack.outputs.low_confidence_count }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review knowledge_conflicts: ${{ steps.graph2d_review_pack.outputs.knowledge_conflict_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D review knowledge rows: ${{ steps.graph2d_review_pack.outputs.knowledge_check_row_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D review standards rows: ${{ steps.graph2d_review_pack.outputs.standards_candidate_row_count }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review top reasons: ${{ steps.graph2d_review_pack.outputs.top_review_reasons }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review coarse labels: ${{ steps.graph2d_review_pack.outputs.top_coarse_labels }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review fine labels: ${{ steps.graph2d_review_pack.outputs.top_fine_labels }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review rejection reasons: ${{ steps.graph2d_review_pack.outputs.top_rejection_reasons }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review knowledge conflict details: ${{ steps.graph2d_review_pack.outputs.top_knowledge_conflicts }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D review knowledge categories: ${{ steps.graph2d_review_pack.outputs.top_knowledge_check_categories }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D review standard candidates: ${{ steps.graph2d_review_pack.outputs.top_standard_candidate_types }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Graph2D review knowledge hints: ${{ steps.graph2d_review_pack.outputs.top_knowledge_hint_labels }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review top sources: ${{ steps.graph2d_review_pack.outputs.top_primary_sources }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review shadow sources: ${{ steps.graph2d_review_pack.outputs.top_shadow_sources }}" >> $GITHUB_STEP_SUMMARY
           echo "- Graph2D review example explanations: ${{ steps.graph2d_review_pack.outputs.sample_explanations }}" >> $GITHUB_STEP_SUMMARY
@@ -887,6 +897,8 @@ jobs:
             const reviewTopReasons = '${{ steps.graph2d_review_pack.outputs.top_review_reasons }}';
             const reviewTopSources = '${{ steps.graph2d_review_pack.outputs.top_primary_sources }}';
             const reviewTopShadowSources = '${{ steps.graph2d_review_pack.outputs.top_shadow_sources }}';
+            const reviewTopKnowledgeCategories = '${{ steps.graph2d_review_pack.outputs.top_knowledge_check_categories }}';
+            const reviewTopStandardTypes = '${{ steps.graph2d_review_pack.outputs.top_standard_candidate_types }}';
             const reviewExampleExplanations = '${{ steps.graph2d_review_pack.outputs.sample_explanations }}';
             const reviewGateStatusRaw = '${{ steps.graph2d_review_gate.outputs.status }}';
             const reviewGateExitCode = '${{ steps.graph2d_review_gate.outputs.exit_code }}';
@@ -908,7 +920,7 @@ jobs:
               ? `🧪 input=${reviewInputCsv} (source=${reviewInputSource || 'unknown'}), candidates=${reviewCandidates}, rejected=${reviewRejected}, conflict=${reviewConflicts}`
               : '⏭️ skipped';
             const reviewPackInsights = reviewPackEnabled
-              ? `reasons=${reviewTopReasons || 'n/a'}, sources=${reviewTopSources || 'n/a'}, shadow=${reviewTopShadowSources || 'n/a'}, examples=${reviewExampleExplanations || 'n/a'}`
+              ? `reasons=${reviewTopReasons || 'n/a'}, knowledge=${reviewTopKnowledgeCategories || 'n/a'}, standards=${reviewTopStandardTypes || 'n/a'}, sources=${reviewTopSources || 'n/a'}, shadow=${reviewTopShadowSources || 'n/a'}, examples=${reviewExampleExplanations || 'n/a'}`
               : '⏭️ skipped';
             const reviewGateStatus = reviewGateEnabled
               ? `${reviewGateStatusRaw} (exit=${reviewGateExitCode}, headline=${reviewGateHeadline || 'n/a'})`

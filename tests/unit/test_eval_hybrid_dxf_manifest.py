@@ -5,6 +5,7 @@ from scripts.eval_hybrid_dxf_manifest import (
     EvalCase,
     _build_ok_row,
     _load_manifest_cases,
+    _summarize_knowledge_signals,
     _score_rows,
     _summarize_prep_signals,
 )
@@ -112,6 +113,21 @@ def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> N
                 "resolved": True,
                 "source": "sidecar_exact",
             },
+            "knowledge_checks": [
+                {"category": "thread_standard", "item": "M8", "status": "ok"},
+                {"category": "surface_finish", "item": "Ra3.2", "status": "ok"},
+            ],
+            "violations": [
+                {"category": "knowledge_conflict", "severity": "warn"},
+            ],
+            "standards_candidates": [
+                {"type": "metric_thread", "designation": "M8"},
+                {"type": "surface_finish", "designation": "Ra 3.2"},
+            ],
+            "knowledge_hints": [
+                {"label": "轴承件", "score": 0.8},
+                {"label": "传动件", "score": 0.3},
+            ],
         },
         "features_3d": {
             "valid_3d": True,
@@ -127,6 +143,11 @@ def test_build_ok_row_includes_history_and_brep_prep_fields(tmp_path: Path) -> N
     assert row["history_used_for_fusion"] is False
     assert row["history_input_resolved"] is True
     assert row["history_input_source"] == "sidecar_exact"
+    assert json.loads(row["knowledge_checks"])[0]["category"] == "thread_standard"
+    assert row["knowledge_check_categories"] == "thread_standard;surface_finish"
+    assert row["knowledge_violation_categories"] == "knowledge_conflict"
+    assert row["knowledge_standard_types"] == "metric_thread;surface_finish"
+    assert row["knowledge_hint_labels"] == "轴承件;传动件"
     assert row["brep_valid_3d"] is True
     assert row["brep_faces"] == 20
     assert row["brep_primary_surface_type"] == "cylinder"
@@ -179,3 +200,35 @@ def test_summarize_prep_signals_counts_history_and_brep_rows() -> None:
     assert summary["brep_valid_3d_count"] == 2
     assert summary["brep_feature_hints_count"] == 2
     assert summary["brep_top_hint_counts"] == {"shaft": 1, "bearing": 1}
+
+
+def test_summarize_knowledge_signals_counts_categories_and_candidates() -> None:
+    summary = _summarize_knowledge_signals(
+        [
+            {
+                "knowledge_check_categories": "thread_standard;surface_finish",
+                "knowledge_violation_categories": "knowledge_conflict",
+                "knowledge_standard_types": "metric_thread;surface_finish",
+                "knowledge_hint_labels": "轴类;传动件",
+            },
+            {
+                "knowledge_check_categories": "general_tolerance",
+                "knowledge_violation_categories": "",
+                "knowledge_standard_types": "general_tolerance",
+                "knowledge_hint_labels": "壳体类",
+            },
+        ]
+    )
+
+    assert summary["rows_with_checks"] == 2
+    assert summary["rows_with_violations"] == 1
+    assert summary["rows_with_standards_candidates"] == 2
+    assert summary["rows_with_hints"] == 2
+    assert summary["total_checks"] == 3
+    assert summary["total_violations"] == 1
+    assert summary["total_standards_candidates"] == 3
+    assert summary["total_hints"] == 3
+    assert summary["top_check_categories"]["thread_standard"] == 1
+    assert summary["top_standard_types"]["general_tolerance"] == 1
+    assert summary["top_violation_categories"]["knowledge_conflict"] == 1
+    assert summary["top_hint_labels"]["轴类"] == 1

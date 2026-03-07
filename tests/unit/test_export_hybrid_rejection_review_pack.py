@@ -45,6 +45,13 @@ def test_export_review_pack_filters_and_ranks(tmp_path: Path) -> None:
                 "hybrid_label": "",
                 "hybrid_rejected": "true",
                 "hybrid_rejection_reason": "below_min_confidence",
+                "knowledge_checks": json.dumps(
+                    [{"category": "thread_standard"}, {"category": "surface_finish"}],
+                    ensure_ascii=False,
+                ),
+                "standards_candidates": json.dumps(
+                    [{"type": "metric_thread"}], ensure_ascii=False
+                ),
             },
             {
                 "status": "ok",
@@ -105,6 +112,8 @@ def test_export_review_pack_filters_and_ranks(tmp_path: Path) -> None:
     assert summary["candidate_rows"] == 3
     assert summary["hybrid_rejected_count"] == 1
     assert summary["knowledge_conflict_count"] == 0
+    assert summary["knowledge_check_row_count"] == 1
+    assert summary["standards_candidate_row_count"] == 1
     top_reason_names = {item["name"] for item in summary["top_review_reasons"]}
     assert "hybrid_rejected:below_min_confidence" in top_reason_names
     assert "low_confidence" in top_reason_names
@@ -114,5 +123,12 @@ def test_export_review_pack_filters_and_ranks(tmp_path: Path) -> None:
     assert top_fine_names == {"壳体类", "人孔"}
     assert summary["top_rejection_reasons"] == [
         {"name": "below_min_confidence", "count": 1}
+    ]
+    assert summary["top_knowledge_check_categories"][0] == {
+        "name": "thread_standard",
+        "count": 1,
+    }
+    assert summary["top_standard_candidate_types"] == [
+        {"name": "metric_thread", "count": 1}
     ]
     assert summary["top_primary_sources"] == []
