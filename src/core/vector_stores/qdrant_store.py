@@ -25,6 +25,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
+from src.core.similarity import extract_vector_label_contract
+
 logger = logging.getLogger(__name__)
 
 # Conditional import for Qdrant
@@ -159,16 +161,19 @@ class QdrantVectorStore:
             )
 
             # Create payload indexes for common filters
-            self.client.create_payload_index(
-                collection_name=self.config.collection_name,
-                field_name="material",
-                field_schema=models.PayloadSchemaType.KEYWORD,
-            )
-            self.client.create_payload_index(
-                collection_name=self.config.collection_name,
-                field_name="category",
-                field_schema=models.PayloadSchemaType.KEYWORD,
-            )
+            for keyword_field in (
+                "material",
+                "category",
+                "part_type",
+                "fine_part_type",
+                "coarse_part_type",
+                "decision_source",
+            ):
+                self.client.create_payload_index(
+                    collection_name=self.config.collection_name,
+                    field_name=keyword_field,
+                    field_schema=models.PayloadSchemaType.KEYWORD,
+                )
             self.client.create_payload_index(
                 collection_name=self.config.collection_name,
                 field_name="created_at",
@@ -176,6 +181,18 @@ class QdrantVectorStore:
             )
 
         self._initialized = True
+
+    @staticmethod
+    def _normalize_payload_metadata(metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        payload = metadata.copy() if metadata else {}
+        contract = extract_vector_label_contract(payload)
+        for key, value in contract.items():
+            if value is None:
+                continue
+            payload[key] = value
+        if contract.get("decision_source") and "final_decision_source" not in payload:
+            payload["final_decision_source"] = contract["decision_source"]
+        return payload
 
     def health_check(self) -> bool:
         """Check if Qdrant is healthy and accessible.
@@ -220,7 +237,7 @@ class QdrantVectorStore:
         self._ensure_collection()
 
         # Add timestamp if not present
-        payload = metadata.copy() if metadata else {}
+        payload = self._normalize_payload_metadata(metadata)
         if "created_at" not in payload:
             payload["created_at"] = datetime.utcnow().isoformat()
 
@@ -263,7 +280,7 @@ class QdrantVectorStore:
             points = []
 
             for vector_id, vector, metadata in batch:
-                payload = metadata.copy() if metadata else {}
+                payload = self._normalize_payload_metadata(metadata)
                 if "created_at" not in payload:
                     payload["created_at"] = datetime.utcnow().isoformat()
 
@@ -485,6 +502,7 @@ class QdrantVectorStore:
         self._ensure_collection()
 
         try:
+            metadata = self._normalize_payload_metadata(metadata)
             self.client.set_payload(
                 collection_name=self.config.collection_name,
                 payload=metadata,

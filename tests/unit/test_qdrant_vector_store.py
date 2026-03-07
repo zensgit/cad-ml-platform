@@ -163,6 +163,30 @@ class TestQdrantVectorStore:
         result = vector_store.health_check()
         assert result is False
 
+    def test_ensure_collection_creates_coarse_contract_indexes(self):
+        """Test collection setup creates coarse/fine metadata indexes."""
+        from src.core.vector_stores.qdrant_store import QdrantVectorStore
+
+        with patch("src.core.vector_stores.qdrant_store.QdrantClient") as mock:
+            client_instance = MagicMock()
+            client_instance.get_collections.return_value.collections = []
+            mock.return_value = client_instance
+
+            store = QdrantVectorStore()
+            store._client = client_instance
+            store._ensure_collection()
+
+        indexed_fields = {
+            call.kwargs["field_name"]
+            for call in client_instance.create_payload_index.call_args_list
+        }
+        assert {
+            "part_type",
+            "fine_part_type",
+            "coarse_part_type",
+            "decision_source",
+        } <= indexed_fields
+
     @pytest.mark.asyncio
     async def test_register_vector(self, vector_store, mock_qdrant_client):
         """Test vector registration."""
@@ -171,11 +195,19 @@ class TestQdrantVectorStore:
         result = await vector_store.register_vector(
             vector_id="doc-123",
             vector=[0.1, 0.2, 0.3],
-            metadata={"material": "steel"},
+            metadata={
+                "material": "steel",
+                "part_type": "人孔",
+                "final_decision_source": "hybrid",
+            },
         )
 
         assert result is True
         mock_qdrant_client.upsert.assert_called_once()
+        points = mock_qdrant_client.upsert.call_args.kwargs["points"]
+        assert points[0].payload["fine_part_type"] == "人孔"
+        assert points[0].payload["coarse_part_type"] == "开孔件"
+        assert points[0].payload["decision_source"] == "hybrid"
 
     @pytest.mark.asyncio
     async def test_register_vector_adds_timestamp(self, vector_store, mock_qdrant_client):
@@ -287,7 +319,11 @@ class TestQdrantVectorStore:
         vector_store._initialized = True
 
         vectors = [
-            ("doc-1", [0.1, 0.2], {"material": "steel"}),
+            (
+                "doc-1",
+                [0.1, 0.2],
+                {"material": "steel", "part_type": "人孔", "final_decision_source": "hybrid"},
+            ),
             ("doc-2", [0.3, 0.4], {"material": "aluminum"}),
             ("doc-3", [0.5, 0.6], {"material": "copper"}),
         ]
@@ -297,6 +333,29 @@ class TestQdrantVectorStore:
         assert result == 3
         # Should have 2 batch calls (2 vectors + 1 vector)
         assert mock_qdrant_client.upsert.call_count == 2
+        first_batch_points = mock_qdrant_client.upsert.call_args_list[0].kwargs["points"]
+        assert first_batch_points[0].payload["coarse_part_type"] == "开孔件"
+        assert first_batch_points[0].payload["decision_source"] == "hybrid"
+
+    @pytest.mark.asyncio
+    async def test_update_metadata_normalizes_coarse_contract(
+        self,
+        vector_store,
+        mock_qdrant_client,
+    ):
+        """Test metadata updates preserve coarse/fine contract fields."""
+        vector_store._initialized = True
+
+        result = await vector_store.update_metadata(
+            "doc-123",
+            {"part_type": "人孔", "final_decision_source": "hybrid"},
+        )
+
+        assert result is True
+        payload = mock_qdrant_client.set_payload.call_args.kwargs["payload"]
+        assert payload["fine_part_type"] == "人孔"
+        assert payload["coarse_part_type"] == "开孔件"
+        assert payload["decision_source"] == "hybrid"
 
     def test_close(self, vector_store, mock_qdrant_client):
         """Test closing the client connection."""
