@@ -61,7 +61,9 @@ def test_export_training_data_keeps_score_breakdown_and_uncertainty_reason(
         payload = json.loads(handle.readline())
 
     assert payload["doc_id"] == "doc-context-1"
+    assert payload["predicted_fine_type"] == "人孔"
     assert payload["predicted_coarse_type"] == "开孔件"
+    assert payload["predicted_is_coarse_label"] is False
     assert payload["true_type"] == "人孔"
     assert payload["true_fine_type"] == "人孔"
     assert payload["true_coarse_type"] == "开孔件"
@@ -105,7 +107,9 @@ def test_export_training_data_marks_low_confidence_feedback_priority(
 
     assert payload["sample_type"] == "low_confidence"
     assert payload["feedback_priority"] == "medium"
+    assert payload["predicted_fine_type"] == "壳体类"
     assert payload["predicted_coarse_type"] == "壳体类"
+    assert payload["predicted_is_coarse_label"] is True
     assert payload["true_fine_type"] == "壳体类"
     assert payload["true_coarse_type"] == "壳体类"
     assert payload["true_is_coarse_label"] is True
@@ -138,7 +142,9 @@ def test_export_training_data_uses_review_governance_when_present(
 
     assert payload["sample_type"] == "knowledge_conflict"
     assert payload["feedback_priority"] == "critical"
+    assert payload["predicted_fine_type"] == "法兰"
     assert payload["predicted_coarse_type"] == "法兰"
+    assert payload["predicted_is_coarse_label"] is True
     assert payload["true_fine_type"] == "法兰"
     assert payload["true_coarse_type"] == "法兰"
     assert payload["true_is_coarse_label"] is True

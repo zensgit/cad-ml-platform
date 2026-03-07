@@ -35,6 +35,13 @@ class FeedbackResponse(BaseModel):
 
 class StatsResponse(BaseModel):
     stats: Dict[str, int]
+    sample_type_stats: Dict[str, int] = Field(default_factory=dict)
+    feedback_priority_stats: Dict[str, int] = Field(default_factory=dict)
+    predicted_coarse_stats: Dict[str, int] = Field(default_factory=dict)
+    predicted_fine_stats: Dict[str, int] = Field(default_factory=dict)
+    labeled_true_coarse_stats: Dict[str, int] = Field(default_factory=dict)
+    labeled_true_fine_stats: Dict[str, int] = Field(default_factory=dict)
+    correction_count: int = 0
     retrain_ready: bool
     labeled_samples: int
     threshold: int
@@ -95,10 +102,17 @@ async def submit_feedback(
 async def get_active_learning_stats(api_key: str = Depends(get_api_key)):
     """获取主动学习统计"""
     learner = get_active_learner()
-    stats = learner.get_stats()
+    summary = learner.get_stats_summary()
     retrain = learner.check_retrain_threshold()
     return StatsResponse(
-        stats=stats,
+        stats=summary.get("status", {}),
+        sample_type_stats=summary.get("sample_type", {}),
+        feedback_priority_stats=summary.get("feedback_priority", {}),
+        predicted_coarse_stats=summary.get("predicted_coarse_type", {}),
+        predicted_fine_stats=summary.get("predicted_fine_type", {}),
+        labeled_true_coarse_stats=summary.get("labeled_true_coarse_type", {}),
+        labeled_true_fine_stats=summary.get("labeled_true_fine_type", {}),
+        correction_count=int(summary.get("correction_count", 0)),
         retrain_ready=bool(retrain.get("ready")),
         labeled_samples=int(retrain.get("labeled_samples", 0)),
         threshold=int(retrain.get("threshold", 0)),
