@@ -148,6 +148,33 @@ def build_review_hints(
     if readiness_band == "low":
         review_reasons.append("low_readiness_score")
 
+    recommended_actions: List[str] = []
+
+    def _add_action(action: str) -> None:
+        if action not in recommended_actions:
+            recommended_actions.append(action)
+
+    if missing_critical_fields:
+        _add_action("fill_critical_title_block_fields")
+    if not has_identifiers:
+        _add_action("verify_or_extract_identifiers")
+    if not has_dimensions:
+        _add_action("verify_dimensions")
+    if not (has_process_requirements or has_standards_candidates or has_materials):
+        _add_action("extract_process_requirements")
+    if readiness_band == "low":
+        _add_action("manual_review_gate")
+
+    if missing_critical_fields or readiness_band == "low":
+        review_priority = "high"
+    elif review_reasons:
+        review_priority = "medium"
+    else:
+        review_priority = "low"
+
+    automation_ready = not review_reasons and readiness_band == "high"
+    primary_gap = review_reasons[0] if review_reasons else "ready"
+
     return {
         "critical_fields": list(CRITICAL_TITLE_BLOCK_FIELDS),
         "present_critical_fields": present_critical_fields,
@@ -159,6 +186,10 @@ def build_review_hints(
         "has_standards_candidates": has_standards_candidates,
         "review_recommended": bool(review_reasons),
         "review_reasons": review_reasons,
+        "primary_gap": primary_gap,
+        "review_priority": review_priority,
+        "automation_ready": automation_ready,
+        "recommended_actions": recommended_actions,
         "readiness_score": readiness_score,
         "readiness_band": readiness_band,
     }

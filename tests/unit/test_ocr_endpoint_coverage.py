@@ -134,6 +134,10 @@ class TestOcrResponseModel:
                 "has_standards_candidates": False,
                 "review_recommended": True,
                 "review_reasons": ["missing_critical_fields"],
+                "primary_gap": "missing_critical_fields",
+                "review_priority": "high",
+                "automation_ready": False,
+                "recommended_actions": ["fill_critical_title_block_fields"],
                 "readiness_score": 0.4,
                 "readiness_band": "low",
             },
@@ -147,6 +151,7 @@ class TestOcrResponseModel:
         assert response.field_coverage["recognized_count"] == 1
         assert response.engineering_signals["has_gdt"] is True
         assert response.review_hints["review_recommended"] is True
+        assert response.review_hints["review_priority"] == "high"
 
     def test_model_creation_failure(self):
         """Test OcrResponse model creation for failure case."""
@@ -211,6 +216,8 @@ class TestOcrExtractEndpoint:
             "material",
         ]
         assert response.review_hints["review_recommended"] is True
+        assert response.review_hints["primary_gap"] == "missing_critical_fields"
+        assert "fill_critical_title_block_fields" in response.review_hints["recommended_actions"]
 
     @pytest.mark.asyncio
     async def test_ocr_extract_idempotency_hit(self):

@@ -269,6 +269,12 @@ class VisionAnalyzeResponse(BaseModel):
                         "has_standards_candidates": False,
                         "review_recommended": True,
                         "review_reasons": ["missing_critical_fields"],
+                        "primary_gap": "missing_critical_fields",
+                        "review_priority": "high",
+                        "automation_ready": False,
+                        "recommended_actions": [
+                            "fill_critical_title_block_fields",
+                        ],
                         "readiness_score": 0.54,
                         "readiness_band": "medium",
                     },

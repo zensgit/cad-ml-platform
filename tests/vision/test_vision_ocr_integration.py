@@ -181,6 +181,8 @@ async def test_vision_ocr_integration_success(sample_image_base64, mock_ocr_mana
     assert response.ocr.engineering_signals["has_surface_finish"] is True
     assert response.ocr.review_hints["review_recommended"] is True
     assert "revision" in response.ocr.review_hints["missing_critical_fields"]
+    assert response.ocr.review_hints["review_priority"] == "high"
+    assert "fill_critical_title_block_fields" in response.ocr.review_hints["recommended_actions"]
 
     # Check confidence (should use calibrated_confidence if available)
     assert response.ocr.confidence == 0.91  # calibrated_confidence
