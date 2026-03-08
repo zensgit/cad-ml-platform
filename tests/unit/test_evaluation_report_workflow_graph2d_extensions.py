@@ -331,6 +331,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "ready_component_count=" in benchmark_knowledge_script
     assert "partial_component_count=" in benchmark_knowledge_script
     assert "missing_component_count=" in benchmark_knowledge_script
+    assert "focus_area_count=" in benchmark_knowledge_script
+    assert "focus_areas=" in benchmark_knowledge_script
     assert "recommendations=" in benchmark_knowledge_script
 
     final_fail_step = _get_step(
@@ -368,6 +370,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "qdrant_status=" in benchmark_script
     assert "knowledge_status=" in benchmark_script
     assert "knowledge_total_reference_items=" in benchmark_script
+    assert "knowledge_focus_area_count=" in benchmark_script
+    assert "knowledge_focus_areas=" in benchmark_script
     assert "engineering_status=" in benchmark_script
     assert "engineering_coverage_ratio=" in benchmark_script
     assert "engineering_top_standard_types=" in benchmark_script
@@ -706,6 +710,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Qdrant status" in summary_script
     assert "Benchmark knowledge readiness status" in summary_script
     assert "Benchmark knowledge reference items" in summary_script
+    assert "Benchmark knowledge focus areas" in summary_script
     assert "Benchmark engineering signals status" in summary_script
     assert "Benchmark engineering coverage ratio" in summary_script
     assert "Benchmark engineering standard types" in summary_script
@@ -782,8 +787,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark knowledge ready components" in summary_script
     assert "Benchmark knowledge partial components" in summary_script
     assert "Benchmark knowledge missing components" in summary_script
+    assert "Benchmark knowledge focus area count" in summary_script
     assert "Benchmark knowledge recommendations" in summary_script
     assert "Benchmark knowledge artifact" in summary_script
+    assert "Benchmark artifact bundle knowledge focus areas" in summary_script
+    assert "Benchmark companion knowledge focus areas" in summary_script
+    assert "Benchmark release knowledge focus areas" in summary_script
+    assert "Benchmark release runbook knowledge focus areas" in summary_script
     assert "Assistant evidence input" in summary_script
     assert "Assistant evidence records" in summary_script
     assert "Assistant evidence items" in summary_script
@@ -881,6 +891,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Feedback Flywheel" in pr_comment_script
     assert "Benchmark Engineering Signals" in pr_comment_script
     assert "Benchmark Knowledge Readiness" in pr_comment_script
+    assert "Benchmark Knowledge Focus Areas" in pr_comment_script
     assert "Benchmark Knowledge Recommendations" in pr_comment_script
     assert "Benchmark Engineering Recommendations" in pr_comment_script
     assert "Feedback Flywheel Artifact" in pr_comment_script
