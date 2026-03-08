@@ -183,6 +183,8 @@ env:
   BENCHMARK_SCORECARD_QDRANT_READINESS_JSON: ${{ vars.BENCHMARK_SCORECARD_QDRANT_READINESS_JSON }}
   BENCHMARK_SCORECARD_OUTPUT_JSON: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_scorecard.json' }}
   BENCHMARK_SCORECARD_OUTPUT_MD: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_scorecard.md' }}
+  FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON: ${{ vars.FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON || 'reports/history_sequence_eval/feedback_flywheel_benchmark.json' }}
+  FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD: ${{ vars.FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD || 'reports/history_sequence_eval/feedback_flywheel_benchmark.md' }}
   OCR_REVIEW_PACK_ENABLE: ${{ vars.OCR_REVIEW_PACK_ENABLE || 'false' }}
   OCR_REVIEW_PACK_INPUT: ${{ vars.OCR_REVIEW_PACK_INPUT }}
   OCR_REVIEW_PACK_OUTPUT_CSV: ${{ vars.OCR_REVIEW_PACK_OUTPUT_CSV || 'reports/history_sequence_eval/ocr_review_pack.csv' }}
@@ -884,6 +886,71 @@ jobs:
             f.write(f"recommendations={compact_recommendations}\n")
         PY
 
+    - name: Build feedback flywheel benchmark artifact (optional)
+      id: feedback_flywheel_benchmark
+      continue-on-error: true
+      run: |
+        OUTPUT_JSON="${FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON:-reports/history_sequence_eval/feedback_flywheel_benchmark.json}"
+        OUTPUT_MD="${FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD:-reports/history_sequence_eval/feedback_flywheel_benchmark.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_feedback_flywheel_benchmark.py
+          --title "Feedback Flywheel Benchmark"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --feedback-summary "${{ github.event.inputs.benchmark_scorecard_feedback_summary || '' }}"
+        add_if_exists --finetune-summary "${{ github.event.inputs.benchmark_scorecard_finetune_summary || '' }}"
+        add_if_exists --metric-train-summary "${{ github.event.inputs.benchmark_scorecard_metric_train_summary || '' }}"
+        add_if_exists --feedback-summary "${BENCHMARK_SCORECARD_FEEDBACK_SUMMARY_JSON:-}"
+        add_if_exists --finetune-summary "${BENCHMARK_SCORECARD_FINETUNE_SUMMARY_JSON:-}"
+        add_if_exists --metric-train-summary "${BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY_JSON:-}"
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No feedback flywheel inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON"]).read_text(
+                encoding="utf-8"
+            )
+        )
+        component = payload.get("feedback_flywheel") or {}
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={component.get('status', 'unknown')}\n")
+            f.write(f"feedback_total={component.get('feedback_total', 0)}\n")
+            f.write(f"correction_count={component.get('correction_count', 0)}\n")
+            f.write(
+                f"finetune_sample_count={component.get('finetune_sample_count', 0)}\n"
+            )
+            f.write(f"metric_triplet_count={component.get('metric_triplet_count', 0)}\n")
+        PY
+
     - name: Build assistant evidence report (optional)
       id: assistant_evidence_report
       continue-on-error: true
@@ -1222,6 +1289,16 @@ jobs:
           ${{ steps.benchmark_scorecard.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload feedback flywheel benchmark artifact
+      if: steps.feedback_flywheel_benchmark.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: feedback-flywheel-benchmark-${{ github.run_number }}
+        path: |
+          ${{ steps.feedback_flywheel_benchmark.outputs.output_json }}
+          ${{ steps.feedback_flywheel_benchmark.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload assistant evidence report
       if: steps.assistant_evidence_report.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -1384,6 +1461,16 @@ jobs:
           echo "- Benchmark scorecard artifact: ${{ steps.benchmark_scorecard.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Benchmark scorecard: skipped (BENCHMARK_SCORECARD_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.feedback_flywheel_benchmark.outputs.enabled }}" == "true" ]]; then
+          echo "- Feedback flywheel benchmark status: ${{ steps.feedback_flywheel_benchmark.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Feedback flywheel feedback total: ${{ steps.feedback_flywheel_benchmark.outputs.feedback_total }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Feedback flywheel corrections: ${{ steps.feedback_flywheel_benchmark.outputs.correction_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Feedback flywheel finetune samples: ${{ steps.feedback_flywheel_benchmark.outputs.finetune_sample_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Feedback flywheel metric triplets: ${{ steps.feedback_flywheel_benchmark.outputs.metric_triplet_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Feedback flywheel artifact: ${{ steps.feedback_flywheel_benchmark.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Feedback flywheel benchmark: skipped (no feedback/fine-tune/metric inputs)" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "${{ steps.assistant_evidence_report.outputs.enabled }}" == "true" ]]; then
           echo "- Assistant evidence input: ${{ steps.assistant_evidence_report.outputs.input_path }}" >> $GITHUB_STEP_SUMMARY
