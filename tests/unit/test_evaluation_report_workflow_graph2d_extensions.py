@@ -59,6 +59,11 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "OCR_REVIEW_PACK_OUTPUT_JSON" in env
     assert "OCR_REVIEW_PACK_TOP_K" in env
     assert "OCR_REVIEW_PACK_INCLUDE_READY" in env
+    assert "ASSISTANT_EVIDENCE_REPORT_ENABLE" in env
+    assert "ASSISTANT_EVIDENCE_REPORT_INPUT" in env
+    assert "ASSISTANT_EVIDENCE_REPORT_OUTPUT_CSV" in env
+    assert "ASSISTANT_EVIDENCE_REPORT_OUTPUT_JSON" in env
+    assert "ASSISTANT_EVIDENCE_REPORT_TOP_K" in env
 
     dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert "review_gate_min_total_rows" in dispatch_inputs
@@ -75,6 +80,8 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_scorecard_enable" in dispatch_inputs
     assert "ocr_review_pack_enable" in dispatch_inputs
     assert "ocr_review_pack_input" in dispatch_inputs
+    assert "assistant_evidence_report_enable" in dispatch_inputs
+    assert "assistant_evidence_report_input" in dispatch_inputs
     assert permissions["actions"] == "read"
 
 
@@ -174,6 +181,17 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--history-summary" in benchmark_script
     assert "overall_status=" in benchmark_script
 
+    assistant_step = _get_step(
+        workflow, "evaluate", "Build assistant evidence report (optional)"
+    )
+    assistant_script = assistant_step["run"]
+    assert "scripts/export_assistant_evidence_report.py" in assistant_script
+    assert "ASSISTANT_EVIDENCE_REPORT_ENABLE" in assistant_script
+    assert "assistant_evidence_report_input" in assistant_script
+    assert "average_evidence_count=" in assistant_script
+    assert "top_evidence_types=" in assistant_script
+    assert "top_missing_fields=" in assistant_script
+
 
 def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     workflow = _load_workflow()
@@ -186,6 +204,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
 
     upload_scorecard = _get_step(workflow, "evaluate", "Upload benchmark scorecard")
     assert upload_scorecard["if"] == "steps.benchmark_scorecard.outputs.enabled == 'true'"
+    upload_assistant = _get_step(workflow, "evaluate", "Upload assistant evidence report")
+    assert (
+        upload_assistant["if"]
+        == "steps.assistant_evidence_report.outputs.enabled == 'true'"
+    )
     upload_ocr_review = _get_step(workflow, "evaluate", "Upload OCR review pack")
     assert upload_ocr_review["if"] == "steps.ocr_review_pack.outputs.enabled == 'true'"
 
@@ -218,6 +241,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark hybrid status" in summary_script
     assert "Benchmark Graph2D status" in summary_script
     assert "Benchmark recommendations" in summary_script
+    assert "Assistant evidence input" in summary_script
+    assert "Assistant evidence records" in summary_script
+    assert "Assistant evidence items" in summary_script
+    assert "Assistant record kinds" in summary_script
+    assert "Assistant evidence types" in summary_script
+    assert "Assistant missing fields" in summary_script
     assert "OCR review pack input" in summary_script
     assert "OCR review pack exported" in summary_script
     assert "OCR review priorities" in summary_script
@@ -240,6 +269,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkScorecardEnabled" in pr_comment_script
     assert "Benchmark Scorecard" in pr_comment_script
     assert "Benchmark Recommendations" in pr_comment_script
+    assert "assistantEvidenceEnabled" in pr_comment_script
+    assert "Assistant Evidence Report" in pr_comment_script
+    assert "Assistant Evidence Insights" in pr_comment_script
     assert "ocrReviewPackEnabled" in pr_comment_script
     assert "OCR Review Pack" in pr_comment_script
     assert "OCR Review Insights" in pr_comment_script
