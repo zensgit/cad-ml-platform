@@ -19,6 +19,7 @@ CRITICAL_STATUSES = {
 REVIEW_STATUSES = {
     "attention_required",
     "gap_detected",
+    "knowledge_application_partial",
     "managed_backlog",
     "partial_coverage",
     "review_heavy",
@@ -89,7 +90,9 @@ def _component_statuses(
     benchmark_engineering_signals: Dict[str, Any],
     benchmark_realdata_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
+    benchmark_knowledge_application: Dict[str, Any] | None = None,
 ) -> Dict[str, str]:
+    benchmark_knowledge_application = benchmark_knowledge_application or {}
     scorecard_components = benchmark_scorecard.get("components") or {}
     operational_components = benchmark_operational_summary.get("component_statuses") or {}
     bundle_components = benchmark_artifact_bundle.get("component_statuses") or {}
@@ -107,6 +110,11 @@ def _component_statuses(
     realdata_component = (
         benchmark_realdata_signals.get("realdata_signals")
         or benchmark_realdata_signals
+        or {}
+    )
+    knowledge_application_component = (
+        benchmark_knowledge_application.get("knowledge_application")
+        or benchmark_knowledge_application
         or {}
     )
     drift_component = (
@@ -169,6 +177,13 @@ def _component_statuses(
             companion_components.get("operator_adoption")
             or bundle_components.get("operator_adoption")
             or benchmark_operator_adoption.get("adoption_readiness")
+            or "unknown"
+        ),
+        "knowledge_application": str(
+            companion_components.get("knowledge_application")
+            or bundle_components.get("knowledge_application")
+            or knowledge_application_component.get("status")
+            or (scorecard_components.get("knowledge_application") or {}).get("status")
             or "unknown"
         ),
     }
@@ -236,6 +251,16 @@ def _knowledge_review_signals(
     if status in {"knowledge_foundation_ready", "unknown", ""}:
         return []
     return _compact(benchmark_knowledge_readiness.get("recommendations") or [], limit=6)
+
+
+def _knowledge_application_review_signals(
+    benchmark_knowledge_application: Dict[str, Any],
+    component_statuses: Dict[str, str],
+) -> List[str]:
+    status = str(component_statuses.get("knowledge_application") or "").strip()
+    if status in {"knowledge_application_ready", "unknown", ""}:
+        return []
+    return _compact(benchmark_knowledge_application.get("recommendations") or [], limit=6)
 
 
 def _knowledge_drift_summary(status: str, counts: Dict[str, int]) -> str:
@@ -372,7 +397,9 @@ def build_release_decision(
     benchmark_realdata_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
     artifact_paths: Dict[str, str],
+    benchmark_knowledge_application: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
+    benchmark_knowledge_application = benchmark_knowledge_application or {}
     component_statuses = _component_statuses(
         benchmark_scorecard,
         benchmark_operational_summary,
@@ -383,11 +410,17 @@ def build_release_decision(
         benchmark_engineering_signals,
         benchmark_realdata_signals,
         benchmark_operator_adoption,
+        benchmark_knowledge_application,
     )
     knowledge_drift = _knowledge_drift_payload(benchmark_knowledge_drift)
     realdata_component = (
         benchmark_realdata_signals.get("realdata_signals")
         or benchmark_realdata_signals
+        or {}
+    )
+    knowledge_application_component = (
+        benchmark_knowledge_application.get("knowledge_application")
+        or benchmark_knowledge_application
         or {}
     )
     knowledge_focus_areas = list(
@@ -411,6 +444,13 @@ def build_release_decision(
         knowledge_root.get("domain_focus_areas") or []
     )
     knowledge_priority_domains = list(knowledge_root.get("priority_domains") or [])
+    knowledge_application_focus_areas = list(
+        knowledge_application_component.get("focus_areas_detail") or []
+    )
+    knowledge_application_domains = knowledge_application_component.get("domains") or {}
+    knowledge_application_priority_domains = list(
+        knowledge_application_component.get("priority_domains") or []
+    )
     blockers = _compact(
         benchmark_companion_summary.get("blockers")
         or benchmark_artifact_bundle.get("blockers")
@@ -451,6 +491,14 @@ def build_release_decision(
         item
         for item in _knowledge_review_signals(
             benchmark_knowledge_readiness,
+            component_statuses,
+        )
+        if item not in review_signals
+    )
+    review_signals.extend(
+        item
+        for item in _knowledge_application_review_signals(
+            benchmark_knowledge_application,
             component_statuses,
         )
         if item not in review_signals
@@ -527,6 +575,16 @@ def build_release_decision(
         "knowledge_domains": knowledge_domains,
         "knowledge_domain_focus_areas": knowledge_domain_focus_areas,
         "knowledge_priority_domains": knowledge_priority_domains,
+        "knowledge_application_status": knowledge_application_component.get("status")
+        or "unknown",
+        "knowledge_application": knowledge_application_component,
+        "knowledge_application_focus_areas": knowledge_application_focus_areas,
+        "knowledge_application_domains": knowledge_application_domains,
+        "knowledge_application_priority_domains": knowledge_application_priority_domains,
+        "knowledge_application_recommendations": _compact(
+            benchmark_knowledge_application.get("recommendations") or [],
+            limit=6,
+        ),
         "blocking_signals": blockers,
         "review_signals": review_signals,
         "artifacts": {
@@ -565,6 +623,10 @@ def build_release_decision(
                 "benchmark_operator_adoption",
                 artifact_paths.get("benchmark_operator_adoption", ""),
             ),
+            "benchmark_knowledge_application": _artifact_row(
+                "benchmark_knowledge_application",
+                artifact_paths.get("benchmark_knowledge_application", ""),
+            ),
         },
     }
 
@@ -589,6 +651,10 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     lines.append(
         f"- `operator_adoption_knowledge_drift_summary`: "
         f"{drift.get('summary') or 'none'}"
+    )
+    lines.append(
+        f"- `knowledge_application_status`: "
+        f"`{payload.get('knowledge_application_status') or 'unknown'}`"
     )
     lines.append(f"- `realdata_status`: `{payload.get('realdata_status')}`")
     lines.extend(["", "## Blocking Signals", ""])
@@ -677,6 +743,29 @@ def render_markdown(payload: Dict[str, Any]) -> str:
             )
     else:
         lines.append("- none")
+    lines.extend(["", "## Knowledge Application", ""])
+    knowledge_application_domains = payload.get("knowledge_application_domains") or {}
+    lines.append(
+        f"- `status`: `{payload.get('knowledge_application_status') or 'unknown'}`"
+    )
+    if knowledge_application_domains:
+        for name, row in knowledge_application_domains.items():
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"status=`{row.get('status')}` "
+                f"readiness=`{row.get('readiness_status')}` "
+                f"evidence=`{row.get('evidence_status')}` "
+                f"signal_count=`{row.get('signal_count')}`"
+            )
+    else:
+        lines.append("- none")
+    knowledge_application_recommendations = (
+        payload.get("knowledge_application_recommendations") or []
+    )
+    if knowledge_application_recommendations:
+        for item in knowledge_application_recommendations:
+            lines.append(f"- recommendation: {item}")
     lines.extend(["", "## Real-Data Signals", ""])
     realdata = payload.get("realdata_signals") or {}
     lines.append(f"- `status`: `{payload.get('realdata_status')}`")
@@ -720,6 +809,7 @@ def main() -> None:
     parser.add_argument("--benchmark-engineering-signals", default="")
     parser.add_argument("--benchmark-realdata-signals", default="")
     parser.add_argument("--benchmark-operator-adoption", default="")
+    parser.add_argument("--benchmark-knowledge-application", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -734,6 +824,7 @@ def main() -> None:
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
         "benchmark_realdata_signals": args.benchmark_realdata_signals,
         "benchmark_operator_adoption": args.benchmark_operator_adoption,
+        "benchmark_knowledge_application": args.benchmark_knowledge_application,
     }
     payload = build_release_decision(
         title=args.title,
@@ -757,6 +848,9 @@ def main() -> None:
         ),
         benchmark_operator_adoption=_maybe_load_json(
             args.benchmark_operator_adoption
+        ),
+        benchmark_knowledge_application=_maybe_load_json(
+            args.benchmark_knowledge_application
         ),
         artifact_paths=artifact_paths,
     )

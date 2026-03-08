@@ -91,6 +91,29 @@ def test_build_bundle_prefers_operational_summary() -> None:
             },
             "recommended_actions": ["Resolve operator blockers."],
         },
+        benchmark_knowledge_application={
+            "knowledge_application": {
+                "status": "knowledge_application_partial",
+                "priority_domains": ["standards"],
+                "domains": {
+                    "standards": {
+                        "status": "partial",
+                        "readiness_status": "missing",
+                        "evidence_status": "partial",
+                        "signal_count": 2,
+                    }
+                },
+                "focus_areas_detail": [
+                    {
+                        "domain": "standards",
+                        "status": "partial",
+                        "priority": "high",
+                        "action": "Promote standards evidence.",
+                    }
+                ],
+            },
+            "recommendations": ["Promote standards application evidence."],
+        },
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -102,7 +125,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
         },
     )
     assert payload["overall_status"] == "attention_required"
-    assert payload["available_artifact_count"] == 6
+    assert payload["available_artifact_count"] == 7
     assert payload["component_statuses"]["feedback_flywheel"] == "feedback_collected"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["knowledge_focus_area_count"] == 1
@@ -115,7 +138,10 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert payload["component_statuses"]["knowledge_application"] == "knowledge_application_partial"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
+    assert payload["knowledge_application_status"] == "knowledge_application_partial"
+    assert payload["knowledge_application_domains"]["standards"]["status"] == "partial"
     assert payload["realdata_status"] == "realdata_foundation_partial"
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["blockers"] == ["feedback backlog"]
@@ -176,6 +202,22 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
             "knowledge_drift_summary": "Knowledge baseline stable.",
             "recommended_actions": ["Keep operator automation healthy."],
         },
+        benchmark_knowledge_application={
+            "knowledge_application": {
+                "status": "knowledge_application_ready",
+                "priority_domains": [],
+                "domains": {
+                    "tolerance": {
+                        "status": "ready",
+                        "readiness_status": "ready",
+                        "evidence_status": "ready",
+                        "signal_count": 5,
+                    }
+                },
+                "focus_areas_detail": [],
+            },
+            "recommendations": [],
+        },
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -193,10 +235,12 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
+    assert payload["component_statuses"]["knowledge_application"] == "knowledge_application_ready"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["knowledge_drift_domain_improvements"] == []
     assert payload["realdata_status"] == "realdata_foundation_ready"
     assert payload["realdata_recommendations"] == []
+    assert payload["knowledge_application_status"] == "knowledge_application_ready"
 
 
 def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
