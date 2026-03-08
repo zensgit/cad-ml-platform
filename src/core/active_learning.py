@@ -47,6 +47,10 @@ class ActiveLearningSample(BaseModel):
     feedback_priority: Optional[str] = None
     alternatives: List[Dict[str, Any]] = Field(default_factory=list)
     score_breakdown: Dict[str, Any] = Field(default_factory=dict)
+    evidence_count: int = 0
+    evidence_sources: List[str] = Field(default_factory=list)
+    evidence_summary: Optional[str] = None
+    evidence: List[Dict[str, Any]] = Field(default_factory=list)
     uncertainty_reason: str
     status: SampleStatus = SampleStatus.PENDING
     true_type: Optional[str] = None
@@ -75,9 +79,125 @@ def _normalize_sample(sample: ActiveLearningSample) -> ActiveLearningSample:
     sample.predicted_coarse_type = sample.predicted_coarse_type or coarse_type
     if sample.predicted_is_coarse_label is None:
         sample.predicted_is_coarse_label = is_coarse_label
+    evidence_payload = _derive_evidence_payload(sample.score_breakdown)
+    sample.evidence_count = int(evidence_payload["evidence_count"])
+    sample.evidence_sources = list(evidence_payload["evidence_sources"])
+    sample.evidence_summary = evidence_payload["evidence_summary"]
+    sample.evidence = list(evidence_payload["evidence"])
     sample.sample_type = _derive_sample_type(sample)
     sample.feedback_priority = _derive_feedback_priority(sample)
     return sample
+
+
+def _derive_evidence_payload(score_breakdown: Dict[str, Any]) -> Dict[str, Any]:
+    evidence: List[Dict[str, Any]] = []
+    evidence_sources: List[str] = []
+    summary_parts: List[str] = []
+
+    def add_source(source: Optional[str]) -> None:
+        token = str(source or "").strip()
+        if token and token not in evidence_sources:
+            evidence_sources.append(token)
+
+    def add_item(
+        *,
+        item_type: str,
+        source: str,
+        value: Any = None,
+        text: Optional[str] = None,
+    ) -> None:
+        add_source(source)
+        payload: Dict[str, Any] = {"type": item_type, "source": source}
+        if value is not None:
+            payload["value"] = value
+        if text:
+            payload["text"] = text
+        evidence.append(payload)
+
+    source_contributions = score_breakdown.get("source_contributions") or {}
+    if isinstance(source_contributions, dict):
+        ranked_sources = sorted(
+            (
+                (str(source).strip(), float(weight))
+                for source, weight in source_contributions.items()
+                if str(source).strip()
+            ),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+        for source, weight in ranked_sources[:5]:
+            add_item(
+                item_type="source_contribution",
+                source=source,
+                value=round(weight, 6),
+                text=f"{source}={round(weight, 3)}",
+            )
+        if ranked_sources:
+            summary_parts.append(
+                "sources="
+                + ", ".join(
+                    f"{source}:{round(weight, 2)}"
+                    for source, weight in ranked_sources[:3]
+                )
+            )
+
+    hybrid_explanation = score_breakdown.get("hybrid_explanation") or {}
+    if isinstance(hybrid_explanation, dict):
+        summary = str(hybrid_explanation.get("summary") or "").strip()
+        if summary:
+            add_item(item_type="summary", source="hybrid_explanation", text=summary)
+            summary_parts.append(summary)
+
+    hybrid_rejection = score_breakdown.get("hybrid_rejection") or {}
+    if isinstance(hybrid_rejection, dict) and hybrid_rejection:
+        rejection_reason = (
+            str(hybrid_rejection.get("reason") or "").strip()
+            or str(hybrid_rejection.get("status") or "").strip()
+        )
+        add_item(
+            item_type="rejection",
+            source="hybrid_rejection",
+            text=rejection_reason or "hybrid_rejection",
+            value={key: value for key, value in hybrid_rejection.items() if value is not None},
+        )
+        if rejection_reason:
+            summary_parts.append(f"rejection={rejection_reason}")
+
+    decision_path = score_breakdown.get("decision_path") or []
+    if isinstance(decision_path, list) and decision_path:
+        compact_path = [str(item).strip() for item in decision_path if str(item).strip()]
+        if compact_path:
+            add_item(
+                item_type="decision_path",
+                source="decision_path",
+                value=compact_path,
+                text=" -> ".join(compact_path[:4]),
+            )
+            summary_parts.append("path=" + "->".join(compact_path[:3]))
+
+    fusion_metadata = score_breakdown.get("fusion_metadata") or {}
+    if isinstance(fusion_metadata, dict) and fusion_metadata:
+        fusion_strategy = str(
+            fusion_metadata.get("strategy")
+            or fusion_metadata.get("fusion_strategy")
+            or fusion_metadata.get("selected_strategy")
+            or ""
+        ).strip()
+        if fusion_strategy:
+            add_item(
+                item_type="fusion_strategy",
+                source="fusion_metadata",
+                text=fusion_strategy,
+            )
+            summary_parts.append(f"fusion={fusion_strategy}")
+
+    evidence_summary = " | ".join(summary_parts[:3]) or None
+    return {
+        "evidence_count": len(evidence),
+        "evidence_sources": evidence_sources,
+        "evidence_summary": evidence_summary,
+        "evidence": evidence,
+    }
 
 
 def _has_hybrid_rejection(sample: ActiveLearningSample) -> bool:
@@ -334,6 +454,10 @@ class ActiveLearner:
                     "feedback_priority": _derive_feedback_priority(sample),
                     "alternatives": sample.alternatives,
                     "score_breakdown": sample.score_breakdown,
+                    "evidence_count": sample.evidence_count,
+                    "evidence_sources": sample.evidence_sources,
+                    "evidence_summary": sample.evidence_summary,
+                    "evidence": sample.evidence,
                     "uncertainty_reason": sample.uncertainty_reason,
                 }
                 export_data["correct_label"] = (
@@ -607,6 +731,10 @@ class ActiveLearner:
                         or sample.score_breakdown.get("decision_source")
                         or "unknown"
                     ),
+                    "evidence_count": sample.evidence_count,
+                    "evidence_sources": sample.evidence_sources,
+                    "evidence_summary": sample.evidence_summary,
+                    "evidence": sample.evidence,
                     "review_reasons": review_reasons,
                     "true_type": sample.true_type,
                     "true_fine_type": sample.true_fine_type,
@@ -638,6 +766,10 @@ class ActiveLearner:
                 "feedback_priority",
                 "uncertainty_reason",
                 "decision_source",
+                "evidence_count",
+                "evidence_sources",
+                "evidence_summary",
+                "evidence",
                 "review_reasons",
                 "true_type",
                 "true_fine_type",
@@ -654,6 +786,10 @@ class ActiveLearner:
                     writer.writerow(
                         {
                             **row,
+                            "evidence_sources": json.dumps(
+                                row["evidence_sources"], ensure_ascii=False
+                            ),
+                            "evidence": json.dumps(row["evidence"], ensure_ascii=False),
                             "review_reasons": json.dumps(row["review_reasons"], ensure_ascii=False),
                             "score_breakdown": json.dumps(
                                 row["score_breakdown"], ensure_ascii=False

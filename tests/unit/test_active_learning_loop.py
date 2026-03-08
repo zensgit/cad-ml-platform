@@ -119,6 +119,10 @@ class TestActiveLearningLoop:
             assert data["original_coarse_label"] == "bolt"
             assert data["sample_type"] == "review"
             assert data["feedback_priority"] == "high"
+            assert data["evidence_count"] == 0
+            assert data["evidence_sources"] == []
+            assert data["evidence_summary"] is None
+            assert data["evidence"] == []
 
         # Verify status update
         assert self.learner._samples[sample.id].status == SampleStatus.EXPORTED
@@ -142,7 +146,10 @@ class TestActiveLearningLoadSamples:
             "predicted_type": "washer",
             "confidence": 0.7,
             "alternatives": [],
-            "score_breakdown": {},
+            "score_breakdown": {
+                "source_contributions": {"filename": 0.6},
+                "hybrid_explanation": {"summary": "文件名支持 washer"},
+            },
             "uncertainty_reason": "test_load",
             "status": "pending",
             "true_type": None,
@@ -161,6 +168,11 @@ class TestActiveLearningLoadSamples:
 
         assert "existing-sample-123" in learner._samples
         assert learner._samples["existing-sample-123"].doc_id == "doc_from_file"
+        assert learner._samples["existing-sample-123"].evidence_count >= 2
+        assert learner._samples["existing-sample-123"].evidence_sources == [
+            "filename",
+            "hybrid_explanation",
+        ]
 
         reset_active_learner()
 
