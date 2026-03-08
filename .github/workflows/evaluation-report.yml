@@ -174,6 +174,10 @@ on:
         description: 'Optional benchmark artifact bundle release decision JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_engineering_signals_json:
+        description: 'Optional benchmark artifact bundle engineering signals JSON'
+        required: false
+        default: ''
       benchmark_companion_summary_enable:
         description: 'Override: enable benchmark companion summary export (true/false)'
         required: false
@@ -339,6 +343,7 @@ env:
   BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_COMPANION_SUMMARY_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_COMPANION_SUMMARY_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_RELEASE_DECISION_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_RELEASE_DECISION_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_ENGINEERING_SIGNALS_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_artifact_bundle.json' }}
   BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_artifact_bundle.md' }}
   BENCHMARK_COMPANION_SUMMARY_ENABLE: ${{ vars.BENCHMARK_COMPANION_SUMMARY_ENABLE || 'false' }}
@@ -1368,6 +1373,7 @@ jobs:
         add_if_exists --ocr-review "${{ github.event.inputs.benchmark_artifact_bundle_ocr_review_json || '' }}"
         add_if_exists --benchmark-companion-summary "${{ github.event.inputs.benchmark_artifact_bundle_companion_summary_json || '' }}"
         add_if_exists --benchmark-release-decision "${{ github.event.inputs.benchmark_artifact_bundle_release_decision_json || '' }}"
+        add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_artifact_bundle_engineering_signals_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_ARTIFACT_BUNDLE_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
@@ -1384,6 +1390,8 @@ jobs:
         add_if_exists --benchmark-companion-summary "${BENCHMARK_ARTIFACT_BUNDLE_COMPANION_SUMMARY_JSON:-}"
         add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
         add_if_exists --benchmark-release-decision "${BENCHMARK_ARTIFACT_BUNDLE_RELEASE_DECISION_JSON:-}"
+        add_if_exists --benchmark-engineering-signals "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
+        add_if_exists --benchmark-engineering-signals "${BENCHMARK_ARTIFACT_BUNDLE_ENGINEERING_SIGNALS_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -1434,6 +1442,10 @@ jobs:
             )
             f.write(f"review_queue_status={components.get('review_queue', 'unknown')}\n")
             f.write(f"ocr_status={components.get('ocr_review', 'unknown')}\n")
+            f.write(
+                "engineering_status="
+                f"{components.get('engineering_signals', 'unknown')}\n"
+            )
             f.write(f"blockers={compact(blockers)}\n")
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
@@ -2348,6 +2360,7 @@ jobs:
           echo "- Benchmark artifact bundle assistant status: ${{ steps.benchmark_artifact_bundle.outputs.assistant_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle review queue status: ${{ steps.benchmark_artifact_bundle.outputs.review_queue_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle OCR status: ${{ steps.benchmark_artifact_bundle.outputs.ocr_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle engineering status: ${{ steps.benchmark_artifact_bundle.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle blockers: ${{ steps.benchmark_artifact_bundle.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle recommendations: ${{ steps.benchmark_artifact_bundle.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle artifact: ${{ steps.benchmark_artifact_bundle.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
