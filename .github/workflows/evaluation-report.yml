@@ -2440,8 +2440,6 @@ jobs:
             | **Benchmark Operational Summary** | ${benchmarkOperationalSummaryStatus} |
             | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleStatus} |
             | **Benchmark Companion Summary** | ${benchmarkCompanionSummaryStatus} |
-            | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleStatus} |
-            | **Benchmark Companion Summary** | ${benchmarkCompanionSummaryStatus} |
             | **Benchmark Release Decision** | ${benchmarkReleaseDecisionStatus} |
             | **Assistant Evidence Report** | ${assistantEvidenceStatus} |
             | **Assistant Evidence Insights** | ${assistantEvidenceInsights} |
@@ -2458,8 +2456,6 @@ jobs:
             | **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
             | **Benchmark Scorecard** | ${benchmarkLight} | ${benchmarkScorecardStatus} |
             | **Benchmark Operational Summary** | ${benchmarkOperationalLight} | ${benchmarkOperationalSummaryStatus} |
-            | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleLight} | ${benchmarkArtifactBundleStatus} |
-            | **Benchmark Companion Summary** | ${benchmarkCompanionLight} | ${benchmarkCompanionSummaryStatus} |
             | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleLight} | ${benchmarkArtifactBundleStatus} |
             | **Benchmark Companion Summary** | ${benchmarkCompanionLight} | ${benchmarkCompanionSummaryStatus} |
             | **Benchmark Release Decision** | ${benchmarkReleaseDecisionLight} | ${benchmarkReleaseDecisionStatus} |
