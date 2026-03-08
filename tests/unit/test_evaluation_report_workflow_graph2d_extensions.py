@@ -477,6 +477,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkOperationalSummaryOverall" in pr_comment_script
     assert "benchmarkOperationalSummaryStatus" in pr_comment_script
     assert "benchmarkOperationalLight" in pr_comment_script
+    assert "benchmarkArtifactBundleEnabled" in pr_comment_script
+    assert "benchmarkArtifactBundleOverall" in pr_comment_script
+    assert "benchmarkArtifactBundleAvailableArtifacts" in pr_comment_script
+    assert "benchmarkArtifactBundleStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleLight" in pr_comment_script
     assert "benchmarkOcrStatus" in pr_comment_script
     assert "benchmarkQdrantStatus" in pr_comment_script
     assert "assistant=${benchmarkAssistantStatus}" in pr_comment_script
@@ -487,6 +492,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Feedback Flywheel" in pr_comment_script
     assert "Feedback Flywheel Artifact" in pr_comment_script
     assert "Benchmark Operational Summary" in pr_comment_script
+    assert "Benchmark Artifact Bundle" in pr_comment_script
+    assert "available_artifacts=${benchmarkArtifactBundleAvailableArtifacts}" in pr_comment_script
+    assert "feedback=${benchmarkArtifactBundleFeedbackStatus}" in pr_comment_script
+    assert "assistant=${benchmarkArtifactBundleAssistantStatus}" in pr_comment_script
+    assert "review_queue=${benchmarkArtifactBundleReviewQueueStatus}" in pr_comment_script
+    assert "ocr=${benchmarkArtifactBundleOcrStatus}" in pr_comment_script
     assert "assistantEvidenceEnabled" in pr_comment_script
     assert "Assistant Evidence Report" in pr_comment_script
     assert "Assistant Evidence Insights" in pr_comment_script
