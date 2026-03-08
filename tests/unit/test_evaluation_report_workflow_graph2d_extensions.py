@@ -678,12 +678,20 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkReleaseRunbookNextAction" in pr_comment_script
     assert "benchmarkOcrStatus" in pr_comment_script
     assert "benchmarkQdrantStatus" in pr_comment_script
+    assert "benchmarkEngineeringEnabled" in pr_comment_script
+    assert "benchmarkEngineeringStatus" in pr_comment_script
+    assert "benchmarkEngineeringTopStandardTypes" in pr_comment_script
+    assert "benchmarkEngineeringStatusLine" in pr_comment_script
+    assert "benchmarkEngineeringLight" in pr_comment_script
     assert "assistant=${benchmarkAssistantStatus}" in pr_comment_script
     assert "review_queue=${benchmarkReviewQueueStatus}" in pr_comment_script
     assert "feedback_flywheel=${benchmarkFeedbackFlywheelStatus}" in pr_comment_script
     assert "ocr=${benchmarkOcrStatus}" in pr_comment_script
     assert "qdrant=${benchmarkQdrantStatus}" in pr_comment_script
+    assert "engineering=${benchmarkEngineeringStatus}" in pr_comment_script
     assert "Benchmark Feedback Flywheel" in pr_comment_script
+    assert "Benchmark Engineering Signals" in pr_comment_script
+    assert "Benchmark Engineering Recommendations" in pr_comment_script
     assert "Feedback Flywheel Artifact" in pr_comment_script
     assert "Benchmark Operational Summary" in pr_comment_script
     assert "Benchmark Artifact Bundle" in pr_comment_script
