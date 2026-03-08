@@ -29,6 +29,11 @@ def test_build_review_hints_flags_missing_critical_fields():
     assert review_hints["review_recommended"] is True
     assert review_hints["missing_critical_fields"] == ["part_name", "revision", "material"]
     assert "no_identifiers" in review_hints["review_reasons"]
+    assert review_hints["primary_gap"] == "missing_critical_fields"
+    assert review_hints["review_priority"] == "high"
+    assert review_hints["automation_ready"] is False
+    assert "fill_critical_title_block_fields" in review_hints["recommended_actions"]
+    assert "manual_review_gate" in review_hints["recommended_actions"]
     assert review_hints["readiness_band"] == "low"
 
 
@@ -59,4 +64,8 @@ def test_build_review_hints_high_readiness_when_core_evidence_present():
 
     assert review_hints["review_recommended"] is False
     assert review_hints["missing_critical_fields"] == []
+    assert review_hints["primary_gap"] == "ready"
+    assert review_hints["review_priority"] == "low"
+    assert review_hints["automation_ready"] is True
+    assert review_hints["recommended_actions"] == []
     assert review_hints["readiness_band"] == "high"

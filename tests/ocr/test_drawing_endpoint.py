@@ -156,6 +156,9 @@ def test_drawing_recognize_smoke(monkeypatch) -> None:
     assert "Aluminum" in data["engineering_signals"]["materials_detected"]
     assert data["review_hints"]["review_recommended"] is False
     assert data["review_hints"]["missing_critical_fields"] == []
+    assert data["review_hints"]["review_priority"] == "low"
+    assert data["review_hints"]["automation_ready"] is True
+    assert data["review_hints"]["recommended_actions"] == []
     assert data["review_hints"]["readiness_band"] == "high"
     assert "GB/T1804-M" in [
         candidate.upper() for candidate in data["engineering_signals"]["standards_candidates"]
@@ -193,3 +196,4 @@ def test_drawing_recognize_base64_smoke(monkeypatch) -> None:
     assert data["engineering_signals"]["process_requirement_counts"]["welding"] == 1
     assert data["field_evidence"]["material"]["value"] == "Aluminum"
     assert data["review_hints"]["readiness_score"] >= 0.8
+    assert data["review_hints"]["automation_ready"] is True
