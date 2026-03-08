@@ -118,6 +118,22 @@ on:
         description: 'Optional benchmark engineering signals OCR review summary JSON'
         required: false
         default: ''
+      benchmark_realdata_signals_enable:
+        description: 'Override: enable benchmark real-data signals export (true/false)'
+        required: false
+        default: ''
+      benchmark_realdata_signals_hybrid_summary_json:
+        description: 'Optional benchmark real-data signals hybrid summary JSON'
+        required: false
+        default: ''
+      benchmark_realdata_signals_online_example_report_json:
+        description: 'Optional benchmark real-data signals online example report JSON'
+        required: false
+        default: ''
+      benchmark_realdata_signals_step_dir_summary_json:
+        description: 'Optional benchmark real-data signals STEP dir summary JSON'
+        required: false
+        default: ''
       benchmark_knowledge_readiness_enable:
         description: 'Override: enable benchmark knowledge readiness export (true/false)'
         required: false
@@ -190,6 +206,10 @@ on:
         description: 'Optional benchmark artifact bundle engineering signals JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_realdata_signals_json:
+        description: 'Optional benchmark artifact bundle real-data signals JSON'
+        required: false
+        default: ''
       benchmark_artifact_bundle_knowledge_readiness_json:
         description: 'Optional benchmark artifact bundle knowledge readiness JSON'
         required: false
@@ -216,6 +236,10 @@ on:
         default: ''
       benchmark_companion_summary_engineering_signals_json:
         description: 'Optional benchmark companion summary engineering signals JSON'
+        required: false
+        default: ''
+      benchmark_companion_summary_realdata_signals_json:
+        description: 'Optional benchmark companion summary real-data signals JSON'
         required: false
         default: ''
       benchmark_companion_summary_knowledge_readiness_json:
@@ -250,6 +274,10 @@ on:
         description: 'Optional benchmark release decision engineering signals JSON'
         required: false
         default: ''
+      benchmark_release_decision_realdata_signals_json:
+        description: 'Optional benchmark release decision real-data signals JSON'
+        required: false
+        default: ''
       benchmark_release_decision_operator_adoption_json:
         description: 'Optional benchmark release decision operator adoption JSON'
         required: false
@@ -280,6 +308,10 @@ on:
         default: ''
       benchmark_release_runbook_engineering_signals_json:
         description: 'Optional benchmark release runbook engineering signals JSON'
+        required: false
+        default: ''
+      benchmark_release_runbook_realdata_signals_json:
+        description: 'Optional benchmark release runbook real-data signals JSON'
         required: false
         default: ''
       benchmark_release_runbook_operator_adoption_json:
@@ -411,6 +443,13 @@ env:
   BENCHMARK_ENGINEERING_SIGNALS_OCR_REVIEW_SUMMARY_JSON: ${{ vars.BENCHMARK_ENGINEERING_SIGNALS_OCR_REVIEW_SUMMARY_JSON }}
   BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_JSON: ${{ vars.BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_engineering_signals.json' }}
   BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_MD: ${{ vars.BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_engineering_signals.md' }}
+  BENCHMARK_REALDATA_SIGNALS_ENABLE: ${{ vars.BENCHMARK_REALDATA_SIGNALS_ENABLE || 'false' }}
+  BENCHMARK_REALDATA_SIGNALS_TITLE: ${{ vars.BENCHMARK_REALDATA_SIGNALS_TITLE || 'Benchmark Real-Data Signals' }}
+  BENCHMARK_REALDATA_SIGNALS_HYBRID_SUMMARY_JSON: ${{ vars.BENCHMARK_REALDATA_SIGNALS_HYBRID_SUMMARY_JSON }}
+  BENCHMARK_REALDATA_SIGNALS_ONLINE_EXAMPLE_REPORT_JSON: ${{ vars.BENCHMARK_REALDATA_SIGNALS_ONLINE_EXAMPLE_REPORT_JSON }}
+  BENCHMARK_REALDATA_SIGNALS_STEP_DIR_SUMMARY_JSON: ${{ vars.BENCHMARK_REALDATA_SIGNALS_STEP_DIR_SUMMARY_JSON }}
+  BENCHMARK_REALDATA_SIGNALS_OUTPUT_JSON: ${{ vars.BENCHMARK_REALDATA_SIGNALS_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_realdata_signals.json' }}
+  BENCHMARK_REALDATA_SIGNALS_OUTPUT_MD: ${{ vars.BENCHMARK_REALDATA_SIGNALS_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_realdata_signals.md' }}
   BENCHMARK_KNOWLEDGE_READINESS_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_READINESS_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_READINESS_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_READINESS_TITLE || 'Benchmark Knowledge Readiness' }}
   BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON }}
@@ -444,6 +483,7 @@ env:
   BENCHMARK_ARTIFACT_BUNDLE_COMPANION_SUMMARY_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_COMPANION_SUMMARY_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_RELEASE_DECISION_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_RELEASE_DECISION_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_ENGINEERING_SIGNALS_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_REALDATA_SIGNALS_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_REALDATA_SIGNALS_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_READINESS_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DRIFT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DRIFT_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_artifact_bundle.json' }}
@@ -454,6 +494,7 @@ env:
   BENCHMARK_COMPANION_SUMMARY_OPERATIONAL_SUMMARY_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_OPERATIONAL_SUMMARY_JSON }}
   BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON }}
   BENCHMARK_COMPANION_SUMMARY_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_ENGINEERING_SIGNALS_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_REALDATA_SIGNALS_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_REALDATA_SIGNALS_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_READINESS_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DRIFT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DRIFT_JSON }}
   BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_companion_summary.json' }}
@@ -465,6 +506,7 @@ env:
   BENCHMARK_RELEASE_DECISION_ARTIFACT_BUNDLE_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_ARTIFACT_BUNDLE_JSON }}
   BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON }}
   BENCHMARK_RELEASE_DECISION_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_ENGINEERING_SIGNALS_JSON }}
+  BENCHMARK_RELEASE_DECISION_REALDATA_SIGNALS_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_REALDATA_SIGNALS_JSON }}
   BENCHMARK_RELEASE_DECISION_OPERATOR_ADOPTION_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_OPERATOR_ADOPTION_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_READINESS_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DRIFT_JSON }}
@@ -476,6 +518,7 @@ env:
   BENCHMARK_RELEASE_RUNBOOK_COMPANION_SUMMARY_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_COMPANION_SUMMARY_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ENGINEERING_SIGNALS_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_REALDATA_SIGNALS_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_REALDATA_SIGNALS_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_OPERATOR_ADOPTION_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OPERATOR_ADOPTION_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_READINESS_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DRIFT_JSON }}
@@ -1173,6 +1216,116 @@ jobs:
             f.write(f"recommendations={compact_recommendations}\n")
         PY
 
+    - name: Build benchmark realdata signals (optional)
+      id: benchmark_realdata_signals
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_realdata_signals_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_REALDATA_SIGNALS_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_REALDATA_SIGNALS_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_realdata_signals.json}"
+        OUTPUT_MD="${BENCHMARK_REALDATA_SIGNALS_OUTPUT_MD:-reports/history_sequence_eval/benchmark_realdata_signals.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_realdata_signals.py
+          --title "${BENCHMARK_REALDATA_SIGNALS_TITLE:-Benchmark Real-Data Signals}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --hybrid-summary "${{ github.event.inputs.benchmark_realdata_signals_hybrid_summary_json || '' }}"
+        add_if_exists --online-example-report "${{ github.event.inputs.benchmark_realdata_signals_online_example_report_json || '' }}"
+        add_if_exists --step-dir-summary "${{ github.event.inputs.benchmark_realdata_signals_step_dir_summary_json || '' }}"
+        add_if_exists --hybrid-summary "${BENCHMARK_REALDATA_SIGNALS_HYBRID_SUMMARY_JSON:-}"
+        add_if_exists --hybrid-summary "${BENCHMARK_SCORECARD_HYBRID_SUMMARY_JSON:-}"
+        add_if_exists --online-example-report "${BENCHMARK_REALDATA_SIGNALS_ONLINE_EXAMPLE_REPORT_JSON:-}"
+        add_if_exists --step-dir-summary "${BENCHMARK_REALDATA_SIGNALS_STEP_DIR_SUMMARY_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_REALDATA_SIGNALS_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No real-data signals inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["BENCHMARK_REALDATA_SIGNALS_OUTPUT_JSON"]).read_text(
+                encoding="utf-8"
+            )
+        )
+        component = payload.get("realdata_signals") or {}
+        components = component.get("components") or {}
+        recommendations = payload.get("recommendations") or []
+        compact_recommendations = "; ".join(
+            str(item).strip() for item in recommendations[:3] if str(item).strip()
+        )
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={str(component.get('status') or 'unknown').strip()}\n")
+            f.write(
+                f"ready_component_count={component.get('ready_component_count', 0)}\n"
+            )
+            f.write(
+                f"partial_component_count={component.get('partial_component_count', 0)}\n"
+            )
+            f.write(
+                "environment_blocked_count="
+                f"{component.get('environment_blocked_count', 0)}\n"
+            )
+            f.write(
+                f"available_component_count={component.get('available_component_count', 0)}\n"
+            )
+            f.write(
+                "hybrid_dxf_status="
+                f"{(components.get('hybrid_dxf') or {}).get('status', 'unknown')}\n"
+            )
+            f.write(
+                "history_h5_status="
+                f"{(components.get('history_h5') or {}).get('status', 'unknown')}\n"
+            )
+            f.write(
+                "step_smoke_status="
+                f"{(components.get('step_smoke') or {}).get('status', 'unknown')}\n"
+            )
+            f.write(
+                "step_dir_status="
+                f"{(components.get('step_dir') or {}).get('status', 'unknown')}\n"
+            )
+            f.write(f"recommendations={compact_recommendations}\n")
+        PY
+
     - name: Generate benchmark scorecard (optional)
       id: benchmark_scorecard
       continue-on-error: true
@@ -1743,6 +1896,7 @@ jobs:
         add_if_exists --benchmark-companion-summary "${{ github.event.inputs.benchmark_artifact_bundle_companion_summary_json || '' }}"
         add_if_exists --benchmark-release-decision "${{ github.event.inputs.benchmark_artifact_bundle_release_decision_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_artifact_bundle_engineering_signals_json || '' }}"
+        add_if_exists --benchmark-realdata-signals "${{ github.event.inputs.benchmark_artifact_bundle_realdata_signals_json || '' }}"
         add_if_exists --benchmark-knowledge-readiness "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_readiness_json || '' }}"
         add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_drift_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
@@ -1763,6 +1917,8 @@ jobs:
         add_if_exists --benchmark-release-decision "${BENCHMARK_ARTIFACT_BUNDLE_RELEASE_DECISION_JSON:-}"
         add_if_exists --benchmark-engineering-signals "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${BENCHMARK_ARTIFACT_BUNDLE_ENGINEERING_SIGNALS_JSON:-}"
+        add_if_exists --benchmark-realdata-signals "${{ steps.benchmark_realdata_signals.outputs.output_json || '' }}"
+        add_if_exists --benchmark-realdata-signals "${BENCHMARK_ARTIFACT_BUNDLE_REALDATA_SIGNALS_JSON:-}"
         add_if_exists --benchmark-knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-readiness "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_READINESS_JSON:-}"
         add_if_exists --benchmark-knowledge-drift "${{ steps.benchmark_knowledge_drift.outputs.output_json || '' }}"
@@ -1833,6 +1989,9 @@ jobs:
                 "engineering_status="
                 f"{components.get('engineering_signals', 'unknown')}\n"
             )
+            f.write(
+                f"realdata_status={components.get('realdata_signals', 'unknown')}\n"
+            )
             f.write(f"knowledge_drift_status={drift.get('status', 'unknown')}\n")
             f.write(
                 "knowledge_drift_summary="
@@ -1877,6 +2036,10 @@ jobs:
                 "operator_adoption_knowledge_drift_summary="
                 f"{compact([operator_drift.get('summary')])}\n"
             )
+            f.write(
+                "realdata_recommendations="
+                f"{compact(payload.get('realdata_recommendations') or [])}\n"
+            )
             f.write(f"blockers={compact(blockers)}\n")
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
@@ -1918,6 +2081,7 @@ jobs:
         add_if_exists --benchmark-operational-summary "${{ github.event.inputs.benchmark_companion_summary_operational_summary_json || '' }}"
         add_if_exists --benchmark-artifact-bundle "${{ github.event.inputs.benchmark_companion_summary_artifact_bundle_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_companion_summary_engineering_signals_json || '' }}"
+        add_if_exists --benchmark-realdata-signals "${{ github.event.inputs.benchmark_companion_summary_realdata_signals_json || '' }}"
         add_if_exists --benchmark-knowledge-readiness "${{ github.event.inputs.benchmark_companion_summary_knowledge_readiness_json || '' }}"
         add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_companion_summary_knowledge_drift_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
@@ -1928,6 +2092,8 @@ jobs:
         add_if_exists --benchmark-artifact-bundle "${BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON:-}"
         add_if_exists --benchmark-engineering-signals "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${BENCHMARK_COMPANION_SUMMARY_ENGINEERING_SIGNALS_JSON:-}"
+        add_if_exists --benchmark-realdata-signals "${{ steps.benchmark_realdata_signals.outputs.output_json || '' }}"
+        add_if_exists --benchmark-realdata-signals "${BENCHMARK_COMPANION_SUMMARY_REALDATA_SIGNALS_JSON:-}"
         add_if_exists --benchmark-knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-readiness "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_READINESS_JSON:-}"
         add_if_exists --benchmark-knowledge-drift "${{ steps.benchmark_knowledge_drift.outputs.output_json || '' }}"
@@ -2002,6 +2168,9 @@ jobs:
                 "engineering_status="
                 f"{component_statuses.get('engineering_signals', 'unknown')}\n"
             )
+            f.write(
+                f"realdata_status={component_statuses.get('realdata_signals', 'unknown')}\n"
+            )
             f.write(f"knowledge_drift_status={drift.get('status', 'unknown')}\n")
             f.write(
                 "knowledge_drift_summary="
@@ -2045,6 +2214,10 @@ jobs:
             f.write(
                 "operator_adoption_knowledge_drift_summary="
                 f"{compact([operator_drift.get('summary')])}\n"
+            )
+            f.write(
+                "realdata_recommendations="
+                f"{compact(payload.get('realdata_recommendations') or [])}\n"
             )
             f.write(f"knowledge_focus_area_count={len(focus_areas)}\n")
             f.write(
@@ -2115,6 +2288,7 @@ jobs:
         add_if_exists --benchmark-artifact-bundle "${{ github.event.inputs.benchmark_release_decision_artifact_bundle_json || '' }}"
         add_if_exists --benchmark-companion-summary "${{ github.event.inputs.benchmark_release_decision_companion_summary_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_release_decision_engineering_signals_json || '' }}"
+        add_if_exists --benchmark-realdata-signals "${{ github.event.inputs.benchmark_release_decision_realdata_signals_json || '' }}"
         add_if_exists --benchmark-operator-adoption "${{ github.event.inputs.benchmark_release_decision_operator_adoption_json || '' }}"
         add_if_exists --benchmark-knowledge-readiness "${{ github.event.inputs.benchmark_release_decision_knowledge_readiness_json || '' }}"
         add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_release_decision_knowledge_drift_json || '' }}"
@@ -2128,6 +2302,8 @@ jobs:
         add_if_exists --benchmark-companion-summary "${BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON:-}"
         add_if_exists --benchmark-engineering-signals "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${BENCHMARK_RELEASE_DECISION_ENGINEERING_SIGNALS_JSON:-}"
+        add_if_exists --benchmark-realdata-signals "${{ steps.benchmark_realdata_signals.outputs.output_json || '' }}"
+        add_if_exists --benchmark-realdata-signals "${BENCHMARK_RELEASE_DECISION_REALDATA_SIGNALS_JSON:-}"
         add_if_exists --benchmark-operator-adoption "${{ steps.benchmark_operator_adoption.outputs.output_json || '' }}"
         add_if_exists --benchmark-operator-adoption "${BENCHMARK_RELEASE_DECISION_OPERATOR_ADOPTION_JSON:-}"
         add_if_exists --benchmark-knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
@@ -2209,6 +2385,9 @@ jobs:
                 f"{component_statuses.get('engineering_signals', 'unknown')}\n"
             )
             f.write(
+                f"realdata_status={component_statuses.get('realdata_signals', 'unknown')}\n"
+            )
+            f.write(
                 "operator_adoption_status="
                 f"{component_statuses.get('operator_adoption', 'unknown')}\n"
             )
@@ -2268,6 +2447,10 @@ jobs:
                 )
                 + "\n"
             )
+            f.write(
+                "realdata_recommendations="
+                f"{compact(payload.get('realdata_recommendations') or [])}\n"
+            )
         PY
 
     - name: Build benchmark release runbook (optional)
@@ -2307,6 +2490,7 @@ jobs:
         add_if_exists --benchmark-companion-summary "${{ github.event.inputs.benchmark_release_runbook_companion_summary_json || '' }}"
         add_if_exists --benchmark-artifact-bundle "${{ github.event.inputs.benchmark_release_runbook_artifact_bundle_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_release_runbook_engineering_signals_json || '' }}"
+        add_if_exists --benchmark-realdata-signals "${{ github.event.inputs.benchmark_release_runbook_realdata_signals_json || '' }}"
         add_if_exists --benchmark-operator-adoption "${{ github.event.inputs.benchmark_release_runbook_operator_adoption_json || '' }}"
         add_if_exists --benchmark-knowledge-readiness "${{ github.event.inputs.benchmark_release_runbook_knowledge_readiness_json || '' }}"
         add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_release_runbook_knowledge_drift_json || '' }}"
@@ -2318,6 +2502,8 @@ jobs:
         add_if_exists --benchmark-artifact-bundle "${BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON:-}"
         add_if_exists --benchmark-engineering-signals "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${BENCHMARK_RELEASE_RUNBOOK_ENGINEERING_SIGNALS_JSON:-}"
+        add_if_exists --benchmark-realdata-signals "${{ steps.benchmark_realdata_signals.outputs.output_json || '' }}"
+        add_if_exists --benchmark-realdata-signals "${BENCHMARK_RELEASE_RUNBOOK_REALDATA_SIGNALS_JSON:-}"
         add_if_exists --benchmark-operator-adoption "${{ steps.benchmark_operator_adoption.outputs.output_json || '' }}"
         add_if_exists --benchmark-operator-adoption "${BENCHMARK_RELEASE_RUNBOOK_OPERATOR_ADOPTION_JSON:-}"
         add_if_exists --benchmark-knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
@@ -2410,6 +2596,9 @@ jobs:
             f.write(
                 f"engineering_status={payload.get('engineering_status', 'unknown')}\n"
             )
+            f.write(
+                f"realdata_status={payload.get('realdata_status', 'unknown')}\n"
+            )
             operator_adoption = payload.get("operator_adoption") or {}
             drift_domain_regressions = drift.get("domain_regressions") or []
             drift_domain_improvements = drift.get("domain_improvements") or []
@@ -2447,6 +2636,10 @@ jobs:
             f.write(
                 "operator_adoption_knowledge_drift_summary="
                 f"{compact([operator_adoption.get('knowledge_drift_summary')])}\n"
+            )
+            f.write(
+                "realdata_recommendations="
+                f"{compact(payload.get('realdata_recommendations') or [])}\n"
             )
         PY
 
@@ -3036,6 +3229,16 @@ jobs:
           ${{ steps.benchmark_engineering_signals.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark realdata signals
+      if: steps.benchmark_realdata_signals.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-realdata-signals-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_realdata_signals.outputs.output_json }}
+          ${{ steps.benchmark_realdata_signals.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload benchmark knowledge readiness
       if: steps.benchmark_knowledge_readiness.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -3306,6 +3509,21 @@ jobs:
         else
           echo "- Benchmark engineering signals: skipped (BENCHMARK_ENGINEERING_SIGNALS_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
         fi
+        if [[ "${{ steps.benchmark_realdata_signals.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark real-data status: ${{ steps.benchmark_realdata_signals.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data ready components: ${{ steps.benchmark_realdata_signals.outputs.ready_component_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data partial components: ${{ steps.benchmark_realdata_signals.outputs.partial_component_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data environment blocked: ${{ steps.benchmark_realdata_signals.outputs.environment_blocked_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data available components: ${{ steps.benchmark_realdata_signals.outputs.available_component_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data hybrid status: ${{ steps.benchmark_realdata_signals.outputs.hybrid_dxf_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data history status: ${{ steps.benchmark_realdata_signals.outputs.history_h5_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data STEP smoke status: ${{ steps.benchmark_realdata_signals.outputs.step_smoke_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data STEP dir status: ${{ steps.benchmark_realdata_signals.outputs.step_dir_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data recommendations: ${{ steps.benchmark_realdata_signals.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data artifact: ${{ steps.benchmark_realdata_signals.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark real-data: skipped (BENCHMARK_REALDATA_SIGNALS_ENABLE!=true or no real-data inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
         if [[ "${{ steps.benchmark_knowledge_readiness.outputs.enabled }}" == "true" ]]; then
           echo "- Benchmark knowledge readiness status: ${{ steps.benchmark_knowledge_readiness.outputs.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark knowledge total reference items: ${{ steps.benchmark_knowledge_readiness.outputs.total_reference_items }}" >> $GITHUB_STEP_SUMMARY
@@ -3382,6 +3600,8 @@ jobs:
           echo "- Benchmark artifact bundle knowledge priority domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_priority_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge domain focus areas: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle engineering status: ${{ steps.benchmark_artifact_bundle.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle real-data status: ${{ steps.benchmark_artifact_bundle.outputs.realdata_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle real-data recommendations: ${{ steps.benchmark_artifact_bundle.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle operator adoption knowledge drift: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle operator adoption knowledge drift summary: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle blockers: ${{ steps.benchmark_artifact_bundle.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
@@ -3412,6 +3632,8 @@ jobs:
           echo "- Benchmark companion knowledge priority domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_priority_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge domain focus areas: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion engineering status: ${{ steps.benchmark_companion_summary.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion real-data status: ${{ steps.benchmark_companion_summary.outputs.realdata_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion real-data recommendations: ${{ steps.benchmark_companion_summary.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion operator adoption knowledge drift: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion operator adoption knowledge drift summary: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion blockers: ${{ steps.benchmark_companion_summary.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
@@ -3440,6 +3662,8 @@ jobs:
           echo "- Benchmark release knowledge priority domains: ${{ steps.benchmark_release_decision.outputs.knowledge_priority_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge domain focus areas: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release engineering status: ${{ steps.benchmark_release_decision.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release real-data status: ${{ steps.benchmark_release_decision.outputs.realdata_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release real-data recommendations: ${{ steps.benchmark_release_decision.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release operator adoption status: ${{ steps.benchmark_release_decision.outputs.operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release operator adoption knowledge drift: ${{ steps.benchmark_release_decision.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release operator adoption knowledge drift summary: ${{ steps.benchmark_release_decision.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
@@ -3465,6 +3689,8 @@ jobs:
           echo "- Benchmark release runbook knowledge priority domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_priority_domains }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge domain focus areas: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook engineering status: ${{ steps.benchmark_release_runbook.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook real-data status: ${{ steps.benchmark_release_runbook.outputs.realdata_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook real-data recommendations: ${{ steps.benchmark_release_runbook.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook operator adoption status: ${{ steps.benchmark_release_runbook.outputs.operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook operator adoption knowledge drift: ${{ steps.benchmark_release_runbook.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook operator adoption knowledge drift summary: ${{ steps.benchmark_release_runbook.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY

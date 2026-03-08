@@ -407,11 +407,8 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_priority_domains"] == []
     assert payload["knowledge_domains"]["standards"]["status"] == "ready"
     assert payload["knowledge_domain_focus_areas"] == []
-<<<<<<< HEAD
     assert payload["knowledge_drift_domain_improvements"] == []
-=======
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
->>>>>>> ab821448 (feat: add benchmark realdata signals to companion summary)
     assert output_md.exists()
 
 
