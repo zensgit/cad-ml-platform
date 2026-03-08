@@ -70,6 +70,14 @@ on:
         description: 'Override: enable benchmark scorecard generation (true/false)'
         required: false
         default: ''
+      benchmark_scorecard_assistant_evidence_summary:
+        description: 'Optional benchmark scorecard assistant evidence summary JSON'
+        required: false
+        default: ''
+      benchmark_scorecard_review_queue_summary:
+        description: 'Optional benchmark scorecard review queue summary JSON'
+        required: false
+        default: ''
       ocr_review_pack_enable:
         description: 'Override: enable OCR review-pack export (true/false)'
         required: false
@@ -134,6 +142,8 @@ env:
   BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON || 'reports/history_sequence_eval/summary.json' }}
   BENCHMARK_SCORECARD_BREP_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_BREP_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_OUTPUT_JSON: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_scorecard.json' }}
   BENCHMARK_SCORECARD_OUTPUT_MD: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_scorecard.md' }}
   OCR_REVIEW_PACK_ENABLE: ${{ vars.OCR_REVIEW_PACK_ENABLE || 'false' }}
@@ -671,6 +681,10 @@ jobs:
         add_if_exists --history-summary "${BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON:-}"
         add_if_exists --brep-summary "${BENCHMARK_SCORECARD_BREP_SUMMARY_JSON:-}"
         add_if_exists --migration-summary "${BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON:-}"
+        add_if_exists --assistant-evidence-summary "${{ github.event.inputs.benchmark_scorecard_assistant_evidence_summary || '' }}"
+        add_if_exists --review-queue-summary "${{ github.event.inputs.benchmark_scorecard_review_queue_summary || '' }}"
+        add_if_exists --assistant-evidence-summary "${BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY_JSON:-}"
+        add_if_exists --review-queue-summary "${BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON:-}"
 
         "${CMD[@]}"
 
@@ -691,6 +705,8 @@ jobs:
         history = components.get("history_sequence") or {}
         brep = components.get("brep") or {}
         governance = components.get("migration_governance") or {}
+        assistant = components.get("assistant_explainability") or {}
+        review_queue = components.get("review_queue") or {}
         recommendations = payload.get("recommendations") or []
         compact_recommendations = "; ".join(
             str(item).strip() for item in recommendations[:3] if str(item).strip()
@@ -702,6 +718,8 @@ jobs:
             f.write(f"history_status={history.get('status', 'unknown')}\n")
             f.write(f"brep_status={brep.get('status', 'unknown')}\n")
             f.write(f"governance_status={governance.get('status', 'unknown')}\n")
+            f.write(f"assistant_status={assistant.get('status', 'unknown')}\n")
+            f.write(f"review_queue_status={review_queue.get('status', 'unknown')}\n")
             f.write(f"recommendations={compact_recommendations}\n")
         PY
 
@@ -1186,6 +1204,8 @@ jobs:
           echo "- Benchmark history status: ${{ steps.benchmark_scorecard.outputs.history_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark B-Rep status: ${{ steps.benchmark_scorecard.outputs.brep_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark governance status: ${{ steps.benchmark_scorecard.outputs.governance_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark assistant status: ${{ steps.benchmark_scorecard.outputs.assistant_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark review queue status: ${{ steps.benchmark_scorecard.outputs.review_queue_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark recommendations: ${{ steps.benchmark_scorecard.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark scorecard artifact: ${{ steps.benchmark_scorecard.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
@@ -1284,6 +1304,8 @@ jobs:
             const benchmarkHistoryStatus = '${{ steps.benchmark_scorecard.outputs.history_status }}';
             const benchmarkBrepStatus = '${{ steps.benchmark_scorecard.outputs.brep_status }}';
             const benchmarkGovernanceStatus = '${{ steps.benchmark_scorecard.outputs.governance_status }}';
+            const benchmarkAssistantStatus = '${{ steps.benchmark_scorecard.outputs.assistant_status }}';
+            const benchmarkReviewQueueStatus = '${{ steps.benchmark_scorecard.outputs.review_queue_status }}';
             const benchmarkRecommendations = '${{ steps.benchmark_scorecard.outputs.recommendations }}';
             const assistantEvidenceEnabled = '${{ steps.assistant_evidence_report.outputs.enabled }}' === 'true';
             const assistantEvidenceInput = '${{ steps.assistant_evidence_report.outputs.input_path }}';
@@ -1328,7 +1350,7 @@ jobs:
               ? `runs=${sweepTotalRuns}, failed=${sweepFailedRuns}, best=${sweepBestRecipe}@${sweepBestSeed}, env=${sweepRecommendedEnv}, script=${sweepBestRunScript}`
               : '⏭️ skipped';
             const benchmarkScorecardStatus = benchmarkScorecardEnabled
-              ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}`
+              ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}, assistant=${benchmarkAssistantStatus}, review_queue=${benchmarkReviewQueueStatus}`
               : '⏭️ skipped';
             const assistantEvidenceStatus = assistantEvidenceEnabled
               ? `input=${assistantEvidenceInput}, records=${assistantEvidenceTotalRecords}, evidence_items=${assistantEvidenceTotalItems}, avg=${assistantEvidenceAverageCount}, evidence_cov=${assistantEvidenceCoverage}, decision_cov=${assistantDecisionPathCoverage}, source_cov=${assistantSourceSignalCoverage}`
