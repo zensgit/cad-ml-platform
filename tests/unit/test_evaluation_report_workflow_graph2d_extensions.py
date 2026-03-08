@@ -188,11 +188,13 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_decision_artifact_bundle_json" in dispatch_inputs
     assert "benchmark_release_decision_companion_summary_json" in dispatch_inputs
     assert "benchmark_release_decision_engineering_signals_json" in dispatch_inputs
+    assert "benchmark_release_decision_operator_adoption_json" in dispatch_inputs
     assert "benchmark_release_runbook_enable" in dispatch_inputs
     assert "benchmark_release_runbook_release_decision_json" in dispatch_inputs
     assert "benchmark_release_runbook_companion_summary_json" in dispatch_inputs
     assert "benchmark_release_runbook_artifact_bundle_json" in dispatch_inputs
     assert "benchmark_release_runbook_engineering_signals_json" in dispatch_inputs
+    assert "benchmark_release_runbook_operator_adoption_json" in dispatch_inputs
     assert "benchmark_operator_adoption_enable" in dispatch_inputs
     assert "benchmark_operator_adoption_release_decision_json" in dispatch_inputs
     assert "benchmark_operator_adoption_release_runbook_json" in dispatch_inputs
@@ -419,6 +421,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-artifact-bundle" in benchmark_release_script
     assert "--benchmark-companion-summary" in benchmark_release_script
     assert "--benchmark-engineering-signals" in benchmark_release_script
+    assert "--benchmark-operator-adoption" in benchmark_release_script
     assert "release_status=" in benchmark_release_script
     assert "automation_ready=" in benchmark_release_script
     assert "primary_signal_source=" in benchmark_release_script
@@ -426,6 +429,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "review_signals=" in benchmark_release_script
     assert "qdrant_status=" in benchmark_release_script
     assert "engineering_status=" in benchmark_release_script
+    assert "operator_adoption_status=" in benchmark_release_script
 
     benchmark_runbook_step = _get_step(
         workflow, "evaluate", "Build benchmark release runbook (optional)"
@@ -437,12 +441,14 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-companion-summary" in benchmark_runbook_script
     assert "--benchmark-artifact-bundle" in benchmark_runbook_script
     assert "--benchmark-engineering-signals" in benchmark_runbook_script
+    assert "--benchmark-operator-adoption" in benchmark_runbook_script
     assert "ready_to_freeze_baseline=" in benchmark_runbook_script
     assert "next_action=" in benchmark_runbook_script
     assert "missing_artifacts=" in benchmark_runbook_script
     assert "blocking_signals=" in benchmark_runbook_script
     assert "review_signals=" in benchmark_runbook_script
     assert "engineering_status=" in benchmark_runbook_script
+    assert "operator_adoption_status=" in benchmark_runbook_script
 
     benchmark_operator_adoption_step = _get_step(
         workflow, "evaluate", "Build benchmark operator adoption (optional)"
@@ -682,6 +688,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark release primary signal source" in summary_script
     assert "Benchmark release review queue status" in summary_script
     assert "Benchmark release engineering status" in summary_script
+    assert "Benchmark release operator adoption status" in summary_script
     assert "Benchmark release review signals" in summary_script
     assert "Benchmark release artifact" in summary_script
     assert "Benchmark release runbook status" in summary_script
@@ -689,6 +696,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark release runbook primary signal source" in summary_script
     assert "Benchmark release runbook next action" in summary_script
     assert "Benchmark release runbook engineering status" in summary_script
+    assert "Benchmark release runbook operator adoption status" in summary_script
     assert "Benchmark release runbook missing artifacts" in summary_script
     assert "Benchmark release runbook blocking signals" in summary_script
     assert "Benchmark release runbook review signals" in summary_script
