@@ -21,6 +21,7 @@ from src.core.benchmark.engineering_signals import (  # noqa: E402
     engineering_signals_recommendations,
 )
 from src.core.benchmark.knowledge_readiness import (  # noqa: E402
+    build_knowledge_focus_areas,
     build_knowledge_readiness_status,
     knowledge_readiness_recommendations,
 )
@@ -415,10 +416,38 @@ def _ocr_review_status(summary: Dict[str, Any]) -> Dict[str, Any]:
 
 def _knowledge_readiness_status(summary: Dict[str, Any]) -> Dict[str, Any]:
     if not summary:
-        return {"status": "knowledge_foundation_missing"}
+        return build_knowledge_readiness_status({})
     component = summary.get("knowledge_readiness") or summary
     if not isinstance(component, dict):
-        return {"status": "knowledge_foundation_missing"}
+        return build_knowledge_readiness_status({})
+    if any(
+        key in component
+        for key in (
+            "ready_component_count",
+            "partial_component_count",
+            "missing_component_count",
+            "total_reference_items",
+            "focus_areas",
+            "focus_areas_detail",
+        )
+    ):
+        built = dict(component)
+        built.setdefault("status", "knowledge_foundation_missing")
+        built.setdefault("components", component.get("components") or {})
+        built.setdefault("focus_areas_detail", build_knowledge_focus_areas(built["components"]))
+        built.setdefault(
+            "focus_areas",
+            [row.get("component") for row in built["focus_areas_detail"] if row.get("component")],
+        )
+        built.setdefault(
+            "focus_area_statuses",
+            [
+                f"{row.get('component')}:{row.get('status', 'unknown')}"
+                for row in built["focus_areas_detail"]
+                if row.get("component")
+            ],
+        )
+        return built
     built = build_knowledge_readiness_status(component.get("components") or {})
     if component.get("status"):
         built["status"] = str(component.get("status"))
@@ -427,6 +456,9 @@ def _knowledge_readiness_status(summary: Dict[str, Any]) -> Dict[str, Any]:
         "partial_component_count",
         "missing_component_count",
         "total_reference_items",
+        "focus_areas",
+        "focus_area_statuses",
+        "focus_areas_detail",
     ):
         if key in component:
             built[key] = component[key]
@@ -760,7 +792,8 @@ def _render_markdown(scorecard: Dict[str, Any]) -> str:
         f"ready={knowledge_readiness.get('ready_component_count')}, "
         f"partial={knowledge_readiness.get('partial_component_count')}, "
         f"missing={knowledge_readiness.get('missing_component_count')}, "
-        f"refs={knowledge_readiness.get('total_reference_items')} |"
+        f"refs={knowledge_readiness.get('total_reference_items')}, "
+        f"focus={','.join(knowledge_readiness.get('focus_areas') or []) or 'none'} |"
     )
     engineering = components.get("engineering_signals", {}) or {}
     lines.append(

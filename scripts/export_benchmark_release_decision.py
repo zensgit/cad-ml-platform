@@ -217,6 +217,14 @@ def build_release_decision(
         benchmark_engineering_signals,
         benchmark_operator_adoption,
     )
+    knowledge_focus_areas = list(
+        (
+            benchmark_knowledge_readiness.get("knowledge_readiness")
+            or benchmark_knowledge_readiness
+            or {}
+        ).get("focus_areas_detail")
+        or []
+    )
     blockers = _compact(
         benchmark_companion_summary.get("blockers")
         or benchmark_artifact_bundle.get("blockers")
@@ -290,6 +298,7 @@ def build_release_decision(
         "automation_ready": automation_ready,
         "primary_signal_source": primary_signal_source,
         "component_statuses": component_statuses,
+        "knowledge_focus_areas": knowledge_focus_areas,
         "blocking_signals": blockers,
         "review_signals": review_signals,
         "artifacts": {
@@ -347,6 +356,19 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     review_signals = payload.get("review_signals") or []
     if review_signals:
         lines.extend(f"- {item}" for item in review_signals)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Knowledge Focus Areas", ""])
+    focus_areas = payload.get("knowledge_focus_areas") or []
+    if focus_areas:
+        for row in focus_areas:
+            lines.append(
+                "- "
+                f"`{row.get('component')}` "
+                f"status=`{row.get('status')}` "
+                f"priority=`{row.get('priority')}` "
+                f"action=`{row.get('action')}`"
+            )
     else:
         lines.append("- none")
     lines.extend(["", "## Artifacts", ""])

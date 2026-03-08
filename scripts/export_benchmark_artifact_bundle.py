@@ -197,6 +197,12 @@ def build_bundle(
         benchmark_engineering_signals,
         benchmark_operator_adoption,
     )
+    knowledge_component = (
+        benchmark_knowledge_readiness.get("knowledge_readiness")
+        or benchmark_knowledge_readiness
+        or {}
+    )
+    knowledge_focus_areas = list(knowledge_component.get("focus_areas_detail") or [])
     artifact_rows = {
         "benchmark_scorecard": _artifact_row(
             name="benchmark_scorecard",
@@ -260,6 +266,8 @@ def build_bundle(
         "generated_at": int(time.time()),
         "overall_status": overall_status,
         "available_artifact_count": available_count,
+        "knowledge_focus_area_count": len(knowledge_focus_areas),
+        "knowledge_focus_areas": knowledge_focus_areas,
         "component_statuses": _component_statuses(
             benchmark_scorecard,
             benchmark_operational_summary,
@@ -283,6 +291,7 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"- generated_at: `{payload.get('generated_at')}`",
         f"- overall_status: `{payload.get('overall_status')}`",
         f"- available_artifact_count: `{payload.get('available_artifact_count')}`",
+        f"- knowledge_focus_area_count: `{payload.get('knowledge_focus_area_count')}`",
         "",
         "## Component Statuses",
         "",
@@ -305,6 +314,19 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     lines.extend(["", "## Recommendations", ""])
     if recommendations:
         lines.extend(f"- {item}" for item in recommendations)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Knowledge Focus Areas", ""])
+    focus_areas = payload.get("knowledge_focus_areas") or []
+    if focus_areas:
+        for row in focus_areas:
+            lines.append(
+                "- "
+                f"`{row.get('component')}` "
+                f"status=`{row.get('status')}` "
+                f"priority=`{row.get('priority')}` "
+                f"missing_metrics=`{', '.join(row.get('missing_metrics') or []) or 'none'}`"
+            )
     else:
         lines.append("- none")
     return "\n".join(lines) + "\n"
