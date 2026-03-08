@@ -737,6 +737,18 @@ jobs:
             f.write(
                 f"automation_ready_count={payload.get('automation_ready_count', 0)}\n"
             )
+            f.write(f"evidence_count_total={payload.get('evidence_count_total', 0)}\n")
+            f.write(
+                f"average_evidence_count={payload.get('average_evidence_count', 0)}\n"
+            )
+            f.write(
+                "records_with_evidence_count="
+                f"{payload.get('records_with_evidence_count', 0)}\n"
+            )
+            f.write(
+                "records_with_evidence_ratio="
+                f"{payload.get('records_with_evidence_ratio', 0)}\n"
+            )
             f.write(f"critical_ratio={payload.get('critical_ratio', 0)}\n")
             f.write(f"high_ratio={payload.get('high_ratio', 0)}\n")
             f.write(
@@ -756,6 +768,10 @@ jobs:
             f.write(
                 "top_review_reasons="
                 f"{compact_named(payload.get('top_review_reasons'))}\n"
+            )
+            f.write(
+                "top_evidence_sources="
+                f"{compact_named(payload.get('top_evidence_sources'))}\n"
             )
         PY
 
@@ -1371,6 +1387,10 @@ jobs:
           echo "- Active-learning review queue critical: ${{ steps.active_learning_review_queue_report.outputs.critical_count }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue high: ${{ steps.active_learning_review_queue_report.outputs.high_count }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue automation ready: ${{ steps.active_learning_review_queue_report.outputs.automation_ready_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Active-learning review queue evidence total: ${{ steps.active_learning_review_queue_report.outputs.evidence_count_total }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Active-learning review queue average evidence: ${{ steps.active_learning_review_queue_report.outputs.average_evidence_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Active-learning review queue evidence records: ${{ steps.active_learning_review_queue_report.outputs.records_with_evidence_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Active-learning review queue evidence ratio: ${{ steps.active_learning_review_queue_report.outputs.records_with_evidence_ratio }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue critical ratio: ${{ steps.active_learning_review_queue_report.outputs.critical_ratio }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue high ratio: ${{ steps.active_learning_review_queue_report.outputs.high_ratio }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue automation ratio: ${{ steps.active_learning_review_queue_report.outputs.automation_ready_ratio }}" >> $GITHUB_STEP_SUMMARY
@@ -1378,6 +1398,7 @@ jobs:
           echo "- Active-learning review queue priorities: ${{ steps.active_learning_review_queue_report.outputs.top_feedback_priorities }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue decision sources: ${{ steps.active_learning_review_queue_report.outputs.top_decision_sources }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue review reasons: ${{ steps.active_learning_review_queue_report.outputs.top_review_reasons }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Active-learning review queue evidence sources: ${{ steps.active_learning_review_queue_report.outputs.top_evidence_sources }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Active-learning review queue report: skipped (ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_ENABLE!=true or input missing)" >> $GITHUB_STEP_SUMMARY
         fi
@@ -1482,6 +1503,10 @@ jobs:
             const activeLearningReviewQueueCriticalCount = '${{ steps.active_learning_review_queue_report.outputs.critical_count }}';
             const activeLearningReviewQueueHighCount = '${{ steps.active_learning_review_queue_report.outputs.high_count }}';
             const activeLearningReviewQueueAutomationReadyCount = '${{ steps.active_learning_review_queue_report.outputs.automation_ready_count }}';
+            const activeLearningReviewQueueEvidenceCountTotal = '${{ steps.active_learning_review_queue_report.outputs.evidence_count_total }}';
+            const activeLearningReviewQueueAverageEvidence = '${{ steps.active_learning_review_queue_report.outputs.average_evidence_count }}';
+            const activeLearningReviewQueueRecordsWithEvidence = '${{ steps.active_learning_review_queue_report.outputs.records_with_evidence_count }}';
+            const activeLearningReviewQueueEvidenceRatio = '${{ steps.active_learning_review_queue_report.outputs.records_with_evidence_ratio }}';
             const activeLearningReviewQueueCriticalRatio = '${{ steps.active_learning_review_queue_report.outputs.critical_ratio }}';
             const activeLearningReviewQueueHighRatio = '${{ steps.active_learning_review_queue_report.outputs.high_ratio }}';
             const activeLearningReviewQueueAutomationReadyRatio = '${{ steps.active_learning_review_queue_report.outputs.automation_ready_ratio }}';
@@ -1489,6 +1514,7 @@ jobs:
             const activeLearningReviewQueueTopPriorities = '${{ steps.active_learning_review_queue_report.outputs.top_feedback_priorities }}';
             const activeLearningReviewQueueTopDecisionSources = '${{ steps.active_learning_review_queue_report.outputs.top_decision_sources }}';
             const activeLearningReviewQueueTopReviewReasons = '${{ steps.active_learning_review_queue_report.outputs.top_review_reasons }}';
+            const activeLearningReviewQueueTopEvidenceSources = '${{ steps.active_learning_review_queue_report.outputs.top_evidence_sources }}';
             const ocrReviewPackEnabled = '${{ steps.ocr_review_pack.outputs.enabled }}' === 'true';
             const ocrReviewPackInput = '${{ steps.ocr_review_pack.outputs.input_path }}';
             const ocrExportedRecords = '${{ steps.ocr_review_pack.outputs.exported_records }}';
@@ -1529,10 +1555,10 @@ jobs:
               ? `kinds=${assistantTopRecordKinds || 'n/a'}, evidence=${assistantTopEvidenceTypes || 'n/a'}, sources=${assistantTopStructuredSources || 'n/a'}, missing=${assistantTopMissingFields || 'n/a'}`
               : '⏭️ skipped';
             const activeLearningReviewQueueStatusLine = activeLearningReviewQueueEnabled
-              ? `input=${activeLearningReviewQueueInput}, total=${activeLearningReviewQueueTotal}, status=${activeLearningReviewQueueStatus}, critical=${activeLearningReviewQueueCriticalCount}, high=${activeLearningReviewQueueHighCount}, automation_ready=${activeLearningReviewQueueAutomationReadyCount}, critical_ratio=${activeLearningReviewQueueCriticalRatio}, high_ratio=${activeLearningReviewQueueHighRatio}, automation_ratio=${activeLearningReviewQueueAutomationReadyRatio}`
+              ? `input=${activeLearningReviewQueueInput}, total=${activeLearningReviewQueueTotal}, status=${activeLearningReviewQueueStatus}, critical=${activeLearningReviewQueueCriticalCount}, high=${activeLearningReviewQueueHighCount}, automation_ready=${activeLearningReviewQueueAutomationReadyCount}, evidence_total=${activeLearningReviewQueueEvidenceCountTotal}, avg_evidence=${activeLearningReviewQueueAverageEvidence}, evidence_records=${activeLearningReviewQueueRecordsWithEvidence}, evidence_ratio=${activeLearningReviewQueueEvidenceRatio}, critical_ratio=${activeLearningReviewQueueCriticalRatio}, high_ratio=${activeLearningReviewQueueHighRatio}, automation_ratio=${activeLearningReviewQueueAutomationReadyRatio}`
               : '⏭️ skipped';
             const activeLearningReviewQueueInsights = activeLearningReviewQueueEnabled
-              ? `sample_types=${activeLearningReviewQueueTopSampleTypes || 'n/a'}, priorities=${activeLearningReviewQueueTopPriorities || 'n/a'}, sources=${activeLearningReviewQueueTopDecisionSources || 'n/a'}, reasons=${activeLearningReviewQueueTopReviewReasons || 'n/a'}`
+              ? `sample_types=${activeLearningReviewQueueTopSampleTypes || 'n/a'}, priorities=${activeLearningReviewQueueTopPriorities || 'n/a'}, sources=${activeLearningReviewQueueTopDecisionSources || 'n/a'}, reasons=${activeLearningReviewQueueTopReviewReasons || 'n/a'}, evidence_sources=${activeLearningReviewQueueTopEvidenceSources || 'n/a'}`
               : '⏭️ skipped';
             const ocrReviewPackStatus = ocrReviewPackEnabled
               ? `input=${ocrReviewPackInput}, exported=${ocrExportedRecords}, review_candidates=${ocrReviewCandidateCount}, automation_ready=${ocrAutomationReadyCount}, readiness=${ocrAverageReadiness}, coverage=${ocrAverageCoverage}`
