@@ -81,6 +81,13 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_ENABLE" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_TITLE" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_SCORECARD_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_OPERATIONAL_SUMMARY_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD" in env
     assert "OCR_REVIEW_PACK_ENABLE" in env
     assert "OCR_REVIEW_PACK_INPUT" in env
     assert "OCR_REVIEW_PACK_OUTPUT_CSV" in env
@@ -131,6 +138,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_artifact_bundle_assistant_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_review_queue_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_ocr_review_json" in dispatch_inputs
+    assert "benchmark_companion_summary_enable" in dispatch_inputs
+    assert "benchmark_companion_summary_scorecard_json" in dispatch_inputs
+    assert "benchmark_companion_summary_operational_summary_json" in dispatch_inputs
+    assert "benchmark_companion_summary_artifact_bundle_json" in dispatch_inputs
     assert "ocr_review_pack_enable" in dispatch_inputs
     assert "ocr_review_pack_input" in dispatch_inputs
     assert "assistant_evidence_report_enable" in dispatch_inputs
@@ -301,6 +312,20 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "blockers=" in benchmark_bundle_script
     assert "recommendations=" in benchmark_bundle_script
 
+    benchmark_companion_step = _get_step(
+        workflow, "evaluate", "Build benchmark companion summary (optional)"
+    )
+    benchmark_companion_script = benchmark_companion_step["run"]
+    assert "scripts/export_benchmark_companion_summary.py" in benchmark_companion_script
+    assert "BENCHMARK_COMPANION_SUMMARY_ENABLE" in benchmark_companion_script
+    assert "--benchmark-scorecard" in benchmark_companion_script
+    assert "--benchmark-operational-summary" in benchmark_companion_script
+    assert "--benchmark-artifact-bundle" in benchmark_companion_script
+    assert "review_surface=" in benchmark_companion_script
+    assert "primary_gap=" in benchmark_companion_script
+    assert "recommended_actions=" in benchmark_companion_script
+    assert "qdrant_status=" in benchmark_companion_script
+
     assistant_step = _get_step(
         workflow, "evaluate", "Build assistant evidence report (optional)"
     )
@@ -363,6 +388,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_benchmark_bundle["if"]
         == "steps.benchmark_artifact_bundle.outputs.enabled == 'true'"
+    )
+    upload_benchmark_companion = _get_step(
+        workflow, "evaluate", "Upload benchmark companion summary"
+    )
+    assert (
+        upload_benchmark_companion["if"]
+        == "steps.benchmark_companion_summary.outputs.enabled == 'true'"
     )
     upload_assistant = _get_step(workflow, "evaluate", "Upload assistant evidence report")
     assert (
@@ -433,6 +465,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark artifact bundle blockers" in summary_script
     assert "Benchmark artifact bundle recommendations" in summary_script
     assert "Benchmark artifact bundle artifact" in summary_script
+    assert "Benchmark companion summary overall" in summary_script
+    assert "Benchmark companion review surface" in summary_script
+    assert "Benchmark companion primary gap" in summary_script
+    assert "Benchmark companion review queue status" in summary_script
+    assert "Benchmark companion recommended actions" in summary_script
+    assert "Benchmark companion artifact" in summary_script
     assert "Assistant evidence input" in summary_script
     assert "Assistant evidence records" in summary_script
     assert "Assistant evidence items" in summary_script

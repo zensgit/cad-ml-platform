@@ -150,6 +150,22 @@ on:
         description: 'Optional benchmark artifact bundle OCR review JSON'
         required: false
         default: ''
+      benchmark_companion_summary_enable:
+        description: 'Override: enable benchmark companion summary export (true/false)'
+        required: false
+        default: ''
+      benchmark_companion_summary_scorecard_json:
+        description: 'Optional benchmark companion summary scorecard JSON'
+        required: false
+        default: ''
+      benchmark_companion_summary_operational_summary_json:
+        description: 'Optional benchmark companion summary operational summary JSON'
+        required: false
+        default: ''
+      benchmark_companion_summary_artifact_bundle_json:
+        description: 'Optional benchmark companion summary artifact bundle JSON'
+        required: false
+        default: ''
       ocr_review_pack_enable:
         description: 'Override: enable OCR review-pack export (true/false)'
         required: false
@@ -256,6 +272,13 @@ env:
   BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_artifact_bundle.json' }}
   BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_artifact_bundle.md' }}
+  BENCHMARK_COMPANION_SUMMARY_ENABLE: ${{ vars.BENCHMARK_COMPANION_SUMMARY_ENABLE || 'false' }}
+  BENCHMARK_COMPANION_SUMMARY_TITLE: ${{ vars.BENCHMARK_COMPANION_SUMMARY_TITLE || 'Benchmark Companion Summary' }}
+  BENCHMARK_COMPANION_SUMMARY_SCORECARD_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_SCORECARD_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_OPERATIONAL_SUMMARY_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_OPERATIONAL_SUMMARY_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_companion_summary.json' }}
+  BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD: ${{ vars.BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_companion_summary.md' }}
   OCR_REVIEW_PACK_ENABLE: ${{ vars.OCR_REVIEW_PACK_ENABLE || 'false' }}
   OCR_REVIEW_PACK_INPUT: ${{ vars.OCR_REVIEW_PACK_INPUT }}
   OCR_REVIEW_PACK_OUTPUT_CSV: ${{ vars.OCR_REVIEW_PACK_OUTPUT_CSV || 'reports/history_sequence_eval/ocr_review_pack.csv' }}
@@ -1226,6 +1249,103 @@ jobs:
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
 
+    - name: Build benchmark companion summary (optional)
+      id: benchmark_companion_summary
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_companion_summary_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_COMPANION_SUMMARY_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_companion_summary.json}"
+        OUTPUT_MD="${BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD:-reports/history_sequence_eval/benchmark_companion_summary.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_companion_summary.py
+          --title "${BENCHMARK_COMPANION_SUMMARY_TITLE:-Benchmark Companion Summary}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --benchmark-scorecard "${{ github.event.inputs.benchmark_companion_summary_scorecard_json || '' }}"
+        add_if_exists --benchmark-operational-summary "${{ github.event.inputs.benchmark_companion_summary_operational_summary_json || '' }}"
+        add_if_exists --benchmark-artifact-bundle "${{ github.event.inputs.benchmark_companion_summary_artifact_bundle_json || '' }}"
+        add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
+        add_if_exists --benchmark-scorecard "${BENCHMARK_COMPANION_SUMMARY_SCORECARD_JSON:-}"
+        add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
+        add_if_exists --benchmark-operational-summary "${BENCHMARK_COMPANION_SUMMARY_OPERATIONAL_SUMMARY_JSON:-}"
+        add_if_exists --benchmark-artifact-bundle "${{ steps.benchmark_artifact_bundle.outputs.output_json || '' }}"
+        add_if_exists --benchmark-artifact-bundle "${BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_COMPANION_SUMMARY_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark companion summary inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON"]).read_text(
+                encoding="utf-8"
+            )
+        )
+        component_statuses = payload.get("component_statuses") or {}
+        blockers = payload.get("blockers") or []
+        recommendations = payload.get("recommended_actions") or []
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:3] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"overall_status={payload.get('overall_status', 'unknown')}\n")
+            f.write(f"review_surface={payload.get('review_surface', 'unknown')}\n")
+            f.write(f"primary_gap={payload.get('primary_gap', 'unknown')}\n")
+            f.write(f"hybrid_status={component_statuses.get('hybrid', 'unknown')}\n")
+            f.write(
+                "assistant_status="
+                f"{component_statuses.get('assistant_explainability', 'unknown')}\n"
+            )
+            f.write(
+                f"review_queue_status={component_statuses.get('review_queue', 'unknown')}\n"
+            )
+            f.write(f"ocr_status={component_statuses.get('ocr_review', 'unknown')}\n")
+            f.write(f"qdrant_status={component_statuses.get('qdrant_backend', 'unknown')}\n")
+            f.write(f"blockers={compact(blockers)}\n")
+            f.write(f"recommended_actions={compact(recommendations)}\n")
+        PY
+
     - name: Build assistant evidence report (optional)
       id: assistant_evidence_report
       continue-on-error: true
@@ -1594,6 +1714,16 @@ jobs:
           ${{ steps.benchmark_artifact_bundle.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark companion summary
+      if: steps.benchmark_companion_summary.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-companion-summary-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_companion_summary.outputs.output_json }}
+          ${{ steps.benchmark_companion_summary.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload assistant evidence report
       if: steps.assistant_evidence_report.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -1791,6 +1921,21 @@ jobs:
           echo "- Benchmark artifact bundle artifact: ${{ steps.benchmark_artifact_bundle.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Benchmark artifact bundle: skipped (no benchmark bundle inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.benchmark_companion_summary.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark companion summary overall: ${{ steps.benchmark_companion_summary.outputs.overall_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion review surface: ${{ steps.benchmark_companion_summary.outputs.review_surface }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion primary gap: ${{ steps.benchmark_companion_summary.outputs.primary_gap }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion hybrid status: ${{ steps.benchmark_companion_summary.outputs.hybrid_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion assistant status: ${{ steps.benchmark_companion_summary.outputs.assistant_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion review queue status: ${{ steps.benchmark_companion_summary.outputs.review_queue_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion OCR status: ${{ steps.benchmark_companion_summary.outputs.ocr_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion Qdrant status: ${{ steps.benchmark_companion_summary.outputs.qdrant_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion blockers: ${{ steps.benchmark_companion_summary.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion recommended actions: ${{ steps.benchmark_companion_summary.outputs.recommended_actions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion artifact: ${{ steps.benchmark_companion_summary.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark companion summary: skipped (no benchmark companion inputs)" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "${{ steps.assistant_evidence_report.outputs.enabled }}" == "true" ]]; then
           echo "- Assistant evidence input: ${{ steps.assistant_evidence_report.outputs.input_path }}" >> $GITHUB_STEP_SUMMARY
