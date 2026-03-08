@@ -66,6 +66,10 @@ on:
         description: 'Optional path to CSV inside downloaded artifact'
         required: false
         default: ''
+      benchmark_scorecard_enable:
+        description: 'Override: enable benchmark scorecard generation (true/false)'
+        required: false
+        default: ''
 
 env:
   PYTHON_VERSION: '3.11'
@@ -105,6 +109,17 @@ env:
   GRAPH2D_TRAIN_SWEEP_MAX_RUNS: ${{ vars.GRAPH2D_TRAIN_SWEEP_MAX_RUNS || '0' }}
   GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON: ${{ vars.GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON || '[]' }}
   GRAPH2D_TRAIN_SWEEP_WORK_ROOT: ${{ vars.GRAPH2D_TRAIN_SWEEP_WORK_ROOT || 'reports/history_sequence_eval/graph2d_train_recipe_sweep' }}
+  BENCHMARK_SCORECARD_ENABLE: ${{ vars.BENCHMARK_SCORECARD_ENABLE || 'false' }}
+  BENCHMARK_SCORECARD_TITLE: ${{ vars.BENCHMARK_SCORECARD_TITLE || 'CAD Benchmark Scorecard' }}
+  BENCHMARK_SCORECARD_HYBRID_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_HYBRID_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_GRAPH2D_METRICS_JSON: ${{ vars.BENCHMARK_SCORECARD_GRAPH2D_METRICS_JSON }}
+  BENCHMARK_SCORECARD_GRAPH2D_DIAGNOSE_JSON: ${{ vars.BENCHMARK_SCORECARD_GRAPH2D_DIAGNOSE_JSON }}
+  BENCHMARK_SCORECARD_GRAPH2D_BLIND_DIAGNOSE_JSON: ${{ vars.BENCHMARK_SCORECARD_GRAPH2D_BLIND_DIAGNOSE_JSON }}
+  BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON || 'reports/history_sequence_eval/summary.json' }}
+  BENCHMARK_SCORECARD_BREP_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_BREP_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_OUTPUT_JSON: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_scorecard.json' }}
+  BENCHMARK_SCORECARD_OUTPUT_MD: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_scorecard.md' }}
 
 jobs:
   evaluate:
@@ -506,6 +521,79 @@ jobs:
         PY
         fi
 
+    - name: Generate benchmark scorecard (optional)
+      id: benchmark_scorecard
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_scorecard_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_SCORECARD_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "BENCHMARK_SCORECARD_ENABLE is not true; skip."
+          exit 0
+        fi
+
+        OUTPUT_JSON="${BENCHMARK_SCORECARD_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_scorecard.json}"
+        OUTPUT_MD="${BENCHMARK_SCORECARD_OUTPUT_MD:-reports/history_sequence_eval/benchmark_scorecard.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/generate_benchmark_scorecard.py
+          --title "${BENCHMARK_SCORECARD_TITLE:-CAD Benchmark Scorecard}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+          fi
+        }
+
+        add_if_exists --hybrid-summary "${BENCHMARK_SCORECARD_HYBRID_SUMMARY_JSON:-}"
+        add_if_exists --graph2d-metrics "${BENCHMARK_SCORECARD_GRAPH2D_METRICS_JSON:-}"
+        add_if_exists --graph2d-diagnose "${BENCHMARK_SCORECARD_GRAPH2D_DIAGNOSE_JSON:-}"
+        add_if_exists --graph2d-blind-diagnose "${BENCHMARK_SCORECARD_GRAPH2D_BLIND_DIAGNOSE_JSON:-}"
+        add_if_exists --history-summary "${BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON:-}"
+        add_if_exists --brep-summary "${BENCHMARK_SCORECARD_BREP_SUMMARY_JSON:-}"
+        add_if_exists --migration-summary "${BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON:-}"
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(Path(os.environ["BENCHMARK_SCORECARD_OUTPUT_JSON"]).read_text(encoding="utf-8"))
+        components = payload.get("components") or {}
+        hybrid = components.get("hybrid") or {}
+        graph2d = components.get("graph2d") or {}
+        history = components.get("history_sequence") or {}
+        brep = components.get("brep") or {}
+        governance = components.get("migration_governance") or {}
+        recommendations = payload.get("recommendations") or []
+        compact_recommendations = "; ".join(str(item).strip() for item in recommendations[:3] if str(item).strip())
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"overall_status={payload.get('overall_status', 'unknown')}\n")
+            f.write(f"hybrid_status={hybrid.get('status', 'unknown')}\n")
+            f.write(f"graph2d_status={graph2d.get('status', 'unknown')}\n")
+            f.write(f"history_status={history.get('status', 'unknown')}\n")
+            f.write(f"brep_status={brep.get('status', 'unknown')}\n")
+            f.write(f"governance_status={governance.get('status', 'unknown')}\n")
+            f.write(f"recommendations={compact_recommendations}\n")
+        PY
+
     - name: Check Graph2D review-pack gate (optional)
       id: graph2d_review_gate
       continue-on-error: true
@@ -745,6 +833,16 @@ jobs:
         path: ${{ steps.graph2d_train_sweep.outputs.work_root }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark scorecard
+      if: steps.benchmark_scorecard.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-scorecard-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_scorecard.outputs.output_json }}
+          ${{ steps.benchmark_scorecard.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Send notifications
       if: always()
       env:
@@ -861,6 +959,18 @@ jobs:
         else
           echo "- Graph2D train sweep: skipped (GRAPH2D_TRAIN_SWEEP_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
         fi
+        if [[ "${{ steps.benchmark_scorecard.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark scorecard overall: ${{ steps.benchmark_scorecard.outputs.overall_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark hybrid status: ${{ steps.benchmark_scorecard.outputs.hybrid_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark Graph2D status: ${{ steps.benchmark_scorecard.outputs.graph2d_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark history status: ${{ steps.benchmark_scorecard.outputs.history_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark B-Rep status: ${{ steps.benchmark_scorecard.outputs.brep_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark governance status: ${{ steps.benchmark_scorecard.outputs.governance_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark recommendations: ${{ steps.benchmark_scorecard.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark scorecard artifact: ${{ steps.benchmark_scorecard.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark scorecard: skipped (BENCHMARK_SCORECARD_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
+        fi
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "---" >> $GITHUB_STEP_SUMMARY
         echo "*Generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')*" >> $GITHUB_STEP_SUMMARY
@@ -918,6 +1028,14 @@ jobs:
             const sweepBestSeed = '${{ steps.graph2d_train_sweep.outputs.best_seed }}';
             const sweepRecommendedEnv = '${{ steps.graph2d_train_sweep.outputs.recommended_env_file }}';
             const sweepBestRunScript = '${{ steps.graph2d_train_sweep.outputs.best_run_script }}';
+            const benchmarkScorecardEnabled = '${{ steps.benchmark_scorecard.outputs.enabled }}' === 'true';
+            const benchmarkOverallStatus = '${{ steps.benchmark_scorecard.outputs.overall_status }}';
+            const benchmarkHybridStatus = '${{ steps.benchmark_scorecard.outputs.hybrid_status }}';
+            const benchmarkGraph2dStatus = '${{ steps.benchmark_scorecard.outputs.graph2d_status }}';
+            const benchmarkHistoryStatus = '${{ steps.benchmark_scorecard.outputs.history_status }}';
+            const benchmarkBrepStatus = '${{ steps.benchmark_scorecard.outputs.brep_status }}';
+            const benchmarkGovernanceStatus = '${{ steps.benchmark_scorecard.outputs.governance_status }}';
+            const benchmarkRecommendations = '${{ steps.benchmark_scorecard.outputs.recommendations }}';
             const reviewCandidateCount = parseInt(reviewCandidates || '0', 10);
             const sweepTotalRunsInt = parseInt(sweepTotalRuns || '0', 10);
             const sweepFailedRunsInt = parseInt(sweepFailedRuns || '0', 10);
@@ -937,6 +1055,9 @@ jobs:
             const trainSweepStatus = trainSweepEnabled
               ? `runs=${sweepTotalRuns}, failed=${sweepFailedRuns}, best=${sweepBestRecipe}@${sweepBestSeed}, env=${sweepRecommendedEnv}, script=${sweepBestRunScript}`
               : '⏭️ skipped';
+            const benchmarkScorecardStatus = benchmarkScorecardEnabled
+              ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}`
+              : '⏭️ skipped';
 
             const reviewPackLight = !reviewPackEnabled
               ? '⚪'
@@ -947,6 +1068,9 @@ jobs:
             const trainSweepLight = !trainSweepEnabled
               ? '⚪'
               : (sweepTotalRunsInt <= 0 ? '🟡' : (sweepFailedRunsInt > 0 ? '🔴' : '🟢'));
+            const benchmarkLight = !benchmarkScorecardEnabled
+              ? '⚪'
+              : (benchmarkOverallStatus.includes('gap') ? '🟡' : '🟢');
 
             const body = `## 📊 CAD ML Platform - Evaluation Results
 
@@ -972,6 +1096,8 @@ jobs:
             | **Graph2D Review Gate** | ${reviewGateStatus} |
             | **Graph2D Review Gate Strict** | ${reviewGateStrictStatus} |
             | **Graph2D Train Sweep** | ${trainSweepStatus} |
+            | **Benchmark Scorecard** | ${benchmarkScorecardStatus} |
+            | **Benchmark Recommendations** | ${benchmarkRecommendations || 'n/a'} |
 
             ### Graph2D Signal Lights
             | Signal | State | Detail |
@@ -979,6 +1105,7 @@ jobs:
             | **Review Pack** | ${reviewPackLight} | ${reviewPackStatus} |
             | **Review Gate** | ${reviewGateLight} | ${reviewGateStatus} |
             | **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
+            | **Benchmark Scorecard** | ${benchmarkLight} | ${benchmarkScorecardStatus} |
 
             ### Quick Actions
             - 📋 [View Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})

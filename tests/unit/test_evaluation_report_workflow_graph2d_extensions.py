@@ -42,6 +42,17 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "GRAPH2D_TRAIN_SWEEP_RECIPES" in env
     assert "GRAPH2D_TRAIN_SWEEP_SEEDS" in env
     assert "GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON" in env
+    assert "BENCHMARK_SCORECARD_ENABLE" in env
+    assert "BENCHMARK_SCORECARD_TITLE" in env
+    assert "BENCHMARK_SCORECARD_HYBRID_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_GRAPH2D_METRICS_JSON" in env
+    assert "BENCHMARK_SCORECARD_GRAPH2D_DIAGNOSE_JSON" in env
+    assert "BENCHMARK_SCORECARD_GRAPH2D_BLIND_DIAGNOSE_JSON" in env
+    assert "BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_BREP_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_OUTPUT_JSON" in env
+    assert "BENCHMARK_SCORECARD_OUTPUT_MD" in env
 
     dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert "review_gate_min_total_rows" in dispatch_inputs
@@ -55,6 +66,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "review_pack_input_artifact_run_id" in dispatch_inputs
     assert "review_pack_input_artifact_repository" in dispatch_inputs
     assert "review_pack_input_artifact_path" in dispatch_inputs
+    assert "benchmark_scorecard_enable" in dispatch_inputs
     assert permissions["actions"] == "read"
 
 
@@ -137,6 +149,15 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     )
     assert "Failure reason" in final_fail_step["run"]
 
+    benchmark_step = _get_step(workflow, "evaluate", "Generate benchmark scorecard (optional)")
+    benchmark_script = benchmark_step["run"]
+    assert "scripts/generate_benchmark_scorecard.py" in benchmark_script
+    assert "BENCHMARK_SCORECARD_ENABLE" in benchmark_script
+    assert "--hybrid-summary" in benchmark_script
+    assert "--graph2d-metrics" in benchmark_script
+    assert "--history-summary" in benchmark_script
+    assert "overall_status=" in benchmark_script
+
 
 def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     workflow = _load_workflow()
@@ -146,6 +167,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
 
     upload_sweep = _get_step(workflow, "evaluate", "Upload Graph2D train sweep")
     assert upload_sweep["if"] == "steps.graph2d_train_sweep.outputs.enabled == 'true'"
+
+    upload_scorecard = _get_step(workflow, "evaluate", "Upload benchmark scorecard")
+    assert upload_scorecard["if"] == "steps.benchmark_scorecard.outputs.enabled == 'true'"
 
     summary_step = _get_step(workflow, "evaluate", "Create job summary")
     summary_script = summary_step["run"]
@@ -172,6 +196,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Graph2D review gate strict_mode" in summary_script
     assert "Graph2D train sweep total_runs" in summary_script
     assert "Graph2D train sweep best run script" in summary_script
+    assert "Benchmark scorecard overall" in summary_script
+    assert "Benchmark hybrid status" in summary_script
+    assert "Benchmark Graph2D status" in summary_script
+    assert "Benchmark recommendations" in summary_script
 
     pr_comment_step = _get_step(workflow, "evaluate", "Comment PR with results")
     pr_comment_script = pr_comment_step["with"]["script"]
@@ -187,3 +215,6 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Graph2D Signal Lights" in pr_comment_script
     assert "reviewTopShadowSources" in pr_comment_script
     assert "script=${sweepBestRunScript}" in pr_comment_script
+    assert "benchmarkScorecardEnabled" in pr_comment_script
+    assert "Benchmark Scorecard" in pr_comment_script
+    assert "Benchmark Recommendations" in pr_comment_script
