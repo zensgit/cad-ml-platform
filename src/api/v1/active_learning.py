@@ -69,6 +69,13 @@ class ReviewQueueSummaryResponse(BaseModel):
     by_decision_source: Dict[str, int] = Field(default_factory=dict)
     by_uncertainty_reason: Dict[str, int] = Field(default_factory=dict)
     by_review_reason: Dict[str, int] = Field(default_factory=dict)
+    critical_count: int = 0
+    high_count: int = 0
+    automation_ready_count: int = 0
+    critical_ratio: float = 0.0
+    high_ratio: float = 0.0
+    automation_ready_ratio: float = 0.0
+    operational_status: str = "under_control"
 
 
 class ReviewQueueStatsResponse(ReviewQueueSummaryResponse):

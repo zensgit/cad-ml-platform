@@ -156,6 +156,13 @@ def _sample_type_rank(sample_type: Optional[str]) -> int:
     return order.get(str(sample_type or "").strip().lower(), -1)
 
 
+def _automation_ready(sample: ActiveLearningSample) -> bool:
+    return bool(
+        sample.score_breakdown.get("automation_ready")
+        or sample.score_breakdown.get("review_automation_ready")
+    )
+
+
 class ActiveLearner:
     """Manages active learning samples and feedback collection."""
 
@@ -440,6 +447,9 @@ class ActiveLearner:
             "by_decision_source": {},
             "by_uncertainty_reason": {},
             "by_review_reason": {},
+            "critical_count": 0,
+            "high_count": 0,
+            "automation_ready_count": 0,
         }
         for sample in samples:
             derived_sample_type = _derive_sample_type(sample)
@@ -460,17 +470,38 @@ class ActiveLearner:
             summary["by_feedback_priority"][derived_priority] = (
                 summary["by_feedback_priority"].get(derived_priority, 0) + 1
             )
+            if derived_priority == "critical":
+                summary["critical_count"] += 1
+            if derived_priority == "high":
+                summary["high_count"] += 1
             summary["by_decision_source"][decision_source] = (
                 summary["by_decision_source"].get(decision_source, 0) + 1
             )
             summary["by_uncertainty_reason"][uncertainty_reason] = (
                 summary["by_uncertainty_reason"].get(uncertainty_reason, 0) + 1
             )
+            if _automation_ready(sample):
+                summary["automation_ready_count"] += 1
             for reason in review_reasons:
                 reason_key = str(reason or "").strip() or "unknown"
                 summary["by_review_reason"][reason_key] = (
                     summary["by_review_reason"].get(reason_key, 0) + 1
                 )
+        total = max(int(summary["total"]), 1)
+        critical_count = int(summary["critical_count"])
+        high_count = int(summary["high_count"])
+        automation_ready_count = int(summary["automation_ready_count"])
+        summary["critical_ratio"] = round(critical_count / total, 6)
+        summary["high_ratio"] = round(high_count / total, 6)
+        summary["automation_ready_ratio"] = round(automation_ready_count / total, 6)
+        if int(summary["total"]) <= 0:
+            summary["operational_status"] = "under_control"
+        elif critical_count > 0:
+            summary["operational_status"] = "critical_backlog"
+        elif high_count > 0:
+            summary["operational_status"] = "managed_backlog"
+        else:
+            summary["operational_status"] = "routine_backlog"
         return summary
 
     def get_review_queue(
