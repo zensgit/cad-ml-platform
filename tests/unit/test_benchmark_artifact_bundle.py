@@ -99,6 +99,8 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["knowledge_priority_domains"] == ["standards"]
     assert payload["knowledge_domains"]["standards"]["status"] == "missing"
     assert payload["knowledge_domain_focus_areas"][0]["domain"] == "standards"
+    assert payload["knowledge_drift_domain_regressions"] == []
+    assert payload["knowledge_drift_new_priority_domains"] == []
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
@@ -163,6 +165,7 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
+    assert payload["knowledge_drift_domain_improvements"] == []
 
 
 def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
@@ -309,6 +312,7 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert "Knowledge baseline regressed." in output_md.read_text(encoding="utf-8")
     assert payload["knowledge_domains"]["gdt"]["status"] == "ready"
     assert payload["knowledge_domain_focus_areas"] == []
+    assert "domain_regressions" in output_md.read_text(encoding="utf-8")
     assert "review queue backlog" in output_md.read_text(encoding="utf-8")
     assert "## Knowledge Domains" in output_md.read_text(encoding="utf-8")
 
@@ -427,7 +431,11 @@ def test_build_bundle_exposes_knowledge_drift_passthrough() -> None:
                 "reference_item_delta": -40,
                 "regressions": ["gdt"],
                 "improvements": [],
+                "domain_regressions": ["gdt"],
+                "domain_improvements": [],
                 "new_focus_areas": ["gdt"],
+                "resolved_priority_domains": [],
+                "new_priority_domains": ["gdt"],
                 "component_changes": [
                     {
                         "component": "gdt",
@@ -462,4 +470,6 @@ def test_build_bundle_exposes_knowledge_drift_passthrough() -> None:
         "surpass baseline remains stable.",
         "Regressed components: gdt",
     ]
+    assert payload["knowledge_drift_domain_regressions"] == ["gdt"]
+    assert payload["knowledge_drift_new_priority_domains"] == ["gdt"]
     assert payload["recommendations"] == payload["knowledge_drift_recommendations"]

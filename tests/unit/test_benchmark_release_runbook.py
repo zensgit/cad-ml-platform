@@ -61,8 +61,12 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
                 "status": "mixed",
                 "regressions": ["gdt"],
                 "improvements": ["standards"],
+                "domain_regressions": ["gdt"],
+                "domain_improvements": ["standards"],
                 "new_focus_areas": ["gdt"],
                 "resolved_focus_areas": [],
+                "resolved_priority_domains": [],
+                "new_priority_domains": ["gdt"],
             },
             "recommendations": [
                 "Keep the previous baseline until knowledge regressions are cleared."
@@ -95,6 +99,7 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["knowledge_status"] == "knowledge_foundation_partial"
     assert payload["knowledge_focus_areas"][0]["component"] == "gdt"
     assert payload["knowledge_drift_status"] == "mixed"
+    assert payload["knowledge_drift_domain_regressions"] == ["gdt"]
     assert payload["knowledge_drift"]["counts"]["regressions"] == 1
     assert payload["knowledge_priority_domains"] == ["gdt"]
     assert payload["knowledge_domains"]["gdt"]["status"] == "missing"
@@ -155,8 +160,12 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                 "status": "improved",
                 "regressions": [],
                 "improvements": ["standards"],
+                "domain_regressions": [],
+                "domain_improvements": ["standards"],
                 "new_focus_areas": [],
                 "resolved_focus_areas": ["standards"],
+                "resolved_priority_domains": ["standards"],
+                "new_priority_domains": [],
             },
             "recommendations": [
                 "Promote the improved knowledge baseline after CI and review surfaces "
@@ -180,6 +189,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["knowledge_status"] == "knowledge_foundation_ready"
     assert payload["knowledge_focus_areas"] == []
     assert payload["knowledge_drift_status"] == "improved"
+    assert payload["knowledge_drift_domain_improvements"] == ["standards"]
     assert payload["knowledge_priority_domains"] == []
     assert payload["knowledge_domains"]["standards"]["status"] == "ready"
     assert payload["knowledge_domain_focus_areas"] == []
