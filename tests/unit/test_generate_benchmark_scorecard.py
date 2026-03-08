@@ -97,6 +97,19 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             "by_review_reason": {},
         },
     )
+    ocr_review = _write_json(
+        tmp_path / "ocr_review.json",
+        {
+            "review_candidate_count": 0,
+            "exported_records": 0,
+            "automation_ready_count": 0,
+            "average_readiness_score": 0.0,
+            "average_coverage_ratio": 0.0,
+            "review_priority_counts": [],
+            "primary_gap_counts": [],
+            "top_review_reasons": [],
+        },
+    )
     output_json = tmp_path / "scorecard.json"
     output_md = tmp_path / "scorecard.md"
 
@@ -124,6 +137,8 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             str(assistant),
             "--review-queue-summary",
             str(review_queue),
+            "--ocr-review-summary",
+            str(ocr_review),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -143,6 +158,7 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
     assert payload["components"]["migration_governance"]["status"] == "operationally_ready"
     assert payload["components"]["assistant_explainability"]["status"] == "explainability_ready"
     assert payload["components"]["review_queue"]["status"] == "under_control"
+    assert payload["components"]["ocr_review"]["status"] == "ocr_ready"
     assert output_json.exists()
     assert output_md.exists()
     markdown = output_md.read_text(encoding="utf-8")
@@ -150,6 +166,7 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
     assert "weak_signal_only" in markdown
     assert "assistant_explainability" in markdown
     assert "review_queue" in markdown
+    assert "ocr_review" in markdown
 
 
 def test_generate_benchmark_scorecard_handles_missing_optional_inputs(tmp_path: Path) -> None:
@@ -192,5 +209,116 @@ def test_generate_benchmark_scorecard_handles_missing_optional_inputs(tmp_path: 
     assert payload["components"]["migration_governance"]["status"] == "missing"
     assert payload["components"]["assistant_explainability"]["status"] == "missing"
     assert payload["components"]["review_queue"]["status"] == "missing"
+    assert payload["components"]["ocr_review"]["status"] == "missing"
     assert payload["overall_status"] == "benchmark_ready_without_governance"
     assert output_json.exists()
+
+
+def test_generate_benchmark_scorecard_reports_ocr_gap(tmp_path: Path) -> None:
+    hybrid = _write_json(
+        tmp_path / "hybrid.json",
+        {
+            "sample_size": 12,
+            "exact_accuracy": {
+                "hybrid_label": {"accuracy": 0.84},
+                "final_part_type": {"accuracy": 0.8},
+                "graph2d_label": {"accuracy": 0.1},
+            },
+            "coarse_accuracy": {"hybrid_label": {"accuracy": 0.9}},
+            "confidence": {"graph2d_label": {"low_conf_rate": 1.0}},
+        },
+    )
+    governance = _write_json(
+        tmp_path / "migration.json",
+        {
+            "plan_ready": True,
+            "coverage_complete": True,
+        },
+    )
+    history = _write_json(
+        tmp_path / "history.json",
+        {
+            "total": 20,
+            "coverage": 0.8,
+            "accuracy_overall": 0.75,
+            "coarse_accuracy_overall": 0.86,
+            "low_conf_rate": 0.1,
+        },
+    )
+    brep = _write_json(
+        tmp_path / "brep.json",
+        {
+            "sample_size": 3,
+            "valid_3d_count": 3,
+            "hint_coverage_count": 2,
+            "graph_schema_version_counts": {"v2": 3},
+        },
+    )
+    assistant = _write_json(
+        tmp_path / "assistant.json",
+        {
+            "total_records": 10,
+            "total_evidence_items": 20,
+            "average_evidence_count": 2.0,
+            "records_with_evidence_pct": 0.9,
+            "records_with_decision_path_pct": 0.8,
+            "records_with_any_source_signal_pct": 0.8,
+        },
+    )
+    review_queue = _write_json(
+        tmp_path / "review_queue.json",
+        {
+            "total": 0,
+            "automation_ready_count": 0,
+            "automation_ready_ratio": 0.0,
+            "by_sample_type": {},
+            "by_feedback_priority": {},
+            "by_decision_source": {},
+            "by_review_reason": {},
+        },
+    )
+    ocr_review = _write_json(
+        tmp_path / "ocr_review.json",
+        {
+            "review_candidate_count": 5,
+            "exported_records": 5,
+            "automation_ready_count": 0,
+            "average_readiness_score": 0.2,
+            "average_coverage_ratio": 0.3,
+            "review_priority_counts": [{"name": "high", "count": 5}],
+            "primary_gap_counts": [{"name": "title_block", "count": 5}],
+            "top_review_reasons": [{"name": "missing_title_block", "count": 5}],
+        },
+    )
+    output_json = tmp_path / "scorecard.json"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--hybrid-summary",
+            str(hybrid),
+            "--migration-summary",
+            str(governance),
+            "--history-summary",
+            str(history),
+            "--brep-summary",
+            str(brep),
+            "--assistant-evidence-summary",
+            str(assistant),
+            "--review-queue-summary",
+            str(review_queue),
+            "--ocr-review-summary",
+            str(ocr_review),
+            "--output-json",
+            str(output_json),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["components"]["ocr_review"]["status"] == "review_heavy"
+    assert payload["overall_status"] == "benchmark_ready_with_ocr_gap"
+    assert any("OCR" in item for item in payload["recommendations"])
