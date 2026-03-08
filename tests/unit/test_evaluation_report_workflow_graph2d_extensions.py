@@ -367,6 +367,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkAssistantStatus" in pr_comment_script
     assert "benchmarkReviewQueueStatus" in pr_comment_script
     assert "benchmarkFeedbackFlywheelStatus" in pr_comment_script
+    assert "feedbackFlywheelBenchmarkEnabled" in pr_comment_script
+    assert "feedbackFlywheelBenchmarkStatus" in pr_comment_script
+    assert "feedbackFlywheelBenchmarkArtifact" in pr_comment_script
     assert "benchmarkOcrStatus" in pr_comment_script
     assert "benchmarkQdrantStatus" in pr_comment_script
     assert "assistant=${benchmarkAssistantStatus}" in pr_comment_script
@@ -375,6 +378,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "ocr=${benchmarkOcrStatus}" in pr_comment_script
     assert "qdrant=${benchmarkQdrantStatus}" in pr_comment_script
     assert "Benchmark Feedback Flywheel" in pr_comment_script
+    assert "Feedback Flywheel Artifact" in pr_comment_script
     assert "assistantEvidenceEnabled" in pr_comment_script
     assert "Assistant Evidence Report" in pr_comment_script
     assert "Assistant Evidence Insights" in pr_comment_script
