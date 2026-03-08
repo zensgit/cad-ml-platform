@@ -186,6 +186,7 @@ def build_release_runbook(
         or benchmark_engineering_signals
         or {}
     )
+    engineering_status = str(engineering_component.get("status") or "unknown").strip() or "unknown"
     if str(engineering_component.get("status") or "").strip() not in {
         "",
         "unknown",
@@ -346,6 +347,7 @@ def build_release_runbook(
         "release_status": release_status,
         "automation_ready": automation_ready,
         "ready_to_freeze_baseline": ready_to_freeze,
+        "engineering_status": engineering_status,
         "primary_signal_source": _primary_signal_source(
             benchmark_release_decision,
             benchmark_companion_summary,
@@ -367,6 +369,7 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"- `release_status`: `{payload.get('release_status')}`",
         f"- `automation_ready`: `{payload.get('automation_ready')}`",
         f"- `ready_to_freeze_baseline`: `{payload.get('ready_to_freeze_baseline')}`",
+        f"- `engineering_status`: `{payload.get('engineering_status')}`",
         f"- `primary_signal_source`: `{payload.get('primary_signal_source')}`",
         f"- `next_action`: `{payload.get('next_action')}`",
         "",

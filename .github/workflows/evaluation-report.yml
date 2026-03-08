@@ -218,6 +218,10 @@ on:
         description: 'Optional benchmark release decision companion summary JSON'
         required: false
         default: ''
+      benchmark_release_decision_engineering_signals_json:
+        description: 'Optional benchmark release decision engineering signals JSON'
+        required: false
+        default: ''
       benchmark_release_runbook_enable:
         description: 'Override: enable benchmark release runbook export (true/false)'
         required: false
@@ -232,6 +236,10 @@ on:
         default: ''
       benchmark_release_runbook_artifact_bundle_json:
         description: 'Optional benchmark release runbook artifact bundle JSON'
+        required: false
+        default: ''
+      benchmark_release_runbook_engineering_signals_json:
+        description: 'Optional benchmark release runbook engineering signals JSON'
         required: false
         default: ''
       ocr_review_pack_enable:
@@ -364,6 +372,7 @@ env:
   BENCHMARK_RELEASE_DECISION_OPERATIONAL_SUMMARY_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_OPERATIONAL_SUMMARY_JSON }}
   BENCHMARK_RELEASE_DECISION_ARTIFACT_BUNDLE_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_ARTIFACT_BUNDLE_JSON }}
   BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON }}
+  BENCHMARK_RELEASE_DECISION_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_ENGINEERING_SIGNALS_JSON }}
   BENCHMARK_RELEASE_DECISION_OUTPUT_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_release_decision.json' }}
   BENCHMARK_RELEASE_DECISION_OUTPUT_MD: ${{ vars.BENCHMARK_RELEASE_DECISION_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_release_decision.md' }}
   BENCHMARK_RELEASE_RUNBOOK_ENABLE: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ENABLE || 'false' }}
@@ -371,6 +380,7 @@ env:
   BENCHMARK_RELEASE_RUNBOOK_RELEASE_DECISION_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_RELEASE_DECISION_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_COMPANION_SUMMARY_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_COMPANION_SUMMARY_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ENGINEERING_SIGNALS_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_release_runbook.json' }}
   BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_release_runbook.md' }}
   OCR_REVIEW_PACK_ENABLE: ${{ vars.OCR_REVIEW_PACK_ENABLE || 'false' }}
@@ -1596,6 +1606,7 @@ jobs:
         add_if_exists --benchmark-operational-summary "${{ github.event.inputs.benchmark_release_decision_operational_summary_json || '' }}"
         add_if_exists --benchmark-artifact-bundle "${{ github.event.inputs.benchmark_release_decision_artifact_bundle_json || '' }}"
         add_if_exists --benchmark-companion-summary "${{ github.event.inputs.benchmark_release_decision_companion_summary_json || '' }}"
+        add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_release_decision_engineering_signals_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_RELEASE_DECISION_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
@@ -1604,6 +1615,8 @@ jobs:
         add_if_exists --benchmark-artifact-bundle "${BENCHMARK_RELEASE_DECISION_ARTIFACT_BUNDLE_JSON:-}"
         add_if_exists --benchmark-companion-summary "${{ steps.benchmark_companion_summary.outputs.output_json || '' }}"
         add_if_exists --benchmark-companion-summary "${BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON:-}"
+        add_if_exists --benchmark-engineering-signals "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
+        add_if_exists --benchmark-engineering-signals "${BENCHMARK_RELEASE_DECISION_ENGINEERING_SIGNALS_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -1661,6 +1674,10 @@ jobs:
             )
             f.write(f"ocr_status={component_statuses.get('ocr_review', 'unknown')}\n")
             f.write(f"qdrant_status={component_statuses.get('qdrant_backend', 'unknown')}\n")
+            f.write(
+                "engineering_status="
+                f"{component_statuses.get('engineering_signals', 'unknown')}\n"
+            )
         PY
 
     - name: Build benchmark release runbook (optional)
@@ -1699,12 +1716,15 @@ jobs:
         add_if_exists --benchmark-release-decision "${{ github.event.inputs.benchmark_release_runbook_release_decision_json || '' }}"
         add_if_exists --benchmark-companion-summary "${{ github.event.inputs.benchmark_release_runbook_companion_summary_json || '' }}"
         add_if_exists --benchmark-artifact-bundle "${{ github.event.inputs.benchmark_release_runbook_artifact_bundle_json || '' }}"
+        add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_release_runbook_engineering_signals_json || '' }}"
         add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
         add_if_exists --benchmark-release-decision "${BENCHMARK_RELEASE_RUNBOOK_RELEASE_DECISION_JSON:-}"
         add_if_exists --benchmark-companion-summary "${{ steps.benchmark_companion_summary.outputs.output_json || '' }}"
         add_if_exists --benchmark-companion-summary "${BENCHMARK_RELEASE_RUNBOOK_COMPANION_SUMMARY_JSON:-}"
         add_if_exists --benchmark-artifact-bundle "${{ steps.benchmark_artifact_bundle.outputs.output_json || '' }}"
         add_if_exists --benchmark-artifact-bundle "${BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON:-}"
+        add_if_exists --benchmark-engineering-signals "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
+        add_if_exists --benchmark-engineering-signals "${BENCHMARK_RELEASE_RUNBOOK_ENGINEERING_SIGNALS_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -1755,6 +1775,9 @@ jobs:
             )
             f.write(
                 f"review_signals={compact(payload.get('review_signals') or [])}\n"
+            )
+            f.write(
+                f"engineering_status={payload.get('engineering_status', 'unknown')}\n"
             )
         PY
 
@@ -2404,6 +2427,7 @@ jobs:
           echo "- Benchmark release review queue status: ${{ steps.benchmark_release_decision.outputs.review_queue_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release OCR status: ${{ steps.benchmark_release_decision.outputs.ocr_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release Qdrant status: ${{ steps.benchmark_release_decision.outputs.qdrant_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release engineering status: ${{ steps.benchmark_release_decision.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release blocking signals: ${{ steps.benchmark_release_decision.outputs.blocking_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release review signals: ${{ steps.benchmark_release_decision.outputs.review_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release artifact: ${{ steps.benchmark_release_decision.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -2415,6 +2439,7 @@ jobs:
           echo "- Benchmark release runbook freeze_ready: ${{ steps.benchmark_release_runbook.outputs.ready_to_freeze_baseline }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook primary signal source: ${{ steps.benchmark_release_runbook.outputs.primary_signal_source }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook next action: ${{ steps.benchmark_release_runbook.outputs.next_action }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook engineering status: ${{ steps.benchmark_release_runbook.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook missing artifacts: ${{ steps.benchmark_release_runbook.outputs.missing_artifacts }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook blocking signals: ${{ steps.benchmark_release_runbook.outputs.blocking_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook review signals: ${{ steps.benchmark_release_runbook.outputs.review_signals }}" >> $GITHUB_STEP_SUMMARY
@@ -2572,6 +2597,7 @@ jobs:
             const benchmarkArtifactBundleAssistantStatus = '${{ steps.benchmark_artifact_bundle.outputs.assistant_status }}';
             const benchmarkArtifactBundleReviewQueueStatus = '${{ steps.benchmark_artifact_bundle.outputs.review_queue_status }}';
             const benchmarkArtifactBundleOcrStatus = '${{ steps.benchmark_artifact_bundle.outputs.ocr_status }}';
+            const benchmarkArtifactBundleEngineeringStatus = '${{ steps.benchmark_artifact_bundle.outputs.engineering_status }}';
             const benchmarkArtifactBundleBlockers = '${{ steps.benchmark_artifact_bundle.outputs.blockers }}';
             const benchmarkArtifactBundleRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.recommendations }}';
             const benchmarkArtifactBundleArtifact = '${{ steps.benchmark_artifact_bundle.outputs.output_md }}';
@@ -2584,6 +2610,7 @@ jobs:
             const benchmarkCompanionReviewQueueStatus = '${{ steps.benchmark_companion_summary.outputs.review_queue_status }}';
             const benchmarkCompanionOcrStatus = '${{ steps.benchmark_companion_summary.outputs.ocr_status }}';
             const benchmarkCompanionQdrantStatus = '${{ steps.benchmark_companion_summary.outputs.qdrant_status }}';
+            const benchmarkCompanionEngineeringStatus = '${{ steps.benchmark_companion_summary.outputs.engineering_status }}';
             const benchmarkCompanionBlockers = '${{ steps.benchmark_companion_summary.outputs.blockers }}';
             const benchmarkCompanionRecommendedActions = '${{ steps.benchmark_companion_summary.outputs.recommended_actions }}';
             const benchmarkCompanionArtifact = '${{ steps.benchmark_companion_summary.outputs.output_md }}';
@@ -2598,6 +2625,7 @@ jobs:
             const benchmarkReleaseReviewQueueStatus = '${{ steps.benchmark_release_decision.outputs.review_queue_status }}';
             const benchmarkReleaseOcrStatus = '${{ steps.benchmark_release_decision.outputs.ocr_status }}';
             const benchmarkReleaseQdrantStatus = '${{ steps.benchmark_release_decision.outputs.qdrant_status }}';
+            const benchmarkReleaseEngineeringStatus = '${{ steps.benchmark_release_decision.outputs.engineering_status }}';
             const benchmarkReleaseArtifact = '${{ steps.benchmark_release_decision.outputs.output_md }}';
             const benchmarkReleaseRunbookEnabled = '${{ steps.benchmark_release_runbook.outputs.enabled }}' === 'true';
             const benchmarkReleaseRunbookStatus = '${{ steps.benchmark_release_runbook.outputs.release_status }}';
@@ -2607,6 +2635,7 @@ jobs:
             const benchmarkReleaseRunbookMissingArtifacts = '${{ steps.benchmark_release_runbook.outputs.missing_artifacts }}';
             const benchmarkReleaseRunbookBlockingSignals = '${{ steps.benchmark_release_runbook.outputs.blocking_signals }}';
             const benchmarkReleaseRunbookReviewSignals = '${{ steps.benchmark_release_runbook.outputs.review_signals }}';
+            const benchmarkReleaseRunbookEngineeringStatus = '${{ steps.benchmark_release_runbook.outputs.engineering_status }}';
             const benchmarkReleaseRunbookArtifact = '${{ steps.benchmark_release_runbook.outputs.output_md }}';
             const assistantEvidenceEnabled = '${{ steps.assistant_evidence_report.outputs.enabled }}' === 'true';
             const assistantEvidenceInput = '${{ steps.assistant_evidence_report.outputs.input_path }}';
@@ -2677,15 +2706,16 @@ jobs:
               ? `overall=${benchmarkOperationalSummaryOverall}, feedback=${benchmarkOperationalFeedbackStatus}, assistant=${benchmarkOperationalAssistantStatus}, review_queue=${benchmarkOperationalReviewQueueStatus}, ocr=${benchmarkOperationalOcrStatus}, blockers=${benchmarkOperationalBlockers || 'n/a'}, recommendations=${benchmarkOperationalRecommendations || 'n/a'}, artifact=${benchmarkOperationalArtifact}`
               : '⏭️ skipped';
             const benchmarkArtifactBundleStatus = benchmarkArtifactBundleEnabled
-              ? `overall=${benchmarkArtifactBundleOverall}, available_artifacts=${benchmarkArtifactBundleAvailableArtifacts}, feedback=${benchmarkArtifactBundleFeedbackStatus}, assistant=${benchmarkArtifactBundleAssistantStatus}, review_queue=${benchmarkArtifactBundleReviewQueueStatus}, ocr=${benchmarkArtifactBundleOcrStatus}, blockers=${benchmarkArtifactBundleBlockers || 'n/a'}, recommendations=${benchmarkArtifactBundleRecommendations || 'n/a'}, artifact=${benchmarkArtifactBundleArtifact}`
+              ? `overall=${benchmarkArtifactBundleOverall}, available_artifacts=${benchmarkArtifactBundleAvailableArtifacts}, feedback=${benchmarkArtifactBundleFeedbackStatus}, assistant=${benchmarkArtifactBundleAssistantStatus}, review_queue=${benchmarkArtifactBundleReviewQueueStatus}, ocr=${benchmarkArtifactBundleOcrStatus}, engineering=${benchmarkArtifactBundleEngineeringStatus}, blockers=${benchmarkArtifactBundleBlockers || 'n/a'}, recommendations=${benchmarkArtifactBundleRecommendations || 'n/a'}, artifact=${benchmarkArtifactBundleArtifact}`
+              : '⏭️ skipped';
             const benchmarkCompanionSummaryStatus = benchmarkCompanionSummaryEnabled
-              ? `overall=${benchmarkCompanionSummaryOverall}, review_surface=${benchmarkCompanionReviewSurface}, primary_gap=${benchmarkCompanionPrimaryGap || 'n/a'}, hybrid=${benchmarkCompanionHybridStatus}, assistant=${benchmarkCompanionAssistantStatus}, review_queue=${benchmarkCompanionReviewQueueStatus}, ocr=${benchmarkCompanionOcrStatus}, qdrant=${benchmarkCompanionQdrantStatus}, blockers=${benchmarkCompanionBlockers || 'n/a'}, actions=${benchmarkCompanionRecommendedActions || 'n/a'}, artifact=${benchmarkCompanionArtifact}`
+              ? `overall=${benchmarkCompanionSummaryOverall}, review_surface=${benchmarkCompanionReviewSurface}, primary_gap=${benchmarkCompanionPrimaryGap || 'n/a'}, hybrid=${benchmarkCompanionHybridStatus}, assistant=${benchmarkCompanionAssistantStatus}, review_queue=${benchmarkCompanionReviewQueueStatus}, ocr=${benchmarkCompanionOcrStatus}, qdrant=${benchmarkCompanionQdrantStatus}, engineering=${benchmarkCompanionEngineeringStatus}, blockers=${benchmarkCompanionBlockers || 'n/a'}, actions=${benchmarkCompanionRecommendedActions || 'n/a'}, artifact=${benchmarkCompanionArtifact}`
               : '⏭️ skipped';
             const benchmarkReleaseDecisionStatus = benchmarkReleaseDecisionEnabled
-              ? `status=${benchmarkReleaseStatus}, automation_ready=${benchmarkReleaseAutomationReady}, source=${benchmarkReleasePrimarySignalSource}, hybrid=${benchmarkReleaseHybridStatus}, assistant=${benchmarkReleaseAssistantStatus}, review_queue=${benchmarkReleaseReviewQueueStatus}, ocr=${benchmarkReleaseOcrStatus}, qdrant=${benchmarkReleaseQdrantStatus}, blockers=${benchmarkReleaseBlockingSignals || 'n/a'}, review=${benchmarkReleaseReviewSignals || 'n/a'}, artifact=${benchmarkReleaseArtifact}`
+              ? `status=${benchmarkReleaseStatus}, automation_ready=${benchmarkReleaseAutomationReady}, source=${benchmarkReleasePrimarySignalSource}, hybrid=${benchmarkReleaseHybridStatus}, assistant=${benchmarkReleaseAssistantStatus}, review_queue=${benchmarkReleaseReviewQueueStatus}, ocr=${benchmarkReleaseOcrStatus}, qdrant=${benchmarkReleaseQdrantStatus}, engineering=${benchmarkReleaseEngineeringStatus}, blockers=${benchmarkReleaseBlockingSignals || 'n/a'}, review=${benchmarkReleaseReviewSignals || 'n/a'}, artifact=${benchmarkReleaseArtifact}`
               : '⏭️ skipped';
             const benchmarkReleaseRunbookStatusLine = benchmarkReleaseRunbookEnabled
-              ? `status=${benchmarkReleaseRunbookStatus}, freeze_ready=${benchmarkReleaseRunbookFreezeReady}, source=${benchmarkReleaseRunbookPrimarySignalSource}, next=${benchmarkReleaseRunbookNextAction || 'n/a'}, missing=${benchmarkReleaseRunbookMissingArtifacts || 'n/a'}, blockers=${benchmarkReleaseRunbookBlockingSignals || 'n/a'}, review=${benchmarkReleaseRunbookReviewSignals || 'n/a'}, artifact=${benchmarkReleaseRunbookArtifact}`
+              ? `status=${benchmarkReleaseRunbookStatus}, freeze_ready=${benchmarkReleaseRunbookFreezeReady}, source=${benchmarkReleaseRunbookPrimarySignalSource}, next=${benchmarkReleaseRunbookNextAction || 'n/a'}, engineering=${benchmarkReleaseRunbookEngineeringStatus}, missing=${benchmarkReleaseRunbookMissingArtifacts || 'n/a'}, blockers=${benchmarkReleaseRunbookBlockingSignals || 'n/a'}, review=${benchmarkReleaseRunbookReviewSignals || 'n/a'}, artifact=${benchmarkReleaseRunbookArtifact}`
               : '⏭️ skipped';
             const assistantEvidenceStatus = assistantEvidenceEnabled
               ? `input=${assistantEvidenceInput}, records=${assistantEvidenceTotalRecords}, evidence_items=${assistantEvidenceTotalItems}, avg=${assistantEvidenceAverageCount}, evidence_cov=${assistantEvidenceCoverage}, decision_cov=${assistantDecisionPathCoverage}, source_cov=${assistantSourceSignalCoverage}`

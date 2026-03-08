@@ -37,6 +37,7 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     )
 
     assert payload["release_status"] == "blocked"
+    assert payload["engineering_status"] == "partial_engineering_semantics"
     assert payload["next_action"] == "collect_artifacts"
     assert "benchmark_artifact_bundle" in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
@@ -72,6 +73,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     )
 
     assert payload["ready_to_freeze_baseline"] is True
+    assert payload["engineering_status"] == "engineering_semantics_ready"
     assert payload["next_action"] == "freeze_release_baseline"
     assert payload["operator_steps"][-1]["status"] == "ready"
 
@@ -139,10 +141,12 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
 
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["release_status"] == "review_required"
+    assert payload["engineering_status"] == "partial_engineering_semantics"
     assert payload["next_action"] == "review_signals"
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert output_md.exists()
 
     rendered = render_markdown(payload)
     assert "# Benchmark Release Runbook" in rendered
+    assert "`engineering_status`: `partial_engineering_semantics`" in rendered
     assert "`next_action`: `review_signals`" in rendered

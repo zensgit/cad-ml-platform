@@ -179,10 +179,12 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_decision_operational_summary_json" in dispatch_inputs
     assert "benchmark_release_decision_artifact_bundle_json" in dispatch_inputs
     assert "benchmark_release_decision_companion_summary_json" in dispatch_inputs
+    assert "benchmark_release_decision_engineering_signals_json" in dispatch_inputs
     assert "benchmark_release_runbook_enable" in dispatch_inputs
     assert "benchmark_release_runbook_release_decision_json" in dispatch_inputs
     assert "benchmark_release_runbook_companion_summary_json" in dispatch_inputs
     assert "benchmark_release_runbook_artifact_bundle_json" in dispatch_inputs
+    assert "benchmark_release_runbook_engineering_signals_json" in dispatch_inputs
     assert "ocr_review_pack_enable" in dispatch_inputs
     assert "ocr_review_pack_input" in dispatch_inputs
     assert "assistant_evidence_report_enable" in dispatch_inputs
@@ -403,12 +405,14 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-operational-summary" in benchmark_release_script
     assert "--benchmark-artifact-bundle" in benchmark_release_script
     assert "--benchmark-companion-summary" in benchmark_release_script
+    assert "--benchmark-engineering-signals" in benchmark_release_script
     assert "release_status=" in benchmark_release_script
     assert "automation_ready=" in benchmark_release_script
     assert "primary_signal_source=" in benchmark_release_script
     assert "blocking_signals=" in benchmark_release_script
     assert "review_signals=" in benchmark_release_script
     assert "qdrant_status=" in benchmark_release_script
+    assert "engineering_status=" in benchmark_release_script
 
     benchmark_runbook_step = _get_step(
         workflow, "evaluate", "Build benchmark release runbook (optional)"
@@ -419,11 +423,13 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-release-decision" in benchmark_runbook_script
     assert "--benchmark-companion-summary" in benchmark_runbook_script
     assert "--benchmark-artifact-bundle" in benchmark_runbook_script
+    assert "--benchmark-engineering-signals" in benchmark_runbook_script
     assert "ready_to_freeze_baseline=" in benchmark_runbook_script
     assert "next_action=" in benchmark_runbook_script
     assert "missing_artifacts=" in benchmark_runbook_script
     assert "blocking_signals=" in benchmark_runbook_script
     assert "review_signals=" in benchmark_runbook_script
+    assert "engineering_status=" in benchmark_runbook_script
 
     assistant_step = _get_step(
         workflow, "evaluate", "Build assistant evidence report (optional)"
@@ -603,12 +609,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark release automation ready" in summary_script
     assert "Benchmark release primary signal source" in summary_script
     assert "Benchmark release review queue status" in summary_script
+    assert "Benchmark release engineering status" in summary_script
     assert "Benchmark release review signals" in summary_script
     assert "Benchmark release artifact" in summary_script
     assert "Benchmark release runbook status" in summary_script
     assert "Benchmark release runbook freeze_ready" in summary_script
     assert "Benchmark release runbook primary signal source" in summary_script
     assert "Benchmark release runbook next action" in summary_script
+    assert "Benchmark release runbook engineering status" in summary_script
     assert "Benchmark release runbook missing artifacts" in summary_script
     assert "Benchmark release runbook blocking signals" in summary_script
     assert "Benchmark release runbook review signals" in summary_script
@@ -668,22 +676,26 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkArtifactBundleAvailableArtifacts" in pr_comment_script
     assert "benchmarkArtifactBundleStatus" in pr_comment_script
     assert "benchmarkArtifactBundleLight" in pr_comment_script
+    assert "benchmarkArtifactBundleEngineeringStatus" in pr_comment_script
     assert "benchmarkCompanionSummaryEnabled" in pr_comment_script
     assert "benchmarkCompanionSummaryOverall" in pr_comment_script
     assert "benchmarkCompanionSummaryStatus" in pr_comment_script
     assert "benchmarkCompanionLight" in pr_comment_script
     assert "benchmarkCompanionReviewSurface" in pr_comment_script
     assert "benchmarkCompanionPrimaryGap" in pr_comment_script
+    assert "benchmarkCompanionEngineeringStatus" in pr_comment_script
     assert "benchmarkReleaseDecisionEnabled" in pr_comment_script
     assert "benchmarkReleaseStatus" in pr_comment_script
     assert "benchmarkReleaseDecisionStatus" in pr_comment_script
     assert "benchmarkReleaseDecisionLight" in pr_comment_script
     assert "benchmarkReleasePrimarySignalSource" in pr_comment_script
+    assert "benchmarkReleaseEngineeringStatus" in pr_comment_script
     assert "benchmarkReleaseRunbookEnabled" in pr_comment_script
     assert "benchmarkReleaseRunbookStatus" in pr_comment_script
     assert "benchmarkReleaseRunbookStatusLine" in pr_comment_script
     assert "benchmarkReleaseRunbookLight" in pr_comment_script
     assert "benchmarkReleaseRunbookNextAction" in pr_comment_script
+    assert "benchmarkReleaseRunbookEngineeringStatus" in pr_comment_script
     assert "benchmarkOcrStatus" in pr_comment_script
     assert "benchmarkQdrantStatus" in pr_comment_script
     assert "benchmarkEngineeringEnabled" in pr_comment_script
@@ -708,9 +720,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "assistant=${benchmarkArtifactBundleAssistantStatus}" in pr_comment_script
     assert "review_queue=${benchmarkArtifactBundleReviewQueueStatus}" in pr_comment_script
     assert "ocr=${benchmarkArtifactBundleOcrStatus}" in pr_comment_script
+    assert "engineering=${benchmarkArtifactBundleEngineeringStatus}" in pr_comment_script
     assert "Benchmark Companion Summary" in pr_comment_script
+    assert "engineering=${benchmarkCompanionEngineeringStatus}" in pr_comment_script
     assert "Benchmark Release Decision" in pr_comment_script
+    assert "engineering=${benchmarkReleaseEngineeringStatus}" in pr_comment_script
     assert "Benchmark Release Runbook" in pr_comment_script
+    assert "engineering=${benchmarkReleaseRunbookEngineeringStatus}" in pr_comment_script
     assert "automation_ready=${benchmarkReleaseAutomationReady}" in pr_comment_script
     assert "source=${benchmarkReleasePrimarySignalSource}" in pr_comment_script
     assert "next=${benchmarkReleaseRunbookNextAction || 'n/a'}" in pr_comment_script
