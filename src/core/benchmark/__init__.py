@@ -24,6 +24,11 @@ from .knowledge_drift import (  # noqa: F401
     knowledge_drift_recommendations,
     render_knowledge_drift_markdown,
 )
+from .knowledge_application import (  # noqa: F401
+    build_knowledge_application_status,
+    knowledge_application_recommendations,
+    render_knowledge_application_markdown,
+)
 from .realdata_signals import (  # noqa: F401
     build_realdata_signals_status,
     realdata_signals_recommendations,
