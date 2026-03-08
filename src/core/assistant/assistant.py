@@ -185,7 +185,10 @@ class CADAssistant:
         analyzed = self._query_analyzer.analyze(effective_query)
 
         if self.config.verbose:
-            print(f"[QueryAnalyzer] Intent: {analyzed.intent}, Confidence: {analyzed.confidence:.2f}")
+            print(
+                f"[QueryAnalyzer] Intent: {analyzed.intent}, "
+                f"Confidence: {analyzed.confidence:.2f}"
+            )
             print(f"[QueryAnalyzer] Entities: {analyzed.entities}")
 
         # 2. Retrieve knowledge

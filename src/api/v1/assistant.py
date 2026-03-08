@@ -222,7 +222,11 @@ async def get_assistant_status() -> StatusResponse:
         if assistant._llm_provider is not None:
             provider_name = type(assistant._llm_provider).__name__.replace("Provider", "").lower()
             provider_available = assistant._llm_provider.is_available()
-            model_name = assistant._llm_provider.config.model_name if hasattr(assistant._llm_provider, 'config') else None
+            model_name = (
+                assistant._llm_provider.config.model_name
+                if hasattr(assistant._llm_provider, "config")
+                else None
+            )
 
         # List knowledge modules
         knowledge_modules = [

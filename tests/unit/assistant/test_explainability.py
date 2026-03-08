@@ -1,6 +1,11 @@
 """Tests for assistant explainability helpers."""
 
-from src.core.assistant import CADAssistant, RetrievalResult, RetrievalSource, build_assistant_evidence
+from src.core.assistant import (
+    CADAssistant,
+    RetrievalResult,
+    RetrievalSource,
+    build_assistant_evidence,
+)
 
 
 def test_build_assistant_evidence_sorts_and_extracts_key_facts():
