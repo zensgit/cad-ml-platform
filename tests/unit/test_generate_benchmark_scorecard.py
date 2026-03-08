@@ -112,6 +112,11 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             "total": 0,
             "automation_ready_count": 0,
             "automation_ready_ratio": 0.0,
+            "evidence_count_total": 0,
+            "average_evidence_count": 0.0,
+            "records_with_evidence_count": 0,
+            "records_with_evidence_ratio": 0.0,
+            "top_evidence_sources": [],
             "by_sample_type": {},
             "by_feedback_priority": {},
             "by_decision_source": {},
@@ -186,6 +191,8 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
     assert payload["components"]["qdrant_backend"]["scan_truncated"] is False
     assert payload["components"]["assistant_explainability"]["status"] == "explainability_ready"
     assert payload["components"]["review_queue"]["status"] == "under_control"
+    assert payload["components"]["review_queue"]["records_with_evidence_ratio"] == 0.0
+    assert payload["components"]["review_queue"]["average_evidence_count"] == 0.0
     assert payload["components"]["ocr_review"]["status"] == "ocr_ready"
     assert output_json.exists()
     assert output_md.exists()
@@ -301,6 +308,11 @@ def test_generate_benchmark_scorecard_reports_ocr_gap(tmp_path: Path) -> None:
             "total": 0,
             "automation_ready_count": 0,
             "automation_ready_ratio": 0.0,
+            "evidence_count_total": 0,
+            "average_evidence_count": 0.0,
+            "records_with_evidence_count": 0,
+            "records_with_evidence_ratio": 0.0,
+            "top_evidence_sources": [],
             "by_sample_type": {},
             "by_feedback_priority": {},
             "by_decision_source": {},
@@ -352,6 +364,110 @@ def test_generate_benchmark_scorecard_reports_ocr_gap(tmp_path: Path) -> None:
     assert payload["components"]["ocr_review"]["status"] == "review_heavy"
     assert payload["overall_status"] == "benchmark_ready_with_ocr_gap"
     assert any("OCR" in item for item in payload["recommendations"])
+
+
+def test_generate_benchmark_scorecard_reports_review_queue_evidence_gap(
+    tmp_path: Path,
+) -> None:
+    hybrid = _write_json(
+        tmp_path / "hybrid.json",
+        {
+            "sample_size": 20,
+            "exact_accuracy": {
+                "hybrid_label": {"accuracy": 0.9},
+                "final_part_type": {"accuracy": 0.88},
+                "graph2d_label": {"accuracy": 0.1},
+            },
+            "coarse_accuracy": {"hybrid_label": {"accuracy": 0.92}},
+            "confidence": {"graph2d_label": {"low_conf_rate": 1.0}},
+        },
+    )
+    governance = _write_json(
+        tmp_path / "migration.json",
+        {
+            "plan_ready": True,
+            "coverage_complete": True,
+        },
+    )
+    history = _write_json(
+        tmp_path / "history.json",
+        {
+            "total": 24,
+            "coverage": 0.75,
+            "accuracy_overall": 0.75,
+            "coarse_accuracy_overall": 0.86,
+            "low_conf_rate": 0.15,
+        },
+    )
+    brep = _write_json(
+        tmp_path / "brep.json",
+        {
+            "sample_size": 3,
+            "valid_3d_count": 3,
+            "hint_coverage_count": 2,
+            "graph_schema_version_counts": {"v2": 3},
+        },
+    )
+    assistant = _write_json(
+        tmp_path / "assistant.json",
+        {
+            "total_records": 48,
+            "total_evidence_items": 96,
+            "average_evidence_count": 2.0,
+            "records_with_evidence_pct": 0.92,
+            "records_with_decision_path_pct": 0.83,
+            "records_with_any_source_signal_pct": 0.88,
+        },
+    )
+    review_queue = _write_json(
+        tmp_path / "review_queue.json",
+        {
+            "total": 5,
+            "automation_ready_count": 2,
+            "automation_ready_ratio": 0.4,
+            "evidence_count_total": 2,
+            "average_evidence_count": 0.4,
+            "records_with_evidence_count": 2,
+            "records_with_evidence_ratio": 0.4,
+            "top_evidence_sources": [{"name": "filename", "count": 2}],
+            "by_sample_type": {"review": 5},
+            "by_feedback_priority": {"medium": 5},
+            "by_decision_source": {"hybrid": 5},
+            "by_review_reason": {"low_confidence": 5},
+        },
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--hybrid-summary",
+            str(hybrid),
+            "--migration-summary",
+            str(governance),
+            "--history-summary",
+            str(history),
+            "--brep-summary",
+            str(brep),
+            "--assistant-evidence-summary",
+            str(assistant),
+            "--review-queue-summary",
+            str(review_queue),
+            "--output-json",
+            str(tmp_path / "scorecard.json"),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["components"]["review_queue"]["status"] == "evidence_gap"
+    assert payload["overall_status"] == "benchmark_ready_with_review_gap"
+    assert (
+        "Raise evidence coverage in active-learning review queue exports"
+        in " ".join(payload["recommendations"])
+    )
 
 
 def test_generate_benchmark_scorecard_reports_qdrant_gap(tmp_path: Path) -> None:
@@ -432,6 +548,11 @@ def test_generate_benchmark_scorecard_reports_qdrant_gap(tmp_path: Path) -> None
             "total": 0,
             "automation_ready_count": 0,
             "automation_ready_ratio": 0.0,
+            "evidence_count_total": 0,
+            "average_evidence_count": 0.0,
+            "records_with_evidence_count": 0,
+            "records_with_evidence_ratio": 0.0,
+            "top_evidence_sources": [],
             "by_sample_type": {},
             "by_feedback_priority": {},
             "by_decision_source": {},
