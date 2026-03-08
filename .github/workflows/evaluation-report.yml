@@ -98,6 +98,30 @@ on:
         description: 'Optional benchmark scorecard Qdrant readiness summary JSON'
         required: false
         default: ''
+      benchmark_operational_summary_enable:
+        description: 'Override: enable benchmark operational summary export (true/false)'
+        required: false
+        default: ''
+      benchmark_operational_summary_scorecard_json:
+        description: 'Optional benchmark operational summary scorecard JSON'
+        required: false
+        default: ''
+      benchmark_operational_summary_feedback_json:
+        description: 'Optional benchmark operational summary feedback flywheel JSON'
+        required: false
+        default: ''
+      benchmark_operational_summary_assistant_json:
+        description: 'Optional benchmark operational summary assistant evidence JSON'
+        required: false
+        default: ''
+      benchmark_operational_summary_review_queue_json:
+        description: 'Optional benchmark operational summary review queue JSON'
+        required: false
+        default: ''
+      benchmark_operational_summary_ocr_review_json:
+        description: 'Optional benchmark operational summary OCR review JSON'
+        required: false
+        default: ''
       ocr_review_pack_enable:
         description: 'Override: enable OCR review-pack export (true/false)'
         required: false
@@ -185,6 +209,15 @@ env:
   BENCHMARK_SCORECARD_OUTPUT_MD: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_scorecard.md' }}
   FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON: ${{ vars.FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON || 'reports/history_sequence_eval/feedback_flywheel_benchmark.json' }}
   FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD: ${{ vars.FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD || 'reports/history_sequence_eval/feedback_flywheel_benchmark.md' }}
+  BENCHMARK_OPERATIONAL_SUMMARY_ENABLE: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_ENABLE || 'false' }}
+  BENCHMARK_OPERATIONAL_SUMMARY_TITLE: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_TITLE || 'CAD Benchmark Operational Summary' }}
+  BENCHMARK_OPERATIONAL_SUMMARY_SCORECARD_JSON: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_SCORECARD_JSON }}
+  BENCHMARK_OPERATIONAL_SUMMARY_FEEDBACK_JSON: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_FEEDBACK_JSON }}
+  BENCHMARK_OPERATIONAL_SUMMARY_ASSISTANT_JSON: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_ASSISTANT_JSON }}
+  BENCHMARK_OPERATIONAL_SUMMARY_REVIEW_QUEUE_JSON: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_REVIEW_QUEUE_JSON }}
+  BENCHMARK_OPERATIONAL_SUMMARY_OCR_REVIEW_JSON: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_OCR_REVIEW_JSON }}
+  BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_JSON: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_operational_summary.json' }}
+  BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_MD: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_operational_summary.md' }}
   OCR_REVIEW_PACK_ENABLE: ${{ vars.OCR_REVIEW_PACK_ENABLE || 'false' }}
   OCR_REVIEW_PACK_INPUT: ${{ vars.OCR_REVIEW_PACK_INPUT }}
   OCR_REVIEW_PACK_OUTPUT_CSV: ${{ vars.OCR_REVIEW_PACK_OUTPUT_CSV || 'reports/history_sequence_eval/ocr_review_pack.csv' }}
@@ -951,6 +984,105 @@ jobs:
             f.write(f"metric_triplet_count={component.get('metric_triplet_count', 0)}\n")
         PY
 
+    - name: Build benchmark operational summary (optional)
+      id: benchmark_operational_summary
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_operational_summary_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_OPERATIONAL_SUMMARY_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_operational_summary.json}"
+        OUTPUT_MD="${BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_MD:-reports/history_sequence_eval/benchmark_operational_summary.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_operational_summary.py
+          --title "${BENCHMARK_OPERATIONAL_SUMMARY_TITLE:-CAD Benchmark Operational Summary}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --benchmark-scorecard "${{ github.event.inputs.benchmark_operational_summary_scorecard_json || '' }}"
+        add_if_exists --feedback-flywheel "${{ github.event.inputs.benchmark_operational_summary_feedback_json || '' }}"
+        add_if_exists --assistant-evidence "${{ github.event.inputs.benchmark_operational_summary_assistant_json || '' }}"
+        add_if_exists --review-queue "${{ github.event.inputs.benchmark_operational_summary_review_queue_json || '' }}"
+        add_if_exists --ocr-review "${{ github.event.inputs.benchmark_operational_summary_ocr_review_json || '' }}"
+        add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
+        add_if_exists --benchmark-scorecard "${BENCHMARK_OPERATIONAL_SUMMARY_SCORECARD_JSON:-}"
+        add_if_exists --feedback-flywheel "${{ steps.feedback_flywheel_benchmark.outputs.output_json || '' }}"
+        add_if_exists --feedback-flywheel "${BENCHMARK_OPERATIONAL_SUMMARY_FEEDBACK_JSON:-}"
+        add_if_exists --assistant-evidence "${{ steps.assistant_evidence_report.outputs.output_json || '' }}"
+        add_if_exists --assistant-evidence "${BENCHMARK_OPERATIONAL_SUMMARY_ASSISTANT_JSON:-}"
+        add_if_exists --review-queue "${{ steps.active_learning_review_queue_report.outputs.output_json || '' }}"
+        add_if_exists --review-queue "${BENCHMARK_OPERATIONAL_SUMMARY_REVIEW_QUEUE_JSON:-}"
+        add_if_exists --ocr-review "${{ steps.ocr_review_pack.outputs.output_json || '' }}"
+        add_if_exists --ocr-review "${BENCHMARK_OPERATIONAL_SUMMARY_OCR_REVIEW_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_OPERATIONAL_SUMMARY_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark operational summary inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_JSON"]).read_text(
+                encoding="utf-8"
+            )
+        )
+        components = payload.get("component_statuses") or {}
+        blockers = payload.get("blockers") or []
+        recommendations = payload.get("recommendations") or []
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:3] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"overall_status={payload.get('overall_status', 'unknown')}\n")
+            f.write(
+                f"feedback_status={components.get('feedback_flywheel', 'unknown')}\n"
+            )
+            f.write(
+                f"assistant_status={components.get('assistant_explainability', 'unknown')}\n"
+            )
+            f.write(f"review_queue_status={components.get('review_queue', 'unknown')}\n")
+            f.write(f"ocr_status={components.get('ocr_review', 'unknown')}\n")
+            f.write(f"blockers={compact(blockers)}\n")
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
     - name: Build assistant evidence report (optional)
       id: assistant_evidence_report
       continue-on-error: true
@@ -1299,6 +1431,16 @@ jobs:
           ${{ steps.feedback_flywheel_benchmark.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark operational summary
+      if: steps.benchmark_operational_summary.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-operational-summary-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_operational_summary.outputs.output_json }}
+          ${{ steps.benchmark_operational_summary.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload assistant evidence report
       if: steps.assistant_evidence_report.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -1472,6 +1614,18 @@ jobs:
         else
           echo "- Feedback flywheel benchmark: skipped (no feedback/fine-tune/metric inputs)" >> $GITHUB_STEP_SUMMARY
         fi
+        if [[ "${{ steps.benchmark_operational_summary.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark operational summary overall: ${{ steps.benchmark_operational_summary.outputs.overall_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operational feedback status: ${{ steps.benchmark_operational_summary.outputs.feedback_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operational assistant status: ${{ steps.benchmark_operational_summary.outputs.assistant_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operational review queue status: ${{ steps.benchmark_operational_summary.outputs.review_queue_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operational OCR status: ${{ steps.benchmark_operational_summary.outputs.ocr_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operational blockers: ${{ steps.benchmark_operational_summary.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operational recommendations: ${{ steps.benchmark_operational_summary.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operational artifact: ${{ steps.benchmark_operational_summary.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark operational summary: skipped (no benchmark operational inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
         if [[ "${{ steps.assistant_evidence_report.outputs.enabled }}" == "true" ]]; then
           echo "- Assistant evidence input: ${{ steps.assistant_evidence_report.outputs.input_path }}" >> $GITHUB_STEP_SUMMARY
           echo "- Assistant evidence records: ${{ steps.assistant_evidence_report.outputs.total_records }}" >> $GITHUB_STEP_SUMMARY
@@ -1595,6 +1749,15 @@ jobs:
             const feedbackFlywheelBenchmarkFinetuneSamples = '${{ steps.feedback_flywheel_benchmark.outputs.finetune_sample_count }}';
             const feedbackFlywheelBenchmarkMetricTriplets = '${{ steps.feedback_flywheel_benchmark.outputs.metric_triplet_count }}';
             const feedbackFlywheelBenchmarkArtifact = '${{ steps.feedback_flywheel_benchmark.outputs.output_md }}';
+            const benchmarkOperationalSummaryEnabled = '${{ steps.benchmark_operational_summary.outputs.enabled }}' === 'true';
+            const benchmarkOperationalSummaryOverall = '${{ steps.benchmark_operational_summary.outputs.overall_status }}';
+            const benchmarkOperationalFeedbackStatus = '${{ steps.benchmark_operational_summary.outputs.feedback_status }}';
+            const benchmarkOperationalAssistantStatus = '${{ steps.benchmark_operational_summary.outputs.assistant_status }}';
+            const benchmarkOperationalReviewQueueStatus = '${{ steps.benchmark_operational_summary.outputs.review_queue_status }}';
+            const benchmarkOperationalOcrStatus = '${{ steps.benchmark_operational_summary.outputs.ocr_status }}';
+            const benchmarkOperationalBlockers = '${{ steps.benchmark_operational_summary.outputs.blockers }}';
+            const benchmarkOperationalRecommendations = '${{ steps.benchmark_operational_summary.outputs.recommendations }}';
+            const benchmarkOperationalArtifact = '${{ steps.benchmark_operational_summary.outputs.output_md }}';
             const assistantEvidenceEnabled = '${{ steps.assistant_evidence_report.outputs.enabled }}' === 'true';
             const assistantEvidenceInput = '${{ steps.assistant_evidence_report.outputs.input_path }}';
             const assistantEvidenceTotalRecords = '${{ steps.assistant_evidence_report.outputs.total_records }}';
@@ -1657,6 +1820,9 @@ jobs:
             const feedbackFlywheelBenchmarkStatusLine = feedbackFlywheelBenchmarkEnabled
               ? `status=${feedbackFlywheelBenchmarkStatus}, feedback=${feedbackFlywheelBenchmarkTotal}, corrections=${feedbackFlywheelBenchmarkCorrections}, finetune=${feedbackFlywheelBenchmarkFinetuneSamples}, triplets=${feedbackFlywheelBenchmarkMetricTriplets}, artifact=${feedbackFlywheelBenchmarkArtifact}`
               : '⏭️ skipped';
+            const benchmarkOperationalSummaryStatus = benchmarkOperationalSummaryEnabled
+              ? `overall=${benchmarkOperationalSummaryOverall}, feedback=${benchmarkOperationalFeedbackStatus}, assistant=${benchmarkOperationalAssistantStatus}, review_queue=${benchmarkOperationalReviewQueueStatus}, ocr=${benchmarkOperationalOcrStatus}, blockers=${benchmarkOperationalBlockers || 'n/a'}, recommendations=${benchmarkOperationalRecommendations || 'n/a'}, artifact=${benchmarkOperationalArtifact}`
+              : '⏭️ skipped';
             const assistantEvidenceStatus = assistantEvidenceEnabled
               ? `input=${assistantEvidenceInput}, records=${assistantEvidenceTotalRecords}, evidence_items=${assistantEvidenceTotalItems}, avg=${assistantEvidenceAverageCount}, evidence_cov=${assistantEvidenceCoverage}, decision_cov=${assistantDecisionPathCoverage}, source_cov=${assistantSourceSignalCoverage}`
               : '⏭️ skipped';
@@ -1688,6 +1854,9 @@ jobs:
             const benchmarkLight = !benchmarkScorecardEnabled
               ? '⚪'
               : (benchmarkOverallStatus.includes('gap') ? '🟡' : '🟢');
+            const benchmarkOperationalLight = !benchmarkOperationalSummaryEnabled
+              ? '⚪'
+              : (benchmarkOperationalSummaryOverall === 'attention_required' ? '🟡' : '🟢');
             const assistantEvidenceLight = !assistantEvidenceEnabled
               ? '⚪'
               : (parseInt(assistantEvidenceTotalRecords || '0', 10) > 0 ? '🟢' : '🟡');
@@ -1728,6 +1897,7 @@ jobs:
             | **Benchmark Recommendations** | ${benchmarkRecommendations || 'n/a'} |
             | **Benchmark Feedback Flywheel** | ${benchmarkFeedbackFlywheelStatus || 'n/a'} |
             | **Feedback Flywheel Artifact** | ${feedbackFlywheelBenchmarkStatusLine} |
+            | **Benchmark Operational Summary** | ${benchmarkOperationalSummaryStatus} |
             | **Assistant Evidence Report** | ${assistantEvidenceStatus} |
             | **Assistant Evidence Insights** | ${assistantEvidenceInsights} |
             | **Active-Learning Review Queue** | ${activeLearningReviewQueueStatusLine} |
@@ -1742,6 +1912,7 @@ jobs:
             | **Review Gate** | ${reviewGateLight} | ${reviewGateStatus} |
             | **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
             | **Benchmark Scorecard** | ${benchmarkLight} | ${benchmarkScorecardStatus} |
+            | **Benchmark Operational Summary** | ${benchmarkOperationalLight} | ${benchmarkOperationalSummaryStatus} |
             | **Assistant Evidence Report** | ${assistantEvidenceLight} | ${assistantEvidenceStatus} |
             | **Active-Learning Review Queue** | ${activeLearningReviewQueueLight} | ${activeLearningReviewQueueStatusLine} |
             | **OCR Review Pack** | ${ocrReviewPackLight} | ${ocrReviewPackStatus} |
