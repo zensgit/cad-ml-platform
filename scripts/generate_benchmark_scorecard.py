@@ -186,6 +186,99 @@ def _governance_status(summary: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _qdrant_backend_status(summary: Dict[str, Any]) -> Dict[str, Any]:
+    if not summary:
+        return {"status": "missing"}
+
+    backend = str(summary.get("backend") or "").strip().lower()
+    health: Dict[str, Any]
+
+    backend_health = summary.get("backend_health")
+    if isinstance(backend_health, dict):
+        health = backend_health
+        backend = backend or "qdrant"
+    else:
+        health = summary
+        if not backend and any(
+            key in health
+            for key in (
+                "readiness",
+                "indexed_ratio",
+                "scan_truncated",
+                "indexed_vectors_count",
+                "unindexed_vectors_count",
+            )
+        ):
+            backend = "qdrant"
+
+    if backend and backend != "qdrant":
+        return {
+            "status": "non_qdrant_backend",
+            "backend": backend,
+            "readiness": None,
+            "indexed_ratio": None,
+            "unindexed_vectors_count": None,
+            "scan_truncated": None,
+            "readiness_hints": [],
+        }
+
+    readiness = str(health.get("readiness") or "").strip().lower()
+    error = str(health.get("error") or "").strip() or None
+    reachable = bool(health.get("reachable")) if "reachable" in health else not error
+    collection_exists = (
+        bool(health.get("collection_exists")) if "collection_exists" in health else True
+    )
+    points_count = _to_int(health.get("points_count") or health.get("vectors_count"))
+    indexed_vectors_count = _to_int(health.get("indexed_vectors_count"))
+    unindexed_vectors_count = _to_int(health.get("unindexed_vectors_count"))
+    observed_vectors_count = _to_int(health.get("observed_vectors_count"))
+    scan_limit = _to_int(health.get("scan_limit"))
+    scan_truncated = bool(health.get("scan_truncated"))
+    indexed_ratio = _to_float(health.get("indexed_ratio"), default=-1.0)
+    if indexed_ratio < 0.0 and points_count > 0:
+        indexed_ratio = indexed_vectors_count / points_count
+    if indexed_ratio >= 0.0:
+        indexed_ratio = round(indexed_ratio, 4)
+    else:
+        indexed_ratio = None
+
+    if readiness:
+        status = readiness
+    elif error or not reachable or not collection_exists:
+        status = "degraded"
+    elif scan_truncated:
+        status = "partial_scan"
+    elif unindexed_vectors_count > 0:
+        status = "indexing"
+    elif points_count <= 0:
+        status = "empty"
+    else:
+        status = "ready"
+
+    readiness_hints = health.get("readiness_hints") or []
+    if not isinstance(readiness_hints, list):
+        readiness_hints = [str(readiness_hints)]
+
+    return {
+        "status": status,
+        "backend": backend or "qdrant",
+        "readiness": readiness or status,
+        "reachable": reachable,
+        "collection_exists": collection_exists,
+        "collection_name": health.get("collection_name"),
+        "collection_status": health.get("collection_status"),
+        "points_count": points_count,
+        "indexed_vectors_count": indexed_vectors_count,
+        "unindexed_vectors_count": unindexed_vectors_count,
+        "indexed_ratio": indexed_ratio,
+        "observed_vectors_count": observed_vectors_count,
+        "scan_limit": scan_limit,
+        "scan_truncated": scan_truncated,
+        "readiness_hints": list(readiness_hints),
+        "error": error,
+    }
+
+
 def _assistant_explainability_status(summary: Dict[str, Any]) -> Dict[str, Any]:
     if not summary:
         return {"status": "missing"}
@@ -297,6 +390,7 @@ def _overall_status(
     history: Dict[str, Any],
     brep: Dict[str, Any],
     governance: Dict[str, Any],
+    qdrant: Dict[str, Any],
     assistant: Dict[str, Any],
     review_queue: Dict[str, Any],
     ocr_review: Dict[str, Any],
@@ -305,6 +399,14 @@ def _overall_status(
         return "baseline_not_ready"
     if governance.get("status") not in {"operationally_ready", "partially_ready"}:
         return "benchmark_ready_without_governance"
+    if qdrant.get("status") in {
+        "degraded",
+        "empty",
+        "indexing",
+        "non_qdrant_backend",
+        "partial_scan",
+    }:
+        return "benchmark_ready_with_qdrant_gap"
     if history.get("status") in {"missing", "smoke_only", "needs_more_evidence"}:
         return "benchmark_ready_with_history_gap"
     if brep.get("status") in {"missing", "prep_only"}:
@@ -324,6 +426,7 @@ def _recommendations(
     history: Dict[str, Any],
     brep: Dict[str, Any],
     governance: Dict[str, Any],
+    qdrant: Dict[str, Any],
     assistant: Dict[str, Any],
     review_queue: Dict[str, Any],
     ocr_review: Dict[str, Any],
@@ -339,6 +442,23 @@ def _recommendations(
         items.append("Run STEP/B-Rep evaluation under OCC-enabled environment.")
     if governance.get("status") == "blocked":
         items.append("Resolve migration blocking reasons before production rollout.")
+    if qdrant.get("status") == "partial_scan":
+        items.append(
+            "Raise Qdrant scan coverage or use an exact summary before treating vector backend "
+            "readiness as benchmark-complete."
+        )
+    elif qdrant.get("status") == "indexing":
+        items.append(
+            "Wait for Qdrant indexing/backfill to finish before freezing the retrieval baseline."
+        )
+    elif qdrant.get("status") == "degraded":
+        items.append("Resolve Qdrant backend reachability or collection health before rollout.")
+    elif qdrant.get("status") == "empty":
+        items.append(
+            "Populate and index the Qdrant collection before using it as benchmark evidence."
+        )
+    elif qdrant.get("status") == "non_qdrant_backend":
+        items.append("Provide Qdrant backend health evidence when claiming retrieval readiness.")
     if assistant.get("status") in {"missing", "weak_coverage", "partial_coverage"}:
         items.append("Raise assistant evidence, decision_path, and source-signal coverage.")
     if review_queue.get("status") == "critical_backlog":
@@ -370,6 +490,7 @@ def build_scorecard(
     history_summary: Dict[str, Any],
     brep_summary: Dict[str, Any],
     migration_summary: Dict[str, Any],
+    qdrant_readiness_summary: Dict[str, Any],
     assistant_evidence_summary: Dict[str, Any],
     review_queue_summary: Dict[str, Any],
     ocr_review_summary: Dict[str, Any],
@@ -383,6 +504,7 @@ def build_scorecard(
     history = _history_status(history_summary)
     brep = _brep_status(brep_summary)
     governance = _governance_status(migration_summary)
+    qdrant = _qdrant_backend_status(qdrant_readiness_summary)
     assistant = _assistant_explainability_status(assistant_evidence_summary)
     review_queue = _review_queue_status(review_queue_summary)
     ocr_review = _ocr_review_status(ocr_review_summary)
@@ -391,6 +513,7 @@ def build_scorecard(
         history,
         brep,
         governance,
+        qdrant,
         assistant,
         review_queue,
         ocr_review,
@@ -405,6 +528,7 @@ def build_scorecard(
             "history_sequence": history,
             "brep": brep,
             "migration_governance": governance,
+            "qdrant_backend": qdrant,
             "assistant_explainability": assistant,
             "review_queue": review_queue,
             "ocr_review": ocr_review,
@@ -415,6 +539,7 @@ def build_scorecard(
             history,
             brep,
             governance,
+            qdrant,
             assistant,
             review_queue,
             ocr_review,
@@ -475,6 +600,15 @@ def _render_markdown(scorecard: Dict[str, Any]) -> str:
         f"coverage_complete={governance.get('coverage_complete')}, "
         f"estimated_runs={governance.get('estimated_total_runs')} |"
     )
+    qdrant = components.get("qdrant_backend", {}) or {}
+    lines.append(
+        "| qdrant_backend | "
+        f"`{qdrant.get('status')}` | "
+        f"readiness={qdrant.get('readiness')}, "
+        f"indexed_ratio={qdrant.get('indexed_ratio')}, "
+        f"unindexed={qdrant.get('unindexed_vectors_count')}, "
+        f"scan_truncated={qdrant.get('scan_truncated')} |"
+    )
     assistant = components.get("assistant_explainability", {}) or {}
     lines.append(
         "| assistant_explainability | "
@@ -524,6 +658,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--history-summary", default="")
     parser.add_argument("--brep-summary", default="")
     parser.add_argument("--migration-summary", default="")
+    parser.add_argument("--qdrant-readiness-summary", default="")
     parser.add_argument("--assistant-evidence-summary", default="")
     parser.add_argument("--review-queue-summary", default="")
     parser.add_argument("--ocr-review-summary", default="")
@@ -543,6 +678,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         history_summary=_maybe_load_json(args.history_summary),
         brep_summary=_maybe_load_json(args.brep_summary),
         migration_summary=_maybe_load_json(args.migration_summary),
+        qdrant_readiness_summary=_maybe_load_json(args.qdrant_readiness_summary),
         assistant_evidence_summary=_maybe_load_json(args.assistant_evidence_summary),
         review_queue_summary=_maybe_load_json(args.review_queue_summary),
         ocr_review_summary=_maybe_load_json(args.ocr_review_summary),
