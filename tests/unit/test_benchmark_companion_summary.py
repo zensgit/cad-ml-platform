@@ -43,11 +43,16 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             "engineering_signals": {"status": "partial_engineering_semantics"},
             "recommendations": ["Close engineering gaps."],
         },
+        benchmark_operator_adoption={
+            "adoption_readiness": "guided_manual",
+            "recommended_actions": ["Review operator blockers."],
+        },
         artifact_paths={
             "benchmark_scorecard": "scorecard.json",
             "benchmark_operational_summary": "operational.json",
             "benchmark_artifact_bundle": "bundle.json",
             "benchmark_engineering_signals": "engineering.json",
+            "benchmark_operator_adoption": "operator.json",
         },
     )
 
@@ -56,9 +61,11 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["primary_gap"] == "review_queue:managed_backlog"
     assert payload["component_statuses"]["assistant_explainability"] == "partial_coverage"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
+    assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["recommended_actions"] == ["reduce review queue backlog"]
     assert payload["artifacts"]["benchmark_artifact_bundle"]["present"] is True
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
+    assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
 
 
 def test_render_markdown_includes_sections() -> None:
@@ -75,6 +82,10 @@ def test_render_markdown_includes_sections() -> None:
                 "present": True,
                 "path": "engineering.json",
             },
+            "benchmark_operator_adoption": {
+                "present": True,
+                "path": "operator.json",
+            },
             "benchmark_artifact_bundle": {
                 "present": True,
                 "path": "bundle.json",
@@ -88,6 +99,7 @@ def test_render_markdown_includes_sections() -> None:
     assert "## Recommended Actions" in rendered
     assert "bundle.json" in rendered
     assert "engineering.json" in rendered
+    assert "operator.json" in rendered
 
 
 def test_cli_writes_outputs(tmp_path: Path) -> None:
@@ -95,6 +107,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     operational = tmp_path / "operational.json"
     bundle = tmp_path / "bundle.json"
     engineering = tmp_path / "engineering.json"
+    operator = tmp_path / "operator.json"
     output_json = tmp_path / "out.json"
     output_md = tmp_path / "out.md"
     scorecard.write_text(
@@ -140,6 +153,15 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    operator.write_text(
+        json.dumps(
+            {
+                "adoption_readiness": "operator_ready",
+                "recommended_actions": ["Keep operator automation healthy."],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -153,6 +175,8 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
             str(bundle),
             "--benchmark-engineering-signals",
             str(engineering),
+            "--benchmark-operator-adoption",
+            str(operator),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -166,4 +190,5 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["overall_status"] == "healthy"
     assert payload["review_surface"] == "ready"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
+    assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert output_md.exists()

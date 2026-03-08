@@ -51,6 +51,7 @@ def _component_statuses(
     operational_summary: Dict[str, Any],
     artifact_bundle: Dict[str, Any],
     engineering_signals_summary: Dict[str, Any],
+    operator_adoption_summary: Dict[str, Any],
 ) -> Dict[str, str]:
     scorecard_components = scorecard.get("components") or {}
     operational_components = operational_summary.get("component_statuses") or {}
@@ -87,6 +88,9 @@ def _component_statuses(
             or (scorecard_components.get("engineering_signals") or {}).get("status")
             or "unknown"
         ),
+        "operator_adoption": str(
+            operator_adoption_summary.get("adoption_readiness") or "unknown"
+        ),
     }
 
 
@@ -119,6 +123,7 @@ def _artifact_rows(
     operational_path: str,
     bundle_path: str,
     engineering_path: str,
+    operator_adoption_path: str,
 ) -> Dict[str, Dict[str, Any]]:
     def row(name: str, path_text: str) -> Dict[str, Any]:
         path_value = str(path_text or "").strip()
@@ -137,6 +142,9 @@ def _artifact_rows(
         "benchmark_engineering_signals": row(
             "benchmark_engineering_signals", engineering_path
         ),
+        "benchmark_operator_adoption": row(
+            "benchmark_operator_adoption", operator_adoption_path
+        ),
     }
 
 
@@ -147,6 +155,7 @@ def build_companion_summary(
     benchmark_operational_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
+    benchmark_operator_adoption: Dict[str, Any],
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     overall_status = (
@@ -162,9 +171,13 @@ def build_companion_summary(
     operational_recommendations = benchmark_operational_summary.get("recommendations") or []
     scorecard_recommendations = benchmark_scorecard.get("recommendations") or []
     engineering_recommendations = benchmark_engineering_signals.get("recommendations") or []
+    operator_adoption_recommendations = (
+        benchmark_operator_adoption.get("recommended_actions") or []
+    )
     recommendations = _compact(
         bundle_recommendations
         or operational_recommendations
+        or operator_adoption_recommendations
         or engineering_recommendations
         or scorecard_recommendations,
         limit=5,
@@ -174,7 +187,9 @@ def build_companion_summary(
         benchmark_operational_summary,
         benchmark_artifact_bundle,
         benchmark_engineering_signals,
+        benchmark_operator_adoption,
     )
+    operator_adoption_status = component_statuses.get("operator_adoption")
     primary_gap = _primary_gap(component_statuses, blockers, recommendations)
     review_surface = (
         "ready"
@@ -184,6 +199,7 @@ def build_companion_summary(
         and component_statuses.get("ocr_review") not in {"missing", "review_heavy"}
         and component_statuses.get("engineering_signals")
         not in {"unknown", "partial_engineering_semantics", "engineering_signal_gap"}
+        and operator_adoption_status not in {"unknown", "guided_manual", "blocked"}
         else "attention_required"
     )
     artifacts = _artifact_rows(
@@ -191,6 +207,7 @@ def build_companion_summary(
         artifact_paths.get("benchmark_operational_summary", ""),
         artifact_paths.get("benchmark_artifact_bundle", ""),
         artifact_paths.get("benchmark_engineering_signals", ""),
+        artifact_paths.get("benchmark_operator_adoption", ""),
     )
     return {
         "title": title,
@@ -248,6 +265,7 @@ def main() -> None:
     parser.add_argument("--benchmark-operational-summary", default="")
     parser.add_argument("--benchmark-artifact-bundle", default="")
     parser.add_argument("--benchmark-engineering-signals", default="")
+    parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -257,6 +275,7 @@ def main() -> None:
         "benchmark_operational_summary": args.benchmark_operational_summary,
         "benchmark_artifact_bundle": args.benchmark_artifact_bundle,
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
+        "benchmark_operator_adoption": args.benchmark_operator_adoption,
     }
     payload = build_companion_summary(
         title=args.title,
@@ -268,6 +287,7 @@ def main() -> None:
         benchmark_engineering_signals=_maybe_load_json(
             args.benchmark_engineering_signals
         ),
+        benchmark_operator_adoption=_maybe_load_json(args.benchmark_operator_adoption),
         artifact_paths=artifact_paths,
     )
     rendered = json.dumps(payload, ensure_ascii=False, indent=2)
