@@ -60,8 +60,12 @@ def test_build_release_decision_blocks_on_blockers() -> None:
                 "status": "regressed",
                 "regressions": ["gdt"],
                 "improvements": [],
+                "domain_regressions": ["gdt"],
+                "domain_improvements": [],
                 "new_focus_areas": ["gdt"],
                 "resolved_focus_areas": [],
+                "resolved_priority_domains": [],
+                "new_priority_domains": ["gdt"],
             },
             "recommendations": [
                 "Resolve knowledge regressions before claiming the benchmark surpass "
@@ -100,6 +104,7 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
     assert payload["knowledge_drift_status"] == "regressed"
+    assert payload["knowledge_drift_domain_regressions"] == ["gdt"]
     assert payload["knowledge_drift"]["counts"]["regressions"] == 1
     assert "Backfill tolerance knowledge coverage." in payload["review_signals"]
     assert payload["knowledge_priority_domains"] == ["tolerance"]
@@ -149,8 +154,12 @@ def test_build_release_decision_ready_without_blockers() -> None:
                 "status": "improved",
                 "regressions": [],
                 "improvements": ["standards"],
+                "domain_regressions": [],
+                "domain_improvements": ["standards"],
                 "new_focus_areas": [],
                 "resolved_focus_areas": ["standards"],
+                "resolved_priority_domains": ["standards"],
+                "new_priority_domains": [],
             },
             "recommendations": [
                 "Promote the improved knowledge baseline after CI and review surfaces "
@@ -179,6 +188,7 @@ def test_build_release_decision_ready_without_blockers() -> None:
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["knowledge_focus_areas"] == []
     assert payload["knowledge_drift_status"] == "improved"
+    assert payload["knowledge_drift_domain_improvements"] == ["standards"]
     assert payload["knowledge_drift"]["counts"]["improvements"] == 1
     assert payload["knowledge_priority_domains"] == []
     assert payload["knowledge_domains"]["gdt"]["status"] == "ready"

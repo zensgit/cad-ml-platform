@@ -352,6 +352,26 @@ def build_companion_summary(
             or knowledge_drift_component.get("component_changes")
             or []
         ),
+        "knowledge_drift_domain_regressions": list(
+            benchmark_artifact_bundle.get("knowledge_drift_domain_regressions")
+            or knowledge_drift_component.get("domain_regressions")
+            or []
+        ),
+        "knowledge_drift_domain_improvements": list(
+            benchmark_artifact_bundle.get("knowledge_drift_domain_improvements")
+            or knowledge_drift_component.get("domain_improvements")
+            or []
+        ),
+        "knowledge_drift_resolved_priority_domains": list(
+            benchmark_artifact_bundle.get("knowledge_drift_resolved_priority_domains")
+            or knowledge_drift_component.get("resolved_priority_domains")
+            or []
+        ),
+        "knowledge_drift_new_priority_domains": list(
+            benchmark_artifact_bundle.get("knowledge_drift_new_priority_domains")
+            or knowledge_drift_component.get("new_priority_domains")
+            or []
+        ),
         "operator_adoption_knowledge_drift": operator_adoption_knowledge_drift,
         "knowledge_domains": knowledge_domains,
         "knowledge_domain_focus_areas": knowledge_domain_focus_areas,
@@ -388,6 +408,12 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     else:
         lines.append("- summary: none")
     drift_changes = payload.get("knowledge_drift_component_changes") or []
+    drift_domain_regressions = payload.get("knowledge_drift_domain_regressions") or []
+    drift_domain_improvements = payload.get("knowledge_drift_domain_improvements") or []
+    drift_resolved_priority_domains = (
+        payload.get("knowledge_drift_resolved_priority_domains") or []
+    )
+    drift_new_priority_domains = payload.get("knowledge_drift_new_priority_domains") or []
     if drift_changes:
         for row in drift_changes:
             lines.append(
@@ -399,6 +425,22 @@ def render_markdown(payload: Dict[str, Any]) -> str:
             )
     else:
         lines.append("- component_changes: none")
+    lines.append(
+        "- domain_regressions: "
+        + (", ".join(str(item) for item in drift_domain_regressions) or "none")
+    )
+    lines.append(
+        "- domain_improvements: "
+        + (", ".join(str(item) for item in drift_domain_improvements) or "none")
+    )
+    lines.append(
+        "- resolved_priority_domains: "
+        + (", ".join(str(item) for item in drift_resolved_priority_domains) or "none")
+    )
+    lines.append(
+        "- new_priority_domains: "
+        + (", ".join(str(item) for item in drift_new_priority_domains) or "none")
+    )
     drift_recommendations = payload.get("knowledge_drift_recommendations") or []
     if drift_recommendations:
         lines.extend(f"- recommendation: {item}" for item in drift_recommendations)

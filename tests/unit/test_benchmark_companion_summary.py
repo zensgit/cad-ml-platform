@@ -113,6 +113,7 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["knowledge_priority_domains"] == ["tolerance", "standards"]
     assert payload["knowledge_domains"]["tolerance"]["status"] == "partial"
     assert payload["knowledge_domain_focus_areas"][0]["domain"] == "tolerance"
+    assert payload["knowledge_drift_domain_regressions"] == []
     assert payload["recommended_actions"] == ["reduce review queue backlog"]
     assert payload["artifacts"]["benchmark_artifact_bundle"]["present"] is True
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
@@ -141,6 +142,8 @@ def test_render_markdown_includes_sections() -> None:
         "knowledge_drift_recommendations": [
             "Knowledge readiness is stable against the previous benchmark baseline."
         ],
+        "knowledge_drift_domain_regressions": ["gdt"],
+        "knowledge_drift_new_priority_domains": ["gdt"],
         "artifacts": {
             "benchmark_engineering_signals": {
                 "present": True,
@@ -205,6 +208,7 @@ def test_render_markdown_includes_sections() -> None:
     assert "Tolerance coverage regressed." in rendered
     assert "Expand GD&T coverage." in rendered
     assert "status=stable; current=knowledge_foundation_ready" in rendered
+    assert "domain_regressions" in rendered
     assert "## Knowledge Domains" in rendered
     assert "## Knowledge Domain Focus Areas" in rendered
 
@@ -355,6 +359,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_priority_domains"] == []
     assert payload["knowledge_domains"]["standards"]["status"] == "ready"
     assert payload["knowledge_domain_focus_areas"] == []
+    assert payload["knowledge_drift_domain_improvements"] == []
     assert output_md.exists()
 
 
@@ -388,7 +393,11 @@ def test_build_companion_summary_exposes_knowledge_drift_passthrough() -> None:
                 "reference_item_delta": -20,
                 "regressions": ["standards"],
                 "improvements": [],
+                "domain_regressions": ["standards"],
+                "domain_improvements": [],
                 "new_focus_areas": ["standards"],
+                "resolved_priority_domains": [],
+                "new_priority_domains": ["standards"],
                 "component_changes": [
                     {
                         "component": "standards",
@@ -424,3 +433,5 @@ def test_build_companion_summary_exposes_knowledge_drift_passthrough() -> None:
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
     assert payload["knowledge_drift"]["status"] == "regressed"
     assert "regressions=standards" in payload["knowledge_drift_summary"]
+    assert payload["knowledge_drift_domain_regressions"] == ["standards"]
+    assert payload["knowledge_drift_new_priority_domains"] == ["standards"]

@@ -252,11 +252,22 @@ def _knowledge_drift_payload(
         limit=10,
     )
     new_focus_areas = _compact(component.get("new_focus_areas") or [], limit=10)
+    domain_regressions = _compact(component.get("domain_regressions") or [], limit=10)
+    domain_improvements = _compact(component.get("domain_improvements") or [], limit=10)
+    resolved_priority_domains = _compact(
+        component.get("resolved_priority_domains") or [],
+        limit=10,
+    )
+    new_priority_domains = _compact(component.get("new_priority_domains") or [], limit=10)
     counts = {
         "regressions": len(regressions),
         "improvements": len(improvements),
         "new_focus_areas": len(new_focus_areas),
         "resolved_focus_areas": len(resolved_focus_areas),
+        "domain_regressions": len(domain_regressions),
+        "domain_improvements": len(domain_improvements),
+        "resolved_priority_domains": len(resolved_priority_domains),
+        "new_priority_domains": len(new_priority_domains),
     }
     status = _text(component.get("status")) or (
         "provided" if benchmark_knowledge_drift else "unknown"
@@ -272,6 +283,10 @@ def _knowledge_drift_payload(
         "improvements": improvements,
         "new_focus_areas": new_focus_areas,
         "resolved_focus_areas": resolved_focus_areas,
+        "domain_regressions": domain_regressions,
+        "domain_improvements": domain_improvements,
+        "resolved_priority_domains": resolved_priority_domains,
+        "new_priority_domains": new_priority_domains,
         "counts": counts,
         "recommendations": _compact(
             benchmark_knowledge_drift.get("recommendations") or [],
@@ -582,6 +597,18 @@ def build_release_runbook(
         "knowledge_drift_status": knowledge_drift["status"],
         "knowledge_drift_summary": knowledge_drift["summary"],
         "knowledge_drift": knowledge_drift,
+        "knowledge_drift_domain_regressions": list(
+            knowledge_drift.get("domain_regressions") or []
+        ),
+        "knowledge_drift_domain_improvements": list(
+            knowledge_drift.get("domain_improvements") or []
+        ),
+        "knowledge_drift_resolved_priority_domains": list(
+            knowledge_drift.get("resolved_priority_domains") or []
+        ),
+        "knowledge_drift_new_priority_domains": list(
+            knowledge_drift.get("new_priority_domains") or []
+        ),
         "knowledge_domains": knowledge_domains,
         "knowledge_domain_focus_areas": knowledge_domain_focus_areas,
         "knowledge_priority_domains": knowledge_priority_domains,
@@ -667,6 +694,16 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         "resolved_focus_areas",
     ):
         values = knowledge_drift.get(label) or []
+        lines.append(
+            f"- `{label}`: `{', '.join(str(item) for item in values) or 'none'}`"
+        )
+    for label in (
+        "knowledge_drift_domain_regressions",
+        "knowledge_drift_domain_improvements",
+        "knowledge_drift_resolved_priority_domains",
+        "knowledge_drift_new_priority_domains",
+    ):
+        values = payload.get(label) or []
         lines.append(
             f"- `{label}`: `{', '.join(str(item) for item in values) or 'none'}`"
         )
