@@ -233,6 +233,11 @@ def _review_queue_status(summary: Dict[str, Any]) -> Dict[str, Any]:
     high = _to_int(by_priority.get("high"))
     automation_ready = _to_int(summary.get("automation_ready_count"))
     automation_ready_ratio = _to_float(summary.get("automation_ready_ratio"))
+    evidence_count_total = _to_int(summary.get("evidence_count_total"))
+    average_evidence_count = _to_float(summary.get("average_evidence_count"))
+    records_with_evidence_count = _to_int(summary.get("records_with_evidence_count"))
+    records_with_evidence_ratio = _to_float(summary.get("records_with_evidence_ratio"))
+    top_evidence_sources = summary.get("top_evidence_sources") or []
 
     if total <= 0:
         status = "under_control"
@@ -240,6 +245,8 @@ def _review_queue_status(summary: Dict[str, Any]) -> Dict[str, Any]:
         status = "critical_backlog"
     elif high > 0:
         status = "managed_backlog"
+    elif records_with_evidence_ratio < 0.7:
+        status = "evidence_gap"
     else:
         status = "routine_backlog"
 
@@ -250,6 +257,11 @@ def _review_queue_status(summary: Dict[str, Any]) -> Dict[str, Any]:
         "high_count": high,
         "automation_ready_count": automation_ready,
         "automation_ready_ratio": round(automation_ready_ratio, 6),
+        "evidence_count_total": evidence_count_total,
+        "average_evidence_count": round(average_evidence_count, 6),
+        "records_with_evidence_count": records_with_evidence_count,
+        "records_with_evidence_ratio": round(records_with_evidence_ratio, 6),
+        "top_evidence_sources": top_evidence_sources,
         "by_sample_type": by_type,
         "by_feedback_priority": by_priority,
         "by_decision_source": summary.get("by_decision_source") or {},
@@ -311,7 +323,11 @@ def _overall_status(
         return "benchmark_ready_with_3d_gap"
     if assistant.get("status") in {"missing", "weak_coverage", "partial_coverage"}:
         return "benchmark_ready_with_explainability_gap"
-    if review_queue.get("status") in {"critical_backlog", "managed_backlog"}:
+    if review_queue.get("status") in {
+        "critical_backlog",
+        "managed_backlog",
+        "evidence_gap",
+    }:
         return "benchmark_ready_with_review_gap"
     if ocr_review.get("status") in {"missing", "managed_review", "review_heavy"}:
         return "benchmark_ready_with_ocr_gap"
@@ -347,6 +363,11 @@ def _recommendations(
         )
     elif review_queue.get("status") == "managed_backlog":
         items.append("Reduce high-priority review backlog or automate more review-ready samples.")
+    elif review_queue.get("status") == "evidence_gap":
+        items.append(
+            "Raise evidence coverage in active-learning review queue exports before "
+            "freezing review operations as benchmark-ready."
+        )
     if ocr_review.get("status") in {"missing", "review_heavy"}:
         items.append(
             "Reduce OCR review-heavy backlog and improve structured extraction coverage."
@@ -489,7 +510,9 @@ def _render_markdown(scorecard: Dict[str, Any]) -> str:
         f"`{review_queue.get('status')}` | "
         f"total={review_queue.get('total')}, "
         f"critical={review_queue.get('critical_count')}, "
-        f"automation_ready={review_queue.get('automation_ready_count')} |"
+        f"automation_ready={review_queue.get('automation_ready_count')}, "
+        f"evidence_ratio={review_queue.get('records_with_evidence_ratio')}, "
+        f"avg_evidence={review_queue.get('average_evidence_count')} |"
     )
     ocr_review = components.get("ocr_review", {}) or {}
     lines.append(
