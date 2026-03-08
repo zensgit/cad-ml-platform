@@ -67,6 +67,13 @@ def _coerce_bool(value: Any) -> bool:
     return text in {"1", "true", "yes", "on"}
 
 
+def _coerce_int(value: Any, default: int = 0) -> int:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _automation_ready(score_breakdown: Dict[str, Any]) -> bool:
     return bool(
         score_breakdown.get("automation_ready")
@@ -113,6 +120,9 @@ def _row_from_sample(sample: ActiveLearningSample) -> Dict[str, Any]:
         "predicted_fine_type": _clean_text(sample.predicted_fine_type),
         "predicted_coarse_type": _clean_text(sample.predicted_coarse_type),
         "automation_ready": _automation_ready(score_breakdown),
+        "evidence_count": int(sample.evidence_count or 0),
+        "evidence_sources": list(sample.evidence_sources or []),
+        "evidence_summary": _clean_text(sample.evidence_summary),
         "score_breakdown": score_breakdown,
     }
 
@@ -138,6 +148,13 @@ def _row_from_export_mapping(mapping: Dict[str, Any]) -> Dict[str, Any]:
         "predicted_coarse_type": _clean_text(mapping.get("predicted_coarse_type")),
         "automation_ready": _coerce_bool(mapping.get("automation_ready"))
         or _automation_ready(score_breakdown),
+        "evidence_count": _coerce_int(mapping.get("evidence_count")),
+        "evidence_sources": [
+            _clean_text(item)
+            for item in _coerce_list(mapping.get("evidence_sources"))
+            if _clean_text(item)
+        ],
+        "evidence_summary": _clean_text(mapping.get("evidence_summary")),
         "score_breakdown": score_breakdown,
     }
 
@@ -201,10 +218,13 @@ def _build_summary(
     by_feedback_priority: Counter[str] = Counter()
     by_decision_source: Counter[str] = Counter()
     by_review_reason: Counter[str] = Counter()
+    by_evidence_source: Counter[str] = Counter()
 
     critical_count = 0
     high_count = 0
     automation_ready_count = 0
+    evidence_count_total = 0
+    records_with_evidence_count = 0
 
     for row in rows:
         sample_type = _clean_text(row.get("sample_type")) or "review"
@@ -219,6 +239,13 @@ def _build_summary(
             high_count += 1
         if bool(row.get("automation_ready")):
             automation_ready_count += 1
+        evidence_count = _coerce_int(row.get("evidence_count"))
+        evidence_count_total += evidence_count
+        if evidence_count > 0:
+            records_with_evidence_count += 1
+        for source in row.get("evidence_sources") or []:
+            source_text = _clean_text(source) or "unknown"
+            by_evidence_source[source_text] += 1
         for reason in row.get("review_reasons") or []:
             reason_text = _clean_text(reason) or "unknown"
             by_review_reason[reason_text] += 1
@@ -244,6 +271,10 @@ def _build_summary(
         "critical_count": critical_count,
         "high_count": high_count,
         "automation_ready_count": automation_ready_count,
+        "evidence_count_total": evidence_count_total,
+        "average_evidence_count": round(evidence_count_total / denom, 6),
+        "records_with_evidence_count": records_with_evidence_count,
+        "records_with_evidence_ratio": round(records_with_evidence_count / denom, 6),
         "critical_ratio": round(critical_count / denom, 6),
         "high_ratio": round(high_count / denom, 6),
         "automation_ready_ratio": round(automation_ready_count / denom, 6),
@@ -252,6 +283,7 @@ def _build_summary(
         "top_feedback_priorities": _compact_top(by_feedback_priority, top_k),
         "top_decision_sources": _compact_top(by_decision_source, top_k),
         "top_review_reasons": _compact_top(by_review_reason, top_k),
+        "top_evidence_sources": _compact_top(by_evidence_source, top_k),
     }
 
 
@@ -271,6 +303,9 @@ def _write_csv(path: Path, rows: Iterable[Dict[str, Any]]) -> None:
         "predicted_fine_type",
         "predicted_coarse_type",
         "automation_ready",
+        "evidence_count",
+        "evidence_sources",
+        "evidence_summary",
     ]
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -280,11 +315,15 @@ def _write_csv(path: Path, rows: Iterable[Dict[str, Any]]) -> None:
                 {
                     key: row.get(key)
                     for key in fieldnames
-                    if key != "review_reasons"
+                    if key not in {"review_reasons", "evidence_sources"}
                 }
                 | {
                     "review_reasons": json.dumps(
                         row.get("review_reasons") or [],
+                        ensure_ascii=False,
+                    ),
+                    "evidence_sources": json.dumps(
+                        row.get("evidence_sources") or [],
                         ensure_ascii=False,
                     ),
                 }
