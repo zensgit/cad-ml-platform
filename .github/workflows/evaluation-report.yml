@@ -1588,6 +1588,13 @@ jobs:
             const benchmarkOcrStatus = '${{ steps.benchmark_scorecard.outputs.ocr_status }}';
             const benchmarkQdrantStatus = '${{ steps.benchmark_scorecard.outputs.qdrant_status }}';
             const benchmarkRecommendations = '${{ steps.benchmark_scorecard.outputs.recommendations }}';
+            const feedbackFlywheelBenchmarkEnabled = '${{ steps.feedback_flywheel_benchmark.outputs.enabled }}' === 'true';
+            const feedbackFlywheelBenchmarkStatus = '${{ steps.feedback_flywheel_benchmark.outputs.status }}';
+            const feedbackFlywheelBenchmarkTotal = '${{ steps.feedback_flywheel_benchmark.outputs.feedback_total }}';
+            const feedbackFlywheelBenchmarkCorrections = '${{ steps.feedback_flywheel_benchmark.outputs.correction_count }}';
+            const feedbackFlywheelBenchmarkFinetuneSamples = '${{ steps.feedback_flywheel_benchmark.outputs.finetune_sample_count }}';
+            const feedbackFlywheelBenchmarkMetricTriplets = '${{ steps.feedback_flywheel_benchmark.outputs.metric_triplet_count }}';
+            const feedbackFlywheelBenchmarkArtifact = '${{ steps.feedback_flywheel_benchmark.outputs.output_md }}';
             const assistantEvidenceEnabled = '${{ steps.assistant_evidence_report.outputs.enabled }}' === 'true';
             const assistantEvidenceInput = '${{ steps.assistant_evidence_report.outputs.input_path }}';
             const assistantEvidenceTotalRecords = '${{ steps.assistant_evidence_report.outputs.total_records }}';
@@ -1646,6 +1653,9 @@ jobs:
               : '⏭️ skipped';
             const benchmarkScorecardStatus = benchmarkScorecardEnabled
               ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}, assistant=${benchmarkAssistantStatus}, review_queue=${benchmarkReviewQueueStatus}, feedback_flywheel=${benchmarkFeedbackFlywheelStatus}, ocr=${benchmarkOcrStatus}, qdrant=${benchmarkQdrantStatus}`
+              : '⏭️ skipped';
+            const feedbackFlywheelBenchmarkStatusLine = feedbackFlywheelBenchmarkEnabled
+              ? `status=${feedbackFlywheelBenchmarkStatus}, feedback=${feedbackFlywheelBenchmarkTotal}, corrections=${feedbackFlywheelBenchmarkCorrections}, finetune=${feedbackFlywheelBenchmarkFinetuneSamples}, triplets=${feedbackFlywheelBenchmarkMetricTriplets}, artifact=${feedbackFlywheelBenchmarkArtifact}`
               : '⏭️ skipped';
             const assistantEvidenceStatus = assistantEvidenceEnabled
               ? `input=${assistantEvidenceInput}, records=${assistantEvidenceTotalRecords}, evidence_items=${assistantEvidenceTotalItems}, avg=${assistantEvidenceAverageCount}, evidence_cov=${assistantEvidenceCoverage}, decision_cov=${assistantDecisionPathCoverage}, source_cov=${assistantSourceSignalCoverage}`
@@ -1717,6 +1727,7 @@ jobs:
             | **Benchmark Scorecard** | ${benchmarkScorecardStatus} |
             | **Benchmark Recommendations** | ${benchmarkRecommendations || 'n/a'} |
             | **Benchmark Feedback Flywheel** | ${benchmarkFeedbackFlywheelStatus || 'n/a'} |
+            | **Feedback Flywheel Artifact** | ${feedbackFlywheelBenchmarkStatusLine} |
             | **Assistant Evidence Report** | ${assistantEvidenceStatus} |
             | **Assistant Evidence Insights** | ${assistantEvidenceInsights} |
             | **Active-Learning Review Queue** | ${activeLearningReviewQueueStatusLine} |
