@@ -203,6 +203,9 @@ def build_bundle(
         or {}
     )
     knowledge_focus_areas = list(knowledge_component.get("focus_areas_detail") or [])
+    knowledge_domains = knowledge_component.get("domains") or {}
+    knowledge_domain_focus_areas = list(knowledge_component.get("domain_focus_areas") or [])
+    knowledge_priority_domains = list(knowledge_component.get("priority_domains") or [])
     artifact_rows = {
         "benchmark_scorecard": _artifact_row(
             name="benchmark_scorecard",
@@ -268,6 +271,9 @@ def build_bundle(
         "available_artifact_count": available_count,
         "knowledge_focus_area_count": len(knowledge_focus_areas),
         "knowledge_focus_areas": knowledge_focus_areas,
+        "knowledge_domains": knowledge_domains,
+        "knowledge_domain_focus_areas": knowledge_domain_focus_areas,
+        "knowledge_priority_domains": knowledge_priority_domains,
         "component_statuses": _component_statuses(
             benchmark_scorecard,
             benchmark_operational_summary,
@@ -326,6 +332,32 @@ def render_markdown(payload: Dict[str, Any]) -> str:
                 f"status=`{row.get('status')}` "
                 f"priority=`{row.get('priority')}` "
                 f"missing_metrics=`{', '.join(row.get('missing_metrics') or []) or 'none'}`"
+            )
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Knowledge Domains", ""])
+    knowledge_domains = payload.get("knowledge_domains") or {}
+    if knowledge_domains:
+        for name, row in knowledge_domains.items():
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"status=`{row.get('status')}` "
+                f"focus_components=`{', '.join(row.get('focus_components') or []) or 'none'}` "
+                f"missing_metrics=`{', '.join(row.get('missing_metrics') or []) or 'none'}`"
+            )
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Knowledge Domain Focus Areas", ""])
+    domain_focus_areas = payload.get("knowledge_domain_focus_areas") or []
+    if domain_focus_areas:
+        for row in domain_focus_areas:
+            lines.append(
+                "- "
+                f"`{row.get('domain')}` "
+                f"status=`{row.get('status')}` "
+                f"priority=`{row.get('priority')}` "
+                f"action=`{row.get('action')}`"
             )
     else:
         lines.append("- none")

@@ -48,6 +48,22 @@ def test_build_bundle_prefers_operational_summary() -> None:
                         "missing_metrics": ["thread_count", "bearing_count", "oring_count"],
                     }
                 ],
+                "priority_domains": ["standards"],
+                "domains": {
+                    "standards": {
+                        "status": "missing",
+                        "focus_components": ["standards", "design_standards"],
+                        "missing_metrics": ["thread_count", "bearing_count", "oring_count"],
+                    }
+                },
+                "domain_focus_areas": [
+                    {
+                        "domain": "standards",
+                        "status": "missing",
+                        "priority": "high",
+                        "action": "Expand standards coverage.",
+                    }
+                ],
             }
         },
         benchmark_engineering_signals={
@@ -74,6 +90,9 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["knowledge_focus_area_count"] == 1
     assert payload["knowledge_focus_areas"][0]["component"] == "standards"
+    assert payload["knowledge_priority_domains"] == ["standards"]
+    assert payload["knowledge_domains"]["standards"]["status"] == "missing"
+    assert payload["knowledge_domain_focus_areas"][0]["domain"] == "standards"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["blockers"] == ["feedback backlog"]
@@ -98,6 +117,15 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
             "knowledge_readiness": {
                 "status": "knowledge_foundation_ready",
                 "focus_areas_detail": [],
+                "priority_domains": [],
+                "domains": {
+                    "tolerance": {
+                        "status": "ready",
+                        "focus_components": [],
+                        "missing_metrics": [],
+                    }
+                },
+                "domain_focus_areas": [],
             }
         },
         benchmark_engineering_signals={
@@ -118,6 +146,9 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
     assert payload["component_statuses"]["assistant_explainability"] == "evidence_ready"
     assert payload["recommendations"] == ["Freeze this run."]
     assert payload["knowledge_focus_area_count"] == 0
+    assert payload["knowledge_priority_domains"] == []
+    assert payload["knowledge_domains"]["tolerance"]["status"] == "ready"
+    assert payload["knowledge_domain_focus_areas"] == []
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
@@ -163,6 +194,15 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             "knowledge_readiness": {
                 "status": "knowledge_foundation_ready",
                 "focus_areas_detail": [],
+                "priority_domains": [],
+                "domains": {
+                    "gdt": {
+                        "status": "ready",
+                        "focus_components": [],
+                        "missing_metrics": [],
+                    }
+                },
+                "domain_focus_areas": [],
             }
         },
     )
@@ -229,7 +269,10 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"
+    assert payload["knowledge_domains"]["gdt"]["status"] == "ready"
+    assert payload["knowledge_domain_focus_areas"] == []
     assert "review queue backlog" in output_md.read_text(encoding="utf-8")
+    assert "## Knowledge Domains" in output_md.read_text(encoding="utf-8")
 
 
 def test_build_bundle_prefers_companion_summary_when_present() -> None:

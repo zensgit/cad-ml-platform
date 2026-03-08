@@ -50,6 +50,27 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
                         "action": "Backfill tolerance coverage.",
                     }
                 ],
+                "priority_domains": ["tolerance", "standards"],
+                "domains": {
+                    "tolerance": {
+                        "status": "partial",
+                        "focus_components": ["tolerance"],
+                        "missing_metrics": ["common_fit_count"],
+                    },
+                    "standards": {
+                        "status": "missing",
+                        "focus_components": ["standards", "design_standards"],
+                        "missing_metrics": ["thread_count"],
+                    },
+                },
+                "domain_focus_areas": [
+                    {
+                        "domain": "tolerance",
+                        "status": "partial",
+                        "priority": "medium",
+                        "action": "Backfill tolerance coverage.",
+                    }
+                ],
             },
             "recommendations": ["Raise tolerance/GD&T readiness."],
         },
@@ -78,6 +99,9 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
+    assert payload["knowledge_priority_domains"] == ["tolerance", "standards"]
+    assert payload["knowledge_domains"]["tolerance"]["status"] == "partial"
+    assert payload["knowledge_domain_focus_areas"][0]["domain"] == "tolerance"
     assert payload["recommended_actions"] == ["reduce review queue backlog"]
     assert payload["artifacts"]["benchmark_artifact_bundle"]["present"] is True
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
@@ -120,6 +144,21 @@ def test_render_markdown_includes_sections() -> None:
                 "action": "Expand GD&T coverage.",
             }
         ],
+        "knowledge_domains": {
+            "gdt": {
+                "status": "missing",
+                "focus_components": ["gdt"],
+                "missing_metrics": ["symbol_count"],
+            }
+        },
+        "knowledge_domain_focus_areas": [
+            {
+                "domain": "gdt",
+                "status": "missing",
+                "priority": "high",
+                "action": "Expand GD&T coverage.",
+            }
+        ],
     }
 
     rendered = render_markdown(payload)
@@ -131,6 +170,8 @@ def test_render_markdown_includes_sections() -> None:
     assert "engineering.json" in rendered
     assert "operator.json" in rendered
     assert "Expand GD&T coverage." in rendered
+    assert "## Knowledge Domains" in rendered
+    assert "## Knowledge Domain Focus Areas" in rendered
 
 
 def test_cli_writes_outputs(tmp_path: Path) -> None:
@@ -180,6 +221,15 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
                 "knowledge_readiness": {
                     "status": "knowledge_foundation_ready",
                     "focus_areas_detail": [],
+                    "priority_domains": [],
+                    "domains": {
+                        "standards": {
+                            "status": "ready",
+                            "focus_components": [],
+                            "missing_metrics": [],
+                        }
+                    },
+                    "domain_focus_areas": [],
                 },
                 "recommendations": [],
             }
@@ -239,4 +289,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["knowledge_focus_areas"] == []
+    assert payload["knowledge_priority_domains"] == []
+    assert payload["knowledge_domains"]["standards"]["status"] == "ready"
+    assert payload["knowledge_domain_focus_areas"] == []
     assert output_md.exists()

@@ -36,6 +36,22 @@ def test_build_release_decision_blocks_on_blockers() -> None:
                         "action": "Backfill tolerance coverage.",
                     }
                 ],
+                "priority_domains": ["tolerance"],
+                "domains": {
+                    "tolerance": {
+                        "status": "partial",
+                        "focus_components": ["tolerance"],
+                        "missing_metrics": ["common_fit_count"],
+                    }
+                },
+                "domain_focus_areas": [
+                    {
+                        "domain": "tolerance",
+                        "status": "partial",
+                        "priority": "medium",
+                        "action": "Backfill tolerance coverage.",
+                    }
+                ],
             },
             "recommendations": ["Raise tolerance/GD&T readiness."],
         },
@@ -63,6 +79,9 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
+    assert payload["knowledge_priority_domains"] == ["tolerance"]
+    assert payload["knowledge_domains"]["tolerance"]["status"] == "partial"
+    assert payload["knowledge_domain_focus_areas"][0]["domain"] == "tolerance"
     assert "Operator fallback only." not in payload["review_signals"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
@@ -90,6 +109,15 @@ def test_build_release_decision_ready_without_blockers() -> None:
             "knowledge_readiness": {
                 "status": "knowledge_foundation_ready",
                 "focus_areas_detail": [],
+                "priority_domains": [],
+                "domains": {
+                    "gdt": {
+                        "status": "ready",
+                        "focus_components": [],
+                        "missing_metrics": [],
+                    }
+                },
+                "domain_focus_areas": [],
             },
             "recommendations": [],
         },
@@ -111,6 +139,9 @@ def test_build_release_decision_ready_without_blockers() -> None:
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["knowledge_focus_areas"] == []
+    assert payload["knowledge_priority_domains"] == []
+    assert payload["knowledge_domains"]["gdt"]["status"] == "ready"
+    assert payload["knowledge_domain_focus_areas"] == []
 
 
 def test_build_release_decision_uses_operator_adoption_blocker_as_fallback() -> None:
@@ -206,6 +237,15 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
                 "knowledge_readiness": {
                     "status": "knowledge_foundation_ready",
                     "focus_areas_detail": [],
+                    "priority_domains": [],
+                    "domains": {
+                        "standards": {
+                            "status": "ready",
+                            "focus_components": [],
+                            "missing_metrics": [],
+                        }
+                    },
+                    "domain_focus_areas": [],
                 },
                 "recommendations": [],
             }
@@ -267,6 +307,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["artifacts"]["benchmark_knowledge_readiness"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
+    assert payload["knowledge_domains"]["standards"]["status"] == "ready"
+    assert payload["knowledge_domain_focus_areas"] == []
     assert output_md.exists()
 
     rendered = render_markdown(payload)
@@ -274,3 +316,4 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "`release_status`: `ready`" in rendered
     assert "`knowledge_readiness`: `knowledge_foundation_ready`" in rendered
     assert "`operator_adoption`: `operator_ready`" in rendered
+    assert "## Knowledge Domains" in rendered

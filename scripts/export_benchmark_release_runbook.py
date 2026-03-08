@@ -228,6 +228,9 @@ def build_release_runbook(
         str(knowledge_component.get("status") or "unknown").strip() or "unknown"
     )
     knowledge_focus_areas = list(knowledge_component.get("focus_areas_detail") or [])
+    knowledge_domains = knowledge_component.get("domains") or {}
+    knowledge_domain_focus_areas = list(knowledge_component.get("domain_focus_areas") or [])
+    knowledge_priority_domains = list(knowledge_component.get("priority_domains") or [])
     release_status = _release_status(
         benchmark_release_decision,
         benchmark_companion_summary,
@@ -459,6 +462,9 @@ def build_release_runbook(
         "engineering_status": engineering_status,
         "knowledge_status": knowledge_status,
         "knowledge_focus_areas": knowledge_focus_areas,
+        "knowledge_domains": knowledge_domains,
+        "knowledge_domain_focus_areas": knowledge_domain_focus_areas,
+        "knowledge_priority_domains": knowledge_priority_domains,
         "primary_signal_source": _primary_signal_source(
             benchmark_release_decision,
             benchmark_companion_summary,
@@ -513,6 +519,32 @@ def render_markdown(payload: Dict[str, Any]) -> str:
             lines.append(
                 "- "
                 f"`{row.get('component')}` "
+                f"status=`{row.get('status')}` "
+                f"priority=`{row.get('priority')}` "
+                f"action=`{row.get('action')}`"
+            )
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Knowledge Domains", ""])
+    knowledge_domains = payload.get("knowledge_domains") or {}
+    if knowledge_domains:
+        for name, row in knowledge_domains.items():
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"status=`{row.get('status')}` "
+                f"focus_components=`{', '.join(row.get('focus_components') or []) or 'none'}` "
+                f"missing_metrics=`{', '.join(row.get('missing_metrics') or []) or 'none'}`"
+            )
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Knowledge Domain Focus Areas", ""])
+    domain_focus_areas = payload.get("knowledge_domain_focus_areas") or []
+    if domain_focus_areas:
+        for row in domain_focus_areas:
+            lines.append(
+                "- "
+                f"`{row.get('domain')}` "
                 f"status=`{row.get('status')}` "
                 f"priority=`{row.get('priority')}` "
                 f"action=`{row.get('action')}`"
