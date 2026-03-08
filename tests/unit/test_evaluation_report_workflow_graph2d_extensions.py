@@ -1227,6 +1227,22 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkKnowledgeDriftLight" in pr_comment_script
     assert "benchmarkKnowledgeDriftDomainRegressions" in pr_comment_script
     assert "benchmarkKnowledgeDriftResolvedPriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationStatus" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationLight" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationFocusAreas" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationPriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationDomainStatuses" in pr_comment_script
+    assert "benchmarkKnowledgeApplicationRecommendations" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeApplicationStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeApplicationStatusLine" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeApplicationStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeApplicationStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeApplicationStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeApplicationStatusLine" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeApplicationStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeApplicationStatusLine" in pr_comment_script
     assert "assistant=${benchmarkAssistantStatus}" in pr_comment_script
     assert "review_queue=${benchmarkReviewQueueStatus}" in pr_comment_script
     assert "feedback_flywheel=${benchmarkFeedbackFlywheelStatus}" in pr_comment_script
@@ -1242,12 +1258,15 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Knowledge Focus Areas" in pr_comment_script
     assert "Benchmark Knowledge Domains" in pr_comment_script
     assert "Benchmark Knowledge Recommendations" in pr_comment_script
+    assert "Benchmark Knowledge Application" in pr_comment_script
+    assert "Benchmark Knowledge Application Recommendations" in pr_comment_script
     assert "Benchmark Knowledge Drift Recommendations" in pr_comment_script
     assert "Benchmark Engineering Recommendations" in pr_comment_script
     assert "Feedback Flywheel Artifact" in pr_comment_script
     assert "Benchmark Operational Summary" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Drift" in pr_comment_script
     assert "Benchmark Artifact Bundle" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Application" in pr_comment_script
     assert "Benchmark Artifact Bundle Real-Data" in pr_comment_script
     assert "available_artifacts=${benchmarkArtifactBundleAvailableArtifacts}" in pr_comment_script
     assert "feedback=${benchmarkArtifactBundleFeedbackStatus}" in pr_comment_script
@@ -1258,6 +1277,29 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "knowledge_drift=${benchmarkArtifactBundleKnowledgeDriftStatus}" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeDriftDomainRegressions" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgePriorityDomains" in pr_comment_script
+    assert "Benchmark Companion Knowledge Application" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Application" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Application" in pr_comment_script
+    assert (
+        "recommendations=${benchmarkKnowledgeApplicationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkArtifactBundleKnowledgeApplicationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkCompanionKnowledgeApplicationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseKnowledgeApplicationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseRunbookKnowledgeApplicationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
     assert "engineering=${benchmarkArtifactBundleEngineeringStatus}" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Domains" in pr_comment_script
     assert "Benchmark Companion Knowledge Drift" in pr_comment_script
