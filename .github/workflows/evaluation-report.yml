@@ -222,6 +222,10 @@ on:
         description: 'Optional benchmark release decision engineering signals JSON'
         required: false
         default: ''
+      benchmark_release_decision_operator_adoption_json:
+        description: 'Optional benchmark release decision operator adoption JSON'
+        required: false
+        default: ''
       benchmark_release_runbook_enable:
         description: 'Override: enable benchmark release runbook export (true/false)'
         required: false
@@ -240,6 +244,10 @@ on:
         default: ''
       benchmark_release_runbook_engineering_signals_json:
         description: 'Optional benchmark release runbook engineering signals JSON'
+        required: false
+        default: ''
+      benchmark_release_runbook_operator_adoption_json:
+        description: 'Optional benchmark release runbook operator adoption JSON'
         required: false
         default: ''
       benchmark_operator_adoption_enable:
@@ -393,6 +401,7 @@ env:
   BENCHMARK_RELEASE_DECISION_ARTIFACT_BUNDLE_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_ARTIFACT_BUNDLE_JSON }}
   BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON }}
   BENCHMARK_RELEASE_DECISION_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_ENGINEERING_SIGNALS_JSON }}
+  BENCHMARK_RELEASE_DECISION_OPERATOR_ADOPTION_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_OPERATOR_ADOPTION_JSON }}
   BENCHMARK_RELEASE_DECISION_OUTPUT_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_release_decision.json' }}
   BENCHMARK_RELEASE_DECISION_OUTPUT_MD: ${{ vars.BENCHMARK_RELEASE_DECISION_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_release_decision.md' }}
   BENCHMARK_RELEASE_RUNBOOK_ENABLE: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ENABLE || 'false' }}
@@ -401,6 +410,7 @@ env:
   BENCHMARK_RELEASE_RUNBOOK_COMPANION_SUMMARY_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_COMPANION_SUMMARY_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ENGINEERING_SIGNALS_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_OPERATOR_ADOPTION_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OPERATOR_ADOPTION_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_release_runbook.json' }}
   BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_release_runbook.md' }}
   BENCHMARK_OPERATOR_ADOPTION_ENABLE: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_ENABLE || 'false' }}
@@ -1635,6 +1645,7 @@ jobs:
         add_if_exists --benchmark-artifact-bundle "${{ github.event.inputs.benchmark_release_decision_artifact_bundle_json || '' }}"
         add_if_exists --benchmark-companion-summary "${{ github.event.inputs.benchmark_release_decision_companion_summary_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_release_decision_engineering_signals_json || '' }}"
+        add_if_exists --benchmark-operator-adoption "${{ github.event.inputs.benchmark_release_decision_operator_adoption_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_RELEASE_DECISION_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
@@ -1645,6 +1656,8 @@ jobs:
         add_if_exists --benchmark-companion-summary "${BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON:-}"
         add_if_exists --benchmark-engineering-signals "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${BENCHMARK_RELEASE_DECISION_ENGINEERING_SIGNALS_JSON:-}"
+        add_if_exists --benchmark-operator-adoption "${{ steps.benchmark_operator_adoption.outputs.output_json || '' }}"
+        add_if_exists --benchmark-operator-adoption "${BENCHMARK_RELEASE_DECISION_OPERATOR_ADOPTION_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -1706,6 +1719,10 @@ jobs:
                 "engineering_status="
                 f"{component_statuses.get('engineering_signals', 'unknown')}\n"
             )
+            f.write(
+                "operator_adoption_status="
+                f"{component_statuses.get('operator_adoption', 'unknown')}\n"
+            )
         PY
 
     - name: Build benchmark release runbook (optional)
@@ -1745,6 +1762,7 @@ jobs:
         add_if_exists --benchmark-companion-summary "${{ github.event.inputs.benchmark_release_runbook_companion_summary_json || '' }}"
         add_if_exists --benchmark-artifact-bundle "${{ github.event.inputs.benchmark_release_runbook_artifact_bundle_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_release_runbook_engineering_signals_json || '' }}"
+        add_if_exists --benchmark-operator-adoption "${{ github.event.inputs.benchmark_release_runbook_operator_adoption_json || '' }}"
         add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
         add_if_exists --benchmark-release-decision "${BENCHMARK_RELEASE_RUNBOOK_RELEASE_DECISION_JSON:-}"
         add_if_exists --benchmark-companion-summary "${{ steps.benchmark_companion_summary.outputs.output_json || '' }}"
@@ -1753,6 +1771,8 @@ jobs:
         add_if_exists --benchmark-artifact-bundle "${BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON:-}"
         add_if_exists --benchmark-engineering-signals "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${BENCHMARK_RELEASE_RUNBOOK_ENGINEERING_SIGNALS_JSON:-}"
+        add_if_exists --benchmark-operator-adoption "${{ steps.benchmark_operator_adoption.outputs.output_json || '' }}"
+        add_if_exists --benchmark-operator-adoption "${BENCHMARK_RELEASE_RUNBOOK_OPERATOR_ADOPTION_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -1806,6 +1826,11 @@ jobs:
             )
             f.write(
                 f"engineering_status={payload.get('engineering_status', 'unknown')}\n"
+            )
+            operator_adoption = payload.get("operator_adoption") or {}
+            f.write(
+                "operator_adoption_status="
+                f"{operator_adoption.get('status', 'unknown')}\n"
             )
         PY
 
@@ -2686,6 +2711,7 @@ jobs:
           echo "- Benchmark release OCR status: ${{ steps.benchmark_release_decision.outputs.ocr_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release Qdrant status: ${{ steps.benchmark_release_decision.outputs.qdrant_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release engineering status: ${{ steps.benchmark_release_decision.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release operator adoption status: ${{ steps.benchmark_release_decision.outputs.operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release blocking signals: ${{ steps.benchmark_release_decision.outputs.blocking_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release review signals: ${{ steps.benchmark_release_decision.outputs.review_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release artifact: ${{ steps.benchmark_release_decision.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -2698,6 +2724,7 @@ jobs:
           echo "- Benchmark release runbook primary signal source: ${{ steps.benchmark_release_runbook.outputs.primary_signal_source }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook next action: ${{ steps.benchmark_release_runbook.outputs.next_action }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook engineering status: ${{ steps.benchmark_release_runbook.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook operator adoption status: ${{ steps.benchmark_release_runbook.outputs.operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook missing artifacts: ${{ steps.benchmark_release_runbook.outputs.missing_artifacts }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook blocking signals: ${{ steps.benchmark_release_runbook.outputs.blocking_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook review signals: ${{ steps.benchmark_release_runbook.outputs.review_signals }}" >> $GITHUB_STEP_SUMMARY
