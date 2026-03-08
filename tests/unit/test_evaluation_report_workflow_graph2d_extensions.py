@@ -62,6 +62,15 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_SCORECARD_OUTPUT_MD" in env
     assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON" in env
     assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_ENABLE" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_TITLE" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_SCORECARD_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_FEEDBACK_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_ASSISTANT_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_REVIEW_QUEUE_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_OCR_REVIEW_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_MD" in env
     assert "OCR_REVIEW_PACK_ENABLE" in env
     assert "OCR_REVIEW_PACK_INPUT" in env
     assert "OCR_REVIEW_PACK_OUTPUT_CSV" in env
@@ -99,6 +108,12 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_scorecard_metric_train_summary" in dispatch_inputs
     assert "benchmark_scorecard_ocr_review_summary" in dispatch_inputs
     assert "benchmark_scorecard_qdrant_readiness_summary" in dispatch_inputs
+    assert "benchmark_operational_summary_enable" in dispatch_inputs
+    assert "benchmark_operational_summary_scorecard_json" in dispatch_inputs
+    assert "benchmark_operational_summary_feedback_json" in dispatch_inputs
+    assert "benchmark_operational_summary_assistant_json" in dispatch_inputs
+    assert "benchmark_operational_summary_review_queue_json" in dispatch_inputs
+    assert "benchmark_operational_summary_ocr_review_json" in dispatch_inputs
     assert "ocr_review_pack_enable" in dispatch_inputs
     assert "ocr_review_pack_input" in dispatch_inputs
     assert "assistant_evidence_report_enable" in dispatch_inputs
@@ -229,6 +244,25 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "feedback_total=" in feedback_flywheel_script
     assert "metric_triplet_count=" in feedback_flywheel_script
 
+    benchmark_operational_step = _get_step(
+        workflow, "evaluate", "Build benchmark operational summary (optional)"
+    )
+    benchmark_operational_script = benchmark_operational_step["run"]
+    assert "scripts/export_benchmark_operational_summary.py" in benchmark_operational_script
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_ENABLE" in benchmark_operational_script
+    assert "--benchmark-scorecard" in benchmark_operational_script
+    assert "--feedback-flywheel" in benchmark_operational_script
+    assert "--assistant-evidence" in benchmark_operational_script
+    assert "--review-queue" in benchmark_operational_script
+    assert "--ocr-review" in benchmark_operational_script
+    assert "INPUT_COUNT=0" in benchmark_operational_script
+    assert "feedback_status=" in benchmark_operational_script
+    assert "assistant_status=" in benchmark_operational_script
+    assert "review_queue_status=" in benchmark_operational_script
+    assert "ocr_status=" in benchmark_operational_script
+    assert "blockers=" in benchmark_operational_script
+    assert "recommendations=" in benchmark_operational_script
+
     assistant_step = _get_step(
         workflow, "evaluate", "Build assistant evidence report (optional)"
     )
@@ -277,6 +311,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_feedback_flywheel["if"]
         == "steps.feedback_flywheel_benchmark.outputs.enabled == 'true'"
+    )
+    upload_benchmark_operational = _get_step(
+        workflow, "evaluate", "Upload benchmark operational summary"
+    )
+    assert (
+        upload_benchmark_operational["if"]
+        == "steps.benchmark_operational_summary.outputs.enabled == 'true'"
     )
     upload_assistant = _get_step(workflow, "evaluate", "Upload assistant evidence report")
     assert (
@@ -330,6 +371,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Feedback flywheel benchmark status" in summary_script
     assert "Feedback flywheel feedback total" in summary_script
     assert "Feedback flywheel artifact" in summary_script
+    assert "Benchmark operational summary overall" in summary_script
+    assert "Benchmark operational feedback status" in summary_script
+    assert "Benchmark operational assistant status" in summary_script
+    assert "Benchmark operational review queue status" in summary_script
+    assert "Benchmark operational OCR status" in summary_script
+    assert "Benchmark operational blockers" in summary_script
+    assert "Benchmark operational recommendations" in summary_script
+    assert "Benchmark operational artifact" in summary_script
     assert "Assistant evidence input" in summary_script
     assert "Assistant evidence records" in summary_script
     assert "Assistant evidence items" in summary_script
