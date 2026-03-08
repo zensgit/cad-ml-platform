@@ -227,6 +227,7 @@ def build_release_runbook(
     knowledge_status = (
         str(knowledge_component.get("status") or "unknown").strip() or "unknown"
     )
+    knowledge_focus_areas = list(knowledge_component.get("focus_areas_detail") or [])
     release_status = _release_status(
         benchmark_release_decision,
         benchmark_companion_summary,
@@ -457,6 +458,7 @@ def build_release_runbook(
         "ready_to_freeze_baseline": ready_to_freeze,
         "engineering_status": engineering_status,
         "knowledge_status": knowledge_status,
+        "knowledge_focus_areas": knowledge_focus_areas,
         "primary_signal_source": _primary_signal_source(
             benchmark_release_decision,
             benchmark_companion_summary,
@@ -502,6 +504,19 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     review_signals = payload.get("review_signals") or []
     if review_signals:
         lines.extend(f"- {item}" for item in review_signals)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Knowledge Focus Areas", ""])
+    focus_areas = payload.get("knowledge_focus_areas") or []
+    if focus_areas:
+        for row in focus_areas:
+            lines.append(
+                "- "
+                f"`{row.get('component')}` "
+                f"status=`{row.get('status')}` "
+                f"priority=`{row.get('priority')}` "
+                f"action=`{row.get('action')}`"
+            )
     else:
         lines.append("- none")
     lines.extend(["", "## Operator Adoption", ""])

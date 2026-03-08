@@ -38,7 +38,17 @@ def test_build_bundle_prefers_operational_summary() -> None:
         benchmark_companion_summary={},
         benchmark_release_decision={},
         benchmark_knowledge_readiness={
-            "knowledge_readiness": {"status": "knowledge_foundation_partial"}
+            "knowledge_readiness": {
+                "status": "knowledge_foundation_partial",
+                "focus_areas_detail": [
+                    {
+                        "component": "standards",
+                        "status": "missing",
+                        "priority": "high",
+                        "missing_metrics": ["thread_count", "bearing_count", "oring_count"],
+                    }
+                ],
+            }
         },
         benchmark_engineering_signals={
             "engineering_signals": {"status": "partial_engineering_semantics"},
@@ -62,6 +72,8 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["available_artifact_count"] == 5
     assert payload["component_statuses"]["feedback_flywheel"] == "feedback_collected"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
+    assert payload["knowledge_focus_area_count"] == 1
+    assert payload["knowledge_focus_areas"][0]["component"] == "standards"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["blockers"] == ["feedback backlog"]
@@ -83,7 +95,10 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
         benchmark_companion_summary={},
         benchmark_release_decision={},
         benchmark_knowledge_readiness={
-            "knowledge_readiness": {"status": "knowledge_foundation_ready"}
+            "knowledge_readiness": {
+                "status": "knowledge_foundation_ready",
+                "focus_areas_detail": [],
+            }
         },
         benchmark_engineering_signals={
             "engineering_signals": {"status": "engineering_semantics_ready"},
@@ -102,6 +117,7 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
     assert payload["overall_status"] == "benchmark_ready_with_multisignal_evidence"
     assert payload["component_statuses"]["assistant_explainability"] == "evidence_ready"
     assert payload["recommendations"] == ["Freeze this run."]
+    assert payload["knowledge_focus_area_count"] == 0
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
@@ -146,6 +162,7 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
         {
             "knowledge_readiness": {
                 "status": "knowledge_foundation_ready",
+                "focus_areas_detail": [],
             }
         },
     )
@@ -208,6 +225,7 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
     assert payload["component_statuses"]["assistant_explainability"] == "partial_coverage"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
+    assert payload["knowledge_focus_area_count"] == 0
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"

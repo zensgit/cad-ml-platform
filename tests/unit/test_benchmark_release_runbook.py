@@ -27,7 +27,17 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
         },
         benchmark_artifact_bundle={},
         benchmark_knowledge_readiness={
-            "knowledge_readiness": {"status": "knowledge_foundation_partial"},
+            "knowledge_readiness": {
+                "status": "knowledge_foundation_partial",
+                "focus_areas_detail": [
+                    {
+                        "component": "gdt",
+                        "status": "missing",
+                        "priority": "high",
+                        "action": "Expand GD&T coverage.",
+                    }
+                ],
+            },
             "recommendations": ["Raise tolerance/GD&T readiness."],
         },
         benchmark_engineering_signals={
@@ -50,6 +60,7 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["release_status"] == "blocked"
     assert payload["engineering_status"] == "partial_engineering_semantics"
     assert payload["knowledge_status"] == "knowledge_foundation_partial"
+    assert payload["knowledge_focus_areas"][0]["component"] == "gdt"
     assert payload["next_action"] == "collect_artifacts"
     assert "benchmark_artifact_bundle" in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
@@ -85,7 +96,10 @@ def test_build_release_runbook_freezes_when_ready() -> None:
         benchmark_companion_summary={"overall_status": "healthy"},
         benchmark_artifact_bundle={"overall_status": "healthy"},
         benchmark_knowledge_readiness={
-            "knowledge_readiness": {"status": "knowledge_foundation_ready"},
+            "knowledge_readiness": {
+                "status": "knowledge_foundation_ready",
+                "focus_areas_detail": [],
+            },
             "recommendations": [],
         },
         benchmark_engineering_signals={
@@ -103,6 +117,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["ready_to_freeze_baseline"] is True
     assert payload["engineering_status"] == "engineering_semantics_ready"
     assert payload["knowledge_status"] == "knowledge_foundation_ready"
+    assert payload["knowledge_focus_areas"] == []
     assert payload["next_action"] == "freeze_release_baseline"
     assert "benchmark_operator_adoption" not in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is False
@@ -144,7 +159,17 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge.write_text(
         json.dumps(
             {
-                "knowledge_readiness": {"status": "knowledge_foundation_partial"},
+                "knowledge_readiness": {
+                    "status": "knowledge_foundation_partial",
+                    "focus_areas_detail": [
+                        {
+                            "component": "tolerance",
+                            "status": "partial",
+                            "priority": "medium",
+                            "action": "Backfill tolerance coverage.",
+                        }
+                    ],
+                },
                 "recommendations": ["Raise tolerance/GD&T readiness."],
             }
         ),
@@ -200,6 +225,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["release_status"] == "review_required"
     assert payload["engineering_status"] == "partial_engineering_semantics"
     assert payload["knowledge_status"] == "knowledge_foundation_partial"
+    assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
     assert payload["next_action"] == "review_signals"
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
@@ -216,6 +242,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "`engineering_status`: `partial_engineering_semantics`" in rendered
     assert "`knowledge_status`: `knowledge_foundation_partial`" in rendered
     assert "`next_action`: `review_signals`" in rendered
+    assert "Backfill tolerance coverage." in rendered
     assert "## Operator Adoption" in rendered
     assert "operator_shift_handoff:pending" in rendered
     assert "Book an operator office-hours review." in rendered

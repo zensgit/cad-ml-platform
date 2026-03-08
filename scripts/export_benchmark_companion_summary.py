@@ -208,6 +208,14 @@ def build_companion_summary(
         benchmark_engineering_signals,
         benchmark_operator_adoption,
     )
+    knowledge_focus_areas = list(
+        (
+            benchmark_knowledge_readiness.get("knowledge_readiness")
+            or benchmark_knowledge_readiness
+            or {}
+        ).get("focus_areas_detail")
+        or []
+    )
     operator_adoption_status = component_statuses.get("operator_adoption")
     primary_gap = _primary_gap(component_statuses, blockers, recommendations)
     review_surface = (
@@ -238,6 +246,7 @@ def build_companion_summary(
         "review_surface": review_surface,
         "primary_gap": primary_gap,
         "component_statuses": component_statuses,
+        "knowledge_focus_areas": knowledge_focus_areas,
         "recommended_actions": recommendations,
         "blockers": blockers,
         "artifacts": artifacts,
@@ -261,6 +270,19 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     blockers = payload.get("blockers") or []
     if blockers:
         lines.extend(f"- {item}" for item in blockers)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Knowledge Focus Areas", ""])
+    focus_areas = payload.get("knowledge_focus_areas") or []
+    if focus_areas:
+        for row in focus_areas:
+            lines.append(
+                "- "
+                f"`{row.get('component')}` "
+                f"status=`{row.get('status')}` "
+                f"priority=`{row.get('priority')}` "
+                f"action=`{row.get('action')}`"
+            )
     else:
         lines.append("- none")
     lines.extend(["", "## Recommended Actions", ""])

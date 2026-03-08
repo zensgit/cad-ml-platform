@@ -26,7 +26,17 @@ def test_build_release_decision_blocks_on_blockers() -> None:
             },
         },
         benchmark_knowledge_readiness={
-            "knowledge_readiness": {"status": "knowledge_foundation_partial"},
+            "knowledge_readiness": {
+                "status": "knowledge_foundation_partial",
+                "focus_areas_detail": [
+                    {
+                        "component": "tolerance",
+                        "status": "partial",
+                        "priority": "medium",
+                        "action": "Backfill tolerance coverage.",
+                    }
+                ],
+            },
             "recommendations": ["Raise tolerance/GD&T readiness."],
         },
         benchmark_engineering_signals={
@@ -52,6 +62,7 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
     assert "Operator fallback only." not in payload["review_signals"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
@@ -76,7 +87,10 @@ def test_build_release_decision_ready_without_blockers() -> None:
         benchmark_artifact_bundle={"component_statuses": {"feedback_flywheel": "healthy"}},
         benchmark_companion_summary={},
         benchmark_knowledge_readiness={
-            "knowledge_readiness": {"status": "knowledge_foundation_ready"},
+            "knowledge_readiness": {
+                "status": "knowledge_foundation_ready",
+                "focus_areas_detail": [],
+            },
             "recommendations": [],
         },
         benchmark_engineering_signals={
@@ -96,6 +110,7 @@ def test_build_release_decision_ready_without_blockers() -> None:
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
+    assert payload["knowledge_focus_areas"] == []
 
 
 def test_build_release_decision_uses_operator_adoption_blocker_as_fallback() -> None:
@@ -188,7 +203,10 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge.write_text(
         json.dumps(
             {
-                "knowledge_readiness": {"status": "knowledge_foundation_ready"},
+                "knowledge_readiness": {
+                    "status": "knowledge_foundation_ready",
+                    "focus_areas_detail": [],
+                },
                 "recommendations": [],
             }
         ),

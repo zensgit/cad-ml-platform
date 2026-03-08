@@ -42,6 +42,14 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
         benchmark_knowledge_readiness={
             "knowledge_readiness": {
                 "status": "knowledge_foundation_partial",
+                "focus_areas_detail": [
+                    {
+                        "component": "tolerance",
+                        "status": "partial",
+                        "priority": "medium",
+                        "action": "Backfill tolerance coverage.",
+                    }
+                ],
             },
             "recommendations": ["Raise tolerance/GD&T readiness."],
         },
@@ -69,6 +77,7 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
     assert payload["recommended_actions"] == ["reduce review queue backlog"]
     assert payload["artifacts"]["benchmark_artifact_bundle"]["present"] is True
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
@@ -103,6 +112,14 @@ def test_render_markdown_includes_sections() -> None:
                 "path": "knowledge.json",
             },
         },
+        "knowledge_focus_areas": [
+            {
+                "component": "gdt",
+                "status": "missing",
+                "priority": "high",
+                "action": "Expand GD&T coverage.",
+            }
+        ],
     }
 
     rendered = render_markdown(payload)
@@ -113,6 +130,7 @@ def test_render_markdown_includes_sections() -> None:
     assert "knowledge.json" in rendered
     assert "engineering.json" in rendered
     assert "operator.json" in rendered
+    assert "Expand GD&T coverage." in rendered
 
 
 def test_cli_writes_outputs(tmp_path: Path) -> None:
@@ -161,6 +179,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
             {
                 "knowledge_readiness": {
                     "status": "knowledge_foundation_ready",
+                    "focus_areas_detail": [],
                 },
                 "recommendations": [],
             }
@@ -219,4 +238,5 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
+    assert payload["knowledge_focus_areas"] == []
     assert output_md.exists()
