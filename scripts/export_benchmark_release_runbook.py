@@ -179,11 +179,27 @@ def _operator_adoption_payload(
         or benchmark_operator_adoption.get("guidance")
         or [],
     )
+    knowledge_drift = benchmark_operator_adoption.get("knowledge_drift") or {}
     return {
         "status": status,
         "summary": summary,
         "signals": signals,
         "actions": actions,
+        "knowledge_drift_status": _text(
+            benchmark_operator_adoption.get("knowledge_drift_status")
+        )
+        or _text(knowledge_drift.get("status"))
+        or "unknown",
+        "knowledge_drift_summary": _text(
+            benchmark_operator_adoption.get("knowledge_drift_summary")
+        )
+        or _text(knowledge_drift.get("summary"))
+        or "none",
+        "knowledge_drift_recommendations": _compact(
+            knowledge_drift.get("recommendations")
+            or benchmark_operator_adoption.get("recommended_actions")
+            or []
+        ),
         "has_guidance": bool(signals or actions),
     }
 
@@ -524,8 +540,16 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     lines.append(f"- `status`: `{operator_adoption.get('status')}`")
     lines.append(f"- `has_guidance`: `{operator_adoption.get('has_guidance')}`")
     lines.append(
+        f"- `knowledge_drift_status`: "
+        f"`{operator_adoption.get('knowledge_drift_status')}`"
+    )
+    lines.append(
         "- `summary`: "
         + (_text(operator_adoption.get("summary")) or "none")
+    )
+    lines.append(
+        "- `knowledge_drift_summary`: "
+        + (_text(operator_adoption.get("knowledge_drift_summary")) or "none")
     )
     operator_signals = operator_adoption.get("signals") or []
     if operator_signals:
@@ -537,6 +561,11 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         lines.extend(f"- action: {item}" for item in operator_actions)
     else:
         lines.append("- action: none")
+    drift_recommendations = operator_adoption.get("knowledge_drift_recommendations") or []
+    if drift_recommendations:
+        lines.extend(f"- drift_recommendation: {item}" for item in drift_recommendations)
+    else:
+        lines.append("- drift_recommendation: none")
     lines.extend(["", "## Operator Steps", ""])
     for step in payload.get("operator_steps") or []:
         lines.append(

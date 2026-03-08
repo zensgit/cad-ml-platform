@@ -49,6 +49,11 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
             "summary": "Operator onboarding still needs a dry run.",
             "signals": ["operator_playbook:needs_walkthrough"],
             "actions": ["Schedule an operator handoff dry run."],
+            "knowledge_drift_status": "regressed",
+            "knowledge_drift_summary": "Tolerance coverage regressed.",
+            "knowledge_drift": {
+                "recommendations": ["Backfill tolerance knowledge coverage."],
+            },
         },
         artifact_paths={
             "benchmark_release_decision": "release.json",
@@ -68,6 +73,7 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["operator_adoption"]["actions"] == [
         "Schedule an operator handoff dry run."
     ]
+    assert payload["operator_adoption"]["knowledge_drift_status"] == "regressed"
     assert payload["operator_steps"][1]["key"] == "resolve_blockers"
     assert payload["operator_steps"][1]["status"] == "required"
     adoption_step = next(
@@ -191,6 +197,11 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
                 "summary": "Operators still need rollout support.",
                 "signals": ["operator_shift_handoff:pending"],
                 "actions": ["Book an operator office-hours review."],
+                "knowledge_drift_status": "regressed",
+                "knowledge_drift_summary": "Tolerance coverage regressed.",
+                "knowledge_drift": {
+                    "recommendations": ["Backfill tolerance knowledge coverage."],
+                },
             }
         ),
         encoding="utf-8",
@@ -235,6 +246,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["operator_adoption"]["actions"] == [
         "Book an operator office-hours review."
     ]
+    assert payload["operator_adoption"]["knowledge_drift_status"] == "regressed"
     assert output_md.exists()
 
     rendered = render_markdown(payload)
@@ -246,4 +258,5 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "## Operator Adoption" in rendered
     assert "operator_shift_handoff:pending" in rendered
     assert "Book an operator office-hours review." in rendered
+    assert "Tolerance coverage regressed." in rendered
     assert "`benchmark_operator_adoption`: present=`True`" in rendered

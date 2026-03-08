@@ -59,6 +59,11 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
         },
         benchmark_operator_adoption={
             "adoption_readiness": "guided_manual",
+            "knowledge_drift_status": "regressed",
+            "knowledge_drift_summary": "Tolerance coverage regressed.",
+            "knowledge_drift": {
+                "recommendations": ["Backfill tolerance knowledge coverage."],
+            },
             "recommended_actions": ["Review operator blockers."],
         },
         artifact_paths={
@@ -77,6 +82,11 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
+    assert (
+        payload["operator_adoption_knowledge_drift"]["summary"]
+        == "Tolerance coverage regressed."
+    )
     assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
     assert payload["recommended_actions"] == ["reduce review queue backlog"]
     assert payload["artifacts"]["benchmark_artifact_bundle"]["present"] is True
@@ -120,6 +130,11 @@ def test_render_markdown_includes_sections() -> None:
                 "action": "Expand GD&T coverage.",
             }
         ],
+        "operator_adoption_knowledge_drift": {
+            "status": "regressed",
+            "summary": "Tolerance coverage regressed.",
+            "recommendations": ["Backfill tolerance knowledge coverage."],
+        },
     }
 
     rendered = render_markdown(payload)
@@ -130,6 +145,7 @@ def test_render_markdown_includes_sections() -> None:
     assert "knowledge.json" in rendered
     assert "engineering.json" in rendered
     assert "operator.json" in rendered
+    assert "Tolerance coverage regressed." in rendered
     assert "Expand GD&T coverage." in rendered
 
 
@@ -201,6 +217,8 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
         json.dumps(
             {
                 "adoption_readiness": "operator_ready",
+                "knowledge_drift_status": "stable",
+                "knowledge_drift_summary": "No knowledge regressions detected.",
                 "recommended_actions": ["Keep operator automation healthy."],
             }
         ),
@@ -238,5 +256,6 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
+    assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["knowledge_focus_areas"] == []
     assert output_md.exists()

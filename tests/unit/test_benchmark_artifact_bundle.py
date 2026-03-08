@@ -56,6 +56,11 @@ def test_build_bundle_prefers_operational_summary() -> None:
         },
         benchmark_operator_adoption={
             "adoption_readiness": "guided_manual",
+            "knowledge_drift_status": "regressed",
+            "knowledge_drift_summary": "Standards coverage regressed.",
+            "knowledge_drift": {
+                "recommendations": ["Restore standards baseline coverage."],
+            },
             "recommended_actions": ["Resolve operator blockers."],
         },
         feedback_flywheel={},
@@ -76,6 +81,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["knowledge_focus_areas"][0]["component"] == "standards"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["blockers"] == ["feedback backlog"]
     assert payload["recommendations"] == ["Close the review queue."]
 
@@ -106,6 +112,8 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
         },
         benchmark_operator_adoption={
             "adoption_readiness": "operator_ready",
+            "knowledge_drift_status": "stable",
+            "knowledge_drift_summary": "Knowledge baseline stable.",
             "recommended_actions": ["Keep operator automation healthy."],
         },
         feedback_flywheel={},
@@ -121,6 +129,7 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
+    assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
 
 
 def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
@@ -179,6 +188,8 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
         tmp_path / "operator.json",
         {
             "adoption_readiness": "guided_manual",
+            "knowledge_drift_status": "regressed",
+            "knowledge_drift_summary": "Knowledge baseline regressed.",
             "recommended_actions": ["Resolve operator blockers."],
             "blocking_signals": ["operator:blocker"],
         },
@@ -228,7 +239,9 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert payload["knowledge_focus_area_count"] == 0
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"
+    assert "Knowledge baseline regressed." in output_md.read_text(encoding="utf-8")
     assert "review queue backlog" in output_md.read_text(encoding="utf-8")
 
 
