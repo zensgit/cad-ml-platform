@@ -70,6 +70,33 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             "estimated_total_runs": 2,
         },
     )
+    assistant = _write_json(
+        tmp_path / "assistant.json",
+        {
+            "total_records": 48,
+            "total_evidence_items": 96,
+            "average_evidence_count": 2.0,
+            "records_with_evidence_pct": 0.92,
+            "records_with_decision_path_pct": 0.83,
+            "records_with_any_source_signal_pct": 0.88,
+            "top_record_kinds": ["assistant", "analyze"],
+            "top_evidence_types": ["direct", "derived"],
+            "top_structured_sources": ["filename", "titleblock"],
+            "top_missing_fields": ["none"],
+        },
+    )
+    review_queue = _write_json(
+        tmp_path / "review_queue.json",
+        {
+            "total": 0,
+            "automation_ready_count": 0,
+            "automation_ready_ratio": 0.0,
+            "by_sample_type": {},
+            "by_feedback_priority": {},
+            "by_decision_source": {},
+            "by_review_reason": {},
+        },
+    )
     output_json = tmp_path / "scorecard.json"
     output_md = tmp_path / "scorecard.md"
 
@@ -93,6 +120,10 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             str(brep),
             "--migration-summary",
             str(migration),
+            "--assistant-evidence-summary",
+            str(assistant),
+            "--review-queue-summary",
+            str(review_queue),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -110,11 +141,15 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
     assert payload["components"]["history_sequence"]["status"] == "evidence_ready"
     assert payload["components"]["brep"]["status"] == "graph_ready"
     assert payload["components"]["migration_governance"]["status"] == "operationally_ready"
+    assert payload["components"]["assistant_explainability"]["status"] == "explainability_ready"
+    assert payload["components"]["review_queue"]["status"] == "under_control"
     assert output_json.exists()
     assert output_md.exists()
     markdown = output_md.read_text(encoding="utf-8")
     assert "CAD Benchmark Scorecard" in markdown
     assert "weak_signal_only" in markdown
+    assert "assistant_explainability" in markdown
+    assert "review_queue" in markdown
 
 
 def test_generate_benchmark_scorecard_handles_missing_optional_inputs(tmp_path: Path) -> None:
@@ -155,5 +190,7 @@ def test_generate_benchmark_scorecard_handles_missing_optional_inputs(tmp_path: 
     assert payload["components"]["history_sequence"]["status"] == "missing"
     assert payload["components"]["brep"]["status"] == "missing"
     assert payload["components"]["migration_governance"]["status"] == "missing"
+    assert payload["components"]["assistant_explainability"]["status"] == "missing"
+    assert payload["components"]["review_queue"]["status"] == "missing"
     assert payload["overall_status"] == "benchmark_ready_without_governance"
     assert output_json.exists()
