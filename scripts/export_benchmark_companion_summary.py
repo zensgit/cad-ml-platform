@@ -1,0 +1,251 @@
+#!/usr/bin/env python3
+"""Export a benchmark companion summary for operators and reviewers."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import time
+from pathlib import Path
+from typing import Any, Dict, Iterable, List
+
+
+def _load_json(path_text: str) -> Dict[str, Any]:
+    path = Path(path_text).expanduser()
+    if not path.exists():
+        raise SystemExit(f"JSON input not found: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:  # pragma: no cover
+        raise SystemExit(f"Invalid JSON in {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise SystemExit(f"Expected object JSON in {path}")
+    return payload
+
+
+def _maybe_load_json(path_text: str) -> Dict[str, Any]:
+    if not str(path_text or "").strip():
+        return {}
+    return _load_json(path_text)
+
+
+def _write_output(path_text: str, content: str) -> None:
+    output_path = Path(path_text).expanduser()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(content, encoding="utf-8")
+
+
+def _compact(items: Iterable[Any], *, limit: int = 5) -> List[str]:
+    out: List[str] = []
+    for item in items:
+        text = str(item).strip()
+        if text:
+            out.append(text)
+        if len(out) >= limit:
+            break
+    return out
+
+
+def _component_statuses(
+    scorecard: Dict[str, Any],
+    operational_summary: Dict[str, Any],
+    artifact_bundle: Dict[str, Any],
+) -> Dict[str, str]:
+    scorecard_components = scorecard.get("components") or {}
+    operational_components = operational_summary.get("component_statuses") or {}
+    bundle_components = artifact_bundle.get("component_statuses") or {}
+
+    def pick(name: str) -> str:
+        if isinstance(bundle_components, dict) and bundle_components.get(name):
+            return str(bundle_components.get(name))
+        if isinstance(operational_components, dict) and operational_components.get(name):
+            return str(operational_components.get(name))
+        if isinstance(scorecard_components, dict):
+            value = scorecard_components.get(name) or {}
+            if isinstance(value, dict) and value.get("status"):
+                return str(value.get("status"))
+        return "unknown"
+
+    return {
+        "hybrid": pick("hybrid"),
+        "history_sequence": pick("history_sequence"),
+        "brep": pick("brep"),
+        "migration_governance": pick("migration_governance"),
+        "feedback_flywheel": pick("feedback_flywheel"),
+        "assistant_explainability": pick("assistant_explainability"),
+        "review_queue": pick("review_queue"),
+        "ocr_review": pick("ocr_review"),
+        "qdrant_backend": pick("qdrant_backend"),
+    }
+
+
+def _primary_gap(
+    component_statuses: Dict[str, str], blockers: List[str], recommendations: List[str]
+) -> str:
+    if blockers:
+        return blockers[0]
+    for name, status in component_statuses.items():
+        if status in {
+            "missing",
+            "attention_required",
+            "gap_detected",
+            "evidence_gap",
+            "critical_backlog",
+            "managed_backlog",
+            "review_heavy",
+            "partial_coverage",
+            "passive_feedback_only",
+            "feedback_collected",
+        }:
+            return f"{name}:{status}"
+    if recommendations:
+        return recommendations[0]
+    return "none"
+
+
+def _artifact_rows(
+    scorecard_path: str, operational_path: str, bundle_path: str
+) -> Dict[str, Dict[str, Any]]:
+    def row(name: str, path_text: str) -> Dict[str, Any]:
+        path_value = str(path_text or "").strip()
+        return {
+            "name": name,
+            "path": path_value,
+            "present": bool(path_value),
+        }
+
+    return {
+        "benchmark_scorecard": row("benchmark_scorecard", scorecard_path),
+        "benchmark_operational_summary": row(
+            "benchmark_operational_summary", operational_path
+        ),
+        "benchmark_artifact_bundle": row("benchmark_artifact_bundle", bundle_path),
+    }
+
+
+def build_companion_summary(
+    *,
+    title: str,
+    benchmark_scorecard: Dict[str, Any],
+    benchmark_operational_summary: Dict[str, Any],
+    benchmark_artifact_bundle: Dict[str, Any],
+    artifact_paths: Dict[str, str],
+) -> Dict[str, Any]:
+    overall_status = (
+        str(benchmark_artifact_bundle.get("overall_status") or "").strip()
+        or str(benchmark_operational_summary.get("overall_status") or "").strip()
+        or str(benchmark_scorecard.get("overall_status") or "").strip()
+        or "unknown"
+    )
+    bundle_blockers = benchmark_artifact_bundle.get("blockers") or []
+    operational_blockers = benchmark_operational_summary.get("blockers") or []
+    blockers = _compact(bundle_blockers or operational_blockers, limit=5)
+    bundle_recommendations = benchmark_artifact_bundle.get("recommendations") or []
+    operational_recommendations = benchmark_operational_summary.get("recommendations") or []
+    scorecard_recommendations = benchmark_scorecard.get("recommendations") or []
+    recommendations = _compact(
+        bundle_recommendations or operational_recommendations or scorecard_recommendations,
+        limit=5,
+    )
+    component_statuses = _component_statuses(
+        benchmark_scorecard,
+        benchmark_operational_summary,
+        benchmark_artifact_bundle,
+    )
+    primary_gap = _primary_gap(component_statuses, blockers, recommendations)
+    review_surface = (
+        "ready"
+        if component_statuses.get("review_queue") not in {"critical_backlog", "managed_backlog"}
+        and component_statuses.get("assistant_explainability")
+        not in {"missing", "partial_coverage", "weak_coverage"}
+        and component_statuses.get("ocr_review") not in {"missing", "review_heavy"}
+        else "attention_required"
+    )
+    artifacts = _artifact_rows(
+        artifact_paths.get("benchmark_scorecard", ""),
+        artifact_paths.get("benchmark_operational_summary", ""),
+        artifact_paths.get("benchmark_artifact_bundle", ""),
+    )
+    return {
+        "title": title,
+        "generated_at": int(time.time()),
+        "overall_status": overall_status,
+        "review_surface": review_surface,
+        "primary_gap": primary_gap,
+        "component_statuses": component_statuses,
+        "recommended_actions": recommendations,
+        "blockers": blockers,
+        "artifacts": artifacts,
+    }
+
+
+def render_markdown(payload: Dict[str, Any]) -> str:
+    lines = [
+        f"# {payload.get('title') or 'Benchmark Companion Summary'}",
+        "",
+        f"- `overall_status`: `{payload.get('overall_status')}`",
+        f"- `review_surface`: `{payload.get('review_surface')}`",
+        f"- `primary_gap`: `{payload.get('primary_gap')}`",
+        "",
+        "## Component Statuses",
+        "",
+    ]
+    for name, status in (payload.get("component_statuses") or {}).items():
+        lines.append(f"- `{name}`: `{status}`")
+    lines.extend(["", "## Blockers", ""])
+    blockers = payload.get("blockers") or []
+    if blockers:
+        lines.extend(f"- {item}" for item in blockers)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Recommended Actions", ""])
+    actions = payload.get("recommended_actions") or []
+    if actions:
+        lines.extend(f"- {item}" for item in actions)
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Artifacts", ""])
+    for name, row in (payload.get("artifacts") or {}).items():
+        lines.append(
+            f"- `{name}`: present=`{row.get('present')}` path=`{row.get('path')}`"
+        )
+    lines.append("")
+    return "\n".join(lines)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Export a benchmark companion summary."
+    )
+    parser.add_argument("--title", default="Benchmark Companion Summary")
+    parser.add_argument("--benchmark-scorecard", default="")
+    parser.add_argument("--benchmark-operational-summary", default="")
+    parser.add_argument("--benchmark-artifact-bundle", default="")
+    parser.add_argument("--output-json", default="")
+    parser.add_argument("--output-md", default="")
+    args = parser.parse_args()
+
+    artifact_paths = {
+        "benchmark_scorecard": args.benchmark_scorecard,
+        "benchmark_operational_summary": args.benchmark_operational_summary,
+        "benchmark_artifact_bundle": args.benchmark_artifact_bundle,
+    }
+    payload = build_companion_summary(
+        title=args.title,
+        benchmark_scorecard=_maybe_load_json(args.benchmark_scorecard),
+        benchmark_operational_summary=_maybe_load_json(
+            args.benchmark_operational_summary
+        ),
+        benchmark_artifact_bundle=_maybe_load_json(args.benchmark_artifact_bundle),
+        artifact_paths=artifact_paths,
+    )
+    rendered = json.dumps(payload, ensure_ascii=False, indent=2)
+    if args.output_json:
+        _write_output(args.output_json, rendered + "\n")
+    if args.output_md:
+        _write_output(args.output_md, render_markdown(payload))
+    print(rendered)
+
+
+if __name__ == "__main__":
+    main()
