@@ -71,6 +71,17 @@ def test_build_bundle_prefers_operational_summary() -> None:
             "engineering_signals": {"status": "partial_engineering_semantics"},
             "recommendations": ["Expand knowledge coverage."],
         },
+        benchmark_realdata_signals={
+            "realdata_signals": {
+                "status": "realdata_foundation_partial",
+                "components": {
+                    "hybrid_dxf": {"status": "ready", "sample_size": 110},
+                    "history_h5": {"status": "ready", "sample_size": 1},
+                    "step_dir": {"status": "partial", "sample_size": 3},
+                },
+            },
+            "recommendations": ["Expand STEP/B-Rep directory validation."],
+        },
         benchmark_operator_adoption={
             "adoption_readiness": "guided_manual",
             "knowledge_drift_status": "regressed",
@@ -91,7 +102,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
         },
     )
     assert payload["overall_status"] == "attention_required"
-    assert payload["available_artifact_count"] == 5
+    assert payload["available_artifact_count"] == 6
     assert payload["component_statuses"]["feedback_flywheel"] == "feedback_collected"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["knowledge_focus_area_count"] == 1
@@ -100,10 +111,16 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["knowledge_domains"]["standards"]["status"] == "missing"
     assert payload["knowledge_domain_focus_areas"][0]["domain"] == "standards"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
+    assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
+    assert payload["realdata_status"] == "realdata_foundation_partial"
+    assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["blockers"] == ["feedback backlog"]
     assert payload["recommendations"] == ["Close the review queue."]
+    assert payload["realdata_recommendations"] == [
+        "Expand STEP/B-Rep directory validation."
+    ]
 
 
 def test_build_bundle_falls_back_to_scorecard() -> None:
@@ -140,6 +157,17 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
             "engineering_signals": {"status": "engineering_semantics_ready"},
             "recommendations": ["Keep standards coverage stable."],
         },
+        benchmark_realdata_signals={
+            "realdata_signals": {
+                "status": "realdata_foundation_ready",
+                "components": {
+                    "hybrid_dxf": {"status": "ready", "sample_size": 110},
+                    "history_h5": {"status": "ready", "sample_size": 1},
+                    "step_dir": {"status": "ready", "sample_size": 3},
+                },
+            },
+            "recommendations": [],
+        },
         benchmark_operator_adoption={
             "adoption_readiness": "operator_ready",
             "knowledge_drift_status": "stable",
@@ -161,8 +189,11 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
     assert payload["knowledge_domain_focus_areas"] == []
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
+    assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
+    assert payload["realdata_status"] == "realdata_foundation_ready"
+    assert payload["realdata_recommendations"] == []
 
 
 def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
@@ -226,6 +257,20 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             "recommendations": ["Keep standards coverage stable."],
         },
     )
+    realdata = _write_json(
+        tmp_path / "realdata.json",
+        {
+            "realdata_signals": {
+                "status": "realdata_foundation_partial",
+                "components": {
+                    "hybrid_dxf": {"status": "ready", "sample_size": 110},
+                    "history_h5": {"status": "ready", "sample_size": 1},
+                    "step_dir": {"status": "partial", "sample_size": 3},
+                },
+            },
+            "recommendations": ["Expand STEP/B-Rep directory validation."],
+        },
+    )
     knowledge_drift = _write_json(
         tmp_path / "knowledge_drift.json",
         {
@@ -275,6 +320,8 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             str(knowledge_drift),
             "--benchmark-engineering-signals",
             str(engineering),
+            "--benchmark-realdata-signals",
+            str(realdata),
             "--benchmark-operator-adoption",
             str(operator),
             "--output-json",
@@ -296,6 +343,7 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert payload["artifacts"]["benchmark_knowledge_readiness"]["present"] is True
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
+    assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
     assert payload["component_statuses"]["assistant_explainability"] == "partial_coverage"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
@@ -303,14 +351,20 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert payload["knowledge_focus_area_count"] == 0
     assert payload["knowledge_drift_summary"].startswith("status=stable")
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
+    assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
+    assert payload["realdata_status"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"
     assert "Knowledge baseline regressed." in output_md.read_text(encoding="utf-8")
     assert payload["knowledge_domains"]["gdt"]["status"] == "ready"
     assert payload["knowledge_domain_focus_areas"] == []
     assert "review queue backlog" in output_md.read_text(encoding="utf-8")
     assert "## Knowledge Domains" in output_md.read_text(encoding="utf-8")
+    assert "## Real-Data Signals" in output_md.read_text(encoding="utf-8")
+    assert "Expand STEP/B-Rep directory validation." in output_md.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_build_bundle_prefers_companion_summary_when_present() -> None:
@@ -344,6 +398,7 @@ def test_build_bundle_prefers_companion_summary_when_present() -> None:
         benchmark_knowledge_readiness={},
         benchmark_knowledge_drift={},
         benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
         benchmark_operator_adoption={
             "adoption_readiness": "guided_manual",
             "recommended_actions": ["Review operator blockers."],
@@ -390,6 +445,7 @@ def test_build_bundle_prefers_release_decision_when_present() -> None:
         benchmark_knowledge_readiness={},
         benchmark_knowledge_drift={},
         benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
         benchmark_operator_adoption={
             "adoption_readiness": "guided_manual",
             "recommended_actions": ["Review operator blockers."],
@@ -445,6 +501,7 @@ def test_build_bundle_exposes_knowledge_drift_passthrough() -> None:
             ],
         },
         benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
         benchmark_operator_adoption={},
         feedback_flywheel={},
         assistant_evidence={},
