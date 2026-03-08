@@ -621,6 +621,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkReleaseDecisionStatus" in pr_comment_script
     assert "benchmarkReleaseDecisionLight" in pr_comment_script
     assert "benchmarkReleasePrimarySignalSource" in pr_comment_script
+    assert "benchmarkReleaseRunbookEnabled" in pr_comment_script
+    assert "benchmarkReleaseRunbookStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookStatusLine" in pr_comment_script
+    assert "benchmarkReleaseRunbookLight" in pr_comment_script
+    assert "benchmarkReleaseRunbookNextAction" in pr_comment_script
     assert "benchmarkOcrStatus" in pr_comment_script
     assert "benchmarkQdrantStatus" in pr_comment_script
     assert "assistant=${benchmarkAssistantStatus}" in pr_comment_script
@@ -639,8 +644,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "ocr=${benchmarkArtifactBundleOcrStatus}" in pr_comment_script
     assert "Benchmark Companion Summary" in pr_comment_script
     assert "Benchmark Release Decision" in pr_comment_script
+    assert "Benchmark Release Runbook" in pr_comment_script
     assert "automation_ready=${benchmarkReleaseAutomationReady}" in pr_comment_script
     assert "source=${benchmarkReleasePrimarySignalSource}" in pr_comment_script
+    assert "next=${benchmarkReleaseRunbookNextAction || 'n/a'}" in pr_comment_script
     assert "assistantEvidenceEnabled" in pr_comment_script
     assert "Assistant Evidence Report" in pr_comment_script
     assert "Assistant Evidence Insights" in pr_comment_script
