@@ -64,6 +64,10 @@ surfaces.
 - benchmark release surfaces now expose domain-level knowledge readiness for
   `tolerance`, `standards`, and `gdt`, including focus components and missing
   metrics
+- `evaluation-report.yml`, job summary, and PR comments now also surface
+  domain-level knowledge readiness counts, priority domains, and domain focus
+  areas so release reviewers see standards/tolerance/GD&T gaps without opening
+  the standalone benchmark artifacts
 
 ### 5. Vector / Qdrant Platformization
 
