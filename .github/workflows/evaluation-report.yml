@@ -2927,6 +2927,7 @@ jobs:
             const benchmarkReleaseOcrStatus = '${{ steps.benchmark_release_decision.outputs.ocr_status }}';
             const benchmarkReleaseQdrantStatus = '${{ steps.benchmark_release_decision.outputs.qdrant_status }}';
             const benchmarkReleaseEngineeringStatus = '${{ steps.benchmark_release_decision.outputs.engineering_status }}';
+            const benchmarkReleaseOperatorAdoptionStatus = '${{ steps.benchmark_release_decision.outputs.operator_adoption_status }}';
             const benchmarkReleaseArtifact = '${{ steps.benchmark_release_decision.outputs.output_md }}';
             const benchmarkReleaseRunbookEnabled = '${{ steps.benchmark_release_runbook.outputs.enabled }}' === 'true';
             const benchmarkReleaseRunbookStatus = '${{ steps.benchmark_release_runbook.outputs.release_status }}';
@@ -2937,6 +2938,7 @@ jobs:
             const benchmarkReleaseRunbookBlockingSignals = '${{ steps.benchmark_release_runbook.outputs.blocking_signals }}';
             const benchmarkReleaseRunbookReviewSignals = '${{ steps.benchmark_release_runbook.outputs.review_signals }}';
             const benchmarkReleaseRunbookEngineeringStatus = '${{ steps.benchmark_release_runbook.outputs.engineering_status }}';
+            const benchmarkReleaseRunbookOperatorAdoptionStatus = '${{ steps.benchmark_release_runbook.outputs.operator_adoption_status }}';
             const benchmarkReleaseRunbookArtifact = '${{ steps.benchmark_release_runbook.outputs.output_md }}';
             const benchmarkOperatorAdoptionEnabled = '${{ steps.benchmark_operator_adoption.outputs.enabled }}' === 'true';
             const benchmarkOperatorAdoptionReadiness = '${{ steps.benchmark_operator_adoption.outputs.adoption_readiness }}';
@@ -3026,10 +3028,10 @@ jobs:
               ? `overall=${benchmarkCompanionSummaryOverall}, review_surface=${benchmarkCompanionReviewSurface}, primary_gap=${benchmarkCompanionPrimaryGap || 'n/a'}, hybrid=${benchmarkCompanionHybridStatus}, assistant=${benchmarkCompanionAssistantStatus}, review_queue=${benchmarkCompanionReviewQueueStatus}, ocr=${benchmarkCompanionOcrStatus}, qdrant=${benchmarkCompanionQdrantStatus}, engineering=${benchmarkCompanionEngineeringStatus}, blockers=${benchmarkCompanionBlockers || 'n/a'}, actions=${benchmarkCompanionRecommendedActions || 'n/a'}, artifact=${benchmarkCompanionArtifact}`
               : '⏭️ skipped';
             const benchmarkReleaseDecisionStatus = benchmarkReleaseDecisionEnabled
-              ? `status=${benchmarkReleaseStatus}, automation_ready=${benchmarkReleaseAutomationReady}, source=${benchmarkReleasePrimarySignalSource}, hybrid=${benchmarkReleaseHybridStatus}, assistant=${benchmarkReleaseAssistantStatus}, review_queue=${benchmarkReleaseReviewQueueStatus}, ocr=${benchmarkReleaseOcrStatus}, qdrant=${benchmarkReleaseQdrantStatus}, engineering=${benchmarkReleaseEngineeringStatus}, blockers=${benchmarkReleaseBlockingSignals || 'n/a'}, review=${benchmarkReleaseReviewSignals || 'n/a'}, artifact=${benchmarkReleaseArtifact}`
+              ? `status=${benchmarkReleaseStatus}, automation_ready=${benchmarkReleaseAutomationReady}, source=${benchmarkReleasePrimarySignalSource}, hybrid=${benchmarkReleaseHybridStatus}, assistant=${benchmarkReleaseAssistantStatus}, review_queue=${benchmarkReleaseReviewQueueStatus}, ocr=${benchmarkReleaseOcrStatus}, qdrant=${benchmarkReleaseQdrantStatus}, engineering=${benchmarkReleaseEngineeringStatus}, operator_adoption=${benchmarkReleaseOperatorAdoptionStatus}, blockers=${benchmarkReleaseBlockingSignals || 'n/a'}, review=${benchmarkReleaseReviewSignals || 'n/a'}, artifact=${benchmarkReleaseArtifact}`
               : '⏭️ skipped';
             const benchmarkReleaseRunbookStatusLine = benchmarkReleaseRunbookEnabled
-              ? `status=${benchmarkReleaseRunbookStatus}, freeze_ready=${benchmarkReleaseRunbookFreezeReady}, source=${benchmarkReleaseRunbookPrimarySignalSource}, next=${benchmarkReleaseRunbookNextAction || 'n/a'}, engineering=${benchmarkReleaseRunbookEngineeringStatus}, missing=${benchmarkReleaseRunbookMissingArtifacts || 'n/a'}, blockers=${benchmarkReleaseRunbookBlockingSignals || 'n/a'}, review=${benchmarkReleaseRunbookReviewSignals || 'n/a'}, artifact=${benchmarkReleaseRunbookArtifact}`
+              ? `status=${benchmarkReleaseRunbookStatus}, freeze_ready=${benchmarkReleaseRunbookFreezeReady}, source=${benchmarkReleaseRunbookPrimarySignalSource}, next=${benchmarkReleaseRunbookNextAction || 'n/a'}, engineering=${benchmarkReleaseRunbookEngineeringStatus}, operator_adoption=${benchmarkReleaseRunbookOperatorAdoptionStatus}, missing=${benchmarkReleaseRunbookMissingArtifacts || 'n/a'}, blockers=${benchmarkReleaseRunbookBlockingSignals || 'n/a'}, review=${benchmarkReleaseRunbookReviewSignals || 'n/a'}, artifact=${benchmarkReleaseRunbookArtifact}`
               : '⏭️ skipped';
             const benchmarkOperatorAdoptionStatusLine = benchmarkOperatorAdoptionEnabled
               ? `readiness=${benchmarkOperatorAdoptionReadiness}, mode=${benchmarkOperatorAdoptionMode}, next=${benchmarkOperatorAdoptionNextAction || 'n/a'}, automation_ready=${benchmarkOperatorAdoptionAutomationReady}, freeze_ready=${benchmarkOperatorAdoptionFreezeReady}, release=${benchmarkOperatorAdoptionReleaseStatus}, runbook=${benchmarkOperatorAdoptionRunbookStatus}, review_queue=${benchmarkOperatorAdoptionReviewQueueStatus}, feedback=${benchmarkOperatorAdoptionFeedbackStatus}, blockers=${benchmarkOperatorAdoptionBlockingSignals || 'n/a'}, actions=${benchmarkOperatorAdoptionRecommendedActions || 'n/a'}, artifact=${benchmarkOperatorAdoptionArtifact}`
