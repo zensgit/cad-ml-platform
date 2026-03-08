@@ -26,6 +26,10 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
             "blockers": ["review_queue:critical_backlog"],
         },
         benchmark_artifact_bundle={},
+        benchmark_knowledge_readiness={
+            "knowledge_readiness": {"status": "knowledge_foundation_partial"},
+            "recommendations": ["Raise tolerance/GD&T readiness."],
+        },
         benchmark_engineering_signals={
             "engineering_signals": {"status": "partial_engineering_semantics"},
             "recommendations": ["Close engineering gaps."],
@@ -45,6 +49,7 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
 
     assert payload["release_status"] == "blocked"
     assert payload["engineering_status"] == "partial_engineering_semantics"
+    assert payload["knowledge_status"] == "knowledge_foundation_partial"
     assert payload["next_action"] == "collect_artifacts"
     assert "benchmark_artifact_bundle" in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
@@ -79,6 +84,10 @@ def test_build_release_runbook_freezes_when_ready() -> None:
         },
         benchmark_companion_summary={"overall_status": "healthy"},
         benchmark_artifact_bundle={"overall_status": "healthy"},
+        benchmark_knowledge_readiness={
+            "knowledge_readiness": {"status": "knowledge_foundation_ready"},
+            "recommendations": [],
+        },
         benchmark_engineering_signals={
             "engineering_signals": {"status": "engineering_semantics_ready"},
         },
@@ -93,6 +102,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
 
     assert payload["ready_to_freeze_baseline"] is True
     assert payload["engineering_status"] == "engineering_semantics_ready"
+    assert payload["knowledge_status"] == "knowledge_foundation_ready"
     assert payload["next_action"] == "freeze_release_baseline"
     assert "benchmark_operator_adoption" not in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is False
@@ -103,6 +113,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     release = tmp_path / "release.json"
     companion = tmp_path / "companion.json"
     bundle = tmp_path / "bundle.json"
+    knowledge = tmp_path / "knowledge.json"
     engineering = tmp_path / "engineering.json"
     operator_adoption = tmp_path / "operator_adoption.json"
     output_json = tmp_path / "runbook.json"
@@ -130,6 +141,15 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     bundle.write_text(json.dumps({"overall_status": "attention_required"}), encoding="utf-8")
+    knowledge.write_text(
+        json.dumps(
+            {
+                "knowledge_readiness": {"status": "knowledge_foundation_partial"},
+                "recommendations": ["Raise tolerance/GD&T readiness."],
+            }
+        ),
+        encoding="utf-8",
+    )
     engineering.write_text(
         json.dumps(
             {
@@ -161,6 +181,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(companion),
             "--benchmark-artifact-bundle",
             str(bundle),
+            "--benchmark-knowledge-readiness",
+            str(knowledge),
             "--benchmark-engineering-signals",
             str(engineering),
             "--benchmark-operator-adoption",
@@ -177,6 +199,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["release_status"] == "review_required"
     assert payload["engineering_status"] == "partial_engineering_semantics"
+    assert payload["knowledge_status"] == "knowledge_foundation_partial"
     assert payload["next_action"] == "review_signals"
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
@@ -191,6 +214,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     rendered = render_markdown(payload)
     assert "# Benchmark Release Runbook" in rendered
     assert "`engineering_status`: `partial_engineering_semantics`" in rendered
+    assert "`knowledge_status`: `knowledge_foundation_partial`" in rendered
     assert "`next_action`: `review_signals`" in rendered
     assert "## Operator Adoption" in rendered
     assert "operator_shift_handoff:pending" in rendered

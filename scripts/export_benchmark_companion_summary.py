@@ -50,12 +50,18 @@ def _component_statuses(
     scorecard: Dict[str, Any],
     operational_summary: Dict[str, Any],
     artifact_bundle: Dict[str, Any],
+    knowledge_readiness_summary: Dict[str, Any],
     engineering_signals_summary: Dict[str, Any],
     operator_adoption_summary: Dict[str, Any],
 ) -> Dict[str, str]:
     scorecard_components = scorecard.get("components") or {}
     operational_components = operational_summary.get("component_statuses") or {}
     bundle_components = artifact_bundle.get("component_statuses") or {}
+    knowledge_component = (
+        knowledge_readiness_summary.get("knowledge_readiness")
+        or knowledge_readiness_summary
+        or {}
+    )
     engineering_component = (
         engineering_signals_summary.get("engineering_signals")
         or engineering_signals_summary
@@ -83,6 +89,13 @@ def _component_statuses(
         "review_queue": pick("review_queue"),
         "ocr_review": pick("ocr_review"),
         "qdrant_backend": pick("qdrant_backend"),
+        "knowledge_readiness": str(
+            bundle_components.get("knowledge_readiness")
+            or operational_components.get("knowledge_readiness")
+            or knowledge_component.get("status")
+            or (scorecard_components.get("knowledge_readiness") or {}).get("status")
+            or "unknown"
+        ),
         "engineering_signals": str(
             engineering_component.get("status")
             or (scorecard_components.get("engineering_signals") or {}).get("status")
@@ -122,6 +135,7 @@ def _artifact_rows(
     scorecard_path: str,
     operational_path: str,
     bundle_path: str,
+    knowledge_path: str,
     engineering_path: str,
     operator_adoption_path: str,
 ) -> Dict[str, Dict[str, Any]]:
@@ -139,6 +153,9 @@ def _artifact_rows(
             "benchmark_operational_summary", operational_path
         ),
         "benchmark_artifact_bundle": row("benchmark_artifact_bundle", bundle_path),
+        "benchmark_knowledge_readiness": row(
+            "benchmark_knowledge_readiness", knowledge_path
+        ),
         "benchmark_engineering_signals": row(
             "benchmark_engineering_signals", engineering_path
         ),
@@ -154,6 +171,7 @@ def build_companion_summary(
     benchmark_scorecard: Dict[str, Any],
     benchmark_operational_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
+    benchmark_knowledge_readiness: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
     artifact_paths: Dict[str, str],
@@ -186,6 +204,7 @@ def build_companion_summary(
         benchmark_scorecard,
         benchmark_operational_summary,
         benchmark_artifact_bundle,
+        benchmark_knowledge_readiness,
         benchmark_engineering_signals,
         benchmark_operator_adoption,
     )
@@ -197,6 +216,8 @@ def build_companion_summary(
         and component_statuses.get("assistant_explainability")
         not in {"missing", "partial_coverage", "weak_coverage"}
         and component_statuses.get("ocr_review") not in {"missing", "review_heavy"}
+        and component_statuses.get("knowledge_readiness")
+        not in {"knowledge_foundation_missing", "knowledge_foundation_partial"}
         and component_statuses.get("engineering_signals")
         not in {"unknown", "partial_engineering_semantics", "engineering_signal_gap"}
         and operator_adoption_status not in {"unknown", "guided_manual", "blocked"}
@@ -206,6 +227,7 @@ def build_companion_summary(
         artifact_paths.get("benchmark_scorecard", ""),
         artifact_paths.get("benchmark_operational_summary", ""),
         artifact_paths.get("benchmark_artifact_bundle", ""),
+        artifact_paths.get("benchmark_knowledge_readiness", ""),
         artifact_paths.get("benchmark_engineering_signals", ""),
         artifact_paths.get("benchmark_operator_adoption", ""),
     )
@@ -264,6 +286,7 @@ def main() -> None:
     parser.add_argument("--benchmark-scorecard", default="")
     parser.add_argument("--benchmark-operational-summary", default="")
     parser.add_argument("--benchmark-artifact-bundle", default="")
+    parser.add_argument("--benchmark-knowledge-readiness", default="")
     parser.add_argument("--benchmark-engineering-signals", default="")
     parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--output-json", default="")
@@ -274,6 +297,7 @@ def main() -> None:
         "benchmark_scorecard": args.benchmark_scorecard,
         "benchmark_operational_summary": args.benchmark_operational_summary,
         "benchmark_artifact_bundle": args.benchmark_artifact_bundle,
+        "benchmark_knowledge_readiness": args.benchmark_knowledge_readiness,
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
         "benchmark_operator_adoption": args.benchmark_operator_adoption,
     }
@@ -284,6 +308,9 @@ def main() -> None:
             args.benchmark_operational_summary
         ),
         benchmark_artifact_bundle=_maybe_load_json(args.benchmark_artifact_bundle),
+        benchmark_knowledge_readiness=_maybe_load_json(
+            args.benchmark_knowledge_readiness
+        ),
         benchmark_engineering_signals=_maybe_load_json(
             args.benchmark_engineering_signals
         ),

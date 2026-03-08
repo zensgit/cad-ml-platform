@@ -20,6 +20,10 @@ from src.core.benchmark.engineering_signals import (  # noqa: E402
     build_engineering_signals_status,
     engineering_signals_recommendations,
 )
+from src.core.benchmark.knowledge_readiness import (  # noqa: E402
+    build_knowledge_readiness_status,
+    knowledge_readiness_recommendations,
+)
 
 
 def _load_json(path_text: str) -> Dict[str, Any]:
@@ -409,6 +413,28 @@ def _ocr_review_status(summary: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _knowledge_readiness_status(summary: Dict[str, Any]) -> Dict[str, Any]:
+    if not summary:
+        return {"status": "knowledge_foundation_missing"}
+    component = summary.get("knowledge_readiness") or summary
+    if not isinstance(component, dict):
+        return {"status": "knowledge_foundation_missing"}
+    built = build_knowledge_readiness_status(component.get("components") or {})
+    if component.get("status"):
+        built["status"] = str(component.get("status"))
+    for key in (
+        "ready_component_count",
+        "partial_component_count",
+        "missing_component_count",
+        "total_reference_items",
+    ):
+        if key in component:
+            built[key] = component[key]
+    if component.get("components"):
+        built["components"] = component.get("components")
+    return built
+
+
 def _overall_status(
     hybrid: Dict[str, Any],
     history: Dict[str, Any],
@@ -419,6 +445,7 @@ def _overall_status(
     review_queue: Dict[str, Any],
     feedback_flywheel: Dict[str, Any],
     ocr_review: Dict[str, Any],
+    knowledge_readiness: Dict[str, Any],
     engineering_signals: Dict[str, Any],
 ) -> str:
     if hybrid.get("status") not in {"strong_primary", "usable_primary"}:
@@ -454,6 +481,11 @@ def _overall_status(
         return "benchmark_ready_with_feedback_gap"
     if ocr_review.get("status") in {"missing", "managed_review", "review_heavy"}:
         return "benchmark_ready_with_ocr_gap"
+    if knowledge_readiness.get("status") in {
+        "knowledge_foundation_missing",
+        "knowledge_foundation_partial",
+    }:
+        return "benchmark_ready_with_knowledge_gap"
     if engineering_signals.get("status") in {
         "weak_engineering_semantics",
         "partial_engineering_semantics",
@@ -473,6 +505,7 @@ def _recommendations(
     review_queue: Dict[str, Any],
     feedback_flywheel: Dict[str, Any],
     ocr_review: Dict[str, Any],
+    knowledge_readiness: Dict[str, Any],
     engineering_signals: Dict[str, Any],
 ) -> List[str]:
     items: List[str] = []
@@ -523,6 +556,7 @@ def _recommendations(
         )
     elif ocr_review.get("status") == "managed_review":
         items.append("Raise OCR automation-ready coverage before freezing the benchmark.")
+    items.extend(knowledge_readiness_recommendations(knowledge_readiness))
     items.extend(engineering_signals_recommendations(engineering_signals))
     if not items:
         items.append(
@@ -548,6 +582,7 @@ def build_scorecard(
     finetune_summary: Dict[str, Any],
     metric_train_summary: Dict[str, Any],
     ocr_review_summary: Dict[str, Any],
+    knowledge_readiness_summary: Dict[str, Any],
     engineering_signals_summary: Dict[str, Any],
 ) -> Dict[str, Any]:
     hybrid = _hybrid_status(hybrid_summary)
@@ -568,6 +603,7 @@ def build_scorecard(
         metric_train_summary,
     )
     ocr_review = _ocr_review_status(ocr_review_summary)
+    knowledge_readiness = _knowledge_readiness_status(knowledge_readiness_summary)
     engineering_signals = build_engineering_signals_status(
         engineering_signals_summary,
         ocr_review_summary,
@@ -582,6 +618,7 @@ def build_scorecard(
         review_queue,
         feedback_flywheel,
         ocr_review,
+        knowledge_readiness,
         engineering_signals,
     )
     return {
@@ -599,6 +636,7 @@ def build_scorecard(
             "review_queue": review_queue,
             "feedback_flywheel": feedback_flywheel,
             "ocr_review": ocr_review,
+            "knowledge_readiness": knowledge_readiness,
             "engineering_signals": engineering_signals,
         },
         "recommendations": _recommendations(
@@ -612,6 +650,7 @@ def build_scorecard(
             review_queue,
             feedback_flywheel,
             ocr_review,
+            knowledge_readiness,
             engineering_signals,
         ),
     }
@@ -714,6 +753,15 @@ def _render_markdown(scorecard: Dict[str, Any]) -> str:
         f"automation_ready={ocr_review.get('automation_ready_count')}, "
         f"avg_readiness={ocr_review.get('average_readiness_score')} |"
     )
+    knowledge_readiness = components.get("knowledge_readiness", {}) or {}
+    lines.append(
+        "| knowledge_readiness | "
+        f"`{knowledge_readiness.get('status')}` | "
+        f"ready={knowledge_readiness.get('ready_component_count')}, "
+        f"partial={knowledge_readiness.get('partial_component_count')}, "
+        f"missing={knowledge_readiness.get('missing_component_count')}, "
+        f"refs={knowledge_readiness.get('total_reference_items')} |"
+    )
     engineering = components.get("engineering_signals", {}) or {}
     lines.append(
         "| engineering_signals | "
@@ -755,6 +803,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--finetune-summary", default="")
     parser.add_argument("--metric-train-summary", default="")
     parser.add_argument("--ocr-review-summary", default="")
+    parser.add_argument("--knowledge-readiness-summary", default="")
     parser.add_argument("--engineering-signals-summary", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
@@ -779,6 +828,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         finetune_summary=_maybe_load_json(args.finetune_summary),
         metric_train_summary=_maybe_load_json(args.metric_train_summary),
         ocr_review_summary=_maybe_load_json(args.ocr_review_summary),
+        knowledge_readiness_summary=_maybe_load_json(args.knowledge_readiness_summary),
         engineering_signals_summary=_maybe_load_json(args.engineering_signals_summary),
     )
 

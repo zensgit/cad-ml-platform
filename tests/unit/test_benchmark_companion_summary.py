@@ -39,6 +39,12 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             "blockers": ["review_queue:managed_backlog"],
             "recommendations": ["reduce review queue backlog"],
         },
+        benchmark_knowledge_readiness={
+            "knowledge_readiness": {
+                "status": "knowledge_foundation_partial",
+            },
+            "recommendations": ["Raise tolerance/GD&T readiness."],
+        },
         benchmark_engineering_signals={
             "engineering_signals": {"status": "partial_engineering_semantics"},
             "recommendations": ["Close engineering gaps."],
@@ -60,6 +66,7 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["review_surface"] == "attention_required"
     assert payload["primary_gap"] == "review_queue:managed_backlog"
     assert payload["component_statuses"]["assistant_explainability"] == "partial_coverage"
+    assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["recommended_actions"] == ["reduce review queue backlog"]
@@ -90,6 +97,11 @@ def test_render_markdown_includes_sections() -> None:
                 "present": True,
                 "path": "bundle.json",
             }
+            ,
+            "benchmark_knowledge_readiness": {
+                "present": True,
+                "path": "knowledge.json",
+            },
         },
     }
 
@@ -98,6 +110,7 @@ def test_render_markdown_includes_sections() -> None:
     assert "`review_surface`: `ready`" in rendered
     assert "## Recommended Actions" in rendered
     assert "bundle.json" in rendered
+    assert "knowledge.json" in rendered
     assert "engineering.json" in rendered
     assert "operator.json" in rendered
 
@@ -106,6 +119,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     scorecard = tmp_path / "scorecard.json"
     operational = tmp_path / "operational.json"
     bundle = tmp_path / "bundle.json"
+    knowledge = tmp_path / "knowledge.json"
     engineering = tmp_path / "engineering.json"
     operator = tmp_path / "operator.json"
     output_json = tmp_path / "out.json"
@@ -142,6 +156,17 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge.write_text(
+        json.dumps(
+            {
+                "knowledge_readiness": {
+                    "status": "knowledge_foundation_ready",
+                },
+                "recommendations": [],
+            }
+        ),
+        encoding="utf-8",
+    )
     engineering.write_text(
         json.dumps(
             {
@@ -173,6 +198,8 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
             str(operational),
             "--benchmark-artifact-bundle",
             str(bundle),
+            "--benchmark-knowledge-readiness",
+            str(knowledge),
             "--benchmark-engineering-signals",
             str(engineering),
             "--benchmark-operator-adoption",
@@ -189,6 +216,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["overall_status"] == "healthy"
     assert payload["review_surface"] == "ready"
+    assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert output_md.exists()

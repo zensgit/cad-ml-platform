@@ -66,6 +66,7 @@ def _artifacts(
     benchmark_release_decision: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
+    benchmark_knowledge_readiness: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
     artifact_paths: Dict[str, str],
@@ -96,6 +97,11 @@ def _artifacts(
             "benchmark_artifact_bundle",
             pick_path("benchmark_artifact_bundle"),
             benchmark_artifact_bundle,
+        ),
+        "benchmark_knowledge_readiness": _artifact_row(
+            "benchmark_knowledge_readiness",
+            artifact_paths.get("benchmark_knowledge_readiness", ""),
+            benchmark_knowledge_readiness,
         ),
         "benchmark_engineering_signals": _artifact_row(
             "benchmark_engineering_signals",
@@ -207,11 +213,20 @@ def build_release_runbook(
     benchmark_release_decision: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
+    benchmark_knowledge_readiness: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any] | None = None,
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     benchmark_operator_adoption = benchmark_operator_adoption or {}
+    knowledge_component = (
+        benchmark_knowledge_readiness.get("knowledge_readiness")
+        or benchmark_knowledge_readiness
+        or {}
+    )
+    knowledge_status = (
+        str(knowledge_component.get("status") or "unknown").strip() or "unknown"
+    )
     release_status = _release_status(
         benchmark_release_decision,
         benchmark_companion_summary,
@@ -244,10 +259,15 @@ def build_release_runbook(
         for item in _compact(benchmark_engineering_signals.get("recommendations") or []):
             if item not in review_signals:
                 review_signals.append(item)
+    if knowledge_status not in {"", "unknown", "knowledge_foundation_ready"}:
+        for item in _compact(benchmark_knowledge_readiness.get("recommendations") or []):
+            if item not in review_signals:
+                review_signals.append(item)
     artifacts = _artifacts(
         benchmark_release_decision=benchmark_release_decision,
         benchmark_companion_summary=benchmark_companion_summary,
         benchmark_artifact_bundle=benchmark_artifact_bundle,
+        benchmark_knowledge_readiness=benchmark_knowledge_readiness,
         benchmark_engineering_signals=benchmark_engineering_signals,
         benchmark_operator_adoption=benchmark_operator_adoption,
         artifact_paths=artifact_paths,
@@ -256,7 +276,12 @@ def build_release_runbook(
     missing_artifacts = [
         name
         for name, row in artifacts.items()
-        if name not in {"benchmark_release_decision", "benchmark_operator_adoption"}
+        if name
+        not in {
+            "benchmark_release_decision",
+            "benchmark_operator_adoption",
+            "benchmark_knowledge_readiness",
+        }
         and not row["present"]
     ]
 
@@ -431,6 +456,7 @@ def build_release_runbook(
         "automation_ready": automation_ready,
         "ready_to_freeze_baseline": ready_to_freeze,
         "engineering_status": engineering_status,
+        "knowledge_status": knowledge_status,
         "primary_signal_source": _primary_signal_source(
             benchmark_release_decision,
             benchmark_companion_summary,
@@ -454,6 +480,7 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"- `automation_ready`: `{payload.get('automation_ready')}`",
         f"- `ready_to_freeze_baseline`: `{payload.get('ready_to_freeze_baseline')}`",
         f"- `engineering_status`: `{payload.get('engineering_status')}`",
+        f"- `knowledge_status`: `{payload.get('knowledge_status')}`",
         f"- `primary_signal_source`: `{payload.get('primary_signal_source')}`",
         f"- `next_action`: `{payload.get('next_action')}`",
         "",
@@ -520,6 +547,7 @@ def main() -> None:
     parser.add_argument("--benchmark-release-decision", default="")
     parser.add_argument("--benchmark-companion-summary", default="")
     parser.add_argument("--benchmark-artifact-bundle", default="")
+    parser.add_argument("--benchmark-knowledge-readiness", default="")
     parser.add_argument("--benchmark-engineering-signals", default="")
     parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--output-json", default="")
@@ -530,6 +558,7 @@ def main() -> None:
         "benchmark_release_decision": args.benchmark_release_decision,
         "benchmark_companion_summary": args.benchmark_companion_summary,
         "benchmark_artifact_bundle": args.benchmark_artifact_bundle,
+        "benchmark_knowledge_readiness": args.benchmark_knowledge_readiness,
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
         "benchmark_operator_adoption": args.benchmark_operator_adoption,
     }
@@ -538,6 +567,9 @@ def main() -> None:
         benchmark_release_decision=_maybe_load_json(args.benchmark_release_decision),
         benchmark_companion_summary=_maybe_load_json(args.benchmark_companion_summary),
         benchmark_artifact_bundle=_maybe_load_json(args.benchmark_artifact_bundle),
+        benchmark_knowledge_readiness=_maybe_load_json(
+            args.benchmark_knowledge_readiness
+        ),
         benchmark_engineering_signals=_maybe_load_json(
             args.benchmark_engineering_signals
         ),
