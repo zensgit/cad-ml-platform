@@ -154,6 +154,22 @@ on:
         description: 'Optional benchmark knowledge application knowledge readiness JSON'
         required: false
         default: ''
+      benchmark_knowledge_realdata_correlation_enable:
+        description: 'Override: enable benchmark knowledge realdata correlation export (true/false)'
+        required: false
+        default: ''
+      benchmark_knowledge_realdata_correlation_knowledge_readiness_json:
+        description: 'Optional benchmark knowledge realdata correlation knowledge readiness JSON'
+        required: false
+        default: ''
+      benchmark_knowledge_realdata_correlation_knowledge_application_json:
+        description: 'Optional benchmark knowledge realdata correlation knowledge application JSON'
+        required: false
+        default: ''
+      benchmark_knowledge_realdata_correlation_realdata_signals_json:
+        description: 'Optional benchmark knowledge realdata correlation real-data signals JSON'
+        required: false
+        default: ''
       benchmark_operational_summary_enable:
         description: 'Override: enable benchmark operational summary export (true/false)'
         required: false
@@ -234,6 +250,10 @@ on:
         description: 'Optional benchmark artifact bundle knowledge application JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_knowledge_realdata_correlation_json:
+        description: 'Optional benchmark artifact bundle knowledge realdata correlation JSON'
+        required: false
+        default: ''
       benchmark_companion_summary_enable:
         description: 'Override: enable benchmark companion summary export (true/false)'
         required: false
@@ -268,6 +288,10 @@ on:
         default: ''
       benchmark_companion_summary_knowledge_application_json:
         description: 'Optional benchmark companion summary knowledge application JSON'
+        required: false
+        default: ''
+      benchmark_companion_summary_knowledge_realdata_correlation_json:
+        description: 'Optional benchmark companion summary knowledge realdata correlation JSON'
         required: false
         default: ''
       benchmark_release_decision_enable:
@@ -314,6 +338,10 @@ on:
         description: 'Optional benchmark release decision knowledge application JSON'
         required: false
         default: ''
+      benchmark_release_decision_knowledge_realdata_correlation_json:
+        description: 'Optional benchmark release decision knowledge realdata correlation JSON'
+        required: false
+        default: ''
       benchmark_release_runbook_enable:
         description: 'Override: enable benchmark release runbook export (true/false)'
         required: false
@@ -352,6 +380,10 @@ on:
         default: ''
       benchmark_release_runbook_knowledge_application_json:
         description: 'Optional benchmark release runbook knowledge application JSON'
+        required: false
+        default: ''
+      benchmark_release_runbook_knowledge_realdata_correlation_json:
+        description: 'Optional benchmark release runbook knowledge realdata correlation JSON'
         required: false
         default: ''
       benchmark_operator_adoption_enable:
@@ -489,6 +521,13 @@ env:
   BENCHMARK_KNOWLEDGE_APPLICATION_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_APPLICATION_KNOWLEDGE_READINESS_JSON }}
   BENCHMARK_KNOWLEDGE_APPLICATION_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_APPLICATION_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_application.json' }}
   BENCHMARK_KNOWLEDGE_APPLICATION_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_APPLICATION_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_application.md' }}
+  BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_ENABLE || 'false' }}
+  BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_TITLE || 'Benchmark Knowledge Real-Data Correlation' }}
+  BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_KNOWLEDGE_READINESS_JSON }}
+  BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_KNOWLEDGE_APPLICATION_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_KNOWLEDGE_APPLICATION_JSON }}
+  BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_REALDATA_SIGNALS_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_REALDATA_SIGNALS_JSON }}
+  BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_realdata_correlation.json' }}
+  BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_realdata_correlation.md' }}
   BENCHMARK_KNOWLEDGE_DRIFT_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_DRIFT_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_TITLE || 'Benchmark Knowledge Drift' }}
   BENCHMARK_KNOWLEDGE_DRIFT_CURRENT_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_CURRENT_SUMMARY_JSON }}
@@ -521,6 +560,7 @@ env:
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_READINESS_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DRIFT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DRIFT_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_APPLICATION_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_APPLICATION_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_artifact_bundle.json' }}
   BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_artifact_bundle.md' }}
   BENCHMARK_COMPANION_SUMMARY_ENABLE: ${{ vars.BENCHMARK_COMPANION_SUMMARY_ENABLE || 'false' }}
@@ -533,6 +573,7 @@ env:
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_READINESS_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DRIFT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DRIFT_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_APPLICATION_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_APPLICATION_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_companion_summary.json' }}
   BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD: ${{ vars.BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_companion_summary.md' }}
   BENCHMARK_RELEASE_DECISION_ENABLE: ${{ vars.BENCHMARK_RELEASE_DECISION_ENABLE || 'false' }}
@@ -547,6 +588,7 @@ env:
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_READINESS_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DRIFT_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_APPLICATION_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_APPLICATION_JSON }}
+  BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_RELEASE_DECISION_OUTPUT_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_release_decision.json' }}
   BENCHMARK_RELEASE_DECISION_OUTPUT_MD: ${{ vars.BENCHMARK_RELEASE_DECISION_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_release_decision.md' }}
   BENCHMARK_RELEASE_RUNBOOK_ENABLE: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ENABLE || 'false' }}
@@ -560,6 +602,7 @@ env:
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_READINESS_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DRIFT_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_APPLICATION_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_APPLICATION_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REALDATA_CORRELATION_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REALDATA_CORRELATION_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_release_runbook.json' }}
   BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_release_runbook.md' }}
   BENCHMARK_OPERATOR_ADOPTION_ENABLE: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_ENABLE || 'false' }}
@@ -2003,6 +2046,122 @@ jobs:
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
 
+    - name: Build benchmark knowledge realdata correlation (optional)
+      id: benchmark_knowledge_realdata_correlation
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_realdata_correlation_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_knowledge_realdata_correlation.json}"
+        OUTPUT_MD="${BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_OUTPUT_MD:-reports/history_sequence_eval/benchmark_knowledge_realdata_correlation.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_knowledge_realdata_correlation.py
+          --title "${BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_TITLE:-Benchmark Knowledge Real-Data Correlation}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --knowledge-readiness "${{ github.event.inputs.benchmark_knowledge_realdata_correlation_knowledge_readiness_json || '' }}"
+        add_if_exists --knowledge-application "${{ github.event.inputs.benchmark_knowledge_realdata_correlation_knowledge_application_json || '' }}"
+        add_if_exists --realdata-signals "${{ github.event.inputs.benchmark_knowledge_realdata_correlation_realdata_signals_json || '' }}"
+        add_if_exists --knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
+        add_if_exists --knowledge-readiness "${BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_KNOWLEDGE_READINESS_JSON:-}"
+        add_if_exists --knowledge-application "${{ steps.benchmark_knowledge_application.outputs.output_json || '' }}"
+        add_if_exists --knowledge-application "${BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_KNOWLEDGE_APPLICATION_JSON:-}"
+        add_if_exists --realdata-signals "${{ steps.benchmark_realdata_signals.outputs.output_json || '' }}"
+        add_if_exists --realdata-signals "${BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_REALDATA_SIGNALS_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark knowledge realdata correlation inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(
+                os.environ[
+                    "BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_OUTPUT_JSON"
+                ]
+            ).read_text(encoding="utf-8")
+        )
+        component = payload.get("knowledge_realdata_correlation") or {}
+        recommendations = payload.get("recommendations") or []
+        focus_areas = component.get("focus_areas_detail") or []
+        priority_domains = component.get("priority_domains") or []
+        domains = component.get("domains") or {}
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:3] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={component.get('status', 'unknown')}\n")
+            f.write(f"ready_domain_count={component.get('ready_domain_count', 0)}\n")
+            f.write(f"partial_domain_count={component.get('partial_domain_count', 0)}\n")
+            f.write(f"blocked_domain_count={component.get('blocked_domain_count', 0)}\n")
+            f.write(f"total_domain_count={component.get('total_domain_count', 0)}\n")
+            f.write(f"focus_area_count={len(focus_areas)}\n")
+            f.write(
+                "focus_areas="
+                + compact(
+                    [
+                        f"{row.get('domain')}:{row.get('priority')}"
+                        for row in focus_areas
+                        if row.get("domain")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(f"priority_domains={compact(priority_domains)}\n")
+            f.write(
+                "domain_statuses="
+                + compact(
+                    [
+                        f"{name}:{row.get('status')}"
+                        for name, row in domains.items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
     - name: Build benchmark artifact bundle (optional)
       id: benchmark_artifact_bundle
       continue-on-error: true
@@ -2049,6 +2208,7 @@ jobs:
         add_if_exists --benchmark-knowledge-readiness "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_readiness_json || '' }}"
         add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_drift_json || '' }}"
         add_if_exists --benchmark-knowledge-application "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_application_json || '' }}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_ARTIFACT_BUNDLE_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
@@ -2075,6 +2235,8 @@ jobs:
         add_if_exists --benchmark-knowledge-drift "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-application "${{ steps.benchmark_knowledge_application.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-application "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_APPLICATION_JSON:-}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${{ steps.benchmark_knowledge_realdata_correlation.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_REALDATA_CORRELATION_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -2230,6 +2392,48 @@ jobs:
                 "knowledge_application_recommendations="
                 f"{compact(payload.get('knowledge_application_recommendations') or [])}\n"
             )
+            f.write(
+                "knowledge_realdata_correlation_status="
+                f"{payload.get('knowledge_realdata_correlation_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_focus_areas="
+                + compact(
+                    [
+                        f"{row.get('domain')}:{row.get('priority')}"
+                        for row in (
+                            payload.get('knowledge_realdata_correlation_focus_areas')
+                            or payload.get('knowledge_realdata_correlation', {}).get(
+                                'focus_areas_detail',
+                                [],
+                            )
+                        )
+                        if row.get("domain")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_priority_domains="
+                f"{compact(payload.get('knowledge_realdata_correlation_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_domain_statuses="
+                + compact(
+                    [
+                        f"{name}:{row.get('status')}"
+                        for name, row in (
+                            payload.get('knowledge_realdata_correlation_domains') or {}
+                        ).items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_recommendations="
+                f"{compact(payload.get('knowledge_realdata_correlation_recommendations') or [])}\n"
+            )
             f.write(f"blockers={compact(blockers)}\n")
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
@@ -2275,6 +2479,7 @@ jobs:
         add_if_exists --benchmark-knowledge-readiness "${{ github.event.inputs.benchmark_companion_summary_knowledge_readiness_json || '' }}"
         add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_companion_summary_knowledge_drift_json || '' }}"
         add_if_exists --benchmark-knowledge-application "${{ github.event.inputs.benchmark_companion_summary_knowledge_application_json || '' }}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_companion_summary_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_COMPANION_SUMMARY_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
@@ -2291,6 +2496,8 @@ jobs:
         add_if_exists --benchmark-knowledge-drift "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-application "${{ steps.benchmark_knowledge_application.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-application "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_APPLICATION_JSON:-}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${{ steps.benchmark_knowledge_realdata_correlation.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_REALDATA_CORRELATION_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -2450,6 +2657,47 @@ jobs:
                 "knowledge_application_recommendations="
                 f"{compact(payload.get('knowledge_application_recommendations') or [])}\n"
             )
+            f.write(
+                "knowledge_realdata_correlation_status="
+                f"{payload.get('knowledge_realdata_correlation_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_focus_areas="
+                + compact(
+                    [
+                        f"{row.get('domain')}:{row.get('priority')}"
+                        for row in (
+                            payload.get('knowledge_realdata_correlation', {}).get(
+                                'focus_areas_detail',
+                                [],
+                            )
+                        )
+                        if row.get("domain")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_priority_domains="
+                f"{compact(payload.get('knowledge_realdata_correlation_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_domain_statuses="
+                + compact(
+                    [
+                        f"{name}:{row.get('status')}"
+                        for name, row in (
+                            payload.get('knowledge_realdata_correlation_domains') or {}
+                        ).items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_recommendations="
+                f"{compact(payload.get('knowledge_realdata_correlation_recommendations') or [])}\n"
+            )
             f.write(f"knowledge_focus_area_count={len(focus_areas)}\n")
             f.write(
                 "knowledge_focus_areas="
@@ -2524,6 +2772,7 @@ jobs:
         add_if_exists --benchmark-knowledge-readiness "${{ github.event.inputs.benchmark_release_decision_knowledge_readiness_json || '' }}"
         add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_release_decision_knowledge_drift_json || '' }}"
         add_if_exists --benchmark-knowledge-application "${{ github.event.inputs.benchmark_release_decision_knowledge_application_json || '' }}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_release_decision_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_RELEASE_DECISION_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
@@ -2544,6 +2793,8 @@ jobs:
         add_if_exists --benchmark-knowledge-drift "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-application "${{ steps.benchmark_knowledge_application.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-application "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_APPLICATION_JSON:-}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${{ steps.benchmark_knowledge_realdata_correlation.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_REALDATA_CORRELATION_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -2723,6 +2974,47 @@ jobs:
                 "knowledge_application_recommendations="
                 f"{compact(payload.get('knowledge_application_recommendations') or [])}\n"
             )
+            f.write(
+                "knowledge_realdata_correlation_status="
+                f"{payload.get('knowledge_realdata_correlation_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_focus_areas="
+                + compact(
+                    [
+                        f"{row.get('domain')}:{row.get('priority')}"
+                        for row in (
+                            payload.get('knowledge_realdata_correlation', {}).get(
+                                'focus_areas_detail',
+                                [],
+                            )
+                        )
+                        if row.get("domain")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_priority_domains="
+                f"{compact(payload.get('knowledge_realdata_correlation_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_domain_statuses="
+                + compact(
+                    [
+                        f"{name}:{row.get('status')}"
+                        for name, row in (
+                            payload.get('knowledge_realdata_correlation_domains') or {}
+                        ).items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_recommendations="
+                f"{compact(payload.get('knowledge_realdata_correlation_recommendations') or [])}\n"
+            )
         PY
 
     - name: Build benchmark release runbook (optional)
@@ -2767,6 +3059,7 @@ jobs:
         add_if_exists --benchmark-knowledge-readiness "${{ github.event.inputs.benchmark_release_runbook_knowledge_readiness_json || '' }}"
         add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_release_runbook_knowledge_drift_json || '' }}"
         add_if_exists --benchmark-knowledge-application "${{ github.event.inputs.benchmark_release_runbook_knowledge_application_json || '' }}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_release_runbook_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
         add_if_exists --benchmark-release-decision "${BENCHMARK_RELEASE_RUNBOOK_RELEASE_DECISION_JSON:-}"
         add_if_exists --benchmark-companion-summary "${{ steps.benchmark_companion_summary.outputs.output_json || '' }}"
@@ -2785,6 +3078,8 @@ jobs:
         add_if_exists --benchmark-knowledge-drift "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DRIFT_JSON:-}"
         add_if_exists --benchmark-knowledge-application "${{ steps.benchmark_knowledge_application.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-application "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_APPLICATION_JSON:-}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${{ steps.benchmark_knowledge_realdata_correlation.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-realdata-correlation "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_REALDATA_CORRELATION_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -2953,6 +3248,47 @@ jobs:
             f.write(
                 "knowledge_application_recommendations="
                 f"{compact(payload.get('knowledge_application_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_status="
+                f"{payload.get('knowledge_realdata_correlation_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_focus_areas="
+                + compact(
+                    [
+                        f"{row.get('domain')}:{row.get('priority')}"
+                        for row in (
+                            payload.get('knowledge_realdata_correlation', {}).get(
+                                'focus_areas_detail',
+                                [],
+                            )
+                        )
+                        if row.get("domain")
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_priority_domains="
+                f"{compact(payload.get('knowledge_realdata_correlation_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_domain_statuses="
+                + compact(
+                    [
+                        f"{name}:{row.get('status')}"
+                        for name, row in (
+                            payload.get('knowledge_realdata_correlation_domains') or {}
+                        ).items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
+            f.write(
+                "knowledge_realdata_correlation_recommendations="
+                f"{compact(payload.get('knowledge_realdata_correlation_recommendations') or [])}\n"
             )
         PY
 
@@ -3582,6 +3918,16 @@ jobs:
           ${{ steps.benchmark_knowledge_application.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark knowledge realdata correlation
+      if: steps.benchmark_knowledge_realdata_correlation.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-knowledge-realdata-correlation-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_knowledge_realdata_correlation.outputs.output_json }}
+          ${{ steps.benchmark_knowledge_realdata_correlation.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload feedback flywheel benchmark artifact
       if: steps.feedback_flywheel_benchmark.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -3896,6 +4242,20 @@ jobs:
         else
           echo "- Benchmark knowledge application: skipped (BENCHMARK_KNOWLEDGE_APPLICATION_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
         fi
+        if [[ "${{ steps.benchmark_knowledge_realdata_correlation.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark knowledge realdata correlation status: ${{ steps.benchmark_knowledge_realdata_correlation.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge realdata correlation ready domains: ${{ steps.benchmark_knowledge_realdata_correlation.outputs.ready_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge realdata correlation partial domains: ${{ steps.benchmark_knowledge_realdata_correlation.outputs.partial_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge realdata correlation blocked domains: ${{ steps.benchmark_knowledge_realdata_correlation.outputs.blocked_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge realdata correlation total domains: ${{ steps.benchmark_knowledge_realdata_correlation.outputs.total_domain_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge realdata correlation focus areas: ${{ steps.benchmark_knowledge_realdata_correlation.outputs.focus_areas }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge realdata correlation priority domains: ${{ steps.benchmark_knowledge_realdata_correlation.outputs.priority_domains }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge realdata correlation domain statuses: ${{ steps.benchmark_knowledge_realdata_correlation.outputs.domain_statuses }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge realdata correlation recommendations: ${{ steps.benchmark_knowledge_realdata_correlation.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge realdata correlation artifact: ${{ steps.benchmark_knowledge_realdata_correlation.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark knowledge realdata correlation: skipped (BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
         if [[ "${{ steps.feedback_flywheel_benchmark.outputs.enabled }}" == "true" ]]; then
           echo "- Feedback flywheel benchmark status: ${{ steps.feedback_flywheel_benchmark.outputs.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Feedback flywheel feedback total: ${{ steps.feedback_flywheel_benchmark.outputs.feedback_total }}" >> $GITHUB_STEP_SUMMARY
@@ -3941,6 +4301,10 @@ jobs:
           echo "- Benchmark artifact bundle knowledge application focus areas: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_application_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge application domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_application_priority_domains }} / ${{ steps.benchmark_artifact_bundle.outputs.knowledge_application_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge application recommendations: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_application_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge realdata correlation: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_realdata_correlation_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge realdata focus areas: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_realdata_correlation_focus_areas }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge realdata domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_realdata_correlation_priority_domains }} / ${{ steps.benchmark_artifact_bundle.outputs.knowledge_realdata_correlation_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge realdata recommendations: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_realdata_correlation_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle engineering status: ${{ steps.benchmark_artifact_bundle.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle real-data status: ${{ steps.benchmark_artifact_bundle.outputs.realdata_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle real-data recommendations: ${{ steps.benchmark_artifact_bundle.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
@@ -3977,6 +4341,10 @@ jobs:
           echo "- Benchmark companion knowledge application focus areas: ${{ steps.benchmark_companion_summary.outputs.knowledge_application_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge application domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_application_priority_domains }} / ${{ steps.benchmark_companion_summary.outputs.knowledge_application_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge application recommendations: ${{ steps.benchmark_companion_summary.outputs.knowledge_application_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge realdata correlation: ${{ steps.benchmark_companion_summary.outputs.knowledge_realdata_correlation_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge realdata focus areas: ${{ steps.benchmark_companion_summary.outputs.knowledge_realdata_correlation_focus_areas }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge realdata domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_realdata_correlation_priority_domains }} / ${{ steps.benchmark_companion_summary.outputs.knowledge_realdata_correlation_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge realdata recommendations: ${{ steps.benchmark_companion_summary.outputs.knowledge_realdata_correlation_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion engineering status: ${{ steps.benchmark_companion_summary.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion real-data status: ${{ steps.benchmark_companion_summary.outputs.realdata_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion real-data recommendations: ${{ steps.benchmark_companion_summary.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
@@ -4011,6 +4379,10 @@ jobs:
           echo "- Benchmark release knowledge application focus areas: ${{ steps.benchmark_release_decision.outputs.knowledge_application_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge application domains: ${{ steps.benchmark_release_decision.outputs.knowledge_application_priority_domains }} / ${{ steps.benchmark_release_decision.outputs.knowledge_application_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge application recommendations: ${{ steps.benchmark_release_decision.outputs.knowledge_application_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge realdata correlation: ${{ steps.benchmark_release_decision.outputs.knowledge_realdata_correlation_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge realdata focus areas: ${{ steps.benchmark_release_decision.outputs.knowledge_realdata_correlation_focus_areas }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge realdata domains: ${{ steps.benchmark_release_decision.outputs.knowledge_realdata_correlation_priority_domains }} / ${{ steps.benchmark_release_decision.outputs.knowledge_realdata_correlation_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge realdata recommendations: ${{ steps.benchmark_release_decision.outputs.knowledge_realdata_correlation_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release engineering status: ${{ steps.benchmark_release_decision.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release real-data status: ${{ steps.benchmark_release_decision.outputs.realdata_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release real-data recommendations: ${{ steps.benchmark_release_decision.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
@@ -4042,6 +4414,10 @@ jobs:
           echo "- Benchmark release runbook knowledge application focus areas: ${{ steps.benchmark_release_runbook.outputs.knowledge_application_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge application domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_application_priority_domains }} / ${{ steps.benchmark_release_runbook.outputs.knowledge_application_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge application recommendations: ${{ steps.benchmark_release_runbook.outputs.knowledge_application_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge realdata correlation: ${{ steps.benchmark_release_runbook.outputs.knowledge_realdata_correlation_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge realdata focus areas: ${{ steps.benchmark_release_runbook.outputs.knowledge_realdata_correlation_focus_areas }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge realdata domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_realdata_correlation_priority_domains }} / ${{ steps.benchmark_release_runbook.outputs.knowledge_realdata_correlation_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge realdata recommendations: ${{ steps.benchmark_release_runbook.outputs.knowledge_realdata_correlation_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook engineering status: ${{ steps.benchmark_release_runbook.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook real-data status: ${{ steps.benchmark_release_runbook.outputs.realdata_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook real-data recommendations: ${{ steps.benchmark_release_runbook.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
