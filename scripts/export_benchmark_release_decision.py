@@ -78,11 +78,17 @@ def _component_statuses(
     benchmark_operational_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
+    benchmark_engineering_signals: Dict[str, Any],
 ) -> Dict[str, str]:
     scorecard_components = benchmark_scorecard.get("components") or {}
     operational_components = benchmark_operational_summary.get("component_statuses") or {}
     bundle_components = benchmark_artifact_bundle.get("component_statuses") or {}
     companion_components = benchmark_companion_summary.get("component_statuses") or {}
+    engineering_component = (
+        benchmark_engineering_signals.get("engineering_signals")
+        or benchmark_engineering_signals
+        or {}
+    )
 
     def pick(name: str) -> str:
         if isinstance(companion_components, dict) and companion_components.get(name):
@@ -106,6 +112,13 @@ def _component_statuses(
         "review_queue": pick("review_queue"),
         "ocr_review": pick("ocr_review"),
         "qdrant_backend": pick("qdrant_backend"),
+        "engineering_signals": str(
+            companion_components.get("engineering_signals")
+            or bundle_components.get("engineering_signals")
+            or engineering_component.get("status")
+            or (scorecard_components.get("engineering_signals") or {}).get("status")
+            or "unknown"
+        ),
     }
 
 
@@ -138,6 +151,16 @@ def _decision(
     return "ready", True
 
 
+def _engineering_review_signals(
+    benchmark_engineering_signals: Dict[str, Any],
+    component_statuses: Dict[str, str],
+) -> List[str]:
+    status = str(component_statuses.get("engineering_signals") or "").strip()
+    if status in {"engineering_semantics_ready", "unknown", ""}:
+        return []
+    return _compact(benchmark_engineering_signals.get("recommendations") or [], limit=6)
+
+
 def build_release_decision(
     *,
     title: str,
@@ -145,6 +168,7 @@ def build_release_decision(
     benchmark_operational_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
+    benchmark_engineering_signals: Dict[str, Any],
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     component_statuses = _component_statuses(
@@ -152,6 +176,7 @@ def build_release_decision(
         benchmark_operational_summary,
         benchmark_artifact_bundle,
         benchmark_companion_summary,
+        benchmark_engineering_signals,
     )
     blockers = _compact(
         benchmark_companion_summary.get("blockers")
@@ -167,6 +192,14 @@ def build_release_decision(
         or benchmark_scorecard.get("recommendations")
         or [],
         limit=6,
+    )
+    review_signals.extend(
+        item
+        for item in _engineering_review_signals(
+            benchmark_engineering_signals,
+            component_statuses,
+        )
+        if item not in review_signals
     )
     release_status, automation_ready = _decision(
         component_statuses,
@@ -203,6 +236,10 @@ def build_release_decision(
             "benchmark_companion_summary": _artifact_row(
                 "benchmark_companion_summary",
                 artifact_paths.get("benchmark_companion_summary", ""),
+            ),
+            "benchmark_engineering_signals": _artifact_row(
+                "benchmark_engineering_signals",
+                artifact_paths.get("benchmark_engineering_signals", ""),
             ),
         },
     }
@@ -251,6 +288,7 @@ def main() -> None:
     parser.add_argument("--benchmark-operational-summary", default="")
     parser.add_argument("--benchmark-artifact-bundle", default="")
     parser.add_argument("--benchmark-companion-summary", default="")
+    parser.add_argument("--benchmark-engineering-signals", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -260,6 +298,7 @@ def main() -> None:
         "benchmark_operational_summary": args.benchmark_operational_summary,
         "benchmark_artifact_bundle": args.benchmark_artifact_bundle,
         "benchmark_companion_summary": args.benchmark_companion_summary,
+        "benchmark_engineering_signals": args.benchmark_engineering_signals,
     }
     payload = build_release_decision(
         title=args.title,
@@ -270,6 +309,9 @@ def main() -> None:
         benchmark_artifact_bundle=_maybe_load_json(args.benchmark_artifact_bundle),
         benchmark_companion_summary=_maybe_load_json(
             args.benchmark_companion_summary
+        ),
+        benchmark_engineering_signals=_maybe_load_json(
+            args.benchmark_engineering_signals
         ),
         artifact_paths=artifact_paths,
     )
