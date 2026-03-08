@@ -782,12 +782,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkReleaseDecisionLight" in pr_comment_script
     assert "benchmarkReleasePrimarySignalSource" in pr_comment_script
     assert "benchmarkReleaseEngineeringStatus" in pr_comment_script
+    assert "benchmarkReleaseOperatorAdoptionStatus" in pr_comment_script
     assert "benchmarkReleaseRunbookEnabled" in pr_comment_script
     assert "benchmarkReleaseRunbookStatus" in pr_comment_script
     assert "benchmarkReleaseRunbookStatusLine" in pr_comment_script
     assert "benchmarkReleaseRunbookLight" in pr_comment_script
     assert "benchmarkReleaseRunbookNextAction" in pr_comment_script
     assert "benchmarkReleaseRunbookEngineeringStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookOperatorAdoptionStatus" in pr_comment_script
     assert "benchmarkOperatorAdoptionEnabled" in pr_comment_script
     assert "benchmarkOperatorAdoptionReadiness" in pr_comment_script
     assert "benchmarkOperatorAdoptionStatusLine" in pr_comment_script
@@ -822,8 +824,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "engineering=${benchmarkCompanionEngineeringStatus}" in pr_comment_script
     assert "Benchmark Release Decision" in pr_comment_script
     assert "engineering=${benchmarkReleaseEngineeringStatus}" in pr_comment_script
+    assert "operator_adoption=${benchmarkReleaseOperatorAdoptionStatus}" in pr_comment_script
     assert "Benchmark Release Runbook" in pr_comment_script
     assert "engineering=${benchmarkReleaseRunbookEngineeringStatus}" in pr_comment_script
+    assert "operator_adoption=${benchmarkReleaseRunbookOperatorAdoptionStatus}" in pr_comment_script
     assert "Benchmark Operator Adoption" in pr_comment_script
     assert "automation_ready=${benchmarkReleaseAutomationReady}" in pr_comment_script
     assert "source=${benchmarkReleasePrimarySignalSource}" in pr_comment_script
