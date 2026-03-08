@@ -470,6 +470,32 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "blocking_signals=" in benchmark_operator_adoption_script
     assert "recommended_actions=" in benchmark_operator_adoption_script
 
+    benchmark_operator_adoption_step = _get_step(
+        workflow, "evaluate", "Build benchmark operator adoption (optional)"
+    )
+    benchmark_operator_adoption_script = benchmark_operator_adoption_step["run"]
+    assert (
+        "scripts/export_benchmark_operator_adoption.py"
+        in benchmark_operator_adoption_script
+    )
+    assert "BENCHMARK_OPERATOR_ADOPTION_ENABLE" in benchmark_operator_adoption_script
+    assert "--benchmark-release-decision" in benchmark_operator_adoption_script
+    assert "--benchmark-release-runbook" in benchmark_operator_adoption_script
+    assert "--review-queue" in benchmark_operator_adoption_script
+    assert "--feedback-flywheel" in benchmark_operator_adoption_script
+    assert "INPUT_COUNT=0" in benchmark_operator_adoption_script
+    assert "adoption_readiness=" in benchmark_operator_adoption_script
+    assert "operator_mode=" in benchmark_operator_adoption_script
+    assert "next_action=" in benchmark_operator_adoption_script
+    assert "automation_ready=" in benchmark_operator_adoption_script
+    assert "freeze_ready=" in benchmark_operator_adoption_script
+    assert "release_status=" in benchmark_operator_adoption_script
+    assert "runbook_status=" in benchmark_operator_adoption_script
+    assert "review_queue_status=" in benchmark_operator_adoption_script
+    assert "feedback_status=" in benchmark_operator_adoption_script
+    assert "blocking_signals=" in benchmark_operator_adoption_script
+    assert "recommended_actions=" in benchmark_operator_adoption_script
+
     assistant_step = _get_step(
         workflow, "evaluate", "Build assistant evidence report (optional)"
     )
@@ -754,6 +780,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkReleaseRunbookLight" in pr_comment_script
     assert "benchmarkReleaseRunbookNextAction" in pr_comment_script
     assert "benchmarkReleaseRunbookEngineeringStatus" in pr_comment_script
+    assert "benchmarkOperatorAdoptionEnabled" in pr_comment_script
+    assert "benchmarkOperatorAdoptionReadiness" in pr_comment_script
+    assert "benchmarkOperatorAdoptionStatusLine" in pr_comment_script
+    assert "benchmarkOperatorAdoptionLight" in pr_comment_script
+    assert "benchmarkOperatorAdoptionNextAction" in pr_comment_script
     assert "benchmarkOcrStatus" in pr_comment_script
     assert "benchmarkQdrantStatus" in pr_comment_script
     assert "benchmarkEngineeringEnabled" in pr_comment_script
@@ -785,9 +816,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "engineering=${benchmarkReleaseEngineeringStatus}" in pr_comment_script
     assert "Benchmark Release Runbook" in pr_comment_script
     assert "engineering=${benchmarkReleaseRunbookEngineeringStatus}" in pr_comment_script
+    assert "Benchmark Operator Adoption" in pr_comment_script
     assert "automation_ready=${benchmarkReleaseAutomationReady}" in pr_comment_script
     assert "source=${benchmarkReleasePrimarySignalSource}" in pr_comment_script
     assert "next=${benchmarkReleaseRunbookNextAction || 'n/a'}" in pr_comment_script
+    assert "mode=${benchmarkOperatorAdoptionMode}" in pr_comment_script
+    assert "readiness=${benchmarkOperatorAdoptionReadiness}" in pr_comment_script
     assert "assistantEvidenceEnabled" in pr_comment_script
     assert "Assistant Evidence Report" in pr_comment_script
     assert "Assistant Evidence Insights" in pr_comment_script
