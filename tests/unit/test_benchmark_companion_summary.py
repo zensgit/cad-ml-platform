@@ -53,6 +53,7 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             },
             "recommendations": ["Raise tolerance/GD&T readiness."],
         },
+        benchmark_knowledge_drift={},
         benchmark_engineering_signals={
             "engineering_signals": {"status": "partial_engineering_semantics"},
             "recommendations": ["Close engineering gaps."],
@@ -90,9 +91,22 @@ def test_render_markdown_includes_sections() -> None:
         "overall_status": "healthy",
         "review_surface": "ready",
         "primary_gap": "none",
+        "knowledge_drift_summary": "status=stable; current=knowledge_foundation_ready",
         "component_statuses": {"hybrid": "healthy"},
         "recommended_actions": ["keep monitoring"],
         "blockers": [],
+        "knowledge_drift_component_changes": [
+            {
+                "component": "standards",
+                "previous_status": "ready",
+                "current_status": "ready",
+                "trend": "stable",
+                "reference_item_delta": 0,
+            }
+        ],
+        "knowledge_drift_recommendations": [
+            "Knowledge readiness is stable against the previous benchmark baseline."
+        ],
         "artifacts": {
             "benchmark_engineering_signals": {
                 "present": True,
@@ -105,11 +119,14 @@ def test_render_markdown_includes_sections() -> None:
             "benchmark_artifact_bundle": {
                 "present": True,
                 "path": "bundle.json",
-            }
-            ,
+            },
             "benchmark_knowledge_readiness": {
                 "present": True,
                 "path": "knowledge.json",
+            },
+            "benchmark_knowledge_drift": {
+                "present": True,
+                "path": "knowledge_drift.json",
             },
         },
         "knowledge_focus_areas": [
@@ -128,9 +145,11 @@ def test_render_markdown_includes_sections() -> None:
     assert "## Recommended Actions" in rendered
     assert "bundle.json" in rendered
     assert "knowledge.json" in rendered
+    assert "knowledge_drift.json" in rendered
     assert "engineering.json" in rendered
     assert "operator.json" in rendered
     assert "Expand GD&T coverage." in rendered
+    assert "status=stable; current=knowledge_foundation_ready" in rendered
 
 
 def test_cli_writes_outputs(tmp_path: Path) -> None:
@@ -138,6 +157,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     operational = tmp_path / "operational.json"
     bundle = tmp_path / "bundle.json"
     knowledge = tmp_path / "knowledge.json"
+    knowledge_drift = tmp_path / "knowledge_drift.json"
     engineering = tmp_path / "engineering.json"
     operator = tmp_path / "operator.json"
     output_json = tmp_path / "out.json"
@@ -186,6 +206,26 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_drift.write_text(
+        json.dumps(
+            {
+                "knowledge_drift": {
+                    "status": "stable",
+                    "current_status": "knowledge_foundation_ready",
+                    "previous_status": "knowledge_foundation_ready",
+                    "reference_item_delta": 0,
+                    "regressions": [],
+                    "improvements": [],
+                    "new_focus_areas": [],
+                    "component_changes": [],
+                },
+                "recommendations": [
+                    "Knowledge readiness is stable against the previous benchmark baseline."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     engineering.write_text(
         json.dumps(
             {
@@ -219,6 +259,8 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
             str(bundle),
             "--benchmark-knowledge-readiness",
             str(knowledge),
+            "--benchmark-knowledge-drift",
+            str(knowledge_drift),
             "--benchmark-engineering-signals",
             str(engineering),
             "--benchmark-operator-adoption",
@@ -236,7 +278,77 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["overall_status"] == "healthy"
     assert payload["review_surface"] == "ready"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
+    assert payload["component_statuses"]["knowledge_drift"] == "stable"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["knowledge_focus_areas"] == []
+    assert payload["knowledge_drift_summary"].startswith("status=stable")
     assert output_md.exists()
+
+
+def test_build_companion_summary_exposes_knowledge_drift_passthrough() -> None:
+    payload = build_companion_summary(
+        title="Benchmark Companion",
+        benchmark_scorecard={
+            "overall_status": "healthy",
+            "components": {"hybrid": {"status": "healthy"}},
+        },
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={
+            "overall_status": "healthy",
+            "component_statuses": {
+                "assistant_explainability": "explainability_ready",
+                "review_queue": "healthy",
+                "ocr_review": "ocr_ready",
+            },
+        },
+        benchmark_knowledge_readiness={
+            "knowledge_readiness": {
+                "status": "knowledge_foundation_ready",
+                "focus_areas_detail": [],
+            }
+        },
+        benchmark_knowledge_drift={
+            "knowledge_drift": {
+                "status": "regressed",
+                "current_status": "knowledge_foundation_partial",
+                "previous_status": "knowledge_foundation_ready",
+                "reference_item_delta": -20,
+                "regressions": ["standards"],
+                "improvements": [],
+                "new_focus_areas": ["standards"],
+                "component_changes": [
+                    {
+                        "component": "standards",
+                        "previous_status": "ready",
+                        "current_status": "partial",
+                        "trend": "regressed",
+                        "reference_item_delta": -20,
+                    }
+                ],
+            },
+            "recommendations": [
+                "Resolve knowledge regressions before claiming the benchmark "
+                "surpass baseline remains stable."
+            ],
+        },
+        benchmark_engineering_signals={
+            "engineering_signals": {"status": "engineering_semantics_ready"},
+            "recommendations": [],
+        },
+        benchmark_operator_adoption={
+            "adoption_readiness": "operator_ready",
+            "recommended_actions": [],
+        },
+        artifact_paths={"benchmark_knowledge_drift": "knowledge_drift.json"},
+    )
+
+    assert payload["component_statuses"]["knowledge_drift"] == "regressed"
+    assert payload["primary_gap"] == "knowledge_drift:regressed"
+    assert payload["recommended_actions"] == [
+        "Resolve knowledge regressions before claiming the benchmark "
+        "surpass baseline remains stable."
+    ]
+    assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
+    assert payload["knowledge_drift"]["status"] == "regressed"
+    assert "regressions=standards" in payload["knowledge_drift_summary"]

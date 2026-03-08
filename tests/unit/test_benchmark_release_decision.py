@@ -39,6 +39,18 @@ def test_build_release_decision_blocks_on_blockers() -> None:
             },
             "recommendations": ["Raise tolerance/GD&T readiness."],
         },
+        benchmark_knowledge_drift={
+            "knowledge_drift": {
+                "status": "regressed",
+                "regressions": ["gdt"],
+                "improvements": [],
+                "new_focus_areas": ["gdt"],
+                "resolved_focus_areas": [],
+            },
+            "recommendations": [
+                "Resolve knowledge regressions before claiming the benchmark surpass baseline remains stable."
+            ],
+        },
         benchmark_engineering_signals={
             "engineering_signals": {"status": "partial_engineering_semantics"},
             "recommendations": ["Close engineering gaps."],
@@ -60,9 +72,12 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["primary_signal_source"] == "benchmark_companion_summary"
     assert payload["blocking_signals"] == ["review_queue:critical_backlog"]
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
+    assert payload["component_statuses"]["knowledge_drift"] == "regressed"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
+    assert payload["knowledge_drift_status"] == "regressed"
+    assert payload["knowledge_drift"]["counts"]["regressions"] == 1
     assert "Operator fallback only." not in payload["review_signals"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
@@ -93,6 +108,18 @@ def test_build_release_decision_ready_without_blockers() -> None:
             },
             "recommendations": [],
         },
+        benchmark_knowledge_drift={
+            "knowledge_drift": {
+                "status": "improved",
+                "regressions": [],
+                "improvements": ["standards"],
+                "new_focus_areas": [],
+                "resolved_focus_areas": ["standards"],
+            },
+            "recommendations": [
+                "Promote the improved knowledge baseline after CI and review surfaces are refreshed."
+            ],
+        },
         benchmark_engineering_signals={
             "engineering_signals": {"status": "engineering_semantics_ready"},
             "recommendations": ["Keep standards coverage stable."],
@@ -108,9 +135,12 @@ def test_build_release_decision_ready_without_blockers() -> None:
     assert payload["automation_ready"] is True
     assert payload["review_signals"] == []
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
+    assert payload["component_statuses"]["knowledge_drift"] == "improved"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["knowledge_focus_areas"] == []
+    assert payload["knowledge_drift_status"] == "improved"
+    assert payload["knowledge_drift"]["counts"]["improvements"] == 1
 
 
 def test_build_release_decision_uses_operator_adoption_blocker_as_fallback() -> None:
@@ -121,6 +151,7 @@ def test_build_release_decision_uses_operator_adoption_blocker_as_fallback() -> 
         benchmark_artifact_bundle={},
         benchmark_companion_summary={},
         benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
         benchmark_engineering_signals={
             "engineering_signals": {"status": "engineering_semantics_ready"},
             "recommendations": [],
@@ -150,6 +181,7 @@ def test_build_release_decision_uses_operator_adoption_recommendation_as_fallbac
         benchmark_artifact_bundle={},
         benchmark_companion_summary={},
         benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
         benchmark_engineering_signals={
             "engineering_signals": {"status": "engineering_semantics_ready"},
             "recommendations": [],
@@ -173,6 +205,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     bundle = tmp_path / "bundle.json"
     companion = tmp_path / "companion.json"
     knowledge = tmp_path / "knowledge.json"
+    drift = tmp_path / "drift.json"
     engineering = tmp_path / "engineering.json"
     operator = tmp_path / "operator.json"
     output_json = tmp_path / "release.json"
@@ -212,6 +245,23 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    drift.write_text(
+        json.dumps(
+            {
+                "knowledge_drift": {
+                    "status": "improved",
+                    "regressions": [],
+                    "improvements": ["standards"],
+                    "new_focus_areas": [],
+                    "resolved_focus_areas": ["standards"],
+                },
+                "recommendations": [
+                    "Promote the improved knowledge baseline after CI and review surfaces are refreshed."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     engineering.write_text(
         json.dumps(
             {
@@ -247,6 +297,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(companion),
             "--benchmark-knowledge-readiness",
             str(knowledge),
+            "--benchmark-knowledge-drift",
+            str(drift),
             "--benchmark-engineering-signals",
             str(engineering),
             "--benchmark-operator-adoption",
@@ -263,9 +315,11 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["release_status"] == "ready"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
+    assert payload["component_statuses"]["knowledge_drift"] == "improved"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["artifacts"]["benchmark_knowledge_readiness"]["present"] is True
+    assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
     assert output_md.exists()
 
@@ -273,4 +327,6 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "# Benchmark Release Decision" in rendered
     assert "`release_status`: `ready`" in rendered
     assert "`knowledge_readiness`: `knowledge_foundation_ready`" in rendered
+    assert "## Knowledge Drift" in rendered
+    assert "`status`: `improved`" in rendered
     assert "`operator_adoption`: `operator_ready`" in rendered

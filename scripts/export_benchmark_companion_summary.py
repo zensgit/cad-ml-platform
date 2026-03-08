@@ -46,11 +46,40 @@ def _compact(items: Iterable[Any], *, limit: int = 5) -> List[str]:
     return out
 
 
+def _knowledge_drift_component(payload: Dict[str, Any]) -> Dict[str, Any]:
+    return payload.get("knowledge_drift") or payload or {}
+
+
+def _knowledge_drift_summary(component: Dict[str, Any]) -> str:
+    if not component:
+        return ""
+    parts = [f"status={component.get('status') or 'unknown'}"]
+    current_status = str(component.get("current_status") or "").strip()
+    previous_status = str(component.get("previous_status") or "").strip()
+    if current_status:
+        parts.append(f"current={current_status}")
+    if previous_status:
+        parts.append(f"previous={previous_status}")
+    if component.get("reference_item_delta") is not None:
+        parts.append(f"reference_item_delta={component.get('reference_item_delta')}")
+    regressions = _compact(component.get("regressions") or [])
+    improvements = _compact(component.get("improvements") or [])
+    new_focus_areas = _compact(component.get("new_focus_areas") or [])
+    if regressions:
+        parts.append("regressions=" + ", ".join(regressions))
+    if improvements:
+        parts.append("improvements=" + ", ".join(improvements))
+    if new_focus_areas:
+        parts.append("new_focus_areas=" + ", ".join(new_focus_areas))
+    return "; ".join(parts)
+
+
 def _component_statuses(
     scorecard: Dict[str, Any],
     operational_summary: Dict[str, Any],
     artifact_bundle: Dict[str, Any],
     knowledge_readiness_summary: Dict[str, Any],
+    knowledge_drift_summary: Dict[str, Any],
     engineering_signals_summary: Dict[str, Any],
     operator_adoption_summary: Dict[str, Any],
 ) -> Dict[str, str]:
@@ -62,6 +91,7 @@ def _component_statuses(
         or knowledge_readiness_summary
         or {}
     )
+    knowledge_drift_component = _knowledge_drift_component(knowledge_drift_summary)
     engineering_component = (
         engineering_signals_summary.get("engineering_signals")
         or engineering_signals_summary
@@ -96,6 +126,11 @@ def _component_statuses(
             or (scorecard_components.get("knowledge_readiness") or {}).get("status")
             or "unknown"
         ),
+        "knowledge_drift": str(
+            bundle_components.get("knowledge_drift")
+            or knowledge_drift_component.get("status")
+            or "unknown"
+        ),
         "engineering_signals": str(
             engineering_component.get("status")
             or (scorecard_components.get("engineering_signals") or {}).get("status")
@@ -124,6 +159,9 @@ def _primary_gap(
             "partial_coverage",
             "passive_feedback_only",
             "feedback_collected",
+            "baseline_missing",
+            "regressed",
+            "mixed",
         }:
             return f"{name}:{status}"
     if recommendations:
@@ -136,6 +174,7 @@ def _artifact_rows(
     operational_path: str,
     bundle_path: str,
     knowledge_path: str,
+    knowledge_drift_path: str,
     engineering_path: str,
     operator_adoption_path: str,
 ) -> Dict[str, Dict[str, Any]]:
@@ -156,6 +195,9 @@ def _artifact_rows(
         "benchmark_knowledge_readiness": row(
             "benchmark_knowledge_readiness", knowledge_path
         ),
+        "benchmark_knowledge_drift": row(
+            "benchmark_knowledge_drift", knowledge_drift_path
+        ),
         "benchmark_engineering_signals": row(
             "benchmark_engineering_signals", engineering_path
         ),
@@ -172,6 +214,7 @@ def build_companion_summary(
     benchmark_operational_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
     benchmark_knowledge_readiness: Dict[str, Any],
+    benchmark_knowledge_drift: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
     artifact_paths: Dict[str, str],
@@ -188,6 +231,15 @@ def build_companion_summary(
     bundle_recommendations = benchmark_artifact_bundle.get("recommendations") or []
     operational_recommendations = benchmark_operational_summary.get("recommendations") or []
     scorecard_recommendations = benchmark_scorecard.get("recommendations") or []
+    knowledge_drift_component = (
+        benchmark_artifact_bundle.get("knowledge_drift")
+        or _knowledge_drift_component(benchmark_knowledge_drift)
+    )
+    knowledge_drift_recommendations = (
+        benchmark_artifact_bundle.get("knowledge_drift_recommendations")
+        or benchmark_knowledge_drift.get("recommendations")
+        or []
+    )
     engineering_recommendations = benchmark_engineering_signals.get("recommendations") or []
     operator_adoption_recommendations = (
         benchmark_operator_adoption.get("recommended_actions") or []
@@ -195,6 +247,7 @@ def build_companion_summary(
     recommendations = _compact(
         bundle_recommendations
         or operational_recommendations
+        or knowledge_drift_recommendations
         or operator_adoption_recommendations
         or engineering_recommendations
         or scorecard_recommendations,
@@ -205,6 +258,7 @@ def build_companion_summary(
         benchmark_operational_summary,
         benchmark_artifact_bundle,
         benchmark_knowledge_readiness,
+        benchmark_knowledge_drift,
         benchmark_engineering_signals,
         benchmark_operator_adoption,
     )
@@ -236,6 +290,7 @@ def build_companion_summary(
         artifact_paths.get("benchmark_operational_summary", ""),
         artifact_paths.get("benchmark_artifact_bundle", ""),
         artifact_paths.get("benchmark_knowledge_readiness", ""),
+        artifact_paths.get("benchmark_knowledge_drift", ""),
         artifact_paths.get("benchmark_engineering_signals", ""),
         artifact_paths.get("benchmark_operator_adoption", ""),
     )
@@ -247,6 +302,19 @@ def build_companion_summary(
         "primary_gap": primary_gap,
         "component_statuses": component_statuses,
         "knowledge_focus_areas": knowledge_focus_areas,
+        "knowledge_drift": knowledge_drift_component,
+        "knowledge_drift_summary": (
+            benchmark_artifact_bundle.get("knowledge_drift_summary")
+            or _knowledge_drift_summary(knowledge_drift_component)
+        ),
+        "knowledge_drift_recommendations": _compact(
+            knowledge_drift_recommendations, limit=5
+        ),
+        "knowledge_drift_component_changes": list(
+            benchmark_artifact_bundle.get("knowledge_drift_component_changes")
+            or knowledge_drift_component.get("component_changes")
+            or []
+        ),
         "recommended_actions": recommendations,
         "blockers": blockers,
         "artifacts": artifacts,
@@ -260,6 +328,7 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"- `overall_status`: `{payload.get('overall_status')}`",
         f"- `review_surface`: `{payload.get('review_surface')}`",
         f"- `primary_gap`: `{payload.get('primary_gap')}`",
+        f"- `knowledge_drift_summary`: `{payload.get('knowledge_drift_summary') or 'none'}`",
         "",
         "## Component Statuses",
         "",
@@ -272,6 +341,28 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         lines.extend(f"- {item}" for item in blockers)
     else:
         lines.append("- none")
+    lines.extend(["", "## Knowledge Drift", ""])
+    if payload.get("knowledge_drift_summary"):
+        lines.append(f"- summary: {payload.get('knowledge_drift_summary')}")
+    else:
+        lines.append("- summary: none")
+    drift_changes = payload.get("knowledge_drift_component_changes") or []
+    if drift_changes:
+        for row in drift_changes:
+            lines.append(
+                "- "
+                f"`{row.get('component')}` "
+                f"`{row.get('previous_status')}` -> `{row.get('current_status')}` "
+                f"trend=`{row.get('trend')}` "
+                f"delta=`{row.get('reference_item_delta')}`"
+            )
+    else:
+        lines.append("- component_changes: none")
+    drift_recommendations = payload.get("knowledge_drift_recommendations") or []
+    if drift_recommendations:
+        lines.extend(f"- recommendation: {item}" for item in drift_recommendations)
+    else:
+        lines.append("- recommendation: none")
     lines.extend(["", "## Knowledge Focus Areas", ""])
     focus_areas = payload.get("knowledge_focus_areas") or []
     if focus_areas:
@@ -309,6 +400,7 @@ def main() -> None:
     parser.add_argument("--benchmark-operational-summary", default="")
     parser.add_argument("--benchmark-artifact-bundle", default="")
     parser.add_argument("--benchmark-knowledge-readiness", default="")
+    parser.add_argument("--benchmark-knowledge-drift", default="")
     parser.add_argument("--benchmark-engineering-signals", default="")
     parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--output-json", default="")
@@ -320,6 +412,7 @@ def main() -> None:
         "benchmark_operational_summary": args.benchmark_operational_summary,
         "benchmark_artifact_bundle": args.benchmark_artifact_bundle,
         "benchmark_knowledge_readiness": args.benchmark_knowledge_readiness,
+        "benchmark_knowledge_drift": args.benchmark_knowledge_drift,
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
         "benchmark_operator_adoption": args.benchmark_operator_adoption,
     }
@@ -333,6 +426,7 @@ def main() -> None:
         benchmark_knowledge_readiness=_maybe_load_json(
             args.benchmark_knowledge_readiness
         ),
+        benchmark_knowledge_drift=_maybe_load_json(args.benchmark_knowledge_drift),
         benchmark_engineering_signals=_maybe_load_json(
             args.benchmark_engineering_signals
         ),
