@@ -150,6 +150,10 @@ on:
         description: 'Optional benchmark artifact bundle OCR review JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_companion_summary_json:
+        description: 'Optional benchmark artifact bundle companion summary JSON'
+        required: false
+        default: ''
       benchmark_companion_summary_enable:
         description: 'Override: enable benchmark companion summary export (true/false)'
         required: false
@@ -270,6 +274,7 @@ env:
   BENCHMARK_ARTIFACT_BUNDLE_ASSISTANT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_ASSISTANT_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_REVIEW_QUEUE_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_REVIEW_QUEUE_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_COMPANION_SUMMARY_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_COMPANION_SUMMARY_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_artifact_bundle.json' }}
   BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_artifact_bundle.md' }}
   BENCHMARK_COMPANION_SUMMARY_ENABLE: ${{ vars.BENCHMARK_COMPANION_SUMMARY_ENABLE || 'false' }}
@@ -1183,6 +1188,7 @@ jobs:
         add_if_exists --assistant-evidence "${{ github.event.inputs.benchmark_artifact_bundle_assistant_json || '' }}"
         add_if_exists --review-queue "${{ github.event.inputs.benchmark_artifact_bundle_review_queue_json || '' }}"
         add_if_exists --ocr-review "${{ github.event.inputs.benchmark_artifact_bundle_ocr_review_json || '' }}"
+        add_if_exists --benchmark-companion-summary "${{ github.event.inputs.benchmark_artifact_bundle_companion_summary_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_ARTIFACT_BUNDLE_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
@@ -1195,6 +1201,8 @@ jobs:
         add_if_exists --review-queue "${BENCHMARK_ARTIFACT_BUNDLE_REVIEW_QUEUE_JSON:-}"
         add_if_exists --ocr-review "${{ steps.ocr_review_pack.outputs.output_json || '' }}"
         add_if_exists --ocr-review "${BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON:-}"
+        add_if_exists --benchmark-companion-summary "${{ steps.benchmark_companion_summary.outputs.output_json || '' }}"
+        add_if_exists --benchmark-companion-summary "${BENCHMARK_ARTIFACT_BUNDLE_COMPANION_SUMMARY_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
