@@ -80,6 +80,12 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON" in env
     assert "BENCHMARK_KNOWLEDGE_READINESS_OUTPUT_JSON" in env
     assert "BENCHMARK_KNOWLEDGE_READINESS_OUTPUT_MD" in env
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_TITLE" in env
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_ENGINEERING_SIGNALS_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_KNOWLEDGE_READINESS_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_OUTPUT_MD" in env
     assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON" in env
     assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD" in env
     assert "BENCHMARK_OPERATIONAL_SUMMARY_ENABLE" in env
@@ -105,6 +111,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_ARTIFACT_BUNDLE_REALDATA_SIGNALS_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DRIFT_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_APPLICATION_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD" in env
     assert "BENCHMARK_COMPANION_SUMMARY_ENABLE" in env
@@ -116,6 +123,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_COMPANION_SUMMARY_REALDATA_SIGNALS_JSON" in env
     assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DRIFT_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_APPLICATION_JSON" in env
     assert "BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON" in env
     assert "BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD" in env
     assert "BENCHMARK_RELEASE_DECISION_ENABLE" in env
@@ -129,6 +137,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_RELEASE_DECISION_OPERATOR_ADOPTION_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DRIFT_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_APPLICATION_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_OUTPUT_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_OUTPUT_MD" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_ENABLE" in env
@@ -141,6 +150,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_RELEASE_RUNBOOK_OPERATOR_ADOPTION_JSON" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DRIFT_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_APPLICATION_JSON" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD" in env
     assert "BENCHMARK_OPERATOR_ADOPTION_ENABLE" in env
@@ -200,6 +210,9 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_realdata_signals_step_dir_summary_json" in dispatch_inputs
     assert "benchmark_knowledge_readiness_enable" in dispatch_inputs
     assert "benchmark_knowledge_readiness_snapshot_json" in dispatch_inputs
+    assert "benchmark_knowledge_application_enable" in dispatch_inputs
+    assert "benchmark_knowledge_application_engineering_signals_json" in dispatch_inputs
+    assert "benchmark_knowledge_application_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_operational_summary_enable" in dispatch_inputs
     assert "benchmark_operational_summary_scorecard_json" in dispatch_inputs
     assert "benchmark_operational_summary_feedback_json" in dispatch_inputs
@@ -219,6 +232,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_artifact_bundle_realdata_signals_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_drift_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_knowledge_application_json" in dispatch_inputs
     assert "benchmark_companion_summary_enable" in dispatch_inputs
     assert "benchmark_companion_summary_scorecard_json" in dispatch_inputs
     assert "benchmark_companion_summary_operational_summary_json" in dispatch_inputs
@@ -227,6 +241,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_companion_summary_realdata_signals_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_drift_json" in dispatch_inputs
+    assert "benchmark_companion_summary_knowledge_application_json" in dispatch_inputs
     assert "benchmark_release_decision_enable" in dispatch_inputs
     assert "benchmark_release_decision_scorecard_json" in dispatch_inputs
     assert "benchmark_release_decision_operational_summary_json" in dispatch_inputs
@@ -237,6 +252,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_decision_operator_adoption_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_drift_json" in dispatch_inputs
+    assert "benchmark_release_decision_knowledge_application_json" in dispatch_inputs
     assert "benchmark_release_runbook_enable" in dispatch_inputs
     assert "benchmark_release_runbook_release_decision_json" in dispatch_inputs
     assert "benchmark_release_runbook_companion_summary_json" in dispatch_inputs
@@ -246,6 +262,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_runbook_operator_adoption_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_drift_json" in dispatch_inputs
+    assert "benchmark_release_runbook_knowledge_application_json" in dispatch_inputs
     assert "benchmark_operator_adoption_enable" in dispatch_inputs
     assert "benchmark_operator_adoption_release_decision_json" in dispatch_inputs
     assert "benchmark_operator_adoption_release_runbook_json" in dispatch_inputs
@@ -417,6 +434,41 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "resolved_priority_domains=" in benchmark_knowledge_drift_script
     assert "new_priority_domains=" in benchmark_knowledge_drift_script
 
+    benchmark_knowledge_application_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge application (optional)"
+    )
+    benchmark_knowledge_application_script = benchmark_knowledge_application_step["run"]
+    assert (
+        "scripts/export_benchmark_knowledge_application.py"
+        in benchmark_knowledge_application_script
+    )
+    assert "BENCHMARK_KNOWLEDGE_APPLICATION_ENABLE" in benchmark_knowledge_application_script
+    assert (
+        "benchmark_knowledge_application_engineering_signals_json"
+        in benchmark_knowledge_application_script
+    )
+    assert (
+        "benchmark_knowledge_application_knowledge_readiness_json"
+        in benchmark_knowledge_application_script
+    )
+    assert (
+        "steps.benchmark_engineering_signals.outputs.output_json"
+        in benchmark_knowledge_application_script
+    )
+    assert (
+        "steps.benchmark_knowledge_readiness.outputs.output_json"
+        in benchmark_knowledge_application_script
+    )
+    assert "ready_domain_count=" in benchmark_knowledge_application_script
+    assert "partial_domain_count=" in benchmark_knowledge_application_script
+    assert "missing_domain_count=" in benchmark_knowledge_application_script
+    assert "total_domain_count=" in benchmark_knowledge_application_script
+    assert "focus_area_count=" in benchmark_knowledge_application_script
+    assert "focus_areas=" in benchmark_knowledge_application_script
+    assert "priority_domains=" in benchmark_knowledge_application_script
+    assert "domain_statuses=" in benchmark_knowledge_application_script
+    assert "recommendations=" in benchmark_knowledge_application_script
+
     final_fail_step = _get_step(
         workflow,
         "evaluate",
@@ -507,6 +559,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-realdata-signals" in benchmark_bundle_script
     assert "--benchmark-knowledge-readiness" in benchmark_bundle_script
     assert "--benchmark-knowledge-drift" in benchmark_bundle_script
+    assert "--benchmark-knowledge-application" in benchmark_bundle_script
     assert "INPUT_COUNT=0" in benchmark_bundle_script
     assert "available_artifact_count=" in benchmark_bundle_script
     assert "feedback_status=" in benchmark_bundle_script
@@ -525,6 +578,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "engineering_status=" in benchmark_bundle_script
     assert "realdata_status=" in benchmark_bundle_script
     assert "realdata_recommendations=" in benchmark_bundle_script
+    assert "knowledge_application_status=" in benchmark_bundle_script
+    assert "knowledge_application_focus_areas=" in benchmark_bundle_script
+    assert "knowledge_application_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_application_domain_statuses=" in benchmark_bundle_script
+    assert "knowledge_application_recommendations=" in benchmark_bundle_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_bundle_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_bundle_script
     assert "blockers=" in benchmark_bundle_script
@@ -543,6 +601,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-realdata-signals" in benchmark_companion_script
     assert "--benchmark-knowledge-readiness" in benchmark_companion_script
     assert "--benchmark-knowledge-drift" in benchmark_companion_script
+    assert "--benchmark-knowledge-application" in benchmark_companion_script
     assert "review_surface=" in benchmark_companion_script
     assert "primary_gap=" in benchmark_companion_script
     assert "recommended_actions=" in benchmark_companion_script
@@ -559,6 +618,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "engineering_status=" in benchmark_companion_script
     assert "realdata_status=" in benchmark_companion_script
     assert "realdata_recommendations=" in benchmark_companion_script
+    assert "knowledge_application_status=" in benchmark_companion_script
+    assert "knowledge_application_focus_areas=" in benchmark_companion_script
+    assert "knowledge_application_priority_domains=" in benchmark_companion_script
+    assert "knowledge_application_domain_statuses=" in benchmark_companion_script
+    assert "knowledge_application_recommendations=" in benchmark_companion_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_companion_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_companion_script
 
@@ -577,6 +641,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-operator-adoption" in benchmark_release_script
     assert "--benchmark-knowledge-readiness" in benchmark_release_script
     assert "--benchmark-knowledge-drift" in benchmark_release_script
+    assert "--benchmark-knowledge-application" in benchmark_release_script
     assert "release_status=" in benchmark_release_script
     assert "automation_ready=" in benchmark_release_script
     assert "primary_signal_source=" in benchmark_release_script
@@ -593,6 +658,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "engineering_status=" in benchmark_release_script
     assert "realdata_status=" in benchmark_release_script
     assert "realdata_recommendations=" in benchmark_release_script
+    assert "knowledge_application_status=" in benchmark_release_script
+    assert "knowledge_application_focus_areas=" in benchmark_release_script
+    assert "knowledge_application_priority_domains=" in benchmark_release_script
+    assert "knowledge_application_domain_statuses=" in benchmark_release_script
+    assert "knowledge_application_recommendations=" in benchmark_release_script
     assert "operator_adoption_status=" in benchmark_release_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_release_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_release_script
@@ -611,6 +681,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-operator-adoption" in benchmark_runbook_script
     assert "--benchmark-knowledge-readiness" in benchmark_runbook_script
     assert "--benchmark-knowledge-drift" in benchmark_runbook_script
+    assert "--benchmark-knowledge-application" in benchmark_runbook_script
     assert "ready_to_freeze_baseline=" in benchmark_runbook_script
     assert "next_action=" in benchmark_runbook_script
     assert "missing_artifacts=" in benchmark_runbook_script
@@ -626,6 +697,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "engineering_status=" in benchmark_runbook_script
     assert "realdata_status=" in benchmark_runbook_script
     assert "realdata_recommendations=" in benchmark_runbook_script
+    assert "knowledge_application_status=" in benchmark_runbook_script
+    assert "knowledge_application_focus_areas=" in benchmark_runbook_script
+    assert "knowledge_application_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_application_domain_statuses=" in benchmark_runbook_script
+    assert "knowledge_application_recommendations=" in benchmark_runbook_script
     assert "operator_adoption_status=" in benchmark_runbook_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_runbook_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_runbook_script
@@ -759,6 +835,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_knowledge_drift["if"]
         == "steps.benchmark_knowledge_drift.outputs.enabled == 'true'"
+    )
+    upload_knowledge_application = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge application"
+    )
+    assert (
+        upload_knowledge_application["if"]
+        == "steps.benchmark_knowledge_application.outputs.enabled == 'true'"
     )
     upload_feedback_flywheel = _get_step(
         workflow, "evaluate", "Upload feedback flywheel benchmark artifact"
@@ -974,11 +1057,26 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark knowledge drift new focus areas" in summary_script
     assert "Benchmark knowledge drift recommendations" in summary_script
     assert "Benchmark knowledge drift artifact" in summary_script
+    assert "Benchmark knowledge application status" in summary_script
+    assert "Benchmark knowledge application ready domains" in summary_script
+    assert "Benchmark knowledge application partial domains" in summary_script
+    assert "Benchmark knowledge application missing domains" in summary_script
+    assert "Benchmark knowledge application total domains" in summary_script
+    assert "Benchmark knowledge application focus area count" in summary_script
+    assert "Benchmark knowledge application focus areas" in summary_script
+    assert "Benchmark knowledge application priority domains" in summary_script
+    assert "Benchmark knowledge application domain statuses" in summary_script
+    assert "Benchmark knowledge application recommendations" in summary_script
+    assert "Benchmark knowledge application artifact" in summary_script
     assert "Benchmark artifact bundle knowledge drift" in summary_script
     assert "Benchmark artifact bundle knowledge drift summary" in summary_script
     assert "Benchmark artifact bundle knowledge drift recommendations" in summary_script
     assert "Benchmark artifact bundle knowledge drift component changes" in summary_script
     assert "Benchmark artifact bundle knowledge focus areas" in summary_script
+    assert "Benchmark artifact bundle knowledge application" in summary_script
+    assert "Benchmark artifact bundle knowledge application focus areas" in summary_script
+    assert "Benchmark artifact bundle knowledge application domains" in summary_script
+    assert "Benchmark artifact bundle knowledge application recommendations" in summary_script
     assert "Benchmark artifact bundle real-data status" in summary_script
     assert "Benchmark artifact bundle real-data recommendations" in summary_script
     assert "Benchmark companion knowledge drift" in summary_script
@@ -986,16 +1084,28 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark companion knowledge drift recommendations" in summary_script
     assert "Benchmark companion knowledge drift component changes" in summary_script
     assert "Benchmark companion knowledge focus areas" in summary_script
+    assert "Benchmark companion knowledge application" in summary_script
+    assert "Benchmark companion knowledge application focus areas" in summary_script
+    assert "Benchmark companion knowledge application domains" in summary_script
+    assert "Benchmark companion knowledge application recommendations" in summary_script
     assert "Benchmark companion real-data status" in summary_script
     assert "Benchmark companion real-data recommendations" in summary_script
     assert "Benchmark release knowledge drift" in summary_script
     assert "Benchmark release knowledge drift summary" in summary_script
     assert "Benchmark release knowledge focus areas" in summary_script
+    assert "Benchmark release knowledge application" in summary_script
+    assert "Benchmark release knowledge application focus areas" in summary_script
+    assert "Benchmark release knowledge application domains" in summary_script
+    assert "Benchmark release knowledge application recommendations" in summary_script
     assert "Benchmark release real-data status" in summary_script
     assert "Benchmark release real-data recommendations" in summary_script
     assert "Benchmark release runbook knowledge drift" in summary_script
     assert "Benchmark release runbook knowledge drift summary" in summary_script
     assert "Benchmark release runbook knowledge focus areas" in summary_script
+    assert "Benchmark release runbook knowledge application" in summary_script
+    assert "Benchmark release runbook knowledge application focus areas" in summary_script
+    assert "Benchmark release runbook knowledge application domains" in summary_script
+    assert "Benchmark release runbook knowledge application recommendations" in summary_script
     assert "Benchmark release runbook real-data status" in summary_script
     assert "Benchmark release runbook real-data recommendations" in summary_script
     assert "Assistant evidence input" in summary_script
