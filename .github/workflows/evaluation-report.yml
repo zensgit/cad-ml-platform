@@ -82,10 +82,6 @@ on:
         description: 'Optional benchmark scorecard OCR review summary JSON'
         required: false
         default: ''
-      benchmark_scorecard_qdrant_readiness_summary:
-        description: 'Optional benchmark scorecard Qdrant readiness summary JSON'
-        required: false
-        default: ''
       ocr_review_pack_enable:
         description: 'Override: enable OCR review-pack export (true/false)'
         required: false
@@ -165,7 +161,6 @@ env:
   BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON }}
-  BENCHMARK_SCORECARD_QDRANT_READINESS_JSON: ${{ vars.BENCHMARK_SCORECARD_QDRANT_READINESS_JSON }}
   BENCHMARK_SCORECARD_OUTPUT_JSON: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_scorecard.json' }}
   BENCHMARK_SCORECARD_OUTPUT_MD: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_scorecard.md' }}
   OCR_REVIEW_PACK_ENABLE: ${{ vars.OCR_REVIEW_PACK_ENABLE || 'false' }}
@@ -831,8 +826,6 @@ jobs:
         add_if_exists --review-queue-summary "${BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON:-}"
         add_if_exists --ocr-review-summary "${{ steps.ocr_review_pack.outputs.output_json || '' }}"
         add_if_exists --ocr-review-summary "${BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON:-}"
-        add_if_exists --qdrant-readiness-summary "${{ github.event.inputs.benchmark_scorecard_qdrant_readiness_summary || '' }}"
-        add_if_exists --qdrant-readiness-summary "${BENCHMARK_SCORECARD_QDRANT_READINESS_JSON:-}"
 
         "${CMD[@]}"
 
@@ -856,7 +849,6 @@ jobs:
         assistant = components.get("assistant_explainability") or {}
         review_queue = components.get("review_queue") or {}
         ocr_review = components.get("ocr_review") or {}
-        qdrant = components.get("qdrant_backend") or {}
         recommendations = payload.get("recommendations") or []
         compact_recommendations = "; ".join(
             str(item).strip() for item in recommendations[:3] if str(item).strip()
@@ -870,8 +862,24 @@ jobs:
             f.write(f"governance_status={governance.get('status', 'unknown')}\n")
             f.write(f"assistant_status={assistant.get('status', 'unknown')}\n")
             f.write(f"review_queue_status={review_queue.get('status', 'unknown')}\n")
+            f.write(
+                "review_queue_average_evidence="
+                f"{review_queue.get('average_evidence_count', 0)}\n"
+            )
+            f.write(
+                "review_queue_evidence_ratio="
+                f"{review_queue.get('records_with_evidence_ratio', 0)}\n"
+            )
+            top_evidence_sources = review_queue.get("top_evidence_sources") or []
+            compact_evidence_sources = "; ".join(
+                f"{str(item.get('name') or '').strip()}({item.get('count')})"
+                for item in top_evidence_sources[:5]
+                if isinstance(item, dict) and str(item.get("name") or "").strip()
+            )
+            f.write(
+                f"review_queue_top_evidence_sources={compact_evidence_sources}\n"
+            )
             f.write(f"ocr_status={ocr_review.get('status', 'unknown')}\n")
-            f.write(f"qdrant_status={qdrant.get('status', 'unknown')}\n")
             f.write(f"recommendations={compact_recommendations}\n")
         PY
 
@@ -1368,8 +1376,10 @@ jobs:
           echo "- Benchmark governance status: ${{ steps.benchmark_scorecard.outputs.governance_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark assistant status: ${{ steps.benchmark_scorecard.outputs.assistant_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark review queue status: ${{ steps.benchmark_scorecard.outputs.review_queue_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark review queue average evidence: ${{ steps.benchmark_scorecard.outputs.review_queue_average_evidence }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark review queue evidence ratio: ${{ steps.benchmark_scorecard.outputs.review_queue_evidence_ratio }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark review queue evidence sources: ${{ steps.benchmark_scorecard.outputs.review_queue_top_evidence_sources }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark OCR status: ${{ steps.benchmark_scorecard.outputs.ocr_status }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Benchmark Qdrant status: ${{ steps.benchmark_scorecard.outputs.qdrant_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark recommendations: ${{ steps.benchmark_scorecard.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark scorecard artifact: ${{ steps.benchmark_scorecard.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
@@ -1492,8 +1502,10 @@ jobs:
             const benchmarkGovernanceStatus = '${{ steps.benchmark_scorecard.outputs.governance_status }}';
             const benchmarkAssistantStatus = '${{ steps.benchmark_scorecard.outputs.assistant_status }}';
             const benchmarkReviewQueueStatus = '${{ steps.benchmark_scorecard.outputs.review_queue_status }}';
+            const benchmarkReviewQueueAverageEvidence = '${{ steps.benchmark_scorecard.outputs.review_queue_average_evidence }}';
+            const benchmarkReviewQueueEvidenceRatio = '${{ steps.benchmark_scorecard.outputs.review_queue_evidence_ratio }}';
+            const benchmarkReviewQueueTopEvidenceSources = '${{ steps.benchmark_scorecard.outputs.review_queue_top_evidence_sources }}';
             const benchmarkOcrStatus = '${{ steps.benchmark_scorecard.outputs.ocr_status }}';
-            const benchmarkQdrantStatus = '${{ steps.benchmark_scorecard.outputs.qdrant_status }}';
             const benchmarkRecommendations = '${{ steps.benchmark_scorecard.outputs.recommendations }}';
             const assistantEvidenceEnabled = '${{ steps.assistant_evidence_report.outputs.enabled }}' === 'true';
             const assistantEvidenceInput = '${{ steps.assistant_evidence_report.outputs.input_path }}';
@@ -1557,7 +1569,10 @@ jobs:
               ? `runs=${sweepTotalRuns}, failed=${sweepFailedRuns}, best=${sweepBestRecipe}@${sweepBestSeed}, env=${sweepRecommendedEnv}, script=${sweepBestRunScript}`
               : '⏭️ skipped';
             const benchmarkScorecardStatus = benchmarkScorecardEnabled
-              ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}, assistant=${benchmarkAssistantStatus}, review_queue=${benchmarkReviewQueueStatus}, ocr=${benchmarkOcrStatus}, qdrant=${benchmarkQdrantStatus}`
+              ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}, assistant=${benchmarkAssistantStatus}, review_queue=${benchmarkReviewQueueStatus}, review_queue_avg_evidence=${benchmarkReviewQueueAverageEvidence}, review_queue_evidence_ratio=${benchmarkReviewQueueEvidenceRatio}, ocr=${benchmarkOcrStatus}`
+              : '⏭️ skipped';
+            const benchmarkReviewQueueEvidenceStatus = benchmarkScorecardEnabled
+              ? `sources=${benchmarkReviewQueueTopEvidenceSources || 'n/a'}`
               : '⏭️ skipped';
             const assistantEvidenceStatus = assistantEvidenceEnabled
               ? `input=${assistantEvidenceInput}, records=${assistantEvidenceTotalRecords}, evidence_items=${assistantEvidenceTotalItems}, avg=${assistantEvidenceAverageCount}, evidence_cov=${assistantEvidenceCoverage}, decision_cov=${assistantDecisionPathCoverage}, source_cov=${assistantSourceSignalCoverage}`
@@ -1627,6 +1642,7 @@ jobs:
             | **Graph2D Review Gate Strict** | ${reviewGateStrictStatus} |
             | **Graph2D Train Sweep** | ${trainSweepStatus} |
             | **Benchmark Scorecard** | ${benchmarkScorecardStatus} |
+            | **Benchmark Review Queue Evidence** | ${benchmarkReviewQueueEvidenceStatus} |
             | **Benchmark Recommendations** | ${benchmarkRecommendations || 'n/a'} |
             | **Assistant Evidence Report** | ${assistantEvidenceStatus} |
             | **Assistant Evidence Insights** | ${assistantEvidenceInsights} |
