@@ -30,6 +30,11 @@ def test_build_knowledge_drift_status_improved() -> None:
                 "status": "knowledge_foundation_ready",
                 "total_reference_items": 200,
                 "focus_areas": [],
+                "priority_domains": [],
+                "domains": {
+                    "tolerance": {"status": "ready", "total_reference_items": 20},
+                    "standards": {"status": "ready", "total_reference_items": 180},
+                },
                 "components": {
                     "tolerance": {"status": "ready", "total_reference_items": 20},
                     "standards": {"status": "ready", "total_reference_items": 60},
@@ -41,6 +46,11 @@ def test_build_knowledge_drift_status_improved() -> None:
                 "status": "knowledge_foundation_partial",
                 "total_reference_items": 120,
                 "focus_areas": ["standards"],
+                "priority_domains": ["standards"],
+                "domains": {
+                    "tolerance": {"status": "ready", "total_reference_items": 20},
+                    "standards": {"status": "partial", "total_reference_items": 100},
+                },
                 "components": {
                     "tolerance": {"status": "ready", "total_reference_items": 20},
                     "standards": {"status": "partial", "total_reference_items": 30},
@@ -52,9 +62,12 @@ def test_build_knowledge_drift_status_improved() -> None:
     assert payload["status"] == "improved"
     assert payload["reference_item_delta"] == 80
     assert payload["improvements"] == ["standards"]
+    assert payload["domain_improvements"] == ["standards"]
     assert payload["resolved_focus_areas"] == ["standards"]
+    assert payload["resolved_priority_domains"] == ["standards"]
     recs = knowledge_drift_recommendations(payload)
     assert any("Promote the improved knowledge baseline" in item for item in recs)
+    assert any("Resolved priority domains" in item for item in recs)
 
 
 def test_build_knowledge_drift_status_regressed() -> None:
@@ -64,6 +77,10 @@ def test_build_knowledge_drift_status_regressed() -> None:
                 "status": "knowledge_foundation_partial",
                 "total_reference_items": 90,
                 "focus_areas": ["gdt"],
+                "priority_domains": ["gdt"],
+                "domains": {
+                    "gdt": {"status": "missing", "total_reference_items": 0},
+                },
                 "components": {
                     "gdt": {"status": "missing", "total_reference_items": 0},
                 },
@@ -74,6 +91,10 @@ def test_build_knowledge_drift_status_regressed() -> None:
                 "status": "knowledge_foundation_ready",
                 "total_reference_items": 130,
                 "focus_areas": [],
+                "priority_domains": [],
+                "domains": {
+                    "gdt": {"status": "ready", "total_reference_items": 40},
+                },
                 "components": {
                     "gdt": {"status": "ready", "total_reference_items": 40},
                 },
@@ -83,9 +104,12 @@ def test_build_knowledge_drift_status_regressed() -> None:
 
     assert payload["status"] == "regressed"
     assert payload["regressions"] == ["gdt"]
+    assert payload["domain_regressions"] == ["gdt"]
     assert payload["new_focus_areas"] == ["gdt"]
+    assert payload["new_priority_domains"] == ["gdt"]
     recs = knowledge_drift_recommendations(payload)
     assert any("Resolve knowledge regressions" in item for item in recs)
+    assert any("Regressed domains: gdt" in item for item in recs)
 
 
 def test_export_benchmark_knowledge_drift_cli(tmp_path: Path) -> None:
@@ -96,6 +120,11 @@ def test_export_benchmark_knowledge_drift_cli(tmp_path: Path) -> None:
                 "status": "knowledge_foundation_ready",
                 "total_reference_items": 200,
                 "focus_areas": [],
+                "priority_domains": [],
+                "domains": {
+                    "tolerance": {"status": "ready", "total_reference_items": 20},
+                    "standards": {"status": "ready", "total_reference_items": 180},
+                },
                 "components": {
                     "tolerance": {"status": "ready", "total_reference_items": 20},
                     "standards": {"status": "ready", "total_reference_items": 60},
@@ -110,6 +139,11 @@ def test_export_benchmark_knowledge_drift_cli(tmp_path: Path) -> None:
                 "status": "knowledge_foundation_partial",
                 "total_reference_items": 120,
                 "focus_areas": ["standards"],
+                "priority_domains": ["standards"],
+                "domains": {
+                    "tolerance": {"status": "ready", "total_reference_items": 20},
+                    "standards": {"status": "partial", "total_reference_items": 100},
+                },
                 "components": {
                     "tolerance": {"status": "ready", "total_reference_items": 20},
                     "standards": {"status": "partial", "total_reference_items": 30},
@@ -140,6 +174,8 @@ def test_export_benchmark_knowledge_drift_cli(tmp_path: Path) -> None:
 
     payload = json.loads(result.stdout)
     assert payload["knowledge_drift"]["status"] == "improved"
+    assert payload["knowledge_drift"]["domain_improvements"] == ["standards"]
     assert output_json.exists()
     assert output_md.exists()
     assert "Benchmark Knowledge Drift" in output_md.read_text(encoding="utf-8")
+    assert "Domain Changes" in output_md.read_text(encoding="utf-8")
