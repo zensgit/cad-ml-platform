@@ -36,6 +36,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
             "recommendations": ["Close the review queue."],
         },
         benchmark_companion_summary={},
+        benchmark_release_decision={},
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -62,6 +63,7 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
         },
         benchmark_operational_summary={},
         benchmark_companion_summary={},
+        benchmark_release_decision={},
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -120,6 +122,8 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             str(operational),
             "--benchmark-companion-summary",
             str(companion),
+            "--benchmark-release-decision",
+            str(companion),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -135,6 +139,7 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert payload["artifacts"]["benchmark_scorecard"]["present"] is True
     assert payload["artifacts"]["benchmark_operational_summary"]["present"] is True
     assert payload["artifacts"]["benchmark_companion_summary"]["present"] is True
+    assert payload["artifacts"]["benchmark_release_decision"]["present"] is True
     assert payload["component_statuses"]["assistant_explainability"] == "partial_coverage"
     assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"
     assert "review queue backlog" in output_md.read_text(encoding="utf-8")
@@ -165,6 +170,7 @@ def test_build_bundle_prefers_companion_summary_when_present() -> None:
             "blockers": ["review_queue:managed_backlog"],
             "recommended_actions": ["Reduce review queue backlog"],
         },
+        benchmark_release_decision={},
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -176,3 +182,35 @@ def test_build_bundle_prefers_companion_summary_when_present() -> None:
     assert payload["blockers"] == ["review_queue:managed_backlog"]
     assert payload["recommendations"] == ["Reduce review queue backlog"]
     assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"
+
+
+def test_build_bundle_prefers_release_decision_when_present() -> None:
+    payload = module.build_bundle(
+        title="Benchmark Artifact Bundle",
+        benchmark_scorecard={
+            "overall_status": "benchmark_ready_with_multisignal_evidence",
+            "components": {"hybrid": {"status": "ready"}},
+        },
+        benchmark_operational_summary={
+            "overall_status": "healthy",
+            "component_statuses": {"review_queue": "healthy"},
+        },
+        benchmark_companion_summary={
+            "overall_status": "healthy",
+            "component_statuses": {"assistant_explainability": "healthy"},
+        },
+        benchmark_release_decision={
+            "release_status": "review_required",
+            "blocking_signals": [],
+            "review_signals": ["review_queue:managed_backlog"],
+        },
+        feedback_flywheel={},
+        assistant_evidence={},
+        review_queue={},
+        ocr_review={},
+        artifact_paths={"benchmark_release_decision": "release.json"},
+    )
+
+    assert payload["overall_status"] == "review_required"
+    assert payload["recommendations"] == ["review_queue:managed_backlog"]
+    assert payload["artifacts"]["benchmark_release_decision"]["present"] is True
