@@ -186,11 +186,84 @@ def _governance_status(summary: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _assistant_explainability_status(summary: Dict[str, Any]) -> Dict[str, Any]:
+    if not summary:
+        return {"status": "missing"}
+
+    total_records = _to_int(summary.get("total_records"))
+    evidence_items = _to_int(summary.get("total_evidence_items"))
+    avg_evidence = _to_float(summary.get("average_evidence_count"))
+    evidence_cov = _to_float(summary.get("records_with_evidence_pct"))
+    decision_cov = _to_float(summary.get("records_with_decision_path_pct"))
+    source_cov = _to_float(summary.get("records_with_any_source_signal_pct"))
+
+    if total_records <= 0:
+        status = "missing"
+    elif evidence_cov >= 0.8 and decision_cov >= 0.7 and source_cov >= 0.7:
+        status = "explainability_ready"
+    elif evidence_cov >= 0.5 or decision_cov >= 0.5 or source_cov >= 0.5:
+        status = "partial_coverage"
+    else:
+        status = "weak_coverage"
+
+    return {
+        "status": status,
+        "total_records": total_records,
+        "total_evidence_items": evidence_items,
+        "average_evidence_count": round(avg_evidence, 6),
+        "records_with_evidence_pct": round(evidence_cov, 6),
+        "records_with_decision_path_pct": round(decision_cov, 6),
+        "records_with_any_source_signal_pct": round(source_cov, 6),
+        "top_record_kinds": list(summary.get("top_record_kinds") or []),
+        "top_evidence_types": list(summary.get("top_evidence_types") or []),
+        "top_structured_sources": list(summary.get("top_structured_sources") or []),
+        "top_missing_fields": list(summary.get("top_missing_fields") or []),
+    }
+
+
+def _review_queue_status(summary: Dict[str, Any]) -> Dict[str, Any]:
+    if not summary:
+        return {"status": "missing"}
+
+    total = _to_int(summary.get("total"))
+    by_priority = summary.get("by_feedback_priority") or {}
+    by_reason = summary.get("by_review_reason") or {}
+    by_type = summary.get("by_sample_type") or {}
+    critical = _to_int(by_priority.get("critical"))
+    high = _to_int(by_priority.get("high"))
+    automation_ready = _to_int(summary.get("automation_ready_count"))
+    automation_ready_ratio = _to_float(summary.get("automation_ready_ratio"))
+
+    if total <= 0:
+        status = "under_control"
+    elif critical > 0:
+        status = "critical_backlog"
+    elif high > 0:
+        status = "managed_backlog"
+    else:
+        status = "routine_backlog"
+
+    return {
+        "status": status,
+        "total": total,
+        "critical_count": critical,
+        "high_count": high,
+        "automation_ready_count": automation_ready,
+        "automation_ready_ratio": round(automation_ready_ratio, 6),
+        "by_sample_type": by_type,
+        "by_feedback_priority": by_priority,
+        "by_decision_source": summary.get("by_decision_source") or {},
+        "by_review_reason": by_reason,
+    }
+
+
 def _overall_status(
     hybrid: Dict[str, Any],
     history: Dict[str, Any],
     brep: Dict[str, Any],
     governance: Dict[str, Any],
+    assistant: Dict[str, Any],
+    review_queue: Dict[str, Any],
 ) -> str:
     if hybrid.get("status") not in {"strong_primary", "usable_primary"}:
         return "baseline_not_ready"
@@ -200,6 +273,10 @@ def _overall_status(
         return "benchmark_ready_with_history_gap"
     if brep.get("status") in {"missing", "prep_only"}:
         return "benchmark_ready_with_3d_gap"
+    if assistant.get("status") in {"missing", "weak_coverage", "partial_coverage"}:
+        return "benchmark_ready_with_explainability_gap"
+    if review_queue.get("status") in {"critical_backlog", "managed_backlog"}:
+        return "benchmark_ready_with_review_gap"
     return "benchmark_ready_with_multisignal_evidence"
 
 
@@ -209,6 +286,8 @@ def _recommendations(
     history: Dict[str, Any],
     brep: Dict[str, Any],
     governance: Dict[str, Any],
+    assistant: Dict[str, Any],
+    review_queue: Dict[str, Any],
 ) -> List[str]:
     items: List[str] = []
     if graph2d.get("status") == "weak_signal_only":
@@ -221,6 +300,14 @@ def _recommendations(
         items.append("Run STEP/B-Rep evaluation under OCC-enabled environment.")
     if governance.get("status") == "blocked":
         items.append("Resolve migration blocking reasons before production rollout.")
+    if assistant.get("status") in {"missing", "weak_coverage", "partial_coverage"}:
+        items.append("Raise assistant evidence, decision_path, and source-signal coverage.")
+    if review_queue.get("status") == "critical_backlog":
+        items.append(
+            "Drain critical review queue before calling the benchmark operationally ready."
+        )
+    elif review_queue.get("status") == "managed_backlog":
+        items.append("Reduce high-priority review backlog or automate more review-ready samples.")
     if not items:
         items.append(
             "Current scorecard is healthy; freeze this run as the next benchmark baseline."
@@ -238,6 +325,8 @@ def build_scorecard(
     history_summary: Dict[str, Any],
     brep_summary: Dict[str, Any],
     migration_summary: Dict[str, Any],
+    assistant_evidence_summary: Dict[str, Any],
+    review_queue_summary: Dict[str, Any],
 ) -> Dict[str, Any]:
     hybrid = _hybrid_status(hybrid_summary)
     graph2d = _graph2d_status(
@@ -248,7 +337,16 @@ def build_scorecard(
     history = _history_status(history_summary)
     brep = _brep_status(brep_summary)
     governance = _governance_status(migration_summary)
-    overall_status = _overall_status(hybrid, history, brep, governance)
+    assistant = _assistant_explainability_status(assistant_evidence_summary)
+    review_queue = _review_queue_status(review_queue_summary)
+    overall_status = _overall_status(
+        hybrid,
+        history,
+        brep,
+        governance,
+        assistant,
+        review_queue,
+    )
     return {
         "title": title,
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
@@ -259,6 +357,8 @@ def build_scorecard(
             "history_sequence": history,
             "brep": brep,
             "migration_governance": governance,
+            "assistant_explainability": assistant,
+            "review_queue": review_queue,
         },
         "recommendations": _recommendations(
             hybrid,
@@ -266,6 +366,8 @@ def build_scorecard(
             history,
             brep,
             governance,
+            assistant,
+            review_queue,
         ),
     }
 
@@ -323,6 +425,22 @@ def _render_markdown(scorecard: Dict[str, Any]) -> str:
         f"coverage_complete={governance.get('coverage_complete')}, "
         f"estimated_runs={governance.get('estimated_total_runs')} |"
     )
+    assistant = components.get("assistant_explainability", {}) or {}
+    lines.append(
+        "| assistant_explainability | "
+        f"`{assistant.get('status')}` | "
+        f"records={assistant.get('total_records')}, "
+        f"evidence_cov={assistant.get('records_with_evidence_pct')}, "
+        f"decision_cov={assistant.get('records_with_decision_path_pct')} |"
+    )
+    review_queue = components.get("review_queue", {}) or {}
+    lines.append(
+        "| review_queue | "
+        f"`{review_queue.get('status')}` | "
+        f"total={review_queue.get('total')}, "
+        f"critical={review_queue.get('critical_count')}, "
+        f"automation_ready={review_queue.get('automation_ready_count')} |"
+    )
     lines.extend(
         [
             "",
@@ -348,6 +466,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--history-summary", default="")
     parser.add_argument("--brep-summary", default="")
     parser.add_argument("--migration-summary", default="")
+    parser.add_argument("--assistant-evidence-summary", default="")
+    parser.add_argument("--review-queue-summary", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args(argv)
@@ -364,6 +484,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         history_summary=_maybe_load_json(args.history_summary),
         brep_summary=_maybe_load_json(args.brep_summary),
         migration_summary=_maybe_load_json(args.migration_summary),
+        assistant_evidence_summary=_maybe_load_json(args.assistant_evidence_summary),
+        review_queue_summary=_maybe_load_json(args.review_queue_summary),
     )
 
     if args.output_json:

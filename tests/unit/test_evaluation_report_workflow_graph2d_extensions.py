@@ -51,6 +51,8 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON" in env
     assert "BENCHMARK_SCORECARD_BREP_SUMMARY_JSON" in env
     assert "BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON" in env
     assert "BENCHMARK_SCORECARD_OUTPUT_JSON" in env
     assert "BENCHMARK_SCORECARD_OUTPUT_MD" in env
     assert "OCR_REVIEW_PACK_ENABLE" in env
@@ -78,6 +80,8 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "review_pack_input_artifact_repository" in dispatch_inputs
     assert "review_pack_input_artifact_path" in dispatch_inputs
     assert "benchmark_scorecard_enable" in dispatch_inputs
+    assert "benchmark_scorecard_assistant_evidence_summary" in dispatch_inputs
+    assert "benchmark_scorecard_review_queue_summary" in dispatch_inputs
     assert "ocr_review_pack_enable" in dispatch_inputs
     assert "ocr_review_pack_input" in dispatch_inputs
     assert "assistant_evidence_report_enable" in dispatch_inputs
@@ -179,7 +183,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--hybrid-summary" in benchmark_script
     assert "--graph2d-metrics" in benchmark_script
     assert "--history-summary" in benchmark_script
+    assert "--assistant-evidence-summary" in benchmark_script
+    assert "--review-queue-summary" in benchmark_script
     assert "overall_status=" in benchmark_script
+    assert "assistant_status=" in benchmark_script
+    assert "review_queue_status=" in benchmark_script
 
     assistant_step = _get_step(
         workflow, "evaluate", "Build assistant evidence report (optional)"
@@ -241,6 +249,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark hybrid status" in summary_script
     assert "Benchmark Graph2D status" in summary_script
     assert "Benchmark recommendations" in summary_script
+    assert "Benchmark assistant status" in summary_script
+    assert "Benchmark review queue status" in summary_script
     assert "Assistant evidence input" in summary_script
     assert "Assistant evidence records" in summary_script
     assert "Assistant evidence items" in summary_script
@@ -269,6 +279,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkScorecardEnabled" in pr_comment_script
     assert "Benchmark Scorecard" in pr_comment_script
     assert "Benchmark Recommendations" in pr_comment_script
+    assert "benchmarkAssistantStatus" in pr_comment_script
+    assert "benchmarkReviewQueueStatus" in pr_comment_script
+    assert "assistant=${benchmarkAssistantStatus}" in pr_comment_script
+    assert "review_queue=${benchmarkReviewQueueStatus}" in pr_comment_script
     assert "assistantEvidenceEnabled" in pr_comment_script
     assert "Assistant Evidence Report" in pr_comment_script
     assert "Assistant Evidence Insights" in pr_comment_script
