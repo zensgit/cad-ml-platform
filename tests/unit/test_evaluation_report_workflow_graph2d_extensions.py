@@ -515,6 +515,52 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "domain_statuses=" in benchmark_knowledge_realdata_script
     assert "recommendations=" in benchmark_knowledge_realdata_script
 
+    benchmark_knowledge_domain_matrix_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge domain matrix (optional)"
+    )
+    benchmark_knowledge_domain_matrix_script = benchmark_knowledge_domain_matrix_step["run"]
+    assert (
+        "scripts/export_benchmark_knowledge_domain_matrix.py"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_MATRIX_ENABLE"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "benchmark_knowledge_domain_matrix_knowledge_readiness_json"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "benchmark_knowledge_domain_matrix_knowledge_application_json"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "benchmark_knowledge_domain_matrix_knowledge_realdata_correlation_json"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "steps.benchmark_knowledge_readiness.outputs.output_json"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "steps.benchmark_knowledge_application.outputs.output_json"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert (
+        "steps.benchmark_knowledge_realdata_correlation.outputs.output_json"
+        in benchmark_knowledge_domain_matrix_script
+    )
+    assert "ready_domain_count=" in benchmark_knowledge_domain_matrix_script
+    assert "partial_domain_count=" in benchmark_knowledge_domain_matrix_script
+    assert "blocked_domain_count=" in benchmark_knowledge_domain_matrix_script
+    assert "total_domain_count=" in benchmark_knowledge_domain_matrix_script
+    assert "focus_area_count=" in benchmark_knowledge_domain_matrix_script
+    assert "focus_areas=" in benchmark_knowledge_domain_matrix_script
+    assert "priority_domains=" in benchmark_knowledge_domain_matrix_script
+    assert "domain_statuses=" in benchmark_knowledge_domain_matrix_script
+    assert "recommendations=" in benchmark_knowledge_domain_matrix_script
+
     final_fail_step = _get_step(
         workflow,
         "evaluate",
@@ -895,6 +941,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_knowledge_realdata["if"]
         == "steps.benchmark_knowledge_realdata_correlation.outputs.enabled == 'true'"
+    )
+    upload_knowledge_domain_matrix = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge domain matrix"
+    )
+    assert (
+        upload_knowledge_domain_matrix["if"]
+        == "steps.benchmark_knowledge_domain_matrix.outputs.enabled == 'true'"
     )
     upload_feedback_flywheel = _get_step(
         workflow, "evaluate", "Upload feedback flywheel benchmark artifact"
