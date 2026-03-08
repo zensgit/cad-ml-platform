@@ -122,6 +122,34 @@ on:
         description: 'Optional benchmark operational summary OCR review JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_enable:
+        description: 'Override: enable benchmark artifact bundle export (true/false)'
+        required: false
+        default: ''
+      benchmark_artifact_bundle_scorecard_json:
+        description: 'Optional benchmark artifact bundle scorecard JSON'
+        required: false
+        default: ''
+      benchmark_artifact_bundle_operational_summary_json:
+        description: 'Optional benchmark artifact bundle operational summary JSON'
+        required: false
+        default: ''
+      benchmark_artifact_bundle_feedback_json:
+        description: 'Optional benchmark artifact bundle feedback flywheel JSON'
+        required: false
+        default: ''
+      benchmark_artifact_bundle_assistant_json:
+        description: 'Optional benchmark artifact bundle assistant evidence JSON'
+        required: false
+        default: ''
+      benchmark_artifact_bundle_review_queue_json:
+        description: 'Optional benchmark artifact bundle review queue JSON'
+        required: false
+        default: ''
+      benchmark_artifact_bundle_ocr_review_json:
+        description: 'Optional benchmark artifact bundle OCR review JSON'
+        required: false
+        default: ''
       ocr_review_pack_enable:
         description: 'Override: enable OCR review-pack export (true/false)'
         required: false
@@ -218,6 +246,16 @@ env:
   BENCHMARK_OPERATIONAL_SUMMARY_OCR_REVIEW_JSON: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_OCR_REVIEW_JSON }}
   BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_JSON: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_operational_summary.json' }}
   BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_MD: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_operational_summary.md' }}
+  BENCHMARK_ARTIFACT_BUNDLE_ENABLE: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_ENABLE || 'false' }}
+  BENCHMARK_ARTIFACT_BUNDLE_TITLE: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_TITLE || 'CAD Benchmark Artifact Bundle' }}
+  BENCHMARK_ARTIFACT_BUNDLE_SCORECARD_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_SCORECARD_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_OPERATIONAL_SUMMARY_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OPERATIONAL_SUMMARY_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_FEEDBACK_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_FEEDBACK_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_ASSISTANT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_ASSISTANT_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_REVIEW_QUEUE_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_REVIEW_QUEUE_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_artifact_bundle.json' }}
+  BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_artifact_bundle.md' }}
   OCR_REVIEW_PACK_ENABLE: ${{ vars.OCR_REVIEW_PACK_ENABLE || 'false' }}
   OCR_REVIEW_PACK_INPUT: ${{ vars.OCR_REVIEW_PACK_INPUT }}
   OCR_REVIEW_PACK_OUTPUT_CSV: ${{ vars.OCR_REVIEW_PACK_OUTPUT_CSV || 'reports/history_sequence_eval/ocr_review_pack.csv' }}
@@ -1083,6 +1121,111 @@ jobs:
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
 
+    - name: Build benchmark artifact bundle (optional)
+      id: benchmark_artifact_bundle
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_artifact_bundle_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_ARTIFACT_BUNDLE_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_artifact_bundle.json}"
+        OUTPUT_MD="${BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD:-reports/history_sequence_eval/benchmark_artifact_bundle.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_artifact_bundle.py
+          --title "${BENCHMARK_ARTIFACT_BUNDLE_TITLE:-CAD Benchmark Artifact Bundle}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --benchmark-scorecard "${{ github.event.inputs.benchmark_artifact_bundle_scorecard_json || '' }}"
+        add_if_exists --benchmark-operational-summary "${{ github.event.inputs.benchmark_artifact_bundle_operational_summary_json || '' }}"
+        add_if_exists --feedback-flywheel "${{ github.event.inputs.benchmark_artifact_bundle_feedback_json || '' }}"
+        add_if_exists --assistant-evidence "${{ github.event.inputs.benchmark_artifact_bundle_assistant_json || '' }}"
+        add_if_exists --review-queue "${{ github.event.inputs.benchmark_artifact_bundle_review_queue_json || '' }}"
+        add_if_exists --ocr-review "${{ github.event.inputs.benchmark_artifact_bundle_ocr_review_json || '' }}"
+        add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
+        add_if_exists --benchmark-scorecard "${BENCHMARK_ARTIFACT_BUNDLE_SCORECARD_JSON:-}"
+        add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
+        add_if_exists --benchmark-operational-summary "${BENCHMARK_ARTIFACT_BUNDLE_OPERATIONAL_SUMMARY_JSON:-}"
+        add_if_exists --feedback-flywheel "${{ steps.feedback_flywheel_benchmark.outputs.output_json || '' }}"
+        add_if_exists --feedback-flywheel "${BENCHMARK_ARTIFACT_BUNDLE_FEEDBACK_JSON:-}"
+        add_if_exists --assistant-evidence "${{ steps.assistant_evidence_report.outputs.output_json || '' }}"
+        add_if_exists --assistant-evidence "${BENCHMARK_ARTIFACT_BUNDLE_ASSISTANT_JSON:-}"
+        add_if_exists --review-queue "${{ steps.active_learning_review_queue_report.outputs.output_json || '' }}"
+        add_if_exists --review-queue "${BENCHMARK_ARTIFACT_BUNDLE_REVIEW_QUEUE_JSON:-}"
+        add_if_exists --ocr-review "${{ steps.ocr_review_pack.outputs.output_json || '' }}"
+        add_if_exists --ocr-review "${BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_ARTIFACT_BUNDLE_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark artifact bundle inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON"]).read_text(
+                encoding="utf-8"
+            )
+        )
+        components = payload.get("component_statuses") or {}
+        blockers = payload.get("blockers") or []
+        recommendations = payload.get("recommendations") or []
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:3] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"overall_status={payload.get('overall_status', 'unknown')}\n")
+            f.write(
+                f"available_artifact_count={payload.get('available_artifact_count', 0)}\n"
+            )
+            f.write(
+                f"feedback_status={components.get('feedback_flywheel', 'unknown')}\n"
+            )
+            f.write(
+                f"assistant_status={components.get('assistant_explainability', 'unknown')}\n"
+            )
+            f.write(f"review_queue_status={components.get('review_queue', 'unknown')}\n")
+            f.write(f"ocr_status={components.get('ocr_review', 'unknown')}\n")
+            f.write(f"blockers={compact(blockers)}\n")
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
     - name: Build assistant evidence report (optional)
       id: assistant_evidence_report
       continue-on-error: true
@@ -1441,6 +1584,16 @@ jobs:
           ${{ steps.benchmark_operational_summary.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark artifact bundle
+      if: steps.benchmark_artifact_bundle.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-artifact-bundle-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_artifact_bundle.outputs.output_json }}
+          ${{ steps.benchmark_artifact_bundle.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload assistant evidence report
       if: steps.assistant_evidence_report.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -1625,6 +1778,19 @@ jobs:
           echo "- Benchmark operational artifact: ${{ steps.benchmark_operational_summary.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Benchmark operational summary: skipped (no benchmark operational inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.benchmark_artifact_bundle.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark artifact bundle overall: ${{ steps.benchmark_artifact_bundle.outputs.overall_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle available artifacts: ${{ steps.benchmark_artifact_bundle.outputs.available_artifact_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle feedback status: ${{ steps.benchmark_artifact_bundle.outputs.feedback_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle assistant status: ${{ steps.benchmark_artifact_bundle.outputs.assistant_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle review queue status: ${{ steps.benchmark_artifact_bundle.outputs.review_queue_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle OCR status: ${{ steps.benchmark_artifact_bundle.outputs.ocr_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle blockers: ${{ steps.benchmark_artifact_bundle.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle recommendations: ${{ steps.benchmark_artifact_bundle.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle artifact: ${{ steps.benchmark_artifact_bundle.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark artifact bundle: skipped (no benchmark bundle inputs)" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "${{ steps.assistant_evidence_report.outputs.enabled }}" == "true" ]]; then
           echo "- Assistant evidence input: ${{ steps.assistant_evidence_report.outputs.input_path }}" >> $GITHUB_STEP_SUMMARY

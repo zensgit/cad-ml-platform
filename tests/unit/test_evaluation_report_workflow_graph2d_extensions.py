@@ -71,6 +71,16 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_OPERATIONAL_SUMMARY_OCR_REVIEW_JSON" in env
     assert "BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_JSON" in env
     assert "BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_MD" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_ENABLE" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_TITLE" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_SCORECARD_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_OPERATIONAL_SUMMARY_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_FEEDBACK_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_ASSISTANT_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_REVIEW_QUEUE_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD" in env
     assert "OCR_REVIEW_PACK_ENABLE" in env
     assert "OCR_REVIEW_PACK_INPUT" in env
     assert "OCR_REVIEW_PACK_OUTPUT_CSV" in env
@@ -114,6 +124,13 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_operational_summary_assistant_json" in dispatch_inputs
     assert "benchmark_operational_summary_review_queue_json" in dispatch_inputs
     assert "benchmark_operational_summary_ocr_review_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_enable" in dispatch_inputs
+    assert "benchmark_artifact_bundle_scorecard_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_operational_summary_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_feedback_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_assistant_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_review_queue_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_ocr_review_json" in dispatch_inputs
     assert "ocr_review_pack_enable" in dispatch_inputs
     assert "ocr_review_pack_input" in dispatch_inputs
     assert "assistant_evidence_report_enable" in dispatch_inputs
@@ -263,6 +280,27 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "blockers=" in benchmark_operational_script
     assert "recommendations=" in benchmark_operational_script
 
+    benchmark_bundle_step = _get_step(
+        workflow, "evaluate", "Build benchmark artifact bundle (optional)"
+    )
+    benchmark_bundle_script = benchmark_bundle_step["run"]
+    assert "scripts/export_benchmark_artifact_bundle.py" in benchmark_bundle_script
+    assert "BENCHMARK_ARTIFACT_BUNDLE_ENABLE" in benchmark_bundle_script
+    assert "--benchmark-scorecard" in benchmark_bundle_script
+    assert "--benchmark-operational-summary" in benchmark_bundle_script
+    assert "--feedback-flywheel" in benchmark_bundle_script
+    assert "--assistant-evidence" in benchmark_bundle_script
+    assert "--review-queue" in benchmark_bundle_script
+    assert "--ocr-review" in benchmark_bundle_script
+    assert "INPUT_COUNT=0" in benchmark_bundle_script
+    assert "available_artifact_count=" in benchmark_bundle_script
+    assert "feedback_status=" in benchmark_bundle_script
+    assert "assistant_status=" in benchmark_bundle_script
+    assert "review_queue_status=" in benchmark_bundle_script
+    assert "ocr_status=" in benchmark_bundle_script
+    assert "blockers=" in benchmark_bundle_script
+    assert "recommendations=" in benchmark_bundle_script
+
     assistant_step = _get_step(
         workflow, "evaluate", "Build assistant evidence report (optional)"
     )
@@ -318,6 +356,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_benchmark_operational["if"]
         == "steps.benchmark_operational_summary.outputs.enabled == 'true'"
+    )
+    upload_benchmark_bundle = _get_step(
+        workflow, "evaluate", "Upload benchmark artifact bundle"
+    )
+    assert (
+        upload_benchmark_bundle["if"]
+        == "steps.benchmark_artifact_bundle.outputs.enabled == 'true'"
     )
     upload_assistant = _get_step(workflow, "evaluate", "Upload assistant evidence report")
     assert (
@@ -379,6 +424,15 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark operational blockers" in summary_script
     assert "Benchmark operational recommendations" in summary_script
     assert "Benchmark operational artifact" in summary_script
+    assert "Benchmark artifact bundle overall" in summary_script
+    assert "Benchmark artifact bundle available artifacts" in summary_script
+    assert "Benchmark artifact bundle feedback status" in summary_script
+    assert "Benchmark artifact bundle assistant status" in summary_script
+    assert "Benchmark artifact bundle review queue status" in summary_script
+    assert "Benchmark artifact bundle OCR status" in summary_script
+    assert "Benchmark artifact bundle blockers" in summary_script
+    assert "Benchmark artifact bundle recommendations" in summary_script
+    assert "Benchmark artifact bundle artifact" in summary_script
     assert "Assistant evidence input" in summary_script
     assert "Assistant evidence records" in summary_script
     assert "Assistant evidence items" in summary_script
