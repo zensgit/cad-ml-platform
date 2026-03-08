@@ -32,6 +32,7 @@ engineering-semantic system with:
 
 - benchmark scorecard
 - benchmark engineering signals
+- benchmark knowledge readiness
 - feedback flywheel benchmark
 - operational summary
 - artifact bundle
@@ -46,13 +47,18 @@ surfaces.
 ### 4. CI / PR Observability
 
 - `evaluation-report.yml` can build and upload benchmark engineering, bundle,
-  companion, release-decision, runbook, and operator-adoption artifacts
+  knowledge-readiness, bundle, companion, release-decision, runbook, and
+  operator-adoption artifacts
 - PR comments and job summaries now surface bundle, companion, release, and
   engineering signals instead of only raw benchmark scorecard output
+- PR comments and job summaries now also surface `knowledge=...` state across
+  scorecard, bundle, companion, release decision, and release runbook layers
 - companion summary is connected to bundle composition and engineering signals,
   so downstream reviewers see one compact operational picture
 - release decision and release runbook now consume operator-adoption input in
   both standalone exporters and CI workflow surfaces
+- release decision and release runbook also consume knowledge readiness, so
+  release gating can reflect standards/tolerance/GD&T baseline completeness
 - PR comments now expose release-surface `operator_adoption=...` state directly
   in release decision and release runbook status lines
 
@@ -91,8 +97,9 @@ product depth:
    - DXF hybrid benchmark runs
    - history-sequence `.h5` sets
    - STEP/B-Rep directory batches
-2. Promote standards/tolerance/GD&T checks into benchmark companion summary so
-   the product compares on engineering judgment, not only extraction coverage.
+2. Expand knowledge readiness from built-in foundation coverage into richer
+   benchmark companion/release views with row-level standards, tolerance, and
+   GD&T evidence.
 3. Package a fuller operator-facing adoption loop that maps benchmark outputs
    to release, retraining, and review-queue execution.
 4. Add benchmark-level real-data scorecards that compare weak-signal Graph2D,
@@ -108,3 +115,5 @@ product depth:
 - `docs/BENCHMARK_RELEASE_RUNBOOK_OPERATOR_ADOPTION_VALIDATION_20260308.md`
 - `docs/BENCHMARK_RELEASE_SURFACE_OPERATOR_ADOPTION_CI_VALIDATION_20260308.md`
 - `docs/BENCHMARK_RELEASE_SURFACE_OPERATOR_ADOPTION_PR_COMMENT_VALIDATION_20260308.md`
+- `docs/BENCHMARK_KNOWLEDGE_READINESS_VALIDATION_20260308.md`
+- `docs/BENCHMARK_KNOWLEDGE_READINESS_CI_VALIDATION_20260308.md`
