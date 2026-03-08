@@ -61,6 +61,7 @@ def _component_statuses(
     benchmark_knowledge_readiness: Dict[str, Any],
     benchmark_knowledge_drift: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
+    benchmark_realdata_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
 ) -> Dict[str, str]:
     components = scorecard.get("components") or {}
@@ -74,6 +75,11 @@ def _component_statuses(
     engineering_component = (
         benchmark_engineering_signals.get("engineering_signals")
         or benchmark_engineering_signals
+        or {}
+    )
+    realdata_component = (
+        benchmark_realdata_signals.get("realdata_signals")
+        or benchmark_realdata_signals
         or {}
     )
     component_rows = {
@@ -136,6 +142,12 @@ def _component_statuses(
         or (components.get("engineering_signals") or {}).get("status")
         or "unknown"
     )
+    component_rows["realdata_signals"] = str(
+        companion_components.get("realdata_signals")
+        or realdata_component.get("status")
+        or (components.get("realdata_signals") or {}).get("status")
+        or "unknown"
+    )
     component_rows["operator_adoption"] = str(
         benchmark_operator_adoption.get("adoption_readiness") or "unknown"
     )
@@ -181,6 +193,7 @@ def _pick_summary_items(
     benchmark_scorecard: Dict[str, Any],
     benchmark_knowledge_drift: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
+    benchmark_realdata_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
 ) -> tuple[str, List[str], List[str]]:
     overall_status = (
@@ -204,6 +217,7 @@ def _pick_summary_items(
         or benchmark_scorecard.get("recommendations")
         or benchmark_knowledge_drift.get("recommendations")
         or benchmark_engineering_signals.get("recommendations")
+        or benchmark_realdata_signals.get("recommendations")
         or benchmark_operator_adoption.get("recommended_actions")
         or []
     )
@@ -243,6 +257,7 @@ def build_bundle(
     benchmark_knowledge_readiness: Dict[str, Any],
     benchmark_knowledge_drift: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
+    benchmark_realdata_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
     feedback_flywheel: Dict[str, Any],
     assistant_evidence: Dict[str, Any],
@@ -257,11 +272,17 @@ def build_bundle(
         benchmark_scorecard,
         benchmark_knowledge_drift,
         benchmark_engineering_signals,
+        benchmark_realdata_signals,
         benchmark_operator_adoption,
     )
     knowledge_component = (
         benchmark_knowledge_readiness.get("knowledge_readiness")
         or benchmark_knowledge_readiness
+        or {}
+    )
+    realdata_component = (
+        benchmark_realdata_signals.get("realdata_signals")
+        or benchmark_realdata_signals
         or {}
     )
     knowledge_drift_component = _knowledge_drift_component(benchmark_knowledge_drift)
@@ -312,6 +333,11 @@ def build_bundle(
             name="benchmark_engineering_signals",
             path_text=artifact_paths.get("benchmark_engineering_signals", ""),
             payload=benchmark_engineering_signals,
+        ),
+        "benchmark_realdata_signals": _artifact_row(
+            name="benchmark_realdata_signals",
+            path_text=artifact_paths.get("benchmark_realdata_signals", ""),
+            payload=benchmark_realdata_signals,
         ),
         "benchmark_operator_adoption": _artifact_row(
             name="benchmark_operator_adoption",
@@ -365,6 +391,11 @@ def build_bundle(
         "knowledge_drift_new_priority_domains": list(
             knowledge_drift_component.get("new_priority_domains") or []
         ),
+        "realdata_status": str(realdata_component.get("status") or "unknown"),
+        "realdata_signals": realdata_component,
+        "realdata_recommendations": _compact_list(
+            benchmark_realdata_signals.get("recommendations") or []
+        ),
         "operator_adoption_knowledge_drift": operator_adoption_knowledge_drift,
         "knowledge_domains": knowledge_domains,
         "knowledge_domain_focus_areas": knowledge_domain_focus_areas,
@@ -376,6 +407,7 @@ def build_bundle(
             benchmark_knowledge_readiness,
             benchmark_knowledge_drift,
             benchmark_engineering_signals,
+            benchmark_realdata_signals,
             benchmark_operator_adoption,
         ),
         "blockers": blockers,
@@ -395,6 +427,7 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"- available_artifact_count: `{payload.get('available_artifact_count')}`",
         f"- knowledge_focus_area_count: `{payload.get('knowledge_focus_area_count')}`",
         f"- knowledge_drift_summary: `{payload.get('knowledge_drift_summary') or 'none'}`",
+        f"- realdata_status: `{payload.get('realdata_status') or 'unknown'}`",
         "",
         "## Component Statuses",
         "",
@@ -419,6 +452,27 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         lines.extend(f"- {item}" for item in recommendations)
     else:
         lines.append("- none")
+    lines.extend(["", "## Real-Data Signals", ""])
+    realdata = payload.get("realdata_signals") or {}
+    lines.append(f"- `status`: `{payload.get('realdata_status')}`")
+    component_rows = realdata.get("components") or {}
+    if component_rows:
+        for name, row in component_rows.items():
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"status=`{row.get('status')}` "
+                f"sample_size=`{row.get('sample_size', 'n/a')}`"
+            )
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Real-Data Recommendations", ""])
+    realdata_recommendations = payload.get("realdata_recommendations") or []
+    if realdata_recommendations:
+        for item in realdata_recommendations:
+            lines.append(f"- recommendation: {item}")
+    else:
+        lines.append("- recommendation: none")
     lines.extend(["", "## Knowledge Drift", ""])
     knowledge_drift_changes = payload.get("knowledge_drift_component_changes") or []
     knowledge_drift_domain_regressions = (
@@ -546,6 +600,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-readiness", default="")
     parser.add_argument("--benchmark-knowledge-drift", default="")
     parser.add_argument("--benchmark-engineering-signals", default="")
+    parser.add_argument("--benchmark-realdata-signals", default="")
     parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--feedback-flywheel", default="")
     parser.add_argument("--assistant-evidence", default="")
@@ -563,6 +618,7 @@ def main() -> None:
         "benchmark_knowledge_readiness": args.benchmark_knowledge_readiness,
         "benchmark_knowledge_drift": args.benchmark_knowledge_drift,
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
+        "benchmark_realdata_signals": args.benchmark_realdata_signals,
         "benchmark_operator_adoption": args.benchmark_operator_adoption,
         "feedback_flywheel": args.feedback_flywheel,
         "assistant_evidence": args.assistant_evidence,
@@ -582,6 +638,7 @@ def main() -> None:
         benchmark_engineering_signals=_maybe_load_json(
             args.benchmark_engineering_signals
         ),
+        benchmark_realdata_signals=_maybe_load_json(args.benchmark_realdata_signals),
         benchmark_operator_adoption=_maybe_load_json(args.benchmark_operator_adoption),
         feedback_flywheel=_maybe_load_json(args.feedback_flywheel),
         assistant_evidence=_maybe_load_json(args.assistant_evidence),
