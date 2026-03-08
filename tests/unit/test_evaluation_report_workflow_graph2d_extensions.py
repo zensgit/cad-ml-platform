@@ -334,6 +334,18 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "focus_area_count=" in benchmark_knowledge_script
     assert "focus_areas=" in benchmark_knowledge_script
     assert "recommendations=" in benchmark_knowledge_script
+    benchmark_knowledge_drift_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge drift (optional)"
+    )
+    benchmark_knowledge_drift_script = benchmark_knowledge_drift_step["run"]
+    assert "scripts/export_benchmark_knowledge_drift.py" in benchmark_knowledge_drift_script
+    assert "BENCHMARK_KNOWLEDGE_DRIFT_ENABLE" in benchmark_knowledge_drift_script
+    assert "benchmark_knowledge_drift_current_summary_json" in benchmark_knowledge_drift_script
+    assert "reference_item_delta=" in benchmark_knowledge_drift_script
+    assert "regressions=" in benchmark_knowledge_drift_script
+    assert "improvements=" in benchmark_knowledge_drift_script
+    assert "resolved_focus_areas=" in benchmark_knowledge_drift_script
+    assert "new_focus_areas=" in benchmark_knowledge_drift_script
 
     final_fail_step = _get_step(
         workflow,
@@ -610,6 +622,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         upload_knowledge["if"]
         == "steps.benchmark_knowledge_readiness.outputs.enabled == 'true'"
     )
+    upload_knowledge_drift = _get_step(workflow, "evaluate", "Upload benchmark knowledge drift")
+    assert (
+        upload_knowledge_drift["if"]
+        == "steps.benchmark_knowledge_drift.outputs.enabled == 'true'"
+    )
     upload_feedback_flywheel = _get_step(
         workflow, "evaluate", "Upload feedback flywheel benchmark artifact"
     )
@@ -790,6 +807,16 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark knowledge focus area count" in summary_script
     assert "Benchmark knowledge recommendations" in summary_script
     assert "Benchmark knowledge artifact" in summary_script
+    assert "Benchmark knowledge drift status" in summary_script
+    assert "Benchmark knowledge drift current status" in summary_script
+    assert "Benchmark knowledge drift previous status" in summary_script
+    assert "Benchmark knowledge drift reference item delta" in summary_script
+    assert "Benchmark knowledge drift regressions" in summary_script
+    assert "Benchmark knowledge drift improvements" in summary_script
+    assert "Benchmark knowledge drift resolved focus areas" in summary_script
+    assert "Benchmark knowledge drift new focus areas" in summary_script
+    assert "Benchmark knowledge drift recommendations" in summary_script
+    assert "Benchmark knowledge drift artifact" in summary_script
     assert "Benchmark artifact bundle knowledge focus areas" in summary_script
     assert "Benchmark companion knowledge focus areas" in summary_script
     assert "Benchmark release knowledge focus areas" in summary_script
@@ -881,6 +908,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkKnowledgeEnabled" in pr_comment_script
     assert "benchmarkKnowledgeStatusLine" in pr_comment_script
     assert "benchmarkKnowledgeLight" in pr_comment_script
+    assert "benchmarkKnowledgeDriftEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDriftStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDriftLight" in pr_comment_script
     assert "assistant=${benchmarkAssistantStatus}" in pr_comment_script
     assert "review_queue=${benchmarkReviewQueueStatus}" in pr_comment_script
     assert "feedback_flywheel=${benchmarkFeedbackFlywheelStatus}" in pr_comment_script
@@ -891,8 +921,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Feedback Flywheel" in pr_comment_script
     assert "Benchmark Engineering Signals" in pr_comment_script
     assert "Benchmark Knowledge Readiness" in pr_comment_script
+    assert "Benchmark Knowledge Drift" in pr_comment_script
     assert "Benchmark Knowledge Focus Areas" in pr_comment_script
     assert "Benchmark Knowledge Recommendations" in pr_comment_script
+    assert "Benchmark Knowledge Drift Recommendations" in pr_comment_script
     assert "Benchmark Engineering Recommendations" in pr_comment_script
     assert "Feedback Flywheel Artifact" in pr_comment_script
     assert "Benchmark Operational Summary" in pr_comment_script

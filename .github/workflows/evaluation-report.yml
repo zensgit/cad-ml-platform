@@ -396,6 +396,12 @@ env:
   BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON }}
   BENCHMARK_KNOWLEDGE_READINESS_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_READINESS_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_readiness.json' }}
   BENCHMARK_KNOWLEDGE_READINESS_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_READINESS_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_readiness.md' }}
+  BENCHMARK_KNOWLEDGE_DRIFT_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_ENABLE || 'false' }}
+  BENCHMARK_KNOWLEDGE_DRIFT_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_TITLE || 'Benchmark Knowledge Drift' }}
+  BENCHMARK_KNOWLEDGE_DRIFT_CURRENT_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_CURRENT_SUMMARY_JSON }}
+  BENCHMARK_KNOWLEDGE_DRIFT_PREVIOUS_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_PREVIOUS_SUMMARY_JSON }}
+  BENCHMARK_KNOWLEDGE_DRIFT_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_drift.json' }}
+  BENCHMARK_KNOWLEDGE_DRIFT_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_drift.md' }}
   FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON: ${{ vars.FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON || 'reports/history_sequence_eval/feedback_flywheel_benchmark.json' }}
   FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD: ${{ vars.FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD || 'reports/history_sequence_eval/feedback_flywheel_benchmark.md' }}
   BENCHMARK_OPERATIONAL_SUMMARY_ENABLE: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_ENABLE || 'false' }}
@@ -1538,6 +1544,105 @@ jobs:
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
 
+    - name: Build benchmark knowledge drift (optional)
+      id: benchmark_knowledge_drift
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_drift_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_DRIFT_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        CURRENT_INPUT="${{ github.event.inputs.benchmark_knowledge_drift_current_summary_json || '' }}"
+        PREVIOUS_INPUT="${{ github.event.inputs.benchmark_knowledge_drift_previous_summary_json || '' }}"
+        if [[ -z "$CURRENT_INPUT" ]]; then
+          CURRENT_INPUT="${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
+        fi
+        if [[ -z "$CURRENT_INPUT" ]]; then
+          CURRENT_INPUT="${BENCHMARK_KNOWLEDGE_DRIFT_CURRENT_SUMMARY_JSON:-}"
+        fi
+        if [[ -z "$PREVIOUS_INPUT" ]]; then
+          PREVIOUS_INPUT="${BENCHMARK_KNOWLEDGE_DRIFT_PREVIOUS_SUMMARY_JSON:-}"
+        fi
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" && -z "$CURRENT_INPUT" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "BENCHMARK_KNOWLEDGE_DRIFT_ENABLE is not true and no current summary was provided; skip."
+          exit 0
+        fi
+        if [[ -z "$CURRENT_INPUT" || ! -f "$CURRENT_INPUT" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Benchmark knowledge drift current summary is missing; skip."
+          exit 0
+        fi
+
+        OUTPUT_JSON="${BENCHMARK_KNOWLEDGE_DRIFT_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_knowledge_drift.json}"
+        OUTPUT_MD="${BENCHMARK_KNOWLEDGE_DRIFT_OUTPUT_MD:-reports/history_sequence_eval/benchmark_knowledge_drift.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_knowledge_drift.py
+          --title "${BENCHMARK_KNOWLEDGE_DRIFT_TITLE:-Benchmark Knowledge Drift}"
+          --current-summary "$CURRENT_INPUT"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        if [[ -n "$PREVIOUS_INPUT" && -f "$PREVIOUS_INPUT" ]]; then
+          CMD+=(--previous-summary "$PREVIOUS_INPUT")
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["BENCHMARK_KNOWLEDGE_DRIFT_OUTPUT_JSON"]).read_text(
+                encoding="utf-8"
+            )
+        )
+        component = payload.get("knowledge_drift") or {}
+        recommendations = payload.get("recommendations") or []
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:3] if str(item).strip())
+
+        regressions = [
+            f"{row.get('component')}:{row.get('from_status')}->{row.get('to_status')}"
+            for row in component.get("regressions") or []
+            if row.get("component")
+        ]
+        improvements = [
+            f"{row.get('component')}:{row.get('from_status')}->{row.get('to_status')}"
+            for row in component.get("improvements") or []
+            if row.get("component")
+        ]
+        resolved_focus_areas = component.get("resolved_focus_areas") or []
+        new_focus_areas = component.get("new_focus_areas") or []
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={component.get('status', 'unknown')}\n")
+            f.write(f"current_status={component.get('current_status', 'unknown')}\n")
+            f.write(f"previous_status={component.get('previous_status', 'unknown')}\n")
+            f.write(
+                f"reference_item_delta={component.get('reference_item_delta', 0)}\n"
+            )
+            f.write(f"regression_count={len(regressions)}\n")
+            f.write(f"improvement_count={len(improvements)}\n")
+            f.write(f"resolved_focus_area_count={len(resolved_focus_areas)}\n")
+            f.write(f"new_focus_area_count={len(new_focus_areas)}\n")
+            f.write(f"regressions={compact(regressions)}\n")
+            f.write(f"improvements={compact(improvements)}\n")
+            f.write(f"resolved_focus_areas={compact(resolved_focus_areas)}\n")
+            f.write(f"new_focus_areas={compact(new_focus_areas)}\n")
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
     - name: Build benchmark artifact bundle (optional)
       id: benchmark_artifact_bundle
       continue-on-error: true
@@ -2629,6 +2734,16 @@ jobs:
           ${{ steps.benchmark_knowledge_readiness.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark knowledge drift
+      if: steps.benchmark_knowledge_drift.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-knowledge-drift-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_knowledge_drift.outputs.output_json }}
+          ${{ steps.benchmark_knowledge_drift.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload feedback flywheel benchmark artifact
       if: steps.feedback_flywheel_benchmark.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -2892,6 +3007,20 @@ jobs:
         else
           echo "- Benchmark knowledge readiness: skipped (BENCHMARK_KNOWLEDGE_READINESS_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
         fi
+        if [[ "${{ steps.benchmark_knowledge_drift.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark knowledge drift status: ${{ steps.benchmark_knowledge_drift.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge drift current status: ${{ steps.benchmark_knowledge_drift.outputs.current_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge drift previous status: ${{ steps.benchmark_knowledge_drift.outputs.previous_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge drift reference item delta: ${{ steps.benchmark_knowledge_drift.outputs.reference_item_delta }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge drift regressions: ${{ steps.benchmark_knowledge_drift.outputs.regressions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge drift improvements: ${{ steps.benchmark_knowledge_drift.outputs.improvements }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge drift resolved focus areas: ${{ steps.benchmark_knowledge_drift.outputs.resolved_focus_areas }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge drift new focus areas: ${{ steps.benchmark_knowledge_drift.outputs.new_focus_areas }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge drift recommendations: ${{ steps.benchmark_knowledge_drift.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge drift artifact: ${{ steps.benchmark_knowledge_drift.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark knowledge drift: skipped (BENCHMARK_KNOWLEDGE_DRIFT_ENABLE!=true or current summary missing)" >> $GITHUB_STEP_SUMMARY
+        fi
         if [[ "${{ steps.feedback_flywheel_benchmark.outputs.enabled }}" == "true" ]]; then
           echo "- Feedback flywheel benchmark status: ${{ steps.feedback_flywheel_benchmark.outputs.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Feedback flywheel feedback total: ${{ steps.feedback_flywheel_benchmark.outputs.feedback_total }}" >> $GITHUB_STEP_SUMMARY
@@ -3139,6 +3268,17 @@ jobs:
             const benchmarkKnowledgeFocusAreas = '${{ steps.benchmark_knowledge_readiness.outputs.focus_areas }}';
             const benchmarkKnowledgeRecommendations = '${{ steps.benchmark_knowledge_readiness.outputs.recommendations }}';
             const benchmarkKnowledgeArtifact = '${{ steps.benchmark_knowledge_readiness.outputs.output_md }}';
+            const benchmarkKnowledgeDriftEnabled = '${{ steps.benchmark_knowledge_drift.outputs.enabled }}' === 'true';
+            const benchmarkKnowledgeDriftStatus = '${{ steps.benchmark_knowledge_drift.outputs.status }}';
+            const benchmarkKnowledgeDriftCurrentStatus = '${{ steps.benchmark_knowledge_drift.outputs.current_status }}';
+            const benchmarkKnowledgeDriftPreviousStatus = '${{ steps.benchmark_knowledge_drift.outputs.previous_status }}';
+            const benchmarkKnowledgeDriftReferenceItemDelta = '${{ steps.benchmark_knowledge_drift.outputs.reference_item_delta }}';
+            const benchmarkKnowledgeDriftRegressions = '${{ steps.benchmark_knowledge_drift.outputs.regressions }}';
+            const benchmarkKnowledgeDriftImprovements = '${{ steps.benchmark_knowledge_drift.outputs.improvements }}';
+            const benchmarkKnowledgeDriftResolvedFocusAreas = '${{ steps.benchmark_knowledge_drift.outputs.resolved_focus_areas }}';
+            const benchmarkKnowledgeDriftNewFocusAreas = '${{ steps.benchmark_knowledge_drift.outputs.new_focus_areas }}';
+            const benchmarkKnowledgeDriftRecommendations = '${{ steps.benchmark_knowledge_drift.outputs.recommendations }}';
+            const benchmarkKnowledgeDriftArtifact = '${{ steps.benchmark_knowledge_drift.outputs.output_md }}';
             const feedbackFlywheelBenchmarkEnabled = '${{ steps.feedback_flywheel_benchmark.outputs.enabled }}' === 'true';
             const feedbackFlywheelBenchmarkStatus = '${{ steps.feedback_flywheel_benchmark.outputs.status }}';
             const feedbackFlywheelBenchmarkTotal = '${{ steps.feedback_flywheel_benchmark.outputs.feedback_total }}';
@@ -3290,6 +3430,9 @@ jobs:
             const benchmarkKnowledgeStatusLine = benchmarkKnowledgeEnabled
               ? `status=${benchmarkKnowledgeArtifactStatus}, refs=${benchmarkKnowledgeTotalReferenceItems}, ready=${benchmarkKnowledgeReadyComponents}, partial=${benchmarkKnowledgePartialComponents}, missing=${benchmarkKnowledgeMissingComponents}, focus_count=${benchmarkKnowledgeFocusAreaCount}, focus=${benchmarkKnowledgeFocusAreas || benchmarkKnowledgeFocusAreasScorecard || 'n/a'}, artifact=${benchmarkKnowledgeArtifact}`
               : '⏭️ skipped';
+            const benchmarkKnowledgeDriftStatusLine = benchmarkKnowledgeDriftEnabled
+              ? `status=${benchmarkKnowledgeDriftStatus}, current=${benchmarkKnowledgeDriftCurrentStatus}, previous=${benchmarkKnowledgeDriftPreviousStatus}, delta=${benchmarkKnowledgeDriftReferenceItemDelta}, regressions=${benchmarkKnowledgeDriftRegressions || 'n/a'}, improvements=${benchmarkKnowledgeDriftImprovements || 'n/a'}, resolved=${benchmarkKnowledgeDriftResolvedFocusAreas || 'n/a'}, new=${benchmarkKnowledgeDriftNewFocusAreas || 'n/a'}, artifact=${benchmarkKnowledgeDriftArtifact}`
+              : '⏭️ skipped';
             const feedbackFlywheelBenchmarkStatusLine = feedbackFlywheelBenchmarkEnabled
               ? `status=${feedbackFlywheelBenchmarkStatus}, feedback=${feedbackFlywheelBenchmarkTotal}, corrections=${feedbackFlywheelBenchmarkCorrections}, finetune=${feedbackFlywheelBenchmarkFinetuneSamples}, triplets=${feedbackFlywheelBenchmarkMetricTriplets}, artifact=${feedbackFlywheelBenchmarkArtifact}`
               : '⏭️ skipped';
@@ -3361,6 +3504,18 @@ jobs:
                   : (
                     benchmarkKnowledgeArtifactStatus === 'knowledge_foundation_missing'
                       ? '🔴'
+                      : '🟡'
+                  )
+              );
+            const benchmarkKnowledgeDriftLight = !benchmarkKnowledgeDriftEnabled
+              ? '⚪'
+              : (
+                benchmarkKnowledgeDriftStatus === 'regressed'
+                  ? '🔴'
+                  : (
+                    benchmarkKnowledgeDriftStatus === 'improved' ||
+                    benchmarkKnowledgeDriftStatus === 'stable'
+                      ? '🟢'
                       : '🟡'
                   )
               );
@@ -3442,8 +3597,10 @@ jobs:
             | **Benchmark Scorecard** | ${benchmarkScorecardStatus} |
             | **Benchmark Engineering Signals** | ${benchmarkEngineeringStatusLine} |
             | **Benchmark Knowledge Readiness** | ${benchmarkKnowledgeStatusLine} |
+            | **Benchmark Knowledge Drift** | ${benchmarkKnowledgeDriftStatusLine} |
             | **Benchmark Knowledge Focus Areas** | ${benchmarkKnowledgeFocusAreas || benchmarkKnowledgeFocusAreasScorecard || 'n/a'} |
             | **Benchmark Knowledge Recommendations** | ${benchmarkKnowledgeRecommendations || benchmarkKnowledgeReferenceItems || 'n/a'} |
+            | **Benchmark Knowledge Drift Recommendations** | ${benchmarkKnowledgeDriftRecommendations || 'n/a'} |
             | **Benchmark Engineering Recommendations** | ${benchmarkEngineeringRecommendations || benchmarkEngineeringTopStandardTypes || 'n/a'} |
             | **Benchmark Recommendations** | ${benchmarkRecommendations || 'n/a'} |
             | **Benchmark Feedback Flywheel** | ${benchmarkFeedbackFlywheelStatus || 'n/a'} |
@@ -3470,6 +3627,7 @@ jobs:
             | **Benchmark Scorecard** | ${benchmarkLight} | ${benchmarkScorecardStatus} |
             | **Benchmark Engineering Signals** | ${benchmarkEngineeringLight} | ${benchmarkEngineeringStatusLine} |
             | **Benchmark Knowledge Readiness** | ${benchmarkKnowledgeLight} | ${benchmarkKnowledgeStatusLine} |
+            | **Benchmark Knowledge Drift** | ${benchmarkKnowledgeDriftLight} | ${benchmarkKnowledgeDriftStatusLine} |
             | **Benchmark Operational Summary** | ${benchmarkOperationalLight} | ${benchmarkOperationalSummaryStatus} |
             | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleLight} | ${benchmarkArtifactBundleStatus} |
             | **Benchmark Companion Summary** | ${benchmarkCompanionLight} | ${benchmarkCompanionSummaryStatus} |
