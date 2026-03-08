@@ -70,6 +70,27 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             "estimated_total_runs": 2,
         },
     )
+    qdrant = _write_json(
+        tmp_path / "qdrant.json",
+        {
+            "backend": "qdrant",
+            "backend_health": {
+                "reachable": True,
+                "collection_exists": True,
+                "collection_name": "cad_vectors",
+                "collection_status": "green",
+                "points_count": 24,
+                "indexed_vectors_count": 24,
+                "unindexed_vectors_count": 0,
+                "indexed_ratio": 1.0,
+                "observed_vectors_count": 24,
+                "scan_limit": 5000,
+                "scan_truncated": False,
+                "readiness": "ready",
+                "readiness_hints": [],
+            },
+        },
+    )
     assistant = _write_json(
         tmp_path / "assistant.json",
         {
@@ -133,6 +154,8 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             str(brep),
             "--migration-summary",
             str(migration),
+            "--qdrant-readiness-summary",
+            str(qdrant),
             "--assistant-evidence-summary",
             str(assistant),
             "--review-queue-summary",
@@ -156,6 +179,11 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
     assert payload["components"]["history_sequence"]["status"] == "evidence_ready"
     assert payload["components"]["brep"]["status"] == "graph_ready"
     assert payload["components"]["migration_governance"]["status"] == "operationally_ready"
+    assert payload["components"]["qdrant_backend"]["status"] == "ready"
+    assert payload["components"]["qdrant_backend"]["readiness"] == "ready"
+    assert payload["components"]["qdrant_backend"]["indexed_ratio"] == 1.0
+    assert payload["components"]["qdrant_backend"]["unindexed_vectors_count"] == 0
+    assert payload["components"]["qdrant_backend"]["scan_truncated"] is False
     assert payload["components"]["assistant_explainability"]["status"] == "explainability_ready"
     assert payload["components"]["review_queue"]["status"] == "under_control"
     assert payload["components"]["ocr_review"]["status"] == "ocr_ready"
@@ -164,6 +192,7 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
     markdown = output_md.read_text(encoding="utf-8")
     assert "CAD Benchmark Scorecard" in markdown
     assert "weak_signal_only" in markdown
+    assert "qdrant_backend" in markdown
     assert "assistant_explainability" in markdown
     assert "review_queue" in markdown
     assert "ocr_review" in markdown
@@ -207,6 +236,7 @@ def test_generate_benchmark_scorecard_handles_missing_optional_inputs(tmp_path: 
     assert payload["components"]["history_sequence"]["status"] == "missing"
     assert payload["components"]["brep"]["status"] == "missing"
     assert payload["components"]["migration_governance"]["status"] == "missing"
+    assert payload["components"]["qdrant_backend"]["status"] == "missing"
     assert payload["components"]["assistant_explainability"]["status"] == "missing"
     assert payload["components"]["review_queue"]["status"] == "missing"
     assert payload["components"]["ocr_review"]["status"] == "missing"
@@ -322,3 +352,139 @@ def test_generate_benchmark_scorecard_reports_ocr_gap(tmp_path: Path) -> None:
     assert payload["components"]["ocr_review"]["status"] == "review_heavy"
     assert payload["overall_status"] == "benchmark_ready_with_ocr_gap"
     assert any("OCR" in item for item in payload["recommendations"])
+
+
+def test_generate_benchmark_scorecard_reports_qdrant_gap(tmp_path: Path) -> None:
+    hybrid = _write_json(
+        tmp_path / "hybrid.json",
+        {
+            "sample_size": 12,
+            "exact_accuracy": {
+                "hybrid_label": {"accuracy": 0.84},
+                "final_part_type": {"accuracy": 0.8},
+                "graph2d_label": {"accuracy": 0.1},
+            },
+            "coarse_accuracy": {"hybrid_label": {"accuracy": 0.9}},
+            "confidence": {"graph2d_label": {"low_conf_rate": 1.0}},
+        },
+    )
+    governance = _write_json(
+        tmp_path / "migration.json",
+        {
+            "plan_ready": True,
+            "coverage_complete": True,
+        },
+    )
+    qdrant = _write_json(
+        tmp_path / "qdrant.json",
+        {
+            "reachable": True,
+            "collection_exists": True,
+            "collection_name": "cad_vectors",
+            "collection_status": "yellow",
+            "points_count": 10,
+            "indexed_vectors_count": 8,
+            "unindexed_vectors_count": 2,
+            "indexed_ratio": 0.8,
+            "observed_vectors_count": 5,
+            "scan_limit": 5,
+            "scan_truncated": True,
+            "readiness": "partial_scan",
+            "readiness_hints": [
+                "scan_truncated_use_list_or_migration_for_exact_coverage",
+                "vector_index_backfill_in_progress",
+            ],
+        },
+    )
+    history = _write_json(
+        tmp_path / "history.json",
+        {
+            "total": 20,
+            "coverage": 0.8,
+            "accuracy_overall": 0.75,
+            "coarse_accuracy_overall": 0.86,
+            "low_conf_rate": 0.1,
+        },
+    )
+    brep = _write_json(
+        tmp_path / "brep.json",
+        {
+            "sample_size": 3,
+            "valid_3d_count": 3,
+            "hint_coverage_count": 2,
+            "graph_schema_version_counts": {"v2": 3},
+        },
+    )
+    assistant = _write_json(
+        tmp_path / "assistant.json",
+        {
+            "total_records": 10,
+            "total_evidence_items": 20,
+            "average_evidence_count": 2.0,
+            "records_with_evidence_pct": 0.9,
+            "records_with_decision_path_pct": 0.8,
+            "records_with_any_source_signal_pct": 0.8,
+        },
+    )
+    review_queue = _write_json(
+        tmp_path / "review_queue.json",
+        {
+            "total": 0,
+            "automation_ready_count": 0,
+            "automation_ready_ratio": 0.0,
+            "by_sample_type": {},
+            "by_feedback_priority": {},
+            "by_decision_source": {},
+            "by_review_reason": {},
+        },
+    )
+    ocr_review = _write_json(
+        tmp_path / "ocr_review.json",
+        {
+            "review_candidate_count": 0,
+            "exported_records": 0,
+            "automation_ready_count": 0,
+            "average_readiness_score": 0.0,
+            "average_coverage_ratio": 0.0,
+            "review_priority_counts": [],
+            "primary_gap_counts": [],
+            "top_review_reasons": [],
+        },
+    )
+    output_json = tmp_path / "scorecard.json"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--hybrid-summary",
+            str(hybrid),
+            "--migration-summary",
+            str(governance),
+            "--qdrant-readiness-summary",
+            str(qdrant),
+            "--history-summary",
+            str(history),
+            "--brep-summary",
+            str(brep),
+            "--assistant-evidence-summary",
+            str(assistant),
+            "--review-queue-summary",
+            str(review_queue),
+            "--ocr-review-summary",
+            str(ocr_review),
+            "--output-json",
+            str(output_json),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["components"]["qdrant_backend"]["status"] == "partial_scan"
+    assert payload["components"]["qdrant_backend"]["indexed_ratio"] == 0.8
+    assert payload["components"]["qdrant_backend"]["unindexed_vectors_count"] == 2
+    assert payload["components"]["qdrant_backend"]["scan_truncated"] is True
+    assert payload["overall_status"] == "benchmark_ready_with_qdrant_gap"
+    assert any("Qdrant" in item for item in payload["recommendations"])
