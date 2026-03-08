@@ -26,12 +26,20 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
             "blockers": ["review_queue:critical_backlog"],
         },
         benchmark_artifact_bundle={},
-        artifact_paths={"benchmark_release_decision": "release.json"},
+        benchmark_engineering_signals={
+            "engineering_signals": {"status": "partial_engineering_semantics"},
+            "recommendations": ["Close engineering gaps."],
+        },
+        artifact_paths={
+            "benchmark_release_decision": "release.json",
+            "benchmark_engineering_signals": "engineering.json",
+        },
     )
 
     assert payload["release_status"] == "blocked"
     assert payload["next_action"] == "collect_artifacts"
     assert "benchmark_artifact_bundle" in payload["missing_artifacts"]
+    assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["operator_steps"][1]["key"] == "resolve_blockers"
     assert payload["operator_steps"][1]["status"] == "required"
 
@@ -52,10 +60,14 @@ def test_build_release_runbook_freezes_when_ready() -> None:
         },
         benchmark_companion_summary={"overall_status": "healthy"},
         benchmark_artifact_bundle={"overall_status": "healthy"},
+        benchmark_engineering_signals={
+            "engineering_signals": {"status": "engineering_semantics_ready"},
+        },
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_companion_summary": "companion.json",
             "benchmark_artifact_bundle": "bundle.json",
+            "benchmark_engineering_signals": "engineering.json",
         },
     )
 
@@ -68,6 +80,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     release = tmp_path / "release.json"
     companion = tmp_path / "companion.json"
     bundle = tmp_path / "bundle.json"
+    engineering = tmp_path / "engineering.json"
     output_json = tmp_path / "runbook.json"
     output_md = tmp_path / "runbook.md"
 
@@ -93,6 +106,15 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     bundle.write_text(json.dumps({"overall_status": "attention_required"}), encoding="utf-8")
+    engineering.write_text(
+        json.dumps(
+            {
+                "engineering_signals": {"status": "partial_engineering_semantics"},
+                "recommendations": ["Close engineering gaps."],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -104,6 +126,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(companion),
             "--benchmark-artifact-bundle",
             str(bundle),
+            "--benchmark-engineering-signals",
+            str(engineering),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -116,6 +140,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["release_status"] == "review_required"
     assert payload["next_action"] == "review_signals"
+    assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert output_md.exists()
 
     rendered = render_markdown(payload)
