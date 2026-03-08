@@ -426,7 +426,10 @@ def _normalize_record(path: Path, locator: str, payload: Dict[str, Any]) -> Dict
     structured_sources = sorted(
         {
             token
-            for token in evidence_source_tokens + [str(key).strip() for key in source_contributions.keys()]
+            for token in (
+                evidence_source_tokens
+                + [str(key).strip() for key in source_contributions.keys()]
+            )
             if token
         }
     )

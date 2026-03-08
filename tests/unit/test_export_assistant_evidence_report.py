@@ -130,7 +130,10 @@ def test_main_exports_report_for_mixed_inputs(tmp_path: Path) -> None:
     assert by_id["assistant-1"]["evidence_count"] == "2"
     assert by_id["assistant-1"]["sources_count"] == "2"
     assert by_id["assistant-1"]["evidence_types"] == "direct;unknown"
-    assert by_id["assistant-1"]["evidence_missing_fields"] == "evidence[].match_type;evidence[].summary"
+    assert (
+        by_id["assistant-1"]["evidence_missing_fields"]
+        == "evidence[].match_type;evidence[].summary"
+    )
     assert by_id["assistant-1"]["missing_fields"] == "decision_path;source_contributions"
     assert by_id["analysis-1"]["record_kind"] == "analyze"
     assert by_id["analysis-1"]["source_contribution_sources"] == "filename;titleblock"
