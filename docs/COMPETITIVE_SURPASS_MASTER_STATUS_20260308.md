@@ -31,21 +31,32 @@ engineering-semantic system with:
 ### 3. Benchmark Delivery Stack
 
 - benchmark scorecard
+- benchmark engineering signals
 - feedback flywheel benchmark
 - operational summary
 - artifact bundle
 - companion summary
+- release decision
+- release runbook
 
 These layers now exist both as standalone exporters and as workflow-driven CI
 surfaces.
 
 ### 4. CI / PR Observability
 
-- `evaluation-report.yml` can build and upload benchmark bundle artifacts
-- PR comments and job summaries now surface benchmark bundle and companion
-  summary signals
-- companion summary is connected to bundle composition so downstream reviewers
-  see one compact operational picture
+- `evaluation-report.yml` can build and upload benchmark engineering, bundle,
+  companion, release-decision, and runbook artifacts
+- PR comments and job summaries now surface bundle, companion, release, and
+  engineering signals instead of only raw benchmark scorecard output
+- companion summary is connected to bundle composition and engineering signals,
+  so downstream reviewers see one compact operational picture
+
+## In-Flight Closure
+
+- release decision / release runbook engineering-signal CI and PR-comment
+  closure is being finalized in `#215`
+- the next low-conflict follow-up is a docs refresh once `#215` lands, not a
+  new exporter layer
 
 ### 5. Vector / Qdrant Platformization
 
@@ -67,27 +78,25 @@ stronger internal base in:
 
 ## Remaining Gaps
 
-The main remaining gaps are not contract stability; they are product depth:
+The main remaining gaps are no longer benchmark contract stability; they are
+product depth:
 
 - more real-data history-sequence validation with larger `.h5` sets
 - more real-data STEP/B-Rep validation beyond smoke and small example batches
 - richer standards/tolerance/GD&T checks surfaced directly in benchmark views
-- end-to-end deployment/operator runbooks for the full benchmark stack
+- operator and release adoption loops that consume the benchmark stack outputs
 
 ## Recommended Next Build Order
 
-1. Merge and stabilize the remaining benchmark companion and artifact-bundle PRs
-   on `main`.
-2. Add benchmark companion artifact bundle CI/PR comment closure on top of the
-   current workflow stack.
-3. Expand real-data validation reports for:
+1. Land and stabilize the release-surface engineering closure on `main`.
+2. Expand real-data validation reports for:
    - DXF hybrid benchmark runs
    - history-sequence `.h5` sets
    - STEP/B-Rep directory batches
-4. Promote standards/tolerance/GD&T checks into benchmark companion summary so
+3. Promote standards/tolerance/GD&T checks into benchmark companion summary so
    the product compares on engineering judgment, not only extraction coverage.
-5. Package an operator-facing benchmark runbook that maps artifact outputs to
-   release decisions.
+4. Package an operator-facing adoption loop that maps benchmark outputs to
+   release, retraining, and review-queue execution.
 
 ## Reference Docs
 
