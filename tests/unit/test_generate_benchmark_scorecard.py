@@ -185,6 +185,24 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             },
         },
     )
+    knowledge = _write_json(
+        tmp_path / "knowledge.json",
+        {
+            "knowledge_readiness": {
+                "status": "knowledge_foundation_ready",
+                "ready_component_count": 4,
+                "partial_component_count": 0,
+                "missing_component_count": 0,
+                "total_reference_items": 200,
+                "components": {
+                    "tolerance": {"status": "ready", "total_reference_items": 20},
+                    "standards": {"status": "ready", "total_reference_items": 60},
+                    "design_standards": {"status": "ready", "total_reference_items": 80},
+                    "gdt": {"status": "ready", "total_reference_items": 40},
+                },
+            }
+        },
+    )
     output_json = tmp_path / "scorecard.json"
     output_md = tmp_path / "scorecard.md"
 
@@ -222,6 +240,8 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             str(metric_train),
             "--ocr-review-summary",
             str(ocr_review),
+            "--knowledge-readiness-summary",
+            str(knowledge),
             "--engineering-signals-summary",
             str(engineering),
             "--output-json",
@@ -254,6 +274,7 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
     assert payload["components"]["feedback_flywheel"]["feedback_total"] == 12
     assert payload["components"]["feedback_flywheel"]["metric_triplet_count"] == 6
     assert payload["components"]["ocr_review"]["status"] == "ocr_ready"
+    assert payload["components"]["knowledge_readiness"]["status"] == "knowledge_foundation_ready"
     assert payload["components"]["engineering_signals"]["status"] == "engineering_semantics_ready"
     assert output_json.exists()
     assert output_md.exists()
@@ -264,6 +285,7 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
     assert "assistant_explainability" in markdown
     assert "review_queue" in markdown
     assert "ocr_review" in markdown
+    assert "knowledge_readiness" in markdown
     assert "engineering_signals" in markdown
 
 
@@ -310,6 +332,7 @@ def test_generate_benchmark_scorecard_handles_missing_optional_inputs(tmp_path: 
     assert payload["components"]["review_queue"]["status"] == "missing"
     assert payload["components"]["feedback_flywheel"]["status"] == "missing"
     assert payload["components"]["ocr_review"]["status"] == "missing"
+    assert payload["components"]["knowledge_readiness"]["status"] == "knowledge_foundation_missing"
     assert payload["overall_status"] == "benchmark_ready_without_governance"
     assert output_json.exists()
 

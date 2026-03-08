@@ -10,3 +10,9 @@ from .feedback_flywheel import (  # noqa: F401
     feedback_flywheel_recommendations,
     render_feedback_flywheel_markdown,
 )
+from .knowledge_readiness import (  # noqa: F401
+    build_knowledge_readiness_status,
+    collect_builtin_knowledge_snapshot,
+    knowledge_readiness_recommendations,
+    render_knowledge_readiness_markdown,
+)

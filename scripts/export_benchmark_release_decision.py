@@ -78,6 +78,7 @@ def _component_statuses(
     benchmark_operational_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
+    benchmark_knowledge_readiness: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
 ) -> Dict[str, str]:
@@ -85,6 +86,11 @@ def _component_statuses(
     operational_components = benchmark_operational_summary.get("component_statuses") or {}
     bundle_components = benchmark_artifact_bundle.get("component_statuses") or {}
     companion_components = benchmark_companion_summary.get("component_statuses") or {}
+    knowledge_component = (
+        benchmark_knowledge_readiness.get("knowledge_readiness")
+        or benchmark_knowledge_readiness
+        or {}
+    )
     engineering_component = (
         benchmark_engineering_signals.get("engineering_signals")
         or benchmark_engineering_signals
@@ -113,6 +119,13 @@ def _component_statuses(
         "review_queue": pick("review_queue"),
         "ocr_review": pick("ocr_review"),
         "qdrant_backend": pick("qdrant_backend"),
+        "knowledge_readiness": str(
+            companion_components.get("knowledge_readiness")
+            or bundle_components.get("knowledge_readiness")
+            or knowledge_component.get("status")
+            or (scorecard_components.get("knowledge_readiness") or {}).get("status")
+            or "unknown"
+        ),
         "engineering_signals": str(
             companion_components.get("engineering_signals")
             or bundle_components.get("engineering_signals")
@@ -173,6 +186,16 @@ def _engineering_review_signals(
     return _compact(benchmark_engineering_signals.get("recommendations") or [], limit=6)
 
 
+def _knowledge_review_signals(
+    benchmark_knowledge_readiness: Dict[str, Any],
+    component_statuses: Dict[str, str],
+) -> List[str]:
+    status = str(component_statuses.get("knowledge_readiness") or "").strip()
+    if status in {"knowledge_foundation_ready", "unknown", ""}:
+        return []
+    return _compact(benchmark_knowledge_readiness.get("recommendations") or [], limit=6)
+
+
 def build_release_decision(
     *,
     title: str,
@@ -180,6 +203,7 @@ def build_release_decision(
     benchmark_operational_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
+    benchmark_knowledge_readiness: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
     artifact_paths: Dict[str, str],
@@ -189,6 +213,7 @@ def build_release_decision(
         benchmark_operational_summary,
         benchmark_artifact_bundle,
         benchmark_companion_summary,
+        benchmark_knowledge_readiness,
         benchmark_engineering_signals,
         benchmark_operator_adoption,
     )
@@ -216,6 +241,14 @@ def build_release_decision(
         item
         for item in _engineering_review_signals(
             benchmark_engineering_signals,
+            component_statuses,
+        )
+        if item not in review_signals
+    )
+    review_signals.extend(
+        item
+        for item in _knowledge_review_signals(
+            benchmark_knowledge_readiness,
             component_statuses,
         )
         if item not in review_signals
@@ -275,6 +308,10 @@ def build_release_decision(
                 "benchmark_companion_summary",
                 artifact_paths.get("benchmark_companion_summary", ""),
             ),
+            "benchmark_knowledge_readiness": _artifact_row(
+                "benchmark_knowledge_readiness",
+                artifact_paths.get("benchmark_knowledge_readiness", ""),
+            ),
             "benchmark_engineering_signals": _artifact_row(
                 "benchmark_engineering_signals",
                 artifact_paths.get("benchmark_engineering_signals", ""),
@@ -330,6 +367,7 @@ def main() -> None:
     parser.add_argument("--benchmark-operational-summary", default="")
     parser.add_argument("--benchmark-artifact-bundle", default="")
     parser.add_argument("--benchmark-companion-summary", default="")
+    parser.add_argument("--benchmark-knowledge-readiness", default="")
     parser.add_argument("--benchmark-engineering-signals", default="")
     parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--output-json", default="")
@@ -341,6 +379,7 @@ def main() -> None:
         "benchmark_operational_summary": args.benchmark_operational_summary,
         "benchmark_artifact_bundle": args.benchmark_artifact_bundle,
         "benchmark_companion_summary": args.benchmark_companion_summary,
+        "benchmark_knowledge_readiness": args.benchmark_knowledge_readiness,
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
         "benchmark_operator_adoption": args.benchmark_operator_adoption,
     }
@@ -353,6 +392,9 @@ def main() -> None:
         benchmark_artifact_bundle=_maybe_load_json(args.benchmark_artifact_bundle),
         benchmark_companion_summary=_maybe_load_json(
             args.benchmark_companion_summary
+        ),
+        benchmark_knowledge_readiness=_maybe_load_json(
+            args.benchmark_knowledge_readiness
         ),
         benchmark_engineering_signals=_maybe_load_json(
             args.benchmark_engineering_signals

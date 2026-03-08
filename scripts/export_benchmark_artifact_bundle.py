@@ -58,11 +58,17 @@ def _component_statuses(
     scorecard: Dict[str, Any],
     operational_summary: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
+    benchmark_knowledge_readiness: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
 ) -> Dict[str, str]:
     components = scorecard.get("components") or {}
     companion_components = benchmark_companion_summary.get("component_statuses") or {}
+    knowledge_component = (
+        benchmark_knowledge_readiness.get("knowledge_readiness")
+        or benchmark_knowledge_readiness
+        or {}
+    )
     engineering_component = (
         benchmark_engineering_signals.get("engineering_signals")
         or benchmark_engineering_signals
@@ -109,6 +115,12 @@ def _component_statuses(
     component_rows["qdrant_backend"] = str(
         companion_components.get("qdrant_backend")
         or (components.get("qdrant_backend") or {}).get("status")
+        or "unknown"
+    )
+    component_rows["knowledge_readiness"] = str(
+        companion_components.get("knowledge_readiness")
+        or knowledge_component.get("status")
+        or (components.get("knowledge_readiness") or {}).get("status")
         or "unknown"
     )
     component_rows["engineering_signals"] = str(
@@ -168,6 +180,7 @@ def build_bundle(
     benchmark_operational_summary: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
     benchmark_release_decision: Dict[str, Any],
+    benchmark_knowledge_readiness: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
     feedback_flywheel: Dict[str, Any],
@@ -204,6 +217,11 @@ def build_bundle(
             name="benchmark_release_decision",
             path_text=artifact_paths.get("benchmark_release_decision", ""),
             payload=benchmark_release_decision,
+        ),
+        "benchmark_knowledge_readiness": _artifact_row(
+            name="benchmark_knowledge_readiness",
+            path_text=artifact_paths.get("benchmark_knowledge_readiness", ""),
+            payload=benchmark_knowledge_readiness,
         ),
         "benchmark_engineering_signals": _artifact_row(
             name="benchmark_engineering_signals",
@@ -246,6 +264,7 @@ def build_bundle(
             benchmark_scorecard,
             benchmark_operational_summary,
             benchmark_companion_summary,
+            benchmark_knowledge_readiness,
             benchmark_engineering_signals,
             benchmark_operator_adoption,
         ),
@@ -300,6 +319,7 @@ def main() -> None:
     parser.add_argument("--benchmark-operational-summary", default="")
     parser.add_argument("--benchmark-companion-summary", default="")
     parser.add_argument("--benchmark-release-decision", default="")
+    parser.add_argument("--benchmark-knowledge-readiness", default="")
     parser.add_argument("--benchmark-engineering-signals", default="")
     parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--feedback-flywheel", default="")
@@ -315,6 +335,7 @@ def main() -> None:
         "benchmark_operational_summary": args.benchmark_operational_summary,
         "benchmark_companion_summary": args.benchmark_companion_summary,
         "benchmark_release_decision": args.benchmark_release_decision,
+        "benchmark_knowledge_readiness": args.benchmark_knowledge_readiness,
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
         "benchmark_operator_adoption": args.benchmark_operator_adoption,
         "feedback_flywheel": args.feedback_flywheel,
@@ -328,6 +349,9 @@ def main() -> None:
         benchmark_operational_summary=_maybe_load_json(args.benchmark_operational_summary),
         benchmark_companion_summary=_maybe_load_json(args.benchmark_companion_summary),
         benchmark_release_decision=_maybe_load_json(args.benchmark_release_decision),
+        benchmark_knowledge_readiness=_maybe_load_json(
+            args.benchmark_knowledge_readiness
+        ),
         benchmark_engineering_signals=_maybe_load_json(
             args.benchmark_engineering_signals
         ),
