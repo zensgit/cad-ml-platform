@@ -5,9 +5,17 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from src.core.benchmark.feedback_flywheel import (  # noqa: E402
+    build_feedback_flywheel_status,
+    feedback_flywheel_recommendations,
+)
 
 
 def _load_json(path_text: str) -> Dict[str, Any]:
@@ -362,59 +370,6 @@ def _review_queue_status(summary: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _feedback_flywheel_status(
-    feedback_summary: Dict[str, Any],
-    finetune_summary: Dict[str, Any],
-    metric_train_summary: Dict[str, Any],
-) -> Dict[str, Any]:
-    if not feedback_summary and not finetune_summary and not metric_train_summary:
-        return {"status": "missing"}
-
-    total_feedback = _to_int(feedback_summary.get("total"))
-    correction_count = _to_int(feedback_summary.get("correction_count"))
-    coarse_correction_count = _to_int(feedback_summary.get("coarse_correction_count"))
-    average_rating = feedback_summary.get("average_rating")
-    finetune_sample_count = _to_int(finetune_summary.get("sample_count"))
-    finetune_vector_count = _to_int(finetune_summary.get("vector_count"))
-    metric_triplet_count = _to_int(metric_train_summary.get("triplet_count"))
-    metric_unique_anchor_count = _to_int(metric_train_summary.get("unique_anchor_count"))
-
-    if total_feedback <= 0:
-        status = "missing"
-    elif correction_count <= 0 and coarse_correction_count <= 0:
-        status = "passive_feedback_only"
-    elif finetune_sample_count > 0 and metric_triplet_count > 0:
-        status = "closed_loop_ready"
-    elif finetune_sample_count > 0 or metric_triplet_count > 0:
-        status = "partially_closed_loop"
-    else:
-        status = "feedback_collected"
-
-    return {
-        "status": status,
-        "feedback_total": total_feedback,
-        "correction_count": correction_count,
-        "coarse_correction_count": coarse_correction_count,
-        "average_rating": average_rating,
-        "finetune_sample_count": finetune_sample_count,
-        "finetune_vector_count": finetune_vector_count,
-        "metric_triplet_count": metric_triplet_count,
-        "metric_unique_anchor_count": metric_unique_anchor_count,
-        "review_outcomes": feedback_summary.get("by_review_outcome") or {},
-        "review_reasons": feedback_summary.get("by_review_reason") or {},
-        "finetune_label_distribution": finetune_summary.get("label_distribution") or {},
-        "finetune_coarse_label_distribution": (
-            finetune_summary.get("coarse_label_distribution") or {}
-        ),
-        "metric_anchor_label_distribution": (
-            metric_train_summary.get("anchor_label_distribution") or {}
-        ),
-        "metric_negative_label_distribution": (
-            metric_train_summary.get("negative_label_distribution") or {}
-        ),
-    }
-
-
 def _ocr_review_status(summary: Dict[str, Any]) -> Dict[str, Any]:
     if not summary:
         return {"status": "missing"}
@@ -550,26 +505,7 @@ def _recommendations(
             "Raise evidence coverage in active-learning review queue exports before "
             "freezing review operations as benchmark-ready."
         )
-    if feedback_flywheel.get("status") == "missing":
-        items.append(
-            "Produce feedback stats, finetune summaries, and metric-train summaries for the "
-            "benchmark flywheel."
-        )
-    elif feedback_flywheel.get("status") == "passive_feedback_only":
-        items.append(
-            "Collect actionable corrections instead of ratings-only feedback before claiming a "
-            "closed retraining loop."
-        )
-    elif feedback_flywheel.get("status") == "feedback_collected":
-        items.append(
-            "Run finetune and metric-training summaries so feedback evidence becomes a real "
-            "retraining flywheel."
-        )
-    elif feedback_flywheel.get("status") == "partially_closed_loop":
-        items.append(
-            "Close the feedback flywheel by producing both fine-tune and metric-training "
-            "artifacts from reviewed samples."
-        )
+    items.extend(feedback_flywheel_recommendations(feedback_flywheel))
     if ocr_review.get("status") in {"missing", "review_heavy"}:
         items.append(
             "Reduce OCR review-heavy backlog and improve structured extraction coverage."
@@ -613,7 +549,7 @@ def build_scorecard(
     qdrant = _qdrant_backend_status(qdrant_readiness_summary)
     assistant = _assistant_explainability_status(assistant_evidence_summary)
     review_queue = _review_queue_status(review_queue_summary)
-    feedback_flywheel = _feedback_flywheel_status(
+    feedback_flywheel = build_feedback_flywheel_status(
         feedback_summary,
         finetune_summary,
         metric_train_summary,
