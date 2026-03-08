@@ -742,6 +742,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkReleaseRunbookStatusLine" in pr_comment_script
     assert "benchmarkReleaseRunbookLight" in pr_comment_script
     assert "benchmarkReleaseRunbookNextAction" in pr_comment_script
+    assert "benchmarkOperatorAdoptionEnabled" in pr_comment_script
+    assert "benchmarkOperatorAdoptionReadiness" in pr_comment_script
+    assert "benchmarkOperatorAdoptionStatusLine" in pr_comment_script
+    assert "benchmarkOperatorAdoptionLight" in pr_comment_script
+    assert "benchmarkOperatorAdoptionNextAction" in pr_comment_script
     assert "benchmarkOcrStatus" in pr_comment_script
     assert "benchmarkQdrantStatus" in pr_comment_script
     assert "benchmarkEngineeringEnabled" in pr_comment_script
@@ -769,9 +774,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Companion Summary" in pr_comment_script
     assert "Benchmark Release Decision" in pr_comment_script
     assert "Benchmark Release Runbook" in pr_comment_script
+    assert "Benchmark Operator Adoption" in pr_comment_script
     assert "automation_ready=${benchmarkReleaseAutomationReady}" in pr_comment_script
     assert "source=${benchmarkReleasePrimarySignalSource}" in pr_comment_script
     assert "next=${benchmarkReleaseRunbookNextAction || 'n/a'}" in pr_comment_script
+    assert "mode=${benchmarkOperatorAdoptionMode}" in pr_comment_script
+    assert "readiness=${benchmarkOperatorAdoptionReadiness}" in pr_comment_script
     assert "assistantEvidenceEnabled" in pr_comment_script
     assert "Assistant Evidence Report" in pr_comment_script
     assert "Assistant Evidence Insights" in pr_comment_script
