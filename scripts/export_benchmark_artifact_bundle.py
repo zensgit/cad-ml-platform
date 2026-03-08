@@ -59,6 +59,7 @@ def _component_statuses(
     operational_summary: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
+    benchmark_operator_adoption: Dict[str, Any],
 ) -> Dict[str, str]:
     components = scorecard.get("components") or {}
     companion_components = benchmark_companion_summary.get("component_statuses") or {}
@@ -116,6 +117,9 @@ def _component_statuses(
         or (components.get("engineering_signals") or {}).get("status")
         or "unknown"
     )
+    component_rows["operator_adoption"] = str(
+        benchmark_operator_adoption.get("adoption_readiness") or "unknown"
+    )
     return component_rows
 
 
@@ -129,6 +133,7 @@ def _pick_summary_items(
     benchmark_operational_summary: Dict[str, Any],
     benchmark_scorecard: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
+    benchmark_operator_adoption: Dict[str, Any],
 ) -> tuple[str, List[str], List[str]]:
     overall_status = (
         str(benchmark_release_decision.get("release_status") or "").strip()
@@ -141,6 +146,7 @@ def _pick_summary_items(
         benchmark_release_decision.get("blocking_signals")
         or benchmark_companion_summary.get("blockers")
         or benchmark_operational_summary.get("blockers")
+        or benchmark_operator_adoption.get("blocking_signals")
         or []
     )
     recommendations = _compact_list(
@@ -149,6 +155,7 @@ def _pick_summary_items(
         or benchmark_operational_summary.get("recommendations")
         or benchmark_scorecard.get("recommendations")
         or benchmark_engineering_signals.get("recommendations")
+        or benchmark_operator_adoption.get("recommended_actions")
         or []
     )
     return overall_status, blockers, recommendations
@@ -162,6 +169,7 @@ def build_bundle(
     benchmark_companion_summary: Dict[str, Any],
     benchmark_release_decision: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
+    benchmark_operator_adoption: Dict[str, Any],
     feedback_flywheel: Dict[str, Any],
     assistant_evidence: Dict[str, Any],
     review_queue: Dict[str, Any],
@@ -174,6 +182,7 @@ def build_bundle(
         benchmark_operational_summary,
         benchmark_scorecard,
         benchmark_engineering_signals,
+        benchmark_operator_adoption,
     )
     artifact_rows = {
         "benchmark_scorecard": _artifact_row(
@@ -200,6 +209,11 @@ def build_bundle(
             name="benchmark_engineering_signals",
             path_text=artifact_paths.get("benchmark_engineering_signals", ""),
             payload=benchmark_engineering_signals,
+        ),
+        "benchmark_operator_adoption": _artifact_row(
+            name="benchmark_operator_adoption",
+            path_text=artifact_paths.get("benchmark_operator_adoption", ""),
+            payload=benchmark_operator_adoption,
         ),
         "feedback_flywheel": _artifact_row(
             name="feedback_flywheel",
@@ -233,6 +247,7 @@ def build_bundle(
             benchmark_operational_summary,
             benchmark_companion_summary,
             benchmark_engineering_signals,
+            benchmark_operator_adoption,
         ),
         "blockers": blockers,
         "recommendations": recommendations,
@@ -286,6 +301,7 @@ def main() -> None:
     parser.add_argument("--benchmark-companion-summary", default="")
     parser.add_argument("--benchmark-release-decision", default="")
     parser.add_argument("--benchmark-engineering-signals", default="")
+    parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--feedback-flywheel", default="")
     parser.add_argument("--assistant-evidence", default="")
     parser.add_argument("--review-queue", default="")
@@ -300,6 +316,7 @@ def main() -> None:
         "benchmark_companion_summary": args.benchmark_companion_summary,
         "benchmark_release_decision": args.benchmark_release_decision,
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
+        "benchmark_operator_adoption": args.benchmark_operator_adoption,
         "feedback_flywheel": args.feedback_flywheel,
         "assistant_evidence": args.assistant_evidence,
         "review_queue": args.review_queue,
@@ -314,6 +331,7 @@ def main() -> None:
         benchmark_engineering_signals=_maybe_load_json(
             args.benchmark_engineering_signals
         ),
+        benchmark_operator_adoption=_maybe_load_json(args.benchmark_operator_adoption),
         feedback_flywheel=_maybe_load_json(args.feedback_flywheel),
         assistant_evidence=_maybe_load_json(args.assistant_evidence),
         review_queue=_maybe_load_json(args.review_queue),
