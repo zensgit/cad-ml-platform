@@ -257,6 +257,41 @@ def _review_queue_status(summary: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _ocr_review_status(summary: Dict[str, Any]) -> Dict[str, Any]:
+    if not summary:
+        return {"status": "missing"}
+
+    review_candidates = _to_int(summary.get("review_candidate_count"))
+    exported_records = _to_int(summary.get("exported_records"))
+    automation_ready = _to_int(summary.get("automation_ready_count"))
+    avg_readiness = _to_float(summary.get("average_readiness_score"))
+    avg_coverage = _to_float(summary.get("average_coverage_ratio"))
+    review_priority_counts = summary.get("review_priority_counts") or []
+    primary_gap_counts = summary.get("primary_gap_counts") or []
+    top_review_reasons = summary.get("top_review_reasons") or []
+
+    if review_candidates <= 0:
+        status = "ocr_ready"
+    elif avg_readiness >= 0.8 and automation_ready >= max(1, review_candidates // 2):
+        status = "mostly_ready"
+    elif avg_readiness >= 0.5 or avg_coverage >= 0.5:
+        status = "managed_review"
+    else:
+        status = "review_heavy"
+
+    return {
+        "status": status,
+        "review_candidate_count": review_candidates,
+        "exported_records": exported_records,
+        "automation_ready_count": automation_ready,
+        "average_readiness_score": round(avg_readiness, 6),
+        "average_coverage_ratio": round(avg_coverage, 6),
+        "review_priority_counts": review_priority_counts,
+        "primary_gap_counts": primary_gap_counts,
+        "top_review_reasons": top_review_reasons,
+    }
+
+
 def _overall_status(
     hybrid: Dict[str, Any],
     history: Dict[str, Any],
@@ -264,6 +299,7 @@ def _overall_status(
     governance: Dict[str, Any],
     assistant: Dict[str, Any],
     review_queue: Dict[str, Any],
+    ocr_review: Dict[str, Any],
 ) -> str:
     if hybrid.get("status") not in {"strong_primary", "usable_primary"}:
         return "baseline_not_ready"
@@ -277,6 +313,8 @@ def _overall_status(
         return "benchmark_ready_with_explainability_gap"
     if review_queue.get("status") in {"critical_backlog", "managed_backlog"}:
         return "benchmark_ready_with_review_gap"
+    if ocr_review.get("status") in {"missing", "managed_review", "review_heavy"}:
+        return "benchmark_ready_with_ocr_gap"
     return "benchmark_ready_with_multisignal_evidence"
 
 
@@ -288,6 +326,7 @@ def _recommendations(
     governance: Dict[str, Any],
     assistant: Dict[str, Any],
     review_queue: Dict[str, Any],
+    ocr_review: Dict[str, Any],
 ) -> List[str]:
     items: List[str] = []
     if graph2d.get("status") == "weak_signal_only":
@@ -308,6 +347,12 @@ def _recommendations(
         )
     elif review_queue.get("status") == "managed_backlog":
         items.append("Reduce high-priority review backlog or automate more review-ready samples.")
+    if ocr_review.get("status") in {"missing", "review_heavy"}:
+        items.append(
+            "Reduce OCR review-heavy backlog and improve structured extraction coverage."
+        )
+    elif ocr_review.get("status") == "managed_review":
+        items.append("Raise OCR automation-ready coverage before freezing the benchmark.")
     if not items:
         items.append(
             "Current scorecard is healthy; freeze this run as the next benchmark baseline."
@@ -327,6 +372,7 @@ def build_scorecard(
     migration_summary: Dict[str, Any],
     assistant_evidence_summary: Dict[str, Any],
     review_queue_summary: Dict[str, Any],
+    ocr_review_summary: Dict[str, Any],
 ) -> Dict[str, Any]:
     hybrid = _hybrid_status(hybrid_summary)
     graph2d = _graph2d_status(
@@ -339,6 +385,7 @@ def build_scorecard(
     governance = _governance_status(migration_summary)
     assistant = _assistant_explainability_status(assistant_evidence_summary)
     review_queue = _review_queue_status(review_queue_summary)
+    ocr_review = _ocr_review_status(ocr_review_summary)
     overall_status = _overall_status(
         hybrid,
         history,
@@ -346,6 +393,7 @@ def build_scorecard(
         governance,
         assistant,
         review_queue,
+        ocr_review,
     )
     return {
         "title": title,
@@ -359,6 +407,7 @@ def build_scorecard(
             "migration_governance": governance,
             "assistant_explainability": assistant,
             "review_queue": review_queue,
+            "ocr_review": ocr_review,
         },
         "recommendations": _recommendations(
             hybrid,
@@ -368,6 +417,7 @@ def build_scorecard(
             governance,
             assistant,
             review_queue,
+            ocr_review,
         ),
     }
 
@@ -441,6 +491,14 @@ def _render_markdown(scorecard: Dict[str, Any]) -> str:
         f"critical={review_queue.get('critical_count')}, "
         f"automation_ready={review_queue.get('automation_ready_count')} |"
     )
+    ocr_review = components.get("ocr_review", {}) or {}
+    lines.append(
+        "| ocr_review | "
+        f"`{ocr_review.get('status')}` | "
+        f"review_candidates={ocr_review.get('review_candidate_count')}, "
+        f"automation_ready={ocr_review.get('automation_ready_count')}, "
+        f"avg_readiness={ocr_review.get('average_readiness_score')} |"
+    )
     lines.extend(
         [
             "",
@@ -468,6 +526,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--migration-summary", default="")
     parser.add_argument("--assistant-evidence-summary", default="")
     parser.add_argument("--review-queue-summary", default="")
+    parser.add_argument("--ocr-review-summary", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args(argv)
@@ -486,6 +545,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         migration_summary=_maybe_load_json(args.migration_summary),
         assistant_evidence_summary=_maybe_load_json(args.assistant_evidence_summary),
         review_queue_summary=_maybe_load_json(args.review_queue_summary),
+        ocr_review_summary=_maybe_load_json(args.ocr_review_summary),
     )
 
     if args.output_json:
