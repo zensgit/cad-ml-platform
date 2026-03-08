@@ -27,6 +27,9 @@ def test_main_exports_summary_from_raw_samples_jsonl(tmp_path: Path) -> None:
                             "decision_source": "graph2d",
                             "review_automation_ready": True,
                         },
+                        "evidence_count": 2,
+                        "evidence_sources": ["filename", "graph2d"],
+                        "evidence_summary": "文件名与图结构共同支持 bolt",
                         "uncertainty_reason": "low_confidence",
                         "status": "pending",
                         "created_at": "2026-03-08T01:00:00Z",
@@ -46,6 +49,9 @@ def test_main_exports_summary_from_raw_samples_jsonl(tmp_path: Path) -> None:
                             "decision_source": "hybrid",
                             "review_reasons": ["branch_conflict"],
                         },
+                        "evidence_count": 1,
+                        "evidence_sources": ["hybrid_explanation"],
+                        "evidence_summary": "混合解释提示分支冲突",
                         "uncertainty_reason": "hybrid_rejected:below_min_confidence",
                         "status": "pending",
                         "created_at": "2026-03-08T01:01:00Z",
@@ -84,14 +90,22 @@ def test_main_exports_summary_from_raw_samples_jsonl(tmp_path: Path) -> None:
     assert summary["by_decision_source"]["hybrid"] == 1
     assert summary["by_review_reason"]["branch_conflict"] == 1
     assert summary["automation_ready_count"] == 1
+    assert summary["evidence_count_total"] == 3
+    assert summary["average_evidence_count"] == 1.5
+    assert summary["records_with_evidence_count"] == 2
+    assert summary["records_with_evidence_ratio"] == 1.0
     assert summary["high_count"] == 1
     assert summary["operational_status"] == "managed_backlog"
     assert summary["top_feedback_priorities"][0] == {"name": "medium", "count": 1}
+    assert summary["top_evidence_sources"][0] == {"name": "filename", "count": 1}
 
     with output_csv.open("r", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     assert len(rows) == 2
     assert rows[0]["review_reasons"] == "[\"low_confidence\"]"
+    assert rows[0]["evidence_count"] == "2"
+    assert json.loads(rows[0]["evidence_sources"]) == ["filename", "graph2d"]
+    assert rows[0]["evidence_summary"] == "文件名与图结构共同支持 bolt"
 
 
 def test_main_exports_summary_from_review_queue_csv(tmp_path: Path) -> None:
@@ -115,6 +129,9 @@ def test_main_exports_summary_from_review_queue_csv(tmp_path: Path) -> None:
                 "decision_source",
                 "review_reasons",
                 "automation_ready",
+                "evidence_count",
+                "evidence_sources",
+                "evidence_summary",
                 "score_breakdown",
             ],
         )
@@ -134,6 +151,12 @@ def test_main_exports_summary_from_review_queue_csv(tmp_path: Path) -> None:
                 "decision_source": "hybrid",
                 "review_reasons": json.dumps(["knowledge_conflict"], ensure_ascii=False),
                 "automation_ready": "false",
+                "evidence_count": "3",
+                "evidence_sources": json.dumps(
+                    ["filename", "titleblock", "knowledge"],
+                    ensure_ascii=False,
+                ),
+                "evidence_summary": "文件名、标题栏与知识规则共同支持法兰",
                 "score_breakdown": json.dumps({"violations": ["rule-1"]}, ensure_ascii=False),
             }
         )
@@ -153,7 +176,12 @@ def test_main_exports_summary_from_review_queue_csv(tmp_path: Path) -> None:
     assert summary["total"] == 1
     assert summary["critical_count"] == 1
     assert summary["critical_ratio"] == 1.0
+    assert summary["evidence_count_total"] == 3
+    assert summary["average_evidence_count"] == 3.0
+    assert summary["records_with_evidence_count"] == 1
+    assert summary["records_with_evidence_ratio"] == 1.0
     assert summary["operational_status"] == "critical_backlog"
     assert summary["top_review_reasons"] == [
         {"name": "knowledge_conflict", "count": 1}
     ]
+    assert summary["top_evidence_sources"][0] == {"name": "filename", "count": 1}
