@@ -1375,22 +1375,38 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkKnowledgeRealdataCorrelationPriorityDomains" in pr_comment_script
     assert "benchmarkKnowledgeRealdataCorrelationDomainStatuses" in pr_comment_script
     assert "benchmarkKnowledgeRealdataCorrelationRecommendations" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixStatus" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixFocusAreas" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixPriorityDomains" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixDomainStatuses" in pr_comment_script
+    assert "benchmarkKnowledgeDomainMatrixRecommendations" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeApplicationStatus" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeApplicationStatusLine" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeRealdataCorrelationStatus" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeDomainMatrixStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeDomainMatrixStatusLine" in pr_comment_script
     assert "benchmarkCompanionKnowledgeApplicationStatus" in pr_comment_script
     assert "benchmarkCompanionKnowledgeApplicationStatusLine" in pr_comment_script
     assert "benchmarkCompanionKnowledgeRealdataCorrelationStatus" in pr_comment_script
     assert "benchmarkCompanionKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDomainMatrixStatus" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDomainMatrixStatusLine" in pr_comment_script
     assert "benchmarkReleaseKnowledgeApplicationStatus" in pr_comment_script
     assert "benchmarkReleaseKnowledgeApplicationStatusLine" in pr_comment_script
     assert "benchmarkReleaseKnowledgeRealdataCorrelationStatus" in pr_comment_script
     assert "benchmarkReleaseKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDomainMatrixStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDomainMatrixStatusLine" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeApplicationStatus" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeApplicationStatusLine" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeRealdataCorrelationStatus" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeDomainMatrixStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeDomainMatrixStatusLine" in pr_comment_script
     assert "assistant=${benchmarkAssistantStatus}" in pr_comment_script
     assert "review_queue=${benchmarkReviewQueueStatus}" in pr_comment_script
     assert "feedback_flywheel=${benchmarkFeedbackFlywheelStatus}" in pr_comment_script
@@ -1409,6 +1425,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Knowledge Application" in pr_comment_script
     assert "Benchmark Knowledge Application Recommendations" in pr_comment_script
     assert "Benchmark Knowledge Real-Data Correlation" in pr_comment_script
+    assert "Benchmark Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Knowledge Real-Data Recommendations" in pr_comment_script
     assert "Benchmark Knowledge Drift Recommendations" in pr_comment_script
     assert "Benchmark Engineering Recommendations" in pr_comment_script
@@ -1418,6 +1435,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Artifact Bundle" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Application" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Real-Data" in pr_comment_script
+    assert "Benchmark Artifact Bundle Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Artifact Bundle Real-Data" in pr_comment_script
     assert "available_artifacts=${benchmarkArtifactBundleAvailableArtifacts}" in pr_comment_script
     assert "feedback=${benchmarkArtifactBundleFeedbackStatus}" in pr_comment_script
@@ -1430,16 +1448,23 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkArtifactBundleKnowledgePriorityDomains" in pr_comment_script
     assert "Benchmark Companion Knowledge Application" in pr_comment_script
     assert "Benchmark Companion Knowledge Real-Data" in pr_comment_script
+    assert "Benchmark Companion Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Release Decision Knowledge Application" in pr_comment_script
     assert "Benchmark Release Decision Knowledge Real-Data" in pr_comment_script
+    assert "Benchmark Release Decision Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Application" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Real-Data" in pr_comment_script
+    assert "Benchmark Release Runbook Knowledge Domain Matrix" in pr_comment_script
     assert (
         "recommendations=${benchmarkKnowledgeApplicationRecommendations || 'n/a'}"
         in pr_comment_script
     )
     assert (
         "recommendations=${benchmarkKnowledgeRealdataCorrelationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkKnowledgeDomainMatrixRecommendations || 'n/a'}"
         in pr_comment_script
     )
     assert (
@@ -1452,11 +1477,19 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         in pr_comment_script
     )
     assert (
+        "recommendations=${benchmarkArtifactBundleKnowledgeDomainMatrixRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
         "recommendations=${benchmarkCompanionKnowledgeApplicationRecommendations || 'n/a'}"
         in pr_comment_script
     )
     assert (
         "recommendations=${benchmarkCompanionKnowledgeRealdataCorrelationRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkCompanionKnowledgeDomainMatrixRecommendations || 'n/a'}"
         in pr_comment_script
     )
     assert (
@@ -1468,11 +1501,20 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         in pr_comment_script
     )
     assert (
+        "recommendations=${benchmarkReleaseKnowledgeDomainMatrixRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
         "recommendations=${benchmarkReleaseRunbookKnowledgeApplicationRecommendations || 'n/a'}"
         in pr_comment_script
     )
     assert (
         "recommendations=${benchmarkReleaseRunbookKnowledgeRealdataCorrelation"
+        "Recommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkReleaseRunbookKnowledgeDomainMatrix"
         "Recommendations || 'n/a'}"
         in pr_comment_script
     )
