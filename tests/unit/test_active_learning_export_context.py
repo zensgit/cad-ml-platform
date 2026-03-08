@@ -56,3 +56,16 @@ def test_export_training_data_keeps_score_breakdown_and_uncertainty_reason(
         "fusion_engine_weighted_average",
     ]
     assert payload["score_breakdown"]["source_contributions"]["filename"] == 0.61
+    assert payload["evidence_count"] == 4
+    assert payload["evidence_sources"] == ["filename", "titleblock"]
+    assert payload["evidence_summary"].startswith("综合 文件名, 标题栏 多源信息")
+    assert payload["evidence"][0] == {
+        "kind": "source_contribution",
+        "source": "filename",
+        "score": 0.61,
+    }
+    assert payload["evidence"][1] == {
+        "kind": "source_contribution",
+        "source": "titleblock",
+        "score": 0.22,
+    }

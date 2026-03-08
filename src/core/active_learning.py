@@ -16,9 +16,149 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 logger = logging.getLogger(__name__)
+
+
+def _clean_text(value: Any) -> Optional[str]:
+    """Collapse whitespace and return a non-empty string."""
+    if not isinstance(value, str):
+        return None
+    text = " ".join(value.split())
+    return text or None
+
+
+def _coerce_float(value: Any) -> Optional[float]:
+    """Best-effort float conversion for evidence payloads."""
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _append_unique(items: List[str], value: Optional[str]) -> None:
+    if value and value not in items:
+        items.append(value)
+
+
+def _truncate_text(value: str, limit: int = 280) -> str:
+    if len(value) <= limit:
+        return value
+    return value[: limit - 3].rstrip() + "..."
+
+
+def _build_review_evidence(score_breakdown: Dict[str, Any]) -> Dict[str, Any]:
+    """Derive reviewer-facing evidence fields from score breakdown context."""
+    if not isinstance(score_breakdown, dict):
+        return {
+            "evidence_count": 0,
+            "evidence_sources": [],
+            "evidence_summary": None,
+            "evidence": [],
+        }
+
+    evidence: List[Dict[str, Any]] = []
+    evidence_sources: List[str] = []
+    summary_parts: List[str] = []
+
+    source_contributions = score_breakdown.get("source_contributions")
+    if isinstance(source_contributions, dict):
+        ranked_sources: List[tuple[str, Optional[float]]] = []
+        for source_name, contribution in source_contributions.items():
+            clean_source = _clean_text(source_name)
+            if clean_source is None:
+                continue
+            ranked_sources.append((clean_source, _coerce_float(contribution)))
+
+        ranked_sources.sort(
+            key=lambda item: item[1] if item[1] is not None else float("-inf"),
+            reverse=True,
+        )
+        for source_name, contribution in ranked_sources:
+            _append_unique(evidence_sources, source_name)
+            entry: Dict[str, Any] = {
+                "kind": "source_contribution",
+                "source": source_name,
+            }
+            if contribution is not None:
+                entry["score"] = round(contribution, 4)
+            evidence.append(entry)
+
+    hybrid_explanation = score_breakdown.get("hybrid_explanation")
+    if isinstance(hybrid_explanation, dict):
+        explanation_summary = _clean_text(hybrid_explanation.get("summary"))
+        if explanation_summary:
+            evidence.append(
+                {
+                    "kind": "hybrid_explanation",
+                    "summary": explanation_summary,
+                }
+            )
+            summary_parts.append(explanation_summary)
+
+    hybrid_rejection = score_breakdown.get("hybrid_rejection")
+    if isinstance(hybrid_rejection, dict):
+        rejection_reason = _clean_text(hybrid_rejection.get("reason"))
+        raw_source = _clean_text(hybrid_rejection.get("raw_source"))
+        raw_confidence = _coerce_float(hybrid_rejection.get("raw_confidence"))
+        if raw_source:
+            _append_unique(evidence_sources, raw_source)
+        if rejection_reason or raw_source or raw_confidence is not None:
+            rejection_entry: Dict[str, Any] = {"kind": "hybrid_rejection"}
+            if rejection_reason:
+                rejection_entry["reason"] = rejection_reason
+            if raw_source:
+                rejection_entry["source"] = raw_source
+            if raw_confidence is not None:
+                rejection_entry["confidence"] = round(raw_confidence, 4)
+            evidence.append(rejection_entry)
+
+            rejection_summary = rejection_reason or "rejected"
+            if raw_source:
+                rejection_summary = f"{rejection_summary} via {raw_source}"
+            if raw_confidence is not None:
+                rejection_summary = f"{rejection_summary} ({raw_confidence:.3f})"
+            summary_parts.append(f"Rejection: {rejection_summary}")
+
+    decision_path = score_breakdown.get("decision_path")
+    if isinstance(decision_path, list):
+        steps = [_clean_text(step) for step in decision_path]
+        clean_steps = [step for step in steps if step]
+        if clean_steps:
+            evidence.append({"kind": "decision_path", "steps": clean_steps})
+            summary_parts.append(f"Path: {' -> '.join(clean_steps[:4])}")
+
+    fusion_metadata = score_breakdown.get("fusion_metadata")
+    if isinstance(fusion_metadata, dict):
+        strategy = _clean_text(fusion_metadata.get("strategy"))
+        agreement_score = _coerce_float(fusion_metadata.get("agreement_score"))
+        num_sources = fusion_metadata.get("num_sources")
+        if strategy or agreement_score is not None or num_sources is not None:
+            fusion_entry: Dict[str, Any] = {"kind": "fusion_metadata"}
+            if strategy:
+                fusion_entry["strategy"] = strategy
+            if agreement_score is not None:
+                fusion_entry["agreement_score"] = round(agreement_score, 4)
+            if isinstance(num_sources, int):
+                fusion_entry["num_sources"] = num_sources
+            evidence.append(fusion_entry)
+
+    if evidence_sources:
+        summary_parts.append(f"Sources: {', '.join(evidence_sources)}")
+
+    evidence_summary = None
+    if summary_parts:
+        evidence_summary = _truncate_text(" | ".join(summary_parts))
+
+    return {
+        "evidence_count": len(evidence),
+        "evidence_sources": evidence_sources,
+        "evidence_summary": evidence_summary,
+        "evidence": evidence,
+    }
 
 
 class SampleStatus(str, Enum):
@@ -40,11 +180,24 @@ class ActiveLearningSample(BaseModel):
     alternatives: List[Dict[str, Any]] = Field(default_factory=list)
     score_breakdown: Dict[str, Any] = Field(default_factory=dict)
     uncertainty_reason: str
+    evidence_count: int = 0
+    evidence_sources: List[str] = Field(default_factory=list)
+    evidence_summary: Optional[str] = None
+    evidence: List[Dict[str, Any]] = Field(default_factory=list)
     status: SampleStatus = SampleStatus.PENDING
     true_type: Optional[str] = None
     reviewer_id: Optional[str] = None
     feedback_time: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    @model_validator(mode="after")
+    def _sync_review_evidence(self) -> "ActiveLearningSample":
+        evidence_payload = _build_review_evidence(self.score_breakdown)
+        self.evidence_count = int(evidence_payload["evidence_count"])
+        self.evidence_sources = list(evidence_payload["evidence_sources"])
+        self.evidence_summary = evidence_payload["evidence_summary"]
+        self.evidence = list(evidence_payload["evidence"])
+        return self
 
 
 class ActiveLearner:
@@ -58,7 +211,9 @@ class ActiveLearner:
         else:
             self._data_dir = Path(tempfile.gettempdir()) / "active_learning"
         self._store_type = os.environ.get("ACTIVE_LEARNING_STORE", "memory")
-        self._retrain_threshold = int(os.environ.get("ACTIVE_LEARNING_RETRAIN_THRESHOLD", "10"))
+        self._retrain_threshold = int(
+            os.environ.get("ACTIVE_LEARNING_RETRAIN_THRESHOLD", "10")
+        )
 
         if self._store_type == "file":
             self._data_dir.mkdir(parents=True, exist_ok=True)
@@ -68,7 +223,7 @@ class ActiveLearner:
         """Load existing samples from file."""
         samples_file = self._data_dir / "samples.jsonl"
         if samples_file.exists():
-            with open(samples_file, "r") as f:
+            with open(samples_file, "r", encoding="utf-8") as f:
                 for line in f:
                     if line.strip():
                         data = json.loads(line)
@@ -80,7 +235,7 @@ class ActiveLearner:
         if self._store_type != "file":
             return
         samples_file = self._data_dir / "samples.jsonl"
-        with open(samples_file, "a") as f:
+        with open(samples_file, "a", encoding="utf-8") as f:
             f.write(sample.model_dump_json() + "\n")
 
     def _update_sample_file(self) -> None:
@@ -88,7 +243,7 @@ class ActiveLearner:
         if self._store_type != "file":
             return
         samples_file = self._data_dir / "samples.jsonl"
-        with open(samples_file, "w") as f:
+        with open(samples_file, "w", encoding="utf-8") as f:
             for sample in self._samples.values():
                 f.write(sample.model_dump_json() + "\n")
 
@@ -142,7 +297,9 @@ class ActiveLearner:
 
     def check_retrain_threshold(self) -> Dict[str, Any]:
         """Check if retrain threshold is reached."""
-        labeled_count = sum(1 for s in self._samples.values() if s.status == SampleStatus.LABELED)
+        labeled_count = sum(
+            1 for s in self._samples.values() if s.status == SampleStatus.LABELED
+        )
         return {
             "ready": labeled_count >= self._retrain_threshold,
             "labeled_samples": labeled_count,
@@ -169,7 +326,7 @@ class ActiveLearner:
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         export_file = export_dir / f"training_data_{timestamp}.{format}"
 
-        with open(export_file, "w") as f:
+        with open(export_file, "w", encoding="utf-8") as f:
             for sample in samples_to_export:
                 export_data = {
                     "doc_id": sample.doc_id,
@@ -179,6 +336,10 @@ class ActiveLearner:
                     "alternatives": sample.alternatives,
                     "score_breakdown": sample.score_breakdown,
                     "uncertainty_reason": sample.uncertainty_reason,
+                    "evidence_count": sample.evidence_count,
+                    "evidence_sources": sample.evidence_sources,
+                    "evidence_summary": sample.evidence_summary,
+                    "evidence": sample.evidence,
                 }
                 f.write(json.dumps(export_data) + "\n")
                 sample.status = SampleStatus.EXPORTED
@@ -193,7 +354,9 @@ class ActiveLearner:
 
     def get_pending_samples(self, limit: int = 10) -> List[ActiveLearningSample]:
         """Get pending samples for review."""
-        pending = [s for s in self._samples.values() if s.status == SampleStatus.PENDING]
+        pending = [
+            s for s in self._samples.values() if s.status == SampleStatus.PENDING
+        ]
         return pending[:limit]
 
     def get_sample(self, sample_id: str) -> Optional[ActiveLearningSample]:

@@ -41,10 +41,35 @@ class TestActiveLearningLoop:
         assert sample.status == SampleStatus.PENDING
         assert sample.doc_id == "doc1"
         assert sample.id in self.learner._samples
+        assert sample.evidence_count == 0
+        assert sample.evidence_sources == []
 
         # Verify persistence
         files = list(self.data_dir.glob("samples.jsonl"))
         assert len(files) == 1
+
+    def test_flag_for_review_derives_structured_evidence(self):
+        sample = self.learner.flag_for_review(
+            doc_id="doc-evidence",
+            predicted_type="manhole",
+            confidence=0.41,
+            alternatives=[{"type": "shell", "confidence": 0.31}],
+            score_breakdown={
+                "decision_path": ["fusion_scored", "final_below_reject_min_conf"],
+                "source_contributions": {"filename": 0.61, "titleblock": 0.22},
+                "hybrid_explanation": {"summary": "综合 文件名, 标题栏 多源信息"},
+            },
+            uncertainty_reason="hybrid_rejected:below_min_confidence+low_confidence",
+        )
+
+        assert sample.evidence_count == 4
+        assert sample.evidence_sources == ["filename", "titleblock"]
+        assert sample.evidence_summary.startswith("综合 文件名, 标题栏 多源信息")
+        assert sample.evidence[0] == {
+            "kind": "source_contribution",
+            "source": "filename",
+            "score": 0.61,
+        }
 
     def test_feedback_submission_loop(self):
         # 1. Flag sample
@@ -153,6 +178,48 @@ class TestActiveLearningLoadSamples:
 
         reset_active_learner()
 
+    def test_load_samples_derives_evidence_from_score_breakdown(
+        self, tmp_path, monkeypatch
+    ):
+        reset_active_learner()
+
+        data_dir = tmp_path / "active_learning"
+        data_dir.mkdir(parents=True)
+
+        samples_file = data_dir / "samples.jsonl"
+        sample_data = {
+            "id": "existing-sample-evidence",
+            "doc_id": "doc_from_file",
+            "predicted_type": "washer",
+            "confidence": 0.7,
+            "alternatives": [],
+            "score_breakdown": {
+                "decision_path": ["fusion_scored", "final_below_reject_min_conf"],
+                "source_contributions": {"filename": 0.61, "titleblock": 0.22},
+                "hybrid_explanation": {"summary": "综合 文件名, 标题栏 多源信息"},
+            },
+            "uncertainty_reason": "hybrid_rejected:below_min_confidence+low_confidence",
+            "status": "pending",
+            "true_type": None,
+            "reviewer_id": None,
+            "feedback_time": None,
+            "created_at": "2024-01-01T00:00:00",
+        }
+        with open(samples_file, "w") as f:
+            f.write(json.dumps(sample_data) + "\n")
+
+        monkeypatch.setenv("ACTIVE_LEARNING_DATA_DIR", str(data_dir))
+        monkeypatch.setenv("ACTIVE_LEARNING_STORE", "file")
+
+        learner = ActiveLearner()
+        sample = learner._samples["existing-sample-evidence"]
+
+        assert sample.evidence_count == 4
+        assert sample.evidence_sources == ["filename", "titleblock"]
+        assert sample.evidence_summary.startswith("综合 文件名, 标题栏 多源信息")
+
+        reset_active_learner()
+
     def test_load_samples_empty_lines_skipped(self, tmp_path, monkeypatch):
         """Test that empty lines in samples file are skipped."""
         reset_active_learner()
@@ -222,4 +289,3 @@ class TestActiveLearningLoadSamples:
         assert "active_learning" in str(learner._data_dir)
 
         reset_active_learner()
-
