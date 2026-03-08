@@ -71,8 +71,10 @@ def _artifacts(
     benchmark_engineering_signals: Dict[str, Any],
     benchmark_realdata_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
+    benchmark_knowledge_application: Dict[str, Any] | None = None,
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Dict[str, Any]]:
+    benchmark_knowledge_application = benchmark_knowledge_application or {}
     decision_artifacts = benchmark_release_decision.get("artifacts") or {}
 
     def pick_path(name: str) -> str:
@@ -126,6 +128,11 @@ def _artifacts(
             "benchmark_operator_adoption",
             artifact_paths.get("benchmark_operator_adoption", ""),
             benchmark_operator_adoption,
+        ),
+        "benchmark_knowledge_application": _artifact_row(
+            "benchmark_knowledge_application",
+            artifact_paths.get("benchmark_knowledge_application", ""),
+            benchmark_knowledge_application,
         ),
         "benchmark_scorecard": _artifact_row(
             "benchmark_scorecard",
@@ -348,9 +355,11 @@ def build_release_runbook(
     benchmark_engineering_signals: Dict[str, Any],
     benchmark_realdata_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any] | None = None,
+    benchmark_knowledge_application: Dict[str, Any] | None = None,
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     benchmark_operator_adoption = benchmark_operator_adoption or {}
+    benchmark_knowledge_application = benchmark_knowledge_application or {}
     knowledge_component = (
         benchmark_knowledge_readiness.get("knowledge_readiness")
         or benchmark_knowledge_readiness
@@ -366,6 +375,11 @@ def build_release_runbook(
         or benchmark_realdata_signals
         or {}
     )
+    knowledge_application_component = (
+        benchmark_knowledge_application.get("knowledge_application")
+        or benchmark_knowledge_application
+        or {}
+    )
     realdata_status = (
         str(realdata_component.get("status") or "unknown").strip() or "unknown"
     )
@@ -374,6 +388,13 @@ def build_release_runbook(
         knowledge_component.get("domain_focus_areas") or []
     )
     knowledge_priority_domains = list(knowledge_component.get("priority_domains") or [])
+    knowledge_application_focus_areas = list(
+        knowledge_application_component.get("focus_areas_detail") or []
+    )
+    knowledge_application_domains = knowledge_application_component.get("domains") or {}
+    knowledge_application_priority_domains = list(
+        knowledge_application_component.get("priority_domains") or []
+    )
     release_status = _release_status(
         benchmark_release_decision,
         benchmark_companion_summary,
@@ -414,6 +435,18 @@ def build_release_runbook(
         for item in _compact(benchmark_realdata_signals.get("recommendations") or []):
             if item not in review_signals:
                 review_signals.append(item)
+    knowledge_application_status = (
+        str(knowledge_application_component.get("status") or "unknown").strip()
+        or "unknown"
+    )
+    if knowledge_application_status not in {
+        "",
+        "unknown",
+        "knowledge_application_ready",
+    }:
+        for item in _compact(benchmark_knowledge_application.get("recommendations") or []):
+            if item not in review_signals:
+                review_signals.append(item)
     for item in _knowledge_drift_review_signals(knowledge_drift):
         if item not in review_signals:
             review_signals.append(item)
@@ -426,6 +459,7 @@ def build_release_runbook(
         benchmark_engineering_signals=benchmark_engineering_signals,
         benchmark_realdata_signals=benchmark_realdata_signals,
         benchmark_operator_adoption=benchmark_operator_adoption,
+        benchmark_knowledge_application=benchmark_knowledge_application,
         artifact_paths=artifact_paths,
     )
     operator_adoption = _operator_adoption_payload(benchmark_operator_adoption)
@@ -639,6 +673,14 @@ def build_release_runbook(
         "knowledge_domains": knowledge_domains,
         "knowledge_domain_focus_areas": knowledge_domain_focus_areas,
         "knowledge_priority_domains": knowledge_priority_domains,
+        "knowledge_application_status": knowledge_application_status,
+        "knowledge_application": knowledge_application_component,
+        "knowledge_application_focus_areas": knowledge_application_focus_areas,
+        "knowledge_application_domains": knowledge_application_domains,
+        "knowledge_application_priority_domains": knowledge_application_priority_domains,
+        "knowledge_application_recommendations": _compact(
+            benchmark_knowledge_application.get("recommendations") or []
+        ),
         "primary_signal_source": _primary_signal_source(
             benchmark_release_decision,
             benchmark_companion_summary,
@@ -663,6 +705,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"- `ready_to_freeze_baseline`: `{payload.get('ready_to_freeze_baseline')}`",
         f"- `engineering_status`: `{payload.get('engineering_status')}`",
         f"- `knowledge_status`: `{payload.get('knowledge_status')}`",
+        f"- `knowledge_application_status`: "
+        f"`{payload.get('knowledge_application_status')}`",
         f"- `realdata_status`: `{payload.get('realdata_status')}`",
         f"- `primary_signal_source`: `{payload.get('primary_signal_source')}`",
         f"- `next_action`: `{payload.get('next_action')}`",
@@ -761,6 +805,29 @@ def render_markdown(payload: Dict[str, Any]) -> str:
             )
     else:
         lines.append("- none")
+    lines.extend(["", "## Knowledge Application", ""])
+    lines.append(
+        f"- `status`: `{payload.get('knowledge_application_status') or 'unknown'}`"
+    )
+    knowledge_application_domains = payload.get("knowledge_application_domains") or {}
+    if knowledge_application_domains:
+        for name, row in knowledge_application_domains.items():
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"status=`{row.get('status')}` "
+                f"readiness=`{row.get('readiness_status')}` "
+                f"evidence=`{row.get('evidence_status')}` "
+                f"signal_count=`{row.get('signal_count')}`"
+            )
+    else:
+        lines.append("- none")
+    knowledge_application_recommendations = (
+        payload.get("knowledge_application_recommendations") or []
+    )
+    if knowledge_application_recommendations:
+        for item in knowledge_application_recommendations:
+            lines.append(f"- recommendation: {item}")
     lines.extend(["", "## Real-Data Signals", ""])
     realdata = payload.get("realdata_signals") or {}
     lines.append(f"- `status`: `{payload.get('realdata_status')}`")
@@ -842,6 +909,7 @@ def main() -> None:
     parser.add_argument("--benchmark-engineering-signals", default="")
     parser.add_argument("--benchmark-realdata-signals", default="")
     parser.add_argument("--benchmark-operator-adoption", default="")
+    parser.add_argument("--benchmark-knowledge-application", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -855,6 +923,7 @@ def main() -> None:
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
         "benchmark_realdata_signals": args.benchmark_realdata_signals,
         "benchmark_operator_adoption": args.benchmark_operator_adoption,
+        "benchmark_knowledge_application": args.benchmark_knowledge_application,
     }
     payload = build_release_runbook(
         title=args.title,
@@ -873,6 +942,9 @@ def main() -> None:
         ),
         benchmark_operator_adoption=_maybe_load_json(
             args.benchmark_operator_adoption
+        ),
+        benchmark_knowledge_application=_maybe_load_json(
+            args.benchmark_knowledge_application
         ),
         artifact_paths=artifact_paths,
     )

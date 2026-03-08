@@ -98,6 +98,29 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
                 "recommendations": ["Backfill tolerance knowledge coverage."],
             },
         },
+        benchmark_knowledge_application={
+            "knowledge_application": {
+                "status": "knowledge_application_partial",
+                "priority_domains": ["gdt"],
+                "domains": {
+                    "gdt": {
+                        "status": "partial",
+                        "readiness_status": "ready",
+                        "evidence_status": "missing",
+                        "signal_count": 0,
+                    }
+                },
+                "focus_areas_detail": [
+                    {
+                        "domain": "gdt",
+                        "status": "partial",
+                        "priority": "high",
+                        "action": "Promote GD&T application evidence.",
+                    }
+                ],
+            },
+            "recommendations": ["Promote GD&T application evidence."],
+        },
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_engineering_signals": "engineering.json",
@@ -116,6 +139,8 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["knowledge_priority_domains"] == ["gdt"]
     assert payload["knowledge_domains"]["gdt"]["status"] == "missing"
     assert payload["knowledge_domain_focus_areas"][0]["domain"] == "gdt"
+    assert payload["knowledge_application_status"] == "knowledge_application_partial"
+    assert payload["knowledge_application_domains"]["gdt"]["status"] == "partial"
     assert payload["next_action"] == "collect_artifacts"
     assert "benchmark_artifact_bundle" in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
@@ -201,6 +226,22 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             "recommendations": [],
         },
         benchmark_operator_adoption={},
+        benchmark_knowledge_application={
+            "knowledge_application": {
+                "status": "knowledge_application_ready",
+                "priority_domains": [],
+                "domains": {
+                    "standards": {
+                        "status": "ready",
+                        "readiness_status": "ready",
+                        "evidence_status": "ready",
+                        "signal_count": 4,
+                    }
+                },
+                "focus_areas_detail": [],
+            },
+            "recommendations": [],
+        },
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_companion_summary": "companion.json",
@@ -220,6 +261,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["knowledge_priority_domains"] == []
     assert payload["knowledge_domains"]["standards"]["status"] == "ready"
     assert payload["knowledge_domain_focus_areas"] == []
+    assert payload["knowledge_application_status"] == "knowledge_application_ready"
     assert payload["next_action"] == "freeze_release_baseline"
     assert "benchmark_operator_adoption" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_drift" not in payload["missing_artifacts"]
@@ -238,6 +280,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     engineering = tmp_path / "engineering.json"
     realdata = tmp_path / "realdata.json"
     operator_adoption = tmp_path / "operator_adoption.json"
+    knowledge_application = tmp_path / "knowledge_application.json"
     output_json = tmp_path / "runbook.json"
     output_md = tmp_path / "runbook.md"
 
@@ -357,6 +400,34 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_application.write_text(
+        json.dumps(
+            {
+                "knowledge_application": {
+                    "status": "knowledge_application_partial",
+                    "priority_domains": ["tolerance"],
+                    "domains": {
+                        "tolerance": {
+                            "status": "partial",
+                            "readiness_status": "partial",
+                            "evidence_status": "partial",
+                            "signal_count": 1,
+                        }
+                    },
+                    "focus_areas_detail": [
+                        {
+                            "domain": "tolerance",
+                            "status": "partial",
+                            "priority": "medium",
+                            "action": "Raise tolerance application coverage.",
+                        }
+                    ],
+                },
+                "recommendations": ["Raise tolerance application coverage."],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -378,6 +449,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(realdata),
             "--benchmark-operator-adoption",
             str(operator_adoption),
+            "--benchmark-knowledge-application",
+            str(knowledge_application),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -396,6 +469,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_drift_status"] == "regressed"
     assert payload["knowledge_domains"]["tolerance"]["status"] == "partial"
     assert payload["knowledge_domain_focus_areas"][0]["domain"] == "tolerance"
+    assert payload["knowledge_application_status"] == "knowledge_application_partial"
+    assert payload["knowledge_application_domains"]["tolerance"]["status"] == "partial"
     assert payload["next_action"] == "review_signals"
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
@@ -421,6 +496,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "`status`: `regressed`" in rendered
     assert "## Knowledge Domains" in rendered
     assert "## Knowledge Domain Focus Areas" in rendered
+    assert "## Knowledge Application" in rendered
     assert "## Real-Data Signals" in rendered
     assert "## Operator Adoption" in rendered
     assert "operator_shift_handoff:pending" in rendered

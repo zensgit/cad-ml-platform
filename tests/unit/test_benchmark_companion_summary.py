@@ -106,6 +106,29 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             "benchmark_engineering_signals": "engineering.json",
             "benchmark_operator_adoption": "operator.json",
         },
+        benchmark_knowledge_application={
+            "knowledge_application": {
+                "status": "knowledge_application_partial",
+                "priority_domains": ["gdt"],
+                "domains": {
+                    "gdt": {
+                        "status": "partial",
+                        "readiness_status": "ready",
+                        "evidence_status": "missing",
+                        "signal_count": 0,
+                    }
+                },
+                "focus_areas_detail": [
+                    {
+                        "domain": "gdt",
+                        "status": "partial",
+                        "priority": "high",
+                        "action": "Promote GD&T evidence.",
+                    }
+                ],
+            },
+            "recommendations": ["Promote gdt application evidence into benchmark surfaces."],
+        },
     )
 
     assert payload["overall_status"] == "attention_required"
@@ -116,6 +139,7 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert payload["component_statuses"]["knowledge_application"] == "knowledge_application_partial"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert (
         payload["operator_adoption_knowledge_drift"]["summary"]
@@ -125,6 +149,9 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["knowledge_priority_domains"] == ["tolerance", "standards"]
     assert payload["knowledge_domains"]["tolerance"]["status"] == "partial"
     assert payload["knowledge_domain_focus_areas"][0]["domain"] == "tolerance"
+    assert payload["knowledge_application_status"] == "knowledge_application_partial"
+    assert payload["knowledge_application_domains"]["gdt"]["status"] == "partial"
+    assert payload["knowledge_application_priority_domains"] == ["gdt"]
     assert payload["knowledge_drift_domain_regressions"] == []
     assert payload["recommended_actions"] == ["reduce review queue backlog"]
     assert payload["artifacts"]["benchmark_artifact_bundle"]["present"] is True
@@ -140,6 +167,7 @@ def test_render_markdown_includes_sections() -> None:
         "review_surface": "ready",
         "primary_gap": "none",
         "knowledge_drift_summary": "status=stable; current=knowledge_foundation_ready",
+        "knowledge_application_status": "knowledge_application_partial",
         "realdata_status": "realdata_foundation_ready",
         "component_statuses": {"hybrid": "healthy"},
         "recommended_actions": ["keep monitoring"],
@@ -205,6 +233,17 @@ def test_render_markdown_includes_sections() -> None:
             "summary": "Tolerance coverage regressed.",
             "recommendations": ["Backfill tolerance knowledge coverage."],
         },
+        "knowledge_application_domains": {
+            "gdt": {
+                "status": "partial",
+                "readiness_status": "ready",
+                "evidence_status": "missing",
+                "signal_count": 0,
+            }
+        },
+        "knowledge_application_recommendations": [
+            "Promote gdt application evidence into benchmark surfaces."
+        ],
         "knowledge_domains": {
             "gdt": {
                 "status": "missing",
@@ -238,6 +277,7 @@ def test_render_markdown_includes_sections() -> None:
     assert "domain_regressions" in rendered
     assert "## Real-Data Signals" in rendered
     assert "## Knowledge Domains" in rendered
+    assert "## Knowledge Application" in rendered
     assert "## Knowledge Domain Focus Areas" in rendered
 
 
@@ -250,6 +290,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     engineering = tmp_path / "engineering.json"
     realdata = tmp_path / "realdata.json"
     operator = tmp_path / "operator.json"
+    knowledge_application = tmp_path / "knowledge_application.json"
     output_json = tmp_path / "out.json"
     output_md = tmp_path / "out.md"
     scorecard.write_text(
@@ -363,6 +404,27 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_application.write_text(
+        json.dumps(
+            {
+                "knowledge_application": {
+                    "status": "knowledge_application_ready",
+                    "priority_domains": [],
+                    "domains": {
+                        "standards": {
+                            "status": "ready",
+                            "readiness_status": "ready",
+                            "evidence_status": "ready",
+                            "signal_count": 4,
+                        }
+                    },
+                    "focus_areas_detail": [],
+                },
+                "recommendations": [],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -384,6 +446,8 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
             str(realdata),
             "--benchmark-operator-adoption",
             str(operator),
+            "--benchmark-knowledge-application",
+            str(knowledge_application),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -401,12 +465,14 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
+    assert payload["component_statuses"]["knowledge_application"] == "knowledge_application_ready"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["knowledge_focus_areas"] == []
     assert payload["knowledge_drift_summary"].startswith("status=stable")
     assert payload["knowledge_priority_domains"] == []
     assert payload["knowledge_domains"]["standards"]["status"] == "ready"
     assert payload["knowledge_domain_focus_areas"] == []
+    assert payload["knowledge_application_status"] == "knowledge_application_ready"
     assert payload["knowledge_drift_domain_improvements"] == []
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert output_md.exists()
