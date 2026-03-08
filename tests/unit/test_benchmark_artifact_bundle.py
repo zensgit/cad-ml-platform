@@ -35,6 +35,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
             "blockers": ["feedback backlog"],
             "recommendations": ["Close the review queue."],
         },
+        benchmark_companion_summary={},
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -60,6 +61,7 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
             "recommendations": ["Freeze this run."],
         },
         benchmark_operational_summary={},
+        benchmark_companion_summary={},
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -89,6 +91,22 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             "recommendations": ["Drain critical samples."],
         },
     )
+    companion = _write_json(
+        tmp_path / "companion.json",
+        {
+            "overall_status": "attention_required",
+            "review_surface": "attention_required",
+            "primary_gap": "review_queue:managed_backlog",
+            "component_statuses": {
+                "assistant_explainability": "partial_coverage",
+                "review_queue": "managed_backlog",
+                "ocr_review": "managed_review",
+                "qdrant_backend": "indexed_ready",
+            },
+            "blockers": ["review queue backlog"],
+            "recommended_actions": ["Reduce review queue backlog"],
+        },
+    )
     output_json = tmp_path / "bundle.json"
     output_md = tmp_path / "bundle.md"
 
@@ -100,6 +118,8 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             str(scorecard),
             "--benchmark-operational-summary",
             str(operational),
+            "--benchmark-companion-summary",
+            str(companion),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -114,4 +134,45 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert payload["overall_status"] == "attention_required"
     assert payload["artifacts"]["benchmark_scorecard"]["present"] is True
     assert payload["artifacts"]["benchmark_operational_summary"]["present"] is True
+    assert payload["artifacts"]["benchmark_companion_summary"]["present"] is True
+    assert payload["component_statuses"]["assistant_explainability"] == "partial_coverage"
+    assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"
     assert "review queue backlog" in output_md.read_text(encoding="utf-8")
+
+
+def test_build_bundle_prefers_companion_summary_when_present() -> None:
+    payload = module.build_bundle(
+        title="Benchmark Artifact Bundle",
+        benchmark_scorecard={
+            "overall_status": "benchmark_ready_with_multisignal_evidence",
+            "components": {"hybrid": {"status": "ready"}},
+            "recommendations": ["Keep monitoring."],
+        },
+        benchmark_operational_summary={
+            "overall_status": "attention_required",
+            "component_statuses": {"review_queue": "managed_backlog"},
+            "blockers": ["review queue backlog"],
+            "recommendations": ["Drain review queue."],
+        },
+        benchmark_companion_summary={
+            "overall_status": "attention_required",
+            "component_statuses": {
+                "assistant_explainability": "partial_coverage",
+                "review_queue": "managed_backlog",
+                "ocr_review": "managed_review",
+                "qdrant_backend": "indexed_ready",
+            },
+            "blockers": ["review_queue:managed_backlog"],
+            "recommended_actions": ["Reduce review queue backlog"],
+        },
+        feedback_flywheel={},
+        assistant_evidence={},
+        review_queue={},
+        ocr_review={},
+        artifact_paths={"benchmark_companion_summary": "companion.json"},
+    )
+
+    assert payload["artifacts"]["benchmark_companion_summary"]["present"] is True
+    assert payload["blockers"] == ["review_queue:managed_backlog"]
+    assert payload["recommendations"] == ["Reduce review queue backlog"]
+    assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"
