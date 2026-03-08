@@ -61,6 +61,9 @@ surfaces.
   release gating can reflect standards/tolerance/GD&T baseline completeness
 - PR comments now expose release-surface `operator_adoption=...` state directly
   in release decision and release runbook status lines
+- benchmark release surfaces now expose domain-level knowledge readiness for
+  `tolerance`, `standards`, and `gdt`, including focus components and missing
+  metrics
 
 ### 5. Vector / Qdrant Platformization
 
@@ -90,6 +93,8 @@ product depth:
 - richer standards/tolerance/GD&T checks surfaced directly in benchmark views
 - richer operator/runbook automation that turns benchmark outputs into concrete
   execution batches
+- broader CI wiring for domain-level knowledge drift once the current release
+  surface stack is fully absorbed
 
 ## Recommended Next Build Order
 
@@ -97,13 +102,12 @@ product depth:
    - DXF hybrid benchmark runs
    - history-sequence `.h5` sets
    - STEP/B-Rep directory batches
-2. Expand knowledge readiness from built-in foundation coverage into richer
-   benchmark companion/release views with row-level standards, tolerance, and
-   GD&T evidence.
-3. Package a fuller operator-facing adoption loop that maps benchmark outputs
+2. Package a fuller operator-facing adoption loop that maps benchmark outputs
    to release, retraining, and review-queue execution.
-4. Add benchmark-level real-data scorecards that compare weak-signal Graph2D,
+3. Add benchmark-level real-data scorecards that compare weak-signal Graph2D,
    hybrid, OCR, history, and B-Rep surfaces in one report.
+4. Extend domain-level knowledge readiness into CI-visible drift and release
+   deltas after the standalone surfaces settle.
 
 ## Reference Docs
 
@@ -116,4 +120,5 @@ product depth:
 - `docs/BENCHMARK_RELEASE_SURFACE_OPERATOR_ADOPTION_CI_VALIDATION_20260308.md`
 - `docs/BENCHMARK_RELEASE_SURFACE_OPERATOR_ADOPTION_PR_COMMENT_VALIDATION_20260308.md`
 - `docs/BENCHMARK_KNOWLEDGE_READINESS_VALIDATION_20260308.md`
+- `docs/BENCHMARK_KNOWLEDGE_DOMAIN_READINESS_VALIDATION_20260308.md`
 - `docs/BENCHMARK_KNOWLEDGE_READINESS_CI_VALIDATION_20260308.md`

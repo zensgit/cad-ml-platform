@@ -11,6 +11,8 @@ from .feedback_flywheel import (  # noqa: F401
     render_feedback_flywheel_markdown,
 )
 from .knowledge_readiness import (  # noqa: F401
+    build_knowledge_domain_focus_areas,
+    build_knowledge_domain_statuses,
     build_knowledge_focus_areas,
     build_knowledge_readiness_status,
     collect_builtin_knowledge_snapshot,

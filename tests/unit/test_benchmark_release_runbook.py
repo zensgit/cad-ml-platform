@@ -37,6 +37,22 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
                         "action": "Expand GD&T coverage.",
                     }
                 ],
+                "priority_domains": ["gdt"],
+                "domains": {
+                    "gdt": {
+                        "status": "missing",
+                        "focus_components": ["gdt"],
+                        "missing_metrics": ["symbol_count"],
+                    }
+                },
+                "domain_focus_areas": [
+                    {
+                        "domain": "gdt",
+                        "status": "missing",
+                        "priority": "high",
+                        "action": "Expand GD&T coverage.",
+                    }
+                ],
             },
             "recommendations": ["Raise tolerance/GD&T readiness."],
         },
@@ -80,6 +96,9 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["knowledge_focus_areas"][0]["component"] == "gdt"
     assert payload["knowledge_drift_status"] == "mixed"
     assert payload["knowledge_drift"]["counts"]["regressions"] == 1
+    assert payload["knowledge_priority_domains"] == ["gdt"]
+    assert payload["knowledge_domains"]["gdt"]["status"] == "missing"
+    assert payload["knowledge_domain_focus_areas"][0]["domain"] == "gdt"
     assert payload["next_action"] == "collect_artifacts"
     assert "benchmark_artifact_bundle" in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
@@ -119,6 +138,15 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             "knowledge_readiness": {
                 "status": "knowledge_foundation_ready",
                 "focus_areas_detail": [],
+                "priority_domains": [],
+                "domains": {
+                    "standards": {
+                        "status": "ready",
+                        "focus_components": [],
+                        "missing_metrics": [],
+                    }
+                },
+                "domain_focus_areas": [],
             },
             "recommendations": [],
         },
@@ -131,7 +159,8 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                 "resolved_focus_areas": ["standards"],
             },
             "recommendations": [
-                "Promote the improved knowledge baseline after CI and review surfaces are refreshed."
+                "Promote the improved knowledge baseline after CI and review surfaces "
+                "are refreshed."
             ],
         },
         benchmark_engineering_signals={
@@ -151,6 +180,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["knowledge_status"] == "knowledge_foundation_ready"
     assert payload["knowledge_focus_areas"] == []
     assert payload["knowledge_drift_status"] == "improved"
+    assert payload["knowledge_priority_domains"] == []
+    assert payload["knowledge_domains"]["standards"]["status"] == "ready"
+    assert payload["knowledge_domain_focus_areas"] == []
     assert payload["next_action"] == "freeze_release_baseline"
     assert "benchmark_operator_adoption" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_drift" not in payload["missing_artifacts"]
@@ -204,6 +236,22 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
                             "action": "Backfill tolerance coverage.",
                         }
                     ],
+                    "priority_domains": ["tolerance"],
+                    "domains": {
+                        "tolerance": {
+                            "status": "partial",
+                            "focus_components": ["tolerance"],
+                            "missing_metrics": ["common_fit_count"],
+                        }
+                    },
+                    "domain_focus_areas": [
+                        {
+                            "domain": "tolerance",
+                            "status": "partial",
+                            "priority": "medium",
+                            "action": "Backfill tolerance coverage.",
+                        }
+                    ],
                 },
                 "recommendations": ["Raise tolerance/GD&T readiness."],
             }
@@ -221,7 +269,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
                     "resolved_focus_areas": [],
                 },
                 "recommendations": [
-                    "Resolve knowledge regressions before claiming the benchmark surpass baseline remains stable."
+                    "Resolve knowledge regressions before claiming the benchmark "
+                    "surpass baseline remains stable."
                 ],
             }
         ),
@@ -286,6 +335,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_status"] == "knowledge_foundation_partial"
     assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
     assert payload["knowledge_drift_status"] == "regressed"
+    assert payload["knowledge_domains"]["tolerance"]["status"] == "partial"
+    assert payload["knowledge_domain_focus_areas"][0]["domain"] == "tolerance"
     assert payload["next_action"] == "review_signals"
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
@@ -307,6 +358,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "Backfill tolerance coverage." in rendered
     assert "## Knowledge Drift" in rendered
     assert "`status`: `regressed`" in rendered
+    assert "## Knowledge Domains" in rendered
+    assert "## Knowledge Domain Focus Areas" in rendered
     assert "## Operator Adoption" in rendered
     assert "operator_shift_handoff:pending" in rendered
     assert "Book an operator office-hours review." in rendered

@@ -356,6 +356,16 @@ def build_release_decision(
     operator_adoption_knowledge_drift = _operator_adoption_knowledge_drift(
         benchmark_operator_adoption
     )
+    knowledge_root = (
+        benchmark_knowledge_readiness.get("knowledge_readiness")
+        or benchmark_knowledge_readiness
+        or {}
+    )
+    knowledge_domains = knowledge_root.get("domains") or {}
+    knowledge_domain_focus_areas = list(
+        knowledge_root.get("domain_focus_areas") or []
+    )
+    knowledge_priority_domains = list(knowledge_root.get("priority_domains") or [])
     blockers = _compact(
         benchmark_companion_summary.get("blockers")
         or benchmark_artifact_bundle.get("blockers")
@@ -443,6 +453,9 @@ def build_release_decision(
         "knowledge_drift_summary": knowledge_drift["summary"],
         "knowledge_drift": knowledge_drift,
         "operator_adoption_knowledge_drift": operator_adoption_knowledge_drift,
+        "knowledge_domains": knowledge_domains,
+        "knowledge_domain_focus_areas": knowledge_domain_focus_areas,
+        "knowledge_priority_domains": knowledge_priority_domains,
         "blocking_signals": blockers,
         "review_signals": review_signals,
         "artifacts": {
@@ -552,6 +565,32 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         lines.append(
             f"- `{label}`: `{', '.join(str(item) for item in values) or 'none'}`"
         )
+    lines.extend(["", "## Knowledge Domains", ""])
+    knowledge_domains = payload.get("knowledge_domains") or {}
+    if knowledge_domains:
+        for name, row in knowledge_domains.items():
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"status=`{row.get('status')}` "
+                f"focus_components=`{', '.join(row.get('focus_components') or []) or 'none'}` "
+                f"missing_metrics=`{', '.join(row.get('missing_metrics') or []) or 'none'}`"
+            )
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Knowledge Domain Focus Areas", ""])
+    domain_focus_areas = payload.get("knowledge_domain_focus_areas") or []
+    if domain_focus_areas:
+        for row in domain_focus_areas:
+            lines.append(
+                "- "
+                f"`{row.get('domain')}` "
+                f"status=`{row.get('status')}` "
+                f"priority=`{row.get('priority')}` "
+                f"action=`{row.get('action')}`"
+            )
+    else:
+        lines.append("- none")
     lines.extend(["", "## Artifacts", ""])
     for name, row in (payload.get("artifacts") or {}).items():
         lines.append(

@@ -297,6 +297,16 @@ def build_companion_summary(
     operator_adoption_knowledge_drift = _operator_adoption_knowledge_drift(
         benchmark_operator_adoption
     )
+    knowledge_root = (
+        benchmark_knowledge_readiness.get("knowledge_readiness")
+        or benchmark_knowledge_readiness
+        or {}
+    )
+    knowledge_domains = knowledge_root.get("domains") or {}
+    knowledge_domain_focus_areas = list(
+        knowledge_root.get("domain_focus_areas") or []
+    )
+    knowledge_priority_domains = list(knowledge_root.get("priority_domains") or [])
     operator_adoption_status = component_statuses.get("operator_adoption")
     primary_gap = _primary_gap(component_statuses, blockers, recommendations)
     review_surface = (
@@ -343,6 +353,9 @@ def build_companion_summary(
             or []
         ),
         "operator_adoption_knowledge_drift": operator_adoption_knowledge_drift,
+        "knowledge_domains": knowledge_domains,
+        "knowledge_domain_focus_areas": knowledge_domain_focus_areas,
+        "knowledge_priority_domains": knowledge_priority_domains,
         "recommended_actions": recommendations,
         "blockers": blockers,
         "artifacts": artifacts,
@@ -404,6 +417,32 @@ def render_markdown(payload: Dict[str, Any]) -> str:
             )
     else:
         lines.append("- none")
+    lines.extend(["", "## Knowledge Domains", ""])
+    knowledge_domains = payload.get("knowledge_domains") or {}
+    if knowledge_domains:
+        for name, row in knowledge_domains.items():
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"status=`{row.get('status')}` "
+                f"focus_components=`{', '.join(row.get('focus_components') or []) or 'none'}` "
+                f"missing_metrics=`{', '.join(row.get('missing_metrics') or []) or 'none'}`"
+            )
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Knowledge Domain Focus Areas", ""])
+    domain_focus_areas = payload.get("knowledge_domain_focus_areas") or []
+    if domain_focus_areas:
+        for row in domain_focus_areas:
+            lines.append(
+                "- "
+                f"`{row.get('domain')}` "
+                f"status=`{row.get('status')}` "
+                f"priority=`{row.get('priority')}` "
+                f"action=`{row.get('action')}`"
+            )
+    else:
+        lines.append("- none")
     lines.extend(["", "## Operator Adoption Knowledge Drift", ""])
     drift = payload.get("operator_adoption_knowledge_drift") or {}
     lines.append(f"- `status`: `{drift.get('status') or 'unknown'}`")
@@ -412,6 +451,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     if drift_recommendations:
         for item in drift_recommendations:
             lines.append(f"- recommendation: {item}")
+    else:
+        lines.append("- recommendation: none")
     lines.extend(["", "## Recommended Actions", ""])
     actions = payload.get("recommended_actions") or []
     if actions:

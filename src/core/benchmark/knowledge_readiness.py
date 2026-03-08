@@ -36,6 +36,27 @@ FOCUS_ACTIONS: Dict[str, str] = {
     ),
 }
 
+DOMAIN_COMPONENTS: Dict[str, Dict[str, Any]] = {
+    "tolerance": {
+        "label": "Tolerance & Fits",
+        "components": ["tolerance"],
+        "action": "Backfill tolerance grades, common fits, and preferred fit lookups.",
+    },
+    "standards": {
+        "label": "Standards & Design Tables",
+        "components": ["standards", "design_standards"],
+        "action": (
+            "Expand standards coverage for standard parts plus general design reference "
+            "tables."
+        ),
+    },
+    "gdt": {
+        "label": "GD&T & Datums",
+        "components": ["gdt"],
+        "action": "Promote GD&T symbols, datums, and tolerance guidance into baseline.",
+    },
+}
+
 
 def _to_int(value: Any, default: int = 0) -> int:
     try:
@@ -144,6 +165,97 @@ def build_knowledge_focus_areas(components: Dict[str, Dict[str, Any]]) -> List[D
     return items
 
 
+def build_knowledge_domain_statuses(
+    components: Dict[str, Dict[str, Any]]
+) -> Dict[str, Dict[str, Any]]:
+    """Group component-level readiness into benchmark-facing knowledge domains."""
+    rows: Dict[str, Dict[str, Any]] = {}
+    for name, config in DOMAIN_COMPONENTS.items():
+        component_names = list(config.get("components") or [])
+        component_rows = [
+            {"name": component_name, **(components.get(component_name) or {})}
+            for component_name in component_names
+        ]
+        statuses = [str(row.get("status") or "missing") for row in component_rows]
+        if statuses and all(status == "ready" for status in statuses):
+            status = "ready"
+        elif any(status in {"ready", "partial"} for status in statuses):
+            status = "partial"
+        else:
+            status = "missing"
+
+        missing_metrics: List[str] = []
+        focus_components: List[str] = []
+        for row in component_rows:
+            if row.get("status") != "ready":
+                focus_components.append(str(row.get("name") or "unknown"))
+            for metric in row.get("missing_metrics") or []:
+                metric_name = str(metric).strip()
+                if metric_name and metric_name not in missing_metrics:
+                    missing_metrics.append(metric_name)
+
+        rows[name] = {
+            "domain": name,
+            "label": str(config.get("label") or name),
+            "status": status,
+            "priority": (
+                "high"
+                if status == "missing"
+                else "medium" if status == "partial" else "low"
+            ),
+            "components": component_names,
+            "focus_components": focus_components,
+            "ready_component_count": sum(
+                1 for row in component_rows if row.get("status") == "ready"
+            ),
+            "partial_component_count": sum(
+                1 for row in component_rows if row.get("status") == "partial"
+            ),
+            "missing_component_count": sum(
+                1 for row in component_rows if row.get("status") == "missing"
+            ),
+            "total_component_count": len(component_rows),
+            "ready_metric_count": sum(
+                int(row.get("ready_metric_count") or 0) for row in component_rows
+            ),
+            "missing_metric_count": len(missing_metrics),
+            "total_metric_count": sum(
+                int(row.get("total_metric_count") or 0) for row in component_rows
+            ),
+            "total_reference_items": sum(
+                int(row.get("total_reference_items") or 0) for row in component_rows
+            ),
+            "missing_metrics": missing_metrics,
+            "action": str(config.get("action") or ""),
+        }
+    return rows
+
+
+def build_knowledge_domain_focus_areas(
+    domains: Dict[str, Dict[str, Any]]
+) -> List[Dict[str, Any]]:
+    """Return actionable benchmark-facing domain gaps."""
+    items: List[Dict[str, Any]] = []
+    for name, row in domains.items():
+        if row.get("status") == "ready":
+            continue
+        items.append(
+            {
+                "domain": name,
+                "label": row.get("label") or name,
+                "status": row.get("status") or "missing",
+                "priority": row.get("priority") or "medium",
+                "components": list(row.get("components") or []),
+                "focus_components": list(row.get("focus_components") or []),
+                "missing_metrics": list(row.get("missing_metrics") or []),
+                "total_reference_items": _to_int(row.get("total_reference_items")),
+                "action": row.get("action")
+                or "Expand benchmark knowledge coverage for this domain.",
+            }
+        )
+    return items
+
+
 def build_knowledge_readiness_status(snapshot: Dict[str, Any]) -> Dict[str, Any]:
     """Build a normalized benchmark knowledge-readiness summary."""
     snapshot = snapshot or {}
@@ -186,6 +298,11 @@ def build_knowledge_readiness_status(snapshot: Dict[str, Any]) -> Dict[str, Any]
         if component.get("status") != "ready"
     ]
     focus_areas_detail = build_knowledge_focus_areas(components)
+    domains = build_knowledge_domain_statuses(components)
+    priority_domains = [
+        name for name, row in domains.items() if str(row.get("status") or "") != "ready"
+    ]
+    domain_focus_areas = build_knowledge_domain_focus_areas(domains)
 
     if ready_count == len(components):
         status = "knowledge_foundation_ready"
@@ -203,6 +320,9 @@ def build_knowledge_readiness_status(snapshot: Dict[str, Any]) -> Dict[str, Any]
         "focus_areas": focus_areas,
         "focus_area_statuses": focus_area_statuses,
         "focus_areas_detail": focus_areas_detail,
+        "priority_domains": priority_domains,
+        "domains": domains,
+        "domain_focus_areas": domain_focus_areas,
         "components": components,
     }
 
@@ -248,6 +368,15 @@ def knowledge_readiness_recommendations(summary: Dict[str, Any]) -> List[str]:
         ]
         if focus_actions:
             items.append("Prioritize knowledge gaps: " + " | ".join(focus_actions))
+    domain_focus_areas = summary.get("domain_focus_areas") or []
+    if domain_focus_areas:
+        domain_actions = [
+            f"{row.get('domain')}: {row.get('action')}"
+            for row in domain_focus_areas[:3]
+            if row.get("domain") and row.get("action")
+        ]
+        if domain_actions:
+            items.append("Prioritize knowledge domains: " + " | ".join(domain_actions))
     if not items and status == "knowledge_foundation_ready":
         return []
     if status == "knowledge_foundation_partial":
@@ -261,6 +390,7 @@ def knowledge_readiness_recommendations(summary: Dict[str, Any]) -> List[str]:
 def render_knowledge_readiness_markdown(payload: Dict[str, Any], title: str) -> str:
     component = payload.get("knowledge_readiness") or {}
     components = component.get("components") or {}
+    domains = component.get("domains") or {}
     recommendations = payload.get("recommendations") or []
     lines = [
         f"# {title}",
@@ -273,6 +403,7 @@ def render_knowledge_readiness_markdown(payload: Dict[str, Any], title: str) -> 
         f"- `missing_component_count`: `{component.get('missing_component_count', 0)}`",
         f"- `total_reference_items`: `{component.get('total_reference_items', 0)}`",
         f"- `focus_areas`: `{', '.join(component.get('focus_areas') or []) or 'none'}`",
+        f"- `priority_domains`: `{', '.join(component.get('priority_domains') or []) or 'none'}`",
         "",
         "## Components",
         "",
@@ -292,6 +423,33 @@ def render_knowledge_readiness_markdown(payload: Dict[str, Any], title: str) -> 
                 f"status=`{row.get('status')}` "
                 f"priority=`{row.get('priority')}` "
                 f"missing_metrics=`{', '.join(row.get('missing_metrics') or []) or 'none'}` "
+                f"action=`{row.get('action')}`"
+            )
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Domains", ""])
+    if domains:
+        for name, row in domains.items():
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"label=`{row.get('label')}` "
+                f"status=`{row.get('status')}` "
+                f"focus_components=`{', '.join(row.get('focus_components') or []) or 'none'}` "
+                f"missing_metrics=`{', '.join(row.get('missing_metrics') or []) or 'none'}`"
+            )
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Domain Focus Areas", ""])
+    domain_focus_areas = component.get("domain_focus_areas") or []
+    if domain_focus_areas:
+        for row in domain_focus_areas:
+            lines.append(
+                "- "
+                f"`{row.get('domain')}` "
+                f"status=`{row.get('status')}` "
+                f"priority=`{row.get('priority')}` "
+                f"focus_components=`{', '.join(row.get('focus_components') or []) or 'none'}` "
                 f"action=`{row.get('action')}`"
             )
     else:

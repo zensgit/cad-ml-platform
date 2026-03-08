@@ -52,6 +52,10 @@ def test_build_knowledge_readiness_status_ready() -> None:
     assert payload["total_reference_items"] == 192
     assert payload["focus_areas"] == []
     assert payload["focus_areas_detail"] == []
+    assert payload["priority_domains"] == []
+    assert payload["domains"]["standards"]["status"] == "ready"
+    assert payload["domains"]["standards"]["total_component_count"] == 2
+    assert payload["domain_focus_areas"] == []
 
 
 def test_build_knowledge_readiness_status_partial_and_recommendations() -> None:
@@ -81,11 +85,18 @@ def test_build_knowledge_readiness_status_partial_and_recommendations() -> None:
     assert payload["focus_areas_detail"][0]["priority"] == "medium"
     assert payload["focus_areas_detail"][1]["component"] == "standards"
     assert payload["focus_areas_detail"][1]["priority"] == "high"
+    assert payload["priority_domains"] == ["tolerance", "standards"]
+    assert payload["domains"]["tolerance"]["status"] == "partial"
+    assert payload["domains"]["standards"]["status"] == "partial"
+    assert payload["domains"]["gdt"]["status"] == "ready"
+    assert payload["domain_focus_areas"][0]["domain"] == "tolerance"
+    assert payload["domain_focus_areas"][1]["domain"] == "standards"
     recs = knowledge_readiness_recommendations(payload)
     assert any("ISO 286" in item for item in recs)
     assert any("standard-part coverage" in item for item in recs)
     assert any("Lift knowledge readiness" in item for item in recs)
     assert any("Prioritize knowledge gaps" in item for item in recs)
+    assert any("Prioritize knowledge domains" in item for item in recs)
 
 
 def test_export_benchmark_knowledge_readiness_cli(tmp_path: Path) -> None:
@@ -130,6 +141,8 @@ def test_export_benchmark_knowledge_readiness_cli(tmp_path: Path) -> None:
     payload = json.loads(result.stdout)
     assert payload["knowledge_readiness"]["status"] == "knowledge_foundation_ready"
     assert payload["knowledge_readiness"]["focus_areas_detail"] == []
+    assert payload["knowledge_readiness"]["domain_focus_areas"] == []
     assert output_json.exists()
     assert output_md.exists()
     assert "Benchmark Knowledge Readiness" in output_md.read_text(encoding="utf-8")
+    assert "## Domains" in output_md.read_text(encoding="utf-8")
