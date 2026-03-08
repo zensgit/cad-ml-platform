@@ -1924,6 +1924,16 @@ jobs:
             const benchmarkOperationalBlockers = '${{ steps.benchmark_operational_summary.outputs.blockers }}';
             const benchmarkOperationalRecommendations = '${{ steps.benchmark_operational_summary.outputs.recommendations }}';
             const benchmarkOperationalArtifact = '${{ steps.benchmark_operational_summary.outputs.output_md }}';
+            const benchmarkArtifactBundleEnabled = '${{ steps.benchmark_artifact_bundle.outputs.enabled }}' === 'true';
+            const benchmarkArtifactBundleOverall = '${{ steps.benchmark_artifact_bundle.outputs.overall_status }}';
+            const benchmarkArtifactBundleAvailableArtifacts = '${{ steps.benchmark_artifact_bundle.outputs.available_artifact_count }}';
+            const benchmarkArtifactBundleFeedbackStatus = '${{ steps.benchmark_artifact_bundle.outputs.feedback_status }}';
+            const benchmarkArtifactBundleAssistantStatus = '${{ steps.benchmark_artifact_bundle.outputs.assistant_status }}';
+            const benchmarkArtifactBundleReviewQueueStatus = '${{ steps.benchmark_artifact_bundle.outputs.review_queue_status }}';
+            const benchmarkArtifactBundleOcrStatus = '${{ steps.benchmark_artifact_bundle.outputs.ocr_status }}';
+            const benchmarkArtifactBundleBlockers = '${{ steps.benchmark_artifact_bundle.outputs.blockers }}';
+            const benchmarkArtifactBundleRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.recommendations }}';
+            const benchmarkArtifactBundleArtifact = '${{ steps.benchmark_artifact_bundle.outputs.output_md }}';
             const assistantEvidenceEnabled = '${{ steps.assistant_evidence_report.outputs.enabled }}' === 'true';
             const assistantEvidenceInput = '${{ steps.assistant_evidence_report.outputs.input_path }}';
             const assistantEvidenceTotalRecords = '${{ steps.assistant_evidence_report.outputs.total_records }}';
@@ -1989,6 +1999,9 @@ jobs:
             const benchmarkOperationalSummaryStatus = benchmarkOperationalSummaryEnabled
               ? `overall=${benchmarkOperationalSummaryOverall}, feedback=${benchmarkOperationalFeedbackStatus}, assistant=${benchmarkOperationalAssistantStatus}, review_queue=${benchmarkOperationalReviewQueueStatus}, ocr=${benchmarkOperationalOcrStatus}, blockers=${benchmarkOperationalBlockers || 'n/a'}, recommendations=${benchmarkOperationalRecommendations || 'n/a'}, artifact=${benchmarkOperationalArtifact}`
               : '⏭️ skipped';
+            const benchmarkArtifactBundleStatus = benchmarkArtifactBundleEnabled
+              ? `overall=${benchmarkArtifactBundleOverall}, available_artifacts=${benchmarkArtifactBundleAvailableArtifacts}, feedback=${benchmarkArtifactBundleFeedbackStatus}, assistant=${benchmarkArtifactBundleAssistantStatus}, review_queue=${benchmarkArtifactBundleReviewQueueStatus}, ocr=${benchmarkArtifactBundleOcrStatus}, blockers=${benchmarkArtifactBundleBlockers || 'n/a'}, recommendations=${benchmarkArtifactBundleRecommendations || 'n/a'}, artifact=${benchmarkArtifactBundleArtifact}`
+              : '⏭️ skipped';
             const assistantEvidenceStatus = assistantEvidenceEnabled
               ? `input=${assistantEvidenceInput}, records=${assistantEvidenceTotalRecords}, evidence_items=${assistantEvidenceTotalItems}, avg=${assistantEvidenceAverageCount}, evidence_cov=${assistantEvidenceCoverage}, decision_cov=${assistantDecisionPathCoverage}, source_cov=${assistantSourceSignalCoverage}`
               : '⏭️ skipped';
@@ -2023,6 +2036,15 @@ jobs:
             const benchmarkOperationalLight = !benchmarkOperationalSummaryEnabled
               ? '⚪'
               : (benchmarkOperationalSummaryOverall === 'attention_required' ? '🟡' : '🟢');
+            const benchmarkArtifactBundleLight = !benchmarkArtifactBundleEnabled
+              ? '⚪'
+              : (
+                benchmarkArtifactBundleOverall === 'attention_required' ||
+                benchmarkArtifactBundleOverall === 'gap_detected' ||
+                !!benchmarkArtifactBundleBlockers
+                  ? '🟡'
+                  : '🟢'
+              );
             const assistantEvidenceLight = !assistantEvidenceEnabled
               ? '⚪'
               : (parseInt(assistantEvidenceTotalRecords || '0', 10) > 0 ? '🟢' : '🟡');
@@ -2064,6 +2086,7 @@ jobs:
             | **Benchmark Feedback Flywheel** | ${benchmarkFeedbackFlywheelStatus || 'n/a'} |
             | **Feedback Flywheel Artifact** | ${feedbackFlywheelBenchmarkStatusLine} |
             | **Benchmark Operational Summary** | ${benchmarkOperationalSummaryStatus} |
+            | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleStatus} |
             | **Assistant Evidence Report** | ${assistantEvidenceStatus} |
             | **Assistant Evidence Insights** | ${assistantEvidenceInsights} |
             | **Active-Learning Review Queue** | ${activeLearningReviewQueueStatusLine} |
@@ -2079,6 +2102,7 @@ jobs:
             | **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
             | **Benchmark Scorecard** | ${benchmarkLight} | ${benchmarkScorecardStatus} |
             | **Benchmark Operational Summary** | ${benchmarkOperationalLight} | ${benchmarkOperationalSummaryStatus} |
+            | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleLight} | ${benchmarkArtifactBundleStatus} |
             | **Assistant Evidence Report** | ${assistantEvidenceLight} | ${assistantEvidenceStatus} |
             | **Active-Learning Review Queue** | ${activeLearningReviewQueueLight} | ${activeLearningReviewQueueStatusLine} |
             | **OCR Review Pack** | ${ocrReviewPackLight} | ${ocrReviewPackStatus} |
