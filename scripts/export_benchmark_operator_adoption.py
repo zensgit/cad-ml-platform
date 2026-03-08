@@ -10,6 +10,12 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 
+def _text(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
 def _load_json(path_text: str) -> Dict[str, Any]:
     path = Path(path_text).expanduser()
     if not path.exists():
@@ -77,14 +83,57 @@ def _pick_status(
     }
 
 
+def _knowledge_drift_payload(
+    benchmark_release_decision: Dict[str, Any],
+    benchmark_release_runbook: Dict[str, Any],
+    benchmark_knowledge_drift: Dict[str, Any],
+) -> Dict[str, Any]:
+    component = (
+        benchmark_release_runbook.get("knowledge_drift")
+        or benchmark_release_decision.get("knowledge_drift")
+        or benchmark_knowledge_drift.get("knowledge_drift")
+        or benchmark_knowledge_drift
+        or {}
+    )
+    counts = component.get("counts") or {}
+    return {
+        "status": (
+            _text(component.get("status"))
+            or _text(benchmark_release_runbook.get("knowledge_drift_status"))
+            or _text(benchmark_release_decision.get("knowledge_drift_status"))
+            or "unknown"
+        ),
+        "summary": (
+            _text(component.get("summary"))
+            or _text(benchmark_release_runbook.get("knowledge_drift_summary"))
+            or _text(benchmark_release_decision.get("knowledge_drift_summary"))
+        ),
+        "recommendations": _compact(
+            component.get("recommendations")
+            or benchmark_knowledge_drift.get("recommendations")
+            or [],
+            limit=4,
+        ),
+        "counts": {
+            "regressions": int(counts.get("regressions") or 0),
+            "improvements": int(counts.get("improvements") or 0),
+            "new_focus_areas": int(counts.get("new_focus_areas") or 0),
+            "resolved_focus_areas": int(counts.get("resolved_focus_areas") or 0),
+        },
+    }
+
+
 def _adoption_readiness(
     statuses: Dict[str, str],
     freeze_ready: bool,
     blockers: List[str],
     review_signals: List[str],
+    knowledge_drift: Dict[str, Any],
 ) -> str:
     if blockers or statuses["release_decision"] == "blocked":
         return "blocked"
+    if knowledge_drift.get("status") == "regressed":
+        return "guided_manual"
     if freeze_ready and not review_signals and statuses["review_queue"] not in {
         "critical_backlog",
         "managed_backlog",
@@ -99,9 +148,12 @@ def _operator_mode(
     blockers: List[str],
     review_signals: List[str],
     freeze_ready: bool,
+    knowledge_drift: Dict[str, Any],
 ) -> str:
     if blockers or statuses["release_decision"] == "blocked":
         return "clear_blockers"
+    if knowledge_drift.get("status") == "regressed":
+        return "stabilize_knowledge"
     if next_action == "collect_artifacts":
         return "stabilize_inputs"
     if next_action == "review_signals" or review_signals:
@@ -116,8 +168,12 @@ def _recommended_actions(
     blockers: List[str],
     review_signals: List[str],
     review_queue: Dict[str, Any],
+    knowledge_drift: Dict[str, Any],
 ) -> List[str]:
     actions: List[str] = []
+    for item in knowledge_drift.get("recommendations") or []:
+        if item and item not in actions:
+            actions.append(str(item))
     for step in benchmark_release_runbook.get("operator_steps") or []:
         if not isinstance(step, dict):
             continue
@@ -145,6 +201,7 @@ def build_operator_adoption(
     benchmark_release_runbook: Dict[str, Any],
     review_queue: Dict[str, Any],
     feedback_flywheel: Dict[str, Any],
+    benchmark_knowledge_drift: Dict[str, Any],
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     statuses = _pick_status(
@@ -175,12 +232,18 @@ def build_operator_adoption(
     high_count = int(review_queue.get("high_count") or 0)
     correction_count = int(feedback_flywheel.get("correction_count") or 0)
     feedback_total = int(feedback_flywheel.get("feedback_total") or 0)
+    knowledge_drift = _knowledge_drift_payload(
+        benchmark_release_decision,
+        benchmark_release_runbook,
+        benchmark_knowledge_drift,
+    )
 
     adoption_readiness = _adoption_readiness(
         statuses,
         freeze_ready,
         blockers,
         review_signals,
+        knowledge_drift,
     )
     operator_mode = _operator_mode(
         statuses,
@@ -188,12 +251,14 @@ def build_operator_adoption(
         blockers,
         review_signals,
         freeze_ready,
+        knowledge_drift,
     )
     recommended_actions = _recommended_actions(
         benchmark_release_runbook,
         blockers,
         review_signals,
         review_queue,
+        knowledge_drift,
     )
     artifacts = {
         "benchmark_release_decision": _artifact_row(
@@ -216,6 +281,11 @@ def build_operator_adoption(
             artifact_paths.get("feedback_flywheel", ""),
             feedback_flywheel,
         ),
+        "benchmark_knowledge_drift": _artifact_row(
+            "benchmark_knowledge_drift",
+            artifact_paths.get("benchmark_knowledge_drift", ""),
+            benchmark_knowledge_drift,
+        ),
     }
 
     return {
@@ -233,6 +303,9 @@ def build_operator_adoption(
         "review_queue_high_count": high_count,
         "feedback_total": feedback_total,
         "correction_count": correction_count,
+        "knowledge_drift_status": knowledge_drift["status"],
+        "knowledge_drift_summary": knowledge_drift["summary"],
+        "knowledge_drift": knowledge_drift,
         "recommended_actions": recommended_actions,
         "artifacts": artifacts,
     }
@@ -247,6 +320,7 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"- `next_action`: `{payload.get('next_action')}`",
         f"- `automation_ready`: `{payload.get('automation_ready')}`",
         f"- `freeze_ready`: `{payload.get('freeze_ready')}`",
+        f"- `knowledge_drift_status`: `{payload.get('knowledge_drift_status')}`",
         "",
         "## Statuses",
         "",
@@ -272,6 +346,20 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     lines.extend(["", "## Review Signals", ""])
     review = payload.get("review_signals") or []
     lines.extend(f"- {item}" for item in review) if review else lines.append("- none")
+    lines.extend(["", "## Knowledge Drift", ""])
+    lines.append(
+        "- `summary`: "
+        + (_text(payload.get("knowledge_drift_summary")) or "none")
+    )
+    drift = payload.get("knowledge_drift") or {}
+    counts = drift.get("counts") or {}
+    lines.append(
+        "- `counts`: "
+        f"regressions={counts.get('regressions', 0)} "
+        f"improvements={counts.get('improvements', 0)} "
+        f"new_focus_areas={counts.get('new_focus_areas', 0)} "
+        f"resolved_focus_areas={counts.get('resolved_focus_areas', 0)}"
+    )
     lines.extend(["", "## Recommended Actions", ""])
     actions = payload.get("recommended_actions") or []
     lines.extend(f"- {item}" for item in actions) if actions else lines.append("- none")
@@ -293,6 +381,7 @@ def main() -> None:
     parser.add_argument("--benchmark-release-runbook", default="")
     parser.add_argument("--review-queue", default="")
     parser.add_argument("--feedback-flywheel", default="")
+    parser.add_argument("--benchmark-knowledge-drift", default="")
     parser.add_argument("--output-json", required=True)
     parser.add_argument("--output-md", required=True)
     args = parser.parse_args()
@@ -303,11 +392,13 @@ def main() -> None:
         benchmark_release_runbook=_maybe_load_json(args.benchmark_release_runbook),
         review_queue=_maybe_load_json(args.review_queue),
         feedback_flywheel=_maybe_load_json(args.feedback_flywheel),
+        benchmark_knowledge_drift=_maybe_load_json(args.benchmark_knowledge_drift),
         artifact_paths={
             "benchmark_release_decision": args.benchmark_release_decision,
             "benchmark_release_runbook": args.benchmark_release_runbook,
             "review_queue": args.review_queue,
             "feedback_flywheel": args.feedback_flywheel,
+            "benchmark_knowledge_drift": args.benchmark_knowledge_drift,
         },
     )
     _write_output(args.output_json, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
