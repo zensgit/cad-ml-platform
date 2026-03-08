@@ -80,6 +80,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_ARTIFACT_BUNDLE_REVIEW_QUEUE_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_COMPANION_SUMMARY_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_RELEASE_DECISION_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD" in env
     assert "BENCHMARK_COMPANION_SUMMARY_ENABLE" in env
@@ -148,6 +149,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_artifact_bundle_review_queue_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_ocr_review_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_companion_summary_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_release_decision_json" in dispatch_inputs
     assert "benchmark_companion_summary_enable" in dispatch_inputs
     assert "benchmark_companion_summary_scorecard_json" in dispatch_inputs
     assert "benchmark_companion_summary_operational_summary_json" in dispatch_inputs
@@ -319,6 +321,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--review-queue" in benchmark_bundle_script
     assert "--ocr-review" in benchmark_bundle_script
     assert "--benchmark-companion-summary" in benchmark_bundle_script
+    assert "--benchmark-release-decision" in benchmark_bundle_script
     assert "INPUT_COUNT=0" in benchmark_bundle_script
     assert "available_artifact_count=" in benchmark_bundle_script
     assert "feedback_status=" in benchmark_bundle_script
