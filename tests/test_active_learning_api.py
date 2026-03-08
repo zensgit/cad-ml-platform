@@ -26,7 +26,10 @@ def test_active_learning_pending_limit(client):
         predicted_type="bolt",
         confidence=0.4,
         alternatives=[],
-        score_breakdown={},
+        score_breakdown={
+            "source_contributions": {"filename": 0.72},
+            "hybrid_explanation": {"summary": "文件名信号支持 bolt"},
+        },
         uncertainty_reason="low_confidence",
     )
     learner.flag_for_review(
@@ -48,6 +51,9 @@ def test_active_learning_pending_limit(client):
     assert payload[0]["predicted_coarse_type"] == normalize_coarse_label("bolt")
     assert payload[0]["sample_type"] == "low_confidence"
     assert payload[0]["feedback_priority"] == "medium"
+    assert payload[0]["evidence_count"] >= 2
+    assert payload[0]["evidence_sources"] == ["filename", "hybrid_explanation"]
+    assert "文件名信号支持 bolt" in payload[0]["evidence_summary"]
 
 
 def test_active_learning_feedback_missing_sample_returns_404(client):
@@ -270,6 +276,8 @@ def test_active_learning_review_queue_export_csv(client):
         score_breakdown={
             "final_decision_source": "hybrid",
             "review_reasons": ["missing_critical_fields"],
+            "source_contributions": {"filename": 0.55, "graph2d": 0.21},
+            "hybrid_explanation": {"summary": "综合 文件名, 图结构 证据"},
         },
         uncertainty_reason="low_confidence",
     )
@@ -288,6 +296,10 @@ def test_active_learning_review_queue_export_csv(client):
         rows = list(csv.DictReader(handle))
     assert len(rows) == 1
     assert rows[0]["doc_id"] == "doc-export-1"
+    assert int(rows[0]["evidence_count"]) >= 2
+    assert "filename" in json.loads(rows[0]["evidence_sources"])
+    assert "综合 文件名, 图结构 证据" in rows[0]["evidence_summary"]
+    assert json.loads(rows[0]["evidence"])[0]["type"] == "source_contribution"
     assert json.loads(rows[0]["review_reasons"]) == ["missing_critical_fields"]
 
 

@@ -91,6 +91,15 @@ def test_export_training_data_keeps_score_breakdown_and_uncertainty_reason(
         "confidence": 0.58,
         "status": "ok",
     }
+    assert payload["evidence_count"] >= 3
+    assert payload["evidence_sources"] == [
+        "filename",
+        "titleblock",
+        "hybrid_explanation",
+        "decision_path",
+    ]
+    assert "综合 文件名, 标题栏 多源信息" in payload["evidence_summary"]
+    assert payload["evidence"][0]["type"] == "source_contribution"
 
 
 def test_export_training_data_marks_low_confidence_feedback_priority(
