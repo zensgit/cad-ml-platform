@@ -72,6 +72,17 @@ def test_build_release_decision_blocks_on_blockers() -> None:
             "engineering_signals": {"status": "partial_engineering_semantics"},
             "recommendations": ["Close engineering gaps."],
         },
+        benchmark_realdata_signals={
+            "realdata_signals": {
+                "status": "realdata_foundation_partial",
+                "components": {
+                    "hybrid_dxf": {"status": "ready", "sample_size": 110},
+                    "history_h5": {"status": "ready", "sample_size": 1},
+                    "step_dir": {"status": "partial", "sample_size": 3},
+                },
+            },
+            "recommendations": ["Expand STEP/B-Rep directory validation."],
+        },
         benchmark_operator_adoption={
             "adoption_readiness": "guided_manual",
             "blocking_signals": ["operator:blocker"],
@@ -96,17 +107,25 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["component_statuses"]["knowledge_drift"] == "regressed"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
+    assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
     assert payload["knowledge_drift_status"] == "regressed"
+    assert payload["realdata_status"] == "realdata_foundation_partial"
+    assert payload["realdata_signals"]["components"]["step_dir"]["status"] == "partial"
+    assert payload["realdata_recommendations"] == [
+        "Expand STEP/B-Rep directory validation."
+    ]
     assert payload["knowledge_drift"]["counts"]["regressions"] == 1
     assert "Backfill tolerance knowledge coverage." in payload["review_signals"]
+    assert "Expand STEP/B-Rep directory validation." in payload["review_signals"]
     assert payload["knowledge_priority_domains"] == ["tolerance"]
     assert payload["knowledge_domains"]["tolerance"]["status"] == "partial"
     assert payload["knowledge_domain_focus_areas"][0]["domain"] == "tolerance"
     assert "Operator fallback only." not in payload["review_signals"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
+    assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is False
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
 
 
@@ -161,6 +180,17 @@ def test_build_release_decision_ready_without_blockers() -> None:
             "engineering_signals": {"status": "engineering_semantics_ready"},
             "recommendations": ["Keep standards coverage stable."],
         },
+        benchmark_realdata_signals={
+            "realdata_signals": {
+                "status": "realdata_foundation_ready",
+                "components": {
+                    "hybrid_dxf": {"status": "ready", "sample_size": 110},
+                    "history_h5": {"status": "ready", "sample_size": 1},
+                    "step_dir": {"status": "ready", "sample_size": 3},
+                },
+            },
+            "recommendations": [],
+        },
         benchmark_operator_adoption={
             "adoption_readiness": "operator_ready",
             "knowledge_drift_status": "stable",
@@ -175,14 +205,18 @@ def test_build_release_decision_ready_without_blockers() -> None:
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
     assert payload["component_statuses"]["knowledge_drift"] == "improved"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
+    assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["knowledge_focus_areas"] == []
     assert payload["knowledge_drift_status"] == "improved"
+    assert payload["realdata_status"] == "realdata_foundation_ready"
+    assert payload["realdata_recommendations"] == []
     assert payload["knowledge_drift"]["counts"]["improvements"] == 1
     assert payload["knowledge_priority_domains"] == []
     assert payload["knowledge_domains"]["gdt"]["status"] == "ready"
     assert payload["knowledge_domain_focus_areas"] == []
+    assert payload["review_signals"] == []
 
 
 def test_build_release_decision_uses_operator_adoption_blocker_as_fallback() -> None:
@@ -198,6 +232,7 @@ def test_build_release_decision_uses_operator_adoption_blocker_as_fallback() -> 
             "engineering_signals": {"status": "engineering_semantics_ready"},
             "recommendations": [],
         },
+        benchmark_realdata_signals={},
         benchmark_operator_adoption={
             "adoption_readiness": "blocked",
             "blocking_signals": ["operator_runbook:missing_dry_run"],
@@ -229,6 +264,7 @@ def test_build_release_decision_uses_operator_adoption_recommendation_as_fallbac
             "engineering_signals": {"status": "engineering_semantics_ready"},
             "recommendations": [],
         },
+        benchmark_realdata_signals={},
         benchmark_operator_adoption={
             "adoption_readiness": "guided_manual",
             "blocking_signals": [],
@@ -251,6 +287,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge = tmp_path / "knowledge.json"
     drift = tmp_path / "drift.json"
     engineering = tmp_path / "engineering.json"
+    realdata = tmp_path / "realdata.json"
     operator = tmp_path / "operator.json"
     output_json = tmp_path / "release.json"
     output_md = tmp_path / "release.md"
@@ -327,6 +364,22 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    realdata.write_text(
+        json.dumps(
+            {
+                "realdata_signals": {
+                    "status": "realdata_foundation_ready",
+                    "components": {
+                        "hybrid_dxf": {"status": "ready", "sample_size": 110},
+                        "history_h5": {"status": "ready", "sample_size": 1},
+                        "step_dir": {"status": "ready", "sample_size": 3},
+                    },
+                },
+                "recommendations": [],
+            }
+        ),
+        encoding="utf-8",
+    )
     operator.write_text(
         json.dumps(
             {
@@ -357,6 +410,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(drift),
             "--benchmark-engineering-signals",
             str(engineering),
+            "--benchmark-realdata-signals",
+            str(realdata),
             "--benchmark-operator-adoption",
             str(operator),
             "--output-json",
@@ -373,10 +428,12 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
     assert payload["component_statuses"]["knowledge_drift"] == "improved"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
+    assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["artifacts"]["benchmark_knowledge_readiness"]["present"] is True
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
+    assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
     assert payload["knowledge_domains"]["standards"]["status"] == "ready"
     assert payload["knowledge_domain_focus_areas"] == []
@@ -391,3 +448,5 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "`operator_adoption`: `operator_ready`" in rendered
     assert "`operator_adoption_knowledge_drift`: `stable`" in rendered
     assert "## Knowledge Domains" in rendered
+    assert "## Real-Data Signals" in rendered
+    assert "realdata.json" in rendered
