@@ -10,6 +10,12 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
 
+def _text(value: Any) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
 def _load_json(path_text: str) -> Dict[str, Any]:
     path = Path(path_text).expanduser()
     if not path.exists():
@@ -47,7 +53,7 @@ def _compact(items: Iterable[Any], *, limit: int = 6) -> List[str]:
 
 
 def _artifact_row(name: str, path_text: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    path_value = str(path_text or "").strip()
+    path_value = _text(path_text)
     return {
         "name": name,
         "path": path_value,
@@ -61,17 +67,18 @@ def _artifacts(
     benchmark_companion_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
+    benchmark_operator_adoption: Dict[str, Any],
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Dict[str, Any]]:
     decision_artifacts = benchmark_release_decision.get("artifacts") or {}
 
     def pick_path(name: str) -> str:
-        direct = str(artifact_paths.get(name, "") or "").strip()
+        direct = _text(artifact_paths.get(name, ""))
         if direct:
             return direct
         nested = decision_artifacts.get(name) or {}
         if isinstance(nested, dict):
-            return str(nested.get("path") or "").strip()
+            return _text(nested.get("path"))
         return ""
 
     return {
@@ -95,6 +102,11 @@ def _artifacts(
             pick_path("benchmark_engineering_signals")
             or artifact_paths.get("benchmark_engineering_signals", ""),
             benchmark_engineering_signals,
+        ),
+        "benchmark_operator_adoption": _artifact_row(
+            "benchmark_operator_adoption",
+            artifact_paths.get("benchmark_operator_adoption", ""),
+            benchmark_operator_adoption,
         ),
         "benchmark_scorecard": _artifact_row(
             "benchmark_scorecard",
@@ -135,6 +147,41 @@ def _primary_signal_source(
     )
 
 
+def _operator_adoption_payload(
+    benchmark_operator_adoption: Dict[str, Any]
+) -> Dict[str, Any]:
+    status = (
+        _text(benchmark_operator_adoption.get("status"))
+        or _text(benchmark_operator_adoption.get("overall_status"))
+        or _text(benchmark_operator_adoption.get("adoption_status"))
+        or ("provided" if benchmark_operator_adoption else "unknown")
+    )
+    summary = (
+        _text(benchmark_operator_adoption.get("summary"))
+        or _text(benchmark_operator_adoption.get("headline"))
+        or _text(benchmark_operator_adoption.get("status_summary"))
+    )
+    signals = _compact(
+        benchmark_operator_adoption.get("signals")
+        or benchmark_operator_adoption.get("adoption_signals")
+        or benchmark_operator_adoption.get("risks")
+        or [],
+    )
+    actions = _compact(
+        benchmark_operator_adoption.get("actions")
+        or benchmark_operator_adoption.get("recommended_actions")
+        or benchmark_operator_adoption.get("guidance")
+        or [],
+    )
+    return {
+        "status": status,
+        "summary": summary,
+        "signals": signals,
+        "actions": actions,
+        "has_guidance": bool(signals or actions),
+    }
+
+
 def _step(
     *,
     order: int,
@@ -161,8 +208,10 @@ def build_release_runbook(
     benchmark_companion_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
+    benchmark_operator_adoption: Dict[str, Any] | None = None,
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
+    benchmark_operator_adoption = benchmark_operator_adoption or {}
     release_status = _release_status(
         benchmark_release_decision,
         benchmark_companion_summary,
@@ -200,12 +249,15 @@ def build_release_runbook(
         benchmark_companion_summary=benchmark_companion_summary,
         benchmark_artifact_bundle=benchmark_artifact_bundle,
         benchmark_engineering_signals=benchmark_engineering_signals,
+        benchmark_operator_adoption=benchmark_operator_adoption,
         artifact_paths=artifact_paths,
     )
+    operator_adoption = _operator_adoption_payload(benchmark_operator_adoption)
     missing_artifacts = [
         name
         for name, row in artifacts.items()
-        if name != "benchmark_release_decision" and not row["present"]
+        if name not in {"benchmark_release_decision", "benchmark_operator_adoption"}
+        and not row["present"]
     ]
 
     operator_steps: List[Dict[str, Any]] = []
@@ -269,6 +321,37 @@ def build_release_runbook(
     operator_steps.append(
         _step(
             order=4,
+            key="operator_adoption_guidance",
+            status="guidance" if operator_adoption["has_guidance"] else "ready",
+            title="Review operator adoption guidance",
+            reason=(
+                " | ".join(
+                    part
+                    for part in [
+                        operator_adoption.get("summary") or "",
+                        (
+                            "Signals: "
+                            + "; ".join(operator_adoption.get("signals") or [])
+                        )
+                        if operator_adoption.get("signals")
+                        else "",
+                    ]
+                    if part
+                )
+                or "No operator adoption guidance was supplied."
+            ),
+            action=(
+                "Use operator adoption actions as low-priority guidance after "
+                "required blockers, artifact gaps, and review signals are cleared: "
+                + "; ".join(operator_adoption.get("actions") or [])
+                if operator_adoption["has_guidance"]
+                else "No operator adoption follow-up is required."
+            ),
+        )
+    )
+    operator_steps.append(
+        _step(
+            order=5,
             key="rerun_benchmark",
             status=(
                 "required"
@@ -289,7 +372,7 @@ def build_release_runbook(
     )
     operator_steps.append(
         _step(
-            order=5,
+            order=6,
             key="freeze_release_baseline",
             status=(
                 "ready"
@@ -356,6 +439,7 @@ def build_release_runbook(
         "missing_artifacts": missing_artifacts,
         "blocking_signals": blockers,
         "review_signals": review_signals,
+        "operator_adoption": operator_adoption,
         "next_action": next_action,
         "operator_steps": operator_steps,
         "artifacts": artifacts,
@@ -393,6 +477,24 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         lines.extend(f"- {item}" for item in review_signals)
     else:
         lines.append("- none")
+    lines.extend(["", "## Operator Adoption", ""])
+    operator_adoption = payload.get("operator_adoption") or {}
+    lines.append(f"- `status`: `{operator_adoption.get('status')}`")
+    lines.append(f"- `has_guidance`: `{operator_adoption.get('has_guidance')}`")
+    lines.append(
+        "- `summary`: "
+        + (_text(operator_adoption.get("summary")) or "none")
+    )
+    operator_signals = operator_adoption.get("signals") or []
+    if operator_signals:
+        lines.extend(f"- signal: {item}" for item in operator_signals)
+    else:
+        lines.append("- signal: none")
+    operator_actions = operator_adoption.get("actions") or []
+    if operator_actions:
+        lines.extend(f"- action: {item}" for item in operator_actions)
+    else:
+        lines.append("- action: none")
     lines.extend(["", "## Operator Steps", ""])
     for step in payload.get("operator_steps") or []:
         lines.append(
@@ -419,6 +521,7 @@ def main() -> None:
     parser.add_argument("--benchmark-companion-summary", default="")
     parser.add_argument("--benchmark-artifact-bundle", default="")
     parser.add_argument("--benchmark-engineering-signals", default="")
+    parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -428,6 +531,7 @@ def main() -> None:
         "benchmark_companion_summary": args.benchmark_companion_summary,
         "benchmark_artifact_bundle": args.benchmark_artifact_bundle,
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
+        "benchmark_operator_adoption": args.benchmark_operator_adoption,
     }
     payload = build_release_runbook(
         title=args.title,
@@ -436,6 +540,9 @@ def main() -> None:
         benchmark_artifact_bundle=_maybe_load_json(args.benchmark_artifact_bundle),
         benchmark_engineering_signals=_maybe_load_json(
             args.benchmark_engineering_signals
+        ),
+        benchmark_operator_adoption=_maybe_load_json(
+            args.benchmark_operator_adoption
         ),
         artifact_paths=artifact_paths,
     )

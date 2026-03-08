@@ -30,9 +30,16 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
             "engineering_signals": {"status": "partial_engineering_semantics"},
             "recommendations": ["Close engineering gaps."],
         },
+        benchmark_operator_adoption={
+            "status": "attention_required",
+            "summary": "Operator onboarding still needs a dry run.",
+            "signals": ["operator_playbook:needs_walkthrough"],
+            "actions": ["Schedule an operator handoff dry run."],
+        },
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_engineering_signals": "engineering.json",
+            "benchmark_operator_adoption": "operator_adoption.json",
         },
     )
 
@@ -41,8 +48,19 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["next_action"] == "collect_artifacts"
     assert "benchmark_artifact_bundle" in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
+    assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
+    assert payload["operator_adoption"]["actions"] == [
+        "Schedule an operator handoff dry run."
+    ]
     assert payload["operator_steps"][1]["key"] == "resolve_blockers"
     assert payload["operator_steps"][1]["status"] == "required"
+    adoption_step = next(
+        step
+        for step in payload["operator_steps"]
+        if step["key"] == "operator_adoption_guidance"
+    )
+    assert adoption_step["status"] == "guidance"
+    assert "low-priority guidance" in adoption_step["action"]
 
 
 def test_build_release_runbook_freezes_when_ready() -> None:
@@ -64,6 +82,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
         benchmark_engineering_signals={
             "engineering_signals": {"status": "engineering_semantics_ready"},
         },
+        benchmark_operator_adoption={},
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_companion_summary": "companion.json",
@@ -75,6 +94,8 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["ready_to_freeze_baseline"] is True
     assert payload["engineering_status"] == "engineering_semantics_ready"
     assert payload["next_action"] == "freeze_release_baseline"
+    assert "benchmark_operator_adoption" not in payload["missing_artifacts"]
+    assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is False
     assert payload["operator_steps"][-1]["status"] == "ready"
 
 
@@ -83,6 +104,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     companion = tmp_path / "companion.json"
     bundle = tmp_path / "bundle.json"
     engineering = tmp_path / "engineering.json"
+    operator_adoption = tmp_path / "operator_adoption.json"
     output_json = tmp_path / "runbook.json"
     output_md = tmp_path / "runbook.md"
 
@@ -117,6 +139,17 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    operator_adoption.write_text(
+        json.dumps(
+            {
+                "status": "attention_required",
+                "summary": "Operators still need rollout support.",
+                "signals": ["operator_shift_handoff:pending"],
+                "actions": ["Book an operator office-hours review."],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -130,6 +163,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(bundle),
             "--benchmark-engineering-signals",
             str(engineering),
+            "--benchmark-operator-adoption",
+            str(operator_adoption),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -144,9 +179,20 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["engineering_status"] == "partial_engineering_semantics"
     assert payload["next_action"] == "review_signals"
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
+    assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
+    assert payload["operator_adoption"]["signals"] == [
+        "operator_shift_handoff:pending"
+    ]
+    assert payload["operator_adoption"]["actions"] == [
+        "Book an operator office-hours review."
+    ]
     assert output_md.exists()
 
     rendered = render_markdown(payload)
     assert "# Benchmark Release Runbook" in rendered
     assert "`engineering_status`: `partial_engineering_semantics`" in rendered
     assert "`next_action`: `review_signals`" in rendered
+    assert "## Operator Adoption" in rendered
+    assert "operator_shift_handoff:pending" in rendered
+    assert "Book an operator office-hours review." in rendered
+    assert "`benchmark_operator_adoption`: present=`True`" in rendered
