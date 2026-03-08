@@ -60,6 +60,8 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_SCORECARD_QDRANT_READINESS_JSON" in env
     assert "BENCHMARK_SCORECARD_OUTPUT_JSON" in env
     assert "BENCHMARK_SCORECARD_OUTPUT_MD" in env
+    assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON" in env
+    assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD" in env
     assert "OCR_REVIEW_PACK_ENABLE" in env
     assert "OCR_REVIEW_PACK_INPUT" in env
     assert "OCR_REVIEW_PACK_OUTPUT_CSV" in env
@@ -215,6 +217,18 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "ocr_status=" in benchmark_script
     assert "qdrant_status=" in benchmark_script
 
+    feedback_flywheel_step = _get_step(
+        workflow, "evaluate", "Build feedback flywheel benchmark artifact (optional)"
+    )
+    feedback_flywheel_script = feedback_flywheel_step["run"]
+    assert "scripts/export_feedback_flywheel_benchmark.py" in feedback_flywheel_script
+    assert "--feedback-summary" in feedback_flywheel_script
+    assert "--finetune-summary" in feedback_flywheel_script
+    assert "--metric-train-summary" in feedback_flywheel_script
+    assert "INPUT_COUNT=0" in feedback_flywheel_script
+    assert "feedback_total=" in feedback_flywheel_script
+    assert "metric_triplet_count=" in feedback_flywheel_script
+
     assistant_step = _get_step(
         workflow, "evaluate", "Build assistant evidence report (optional)"
     )
@@ -257,6 +271,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
 
     upload_scorecard = _get_step(workflow, "evaluate", "Upload benchmark scorecard")
     assert upload_scorecard["if"] == "steps.benchmark_scorecard.outputs.enabled == 'true'"
+    upload_feedback_flywheel = _get_step(
+        workflow, "evaluate", "Upload feedback flywheel benchmark artifact"
+    )
+    assert (
+        upload_feedback_flywheel["if"]
+        == "steps.feedback_flywheel_benchmark.outputs.enabled == 'true'"
+    )
     upload_assistant = _get_step(workflow, "evaluate", "Upload assistant evidence report")
     assert (
         upload_assistant["if"]
@@ -306,6 +327,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark feedback flywheel status" in summary_script
     assert "Benchmark OCR status" in summary_script
     assert "Benchmark Qdrant status" in summary_script
+    assert "Feedback flywheel benchmark status" in summary_script
+    assert "Feedback flywheel feedback total" in summary_script
+    assert "Feedback flywheel artifact" in summary_script
     assert "Assistant evidence input" in summary_script
     assert "Assistant evidence records" in summary_script
     assert "Assistant evidence items" in summary_script
