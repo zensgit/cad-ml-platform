@@ -68,6 +68,10 @@ surfaces.
   domain-level knowledge readiness counts, priority domains, and domain focus
   areas so release reviewers see standards/tolerance/GD&T gaps without opening
   the standalone benchmark artifacts
+- benchmark knowledge drift now also exposes domain-level regressions,
+  improvements, resolved domains, and new priority domains
+- the same domain-drift signals now flow through benchmark artifact bundle,
+  companion summary, release decision, and release runbook status surfaces
 
 ### 5. Vector / Qdrant Platformization
 
@@ -97,8 +101,8 @@ product depth:
 - richer standards/tolerance/GD&T checks surfaced directly in benchmark views
 - richer operator/runbook automation that turns benchmark outputs into concrete
   execution batches
-- broader CI wiring for domain-level knowledge drift once the current release
-  surface stack is fully absorbed
+- broader real-data benchmarking that correlates domain readiness/drift with
+  actual DXF, history-sequence, and STEP/B-Rep benchmark outcomes
 
 ## Recommended Next Build Order
 
@@ -112,6 +116,8 @@ product depth:
    hybrid, OCR, history, and B-Rep surfaces in one report.
 4. Extend domain-level knowledge readiness into CI-visible drift and release
    deltas after the standalone surfaces settle.
+5. Add domain-aware benchmark views that tie standards/tolerance/GD&T status to
+   real-data benchmark outcomes instead of only synthetic/operator summaries.
 
 ## Reference Docs
 
