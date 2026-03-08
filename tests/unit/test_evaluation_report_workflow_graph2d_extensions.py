@@ -98,6 +98,13 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_OUTPUT_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_OUTPUT_MD" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_ENABLE" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_TITLE" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_RELEASE_DECISION_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_COMPANION_SUMMARY_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD" in env
     assert "OCR_REVIEW_PACK_ENABLE" in env
     assert "OCR_REVIEW_PACK_INPUT" in env
     assert "OCR_REVIEW_PACK_OUTPUT_CSV" in env
@@ -159,6 +166,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_decision_operational_summary_json" in dispatch_inputs
     assert "benchmark_release_decision_artifact_bundle_json" in dispatch_inputs
     assert "benchmark_release_decision_companion_summary_json" in dispatch_inputs
+    assert "benchmark_release_runbook_enable" in dispatch_inputs
+    assert "benchmark_release_runbook_release_decision_json" in dispatch_inputs
+    assert "benchmark_release_runbook_companion_summary_json" in dispatch_inputs
+    assert "benchmark_release_runbook_artifact_bundle_json" in dispatch_inputs
     assert "ocr_review_pack_enable" in dispatch_inputs
     assert "ocr_review_pack_input" in dispatch_inputs
     assert "assistant_evidence_report_enable" in dispatch_inputs
@@ -362,6 +373,21 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "review_signals=" in benchmark_release_script
     assert "qdrant_status=" in benchmark_release_script
 
+    benchmark_runbook_step = _get_step(
+        workflow, "evaluate", "Build benchmark release runbook (optional)"
+    )
+    benchmark_runbook_script = benchmark_runbook_step["run"]
+    assert "scripts/export_benchmark_release_runbook.py" in benchmark_runbook_script
+    assert "BENCHMARK_RELEASE_RUNBOOK_ENABLE" in benchmark_runbook_script
+    assert "--benchmark-release-decision" in benchmark_runbook_script
+    assert "--benchmark-companion-summary" in benchmark_runbook_script
+    assert "--benchmark-artifact-bundle" in benchmark_runbook_script
+    assert "ready_to_freeze_baseline=" in benchmark_runbook_script
+    assert "next_action=" in benchmark_runbook_script
+    assert "missing_artifacts=" in benchmark_runbook_script
+    assert "blocking_signals=" in benchmark_runbook_script
+    assert "review_signals=" in benchmark_runbook_script
+
     assistant_step = _get_step(
         workflow, "evaluate", "Build assistant evidence report (optional)"
     )
@@ -438,6 +464,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_benchmark_release["if"]
         == "steps.benchmark_release_decision.outputs.enabled == 'true'"
+    )
+    upload_benchmark_runbook = _get_step(
+        workflow, "evaluate", "Upload benchmark release runbook"
+    )
+    assert (
+        upload_benchmark_runbook["if"]
+        == "steps.benchmark_release_runbook.outputs.enabled == 'true'"
     )
     upload_assistant = _get_step(workflow, "evaluate", "Upload assistant evidence report")
     assert (
@@ -520,6 +553,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark release review queue status" in summary_script
     assert "Benchmark release review signals" in summary_script
     assert "Benchmark release artifact" in summary_script
+    assert "Benchmark release runbook status" in summary_script
+    assert "Benchmark release runbook freeze_ready" in summary_script
+    assert "Benchmark release runbook primary signal source" in summary_script
+    assert "Benchmark release runbook next action" in summary_script
+    assert "Benchmark release runbook missing artifacts" in summary_script
+    assert "Benchmark release runbook blocking signals" in summary_script
+    assert "Benchmark release runbook review signals" in summary_script
+    assert "Benchmark release runbook artifact" in summary_script
     assert "Assistant evidence input" in summary_script
     assert "Assistant evidence records" in summary_script
     assert "Assistant evidence items" in summary_script

@@ -194,6 +194,22 @@ on:
         description: 'Optional benchmark release decision companion summary JSON'
         required: false
         default: ''
+      benchmark_release_runbook_enable:
+        description: 'Override: enable benchmark release runbook export (true/false)'
+        required: false
+        default: ''
+      benchmark_release_runbook_release_decision_json:
+        description: 'Optional benchmark release runbook release decision JSON'
+        required: false
+        default: ''
+      benchmark_release_runbook_companion_summary_json:
+        description: 'Optional benchmark release runbook companion summary JSON'
+        required: false
+        default: ''
+      benchmark_release_runbook_artifact_bundle_json:
+        description: 'Optional benchmark release runbook artifact bundle JSON'
+        required: false
+        default: ''
       ocr_review_pack_enable:
         description: 'Override: enable OCR review-pack export (true/false)'
         required: false
@@ -317,6 +333,13 @@ env:
   BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON }}
   BENCHMARK_RELEASE_DECISION_OUTPUT_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_release_decision.json' }}
   BENCHMARK_RELEASE_DECISION_OUTPUT_MD: ${{ vars.BENCHMARK_RELEASE_DECISION_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_release_decision.md' }}
+  BENCHMARK_RELEASE_RUNBOOK_ENABLE: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ENABLE || 'false' }}
+  BENCHMARK_RELEASE_RUNBOOK_TITLE: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_TITLE || 'Benchmark Release Runbook' }}
+  BENCHMARK_RELEASE_RUNBOOK_RELEASE_DECISION_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_RELEASE_DECISION_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_COMPANION_SUMMARY_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_COMPANION_SUMMARY_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_release_runbook.json' }}
+  BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_release_runbook.md' }}
   OCR_REVIEW_PACK_ENABLE: ${{ vars.OCR_REVIEW_PACK_ENABLE || 'false' }}
   OCR_REVIEW_PACK_INPUT: ${{ vars.OCR_REVIEW_PACK_INPUT }}
   OCR_REVIEW_PACK_OUTPUT_CSV: ${{ vars.OCR_REVIEW_PACK_OUTPUT_CSV || 'reports/history_sequence_eval/ocr_review_pack.csv' }}
@@ -1494,6 +1517,101 @@ jobs:
             f.write(f"qdrant_status={component_statuses.get('qdrant_backend', 'unknown')}\n")
         PY
 
+    - name: Build benchmark release runbook (optional)
+      id: benchmark_release_runbook
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_release_runbook_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_RELEASE_RUNBOOK_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_release_runbook.json}"
+        OUTPUT_MD="${BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD:-reports/history_sequence_eval/benchmark_release_runbook.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_release_runbook.py
+          --title "${BENCHMARK_RELEASE_RUNBOOK_TITLE:-Benchmark Release Runbook}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --benchmark-release-decision "${{ github.event.inputs.benchmark_release_runbook_release_decision_json || '' }}"
+        add_if_exists --benchmark-companion-summary "${{ github.event.inputs.benchmark_release_runbook_companion_summary_json || '' }}"
+        add_if_exists --benchmark-artifact-bundle "${{ github.event.inputs.benchmark_release_runbook_artifact_bundle_json || '' }}"
+        add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
+        add_if_exists --benchmark-release-decision "${BENCHMARK_RELEASE_RUNBOOK_RELEASE_DECISION_JSON:-}"
+        add_if_exists --benchmark-companion-summary "${{ steps.benchmark_companion_summary.outputs.output_json || '' }}"
+        add_if_exists --benchmark-companion-summary "${BENCHMARK_RELEASE_RUNBOOK_COMPANION_SUMMARY_JSON:-}"
+        add_if_exists --benchmark-artifact-bundle "${{ steps.benchmark_artifact_bundle.outputs.output_json || '' }}"
+        add_if_exists --benchmark-artifact-bundle "${BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_RELEASE_RUNBOOK_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark release runbook inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON"]).read_text(
+                encoding="utf-8"
+            )
+        )
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:4] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"release_status={payload.get('release_status', 'unknown')}\n")
+            f.write(
+                "ready_to_freeze_baseline="
+                f"{str(payload.get('ready_to_freeze_baseline', False)).lower()}\n"
+            )
+            f.write(f"primary_signal_source={payload.get('primary_signal_source', 'none')}\n")
+            f.write(f"next_action={payload.get('next_action', 'unknown')}\n")
+            f.write(
+                f"missing_artifacts={compact(payload.get('missing_artifacts') or [])}\n"
+            )
+            f.write(
+                f"blocking_signals={compact(payload.get('blocking_signals') or [])}\n"
+            )
+            f.write(
+                f"review_signals={compact(payload.get('review_signals') or [])}\n"
+            )
+        PY
+
     - name: Build assistant evidence report (optional)
       id: assistant_evidence_report
       continue-on-error: true
@@ -1882,6 +2000,16 @@ jobs:
           ${{ steps.benchmark_release_decision.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark release runbook
+      if: steps.benchmark_release_runbook.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-release-runbook-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_release_runbook.outputs.output_json }}
+          ${{ steps.benchmark_release_runbook.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload assistant evidence report
       if: steps.assistant_evidence_report.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -2109,6 +2237,18 @@ jobs:
           echo "- Benchmark release artifact: ${{ steps.benchmark_release_decision.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Benchmark release decision: skipped (no release decision inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.benchmark_release_runbook.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark release runbook status: ${{ steps.benchmark_release_runbook.outputs.release_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook freeze_ready: ${{ steps.benchmark_release_runbook.outputs.ready_to_freeze_baseline }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook primary signal source: ${{ steps.benchmark_release_runbook.outputs.primary_signal_source }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook next action: ${{ steps.benchmark_release_runbook.outputs.next_action }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook missing artifacts: ${{ steps.benchmark_release_runbook.outputs.missing_artifacts }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook blocking signals: ${{ steps.benchmark_release_runbook.outputs.blocking_signals }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook review signals: ${{ steps.benchmark_release_runbook.outputs.review_signals }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook artifact: ${{ steps.benchmark_release_runbook.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark release runbook: skipped (no release runbook inputs)" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "${{ steps.assistant_evidence_report.outputs.enabled }}" == "true" ]]; then
           echo "- Assistant evidence input: ${{ steps.assistant_evidence_report.outputs.input_path }}" >> $GITHUB_STEP_SUMMARY
