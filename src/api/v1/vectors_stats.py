@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -35,6 +35,7 @@ class VectorStatsResponse(BaseModel):
     by_coarse_part_type: Optional[Dict[str, int]] = None
     by_decision_source: Optional[Dict[str, int]] = None
     versions: Optional[Dict[str, int]] = None
+    backend_health: Optional[Dict[str, Any]] = None
 
 
 class VectorDistributionResponse(BaseModel):
@@ -49,6 +50,7 @@ class VectorDistributionResponse(BaseModel):
     feature_version: str
     average_dimension: Optional[float] = None
     versions: Optional[Dict[str, int]] = None
+    backend_health: Optional[Dict[str, Any]] = None
 
 
 @router.get("/stats", response_model=VectorStatsResponse)
@@ -69,6 +71,7 @@ async def vector_stats(api_key: str = Depends(get_api_key)):
         vector_store=_VECTOR_STORE,
         vector_meta=_VECTOR_META,
     )
+    backend_health = await _build_backend_health(backend=_BACKEND, observed_count=total)
     return VectorStatsResponse(
         backend=_BACKEND,
         total=total,
@@ -78,6 +81,7 @@ async def vector_stats(api_key: str = Depends(get_api_key)):
         by_coarse_part_type=by_coarse_part_type,
         by_decision_source=by_decision_source,
         versions=versions,
+        backend_health=backend_health,
     )
 
 
@@ -99,6 +103,7 @@ async def vector_distribution(api_key: str = Depends(get_api_key)):
         vector_store=_VECTOR_STORE,
         vector_meta=_VECTOR_META,
     )
+    backend_health = await _build_backend_health(backend=_BACKEND, observed_count=total)
     dominant = max(by_material.values()) if by_material else 0
     dominant_ratio = (dominant / total) if total else 0.0
     dominant_coarse = max(by_coarse_part_type.values()) if by_coarse_part_type else 0
@@ -116,7 +121,99 @@ async def vector_distribution(api_key: str = Depends(get_api_key)):
         feature_version=feature_version,
         average_dimension=round(avg_dim, 3) if total else 0.0,
         versions=versions,
+        backend_health=backend_health,
     )
+
+
+async def _build_backend_health(backend: str, observed_count: int) -> Optional[Dict[str, Any]]:
+    if backend != "qdrant":
+        return None
+    qdrant_store = _get_qdrant_store_or_none()
+    if qdrant_store is None:
+        return None
+    return await _build_qdrant_backend_health(
+        qdrant_store=qdrant_store,
+        observed_count=observed_count,
+    )
+
+
+async def _build_qdrant_backend_health(
+    *,
+    qdrant_store,
+    observed_count: int,
+) -> Dict[str, Any]:
+    stats = await qdrant_store.get_stats()
+    points_count = int(stats.get("points_count") or stats.get("vectors_count") or 0)
+    indexed_vectors_count = int(stats.get("indexed_vectors_count") or 0)
+    scan_limit = int(os.getenv("VECTOR_STATS_SCAN_LIMIT", "5000"))
+    scan_truncated = bool(scan_limit > 0 and points_count > observed_count)
+    unindexed_vectors_count = max(points_count - indexed_vectors_count, 0)
+    indexed_ratio = round((indexed_vectors_count / points_count), 4) if points_count else 0.0
+    readiness_hints = _build_qdrant_readiness_hints(
+        stats=stats,
+        scan_truncated=scan_truncated,
+        unindexed_vectors_count=unindexed_vectors_count,
+    )
+    readiness = _classify_qdrant_readiness(
+        stats=stats,
+        points_count=points_count,
+        scan_truncated=scan_truncated,
+        unindexed_vectors_count=unindexed_vectors_count,
+    )
+    config = stats.get("config") or {}
+    return {
+        "collection_name": stats.get("collection_name"),
+        "collection_status": stats.get("status"),
+        "points_count": points_count,
+        "indexed_vectors_count": indexed_vectors_count,
+        "unindexed_vectors_count": unindexed_vectors_count,
+        "indexed_ratio": indexed_ratio,
+        "observed_vectors_count": observed_count,
+        "scan_limit": scan_limit,
+        "scan_truncated": scan_truncated,
+        "vector_size": config.get("vector_size"),
+        "distance": config.get("distance"),
+        "readiness": readiness,
+        "readiness_hints": readiness_hints,
+    }
+
+
+def _build_qdrant_readiness_hints(
+    *,
+    stats: Dict[str, Any],
+    scan_truncated: bool,
+    unindexed_vectors_count: int,
+) -> List[str]:
+    hints: List[str] = []
+    if scan_truncated:
+        hints.append("scan_truncated_use_list_or_migration_for_exact_coverage")
+    if unindexed_vectors_count > 0:
+        hints.append("vector_index_backfill_in_progress")
+    status = str(stats.get("status") or "").strip().lower()
+    if status and status not in {"green", "ok", "ready"}:
+        hints.append(f"collection_status_{status}")
+    if int(stats.get("points_count") or stats.get("vectors_count") or 0) <= 0:
+        hints.append("collection_empty")
+    return hints
+
+
+def _classify_qdrant_readiness(
+    *,
+    stats: Dict[str, Any],
+    points_count: int,
+    scan_truncated: bool,
+    unindexed_vectors_count: int,
+) -> str:
+    status = str(stats.get("status") or "").strip().lower()
+    if points_count <= 0:
+        return "empty"
+    if status in {"red", "error", "failed"}:
+        return "degraded"
+    if scan_truncated:
+        return "partial_scan"
+    if unindexed_vectors_count > 0:
+        return "indexing"
+    return "ready"
 
 
 async def _summarize_vectors(

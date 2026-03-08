@@ -132,6 +132,15 @@ def test_vector_stats_qdrant_backend():
                 2,
             )
 
+        async def get_stats(self):
+            return {
+                "collection_name": "cad_vectors",
+                "points_count": 2,
+                "indexed_vectors_count": 2,
+                "status": "GREEN",
+                "config": {"vector_size": 7, "distance": "Cosine"},
+            }
+
     with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
         "src.api.v1.vectors_stats._get_qdrant_store_or_none",
         return_value=DummyQdrantStore(),
@@ -143,3 +152,7 @@ def test_vector_stats_qdrant_backend():
     assert data["total"] == 2
     assert data["by_coarse_part_type"]["开孔件"] == 1
     assert data["by_decision_source"]["graph2d"] == 1
+    assert data["backend_health"]["collection_name"] == "cad_vectors"
+    assert data["backend_health"]["indexed_ratio"] == 1.0
+    assert data["backend_health"]["readiness"] == "ready"
+    assert data["backend_health"]["readiness_hints"] == []

@@ -100,7 +100,19 @@ def test_vector_distribution_qdrant_backend():
                 3,
             )
 
-    with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+        async def get_stats(self):
+            return {
+                "collection_name": "cad_vectors",
+                "points_count": 5,
+                "indexed_vectors_count": 4,
+                "status": "GREEN",
+                "config": {"vector_size": 7, "distance": "Cosine"},
+            }
+
+    with patch.dict(
+        "os.environ",
+        {"VECTOR_STORE_BACKEND": "qdrant", "VECTOR_STATS_SCAN_LIMIT": "2"},
+    ), patch(
         "src.api.v1.vectors_stats._get_qdrant_store_or_none",
         return_value=DummyQdrantStore(),
     ), patch("src.core.similarity._BACKEND", "qdrant"):
@@ -111,3 +123,13 @@ def test_vector_distribution_qdrant_backend():
     assert data["by_coarse_part_type"]["开孔件"] == 2
     assert data["by_decision_source"]["hybrid"] == 2
     assert data["dominant_coarse_ratio"] == 0.6667
+    assert data["backend_health"]["scan_truncated"] is True
+    assert data["backend_health"]["observed_vectors_count"] == 3
+    assert data["backend_health"]["points_count"] == 5
+    assert data["backend_health"]["indexed_ratio"] == 0.8
+    assert data["backend_health"]["unindexed_vectors_count"] == 1
+    assert data["backend_health"]["readiness"] == "partial_scan"
+    assert "scan_truncated_use_list_or_migration_for_exact_coverage" in data["backend_health"][
+        "readiness_hints"
+    ]
+    assert "vector_index_backfill_in_progress" in data["backend_health"]["readiness_hints"]
