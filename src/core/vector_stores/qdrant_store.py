@@ -578,6 +578,58 @@ class QdrantVectorStore:
             },
         }
 
+    async def inspect_collection(self) -> Dict[str, Any]:
+        """Inspect collection state without creating or mutating it."""
+        requested_config = {
+            "vector_size": self.config.vector_size,
+            "distance": self.config.distance,
+            "on_disk": self.config.on_disk,
+            "timeout_seconds": self.config.timeout,
+        }
+        snapshot: Dict[str, Any] = {
+            "enabled": True,
+            "sdk_available": True,
+            "reachable": False,
+            "collection_name": self.config.collection_name,
+            "collection_exists": False,
+            "collection_status": None,
+            "points_count": 0,
+            "vectors_count": 0,
+            "indexed_vectors_count": 0,
+            "unindexed_vectors_count": 0,
+            "indexing_progress": 0.0,
+            "requested_config": requested_config,
+            "error": None,
+        }
+        try:
+            collections = self.client.get_collections().collections
+            snapshot["reachable"] = True
+            collection_names = {item.name for item in collections}
+            if self.config.collection_name not in collection_names:
+                return snapshot
+
+            snapshot["collection_exists"] = True
+            info = self.client.get_collection(self.config.collection_name)
+            points_count = int(info.points_count or 0)
+            vectors_count = int(info.vectors_count or points_count)
+            indexed_vectors_count = int(info.indexed_vectors_count or 0)
+            snapshot.update(
+                {
+                    "collection_status": str(info.status.name).lower(),
+                    "points_count": points_count,
+                    "vectors_count": vectors_count,
+                    "indexed_vectors_count": indexed_vectors_count,
+                    "unindexed_vectors_count": max(points_count - indexed_vectors_count, 0),
+                    "indexing_progress": (
+                        round(indexed_vectors_count / points_count, 4) if points_count else 0.0
+                    ),
+                }
+            )
+            return snapshot
+        except Exception as exc:
+            snapshot["error"] = str(exc)
+            return snapshot
+
     def close(self) -> None:
         """Close the client connection."""
         if self._client is not None:

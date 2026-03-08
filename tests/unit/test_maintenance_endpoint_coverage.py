@@ -410,9 +410,16 @@ class TestGetMaintenanceStatsEndpoint:
         from src.api.v1.maintenance import get_maintenance_stats
 
         class DummyQdrantStore:
-            async def count(self, filter_conditions=None):
-                assert filter_conditions is None
-                return 7
+            async def inspect_collection(self):
+                return {
+                    "reachable": True,
+                    "collection_exists": True,
+                    "collection_status": "green",
+                    "points_count": 7,
+                    "unindexed_vectors_count": 1,
+                    "indexing_progress": 0.8571,
+                    "error": None,
+                }
 
         with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
             "src.api.v1.maintenance._get_qdrant_store_or_none",
@@ -423,6 +430,10 @@ class TestGetMaintenanceStatsEndpoint:
         assert result["vector_store"]["backend"] == "qdrant"
         assert result["vector_store"]["total_vectors"] == 7
         assert result["vector_store"]["metadata_entries"] == 7
+        assert result["vector_store"]["qdrant"]["reachable"] is True
+        assert result["vector_store"]["qdrant"]["collection_exists"] is True
+        assert result["vector_store"]["qdrant"]["collection_status"] == "green"
+        assert result["vector_store"]["qdrant"]["unindexed_vectors_count"] == 1
 
     @pytest.mark.asyncio
     async def test_get_stats_with_cache(self):

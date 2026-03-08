@@ -109,6 +109,26 @@ def test_vector_distribution_qdrant_backend():
                 "config": {"vector_size": 7, "distance": "Cosine"},
             }
 
+        async def inspect_collection(self):
+            return {
+                "reachable": True,
+                "collection_name": "cad_vectors",
+                "collection_exists": True,
+                "collection_status": "green",
+                "points_count": 5,
+                "vectors_count": 5,
+                "indexed_vectors_count": 4,
+                "unindexed_vectors_count": 1,
+                "indexing_progress": 0.8,
+                "requested_config": {
+                    "vector_size": 7,
+                    "distance": "Cosine",
+                    "on_disk": False,
+                    "timeout_seconds": 30.0,
+                },
+                "error": None,
+            }
+
     with patch.dict(
         "os.environ",
         {"VECTOR_STORE_BACKEND": "qdrant", "VECTOR_STATS_SCAN_LIMIT": "2"},
@@ -124,6 +144,8 @@ def test_vector_distribution_qdrant_backend():
     assert data["by_decision_source"]["hybrid"] == 2
     assert data["dominant_coarse_ratio"] == 0.6667
     assert data["backend_health"]["scan_truncated"] is True
+    assert data["backend_health"]["reachable"] is True
+    assert data["backend_health"]["collection_exists"] is True
     assert data["backend_health"]["observed_vectors_count"] == 3
     assert data["backend_health"]["points_count"] == 5
     assert data["backend_health"]["indexed_ratio"] == 0.8

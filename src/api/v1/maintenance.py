@@ -465,7 +465,8 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
     try:
         qdrant_store = _get_qdrant_store_or_none()
         if qdrant_store is not None:
-            total_vectors = await qdrant_store.count()
+            qdrant_observability = await _inspect_qdrant_observability(qdrant_store)
+            total_vectors = int(qdrant_observability.get("points_count") or 0)
             metadata_entries = total_vectors
             backend = "qdrant"
         else:
@@ -501,6 +502,17 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
         "maintenance": {"orphan_check_available": False, "last_cleanup": None},
         "analysis_result_store": {},
     }
+    if qdrant_store is not None:
+        stats["vector_store"]["qdrant"] = {
+            "reachable": bool(qdrant_observability.get("reachable", False)),
+            "collection_exists": bool(qdrant_observability.get("collection_exists", False)),
+            "collection_status": qdrant_observability.get("collection_status"),
+            "unindexed_vectors_count": int(
+                qdrant_observability.get("unindexed_vectors_count") or 0
+            ),
+            "indexing_progress": float(qdrant_observability.get("indexing_progress") or 0.0),
+            "error": qdrant_observability.get("error"),
+        }
 
     # Check cache stats
     try:
@@ -527,6 +539,22 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
         stats["analysis_result_store"] = {"enabled": False, "error": str(e)}
 
     return stats
+
+
+async def _inspect_qdrant_observability(qdrant_store) -> Dict[str, object]:
+    inspect_method = getattr(qdrant_store, "inspect_collection", None)
+    if callable(inspect_method):
+        return await inspect_method()
+    total_vectors = await qdrant_store.count()
+    return {
+        "reachable": True,
+        "collection_exists": True,
+        "collection_status": "unknown",
+        "points_count": total_vectors,
+        "unindexed_vectors_count": 0,
+        "indexing_progress": 1.0 if total_vectors else 0.0,
+        "error": None,
+    }
 
 
 class VectorStoreReloadResponse(BaseModel):

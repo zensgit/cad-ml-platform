@@ -141,6 +141,26 @@ def test_vector_stats_qdrant_backend():
                 "config": {"vector_size": 7, "distance": "Cosine"},
             }
 
+        async def inspect_collection(self):
+            return {
+                "reachable": True,
+                "collection_name": "cad_vectors",
+                "collection_exists": True,
+                "collection_status": "green",
+                "points_count": 2,
+                "vectors_count": 2,
+                "indexed_vectors_count": 2,
+                "unindexed_vectors_count": 0,
+                "indexing_progress": 1.0,
+                "requested_config": {
+                    "vector_size": 7,
+                    "distance": "Cosine",
+                    "on_disk": False,
+                    "timeout_seconds": 30.0,
+                },
+                "error": None,
+            }
+
     with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
         "src.api.v1.vectors_stats._get_qdrant_store_or_none",
         return_value=DummyQdrantStore(),
@@ -153,6 +173,8 @@ def test_vector_stats_qdrant_backend():
     assert data["by_coarse_part_type"]["开孔件"] == 1
     assert data["by_decision_source"]["graph2d"] == 1
     assert data["backend_health"]["collection_name"] == "cad_vectors"
+    assert data["backend_health"]["reachable"] is True
+    assert data["backend_health"]["collection_exists"] is True
     assert data["backend_health"]["indexed_ratio"] == 1.0
     assert data["backend_health"]["readiness"] == "ready"
     assert data["backend_health"]["readiness_hints"] == []

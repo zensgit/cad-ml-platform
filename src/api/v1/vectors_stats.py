@@ -142,7 +142,7 @@ async def _build_qdrant_backend_health(
     qdrant_store,
     observed_count: int,
 ) -> Dict[str, Any]:
-    stats = await qdrant_store.get_stats()
+    stats = await _inspect_qdrant_observability(qdrant_store)
     points_count = int(stats.get("points_count") or stats.get("vectors_count") or 0)
     indexed_vectors_count = int(stats.get("indexed_vectors_count") or 0)
     scan_limit = int(os.getenv("VECTOR_STATS_SCAN_LIMIT", "5000"))
@@ -160,10 +160,12 @@ async def _build_qdrant_backend_health(
         scan_truncated=scan_truncated,
         unindexed_vectors_count=unindexed_vectors_count,
     )
-    config = stats.get("config") or {}
+    requested_config = stats.get("requested_config") or {}
     return {
+        "reachable": bool(stats.get("reachable", False)),
         "collection_name": stats.get("collection_name"),
-        "collection_status": stats.get("status"),
+        "collection_exists": bool(stats.get("collection_exists", False)),
+        "collection_status": stats.get("collection_status") or stats.get("status"),
         "points_count": points_count,
         "indexed_vectors_count": indexed_vectors_count,
         "unindexed_vectors_count": unindexed_vectors_count,
@@ -171,10 +173,45 @@ async def _build_qdrant_backend_health(
         "observed_vectors_count": observed_count,
         "scan_limit": scan_limit,
         "scan_truncated": scan_truncated,
-        "vector_size": config.get("vector_size"),
-        "distance": config.get("distance"),
+        "vector_size": requested_config.get("vector_size"),
+        "distance": requested_config.get("distance"),
+        "on_disk": requested_config.get("on_disk"),
+        "timeout_seconds": requested_config.get("timeout_seconds"),
         "readiness": readiness,
         "readiness_hints": readiness_hints,
+        "error": stats.get("error"),
+    }
+
+
+async def _inspect_qdrant_observability(qdrant_store) -> Dict[str, Any]:
+    inspect_method = getattr(qdrant_store, "inspect_collection", None)
+    if callable(inspect_method):
+        return await inspect_method()
+    stats = await qdrant_store.get_stats()
+    config = stats.get("config") or {}
+    points_count = int(stats.get("points_count") or stats.get("vectors_count") or 0)
+    indexed_vectors_count = int(stats.get("indexed_vectors_count") or 0)
+    return {
+        "enabled": True,
+        "sdk_available": True,
+        "reachable": True,
+        "collection_name": stats.get("collection_name"),
+        "collection_exists": True,
+        "collection_status": str(stats.get("status") or "").lower() or None,
+        "points_count": points_count,
+        "vectors_count": int(stats.get("vectors_count") or points_count),
+        "indexed_vectors_count": indexed_vectors_count,
+        "unindexed_vectors_count": max(points_count - indexed_vectors_count, 0),
+        "indexing_progress": (
+            round(indexed_vectors_count / points_count, 4) if points_count else 0.0
+        ),
+        "requested_config": {
+            "vector_size": config.get("vector_size"),
+            "distance": config.get("distance"),
+            "on_disk": None,
+            "timeout_seconds": None,
+        },
+        "error": None,
     }
 
 
@@ -185,15 +222,21 @@ def _build_qdrant_readiness_hints(
     unindexed_vectors_count: int,
 ) -> List[str]:
     hints: List[str] = []
+    if not bool(stats.get("reachable", True)):
+        hints.append("qdrant_unreachable")
+    if stats.get("reachable", True) and not bool(stats.get("collection_exists", True)):
+        hints.append("collection_missing")
     if scan_truncated:
         hints.append("scan_truncated_use_list_or_migration_for_exact_coverage")
     if unindexed_vectors_count > 0:
         hints.append("vector_index_backfill_in_progress")
-    status = str(stats.get("status") or "").strip().lower()
+    status = str(stats.get("collection_status") or stats.get("status") or "").strip().lower()
     if status and status not in {"green", "ok", "ready"}:
         hints.append(f"collection_status_{status}")
     if int(stats.get("points_count") or stats.get("vectors_count") or 0) <= 0:
         hints.append("collection_empty")
+    if stats.get("error"):
+        hints.append("qdrant_error_present")
     return hints
 
 
@@ -204,7 +247,11 @@ def _classify_qdrant_readiness(
     scan_truncated: bool,
     unindexed_vectors_count: int,
 ) -> str:
-    status = str(stats.get("status") or "").strip().lower()
+    status = str(stats.get("collection_status") or stats.get("status") or "").strip().lower()
+    if not bool(stats.get("reachable", True)):
+        return "unavailable"
+    if stats.get("reachable", True) and not bool(stats.get("collection_exists", True)):
+        return "missing_collection"
     if points_count <= 0:
         return "empty"
     if status in {"red", "error", "failed"}:
