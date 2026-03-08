@@ -16,6 +16,10 @@ from src.core.benchmark.feedback_flywheel import (  # noqa: E402
     build_feedback_flywheel_status,
     feedback_flywheel_recommendations,
 )
+from src.core.benchmark.engineering_signals import (  # noqa: E402
+    build_engineering_signals_status,
+    engineering_signals_recommendations,
+)
 
 
 def _load_json(path_text: str) -> Dict[str, Any]:
@@ -415,6 +419,7 @@ def _overall_status(
     review_queue: Dict[str, Any],
     feedback_flywheel: Dict[str, Any],
     ocr_review: Dict[str, Any],
+    engineering_signals: Dict[str, Any],
 ) -> str:
     if hybrid.get("status") not in {"strong_primary", "usable_primary"}:
         return "baseline_not_ready"
@@ -449,6 +454,11 @@ def _overall_status(
         return "benchmark_ready_with_feedback_gap"
     if ocr_review.get("status") in {"missing", "managed_review", "review_heavy"}:
         return "benchmark_ready_with_ocr_gap"
+    if engineering_signals.get("status") in {
+        "weak_engineering_semantics",
+        "partial_engineering_semantics",
+    }:
+        return "benchmark_ready_with_engineering_gap"
     return "benchmark_ready_with_multisignal_evidence"
 
 
@@ -463,6 +473,7 @@ def _recommendations(
     review_queue: Dict[str, Any],
     feedback_flywheel: Dict[str, Any],
     ocr_review: Dict[str, Any],
+    engineering_signals: Dict[str, Any],
 ) -> List[str]:
     items: List[str] = []
     if graph2d.get("status") == "weak_signal_only":
@@ -512,6 +523,7 @@ def _recommendations(
         )
     elif ocr_review.get("status") == "managed_review":
         items.append("Raise OCR automation-ready coverage before freezing the benchmark.")
+    items.extend(engineering_signals_recommendations(engineering_signals))
     if not items:
         items.append(
             "Current scorecard is healthy; freeze this run as the next benchmark baseline."
@@ -536,6 +548,7 @@ def build_scorecard(
     finetune_summary: Dict[str, Any],
     metric_train_summary: Dict[str, Any],
     ocr_review_summary: Dict[str, Any],
+    engineering_signals_summary: Dict[str, Any],
 ) -> Dict[str, Any]:
     hybrid = _hybrid_status(hybrid_summary)
     graph2d = _graph2d_status(
@@ -555,6 +568,10 @@ def build_scorecard(
         metric_train_summary,
     )
     ocr_review = _ocr_review_status(ocr_review_summary)
+    engineering_signals = build_engineering_signals_status(
+        engineering_signals_summary,
+        ocr_review_summary,
+    )
     overall_status = _overall_status(
         hybrid,
         history,
@@ -565,6 +582,7 @@ def build_scorecard(
         review_queue,
         feedback_flywheel,
         ocr_review,
+        engineering_signals,
     )
     return {
         "title": title,
@@ -581,6 +599,7 @@ def build_scorecard(
             "review_queue": review_queue,
             "feedback_flywheel": feedback_flywheel,
             "ocr_review": ocr_review,
+            "engineering_signals": engineering_signals,
         },
         "recommendations": _recommendations(
             hybrid,
@@ -593,6 +612,7 @@ def build_scorecard(
             review_queue,
             feedback_flywheel,
             ocr_review,
+            engineering_signals,
         ),
     }
 
@@ -694,6 +714,15 @@ def _render_markdown(scorecard: Dict[str, Any]) -> str:
         f"automation_ready={ocr_review.get('automation_ready_count')}, "
         f"avg_readiness={ocr_review.get('average_readiness_score')} |"
     )
+    engineering = components.get("engineering_signals", {}) or {}
+    lines.append(
+        "| engineering_signals | "
+        f"`{engineering.get('status')}` | "
+        f"coverage={engineering.get('coverage_ratio')}, "
+        f"violations={engineering.get('rows_with_violations')}, "
+        f"standards={engineering.get('rows_with_standards_candidates')}, "
+        f"ocr_standard_signals={engineering.get('ocr_standard_signal_count')} |"
+    )
     lines.extend(
         [
             "",
@@ -726,6 +755,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--finetune-summary", default="")
     parser.add_argument("--metric-train-summary", default="")
     parser.add_argument("--ocr-review-summary", default="")
+    parser.add_argument("--engineering-signals-summary", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args(argv)
@@ -749,6 +779,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         finetune_summary=_maybe_load_json(args.finetune_summary),
         metric_train_summary=_maybe_load_json(args.metric_train_summary),
         ocr_review_summary=_maybe_load_json(args.ocr_review_summary),
+        engineering_signals_summary=_maybe_load_json(args.engineering_signals_summary),
     )
 
     if args.output_json:
