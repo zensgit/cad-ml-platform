@@ -234,6 +234,26 @@ on:
         description: 'Optional benchmark release runbook artifact bundle JSON'
         required: false
         default: ''
+      benchmark_operator_adoption_enable:
+        description: 'Override: enable benchmark operator adoption export (true/false)'
+        required: false
+        default: ''
+      benchmark_operator_adoption_release_decision_json:
+        description: 'Optional benchmark operator adoption release decision JSON'
+        required: false
+        default: ''
+      benchmark_operator_adoption_release_runbook_json:
+        description: 'Optional benchmark operator adoption release runbook JSON'
+        required: false
+        default: ''
+      benchmark_operator_adoption_review_queue_json:
+        description: 'Optional benchmark operator adoption review queue JSON'
+        required: false
+        default: ''
+      benchmark_operator_adoption_feedback_flywheel_json:
+        description: 'Optional benchmark operator adoption feedback flywheel JSON'
+        required: false
+        default: ''
       ocr_review_pack_enable:
         description: 'Override: enable OCR review-pack export (true/false)'
         required: false
@@ -373,6 +393,14 @@ env:
   BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_release_runbook.json' }}
   BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_release_runbook.md' }}
+  BENCHMARK_OPERATOR_ADOPTION_ENABLE: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_ENABLE || 'false' }}
+  BENCHMARK_OPERATOR_ADOPTION_TITLE: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_TITLE || 'Benchmark Operator Adoption' }}
+  BENCHMARK_OPERATOR_ADOPTION_RELEASE_DECISION_JSON: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_RELEASE_DECISION_JSON }}
+  BENCHMARK_OPERATOR_ADOPTION_RELEASE_RUNBOOK_JSON: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_RELEASE_RUNBOOK_JSON }}
+  BENCHMARK_OPERATOR_ADOPTION_REVIEW_QUEUE_JSON: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_REVIEW_QUEUE_JSON }}
+  BENCHMARK_OPERATOR_ADOPTION_FEEDBACK_FLYWHEEL_JSON: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_FEEDBACK_FLYWHEEL_JSON }}
+  BENCHMARK_OPERATOR_ADOPTION_OUTPUT_JSON: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_operator_adoption.json' }}
+  BENCHMARK_OPERATOR_ADOPTION_OUTPUT_MD: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_operator_adoption.md' }}
   OCR_REVIEW_PACK_ENABLE: ${{ vars.OCR_REVIEW_PACK_ENABLE || 'false' }}
   OCR_REVIEW_PACK_INPUT: ${{ vars.OCR_REVIEW_PACK_INPUT }}
   OCR_REVIEW_PACK_OUTPUT_CSV: ${{ vars.OCR_REVIEW_PACK_OUTPUT_CSV || 'reports/history_sequence_eval/ocr_review_pack.csv' }}
@@ -1758,6 +1786,116 @@ jobs:
             )
         PY
 
+    - name: Build benchmark operator adoption (optional)
+      id: benchmark_operator_adoption
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_operator_adoption_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_OPERATOR_ADOPTION_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_OPERATOR_ADOPTION_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_operator_adoption.json}"
+        OUTPUT_MD="${BENCHMARK_OPERATOR_ADOPTION_OUTPUT_MD:-reports/history_sequence_eval/benchmark_operator_adoption.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_operator_adoption.py
+          --title "${BENCHMARK_OPERATOR_ADOPTION_TITLE:-Benchmark Operator Adoption}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --benchmark-release-decision "${{ github.event.inputs.benchmark_operator_adoption_release_decision_json || '' }}"
+        add_if_exists --benchmark-release-runbook "${{ github.event.inputs.benchmark_operator_adoption_release_runbook_json || '' }}"
+        add_if_exists --review-queue "${{ github.event.inputs.benchmark_operator_adoption_review_queue_json || '' }}"
+        add_if_exists --feedback-flywheel "${{ github.event.inputs.benchmark_operator_adoption_feedback_flywheel_json || '' }}"
+        add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
+        add_if_exists --benchmark-release-decision "${BENCHMARK_OPERATOR_ADOPTION_RELEASE_DECISION_JSON:-}"
+        add_if_exists --benchmark-release-runbook "${{ steps.benchmark_release_runbook.outputs.output_json || '' }}"
+        add_if_exists --benchmark-release-runbook "${BENCHMARK_OPERATOR_ADOPTION_RELEASE_RUNBOOK_JSON:-}"
+        add_if_exists --review-queue "${{ steps.active_learning_review_queue_report.outputs.output_json || '' }}"
+        add_if_exists --review-queue "${BENCHMARK_OPERATOR_ADOPTION_REVIEW_QUEUE_JSON:-}"
+        add_if_exists --feedback-flywheel "${{ steps.feedback_flywheel_benchmark.outputs.output_json || '' }}"
+        add_if_exists --feedback-flywheel "${BENCHMARK_OPERATOR_ADOPTION_FEEDBACK_FLYWHEEL_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_OPERATOR_ADOPTION_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark operator adoption inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["BENCHMARK_OPERATOR_ADOPTION_OUTPUT_JSON"]).read_text(
+                encoding="utf-8"
+            )
+        )
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:4] if str(item).strip())
+
+        statuses = payload.get("statuses") or {}
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(
+                f"adoption_readiness={payload.get('adoption_readiness', 'unknown')}\n"
+            )
+            f.write(f"operator_mode={payload.get('operator_mode', 'unknown')}\n")
+            f.write(f"next_action={payload.get('next_action', 'unknown')}\n")
+            f.write(
+                f"automation_ready={str(payload.get('automation_ready', False)).lower()}\n"
+            )
+            f.write(f"freeze_ready={str(payload.get('freeze_ready', False)).lower()}\n")
+            f.write(
+                f"release_status={statuses.get('release_decision', 'unknown')}\n"
+            )
+            f.write(
+                f"runbook_status={statuses.get('release_runbook', 'unknown')}\n"
+            )
+            f.write(
+                f"review_queue_status={statuses.get('review_queue', 'unknown')}\n"
+            )
+            f.write(
+                f"feedback_status={statuses.get('feedback_flywheel', 'unknown')}\n"
+            )
+            f.write(
+                f"blocking_signals={compact(payload.get('blocking_signals') or [])}\n"
+            )
+            f.write(
+                f"recommended_actions={compact(payload.get('recommended_actions') or [])}\n"
+            )
+        PY
+
     - name: Build assistant evidence report (optional)
       id: assistant_evidence_report
       continue-on-error: true
@@ -2166,6 +2304,16 @@ jobs:
           ${{ steps.benchmark_release_runbook.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark operator adoption
+      if: steps.benchmark_operator_adoption.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-operator-adoption-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_operator_adoption.outputs.output_json }}
+          ${{ steps.benchmark_operator_adoption.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload assistant evidence report
       if: steps.assistant_evidence_report.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -2421,6 +2569,22 @@ jobs:
           echo "- Benchmark release runbook artifact: ${{ steps.benchmark_release_runbook.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Benchmark release runbook: skipped (no release runbook inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.benchmark_operator_adoption.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark operator adoption readiness: ${{ steps.benchmark_operator_adoption.outputs.adoption_readiness }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption mode: ${{ steps.benchmark_operator_adoption.outputs.operator_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption next action: ${{ steps.benchmark_operator_adoption.outputs.next_action }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption automation ready: ${{ steps.benchmark_operator_adoption.outputs.automation_ready }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption freeze ready: ${{ steps.benchmark_operator_adoption.outputs.freeze_ready }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption release status: ${{ steps.benchmark_operator_adoption.outputs.release_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption runbook status: ${{ steps.benchmark_operator_adoption.outputs.runbook_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption review queue status: ${{ steps.benchmark_operator_adoption.outputs.review_queue_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption feedback status: ${{ steps.benchmark_operator_adoption.outputs.feedback_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption blockers: ${{ steps.benchmark_operator_adoption.outputs.blocking_signals }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption actions: ${{ steps.benchmark_operator_adoption.outputs.recommended_actions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption artifact: ${{ steps.benchmark_operator_adoption.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark operator adoption: skipped (no operator adoption inputs)" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "${{ steps.assistant_evidence_report.outputs.enabled }}" == "true" ]]; then
           echo "- Assistant evidence input: ${{ steps.assistant_evidence_report.outputs.input_path }}" >> $GITHUB_STEP_SUMMARY
