@@ -469,6 +469,52 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "domain_statuses=" in benchmark_knowledge_application_script
     assert "recommendations=" in benchmark_knowledge_application_script
 
+    benchmark_knowledge_realdata_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge realdata correlation (optional)"
+    )
+    benchmark_knowledge_realdata_script = benchmark_knowledge_realdata_step["run"]
+    assert (
+        "scripts/export_benchmark_knowledge_realdata_correlation.py"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_REALDATA_CORRELATION_ENABLE"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "benchmark_knowledge_realdata_correlation_knowledge_readiness_json"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "benchmark_knowledge_realdata_correlation_knowledge_application_json"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "benchmark_knowledge_realdata_correlation_realdata_signals_json"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "steps.benchmark_knowledge_readiness.outputs.output_json"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "steps.benchmark_knowledge_application.outputs.output_json"
+        in benchmark_knowledge_realdata_script
+    )
+    assert (
+        "steps.benchmark_realdata_signals.outputs.output_json"
+        in benchmark_knowledge_realdata_script
+    )
+    assert "ready_domain_count=" in benchmark_knowledge_realdata_script
+    assert "partial_domain_count=" in benchmark_knowledge_realdata_script
+    assert "blocked_domain_count=" in benchmark_knowledge_realdata_script
+    assert "total_domain_count=" in benchmark_knowledge_realdata_script
+    assert "focus_area_count=" in benchmark_knowledge_realdata_script
+    assert "focus_areas=" in benchmark_knowledge_realdata_script
+    assert "priority_domains=" in benchmark_knowledge_realdata_script
+    assert "domain_statuses=" in benchmark_knowledge_realdata_script
+    assert "recommendations=" in benchmark_knowledge_realdata_script
+
     final_fail_step = _get_step(
         workflow,
         "evaluate",
@@ -843,6 +889,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         upload_knowledge_application["if"]
         == "steps.benchmark_knowledge_application.outputs.enabled == 'true'"
     )
+    upload_knowledge_realdata = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge realdata correlation"
+    )
+    assert (
+        upload_knowledge_realdata["if"]
+        == "steps.benchmark_knowledge_realdata_correlation.outputs.enabled == 'true'"
+    )
     upload_feedback_flywheel = _get_step(
         workflow, "evaluate", "Upload feedback flywheel benchmark artifact"
     )
@@ -1068,6 +1121,16 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark knowledge application domain statuses" in summary_script
     assert "Benchmark knowledge application recommendations" in summary_script
     assert "Benchmark knowledge application artifact" in summary_script
+    assert "Benchmark knowledge realdata correlation status" in summary_script
+    assert "Benchmark knowledge realdata correlation ready domains" in summary_script
+    assert "Benchmark knowledge realdata correlation partial domains" in summary_script
+    assert "Benchmark knowledge realdata correlation blocked domains" in summary_script
+    assert "Benchmark knowledge realdata correlation total domains" in summary_script
+    assert "Benchmark knowledge realdata correlation focus areas" in summary_script
+    assert "Benchmark knowledge realdata correlation priority domains" in summary_script
+    assert "Benchmark knowledge realdata correlation domain statuses" in summary_script
+    assert "Benchmark knowledge realdata correlation recommendations" in summary_script
+    assert "Benchmark knowledge realdata correlation artifact" in summary_script
     assert "Benchmark artifact bundle knowledge drift" in summary_script
     assert "Benchmark artifact bundle knowledge drift summary" in summary_script
     assert "Benchmark artifact bundle knowledge drift recommendations" in summary_script
@@ -1077,6 +1140,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark artifact bundle knowledge application focus areas" in summary_script
     assert "Benchmark artifact bundle knowledge application domains" in summary_script
     assert "Benchmark artifact bundle knowledge application recommendations" in summary_script
+    assert "Benchmark artifact bundle knowledge realdata correlation" in summary_script
+    assert "Benchmark artifact bundle knowledge realdata focus areas" in summary_script
+    assert "Benchmark artifact bundle knowledge realdata domains" in summary_script
+    assert "Benchmark artifact bundle knowledge realdata recommendations" in summary_script
     assert "Benchmark artifact bundle real-data status" in summary_script
     assert "Benchmark artifact bundle real-data recommendations" in summary_script
     assert "Benchmark companion knowledge drift" in summary_script
@@ -1088,6 +1155,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark companion knowledge application focus areas" in summary_script
     assert "Benchmark companion knowledge application domains" in summary_script
     assert "Benchmark companion knowledge application recommendations" in summary_script
+    assert "Benchmark companion knowledge realdata correlation" in summary_script
+    assert "Benchmark companion knowledge realdata focus areas" in summary_script
+    assert "Benchmark companion knowledge realdata domains" in summary_script
+    assert "Benchmark companion knowledge realdata recommendations" in summary_script
     assert "Benchmark companion real-data status" in summary_script
     assert "Benchmark companion real-data recommendations" in summary_script
     assert "Benchmark release knowledge drift" in summary_script
@@ -1097,6 +1168,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark release knowledge application focus areas" in summary_script
     assert "Benchmark release knowledge application domains" in summary_script
     assert "Benchmark release knowledge application recommendations" in summary_script
+    assert "Benchmark release knowledge realdata correlation" in summary_script
+    assert "Benchmark release knowledge realdata focus areas" in summary_script
+    assert "Benchmark release knowledge realdata domains" in summary_script
+    assert "Benchmark release knowledge realdata recommendations" in summary_script
     assert "Benchmark release real-data status" in summary_script
     assert "Benchmark release real-data recommendations" in summary_script
     assert "Benchmark release runbook knowledge drift" in summary_script
@@ -1106,6 +1181,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark release runbook knowledge application focus areas" in summary_script
     assert "Benchmark release runbook knowledge application domains" in summary_script
     assert "Benchmark release runbook knowledge application recommendations" in summary_script
+    assert "Benchmark release runbook knowledge realdata correlation" in summary_script
+    assert "Benchmark release runbook knowledge realdata focus areas" in summary_script
+    assert "Benchmark release runbook knowledge realdata domains" in summary_script
+    assert "Benchmark release runbook knowledge realdata recommendations" in summary_script
     assert "Benchmark release runbook real-data status" in summary_script
     assert "Benchmark release runbook real-data recommendations" in summary_script
     assert "Assistant evidence input" in summary_script
