@@ -68,12 +68,22 @@ on:
         default: ''
       benchmark_scorecard_enable:
         description: 'Override: enable benchmark scorecard generation (true/false)'
+        required: false
+        default: ''
       ocr_review_pack_enable:
         description: 'Override: enable OCR review-pack export (true/false)'
         required: false
         default: ''
       ocr_review_pack_input:
         description: 'Optional OCR review-pack input JSON/JSONL path'
+        required: false
+        default: ''
+      assistant_evidence_report_enable:
+        description: 'Override: enable assistant evidence report export (true/false)'
+        required: false
+        default: ''
+      assistant_evidence_report_input:
+        description: 'Optional assistant evidence input JSON/JSONL path'
         required: false
         default: ''
 
@@ -132,6 +142,11 @@ env:
   OCR_REVIEW_PACK_OUTPUT_JSON: ${{ vars.OCR_REVIEW_PACK_OUTPUT_JSON || 'reports/history_sequence_eval/ocr_review_pack.json' }}
   OCR_REVIEW_PACK_TOP_K: ${{ vars.OCR_REVIEW_PACK_TOP_K || '100' }}
   OCR_REVIEW_PACK_INCLUDE_READY: ${{ vars.OCR_REVIEW_PACK_INCLUDE_READY || 'false' }}
+  ASSISTANT_EVIDENCE_REPORT_ENABLE: ${{ vars.ASSISTANT_EVIDENCE_REPORT_ENABLE || 'false' }}
+  ASSISTANT_EVIDENCE_REPORT_INPUT: ${{ vars.ASSISTANT_EVIDENCE_REPORT_INPUT }}
+  ASSISTANT_EVIDENCE_REPORT_OUTPUT_CSV: ${{ vars.ASSISTANT_EVIDENCE_REPORT_OUTPUT_CSV || 'reports/history_sequence_eval/assistant_evidence_report.csv' }}
+  ASSISTANT_EVIDENCE_REPORT_OUTPUT_JSON: ${{ vars.ASSISTANT_EVIDENCE_REPORT_OUTPUT_JSON || 'reports/history_sequence_eval/assistant_evidence_report.json' }}
+  ASSISTANT_EVIDENCE_REPORT_TOP_K: ${{ vars.ASSISTANT_EVIDENCE_REPORT_TOP_K || '50' }}
 
 jobs:
   evaluate:
@@ -690,6 +705,95 @@ jobs:
             f.write(f"recommendations={compact_recommendations}\n")
         PY
 
+    - name: Build assistant evidence report (optional)
+      id: assistant_evidence_report
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.assistant_evidence_report_enable || '' }}"
+        ENABLE_VALUE="${ASSISTANT_EVIDENCE_REPORT_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "ASSISTANT_EVIDENCE_REPORT_ENABLE is not true; skip."
+          exit 0
+        fi
+
+        INPUT_PATH="${{ github.event.inputs.assistant_evidence_report_input || '' }}"
+        if [[ -z "$INPUT_PATH" ]]; then
+          INPUT_PATH="${ASSISTANT_EVIDENCE_REPORT_INPUT:-}"
+        fi
+        if [[ -z "$INPUT_PATH" || ! -e "$INPUT_PATH" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Configured assistant evidence input not found: ${INPUT_PATH:-<empty>}"
+          exit 0
+        fi
+
+        OUTPUT_CSV="${ASSISTANT_EVIDENCE_REPORT_OUTPUT_CSV:-reports/history_sequence_eval/assistant_evidence_report.csv}"
+        OUTPUT_JSON="${ASSISTANT_EVIDENCE_REPORT_OUTPUT_JSON:-reports/history_sequence_eval/assistant_evidence_report.json}"
+        mkdir -p "$(dirname "$OUTPUT_CSV")"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+
+        python3 scripts/export_assistant_evidence_report.py \
+          --input-path "$INPUT_PATH" \
+          --output-csv "$OUTPUT_CSV" \
+          --summary-json "$OUTPUT_JSON" \
+          --top-k "${ASSISTANT_EVIDENCE_REPORT_TOP_K:-50}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "input_path=$INPUT_PATH" >> $GITHUB_OUTPUT
+        echo "output_csv=$OUTPUT_CSV" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["ASSISTANT_EVIDENCE_REPORT_OUTPUT_JSON"]).read_text(
+                encoding="utf-8"
+            )
+        )
+
+        def compact_named(items, limit=3):
+            out = []
+            for item in (items or [])[:limit]:
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get("name") or "").strip()
+                count = item.get("count")
+                if name:
+                    out.append(f"{name}({count})")
+            return "; ".join(out)
+
+        coverage = payload.get("coverage") or {}
+        records_with_evidence = coverage.get("records_with_evidence") or {}
+        records_with_decision_path = coverage.get("records_with_decision_path") or {}
+        records_with_any_source_signal = coverage.get("records_with_any_source_signal") or {}
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"total_records={payload.get('total_records', 0)}\n")
+            f.write(f"total_evidence_items={payload.get('total_evidence_items', 0)}\n")
+            f.write(f"average_evidence_count={payload.get('average_evidence_count', 0)}\n")
+            f.write(
+                f"records_with_evidence_pct={records_with_evidence.get('coverage_pct', 0)}\n"
+            )
+            f.write(
+                f"records_with_decision_path_pct={records_with_decision_path.get('coverage_pct', 0)}\n"
+            )
+            f.write(
+                f"records_with_any_source_signal_pct={records_with_any_source_signal.get('coverage_pct', 0)}\n"
+            )
+            f.write(f"top_record_kinds={compact_named(payload.get('top_record_kinds'))}\n")
+            f.write(f"top_evidence_types={compact_named(payload.get('top_evidence_types'))}\n")
+            f.write(
+                f"top_structured_sources={compact_named(payload.get('top_structured_sources'))}\n"
+            )
+            f.write(f"top_missing_fields={compact_named(payload.get('top_missing_fields'))}\n")
+        PY
+
     - name: Check Graph2D review-pack gate (optional)
       id: graph2d_review_gate
       continue-on-error: true
@@ -937,6 +1041,18 @@ jobs:
         path: |
           ${{ steps.benchmark_scorecard.outputs.output_json }}
           ${{ steps.benchmark_scorecard.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload assistant evidence report
+      if: steps.assistant_evidence_report.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: assistant-evidence-report-${{ github.run_number }}
+        path: |
+          ${{ steps.assistant_evidence_report.outputs.output_csv }}
+          ${{ steps.assistant_evidence_report.outputs.output_json }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload OCR review pack
       if: steps.ocr_review_pack.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -1074,6 +1190,22 @@ jobs:
           echo "- Benchmark scorecard artifact: ${{ steps.benchmark_scorecard.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Benchmark scorecard: skipped (BENCHMARK_SCORECARD_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.assistant_evidence_report.outputs.enabled }}" == "true" ]]; then
+          echo "- Assistant evidence input: ${{ steps.assistant_evidence_report.outputs.input_path }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Assistant evidence records: ${{ steps.assistant_evidence_report.outputs.total_records }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Assistant evidence items: ${{ steps.assistant_evidence_report.outputs.total_evidence_items }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Assistant average evidence: ${{ steps.assistant_evidence_report.outputs.average_evidence_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Assistant evidence coverage: ${{ steps.assistant_evidence_report.outputs.records_with_evidence_pct }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Assistant decision path coverage: ${{ steps.assistant_evidence_report.outputs.records_with_decision_path_pct }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Assistant source signal coverage: ${{ steps.assistant_evidence_report.outputs.records_with_any_source_signal_pct }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Assistant record kinds: ${{ steps.assistant_evidence_report.outputs.top_record_kinds }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Assistant evidence types: ${{ steps.assistant_evidence_report.outputs.top_evidence_types }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Assistant structured sources: ${{ steps.assistant_evidence_report.outputs.top_structured_sources }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Assistant missing fields: ${{ steps.assistant_evidence_report.outputs.top_missing_fields }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Assistant evidence report: skipped (ASSISTANT_EVIDENCE_REPORT_ENABLE!=true or input missing)" >> $GITHUB_STEP_SUMMARY
+        fi
         if [[ "${{ steps.ocr_review_pack.outputs.enabled }}" == "true" ]]; then
           echo "- OCR review pack input: ${{ steps.ocr_review_pack.outputs.input_path }}" >> $GITHUB_STEP_SUMMARY
           echo "- OCR review pack exported: ${{ steps.ocr_review_pack.outputs.exported_records }}" >> $GITHUB_STEP_SUMMARY
@@ -1153,6 +1285,18 @@ jobs:
             const benchmarkBrepStatus = '${{ steps.benchmark_scorecard.outputs.brep_status }}';
             const benchmarkGovernanceStatus = '${{ steps.benchmark_scorecard.outputs.governance_status }}';
             const benchmarkRecommendations = '${{ steps.benchmark_scorecard.outputs.recommendations }}';
+            const assistantEvidenceEnabled = '${{ steps.assistant_evidence_report.outputs.enabled }}' === 'true';
+            const assistantEvidenceInput = '${{ steps.assistant_evidence_report.outputs.input_path }}';
+            const assistantEvidenceTotalRecords = '${{ steps.assistant_evidence_report.outputs.total_records }}';
+            const assistantEvidenceTotalItems = '${{ steps.assistant_evidence_report.outputs.total_evidence_items }}';
+            const assistantEvidenceAverageCount = '${{ steps.assistant_evidence_report.outputs.average_evidence_count }}';
+            const assistantEvidenceCoverage = '${{ steps.assistant_evidence_report.outputs.records_with_evidence_pct }}';
+            const assistantDecisionPathCoverage = '${{ steps.assistant_evidence_report.outputs.records_with_decision_path_pct }}';
+            const assistantSourceSignalCoverage = '${{ steps.assistant_evidence_report.outputs.records_with_any_source_signal_pct }}';
+            const assistantTopRecordKinds = '${{ steps.assistant_evidence_report.outputs.top_record_kinds }}';
+            const assistantTopEvidenceTypes = '${{ steps.assistant_evidence_report.outputs.top_evidence_types }}';
+            const assistantTopStructuredSources = '${{ steps.assistant_evidence_report.outputs.top_structured_sources }}';
+            const assistantTopMissingFields = '${{ steps.assistant_evidence_report.outputs.top_missing_fields }}';
             const ocrReviewPackEnabled = '${{ steps.ocr_review_pack.outputs.enabled }}' === 'true';
             const ocrReviewPackInput = '${{ steps.ocr_review_pack.outputs.input_path }}';
             const ocrExportedRecords = '${{ steps.ocr_review_pack.outputs.exported_records }}';
@@ -1186,6 +1330,12 @@ jobs:
             const benchmarkScorecardStatus = benchmarkScorecardEnabled
               ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}`
               : '⏭️ skipped';
+            const assistantEvidenceStatus = assistantEvidenceEnabled
+              ? `input=${assistantEvidenceInput}, records=${assistantEvidenceTotalRecords}, evidence_items=${assistantEvidenceTotalItems}, avg=${assistantEvidenceAverageCount}, evidence_cov=${assistantEvidenceCoverage}, decision_cov=${assistantDecisionPathCoverage}, source_cov=${assistantSourceSignalCoverage}`
+              : '⏭️ skipped';
+            const assistantEvidenceInsights = assistantEvidenceEnabled
+              ? `kinds=${assistantTopRecordKinds || 'n/a'}, evidence=${assistantTopEvidenceTypes || 'n/a'}, sources=${assistantTopStructuredSources || 'n/a'}, missing=${assistantTopMissingFields || 'n/a'}`
+              : '⏭️ skipped';
             const ocrReviewPackStatus = ocrReviewPackEnabled
               ? `input=${ocrReviewPackInput}, exported=${ocrExportedRecords}, review_candidates=${ocrReviewCandidateCount}, automation_ready=${ocrAutomationReadyCount}, readiness=${ocrAverageReadiness}, coverage=${ocrAverageCoverage}`
               : '⏭️ skipped';
@@ -1205,6 +1355,9 @@ jobs:
             const benchmarkLight = !benchmarkScorecardEnabled
               ? '⚪'
               : (benchmarkOverallStatus.includes('gap') ? '🟡' : '🟢');
+            const assistantEvidenceLight = !assistantEvidenceEnabled
+              ? '⚪'
+              : (parseInt(assistantEvidenceTotalRecords || '0', 10) > 0 ? '🟢' : '🟡');
             const ocrReviewPackLight = !ocrReviewPackEnabled
               ? '⚪'
               : (parseInt(ocrReviewCandidateCount || '0', 10) > 0 ? '🟡' : '🟢');
@@ -1235,6 +1388,8 @@ jobs:
             | **Graph2D Train Sweep** | ${trainSweepStatus} |
             | **Benchmark Scorecard** | ${benchmarkScorecardStatus} |
             | **Benchmark Recommendations** | ${benchmarkRecommendations || 'n/a'} |
+            | **Assistant Evidence Report** | ${assistantEvidenceStatus} |
+            | **Assistant Evidence Insights** | ${assistantEvidenceInsights} |
             | **OCR Review Pack** | ${ocrReviewPackStatus} |
             | **OCR Review Insights** | ${ocrReviewPackInsights} |
 
@@ -1245,6 +1400,7 @@ jobs:
             | **Review Gate** | ${reviewGateLight} | ${reviewGateStatus} |
             | **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
             | **Benchmark Scorecard** | ${benchmarkLight} | ${benchmarkScorecardStatus} |
+            | **Assistant Evidence Report** | ${assistantEvidenceLight} | ${assistantEvidenceStatus} |
             | **OCR Review Pack** | ${ocrReviewPackLight} | ${ocrReviewPackStatus} |
 
             ### Quick Actions
