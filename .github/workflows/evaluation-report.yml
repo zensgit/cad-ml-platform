@@ -2079,6 +2079,18 @@ jobs:
             const benchmarkArtifactBundleBlockers = '${{ steps.benchmark_artifact_bundle.outputs.blockers }}';
             const benchmarkArtifactBundleRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.recommendations }}';
             const benchmarkArtifactBundleArtifact = '${{ steps.benchmark_artifact_bundle.outputs.output_md }}';
+            const benchmarkCompanionSummaryEnabled = '${{ steps.benchmark_companion_summary.outputs.enabled }}' === 'true';
+            const benchmarkCompanionSummaryOverall = '${{ steps.benchmark_companion_summary.outputs.overall_status }}';
+            const benchmarkCompanionReviewSurface = '${{ steps.benchmark_companion_summary.outputs.review_surface }}';
+            const benchmarkCompanionPrimaryGap = '${{ steps.benchmark_companion_summary.outputs.primary_gap }}';
+            const benchmarkCompanionHybridStatus = '${{ steps.benchmark_companion_summary.outputs.hybrid_status }}';
+            const benchmarkCompanionAssistantStatus = '${{ steps.benchmark_companion_summary.outputs.assistant_status }}';
+            const benchmarkCompanionReviewQueueStatus = '${{ steps.benchmark_companion_summary.outputs.review_queue_status }}';
+            const benchmarkCompanionOcrStatus = '${{ steps.benchmark_companion_summary.outputs.ocr_status }}';
+            const benchmarkCompanionQdrantStatus = '${{ steps.benchmark_companion_summary.outputs.qdrant_status }}';
+            const benchmarkCompanionBlockers = '${{ steps.benchmark_companion_summary.outputs.blockers }}';
+            const benchmarkCompanionRecommendedActions = '${{ steps.benchmark_companion_summary.outputs.recommended_actions }}';
+            const benchmarkCompanionArtifact = '${{ steps.benchmark_companion_summary.outputs.output_md }}';
             const assistantEvidenceEnabled = '${{ steps.assistant_evidence_report.outputs.enabled }}' === 'true';
             const assistantEvidenceInput = '${{ steps.assistant_evidence_report.outputs.input_path }}';
             const assistantEvidenceTotalRecords = '${{ steps.assistant_evidence_report.outputs.total_records }}';
@@ -2146,6 +2158,8 @@ jobs:
               : '⏭️ skipped';
             const benchmarkArtifactBundleStatus = benchmarkArtifactBundleEnabled
               ? `overall=${benchmarkArtifactBundleOverall}, available_artifacts=${benchmarkArtifactBundleAvailableArtifacts}, feedback=${benchmarkArtifactBundleFeedbackStatus}, assistant=${benchmarkArtifactBundleAssistantStatus}, review_queue=${benchmarkArtifactBundleReviewQueueStatus}, ocr=${benchmarkArtifactBundleOcrStatus}, blockers=${benchmarkArtifactBundleBlockers || 'n/a'}, recommendations=${benchmarkArtifactBundleRecommendations || 'n/a'}, artifact=${benchmarkArtifactBundleArtifact}`
+            const benchmarkCompanionSummaryStatus = benchmarkCompanionSummaryEnabled
+              ? `overall=${benchmarkCompanionSummaryOverall}, review_surface=${benchmarkCompanionReviewSurface}, primary_gap=${benchmarkCompanionPrimaryGap || 'n/a'}, hybrid=${benchmarkCompanionHybridStatus}, assistant=${benchmarkCompanionAssistantStatus}, review_queue=${benchmarkCompanionReviewQueueStatus}, ocr=${benchmarkCompanionOcrStatus}, qdrant=${benchmarkCompanionQdrantStatus}, blockers=${benchmarkCompanionBlockers || 'n/a'}, actions=${benchmarkCompanionRecommendedActions || 'n/a'}, artifact=${benchmarkCompanionArtifact}`
               : '⏭️ skipped';
             const assistantEvidenceStatus = assistantEvidenceEnabled
               ? `input=${assistantEvidenceInput}, records=${assistantEvidenceTotalRecords}, evidence_items=${assistantEvidenceTotalItems}, avg=${assistantEvidenceAverageCount}, evidence_cov=${assistantEvidenceCoverage}, decision_cov=${assistantDecisionPathCoverage}, source_cov=${assistantSourceSignalCoverage}`
@@ -2190,6 +2204,12 @@ jobs:
                   ? '🟡'
                   : '🟢'
               );
+            const benchmarkCompanionLight = !benchmarkCompanionSummaryEnabled
+              ? '⚪'
+              : (
+                benchmarkCompanionSummaryOverall === 'attention_required' ||
+                benchmarkCompanionReviewSurface === 'attention_required'
+              ) ? '🟡' : '🟢';
             const assistantEvidenceLight = !assistantEvidenceEnabled
               ? '⚪'
               : (parseInt(assistantEvidenceTotalRecords || '0', 10) > 0 ? '🟢' : '🟡');
@@ -2232,6 +2252,9 @@ jobs:
             | **Feedback Flywheel Artifact** | ${feedbackFlywheelBenchmarkStatusLine} |
             | **Benchmark Operational Summary** | ${benchmarkOperationalSummaryStatus} |
             | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleStatus} |
+            | **Benchmark Companion Summary** | ${benchmarkCompanionSummaryStatus} |
+            | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleStatus} |
+            | **Benchmark Companion Summary** | ${benchmarkCompanionSummaryStatus} |
             | **Assistant Evidence Report** | ${assistantEvidenceStatus} |
             | **Assistant Evidence Insights** | ${assistantEvidenceInsights} |
             | **Active-Learning Review Queue** | ${activeLearningReviewQueueStatusLine} |
@@ -2248,6 +2271,9 @@ jobs:
             | **Benchmark Scorecard** | ${benchmarkLight} | ${benchmarkScorecardStatus} |
             | **Benchmark Operational Summary** | ${benchmarkOperationalLight} | ${benchmarkOperationalSummaryStatus} |
             | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleLight} | ${benchmarkArtifactBundleStatus} |
+            | **Benchmark Companion Summary** | ${benchmarkCompanionLight} | ${benchmarkCompanionSummaryStatus} |
+            | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleLight} | ${benchmarkArtifactBundleStatus} |
+            | **Benchmark Companion Summary** | ${benchmarkCompanionLight} | ${benchmarkCompanionSummaryStatus} |
             | **Assistant Evidence Report** | ${assistantEvidenceLight} | ${assistantEvidenceStatus} |
             | **Active-Learning Review Queue** | ${activeLearningReviewQueueLight} | ${activeLearningReviewQueueStatusLine} |
             | **OCR Review Pack** | ${ocrReviewPackLight} | ${ocrReviewPackStatus} |
