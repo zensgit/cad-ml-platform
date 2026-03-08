@@ -17,6 +17,7 @@ import json
 import logging
 import os
 import glob
+from collections import Counter
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import sys
@@ -185,6 +186,43 @@ def prepare_training_triplets(feedback_data: List[Dict[str, Any]]) -> List[Dict[
     logger.info(f"Generated {len(triplets)} valid training triplets from store.")
     return triplets
 
+
+def _build_training_summary(
+    feedback_data: List[Dict[str, Any]],
+    triplets: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    anchor_labels = [
+        str(item.get("anchor_label") or "").strip()
+        for item in triplets
+        if str(item.get("anchor_label") or "").strip()
+    ]
+    negative_labels = [
+        str(item.get("negative_label") or "").strip()
+        for item in triplets
+        if str(item.get("negative_label") or "").strip()
+    ]
+    anchor_ids = {
+        str(item.get("anchor_id") or "").strip()
+        for item in triplets
+        if str(item.get("anchor_id") or "").strip()
+    }
+    return {
+        "feedback_entry_count": len(feedback_data),
+        "triplet_count": len(triplets),
+        "unique_anchor_count": len(anchor_ids),
+        "anchor_label_distribution": dict(sorted(Counter(anchor_labels).items())),
+        "negative_label_distribution": dict(sorted(Counter(negative_labels).items())),
+    }
+
+
+def _write_training_summary(path: str, summary: Dict[str, Any]) -> None:
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
 def train_model(triplets: List[Dict[str, Any]], output_path: str, dry_run: bool = False):
     """Mock training loop (with PyTorch scaffold)."""
     if not triplets:
@@ -302,6 +340,11 @@ def main():
         action="store_true",
         help="Populate vector store with mock data for testing",
     )
+    parser.add_argument(
+        "--summary-out",
+        default=None,
+        help="Optional JSON path to persist metric-training summary",
+    )
 
     args = parser.parse_args()
 
@@ -335,6 +378,10 @@ def main():
 
     data = load_feedback_data(args.data_dir)
     triplets = prepare_training_triplets(data)
+    if args.summary_out:
+        summary = _build_training_summary(data, triplets)
+        _write_training_summary(args.summary_out, summary)
+        logger.info(f"Saved metric-training summary to {args.summary_out}")
     train_model(triplets, args.output_model, args.dry_run)
 
 if __name__ == "__main__":

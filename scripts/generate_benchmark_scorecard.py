@@ -362,6 +362,59 @@ def _review_queue_status(summary: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _feedback_flywheel_status(
+    feedback_summary: Dict[str, Any],
+    finetune_summary: Dict[str, Any],
+    metric_train_summary: Dict[str, Any],
+) -> Dict[str, Any]:
+    if not feedback_summary and not finetune_summary and not metric_train_summary:
+        return {"status": "missing"}
+
+    total_feedback = _to_int(feedback_summary.get("total"))
+    correction_count = _to_int(feedback_summary.get("correction_count"))
+    coarse_correction_count = _to_int(feedback_summary.get("coarse_correction_count"))
+    average_rating = feedback_summary.get("average_rating")
+    finetune_sample_count = _to_int(finetune_summary.get("sample_count"))
+    finetune_vector_count = _to_int(finetune_summary.get("vector_count"))
+    metric_triplet_count = _to_int(metric_train_summary.get("triplet_count"))
+    metric_unique_anchor_count = _to_int(metric_train_summary.get("unique_anchor_count"))
+
+    if total_feedback <= 0:
+        status = "missing"
+    elif correction_count <= 0 and coarse_correction_count <= 0:
+        status = "passive_feedback_only"
+    elif finetune_sample_count > 0 and metric_triplet_count > 0:
+        status = "closed_loop_ready"
+    elif finetune_sample_count > 0 or metric_triplet_count > 0:
+        status = "partially_closed_loop"
+    else:
+        status = "feedback_collected"
+
+    return {
+        "status": status,
+        "feedback_total": total_feedback,
+        "correction_count": correction_count,
+        "coarse_correction_count": coarse_correction_count,
+        "average_rating": average_rating,
+        "finetune_sample_count": finetune_sample_count,
+        "finetune_vector_count": finetune_vector_count,
+        "metric_triplet_count": metric_triplet_count,
+        "metric_unique_anchor_count": metric_unique_anchor_count,
+        "review_outcomes": feedback_summary.get("by_review_outcome") or {},
+        "review_reasons": feedback_summary.get("by_review_reason") or {},
+        "finetune_label_distribution": finetune_summary.get("label_distribution") or {},
+        "finetune_coarse_label_distribution": (
+            finetune_summary.get("coarse_label_distribution") or {}
+        ),
+        "metric_anchor_label_distribution": (
+            metric_train_summary.get("anchor_label_distribution") or {}
+        ),
+        "metric_negative_label_distribution": (
+            metric_train_summary.get("negative_label_distribution") or {}
+        ),
+    }
+
+
 def _ocr_review_status(summary: Dict[str, Any]) -> Dict[str, Any]:
     if not summary:
         return {"status": "missing"}
@@ -405,6 +458,7 @@ def _overall_status(
     qdrant: Dict[str, Any],
     assistant: Dict[str, Any],
     review_queue: Dict[str, Any],
+    feedback_flywheel: Dict[str, Any],
     ocr_review: Dict[str, Any],
 ) -> str:
     if hybrid.get("status") not in {"strong_primary", "usable_primary"}:
@@ -431,6 +485,13 @@ def _overall_status(
         "evidence_gap",
     }:
         return "benchmark_ready_with_review_gap"
+    if feedback_flywheel.get("status") in {
+        "missing",
+        "passive_feedback_only",
+        "feedback_collected",
+        "partially_closed_loop",
+    }:
+        return "benchmark_ready_with_feedback_gap"
     if ocr_review.get("status") in {"missing", "managed_review", "review_heavy"}:
         return "benchmark_ready_with_ocr_gap"
     return "benchmark_ready_with_multisignal_evidence"
@@ -445,6 +506,7 @@ def _recommendations(
     qdrant: Dict[str, Any],
     assistant: Dict[str, Any],
     review_queue: Dict[str, Any],
+    feedback_flywheel: Dict[str, Any],
     ocr_review: Dict[str, Any],
 ) -> List[str]:
     items: List[str] = []
@@ -488,6 +550,26 @@ def _recommendations(
             "Raise evidence coverage in active-learning review queue exports before "
             "freezing review operations as benchmark-ready."
         )
+    if feedback_flywheel.get("status") == "missing":
+        items.append(
+            "Produce feedback stats, finetune summaries, and metric-train summaries for the "
+            "benchmark flywheel."
+        )
+    elif feedback_flywheel.get("status") == "passive_feedback_only":
+        items.append(
+            "Collect actionable corrections instead of ratings-only feedback before claiming a "
+            "closed retraining loop."
+        )
+    elif feedback_flywheel.get("status") == "feedback_collected":
+        items.append(
+            "Run finetune and metric-training summaries so feedback evidence becomes a real "
+            "retraining flywheel."
+        )
+    elif feedback_flywheel.get("status") == "partially_closed_loop":
+        items.append(
+            "Close the feedback flywheel by producing both fine-tune and metric-training "
+            "artifacts from reviewed samples."
+        )
     if ocr_review.get("status") in {"missing", "review_heavy"}:
         items.append(
             "Reduce OCR review-heavy backlog and improve structured extraction coverage."
@@ -514,6 +596,9 @@ def build_scorecard(
     qdrant_readiness_summary: Dict[str, Any],
     assistant_evidence_summary: Dict[str, Any],
     review_queue_summary: Dict[str, Any],
+    feedback_summary: Dict[str, Any],
+    finetune_summary: Dict[str, Any],
+    metric_train_summary: Dict[str, Any],
     ocr_review_summary: Dict[str, Any],
 ) -> Dict[str, Any]:
     hybrid = _hybrid_status(hybrid_summary)
@@ -528,6 +613,11 @@ def build_scorecard(
     qdrant = _qdrant_backend_status(qdrant_readiness_summary)
     assistant = _assistant_explainability_status(assistant_evidence_summary)
     review_queue = _review_queue_status(review_queue_summary)
+    feedback_flywheel = _feedback_flywheel_status(
+        feedback_summary,
+        finetune_summary,
+        metric_train_summary,
+    )
     ocr_review = _ocr_review_status(ocr_review_summary)
     overall_status = _overall_status(
         hybrid,
@@ -537,6 +627,7 @@ def build_scorecard(
         qdrant,
         assistant,
         review_queue,
+        feedback_flywheel,
         ocr_review,
     )
     return {
@@ -552,6 +643,7 @@ def build_scorecard(
             "qdrant_backend": qdrant,
             "assistant_explainability": assistant,
             "review_queue": review_queue,
+            "feedback_flywheel": feedback_flywheel,
             "ocr_review": ocr_review,
         },
         "recommendations": _recommendations(
@@ -563,6 +655,7 @@ def build_scorecard(
             qdrant,
             assistant,
             review_queue,
+            feedback_flywheel,
             ocr_review,
         ),
     }
@@ -648,6 +741,15 @@ def _render_markdown(scorecard: Dict[str, Any]) -> str:
         f"evidence_ratio={review_queue.get('records_with_evidence_ratio')}, "
         f"avg_evidence={review_queue.get('average_evidence_count')} |"
     )
+    feedback_flywheel = components.get("feedback_flywheel", {}) or {}
+    lines.append(
+        "| feedback_flywheel | "
+        f"`{feedback_flywheel.get('status')}` | "
+        f"feedback={feedback_flywheel.get('feedback_total')}, "
+        f"corrections={feedback_flywheel.get('correction_count')}, "
+        f"finetune_samples={feedback_flywheel.get('finetune_sample_count')}, "
+        f"metric_triplets={feedback_flywheel.get('metric_triplet_count')} |"
+    )
     ocr_review = components.get("ocr_review", {}) or {}
     lines.append(
         "| ocr_review | "
@@ -684,6 +786,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--qdrant-readiness-summary", default="")
     parser.add_argument("--assistant-evidence-summary", default="")
     parser.add_argument("--review-queue-summary", default="")
+    parser.add_argument("--feedback-summary", default="")
+    parser.add_argument("--finetune-summary", default="")
+    parser.add_argument("--metric-train-summary", default="")
     parser.add_argument("--ocr-review-summary", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
@@ -704,6 +809,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         qdrant_readiness_summary=_maybe_load_json(args.qdrant_readiness_summary),
         assistant_evidence_summary=_maybe_load_json(args.assistant_evidence_summary),
         review_queue_summary=_maybe_load_json(args.review_queue_summary),
+        feedback_summary=_maybe_load_json(args.feedback_summary),
+        finetune_summary=_maybe_load_json(args.finetune_summary),
+        metric_train_summary=_maybe_load_json(args.metric_train_summary),
         ocr_review_summary=_maybe_load_json(args.ocr_review_summary),
     )
 

@@ -70,3 +70,45 @@ def test_prepare_training_triplets_accepts_alias_fields(monkeypatch) -> None:
     assert len(triplets) == 1
     assert triplets[0]["anchor_id"] == "anchor-1"
     assert triplets[0]["anchor_label"] == "人孔"
+
+
+def test_build_training_summary_tracks_distributions() -> None:
+    summary = module._build_training_summary(
+        [{"analysis_id": "a-1"}, {"analysis_id": "a-2"}],
+        [
+            {
+                "anchor_id": "a-1",
+                "anchor_label": "人孔",
+                "negative_label": "法兰",
+            },
+            {
+                "anchor_id": "a-2",
+                "anchor_label": "法兰",
+                "negative_label": "人孔",
+            },
+        ],
+    )
+
+    assert summary["feedback_entry_count"] == 2
+    assert summary["triplet_count"] == 2
+    assert summary["unique_anchor_count"] == 2
+    assert summary["anchor_label_distribution"] == {"人孔": 1, "法兰": 1}
+    assert summary["negative_label_distribution"] == {"人孔": 1, "法兰": 1}
+
+
+def test_write_training_summary_writes_json(tmp_path: Path) -> None:
+    output = tmp_path / "metric_summary.json"
+    module._write_training_summary(
+        str(output),
+        {
+            "feedback_entry_count": 1,
+            "triplet_count": 1,
+            "unique_anchor_count": 1,
+            "anchor_label_distribution": {"人孔": 1},
+            "negative_label_distribution": {"法兰": 1},
+        },
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["triplet_count"] == 1
+    assert payload["anchor_label_distribution"] == {"人孔": 1}

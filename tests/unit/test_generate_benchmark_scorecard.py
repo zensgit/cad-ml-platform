@@ -123,6 +123,36 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             "by_review_reason": {},
         },
     )
+    feedback = _write_json(
+        tmp_path / "feedback.json",
+        {
+            "total": 12,
+            "correction_count": 8,
+            "coarse_correction_count": 6,
+            "average_rating": 4.3,
+            "by_review_outcome": {"updated": 8, "accepted": 4},
+            "by_review_reason": {"low_confidence": 5, "branch_conflict": 3},
+        },
+    )
+    finetune = _write_json(
+        tmp_path / "finetune.json",
+        {
+            "sample_count": 8,
+            "vector_count": 8,
+            "label_distribution": {"人孔": 4, "法兰": 4},
+            "coarse_label_distribution": {"开孔件": 4, "法兰": 4},
+        },
+    )
+    metric_train = _write_json(
+        tmp_path / "metric_train.json",
+        {
+            "feedback_entry_count": 12,
+            "triplet_count": 6,
+            "unique_anchor_count": 6,
+            "anchor_label_distribution": {"人孔": 3, "法兰": 3},
+            "negative_label_distribution": {"捕集口": 3, "拖轮组件": 3},
+        },
+    )
     ocr_review = _write_json(
         tmp_path / "ocr_review.json",
         {
@@ -165,6 +195,12 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             str(assistant),
             "--review-queue-summary",
             str(review_queue),
+            "--feedback-summary",
+            str(feedback),
+            "--finetune-summary",
+            str(finetune),
+            "--metric-train-summary",
+            str(metric_train),
             "--ocr-review-summary",
             str(ocr_review),
             "--output-json",
@@ -193,6 +229,9 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
     assert payload["components"]["review_queue"]["status"] == "under_control"
     assert payload["components"]["review_queue"]["records_with_evidence_ratio"] == 0.0
     assert payload["components"]["review_queue"]["average_evidence_count"] == 0.0
+    assert payload["components"]["feedback_flywheel"]["status"] == "closed_loop_ready"
+    assert payload["components"]["feedback_flywheel"]["feedback_total"] == 12
+    assert payload["components"]["feedback_flywheel"]["metric_triplet_count"] == 6
     assert payload["components"]["ocr_review"]["status"] == "ocr_ready"
     assert output_json.exists()
     assert output_md.exists()
@@ -246,6 +285,7 @@ def test_generate_benchmark_scorecard_handles_missing_optional_inputs(tmp_path: 
     assert payload["components"]["qdrant_backend"]["status"] == "missing"
     assert payload["components"]["assistant_explainability"]["status"] == "missing"
     assert payload["components"]["review_queue"]["status"] == "missing"
+    assert payload["components"]["feedback_flywheel"]["status"] == "missing"
     assert payload["components"]["ocr_review"]["status"] == "missing"
     assert payload["overall_status"] == "benchmark_ready_without_governance"
     assert output_json.exists()
@@ -319,6 +359,15 @@ def test_generate_benchmark_scorecard_reports_ocr_gap(tmp_path: Path) -> None:
             "by_review_reason": {},
         },
     )
+    feedback = _write_json(
+        tmp_path / "feedback.json",
+        {
+            "total": 0,
+            "correction_count": 0,
+            "coarse_correction_count": 0,
+            "average_rating": None,
+        },
+    )
     ocr_review = _write_json(
         tmp_path / "ocr_review.json",
         {
@@ -350,6 +399,8 @@ def test_generate_benchmark_scorecard_reports_ocr_gap(tmp_path: Path) -> None:
             str(assistant),
             "--review-queue-summary",
             str(review_queue),
+            "--feedback-summary",
+            str(feedback),
             "--ocr-review-summary",
             str(ocr_review),
             "--output-json",
@@ -361,8 +412,10 @@ def test_generate_benchmark_scorecard_reports_ocr_gap(tmp_path: Path) -> None:
     )
 
     payload = json.loads(result.stdout)
+    assert payload["components"]["feedback_flywheel"]["status"] == "missing"
+    assert payload["overall_status"] == "benchmark_ready_with_feedback_gap"
+    assert any("feedback" in item.lower() for item in payload["recommendations"])
     assert payload["components"]["ocr_review"]["status"] == "review_heavy"
-    assert payload["overall_status"] == "benchmark_ready_with_ocr_gap"
     assert any("OCR" in item for item in payload["recommendations"])
 
 
@@ -559,6 +612,34 @@ def test_generate_benchmark_scorecard_reports_qdrant_gap(tmp_path: Path) -> None
             "by_review_reason": {},
         },
     )
+    feedback = _write_json(
+        tmp_path / "feedback.json",
+        {
+            "total": 8,
+            "correction_count": 6,
+            "coarse_correction_count": 5,
+            "average_rating": 4.1,
+        },
+    )
+    finetune = _write_json(
+        tmp_path / "finetune.json",
+        {
+            "sample_count": 6,
+            "vector_count": 6,
+            "label_distribution": {"人孔": 3, "法兰": 3},
+            "coarse_label_distribution": {"开孔件": 3, "法兰": 3},
+        },
+    )
+    metric_train = _write_json(
+        tmp_path / "metric_train.json",
+        {
+            "feedback_entry_count": 8,
+            "triplet_count": 4,
+            "unique_anchor_count": 4,
+            "anchor_label_distribution": {"人孔": 2, "法兰": 2},
+            "negative_label_distribution": {"捕集口": 2, "拖轮组件": 2},
+        },
+    )
     ocr_review = _write_json(
         tmp_path / "ocr_review.json",
         {
@@ -592,6 +673,12 @@ def test_generate_benchmark_scorecard_reports_qdrant_gap(tmp_path: Path) -> None
             str(assistant),
             "--review-queue-summary",
             str(review_queue),
+            "--feedback-summary",
+            str(feedback),
+            "--finetune-summary",
+            str(finetune),
+            "--metric-train-summary",
+            str(metric_train),
             "--ocr-review-summary",
             str(ocr_review),
             "--output-json",
@@ -607,5 +694,113 @@ def test_generate_benchmark_scorecard_reports_qdrant_gap(tmp_path: Path) -> None
     assert payload["components"]["qdrant_backend"]["indexed_ratio"] == 0.8
     assert payload["components"]["qdrant_backend"]["unindexed_vectors_count"] == 2
     assert payload["components"]["qdrant_backend"]["scan_truncated"] is True
+    assert payload["components"]["feedback_flywheel"]["status"] == "closed_loop_ready"
     assert payload["overall_status"] == "benchmark_ready_with_qdrant_gap"
     assert any("Qdrant" in item for item in payload["recommendations"])
+
+
+def test_generate_benchmark_scorecard_reports_feedback_gap(tmp_path: Path) -> None:
+    hybrid = _write_json(
+        tmp_path / "hybrid.json",
+        {
+            "sample_size": 20,
+            "exact_accuracy": {
+                "hybrid_label": {"accuracy": 0.9},
+                "final_part_type": {"accuracy": 0.88},
+                "graph2d_label": {"accuracy": 0.1},
+            },
+            "coarse_accuracy": {"hybrid_label": {"accuracy": 0.92}},
+            "confidence": {"graph2d_label": {"low_conf_rate": 1.0}},
+        },
+    )
+    governance = _write_json(
+        tmp_path / "migration.json",
+        {
+            "plan_ready": True,
+            "coverage_complete": True,
+        },
+    )
+    history = _write_json(
+        tmp_path / "history.json",
+        {
+            "total": 24,
+            "coverage": 0.75,
+            "accuracy_overall": 0.75,
+            "coarse_accuracy_overall": 0.86,
+            "low_conf_rate": 0.15,
+        },
+    )
+    brep = _write_json(
+        tmp_path / "brep.json",
+        {
+            "sample_size": 3,
+            "valid_3d_count": 3,
+            "hint_coverage_count": 2,
+            "graph_schema_version_counts": {"v2": 3},
+        },
+    )
+    assistant = _write_json(
+        tmp_path / "assistant.json",
+        {
+            "total_records": 48,
+            "total_evidence_items": 96,
+            "average_evidence_count": 2.0,
+            "records_with_evidence_pct": 0.92,
+            "records_with_decision_path_pct": 0.83,
+            "records_with_any_source_signal_pct": 0.88,
+        },
+    )
+    review_queue = _write_json(
+        tmp_path / "review_queue.json",
+        {
+            "total": 0,
+            "automation_ready_count": 0,
+            "automation_ready_ratio": 0.0,
+            "by_sample_type": {},
+            "by_feedback_priority": {},
+            "by_decision_source": {},
+            "by_review_reason": {},
+        },
+    )
+    feedback = _write_json(
+        tmp_path / "feedback.json",
+        {
+            "total": 6,
+            "correction_count": 4,
+            "coarse_correction_count": 3,
+            "average_rating": 4.0,
+            "by_review_outcome": {"updated": 4, "accepted": 2},
+            "by_review_reason": {"low_confidence": 3, "branch_conflict": 1},
+        },
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--hybrid-summary",
+            str(hybrid),
+            "--migration-summary",
+            str(governance),
+            "--history-summary",
+            str(history),
+            "--brep-summary",
+            str(brep),
+            "--assistant-evidence-summary",
+            str(assistant),
+            "--review-queue-summary",
+            str(review_queue),
+            "--feedback-summary",
+            str(feedback),
+            "--output-json",
+            str(tmp_path / "scorecard.json"),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert payload["components"]["feedback_flywheel"]["status"] == "feedback_collected"
+    assert payload["overall_status"] == "benchmark_ready_with_feedback_gap"
+    assert any("feedback" in item.lower() for item in payload["recommendations"])
