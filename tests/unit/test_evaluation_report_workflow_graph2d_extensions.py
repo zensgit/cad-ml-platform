@@ -362,8 +362,12 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "reference_item_delta=" in benchmark_knowledge_drift_script
     assert "regressions=" in benchmark_knowledge_drift_script
     assert "improvements=" in benchmark_knowledge_drift_script
+    assert "domain_regressions=" in benchmark_knowledge_drift_script
+    assert "domain_improvements=" in benchmark_knowledge_drift_script
     assert "resolved_focus_areas=" in benchmark_knowledge_drift_script
     assert "new_focus_areas=" in benchmark_knowledge_drift_script
+    assert "resolved_priority_domains=" in benchmark_knowledge_drift_script
+    assert "new_priority_domains=" in benchmark_knowledge_drift_script
 
     final_fail_step = _get_step(
         workflow,
@@ -465,6 +469,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_drift_summary=" in benchmark_bundle_script
     assert "knowledge_drift_recommendations=" in benchmark_bundle_script
     assert "knowledge_drift_component_changes=" in benchmark_bundle_script
+    assert "knowledge_drift_domain_regressions=" in benchmark_bundle_script
+    assert "knowledge_drift_domain_improvements=" in benchmark_bundle_script
+    assert "knowledge_drift_resolved_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_drift_new_priority_domains=" in benchmark_bundle_script
     assert "engineering_status=" in benchmark_bundle_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_bundle_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_bundle_script
@@ -492,6 +500,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_drift_summary=" in benchmark_companion_script
     assert "knowledge_drift_recommendations=" in benchmark_companion_script
     assert "knowledge_drift_component_changes=" in benchmark_companion_script
+    assert "knowledge_drift_domain_regressions=" in benchmark_companion_script
+    assert "knowledge_drift_domain_improvements=" in benchmark_companion_script
+    assert "knowledge_drift_resolved_priority_domains=" in benchmark_companion_script
+    assert "knowledge_drift_new_priority_domains=" in benchmark_companion_script
     assert "engineering_status=" in benchmark_companion_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_companion_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_companion_script
@@ -519,6 +531,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_status=" in benchmark_release_script
     assert "knowledge_drift_status=" in benchmark_release_script
     assert "knowledge_drift_summary=" in benchmark_release_script
+    assert "knowledge_drift_domain_regressions=" in benchmark_release_script
+    assert "knowledge_drift_domain_improvements=" in benchmark_release_script
+    assert "knowledge_drift_resolved_priority_domains=" in benchmark_release_script
+    assert "knowledge_drift_new_priority_domains=" in benchmark_release_script
     assert "engineering_status=" in benchmark_release_script
     assert "operator_adoption_status=" in benchmark_release_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_release_script
@@ -545,6 +561,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_status=" in benchmark_runbook_script
     assert "knowledge_drift_status=" in benchmark_runbook_script
     assert "knowledge_drift_summary=" in benchmark_runbook_script
+    assert "knowledge_drift_domain_regressions=" in benchmark_runbook_script
+    assert "knowledge_drift_domain_improvements=" in benchmark_runbook_script
+    assert "knowledge_drift_resolved_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_drift_new_priority_domains=" in benchmark_runbook_script
     assert "engineering_status=" in benchmark_runbook_script
     assert "operator_adoption_status=" in benchmark_runbook_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_runbook_script
@@ -1006,6 +1026,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkKnowledgeDriftEnabled" in pr_comment_script
     assert "benchmarkKnowledgeDriftStatusLine" in pr_comment_script
     assert "benchmarkKnowledgeDriftLight" in pr_comment_script
+    assert "benchmarkKnowledgeDriftDomainRegressions" in pr_comment_script
+    assert "benchmarkKnowledgeDriftResolvedPriorityDomains" in pr_comment_script
     assert "assistant=${benchmarkAssistantStatus}" in pr_comment_script
     assert "review_queue=${benchmarkReviewQueueStatus}" in pr_comment_script
     assert "feedback_flywheel=${benchmarkFeedbackFlywheelStatus}" in pr_comment_script
@@ -1033,6 +1055,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "ocr=${benchmarkArtifactBundleOcrStatus}" in pr_comment_script
     assert "knowledge=${benchmarkArtifactBundleKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkArtifactBundleKnowledgeDriftStatus}" in pr_comment_script
+    assert "benchmarkArtifactBundleKnowledgeDriftDomainRegressions" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgePriorityDomains" in pr_comment_script
     assert "engineering=${benchmarkArtifactBundleEngineeringStatus}" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Domains" in pr_comment_script
@@ -1044,6 +1067,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Companion Summary" in pr_comment_script
     assert "knowledge=${benchmarkCompanionKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkCompanionKnowledgeDriftStatus}" in pr_comment_script
+    assert "benchmarkCompanionKnowledgeDriftDomainRegressions" in pr_comment_script
     assert "benchmarkCompanionKnowledgePriorityDomains" in pr_comment_script
     assert "engineering=${benchmarkCompanionEngineeringStatus}" in pr_comment_script
     assert "Benchmark Companion Knowledge Domains" in pr_comment_script
@@ -1055,6 +1079,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Decision" in pr_comment_script
     assert "knowledge=${benchmarkReleaseKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkReleaseKnowledgeDriftStatus}" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDriftDomainRegressions" in pr_comment_script
     assert "benchmarkReleaseKnowledgePriorityDomains" in pr_comment_script
     assert "engineering=${benchmarkReleaseEngineeringStatus}" in pr_comment_script
     assert "operator_adoption=${benchmarkReleaseOperatorAdoptionStatus}" in pr_comment_script
@@ -1067,6 +1092,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Runbook" in pr_comment_script
     assert "knowledge=${benchmarkReleaseRunbookKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkReleaseRunbookKnowledgeDriftStatus}" in pr_comment_script
+    assert "benchmarkReleaseRunbookKnowledgeDriftDomainRegressions" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgePriorityDomains" in pr_comment_script
     assert "engineering=${benchmarkReleaseRunbookEngineeringStatus}" in pr_comment_script
     assert "operator_adoption=${benchmarkReleaseRunbookOperatorAdoptionStatus}" in pr_comment_script
