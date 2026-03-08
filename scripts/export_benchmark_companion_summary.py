@@ -50,10 +50,16 @@ def _component_statuses(
     scorecard: Dict[str, Any],
     operational_summary: Dict[str, Any],
     artifact_bundle: Dict[str, Any],
+    engineering_signals_summary: Dict[str, Any],
 ) -> Dict[str, str]:
     scorecard_components = scorecard.get("components") or {}
     operational_components = operational_summary.get("component_statuses") or {}
     bundle_components = artifact_bundle.get("component_statuses") or {}
+    engineering_component = (
+        engineering_signals_summary.get("engineering_signals")
+        or engineering_signals_summary
+        or {}
+    )
 
     def pick(name: str) -> str:
         if isinstance(bundle_components, dict) and bundle_components.get(name):
@@ -76,6 +82,11 @@ def _component_statuses(
         "review_queue": pick("review_queue"),
         "ocr_review": pick("ocr_review"),
         "qdrant_backend": pick("qdrant_backend"),
+        "engineering_signals": str(
+            engineering_component.get("status")
+            or (scorecard_components.get("engineering_signals") or {}).get("status")
+            or "unknown"
+        ),
     }
 
 
@@ -104,7 +115,10 @@ def _primary_gap(
 
 
 def _artifact_rows(
-    scorecard_path: str, operational_path: str, bundle_path: str
+    scorecard_path: str,
+    operational_path: str,
+    bundle_path: str,
+    engineering_path: str,
 ) -> Dict[str, Dict[str, Any]]:
     def row(name: str, path_text: str) -> Dict[str, Any]:
         path_value = str(path_text or "").strip()
@@ -120,6 +134,9 @@ def _artifact_rows(
             "benchmark_operational_summary", operational_path
         ),
         "benchmark_artifact_bundle": row("benchmark_artifact_bundle", bundle_path),
+        "benchmark_engineering_signals": row(
+            "benchmark_engineering_signals", engineering_path
+        ),
     }
 
 
@@ -129,6 +146,7 @@ def build_companion_summary(
     benchmark_scorecard: Dict[str, Any],
     benchmark_operational_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
+    benchmark_engineering_signals: Dict[str, Any],
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     overall_status = (
@@ -143,14 +161,19 @@ def build_companion_summary(
     bundle_recommendations = benchmark_artifact_bundle.get("recommendations") or []
     operational_recommendations = benchmark_operational_summary.get("recommendations") or []
     scorecard_recommendations = benchmark_scorecard.get("recommendations") or []
+    engineering_recommendations = benchmark_engineering_signals.get("recommendations") or []
     recommendations = _compact(
-        bundle_recommendations or operational_recommendations or scorecard_recommendations,
+        bundle_recommendations
+        or operational_recommendations
+        or engineering_recommendations
+        or scorecard_recommendations,
         limit=5,
     )
     component_statuses = _component_statuses(
         benchmark_scorecard,
         benchmark_operational_summary,
         benchmark_artifact_bundle,
+        benchmark_engineering_signals,
     )
     primary_gap = _primary_gap(component_statuses, blockers, recommendations)
     review_surface = (
@@ -159,12 +182,15 @@ def build_companion_summary(
         and component_statuses.get("assistant_explainability")
         not in {"missing", "partial_coverage", "weak_coverage"}
         and component_statuses.get("ocr_review") not in {"missing", "review_heavy"}
+        and component_statuses.get("engineering_signals")
+        not in {"unknown", "partial_engineering_semantics", "engineering_signal_gap"}
         else "attention_required"
     )
     artifacts = _artifact_rows(
         artifact_paths.get("benchmark_scorecard", ""),
         artifact_paths.get("benchmark_operational_summary", ""),
         artifact_paths.get("benchmark_artifact_bundle", ""),
+        artifact_paths.get("benchmark_engineering_signals", ""),
     )
     return {
         "title": title,
@@ -221,6 +247,7 @@ def main() -> None:
     parser.add_argument("--benchmark-scorecard", default="")
     parser.add_argument("--benchmark-operational-summary", default="")
     parser.add_argument("--benchmark-artifact-bundle", default="")
+    parser.add_argument("--benchmark-engineering-signals", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -229,6 +256,7 @@ def main() -> None:
         "benchmark_scorecard": args.benchmark_scorecard,
         "benchmark_operational_summary": args.benchmark_operational_summary,
         "benchmark_artifact_bundle": args.benchmark_artifact_bundle,
+        "benchmark_engineering_signals": args.benchmark_engineering_signals,
     }
     payload = build_companion_summary(
         title=args.title,
@@ -237,6 +265,9 @@ def main() -> None:
             args.benchmark_operational_summary
         ),
         benchmark_artifact_bundle=_maybe_load_json(args.benchmark_artifact_bundle),
+        benchmark_engineering_signals=_maybe_load_json(
+            args.benchmark_engineering_signals
+        ),
         artifact_paths=artifact_paths,
     )
     rendered = json.dumps(payload, ensure_ascii=False, indent=2)
