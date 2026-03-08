@@ -194,6 +194,10 @@ on:
         description: 'Optional benchmark companion summary artifact bundle JSON'
         required: false
         default: ''
+      benchmark_companion_summary_engineering_signals_json:
+        description: 'Optional benchmark companion summary engineering signals JSON'
+        required: false
+        default: ''
       benchmark_release_decision_enable:
         description: 'Override: enable benchmark release decision export (true/false)'
         required: false
@@ -351,6 +355,7 @@ env:
   BENCHMARK_COMPANION_SUMMARY_SCORECARD_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_SCORECARD_JSON }}
   BENCHMARK_COMPANION_SUMMARY_OPERATIONAL_SUMMARY_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_OPERATIONAL_SUMMARY_JSON }}
   BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_ENGINEERING_SIGNALS_JSON }}
   BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_companion_summary.json' }}
   BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD: ${{ vars.BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_companion_summary.md' }}
   BENCHMARK_RELEASE_DECISION_ENABLE: ${{ vars.BENCHMARK_RELEASE_DECISION_ENABLE || 'false' }}
@@ -1486,12 +1491,15 @@ jobs:
         add_if_exists --benchmark-scorecard "${{ github.event.inputs.benchmark_companion_summary_scorecard_json || '' }}"
         add_if_exists --benchmark-operational-summary "${{ github.event.inputs.benchmark_companion_summary_operational_summary_json || '' }}"
         add_if_exists --benchmark-artifact-bundle "${{ github.event.inputs.benchmark_companion_summary_artifact_bundle_json || '' }}"
+        add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_companion_summary_engineering_signals_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_COMPANION_SUMMARY_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
         add_if_exists --benchmark-operational-summary "${BENCHMARK_COMPANION_SUMMARY_OPERATIONAL_SUMMARY_JSON:-}"
         add_if_exists --benchmark-artifact-bundle "${{ steps.benchmark_artifact_bundle.outputs.output_json || '' }}"
         add_if_exists --benchmark-artifact-bundle "${BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON:-}"
+        add_if_exists --benchmark-engineering-signals "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
+        add_if_exists --benchmark-engineering-signals "${BENCHMARK_COMPANION_SUMMARY_ENGINEERING_SIGNALS_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -1543,6 +1551,10 @@ jobs:
             )
             f.write(f"ocr_status={component_statuses.get('ocr_review', 'unknown')}\n")
             f.write(f"qdrant_status={component_statuses.get('qdrant_backend', 'unknown')}\n")
+            f.write(
+                "engineering_status="
+                f"{component_statuses.get('engineering_signals', 'unknown')}\n"
+            )
             f.write(f"blockers={compact(blockers)}\n")
             f.write(f"recommended_actions={compact(recommendations)}\n")
         PY
@@ -2376,6 +2388,7 @@ jobs:
           echo "- Benchmark companion review queue status: ${{ steps.benchmark_companion_summary.outputs.review_queue_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion OCR status: ${{ steps.benchmark_companion_summary.outputs.ocr_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion Qdrant status: ${{ steps.benchmark_companion_summary.outputs.qdrant_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion engineering status: ${{ steps.benchmark_companion_summary.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion blockers: ${{ steps.benchmark_companion_summary.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion recommended actions: ${{ steps.benchmark_companion_summary.outputs.recommended_actions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion artifact: ${{ steps.benchmark_companion_summary.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
