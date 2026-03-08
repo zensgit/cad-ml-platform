@@ -55,11 +55,18 @@ def _artifact_row(
 
 
 def _component_statuses(
-    scorecard: Dict[str, Any], operational_summary: Dict[str, Any]
+    scorecard: Dict[str, Any],
+    operational_summary: Dict[str, Any],
+    benchmark_companion_summary: Dict[str, Any],
 ) -> Dict[str, str]:
     components = scorecard.get("components") or {}
+    companion_components = benchmark_companion_summary.get("component_statuses") or {}
     component_rows = {
-        "hybrid": str((components.get("hybrid") or {}).get("status") or "unknown"),
+        "hybrid": str(
+            companion_components.get("hybrid")
+            or (components.get("hybrid") or {}).get("status")
+            or "unknown"
+        ),
         "history_sequence": str(
             (components.get("history_sequence") or {}).get("status") or "unknown"
         ),
@@ -75,22 +82,27 @@ def _component_statuses(
         or "unknown"
     )
     component_rows["assistant_explainability"] = str(
-        operational_components.get("assistant_explainability")
+        companion_components.get("assistant_explainability")
+        or operational_components.get("assistant_explainability")
         or (components.get("assistant_explainability") or {}).get("status")
         or "unknown"
     )
     component_rows["review_queue"] = str(
-        operational_components.get("review_queue")
+        companion_components.get("review_queue")
+        or operational_components.get("review_queue")
         or (components.get("review_queue") or {}).get("status")
         or "unknown"
     )
     component_rows["ocr_review"] = str(
-        operational_components.get("ocr_review")
+        companion_components.get("ocr_review")
+        or operational_components.get("ocr_review")
         or (components.get("ocr_review") or {}).get("status")
         or "unknown"
     )
     component_rows["qdrant_backend"] = str(
-        (components.get("qdrant_backend") or {}).get("status") or "unknown"
+        companion_components.get("qdrant_backend")
+        or (components.get("qdrant_backend") or {}).get("status")
+        or "unknown"
     )
     return component_rows
 
@@ -99,28 +111,48 @@ def _compact_list(items: Iterable[Any]) -> List[str]:
     return [str(item).strip() for item in items if str(item).strip()]
 
 
+def _pick_summary_items(
+    benchmark_companion_summary: Dict[str, Any],
+    benchmark_operational_summary: Dict[str, Any],
+    benchmark_scorecard: Dict[str, Any],
+) -> tuple[str, List[str], List[str]]:
+    overall_status = (
+        str(benchmark_companion_summary.get("overall_status") or "").strip()
+        or str(benchmark_operational_summary.get("overall_status") or "").strip()
+        or str(benchmark_scorecard.get("overall_status") or "").strip()
+        or "unknown"
+    )
+    blockers = _compact_list(
+        benchmark_companion_summary.get("blockers")
+        or benchmark_operational_summary.get("blockers")
+        or []
+    )
+    recommendations = _compact_list(
+        benchmark_companion_summary.get("recommended_actions")
+        or benchmark_operational_summary.get("recommendations")
+        or benchmark_scorecard.get("recommendations")
+        or []
+    )
+    return overall_status, blockers, recommendations
+
+
 def build_bundle(
     *,
     title: str,
     benchmark_scorecard: Dict[str, Any],
     benchmark_operational_summary: Dict[str, Any],
+    benchmark_companion_summary: Dict[str, Any],
     feedback_flywheel: Dict[str, Any],
     assistant_evidence: Dict[str, Any],
     review_queue: Dict[str, Any],
     ocr_review: Dict[str, Any],
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
-    overall_status = (
-        str(benchmark_operational_summary.get("overall_status") or "").strip()
-        or str(benchmark_scorecard.get("overall_status") or "").strip()
-        or "unknown"
+    overall_status, blockers, recommendations = _pick_summary_items(
+        benchmark_companion_summary,
+        benchmark_operational_summary,
+        benchmark_scorecard,
     )
-    recommendations = _compact_list(
-        benchmark_operational_summary.get("recommendations")
-        or benchmark_scorecard.get("recommendations")
-        or []
-    )
-    blockers = _compact_list(benchmark_operational_summary.get("blockers") or [])
     artifact_rows = {
         "benchmark_scorecard": _artifact_row(
             name="benchmark_scorecard",
@@ -131,6 +163,11 @@ def build_bundle(
             name="benchmark_operational_summary",
             path_text=artifact_paths.get("benchmark_operational_summary", ""),
             payload=benchmark_operational_summary,
+        ),
+        "benchmark_companion_summary": _artifact_row(
+            name="benchmark_companion_summary",
+            path_text=artifact_paths.get("benchmark_companion_summary", ""),
+            payload=benchmark_companion_summary,
         ),
         "feedback_flywheel": _artifact_row(
             name="feedback_flywheel",
@@ -162,6 +199,7 @@ def build_bundle(
         "component_statuses": _component_statuses(
             benchmark_scorecard,
             benchmark_operational_summary,
+            benchmark_companion_summary,
         ),
         "blockers": blockers,
         "recommendations": recommendations,
@@ -212,6 +250,7 @@ def main() -> None:
     parser.add_argument("--title", default="Benchmark Artifact Bundle")
     parser.add_argument("--benchmark-scorecard", default="")
     parser.add_argument("--benchmark-operational-summary", default="")
+    parser.add_argument("--benchmark-companion-summary", default="")
     parser.add_argument("--feedback-flywheel", default="")
     parser.add_argument("--assistant-evidence", default="")
     parser.add_argument("--review-queue", default="")
@@ -223,6 +262,7 @@ def main() -> None:
     artifact_paths = {
         "benchmark_scorecard": args.benchmark_scorecard,
         "benchmark_operational_summary": args.benchmark_operational_summary,
+        "benchmark_companion_summary": args.benchmark_companion_summary,
         "feedback_flywheel": args.feedback_flywheel,
         "assistant_evidence": args.assistant_evidence,
         "review_queue": args.review_queue,
@@ -232,6 +272,7 @@ def main() -> None:
         title=args.title,
         benchmark_scorecard=_maybe_load_json(args.benchmark_scorecard),
         benchmark_operational_summary=_maybe_load_json(args.benchmark_operational_summary),
+        benchmark_companion_summary=_maybe_load_json(args.benchmark_companion_summary),
         feedback_flywheel=_maybe_load_json(args.feedback_flywheel),
         assistant_evidence=_maybe_load_json(args.assistant_evidence),
         review_queue=_maybe_load_json(args.review_queue),
