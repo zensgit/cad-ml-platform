@@ -503,6 +503,13 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
         "analysis_result_store": {},
     }
     if qdrant_store is not None:
+        qdrant_error = qdrant_observability.get("error")
+        qdrant_error_type = _classify_qdrant_error(qdrant_error)
+        qdrant_error_severity = _classify_qdrant_error_severity(
+            reachable=bool(qdrant_observability.get("reachable", False)),
+            collection_exists=bool(qdrant_observability.get("collection_exists", False)),
+            error_type=qdrant_error_type,
+        )
         stats["vector_store"]["qdrant"] = {
             "reachable": bool(qdrant_observability.get("reachable", False)),
             "collection_exists": bool(qdrant_observability.get("collection_exists", False)),
@@ -511,7 +518,10 @@ async def get_maintenance_stats(api_key: str = Depends(get_api_key)):
                 qdrant_observability.get("unindexed_vectors_count") or 0
             ),
             "indexing_progress": float(qdrant_observability.get("indexing_progress") or 0.0),
-            "error": qdrant_observability.get("error"),
+            "error": qdrant_error,
+            "error_type": qdrant_error_type,
+            "error_severity": qdrant_error_severity,
+            "error_hint": _build_qdrant_error_hint(qdrant_error_type),
         }
 
     # Check cache stats
@@ -555,6 +565,55 @@ async def _inspect_qdrant_observability(qdrant_store) -> Dict[str, object]:
         "indexing_progress": 1.0 if total_vectors else 0.0,
         "error": None,
     }
+
+
+def _classify_qdrant_error(error_text: Optional[object]) -> str:
+    text = str(error_text or "").strip().lower()
+    if not text:
+        return "none"
+    if "timeout" in text or "timed out" in text:
+        return "timeout"
+    if "auth" in text or "unauthorized" in text or "forbidden" in text:
+        return "authentication"
+    if "not found" in text or "missing collection" in text:
+        return "not_found"
+    if "sdk" in text or "qdrant-client" in text or "client unavailable" in text:
+        return "sdk_unavailable"
+    if "connection" in text or "refused" in text or "dns" in text:
+        return "connection"
+    if "config" in text or "invalid url" in text:
+        return "configuration"
+    return "unknown"
+
+
+def _classify_qdrant_error_severity(
+    *,
+    reachable: bool,
+    collection_exists: bool,
+    error_type: str,
+) -> str:
+    if error_type == "none":
+        return "none"
+    if error_type in {"timeout", "connection", "authentication", "sdk_unavailable"}:
+        return "critical"
+    if not reachable or not collection_exists:
+        return "critical"
+    if error_type in {"not_found", "configuration"}:
+        return "warning"
+    return "warning"
+
+
+def _build_qdrant_error_hint(error_type: str) -> Optional[str]:
+    hints = {
+        "timeout": "Check Qdrant latency, network path, and timeout settings.",
+        "connection": "Verify Qdrant host, port, DNS, and service reachability.",
+        "authentication": "Check Qdrant credentials or API key configuration.",
+        "not_found": "Confirm the target Qdrant collection exists before querying stats.",
+        "sdk_unavailable": "Install qdrant-client or disable the qdrant backend.",
+        "configuration": "Review Qdrant endpoint configuration and collection settings.",
+        "unknown": "Inspect Qdrant logs and recent deployment changes.",
+    }
+    return hints.get(error_type)
 
 
 class VectorStoreReloadResponse(BaseModel):
