@@ -37,15 +37,23 @@ def test_build_bundle_prefers_operational_summary() -> None:
         },
         benchmark_companion_summary={},
         benchmark_release_decision={},
+        benchmark_engineering_signals={
+            "engineering_signals": {"status": "partial_engineering_semantics"},
+            "recommendations": ["Expand knowledge coverage."],
+        },
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
         ocr_review={},
-        artifact_paths={"benchmark_operational_summary": "operational.json"},
+        artifact_paths={
+            "benchmark_operational_summary": "operational.json",
+            "benchmark_engineering_signals": "engineering.json",
+        },
     )
     assert payload["overall_status"] == "attention_required"
-    assert payload["available_artifact_count"] == 2
+    assert payload["available_artifact_count"] == 3
     assert payload["component_statuses"]["feedback_flywheel"] == "feedback_collected"
+    assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["blockers"] == ["feedback backlog"]
     assert payload["recommendations"] == ["Close the review queue."]
 
@@ -64,6 +72,10 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
         benchmark_operational_summary={},
         benchmark_companion_summary={},
         benchmark_release_decision={},
+        benchmark_engineering_signals={
+            "engineering_signals": {"status": "engineering_semantics_ready"},
+            "recommendations": ["Keep standards coverage stable."],
+        },
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -73,6 +85,7 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
     assert payload["overall_status"] == "benchmark_ready_with_multisignal_evidence"
     assert payload["component_statuses"]["assistant_explainability"] == "evidence_ready"
     assert payload["recommendations"] == ["Freeze this run."]
+    assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
 
 
 def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
@@ -109,6 +122,15 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             "recommended_actions": ["Reduce review queue backlog"],
         },
     )
+    engineering = _write_json(
+        tmp_path / "engineering.json",
+        {
+            "engineering_signals": {
+                "status": "engineering_semantics_ready",
+            },
+            "recommendations": ["Keep standards coverage stable."],
+        },
+    )
     output_json = tmp_path / "bundle.json"
     output_md = tmp_path / "bundle.md"
 
@@ -124,6 +146,8 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             str(companion),
             "--benchmark-release-decision",
             str(companion),
+            "--benchmark-engineering-signals",
+            str(engineering),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -140,7 +164,9 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert payload["artifacts"]["benchmark_operational_summary"]["present"] is True
     assert payload["artifacts"]["benchmark_companion_summary"]["present"] is True
     assert payload["artifacts"]["benchmark_release_decision"]["present"] is True
+    assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["component_statuses"]["assistant_explainability"] == "partial_coverage"
+    assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"
     assert "review queue backlog" in output_md.read_text(encoding="utf-8")
 
@@ -166,11 +192,13 @@ def test_build_bundle_prefers_companion_summary_when_present() -> None:
                 "review_queue": "managed_backlog",
                 "ocr_review": "managed_review",
                 "qdrant_backend": "indexed_ready",
+                "engineering_signals": "partial_engineering_semantics",
             },
             "blockers": ["review_queue:managed_backlog"],
             "recommended_actions": ["Reduce review queue backlog"],
         },
         benchmark_release_decision={},
+        benchmark_engineering_signals={},
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -182,6 +210,7 @@ def test_build_bundle_prefers_companion_summary_when_present() -> None:
     assert payload["blockers"] == ["review_queue:managed_backlog"]
     assert payload["recommendations"] == ["Reduce review queue backlog"]
     assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"
+    assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
 
 
 def test_build_bundle_prefers_release_decision_when_present() -> None:
@@ -197,13 +226,17 @@ def test_build_bundle_prefers_release_decision_when_present() -> None:
         },
         benchmark_companion_summary={
             "overall_status": "healthy",
-            "component_statuses": {"assistant_explainability": "healthy"},
+            "component_statuses": {
+                "assistant_explainability": "healthy",
+                "engineering_signals": "engineering_semantics_ready",
+            },
         },
         benchmark_release_decision={
             "release_status": "review_required",
             "blocking_signals": [],
             "review_signals": ["review_queue:managed_backlog"],
         },
+        benchmark_engineering_signals={},
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -214,3 +247,4 @@ def test_build_bundle_prefers_release_decision_when_present() -> None:
     assert payload["overall_status"] == "review_required"
     assert payload["recommendations"] == ["review_queue:managed_backlog"]
     assert payload["artifacts"]["benchmark_release_decision"]["present"] is True
+    assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
