@@ -384,6 +384,43 @@ class TestQdrantVectorStore:
         assert payload["coarse_part_type"] == "开孔件"
         assert payload["decision_source"] == "hybrid"
 
+    @pytest.mark.asyncio
+    async def test_inspect_collection_returns_snapshot(self, vector_store, mock_qdrant_client):
+        """Test inspect_collection returns read-only observability snapshot."""
+        collection = MagicMock()
+        collection.name = vector_store.config.collection_name
+        mock_qdrant_client.get_collections.return_value.collections = [collection]
+        info = MagicMock()
+        info.points_count = 10
+        info.vectors_count = 10
+        info.indexed_vectors_count = 8
+        info.status.name = "GREEN"
+        mock_qdrant_client.get_collection.return_value = info
+
+        result = await vector_store.inspect_collection()
+
+        assert result["reachable"] is True
+        assert result["collection_exists"] is True
+        assert result["collection_status"] == "green"
+        assert result["unindexed_vectors_count"] == 2
+        assert result["indexing_progress"] == 0.8
+
+    @pytest.mark.asyncio
+    async def test_inspect_collection_handles_missing_collection(
+        self,
+        vector_store,
+        mock_qdrant_client,
+    ):
+        """Test inspect_collection does not create a collection when missing."""
+        mock_qdrant_client.get_collections.return_value.collections = []
+
+        result = await vector_store.inspect_collection()
+
+        assert result["reachable"] is True
+        assert result["collection_exists"] is False
+        assert result["points_count"] == 0
+        mock_qdrant_client.create_collection.assert_not_called()
+
     def test_close(self, vector_store, mock_qdrant_client):
         """Test closing the client connection."""
         vector_store._initialized = True
