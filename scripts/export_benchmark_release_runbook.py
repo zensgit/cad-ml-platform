@@ -60,6 +60,7 @@ def _artifacts(
     benchmark_release_decision: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
+    benchmark_engineering_signals: Dict[str, Any],
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Dict[str, Any]]:
     decision_artifacts = benchmark_release_decision.get("artifacts") or {}
@@ -88,6 +89,12 @@ def _artifacts(
             "benchmark_artifact_bundle",
             pick_path("benchmark_artifact_bundle"),
             benchmark_artifact_bundle,
+        ),
+        "benchmark_engineering_signals": _artifact_row(
+            "benchmark_engineering_signals",
+            pick_path("benchmark_engineering_signals")
+            or artifact_paths.get("benchmark_engineering_signals", ""),
+            benchmark_engineering_signals,
         ),
         "benchmark_scorecard": _artifact_row(
             "benchmark_scorecard",
@@ -153,6 +160,7 @@ def build_release_runbook(
     benchmark_release_decision: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
+    benchmark_engineering_signals: Dict[str, Any],
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     release_status = _release_status(
@@ -173,10 +181,24 @@ def build_release_runbook(
         or benchmark_artifact_bundle.get("recommendations")
         or [],
     )
+    engineering_component = (
+        benchmark_engineering_signals.get("engineering_signals")
+        or benchmark_engineering_signals
+        or {}
+    )
+    if str(engineering_component.get("status") or "").strip() not in {
+        "",
+        "unknown",
+        "engineering_semantics_ready",
+    }:
+        for item in _compact(benchmark_engineering_signals.get("recommendations") or []):
+            if item not in review_signals:
+                review_signals.append(item)
     artifacts = _artifacts(
         benchmark_release_decision=benchmark_release_decision,
         benchmark_companion_summary=benchmark_companion_summary,
         benchmark_artifact_bundle=benchmark_artifact_bundle,
+        benchmark_engineering_signals=benchmark_engineering_signals,
         artifact_paths=artifact_paths,
     )
     missing_artifacts = [
@@ -393,6 +415,7 @@ def main() -> None:
     parser.add_argument("--benchmark-release-decision", default="")
     parser.add_argument("--benchmark-companion-summary", default="")
     parser.add_argument("--benchmark-artifact-bundle", default="")
+    parser.add_argument("--benchmark-engineering-signals", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -401,12 +424,16 @@ def main() -> None:
         "benchmark_release_decision": args.benchmark_release_decision,
         "benchmark_companion_summary": args.benchmark_companion_summary,
         "benchmark_artifact_bundle": args.benchmark_artifact_bundle,
+        "benchmark_engineering_signals": args.benchmark_engineering_signals,
     }
     payload = build_release_runbook(
         title=args.title,
         benchmark_release_decision=_maybe_load_json(args.benchmark_release_decision),
         benchmark_companion_summary=_maybe_load_json(args.benchmark_companion_summary),
         benchmark_artifact_bundle=_maybe_load_json(args.benchmark_artifact_bundle),
+        benchmark_engineering_signals=_maybe_load_json(
+            args.benchmark_engineering_signals
+        ),
         artifact_paths=artifact_paths,
     )
     rendered = json.dumps(payload, ensure_ascii=False, indent=2)
