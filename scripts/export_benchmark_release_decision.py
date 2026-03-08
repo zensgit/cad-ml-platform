@@ -79,6 +79,7 @@ def _component_statuses(
     benchmark_artifact_bundle: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
+    benchmark_operator_adoption: Dict[str, Any],
 ) -> Dict[str, str]:
     scorecard_components = benchmark_scorecard.get("components") or {}
     operational_components = benchmark_operational_summary.get("component_statuses") or {}
@@ -119,6 +120,12 @@ def _component_statuses(
             or (scorecard_components.get("engineering_signals") or {}).get("status")
             or "unknown"
         ),
+        "operator_adoption": str(
+            companion_components.get("operator_adoption")
+            or bundle_components.get("operator_adoption")
+            or benchmark_operator_adoption.get("adoption_readiness")
+            or "unknown"
+        ),
     }
 
 
@@ -142,11 +149,16 @@ def _pick_signal_source(
 def _decision(
     component_statuses: Dict[str, str], blockers: List[str], review_signals: List[str]
 ) -> Tuple[str, bool]:
+    decision_statuses = {
+        name: status
+        for name, status in component_statuses.items()
+        if name != "operator_adoption"
+    }
     if blockers:
         return "blocked", False
-    if any(status in CRITICAL_STATUSES for status in component_statuses.values()):
+    if any(status in CRITICAL_STATUSES for status in decision_statuses.values()):
         return "blocked", False
-    if review_signals or any(status in REVIEW_STATUSES for status in component_statuses.values()):
+    if review_signals or any(status in REVIEW_STATUSES for status in decision_statuses.values()):
         return "review_required", False
     return "ready", True
 
@@ -169,6 +181,7 @@ def build_release_decision(
     benchmark_artifact_bundle: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
     benchmark_engineering_signals: Dict[str, Any],
+    benchmark_operator_adoption: Dict[str, Any],
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     component_statuses = _component_statuses(
@@ -177,6 +190,7 @@ def build_release_decision(
         benchmark_artifact_bundle,
         benchmark_companion_summary,
         benchmark_engineering_signals,
+        benchmark_operator_adoption,
     )
     blockers = _compact(
         benchmark_companion_summary.get("blockers")
@@ -185,6 +199,11 @@ def build_release_decision(
         or [],
         limit=6,
     )
+    if not blockers:
+        blockers = _compact(
+            benchmark_operator_adoption.get("blocking_signals") or [],
+            limit=6,
+        )
     review_signals = _compact(
         benchmark_companion_summary.get("recommended_actions")
         or benchmark_artifact_bundle.get("recommendations")
@@ -201,6 +220,25 @@ def build_release_decision(
         )
         if item not in review_signals
     )
+    operator_adoption_status = str(
+        benchmark_operator_adoption.get("adoption_readiness") or ""
+    ).strip()
+    if not review_signals and operator_adoption_status not in {
+        "",
+        "operator_ready",
+        "ready",
+        "unknown",
+    }:
+        review_signals.extend(
+            item
+            for item in _compact(
+                benchmark_operator_adoption.get("recommended_actions")
+                or benchmark_operator_adoption.get("review_signals")
+                or [],
+                limit=6,
+            )
+            if item not in review_signals
+        )
     release_status, automation_ready = _decision(
         component_statuses,
         blockers,
@@ -240,6 +278,10 @@ def build_release_decision(
             "benchmark_engineering_signals": _artifact_row(
                 "benchmark_engineering_signals",
                 artifact_paths.get("benchmark_engineering_signals", ""),
+            ),
+            "benchmark_operator_adoption": _artifact_row(
+                "benchmark_operator_adoption",
+                artifact_paths.get("benchmark_operator_adoption", ""),
             ),
         },
     }
@@ -289,6 +331,7 @@ def main() -> None:
     parser.add_argument("--benchmark-artifact-bundle", default="")
     parser.add_argument("--benchmark-companion-summary", default="")
     parser.add_argument("--benchmark-engineering-signals", default="")
+    parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -299,6 +342,7 @@ def main() -> None:
         "benchmark_artifact_bundle": args.benchmark_artifact_bundle,
         "benchmark_companion_summary": args.benchmark_companion_summary,
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
+        "benchmark_operator_adoption": args.benchmark_operator_adoption,
     }
     payload = build_release_decision(
         title=args.title,
@@ -312,6 +356,9 @@ def main() -> None:
         ),
         benchmark_engineering_signals=_maybe_load_json(
             args.benchmark_engineering_signals
+        ),
+        benchmark_operator_adoption=_maybe_load_json(
+            args.benchmark_operator_adoption
         ),
         artifact_paths=artifact_paths,
     )

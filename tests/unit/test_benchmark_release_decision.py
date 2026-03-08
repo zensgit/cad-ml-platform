@@ -29,9 +29,15 @@ def test_build_release_decision_blocks_on_blockers() -> None:
             "engineering_signals": {"status": "partial_engineering_semantics"},
             "recommendations": ["Close engineering gaps."],
         },
+        benchmark_operator_adoption={
+            "adoption_readiness": "guided_manual",
+            "blocking_signals": ["operator:blocker"],
+            "recommended_actions": ["Operator fallback only."],
+        },
         artifact_paths={
             "benchmark_companion_summary": "companion.json",
             "benchmark_engineering_signals": "engineering.json",
+            "benchmark_operator_adoption": "operator.json",
         },
     )
 
@@ -40,7 +46,10 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["primary_signal_source"] == "benchmark_companion_summary"
     assert payload["blocking_signals"] == ["review_queue:critical_backlog"]
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
+    assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert "Operator fallback only." not in payload["review_signals"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
+    assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
 
 
 def test_build_release_decision_ready_without_blockers() -> None:
@@ -65,6 +74,10 @@ def test_build_release_decision_ready_without_blockers() -> None:
             "engineering_signals": {"status": "engineering_semantics_ready"},
             "recommendations": ["Keep standards coverage stable."],
         },
+        benchmark_operator_adoption={
+            "adoption_readiness": "operator_ready",
+            "recommended_actions": ["Keep operator workflow stable."],
+        },
         artifact_paths={"benchmark_scorecard": "scorecard.json"},
     )
 
@@ -72,6 +85,59 @@ def test_build_release_decision_ready_without_blockers() -> None:
     assert payload["automation_ready"] is True
     assert payload["review_signals"] == []
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
+    assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
+
+
+def test_build_release_decision_uses_operator_adoption_blocker_as_fallback() -> None:
+    payload = build_release_decision(
+        title="Release Decision",
+        benchmark_scorecard={"components": {"hybrid": {"status": "healthy"}}},
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={},
+        benchmark_companion_summary={},
+        benchmark_engineering_signals={
+            "engineering_signals": {"status": "engineering_semantics_ready"},
+            "recommendations": [],
+        },
+        benchmark_operator_adoption={
+            "adoption_readiness": "blocked",
+            "blocking_signals": ["operator_runbook:missing_dry_run"],
+            "recommended_actions": ["Run operator dry run."],
+        },
+        artifact_paths={"benchmark_operator_adoption": "operator.json"},
+    )
+
+    assert payload["release_status"] == "blocked"
+    assert payload["automation_ready"] is False
+    assert payload["blocking_signals"] == ["operator_runbook:missing_dry_run"]
+    assert payload["component_statuses"]["operator_adoption"] == "blocked"
+
+
+def test_build_release_decision_uses_operator_adoption_recommendation_as_fallback() -> None:
+    payload = build_release_decision(
+        title="Release Decision",
+        benchmark_scorecard={
+            "components": {"hybrid": {"status": "healthy"}},
+            "recommendations": [],
+        },
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={},
+        benchmark_companion_summary={},
+        benchmark_engineering_signals={
+            "engineering_signals": {"status": "engineering_semantics_ready"},
+            "recommendations": [],
+        },
+        benchmark_operator_adoption={
+            "adoption_readiness": "guided_manual",
+            "blocking_signals": [],
+            "recommended_actions": ["Walk operators through the guided manual path."],
+        },
+        artifact_paths={"benchmark_operator_adoption": "operator.json"},
+    )
+
+    assert payload["release_status"] == "review_required"
+    assert payload["automation_ready"] is False
+    assert payload["review_signals"] == ["Walk operators through the guided manual path."]
 
 
 def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
@@ -80,6 +146,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     bundle = tmp_path / "bundle.json"
     companion = tmp_path / "companion.json"
     engineering = tmp_path / "engineering.json"
+    operator = tmp_path / "operator.json"
     output_json = tmp_path / "release.json"
     output_md = tmp_path / "release.md"
     scorecard.write_text(
@@ -116,6 +183,15 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    operator.write_text(
+        json.dumps(
+            {
+                "adoption_readiness": "operator_ready",
+                "recommended_actions": ["Keep operator workflow stable."],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -131,6 +207,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(companion),
             "--benchmark-engineering-signals",
             str(engineering),
+            "--benchmark-operator-adoption",
+            str(operator),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -143,8 +221,11 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["release_status"] == "ready"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
+    assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
+    assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
     assert output_md.exists()
 
     rendered = render_markdown(payload)
     assert "# Benchmark Release Decision" in rendered
     assert "`release_status`: `ready`" in rendered
+    assert "`operator_adoption`: `operator_ready`" in rendered
