@@ -79,6 +79,17 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             "engineering_signals": {"status": "partial_engineering_semantics"},
             "recommendations": ["Close engineering gaps."],
         },
+        benchmark_realdata_signals={
+            "realdata_signals": {
+                "status": "realdata_foundation_partial",
+                "components": {
+                    "hybrid_dxf": {"status": "ready", "sample_size": 110},
+                    "history_h5": {"status": "ready", "sample_size": 1},
+                    "step_dir": {"status": "ready", "sample_size": 3},
+                },
+            },
+            "recommendations": ["Expand STEP/B-Rep directory validation."],
+        },
         benchmark_operator_adoption={
             "adoption_readiness": "guided_manual",
             "knowledge_drift_status": "regressed",
@@ -103,6 +114,7 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["component_statuses"]["assistant_explainability"] == "partial_coverage"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
+    assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert (
@@ -116,6 +128,7 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["recommended_actions"] == ["reduce review queue backlog"]
     assert payload["artifacts"]["benchmark_artifact_bundle"]["present"] is True
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
+    assert payload["realdata_status"] == "realdata_foundation_partial"
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
 
 
@@ -126,6 +139,7 @@ def test_render_markdown_includes_sections() -> None:
         "review_surface": "ready",
         "primary_gap": "none",
         "knowledge_drift_summary": "status=stable; current=knowledge_foundation_ready",
+        "realdata_status": "realdata_foundation_ready",
         "component_statuses": {"hybrid": "healthy"},
         "recommended_actions": ["keep monitoring"],
         "blockers": [],
@@ -146,6 +160,10 @@ def test_render_markdown_includes_sections() -> None:
                 "present": True,
                 "path": "engineering.json",
             },
+            "benchmark_realdata_signals": {
+                "present": True,
+                "path": "realdata.json",
+            },
             "benchmark_operator_adoption": {
                 "present": True,
                 "path": "operator.json",
@@ -163,6 +181,14 @@ def test_render_markdown_includes_sections() -> None:
                 "path": "knowledge_drift.json",
             },
         },
+        "realdata_signals": {
+            "components": {
+                "hybrid_dxf": {"status": "ready", "sample_size": 110},
+                "history_h5": {"status": "ready", "sample_size": 1},
+                "step_dir": {"status": "ready", "sample_size": 3},
+            }
+        },
+        "realdata_recommendations": ["Expand STEP/B-Rep directory validation."],
         "knowledge_focus_areas": [
             {
                 "component": "gdt",
@@ -201,10 +227,12 @@ def test_render_markdown_includes_sections() -> None:
     assert "knowledge.json" in rendered
     assert "knowledge_drift.json" in rendered
     assert "engineering.json" in rendered
+    assert "realdata.json" in rendered
     assert "operator.json" in rendered
     assert "Tolerance coverage regressed." in rendered
     assert "Expand GD&T coverage." in rendered
     assert "status=stable; current=knowledge_foundation_ready" in rendered
+    assert "## Real-Data Signals" in rendered
     assert "## Knowledge Domains" in rendered
     assert "## Knowledge Domain Focus Areas" in rendered
 
@@ -216,6 +244,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     knowledge = tmp_path / "knowledge.json"
     knowledge_drift = tmp_path / "knowledge_drift.json"
     engineering = tmp_path / "engineering.json"
+    realdata = tmp_path / "realdata.json"
     operator = tmp_path / "operator.json"
     output_json = tmp_path / "out.json"
     output_md = tmp_path / "out.md"
@@ -303,6 +332,22 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    realdata.write_text(
+        json.dumps(
+            {
+                "realdata_signals": {
+                    "status": "realdata_foundation_partial",
+                    "components": {
+                        "hybrid_dxf": {"status": "ready", "sample_size": 10},
+                        "history_h5": {"status": "ready", "sample_size": 1},
+                        "step_dir": {"status": "ready", "sample_size": 3},
+                    },
+                },
+                "recommendations": ["Expand STEP/B-Rep directory validation."],
+            }
+        ),
+        encoding="utf-8",
+    )
     operator.write_text(
         json.dumps(
             {
@@ -331,6 +376,8 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
             str(knowledge_drift),
             "--benchmark-engineering-signals",
             str(engineering),
+            "--benchmark-realdata-signals",
+            str(realdata),
             "--benchmark-operator-adoption",
             str(operator),
             "--output-json",
@@ -348,6 +395,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
     assert payload["component_statuses"]["knowledge_drift"] == "stable"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
+    assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["knowledge_focus_areas"] == []
@@ -355,6 +403,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_priority_domains"] == []
     assert payload["knowledge_domains"]["standards"]["status"] == "ready"
     assert payload["knowledge_domain_focus_areas"] == []
+    assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert output_md.exists()
 
 
@@ -408,11 +457,23 @@ def test_build_companion_summary_exposes_knowledge_drift_passthrough() -> None:
             "engineering_signals": {"status": "engineering_semantics_ready"},
             "recommendations": [],
         },
+        benchmark_realdata_signals={
+            "realdata_signals": {
+                "status": "realdata_foundation_ready",
+                "components": {
+                    "hybrid_dxf": {"status": "ready", "sample_size": 110},
+                },
+            },
+            "recommendations": [],
+        },
         benchmark_operator_adoption={
             "adoption_readiness": "operator_ready",
             "recommended_actions": [],
         },
-        artifact_paths={"benchmark_knowledge_drift": "knowledge_drift.json"},
+        artifact_paths={
+            "benchmark_knowledge_drift": "knowledge_drift.json",
+            "benchmark_realdata_signals": "realdata.json",
+        },
     )
 
     assert payload["component_statuses"]["knowledge_drift"] == "regressed"
@@ -422,5 +483,6 @@ def test_build_companion_summary_exposes_knowledge_drift_passthrough() -> None:
         "surpass baseline remains stable."
     ]
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
+    assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["knowledge_drift"]["status"] == "regressed"
     assert "regressions=standards" in payload["knowledge_drift_summary"]
