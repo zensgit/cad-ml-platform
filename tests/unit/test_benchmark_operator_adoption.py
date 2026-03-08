@@ -1,0 +1,139 @@
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+from scripts.export_benchmark_operator_adoption import (
+    build_operator_adoption,
+    render_markdown,
+)
+
+
+def test_build_operator_adoption_blocked() -> None:
+    payload = build_operator_adoption(
+        title="Operator Adoption",
+        benchmark_release_decision={
+            "release_status": "blocked",
+            "automation_ready": False,
+            "blocking_signals": ["review_queue:critical_backlog"],
+        },
+        benchmark_release_runbook={
+            "release_status": "blocked",
+            "next_action": "collect_artifacts",
+            "blocking_signals": ["review_queue:critical_backlog"],
+            "operator_steps": [
+                {
+                    "status": "required",
+                    "action": "Regenerate missing benchmark artifacts.",
+                }
+            ],
+        },
+        review_queue={"operational_status": "critical_backlog", "critical_count": 3},
+        feedback_flywheel={"status": "feedback_collected", "correction_count": 2},
+        artifact_paths={"benchmark_release_runbook": "runbook.json"},
+    )
+
+    assert payload["adoption_readiness"] == "blocked"
+    assert payload["operator_mode"] == "clear_blockers"
+    assert payload["review_queue_critical_count"] == 3
+    assert payload["correction_count"] == 2
+    assert payload["artifacts"]["benchmark_release_runbook"]["present"] is True
+
+
+def test_build_operator_adoption_freeze_ready() -> None:
+    payload = build_operator_adoption(
+        title="Operator Adoption",
+        benchmark_release_decision={
+            "release_status": "ready",
+            "automation_ready": True,
+        },
+        benchmark_release_runbook={
+            "release_status": "ready",
+            "next_action": "freeze_release_baseline",
+            "ready_to_freeze_baseline": True,
+        },
+        review_queue={"operational_status": "under_control", "critical_count": 0},
+        feedback_flywheel={"status": "healthy", "feedback_total": 4},
+        artifact_paths={},
+    )
+
+    assert payload["adoption_readiness"] == "operator_ready"
+    assert payload["operator_mode"] == "freeze_ready"
+    assert payload["recommended_actions"] == [
+        "Continue benchmark monitoring and rerun evaluation on new data."
+    ]
+
+
+def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
+    release = tmp_path / "release.json"
+    runbook = tmp_path / "runbook.json"
+    review_queue = tmp_path / "queue.json"
+    feedback = tmp_path / "feedback.json"
+    output_json = tmp_path / "adoption.json"
+    output_md = tmp_path / "adoption.md"
+
+    release.write_text(
+        json.dumps(
+            {
+                "release_status": "review_required",
+                "automation_ready": False,
+                "review_signals": ["Drain review queue"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    runbook.write_text(
+        json.dumps(
+            {
+                "release_status": "review_required",
+                "next_action": "review_signals",
+                "review_signals": ["Drain review queue"],
+                "operator_steps": [
+                    {
+                        "status": "required",
+                        "action": "Drain review queue before promotion.",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    review_queue.write_text(
+        json.dumps({"operational_status": "managed_backlog", "high_count": 5}),
+        encoding="utf-8",
+    )
+    feedback.write_text(
+        json.dumps({"status": "feedback_collected", "feedback_total": 8}),
+        encoding="utf-8",
+    )
+
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/export_benchmark_operator_adoption.py",
+            "--benchmark-release-decision",
+            str(release),
+            "--benchmark-release-runbook",
+            str(runbook),
+            "--review-queue",
+            str(review_queue),
+            "--feedback-flywheel",
+            str(feedback),
+            "--output-json",
+            str(output_json),
+            "--output-md",
+            str(output_md),
+        ],
+        check=True,
+        cwd=Path(__file__).resolve().parents[2],
+    )
+
+    payload = json.loads(output_json.read_text(encoding="utf-8"))
+    assert payload["adoption_readiness"] == "guided_manual"
+    assert payload["operator_mode"] == "drive_review"
+    assert payload["recommended_actions"] == ["Drain review queue before promotion."]
+    assert output_md.exists()
+
+    rendered = render_markdown(payload)
+    assert "# Benchmark Operator Adoption" in rendered
+    assert "`operator_mode`: `drive_review`" in rendered
