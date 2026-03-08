@@ -29,6 +29,11 @@ from .knowledge_application import (  # noqa: F401
     knowledge_application_recommendations,
     render_knowledge_application_markdown,
 )
+from .knowledge_realdata_correlation import (  # noqa: F401
+    build_knowledge_realdata_correlation_status,
+    knowledge_realdata_correlation_recommendations,
+    render_knowledge_realdata_correlation_markdown,
+)
 from .realdata_signals import (  # noqa: F401
     build_realdata_signals_status,
     realdata_signals_recommendations,
