@@ -293,7 +293,8 @@ class TestMetricsIntegration:
         """Test rate limited metric is incremented on denial."""
         from src.utils.rate_limiter import RateLimiter
 
-        limiter = RateLimiter("test", burst=1)
+        # Use qps=0 to avoid CI timing jitter refilling the bucket.
+        limiter = RateLimiter("test", qps=0.0, burst=1)
         limiter._local_tokens = 0.0
         limiter._local_ts = time.time()  # No time for refill
 
