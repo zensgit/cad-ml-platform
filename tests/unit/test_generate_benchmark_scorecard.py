@@ -166,6 +166,25 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             "top_review_reasons": [],
         },
     )
+    engineering = _write_json(
+        tmp_path / "engineering.json",
+        {
+            "sample_size": 110,
+            "knowledge_signals": {
+                "rows_with_checks": 60,
+                "rows_with_violations": 22,
+                "rows_with_standards_candidates": 35,
+                "rows_with_hints": 50,
+                "total_checks": 80,
+                "total_violations": 22,
+                "total_standards_candidates": 35,
+                "total_hints": 70,
+                "top_violation_categories": {"standard_conflict": 10},
+                "top_standard_types": {"gdt": 20},
+                "top_hint_labels": {"flange": 15},
+            },
+        },
+    )
     output_json = tmp_path / "scorecard.json"
     output_md = tmp_path / "scorecard.md"
 
@@ -203,6 +222,8 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             str(metric_train),
             "--ocr-review-summary",
             str(ocr_review),
+            "--engineering-signals-summary",
+            str(engineering),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -233,6 +254,7 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
     assert payload["components"]["feedback_flywheel"]["feedback_total"] == 12
     assert payload["components"]["feedback_flywheel"]["metric_triplet_count"] == 6
     assert payload["components"]["ocr_review"]["status"] == "ocr_ready"
+    assert payload["components"]["engineering_signals"]["status"] == "engineering_semantics_ready"
     assert output_json.exists()
     assert output_md.exists()
     markdown = output_md.read_text(encoding="utf-8")
@@ -242,6 +264,7 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
     assert "assistant_explainability" in markdown
     assert "review_queue" in markdown
     assert "ocr_review" in markdown
+    assert "engineering_signals" in markdown
 
 
 def test_generate_benchmark_scorecard_handles_missing_optional_inputs(tmp_path: Path) -> None:
