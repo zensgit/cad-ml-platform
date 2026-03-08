@@ -199,6 +199,9 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "overall_status=" in benchmark_script
     assert "assistant_status=" in benchmark_script
     assert "review_queue_status=" in benchmark_script
+    assert "review_queue_average_evidence=" in benchmark_script
+    assert "review_queue_evidence_ratio=" in benchmark_script
+    assert "review_queue_top_evidence_sources=" in benchmark_script
     assert "ocr_status=" in benchmark_script
 
     assistant_step = _get_step(
@@ -294,6 +297,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark recommendations" in summary_script
     assert "Benchmark assistant status" in summary_script
     assert "Benchmark review queue status" in summary_script
+    assert "Benchmark review queue average evidence" in summary_script
+    assert "Benchmark review queue evidence ratio" in summary_script
+    assert "Benchmark review queue evidence sources" in summary_script
     assert "Benchmark OCR status" in summary_script
     assert "Assistant evidence input" in summary_script
     assert "Assistant evidence records" in summary_script
@@ -336,9 +342,15 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Recommendations" in pr_comment_script
     assert "benchmarkAssistantStatus" in pr_comment_script
     assert "benchmarkReviewQueueStatus" in pr_comment_script
+    assert "benchmarkReviewQueueAverageEvidence" in pr_comment_script
+    assert "benchmarkReviewQueueEvidenceRatio" in pr_comment_script
+    assert "benchmarkReviewQueueTopEvidenceSources" in pr_comment_script
     assert "benchmarkOcrStatus" in pr_comment_script
+    assert "Benchmark Review Queue Evidence" in pr_comment_script
     assert "assistant=${benchmarkAssistantStatus}" in pr_comment_script
     assert "review_queue=${benchmarkReviewQueueStatus}" in pr_comment_script
+    assert "review_queue_avg_evidence=${benchmarkReviewQueueAverageEvidence}" in pr_comment_script
+    assert "review_queue_evidence_ratio=${benchmarkReviewQueueEvidenceRatio}" in pr_comment_script
     assert "ocr=${benchmarkOcrStatus}" in pr_comment_script
     assert "assistantEvidenceEnabled" in pr_comment_script
     assert "Assistant Evidence Report" in pr_comment_script
