@@ -121,6 +121,21 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
             },
             "recommendations": ["Promote GD&T application evidence."],
         },
+        benchmark_knowledge_domain_matrix={
+            "knowledge_domain_matrix": {
+                "status": "knowledge_domain_matrix_partial",
+                "priority_domains": ["gdt"],
+                "domains": {
+                    "gdt": {
+                        "status": "blocked",
+                        "readiness_status": "missing",
+                        "application_status": "partial",
+                        "realdata_status": "partial",
+                    }
+                },
+            },
+            "recommendations": ["Backfill GD&T foundation and real-data coverage."],
+        },
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_engineering_signals": "engineering.json",
@@ -141,6 +156,8 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["knowledge_domain_focus_areas"][0]["domain"] == "gdt"
     assert payload["knowledge_application_status"] == "knowledge_application_partial"
     assert payload["knowledge_application_domains"]["gdt"]["status"] == "partial"
+    assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_partial"
+    assert payload["knowledge_domain_matrix_domains"]["gdt"]["status"] == "blocked"
     assert payload["next_action"] == "collect_artifacts"
     assert "benchmark_artifact_bundle" in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
@@ -242,6 +259,36 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             },
             "recommendations": [],
         },
+        benchmark_knowledge_realdata_correlation={
+            "knowledge_realdata_correlation": {
+                "status": "knowledge_realdata_ready",
+                "priority_domains": [],
+                "domains": {
+                    "standards": {
+                        "status": "ready",
+                        "readiness_status": "ready",
+                        "application_status": "ready",
+                        "realdata_status": "ready",
+                    }
+                },
+            },
+            "recommendations": [],
+        },
+        benchmark_knowledge_domain_matrix={
+            "knowledge_domain_matrix": {
+                "status": "knowledge_domain_matrix_ready",
+                "priority_domains": [],
+                "domains": {
+                    "standards": {
+                        "status": "ready",
+                        "readiness_status": "ready",
+                        "application_status": "ready",
+                        "realdata_status": "ready",
+                    }
+                },
+            },
+            "recommendations": [],
+        },
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_companion_summary": "companion.json",
@@ -262,6 +309,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["knowledge_domains"]["standards"]["status"] == "ready"
     assert payload["knowledge_domain_focus_areas"] == []
     assert payload["knowledge_application_status"] == "knowledge_application_ready"
+    assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_ready"
     assert payload["next_action"] == "freeze_release_baseline"
     assert "benchmark_operator_adoption" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_drift" not in payload["missing_artifacts"]
@@ -281,6 +329,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     realdata = tmp_path / "realdata.json"
     operator_adoption = tmp_path / "operator_adoption.json"
     knowledge_application = tmp_path / "knowledge_application.json"
+    knowledge_realdata_correlation = tmp_path / "knowledge_realdata_correlation.json"
+    knowledge_domain_matrix = tmp_path / "knowledge_domain_matrix.json"
     output_json = tmp_path / "runbook.json"
     output_md = tmp_path / "runbook.md"
 
@@ -428,6 +478,48 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_realdata_correlation.write_text(
+        json.dumps(
+            {
+                "knowledge_realdata_correlation": {
+                    "status": "knowledge_realdata_partial",
+                    "priority_domains": ["tolerance"],
+                    "domains": {
+                        "tolerance": {
+                            "status": "partial",
+                            "readiness_status": "partial",
+                            "application_status": "partial",
+                            "realdata_status": "partial",
+                        }
+                    },
+                },
+                "recommendations": ["Raise tolerance real-data depth."],
+            }
+        ),
+        encoding="utf-8",
+    )
+    knowledge_domain_matrix.write_text(
+        json.dumps(
+            {
+                "knowledge_domain_matrix": {
+                    "status": "knowledge_domain_matrix_partial",
+                    "priority_domains": ["tolerance"],
+                    "domains": {
+                        "tolerance": {
+                            "status": "partial",
+                            "readiness_status": "partial",
+                            "application_status": "partial",
+                            "realdata_status": "partial",
+                        }
+                    },
+                },
+                "recommendations": [
+                    "Backfill tolerance foundation and raise real-data depth."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -451,6 +543,10 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(operator_adoption),
             "--benchmark-knowledge-application",
             str(knowledge_application),
+            "--benchmark-knowledge-realdata-correlation",
+            str(knowledge_realdata_correlation),
+            "--benchmark-knowledge-domain-matrix",
+            str(knowledge_domain_matrix),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -497,6 +593,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "## Knowledge Domains" in rendered
     assert "## Knowledge Domain Focus Areas" in rendered
     assert "## Knowledge Application" in rendered
+    assert "## Knowledge Domain Matrix" in rendered
     assert "## Real-Data Signals" in rendered
     assert "## Operator Adoption" in rendered
     assert "operator_shift_handoff:pending" in rendered

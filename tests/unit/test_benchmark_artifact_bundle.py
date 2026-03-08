@@ -114,6 +114,21 @@ def test_build_bundle_prefers_operational_summary() -> None:
             },
             "recommendations": ["Promote standards application evidence."],
         },
+        benchmark_knowledge_domain_matrix={
+            "knowledge_domain_matrix": {
+                "status": "knowledge_domain_matrix_partial",
+                "priority_domains": ["standards"],
+                "domains": {
+                    "standards": {
+                        "status": "blocked",
+                        "readiness_status": "missing",
+                        "application_status": "partial",
+                        "realdata_status": "partial",
+                    }
+                },
+            },
+            "recommendations": ["Backfill standards foundation and raise real-data depth."],
+        },
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -125,7 +140,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
         },
     )
     assert payload["overall_status"] == "attention_required"
-    assert payload["available_artifact_count"] == 7
+    assert payload["available_artifact_count"] == 8
     assert payload["component_statuses"]["feedback_flywheel"] == "feedback_collected"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_partial"
     assert payload["knowledge_focus_area_count"] == 1
@@ -139,9 +154,14 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["component_statuses"]["knowledge_application"] == "knowledge_application_partial"
+    assert payload["component_statuses"]["knowledge_domain_matrix"] == (
+        "knowledge_domain_matrix_partial"
+    )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["knowledge_application_status"] == "knowledge_application_partial"
     assert payload["knowledge_application_domains"]["standards"]["status"] == "partial"
+    assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_partial"
+    assert payload["knowledge_domain_matrix_domains"]["standards"]["status"] == "blocked"
     assert payload["realdata_status"] == "realdata_foundation_partial"
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["blockers"] == ["feedback backlog"]
@@ -218,6 +238,21 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
             },
             "recommendations": [],
         },
+        benchmark_knowledge_domain_matrix={
+            "knowledge_domain_matrix": {
+                "status": "knowledge_domain_matrix_ready",
+                "priority_domains": [],
+                "domains": {
+                    "tolerance": {
+                        "status": "ready",
+                        "readiness_status": "ready",
+                        "application_status": "ready",
+                        "realdata_status": "ready",
+                    }
+                },
+            },
+            "recommendations": [],
+        },
         feedback_flywheel={},
         assistant_evidence={},
         review_queue={},
@@ -236,11 +271,15 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["component_statuses"]["knowledge_application"] == "knowledge_application_ready"
+    assert payload["component_statuses"]["knowledge_domain_matrix"] == (
+        "knowledge_domain_matrix_ready"
+    )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["knowledge_drift_domain_improvements"] == []
     assert payload["realdata_status"] == "realdata_foundation_ready"
     assert payload["realdata_recommendations"] == []
     assert payload["knowledge_application_status"] == "knowledge_application_ready"
+    assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_ready"
 
 
 def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
@@ -409,6 +448,7 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert "domain_regressions" in output_md.read_text(encoding="utf-8")
     assert "review queue backlog" in output_md.read_text(encoding="utf-8")
     assert "## Knowledge Domains" in output_md.read_text(encoding="utf-8")
+    assert "## Knowledge Domain Matrix" in output_md.read_text(encoding="utf-8")
     assert "## Real-Data Signals" in output_md.read_text(encoding="utf-8")
     assert "Expand STEP/B-Rep directory validation." in output_md.read_text(
         encoding="utf-8"

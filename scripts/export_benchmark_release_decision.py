@@ -92,11 +92,13 @@ def _component_statuses(
     benchmark_operator_adoption: Dict[str, Any],
     benchmark_knowledge_application: Dict[str, Any] | None = None,
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
 ) -> Dict[str, str]:
     benchmark_knowledge_application = benchmark_knowledge_application or {}
     benchmark_knowledge_realdata_correlation = (
         benchmark_knowledge_realdata_correlation or {}
     )
+    benchmark_knowledge_domain_matrix = benchmark_knowledge_domain_matrix or {}
     scorecard_components = benchmark_scorecard.get("components") or {}
     operational_components = benchmark_operational_summary.get("component_statuses") or {}
     bundle_components = benchmark_artifact_bundle.get("component_statuses") or {}
@@ -124,6 +126,11 @@ def _component_statuses(
     knowledge_realdata_correlation_component = (
         benchmark_knowledge_realdata_correlation.get("knowledge_realdata_correlation")
         or benchmark_knowledge_realdata_correlation
+        or {}
+    )
+    knowledge_domain_matrix_component = (
+        benchmark_knowledge_domain_matrix.get("knowledge_domain_matrix")
+        or benchmark_knowledge_domain_matrix
         or {}
     )
     drift_component = (
@@ -202,6 +209,13 @@ def _component_statuses(
             or (
                 scorecard_components.get("knowledge_realdata_correlation") or {}
             ).get("status")
+            or "unknown"
+        ),
+        "knowledge_domain_matrix": str(
+            companion_components.get("knowledge_domain_matrix")
+            or bundle_components.get("knowledge_domain_matrix")
+            or knowledge_domain_matrix_component.get("status")
+            or (scorecard_components.get("knowledge_domain_matrix") or {}).get("status")
             or "unknown"
         ),
     }
@@ -290,6 +304,19 @@ def _knowledge_realdata_correlation_review_signals(
         return []
     return _compact(
         benchmark_knowledge_realdata_correlation.get("recommendations") or [],
+        limit=6,
+    )
+
+
+def _knowledge_domain_matrix_review_signals(
+    benchmark_knowledge_domain_matrix: Dict[str, Any],
+    component_statuses: Dict[str, str],
+) -> List[str]:
+    status = str(component_statuses.get("knowledge_domain_matrix") or "").strip()
+    if status in {"knowledge_domain_matrix_ready", "unknown", ""}:
+        return []
+    return _compact(
+        benchmark_knowledge_domain_matrix.get("recommendations") or [],
         limit=6,
     )
 
@@ -430,11 +457,13 @@ def build_release_decision(
     artifact_paths: Dict[str, str],
     benchmark_knowledge_application: Dict[str, Any] | None = None,
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     benchmark_knowledge_application = benchmark_knowledge_application or {}
     benchmark_knowledge_realdata_correlation = (
         benchmark_knowledge_realdata_correlation or {}
     )
+    benchmark_knowledge_domain_matrix = benchmark_knowledge_domain_matrix or {}
     component_statuses = _component_statuses(
         benchmark_scorecard,
         benchmark_operational_summary,
@@ -447,6 +476,7 @@ def build_release_decision(
         benchmark_operator_adoption,
         benchmark_knowledge_application,
         benchmark_knowledge_realdata_correlation,
+        benchmark_knowledge_domain_matrix,
     )
     knowledge_drift = _knowledge_drift_payload(benchmark_knowledge_drift)
     realdata_component = (
@@ -462,6 +492,11 @@ def build_release_decision(
     knowledge_realdata_correlation_component = (
         benchmark_knowledge_realdata_correlation.get("knowledge_realdata_correlation")
         or benchmark_knowledge_realdata_correlation
+        or {}
+    )
+    knowledge_domain_matrix_component = (
+        benchmark_knowledge_domain_matrix.get("knowledge_domain_matrix")
+        or benchmark_knowledge_domain_matrix
         or {}
     )
     knowledge_focus_areas = list(
@@ -497,6 +532,10 @@ def build_release_decision(
     )
     knowledge_realdata_correlation_priority_domains = list(
         knowledge_realdata_correlation_component.get("priority_domains") or []
+    )
+    knowledge_domain_matrix_domains = knowledge_domain_matrix_component.get("domains") or {}
+    knowledge_domain_matrix_priority_domains = list(
+        knowledge_domain_matrix_component.get("priority_domains") or []
     )
     blockers = _compact(
         benchmark_companion_summary.get("blockers")
@@ -554,6 +593,14 @@ def build_release_decision(
         item
         for item in _knowledge_realdata_correlation_review_signals(
             benchmark_knowledge_realdata_correlation,
+            component_statuses,
+        )
+        if item not in review_signals
+    )
+    review_signals.extend(
+        item
+        for item in _knowledge_domain_matrix_review_signals(
+            benchmark_knowledge_domain_matrix,
             component_statuses,
         )
         if item not in review_signals
@@ -652,6 +699,18 @@ def build_release_decision(
             benchmark_knowledge_realdata_correlation.get("recommendations") or [],
             limit=6,
         ),
+        "knowledge_domain_matrix_status": (
+            knowledge_domain_matrix_component.get("status") or "unknown"
+        ),
+        "knowledge_domain_matrix": knowledge_domain_matrix_component,
+        "knowledge_domain_matrix_domains": knowledge_domain_matrix_domains,
+        "knowledge_domain_matrix_priority_domains": (
+            knowledge_domain_matrix_priority_domains
+        ),
+        "knowledge_domain_matrix_recommendations": _compact(
+            benchmark_knowledge_domain_matrix.get("recommendations") or [],
+            limit=6,
+        ),
         "blocking_signals": blockers,
         "review_signals": review_signals,
         "artifacts": {
@@ -701,6 +760,10 @@ def build_release_decision(
                     "",
                 ),
             ),
+            "benchmark_knowledge_domain_matrix": _artifact_row(
+                "benchmark_knowledge_domain_matrix",
+                artifact_paths.get("benchmark_knowledge_domain_matrix", ""),
+            ),
         },
     }
 
@@ -733,6 +796,10 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     lines.append(
         f"- `knowledge_realdata_correlation_status`: "
         f"`{payload.get('knowledge_realdata_correlation_status') or 'unknown'}`"
+    )
+    lines.append(
+        f"- `knowledge_domain_matrix_status`: "
+        f"`{payload.get('knowledge_domain_matrix_status') or 'unknown'}`"
     )
     lines.append(f"- `realdata_status`: `{payload.get('realdata_status')}`")
     lines.extend(["", "## Blocking Signals", ""])
@@ -868,6 +935,29 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     if knowledge_realdata_recommendations:
         for item in knowledge_realdata_recommendations:
             lines.append(f"- recommendation: {item}")
+    lines.extend(["", "## Knowledge Domain Matrix", ""])
+    lines.append(
+        f"- `status`: `{payload.get('knowledge_domain_matrix_status') or 'unknown'}`"
+    )
+    knowledge_domain_matrix_domains = payload.get("knowledge_domain_matrix_domains") or {}
+    if knowledge_domain_matrix_domains:
+        for name, row in knowledge_domain_matrix_domains.items():
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"status=`{row.get('status')}` "
+                f"readiness=`{row.get('readiness_status')}` "
+                f"application=`{row.get('application_status')}` "
+                f"realdata=`{row.get('realdata_status')}`"
+            )
+    else:
+        lines.append("- none")
+    knowledge_domain_matrix_recommendations = (
+        payload.get("knowledge_domain_matrix_recommendations") or []
+    )
+    if knowledge_domain_matrix_recommendations:
+        for item in knowledge_domain_matrix_recommendations:
+            lines.append(f"- recommendation: {item}")
     lines.extend(["", "## Real-Data Signals", ""])
     realdata = payload.get("realdata_signals") or {}
     lines.append(f"- `status`: `{payload.get('realdata_status')}`")
@@ -913,6 +1003,7 @@ def main() -> None:
     parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--benchmark-knowledge-application", default="")
     parser.add_argument("--benchmark-knowledge-realdata-correlation", default="")
+    parser.add_argument("--benchmark-knowledge-domain-matrix", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -931,6 +1022,7 @@ def main() -> None:
         "benchmark_knowledge_realdata_correlation": (
             args.benchmark_knowledge_realdata_correlation
         ),
+        "benchmark_knowledge_domain_matrix": args.benchmark_knowledge_domain_matrix,
     }
     payload = build_release_decision(
         title=args.title,
@@ -960,6 +1052,9 @@ def main() -> None:
         ),
         benchmark_knowledge_realdata_correlation=_maybe_load_json(
             args.benchmark_knowledge_realdata_correlation
+        ),
+        benchmark_knowledge_domain_matrix=_maybe_load_json(
+            args.benchmark_knowledge_domain_matrix
         ),
         artifact_paths=artifact_paths,
     )
