@@ -112,23 +112,27 @@ def _compact_list(items: Iterable[Any]) -> List[str]:
 
 
 def _pick_summary_items(
+    benchmark_release_decision: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
     benchmark_operational_summary: Dict[str, Any],
     benchmark_scorecard: Dict[str, Any],
 ) -> tuple[str, List[str], List[str]]:
     overall_status = (
-        str(benchmark_companion_summary.get("overall_status") or "").strip()
+        str(benchmark_release_decision.get("release_status") or "").strip()
+        or str(benchmark_companion_summary.get("overall_status") or "").strip()
         or str(benchmark_operational_summary.get("overall_status") or "").strip()
         or str(benchmark_scorecard.get("overall_status") or "").strip()
         or "unknown"
     )
     blockers = _compact_list(
-        benchmark_companion_summary.get("blockers")
+        benchmark_release_decision.get("blocking_signals")
+        or benchmark_companion_summary.get("blockers")
         or benchmark_operational_summary.get("blockers")
         or []
     )
     recommendations = _compact_list(
-        benchmark_companion_summary.get("recommended_actions")
+        benchmark_release_decision.get("review_signals")
+        or benchmark_companion_summary.get("recommended_actions")
         or benchmark_operational_summary.get("recommendations")
         or benchmark_scorecard.get("recommendations")
         or []
@@ -142,6 +146,7 @@ def build_bundle(
     benchmark_scorecard: Dict[str, Any],
     benchmark_operational_summary: Dict[str, Any],
     benchmark_companion_summary: Dict[str, Any],
+    benchmark_release_decision: Dict[str, Any],
     feedback_flywheel: Dict[str, Any],
     assistant_evidence: Dict[str, Any],
     review_queue: Dict[str, Any],
@@ -149,6 +154,7 @@ def build_bundle(
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     overall_status, blockers, recommendations = _pick_summary_items(
+        benchmark_release_decision,
         benchmark_companion_summary,
         benchmark_operational_summary,
         benchmark_scorecard,
@@ -168,6 +174,11 @@ def build_bundle(
             name="benchmark_companion_summary",
             path_text=artifact_paths.get("benchmark_companion_summary", ""),
             payload=benchmark_companion_summary,
+        ),
+        "benchmark_release_decision": _artifact_row(
+            name="benchmark_release_decision",
+            path_text=artifact_paths.get("benchmark_release_decision", ""),
+            payload=benchmark_release_decision,
         ),
         "feedback_flywheel": _artifact_row(
             name="feedback_flywheel",
@@ -251,6 +262,7 @@ def main() -> None:
     parser.add_argument("--benchmark-scorecard", default="")
     parser.add_argument("--benchmark-operational-summary", default="")
     parser.add_argument("--benchmark-companion-summary", default="")
+    parser.add_argument("--benchmark-release-decision", default="")
     parser.add_argument("--feedback-flywheel", default="")
     parser.add_argument("--assistant-evidence", default="")
     parser.add_argument("--review-queue", default="")
@@ -263,6 +275,7 @@ def main() -> None:
         "benchmark_scorecard": args.benchmark_scorecard,
         "benchmark_operational_summary": args.benchmark_operational_summary,
         "benchmark_companion_summary": args.benchmark_companion_summary,
+        "benchmark_release_decision": args.benchmark_release_decision,
         "feedback_flywheel": args.feedback_flywheel,
         "assistant_evidence": args.assistant_evidence,
         "review_queue": args.review_queue,
@@ -273,6 +286,7 @@ def main() -> None:
         benchmark_scorecard=_maybe_load_json(args.benchmark_scorecard),
         benchmark_operational_summary=_maybe_load_json(args.benchmark_operational_summary),
         benchmark_companion_summary=_maybe_load_json(args.benchmark_companion_summary),
+        benchmark_release_decision=_maybe_load_json(args.benchmark_release_decision),
         feedback_flywheel=_maybe_load_json(args.feedback_flywheel),
         assistant_evidence=_maybe_load_json(args.assistant_evidence),
         review_queue=_maybe_load_json(args.review_queue),
