@@ -17,3 +17,8 @@ from .knowledge_readiness import (  # noqa: F401
     knowledge_readiness_recommendations,
     render_knowledge_readiness_markdown,
 )
+from .knowledge_drift import (  # noqa: F401
+    build_knowledge_drift_status,
+    knowledge_drift_recommendations,
+    render_knowledge_drift_markdown,
+)
