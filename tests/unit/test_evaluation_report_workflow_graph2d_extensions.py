@@ -58,8 +58,15 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY_JSON" in env
     assert "BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON" in env
     assert "BENCHMARK_SCORECARD_QDRANT_READINESS_JSON" in env
+    assert "BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON" in env
     assert "BENCHMARK_SCORECARD_OUTPUT_JSON" in env
     assert "BENCHMARK_SCORECARD_OUTPUT_MD" in env
+    assert "BENCHMARK_ENGINEERING_SIGNALS_ENABLE" in env
+    assert "BENCHMARK_ENGINEERING_SIGNALS_TITLE" in env
+    assert "BENCHMARK_ENGINEERING_SIGNALS_HYBRID_SUMMARY_JSON" in env
+    assert "BENCHMARK_ENGINEERING_SIGNALS_OCR_REVIEW_SUMMARY_JSON" in env
+    assert "BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_JSON" in env
+    assert "BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_MD" in env
     assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON" in env
     assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD" in env
     assert "BENCHMARK_OPERATIONAL_SUMMARY_ENABLE" in env
@@ -142,6 +149,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_scorecard_metric_train_summary" in dispatch_inputs
     assert "benchmark_scorecard_ocr_review_summary" in dispatch_inputs
     assert "benchmark_scorecard_qdrant_readiness_summary" in dispatch_inputs
+    assert "benchmark_scorecard_engineering_signals_summary" in dispatch_inputs
+    assert "benchmark_engineering_signals_enable" in dispatch_inputs
+    assert "benchmark_engineering_signals_hybrid_summary_json" in dispatch_inputs
+    assert "benchmark_engineering_signals_ocr_review_summary_json" in dispatch_inputs
     assert "benchmark_operational_summary_enable" in dispatch_inputs
     assert "benchmark_operational_summary_scorecard_json" in dispatch_inputs
     assert "benchmark_operational_summary_feedback_json" in dispatch_inputs
@@ -256,6 +267,22 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "review_priority_counts=" in ocr_review_script
     assert "top_recommended_actions=" in ocr_review_script
 
+    benchmark_engineering_step = _get_step(
+        workflow, "evaluate", "Build benchmark engineering signals (optional)"
+    )
+    benchmark_engineering_script = benchmark_engineering_step["run"]
+    assert "scripts/export_benchmark_engineering_signals.py" in benchmark_engineering_script
+    assert "BENCHMARK_ENGINEERING_SIGNALS_ENABLE" in benchmark_engineering_script
+    assert "benchmark_engineering_signals_hybrid_summary_json" in benchmark_engineering_script
+    assert "benchmark_engineering_signals_ocr_review_summary_json" in benchmark_engineering_script
+    assert "steps.ocr_review_pack.outputs.output_json" in benchmark_engineering_script
+    assert "INPUT_COUNT=0" in benchmark_engineering_script
+    assert "coverage_ratio=" in benchmark_engineering_script
+    assert "rows_with_violations=" in benchmark_engineering_script
+    assert "rows_with_standards_candidates=" in benchmark_engineering_script
+    assert "ocr_standard_signal_count=" in benchmark_engineering_script
+    assert "recommendations=" in benchmark_engineering_script
+
     final_fail_step = _get_step(
         workflow,
         "evaluate",
@@ -281,12 +308,16 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--metric-train-summary" in benchmark_script
     assert "--ocr-review-summary" in benchmark_script
     assert "--qdrant-readiness-summary" in benchmark_script
+    assert "--engineering-signals-summary" in benchmark_script
     assert "overall_status=" in benchmark_script
     assert "assistant_status=" in benchmark_script
     assert "review_queue_status=" in benchmark_script
     assert "feedback_flywheel_status=" in benchmark_script
     assert "ocr_status=" in benchmark_script
     assert "qdrant_status=" in benchmark_script
+    assert "engineering_status=" in benchmark_script
+    assert "engineering_coverage_ratio=" in benchmark_script
+    assert "engineering_top_standard_types=" in benchmark_script
 
     feedback_flywheel_step = _get_step(
         workflow, "evaluate", "Build feedback flywheel benchmark artifact (optional)"
@@ -417,6 +448,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         '"${{ steps.active_learning_review_queue_report.outputs.output_json || \'\' }}"'
     )
     assert review_queue_summary_flag in benchmark_script
+    engineering_summary_flag = (
+        '--engineering-signals-summary '
+        '"${{ steps.benchmark_engineering_signals.outputs.output_json || \'\' }}"'
+    )
+    assert engineering_summary_flag in benchmark_script
 
 
 def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
@@ -430,6 +466,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
 
     upload_scorecard = _get_step(workflow, "evaluate", "Upload benchmark scorecard")
     assert upload_scorecard["if"] == "steps.benchmark_scorecard.outputs.enabled == 'true'"
+    upload_engineering = _get_step(workflow, "evaluate", "Upload benchmark engineering signals")
+    assert (
+        upload_engineering["if"]
+        == "steps.benchmark_engineering_signals.outputs.enabled == 'true'"
+    )
     upload_feedback_flywheel = _get_step(
         workflow, "evaluate", "Upload feedback flywheel benchmark artifact"
     )
@@ -521,6 +562,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark feedback flywheel status" in summary_script
     assert "Benchmark OCR status" in summary_script
     assert "Benchmark Qdrant status" in summary_script
+    assert "Benchmark engineering signals status" in summary_script
+    assert "Benchmark engineering coverage ratio" in summary_script
+    assert "Benchmark engineering standard types" in summary_script
     assert "Feedback flywheel benchmark status" in summary_script
     assert "Feedback flywheel feedback total" in summary_script
     assert "Feedback flywheel artifact" in summary_script
@@ -561,6 +605,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark release runbook blocking signals" in summary_script
     assert "Benchmark release runbook review signals" in summary_script
     assert "Benchmark release runbook artifact" in summary_script
+    assert "Benchmark engineering signals: skipped" in summary_script
+    assert "Benchmark engineering violations" in summary_script
+    assert "Benchmark engineering standards rows" in summary_script
+    assert "Benchmark engineering OCR standards" in summary_script
+    assert "Benchmark engineering recommendations" in summary_script
+    assert "Benchmark engineering artifact" in summary_script
     assert "Assistant evidence input" in summary_script
     assert "Assistant evidence records" in summary_script
     assert "Assistant evidence items" in summary_script
