@@ -98,6 +98,22 @@ on:
         description: 'Optional benchmark scorecard Qdrant readiness summary JSON'
         required: false
         default: ''
+      benchmark_scorecard_engineering_signals_summary:
+        description: 'Optional benchmark scorecard engineering signals summary JSON'
+        required: false
+        default: ''
+      benchmark_engineering_signals_enable:
+        description: 'Override: enable benchmark engineering signals export (true/false)'
+        required: false
+        default: ''
+      benchmark_engineering_signals_hybrid_summary_json:
+        description: 'Optional benchmark engineering signals hybrid summary JSON'
+        required: false
+        default: ''
+      benchmark_engineering_signals_ocr_review_summary_json:
+        description: 'Optional benchmark engineering signals OCR review summary JSON'
+        required: false
+        default: ''
       benchmark_operational_summary_enable:
         description: 'Override: enable benchmark operational summary export (true/false)'
         required: false
@@ -293,8 +309,15 @@ env:
   BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_QDRANT_READINESS_JSON: ${{ vars.BENCHMARK_SCORECARD_QDRANT_READINESS_JSON }}
+  BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_OUTPUT_JSON: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_scorecard.json' }}
   BENCHMARK_SCORECARD_OUTPUT_MD: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_scorecard.md' }}
+  BENCHMARK_ENGINEERING_SIGNALS_ENABLE: ${{ vars.BENCHMARK_ENGINEERING_SIGNALS_ENABLE || 'false' }}
+  BENCHMARK_ENGINEERING_SIGNALS_TITLE: ${{ vars.BENCHMARK_ENGINEERING_SIGNALS_TITLE || 'Benchmark Engineering Signals' }}
+  BENCHMARK_ENGINEERING_SIGNALS_HYBRID_SUMMARY_JSON: ${{ vars.BENCHMARK_ENGINEERING_SIGNALS_HYBRID_SUMMARY_JSON }}
+  BENCHMARK_ENGINEERING_SIGNALS_OCR_REVIEW_SUMMARY_JSON: ${{ vars.BENCHMARK_ENGINEERING_SIGNALS_OCR_REVIEW_SUMMARY_JSON }}
+  BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_JSON: ${{ vars.BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_engineering_signals.json' }}
+  BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_MD: ${{ vars.BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_engineering_signals.md' }}
   FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON: ${{ vars.FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON || 'reports/history_sequence_eval/feedback_flywheel_benchmark.json' }}
   FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD: ${{ vars.FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD || 'reports/history_sequence_eval/feedback_flywheel_benchmark.md' }}
   BENCHMARK_OPERATIONAL_SUMMARY_ENABLE: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_ENABLE || 'false' }}
@@ -936,6 +959,93 @@ jobs:
             )
         PY
 
+    - name: Build benchmark engineering signals (optional)
+      id: benchmark_engineering_signals
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_engineering_signals_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_ENGINEERING_SIGNALS_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "BENCHMARK_ENGINEERING_SIGNALS_ENABLE is not true; skip."
+          exit 0
+        fi
+
+        OUTPUT_JSON="${BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_engineering_signals.json}"
+        OUTPUT_MD="${BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_MD:-reports/history_sequence_eval/benchmark_engineering_signals.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_engineering_signals.py
+          --title "${BENCHMARK_ENGINEERING_SIGNALS_TITLE:-Benchmark Engineering Signals}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --hybrid-summary "${{ github.event.inputs.benchmark_engineering_signals_hybrid_summary_json || '' }}"
+        add_if_exists --ocr-review-summary "${{ github.event.inputs.benchmark_engineering_signals_ocr_review_summary_json || '' }}"
+        add_if_exists --hybrid-summary "${BENCHMARK_ENGINEERING_SIGNALS_HYBRID_SUMMARY_JSON:-}"
+        add_if_exists --hybrid-summary "${BENCHMARK_SCORECARD_HYBRID_SUMMARY_JSON:-}"
+        add_if_exists --ocr-review-summary "${{ steps.ocr_review_pack.outputs.output_json || '' }}"
+        add_if_exists --ocr-review-summary "${BENCHMARK_ENGINEERING_SIGNALS_OCR_REVIEW_SUMMARY_JSON:-}"
+        add_if_exists --ocr-review-summary "${BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON:-}"
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No engineering signals inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_JSON"]).read_text(
+                encoding="utf-8"
+            )
+        )
+        component = payload.get("engineering_signals") or {}
+        recommendations = payload.get("recommendations") or []
+        compact_recommendations = "; ".join(
+            str(item).strip() for item in recommendations[:3] if str(item).strip()
+        )
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={str(component.get('status') or 'unknown').strip()}\n")
+            f.write(f"coverage_ratio={component.get('coverage_ratio', 0.0)}\n")
+            f.write(
+                f"rows_with_violations={component.get('rows_with_violations', 0)}\n"
+            )
+            f.write(
+                f"rows_with_standards_candidates={component.get('rows_with_standards_candidates', 0)}\n"
+            )
+            f.write(
+                f"ocr_standard_signal_count={component.get('ocr_standard_signal_count', 0)}\n"
+            )
+            f.write(f"recommendations={compact_recommendations}\n")
+        PY
+
     - name: Generate benchmark scorecard (optional)
       id: benchmark_scorecard
       continue-on-error: true
@@ -995,6 +1105,9 @@ jobs:
         add_if_exists --ocr-review-summary "${BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON:-}"
         add_if_exists --qdrant-readiness-summary "${{ github.event.inputs.benchmark_scorecard_qdrant_readiness_summary || '' }}"
         add_if_exists --qdrant-readiness-summary "${BENCHMARK_SCORECARD_QDRANT_READINESS_JSON:-}"
+        add_if_exists --engineering-signals-summary "${{ github.event.inputs.benchmark_scorecard_engineering_signals_summary || '' }}"
+        add_if_exists --engineering-signals-summary "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
+        add_if_exists --engineering-signals-summary "${BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON:-}"
 
         "${CMD[@]}"
 
@@ -1020,6 +1133,7 @@ jobs:
         feedback_flywheel = components.get("feedback_flywheel") or {}
         ocr_review = components.get("ocr_review") or {}
         qdrant = components.get("qdrant_backend") or {}
+        engineering = components.get("engineering_signals") or {}
         recommendations = payload.get("recommendations") or []
         compact_recommendations = "; ".join(
             str(item).strip() for item in recommendations[:3] if str(item).strip()
@@ -1038,6 +1152,14 @@ jobs:
             )
             f.write(f"ocr_status={ocr_review.get('status', 'unknown')}\n")
             f.write(f"qdrant_status={qdrant.get('status', 'unknown')}\n")
+            f.write(f"engineering_status={engineering.get('status', 'unknown')}\n")
+            f.write(
+                f"engineering_coverage_ratio={engineering.get('coverage_ratio', 0.0)}\n"
+            )
+            f.write(
+                "engineering_top_standard_types="
+                f"{compact_named(engineering.get('top_standard_types'))}\n"
+            )
             f.write(f"recommendations={compact_recommendations}\n")
         PY
 
@@ -1950,6 +2072,16 @@ jobs:
           ${{ steps.benchmark_scorecard.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark engineering signals
+      if: steps.benchmark_engineering_signals.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-engineering-signals-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_engineering_signals.outputs.output_json }}
+          ${{ steps.benchmark_engineering_signals.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload feedback flywheel benchmark artifact
       if: steps.feedback_flywheel_benchmark.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -2168,10 +2300,24 @@ jobs:
           echo "- Benchmark feedback flywheel status: ${{ steps.benchmark_scorecard.outputs.feedback_flywheel_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark OCR status: ${{ steps.benchmark_scorecard.outputs.ocr_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark Qdrant status: ${{ steps.benchmark_scorecard.outputs.qdrant_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark engineering signals status: ${{ steps.benchmark_scorecard.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark engineering coverage ratio: ${{ steps.benchmark_scorecard.outputs.engineering_coverage_ratio }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark engineering standard types: ${{ steps.benchmark_scorecard.outputs.engineering_top_standard_types }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark recommendations: ${{ steps.benchmark_scorecard.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark scorecard artifact: ${{ steps.benchmark_scorecard.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Benchmark scorecard: skipped (BENCHMARK_SCORECARD_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.benchmark_engineering_signals.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark engineering signals status: ${{ steps.benchmark_engineering_signals.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark engineering coverage ratio: ${{ steps.benchmark_engineering_signals.outputs.coverage_ratio }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark engineering violations: ${{ steps.benchmark_engineering_signals.outputs.rows_with_violations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark engineering standards rows: ${{ steps.benchmark_engineering_signals.outputs.rows_with_standards_candidates }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark engineering OCR standards: ${{ steps.benchmark_engineering_signals.outputs.ocr_standard_signal_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark engineering recommendations: ${{ steps.benchmark_engineering_signals.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark engineering artifact: ${{ steps.benchmark_engineering_signals.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark engineering signals: skipped (BENCHMARK_ENGINEERING_SIGNALS_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "${{ steps.feedback_flywheel_benchmark.outputs.enabled }}" == "true" ]]; then
           echo "- Feedback flywheel benchmark status: ${{ steps.feedback_flywheel_benchmark.outputs.status }}" >> $GITHUB_STEP_SUMMARY
