@@ -339,6 +339,32 @@ class CADAssistantAPI:
             request_id=request_id,
         )
 
+    @staticmethod
+    def _serialize_items(items: Optional[List[Any]]) -> List[Any]:
+        """Serialize assistant response lists for API output."""
+        serialized: List[Any] = []
+        for item in items or []:
+            if hasattr(item, "to_dict"):
+                serialized.append(item.to_dict())
+            else:
+                serialized.append(str(item))
+        return serialized
+
+    @staticmethod
+    def _extract_intent(result: Any) -> Optional[str]:
+        """Read intent from either legacy attributes or response metadata."""
+        intent = getattr(result, "intent", None)
+        if intent is not None:
+            return getattr(intent, "value", intent)
+
+        metadata = getattr(result, "metadata", None)
+        if isinstance(metadata, dict):
+            value = metadata.get("intent")
+            if value is not None:
+                return str(value)
+
+        return None
+
     def ask(
         self,
         request_data: Dict[str, Any],
@@ -378,10 +404,10 @@ class CADAssistantAPI:
                 data={
                     "answer": result.answer,
                     "confidence": result.confidence,
-                    "sources": [s.to_dict() if hasattr(s, 'to_dict') else str(s)
-                               for s in (result.sources or [])],
+                    "sources": self._serialize_items(result.sources),
+                    "evidence": self._serialize_items(getattr(result, "evidence", [])),
                     "conversation_id": conv_id,
-                    "intent": result.intent.value if result.intent else None,
+                    "intent": self._extract_intent(result),
                 },
                 request_id=request.request_id,
             )

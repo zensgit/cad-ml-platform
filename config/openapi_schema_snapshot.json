@@ -1,5 +1,5 @@
 {
-  "components_schema_count": 230,
+  "components_schema_count": 231,
   "components_schema_names": [
     "ActiveLearningSample",
     "AlternativeItem",
@@ -161,6 +161,7 @@
     "ProviderPluginErrorItem",
     "ProviderRegistryHealthResponse",
     "ProviderStatusSnapshot",
+    "QueryEvidence",
     "QueryRequest",
     "QueryResponse",
     "ReadinessCheck",
