@@ -59,6 +59,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON" in env
     assert "BENCHMARK_SCORECARD_QDRANT_READINESS_JSON" in env
     assert "BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_SCORECARD_OUTPUT_JSON" in env
     assert "BENCHMARK_SCORECARD_OUTPUT_MD" in env
     assert "BENCHMARK_ENGINEERING_SIGNALS_ENABLE" in env
@@ -67,6 +68,11 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_ENGINEERING_SIGNALS_OCR_REVIEW_SUMMARY_JSON" in env
     assert "BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_JSON" in env
     assert "BENCHMARK_ENGINEERING_SIGNALS_OUTPUT_MD" in env
+    assert "BENCHMARK_KNOWLEDGE_READINESS_ENABLE" in env
+    assert "BENCHMARK_KNOWLEDGE_READINESS_TITLE" in env
+    assert "BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_READINESS_OUTPUT_JSON" in env
+    assert "BENCHMARK_KNOWLEDGE_READINESS_OUTPUT_MD" in env
     assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_JSON" in env
     assert "FEEDBACK_FLYWHEEL_BENCHMARK_OUTPUT_MD" in env
     assert "BENCHMARK_OPERATIONAL_SUMMARY_ENABLE" in env
@@ -88,6 +94,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_ARTIFACT_BUNDLE_OCR_REVIEW_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_COMPANION_SUMMARY_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_RELEASE_DECISION_JSON" in env
+    assert "BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD" in env
     assert "BENCHMARK_COMPANION_SUMMARY_ENABLE" in env
@@ -95,6 +102,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_COMPANION_SUMMARY_SCORECARD_JSON" in env
     assert "BENCHMARK_COMPANION_SUMMARY_OPERATIONAL_SUMMARY_JSON" in env
     assert "BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON" in env
+    assert "BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON" in env
     assert "BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD" in env
     assert "BENCHMARK_RELEASE_DECISION_ENABLE" in env
@@ -103,6 +111,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_RELEASE_DECISION_OPERATIONAL_SUMMARY_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_ARTIFACT_BUNDLE_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON" in env
+    assert "BENCHMARK_RELEASE_DECISION_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_OUTPUT_JSON" in env
     assert "BENCHMARK_RELEASE_DECISION_OUTPUT_MD" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_ENABLE" in env
@@ -110,6 +119,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_RELEASE_RUNBOOK_RELEASE_DECISION_JSON" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_COMPANION_SUMMARY_JSON" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON" in env
+    assert "BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_READINESS_JSON" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON" in env
     assert "BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD" in env
     assert "BENCHMARK_OPERATOR_ADOPTION_ENABLE" in env
@@ -158,9 +168,12 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_scorecard_ocr_review_summary" in dispatch_inputs
     assert "benchmark_scorecard_qdrant_readiness_summary" in dispatch_inputs
     assert "benchmark_scorecard_engineering_signals_summary" in dispatch_inputs
+    assert "benchmark_scorecard_knowledge_readiness_summary" in dispatch_inputs
     assert "benchmark_engineering_signals_enable" in dispatch_inputs
     assert "benchmark_engineering_signals_hybrid_summary_json" in dispatch_inputs
     assert "benchmark_engineering_signals_ocr_review_summary_json" in dispatch_inputs
+    assert "benchmark_knowledge_readiness_enable" in dispatch_inputs
+    assert "benchmark_knowledge_readiness_snapshot_json" in dispatch_inputs
     assert "benchmark_operational_summary_enable" in dispatch_inputs
     assert "benchmark_operational_summary_scorecard_json" in dispatch_inputs
     assert "benchmark_operational_summary_feedback_json" in dispatch_inputs
@@ -177,11 +190,13 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_artifact_bundle_companion_summary_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_release_decision_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_engineering_signals_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_companion_summary_enable" in dispatch_inputs
     assert "benchmark_companion_summary_scorecard_json" in dispatch_inputs
     assert "benchmark_companion_summary_operational_summary_json" in dispatch_inputs
     assert "benchmark_companion_summary_artifact_bundle_json" in dispatch_inputs
     assert "benchmark_companion_summary_engineering_signals_json" in dispatch_inputs
+    assert "benchmark_companion_summary_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_release_decision_enable" in dispatch_inputs
     assert "benchmark_release_decision_scorecard_json" in dispatch_inputs
     assert "benchmark_release_decision_operational_summary_json" in dispatch_inputs
@@ -189,12 +204,14 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_decision_companion_summary_json" in dispatch_inputs
     assert "benchmark_release_decision_engineering_signals_json" in dispatch_inputs
     assert "benchmark_release_decision_operator_adoption_json" in dispatch_inputs
+    assert "benchmark_release_decision_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_release_runbook_enable" in dispatch_inputs
     assert "benchmark_release_runbook_release_decision_json" in dispatch_inputs
     assert "benchmark_release_runbook_companion_summary_json" in dispatch_inputs
     assert "benchmark_release_runbook_artifact_bundle_json" in dispatch_inputs
     assert "benchmark_release_runbook_engineering_signals_json" in dispatch_inputs
     assert "benchmark_release_runbook_operator_adoption_json" in dispatch_inputs
+    assert "benchmark_release_runbook_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_operator_adoption_enable" in dispatch_inputs
     assert "benchmark_operator_adoption_release_decision_json" in dispatch_inputs
     assert "benchmark_operator_adoption_release_runbook_json" in dispatch_inputs
@@ -302,6 +319,20 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "ocr_standard_signal_count=" in benchmark_engineering_script
     assert "recommendations=" in benchmark_engineering_script
 
+    benchmark_knowledge_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge readiness (optional)"
+    )
+    benchmark_knowledge_script = benchmark_knowledge_step["run"]
+    assert "scripts/export_benchmark_knowledge_readiness.py" in benchmark_knowledge_script
+    assert "BENCHMARK_KNOWLEDGE_READINESS_ENABLE" in benchmark_knowledge_script
+    assert "benchmark_knowledge_readiness_snapshot_json" in benchmark_knowledge_script
+    assert "BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON" in benchmark_knowledge_script
+    assert "total_reference_items=" in benchmark_knowledge_script
+    assert "ready_component_count=" in benchmark_knowledge_script
+    assert "partial_component_count=" in benchmark_knowledge_script
+    assert "missing_component_count=" in benchmark_knowledge_script
+    assert "recommendations=" in benchmark_knowledge_script
+
     final_fail_step = _get_step(
         workflow,
         "evaluate",
@@ -328,12 +359,15 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--ocr-review-summary" in benchmark_script
     assert "--qdrant-readiness-summary" in benchmark_script
     assert "--engineering-signals-summary" in benchmark_script
+    assert "--knowledge-readiness-summary" in benchmark_script
     assert "overall_status=" in benchmark_script
     assert "assistant_status=" in benchmark_script
     assert "review_queue_status=" in benchmark_script
     assert "feedback_flywheel_status=" in benchmark_script
     assert "ocr_status=" in benchmark_script
     assert "qdrant_status=" in benchmark_script
+    assert "knowledge_status=" in benchmark_script
+    assert "knowledge_total_reference_items=" in benchmark_script
     assert "engineering_status=" in benchmark_script
     assert "engineering_coverage_ratio=" in benchmark_script
     assert "engineering_top_standard_types=" in benchmark_script
@@ -384,12 +418,14 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-companion-summary" in benchmark_bundle_script
     assert "--benchmark-release-decision" in benchmark_bundle_script
     assert "--benchmark-engineering-signals" in benchmark_bundle_script
+    assert "--benchmark-knowledge-readiness" in benchmark_bundle_script
     assert "INPUT_COUNT=0" in benchmark_bundle_script
     assert "available_artifact_count=" in benchmark_bundle_script
     assert "feedback_status=" in benchmark_bundle_script
     assert "assistant_status=" in benchmark_bundle_script
     assert "review_queue_status=" in benchmark_bundle_script
     assert "ocr_status=" in benchmark_bundle_script
+    assert "knowledge_status=" in benchmark_bundle_script
     assert "engineering_status=" in benchmark_bundle_script
     assert "blockers=" in benchmark_bundle_script
     assert "recommendations=" in benchmark_bundle_script
@@ -404,10 +440,12 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-operational-summary" in benchmark_companion_script
     assert "--benchmark-artifact-bundle" in benchmark_companion_script
     assert "--benchmark-engineering-signals" in benchmark_companion_script
+    assert "--benchmark-knowledge-readiness" in benchmark_companion_script
     assert "review_surface=" in benchmark_companion_script
     assert "primary_gap=" in benchmark_companion_script
     assert "recommended_actions=" in benchmark_companion_script
     assert "qdrant_status=" in benchmark_companion_script
+    assert "knowledge_status=" in benchmark_companion_script
     assert "engineering_status=" in benchmark_companion_script
 
     benchmark_release_step = _get_step(
@@ -422,12 +460,14 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-companion-summary" in benchmark_release_script
     assert "--benchmark-engineering-signals" in benchmark_release_script
     assert "--benchmark-operator-adoption" in benchmark_release_script
+    assert "--benchmark-knowledge-readiness" in benchmark_release_script
     assert "release_status=" in benchmark_release_script
     assert "automation_ready=" in benchmark_release_script
     assert "primary_signal_source=" in benchmark_release_script
     assert "blocking_signals=" in benchmark_release_script
     assert "review_signals=" in benchmark_release_script
     assert "qdrant_status=" in benchmark_release_script
+    assert "knowledge_status=" in benchmark_release_script
     assert "engineering_status=" in benchmark_release_script
     assert "operator_adoption_status=" in benchmark_release_script
 
@@ -442,11 +482,13 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-artifact-bundle" in benchmark_runbook_script
     assert "--benchmark-engineering-signals" in benchmark_runbook_script
     assert "--benchmark-operator-adoption" in benchmark_runbook_script
+    assert "--benchmark-knowledge-readiness" in benchmark_runbook_script
     assert "ready_to_freeze_baseline=" in benchmark_runbook_script
     assert "next_action=" in benchmark_runbook_script
     assert "missing_artifacts=" in benchmark_runbook_script
     assert "blocking_signals=" in benchmark_runbook_script
     assert "review_signals=" in benchmark_runbook_script
+    assert "knowledge_status=" in benchmark_runbook_script
     assert "engineering_status=" in benchmark_runbook_script
     assert "operator_adoption_status=" in benchmark_runbook_script
 
@@ -536,6 +578,11 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
         '"${{ steps.benchmark_engineering_signals.outputs.output_json || \'\' }}"'
     )
     assert engineering_summary_flag in benchmark_script
+    knowledge_summary_flag = (
+        '--knowledge-readiness-summary '
+        '"${{ steps.benchmark_knowledge_readiness.outputs.output_json || \'\' }}"'
+    )
+    assert knowledge_summary_flag in benchmark_script
 
 
 def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
@@ -553,6 +600,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_engineering["if"]
         == "steps.benchmark_engineering_signals.outputs.enabled == 'true'"
+    )
+    upload_knowledge = _get_step(workflow, "evaluate", "Upload benchmark knowledge readiness")
+    assert (
+        upload_knowledge["if"]
+        == "steps.benchmark_knowledge_readiness.outputs.enabled == 'true'"
     )
     upload_feedback_flywheel = _get_step(
         workflow, "evaluate", "Upload feedback flywheel benchmark artifact"
@@ -652,6 +704,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark feedback flywheel status" in summary_script
     assert "Benchmark OCR status" in summary_script
     assert "Benchmark Qdrant status" in summary_script
+    assert "Benchmark knowledge readiness status" in summary_script
+    assert "Benchmark knowledge reference items" in summary_script
     assert "Benchmark engineering signals status" in summary_script
     assert "Benchmark engineering coverage ratio" in summary_script
     assert "Benchmark engineering standard types" in summary_script
@@ -672,6 +726,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark artifact bundle assistant status" in summary_script
     assert "Benchmark artifact bundle review queue status" in summary_script
     assert "Benchmark artifact bundle OCR status" in summary_script
+    assert "Benchmark artifact bundle knowledge status" in summary_script
     assert "Benchmark artifact bundle engineering status" in summary_script
     assert "Benchmark artifact bundle blockers" in summary_script
     assert "Benchmark artifact bundle recommendations" in summary_script
@@ -681,12 +736,14 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark companion review surface" in summary_script
     assert "Benchmark companion primary gap" in summary_script
     assert "Benchmark companion review queue status" in summary_script
+    assert "Benchmark companion knowledge status" in summary_script
     assert "Benchmark companion recommended actions" in summary_script
     assert "Benchmark companion artifact" in summary_script
     assert "Benchmark release decision status" in summary_script
     assert "Benchmark release automation ready" in summary_script
     assert "Benchmark release primary signal source" in summary_script
     assert "Benchmark release review queue status" in summary_script
+    assert "Benchmark release knowledge status" in summary_script
     assert "Benchmark release engineering status" in summary_script
     assert "Benchmark release operator adoption status" in summary_script
     assert "Benchmark release review signals" in summary_script
@@ -695,6 +752,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark release runbook freeze_ready" in summary_script
     assert "Benchmark release runbook primary signal source" in summary_script
     assert "Benchmark release runbook next action" in summary_script
+    assert "Benchmark release runbook knowledge status" in summary_script
     assert "Benchmark release runbook engineering status" in summary_script
     assert "Benchmark release runbook operator adoption status" in summary_script
     assert "Benchmark release runbook missing artifacts" in summary_script
@@ -719,6 +777,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark engineering OCR standards" in summary_script
     assert "Benchmark engineering recommendations" in summary_script
     assert "Benchmark engineering artifact" in summary_script
+    assert "Benchmark knowledge readiness: skipped" in summary_script
+    assert "Benchmark knowledge total reference items" in summary_script
+    assert "Benchmark knowledge ready components" in summary_script
+    assert "Benchmark knowledge partial components" in summary_script
+    assert "Benchmark knowledge missing components" in summary_script
+    assert "Benchmark knowledge recommendations" in summary_script
+    assert "Benchmark knowledge artifact" in summary_script
     assert "Assistant evidence input" in summary_script
     assert "Assistant evidence records" in summary_script
     assert "Assistant evidence items" in summary_script
@@ -797,19 +862,26 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkOperatorAdoptionNextAction" in pr_comment_script
     assert "benchmarkOcrStatus" in pr_comment_script
     assert "benchmarkQdrantStatus" in pr_comment_script
+    assert "benchmarkKnowledgeStatus" in pr_comment_script
     assert "benchmarkEngineeringEnabled" in pr_comment_script
     assert "benchmarkEngineeringStatus" in pr_comment_script
     assert "benchmarkEngineeringTopStandardTypes" in pr_comment_script
     assert "benchmarkEngineeringStatusLine" in pr_comment_script
     assert "benchmarkEngineeringLight" in pr_comment_script
+    assert "benchmarkKnowledgeEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeLight" in pr_comment_script
     assert "assistant=${benchmarkAssistantStatus}" in pr_comment_script
     assert "review_queue=${benchmarkReviewQueueStatus}" in pr_comment_script
     assert "feedback_flywheel=${benchmarkFeedbackFlywheelStatus}" in pr_comment_script
     assert "ocr=${benchmarkOcrStatus}" in pr_comment_script
     assert "qdrant=${benchmarkQdrantStatus}" in pr_comment_script
+    assert "knowledge=${benchmarkKnowledgeStatus}" in pr_comment_script
     assert "engineering=${benchmarkEngineeringStatus}" in pr_comment_script
     assert "Benchmark Feedback Flywheel" in pr_comment_script
     assert "Benchmark Engineering Signals" in pr_comment_script
+    assert "Benchmark Knowledge Readiness" in pr_comment_script
+    assert "Benchmark Knowledge Recommendations" in pr_comment_script
     assert "Benchmark Engineering Recommendations" in pr_comment_script
     assert "Feedback Flywheel Artifact" in pr_comment_script
     assert "Benchmark Operational Summary" in pr_comment_script
@@ -819,13 +891,17 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "assistant=${benchmarkArtifactBundleAssistantStatus}" in pr_comment_script
     assert "review_queue=${benchmarkArtifactBundleReviewQueueStatus}" in pr_comment_script
     assert "ocr=${benchmarkArtifactBundleOcrStatus}" in pr_comment_script
+    assert "knowledge=${benchmarkArtifactBundleKnowledgeStatus}" in pr_comment_script
     assert "engineering=${benchmarkArtifactBundleEngineeringStatus}" in pr_comment_script
     assert "Benchmark Companion Summary" in pr_comment_script
+    assert "knowledge=${benchmarkCompanionKnowledgeStatus}" in pr_comment_script
     assert "engineering=${benchmarkCompanionEngineeringStatus}" in pr_comment_script
     assert "Benchmark Release Decision" in pr_comment_script
+    assert "knowledge=${benchmarkReleaseKnowledgeStatus}" in pr_comment_script
     assert "engineering=${benchmarkReleaseEngineeringStatus}" in pr_comment_script
     assert "operator_adoption=${benchmarkReleaseOperatorAdoptionStatus}" in pr_comment_script
     assert "Benchmark Release Runbook" in pr_comment_script
+    assert "knowledge=${benchmarkReleaseRunbookKnowledgeStatus}" in pr_comment_script
     assert "engineering=${benchmarkReleaseRunbookEngineeringStatus}" in pr_comment_script
     assert "operator_adoption=${benchmarkReleaseRunbookOperatorAdoptionStatus}" in pr_comment_script
     assert "Benchmark Operator Adoption" in pr_comment_script
