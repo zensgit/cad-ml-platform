@@ -64,8 +64,12 @@ def _component_statuses(
     benchmark_realdata_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
     benchmark_knowledge_application: Dict[str, Any] | None = None,
+    benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
 ) -> Dict[str, str]:
     benchmark_knowledge_application = benchmark_knowledge_application or {}
+    benchmark_knowledge_realdata_correlation = (
+        benchmark_knowledge_realdata_correlation or {}
+    )
     components = scorecard.get("components") or {}
     companion_components = benchmark_companion_summary.get("component_statuses") or {}
     knowledge_component = (
@@ -87,6 +91,11 @@ def _component_statuses(
     knowledge_application_component = (
         benchmark_knowledge_application.get("knowledge_application")
         or benchmark_knowledge_application
+        or {}
+    )
+    knowledge_realdata_correlation_component = (
+        benchmark_knowledge_realdata_correlation.get("knowledge_realdata_correlation")
+        or benchmark_knowledge_realdata_correlation
         or {}
     )
     component_rows = {
@@ -165,6 +174,13 @@ def _component_statuses(
         or (components.get("knowledge_application") or {}).get("status")
         or "unknown"
     )
+    component_rows["knowledge_realdata_correlation"] = str(
+        companion_components.get("knowledge_realdata_correlation")
+        or operational_components.get("knowledge_realdata_correlation")
+        or knowledge_realdata_correlation_component.get("status")
+        or (components.get("knowledge_realdata_correlation") or {}).get("status")
+        or "unknown"
+    )
     return component_rows
 
 
@@ -210,8 +226,12 @@ def _pick_summary_items(
     benchmark_realdata_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
     benchmark_knowledge_application: Dict[str, Any] | None = None,
+    benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
 ) -> tuple[str, List[str], List[str]]:
     benchmark_knowledge_application = benchmark_knowledge_application or {}
+    benchmark_knowledge_realdata_correlation = (
+        benchmark_knowledge_realdata_correlation or {}
+    )
     overall_status = (
         str(benchmark_release_decision.get("release_status") or "").strip()
         or str(benchmark_companion_summary.get("overall_status") or "").strip()
@@ -236,6 +256,7 @@ def _pick_summary_items(
         or benchmark_realdata_signals.get("recommendations")
         or benchmark_operator_adoption.get("recommended_actions")
         or benchmark_knowledge_application.get("recommendations")
+        or benchmark_knowledge_realdata_correlation.get("recommendations")
         or []
     )
     return overall_status, blockers, recommendations
@@ -277,6 +298,7 @@ def build_bundle(
     benchmark_realdata_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
     benchmark_knowledge_application: Dict[str, Any] | None = None,
+    benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     feedback_flywheel: Dict[str, Any],
     assistant_evidence: Dict[str, Any],
     review_queue: Dict[str, Any],
@@ -284,6 +306,9 @@ def build_bundle(
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     benchmark_knowledge_application = benchmark_knowledge_application or {}
+    benchmark_knowledge_realdata_correlation = (
+        benchmark_knowledge_realdata_correlation or {}
+    )
     overall_status, blockers, recommendations = _pick_summary_items(
         benchmark_release_decision,
         benchmark_companion_summary,
@@ -294,6 +319,7 @@ def build_bundle(
         benchmark_realdata_signals,
         benchmark_operator_adoption,
         benchmark_knowledge_application,
+        benchmark_knowledge_realdata_correlation,
     )
     knowledge_component = (
         benchmark_knowledge_readiness.get("knowledge_readiness")
@@ -308,6 +334,11 @@ def build_bundle(
     knowledge_application_component = (
         benchmark_knowledge_application.get("knowledge_application")
         or benchmark_knowledge_application
+        or {}
+    )
+    knowledge_realdata_correlation_component = (
+        benchmark_knowledge_realdata_correlation.get("knowledge_realdata_correlation")
+        or benchmark_knowledge_realdata_correlation
         or {}
     )
     knowledge_drift_component = _knowledge_drift_component(benchmark_knowledge_drift)
@@ -332,6 +363,9 @@ def build_bundle(
     )
     knowledge_application_recommendations = _compact_list(
         benchmark_knowledge_application.get("recommendations") or []
+    )
+    knowledge_realdata_correlation_recommendations = _compact_list(
+        benchmark_knowledge_realdata_correlation.get("recommendations") or []
     )
     artifact_rows = {
         "benchmark_scorecard": _artifact_row(
@@ -383,6 +417,14 @@ def build_bundle(
             name="benchmark_knowledge_application",
             path_text=artifact_paths.get("benchmark_knowledge_application", ""),
             payload=benchmark_knowledge_application,
+        ),
+        "benchmark_knowledge_realdata_correlation": _artifact_row(
+            name="benchmark_knowledge_realdata_correlation",
+            path_text=artifact_paths.get(
+                "benchmark_knowledge_realdata_correlation",
+                "",
+            ),
+            payload=benchmark_knowledge_realdata_correlation,
         ),
         "feedback_flywheel": _artifact_row(
             name="feedback_flywheel",
@@ -443,6 +485,19 @@ def build_bundle(
         "knowledge_application_domains": knowledge_application_domains,
         "knowledge_application_priority_domains": knowledge_application_priority_domains,
         "knowledge_application_recommendations": knowledge_application_recommendations,
+        "knowledge_realdata_correlation_status": (
+            knowledge_realdata_correlation_component.get("status") or "unknown"
+        ),
+        "knowledge_realdata_correlation": knowledge_realdata_correlation_component,
+        "knowledge_realdata_correlation_domains": (
+            knowledge_realdata_correlation_component.get("domains") or {}
+        ),
+        "knowledge_realdata_correlation_priority_domains": list(
+            knowledge_realdata_correlation_component.get("priority_domains") or []
+        ),
+        "knowledge_realdata_correlation_recommendations": (
+            knowledge_realdata_correlation_recommendations
+        ),
         "operator_adoption_knowledge_drift": operator_adoption_knowledge_drift,
         "knowledge_domains": knowledge_domains,
         "knowledge_domain_focus_areas": knowledge_domain_focus_areas,
@@ -457,6 +512,7 @@ def build_bundle(
             benchmark_realdata_signals,
             benchmark_operator_adoption,
             benchmark_knowledge_application,
+            benchmark_knowledge_realdata_correlation,
         ),
         "blockers": blockers,
         "recommendations": recommendations,
@@ -477,6 +533,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"- knowledge_drift_summary: `{payload.get('knowledge_drift_summary') or 'none'}`",
         f"- knowledge_application_status: "
         f"`{payload.get('knowledge_application_status') or 'unknown'}`",
+        f"- knowledge_realdata_correlation_status: "
+        f"`{payload.get('knowledge_realdata_correlation_status') or 'unknown'}`",
         f"- realdata_status: `{payload.get('realdata_status') or 'unknown'}`",
         "",
         "## Component Statuses",
@@ -524,6 +582,30 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     )
     if knowledge_application_recommendations:
         for item in knowledge_application_recommendations:
+            lines.append(f"- recommendation: {item}")
+    lines.extend(["", "## Knowledge Real-Data Correlation", ""])
+    lines.append(
+        "- `status`: "
+        f"`{payload.get('knowledge_realdata_correlation_status') or 'unknown'}`"
+    )
+    knowledge_realdata_domains = payload.get("knowledge_realdata_correlation_domains") or {}
+    if knowledge_realdata_domains:
+        for name, row in knowledge_realdata_domains.items():
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"status=`{row.get('status')}` "
+                f"readiness=`{row.get('readiness_status')}` "
+                f"application=`{row.get('application_status')}` "
+                f"realdata=`{row.get('realdata_status')}`"
+            )
+    else:
+        lines.append("- none")
+    knowledge_realdata_recommendations = (
+        payload.get("knowledge_realdata_correlation_recommendations") or []
+    )
+    if knowledge_realdata_recommendations:
+        for item in knowledge_realdata_recommendations:
             lines.append(f"- recommendation: {item}")
     lines.extend(["", "## Real-Data Signals", ""])
     realdata = payload.get("realdata_signals") or {}
@@ -676,6 +758,7 @@ def main() -> None:
     parser.add_argument("--benchmark-realdata-signals", default="")
     parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--benchmark-knowledge-application", default="")
+    parser.add_argument("--benchmark-knowledge-realdata-correlation", default="")
     parser.add_argument("--feedback-flywheel", default="")
     parser.add_argument("--assistant-evidence", default="")
     parser.add_argument("--review-queue", default="")
@@ -695,6 +778,9 @@ def main() -> None:
         "benchmark_realdata_signals": args.benchmark_realdata_signals,
         "benchmark_operator_adoption": args.benchmark_operator_adoption,
         "benchmark_knowledge_application": args.benchmark_knowledge_application,
+        "benchmark_knowledge_realdata_correlation": (
+            args.benchmark_knowledge_realdata_correlation
+        ),
         "feedback_flywheel": args.feedback_flywheel,
         "assistant_evidence": args.assistant_evidence,
         "review_queue": args.review_queue,
@@ -717,6 +803,9 @@ def main() -> None:
         benchmark_operator_adoption=_maybe_load_json(args.benchmark_operator_adoption),
         benchmark_knowledge_application=_maybe_load_json(
             args.benchmark_knowledge_application
+        ),
+        benchmark_knowledge_realdata_correlation=_maybe_load_json(
+            args.benchmark_knowledge_realdata_correlation
         ),
         feedback_flywheel=_maybe_load_json(args.feedback_flywheel),
         assistant_evidence=_maybe_load_json(args.assistant_evidence),
