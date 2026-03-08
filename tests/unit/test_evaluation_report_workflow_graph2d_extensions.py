@@ -1104,6 +1104,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkEngineeringTopStandardTypes" in pr_comment_script
     assert "benchmarkEngineeringStatusLine" in pr_comment_script
     assert "benchmarkEngineeringLight" in pr_comment_script
+    assert "benchmarkRealdataEnabled" in pr_comment_script
+    assert "benchmarkRealdataStatus" in pr_comment_script
+    assert "benchmarkRealdataStatusLine" in pr_comment_script
+    assert "benchmarkRealdataLight" in pr_comment_script
+    assert "benchmarkRealdataRecommendations" in pr_comment_script
     assert "benchmarkKnowledgeEnabled" in pr_comment_script
     assert "benchmarkKnowledgeStatusLine" in pr_comment_script
     assert "benchmarkKnowledgeLight" in pr_comment_script
@@ -1121,6 +1126,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "engineering=${benchmarkEngineeringStatus}" in pr_comment_script
     assert "Benchmark Feedback Flywheel" in pr_comment_script
     assert "Benchmark Engineering Signals" in pr_comment_script
+    assert "Benchmark Real-Data Signals" in pr_comment_script
     assert "Benchmark Knowledge Readiness" in pr_comment_script
     assert "Benchmark Knowledge Drift" in pr_comment_script
     assert "Benchmark Knowledge Focus Areas" in pr_comment_script
@@ -1132,6 +1138,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Operational Summary" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Drift" in pr_comment_script
     assert "Benchmark Artifact Bundle" in pr_comment_script
+    assert "Benchmark Artifact Bundle Real-Data" in pr_comment_script
     assert "available_artifacts=${benchmarkArtifactBundleAvailableArtifacts}" in pr_comment_script
     assert "feedback=${benchmarkArtifactBundleFeedbackStatus}" in pr_comment_script
     assert "assistant=${benchmarkArtifactBundleAssistantStatus}" in pr_comment_script
@@ -1149,6 +1156,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         in pr_comment_script
     )
     assert "Benchmark Companion Summary" in pr_comment_script
+    assert "Benchmark Companion Real-Data" in pr_comment_script
     assert "knowledge=${benchmarkCompanionKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkCompanionKnowledgeDriftStatus}" in pr_comment_script
     assert "benchmarkCompanionKnowledgeDriftDomainRegressions" in pr_comment_script
@@ -1161,6 +1169,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         in pr_comment_script
     )
     assert "Benchmark Release Decision" in pr_comment_script
+    assert "Benchmark Release Decision Real-Data" in pr_comment_script
     assert "knowledge=${benchmarkReleaseKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkReleaseKnowledgeDriftStatus}" in pr_comment_script
     assert "benchmarkReleaseKnowledgeDriftDomainRegressions" in pr_comment_script
@@ -1174,6 +1183,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         in pr_comment_script
     )
     assert "Benchmark Release Runbook" in pr_comment_script
+    assert "Benchmark Release Runbook Real-Data" in pr_comment_script
     assert "knowledge=${benchmarkReleaseRunbookKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkReleaseRunbookKnowledgeDriftStatus}" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeDriftDomainRegressions" in pr_comment_script
@@ -1197,6 +1207,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Decision Operator Drift" in pr_comment_script
     assert "Benchmark Release Runbook Operator Drift" in pr_comment_script
     assert "Benchmark Operator Adoption Knowledge Drift" in pr_comment_script
+    assert "realdata=${benchmarkArtifactBundleRealdataStatus || 'n/a'}" in pr_comment_script
+    assert "realdata=${benchmarkCompanionRealdataStatus || 'n/a'}" in pr_comment_script
+    assert "realdata=${benchmarkReleaseRealdataStatus || 'n/a'}" in pr_comment_script
+    assert "realdata=${benchmarkReleaseRunbookRealdataStatus || 'n/a'}" in pr_comment_script
     assert "assistantEvidenceEnabled" in pr_comment_script
     assert "Assistant Evidence Report" in pr_comment_script
     assert "Assistant Evidence Insights" in pr_comment_script
