@@ -72,6 +72,17 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
             "engineering_signals": {"status": "partial_engineering_semantics"},
             "recommendations": ["Close engineering gaps."],
         },
+        benchmark_realdata_signals={
+            "realdata_signals": {
+                "status": "realdata_foundation_partial",
+                "components": {
+                    "hybrid_dxf": {"status": "ready", "sample_size": 110},
+                    "history_h5": {"status": "ready", "sample_size": 1},
+                    "step_dir": {"status": "partial", "sample_size": 3},
+                },
+            },
+            "recommendations": ["Expand STEP/B-Rep directory validation."],
+        },
         benchmark_operator_adoption={
             "status": "attention_required",
             "summary": "Operator onboarding still needs a dry run.",
@@ -93,6 +104,7 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["release_status"] == "blocked"
     assert payload["engineering_status"] == "partial_engineering_semantics"
     assert payload["knowledge_status"] == "knowledge_foundation_partial"
+    assert payload["realdata_status"] == "realdata_foundation_partial"
     assert payload["knowledge_focus_areas"][0]["component"] == "gdt"
     assert payload["knowledge_drift_status"] == "mixed"
     assert payload["knowledge_drift"]["counts"]["regressions"] == 1
@@ -102,11 +114,13 @@ def test_build_release_runbook_requires_blocker_resolution() -> None:
     assert payload["next_action"] == "collect_artifacts"
     assert "benchmark_artifact_bundle" in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
+    assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
     assert payload["operator_adoption"]["actions"] == [
         "Schedule an operator handoff dry run."
     ]
     assert payload["operator_adoption"]["knowledge_drift_status"] == "regressed"
+    assert "Expand STEP/B-Rep directory validation." in payload["review_signals"]
     assert payload["operator_steps"][1]["key"] == "resolve_blockers"
     assert payload["operator_steps"][1]["status"] == "required"
     adoption_step = next(
@@ -166,18 +180,31 @@ def test_build_release_runbook_freezes_when_ready() -> None:
         benchmark_engineering_signals={
             "engineering_signals": {"status": "engineering_semantics_ready"},
         },
+        benchmark_realdata_signals={
+            "realdata_signals": {
+                "status": "realdata_foundation_ready",
+                "components": {
+                    "hybrid_dxf": {"status": "ready", "sample_size": 110},
+                    "history_h5": {"status": "ready", "sample_size": 1},
+                    "step_dir": {"status": "ready", "sample_size": 3},
+                },
+            },
+            "recommendations": [],
+        },
         benchmark_operator_adoption={},
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_companion_summary": "companion.json",
             "benchmark_artifact_bundle": "bundle.json",
             "benchmark_engineering_signals": "engineering.json",
+            "benchmark_realdata_signals": "realdata.json",
         },
     )
 
     assert payload["ready_to_freeze_baseline"] is True
     assert payload["engineering_status"] == "engineering_semantics_ready"
     assert payload["knowledge_status"] == "knowledge_foundation_ready"
+    assert payload["realdata_status"] == "realdata_foundation_ready"
     assert payload["knowledge_focus_areas"] == []
     assert payload["knowledge_drift_status"] == "improved"
     assert payload["knowledge_priority_domains"] == []
@@ -186,7 +213,9 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["next_action"] == "freeze_release_baseline"
     assert "benchmark_operator_adoption" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_drift" not in payload["missing_artifacts"]
+    assert "benchmark_realdata_signals" not in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is False
+    assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["operator_steps"][-1]["status"] == "ready"
 
 
@@ -197,6 +226,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge = tmp_path / "knowledge.json"
     drift = tmp_path / "drift.json"
     engineering = tmp_path / "engineering.json"
+    realdata = tmp_path / "realdata.json"
     operator_adoption = tmp_path / "operator_adoption.json"
     output_json = tmp_path / "runbook.json"
     output_md = tmp_path / "runbook.md"
@@ -285,6 +315,22 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    realdata.write_text(
+        json.dumps(
+            {
+                "realdata_signals": {
+                    "status": "realdata_foundation_partial",
+                    "components": {
+                        "hybrid_dxf": {"status": "ready", "sample_size": 110},
+                        "history_h5": {"status": "ready", "sample_size": 1},
+                        "step_dir": {"status": "partial", "sample_size": 3},
+                    },
+                },
+                "recommendations": ["Expand STEP/B-Rep directory validation."],
+            }
+        ),
+        encoding="utf-8",
+    )
     operator_adoption.write_text(
         json.dumps(
             {
@@ -318,6 +364,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(drift),
             "--benchmark-engineering-signals",
             str(engineering),
+            "--benchmark-realdata-signals",
+            str(realdata),
             "--benchmark-operator-adoption",
             str(operator_adoption),
             "--output-json",
@@ -333,6 +381,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["release_status"] == "review_required"
     assert payload["engineering_status"] == "partial_engineering_semantics"
     assert payload["knowledge_status"] == "knowledge_foundation_partial"
+    assert payload["realdata_status"] == "realdata_foundation_partial"
     assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
     assert payload["knowledge_drift_status"] == "regressed"
     assert payload["knowledge_domains"]["tolerance"]["status"] == "partial"
@@ -340,6 +389,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["next_action"] == "review_signals"
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
+    assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
     assert payload["operator_adoption"]["signals"] == [
         "operator_shift_handoff:pending"
@@ -354,14 +404,17 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "# Benchmark Release Runbook" in rendered
     assert "`engineering_status`: `partial_engineering_semantics`" in rendered
     assert "`knowledge_status`: `knowledge_foundation_partial`" in rendered
+    assert "`realdata_status`: `realdata_foundation_partial`" in rendered
     assert "`next_action`: `review_signals`" in rendered
     assert "Backfill tolerance coverage." in rendered
     assert "## Knowledge Drift" in rendered
     assert "`status`: `regressed`" in rendered
     assert "## Knowledge Domains" in rendered
     assert "## Knowledge Domain Focus Areas" in rendered
+    assert "## Real-Data Signals" in rendered
     assert "## Operator Adoption" in rendered
     assert "operator_shift_handoff:pending" in rendered
     assert "Book an operator office-hours review." in rendered
     assert "Tolerance coverage regressed." in rendered
+    assert "Expand STEP/B-Rep directory validation." in rendered
     assert "`benchmark_operator_adoption`: present=`True`" in rendered
