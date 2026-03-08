@@ -168,6 +168,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_artifact_bundle_ocr_review_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_companion_summary_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_release_decision_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_engineering_signals_json" in dispatch_inputs
     assert "benchmark_companion_summary_enable" in dispatch_inputs
     assert "benchmark_companion_summary_scorecard_json" in dispatch_inputs
     assert "benchmark_companion_summary_operational_summary_json" in dispatch_inputs
@@ -364,12 +365,14 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--ocr-review" in benchmark_bundle_script
     assert "--benchmark-companion-summary" in benchmark_bundle_script
     assert "--benchmark-release-decision" in benchmark_bundle_script
+    assert "--benchmark-engineering-signals" in benchmark_bundle_script
     assert "INPUT_COUNT=0" in benchmark_bundle_script
     assert "available_artifact_count=" in benchmark_bundle_script
     assert "feedback_status=" in benchmark_bundle_script
     assert "assistant_status=" in benchmark_bundle_script
     assert "review_queue_status=" in benchmark_bundle_script
     assert "ocr_status=" in benchmark_bundle_script
+    assert "engineering_status=" in benchmark_bundle_script
     assert "blockers=" in benchmark_bundle_script
     assert "recommendations=" in benchmark_bundle_script
 
@@ -582,6 +585,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark artifact bundle assistant status" in summary_script
     assert "Benchmark artifact bundle review queue status" in summary_script
     assert "Benchmark artifact bundle OCR status" in summary_script
+    assert "Benchmark artifact bundle engineering status" in summary_script
     assert "Benchmark artifact bundle blockers" in summary_script
     assert "Benchmark artifact bundle recommendations" in summary_script
     assert "Benchmark artifact bundle artifact" in summary_script
