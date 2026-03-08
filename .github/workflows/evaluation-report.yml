@@ -68,6 +68,12 @@ on:
         default: ''
       benchmark_scorecard_enable:
         description: 'Override: enable benchmark scorecard generation (true/false)'
+      ocr_review_pack_enable:
+        description: 'Override: enable OCR review-pack export (true/false)'
+        required: false
+        default: ''
+      ocr_review_pack_input:
+        description: 'Optional OCR review-pack input JSON/JSONL path'
         required: false
         default: ''
 
@@ -120,6 +126,12 @@ env:
   BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_OUTPUT_JSON: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_scorecard.json' }}
   BENCHMARK_SCORECARD_OUTPUT_MD: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_scorecard.md' }}
+  OCR_REVIEW_PACK_ENABLE: ${{ vars.OCR_REVIEW_PACK_ENABLE || 'false' }}
+  OCR_REVIEW_PACK_INPUT: ${{ vars.OCR_REVIEW_PACK_INPUT }}
+  OCR_REVIEW_PACK_OUTPUT_CSV: ${{ vars.OCR_REVIEW_PACK_OUTPUT_CSV || 'reports/history_sequence_eval/ocr_review_pack.csv' }}
+  OCR_REVIEW_PACK_OUTPUT_JSON: ${{ vars.OCR_REVIEW_PACK_OUTPUT_JSON || 'reports/history_sequence_eval/ocr_review_pack.json' }}
+  OCR_REVIEW_PACK_TOP_K: ${{ vars.OCR_REVIEW_PACK_TOP_K || '100' }}
+  OCR_REVIEW_PACK_INCLUDE_READY: ${{ vars.OCR_REVIEW_PACK_INCLUDE_READY || 'false' }}
 
 jobs:
   evaluate:
@@ -521,6 +533,86 @@ jobs:
         PY
         fi
 
+    - name: Build OCR review pack (optional)
+      id: ocr_review_pack
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.ocr_review_pack_enable || '' }}"
+        ENABLE_VALUE="${OCR_REVIEW_PACK_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "OCR_REVIEW_PACK_ENABLE is not true; skip."
+          exit 0
+        fi
+
+        INPUT_PATH="${{ github.event.inputs.ocr_review_pack_input || '' }}"
+        if [[ -z "$INPUT_PATH" ]]; then
+          INPUT_PATH="${OCR_REVIEW_PACK_INPUT:-}"
+        fi
+        if [[ -z "$INPUT_PATH" || ! -e "$INPUT_PATH" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Configured OCR review-pack input not found: ${INPUT_PATH:-<empty>}"
+          exit 0
+        fi
+
+        OUTPUT_CSV="${OCR_REVIEW_PACK_OUTPUT_CSV:-reports/history_sequence_eval/ocr_review_pack.csv}"
+        OUTPUT_JSON="${OCR_REVIEW_PACK_OUTPUT_JSON:-reports/history_sequence_eval/ocr_review_pack.json}"
+        mkdir -p "$(dirname "$OUTPUT_CSV")"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+
+        CMD=(
+          python3 scripts/export_ocr_review_pack.py
+          --input "$INPUT_PATH"
+          --output-csv "$OUTPUT_CSV"
+          --output-json "$OUTPUT_JSON"
+        )
+        if [[ "${OCR_REVIEW_PACK_INCLUDE_READY:-false}" == "true" ]]; then
+          CMD+=(--include-ready)
+        fi
+        if [[ -n "${OCR_REVIEW_PACK_TOP_K:-}" ]]; then
+          CMD+=(--top-k "${OCR_REVIEW_PACK_TOP_K}")
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "input_path=$INPUT_PATH" >> $GITHUB_OUTPUT
+        echo "output_csv=$OUTPUT_CSV" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(Path(os.environ["OCR_REVIEW_PACK_OUTPUT_JSON"]).read_text(encoding="utf-8"))
+        summary = payload.get("summary") or {}
+        def compact_named(items, limit=3):
+            out = []
+            for item in (items or [])[:limit]:
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get("name") or "").strip()
+                count = item.get("count")
+                if name:
+                    out.append(f"{name}({count})")
+            return "; ".join(out)
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"exported_records={summary.get('exported_records', 0)}\n")
+            f.write(f"review_candidate_count={summary.get('review_candidate_count', 0)}\n")
+            f.write(f"automation_ready_count={summary.get('automation_ready_count', 0)}\n")
+            f.write(f"average_readiness_score={summary.get('average_readiness_score', 0)}\n")
+            f.write(f"average_coverage_ratio={summary.get('average_coverage_ratio', 0)}\n")
+            f.write(f"review_priority_counts={compact_named(summary.get('review_priority_counts'))}\n")
+            f.write(f"primary_gap_counts={compact_named(summary.get('primary_gap_counts'))}\n")
+            f.write(f"top_review_reasons={compact_named(summary.get('top_review_reasons'))}\n")
+            f.write(f"top_recommended_actions={compact_named(summary.get('top_recommended_actions'))}\n")
+        PY
+
     - name: Generate benchmark scorecard (optional)
       id: benchmark_scorecard
       continue-on-error: true
@@ -575,7 +667,9 @@ jobs:
         import os
         from pathlib import Path
 
-        payload = json.loads(Path(os.environ["BENCHMARK_SCORECARD_OUTPUT_JSON"]).read_text(encoding="utf-8"))
+        payload = json.loads(
+            Path(os.environ["BENCHMARK_SCORECARD_OUTPUT_JSON"]).read_text(encoding="utf-8")
+        )
         components = payload.get("components") or {}
         hybrid = components.get("hybrid") or {}
         graph2d = components.get("graph2d") or {}
@@ -583,7 +677,9 @@ jobs:
         brep = components.get("brep") or {}
         governance = components.get("migration_governance") or {}
         recommendations = payload.get("recommendations") or []
-        compact_recommendations = "; ".join(str(item).strip() for item in recommendations[:3] if str(item).strip())
+        compact_recommendations = "; ".join(
+            str(item).strip() for item in recommendations[:3] if str(item).strip()
+        )
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
             f.write(f"overall_status={payload.get('overall_status', 'unknown')}\n")
             f.write(f"hybrid_status={hybrid.get('status', 'unknown')}\n")
@@ -841,6 +937,14 @@ jobs:
         path: |
           ${{ steps.benchmark_scorecard.outputs.output_json }}
           ${{ steps.benchmark_scorecard.outputs.output_md }}
+    - name: Upload OCR review pack
+      if: steps.ocr_review_pack.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ocr-review-pack-${{ github.run_number }}
+        path: |
+          ${{ steps.ocr_review_pack.outputs.output_csv }}
+          ${{ steps.ocr_review_pack.outputs.output_json }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
     - name: Send notifications
@@ -970,6 +1074,19 @@ jobs:
           echo "- Benchmark scorecard artifact: ${{ steps.benchmark_scorecard.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Benchmark scorecard: skipped (BENCHMARK_SCORECARD_ENABLE!=true)" >> $GITHUB_STEP_SUMMARY
+        if [[ "${{ steps.ocr_review_pack.outputs.enabled }}" == "true" ]]; then
+          echo "- OCR review pack input: ${{ steps.ocr_review_pack.outputs.input_path }}" >> $GITHUB_STEP_SUMMARY
+          echo "- OCR review pack exported: ${{ steps.ocr_review_pack.outputs.exported_records }}" >> $GITHUB_STEP_SUMMARY
+          echo "- OCR review candidates: ${{ steps.ocr_review_pack.outputs.review_candidate_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- OCR automation ready: ${{ steps.ocr_review_pack.outputs.automation_ready_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- OCR average readiness: ${{ steps.ocr_review_pack.outputs.average_readiness_score }}" >> $GITHUB_STEP_SUMMARY
+          echo "- OCR average coverage: ${{ steps.ocr_review_pack.outputs.average_coverage_ratio }}" >> $GITHUB_STEP_SUMMARY
+          echo "- OCR review priorities: ${{ steps.ocr_review_pack.outputs.review_priority_counts }}" >> $GITHUB_STEP_SUMMARY
+          echo "- OCR primary gaps: ${{ steps.ocr_review_pack.outputs.primary_gap_counts }}" >> $GITHUB_STEP_SUMMARY
+          echo "- OCR review reasons: ${{ steps.ocr_review_pack.outputs.top_review_reasons }}" >> $GITHUB_STEP_SUMMARY
+          echo "- OCR recommended actions: ${{ steps.ocr_review_pack.outputs.top_recommended_actions }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- OCR review pack: skipped (OCR_REVIEW_PACK_ENABLE!=true or input missing)" >> $GITHUB_STEP_SUMMARY
         fi
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "---" >> $GITHUB_STEP_SUMMARY
@@ -1036,6 +1153,17 @@ jobs:
             const benchmarkBrepStatus = '${{ steps.benchmark_scorecard.outputs.brep_status }}';
             const benchmarkGovernanceStatus = '${{ steps.benchmark_scorecard.outputs.governance_status }}';
             const benchmarkRecommendations = '${{ steps.benchmark_scorecard.outputs.recommendations }}';
+            const ocrReviewPackEnabled = '${{ steps.ocr_review_pack.outputs.enabled }}' === 'true';
+            const ocrReviewPackInput = '${{ steps.ocr_review_pack.outputs.input_path }}';
+            const ocrExportedRecords = '${{ steps.ocr_review_pack.outputs.exported_records }}';
+            const ocrReviewCandidateCount = '${{ steps.ocr_review_pack.outputs.review_candidate_count }}';
+            const ocrAutomationReadyCount = '${{ steps.ocr_review_pack.outputs.automation_ready_count }}';
+            const ocrAverageReadiness = '${{ steps.ocr_review_pack.outputs.average_readiness_score }}';
+            const ocrAverageCoverage = '${{ steps.ocr_review_pack.outputs.average_coverage_ratio }}';
+            const ocrReviewPriorities = '${{ steps.ocr_review_pack.outputs.review_priority_counts }}';
+            const ocrPrimaryGaps = '${{ steps.ocr_review_pack.outputs.primary_gap_counts }}';
+            const ocrReviewReasons = '${{ steps.ocr_review_pack.outputs.top_review_reasons }}';
+            const ocrRecommendedActions = '${{ steps.ocr_review_pack.outputs.top_recommended_actions }}';
             const reviewCandidateCount = parseInt(reviewCandidates || '0', 10);
             const sweepTotalRunsInt = parseInt(sweepTotalRuns || '0', 10);
             const sweepFailedRunsInt = parseInt(sweepFailedRuns || '0', 10);
@@ -1058,6 +1186,12 @@ jobs:
             const benchmarkScorecardStatus = benchmarkScorecardEnabled
               ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}`
               : '⏭️ skipped';
+            const ocrReviewPackStatus = ocrReviewPackEnabled
+              ? `input=${ocrReviewPackInput}, exported=${ocrExportedRecords}, review_candidates=${ocrReviewCandidateCount}, automation_ready=${ocrAutomationReadyCount}, readiness=${ocrAverageReadiness}, coverage=${ocrAverageCoverage}`
+              : '⏭️ skipped';
+            const ocrReviewPackInsights = ocrReviewPackEnabled
+              ? `priorities=${ocrReviewPriorities || 'n/a'}, gaps=${ocrPrimaryGaps || 'n/a'}, reasons=${ocrReviewReasons || 'n/a'}, actions=${ocrRecommendedActions || 'n/a'}`
+              : '⏭️ skipped';
 
             const reviewPackLight = !reviewPackEnabled
               ? '⚪'
@@ -1071,6 +1205,9 @@ jobs:
             const benchmarkLight = !benchmarkScorecardEnabled
               ? '⚪'
               : (benchmarkOverallStatus.includes('gap') ? '🟡' : '🟢');
+            const ocrReviewPackLight = !ocrReviewPackEnabled
+              ? '⚪'
+              : (parseInt(ocrReviewCandidateCount || '0', 10) > 0 ? '🟡' : '🟢');
 
             const body = `## 📊 CAD ML Platform - Evaluation Results
 
@@ -1098,6 +1235,8 @@ jobs:
             | **Graph2D Train Sweep** | ${trainSweepStatus} |
             | **Benchmark Scorecard** | ${benchmarkScorecardStatus} |
             | **Benchmark Recommendations** | ${benchmarkRecommendations || 'n/a'} |
+            | **OCR Review Pack** | ${ocrReviewPackStatus} |
+            | **OCR Review Insights** | ${ocrReviewPackInsights} |
 
             ### Graph2D Signal Lights
             | Signal | State | Detail |
@@ -1106,6 +1245,7 @@ jobs:
             | **Review Gate** | ${reviewGateLight} | ${reviewGateStatus} |
             | **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
             | **Benchmark Scorecard** | ${benchmarkLight} | ${benchmarkScorecardStatus} |
+            | **OCR Review Pack** | ${ocrReviewPackLight} | ${ocrReviewPackStatus} |
 
             ### Quick Actions
             - 📋 [View Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
