@@ -434,6 +434,37 @@ class TestGetMaintenanceStatsEndpoint:
         assert result["vector_store"]["qdrant"]["collection_exists"] is True
         assert result["vector_store"]["qdrant"]["collection_status"] == "green"
         assert result["vector_store"]["qdrant"]["unindexed_vectors_count"] == 1
+        assert result["vector_store"]["qdrant"]["error_type"] == "none"
+        assert result["vector_store"]["qdrant"]["error_severity"] == "none"
+        assert result["vector_store"]["qdrant"]["error_hint"] is None
+
+    @pytest.mark.asyncio
+    async def test_get_stats_qdrant_backend_classifies_errors(self):
+        """Test qdrant observability exposes actionable error taxonomy."""
+        from src.api.v1.maintenance import get_maintenance_stats
+
+        class DummyQdrantStore:
+            async def inspect_collection(self):
+                return {
+                    "reachable": False,
+                    "collection_exists": False,
+                    "collection_status": "red",
+                    "points_count": 0,
+                    "unindexed_vectors_count": 0,
+                    "indexing_progress": 0.0,
+                    "error": "Connection timeout while reaching qdrant host",
+                }
+
+        with patch.dict("os.environ", {"VECTOR_STORE_BACKEND": "qdrant"}), patch(
+            "src.api.v1.maintenance._get_qdrant_store_or_none",
+            return_value=DummyQdrantStore(),
+        ), patch("src.utils.cache.get_client", return_value=None):
+            result = await get_maintenance_stats(api_key="test")
+
+        qdrant_stats = result["vector_store"]["qdrant"]
+        assert qdrant_stats["error_type"] == "timeout"
+        assert qdrant_stats["error_severity"] == "critical"
+        assert "timeout" in qdrant_stats["error_hint"].lower()
 
     @pytest.mark.asyncio
     async def test_get_stats_with_cache(self):
