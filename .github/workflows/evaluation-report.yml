@@ -86,6 +86,18 @@ on:
         description: 'Optional assistant evidence input JSON/JSONL path'
         required: false
         default: ''
+      active_learning_review_queue_report_enable:
+        description: 'Override: enable active-learning review queue summary export (true/false)'
+        required: false
+        default: ''
+      active_learning_review_queue_report_input:
+        description: 'Optional active-learning review queue CSV/JSON/JSONL input path'
+        required: false
+        default: ''
+      active_learning_review_queue_report_data_dir:
+        description: 'Optional active-learning data dir for review queue summary'
+        required: false
+        default: ''
 
 env:
   PYTHON_VERSION: '3.11'
@@ -134,6 +146,8 @@ env:
   BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON || 'reports/history_sequence_eval/summary.json' }}
   BENCHMARK_SCORECARD_BREP_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_BREP_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_JSON: ${{ vars.BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_JSON }}
+  BENCHMARK_SCORECARD_REVIEW_QUEUE_JSON: ${{ vars.BENCHMARK_SCORECARD_REVIEW_QUEUE_JSON }}
   BENCHMARK_SCORECARD_OUTPUT_JSON: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_scorecard.json' }}
   BENCHMARK_SCORECARD_OUTPUT_MD: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_scorecard.md' }}
   OCR_REVIEW_PACK_ENABLE: ${{ vars.OCR_REVIEW_PACK_ENABLE || 'false' }}
@@ -147,6 +161,10 @@ env:
   ASSISTANT_EVIDENCE_REPORT_OUTPUT_CSV: ${{ vars.ASSISTANT_EVIDENCE_REPORT_OUTPUT_CSV || 'reports/history_sequence_eval/assistant_evidence_report.csv' }}
   ASSISTANT_EVIDENCE_REPORT_OUTPUT_JSON: ${{ vars.ASSISTANT_EVIDENCE_REPORT_OUTPUT_JSON || 'reports/history_sequence_eval/assistant_evidence_report.json' }}
   ASSISTANT_EVIDENCE_REPORT_TOP_K: ${{ vars.ASSISTANT_EVIDENCE_REPORT_TOP_K || '50' }}
+  ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_ENABLE: ${{ vars.ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_ENABLE || 'false' }}
+  ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_INPUT: ${{ vars.ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_INPUT }}
+  ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_DATA_DIR: ${{ vars.ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_DATA_DIR }}
+  ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_OUTPUT_JSON: ${{ vars.ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_OUTPUT_JSON || 'reports/history_sequence_eval/active_learning_review_queue_report.json' }}
 
 jobs:
   evaluate:
@@ -671,6 +689,8 @@ jobs:
         add_if_exists --history-summary "${BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON:-}"
         add_if_exists --brep-summary "${BENCHMARK_SCORECARD_BREP_SUMMARY_JSON:-}"
         add_if_exists --migration-summary "${BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON:-}"
+        add_if_exists --assistant-evidence-summary "${BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_JSON:-}"
+        add_if_exists --review-queue-summary "${BENCHMARK_SCORECARD_REVIEW_QUEUE_JSON:-}"
 
         "${CMD[@]}"
 
@@ -691,6 +711,8 @@ jobs:
         history = components.get("history_sequence") or {}
         brep = components.get("brep") or {}
         governance = components.get("migration_governance") or {}
+        assistant = components.get("assistant_explainability") or {}
+        review_queue = components.get("review_queue") or {}
         recommendations = payload.get("recommendations") or []
         compact_recommendations = "; ".join(
             str(item).strip() for item in recommendations[:3] if str(item).strip()
@@ -702,6 +724,8 @@ jobs:
             f.write(f"history_status={history.get('status', 'unknown')}\n")
             f.write(f"brep_status={brep.get('status', 'unknown')}\n")
             f.write(f"governance_status={governance.get('status', 'unknown')}\n")
+            f.write(f"assistant_status={assistant.get('status', 'unknown')}\n")
+            f.write(f"review_queue_status={review_queue.get('status', 'unknown')}\n")
             f.write(f"recommendations={compact_recommendations}\n")
         PY
 
@@ -792,6 +816,102 @@ jobs:
                 f"top_structured_sources={compact_named(payload.get('top_structured_sources'))}\n"
             )
             f.write(f"top_missing_fields={compact_named(payload.get('top_missing_fields'))}\n")
+        PY
+
+    - name: Build active-learning review queue report (optional)
+      id: active_learning_review_queue_report
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.active_learning_review_queue_report_enable || '' }}"
+        ENABLE_VALUE="${ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_ENABLE is not true; skip."
+          exit 0
+        fi
+
+        INPUT_PATH="${{ github.event.inputs.active_learning_review_queue_report_input || '' }}"
+        DATA_DIR="${{ github.event.inputs.active_learning_review_queue_report_data_dir || '' }}"
+        if [[ -z "$INPUT_PATH" ]]; then
+          INPUT_PATH="${ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_INPUT:-}"
+        fi
+        if [[ -z "$DATA_DIR" ]]; then
+          DATA_DIR="${ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_DATA_DIR:-}"
+        fi
+
+        OUTPUT_JSON="${ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_OUTPUT_JSON:-reports/history_sequence_eval/active_learning_review_queue_report.json}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+
+        CMD=(
+          python3 scripts/export_active_learning_review_queue_report.py
+          --summary-json "$OUTPUT_JSON"
+        )
+        if [[ -n "$INPUT_PATH" && -e "$INPUT_PATH" ]]; then
+          CMD+=(--input-path "$INPUT_PATH")
+          INPUT_KIND="input"
+          RESOLVED_SOURCE="$INPUT_PATH"
+        elif [[ -n "$DATA_DIR" && -d "$DATA_DIR" ]]; then
+          CMD+=(--data-dir "$DATA_DIR")
+          INPUT_KIND="data_dir"
+          RESOLVED_SOURCE="$DATA_DIR"
+        else
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "Configured active-learning review queue source not found."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "input_path=$RESOLVED_SOURCE" >> $GITHUB_OUTPUT
+        echo "input_kind=$INPUT_KIND" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_OUTPUT_JSON"]).read_text(
+                encoding="utf-8"
+            )
+        )
+
+        def compact_named(items, limit=3):
+            out = []
+            for item in (items or [])[:limit]:
+                if not isinstance(item, dict):
+                    continue
+                name = str(item.get("name") or "").strip()
+                count = item.get("count")
+                if name:
+                    out.append(f"{name}({count})")
+            return "; ".join(out)
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={payload.get('status', 'unknown')}\n")
+            f.write(f"total={payload.get('total', 0)}\n")
+            f.write(f"high_priority_count={payload.get('high_priority_count', 0)}\n")
+            f.write(f"critical_priority_count={payload.get('critical_priority_count', 0)}\n")
+            f.write(f"high_priority_ratio={payload.get('high_priority_ratio', 0)}\n")
+            f.write(f"automation_ready_count={payload.get('automation_ready_count', 0)}\n")
+            f.write(f"automation_ready_ratio={payload.get('automation_ready_ratio', 0)}\n")
+            f.write(
+                f"top_feedback_priorities={compact_named(payload.get('top_feedback_priorities'))}\n"
+            )
+            f.write(
+                f"top_decision_sources={compact_named(payload.get('top_decision_sources'))}\n"
+            )
+            f.write(
+                f"top_review_reasons={compact_named(payload.get('top_review_reasons'))}\n"
+            )
+            f.write(
+                f"recommended_actions={'; '.join(payload.get('recommended_actions') or [])}\n"
+            )
         PY
 
     - name: Check Graph2D review-pack gate (optional)
@@ -1053,6 +1173,14 @@ jobs:
           ${{ steps.assistant_evidence_report.outputs.output_json }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload active-learning review queue report
+      if: steps.active_learning_review_queue_report.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: active-learning-review-queue-report-${{ github.run_number }}
+        path: ${{ steps.active_learning_review_queue_report.outputs.output_json }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload OCR review pack
       if: steps.ocr_review_pack.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -1186,6 +1314,8 @@ jobs:
           echo "- Benchmark history status: ${{ steps.benchmark_scorecard.outputs.history_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark B-Rep status: ${{ steps.benchmark_scorecard.outputs.brep_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark governance status: ${{ steps.benchmark_scorecard.outputs.governance_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark assistant explainability status: ${{ steps.benchmark_scorecard.outputs.assistant_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark review queue status: ${{ steps.benchmark_scorecard.outputs.review_queue_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark recommendations: ${{ steps.benchmark_scorecard.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark scorecard artifact: ${{ steps.benchmark_scorecard.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
@@ -1205,6 +1335,19 @@ jobs:
           echo "- Assistant missing fields: ${{ steps.assistant_evidence_report.outputs.top_missing_fields }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Assistant evidence report: skipped (ASSISTANT_EVIDENCE_REPORT_ENABLE!=true or input missing)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.active_learning_review_queue_report.outputs.enabled }}" == "true" ]]; then
+          echo "- Review queue input: ${{ steps.active_learning_review_queue_report.outputs.input_path }} (${{ steps.active_learning_review_queue_report.outputs.input_kind }})" >> $GITHUB_STEP_SUMMARY
+          echo "- Review queue status: ${{ steps.active_learning_review_queue_report.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Review queue total: ${{ steps.active_learning_review_queue_report.outputs.total }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Review queue high priority: ${{ steps.active_learning_review_queue_report.outputs.high_priority_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Review queue critical priority: ${{ steps.active_learning_review_queue_report.outputs.critical_priority_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Review queue automation ready: ${{ steps.active_learning_review_queue_report.outputs.automation_ready_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Review queue top priorities: ${{ steps.active_learning_review_queue_report.outputs.top_feedback_priorities }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Review queue top reasons: ${{ steps.active_learning_review_queue_report.outputs.top_review_reasons }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Review queue recommendations: ${{ steps.active_learning_review_queue_report.outputs.recommended_actions }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Review queue report: skipped (ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_ENABLE!=true or source missing)" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "${{ steps.ocr_review_pack.outputs.enabled }}" == "true" ]]; then
           echo "- OCR review pack input: ${{ steps.ocr_review_pack.outputs.input_path }}" >> $GITHUB_STEP_SUMMARY
@@ -1284,6 +1427,8 @@ jobs:
             const benchmarkHistoryStatus = '${{ steps.benchmark_scorecard.outputs.history_status }}';
             const benchmarkBrepStatus = '${{ steps.benchmark_scorecard.outputs.brep_status }}';
             const benchmarkGovernanceStatus = '${{ steps.benchmark_scorecard.outputs.governance_status }}';
+            const benchmarkAssistantStatus = '${{ steps.benchmark_scorecard.outputs.assistant_status }}';
+            const benchmarkReviewQueueStatus = '${{ steps.benchmark_scorecard.outputs.review_queue_status }}';
             const benchmarkRecommendations = '${{ steps.benchmark_scorecard.outputs.recommendations }}';
             const assistantEvidenceEnabled = '${{ steps.assistant_evidence_report.outputs.enabled }}' === 'true';
             const assistantEvidenceInput = '${{ steps.assistant_evidence_report.outputs.input_path }}';
@@ -1297,6 +1442,18 @@ jobs:
             const assistantTopEvidenceTypes = '${{ steps.assistant_evidence_report.outputs.top_evidence_types }}';
             const assistantTopStructuredSources = '${{ steps.assistant_evidence_report.outputs.top_structured_sources }}';
             const assistantTopMissingFields = '${{ steps.assistant_evidence_report.outputs.top_missing_fields }}';
+            const reviewQueueEnabled = '${{ steps.active_learning_review_queue_report.outputs.enabled }}' === 'true';
+            const reviewQueueInput = '${{ steps.active_learning_review_queue_report.outputs.input_path }}';
+            const reviewQueueInputKind = '${{ steps.active_learning_review_queue_report.outputs.input_kind }}';
+            const reviewQueueStatusRaw = '${{ steps.active_learning_review_queue_report.outputs.status }}';
+            const reviewQueueTotal = '${{ steps.active_learning_review_queue_report.outputs.total }}';
+            const reviewQueueHighPriority = '${{ steps.active_learning_review_queue_report.outputs.high_priority_count }}';
+            const reviewQueueCriticalPriority = '${{ steps.active_learning_review_queue_report.outputs.critical_priority_count }}';
+            const reviewQueueAutomationReady = '${{ steps.active_learning_review_queue_report.outputs.automation_ready_count }}';
+            const reviewQueueTopPriorities = '${{ steps.active_learning_review_queue_report.outputs.top_feedback_priorities }}';
+            const reviewQueueTopSources = '${{ steps.active_learning_review_queue_report.outputs.top_decision_sources }}';
+            const reviewQueueTopReasons = '${{ steps.active_learning_review_queue_report.outputs.top_review_reasons }}';
+            const reviewQueueActions = '${{ steps.active_learning_review_queue_report.outputs.recommended_actions }}';
             const ocrReviewPackEnabled = '${{ steps.ocr_review_pack.outputs.enabled }}' === 'true';
             const ocrReviewPackInput = '${{ steps.ocr_review_pack.outputs.input_path }}';
             const ocrExportedRecords = '${{ steps.ocr_review_pack.outputs.exported_records }}';
@@ -1328,13 +1485,19 @@ jobs:
               ? `runs=${sweepTotalRuns}, failed=${sweepFailedRuns}, best=${sweepBestRecipe}@${sweepBestSeed}, env=${sweepRecommendedEnv}, script=${sweepBestRunScript}`
               : '⏭️ skipped';
             const benchmarkScorecardStatus = benchmarkScorecardEnabled
-              ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}`
+              ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}, assistant=${benchmarkAssistantStatus}, review_queue=${benchmarkReviewQueueStatus}`
               : '⏭️ skipped';
             const assistantEvidenceStatus = assistantEvidenceEnabled
               ? `input=${assistantEvidenceInput}, records=${assistantEvidenceTotalRecords}, evidence_items=${assistantEvidenceTotalItems}, avg=${assistantEvidenceAverageCount}, evidence_cov=${assistantEvidenceCoverage}, decision_cov=${assistantDecisionPathCoverage}, source_cov=${assistantSourceSignalCoverage}`
               : '⏭️ skipped';
             const assistantEvidenceInsights = assistantEvidenceEnabled
               ? `kinds=${assistantTopRecordKinds || 'n/a'}, evidence=${assistantTopEvidenceTypes || 'n/a'}, sources=${assistantTopStructuredSources || 'n/a'}, missing=${assistantTopMissingFields || 'n/a'}`
+              : '⏭️ skipped';
+            const reviewQueueStatus = reviewQueueEnabled
+              ? `input=${reviewQueueInput} (${reviewQueueInputKind || 'unknown'}), status=${reviewQueueStatusRaw}, total=${reviewQueueTotal}, high=${reviewQueueHighPriority}, critical=${reviewQueueCriticalPriority}, automation_ready=${reviewQueueAutomationReady}`
+              : '⏭️ skipped';
+            const reviewQueueInsights = reviewQueueEnabled
+              ? `priorities=${reviewQueueTopPriorities || 'n/a'}, sources=${reviewQueueTopSources || 'n/a'}, reasons=${reviewQueueTopReasons || 'n/a'}, actions=${reviewQueueActions || 'n/a'}`
               : '⏭️ skipped';
             const ocrReviewPackStatus = ocrReviewPackEnabled
               ? `input=${ocrReviewPackInput}, exported=${ocrExportedRecords}, review_candidates=${ocrReviewCandidateCount}, automation_ready=${ocrAutomationReadyCount}, readiness=${ocrAverageReadiness}, coverage=${ocrAverageCoverage}`
@@ -1358,6 +1521,9 @@ jobs:
             const assistantEvidenceLight = !assistantEvidenceEnabled
               ? '⚪'
               : (parseInt(assistantEvidenceTotalRecords || '0', 10) > 0 ? '🟢' : '🟡');
+            const reviewQueueLight = !reviewQueueEnabled
+              ? '⚪'
+              : (parseInt(reviewQueueCriticalPriority || '0', 10) > 0 ? '🔴' : (parseInt(reviewQueueHighPriority || '0', 10) > 0 ? '🟡' : '🟢'));
             const ocrReviewPackLight = !ocrReviewPackEnabled
               ? '⚪'
               : (parseInt(ocrReviewCandidateCount || '0', 10) > 0 ? '🟡' : '🟢');
@@ -1390,6 +1556,8 @@ jobs:
             | **Benchmark Recommendations** | ${benchmarkRecommendations || 'n/a'} |
             | **Assistant Evidence Report** | ${assistantEvidenceStatus} |
             | **Assistant Evidence Insights** | ${assistantEvidenceInsights} |
+            | **Review Queue Report** | ${reviewQueueStatus} |
+            | **Review Queue Insights** | ${reviewQueueInsights} |
             | **OCR Review Pack** | ${ocrReviewPackStatus} |
             | **OCR Review Insights** | ${ocrReviewPackInsights} |
 
@@ -1401,6 +1569,7 @@ jobs:
             | **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
             | **Benchmark Scorecard** | ${benchmarkLight} | ${benchmarkScorecardStatus} |
             | **Assistant Evidence Report** | ${assistantEvidenceLight} | ${assistantEvidenceStatus} |
+            | **Review Queue Report** | ${reviewQueueLight} | ${reviewQueueStatus} |
             | **OCR Review Pack** | ${ocrReviewPackLight} | ${ocrReviewPackStatus} |
 
             ### Quick Actions
