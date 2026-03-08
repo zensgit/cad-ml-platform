@@ -53,7 +53,11 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON" in env
     assert "BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY_JSON" in env
     assert "BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_FEEDBACK_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_FINETUNE_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY_JSON" in env
     assert "BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON" in env
+    assert "BENCHMARK_SCORECARD_QDRANT_READINESS_JSON" in env
     assert "BENCHMARK_SCORECARD_OUTPUT_JSON" in env
     assert "BENCHMARK_SCORECARD_OUTPUT_MD" in env
     assert "OCR_REVIEW_PACK_ENABLE" in env
@@ -88,7 +92,11 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_scorecard_enable" in dispatch_inputs
     assert "benchmark_scorecard_assistant_evidence_summary" in dispatch_inputs
     assert "benchmark_scorecard_review_queue_summary" in dispatch_inputs
+    assert "benchmark_scorecard_feedback_summary" in dispatch_inputs
+    assert "benchmark_scorecard_finetune_summary" in dispatch_inputs
+    assert "benchmark_scorecard_metric_train_summary" in dispatch_inputs
     assert "benchmark_scorecard_ocr_review_summary" in dispatch_inputs
+    assert "benchmark_scorecard_qdrant_readiness_summary" in dispatch_inputs
     assert "ocr_review_pack_enable" in dispatch_inputs
     assert "ocr_review_pack_input" in dispatch_inputs
     assert "assistant_evidence_report_enable" in dispatch_inputs
@@ -195,14 +203,17 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--history-summary" in benchmark_script
     assert "--assistant-evidence-summary" in benchmark_script
     assert "--review-queue-summary" in benchmark_script
+    assert "--feedback-summary" in benchmark_script
+    assert "--finetune-summary" in benchmark_script
+    assert "--metric-train-summary" in benchmark_script
     assert "--ocr-review-summary" in benchmark_script
+    assert "--qdrant-readiness-summary" in benchmark_script
     assert "overall_status=" in benchmark_script
     assert "assistant_status=" in benchmark_script
     assert "review_queue_status=" in benchmark_script
-    assert "review_queue_average_evidence=" in benchmark_script
-    assert "review_queue_evidence_ratio=" in benchmark_script
-    assert "review_queue_top_evidence_sources=" in benchmark_script
+    assert "feedback_flywheel_status=" in benchmark_script
     assert "ocr_status=" in benchmark_script
+    assert "qdrant_status=" in benchmark_script
 
     assistant_step = _get_step(
         workflow, "evaluate", "Build assistant evidence report (optional)"
@@ -223,15 +234,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_ENABLE" in review_queue_script
     assert "active_learning_review_queue_report_input" in review_queue_script
     assert "--top-k" in review_queue_script
-    assert "evidence_count_total=" in review_queue_script
-    assert "average_evidence_count=" in review_queue_script
-    assert "records_with_evidence_count=" in review_queue_script
-    assert "records_with_evidence_ratio=" in review_queue_script
     assert "operational_status=" in review_queue_script
     assert "top_feedback_priorities=" in review_queue_script
     assert "top_decision_sources=" in review_queue_script
     assert "top_review_reasons=" in review_queue_script
-    assert "top_evidence_sources=" in review_queue_script
 
     review_queue_summary_flag = (
         '--review-queue-summary '
@@ -297,10 +303,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark recommendations" in summary_script
     assert "Benchmark assistant status" in summary_script
     assert "Benchmark review queue status" in summary_script
-    assert "Benchmark review queue average evidence" in summary_script
-    assert "Benchmark review queue evidence ratio" in summary_script
-    assert "Benchmark review queue evidence sources" in summary_script
+    assert "Benchmark feedback flywheel status" in summary_script
     assert "Benchmark OCR status" in summary_script
+    assert "Benchmark Qdrant status" in summary_script
     assert "Assistant evidence input" in summary_script
     assert "Assistant evidence records" in summary_script
     assert "Assistant evidence items" in summary_script
@@ -310,14 +315,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Active-learning review queue input" in summary_script
     assert "Active-learning review queue total" in summary_script
     assert "Active-learning review queue status" in summary_script
-    assert "Active-learning review queue evidence total" in summary_script
-    assert "Active-learning review queue average evidence" in summary_script
-    assert "Active-learning review queue evidence records" in summary_script
-    assert "Active-learning review queue evidence ratio" in summary_script
     assert "Active-learning review queue priorities" in summary_script
     assert "Active-learning review queue decision sources" in summary_script
     assert "Active-learning review queue review reasons" in summary_script
-    assert "Active-learning review queue evidence sources" in summary_script
     assert "OCR review pack input" in summary_script
     assert "OCR review pack exported" in summary_script
     assert "OCR review priorities" in summary_script
@@ -342,30 +342,22 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Recommendations" in pr_comment_script
     assert "benchmarkAssistantStatus" in pr_comment_script
     assert "benchmarkReviewQueueStatus" in pr_comment_script
-    assert "benchmarkReviewQueueAverageEvidence" in pr_comment_script
-    assert "benchmarkReviewQueueEvidenceRatio" in pr_comment_script
-    assert "benchmarkReviewQueueTopEvidenceSources" in pr_comment_script
+    assert "benchmarkFeedbackFlywheelStatus" in pr_comment_script
     assert "benchmarkOcrStatus" in pr_comment_script
-    assert "Benchmark Review Queue Evidence" in pr_comment_script
+    assert "benchmarkQdrantStatus" in pr_comment_script
     assert "assistant=${benchmarkAssistantStatus}" in pr_comment_script
     assert "review_queue=${benchmarkReviewQueueStatus}" in pr_comment_script
-    assert "review_queue_avg_evidence=${benchmarkReviewQueueAverageEvidence}" in pr_comment_script
-    assert "review_queue_evidence_ratio=${benchmarkReviewQueueEvidenceRatio}" in pr_comment_script
+    assert "feedback_flywheel=${benchmarkFeedbackFlywheelStatus}" in pr_comment_script
     assert "ocr=${benchmarkOcrStatus}" in pr_comment_script
+    assert "qdrant=${benchmarkQdrantStatus}" in pr_comment_script
+    assert "Benchmark Feedback Flywheel" in pr_comment_script
     assert "assistantEvidenceEnabled" in pr_comment_script
     assert "Assistant Evidence Report" in pr_comment_script
     assert "Assistant Evidence Insights" in pr_comment_script
     assert "activeLearningReviewQueueEnabled" in pr_comment_script
     assert "Active-Learning Review Queue" in pr_comment_script
     assert "Active-Learning Review Queue Insights" in pr_comment_script
-    assert "activeLearningReviewQueueEvidenceCountTotal" in pr_comment_script
-    assert "activeLearningReviewQueueAverageEvidence" in pr_comment_script
-    assert "activeLearningReviewQueueRecordsWithEvidence" in pr_comment_script
-    assert "activeLearningReviewQueueEvidenceRatio" in pr_comment_script
-    assert "activeLearningReviewQueueTopEvidenceSources" in pr_comment_script
     assert "activeLearningReviewQueueTopDecisionSources" in pr_comment_script
-    assert "evidence_total=${activeLearningReviewQueueEvidenceCountTotal}" in pr_comment_script
-    assert "evidence_sources=${activeLearningReviewQueueTopEvidenceSources" in pr_comment_script
     assert "ocrReviewPackEnabled" in pr_comment_script
     assert "OCR Review Pack" in pr_comment_script
     assert "OCR Review Insights" in pr_comment_script

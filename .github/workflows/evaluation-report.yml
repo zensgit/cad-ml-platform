@@ -78,8 +78,24 @@ on:
         description: 'Optional benchmark scorecard review queue summary JSON'
         required: false
         default: ''
+      benchmark_scorecard_feedback_summary:
+        description: 'Optional benchmark scorecard feedback summary JSON'
+        required: false
+        default: ''
+      benchmark_scorecard_finetune_summary:
+        description: 'Optional benchmark scorecard fine-tune summary JSON'
+        required: false
+        default: ''
+      benchmark_scorecard_metric_train_summary:
+        description: 'Optional benchmark scorecard metric-train summary JSON'
+        required: false
+        default: ''
       benchmark_scorecard_ocr_review_summary:
         description: 'Optional benchmark scorecard OCR review summary JSON'
+        required: false
+        default: ''
+      benchmark_scorecard_qdrant_readiness_summary:
+        description: 'Optional benchmark scorecard Qdrant readiness summary JSON'
         required: false
         default: ''
       ocr_review_pack_enable:
@@ -160,7 +176,11 @@ env:
   BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_FEEDBACK_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_FEEDBACK_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_FINETUNE_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_FINETUNE_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON }}
+  BENCHMARK_SCORECARD_QDRANT_READINESS_JSON: ${{ vars.BENCHMARK_SCORECARD_QDRANT_READINESS_JSON }}
   BENCHMARK_SCORECARD_OUTPUT_JSON: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_scorecard.json' }}
   BENCHMARK_SCORECARD_OUTPUT_MD: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_scorecard.md' }}
   OCR_REVIEW_PACK_ENABLE: ${{ vars.OCR_REVIEW_PACK_ENABLE || 'false' }}
@@ -737,18 +757,6 @@ jobs:
             f.write(
                 f"automation_ready_count={payload.get('automation_ready_count', 0)}\n"
             )
-            f.write(f"evidence_count_total={payload.get('evidence_count_total', 0)}\n")
-            f.write(
-                f"average_evidence_count={payload.get('average_evidence_count', 0)}\n"
-            )
-            f.write(
-                "records_with_evidence_count="
-                f"{payload.get('records_with_evidence_count', 0)}\n"
-            )
-            f.write(
-                "records_with_evidence_ratio="
-                f"{payload.get('records_with_evidence_ratio', 0)}\n"
-            )
             f.write(f"critical_ratio={payload.get('critical_ratio', 0)}\n")
             f.write(f"high_ratio={payload.get('high_ratio', 0)}\n")
             f.write(
@@ -768,10 +776,6 @@ jobs:
             f.write(
                 "top_review_reasons="
                 f"{compact_named(payload.get('top_review_reasons'))}\n"
-            )
-            f.write(
-                "top_evidence_sources="
-                f"{compact_named(payload.get('top_evidence_sources'))}\n"
             )
         PY
 
@@ -820,12 +824,20 @@ jobs:
         add_if_exists --migration-summary "${BENCHMARK_SCORECARD_MIGRATION_SUMMARY_JSON:-}"
         add_if_exists --assistant-evidence-summary "${{ github.event.inputs.benchmark_scorecard_assistant_evidence_summary || '' }}"
         add_if_exists --review-queue-summary "${{ github.event.inputs.benchmark_scorecard_review_queue_summary || '' }}"
+        add_if_exists --feedback-summary "${{ github.event.inputs.benchmark_scorecard_feedback_summary || '' }}"
+        add_if_exists --finetune-summary "${{ github.event.inputs.benchmark_scorecard_finetune_summary || '' }}"
+        add_if_exists --metric-train-summary "${{ github.event.inputs.benchmark_scorecard_metric_train_summary || '' }}"
         add_if_exists --ocr-review-summary "${{ github.event.inputs.benchmark_scorecard_ocr_review_summary || '' }}"
         add_if_exists --assistant-evidence-summary "${BENCHMARK_SCORECARD_ASSISTANT_EVIDENCE_SUMMARY_JSON:-}"
         add_if_exists --review-queue-summary "${{ steps.active_learning_review_queue_report.outputs.output_json || '' }}"
         add_if_exists --review-queue-summary "${BENCHMARK_SCORECARD_REVIEW_QUEUE_SUMMARY_JSON:-}"
+        add_if_exists --feedback-summary "${BENCHMARK_SCORECARD_FEEDBACK_SUMMARY_JSON:-}"
+        add_if_exists --finetune-summary "${BENCHMARK_SCORECARD_FINETUNE_SUMMARY_JSON:-}"
+        add_if_exists --metric-train-summary "${BENCHMARK_SCORECARD_METRIC_TRAIN_SUMMARY_JSON:-}"
         add_if_exists --ocr-review-summary "${{ steps.ocr_review_pack.outputs.output_json || '' }}"
         add_if_exists --ocr-review-summary "${BENCHMARK_SCORECARD_OCR_REVIEW_SUMMARY_JSON:-}"
+        add_if_exists --qdrant-readiness-summary "${{ github.event.inputs.benchmark_scorecard_qdrant_readiness_summary || '' }}"
+        add_if_exists --qdrant-readiness-summary "${BENCHMARK_SCORECARD_QDRANT_READINESS_JSON:-}"
 
         "${CMD[@]}"
 
@@ -848,7 +860,9 @@ jobs:
         governance = components.get("migration_governance") or {}
         assistant = components.get("assistant_explainability") or {}
         review_queue = components.get("review_queue") or {}
+        feedback_flywheel = components.get("feedback_flywheel") or {}
         ocr_review = components.get("ocr_review") or {}
+        qdrant = components.get("qdrant_backend") or {}
         recommendations = payload.get("recommendations") or []
         compact_recommendations = "; ".join(
             str(item).strip() for item in recommendations[:3] if str(item).strip()
@@ -863,23 +877,10 @@ jobs:
             f.write(f"assistant_status={assistant.get('status', 'unknown')}\n")
             f.write(f"review_queue_status={review_queue.get('status', 'unknown')}\n")
             f.write(
-                "review_queue_average_evidence="
-                f"{review_queue.get('average_evidence_count', 0)}\n"
-            )
-            f.write(
-                "review_queue_evidence_ratio="
-                f"{review_queue.get('records_with_evidence_ratio', 0)}\n"
-            )
-            top_evidence_sources = review_queue.get("top_evidence_sources") or []
-            compact_evidence_sources = "; ".join(
-                f"{str(item.get('name') or '').strip()}({item.get('count')})"
-                for item in top_evidence_sources[:5]
-                if isinstance(item, dict) and str(item.get("name") or "").strip()
-            )
-            f.write(
-                f"review_queue_top_evidence_sources={compact_evidence_sources}\n"
+                f"feedback_flywheel_status={feedback_flywheel.get('status', 'unknown')}\n"
             )
             f.write(f"ocr_status={ocr_review.get('status', 'unknown')}\n")
+            f.write(f"qdrant_status={qdrant.get('status', 'unknown')}\n")
             f.write(f"recommendations={compact_recommendations}\n")
         PY
 
@@ -1376,10 +1377,9 @@ jobs:
           echo "- Benchmark governance status: ${{ steps.benchmark_scorecard.outputs.governance_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark assistant status: ${{ steps.benchmark_scorecard.outputs.assistant_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark review queue status: ${{ steps.benchmark_scorecard.outputs.review_queue_status }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Benchmark review queue average evidence: ${{ steps.benchmark_scorecard.outputs.review_queue_average_evidence }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Benchmark review queue evidence ratio: ${{ steps.benchmark_scorecard.outputs.review_queue_evidence_ratio }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Benchmark review queue evidence sources: ${{ steps.benchmark_scorecard.outputs.review_queue_top_evidence_sources }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark feedback flywheel status: ${{ steps.benchmark_scorecard.outputs.feedback_flywheel_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark OCR status: ${{ steps.benchmark_scorecard.outputs.ocr_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark Qdrant status: ${{ steps.benchmark_scorecard.outputs.qdrant_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark recommendations: ${{ steps.benchmark_scorecard.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark scorecard artifact: ${{ steps.benchmark_scorecard.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
@@ -1407,10 +1407,6 @@ jobs:
           echo "- Active-learning review queue critical: ${{ steps.active_learning_review_queue_report.outputs.critical_count }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue high: ${{ steps.active_learning_review_queue_report.outputs.high_count }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue automation ready: ${{ steps.active_learning_review_queue_report.outputs.automation_ready_count }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Active-learning review queue evidence total: ${{ steps.active_learning_review_queue_report.outputs.evidence_count_total }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Active-learning review queue average evidence: ${{ steps.active_learning_review_queue_report.outputs.average_evidence_count }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Active-learning review queue evidence records: ${{ steps.active_learning_review_queue_report.outputs.records_with_evidence_count }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Active-learning review queue evidence ratio: ${{ steps.active_learning_review_queue_report.outputs.records_with_evidence_ratio }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue critical ratio: ${{ steps.active_learning_review_queue_report.outputs.critical_ratio }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue high ratio: ${{ steps.active_learning_review_queue_report.outputs.high_ratio }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue automation ratio: ${{ steps.active_learning_review_queue_report.outputs.automation_ready_ratio }}" >> $GITHUB_STEP_SUMMARY
@@ -1418,7 +1414,6 @@ jobs:
           echo "- Active-learning review queue priorities: ${{ steps.active_learning_review_queue_report.outputs.top_feedback_priorities }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue decision sources: ${{ steps.active_learning_review_queue_report.outputs.top_decision_sources }}" >> $GITHUB_STEP_SUMMARY
           echo "- Active-learning review queue review reasons: ${{ steps.active_learning_review_queue_report.outputs.top_review_reasons }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Active-learning review queue evidence sources: ${{ steps.active_learning_review_queue_report.outputs.top_evidence_sources }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Active-learning review queue report: skipped (ACTIVE_LEARNING_REVIEW_QUEUE_REPORT_ENABLE!=true or input missing)" >> $GITHUB_STEP_SUMMARY
         fi
@@ -1502,10 +1497,9 @@ jobs:
             const benchmarkGovernanceStatus = '${{ steps.benchmark_scorecard.outputs.governance_status }}';
             const benchmarkAssistantStatus = '${{ steps.benchmark_scorecard.outputs.assistant_status }}';
             const benchmarkReviewQueueStatus = '${{ steps.benchmark_scorecard.outputs.review_queue_status }}';
-            const benchmarkReviewQueueAverageEvidence = '${{ steps.benchmark_scorecard.outputs.review_queue_average_evidence }}';
-            const benchmarkReviewQueueEvidenceRatio = '${{ steps.benchmark_scorecard.outputs.review_queue_evidence_ratio }}';
-            const benchmarkReviewQueueTopEvidenceSources = '${{ steps.benchmark_scorecard.outputs.review_queue_top_evidence_sources }}';
+            const benchmarkFeedbackFlywheelStatus = '${{ steps.benchmark_scorecard.outputs.feedback_flywheel_status }}';
             const benchmarkOcrStatus = '${{ steps.benchmark_scorecard.outputs.ocr_status }}';
+            const benchmarkQdrantStatus = '${{ steps.benchmark_scorecard.outputs.qdrant_status }}';
             const benchmarkRecommendations = '${{ steps.benchmark_scorecard.outputs.recommendations }}';
             const assistantEvidenceEnabled = '${{ steps.assistant_evidence_report.outputs.enabled }}' === 'true';
             const assistantEvidenceInput = '${{ steps.assistant_evidence_report.outputs.input_path }}';
@@ -1526,10 +1520,6 @@ jobs:
             const activeLearningReviewQueueCriticalCount = '${{ steps.active_learning_review_queue_report.outputs.critical_count }}';
             const activeLearningReviewQueueHighCount = '${{ steps.active_learning_review_queue_report.outputs.high_count }}';
             const activeLearningReviewQueueAutomationReadyCount = '${{ steps.active_learning_review_queue_report.outputs.automation_ready_count }}';
-            const activeLearningReviewQueueEvidenceCountTotal = '${{ steps.active_learning_review_queue_report.outputs.evidence_count_total }}';
-            const activeLearningReviewQueueAverageEvidence = '${{ steps.active_learning_review_queue_report.outputs.average_evidence_count }}';
-            const activeLearningReviewQueueRecordsWithEvidence = '${{ steps.active_learning_review_queue_report.outputs.records_with_evidence_count }}';
-            const activeLearningReviewQueueEvidenceRatio = '${{ steps.active_learning_review_queue_report.outputs.records_with_evidence_ratio }}';
             const activeLearningReviewQueueCriticalRatio = '${{ steps.active_learning_review_queue_report.outputs.critical_ratio }}';
             const activeLearningReviewQueueHighRatio = '${{ steps.active_learning_review_queue_report.outputs.high_ratio }}';
             const activeLearningReviewQueueAutomationReadyRatio = '${{ steps.active_learning_review_queue_report.outputs.automation_ready_ratio }}';
@@ -1537,7 +1527,6 @@ jobs:
             const activeLearningReviewQueueTopPriorities = '${{ steps.active_learning_review_queue_report.outputs.top_feedback_priorities }}';
             const activeLearningReviewQueueTopDecisionSources = '${{ steps.active_learning_review_queue_report.outputs.top_decision_sources }}';
             const activeLearningReviewQueueTopReviewReasons = '${{ steps.active_learning_review_queue_report.outputs.top_review_reasons }}';
-            const activeLearningReviewQueueTopEvidenceSources = '${{ steps.active_learning_review_queue_report.outputs.top_evidence_sources }}';
             const ocrReviewPackEnabled = '${{ steps.ocr_review_pack.outputs.enabled }}' === 'true';
             const ocrReviewPackInput = '${{ steps.ocr_review_pack.outputs.input_path }}';
             const ocrExportedRecords = '${{ steps.ocr_review_pack.outputs.exported_records }}';
@@ -1569,10 +1558,7 @@ jobs:
               ? `runs=${sweepTotalRuns}, failed=${sweepFailedRuns}, best=${sweepBestRecipe}@${sweepBestSeed}, env=${sweepRecommendedEnv}, script=${sweepBestRunScript}`
               : '⏭️ skipped';
             const benchmarkScorecardStatus = benchmarkScorecardEnabled
-              ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}, assistant=${benchmarkAssistantStatus}, review_queue=${benchmarkReviewQueueStatus}, review_queue_avg_evidence=${benchmarkReviewQueueAverageEvidence}, review_queue_evidence_ratio=${benchmarkReviewQueueEvidenceRatio}, ocr=${benchmarkOcrStatus}`
-              : '⏭️ skipped';
-            const benchmarkReviewQueueEvidenceStatus = benchmarkScorecardEnabled
-              ? `sources=${benchmarkReviewQueueTopEvidenceSources || 'n/a'}`
+              ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}, assistant=${benchmarkAssistantStatus}, review_queue=${benchmarkReviewQueueStatus}, feedback_flywheel=${benchmarkFeedbackFlywheelStatus}, ocr=${benchmarkOcrStatus}, qdrant=${benchmarkQdrantStatus}`
               : '⏭️ skipped';
             const assistantEvidenceStatus = assistantEvidenceEnabled
               ? `input=${assistantEvidenceInput}, records=${assistantEvidenceTotalRecords}, evidence_items=${assistantEvidenceTotalItems}, avg=${assistantEvidenceAverageCount}, evidence_cov=${assistantEvidenceCoverage}, decision_cov=${assistantDecisionPathCoverage}, source_cov=${assistantSourceSignalCoverage}`
@@ -1581,10 +1567,10 @@ jobs:
               ? `kinds=${assistantTopRecordKinds || 'n/a'}, evidence=${assistantTopEvidenceTypes || 'n/a'}, sources=${assistantTopStructuredSources || 'n/a'}, missing=${assistantTopMissingFields || 'n/a'}`
               : '⏭️ skipped';
             const activeLearningReviewQueueStatusLine = activeLearningReviewQueueEnabled
-              ? `input=${activeLearningReviewQueueInput}, total=${activeLearningReviewQueueTotal}, status=${activeLearningReviewQueueStatus}, critical=${activeLearningReviewQueueCriticalCount}, high=${activeLearningReviewQueueHighCount}, automation_ready=${activeLearningReviewQueueAutomationReadyCount}, evidence_total=${activeLearningReviewQueueEvidenceCountTotal}, avg_evidence=${activeLearningReviewQueueAverageEvidence}, evidence_records=${activeLearningReviewQueueRecordsWithEvidence}, evidence_ratio=${activeLearningReviewQueueEvidenceRatio}, critical_ratio=${activeLearningReviewQueueCriticalRatio}, high_ratio=${activeLearningReviewQueueHighRatio}, automation_ratio=${activeLearningReviewQueueAutomationReadyRatio}`
+              ? `input=${activeLearningReviewQueueInput}, total=${activeLearningReviewQueueTotal}, status=${activeLearningReviewQueueStatus}, critical=${activeLearningReviewQueueCriticalCount}, high=${activeLearningReviewQueueHighCount}, automation_ready=${activeLearningReviewQueueAutomationReadyCount}, critical_ratio=${activeLearningReviewQueueCriticalRatio}, high_ratio=${activeLearningReviewQueueHighRatio}, automation_ratio=${activeLearningReviewQueueAutomationReadyRatio}`
               : '⏭️ skipped';
             const activeLearningReviewQueueInsights = activeLearningReviewQueueEnabled
-              ? `sample_types=${activeLearningReviewQueueTopSampleTypes || 'n/a'}, priorities=${activeLearningReviewQueueTopPriorities || 'n/a'}, sources=${activeLearningReviewQueueTopDecisionSources || 'n/a'}, reasons=${activeLearningReviewQueueTopReviewReasons || 'n/a'}, evidence_sources=${activeLearningReviewQueueTopEvidenceSources || 'n/a'}`
+              ? `sample_types=${activeLearningReviewQueueTopSampleTypes || 'n/a'}, priorities=${activeLearningReviewQueueTopPriorities || 'n/a'}, sources=${activeLearningReviewQueueTopDecisionSources || 'n/a'}, reasons=${activeLearningReviewQueueTopReviewReasons || 'n/a'}`
               : '⏭️ skipped';
             const ocrReviewPackStatus = ocrReviewPackEnabled
               ? `input=${ocrReviewPackInput}, exported=${ocrExportedRecords}, review_candidates=${ocrReviewCandidateCount}, automation_ready=${ocrAutomationReadyCount}, readiness=${ocrAverageReadiness}, coverage=${ocrAverageCoverage}`
@@ -1642,8 +1628,8 @@ jobs:
             | **Graph2D Review Gate Strict** | ${reviewGateStrictStatus} |
             | **Graph2D Train Sweep** | ${trainSweepStatus} |
             | **Benchmark Scorecard** | ${benchmarkScorecardStatus} |
-            | **Benchmark Review Queue Evidence** | ${benchmarkReviewQueueEvidenceStatus} |
             | **Benchmark Recommendations** | ${benchmarkRecommendations || 'n/a'} |
+            | **Benchmark Feedback Flywheel** | ${benchmarkFeedbackFlywheelStatus || 'n/a'} |
             | **Assistant Evidence Report** | ${assistantEvidenceStatus} |
             | **Assistant Evidence Insights** | ${assistantEvidenceInsights} |
             | **Active-Learning Review Queue** | ${activeLearningReviewQueueStatusLine} |
