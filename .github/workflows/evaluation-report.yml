@@ -314,6 +314,10 @@ on:
         description: 'Optional benchmark operator adoption feedback flywheel JSON'
         required: false
         default: ''
+      benchmark_operator_adoption_knowledge_drift_json:
+        description: 'Optional benchmark operator adoption knowledge drift JSON'
+        required: false
+        default: ''
       ocr_review_pack_enable:
         description: 'Override: enable OCR review-pack export (true/false)'
         required: false
@@ -483,6 +487,7 @@ env:
   BENCHMARK_OPERATOR_ADOPTION_RELEASE_RUNBOOK_JSON: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_RELEASE_RUNBOOK_JSON }}
   BENCHMARK_OPERATOR_ADOPTION_REVIEW_QUEUE_JSON: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_REVIEW_QUEUE_JSON }}
   BENCHMARK_OPERATOR_ADOPTION_FEEDBACK_FLYWHEEL_JSON: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_FEEDBACK_FLYWHEEL_JSON }}
+  BENCHMARK_OPERATOR_ADOPTION_KNOWLEDGE_DRIFT_JSON: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_KNOWLEDGE_DRIFT_JSON }}
   BENCHMARK_OPERATOR_ADOPTION_OUTPUT_JSON: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_operator_adoption.json' }}
   BENCHMARK_OPERATOR_ADOPTION_OUTPUT_MD: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_operator_adoption.md' }}
   OCR_REVIEW_PACK_ENABLE: ${{ vars.OCR_REVIEW_PACK_ENABLE || 'false' }}
@@ -1765,6 +1770,7 @@ jobs:
         drift = payload.get("knowledge_drift") or {}
         drift_recommendations = payload.get("knowledge_drift_recommendations") or []
         drift_changes = payload.get("knowledge_drift_component_changes") or []
+        operator_drift = payload.get("operator_adoption_knowledge_drift") or {}
 
         def compact(items):
             return "; ".join(str(item).strip() for item in items[:3] if str(item).strip())
@@ -1809,6 +1815,14 @@ jobs:
                     ]
                 )
                 + "\n"
+            )
+            f.write(
+                "operator_adoption_knowledge_drift_status="
+                f"{operator_drift.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "operator_adoption_knowledge_drift_summary="
+                f"{compact([operator_drift.get('summary')])}\n"
             )
             f.write(f"blockers={compact(blockers)}\n")
             f.write(f"recommendations={compact(recommendations)}\n")
@@ -1902,6 +1916,7 @@ jobs:
         drift = payload.get("knowledge_drift") or {}
         drift_recommendations = payload.get("knowledge_drift_recommendations") or []
         drift_changes = payload.get("knowledge_drift_component_changes") or []
+        operator_drift = payload.get("operator_adoption_knowledge_drift") or {}
 
         def compact(items):
             return "; ".join(str(item).strip() for item in items[:3] if str(item).strip())
@@ -1947,6 +1962,14 @@ jobs:
                     ]
                 )
                 + "\n"
+            )
+            f.write(
+                "operator_adoption_knowledge_drift_status="
+                f"{operator_drift.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "operator_adoption_knowledge_drift_summary="
+                f"{compact([operator_drift.get('summary')])}\n"
             )
             f.write(f"knowledge_focus_area_count={len(focus_areas)}\n")
             f.write(
@@ -2056,6 +2079,7 @@ jobs:
         review = payload.get("review_signals") or []
         focus_areas = payload.get("knowledge_focus_areas") or []
         drift = payload.get("knowledge_drift") or {}
+        operator_drift = payload.get("operator_adoption_knowledge_drift") or {}
 
         def compact(items):
             return "; ".join(str(item).strip() for item in items[:3] if str(item).strip())
@@ -2096,6 +2120,14 @@ jobs:
             f.write(
                 "knowledge_drift_summary="
                 f"{compact([payload.get('knowledge_drift_summary')])}\n"
+            )
+            f.write(
+                "operator_adoption_knowledge_drift_status="
+                f"{operator_drift.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "operator_adoption_knowledge_drift_summary="
+                f"{compact([operator_drift.get('summary')])}\n"
             )
             f.write(f"knowledge_focus_area_count={len(focus_areas)}\n")
             f.write(
@@ -2244,115 +2276,13 @@ jobs:
                 "knowledge_drift_summary="
                 f"{compact([payload.get('knowledge_drift_summary')])}\n"
             )
-        PY
-
-    - name: Build benchmark operator adoption (optional)
-      id: benchmark_operator_adoption
-      continue-on-error: true
-      run: |
-        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_operator_adoption_enable || '' }}"
-        ENABLE_VALUE="${BENCHMARK_OPERATOR_ADOPTION_ENABLE:-false}"
-        if [[ -n "$ENABLE_OVERRIDE" ]]; then
-          ENABLE_VALUE="$ENABLE_OVERRIDE"
-        fi
-        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
-
-        OUTPUT_JSON="${BENCHMARK_OPERATOR_ADOPTION_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_operator_adoption.json}"
-        OUTPUT_MD="${BENCHMARK_OPERATOR_ADOPTION_OUTPUT_MD:-reports/history_sequence_eval/benchmark_operator_adoption.md}"
-        mkdir -p "$(dirname "$OUTPUT_JSON")"
-        mkdir -p "$(dirname "$OUTPUT_MD")"
-
-        CMD=(
-          python3 scripts/export_benchmark_operator_adoption.py
-          --title "${BENCHMARK_OPERATOR_ADOPTION_TITLE:-Benchmark Operator Adoption}"
-          --output-json "$OUTPUT_JSON"
-          --output-md "$OUTPUT_MD"
-        )
-        INPUT_COUNT=0
-
-        add_if_exists() {
-          local flag="$1"
-          local candidate="$2"
-          if [[ -n "$candidate" && -f "$candidate" ]]; then
-            CMD+=("$flag" "$candidate")
-            INPUT_COUNT=$((INPUT_COUNT + 1))
-          fi
-        }
-
-        add_if_exists --benchmark-release-decision "${{ github.event.inputs.benchmark_operator_adoption_release_decision_json || '' }}"
-        add_if_exists --benchmark-release-runbook "${{ github.event.inputs.benchmark_operator_adoption_release_runbook_json || '' }}"
-        add_if_exists --review-queue "${{ github.event.inputs.benchmark_operator_adoption_review_queue_json || '' }}"
-        add_if_exists --feedback-flywheel "${{ github.event.inputs.benchmark_operator_adoption_feedback_flywheel_json || '' }}"
-        add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
-        add_if_exists --benchmark-release-decision "${BENCHMARK_OPERATOR_ADOPTION_RELEASE_DECISION_JSON:-}"
-        add_if_exists --benchmark-release-runbook "${{ steps.benchmark_release_runbook.outputs.output_json || '' }}"
-        add_if_exists --benchmark-release-runbook "${BENCHMARK_OPERATOR_ADOPTION_RELEASE_RUNBOOK_JSON:-}"
-        add_if_exists --review-queue "${{ steps.active_learning_review_queue_report.outputs.output_json || '' }}"
-        add_if_exists --review-queue "${BENCHMARK_OPERATOR_ADOPTION_REVIEW_QUEUE_JSON:-}"
-        add_if_exists --feedback-flywheel "${{ steps.feedback_flywheel_benchmark.outputs.output_json || '' }}"
-        add_if_exists --feedback-flywheel "${BENCHMARK_OPERATOR_ADOPTION_FEEDBACK_FLYWHEEL_JSON:-}"
-
-        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
-          if [[ "$INPUT_COUNT" -eq 0 ]]; then
-            echo "enabled=false" >> $GITHUB_OUTPUT
-            echo "BENCHMARK_OPERATOR_ADOPTION_ENABLE is not true and no inputs found; skip."
-            exit 0
-          fi
-        fi
-
-        if [[ "$INPUT_COUNT" -eq 0 ]]; then
-          echo "enabled=false" >> $GITHUB_OUTPUT
-          echo "No benchmark operator adoption inputs found; skip."
-          exit 0
-        fi
-
-        "${CMD[@]}"
-
-        echo "enabled=true" >> $GITHUB_OUTPUT
-        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
-        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
-        python3 - <<'PY'
-        import json
-        import os
-        from pathlib import Path
-
-        payload = json.loads(
-            Path(os.environ["BENCHMARK_OPERATOR_ADOPTION_OUTPUT_JSON"]).read_text(
-                encoding="utf-8"
-            )
-        )
-
-        def compact(items):
-            return "; ".join(str(item).strip() for item in items[:4] if str(item).strip())
-
-        statuses = payload.get("statuses") or {}
-        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
             f.write(
-                f"adoption_readiness={payload.get('adoption_readiness', 'unknown')}\n"
-            )
-            f.write(f"operator_mode={payload.get('operator_mode', 'unknown')}\n")
-            f.write(f"next_action={payload.get('next_action', 'unknown')}\n")
-            f.write(
-                f"automation_ready={str(payload.get('automation_ready', False)).lower()}\n"
-            )
-            f.write(f"freeze_ready={str(payload.get('freeze_ready', False)).lower()}\n")
-            f.write(
-                f"release_status={statuses.get('release_decision', 'unknown')}\n"
+                "operator_adoption_knowledge_drift_status="
+                f"{operator_adoption.get('knowledge_drift_status', 'unknown')}\n"
             )
             f.write(
-                f"runbook_status={statuses.get('release_runbook', 'unknown')}\n"
-            )
-            f.write(
-                f"review_queue_status={statuses.get('review_queue', 'unknown')}\n"
-            )
-            f.write(
-                f"feedback_status={statuses.get('feedback_flywheel', 'unknown')}\n"
-            )
-            f.write(
-                f"blocking_signals={compact(payload.get('blocking_signals') or [])}\n"
-            )
-            f.write(
-                f"recommended_actions={compact(payload.get('recommended_actions') or [])}\n"
+                "operator_adoption_knowledge_drift_summary="
+                f"{compact([operator_adoption.get('knowledge_drift_summary')])}\n"
             )
         PY
 
@@ -2393,6 +2323,7 @@ jobs:
         add_if_exists --benchmark-release-runbook "${{ github.event.inputs.benchmark_operator_adoption_release_runbook_json || '' }}"
         add_if_exists --review-queue "${{ github.event.inputs.benchmark_operator_adoption_review_queue_json || '' }}"
         add_if_exists --feedback-flywheel "${{ github.event.inputs.benchmark_operator_adoption_feedback_flywheel_json || '' }}"
+        add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_operator_adoption_knowledge_drift_json || '' }}"
         add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
         add_if_exists --benchmark-release-decision "${BENCHMARK_OPERATOR_ADOPTION_RELEASE_DECISION_JSON:-}"
         add_if_exists --benchmark-release-runbook "${{ steps.benchmark_release_runbook.outputs.output_json || '' }}"
@@ -2401,6 +2332,8 @@ jobs:
         add_if_exists --review-queue "${BENCHMARK_OPERATOR_ADOPTION_REVIEW_QUEUE_JSON:-}"
         add_if_exists --feedback-flywheel "${{ steps.feedback_flywheel_benchmark.outputs.output_json || '' }}"
         add_if_exists --feedback-flywheel "${BENCHMARK_OPERATOR_ADOPTION_FEEDBACK_FLYWHEEL_JSON:-}"
+        add_if_exists --benchmark-knowledge-drift "${{ steps.benchmark_knowledge_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-drift "${BENCHMARK_OPERATOR_ADOPTION_KNOWLEDGE_DRIFT_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -2436,6 +2369,7 @@ jobs:
             return "; ".join(str(item).strip() for item in items[:4] if str(item).strip())
 
         statuses = payload.get("statuses") or {}
+        drift = payload.get("knowledge_drift") or {}
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
             f.write(
                 f"adoption_readiness={payload.get('adoption_readiness', 'unknown')}\n"
@@ -2463,6 +2397,130 @@ jobs:
             )
             f.write(
                 f"recommended_actions={compact(payload.get('recommended_actions') or [])}\n"
+            )
+            f.write(f"knowledge_drift_status={drift.get('status', 'unknown')}\n")
+            f.write(
+                "knowledge_drift_summary="
+                f"{compact([payload.get('knowledge_drift_summary')])}\n"
+            )
+        PY
+
+    - name: Build benchmark operator adoption (optional)
+      id: benchmark_operator_adoption
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_operator_adoption_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_OPERATOR_ADOPTION_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_OPERATOR_ADOPTION_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_operator_adoption.json}"
+        OUTPUT_MD="${BENCHMARK_OPERATOR_ADOPTION_OUTPUT_MD:-reports/history_sequence_eval/benchmark_operator_adoption.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_operator_adoption.py
+          --title "${BENCHMARK_OPERATOR_ADOPTION_TITLE:-Benchmark Operator Adoption}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --benchmark-release-decision "${{ github.event.inputs.benchmark_operator_adoption_release_decision_json || '' }}"
+        add_if_exists --benchmark-release-runbook "${{ github.event.inputs.benchmark_operator_adoption_release_runbook_json || '' }}"
+        add_if_exists --review-queue "${{ github.event.inputs.benchmark_operator_adoption_review_queue_json || '' }}"
+        add_if_exists --feedback-flywheel "${{ github.event.inputs.benchmark_operator_adoption_feedback_flywheel_json || '' }}"
+        add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_operator_adoption_knowledge_drift_json || '' }}"
+        add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
+        add_if_exists --benchmark-release-decision "${BENCHMARK_OPERATOR_ADOPTION_RELEASE_DECISION_JSON:-}"
+        add_if_exists --benchmark-release-runbook "${{ steps.benchmark_release_runbook.outputs.output_json || '' }}"
+        add_if_exists --benchmark-release-runbook "${BENCHMARK_OPERATOR_ADOPTION_RELEASE_RUNBOOK_JSON:-}"
+        add_if_exists --review-queue "${{ steps.active_learning_review_queue_report.outputs.output_json || '' }}"
+        add_if_exists --review-queue "${BENCHMARK_OPERATOR_ADOPTION_REVIEW_QUEUE_JSON:-}"
+        add_if_exists --feedback-flywheel "${{ steps.feedback_flywheel_benchmark.outputs.output_json || '' }}"
+        add_if_exists --feedback-flywheel "${BENCHMARK_OPERATOR_ADOPTION_FEEDBACK_FLYWHEEL_JSON:-}"
+        add_if_exists --benchmark-knowledge-drift "${{ steps.benchmark_knowledge_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-drift "${BENCHMARK_OPERATOR_ADOPTION_KNOWLEDGE_DRIFT_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_OPERATOR_ADOPTION_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark operator adoption inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["BENCHMARK_OPERATOR_ADOPTION_OUTPUT_JSON"]).read_text(
+                encoding="utf-8"
+            )
+        )
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:4] if str(item).strip())
+
+        statuses = payload.get("statuses") or {}
+        drift = payload.get("knowledge_drift") or {}
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(
+                f"adoption_readiness={payload.get('adoption_readiness', 'unknown')}\n"
+            )
+            f.write(f"operator_mode={payload.get('operator_mode', 'unknown')}\n")
+            f.write(f"next_action={payload.get('next_action', 'unknown')}\n")
+            f.write(
+                f"automation_ready={str(payload.get('automation_ready', False)).lower()}\n"
+            )
+            f.write(f"freeze_ready={str(payload.get('freeze_ready', False)).lower()}\n")
+            f.write(
+                f"release_status={statuses.get('release_decision', 'unknown')}\n"
+            )
+            f.write(
+                f"runbook_status={statuses.get('release_runbook', 'unknown')}\n"
+            )
+            f.write(
+                f"review_queue_status={statuses.get('review_queue', 'unknown')}\n"
+            )
+            f.write(
+                f"feedback_status={statuses.get('feedback_flywheel', 'unknown')}\n"
+            )
+            f.write(
+                f"blocking_signals={compact(payload.get('blocking_signals') or [])}\n"
+            )
+            f.write(
+                f"recommended_actions={compact(payload.get('recommended_actions') or [])}\n"
+            )
+            f.write(f"knowledge_drift_status={drift.get('status', 'unknown')}\n")
+            f.write(
+                "knowledge_drift_summary="
+                f"{compact([payload.get('knowledge_drift_summary')])}\n"
             )
         PY
 
@@ -3147,6 +3205,8 @@ jobs:
           echo "- Benchmark artifact bundle knowledge drift component changes: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_drift_component_changes }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge focus areas: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle engineering status: ${{ steps.benchmark_artifact_bundle.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle operator adoption knowledge drift: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle operator adoption knowledge drift summary: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle blockers: ${{ steps.benchmark_artifact_bundle.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle recommendations: ${{ steps.benchmark_artifact_bundle.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle artifact: ${{ steps.benchmark_artifact_bundle.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -3169,6 +3229,8 @@ jobs:
           echo "- Benchmark companion knowledge drift component changes: ${{ steps.benchmark_companion_summary.outputs.knowledge_drift_component_changes }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge focus areas: ${{ steps.benchmark_companion_summary.outputs.knowledge_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion engineering status: ${{ steps.benchmark_companion_summary.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion operator adoption knowledge drift: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion operator adoption knowledge drift summary: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion blockers: ${{ steps.benchmark_companion_summary.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion recommended actions: ${{ steps.benchmark_companion_summary.outputs.recommended_actions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion artifact: ${{ steps.benchmark_companion_summary.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -3190,6 +3252,8 @@ jobs:
           echo "- Benchmark release knowledge focus areas: ${{ steps.benchmark_release_decision.outputs.knowledge_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release engineering status: ${{ steps.benchmark_release_decision.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release operator adoption status: ${{ steps.benchmark_release_decision.outputs.operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release operator adoption knowledge drift: ${{ steps.benchmark_release_decision.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release operator adoption knowledge drift summary: ${{ steps.benchmark_release_decision.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release blocking signals: ${{ steps.benchmark_release_decision.outputs.blocking_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release review signals: ${{ steps.benchmark_release_decision.outputs.review_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release artifact: ${{ steps.benchmark_release_decision.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -3207,6 +3271,8 @@ jobs:
           echo "- Benchmark release runbook knowledge focus areas: ${{ steps.benchmark_release_runbook.outputs.knowledge_focus_areas }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook engineering status: ${{ steps.benchmark_release_runbook.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook operator adoption status: ${{ steps.benchmark_release_runbook.outputs.operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook operator adoption knowledge drift: ${{ steps.benchmark_release_runbook.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook operator adoption knowledge drift summary: ${{ steps.benchmark_release_runbook.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook missing artifacts: ${{ steps.benchmark_release_runbook.outputs.missing_artifacts }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook blocking signals: ${{ steps.benchmark_release_runbook.outputs.blocking_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook review signals: ${{ steps.benchmark_release_runbook.outputs.review_signals }}" >> $GITHUB_STEP_SUMMARY
@@ -3224,6 +3290,8 @@ jobs:
           echo "- Benchmark operator adoption runbook status: ${{ steps.benchmark_operator_adoption.outputs.runbook_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operator adoption review queue status: ${{ steps.benchmark_operator_adoption.outputs.review_queue_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operator adoption feedback status: ${{ steps.benchmark_operator_adoption.outputs.feedback_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption knowledge drift: ${{ steps.benchmark_operator_adoption.outputs.knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption knowledge drift summary: ${{ steps.benchmark_operator_adoption.outputs.knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operator adoption blockers: ${{ steps.benchmark_operator_adoption.outputs.blocking_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operator adoption actions: ${{ steps.benchmark_operator_adoption.outputs.recommended_actions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operator adoption artifact: ${{ steps.benchmark_operator_adoption.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -3411,6 +3479,8 @@ jobs:
             const benchmarkArtifactBundleKnowledgeDriftChanges = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_drift_component_changes }}';
             const benchmarkArtifactBundleKnowledgeFocusAreas = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_focus_areas }}';
             const benchmarkArtifactBundleEngineeringStatus = '${{ steps.benchmark_artifact_bundle.outputs.engineering_status }}';
+            const benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftStatus = '${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_status }}';
+            const benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftSummary = '${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_summary }}';
             const benchmarkArtifactBundleBlockers = '${{ steps.benchmark_artifact_bundle.outputs.blockers }}';
             const benchmarkArtifactBundleRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.recommendations }}';
             const benchmarkArtifactBundleArtifact = '${{ steps.benchmark_artifact_bundle.outputs.output_md }}';
@@ -3430,6 +3500,8 @@ jobs:
             const benchmarkCompanionKnowledgeDriftChanges = '${{ steps.benchmark_companion_summary.outputs.knowledge_drift_component_changes }}';
             const benchmarkCompanionKnowledgeFocusAreas = '${{ steps.benchmark_companion_summary.outputs.knowledge_focus_areas }}';
             const benchmarkCompanionEngineeringStatus = '${{ steps.benchmark_companion_summary.outputs.engineering_status }}';
+            const benchmarkCompanionOperatorAdoptionKnowledgeDriftStatus = '${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_status }}';
+            const benchmarkCompanionOperatorAdoptionKnowledgeDriftSummary = '${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_summary }}';
             const benchmarkCompanionBlockers = '${{ steps.benchmark_companion_summary.outputs.blockers }}';
             const benchmarkCompanionRecommendedActions = '${{ steps.benchmark_companion_summary.outputs.recommended_actions }}';
             const benchmarkCompanionArtifact = '${{ steps.benchmark_companion_summary.outputs.output_md }}';
@@ -3450,6 +3522,8 @@ jobs:
             const benchmarkReleaseKnowledgeFocusAreas = '${{ steps.benchmark_release_decision.outputs.knowledge_focus_areas }}';
             const benchmarkReleaseEngineeringStatus = '${{ steps.benchmark_release_decision.outputs.engineering_status }}';
             const benchmarkReleaseOperatorAdoptionStatus = '${{ steps.benchmark_release_decision.outputs.operator_adoption_status }}';
+            const benchmarkReleaseOperatorAdoptionKnowledgeDriftStatus = '${{ steps.benchmark_release_decision.outputs.operator_adoption_knowledge_drift_status }}';
+            const benchmarkReleaseOperatorAdoptionKnowledgeDriftSummary = '${{ steps.benchmark_release_decision.outputs.operator_adoption_knowledge_drift_summary }}';
             const benchmarkReleaseArtifact = '${{ steps.benchmark_release_decision.outputs.output_md }}';
             const benchmarkReleaseRunbookEnabled = '${{ steps.benchmark_release_runbook.outputs.enabled }}' === 'true';
             const benchmarkReleaseRunbookStatus = '${{ steps.benchmark_release_runbook.outputs.release_status }}';
@@ -3465,6 +3539,8 @@ jobs:
             const benchmarkReleaseRunbookKnowledgeFocusAreas = '${{ steps.benchmark_release_runbook.outputs.knowledge_focus_areas }}';
             const benchmarkReleaseRunbookEngineeringStatus = '${{ steps.benchmark_release_runbook.outputs.engineering_status }}';
             const benchmarkReleaseRunbookOperatorAdoptionStatus = '${{ steps.benchmark_release_runbook.outputs.operator_adoption_status }}';
+            const benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftStatus = '${{ steps.benchmark_release_runbook.outputs.operator_adoption_knowledge_drift_status }}';
+            const benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftSummary = '${{ steps.benchmark_release_runbook.outputs.operator_adoption_knowledge_drift_summary }}';
             const benchmarkReleaseRunbookArtifact = '${{ steps.benchmark_release_runbook.outputs.output_md }}';
             const benchmarkOperatorAdoptionEnabled = '${{ steps.benchmark_operator_adoption.outputs.enabled }}' === 'true';
             const benchmarkOperatorAdoptionReadiness = '${{ steps.benchmark_operator_adoption.outputs.adoption_readiness }}';
@@ -3476,6 +3552,8 @@ jobs:
             const benchmarkOperatorAdoptionRunbookStatus = '${{ steps.benchmark_operator_adoption.outputs.runbook_status }}';
             const benchmarkOperatorAdoptionReviewQueueStatus = '${{ steps.benchmark_operator_adoption.outputs.review_queue_status }}';
             const benchmarkOperatorAdoptionFeedbackStatus = '${{ steps.benchmark_operator_adoption.outputs.feedback_status }}';
+            const benchmarkOperatorAdoptionKnowledgeDriftStatus = '${{ steps.benchmark_operator_adoption.outputs.knowledge_drift_status }}';
+            const benchmarkOperatorAdoptionKnowledgeDriftSummary = '${{ steps.benchmark_operator_adoption.outputs.knowledge_drift_summary }}';
             const benchmarkOperatorAdoptionBlockingSignals = '${{ steps.benchmark_operator_adoption.outputs.blocking_signals }}';
             const benchmarkOperatorAdoptionRecommendedActions = '${{ steps.benchmark_operator_adoption.outputs.recommended_actions }}';
             const benchmarkOperatorAdoptionArtifact = '${{ steps.benchmark_operator_adoption.outputs.output_md }}';
@@ -3554,19 +3632,19 @@ jobs:
               ? `overall=${benchmarkOperationalSummaryOverall}, feedback=${benchmarkOperationalFeedbackStatus}, assistant=${benchmarkOperationalAssistantStatus}, review_queue=${benchmarkOperationalReviewQueueStatus}, ocr=${benchmarkOperationalOcrStatus}, blockers=${benchmarkOperationalBlockers || 'n/a'}, recommendations=${benchmarkOperationalRecommendations || 'n/a'}, artifact=${benchmarkOperationalArtifact}`
               : '⏭️ skipped';
             const benchmarkArtifactBundleStatus = benchmarkArtifactBundleEnabled
-              ? `overall=${benchmarkArtifactBundleOverall}, available_artifacts=${benchmarkArtifactBundleAvailableArtifacts}, feedback=${benchmarkArtifactBundleFeedbackStatus}, assistant=${benchmarkArtifactBundleAssistantStatus}, review_queue=${benchmarkArtifactBundleReviewQueueStatus}, ocr=${benchmarkArtifactBundleOcrStatus}, knowledge=${benchmarkArtifactBundleKnowledgeStatus}, knowledge_drift=${benchmarkArtifactBundleKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkArtifactBundleKnowledgeDriftSummary || 'n/a'}, knowledge_drift_changes=${benchmarkArtifactBundleKnowledgeDriftChanges || 'n/a'}, knowledge_focus=${benchmarkArtifactBundleKnowledgeFocusAreas || 'n/a'}, engineering=${benchmarkArtifactBundleEngineeringStatus}, blockers=${benchmarkArtifactBundleBlockers || 'n/a'}, recommendations=${benchmarkArtifactBundleRecommendations || 'n/a'}, artifact=${benchmarkArtifactBundleArtifact}`
+              ? `overall=${benchmarkArtifactBundleOverall}, available_artifacts=${benchmarkArtifactBundleAvailableArtifacts}, feedback=${benchmarkArtifactBundleFeedbackStatus}, assistant=${benchmarkArtifactBundleAssistantStatus}, review_queue=${benchmarkArtifactBundleReviewQueueStatus}, ocr=${benchmarkArtifactBundleOcrStatus}, knowledge=${benchmarkArtifactBundleKnowledgeStatus}, knowledge_drift=${benchmarkArtifactBundleKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkArtifactBundleKnowledgeDriftSummary || 'n/a'}, knowledge_drift_changes=${benchmarkArtifactBundleKnowledgeDriftChanges || 'n/a'}, knowledge_focus=${benchmarkArtifactBundleKnowledgeFocusAreas || 'n/a'}, engineering=${benchmarkArtifactBundleEngineeringStatus}, operator_drift=${benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftStatus}, operator_drift_summary=${benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftSummary || 'n/a'}, blockers=${benchmarkArtifactBundleBlockers || 'n/a'}, recommendations=${benchmarkArtifactBundleRecommendations || 'n/a'}, artifact=${benchmarkArtifactBundleArtifact}`
               : '⏭️ skipped';
             const benchmarkCompanionSummaryStatus = benchmarkCompanionSummaryEnabled
-              ? `overall=${benchmarkCompanionSummaryOverall}, review_surface=${benchmarkCompanionReviewSurface}, primary_gap=${benchmarkCompanionPrimaryGap || 'n/a'}, hybrid=${benchmarkCompanionHybridStatus}, assistant=${benchmarkCompanionAssistantStatus}, review_queue=${benchmarkCompanionReviewQueueStatus}, ocr=${benchmarkCompanionOcrStatus}, qdrant=${benchmarkCompanionQdrantStatus}, knowledge=${benchmarkCompanionKnowledgeStatus}, knowledge_drift=${benchmarkCompanionKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkCompanionKnowledgeDriftSummary || 'n/a'}, knowledge_drift_changes=${benchmarkCompanionKnowledgeDriftChanges || 'n/a'}, knowledge_focus=${benchmarkCompanionKnowledgeFocusAreas || 'n/a'}, engineering=${benchmarkCompanionEngineeringStatus}, blockers=${benchmarkCompanionBlockers || 'n/a'}, actions=${benchmarkCompanionRecommendedActions || 'n/a'}, artifact=${benchmarkCompanionArtifact}`
+              ? `overall=${benchmarkCompanionSummaryOverall}, review_surface=${benchmarkCompanionReviewSurface}, primary_gap=${benchmarkCompanionPrimaryGap || 'n/a'}, hybrid=${benchmarkCompanionHybridStatus}, assistant=${benchmarkCompanionAssistantStatus}, review_queue=${benchmarkCompanionReviewQueueStatus}, ocr=${benchmarkCompanionOcrStatus}, qdrant=${benchmarkCompanionQdrantStatus}, knowledge=${benchmarkCompanionKnowledgeStatus}, knowledge_drift=${benchmarkCompanionKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkCompanionKnowledgeDriftSummary || 'n/a'}, knowledge_drift_changes=${benchmarkCompanionKnowledgeDriftChanges || 'n/a'}, knowledge_focus=${benchmarkCompanionKnowledgeFocusAreas || 'n/a'}, engineering=${benchmarkCompanionEngineeringStatus}, operator_drift=${benchmarkCompanionOperatorAdoptionKnowledgeDriftStatus}, operator_drift_summary=${benchmarkCompanionOperatorAdoptionKnowledgeDriftSummary || 'n/a'}, blockers=${benchmarkCompanionBlockers || 'n/a'}, actions=${benchmarkCompanionRecommendedActions || 'n/a'}, artifact=${benchmarkCompanionArtifact}`
               : '⏭️ skipped';
             const benchmarkReleaseDecisionStatus = benchmarkReleaseDecisionEnabled
-              ? `status=${benchmarkReleaseStatus}, automation_ready=${benchmarkReleaseAutomationReady}, source=${benchmarkReleasePrimarySignalSource}, hybrid=${benchmarkReleaseHybridStatus}, assistant=${benchmarkReleaseAssistantStatus}, review_queue=${benchmarkReleaseReviewQueueStatus}, ocr=${benchmarkReleaseOcrStatus}, qdrant=${benchmarkReleaseQdrantStatus}, knowledge=${benchmarkReleaseKnowledgeStatus}, knowledge_drift=${benchmarkReleaseKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkReleaseKnowledgeDriftSummary || 'n/a'}, knowledge_focus=${benchmarkReleaseKnowledgeFocusAreas || 'n/a'}, engineering=${benchmarkReleaseEngineeringStatus}, operator_adoption=${benchmarkReleaseOperatorAdoptionStatus}, blockers=${benchmarkReleaseBlockingSignals || 'n/a'}, review=${benchmarkReleaseReviewSignals || 'n/a'}, artifact=${benchmarkReleaseArtifact}`
+              ? `status=${benchmarkReleaseStatus}, automation_ready=${benchmarkReleaseAutomationReady}, source=${benchmarkReleasePrimarySignalSource}, hybrid=${benchmarkReleaseHybridStatus}, assistant=${benchmarkReleaseAssistantStatus}, review_queue=${benchmarkReleaseReviewQueueStatus}, ocr=${benchmarkReleaseOcrStatus}, qdrant=${benchmarkReleaseQdrantStatus}, knowledge=${benchmarkReleaseKnowledgeStatus}, knowledge_drift=${benchmarkReleaseKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkReleaseKnowledgeDriftSummary || 'n/a'}, knowledge_focus=${benchmarkReleaseKnowledgeFocusAreas || 'n/a'}, engineering=${benchmarkReleaseEngineeringStatus}, operator_adoption=${benchmarkReleaseOperatorAdoptionStatus}, operator_drift=${benchmarkReleaseOperatorAdoptionKnowledgeDriftStatus}, operator_drift_summary=${benchmarkReleaseOperatorAdoptionKnowledgeDriftSummary || 'n/a'}, blockers=${benchmarkReleaseBlockingSignals || 'n/a'}, review=${benchmarkReleaseReviewSignals || 'n/a'}, artifact=${benchmarkReleaseArtifact}`
               : '⏭️ skipped';
             const benchmarkReleaseRunbookStatusLine = benchmarkReleaseRunbookEnabled
-              ? `status=${benchmarkReleaseRunbookStatus}, freeze_ready=${benchmarkReleaseRunbookFreezeReady}, source=${benchmarkReleaseRunbookPrimarySignalSource}, next=${benchmarkReleaseRunbookNextAction || 'n/a'}, knowledge=${benchmarkReleaseRunbookKnowledgeStatus}, knowledge_drift=${benchmarkReleaseRunbookKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkReleaseRunbookKnowledgeDriftSummary || 'n/a'}, knowledge_focus=${benchmarkReleaseRunbookKnowledgeFocusAreas || 'n/a'}, engineering=${benchmarkReleaseRunbookEngineeringStatus}, operator_adoption=${benchmarkReleaseRunbookOperatorAdoptionStatus}, missing=${benchmarkReleaseRunbookMissingArtifacts || 'n/a'}, blockers=${benchmarkReleaseRunbookBlockingSignals || 'n/a'}, review=${benchmarkReleaseRunbookReviewSignals || 'n/a'}, artifact=${benchmarkReleaseRunbookArtifact}`
+              ? `status=${benchmarkReleaseRunbookStatus}, freeze_ready=${benchmarkReleaseRunbookFreezeReady}, source=${benchmarkReleaseRunbookPrimarySignalSource}, next=${benchmarkReleaseRunbookNextAction || 'n/a'}, knowledge=${benchmarkReleaseRunbookKnowledgeStatus}, knowledge_drift=${benchmarkReleaseRunbookKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkReleaseRunbookKnowledgeDriftSummary || 'n/a'}, knowledge_focus=${benchmarkReleaseRunbookKnowledgeFocusAreas || 'n/a'}, engineering=${benchmarkReleaseRunbookEngineeringStatus}, operator_adoption=${benchmarkReleaseRunbookOperatorAdoptionStatus}, operator_drift=${benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftStatus}, operator_drift_summary=${benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftSummary || 'n/a'}, missing=${benchmarkReleaseRunbookMissingArtifacts || 'n/a'}, blockers=${benchmarkReleaseRunbookBlockingSignals || 'n/a'}, review=${benchmarkReleaseRunbookReviewSignals || 'n/a'}, artifact=${benchmarkReleaseRunbookArtifact}`
               : '⏭️ skipped';
             const benchmarkOperatorAdoptionStatusLine = benchmarkOperatorAdoptionEnabled
-              ? `readiness=${benchmarkOperatorAdoptionReadiness}, mode=${benchmarkOperatorAdoptionMode}, next=${benchmarkOperatorAdoptionNextAction || 'n/a'}, automation_ready=${benchmarkOperatorAdoptionAutomationReady}, freeze_ready=${benchmarkOperatorAdoptionFreezeReady}, release=${benchmarkOperatorAdoptionReleaseStatus}, runbook=${benchmarkOperatorAdoptionRunbookStatus}, review_queue=${benchmarkOperatorAdoptionReviewQueueStatus}, feedback=${benchmarkOperatorAdoptionFeedbackStatus}, blockers=${benchmarkOperatorAdoptionBlockingSignals || 'n/a'}, actions=${benchmarkOperatorAdoptionRecommendedActions || 'n/a'}, artifact=${benchmarkOperatorAdoptionArtifact}`
+              ? `readiness=${benchmarkOperatorAdoptionReadiness}, mode=${benchmarkOperatorAdoptionMode}, next=${benchmarkOperatorAdoptionNextAction || 'n/a'}, automation_ready=${benchmarkOperatorAdoptionAutomationReady}, freeze_ready=${benchmarkOperatorAdoptionFreezeReady}, release=${benchmarkOperatorAdoptionReleaseStatus}, runbook=${benchmarkOperatorAdoptionRunbookStatus}, review_queue=${benchmarkOperatorAdoptionReviewQueueStatus}, feedback=${benchmarkOperatorAdoptionFeedbackStatus}, knowledge_drift=${benchmarkOperatorAdoptionKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkOperatorAdoptionKnowledgeDriftSummary || 'n/a'}, blockers=${benchmarkOperatorAdoptionBlockingSignals || 'n/a'}, actions=${benchmarkOperatorAdoptionRecommendedActions || 'n/a'}, artifact=${benchmarkOperatorAdoptionArtifact}`
               : '⏭️ skipped';
             const assistantEvidenceStatus = assistantEvidenceEnabled
               ? `input=${assistantEvidenceInput}, records=${assistantEvidenceTotalRecords}, evidence_items=${assistantEvidenceTotalItems}, avg=${assistantEvidenceAverageCount}, evidence_cov=${assistantEvidenceCoverage}, decision_cov=${assistantDecisionPathCoverage}, source_cov=${assistantSourceSignalCoverage}`
@@ -3727,8 +3805,13 @@ jobs:
             | **Benchmark Release Decision Knowledge Drift** | ${benchmarkReleaseKnowledgeDriftStatus || 'n/a'} / ${benchmarkReleaseKnowledgeDriftSummary || 'n/a'} |
             | **Benchmark Release Decision** | ${benchmarkReleaseDecisionStatus} |
             | **Benchmark Release Runbook Knowledge Drift** | ${benchmarkReleaseRunbookKnowledgeDriftStatus || 'n/a'} / ${benchmarkReleaseRunbookKnowledgeDriftSummary || 'n/a'} |
+            | **Benchmark Artifact Bundle Operator Drift** | ${benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftStatus || 'n/a'} / ${benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftSummary || 'n/a'} |
+            | **Benchmark Companion Operator Drift** | ${benchmarkCompanionOperatorAdoptionKnowledgeDriftStatus || 'n/a'} / ${benchmarkCompanionOperatorAdoptionKnowledgeDriftSummary || 'n/a'} |
+            | **Benchmark Release Decision Operator Drift** | ${benchmarkReleaseOperatorAdoptionKnowledgeDriftStatus || 'n/a'} / ${benchmarkReleaseOperatorAdoptionKnowledgeDriftSummary || 'n/a'} |
             | **Benchmark Release Runbook** | ${benchmarkReleaseRunbookStatusLine} |
+            | **Benchmark Release Runbook Operator Drift** | ${benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftStatus || 'n/a'} / ${benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftSummary || 'n/a'} |
             | **Benchmark Operator Adoption** | ${benchmarkOperatorAdoptionStatusLine} |
+            | **Benchmark Operator Adoption Knowledge Drift** | ${benchmarkOperatorAdoptionKnowledgeDriftStatus || 'n/a'} / ${benchmarkOperatorAdoptionKnowledgeDriftSummary || 'n/a'} |
             | **Assistant Evidence Report** | ${assistantEvidenceStatus} |
             | **Assistant Evidence Insights** | ${assistantEvidenceInsights} |
             | **Active-Learning Review Queue** | ${activeLearningReviewQueueStatusLine} |

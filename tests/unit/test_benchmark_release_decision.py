@@ -58,6 +58,11 @@ def test_build_release_decision_blocks_on_blockers() -> None:
         benchmark_operator_adoption={
             "adoption_readiness": "guided_manual",
             "blocking_signals": ["operator:blocker"],
+            "knowledge_drift_status": "regressed",
+            "knowledge_drift_summary": "Tolerance coverage regressed.",
+            "knowledge_drift": {
+                "recommendations": ["Backfill tolerance knowledge coverage."],
+            },
             "recommended_actions": ["Operator fallback only."],
         },
         artifact_paths={
@@ -75,9 +80,11 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["component_statuses"]["knowledge_drift"] == "regressed"
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
     assert payload["knowledge_drift_status"] == "regressed"
     assert payload["knowledge_drift"]["counts"]["regressions"] == 1
+    assert "Backfill tolerance knowledge coverage." in payload["review_signals"]
     assert "Operator fallback only." not in payload["review_signals"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
@@ -126,6 +133,7 @@ def test_build_release_decision_ready_without_blockers() -> None:
         },
         benchmark_operator_adoption={
             "adoption_readiness": "operator_ready",
+            "knowledge_drift_status": "stable",
             "recommended_actions": ["Keep operator workflow stable."],
         },
         artifact_paths={"benchmark_scorecard": "scorecard.json"},
@@ -138,6 +146,7 @@ def test_build_release_decision_ready_without_blockers() -> None:
     assert payload["component_statuses"]["knowledge_drift"] == "improved"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
+    assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["knowledge_focus_areas"] == []
     assert payload["knowledge_drift_status"] == "improved"
     assert payload["knowledge_drift"]["counts"]["improvements"] == 1
@@ -159,6 +168,7 @@ def test_build_release_decision_uses_operator_adoption_blocker_as_fallback() -> 
         benchmark_operator_adoption={
             "adoption_readiness": "blocked",
             "blocking_signals": ["operator_runbook:missing_dry_run"],
+            "knowledge_drift_status": "stable",
             "recommended_actions": ["Run operator dry run."],
         },
         artifact_paths={"benchmark_operator_adoption": "operator.json"},
@@ -189,6 +199,7 @@ def test_build_release_decision_uses_operator_adoption_recommendation_as_fallbac
         benchmark_operator_adoption={
             "adoption_readiness": "guided_manual",
             "blocking_signals": [],
+            "knowledge_drift_status": "stable",
             "recommended_actions": ["Walk operators through the guided manual path."],
         },
         artifact_paths={"benchmark_operator_adoption": "operator.json"},
@@ -277,6 +288,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         json.dumps(
             {
                 "adoption_readiness": "operator_ready",
+                "knowledge_drift_status": "stable",
+                "knowledge_drift_summary": "No knowledge regressions detected.",
                 "recommended_actions": ["Keep operator workflow stable."],
             }
         ),
@@ -318,6 +331,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["component_statuses"]["knowledge_drift"] == "improved"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
+    assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["artifacts"]["benchmark_knowledge_readiness"]["present"] is True
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
@@ -330,3 +344,4 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "## Knowledge Drift" in rendered
     assert "`status`: `improved`" in rendered
     assert "`operator_adoption`: `operator_ready`" in rendered
+    assert "`operator_adoption_knowledge_drift`: `stable`" in rendered

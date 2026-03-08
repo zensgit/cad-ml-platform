@@ -210,6 +210,29 @@ def _pick_summary_items(
     return overall_status, blockers, recommendations
 
 
+def _operator_adoption_knowledge_drift(
+    benchmark_operator_adoption: Dict[str, Any],
+) -> Dict[str, Any]:
+    drift = benchmark_operator_adoption.get("knowledge_drift") or {}
+    return {
+        "status": str(
+            benchmark_operator_adoption.get("knowledge_drift_status")
+            or drift.get("status")
+            or "unknown"
+        ),
+        "summary": str(
+            benchmark_operator_adoption.get("knowledge_drift_summary")
+            or drift.get("summary")
+            or "none"
+        ),
+        "recommendations": _compact_list(
+            drift.get("recommendations")
+            or benchmark_operator_adoption.get("recommended_actions")
+            or []
+        ),
+    }
+
+
 def build_bundle(
     *,
     title: str,
@@ -245,6 +268,9 @@ def build_bundle(
     knowledge_focus_areas = list(knowledge_component.get("focus_areas_detail") or [])
     knowledge_drift_recommendations = _compact_list(
         benchmark_knowledge_drift.get("recommendations") or []
+    )
+    operator_adoption_knowledge_drift = _operator_adoption_knowledge_drift(
+        benchmark_operator_adoption
     )
     artifact_rows = {
         "benchmark_scorecard": _artifact_row(
@@ -322,6 +348,7 @@ def build_bundle(
         "knowledge_drift_component_changes": list(
             knowledge_drift_component.get("component_changes") or []
         ),
+        "operator_adoption_knowledge_drift": operator_adoption_knowledge_drift,
         "component_statuses": _component_statuses(
             benchmark_scorecard,
             benchmark_operational_summary,
@@ -407,6 +434,16 @@ def render_markdown(payload: Dict[str, Any]) -> str:
             )
     else:
         lines.append("- none")
+    lines.extend(["", "## Operator Adoption Knowledge Drift", ""])
+    drift = payload.get("operator_adoption_knowledge_drift") or {}
+    lines.append(f"- `status`: `{drift.get('status') or 'unknown'}`")
+    lines.append(f"- `summary`: {drift.get('summary') or 'none'}")
+    recommendations = drift.get("recommendations") or []
+    if recommendations:
+        for item in recommendations:
+            lines.append(f"- recommendation: {item}")
+    else:
+        lines.append("- recommendation: none")
     return "\n".join(lines) + "\n"
 
 

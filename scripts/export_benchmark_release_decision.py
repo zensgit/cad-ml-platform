@@ -299,8 +299,28 @@ def _knowledge_drift_review_signals(knowledge_drift: Dict[str, Any]) -> List[str
         return recommendations
     summary = _text(knowledge_drift.get("summary"))
     return [summary] if summary else []
-
-
+def _operator_adoption_knowledge_drift(
+    benchmark_operator_adoption: Dict[str, Any],
+) -> Dict[str, Any]:
+    drift = benchmark_operator_adoption.get("knowledge_drift") or {}
+    return {
+        "status": str(
+            benchmark_operator_adoption.get("knowledge_drift_status")
+            or drift.get("status")
+            or "unknown"
+        ),
+        "summary": str(
+            benchmark_operator_adoption.get("knowledge_drift_summary")
+            or drift.get("summary")
+            or "none"
+        ),
+        "recommendations": _compact(
+            drift.get("recommendations")
+            or benchmark_operator_adoption.get("recommended_actions")
+            or [],
+            limit=6,
+        ),
+    }
 def build_release_decision(
     *,
     title: str,
@@ -332,6 +352,9 @@ def build_release_decision(
             or {}
         ).get("focus_areas_detail")
         or []
+    )
+    operator_adoption_knowledge_drift = _operator_adoption_knowledge_drift(
+        benchmark_operator_adoption
     )
     blockers = _compact(
         benchmark_companion_summary.get("blockers")
@@ -393,6 +416,10 @@ def build_release_decision(
             )
             if item not in review_signals
         )
+    if operator_adoption_knowledge_drift.get("status") == "regressed":
+        for item in operator_adoption_knowledge_drift.get("recommendations") or []:
+            if item not in review_signals:
+                review_signals.append(item)
     release_status, automation_ready = _decision(
         component_statuses,
         blockers,
@@ -415,6 +442,7 @@ def build_release_decision(
         "knowledge_drift_status": knowledge_drift["status"],
         "knowledge_drift_summary": knowledge_drift["summary"],
         "knowledge_drift": knowledge_drift,
+        "operator_adoption_knowledge_drift": operator_adoption_knowledge_drift,
         "blocking_signals": blockers,
         "review_signals": review_signals,
         "artifacts": {
@@ -466,6 +494,14 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     ]
     for name, status in (payload.get("component_statuses") or {}).items():
         lines.append(f"- `{name}`: `{status}`")
+    drift = payload.get("operator_adoption_knowledge_drift") or {}
+    lines.append(
+        f"- `operator_adoption_knowledge_drift`: `{drift.get('status') or 'unknown'}`"
+    )
+    lines.append(
+        f"- `operator_adoption_knowledge_drift_summary`: "
+        f"{drift.get('summary') or 'none'}"
+    )
     lines.extend(["", "## Blocking Signals", ""])
     blockers = payload.get("blocking_signals") or []
     if blockers:
