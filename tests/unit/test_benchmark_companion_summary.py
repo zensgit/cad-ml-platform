@@ -39,10 +39,15 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             "blockers": ["review_queue:managed_backlog"],
             "recommendations": ["reduce review queue backlog"],
         },
+        benchmark_engineering_signals={
+            "engineering_signals": {"status": "partial_engineering_semantics"},
+            "recommendations": ["Close engineering gaps."],
+        },
         artifact_paths={
             "benchmark_scorecard": "scorecard.json",
             "benchmark_operational_summary": "operational.json",
             "benchmark_artifact_bundle": "bundle.json",
+            "benchmark_engineering_signals": "engineering.json",
         },
     )
 
@@ -50,8 +55,10 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["review_surface"] == "attention_required"
     assert payload["primary_gap"] == "review_queue:managed_backlog"
     assert payload["component_statuses"]["assistant_explainability"] == "partial_coverage"
+    assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["recommended_actions"] == ["reduce review queue backlog"]
     assert payload["artifacts"]["benchmark_artifact_bundle"]["present"] is True
+    assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
 
 
 def test_render_markdown_includes_sections() -> None:
@@ -64,6 +71,10 @@ def test_render_markdown_includes_sections() -> None:
         "recommended_actions": ["keep monitoring"],
         "blockers": [],
         "artifacts": {
+            "benchmark_engineering_signals": {
+                "present": True,
+                "path": "engineering.json",
+            },
             "benchmark_artifact_bundle": {
                 "present": True,
                 "path": "bundle.json",
@@ -76,12 +87,14 @@ def test_render_markdown_includes_sections() -> None:
     assert "`review_surface`: `ready`" in rendered
     assert "## Recommended Actions" in rendered
     assert "bundle.json" in rendered
+    assert "engineering.json" in rendered
 
 
 def test_cli_writes_outputs(tmp_path: Path) -> None:
     scorecard = tmp_path / "scorecard.json"
     operational = tmp_path / "operational.json"
     bundle = tmp_path / "bundle.json"
+    engineering = tmp_path / "engineering.json"
     output_json = tmp_path / "out.json"
     output_md = tmp_path / "out.md"
     scorecard.write_text(
@@ -116,6 +129,17 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    engineering.write_text(
+        json.dumps(
+            {
+                "engineering_signals": {
+                    "status": "engineering_semantics_ready",
+                },
+                "recommendations": ["Keep standards coverage stable."],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -127,6 +151,8 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
             str(operational),
             "--benchmark-artifact-bundle",
             str(bundle),
+            "--benchmark-engineering-signals",
+            str(engineering),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -139,4 +165,5 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     payload = json.loads(output_json.read_text(encoding="utf-8"))
     assert payload["overall_status"] == "healthy"
     assert payload["review_surface"] == "ready"
+    assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert output_md.exists()
