@@ -309,7 +309,7 @@ def test_active_learning_review_queue_stats_endpoint(client):
         predicted_type="bolt",
         confidence=0.2,
         alternatives=[],
-        score_breakdown={"decision_source": "graph2d"},
+        score_breakdown={"decision_source": "graph2d", "review_automation_ready": True},
         uncertainty_reason="low_confidence",
     )
     learner.flag_for_review(
@@ -318,7 +318,7 @@ def test_active_learning_review_queue_stats_endpoint(client):
         confidence=0.4,
         alternatives=[],
         score_breakdown={"decision_source": "hybrid", "review_reasons": ["branch_conflict"]},
-        uncertainty_reason="branch_conflict",
+        uncertainty_reason="hybrid_rejected:below_min_confidence",
     )
 
     resp = client.get("/api/v1/active-learning/review-queue/stats")
@@ -328,3 +328,9 @@ def test_active_learning_review_queue_stats_endpoint(client):
     assert body["by_decision_source"]["graph2d"] == 1
     assert body["by_decision_source"]["hybrid"] == 1
     assert body["by_review_reason"]["branch_conflict"] == 1
+    assert body["high_count"] == 1
+    assert body["critical_count"] == 0
+    assert body["automation_ready_count"] == 1
+    assert body["high_ratio"] == 0.5
+    assert body["automation_ready_ratio"] == 0.5
+    assert body["operational_status"] == "managed_backlog"
