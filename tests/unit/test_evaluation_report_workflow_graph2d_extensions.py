@@ -42,6 +42,12 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "GRAPH2D_TRAIN_SWEEP_RECIPES" in env
     assert "GRAPH2D_TRAIN_SWEEP_SEEDS" in env
     assert "GRAPH2D_TRAIN_SWEEP_BASE_ARGS_JSON" in env
+    assert "OCR_REVIEW_PACK_ENABLE" in env
+    assert "OCR_REVIEW_PACK_INPUT" in env
+    assert "OCR_REVIEW_PACK_OUTPUT_CSV" in env
+    assert "OCR_REVIEW_PACK_OUTPUT_JSON" in env
+    assert "OCR_REVIEW_PACK_TOP_K" in env
+    assert "OCR_REVIEW_PACK_INCLUDE_READY" in env
 
     dispatch_inputs = workflow["on"]["workflow_dispatch"]["inputs"]
     assert "review_gate_min_total_rows" in dispatch_inputs
@@ -55,6 +61,8 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "review_pack_input_artifact_run_id" in dispatch_inputs
     assert "review_pack_input_artifact_repository" in dispatch_inputs
     assert "review_pack_input_artifact_path" in dispatch_inputs
+    assert "ocr_review_pack_enable" in dispatch_inputs
+    assert "ocr_review_pack_input" in dispatch_inputs
     assert permissions["actions"] == "read"
 
 
@@ -126,6 +134,14 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "gate status is not passed" in strict_script
     assert strict_step["continue-on-error"] == "true"
 
+    ocr_review_step = _get_step(workflow, "evaluate", "Build OCR review pack (optional)")
+    ocr_review_script = ocr_review_step["run"]
+    assert "scripts/export_ocr_review_pack.py" in ocr_review_script
+    assert "OCR_REVIEW_PACK_ENABLE" in ocr_review_script
+    assert "ocr_review_pack_input" in ocr_review_script
+    assert "review_priority_counts=" in ocr_review_script
+    assert "top_recommended_actions=" in ocr_review_script
+
     final_fail_step = _get_step(
         workflow,
         "evaluate",
@@ -146,6 +162,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
 
     upload_sweep = _get_step(workflow, "evaluate", "Upload Graph2D train sweep")
     assert upload_sweep["if"] == "steps.graph2d_train_sweep.outputs.enabled == 'true'"
+
+    upload_ocr_review = _get_step(workflow, "evaluate", "Upload OCR review pack")
+    assert upload_ocr_review["if"] == "steps.ocr_review_pack.outputs.enabled == 'true'"
 
     summary_step = _get_step(workflow, "evaluate", "Create job summary")
     summary_script = summary_step["run"]
@@ -172,6 +191,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Graph2D review gate strict_mode" in summary_script
     assert "Graph2D train sweep total_runs" in summary_script
     assert "Graph2D train sweep best run script" in summary_script
+    assert "OCR review pack input" in summary_script
+    assert "OCR review pack exported" in summary_script
+    assert "OCR review priorities" in summary_script
+    assert "OCR recommended actions" in summary_script
 
     pr_comment_step = _get_step(workflow, "evaluate", "Comment PR with results")
     pr_comment_script = pr_comment_step["with"]["script"]
@@ -187,3 +210,6 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Graph2D Signal Lights" in pr_comment_script
     assert "reviewTopShadowSources" in pr_comment_script
     assert "script=${sweepBestRunScript}" in pr_comment_script
+    assert "ocrReviewPackEnabled" in pr_comment_script
+    assert "OCR Review Pack" in pr_comment_script
+    assert "OCR Review Insights" in pr_comment_script
