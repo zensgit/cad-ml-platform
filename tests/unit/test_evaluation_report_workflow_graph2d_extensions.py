@@ -871,6 +871,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_drift_recommendations=" in benchmark_bundle_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_bundle_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_bundle_script
+    assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_bundle_script
+    assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_bundle_script
     assert "blockers=" in benchmark_bundle_script
     assert "recommendations=" in benchmark_bundle_script
 
@@ -928,6 +930,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_drift_recommendations=" in benchmark_companion_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_companion_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_companion_script
+    assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_companion_script
+    assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_companion_script
 
     benchmark_release_step = _get_step(
         workflow, "evaluate", "Build benchmark release decision (optional)"
@@ -1350,6 +1354,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark artifact bundle engineering status" in summary_script
     assert "Benchmark artifact bundle operator adoption knowledge drift" in summary_script
     assert "Benchmark artifact bundle operator adoption knowledge drift summary" in summary_script
+    assert "Benchmark artifact bundle operator adoption knowledge outcome drift" in summary_script
+    assert (
+        "Benchmark artifact bundle operator adoption knowledge outcome drift summary"
+        in summary_script
+    )
     assert "Benchmark artifact bundle blockers" in summary_script
     assert "Benchmark artifact bundle recommendations" in summary_script
     assert "Benchmark artifact bundle artifact" in summary_script
@@ -1361,6 +1370,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark companion knowledge status" in summary_script
     assert "Benchmark companion operator adoption knowledge drift" in summary_script
     assert "Benchmark companion operator adoption knowledge drift summary" in summary_script
+    assert "Benchmark companion operator adoption knowledge outcome drift" in summary_script
+    assert (
+        "Benchmark companion operator adoption knowledge outcome drift summary"
+        in summary_script
+    )
     assert "Benchmark companion recommended actions" in summary_script
     assert "Benchmark companion artifact" in summary_script
     assert "Benchmark release decision status" in summary_script
@@ -1924,7 +1938,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "readiness=${benchmarkOperatorAdoptionReadiness}" in pr_comment_script
     assert "knowledge_drift=${benchmarkOperatorAdoptionKnowledgeDriftStatus}" in pr_comment_script
     assert "Benchmark Artifact Bundle Operator Drift" in pr_comment_script
+    assert "Benchmark Artifact Bundle Operator Outcome Drift" in pr_comment_script
     assert "Benchmark Companion Operator Drift" in pr_comment_script
+    assert "Benchmark Companion Operator Outcome Drift" in pr_comment_script
     assert "Benchmark Release Decision Operator Drift" in pr_comment_script
     assert "Benchmark Release Runbook Operator Drift" in pr_comment_script
     assert "Benchmark Operator Adoption Knowledge Drift" in pr_comment_script

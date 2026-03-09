@@ -2910,6 +2910,9 @@ jobs:
         drift_recommendations = payload.get("knowledge_drift_recommendations") or []
         drift_changes = payload.get("knowledge_drift_component_changes") or []
         operator_drift = payload.get("operator_adoption_knowledge_drift") or {}
+        operator_outcome_drift = (
+            payload.get("operator_adoption_knowledge_outcome_drift") or {}
+        )
         drift_domain_regressions = drift.get("domain_regressions") or []
         drift_domain_improvements = drift.get("domain_improvements") or []
         drift_resolved_domains = drift.get("resolved_priority_domains") or []
@@ -2985,6 +2988,14 @@ jobs:
             f.write(
                 "operator_adoption_knowledge_drift_summary="
                 f"{compact([operator_drift.get('summary')])}\n"
+            )
+            f.write(
+                "operator_adoption_knowledge_outcome_drift_status="
+                f"{operator_outcome_drift.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "operator_adoption_knowledge_outcome_drift_summary="
+                f"{compact([operator_outcome_drift.get('summary')])}\n"
             )
             f.write(
                 "realdata_scorecard_status="
@@ -3302,6 +3313,9 @@ jobs:
         drift_recommendations = payload.get("knowledge_drift_recommendations") or []
         drift_changes = payload.get("knowledge_drift_component_changes") or []
         operator_drift = payload.get("operator_adoption_knowledge_drift") or {}
+        operator_outcome_drift = (
+            payload.get("operator_adoption_knowledge_outcome_drift") or {}
+        )
         priority_domains = payload.get("knowledge_priority_domains") or []
         domain_focus_areas = payload.get("knowledge_domain_focus_areas") or []
         drift_domain_regressions = drift.get("domain_regressions") or []
@@ -3380,6 +3394,14 @@ jobs:
             f.write(
                 "operator_adoption_knowledge_drift_summary="
                 f"{compact([operator_drift.get('summary')])}\n"
+            )
+            f.write(
+                "operator_adoption_knowledge_outcome_drift_status="
+                f"{operator_outcome_drift.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "operator_adoption_knowledge_outcome_drift_summary="
+                f"{compact([operator_outcome_drift.get('summary')])}\n"
             )
             f.write(
                 "realdata_scorecard_status="
@@ -5528,6 +5550,8 @@ jobs:
           echo "- Benchmark artifact bundle real-data recommendations: ${{ steps.benchmark_artifact_bundle.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle operator adoption knowledge drift: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle operator adoption knowledge drift summary: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle operator adoption knowledge outcome drift: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle operator adoption knowledge outcome drift summary: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle blockers: ${{ steps.benchmark_artifact_bundle.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle recommendations: ${{ steps.benchmark_artifact_bundle.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle artifact: ${{ steps.benchmark_artifact_bundle.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -5572,6 +5596,8 @@ jobs:
           echo "- Benchmark companion real-data recommendations: ${{ steps.benchmark_companion_summary.outputs.realdata_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion operator adoption knowledge drift: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion operator adoption knowledge drift summary: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion operator adoption knowledge outcome drift: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion operator adoption knowledge outcome drift summary: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion blockers: ${{ steps.benchmark_companion_summary.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion recommended actions: ${{ steps.benchmark_companion_summary.outputs.recommended_actions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion artifact: ${{ steps.benchmark_companion_summary.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -5998,6 +6024,8 @@ jobs:
             const benchmarkArtifactBundleRealdataRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.realdata_recommendations }}';
             const benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftStatus = '${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_status }}';
             const benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftSummary = '${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_summary }}';
+            const benchmarkArtifactBundleOperatorAdoptionKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_outcome_drift_status }}';
+            const benchmarkArtifactBundleOperatorAdoptionKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_outcome_drift_summary }}';
             const benchmarkArtifactBundleBlockers = '${{ steps.benchmark_artifact_bundle.outputs.blockers }}';
             const benchmarkArtifactBundleRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.recommendations }}';
             const benchmarkArtifactBundleArtifact = '${{ steps.benchmark_artifact_bundle.outputs.output_md }}';
@@ -6056,6 +6084,8 @@ jobs:
             const benchmarkCompanionRealdataRecommendations = '${{ steps.benchmark_companion_summary.outputs.realdata_recommendations }}';
             const benchmarkCompanionOperatorAdoptionKnowledgeDriftStatus = '${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_status }}';
             const benchmarkCompanionOperatorAdoptionKnowledgeDriftSummary = '${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_summary }}';
+            const benchmarkCompanionOperatorAdoptionKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_outcome_drift_status }}';
+            const benchmarkCompanionOperatorAdoptionKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_outcome_drift_summary }}';
             const benchmarkCompanionBlockers = '${{ steps.benchmark_companion_summary.outputs.blockers }}';
             const benchmarkCompanionRecommendedActions = '${{ steps.benchmark_companion_summary.outputs.recommended_actions }}';
             const benchmarkCompanionArtifact = '${{ steps.benchmark_companion_summary.outputs.output_md }}';
@@ -6636,7 +6666,9 @@ jobs:
             | **Benchmark Release Decision Real-Data Scorecard** | ${benchmarkReleaseRealdataScorecardStatus || 'n/a'} / ${benchmarkReleaseRealdataScorecardRecommendations || 'n/a'} |
             | **Benchmark Release Runbook Knowledge Drift** | ${benchmarkReleaseRunbookKnowledgeDriftStatus || 'n/a'} / ${benchmarkReleaseRunbookKnowledgeDriftSummary || 'n/a'} |
             | **Benchmark Artifact Bundle Operator Drift** | ${benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftStatus || 'n/a'} / ${benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftSummary || 'n/a'} |
+            | **Benchmark Artifact Bundle Operator Outcome Drift** | ${benchmarkArtifactBundleOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkArtifactBundleOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Companion Operator Drift** | ${benchmarkCompanionOperatorAdoptionKnowledgeDriftStatus || 'n/a'} / ${benchmarkCompanionOperatorAdoptionKnowledgeDriftSummary || 'n/a'} |
+            | **Benchmark Companion Operator Outcome Drift** | ${benchmarkCompanionOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkCompanionOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Release Decision Operator Drift** | ${benchmarkReleaseOperatorAdoptionKnowledgeDriftStatus || 'n/a'} / ${benchmarkReleaseOperatorAdoptionKnowledgeDriftSummary || 'n/a'} |
             | **Benchmark Release Decision Operator Outcome Drift** | ${benchmarkReleaseOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkReleaseOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Release Runbook** | ${benchmarkReleaseRunbookStatusLine} |
