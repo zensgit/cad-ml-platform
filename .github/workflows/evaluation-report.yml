@@ -3935,6 +3935,36 @@ jobs:
                 "operator_adoption_knowledge_outcome_drift_summary="
                 f"{compact([outcome_drift.get('summary')])}\n"
             )
+            scorecard_operator = payload.get("scorecard_operator_adoption") or {}
+            f.write(
+                "scorecard_operator_adoption_status="
+                f"{scorecard_operator.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "scorecard_operator_adoption_mode="
+                f"{scorecard_operator.get('operator_mode', 'unknown')}\n"
+            )
+            f.write(
+                "scorecard_operator_adoption_knowledge_outcome_drift_status="
+                f"{scorecard_operator.get('knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "scorecard_operator_adoption_knowledge_outcome_drift_summary="
+                f"{compact([scorecard_operator.get('knowledge_outcome_drift_summary')])}\n"
+            )
+            operational_operator = payload.get("operational_operator_adoption") or {}
+            f.write(
+                "operational_operator_adoption_status="
+                f"{operational_operator.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "operational_operator_adoption_knowledge_outcome_drift_status="
+                f"{operational_operator.get('knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "operational_operator_adoption_knowledge_outcome_drift_summary="
+                f"{compact([operational_operator.get('knowledge_outcome_drift_summary')])}\n"
+            )
             f.write(f"knowledge_focus_area_count={len(focus_areas)}\n")
             f.write(
                 "knowledge_focus_areas="
@@ -4158,6 +4188,10 @@ jobs:
         }
 
         add_if_exists --benchmark-release-decision "${{ github.event.inputs.benchmark_release_runbook_release_decision_json || '' }}"
+        add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
+        add_if_exists --benchmark-scorecard "${BENCHMARK_RELEASE_RUNBOOK_SCORECARD_JSON:-}"
+        add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
+        add_if_exists --benchmark-operational-summary "${BENCHMARK_RELEASE_RUNBOOK_OPERATIONAL_SUMMARY_JSON:-}"
         add_if_exists --benchmark-companion-summary "${{ github.event.inputs.benchmark_release_runbook_companion_summary_json || '' }}"
         add_if_exists --benchmark-artifact-bundle "${{ github.event.inputs.benchmark_release_runbook_artifact_bundle_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_release_runbook_engineering_signals_json || '' }}"
@@ -4333,6 +4367,36 @@ jobs:
             f.write(
                 "operator_adoption_knowledge_outcome_drift_summary="
                 f"{compact([operator_adoption.get('knowledge_outcome_drift_summary')])}\n"
+            )
+            scorecard_operator = payload.get("scorecard_operator_adoption") or {}
+            f.write(
+                "scorecard_operator_adoption_status="
+                f"{scorecard_operator.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "scorecard_operator_adoption_mode="
+                f"{scorecard_operator.get('operator_mode', 'unknown')}\n"
+            )
+            f.write(
+                "scorecard_operator_adoption_knowledge_outcome_drift_status="
+                f"{scorecard_operator.get('knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "scorecard_operator_adoption_knowledge_outcome_drift_summary="
+                f"{compact([scorecard_operator.get('knowledge_outcome_drift_summary')])}\n"
+            )
+            operational_operator = payload.get("operational_operator_adoption") or {}
+            f.write(
+                "operational_operator_adoption_status="
+                f"{operational_operator.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "operational_operator_adoption_knowledge_outcome_drift_status="
+                f"{operational_operator.get('knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "operational_operator_adoption_knowledge_outcome_drift_summary="
+                f"{compact([operational_operator.get('knowledge_outcome_drift_summary')])}\n"
             )
             f.write(
                 "realdata_scorecard_status="
@@ -5765,6 +5829,12 @@ jobs:
           echo "- Benchmark release operator adoption knowledge drift summary: ${{ steps.benchmark_release_decision.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release operator adoption knowledge outcome drift: ${{ steps.benchmark_release_decision.outputs.operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release operator adoption knowledge outcome drift summary: ${{ steps.benchmark_release_decision.outputs.operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release scorecard operator adoption: ${{ steps.benchmark_release_decision.outputs.scorecard_operator_adoption_status }} / ${{ steps.benchmark_release_decision.outputs.scorecard_operator_adoption_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release scorecard operator outcome drift: ${{ steps.benchmark_release_decision.outputs.scorecard_operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release scorecard operator outcome drift summary: ${{ steps.benchmark_release_decision.outputs.scorecard_operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release operational operator adoption: ${{ steps.benchmark_release_decision.outputs.operational_operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release operational operator outcome drift: ${{ steps.benchmark_release_decision.outputs.operational_operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release operational operator outcome drift summary: ${{ steps.benchmark_release_decision.outputs.operational_operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release blocking signals: ${{ steps.benchmark_release_decision.outputs.blocking_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release review signals: ${{ steps.benchmark_release_decision.outputs.review_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release artifact: ${{ steps.benchmark_release_decision.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -5806,6 +5876,12 @@ jobs:
           echo "- Benchmark release runbook operator adoption knowledge drift summary: ${{ steps.benchmark_release_runbook.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook operator adoption knowledge outcome drift: ${{ steps.benchmark_release_runbook.outputs.operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook operator adoption knowledge outcome drift summary: ${{ steps.benchmark_release_runbook.outputs.operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook scorecard operator adoption: ${{ steps.benchmark_release_runbook.outputs.scorecard_operator_adoption_status }} / ${{ steps.benchmark_release_runbook.outputs.scorecard_operator_adoption_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook scorecard operator outcome drift: ${{ steps.benchmark_release_runbook.outputs.scorecard_operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook scorecard operator outcome drift summary: ${{ steps.benchmark_release_runbook.outputs.scorecard_operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook operational operator adoption: ${{ steps.benchmark_release_runbook.outputs.operational_operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook operational operator outcome drift: ${{ steps.benchmark_release_runbook.outputs.operational_operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook operational operator outcome drift summary: ${{ steps.benchmark_release_runbook.outputs.operational_operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook missing artifacts: ${{ steps.benchmark_release_runbook.outputs.missing_artifacts }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook blocking signals: ${{ steps.benchmark_release_runbook.outputs.blocking_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook review signals: ${{ steps.benchmark_release_runbook.outputs.review_signals }}" >> $GITHUB_STEP_SUMMARY
