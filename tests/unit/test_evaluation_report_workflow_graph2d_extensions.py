@@ -60,6 +60,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_SCORECARD_QDRANT_READINESS_JSON" in env
     assert "BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON" in env
     assert "BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_JSON" in env
+    assert "BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY_JSON" in env
     assert "BENCHMARK_SCORECARD_OUTPUT_JSON" in env
     assert "BENCHMARK_SCORECARD_OUTPUT_MD" in env
     assert "BENCHMARK_ENGINEERING_SIGNALS_ENABLE" in env
@@ -103,6 +104,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_OPERATIONAL_SUMMARY_ASSISTANT_JSON" in env
     assert "BENCHMARK_OPERATIONAL_SUMMARY_REVIEW_QUEUE_JSON" in env
     assert "BENCHMARK_OPERATIONAL_SUMMARY_OCR_REVIEW_JSON" in env
+    assert "BENCHMARK_OPERATIONAL_SUMMARY_OPERATOR_ADOPTION_JSON" in env
     assert "BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_JSON" in env
     assert "BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_MD" in env
     assert "BENCHMARK_ARTIFACT_BUNDLE_ENABLE" in env
@@ -209,6 +211,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_scorecard_qdrant_readiness_summary" in dispatch_inputs
     assert "benchmark_scorecard_engineering_signals_summary" in dispatch_inputs
     assert "benchmark_scorecard_knowledge_readiness_summary" in dispatch_inputs
+    assert "benchmark_scorecard_operator_adoption_summary" in dispatch_inputs
     assert "benchmark_engineering_signals_enable" in dispatch_inputs
     assert "benchmark_engineering_signals_hybrid_summary_json" in dispatch_inputs
     assert "benchmark_engineering_signals_ocr_review_summary_json" in dispatch_inputs
@@ -241,6 +244,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_operational_summary_assistant_json" in dispatch_inputs
     assert "benchmark_operational_summary_review_queue_json" in dispatch_inputs
     assert "benchmark_operational_summary_ocr_review_json" in dispatch_inputs
+    assert "benchmark_operational_summary_operator_adoption_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_enable" in dispatch_inputs
     assert "benchmark_artifact_bundle_scorecard_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_operational_summary_json" in dispatch_inputs
@@ -765,6 +769,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--qdrant-readiness-summary" in benchmark_script
     assert "--engineering-signals-summary" in benchmark_script
     assert "--knowledge-readiness-summary" in benchmark_script
+    assert "--benchmark-operator-adoption-summary" in benchmark_script
     assert "overall_status=" in benchmark_script
     assert "assistant_status=" in benchmark_script
     assert "review_queue_status=" in benchmark_script
@@ -778,6 +783,10 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "engineering_status=" in benchmark_script
     assert "engineering_coverage_ratio=" in benchmark_script
     assert "engineering_top_standard_types=" in benchmark_script
+    assert "operator_adoption_status=" in benchmark_script
+    assert "operator_adoption_mode=" in benchmark_script
+    assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_script
+    assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_script
 
     feedback_flywheel_step = _get_step(
         workflow, "evaluate", "Build feedback flywheel benchmark artifact (optional)"
@@ -802,11 +811,15 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--assistant-evidence" in benchmark_operational_script
     assert "--review-queue" in benchmark_operational_script
     assert "--ocr-review" in benchmark_operational_script
+    assert "--benchmark-operator-adoption" in benchmark_operational_script
     assert "INPUT_COUNT=0" in benchmark_operational_script
     assert "feedback_status=" in benchmark_operational_script
     assert "assistant_status=" in benchmark_operational_script
     assert "review_queue_status=" in benchmark_operational_script
     assert "ocr_status=" in benchmark_operational_script
+    assert "operator_adoption_status=" in benchmark_operational_script
+    assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_operational_script
+    assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_operational_script
     assert "blockers=" in benchmark_operational_script
     assert "recommendations=" in benchmark_operational_script
 
@@ -1333,6 +1346,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark engineering signals status" in summary_script
     assert "Benchmark engineering coverage ratio" in summary_script
     assert "Benchmark engineering standard types" in summary_script
+    assert "Benchmark scorecard operator adoption" in summary_script
+    assert "Benchmark scorecard operator adoption mode" in summary_script
+    assert "Benchmark scorecard operator outcome drift" in summary_script
+    assert "Benchmark scorecard operator outcome drift summary" in summary_script
     assert "Feedback flywheel benchmark status" in summary_script
     assert "Feedback flywheel feedback total" in summary_script
     assert "Feedback flywheel artifact" in summary_script
@@ -1341,6 +1358,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark operational assistant status" in summary_script
     assert "Benchmark operational review queue status" in summary_script
     assert "Benchmark operational OCR status" in summary_script
+    assert "Benchmark operational operator adoption" in summary_script
+    assert "Benchmark operational operator outcome drift" in summary_script
+    assert "Benchmark operational operator outcome drift summary" in summary_script
     assert "Benchmark operational blockers" in summary_script
     assert "Benchmark operational recommendations" in summary_script
     assert "Benchmark operational artifact" in summary_script
@@ -1584,6 +1604,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "script=${sweepBestRunScript}" in pr_comment_script
     assert "benchmarkScorecardEnabled" in pr_comment_script
     assert "Benchmark Scorecard" in pr_comment_script
+    assert "benchmarkScorecardOperatorAdoptionStatus" in pr_comment_script
+    assert "benchmarkScorecardOperatorAdoptionMode" in pr_comment_script
+    assert "benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus" in pr_comment_script
+    assert "benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftSummary" in pr_comment_script
     assert "Benchmark Recommendations" in pr_comment_script
     assert "benchmarkAssistantStatus" in pr_comment_script
     assert "benchmarkReviewQueueStatus" in pr_comment_script
@@ -1594,6 +1618,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkOperationalSummaryEnabled" in pr_comment_script
     assert "benchmarkOperationalSummaryOverall" in pr_comment_script
     assert "benchmarkOperationalSummaryStatus" in pr_comment_script
+    assert "benchmarkOperationalOperatorAdoptionStatus" in pr_comment_script
+    assert "benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus" in pr_comment_script
+    assert "benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary" in pr_comment_script
     assert "benchmarkOperationalLight" in pr_comment_script
     assert "benchmarkArtifactBundleEnabled" in pr_comment_script
     assert "benchmarkArtifactBundleOverall" in pr_comment_script
@@ -1748,6 +1775,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "engineering=${benchmarkEngineeringStatus}" in pr_comment_script
     assert "Benchmark Feedback Flywheel" in pr_comment_script
     assert "Benchmark Engineering Signals" in pr_comment_script
+    assert "Benchmark Scorecard Operator Adoption" in pr_comment_script
+    assert "Benchmark Scorecard Operator Outcome Drift" in pr_comment_script
     assert "Benchmark Real-Data Signals" in pr_comment_script
     assert "Benchmark Real-Data Scorecard" in pr_comment_script
     assert "Benchmark Knowledge Readiness" in pr_comment_script
@@ -1766,6 +1795,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Engineering Recommendations" in pr_comment_script
     assert "Feedback Flywheel Artifact" in pr_comment_script
     assert "Benchmark Operational Summary" in pr_comment_script
+    assert "Benchmark Operational Operator Adoption" in pr_comment_script
+    assert "Benchmark Operational Operator Outcome Drift" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Drift" in pr_comment_script
     assert "Benchmark Artifact Bundle" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Application" in pr_comment_script
