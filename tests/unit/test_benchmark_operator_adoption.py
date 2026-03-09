@@ -31,6 +31,7 @@ def test_build_operator_adoption_blocked() -> None:
         review_queue={"operational_status": "critical_backlog", "critical_count": 3},
         feedback_flywheel={"status": "feedback_collected", "correction_count": 2},
         benchmark_knowledge_drift={},
+        benchmark_knowledge_outcome_drift={},
         artifact_paths={"benchmark_release_runbook": "runbook.json"},
     )
 
@@ -56,6 +57,7 @@ def test_build_operator_adoption_freeze_ready() -> None:
         review_queue={"operational_status": "under_control", "critical_count": 0},
         feedback_flywheel={"status": "healthy", "feedback_total": 4},
         benchmark_knowledge_drift={},
+        benchmark_knowledge_outcome_drift={},
         artifact_paths={},
     )
 
@@ -90,6 +92,7 @@ def test_build_operator_adoption_knowledge_drift_regressed() -> None:
                 "counts": {"regressions": 1},
             }
         },
+        benchmark_knowledge_outcome_drift={},
         artifact_paths={},
     )
 
@@ -101,12 +104,54 @@ def test_build_operator_adoption_knowledge_drift_regressed() -> None:
     )
 
 
+def test_build_operator_adoption_knowledge_outcome_drift_regressed() -> None:
+    payload = build_operator_adoption(
+        title="Operator Adoption",
+        benchmark_release_decision={
+            "release_status": "ready",
+            "automation_ready": True,
+            "knowledge_outcome_drift_status": "regressed",
+            "knowledge_outcome_drift_summary": "Outcome alignment regressed in standards.",
+        },
+        benchmark_release_runbook={
+            "release_status": "ready",
+            "next_action": "freeze_release_baseline",
+            "ready_to_freeze_baseline": True,
+        },
+        review_queue={"operational_status": "under_control", "critical_count": 0},
+        feedback_flywheel={"status": "healthy", "feedback_total": 4},
+        benchmark_knowledge_drift={},
+        benchmark_knowledge_outcome_drift={
+            "knowledge_outcome_drift": {
+                "status": "regressed",
+                "summary": "Outcome alignment regressed in standards.",
+                "recommendations": [
+                    "Reconcile standards outcome regressions before promotion."
+                ],
+                "current_status": "knowledge_outcome_correlation_partial",
+                "previous_status": "knowledge_outcome_correlation_ready",
+                "domain_regressions": ["standards"],
+            }
+        },
+        artifact_paths={},
+    )
+
+    assert payload["adoption_readiness"] == "guided_manual"
+    assert payload["operator_mode"] == "stabilize_knowledge"
+    assert payload["knowledge_outcome_drift_status"] == "regressed"
+    assert payload["knowledge_outcome_drift"]["domain_regressions"] == ["standards"]
+    assert payload["recommended_actions"][0] == (
+        "Reconcile standards outcome regressions before promotion."
+    )
+
+
 def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     release = tmp_path / "release.json"
     runbook = tmp_path / "runbook.json"
     review_queue = tmp_path / "queue.json"
     feedback = tmp_path / "feedback.json"
     drift = tmp_path / "drift.json"
+    outcome_drift = tmp_path / "outcome_drift.json"
     output_json = tmp_path / "adoption.json"
     output_md = tmp_path / "adoption.md"
 
@@ -159,6 +204,23 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    outcome_drift.write_text(
+        json.dumps(
+            {
+                "knowledge_outcome_drift": {
+                    "status": "regressed",
+                    "summary": "Outcome alignment regressed in GD&T.",
+                    "recommendations": [
+                        "Reconcile outcome regressions before promotion."
+                    ],
+                    "current_status": "knowledge_outcome_correlation_partial",
+                    "previous_status": "knowledge_outcome_correlation_ready",
+                    "domain_regressions": ["gdt"],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -174,6 +236,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(feedback),
             "--benchmark-knowledge-drift",
             str(drift),
+            "--benchmark-knowledge-outcome-drift",
+            str(outcome_drift),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -187,6 +251,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["adoption_readiness"] == "guided_manual"
     assert payload["operator_mode"] == "stabilize_knowledge"
     assert payload["knowledge_drift_status"] == "regressed"
+    assert payload["knowledge_outcome_drift_status"] == "regressed"
     assert payload["recommended_actions"][0] == (
         "Restore GD&T reference coverage before promotion."
     )
@@ -196,3 +261,4 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "# Benchmark Operator Adoption" in rendered
     assert "`operator_mode`: `stabilize_knowledge`" in rendered
     assert "`knowledge_drift_status`: `regressed`" in rendered
+    assert "`knowledge_outcome_drift_status`: `regressed`" in rendered

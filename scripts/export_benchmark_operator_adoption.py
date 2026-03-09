@@ -123,16 +123,73 @@ def _knowledge_drift_payload(
     }
 
 
+def _knowledge_outcome_drift_payload(
+    benchmark_release_decision: Dict[str, Any],
+    benchmark_release_runbook: Dict[str, Any],
+    benchmark_knowledge_outcome_drift: Dict[str, Any],
+) -> Dict[str, Any]:
+    component = (
+        benchmark_release_runbook.get("knowledge_outcome_drift")
+        or benchmark_release_decision.get("knowledge_outcome_drift")
+        or benchmark_knowledge_outcome_drift.get("knowledge_outcome_drift")
+        or benchmark_knowledge_outcome_drift
+        or {}
+    )
+    return {
+        "status": (
+            _text(component.get("status"))
+            or _text(benchmark_release_runbook.get("knowledge_outcome_drift_status"))
+            or _text(benchmark_release_decision.get("knowledge_outcome_drift_status"))
+            or "unknown"
+        ),
+        "summary": (
+            _text(component.get("summary"))
+            or _text(benchmark_release_runbook.get("knowledge_outcome_drift_summary"))
+            or _text(benchmark_release_decision.get("knowledge_outcome_drift_summary"))
+        ),
+        "recommendations": _compact(
+            component.get("recommendations")
+            or benchmark_knowledge_outcome_drift.get("recommendations")
+            or [],
+            limit=4,
+        ),
+        "current_status": (
+            _text(component.get("current_status"))
+            or _text(benchmark_release_runbook.get("knowledge_outcome_drift_current_status"))
+            or _text(benchmark_release_decision.get("knowledge_outcome_drift_current_status"))
+        ),
+        "previous_status": (
+            _text(component.get("previous_status"))
+            or _text(benchmark_release_runbook.get("knowledge_outcome_drift_previous_status"))
+            or _text(benchmark_release_decision.get("knowledge_outcome_drift_previous_status"))
+        ),
+        "domain_regressions": _compact(component.get("domain_regressions") or [], limit=4),
+        "domain_improvements": _compact(component.get("domain_improvements") or [], limit=4),
+        "resolved_priority_domains": _compact(
+            component.get("resolved_priority_domains") or [],
+            limit=4,
+        ),
+        "new_priority_domains": _compact(
+            component.get("new_priority_domains") or [],
+            limit=4,
+        ),
+    }
+
+
 def _adoption_readiness(
     statuses: Dict[str, str],
     freeze_ready: bool,
     blockers: List[str],
     review_signals: List[str],
     knowledge_drift: Dict[str, Any],
+    knowledge_outcome_drift: Dict[str, Any],
 ) -> str:
     if blockers or statuses["release_decision"] == "blocked":
         return "blocked"
-    if knowledge_drift.get("status") == "regressed":
+    if (
+        knowledge_drift.get("status") == "regressed"
+        or knowledge_outcome_drift.get("status") == "regressed"
+    ):
         return "guided_manual"
     if freeze_ready and not review_signals and statuses["review_queue"] not in {
         "critical_backlog",
@@ -149,10 +206,14 @@ def _operator_mode(
     review_signals: List[str],
     freeze_ready: bool,
     knowledge_drift: Dict[str, Any],
+    knowledge_outcome_drift: Dict[str, Any],
 ) -> str:
     if blockers or statuses["release_decision"] == "blocked":
         return "clear_blockers"
-    if knowledge_drift.get("status") == "regressed":
+    if (
+        knowledge_drift.get("status") == "regressed"
+        or knowledge_outcome_drift.get("status") == "regressed"
+    ):
         return "stabilize_knowledge"
     if next_action == "collect_artifacts":
         return "stabilize_inputs"
@@ -169,9 +230,13 @@ def _recommended_actions(
     review_signals: List[str],
     review_queue: Dict[str, Any],
     knowledge_drift: Dict[str, Any],
+    knowledge_outcome_drift: Dict[str, Any],
 ) -> List[str]:
     actions: List[str] = []
     for item in knowledge_drift.get("recommendations") or []:
+        if item and item not in actions:
+            actions.append(str(item))
+    for item in knowledge_outcome_drift.get("recommendations") or []:
         if item and item not in actions:
             actions.append(str(item))
     for step in benchmark_release_runbook.get("operator_steps") or []:
@@ -202,6 +267,7 @@ def build_operator_adoption(
     review_queue: Dict[str, Any],
     feedback_flywheel: Dict[str, Any],
     benchmark_knowledge_drift: Dict[str, Any],
+    benchmark_knowledge_outcome_drift: Dict[str, Any],
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     statuses = _pick_status(
@@ -237,6 +303,11 @@ def build_operator_adoption(
         benchmark_release_runbook,
         benchmark_knowledge_drift,
     )
+    knowledge_outcome_drift = _knowledge_outcome_drift_payload(
+        benchmark_release_decision,
+        benchmark_release_runbook,
+        benchmark_knowledge_outcome_drift,
+    )
 
     adoption_readiness = _adoption_readiness(
         statuses,
@@ -244,6 +315,7 @@ def build_operator_adoption(
         blockers,
         review_signals,
         knowledge_drift,
+        knowledge_outcome_drift,
     )
     operator_mode = _operator_mode(
         statuses,
@@ -252,6 +324,7 @@ def build_operator_adoption(
         review_signals,
         freeze_ready,
         knowledge_drift,
+        knowledge_outcome_drift,
     )
     recommended_actions = _recommended_actions(
         benchmark_release_runbook,
@@ -259,6 +332,7 @@ def build_operator_adoption(
         review_signals,
         review_queue,
         knowledge_drift,
+        knowledge_outcome_drift,
     )
     artifacts = {
         "benchmark_release_decision": _artifact_row(
@@ -286,6 +360,11 @@ def build_operator_adoption(
             artifact_paths.get("benchmark_knowledge_drift", ""),
             benchmark_knowledge_drift,
         ),
+        "benchmark_knowledge_outcome_drift": _artifact_row(
+            "benchmark_knowledge_outcome_drift",
+            artifact_paths.get("benchmark_knowledge_outcome_drift", ""),
+            benchmark_knowledge_outcome_drift,
+        ),
     }
 
     return {
@@ -306,6 +385,9 @@ def build_operator_adoption(
         "knowledge_drift_status": knowledge_drift["status"],
         "knowledge_drift_summary": knowledge_drift["summary"],
         "knowledge_drift": knowledge_drift,
+        "knowledge_outcome_drift_status": knowledge_outcome_drift["status"],
+        "knowledge_outcome_drift_summary": knowledge_outcome_drift["summary"],
+        "knowledge_outcome_drift": knowledge_outcome_drift,
         "recommended_actions": recommended_actions,
         "artifacts": artifacts,
     }
@@ -321,6 +403,7 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"- `automation_ready`: `{payload.get('automation_ready')}`",
         f"- `freeze_ready`: `{payload.get('freeze_ready')}`",
         f"- `knowledge_drift_status`: `{payload.get('knowledge_drift_status')}`",
+        f"- `knowledge_outcome_drift_status`: `{payload.get('knowledge_outcome_drift_status')}`",
         "",
         "## Statuses",
         "",
@@ -360,6 +443,22 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"new_focus_areas={counts.get('new_focus_areas', 0)} "
         f"resolved_focus_areas={counts.get('resolved_focus_areas', 0)}"
     )
+    lines.extend(["", "## Knowledge Outcome Drift", ""])
+    lines.append(
+        "- `summary`: "
+        + (_text(payload.get("knowledge_outcome_drift_summary")) or "none")
+    )
+    outcome_drift = payload.get("knowledge_outcome_drift") or {}
+    lines.append(
+        "- `status_pair`: "
+        f"current={_text(outcome_drift.get('current_status')) or 'n/a'} "
+        f"previous={_text(outcome_drift.get('previous_status')) or 'n/a'}"
+    )
+    lines.append(
+        "- `domains`: "
+        f"regressions={', '.join(outcome_drift.get('domain_regressions') or []) or 'none'} "
+        f"improvements={', '.join(outcome_drift.get('domain_improvements') or []) or 'none'}"
+    )
     lines.extend(["", "## Recommended Actions", ""])
     actions = payload.get("recommended_actions") or []
     lines.extend(f"- {item}" for item in actions) if actions else lines.append("- none")
@@ -382,6 +481,7 @@ def main() -> None:
     parser.add_argument("--review-queue", default="")
     parser.add_argument("--feedback-flywheel", default="")
     parser.add_argument("--benchmark-knowledge-drift", default="")
+    parser.add_argument("--benchmark-knowledge-outcome-drift", default="")
     parser.add_argument("--output-json", required=True)
     parser.add_argument("--output-md", required=True)
     args = parser.parse_args()
@@ -393,12 +493,18 @@ def main() -> None:
         review_queue=_maybe_load_json(args.review_queue),
         feedback_flywheel=_maybe_load_json(args.feedback_flywheel),
         benchmark_knowledge_drift=_maybe_load_json(args.benchmark_knowledge_drift),
+        benchmark_knowledge_outcome_drift=_maybe_load_json(
+            args.benchmark_knowledge_outcome_drift
+        ),
         artifact_paths={
             "benchmark_release_decision": args.benchmark_release_decision,
             "benchmark_release_runbook": args.benchmark_release_runbook,
             "review_queue": args.review_queue,
             "feedback_flywheel": args.feedback_flywheel,
             "benchmark_knowledge_drift": args.benchmark_knowledge_drift,
+            "benchmark_knowledge_outcome_drift": (
+                args.benchmark_knowledge_outcome_drift
+            ),
         },
     )
     _write_output(args.output_json, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
