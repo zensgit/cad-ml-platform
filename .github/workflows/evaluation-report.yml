@@ -4689,6 +4689,7 @@ jobs:
         statuses = payload.get("statuses") or {}
         drift = payload.get("knowledge_drift") or {}
         outcome_drift = payload.get("knowledge_outcome_drift") or {}
+        release_surface_alignment = payload.get("release_surface_alignment") or {}
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
             f.write(
                 f"adoption_readiness={payload.get('adoption_readiness', 'unknown')}\n"
@@ -4729,6 +4730,18 @@ jobs:
             f.write(
                 "knowledge_outcome_drift_summary="
                 f"{compact([payload.get('knowledge_outcome_drift_summary')])}\n"
+            )
+            f.write(
+                "release_surface_alignment_status="
+                f"{payload.get('release_surface_alignment_status', 'unknown')}\n"
+            )
+            f.write(
+                "release_surface_alignment_summary="
+                f"{compact([payload.get('release_surface_alignment_summary')])}\n"
+            )
+            f.write(
+                "release_surface_alignment_mismatches="
+                f"{compact(release_surface_alignment.get('mismatches') or [])}\n"
             )
         PY
 
@@ -5903,6 +5916,9 @@ jobs:
           echo "- Benchmark operator adoption knowledge drift summary: ${{ steps.benchmark_operator_adoption.outputs.knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operator adoption knowledge outcome drift: ${{ steps.benchmark_operator_adoption.outputs.knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operator adoption knowledge outcome drift summary: ${{ steps.benchmark_operator_adoption.outputs.knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption release surface alignment: ${{ steps.benchmark_operator_adoption.outputs.release_surface_alignment_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption release surface alignment summary: ${{ steps.benchmark_operator_adoption.outputs.release_surface_alignment_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operator adoption release surface mismatches: ${{ steps.benchmark_operator_adoption.outputs.release_surface_alignment_mismatches }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operator adoption blockers: ${{ steps.benchmark_operator_adoption.outputs.blocking_signals }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operator adoption actions: ${{ steps.benchmark_operator_adoption.outputs.recommended_actions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operator adoption artifact: ${{ steps.benchmark_operator_adoption.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
