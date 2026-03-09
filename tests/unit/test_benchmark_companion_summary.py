@@ -326,6 +326,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     knowledge_application = tmp_path / "knowledge_application.json"
     knowledge_realdata_correlation = tmp_path / "knowledge_realdata_correlation.json"
     knowledge_domain_matrix = tmp_path / "knowledge_domain_matrix.json"
+    knowledge_outcome_correlation = tmp_path / "knowledge_outcome_correlation.json"
     output_json = tmp_path / "out.json"
     output_md = tmp_path / "out.md"
     scorecard.write_text(
@@ -500,6 +501,26 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_outcome_correlation.write_text(
+        json.dumps(
+            {
+                "knowledge_outcome_correlation": {
+                    "status": "knowledge_outcome_correlation_ready",
+                    "priority_domains": [],
+                    "domains": {
+                        "standards": {
+                            "status": "ready",
+                            "matrix_status": "ready",
+                            "best_surface": "hybrid_dxf",
+                            "best_surface_score": 0.91,
+                        }
+                    },
+                },
+                "recommendations": [],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -527,6 +548,8 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
             str(knowledge_realdata_correlation),
             "--benchmark-knowledge-domain-matrix",
             str(knowledge_domain_matrix),
+            "--benchmark-knowledge-outcome-correlation",
+            str(knowledge_outcome_correlation),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -548,6 +571,9 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["component_statuses"]["knowledge_domain_matrix"] == (
         "knowledge_domain_matrix_ready"
     )
+    assert payload["component_statuses"]["knowledge_outcome_correlation"] == (
+        "knowledge_outcome_correlation_ready"
+    )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["knowledge_focus_areas"] == []
     assert payload["knowledge_drift_summary"].startswith("status=stable")
@@ -556,6 +582,9 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_domain_focus_areas"] == []
     assert payload["knowledge_application_status"] == "knowledge_application_ready"
     assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_ready"
+    assert payload["knowledge_outcome_correlation_status"] == (
+        "knowledge_outcome_correlation_ready"
+    )
     assert payload["knowledge_drift_domain_improvements"] == []
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert output_md.exists()

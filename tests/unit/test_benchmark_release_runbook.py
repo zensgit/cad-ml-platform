@@ -289,12 +289,30 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             },
             "recommendations": [],
         },
+        benchmark_knowledge_outcome_correlation={
+            "knowledge_outcome_correlation": {
+                "status": "knowledge_outcome_correlation_ready",
+                "priority_domains": [],
+                "domains": {
+                    "standards": {
+                        "status": "ready",
+                        "matrix_status": "ready",
+                        "best_surface": "hybrid_dxf",
+                        "best_surface_score": 0.91,
+                    }
+                },
+            },
+            "recommendations": [],
+        },
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_companion_summary": "companion.json",
             "benchmark_artifact_bundle": "bundle.json",
             "benchmark_engineering_signals": "engineering.json",
             "benchmark_realdata_signals": "realdata.json",
+            "benchmark_knowledge_outcome_correlation": (
+                "knowledge_outcome_correlation.json"
+            ),
         },
     )
 
@@ -331,6 +349,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge_application = tmp_path / "knowledge_application.json"
     knowledge_realdata_correlation = tmp_path / "knowledge_realdata_correlation.json"
     knowledge_domain_matrix = tmp_path / "knowledge_domain_matrix.json"
+    knowledge_outcome_correlation = tmp_path / "knowledge_outcome_correlation.json"
     output_json = tmp_path / "runbook.json"
     output_md = tmp_path / "runbook.md"
 
@@ -520,6 +539,29 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_outcome_correlation.write_text(
+        json.dumps(
+            {
+                "knowledge_outcome_correlation": {
+                    "status": "knowledge_outcome_correlation_partial",
+                    "priority_domains": ["tolerance"],
+                    "domains": {
+                        "tolerance": {
+                            "status": "partial",
+                            "matrix_status": "partial",
+                            "best_surface": "hybrid_dxf",
+                            "best_surface_score": 0.88,
+                        }
+                    },
+                },
+                "recommendations": [
+                    "Use companion, bundle, release decision, and runbook surfaces "
+                    "to track which knowledge domains are still weak on real-data outcomes."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -547,6 +589,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(knowledge_realdata_correlation),
             "--benchmark-knowledge-domain-matrix",
             str(knowledge_domain_matrix),
+            "--benchmark-knowledge-outcome-correlation",
+            str(knowledge_outcome_correlation),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -567,6 +611,9 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_domain_focus_areas"][0]["domain"] == "tolerance"
     assert payload["knowledge_application_status"] == "knowledge_application_partial"
     assert payload["knowledge_application_domains"]["tolerance"]["status"] == "partial"
+    assert payload["knowledge_outcome_correlation_status"] == (
+        "knowledge_outcome_correlation_partial"
+    )
     assert payload["next_action"] == "review_signals"
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
