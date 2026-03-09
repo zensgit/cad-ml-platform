@@ -176,6 +176,91 @@ def _knowledge_outcome_drift_payload(
     }
 
 
+def _release_surface_layer(
+    component: Dict[str, Any],
+    *,
+    standalone_field: str = "operator_adoption_status",
+) -> Dict[str, str]:
+    scorecard = component.get("scorecard_operator_adoption") or {}
+    operational = component.get("operational_operator_adoption") or {}
+    return {
+        "standalone_status": _text(component.get(standalone_field)) or "unknown",
+        "scorecard_status": _text(scorecard.get("status")) or "unknown",
+        "scorecard_mode": _text(scorecard.get("mode")) or "unknown",
+        "scorecard_outcome_drift_status": (
+            _text(scorecard.get("knowledge_outcome_drift_status")) or "unknown"
+        ),
+        "scorecard_outcome_drift_summary": _text(
+            scorecard.get("knowledge_outcome_drift_summary")
+        ),
+        "operational_status": _text(operational.get("status")) or "unknown",
+        "operational_outcome_drift_status": (
+            _text(operational.get("knowledge_outcome_drift_status")) or "unknown"
+        ),
+        "operational_outcome_drift_summary": _text(
+            operational.get("knowledge_outcome_drift_summary")
+        ),
+    }
+
+
+def _release_surface_alignment(
+    benchmark_release_decision: Dict[str, Any],
+    benchmark_release_runbook: Dict[str, Any],
+) -> Dict[str, Any]:
+    release_decision = _release_surface_layer(benchmark_release_decision)
+    release_runbook = _release_surface_layer(benchmark_release_runbook)
+    mismatches: List[str] = []
+
+    for key, label in (
+        ("standalone_status", "standalone"),
+        ("scorecard_status", "scorecard"),
+        ("operational_status", "operational"),
+        ("scorecard_outcome_drift_status", "scorecard_outcome_drift"),
+        ("operational_outcome_drift_status", "operational_outcome_drift"),
+    ):
+        left = release_decision.get(key) or "unknown"
+        right = release_runbook.get(key) or "unknown"
+        if left != "unknown" and right != "unknown" and left != right:
+            mismatches.append(f"{label}:{left}->{right}")
+
+    known_statuses = [
+        value
+        for value in (
+            release_decision.get("standalone_status"),
+            release_decision.get("scorecard_status"),
+            release_decision.get("operational_status"),
+            release_runbook.get("standalone_status"),
+            release_runbook.get("scorecard_status"),
+            release_runbook.get("operational_status"),
+        )
+        if value and value != "unknown"
+    ]
+    if not known_statuses:
+        status = "unavailable"
+    elif mismatches:
+        status = "diverged"
+    else:
+        status = "aligned"
+
+    if status == "aligned":
+        summary = (
+            "release_decision and release_runbook agree on standalone, scorecard, "
+            "and operational operator-adoption states"
+        )
+    elif status == "diverged":
+        summary = "; ".join(mismatches[:5])
+    else:
+        summary = "release operator-adoption surface alignment unavailable"
+
+    return {
+        "status": status,
+        "summary": summary,
+        "mismatches": mismatches,
+        "release_decision": release_decision,
+        "release_runbook": release_runbook,
+    }
+
+
 def _adoption_readiness(
     statuses: Dict[str, str],
     freeze_ready: bool,
@@ -308,6 +393,10 @@ def build_operator_adoption(
         benchmark_release_runbook,
         benchmark_knowledge_outcome_drift,
     )
+    release_surface_alignment = _release_surface_alignment(
+        benchmark_release_decision,
+        benchmark_release_runbook,
+    )
 
     adoption_readiness = _adoption_readiness(
         statuses,
@@ -388,6 +477,9 @@ def build_operator_adoption(
         "knowledge_outcome_drift_status": knowledge_outcome_drift["status"],
         "knowledge_outcome_drift_summary": knowledge_outcome_drift["summary"],
         "knowledge_outcome_drift": knowledge_outcome_drift,
+        "release_surface_alignment_status": release_surface_alignment["status"],
+        "release_surface_alignment_summary": release_surface_alignment["summary"],
+        "release_surface_alignment": release_surface_alignment,
         "recommended_actions": recommended_actions,
         "artifacts": artifacts,
     }
@@ -404,6 +496,10 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"- `freeze_ready`: `{payload.get('freeze_ready')}`",
         f"- `knowledge_drift_status`: `{payload.get('knowledge_drift_status')}`",
         f"- `knowledge_outcome_drift_status`: `{payload.get('knowledge_outcome_drift_status')}`",
+        (
+            "- `release_surface_alignment_status`: "
+            f"`{payload.get('release_surface_alignment_status')}`"
+        ),
         "",
         "## Statuses",
         "",
@@ -458,6 +554,30 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         "- `domains`: "
         f"regressions={', '.join(outcome_drift.get('domain_regressions') or []) or 'none'} "
         f"improvements={', '.join(outcome_drift.get('domain_improvements') or []) or 'none'}"
+    )
+    alignment = payload.get("release_surface_alignment") or {}
+    release_decision = alignment.get("release_decision") or {}
+    release_runbook = alignment.get("release_runbook") or {}
+    lines.extend(["", "## Release Surface Alignment", ""])
+    lines.append(
+        "- `summary`: "
+        + (_text(payload.get("release_surface_alignment_summary")) or "none")
+    )
+    lines.append(
+        "- `release_decision`: "
+        f"standalone={_text(release_decision.get('standalone_status')) or 'n/a'} "
+        f"scorecard={_text(release_decision.get('scorecard_status')) or 'n/a'} "
+        f"operational={_text(release_decision.get('operational_status')) or 'n/a'}"
+    )
+    lines.append(
+        "- `release_runbook`: "
+        f"standalone={_text(release_runbook.get('standalone_status')) or 'n/a'} "
+        f"scorecard={_text(release_runbook.get('scorecard_status')) or 'n/a'} "
+        f"operational={_text(release_runbook.get('operational_status')) or 'n/a'}"
+    )
+    mismatches = alignment.get("mismatches") or []
+    lines.append(
+        "- `mismatches`: " + (", ".join(mismatches) if mismatches else "none")
     )
     lines.extend(["", "## Recommended Actions", ""])
     actions = payload.get("recommended_actions") or []
