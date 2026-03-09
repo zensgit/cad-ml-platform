@@ -2075,6 +2075,18 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "mode=${benchmarkOperatorAdoptionMode}" in pr_comment_script
     assert "readiness=${benchmarkOperatorAdoptionReadiness}" in pr_comment_script
     assert "knowledge_drift=${benchmarkOperatorAdoptionKnowledgeDriftStatus}" in pr_comment_script
+    assert "Benchmark Operator Adoption Release Surface Alignment" in pr_comment_script
+    assert "Benchmark Operator Adoption Release Surface Mismatches" in (
+        pr_comment_script
+    )
+    assert (
+        "benchmarkOperatorAdoptionReleaseSurfaceAlignmentStatus || 'n/a'"
+        in pr_comment_script
+    )
+    assert (
+        "benchmarkOperatorAdoptionReleaseSurfaceAlignmentMismatches || 'n/a'"
+        in pr_comment_script
+    )
     assert "Benchmark Artifact Bundle Operator Drift" in pr_comment_script
     assert "Benchmark Artifact Bundle Operator Outcome Drift" in pr_comment_script
     assert "Benchmark Artifact Bundle Scorecard Operator Adoption" in pr_comment_script
