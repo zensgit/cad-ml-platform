@@ -44,6 +44,11 @@ from .knowledge_outcome_correlation import (  # noqa: F401
     knowledge_outcome_correlation_recommendations,
     render_knowledge_outcome_correlation_markdown,
 )
+from .knowledge_outcome_drift import (  # noqa: F401
+    build_knowledge_outcome_drift_status,
+    knowledge_outcome_drift_recommendations,
+    render_knowledge_outcome_drift_markdown,
+)
 from .realdata_signals import (  # noqa: F401
     build_realdata_signals_status,
     realdata_signals_recommendations,
