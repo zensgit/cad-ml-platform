@@ -35,6 +35,10 @@ def _write_output(path_text: str, content: str) -> None:
     output_path.write_text(content, encoding="utf-8")
 
 
+def _text(value: Any) -> str:
+    return str(value or "").strip()
+
+
 def _compact(items: Iterable[Any], *, limit: int = 5) -> List[str]:
     out: List[str] = []
     for item in items:
@@ -48,6 +52,10 @@ def _compact(items: Iterable[Any], *, limit: int = 5) -> List[str]:
 
 def _knowledge_drift_component(payload: Dict[str, Any]) -> Dict[str, Any]:
     return payload.get("knowledge_drift") or payload or {}
+
+
+def _knowledge_outcome_drift_component(payload: Dict[str, Any]) -> Dict[str, Any]:
+    return payload.get("knowledge_outcome_drift") or payload or {}
 
 
 def _knowledge_drift_summary(component: Dict[str, Any]) -> str:
@@ -74,6 +82,28 @@ def _knowledge_drift_summary(component: Dict[str, Any]) -> str:
     return "; ".join(parts)
 
 
+def _knowledge_outcome_drift_summary(component: Dict[str, Any]) -> str:
+    if not component:
+        return ""
+    parts = [f"status={component.get('status') or 'unknown'}"]
+    current_status = str(component.get("current_status") or "").strip()
+    previous_status = str(component.get("previous_status") or "").strip()
+    if current_status:
+        parts.append(f"current={current_status}")
+    if previous_status:
+        parts.append(f"previous={previous_status}")
+    regressions = _compact(component.get("regressions") or [])
+    improvements = _compact(component.get("improvements") or [])
+    new_focus_areas = _compact(component.get("new_focus_areas") or [])
+    if regressions:
+        parts.append("regressions=" + ", ".join(regressions))
+    if improvements:
+        parts.append("improvements=" + ", ".join(improvements))
+    if new_focus_areas:
+        parts.append("new_focus_areas=" + ", ".join(new_focus_areas))
+    return "; ".join(parts)
+
+
 def _component_statuses(
     scorecard: Dict[str, Any],
     operational_summary: Dict[str, Any],
@@ -88,6 +118,7 @@ def _component_statuses(
     knowledge_realdata_correlation_summary: Dict[str, Any] | None = None,
     knowledge_domain_matrix_summary: Dict[str, Any] | None = None,
     knowledge_outcome_correlation_summary: Dict[str, Any] | None = None,
+    knowledge_outcome_drift_summary: Dict[str, Any] | None = None,
 ) -> Dict[str, str]:
     realdata_scorecard_summary = realdata_scorecard_summary or {}
     knowledge_application_summary = knowledge_application_summary or {}
@@ -96,6 +127,7 @@ def _component_statuses(
     knowledge_outcome_correlation_summary = (
         knowledge_outcome_correlation_summary or {}
     )
+    knowledge_outcome_drift_summary = knowledge_outcome_drift_summary or {}
     scorecard_components = scorecard.get("components") or {}
     operational_components = operational_summary.get("component_statuses") or {}
     bundle_components = artifact_bundle.get("component_statuses") or {}
@@ -139,6 +171,9 @@ def _component_statuses(
         knowledge_outcome_correlation_summary.get("knowledge_outcome_correlation")
         or knowledge_outcome_correlation_summary
         or {}
+    )
+    knowledge_outcome_drift_component = _knowledge_outcome_drift_component(
+        knowledge_outcome_drift_summary
     )
 
     def pick(name: str) -> str:
@@ -222,6 +257,15 @@ def _component_statuses(
             ).get("status")
             or "unknown"
         ),
+        "knowledge_outcome_drift": str(
+            bundle_components.get("knowledge_outcome_drift")
+            or operational_components.get("knowledge_outcome_drift")
+            or knowledge_outcome_drift_component.get("status")
+            or (
+                scorecard_components.get("knowledge_outcome_drift") or {}
+            ).get("status")
+            or "unknown"
+        ),
     }
 
 
@@ -266,6 +310,7 @@ def _artifact_rows(
     knowledge_realdata_correlation_path: str,
     knowledge_domain_matrix_path: str,
     knowledge_outcome_correlation_path: str,
+    knowledge_outcome_drift_path: str,
 ) -> Dict[str, Dict[str, Any]]:
     def row(name: str, path_text: str) -> Dict[str, Any]:
         path_value = str(path_text or "").strip()
@@ -314,6 +359,10 @@ def _artifact_rows(
             "benchmark_knowledge_outcome_correlation",
             knowledge_outcome_correlation_path,
         ),
+        "benchmark_knowledge_outcome_drift": row(
+            "benchmark_knowledge_outcome_drift",
+            knowledge_outcome_drift_path,
+        ),
     }
 
 
@@ -358,6 +407,7 @@ def build_companion_summary(
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any] | None = None,
+    benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     benchmark_realdata_scorecard = benchmark_realdata_scorecard or {}
     benchmark_knowledge_application = benchmark_knowledge_application or {}
@@ -368,6 +418,7 @@ def build_companion_summary(
     benchmark_knowledge_outcome_correlation = (
         benchmark_knowledge_outcome_correlation or {}
     )
+    benchmark_knowledge_outcome_drift = benchmark_knowledge_outcome_drift or {}
     overall_status = (
         str(benchmark_artifact_bundle.get("overall_status") or "").strip()
         or str(benchmark_operational_summary.get("overall_status") or "").strip()
@@ -420,6 +471,9 @@ def build_companion_summary(
         or benchmark_knowledge_outcome_correlation
         or {}
     )
+    knowledge_outcome_drift_root = _knowledge_outcome_drift_component(
+        benchmark_knowledge_outcome_drift
+    )
     realdata_recommendations = benchmark_realdata_signals.get("recommendations") or []
     knowledge_application_recommendations = (
         benchmark_knowledge_application.get("recommendations") or []
@@ -432,6 +486,9 @@ def build_companion_summary(
     )
     knowledge_outcome_correlation_recommendations = (
         benchmark_knowledge_outcome_correlation.get("recommendations") or []
+    )
+    knowledge_outcome_drift_recommendations = (
+        benchmark_knowledge_outcome_drift.get("recommendations") or []
     )
     realdata_scorecard_recommendations = (
         benchmark_realdata_scorecard.get("recommendations") or []
@@ -447,6 +504,7 @@ def build_companion_summary(
         or knowledge_realdata_correlation_recommendations
         or knowledge_domain_matrix_recommendations
         or knowledge_outcome_correlation_recommendations
+        or knowledge_outcome_drift_recommendations
         or realdata_scorecard_recommendations
         or operator_adoption_recommendations
         or engineering_recommendations
@@ -468,6 +526,7 @@ def build_companion_summary(
         benchmark_knowledge_realdata_correlation,
         benchmark_knowledge_domain_matrix,
         benchmark_knowledge_outcome_correlation,
+        benchmark_knowledge_outcome_drift,
     )
     knowledge_focus_areas = list(
         (
@@ -573,6 +632,7 @@ def build_companion_summary(
         artifact_paths.get("benchmark_knowledge_realdata_correlation", ""),
         artifact_paths.get("benchmark_knowledge_domain_matrix", ""),
         artifact_paths.get("benchmark_knowledge_outcome_correlation", ""),
+        artifact_paths.get("benchmark_knowledge_outcome_drift", ""),
     )
     return {
         "title": title,
@@ -664,6 +724,29 @@ def build_companion_summary(
             knowledge_outcome_correlation_recommendations,
             limit=5,
         ),
+        "knowledge_outcome_drift": knowledge_outcome_drift_root,
+        "knowledge_outcome_drift_status": (
+            knowledge_outcome_drift_root.get("status") or "unknown"
+        ),
+        "knowledge_outcome_drift_summary": _knowledge_outcome_drift_summary(
+            knowledge_outcome_drift_root
+        ),
+        "knowledge_outcome_drift_domain_regressions": list(
+            knowledge_outcome_drift_root.get("domain_regressions") or []
+        ),
+        "knowledge_outcome_drift_domain_improvements": list(
+            knowledge_outcome_drift_root.get("domain_improvements") or []
+        ),
+        "knowledge_outcome_drift_resolved_priority_domains": list(
+            knowledge_outcome_drift_root.get("resolved_priority_domains") or []
+        ),
+        "knowledge_outcome_drift_new_priority_domains": list(
+            knowledge_outcome_drift_root.get("new_priority_domains") or []
+        ),
+        "knowledge_outcome_drift_recommendations": _compact(
+            knowledge_outcome_drift_recommendations,
+            limit=5,
+        ),
         "realdata_signals": realdata_root,
         "realdata_status": realdata_root.get("status") or "unknown",
         "realdata_recommendations": _compact(realdata_recommendations, limit=5),
@@ -696,6 +779,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"`{payload.get('knowledge_domain_matrix_status') or 'unknown'}`",
         f"- `knowledge_outcome_correlation_status`: "
         f"`{payload.get('knowledge_outcome_correlation_status') or 'unknown'}`",
+        f"- `knowledge_outcome_drift_status`: "
+        f"`{payload.get('knowledge_outcome_drift_status') or 'unknown'}`",
         f"- `realdata_status`: `{payload.get('realdata_status') or 'unknown'}`",
         f"- `realdata_scorecard_status`: "
         f"`{payload.get('realdata_scorecard_status') or 'unknown'}`",
@@ -936,6 +1021,32 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     if knowledge_outcome_recommendations:
         for item in knowledge_outcome_recommendations:
             lines.append(f"- recommendation: {item}")
+    lines.extend(["", "## Knowledge Outcome Drift", ""])
+    lines.append(
+        f"- `status`: `{payload.get('knowledge_outcome_drift_status') or 'unknown'}`"
+    )
+    lines.append(
+        "- `summary`: "
+        + (_text(payload.get("knowledge_outcome_drift_summary")) or "none")
+    )
+    for label in (
+        "knowledge_outcome_drift_domain_regressions",
+        "knowledge_outcome_drift_domain_improvements",
+        "knowledge_outcome_drift_resolved_priority_domains",
+        "knowledge_outcome_drift_new_priority_domains",
+    ):
+        values = payload.get(label) or []
+        lines.append(
+            f"- `{label}`: `{', '.join(str(item) for item in values) or 'none'}`"
+        )
+    knowledge_outcome_drift_recommendations = (
+        payload.get("knowledge_outcome_drift_recommendations") or []
+    )
+    if knowledge_outcome_drift_recommendations:
+        for item in knowledge_outcome_drift_recommendations:
+            lines.append(f"- recommendation: {item}")
+    else:
+        lines.append("- recommendation: none")
     lines.extend(["", "## Operator Adoption Knowledge Drift", ""])
     drift = payload.get("operator_adoption_knowledge_drift") or {}
     lines.append(f"- `status`: `{drift.get('status') or 'unknown'}`")
@@ -979,6 +1090,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-realdata-correlation", default="")
     parser.add_argument("--benchmark-knowledge-domain-matrix", default="")
     parser.add_argument("--benchmark-knowledge-outcome-correlation", default="")
+    parser.add_argument("--benchmark-knowledge-outcome-drift", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -1001,6 +1113,7 @@ def main() -> None:
         "benchmark_knowledge_outcome_correlation": (
             args.benchmark_knowledge_outcome_correlation
         ),
+        "benchmark_knowledge_outcome_drift": args.benchmark_knowledge_outcome_drift,
     }
     payload = build_companion_summary(
         title=args.title,
@@ -1032,6 +1145,9 @@ def main() -> None:
         ),
         benchmark_knowledge_outcome_correlation=_maybe_load_json(
             args.benchmark_knowledge_outcome_correlation
+        ),
+        benchmark_knowledge_outcome_drift=_maybe_load_json(
+            args.benchmark_knowledge_outcome_drift
         ),
         artifact_paths=artifact_paths,
     )

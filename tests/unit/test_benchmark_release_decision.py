@@ -546,3 +546,47 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "## Knowledge Domain Matrix" in rendered
     assert "## Real-Data Signals" in rendered
     assert "realdata.json" in rendered
+
+
+def test_build_release_decision_exposes_knowledge_outcome_drift_passthrough() -> None:
+    payload = build_release_decision(
+        title="Release Decision",
+        benchmark_scorecard={"components": {"hybrid": {"status": "healthy"}}},
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={},
+        benchmark_companion_summary={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_knowledge_outcome_drift={
+            "knowledge_outcome_drift": {
+                "status": "regressed",
+                "current_status": "knowledge_outcome_correlation_partial",
+                "previous_status": "knowledge_outcome_correlation_ready",
+                "domain_regressions": ["gdt"],
+                "domain_improvements": [],
+                "new_priority_domains": ["gdt"],
+                "resolved_priority_domains": [],
+            },
+            "recommendations": [
+                "Resolve knowledge outcome regressions before claiming benchmark outcome stability."
+            ],
+        },
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={"adoption_readiness": "operator_ready"},
+        artifact_paths={
+            "benchmark_knowledge_outcome_drift": "knowledge_outcome_drift.json"
+        },
+    )
+
+    assert payload["component_statuses"]["knowledge_outcome_drift"] == "regressed"
+    assert payload["artifacts"]["benchmark_knowledge_outcome_drift"]["present"] is True
+    assert payload["knowledge_outcome_drift_status"] == "regressed"
+    assert payload["knowledge_outcome_drift_domain_regressions"] == ["gdt"]
+    assert payload["knowledge_outcome_drift_recommendations"] == [
+        "Resolve knowledge outcome regressions before claiming benchmark outcome stability."
+    ]
+    assert (
+        "Resolve knowledge outcome regressions before claiming benchmark outcome stability."
+        in payload["review_signals"]
+    )

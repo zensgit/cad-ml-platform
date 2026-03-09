@@ -675,3 +675,68 @@ def test_build_companion_summary_exposes_knowledge_drift_passthrough() -> None:
     assert "regressions=standards" in payload["knowledge_drift_summary"]
     assert payload["knowledge_drift_domain_regressions"] == ["standards"]
     assert payload["knowledge_drift_new_priority_domains"] == ["standards"]
+
+
+def test_build_companion_summary_exposes_knowledge_outcome_drift_passthrough() -> None:
+    payload = build_companion_summary(
+        title="Benchmark Companion",
+        benchmark_scorecard={
+            "overall_status": "healthy",
+            "components": {"hybrid": {"status": "healthy"}},
+        },
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={
+            "overall_status": "healthy",
+            "component_statuses": {
+                "assistant_explainability": "explainability_ready",
+                "review_queue": "healthy",
+                "ocr_review": "ocr_ready",
+            },
+        },
+        benchmark_knowledge_readiness={
+            "knowledge_readiness": {"status": "knowledge_foundation_ready"}
+        },
+        benchmark_knowledge_drift={},
+        benchmark_knowledge_outcome_drift={
+            "knowledge_outcome_drift": {
+                "status": "mixed",
+                "current_status": "knowledge_outcome_correlation_partial",
+                "previous_status": "knowledge_outcome_correlation_ready",
+                "regressions": ["tolerance"],
+                "improvements": ["standards"],
+                "new_focus_areas": ["tolerance"],
+                "domain_regressions": ["tolerance"],
+                "domain_improvements": ["standards"],
+                "new_priority_domains": ["tolerance"],
+                "resolved_priority_domains": ["standards"],
+            },
+            "recommendations": [
+                "Keep the previous knowledge outcome baseline until regressions are cleared."
+            ],
+        },
+        benchmark_engineering_signals={
+            "engineering_signals": {"status": "engineering_semantics_ready"},
+            "recommendations": [],
+        },
+        benchmark_realdata_signals={
+            "realdata_signals": {"status": "realdata_foundation_ready"},
+            "recommendations": [],
+        },
+        benchmark_operator_adoption={
+            "adoption_readiness": "operator_ready",
+            "recommended_actions": [],
+        },
+        artifact_paths={
+            "benchmark_knowledge_outcome_drift": "knowledge_outcome_drift.json"
+        },
+    )
+
+    assert payload["component_statuses"]["knowledge_outcome_drift"] == "mixed"
+    assert payload["primary_gap"] == "knowledge_outcome_drift:mixed"
+    assert payload["artifacts"]["benchmark_knowledge_outcome_drift"]["present"] is True
+    assert payload["knowledge_outcome_drift"]["status"] == "mixed"
+    assert "regressions=tolerance" in payload["knowledge_outcome_drift_summary"]
+    assert payload["knowledge_outcome_drift_domain_regressions"] == ["tolerance"]
+    assert payload["knowledge_outcome_drift_recommendations"] == [
+        "Keep the previous knowledge outcome baseline until regressions are cleared."
+    ]

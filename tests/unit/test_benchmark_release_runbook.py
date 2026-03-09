@@ -304,6 +304,20 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             },
             "recommendations": [],
         },
+        benchmark_knowledge_outcome_drift={
+            "knowledge_outcome_drift": {
+                "status": "improved",
+                "current_status": "knowledge_outcome_correlation_ready",
+                "previous_status": "knowledge_outcome_correlation_partial",
+                "domain_regressions": [],
+                "domain_improvements": ["standards"],
+                "resolved_priority_domains": ["standards"],
+                "new_priority_domains": [],
+            },
+            "recommendations": [
+                "Promote the improved knowledge outcome correlation after CI surfaces refresh."
+            ],
+        },
         artifact_paths={
             "benchmark_release_decision": "release.json",
             "benchmark_companion_summary": "companion.json",
@@ -313,6 +327,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             "benchmark_knowledge_outcome_correlation": (
                 "knowledge_outcome_correlation.json"
             ),
+            "benchmark_knowledge_outcome_drift": "knowledge_outcome_drift.json",
         },
     )
 
@@ -328,12 +343,15 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["knowledge_domain_focus_areas"] == []
     assert payload["knowledge_application_status"] == "knowledge_application_ready"
     assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_ready"
+    assert payload["knowledge_outcome_drift_status"] == "improved"
     assert payload["next_action"] == "freeze_release_baseline"
     assert "benchmark_operator_adoption" not in payload["missing_artifacts"]
     assert "benchmark_knowledge_drift" not in payload["missing_artifacts"]
+    assert "benchmark_knowledge_outcome_drift" not in payload["missing_artifacts"]
     assert "benchmark_realdata_signals" not in payload["missing_artifacts"]
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is False
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
+    assert payload["artifacts"]["benchmark_knowledge_outcome_drift"]["present"] is True
     assert payload["operator_steps"][-1]["status"] == "ready"
 
 
@@ -350,6 +368,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge_realdata_correlation = tmp_path / "knowledge_realdata_correlation.json"
     knowledge_domain_matrix = tmp_path / "knowledge_domain_matrix.json"
     knowledge_outcome_correlation = tmp_path / "knowledge_outcome_correlation.json"
+    knowledge_outcome_drift = tmp_path / "knowledge_outcome_drift.json"
     output_json = tmp_path / "runbook.json"
     output_md = tmp_path / "runbook.md"
 
@@ -562,6 +581,26 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_outcome_drift.write_text(
+        json.dumps(
+            {
+                "knowledge_outcome_drift": {
+                    "status": "regressed",
+                    "current_status": "knowledge_outcome_correlation_partial",
+                    "previous_status": "knowledge_outcome_correlation_ready",
+                    "domain_regressions": ["tolerance"],
+                    "domain_improvements": [],
+                    "new_priority_domains": ["tolerance"],
+                    "resolved_priority_domains": [],
+                },
+                "recommendations": [
+                    "Resolve knowledge outcome regressions before claiming "
+                    "benchmark outcome stability."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -591,6 +630,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(knowledge_domain_matrix),
             "--benchmark-knowledge-outcome-correlation",
             str(knowledge_outcome_correlation),
+            "--benchmark-knowledge-outcome-drift",
+            str(knowledge_outcome_drift),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -614,8 +655,10 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_outcome_correlation_status"] == (
         "knowledge_outcome_correlation_partial"
     )
+    assert payload["knowledge_outcome_drift_status"] == "regressed"
     assert payload["next_action"] == "review_signals"
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
+    assert payload["artifacts"]["benchmark_knowledge_outcome_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
@@ -641,6 +684,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "## Knowledge Domain Focus Areas" in rendered
     assert "## Knowledge Application" in rendered
     assert "## Knowledge Domain Matrix" in rendered
+    assert "## Knowledge Outcome Drift" in rendered
     assert "## Real-Data Signals" in rendered
     assert "## Operator Adoption" in rendered
     assert "operator_shift_handoff:pending" in rendered
