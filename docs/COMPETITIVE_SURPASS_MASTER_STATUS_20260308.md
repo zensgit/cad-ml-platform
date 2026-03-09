@@ -57,10 +57,16 @@ surfaces.
   so downstream reviewers see one compact operational picture
 - release decision and release runbook now consume operator-adoption input in
   both standalone exporters and CI workflow surfaces
+- release decision and release runbook now also expose scorecard-level and
+  operational-level operator-adoption state, so reviewers can distinguish
+  top-line adoption readiness from release-surface operator guidance
 - release decision and release runbook also consume knowledge readiness, so
   release gating can reflect standards/tolerance/GD&T baseline completeness
 - PR comments now expose release-surface `operator_adoption=...` state directly
   in release decision and release runbook status lines
+- PR comments and signal lights now also expose release decision / runbook
+  scorecard operator adoption and operational operator adoption, including
+  outcome-drift summaries for both layers
 - benchmark release surfaces now expose domain-level knowledge readiness for
   `tolerance`, `standards`, and `gdt`, including focus components and missing
   metrics
@@ -129,6 +135,9 @@ product depth:
 - `docs/BENCHMARK_RELEASE_RUNBOOK_OPERATOR_ADOPTION_VALIDATION_20260308.md`
 - `docs/BENCHMARK_RELEASE_SURFACE_OPERATOR_ADOPTION_CI_VALIDATION_20260308.md`
 - `docs/BENCHMARK_RELEASE_SURFACE_OPERATOR_ADOPTION_PR_COMMENT_VALIDATION_20260308.md`
+- `docs/BENCHMARK_RELEASE_SCORECARD_OPERATOR_ADOPTION_VALIDATION_20260309.md`
+- `docs/BENCHMARK_RELEASE_SCORECARD_OPERATOR_ADOPTION_CI_VALIDATION_20260309.md`
+- `docs/BENCHMARK_RELEASE_SCORECARD_OPERATOR_ADOPTION_PR_COMMENT_VALIDATION_20260309.md`
 - `docs/BENCHMARK_KNOWLEDGE_READINESS_VALIDATION_20260308.md`
 - `docs/BENCHMARK_KNOWLEDGE_DOMAIN_READINESS_VALIDATION_20260308.md`
 - `docs/BENCHMARK_KNOWLEDGE_READINESS_CI_VALIDATION_20260308.md`
