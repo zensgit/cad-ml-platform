@@ -185,6 +185,16 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             },
         },
     )
+    operator_adoption = _write_json(
+        tmp_path / "operator_adoption.json",
+        {
+            "adoption_readiness": "operator_ready",
+            "operator_mode": "freeze_ready",
+            "knowledge_outcome_drift_status": "stable",
+            "knowledge_outcome_drift_summary": "Operator outcomes stable.",
+            "recommended_actions": ["Keep operator automation healthy."],
+        },
+    )
     knowledge = _write_json(
         tmp_path / "knowledge.json",
         {
@@ -240,6 +250,8 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
             str(metric_train),
             "--ocr-review-summary",
             str(ocr_review),
+            "--benchmark-operator-adoption-summary",
+            str(operator_adoption),
             "--knowledge-readiness-summary",
             str(knowledge),
             "--engineering-signals-summary",
@@ -274,6 +286,11 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
     assert payload["components"]["feedback_flywheel"]["feedback_total"] == 12
     assert payload["components"]["feedback_flywheel"]["metric_triplet_count"] == 6
     assert payload["components"]["ocr_review"]["status"] == "ocr_ready"
+    assert payload["components"]["operator_adoption"]["status"] == "operator_ready"
+    assert (
+        payload["components"]["operator_adoption"]["knowledge_outcome_drift_status"]
+        == "stable"
+    )
     assert payload["components"]["knowledge_readiness"]["status"] == "knowledge_foundation_ready"
     assert payload["components"]["knowledge_readiness"]["focus_areas_detail"] == []
     assert payload["components"]["engineering_signals"]["status"] == "engineering_semantics_ready"
@@ -286,6 +303,7 @@ def test_generate_benchmark_scorecard_outputs_files(tmp_path: Path) -> None:
     assert "assistant_explainability" in markdown
     assert "review_queue" in markdown
     assert "ocr_review" in markdown
+    assert "operator_adoption" in markdown
     assert "knowledge_readiness" in markdown
     assert "engineering_signals" in markdown
 
@@ -333,6 +351,7 @@ def test_generate_benchmark_scorecard_handles_missing_optional_inputs(tmp_path: 
     assert payload["components"]["review_queue"]["status"] == "missing"
     assert payload["components"]["feedback_flywheel"]["status"] == "missing"
     assert payload["components"]["ocr_review"]["status"] == "missing"
+    assert payload["components"]["operator_adoption"]["status"] == "missing"
     assert payload["components"]["knowledge_readiness"]["status"] == "knowledge_foundation_missing"
     assert payload["components"]["knowledge_readiness"]["focus_areas"] == [
         "tolerance",
