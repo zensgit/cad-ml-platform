@@ -614,3 +614,53 @@ def test_build_bundle_exposes_knowledge_drift_passthrough() -> None:
     assert payload["knowledge_drift_domain_regressions"] == ["gdt"]
     assert payload["knowledge_drift_new_priority_domains"] == ["gdt"]
     assert payload["recommendations"] == payload["knowledge_drift_recommendations"]
+
+
+def test_build_bundle_exposes_knowledge_outcome_drift_passthrough() -> None:
+    payload = module.build_bundle(
+        title="Benchmark Artifact Bundle",
+        benchmark_scorecard={
+            "overall_status": "benchmark_ready_with_multisignal_evidence",
+            "components": {"hybrid": {"status": "ready"}},
+        },
+        benchmark_operational_summary={},
+        benchmark_companion_summary={},
+        benchmark_release_decision={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_knowledge_outcome_drift={
+            "knowledge_outcome_drift": {
+                "status": "regressed",
+                "current_status": "knowledge_outcome_correlation_partial",
+                "previous_status": "knowledge_outcome_correlation_ready",
+                "regressions": ["tolerance"],
+                "improvements": [],
+                "new_focus_areas": ["tolerance"],
+                "domain_regressions": ["tolerance"],
+                "domain_improvements": [],
+                "new_priority_domains": ["tolerance"],
+                "resolved_priority_domains": [],
+            },
+            "recommendations": [
+                "Resolve knowledge outcome regressions before claiming benchmark outcome stability."
+            ],
+        },
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={},
+        feedback_flywheel={},
+        assistant_evidence={},
+        review_queue={},
+        ocr_review={},
+        artifact_paths={
+            "benchmark_knowledge_outcome_drift": "knowledge_outcome_drift.json"
+        },
+    )
+
+    assert payload["component_statuses"]["knowledge_outcome_drift"] == "regressed"
+    assert payload["artifacts"]["benchmark_knowledge_outcome_drift"]["present"] is True
+    assert payload["knowledge_outcome_drift"]["status"] == "regressed"
+    assert "regressions=tolerance" in payload["knowledge_outcome_drift_summary"]
+    assert payload["knowledge_outcome_drift_domain_regressions"] == ["tolerance"]
+    assert payload["knowledge_outcome_drift_new_priority_domains"] == ["tolerance"]
+    assert payload["recommendations"] == payload["knowledge_outcome_drift_recommendations"]
