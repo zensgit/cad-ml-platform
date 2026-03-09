@@ -90,10 +90,12 @@ def _component_statuses(
     benchmark_engineering_signals: Dict[str, Any],
     benchmark_realdata_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
+    benchmark_realdata_scorecard: Dict[str, Any] | None = None,
     benchmark_knowledge_application: Dict[str, Any] | None = None,
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
 ) -> Dict[str, str]:
+    benchmark_realdata_scorecard = benchmark_realdata_scorecard or {}
     benchmark_knowledge_application = benchmark_knowledge_application or {}
     benchmark_knowledge_realdata_correlation = (
         benchmark_knowledge_realdata_correlation or {}
@@ -116,6 +118,11 @@ def _component_statuses(
     realdata_component = (
         benchmark_realdata_signals.get("realdata_signals")
         or benchmark_realdata_signals
+        or {}
+    )
+    realdata_scorecard_component = (
+        benchmark_realdata_scorecard.get("realdata_scorecard")
+        or benchmark_realdata_scorecard
         or {}
     )
     knowledge_application_component = (
@@ -187,6 +194,13 @@ def _component_statuses(
             or bundle_components.get("realdata_signals")
             or realdata_component.get("status")
             or (scorecard_components.get("realdata_signals") or {}).get("status")
+            or "unknown"
+        ),
+        "realdata_scorecard": str(
+            companion_components.get("realdata_scorecard")
+            or bundle_components.get("realdata_scorecard")
+            or realdata_scorecard_component.get("status")
+            or (scorecard_components.get("realdata_scorecard") or {}).get("status")
             or "unknown"
         ),
         "operator_adoption": str(
@@ -273,6 +287,16 @@ def _realdata_review_signals(
     if status in {"realdata_foundation_ready", "unknown", ""}:
         return []
     return _compact(benchmark_realdata_signals.get("recommendations") or [], limit=6)
+
+
+def _realdata_scorecard_review_signals(
+    benchmark_realdata_scorecard: Dict[str, Any],
+    component_statuses: Dict[str, str],
+) -> List[str]:
+    status = str(component_statuses.get("realdata_scorecard") or "").strip()
+    if status in {"realdata_scorecard_ready", "unknown", ""}:
+        return []
+    return _compact(benchmark_realdata_scorecard.get("recommendations") or [], limit=6)
 
 
 def _knowledge_review_signals(
@@ -455,10 +479,12 @@ def build_release_decision(
     benchmark_realdata_signals: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
     artifact_paths: Dict[str, str],
+    benchmark_realdata_scorecard: Dict[str, Any] | None = None,
     benchmark_knowledge_application: Dict[str, Any] | None = None,
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
+    benchmark_realdata_scorecard = benchmark_realdata_scorecard or {}
     benchmark_knowledge_application = benchmark_knowledge_application or {}
     benchmark_knowledge_realdata_correlation = (
         benchmark_knowledge_realdata_correlation or {}
@@ -474,6 +500,7 @@ def build_release_decision(
         benchmark_engineering_signals,
         benchmark_realdata_signals,
         benchmark_operator_adoption,
+        benchmark_realdata_scorecard,
         benchmark_knowledge_application,
         benchmark_knowledge_realdata_correlation,
         benchmark_knowledge_domain_matrix,
@@ -482,6 +509,11 @@ def build_release_decision(
     realdata_component = (
         benchmark_realdata_signals.get("realdata_signals")
         or benchmark_realdata_signals
+        or {}
+    )
+    realdata_scorecard_component = (
+        benchmark_realdata_scorecard.get("realdata_scorecard")
+        or benchmark_realdata_scorecard
         or {}
     )
     knowledge_application_component = (
@@ -569,6 +601,14 @@ def build_release_decision(
         item
         for item in _realdata_review_signals(
             benchmark_realdata_signals,
+            component_statuses,
+        )
+        if item not in review_signals
+    )
+    review_signals.extend(
+        item
+        for item in _realdata_scorecard_review_signals(
+            benchmark_realdata_scorecard,
             component_statuses,
         )
         if item not in review_signals
@@ -673,6 +713,14 @@ def build_release_decision(
             benchmark_realdata_signals.get("recommendations") or [],
             limit=6,
         ),
+        "realdata_scorecard_status": (
+            realdata_scorecard_component.get("status") or "unknown"
+        ),
+        "realdata_scorecard": realdata_scorecard_component,
+        "realdata_scorecard_recommendations": _compact(
+            benchmark_realdata_scorecard.get("recommendations") or [],
+            limit=6,
+        ),
         "operator_adoption_knowledge_drift": operator_adoption_knowledge_drift,
         "knowledge_domains": knowledge_domains,
         "knowledge_domain_focus_areas": knowledge_domain_focus_areas,
@@ -745,6 +793,10 @@ def build_release_decision(
                 "benchmark_realdata_signals",
                 artifact_paths.get("benchmark_realdata_signals", ""),
             ),
+            "benchmark_realdata_scorecard": _artifact_row(
+                "benchmark_realdata_scorecard",
+                artifact_paths.get("benchmark_realdata_scorecard", ""),
+            ),
             "benchmark_operator_adoption": _artifact_row(
                 "benchmark_operator_adoption",
                 artifact_paths.get("benchmark_operator_adoption", ""),
@@ -775,6 +827,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"- `release_status`: `{payload.get('release_status')}`",
         f"- `automation_ready`: `{payload.get('automation_ready')}`",
         f"- `primary_signal_source`: `{payload.get('primary_signal_source')}`",
+        f"- `realdata_scorecard_status`: "
+        f"`{payload.get('realdata_scorecard_status') or 'unknown'}`",
         "",
         "## Component Statuses",
         "",
@@ -978,6 +1032,32 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         lines.extend(f"- {item}" for item in realdata_recommendations)
     else:
         lines.append("- none")
+    lines.extend(["", "## Real-Data Scorecard", ""])
+    realdata_scorecard = payload.get("realdata_scorecard") or {}
+    lines.append(
+        f"- `status`: `{payload.get('realdata_scorecard_status') or 'unknown'}`"
+    )
+    if realdata_scorecard.get("best_surface"):
+        lines.append(f"- `best_surface`: `{realdata_scorecard.get('best_surface')}`")
+    scorecard_rows = realdata_scorecard.get("components") or {}
+    if scorecard_rows:
+        for name, row in scorecard_rows.items():
+            lines.append(
+                "- "
+                f"`{name}` "
+                f"status=`{row.get('status')}` "
+                f"coarse_accuracy=`{row.get('coarse_accuracy', 'n/a')}` "
+                f"sample_size=`{row.get('sample_size', 'n/a')}`"
+            )
+    else:
+        lines.append("- none")
+    realdata_scorecard_recommendations = (
+        payload.get("realdata_scorecard_recommendations") or []
+    )
+    if realdata_scorecard_recommendations:
+        lines.extend(f"- {item}" for item in realdata_scorecard_recommendations)
+    else:
+        lines.append("- none")
     lines.extend(["", "## Artifacts", ""])
     for name, row in (payload.get("artifacts") or {}).items():
         lines.append(
@@ -1000,6 +1080,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-drift", default="")
     parser.add_argument("--benchmark-engineering-signals", default="")
     parser.add_argument("--benchmark-realdata-signals", default="")
+    parser.add_argument("--benchmark-realdata-scorecard", default="")
     parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--benchmark-knowledge-application", default="")
     parser.add_argument("--benchmark-knowledge-realdata-correlation", default="")
@@ -1017,6 +1098,7 @@ def main() -> None:
         "benchmark_knowledge_drift": args.benchmark_knowledge_drift,
         "benchmark_engineering_signals": args.benchmark_engineering_signals,
         "benchmark_realdata_signals": args.benchmark_realdata_signals,
+        "benchmark_realdata_scorecard": args.benchmark_realdata_scorecard,
         "benchmark_operator_adoption": args.benchmark_operator_adoption,
         "benchmark_knowledge_application": args.benchmark_knowledge_application,
         "benchmark_knowledge_realdata_correlation": (
@@ -1046,6 +1128,9 @@ def main() -> None:
         ),
         benchmark_operator_adoption=_maybe_load_json(
             args.benchmark_operator_adoption
+        ),
+        benchmark_realdata_scorecard=_maybe_load_json(
+            args.benchmark_realdata_scorecard
         ),
         benchmark_knowledge_application=_maybe_load_json(
             args.benchmark_knowledge_application
