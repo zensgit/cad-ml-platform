@@ -1023,6 +1023,15 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_release_script
     assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_release_script
     assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_release_script
+    assert "scorecard_operator_adoption_status=" in benchmark_release_script
+    assert "scorecard_operator_adoption_mode=" in benchmark_release_script
+    assert "scorecard_operator_adoption_knowledge_outcome_drift_status=" in (
+        benchmark_release_script
+    )
+    assert "operational_operator_adoption_status=" in benchmark_release_script
+    assert "operational_operator_adoption_knowledge_outcome_drift_status=" in (
+        benchmark_release_script
+    )
 
     benchmark_runbook_step = _get_step(
         workflow, "evaluate", "Build benchmark release runbook (optional)"
@@ -1031,6 +1040,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "scripts/export_benchmark_release_runbook.py" in benchmark_runbook_script
     assert "BENCHMARK_RELEASE_RUNBOOK_ENABLE" in benchmark_runbook_script
     assert "--benchmark-release-decision" in benchmark_runbook_script
+    assert "--benchmark-scorecard" in benchmark_runbook_script
+    assert "--benchmark-operational-summary" in benchmark_runbook_script
     assert "--benchmark-companion-summary" in benchmark_runbook_script
     assert "--benchmark-artifact-bundle" in benchmark_runbook_script
     assert "--benchmark-engineering-signals" in benchmark_runbook_script
@@ -1081,6 +1092,15 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_runbook_script
     assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_runbook_script
     assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_runbook_script
+    assert "scorecard_operator_adoption_status=" in benchmark_runbook_script
+    assert "scorecard_operator_adoption_mode=" in benchmark_runbook_script
+    assert "scorecard_operator_adoption_knowledge_outcome_drift_status=" in (
+        benchmark_runbook_script
+    )
+    assert "operational_operator_adoption_status=" in benchmark_runbook_script
+    assert "operational_operator_adoption_knowledge_outcome_drift_status=" in (
+        benchmark_runbook_script
+    )
 
     benchmark_operator_adoption_step = _get_step(
         workflow, "evaluate", "Build benchmark operator adoption (optional)"
