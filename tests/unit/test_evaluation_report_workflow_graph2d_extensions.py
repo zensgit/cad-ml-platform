@@ -986,6 +986,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "operator_adoption_status=" in benchmark_release_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_release_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_release_script
+    assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_release_script
+    assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_release_script
 
     benchmark_runbook_step = _get_step(
         workflow, "evaluate", "Build benchmark release runbook (optional)"
@@ -1042,6 +1044,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "operator_adoption_status=" in benchmark_runbook_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_runbook_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_runbook_script
+    assert "operator_adoption_knowledge_outcome_drift_status=" in benchmark_runbook_script
+    assert "operator_adoption_knowledge_outcome_drift_summary=" in benchmark_runbook_script
 
     benchmark_operator_adoption_step = _get_step(
         workflow, "evaluate", "Build benchmark operator adoption (optional)"
@@ -1368,6 +1372,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark release operator adoption status" in summary_script
     assert "Benchmark release operator adoption knowledge drift" in summary_script
     assert "Benchmark release operator adoption knowledge drift summary" in summary_script
+    assert "Benchmark release operator adoption knowledge outcome drift" in summary_script
+    assert "Benchmark release operator adoption knowledge outcome drift summary" in summary_script
     assert "Benchmark release review signals" in summary_script
     assert "Benchmark release artifact" in summary_script
     assert "Benchmark release runbook status" in summary_script
@@ -1379,6 +1385,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark release runbook operator adoption status" in summary_script
     assert "Benchmark release runbook operator adoption knowledge drift" in summary_script
     assert "Benchmark release runbook operator adoption knowledge drift summary" in summary_script
+    assert "Benchmark release runbook operator adoption knowledge outcome drift" in summary_script
+    assert (
+        "Benchmark release runbook operator adoption knowledge outcome drift summary"
+        in summary_script
+    )
     assert "Benchmark release runbook missing artifacts" in summary_script
     assert "Benchmark release runbook blocking signals" in summary_script
     assert "Benchmark release runbook review signals" in summary_script
