@@ -353,6 +353,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_knowledge_outcome_drift"]["present"] is True
     assert payload["operator_steps"][-1]["status"] == "ready"
+    assert payload["operator_adoption"]["knowledge_outcome_drift_status"] == "unknown"
 
 
 def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
@@ -481,8 +482,13 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
                 "actions": ["Book an operator office-hours review."],
                 "knowledge_drift_status": "regressed",
                 "knowledge_drift_summary": "Tolerance coverage regressed.",
+                "knowledge_outcome_drift_status": "regressed",
+                "knowledge_outcome_drift_summary": "Tolerance outcome coverage regressed.",
                 "knowledge_drift": {
                     "recommendations": ["Backfill tolerance knowledge coverage."],
+                },
+                "knowledge_outcome_drift": {
+                    "recommendations": ["Backfill tolerance outcome coverage."]
                 },
             }
         ),
@@ -669,6 +675,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         "Book an operator office-hours review."
     ]
     assert payload["operator_adoption"]["knowledge_drift_status"] == "regressed"
+    assert payload["operator_adoption"]["knowledge_outcome_drift_status"] == "regressed"
     assert output_md.exists()
 
     rendered = render_markdown(payload)
@@ -690,5 +697,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "operator_shift_handoff:pending" in rendered
     assert "Book an operator office-hours review." in rendered
     assert "Tolerance coverage regressed." in rendered
+    assert "Tolerance outcome coverage regressed." in rendered
+    assert "Backfill tolerance outcome coverage." in rendered
     assert "Expand STEP/B-Rep directory validation." in rendered
     assert "`benchmark_operator_adoption`: present=`True`" in rendered
