@@ -106,6 +106,10 @@ on:
         description: 'Optional benchmark scorecard knowledge readiness summary JSON'
         required: false
         default: ''
+      benchmark_scorecard_operator_adoption_summary:
+        description: 'Optional benchmark scorecard operator adoption summary JSON'
+        required: false
+        default: ''
       benchmark_engineering_signals_enable:
         description: 'Override: enable benchmark engineering signals export (true/false)'
         required: false
@@ -252,6 +256,10 @@ on:
         default: ''
       benchmark_operational_summary_ocr_review_json:
         description: 'Optional benchmark operational summary OCR review JSON'
+        required: false
+        default: ''
+      benchmark_operational_summary_operator_adoption_json:
+        description: 'Optional benchmark operational summary operator adoption JSON'
         required: false
         default: ''
       benchmark_artifact_bundle_enable:
@@ -623,6 +631,7 @@ env:
   BENCHMARK_SCORECARD_QDRANT_READINESS_JSON: ${{ vars.BENCHMARK_SCORECARD_QDRANT_READINESS_JSON }}
   BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_ENGINEERING_SIGNALS_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_JSON }}
+  BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY_JSON: ${{ vars.BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY_JSON }}
   BENCHMARK_SCORECARD_OUTPUT_JSON: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_scorecard.json' }}
   BENCHMARK_SCORECARD_OUTPUT_MD: ${{ vars.BENCHMARK_SCORECARD_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_scorecard.md' }}
   BENCHMARK_ENGINEERING_SIGNALS_ENABLE: ${{ vars.BENCHMARK_ENGINEERING_SIGNALS_ENABLE || 'false' }}
@@ -698,6 +707,7 @@ env:
   BENCHMARK_OPERATIONAL_SUMMARY_ASSISTANT_JSON: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_ASSISTANT_JSON }}
   BENCHMARK_OPERATIONAL_SUMMARY_REVIEW_QUEUE_JSON: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_REVIEW_QUEUE_JSON }}
   BENCHMARK_OPERATIONAL_SUMMARY_OCR_REVIEW_JSON: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_OCR_REVIEW_JSON }}
+  BENCHMARK_OPERATIONAL_SUMMARY_OPERATOR_ADOPTION_JSON: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_OPERATOR_ADOPTION_JSON }}
   BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_JSON: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_operational_summary.json' }}
   BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_MD: ${{ vars.BENCHMARK_OPERATIONAL_SUMMARY_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_operational_summary.md' }}
   BENCHMARK_ARTIFACT_BUNDLE_ENABLE: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_ENABLE || 'false' }}
@@ -1756,6 +1766,8 @@ jobs:
         add_if_exists --knowledge-readiness-summary "${{ github.event.inputs.benchmark_scorecard_knowledge_readiness_summary || '' }}"
         add_if_exists --knowledge-readiness-summary "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
         add_if_exists --knowledge-readiness-summary "${BENCHMARK_SCORECARD_KNOWLEDGE_READINESS_JSON:-}"
+        add_if_exists --benchmark-operator-adoption-summary "${{ github.event.inputs.benchmark_scorecard_operator_adoption_summary || '' }}"
+        add_if_exists --benchmark-operator-adoption-summary "${BENCHMARK_SCORECARD_OPERATOR_ADOPTION_SUMMARY_JSON:-}"
 
         "${CMD[@]}"
 
@@ -1784,6 +1796,7 @@ jobs:
         knowledge = components.get("knowledge_readiness") or {}
         knowledge_focus_areas = knowledge.get("focus_areas_detail") or []
         engineering = components.get("engineering_signals") or {}
+        operator_adoption = components.get("operator_adoption") or {}
         recommendations = payload.get("recommendations") or []
         compact_recommendations = "; ".join(
             str(item).strip() for item in recommendations[:3] if str(item).strip()
@@ -1817,6 +1830,22 @@ jobs:
                 + "\n"
             )
             f.write(f"engineering_status={engineering.get('status', 'unknown')}\n")
+            f.write(
+                "operator_adoption_status="
+                f"{operator_adoption.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "operator_adoption_mode="
+                f"{operator_adoption.get('operator_mode', 'unknown')}\n"
+            )
+            f.write(
+                "operator_adoption_knowledge_outcome_drift_status="
+                f"{operator_adoption.get('knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "operator_adoption_knowledge_outcome_drift_summary="
+                f"{operator_adoption.get('knowledge_outcome_drift_summary', 'none')}\n"
+            )
             f.write(
                 f"engineering_coverage_ratio={engineering.get('coverage_ratio', 0.0)}\n"
             )
@@ -2035,6 +2064,7 @@ jobs:
         add_if_exists --assistant-evidence "${{ github.event.inputs.benchmark_operational_summary_assistant_json || '' }}"
         add_if_exists --review-queue "${{ github.event.inputs.benchmark_operational_summary_review_queue_json || '' }}"
         add_if_exists --ocr-review "${{ github.event.inputs.benchmark_operational_summary_ocr_review_json || '' }}"
+        add_if_exists --benchmark-operator-adoption "${{ github.event.inputs.benchmark_operational_summary_operator_adoption_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_OPERATIONAL_SUMMARY_SCORECARD_JSON:-}"
         add_if_exists --feedback-flywheel "${{ steps.feedback_flywheel_benchmark.outputs.output_json || '' }}"
@@ -2045,6 +2075,7 @@ jobs:
         add_if_exists --review-queue "${BENCHMARK_OPERATIONAL_SUMMARY_REVIEW_QUEUE_JSON:-}"
         add_if_exists --ocr-review "${{ steps.ocr_review_pack.outputs.output_json || '' }}"
         add_if_exists --ocr-review "${BENCHMARK_OPERATIONAL_SUMMARY_OCR_REVIEW_JSON:-}"
+        add_if_exists --benchmark-operator-adoption "${BENCHMARK_OPERATIONAL_SUMMARY_OPERATOR_ADOPTION_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -2093,6 +2124,10 @@ jobs:
             )
             f.write(f"review_queue_status={components.get('review_queue', 'unknown')}\n")
             f.write(f"ocr_status={components.get('ocr_review', 'unknown')}\n")
+            f.write(
+                "operator_adoption_status="
+                f"{components.get('operator_adoption', 'unknown')}\n"
+            )
             f.write(f"knowledge_focus_area_count={len(focus_areas)}\n")
             f.write(
                 "knowledge_focus_areas="
@@ -2107,6 +2142,14 @@ jobs:
             )
             f.write(f"blockers={compact(blockers)}\n")
             f.write(f"recommendations={compact(recommendations)}\n")
+            f.write(
+                "operator_adoption_knowledge_outcome_drift_status="
+                f"{payload.get('operator_adoption_knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "operator_adoption_knowledge_outcome_drift_summary="
+                f"{payload.get('operator_adoption_knowledge_outcome_drift_summary', 'none')}\n"
+            )
         PY
 
     - name: Build benchmark knowledge drift (optional)
@@ -5346,6 +5389,10 @@ jobs:
           echo "- Benchmark engineering signals status: ${{ steps.benchmark_scorecard.outputs.engineering_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark engineering coverage ratio: ${{ steps.benchmark_scorecard.outputs.engineering_coverage_ratio }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark engineering standard types: ${{ steps.benchmark_scorecard.outputs.engineering_top_standard_types }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark scorecard operator adoption: ${{ steps.benchmark_scorecard.outputs.operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark scorecard operator adoption mode: ${{ steps.benchmark_scorecard.outputs.operator_adoption_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark scorecard operator outcome drift: ${{ steps.benchmark_scorecard.outputs.operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark scorecard operator outcome drift summary: ${{ steps.benchmark_scorecard.outputs.operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark recommendations: ${{ steps.benchmark_scorecard.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark scorecard artifact: ${{ steps.benchmark_scorecard.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
@@ -5486,6 +5533,9 @@ jobs:
           echo "- Benchmark operational assistant status: ${{ steps.benchmark_operational_summary.outputs.assistant_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operational review queue status: ${{ steps.benchmark_operational_summary.outputs.review_queue_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operational OCR status: ${{ steps.benchmark_operational_summary.outputs.ocr_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operational operator adoption: ${{ steps.benchmark_operational_summary.outputs.operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operational operator outcome drift: ${{ steps.benchmark_operational_summary.outputs.operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark operational operator outcome drift summary: ${{ steps.benchmark_operational_summary.outputs.operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operational blockers: ${{ steps.benchmark_operational_summary.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operational recommendations: ${{ steps.benchmark_operational_summary.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark operational artifact: ${{ steps.benchmark_operational_summary.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -5806,6 +5856,10 @@ jobs:
             const benchmarkEngineeringStatus = '${{ steps.benchmark_scorecard.outputs.engineering_status }}';
             const benchmarkEngineeringCoverageRatio = '${{ steps.benchmark_scorecard.outputs.engineering_coverage_ratio }}';
             const benchmarkEngineeringTopStandardTypes = '${{ steps.benchmark_scorecard.outputs.engineering_top_standard_types }}';
+            const benchmarkScorecardOperatorAdoptionStatus = '${{ steps.benchmark_scorecard.outputs.operator_adoption_status }}';
+            const benchmarkScorecardOperatorAdoptionMode = '${{ steps.benchmark_scorecard.outputs.operator_adoption_mode }}';
+            const benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_scorecard.outputs.operator_adoption_knowledge_outcome_drift_status }}';
+            const benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_scorecard.outputs.operator_adoption_knowledge_outcome_drift_summary }}';
             const benchmarkRecommendations = '${{ steps.benchmark_scorecard.outputs.recommendations }}';
             const benchmarkEngineeringEnabled = '${{ steps.benchmark_engineering_signals.outputs.enabled }}' === 'true';
             const benchmarkEngineeringArtifactStatus = '${{ steps.benchmark_engineering_signals.outputs.status }}';
@@ -5942,6 +5996,9 @@ jobs:
             const benchmarkOperationalAssistantStatus = '${{ steps.benchmark_operational_summary.outputs.assistant_status }}';
             const benchmarkOperationalReviewQueueStatus = '${{ steps.benchmark_operational_summary.outputs.review_queue_status }}';
             const benchmarkOperationalOcrStatus = '${{ steps.benchmark_operational_summary.outputs.ocr_status }}';
+            const benchmarkOperationalOperatorAdoptionStatus = '${{ steps.benchmark_operational_summary.outputs.operator_adoption_status }}';
+            const benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_operational_summary.outputs.operator_adoption_knowledge_outcome_drift_status }}';
+            const benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_operational_summary.outputs.operator_adoption_knowledge_outcome_drift_summary }}';
             const benchmarkOperationalBlockers = '${{ steps.benchmark_operational_summary.outputs.blockers }}';
             const benchmarkOperationalRecommendations = '${{ steps.benchmark_operational_summary.outputs.recommendations }}';
             const benchmarkOperationalArtifact = '${{ steps.benchmark_operational_summary.outputs.output_md }}';
@@ -6248,7 +6305,7 @@ jobs:
               ? `runs=${sweepTotalRuns}, failed=${sweepFailedRuns}, best=${sweepBestRecipe}@${sweepBestSeed}, env=${sweepRecommendedEnv}, script=${sweepBestRunScript}`
               : '⏭️ skipped';
             const benchmarkScorecardStatus = benchmarkScorecardEnabled
-              ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}, assistant=${benchmarkAssistantStatus}, review_queue=${benchmarkReviewQueueStatus}, feedback_flywheel=${benchmarkFeedbackFlywheelStatus}, ocr=${benchmarkOcrStatus}, qdrant=${benchmarkQdrantStatus}, knowledge=${benchmarkKnowledgeStatus}, engineering=${benchmarkEngineeringStatus}`
+              ? `overall=${benchmarkOverallStatus}, hybrid=${benchmarkHybridStatus}, graph2d=${benchmarkGraph2dStatus}, history=${benchmarkHistoryStatus}, brep=${benchmarkBrepStatus}, governance=${benchmarkGovernanceStatus}, assistant=${benchmarkAssistantStatus}, review_queue=${benchmarkReviewQueueStatus}, feedback_flywheel=${benchmarkFeedbackFlywheelStatus}, ocr=${benchmarkOcrStatus}, qdrant=${benchmarkQdrantStatus}, knowledge=${benchmarkKnowledgeStatus}, engineering=${benchmarkEngineeringStatus}, operator_adoption=${benchmarkScorecardOperatorAdoptionStatus || 'n/a'}, operator_mode=${benchmarkScorecardOperatorAdoptionMode || 'n/a'}, operator_outcome_drift=${benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'}, operator_outcome_drift_summary=${benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'}`
               : '⏭️ skipped';
             const benchmarkEngineeringStatusLine = benchmarkEngineeringEnabled
               ? `status=${benchmarkEngineeringArtifactStatus}, coverage=${benchmarkEngineeringArtifactCoverageRatio}, violations=${benchmarkEngineeringRowsWithViolations}, standards=${benchmarkEngineeringRowsWithStandards}, ocr_standards=${benchmarkEngineeringOcrStandards}, artifact=${benchmarkEngineeringArtifact}`
@@ -6284,7 +6341,7 @@ jobs:
               ? `status=${feedbackFlywheelBenchmarkStatus}, feedback=${feedbackFlywheelBenchmarkTotal}, corrections=${feedbackFlywheelBenchmarkCorrections}, finetune=${feedbackFlywheelBenchmarkFinetuneSamples}, triplets=${feedbackFlywheelBenchmarkMetricTriplets}, artifact=${feedbackFlywheelBenchmarkArtifact}`
               : '⏭️ skipped';
             const benchmarkOperationalSummaryStatus = benchmarkOperationalSummaryEnabled
-              ? `overall=${benchmarkOperationalSummaryOverall}, feedback=${benchmarkOperationalFeedbackStatus}, assistant=${benchmarkOperationalAssistantStatus}, review_queue=${benchmarkOperationalReviewQueueStatus}, ocr=${benchmarkOperationalOcrStatus}, blockers=${benchmarkOperationalBlockers || 'n/a'}, recommendations=${benchmarkOperationalRecommendations || 'n/a'}, artifact=${benchmarkOperationalArtifact}`
+              ? `overall=${benchmarkOperationalSummaryOverall}, feedback=${benchmarkOperationalFeedbackStatus}, assistant=${benchmarkOperationalAssistantStatus}, review_queue=${benchmarkOperationalReviewQueueStatus}, ocr=${benchmarkOperationalOcrStatus}, operator_adoption=${benchmarkOperationalOperatorAdoptionStatus || 'n/a'}, operator_outcome_drift=${benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'}, operator_outcome_drift_summary=${benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'}, blockers=${benchmarkOperationalBlockers || 'n/a'}, recommendations=${benchmarkOperationalRecommendations || 'n/a'}, artifact=${benchmarkOperationalArtifact}`
               : '⏭️ skipped';
             const benchmarkArtifactBundleStatus = benchmarkArtifactBundleEnabled
               ? `overall=${benchmarkArtifactBundleOverall}, available_artifacts=${benchmarkArtifactBundleAvailableArtifacts}, feedback=${benchmarkArtifactBundleFeedbackStatus}, assistant=${benchmarkArtifactBundleAssistantStatus}, review_queue=${benchmarkArtifactBundleReviewQueueStatus}, ocr=${benchmarkArtifactBundleOcrStatus}, knowledge=${benchmarkArtifactBundleKnowledgeStatus}, knowledge_drift=${benchmarkArtifactBundleKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkArtifactBundleKnowledgeDriftSummary || 'n/a'}, knowledge_drift_changes=${benchmarkArtifactBundleKnowledgeDriftChanges || 'n/a'}, knowledge_drift_domain_regressions=${benchmarkArtifactBundleKnowledgeDriftDomainRegressions || 'n/a'}, knowledge_drift_domain_improvements=${benchmarkArtifactBundleKnowledgeDriftDomainImprovements || 'n/a'}, resolved_domains=${benchmarkArtifactBundleKnowledgeDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkArtifactBundleKnowledgeDriftNewPriorityDomains || 'n/a'}, knowledge_domains=${benchmarkArtifactBundleKnowledgePriorityDomains || 'n/a'}, knowledge_domain_focus=${benchmarkArtifactBundleKnowledgeDomainFocusAreas || 'n/a'}, knowledge_focus=${benchmarkArtifactBundleKnowledgeFocusAreas || 'n/a'}, engineering=${benchmarkArtifactBundleEngineeringStatus}, realdata=${benchmarkArtifactBundleRealdataStatus || 'n/a'}, realdata_recommendations=${benchmarkArtifactBundleRealdataRecommendations || 'n/a'}, operator_drift=${benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftStatus}, operator_drift_summary=${benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftSummary || 'n/a'}, blockers=${benchmarkArtifactBundleBlockers || 'n/a'}, recommendations=${benchmarkArtifactBundleRecommendations || 'n/a'}, artifact=${benchmarkArtifactBundleArtifact}`
@@ -6392,6 +6449,31 @@ jobs:
             const benchmarkLight = !benchmarkScorecardEnabled
               ? '⚪'
               : (benchmarkOverallStatus.includes('gap') ? '🟡' : '🟢');
+            const benchmarkScorecardOperatorAdoptionLight = !benchmarkScorecardEnabled
+              ? '⚪'
+              : (
+                benchmarkScorecardOperatorAdoptionStatus === 'operator_ready'
+                  ? '🟢'
+                  : (
+                    benchmarkScorecardOperatorAdoptionStatus === 'missing' ||
+                    benchmarkScorecardOperatorAdoptionStatus === 'blocked' ||
+                    benchmarkScorecardOperatorAdoptionStatus === 'unknown'
+                      ? '🔴'
+                      : '🟡'
+                  )
+              );
+            const benchmarkScorecardOperatorOutcomeDriftLight = !benchmarkScorecardEnabled
+              ? '⚪'
+              : (
+                benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus === 'regressed'
+                  ? '🔴'
+                  : (
+                    benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus === 'stable' ||
+                    benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus === 'improved'
+                      ? '🟢'
+                      : '🟡'
+                  )
+              );
             const benchmarkEngineeringLight = !benchmarkEngineeringEnabled
               ? '⚪'
               : (
@@ -6509,6 +6591,31 @@ jobs:
             const benchmarkOperationalLight = !benchmarkOperationalSummaryEnabled
               ? '⚪'
               : (benchmarkOperationalSummaryOverall === 'attention_required' ? '🟡' : '🟢');
+            const benchmarkOperationalOperatorAdoptionLight = !benchmarkOperationalSummaryEnabled
+              ? '⚪'
+              : (
+                benchmarkOperationalOperatorAdoptionStatus === 'operator_ready'
+                  ? '🟢'
+                  : (
+                    benchmarkOperationalOperatorAdoptionStatus === 'missing' ||
+                    benchmarkOperationalOperatorAdoptionStatus === 'blocked' ||
+                    benchmarkOperationalOperatorAdoptionStatus === 'unknown'
+                      ? '🔴'
+                      : '🟡'
+                  )
+              );
+            const benchmarkOperationalOperatorOutcomeDriftLight = !benchmarkOperationalSummaryEnabled
+              ? '⚪'
+              : (
+                benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus === 'regressed'
+                  ? '🔴'
+                  : (
+                    benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus === 'stable' ||
+                    benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus === 'improved'
+                      ? '🟢'
+                      : '🟡'
+                  )
+              );
             const benchmarkArtifactBundleLight = !benchmarkArtifactBundleEnabled
               ? '⚪'
               : (
@@ -6582,6 +6689,8 @@ jobs:
             | **Graph2D Review Gate Strict** | ${reviewGateStrictStatus} |
             | **Graph2D Train Sweep** | ${trainSweepStatus} |
             | **Benchmark Scorecard** | ${benchmarkScorecardStatus} |
+            | **Benchmark Scorecard Operator Adoption** | ${benchmarkScorecardOperatorAdoptionStatus || 'n/a'} / ${benchmarkScorecardOperatorAdoptionMode || 'n/a'} |
+            | **Benchmark Scorecard Operator Outcome Drift** | ${benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Engineering Signals** | ${benchmarkEngineeringStatusLine} |
             | **Benchmark Real-Data Signals** | ${benchmarkRealdataStatusLine} |
             | **Benchmark Real-Data Scorecard** | ${benchmarkRealdataScorecardStatusLine} |
@@ -6604,6 +6713,8 @@ jobs:
             | **Benchmark Feedback Flywheel** | ${benchmarkFeedbackFlywheelStatus || 'n/a'} |
             | **Feedback Flywheel Artifact** | ${feedbackFlywheelBenchmarkStatusLine} |
             | **Benchmark Operational Summary** | ${benchmarkOperationalSummaryStatus} |
+            | **Benchmark Operational Operator Adoption** | ${benchmarkOperationalOperatorAdoptionStatus || 'n/a'} |
+            | **Benchmark Operational Operator Outcome Drift** | ${benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Artifact Bundle Knowledge Drift** | ${benchmarkArtifactBundleKnowledgeDriftStatus || 'n/a'} / ${benchmarkArtifactBundleKnowledgeDriftRecommendations || 'n/a'} |
             | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleStatus} |
             | **Benchmark Artifact Bundle Knowledge Application** | ${benchmarkArtifactBundleKnowledgeApplicationStatusLine} |
@@ -6667,6 +6778,8 @@ jobs:
             | **Review Gate** | ${reviewGateLight} | ${reviewGateStatus} |
             | **Train Sweep** | ${trainSweepLight} | ${trainSweepStatus} |
             | **Benchmark Scorecard** | ${benchmarkLight} | ${benchmarkScorecardStatus} |
+            | **Benchmark Scorecard Operator Adoption** | ${benchmarkScorecardOperatorAdoptionLight} | ${benchmarkScorecardOperatorAdoptionStatus || 'n/a'} / ${benchmarkScorecardOperatorAdoptionMode || 'n/a'} |
+            | **Benchmark Scorecard Operator Outcome Drift** | ${benchmarkScorecardOperatorOutcomeDriftLight} | ${benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkScorecardOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Engineering Signals** | ${benchmarkEngineeringLight} | ${benchmarkEngineeringStatusLine} |
             | **Benchmark Real-Data Signals** | ${benchmarkRealdataLight} | ${benchmarkRealdataStatusLine} |
             | **Benchmark Real-Data Scorecard** | ${benchmarkRealdataScorecardLight} | ${benchmarkRealdataScorecardStatusLine} |
@@ -6678,6 +6791,8 @@ jobs:
             | **Benchmark Knowledge Outcome Correlation** | ${benchmarkKnowledgeOutcomeCorrelationLight} | ${benchmarkKnowledgeOutcomeCorrelationStatusLine} |
             | **Benchmark Knowledge Outcome Drift** | ${benchmarkKnowledgeOutcomeDriftLight} | ${benchmarkKnowledgeOutcomeDriftStatusLine} |
             | **Benchmark Operational Summary** | ${benchmarkOperationalLight} | ${benchmarkOperationalSummaryStatus} |
+            | **Benchmark Operational Operator Adoption** | ${benchmarkOperationalOperatorAdoptionLight} | ${benchmarkOperationalOperatorAdoptionStatus || 'n/a'} |
+            | **Benchmark Operational Operator Outcome Drift** | ${benchmarkOperationalOperatorOutcomeDriftLight} | ${benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleLight} | ${benchmarkArtifactBundleStatus} |
             | **Benchmark Companion Summary** | ${benchmarkCompanionLight} | ${benchmarkCompanionSummaryStatus} |
             | **Benchmark Release Decision** | ${benchmarkReleaseDecisionLight} | ${benchmarkReleaseDecisionStatus} |
