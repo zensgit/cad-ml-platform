@@ -3032,6 +3032,36 @@ jobs:
                 "operator_adoption_knowledge_drift_summary="
                 f"{compact([operator_drift.get('summary')])}\n"
             )
+            scorecard_operator = payload.get("scorecard_operator_adoption") or {}
+            operational_operator = payload.get("operational_operator_adoption") or {}
+            f.write(
+                "scorecard_operator_adoption_status="
+                f"{scorecard_operator.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "scorecard_operator_adoption_mode="
+                f"{scorecard_operator.get('operator_mode', 'unknown')}\n"
+            )
+            f.write(
+                "scorecard_operator_adoption_knowledge_outcome_drift_status="
+                f"{scorecard_operator.get('knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "scorecard_operator_adoption_knowledge_outcome_drift_summary="
+                f"{compact([scorecard_operator.get('knowledge_outcome_drift_summary')])}\n"
+            )
+            f.write(
+                "operational_operator_adoption_status="
+                f"{operational_operator.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "operational_operator_adoption_knowledge_outcome_drift_status="
+                f"{operational_operator.get('knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "operational_operator_adoption_knowledge_outcome_drift_summary="
+                f"{compact([operational_operator.get('knowledge_outcome_drift_summary')])}\n"
+            )
             f.write(
                 "operator_adoption_knowledge_outcome_drift_status="
                 f"{operator_outcome_drift.get('status', 'unknown')}\n"
@@ -3437,6 +3467,36 @@ jobs:
             f.write(
                 "operator_adoption_knowledge_drift_summary="
                 f"{compact([operator_drift.get('summary')])}\n"
+            )
+            scorecard_operator = payload.get("scorecard_operator_adoption") or {}
+            operational_operator = payload.get("operational_operator_adoption") or {}
+            f.write(
+                "scorecard_operator_adoption_status="
+                f"{scorecard_operator.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "scorecard_operator_adoption_mode="
+                f"{scorecard_operator.get('operator_mode', 'unknown')}\n"
+            )
+            f.write(
+                "scorecard_operator_adoption_knowledge_outcome_drift_status="
+                f"{scorecard_operator.get('knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "scorecard_operator_adoption_knowledge_outcome_drift_summary="
+                f"{compact([scorecard_operator.get('knowledge_outcome_drift_summary')])}\n"
+            )
+            f.write(
+                "operational_operator_adoption_status="
+                f"{operational_operator.get('status', 'unknown')}\n"
+            )
+            f.write(
+                "operational_operator_adoption_knowledge_outcome_drift_status="
+                f"{operational_operator.get('knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "operational_operator_adoption_knowledge_outcome_drift_summary="
+                f"{compact([operational_operator.get('knowledge_outcome_drift_summary')])}\n"
             )
             f.write(
                 "operator_adoption_knowledge_outcome_drift_status="
@@ -5602,6 +5662,12 @@ jobs:
           echo "- Benchmark artifact bundle operator adoption knowledge drift summary: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle operator adoption knowledge outcome drift: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle operator adoption knowledge outcome drift summary: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle scorecard operator adoption: ${{ steps.benchmark_artifact_bundle.outputs.scorecard_operator_adoption_status }} / ${{ steps.benchmark_artifact_bundle.outputs.scorecard_operator_adoption_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle scorecard operator outcome drift: ${{ steps.benchmark_artifact_bundle.outputs.scorecard_operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle scorecard operator outcome drift summary: ${{ steps.benchmark_artifact_bundle.outputs.scorecard_operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle operational operator adoption: ${{ steps.benchmark_artifact_bundle.outputs.operational_operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle operational operator outcome drift: ${{ steps.benchmark_artifact_bundle.outputs.operational_operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle operational operator outcome drift summary: ${{ steps.benchmark_artifact_bundle.outputs.operational_operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle blockers: ${{ steps.benchmark_artifact_bundle.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle recommendations: ${{ steps.benchmark_artifact_bundle.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle artifact: ${{ steps.benchmark_artifact_bundle.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -5648,6 +5714,12 @@ jobs:
           echo "- Benchmark companion operator adoption knowledge drift summary: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion operator adoption knowledge outcome drift: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion operator adoption knowledge outcome drift summary: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion scorecard operator adoption: ${{ steps.benchmark_companion_summary.outputs.scorecard_operator_adoption_status }} / ${{ steps.benchmark_companion_summary.outputs.scorecard_operator_adoption_mode }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion scorecard operator outcome drift: ${{ steps.benchmark_companion_summary.outputs.scorecard_operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion scorecard operator outcome drift summary: ${{ steps.benchmark_companion_summary.outputs.scorecard_operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion operational operator adoption: ${{ steps.benchmark_companion_summary.outputs.operational_operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion operational operator outcome drift: ${{ steps.benchmark_companion_summary.outputs.operational_operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion operational operator outcome drift summary: ${{ steps.benchmark_companion_summary.outputs.operational_operator_adoption_knowledge_outcome_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion blockers: ${{ steps.benchmark_companion_summary.outputs.blockers }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion recommended actions: ${{ steps.benchmark_companion_summary.outputs.recommended_actions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion artifact: ${{ steps.benchmark_companion_summary.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
@@ -6083,6 +6155,13 @@ jobs:
             const benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftSummary = '${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_summary }}';
             const benchmarkArtifactBundleOperatorAdoptionKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_outcome_drift_status }}';
             const benchmarkArtifactBundleOperatorAdoptionKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_outcome_drift_summary }}';
+            const benchmarkArtifactBundleScorecardOperatorAdoptionStatus = '${{ steps.benchmark_artifact_bundle.outputs.scorecard_operator_adoption_status }}';
+            const benchmarkArtifactBundleScorecardOperatorAdoptionMode = '${{ steps.benchmark_artifact_bundle.outputs.scorecard_operator_adoption_mode }}';
+            const benchmarkArtifactBundleScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_artifact_bundle.outputs.scorecard_operator_adoption_knowledge_outcome_drift_status }}';
+            const benchmarkArtifactBundleScorecardOperatorAdoptionKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_artifact_bundle.outputs.scorecard_operator_adoption_knowledge_outcome_drift_summary }}';
+            const benchmarkArtifactBundleOperationalOperatorAdoptionStatus = '${{ steps.benchmark_artifact_bundle.outputs.operational_operator_adoption_status }}';
+            const benchmarkArtifactBundleOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_artifact_bundle.outputs.operational_operator_adoption_knowledge_outcome_drift_status }}';
+            const benchmarkArtifactBundleOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_artifact_bundle.outputs.operational_operator_adoption_knowledge_outcome_drift_summary }}';
             const benchmarkArtifactBundleBlockers = '${{ steps.benchmark_artifact_bundle.outputs.blockers }}';
             const benchmarkArtifactBundleRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.recommendations }}';
             const benchmarkArtifactBundleArtifact = '${{ steps.benchmark_artifact_bundle.outputs.output_md }}';
@@ -6143,6 +6222,13 @@ jobs:
             const benchmarkCompanionOperatorAdoptionKnowledgeDriftSummary = '${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_summary }}';
             const benchmarkCompanionOperatorAdoptionKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_outcome_drift_status }}';
             const benchmarkCompanionOperatorAdoptionKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_outcome_drift_summary }}';
+            const benchmarkCompanionScorecardOperatorAdoptionStatus = '${{ steps.benchmark_companion_summary.outputs.scorecard_operator_adoption_status }}';
+            const benchmarkCompanionScorecardOperatorAdoptionMode = '${{ steps.benchmark_companion_summary.outputs.scorecard_operator_adoption_mode }}';
+            const benchmarkCompanionScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_companion_summary.outputs.scorecard_operator_adoption_knowledge_outcome_drift_status }}';
+            const benchmarkCompanionScorecardOperatorAdoptionKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_companion_summary.outputs.scorecard_operator_adoption_knowledge_outcome_drift_summary }}';
+            const benchmarkCompanionOperationalOperatorAdoptionStatus = '${{ steps.benchmark_companion_summary.outputs.operational_operator_adoption_status }}';
+            const benchmarkCompanionOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_companion_summary.outputs.operational_operator_adoption_knowledge_outcome_drift_status }}';
+            const benchmarkCompanionOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_companion_summary.outputs.operational_operator_adoption_knowledge_outcome_drift_summary }}';
             const benchmarkCompanionBlockers = '${{ steps.benchmark_companion_summary.outputs.blockers }}';
             const benchmarkCompanionRecommendedActions = '${{ steps.benchmark_companion_summary.outputs.recommended_actions }}';
             const benchmarkCompanionArtifact = '${{ steps.benchmark_companion_summary.outputs.output_md }}';
@@ -6778,8 +6864,16 @@ jobs:
             | **Benchmark Release Runbook Knowledge Drift** | ${benchmarkReleaseRunbookKnowledgeDriftStatus || 'n/a'} / ${benchmarkReleaseRunbookKnowledgeDriftSummary || 'n/a'} |
             | **Benchmark Artifact Bundle Operator Drift** | ${benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftStatus || 'n/a'} / ${benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftSummary || 'n/a'} |
             | **Benchmark Artifact Bundle Operator Outcome Drift** | ${benchmarkArtifactBundleOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkArtifactBundleOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
+            | **Benchmark Artifact Bundle Scorecard Operator Adoption** | ${benchmarkArtifactBundleScorecardOperatorAdoptionStatus || 'n/a'} / ${benchmarkArtifactBundleScorecardOperatorAdoptionMode || 'n/a'} |
+            | **Benchmark Artifact Bundle Scorecard Operator Outcome Drift** | ${benchmarkArtifactBundleScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkArtifactBundleScorecardOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
+            | **Benchmark Artifact Bundle Operational Operator Adoption** | ${benchmarkArtifactBundleOperationalOperatorAdoptionStatus || 'n/a'} |
+            | **Benchmark Artifact Bundle Operational Operator Outcome Drift** | ${benchmarkArtifactBundleOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkArtifactBundleOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Companion Operator Drift** | ${benchmarkCompanionOperatorAdoptionKnowledgeDriftStatus || 'n/a'} / ${benchmarkCompanionOperatorAdoptionKnowledgeDriftSummary || 'n/a'} |
             | **Benchmark Companion Operator Outcome Drift** | ${benchmarkCompanionOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkCompanionOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
+            | **Benchmark Companion Scorecard Operator Adoption** | ${benchmarkCompanionScorecardOperatorAdoptionStatus || 'n/a'} / ${benchmarkCompanionScorecardOperatorAdoptionMode || 'n/a'} |
+            | **Benchmark Companion Scorecard Operator Outcome Drift** | ${benchmarkCompanionScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkCompanionScorecardOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
+            | **Benchmark Companion Operational Operator Adoption** | ${benchmarkCompanionOperationalOperatorAdoptionStatus || 'n/a'} |
+            | **Benchmark Companion Operational Operator Outcome Drift** | ${benchmarkCompanionOperationalOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkCompanionOperationalOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Release Decision Operator Drift** | ${benchmarkReleaseOperatorAdoptionKnowledgeDriftStatus || 'n/a'} / ${benchmarkReleaseOperatorAdoptionKnowledgeDriftSummary || 'n/a'} |
             | **Benchmark Release Decision Operator Outcome Drift** | ${benchmarkReleaseOperatorAdoptionKnowledgeOutcomeDriftStatus || 'n/a'} / ${benchmarkReleaseOperatorAdoptionKnowledgeOutcomeDriftSummary || 'n/a'} |
             | **Benchmark Release Runbook** | ${benchmarkReleaseRunbookStatusLine} |
