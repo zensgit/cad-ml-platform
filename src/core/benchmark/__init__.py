@@ -34,6 +34,11 @@ from .knowledge_realdata_correlation import (  # noqa: F401
     knowledge_realdata_correlation_recommendations,
     render_knowledge_realdata_correlation_markdown,
 )
+from .knowledge_domain_matrix import (  # noqa: F401
+    build_knowledge_domain_matrix_status,
+    knowledge_domain_matrix_recommendations,
+    render_knowledge_domain_matrix_markdown,
+)
 from .realdata_signals import (  # noqa: F401
     build_realdata_signals_status,
     realdata_signals_recommendations,

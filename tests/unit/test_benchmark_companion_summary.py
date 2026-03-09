@@ -129,6 +129,21 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             },
             "recommendations": ["Promote gdt application evidence into benchmark surfaces."],
         },
+        benchmark_knowledge_domain_matrix={
+            "knowledge_domain_matrix": {
+                "status": "knowledge_domain_matrix_partial",
+                "priority_domains": ["standards"],
+                "domains": {
+                    "standards": {
+                        "status": "blocked",
+                        "readiness_status": "missing",
+                        "application_status": "partial",
+                        "realdata_status": "blocked",
+                    }
+                },
+            },
+            "recommendations": ["Backfill standards foundation and real-data coverage."],
+        },
     )
 
     assert payload["overall_status"] == "attention_required"
@@ -152,6 +167,11 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["knowledge_application_status"] == "knowledge_application_partial"
     assert payload["knowledge_application_domains"]["gdt"]["status"] == "partial"
     assert payload["knowledge_application_priority_domains"] == ["gdt"]
+    assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_partial"
+    assert payload["knowledge_domain_matrix_domains"]["standards"]["status"] == "blocked"
+    assert payload["component_statuses"]["knowledge_domain_matrix"] == (
+        "knowledge_domain_matrix_partial"
+    )
     assert payload["knowledge_drift_domain_regressions"] == []
     assert payload["recommended_actions"] == ["reduce review queue backlog"]
     assert payload["artifacts"]["benchmark_artifact_bundle"]["present"] is True
@@ -168,6 +188,7 @@ def test_render_markdown_includes_sections() -> None:
         "primary_gap": "none",
         "knowledge_drift_summary": "status=stable; current=knowledge_foundation_ready",
         "knowledge_application_status": "knowledge_application_partial",
+        "knowledge_domain_matrix_status": "knowledge_domain_matrix_partial",
         "realdata_status": "realdata_foundation_ready",
         "component_statuses": {"hybrid": "healthy"},
         "recommended_actions": ["keep monitoring"],
@@ -244,6 +265,17 @@ def test_render_markdown_includes_sections() -> None:
         "knowledge_application_recommendations": [
             "Promote gdt application evidence into benchmark surfaces."
         ],
+        "knowledge_domain_matrix_domains": {
+            "gdt": {
+                "status": "partial",
+                "readiness_status": "missing",
+                "application_status": "partial",
+                "realdata_status": "partial",
+            }
+        },
+        "knowledge_domain_matrix_recommendations": [
+            "Backfill gdt foundation and expand real-data coverage."
+        ],
         "knowledge_domains": {
             "gdt": {
                 "status": "missing",
@@ -279,6 +311,7 @@ def test_render_markdown_includes_sections() -> None:
     assert "## Knowledge Domains" in rendered
     assert "## Knowledge Application" in rendered
     assert "## Knowledge Domain Focus Areas" in rendered
+    assert "## Knowledge Domain Matrix" in rendered
 
 
 def test_cli_writes_outputs(tmp_path: Path) -> None:
@@ -291,6 +324,8 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     realdata = tmp_path / "realdata.json"
     operator = tmp_path / "operator.json"
     knowledge_application = tmp_path / "knowledge_application.json"
+    knowledge_realdata_correlation = tmp_path / "knowledge_realdata_correlation.json"
+    knowledge_domain_matrix = tmp_path / "knowledge_domain_matrix.json"
     output_json = tmp_path / "out.json"
     output_md = tmp_path / "out.md"
     scorecard.write_text(
@@ -425,6 +460,46 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_realdata_correlation.write_text(
+        json.dumps(
+            {
+                "knowledge_realdata_correlation": {
+                    "status": "knowledge_realdata_ready",
+                    "priority_domains": [],
+                    "domains": {
+                        "standards": {
+                            "status": "ready",
+                            "readiness_status": "ready",
+                            "application_status": "ready",
+                            "realdata_status": "ready",
+                        }
+                    },
+                },
+                "recommendations": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    knowledge_domain_matrix.write_text(
+        json.dumps(
+            {
+                "knowledge_domain_matrix": {
+                    "status": "knowledge_domain_matrix_ready",
+                    "priority_domains": [],
+                    "domains": {
+                        "standards": {
+                            "status": "ready",
+                            "readiness_status": "ready",
+                            "application_status": "ready",
+                            "realdata_status": "ready",
+                        }
+                    },
+                },
+                "recommendations": [],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     subprocess.run(
         [
@@ -448,6 +523,10 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
             str(operator),
             "--benchmark-knowledge-application",
             str(knowledge_application),
+            "--benchmark-knowledge-realdata-correlation",
+            str(knowledge_realdata_correlation),
+            "--benchmark-knowledge-domain-matrix",
+            str(knowledge_domain_matrix),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -466,6 +545,9 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["component_statuses"]["knowledge_application"] == "knowledge_application_ready"
+    assert payload["component_statuses"]["knowledge_domain_matrix"] == (
+        "knowledge_domain_matrix_ready"
+    )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["knowledge_focus_areas"] == []
     assert payload["knowledge_drift_summary"].startswith("status=stable")
@@ -473,6 +555,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_domains"]["standards"]["status"] == "ready"
     assert payload["knowledge_domain_focus_areas"] == []
     assert payload["knowledge_application_status"] == "knowledge_application_ready"
+    assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_ready"
     assert payload["knowledge_drift_domain_improvements"] == []
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
     assert output_md.exists()
