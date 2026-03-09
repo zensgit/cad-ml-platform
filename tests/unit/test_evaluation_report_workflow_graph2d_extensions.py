@@ -75,6 +75,14 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "BENCHMARK_REALDATA_SIGNALS_STEP_DIR_SUMMARY_JSON" in env
     assert "BENCHMARK_REALDATA_SIGNALS_OUTPUT_JSON" in env
     assert "BENCHMARK_REALDATA_SIGNALS_OUTPUT_MD" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_ENABLE" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_TITLE" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_HYBRID_SUMMARY_JSON" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_HISTORY_SUMMARY_JSON" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_ONLINE_EXAMPLE_REPORT_JSON" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_STEP_DIR_SUMMARY_JSON" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_OUTPUT_JSON" in env
+    assert "BENCHMARK_REALDATA_SCORECARD_OUTPUT_MD" in env
     assert "BENCHMARK_KNOWLEDGE_READINESS_ENABLE" in env
     assert "BENCHMARK_KNOWLEDGE_READINESS_TITLE" in env
     assert "BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON" in env
@@ -1218,6 +1226,18 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark real-data STEP dir status" in summary_script
     assert "Benchmark real-data recommendations" in summary_script
     assert "Benchmark real-data artifact" in summary_script
+    assert "Benchmark real-data scorecard status" in summary_script
+    assert "Benchmark real-data scorecard ready components" in summary_script
+    assert "Benchmark real-data scorecard partial components" in summary_script
+    assert "Benchmark real-data scorecard environment blocked" in summary_script
+    assert "Benchmark real-data scorecard available components" in summary_script
+    assert "Benchmark real-data scorecard best surface" in summary_script
+    assert "Benchmark real-data scorecard hybrid status" in summary_script
+    assert "Benchmark real-data scorecard history status" in summary_script
+    assert "Benchmark real-data scorecard STEP smoke status" in summary_script
+    assert "Benchmark real-data scorecard STEP dir status" in summary_script
+    assert "Benchmark real-data scorecard recommendations" in summary_script
+    assert "Benchmark real-data scorecard artifact" in summary_script
     assert "Benchmark engineering violations" in summary_script
     assert "Benchmark engineering standards rows" in summary_script
     assert "Benchmark engineering OCR standards" in summary_script
@@ -1432,6 +1452,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkRealdataStatusLine" in pr_comment_script
     assert "benchmarkRealdataLight" in pr_comment_script
     assert "benchmarkRealdataRecommendations" in pr_comment_script
+    assert "benchmarkRealdataScorecardEnabled" in pr_comment_script
+    assert "benchmarkRealdataScorecardStatus" in pr_comment_script
+    assert "benchmarkRealdataScorecardStatusLine" in pr_comment_script
+    assert "benchmarkRealdataScorecardLight" in pr_comment_script
+    assert "benchmarkRealdataScorecardRecommendations" in pr_comment_script
     assert "benchmarkKnowledgeEnabled" in pr_comment_script
     assert "benchmarkKnowledgeStatusLine" in pr_comment_script
     assert "benchmarkKnowledgeLight" in pr_comment_script
@@ -1498,6 +1523,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Feedback Flywheel" in pr_comment_script
     assert "Benchmark Engineering Signals" in pr_comment_script
     assert "Benchmark Real-Data Signals" in pr_comment_script
+    assert "Benchmark Real-Data Scorecard" in pr_comment_script
     assert "Benchmark Knowledge Readiness" in pr_comment_script
     assert "Benchmark Knowledge Drift" in pr_comment_script
     assert "Benchmark Knowledge Focus Areas" in pr_comment_script
@@ -1518,6 +1544,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Artifact Bundle Knowledge Real-Data" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Artifact Bundle Real-Data" in pr_comment_script
+    assert "Benchmark Artifact Bundle Real-Data Scorecard" in pr_comment_script
     assert "available_artifacts=${benchmarkArtifactBundleAvailableArtifacts}" in pr_comment_script
     assert "feedback=${benchmarkArtifactBundleFeedbackStatus}" in pr_comment_script
     assert "assistant=${benchmarkArtifactBundleAssistantStatus}" in pr_comment_script
@@ -1608,6 +1635,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     )
     assert "Benchmark Companion Summary" in pr_comment_script
     assert "Benchmark Companion Real-Data" in pr_comment_script
+    assert "Benchmark Companion Real-Data Scorecard" in pr_comment_script
     assert "knowledge=${benchmarkCompanionKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkCompanionKnowledgeDriftStatus}" in pr_comment_script
     assert "benchmarkCompanionKnowledgeDriftDomainRegressions" in pr_comment_script
@@ -1621,6 +1649,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     )
     assert "Benchmark Release Decision" in pr_comment_script
     assert "Benchmark Release Decision Real-Data" in pr_comment_script
+    assert "Benchmark Release Decision Real-Data Scorecard" in pr_comment_script
     assert "knowledge=${benchmarkReleaseKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkReleaseKnowledgeDriftStatus}" in pr_comment_script
     assert "benchmarkReleaseKnowledgeDriftDomainRegressions" in pr_comment_script
@@ -1635,6 +1664,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     )
     assert "Benchmark Release Runbook" in pr_comment_script
     assert "Benchmark Release Runbook Real-Data" in pr_comment_script
+    assert "Benchmark Release Runbook Real-Data Scorecard" in pr_comment_script
     assert "knowledge=${benchmarkReleaseRunbookKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkReleaseRunbookKnowledgeDriftStatus}" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeDriftDomainRegressions" in pr_comment_script
@@ -1659,9 +1689,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Runbook Operator Drift" in pr_comment_script
     assert "Benchmark Operator Adoption Knowledge Drift" in pr_comment_script
     assert "realdata=${benchmarkArtifactBundleRealdataStatus || 'n/a'}" in pr_comment_script
+    assert "benchmarkArtifactBundleRealdataScorecardStatus || 'n/a'" in pr_comment_script
     assert "realdata=${benchmarkCompanionRealdataStatus || 'n/a'}" in pr_comment_script
+    assert "benchmarkCompanionRealdataScorecardStatus || 'n/a'" in pr_comment_script
     assert "realdata=${benchmarkReleaseRealdataStatus || 'n/a'}" in pr_comment_script
+    assert "benchmarkReleaseRealdataScorecardStatus || 'n/a'" in pr_comment_script
     assert "realdata=${benchmarkReleaseRunbookRealdataStatus || 'n/a'}" in pr_comment_script
+    assert "benchmarkReleaseRunbookRealdataScorecardStatus || 'n/a'" in pr_comment_script
     assert "assistantEvidenceEnabled" in pr_comment_script
     assert "Assistant Evidence Report" in pr_comment_script
     assert "Assistant Evidence Insights" in pr_comment_script
