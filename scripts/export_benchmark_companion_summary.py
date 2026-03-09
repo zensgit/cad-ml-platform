@@ -390,6 +390,30 @@ def _operator_adoption_knowledge_drift(
     }
 
 
+def _operator_adoption_knowledge_outcome_drift(
+    benchmark_operator_adoption: Dict[str, Any],
+) -> Dict[str, Any]:
+    drift = benchmark_operator_adoption.get("knowledge_outcome_drift") or {}
+    return {
+        "status": str(
+            benchmark_operator_adoption.get("knowledge_outcome_drift_status")
+            or drift.get("status")
+            or "unknown"
+        ),
+        "summary": str(
+            benchmark_operator_adoption.get("knowledge_outcome_drift_summary")
+            or drift.get("summary")
+            or "none"
+        ),
+        "recommendations": _compact(
+            drift.get("recommendations")
+            or benchmark_operator_adoption.get("recommended_actions")
+            or [],
+            limit=5,
+        ),
+    }
+
+
 def build_companion_summary(
     *,
     title: str,
@@ -538,6 +562,9 @@ def build_companion_summary(
     )
     operator_adoption_knowledge_drift = _operator_adoption_knowledge_drift(
         benchmark_operator_adoption
+    )
+    operator_adoption_knowledge_outcome_drift = (
+        _operator_adoption_knowledge_outcome_drift(benchmark_operator_adoption)
     )
     knowledge_root = (
         benchmark_knowledge_readiness.get("knowledge_readiness")
@@ -756,6 +783,9 @@ def build_companion_summary(
         ),
         "realdata_scorecard_recommendations": _compact(
             realdata_scorecard_recommendations, limit=5
+        ),
+        "operator_adoption_knowledge_outcome_drift": (
+            operator_adoption_knowledge_outcome_drift
         ),
         "recommended_actions": recommendations,
         "blockers": blockers,
@@ -1054,6 +1084,16 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     drift_recommendations = drift.get("recommendations") or []
     if drift_recommendations:
         for item in drift_recommendations:
+            lines.append(f"- recommendation: {item}")
+    else:
+        lines.append("- recommendation: none")
+    lines.extend(["", "## Operator Adoption Knowledge Outcome Drift", ""])
+    outcome_drift = payload.get("operator_adoption_knowledge_outcome_drift") or {}
+    lines.append(f"- `status`: `{outcome_drift.get('status') or 'unknown'}`")
+    lines.append(f"- `summary`: {outcome_drift.get('summary') or 'none'}")
+    outcome_drift_recommendations = outcome_drift.get("recommendations") or []
+    if outcome_drift_recommendations:
+        for item in outcome_drift_recommendations:
             lines.append(f"- recommendation: {item}")
     else:
         lines.append("- recommendation: none")

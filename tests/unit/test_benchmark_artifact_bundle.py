@@ -86,6 +86,11 @@ def test_build_bundle_prefers_operational_summary() -> None:
             "adoption_readiness": "guided_manual",
             "knowledge_drift_status": "regressed",
             "knowledge_drift_summary": "Standards coverage regressed.",
+            "knowledge_outcome_drift_status": "regressed",
+            "knowledge_outcome_drift_summary": "Operator review outcomes regressed.",
+            "knowledge_outcome_drift": {
+                "recommendations": ["Investigate regression-heavy operator cohorts."],
+            },
             "knowledge_drift": {
                 "recommendations": ["Restore standards baseline coverage."],
             },
@@ -158,6 +163,7 @@ def test_build_bundle_prefers_operational_summary() -> None:
         "knowledge_domain_matrix_partial"
     )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
+    assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "regressed"
     assert payload["knowledge_application_status"] == "knowledge_application_partial"
     assert payload["knowledge_application_domains"]["standards"]["status"] == "partial"
     assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_partial"
@@ -220,6 +226,8 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
             "adoption_readiness": "operator_ready",
             "knowledge_drift_status": "stable",
             "knowledge_drift_summary": "Knowledge baseline stable.",
+            "knowledge_outcome_drift_status": "stable",
+            "knowledge_outcome_drift_summary": "Operator outcome drift stable.",
             "recommended_actions": ["Keep operator automation healthy."],
         },
         benchmark_knowledge_application={
@@ -275,6 +283,7 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
         "knowledge_domain_matrix_ready"
     )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
+    assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "stable"
     assert payload["knowledge_drift_domain_improvements"] == []
     assert payload["realdata_status"] == "realdata_foundation_ready"
     assert payload["realdata_recommendations"] == []
@@ -381,6 +390,8 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             "adoption_readiness": "guided_manual",
             "knowledge_drift_status": "regressed",
             "knowledge_drift_summary": "Knowledge baseline regressed.",
+            "knowledge_outcome_drift_status": "regressed",
+            "knowledge_outcome_drift_summary": "Operator review outcomes regressed.",
             "recommended_actions": ["Resolve operator blockers."],
             "blocking_signals": ["operator:blocker"],
         },
@@ -440,6 +451,7 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
+    assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "regressed"
     assert payload["realdata_status"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"
     assert "Knowledge baseline regressed." in output_md.read_text(encoding="utf-8")
@@ -449,6 +461,9 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert "review queue backlog" in output_md.read_text(encoding="utf-8")
     assert "## Knowledge Domains" in output_md.read_text(encoding="utf-8")
     assert "## Knowledge Domain Matrix" in output_md.read_text(encoding="utf-8")
+    assert "## Operator Adoption Knowledge Outcome Drift" in output_md.read_text(
+        encoding="utf-8"
+    )
     assert "## Real-Data Signals" in output_md.read_text(encoding="utf-8")
     assert "Expand STEP/B-Rep directory validation." in output_md.read_text(
         encoding="utf-8"
