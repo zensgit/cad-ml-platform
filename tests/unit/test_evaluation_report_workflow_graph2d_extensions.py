@@ -2003,12 +2003,28 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Decision" in pr_comment_script
     assert "Benchmark Release Decision Real-Data" in pr_comment_script
     assert "Benchmark Release Decision Real-Data Scorecard" in pr_comment_script
+    assert "Benchmark Release Decision Scorecard Operator Adoption" in pr_comment_script
+    assert "Benchmark Release Decision Scorecard Operator Outcome Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Decision Operational Operator Adoption" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Decision Operational Operator Outcome Drift" in (
+        pr_comment_script
+    )
     assert "knowledge=${benchmarkReleaseKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkReleaseKnowledgeDriftStatus}" in pr_comment_script
     assert "benchmarkReleaseKnowledgeDriftDomainRegressions" in pr_comment_script
     assert "benchmarkReleaseKnowledgePriorityDomains" in pr_comment_script
     assert "engineering=${benchmarkReleaseEngineeringStatus}" in pr_comment_script
     assert "operator_adoption=${benchmarkReleaseOperatorAdoptionStatus}" in pr_comment_script
+    assert (
+        "benchmarkReleaseScorecardOperatorAdoptionStatus || 'n/a'" in pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseOperationalOperatorAdoptionStatus || 'n/a'" in pr_comment_script
+    )
     assert "Benchmark Release Decision Knowledge Domains" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Drift" in pr_comment_script
     assert (
@@ -2018,12 +2034,30 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Runbook" in pr_comment_script
     assert "Benchmark Release Runbook Real-Data" in pr_comment_script
     assert "Benchmark Release Runbook Real-Data Scorecard" in pr_comment_script
+    assert "Benchmark Release Runbook Scorecard Operator Adoption" in pr_comment_script
+    assert "Benchmark Release Runbook Scorecard Operator Outcome Drift" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Runbook Operational Operator Adoption" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Runbook Operational Operator Outcome Drift" in (
+        pr_comment_script
+    )
     assert "knowledge=${benchmarkReleaseRunbookKnowledgeStatus}" in pr_comment_script
     assert "knowledge_drift=${benchmarkReleaseRunbookKnowledgeDriftStatus}" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeDriftDomainRegressions" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgePriorityDomains" in pr_comment_script
     assert "engineering=${benchmarkReleaseRunbookEngineeringStatus}" in pr_comment_script
     assert "operator_adoption=${benchmarkReleaseRunbookOperatorAdoptionStatus}" in pr_comment_script
+    assert (
+        "benchmarkReleaseRunbookScorecardOperatorAdoptionStatus || 'n/a'"
+        in pr_comment_script
+    )
+    assert (
+        "benchmarkReleaseRunbookOperationalOperatorAdoptionStatus || 'n/a'"
+        in pr_comment_script
+    )
     assert (
         "operator_drift=${benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftStatus}"
         in pr_comment_script
