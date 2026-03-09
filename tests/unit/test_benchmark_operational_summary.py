@@ -37,13 +37,24 @@ def test_build_operational_summary_uses_component_statuses() -> None:
         assistant_evidence={"total_records": 12},
         review_queue={"total": 0},
         ocr_review={"review_candidate_count": 0},
+        benchmark_operator_adoption={
+            "adoption_readiness": "guided_manual",
+            "knowledge_outcome_drift_status": "regressed",
+            "knowledge_outcome_drift_summary": "Operator outcomes regressed.",
+            "recommended_actions": ["Investigate operator review regressions."],
+        },
         artifact_paths={"benchmark_scorecard": "scorecard.json"},
     )
 
     assert payload["overall_status"] == "benchmark_ready_with_feedback_gap"
     assert payload["component_statuses"]["feedback_flywheel"] == "feedback_collected"
-    assert payload["blockers"] == ["feedback_flywheel:feedback_collected"]
+    assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert payload["blockers"] == [
+        "feedback_flywheel:feedback_collected",
+        "operator_adoption:guided_manual",
+    ]
     assert payload["key_metrics"]["feedback_total"] == 8
+    assert payload["operator_adoption_knowledge_outcome_drift_status"] == "regressed"
 
 
 def test_build_operational_summary_derives_missing_statuses() -> None:
@@ -54,6 +65,7 @@ def test_build_operational_summary_derives_missing_statuses() -> None:
         assistant_evidence={},
         review_queue={"operational_status": "managed_backlog", "total": 3},
         ocr_review={"review_candidate_count": 4, "automation_ready_count": 0},
+        benchmark_operator_adoption={},
         artifact_paths={},
     )
 
@@ -61,6 +73,7 @@ def test_build_operational_summary_derives_missing_statuses() -> None:
     assert payload["component_statuses"]["assistant_explainability"] == "missing"
     assert payload["component_statuses"]["review_queue"] == "managed_backlog"
     assert payload["component_statuses"]["ocr_review"] == "review_heavy"
+    assert payload["component_statuses"]["operator_adoption"] == "missing"
     assert "review_queue:managed_backlog" in payload["blockers"]
 
 
@@ -86,6 +99,15 @@ def test_export_benchmark_operational_summary_outputs_files(tmp_path: Path) -> N
         tmp_path / "review_queue.json",
         {"total": 2, "operational_status": "under_control"},
     )
+    operator = _write_json(
+        tmp_path / "operator.json",
+        {
+            "adoption_readiness": "operator_ready",
+            "knowledge_outcome_drift_status": "stable",
+            "knowledge_outcome_drift_summary": "Operator outcomes stable.",
+            "recommended_actions": ["Keep operator automation healthy."],
+        },
+    )
     output_json = tmp_path / "ops.json"
     output_md = tmp_path / "ops.md"
 
@@ -101,6 +123,8 @@ def test_export_benchmark_operational_summary_outputs_files(tmp_path: Path) -> N
             str(feedback),
             "--review-queue",
             str(review_queue),
+            "--benchmark-operator-adoption",
+            str(operator),
             "--output-json",
             str(output_json),
             "--output-md",
@@ -113,6 +137,7 @@ def test_export_benchmark_operational_summary_outputs_files(tmp_path: Path) -> N
 
     payload = json.loads(result.stdout)
     assert payload["component_statuses"]["feedback_flywheel"] == "closed_loop_ready"
+    assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["key_metrics"]["feedback_total"] == 10
     assert output_json.exists()
     assert output_md.exists()

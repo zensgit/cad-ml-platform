@@ -414,6 +414,34 @@ def _ocr_review_status(summary: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _operator_adoption_status(summary: Dict[str, Any]) -> Dict[str, Any]:
+    if not summary:
+        return {
+            "status": "missing",
+            "operator_mode": "unknown",
+            "knowledge_outcome_drift_status": "unknown",
+            "knowledge_outcome_drift_summary": "none",
+            "recommended_actions": [],
+        }
+    drift = summary.get("knowledge_outcome_drift") or {}
+    return {
+        "status": str(summary.get("adoption_readiness") or "unknown"),
+        "operator_mode": str(summary.get("operator_mode") or "unknown"),
+        "knowledge_outcome_drift_status": str(
+            summary.get("knowledge_outcome_drift_status")
+            or drift.get("status")
+            or "unknown"
+        ),
+        "knowledge_outcome_drift_summary": str(
+            summary.get("knowledge_outcome_drift_summary")
+            or drift.get("summary")
+            or "none"
+        ),
+        "recommended_actions": list(summary.get("recommended_actions") or []),
+        "blocking_signals": list(summary.get("blocking_signals") or []),
+    }
+
+
 def _knowledge_readiness_status(summary: Dict[str, Any]) -> Dict[str, Any]:
     if not summary:
         return build_knowledge_readiness_status({})
@@ -477,6 +505,7 @@ def _overall_status(
     review_queue: Dict[str, Any],
     feedback_flywheel: Dict[str, Any],
     ocr_review: Dict[str, Any],
+    operator_adoption: Dict[str, Any],
     knowledge_readiness: Dict[str, Any],
     engineering_signals: Dict[str, Any],
 ) -> str:
@@ -513,6 +542,8 @@ def _overall_status(
         return "benchmark_ready_with_feedback_gap"
     if ocr_review.get("status") in {"missing", "managed_review", "review_heavy"}:
         return "benchmark_ready_with_ocr_gap"
+    if operator_adoption.get("status") in {"missing", "unknown", "guided_manual", "blocked"}:
+        return "benchmark_ready_with_operator_gap"
     if knowledge_readiness.get("status") in {
         "knowledge_foundation_missing",
         "knowledge_foundation_partial",
@@ -537,6 +568,7 @@ def _recommendations(
     review_queue: Dict[str, Any],
     feedback_flywheel: Dict[str, Any],
     ocr_review: Dict[str, Any],
+    operator_adoption: Dict[str, Any],
     knowledge_readiness: Dict[str, Any],
     engineering_signals: Dict[str, Any],
 ) -> List[str]:
@@ -588,6 +620,18 @@ def _recommendations(
         )
     elif ocr_review.get("status") == "managed_review":
         items.append("Raise OCR automation-ready coverage before freezing the benchmark.")
+    if operator_adoption.get("status") in {"missing", "unknown"}:
+        items.append("Export operator adoption evidence before freezing the benchmark.")
+    elif operator_adoption.get("status") in {"guided_manual", "blocked"}:
+        items.extend(
+            str(item)
+            for item in (operator_adoption.get("recommended_actions") or [])
+            if str(item).strip()
+        )
+        if operator_adoption.get("knowledge_outcome_drift_status") == "regressed":
+            items.append(
+                "Stabilize operator review outcomes before promoting this benchmark baseline."
+            )
     items.extend(knowledge_readiness_recommendations(knowledge_readiness))
     items.extend(engineering_signals_recommendations(engineering_signals))
     if not items:
@@ -614,6 +658,7 @@ def build_scorecard(
     finetune_summary: Dict[str, Any],
     metric_train_summary: Dict[str, Any],
     ocr_review_summary: Dict[str, Any],
+    benchmark_operator_adoption_summary: Dict[str, Any],
     knowledge_readiness_summary: Dict[str, Any],
     engineering_signals_summary: Dict[str, Any],
 ) -> Dict[str, Any]:
@@ -635,6 +680,7 @@ def build_scorecard(
         metric_train_summary,
     )
     ocr_review = _ocr_review_status(ocr_review_summary)
+    operator_adoption = _operator_adoption_status(benchmark_operator_adoption_summary)
     knowledge_readiness = _knowledge_readiness_status(knowledge_readiness_summary)
     engineering_signals = build_engineering_signals_status(
         engineering_signals_summary,
@@ -650,6 +696,7 @@ def build_scorecard(
         review_queue,
         feedback_flywheel,
         ocr_review,
+        operator_adoption,
         knowledge_readiness,
         engineering_signals,
     )
@@ -668,6 +715,7 @@ def build_scorecard(
             "review_queue": review_queue,
             "feedback_flywheel": feedback_flywheel,
             "ocr_review": ocr_review,
+            "operator_adoption": operator_adoption,
             "knowledge_readiness": knowledge_readiness,
             "engineering_signals": engineering_signals,
         },
@@ -682,6 +730,7 @@ def build_scorecard(
             review_queue,
             feedback_flywheel,
             ocr_review,
+            operator_adoption,
             knowledge_readiness,
             engineering_signals,
         ),
@@ -785,6 +834,14 @@ def _render_markdown(scorecard: Dict[str, Any]) -> str:
         f"automation_ready={ocr_review.get('automation_ready_count')}, "
         f"avg_readiness={ocr_review.get('average_readiness_score')} |"
     )
+    operator_adoption = components.get("operator_adoption", {}) or {}
+    lines.append(
+        "| operator_adoption | "
+        f"`{operator_adoption.get('status')}` | "
+        f"mode={operator_adoption.get('operator_mode')}, "
+        f"outcome_drift={operator_adoption.get('knowledge_outcome_drift_status')}, "
+        f"actions={len(operator_adoption.get('recommended_actions') or [])} |"
+    )
     knowledge_readiness = components.get("knowledge_readiness", {}) or {}
     lines.append(
         "| knowledge_readiness | "
@@ -836,6 +893,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--finetune-summary", default="")
     parser.add_argument("--metric-train-summary", default="")
     parser.add_argument("--ocr-review-summary", default="")
+    parser.add_argument("--benchmark-operator-adoption-summary", default="")
     parser.add_argument("--knowledge-readiness-summary", default="")
     parser.add_argument("--engineering-signals-summary", default="")
     parser.add_argument("--output-json", default="")
@@ -861,6 +919,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         finetune_summary=_maybe_load_json(args.finetune_summary),
         metric_train_summary=_maybe_load_json(args.metric_train_summary),
         ocr_review_summary=_maybe_load_json(args.ocr_review_summary),
+        benchmark_operator_adoption_summary=_maybe_load_json(
+            args.benchmark_operator_adoption_summary
+        ),
         knowledge_readiness_summary=_maybe_load_json(args.knowledge_readiness_summary),
         engineering_signals_summary=_maybe_load_json(args.engineering_signals_summary),
     )

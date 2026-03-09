@@ -117,6 +117,17 @@ def _resolve_feedback_status(
     return "missing"
 
 
+def _resolve_operator_adoption_status(
+    scorecard: Dict[str, Any],
+    operator_adoption_summary: Dict[str, Any],
+) -> str:
+    component = _benchmark_component(scorecard, "operator_adoption")
+    status = str(component.get("status") or "").strip()
+    if status:
+        return status
+    return str(operator_adoption_summary.get("adoption_readiness") or "missing").strip()
+
+
 def build_operational_summary(
     *,
     title: str,
@@ -125,6 +136,7 @@ def build_operational_summary(
     assistant_evidence: Dict[str, Any],
     review_queue: Dict[str, Any],
     ocr_review: Dict[str, Any],
+    benchmark_operator_adoption: Dict[str, Any],
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     overall_status = str(benchmark_scorecard.get("overall_status") or "").strip() or "unknown"
@@ -132,6 +144,10 @@ def build_operational_summary(
     assistant_status = _resolve_assistant_status(benchmark_scorecard, assistant_evidence)
     review_queue_status = _resolve_review_queue_status(benchmark_scorecard, review_queue)
     ocr_status = _resolve_ocr_status(benchmark_scorecard, ocr_review)
+    operator_adoption_status = _resolve_operator_adoption_status(
+        benchmark_scorecard,
+        benchmark_operator_adoption,
+    )
 
     blockers: List[str] = []
     if feedback_status in {"missing", "passive_feedback_only", "feedback_collected"}:
@@ -142,10 +158,17 @@ def build_operational_summary(
         blockers.append(f"review_queue:{review_queue_status}")
     if ocr_status in {"missing", "review_heavy"}:
         blockers.append(f"ocr_review:{ocr_status}")
+    if operator_adoption_status in {"missing", "unknown", "guided_manual", "blocked"}:
+        blockers.append(f"operator_adoption:{operator_adoption_status}")
 
     recommendations = benchmark_scorecard.get("recommendations") or []
     if not isinstance(recommendations, list):
         recommendations = []
+    recommendations = list(recommendations)
+    for item in benchmark_operator_adoption.get("recommended_actions") or []:
+        text = str(item).strip()
+        if text and text not in recommendations:
+            recommendations.append(text)
 
     payload = {
         "title": title,
@@ -156,6 +179,7 @@ def build_operational_summary(
             "assistant_explainability": assistant_status,
             "review_queue": review_queue_status,
             "ocr_review": ocr_status,
+            "operator_adoption": operator_adoption_status,
         },
         "key_metrics": {
             "feedback_total": _to_int(
@@ -167,10 +191,22 @@ def build_operational_summary(
             "assistant_records": _to_int(assistant_evidence.get("total_records")),
             "review_queue_total": _to_int(review_queue.get("total")),
             "ocr_review_candidates": _to_int(ocr_review.get("review_candidate_count")),
+            "operator_blocking_signal_count": _to_int(
+                len(benchmark_operator_adoption.get("blocking_signals") or [])
+            ),
+            "operator_recommended_action_count": _to_int(
+                len(benchmark_operator_adoption.get("recommended_actions") or [])
+            ),
         },
         "blockers": blockers,
         "artifact_paths": artifact_paths,
         "recommendations": recommendations[:5],
+        "operator_adoption_knowledge_outcome_drift_status": str(
+            benchmark_operator_adoption.get("knowledge_outcome_drift_status") or "unknown"
+        ),
+        "operator_adoption_knowledge_outcome_drift_summary": str(
+            benchmark_operator_adoption.get("knowledge_outcome_drift_summary") or "none"
+        ),
     }
     return payload
 
@@ -187,6 +223,10 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         "",
         f"- `overall_status`: `{payload.get('overall_status', 'unknown')}`",
         f"- `blockers`: `{payload.get('blockers', [])}`",
+        "- `operator_adoption_knowledge_outcome_drift_status`: "
+        f"`{payload.get('operator_adoption_knowledge_outcome_drift_status', 'unknown')}`",
+        "- `operator_adoption_knowledge_outcome_drift_summary`: "
+        f"{payload.get('operator_adoption_knowledge_outcome_drift_summary', 'none')}",
         "",
         "## Component Statuses",
         "",
@@ -222,6 +262,7 @@ def main() -> None:
     parser.add_argument("--assistant-evidence", default="")
     parser.add_argument("--review-queue", default="")
     parser.add_argument("--ocr-review", default="")
+    parser.add_argument("--benchmark-operator-adoption", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -232,6 +273,7 @@ def main() -> None:
         "assistant_evidence": args.assistant_evidence,
         "review_queue": args.review_queue,
         "ocr_review": args.ocr_review,
+        "benchmark_operator_adoption": args.benchmark_operator_adoption,
     }
     payload = build_operational_summary(
         title=args.title,
@@ -240,6 +282,7 @@ def main() -> None:
         assistant_evidence=_maybe_load_json(args.assistant_evidence),
         review_queue=_maybe_load_json(args.review_queue),
         ocr_review=_maybe_load_json(args.ocr_review),
+        benchmark_operator_adoption=_maybe_load_json(args.benchmark_operator_adoption),
         artifact_paths=artifact_paths,
     )
     rendered = json.dumps(payload, ensure_ascii=False, indent=2)
