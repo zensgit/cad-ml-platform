@@ -315,6 +315,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_operator_adoption_review_queue_json" in dispatch_inputs
     assert "benchmark_operator_adoption_feedback_flywheel_json" in dispatch_inputs
     assert "benchmark_operator_adoption_knowledge_drift_json" in dispatch_inputs
+    assert "benchmark_operator_adoption_knowledge_outcome_drift_json" in dispatch_inputs
     assert "ocr_review_pack_enable" in dispatch_inputs
     assert "ocr_review_pack_input" in dispatch_inputs
     assert "assistant_evidence_report_enable" in dispatch_inputs
@@ -1056,6 +1057,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--review-queue" in benchmark_operator_adoption_script
     assert "--feedback-flywheel" in benchmark_operator_adoption_script
     assert "--benchmark-knowledge-drift" in benchmark_operator_adoption_script
+    assert "--benchmark-knowledge-outcome-drift" in benchmark_operator_adoption_script
     assert "INPUT_COUNT=0" in benchmark_operator_adoption_script
     assert "adoption_readiness=" in benchmark_operator_adoption_script
     assert "operator_mode=" in benchmark_operator_adoption_script
@@ -1068,6 +1070,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "feedback_status=" in benchmark_operator_adoption_script
     assert "knowledge_drift_status=" in benchmark_operator_adoption_script
     assert "knowledge_drift_summary=" in benchmark_operator_adoption_script
+    assert "knowledge_outcome_drift_status=" in benchmark_operator_adoption_script
+    assert "knowledge_outcome_drift_summary=" in benchmark_operator_adoption_script
     assert "blocking_signals=" in benchmark_operator_adoption_script
     assert "recommended_actions=" in benchmark_operator_adoption_script
 
@@ -1085,6 +1089,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--review-queue" in benchmark_operator_adoption_script
     assert "--feedback-flywheel" in benchmark_operator_adoption_script
     assert "--benchmark-knowledge-drift" in benchmark_operator_adoption_script
+    assert "--benchmark-knowledge-outcome-drift" in benchmark_operator_adoption_script
     assert "INPUT_COUNT=0" in benchmark_operator_adoption_script
     assert "adoption_readiness=" in benchmark_operator_adoption_script
     assert "operator_mode=" in benchmark_operator_adoption_script
@@ -1097,6 +1102,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "feedback_status=" in benchmark_operator_adoption_script
     assert "knowledge_drift_status=" in benchmark_operator_adoption_script
     assert "knowledge_drift_summary=" in benchmark_operator_adoption_script
+    assert "knowledge_outcome_drift_status=" in benchmark_operator_adoption_script
+    assert "knowledge_outcome_drift_summary=" in benchmark_operator_adoption_script
     assert "blocking_signals=" in benchmark_operator_adoption_script
     assert "recommended_actions=" in benchmark_operator_adoption_script
 
@@ -1387,6 +1394,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark operator adoption feedback status" in summary_script
     assert "Benchmark operator adoption knowledge drift" in summary_script
     assert "Benchmark operator adoption knowledge drift summary" in summary_script
+    assert "Benchmark operator adoption knowledge outcome drift" in summary_script
+    assert "Benchmark operator adoption knowledge outcome drift summary" in summary_script
     assert "Benchmark operator adoption blockers" in summary_script
     assert "Benchmark operator adoption actions" in summary_script
     assert "Benchmark operator adoption artifact" in summary_script
