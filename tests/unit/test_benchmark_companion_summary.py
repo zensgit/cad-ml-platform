@@ -17,6 +17,12 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             "components": {
                 "hybrid": {"status": "healthy"},
                 "review_queue": {"status": "healthy"},
+                "operator_adoption": {
+                    "status": "guided_manual",
+                    "operator_mode": "assisted_review",
+                    "knowledge_outcome_drift_status": "regressed",
+                    "knowledge_outcome_drift_summary": "Tolerance coverage regressed.",
+                },
             },
             "recommendations": ["improve scorecard coverage"],
         },
@@ -25,7 +31,12 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             "component_statuses": {
                 "assistant_explainability": "partial_coverage",
                 "review_queue": "managed_backlog",
+                "operator_adoption": "guided_manual",
             },
+            "operator_adoption_knowledge_outcome_drift_status": "regressed",
+            "operator_adoption_knowledge_outcome_drift_summary": (
+                "Tolerance coverage regressed."
+            ),
             "blockers": ["assistant_explainability:partial_coverage"],
             "recommendations": ["raise assistant evidence coverage"],
         },
@@ -154,6 +165,8 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert payload["scorecard_operator_adoption"]["operator_mode"] == "assisted_review"
+    assert payload["operational_operator_adoption"]["status"] == "guided_manual"
     assert payload["component_statuses"]["knowledge_application"] == "knowledge_application_partial"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert (
@@ -178,6 +191,9 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["realdata_status"] == "realdata_foundation_partial"
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
+    markdown = render_markdown(payload)
+    assert "## Scorecard Operator Adoption" in markdown
+    assert "## Operational Operator Adoption" in markdown
 
 
 def test_render_markdown_includes_sections() -> None:

@@ -42,6 +42,37 @@ def _text(value: Any) -> str:
     return str(value or "").strip()
 
 
+def _scorecard_operator_adoption(scorecard: Dict[str, Any]) -> Dict[str, Any]:
+    component = (scorecard.get("components") or {}).get("operator_adoption") or {}
+    return {
+        "status": str(component.get("status") or "unknown"),
+        "operator_mode": str(component.get("operator_mode") or "unknown"),
+        "knowledge_outcome_drift_status": str(
+            component.get("knowledge_outcome_drift_status") or "unknown"
+        ),
+        "knowledge_outcome_drift_summary": str(
+            component.get("knowledge_outcome_drift_summary") or "none"
+        ),
+    }
+
+
+def _operational_operator_adoption(
+    operational_summary: Dict[str, Any],
+) -> Dict[str, Any]:
+    components = operational_summary.get("component_statuses") or {}
+    return {
+        "status": str(components.get("operator_adoption") or "unknown"),
+        "knowledge_outcome_drift_status": str(
+            operational_summary.get("operator_adoption_knowledge_outcome_drift_status")
+            or "unknown"
+        ),
+        "knowledge_outcome_drift_summary": str(
+            operational_summary.get("operator_adoption_knowledge_outcome_drift_summary")
+            or "none"
+        ),
+    }
+
+
 def _artifact_row(
     *,
     name: str,
@@ -106,6 +137,10 @@ def _component_statuses(
         benchmark_realdata_scorecard.get("realdata_scorecard")
         or benchmark_realdata_scorecard
         or {}
+    )
+    scorecard_operator_adoption = _scorecard_operator_adoption(scorecard)
+    operational_operator_adoption = _operational_operator_adoption(
+        operational_summary
     )
     knowledge_application_component = (
         benchmark_knowledge_application.get("knowledge_application")
@@ -206,6 +241,12 @@ def _component_statuses(
     component_rows["operator_adoption"] = str(
         benchmark_operator_adoption.get("adoption_readiness") or "unknown"
     )
+    if component_rows["operator_adoption"] == "unknown":
+        component_rows["operator_adoption"] = str(
+            operational_operator_adoption.get("status")
+            or scorecard_operator_adoption.get("status")
+            or "unknown"
+        )
     component_rows["knowledge_application"] = str(
         companion_components.get("knowledge_application")
         or operational_components.get("knowledge_application")
@@ -484,6 +525,10 @@ def build_bundle(
     operator_adoption_knowledge_drift = _operator_adoption_knowledge_drift(
         benchmark_operator_adoption
     )
+    scorecard_operator_adoption = _scorecard_operator_adoption(benchmark_scorecard)
+    operational_operator_adoption = _operational_operator_adoption(
+        benchmark_operational_summary
+    )
     knowledge_domains = knowledge_component.get("domains") or {}
     knowledge_domain_focus_areas = list(
         knowledge_component.get("domain_focus_areas") or []
@@ -720,6 +765,8 @@ def build_bundle(
             knowledge_outcome_drift_recommendations
         ),
         "operator_adoption_knowledge_drift": operator_adoption_knowledge_drift,
+        "scorecard_operator_adoption": scorecard_operator_adoption,
+        "operational_operator_adoption": operational_operator_adoption,
         "knowledge_domains": knowledge_domains,
         "knowledge_domain_focus_areas": knowledge_domain_focus_areas,
         "knowledge_priority_domains": knowledge_priority_domains,
@@ -1090,16 +1137,31 @@ def render_markdown(payload: Dict[str, Any]) -> str:
             )
     else:
         lines.append("- none")
-    lines.extend(["", "## Operator Adoption Knowledge Drift", ""])
-    drift = payload.get("operator_adoption_knowledge_drift") or {}
-    lines.append(f"- `status`: `{drift.get('status') or 'unknown'}`")
-    lines.append(f"- `summary`: {drift.get('summary') or 'none'}")
-    recommendations = drift.get("recommendations") or []
-    if recommendations:
-        for item in recommendations:
-            lines.append(f"- recommendation: {item}")
-    else:
-        lines.append("- recommendation: none")
+    lines.extend(["", "## Scorecard Operator Adoption", ""])
+    scorecard_operator = payload.get("scorecard_operator_adoption") or {}
+    lines.append(f"- `status`: `{scorecard_operator.get('status') or 'unknown'}`")
+    lines.append(
+        f"- `operator_mode`: `{scorecard_operator.get('operator_mode') or 'unknown'}`"
+    )
+    lines.append(
+        "- `knowledge_outcome_drift_status`: "
+        f"`{scorecard_operator.get('knowledge_outcome_drift_status') or 'unknown'}`"
+    )
+    lines.append(
+        "- `knowledge_outcome_drift_summary`: "
+        + (scorecard_operator.get("knowledge_outcome_drift_summary") or "none")
+    )
+    lines.extend(["", "## Operational Operator Adoption", ""])
+    operational_operator = payload.get("operational_operator_adoption") or {}
+    lines.append(f"- `status`: `{operational_operator.get('status') or 'unknown'}`")
+    lines.append(
+        "- `knowledge_outcome_drift_status`: "
+        f"`{operational_operator.get('knowledge_outcome_drift_status') or 'unknown'}`"
+    )
+    lines.append(
+        "- `knowledge_outcome_drift_summary`: "
+        + (operational_operator.get("knowledge_outcome_drift_summary") or "none")
+    )
     return "\n".join(lines) + "\n"
 
 

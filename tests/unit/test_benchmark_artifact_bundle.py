@@ -22,7 +22,15 @@ def test_build_bundle_prefers_operational_summary() -> None:
         title="Benchmark Artifact Bundle",
         benchmark_scorecard={
             "overall_status": "benchmark_ready_with_feedback_gap",
-            "components": {"hybrid": {"status": "ready"}},
+            "components": {
+                "hybrid": {"status": "ready"},
+                "operator_adoption": {
+                    "status": "guided_manual",
+                    "operator_mode": "assisted_review",
+                    "knowledge_outcome_drift_status": "regressed",
+                    "knowledge_outcome_drift_summary": "Standards coverage regressed.",
+                },
+            },
         },
         benchmark_operational_summary={
             "overall_status": "attention_required",
@@ -31,7 +39,12 @@ def test_build_bundle_prefers_operational_summary() -> None:
                 "assistant_explainability": "evidence_partial",
                 "review_queue": "managed_backlog",
                 "ocr_review": "review_heavy",
+                "operator_adoption": "guided_manual",
             },
+            "operator_adoption_knowledge_outcome_drift_status": "regressed",
+            "operator_adoption_knowledge_outcome_drift_summary": (
+                "Standards coverage regressed."
+            ),
             "blockers": ["feedback backlog"],
             "recommendations": ["Close the review queue."],
         },
@@ -153,6 +166,8 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["component_statuses"]["engineering_signals"] == "partial_engineering_semantics"
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
+    assert payload["scorecard_operator_adoption"]["operator_mode"] == "assisted_review"
+    assert payload["operational_operator_adoption"]["status"] == "guided_manual"
     assert payload["component_statuses"]["knowledge_application"] == "knowledge_application_partial"
     assert payload["component_statuses"]["knowledge_domain_matrix"] == (
         "knowledge_domain_matrix_partial"
@@ -664,3 +679,6 @@ def test_build_bundle_exposes_knowledge_outcome_drift_passthrough() -> None:
     assert payload["knowledge_outcome_drift_domain_regressions"] == ["tolerance"]
     assert payload["knowledge_outcome_drift_new_priority_domains"] == ["tolerance"]
     assert payload["recommendations"] == payload["knowledge_outcome_drift_recommendations"]
+    markdown = module.render_markdown(payload)
+    assert "## Scorecard Operator Adoption" in markdown
+    assert "## Operational Operator Adoption" in markdown
