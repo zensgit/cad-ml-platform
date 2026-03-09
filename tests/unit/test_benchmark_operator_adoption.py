@@ -145,6 +145,57 @@ def test_build_operator_adoption_knowledge_outcome_drift_regressed() -> None:
     )
 
 
+def test_build_operator_adoption_release_surface_alignment() -> None:
+    payload = build_operator_adoption(
+        title="Operator Adoption",
+        benchmark_release_decision={
+            "release_status": "ready",
+            "automation_ready": True,
+            "operator_adoption_status": "operator_ready",
+            "scorecard_operator_adoption": {
+                "status": "operator_ready",
+                "mode": "freeze_ready",
+                "knowledge_outcome_drift_status": "stable",
+                "knowledge_outcome_drift_summary": "stable",
+            },
+            "operational_operator_adoption": {
+                "status": "operator_ready",
+                "knowledge_outcome_drift_status": "stable",
+                "knowledge_outcome_drift_summary": "stable",
+            },
+        },
+        benchmark_release_runbook={
+            "release_status": "ready",
+            "next_action": "freeze_release_baseline",
+            "ready_to_freeze_baseline": True,
+            "operator_adoption_status": "operator_ready",
+            "scorecard_operator_adoption": {
+                "status": "operator_ready",
+                "mode": "freeze_ready",
+                "knowledge_outcome_drift_status": "stable",
+                "knowledge_outcome_drift_summary": "stable",
+            },
+            "operational_operator_adoption": {
+                "status": "operator_ready",
+                "knowledge_outcome_drift_status": "stable",
+                "knowledge_outcome_drift_summary": "stable",
+            },
+        },
+        review_queue={"operational_status": "under_control", "critical_count": 0},
+        feedback_flywheel={"status": "healthy", "feedback_total": 4},
+        benchmark_knowledge_drift={},
+        benchmark_knowledge_outcome_drift={},
+        artifact_paths={},
+    )
+
+    assert payload["release_surface_alignment_status"] == "aligned"
+    assert payload["release_surface_alignment"]["mismatches"] == []
+    assert (
+        payload["release_surface_alignment"]["release_decision"]["scorecard_status"]
+        == "operator_ready"
+    )
+
+
 def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     release = tmp_path / "release.json"
     runbook = tmp_path / "runbook.json"
@@ -262,3 +313,5 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "`operator_mode`: `stabilize_knowledge`" in rendered
     assert "`knowledge_drift_status`: `regressed`" in rendered
     assert "`knowledge_outcome_drift_status`: `regressed`" in rendered
+    assert "## Release Surface Alignment" in rendered
+    assert "`release_surface_alignment_status`: `unavailable`" in rendered
