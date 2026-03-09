@@ -1479,6 +1479,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark operator adoption knowledge drift summary" in summary_script
     assert "Benchmark operator adoption knowledge outcome drift" in summary_script
     assert "Benchmark operator adoption knowledge outcome drift summary" in summary_script
+    assert "Benchmark operator adoption release surface alignment" in summary_script
+    assert "Benchmark operator adoption release surface alignment summary" in (
+        summary_script
+    )
+    assert "Benchmark operator adoption release surface mismatches" in summary_script
     assert "Benchmark operator adoption blockers" in summary_script
     assert "Benchmark operator adoption actions" in summary_script
     assert "Benchmark operator adoption artifact" in summary_script
