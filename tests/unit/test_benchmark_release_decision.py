@@ -633,3 +633,52 @@ def test_build_release_decision_exposes_operator_adoption_knowledge_outcome_drif
         == "Tolerance outcome coverage regressed."
     )
     assert "Backfill tolerance outcome coverage." in payload["review_signals"]
+
+
+def test_build_release_decision_exposes_scorecard_and_operational_operator_adoption() -> None:
+    payload = build_release_decision(
+        title="Release Decision",
+        benchmark_scorecard={
+            "components": {
+                "hybrid": {"status": "healthy"},
+                "operator_adoption": {
+                    "status": "guided_manual",
+                    "operator_mode": "shadow_review",
+                    "knowledge_outcome_drift_status": "regressed",
+                    "knowledge_outcome_drift_summary": "Operator outcome drift needs review.",
+                },
+            }
+        },
+        benchmark_operational_summary={
+            "component_statuses": {"operator_adoption": "attention_required"},
+            "operator_adoption_knowledge_outcome_drift_status": "partial",
+            "operator_adoption_knowledge_outcome_drift_summary": "Operational rollout is partial.",
+        },
+        benchmark_artifact_bundle={},
+        benchmark_companion_summary={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={"adoption_readiness": "operator_ready"},
+        artifact_paths={},
+    )
+
+    assert payload["scorecard_operator_adoption"]["status"] == "guided_manual"
+    assert payload["scorecard_operator_adoption"]["operator_mode"] == "shadow_review"
+    assert (
+        payload["scorecard_operator_adoption"]["knowledge_outcome_drift_status"]
+        == "regressed"
+    )
+    assert payload["operational_operator_adoption"]["status"] == "attention_required"
+    assert (
+        payload["operational_operator_adoption"]["knowledge_outcome_drift_status"]
+        == "partial"
+    )
+
+    rendered = render_markdown(payload)
+    assert "## Scorecard Operator Adoption" in rendered
+    assert "`operator_mode`: `shadow_review`" in rendered
+    assert "Operator outcome drift needs review." in rendered
+    assert "## Operational Operator Adoption" in rendered
+    assert "Operational rollout is partial." in rendered

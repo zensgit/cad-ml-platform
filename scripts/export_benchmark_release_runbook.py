@@ -281,6 +281,43 @@ def _operator_adoption_payload(
     }
 
 
+def _scorecard_operator_adoption(
+    benchmark_scorecard: Dict[str, Any],
+) -> Dict[str, Any]:
+    component = (benchmark_scorecard.get("components") or {}).get("operator_adoption") or {}
+    return {
+        "status": str(component.get("status") or "unknown"),
+        "operator_mode": str(component.get("operator_mode") or "unknown"),
+        "knowledge_outcome_drift_status": str(
+            component.get("knowledge_outcome_drift_status") or "unknown"
+        ),
+        "knowledge_outcome_drift_summary": str(
+            component.get("knowledge_outcome_drift_summary") or "none"
+        ),
+    }
+
+
+def _operational_operator_adoption(
+    benchmark_operational_summary: Dict[str, Any],
+) -> Dict[str, Any]:
+    components = benchmark_operational_summary.get("component_statuses") or {}
+    return {
+        "status": str(components.get("operator_adoption") or "unknown"),
+        "knowledge_outcome_drift_status": str(
+            benchmark_operational_summary.get(
+                "operator_adoption_knowledge_outcome_drift_status"
+            )
+            or "unknown"
+        ),
+        "knowledge_outcome_drift_summary": str(
+            benchmark_operational_summary.get(
+                "operator_adoption_knowledge_outcome_drift_summary"
+            )
+            or "none"
+        ),
+    }
+
+
 def _knowledge_drift_summary(status: str, counts: Dict[str, int]) -> str:
     if status == "baseline_missing":
         return "Knowledge drift baseline is missing."
@@ -405,6 +442,8 @@ def build_release_runbook(
     *,
     title: str,
     benchmark_release_decision: Dict[str, Any],
+    benchmark_scorecard: Dict[str, Any] | None = None,
+    benchmark_operational_summary: Dict[str, Any] | None = None,
     benchmark_companion_summary: Dict[str, Any],
     benchmark_artifact_bundle: Dict[str, Any],
     benchmark_knowledge_readiness: Dict[str, Any],
@@ -420,6 +459,8 @@ def build_release_runbook(
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
+    benchmark_scorecard = benchmark_scorecard or {}
+    benchmark_operational_summary = benchmark_operational_summary or {}
     benchmark_realdata_scorecard = benchmark_realdata_scorecard or {}
     benchmark_operator_adoption = benchmark_operator_adoption or {}
     benchmark_knowledge_application = benchmark_knowledge_application or {}
@@ -642,6 +683,10 @@ def build_release_runbook(
         artifact_paths=artifact_paths,
     )
     operator_adoption = _operator_adoption_payload(benchmark_operator_adoption)
+    scorecard_operator_adoption = _scorecard_operator_adoption(benchmark_scorecard)
+    operational_operator_adoption = _operational_operator_adoption(
+        benchmark_operational_summary
+    )
     missing_artifacts = [
         name
         for name, row in artifacts.items()
@@ -923,6 +968,8 @@ def build_release_runbook(
         "blocking_signals": blockers,
         "review_signals": review_signals,
         "operator_adoption": operator_adoption,
+        "scorecard_operator_adoption": scorecard_operator_adoption,
+        "operational_operator_adoption": operational_operator_adoption,
         "next_action": next_action,
         "operator_steps": operator_steps,
         "artifacts": artifacts,
@@ -1281,6 +1328,31 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         )
     else:
         lines.append("- outcome_drift_recommendation: none")
+    lines.extend(["", "## Scorecard Operator Adoption", ""])
+    scorecard_operator = payload.get("scorecard_operator_adoption") or {}
+    lines.append(f"- `status`: `{scorecard_operator.get('status') or 'unknown'}`")
+    lines.append(
+        f"- `operator_mode`: `{scorecard_operator.get('operator_mode') or 'unknown'}`"
+    )
+    lines.append(
+        "- `knowledge_outcome_drift_status`: "
+        f"`{scorecard_operator.get('knowledge_outcome_drift_status') or 'unknown'}`"
+    )
+    lines.append(
+        "- `knowledge_outcome_drift_summary`: "
+        + (_text(scorecard_operator.get("knowledge_outcome_drift_summary")) or "none")
+    )
+    lines.extend(["", "## Operational Operator Adoption", ""])
+    operational_operator = payload.get("operational_operator_adoption") or {}
+    lines.append(f"- `status`: `{operational_operator.get('status') or 'unknown'}`")
+    lines.append(
+        "- `knowledge_outcome_drift_status`: "
+        f"`{operational_operator.get('knowledge_outcome_drift_status') or 'unknown'}`"
+    )
+    lines.append(
+        "- `knowledge_outcome_drift_summary`: "
+        + (_text(operational_operator.get("knowledge_outcome_drift_summary")) or "none")
+    )
     lines.extend(["", "## Operator Steps", ""])
     for step in payload.get("operator_steps") or []:
         lines.append(
@@ -1304,6 +1376,8 @@ def main() -> None:
     )
     parser.add_argument("--title", default="Benchmark Release Runbook")
     parser.add_argument("--benchmark-release-decision", default="")
+    parser.add_argument("--benchmark-scorecard", default="")
+    parser.add_argument("--benchmark-operational-summary", default="")
     parser.add_argument("--benchmark-companion-summary", default="")
     parser.add_argument("--benchmark-artifact-bundle", default="")
     parser.add_argument("--benchmark-knowledge-readiness", default="")
@@ -1323,6 +1397,8 @@ def main() -> None:
 
     artifact_paths = {
         "benchmark_release_decision": args.benchmark_release_decision,
+        "benchmark_scorecard": args.benchmark_scorecard,
+        "benchmark_operational_summary": args.benchmark_operational_summary,
         "benchmark_companion_summary": args.benchmark_companion_summary,
         "benchmark_artifact_bundle": args.benchmark_artifact_bundle,
         "benchmark_knowledge_readiness": args.benchmark_knowledge_readiness,
@@ -1344,6 +1420,10 @@ def main() -> None:
     payload = build_release_runbook(
         title=args.title,
         benchmark_release_decision=_maybe_load_json(args.benchmark_release_decision),
+        benchmark_scorecard=_maybe_load_json(args.benchmark_scorecard),
+        benchmark_operational_summary=_maybe_load_json(
+            args.benchmark_operational_summary
+        ),
         benchmark_companion_summary=_maybe_load_json(args.benchmark_companion_summary),
         benchmark_artifact_bundle=_maybe_load_json(args.benchmark_artifact_bundle),
         benchmark_knowledge_readiness=_maybe_load_json(
