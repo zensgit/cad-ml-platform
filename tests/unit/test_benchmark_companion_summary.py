@@ -94,6 +94,11 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             "adoption_readiness": "guided_manual",
             "knowledge_drift_status": "regressed",
             "knowledge_drift_summary": "Tolerance coverage regressed.",
+            "knowledge_outcome_drift_status": "regressed",
+            "knowledge_outcome_drift_summary": "Operator review outcomes regressed.",
+            "knowledge_outcome_drift": {
+                "recommendations": ["Investigate operator review regressions."],
+            },
             "knowledge_drift": {
                 "recommendations": ["Backfill tolerance knowledge coverage."],
             },
@@ -156,6 +161,7 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["component_statuses"]["knowledge_application"] == "knowledge_application_partial"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
+    assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "regressed"
     assert (
         payload["operator_adoption_knowledge_drift"]["summary"]
         == "Tolerance coverage regressed."
@@ -254,6 +260,11 @@ def test_render_markdown_includes_sections() -> None:
             "summary": "Tolerance coverage regressed.",
             "recommendations": ["Backfill tolerance knowledge coverage."],
         },
+        "operator_adoption_knowledge_outcome_drift": {
+            "status": "regressed",
+            "summary": "Operator review outcomes regressed.",
+            "recommendations": ["Investigate operator review regressions."],
+        },
         "knowledge_application_domains": {
             "gdt": {
                 "status": "partial",
@@ -304,6 +315,7 @@ def test_render_markdown_includes_sections() -> None:
     assert "realdata.json" in rendered
     assert "operator.json" in rendered
     assert "Tolerance coverage regressed." in rendered
+    assert "Operator review outcomes regressed." in rendered
     assert "Expand GD&T coverage." in rendered
     assert "status=stable; current=knowledge_foundation_ready" in rendered
     assert "domain_regressions" in rendered
@@ -312,6 +324,7 @@ def test_render_markdown_includes_sections() -> None:
     assert "## Knowledge Application" in rendered
     assert "## Knowledge Domain Focus Areas" in rendered
     assert "## Knowledge Domain Matrix" in rendered
+    assert "## Operator Adoption Knowledge Outcome Drift" in rendered
 
 
 def test_cli_writes_outputs(tmp_path: Path) -> None:
@@ -435,6 +448,8 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
                 "adoption_readiness": "operator_ready",
                 "knowledge_drift_status": "stable",
                 "knowledge_drift_summary": "No knowledge regressions detected.",
+                "knowledge_outcome_drift_status": "stable",
+                "knowledge_outcome_drift_summary": "Operator outcome drift stable.",
                 "recommended_actions": ["Keep operator automation healthy."],
             }
         ),
@@ -575,6 +590,7 @@ def test_cli_writes_outputs(tmp_path: Path) -> None:
         "knowledge_outcome_correlation_ready"
     )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
+    assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "stable"
     assert payload["knowledge_focus_areas"] == []
     assert payload["knowledge_drift_summary"].startswith("status=stable")
     assert payload["knowledge_priority_domains"] == []
