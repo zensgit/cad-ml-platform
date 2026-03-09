@@ -134,6 +134,26 @@ on:
         description: 'Optional benchmark real-data signals STEP dir summary JSON'
         required: false
         default: ''
+      benchmark_realdata_scorecard_enable:
+        description: 'Override: enable benchmark real-data scorecard export (true/false)'
+        required: false
+        default: ''
+      benchmark_realdata_scorecard_hybrid_summary_json:
+        description: 'Optional benchmark real-data scorecard hybrid summary JSON'
+        required: false
+        default: ''
+      benchmark_realdata_scorecard_history_summary_json:
+        description: 'Optional benchmark real-data scorecard history summary JSON'
+        required: false
+        default: ''
+      benchmark_realdata_scorecard_online_example_report_json:
+        description: 'Optional benchmark real-data scorecard online example report JSON'
+        required: false
+        default: ''
+      benchmark_realdata_scorecard_step_dir_summary_json:
+        description: 'Optional benchmark real-data scorecard STEP dir summary JSON'
+        required: false
+        default: ''
       benchmark_knowledge_readiness_enable:
         description: 'Override: enable benchmark knowledge readiness export (true/false)'
         required: false
@@ -254,6 +274,10 @@ on:
         description: 'Optional benchmark artifact bundle real-data signals JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_realdata_scorecard_json:
+        description: 'Optional benchmark artifact bundle real-data scorecard JSON'
+        required: false
+        default: ''
       benchmark_artifact_bundle_knowledge_readiness_json:
         description: 'Optional benchmark artifact bundle knowledge readiness JSON'
         required: false
@@ -296,6 +320,10 @@ on:
         default: ''
       benchmark_companion_summary_realdata_signals_json:
         description: 'Optional benchmark companion summary real-data signals JSON'
+        required: false
+        default: ''
+      benchmark_companion_summary_realdata_scorecard_json:
+        description: 'Optional benchmark companion summary real-data scorecard JSON'
         required: false
         default: ''
       benchmark_companion_summary_knowledge_readiness_json:
@@ -346,6 +374,10 @@ on:
         description: 'Optional benchmark release decision real-data signals JSON'
         required: false
         default: ''
+      benchmark_release_decision_realdata_scorecard_json:
+        description: 'Optional benchmark release decision real-data scorecard JSON'
+        required: false
+        default: ''
       benchmark_release_decision_operator_adoption_json:
         description: 'Optional benchmark release decision operator adoption JSON'
         required: false
@@ -392,6 +424,10 @@ on:
         default: ''
       benchmark_release_runbook_realdata_signals_json:
         description: 'Optional benchmark release runbook real-data signals JSON'
+        required: false
+        default: ''
+      benchmark_release_runbook_realdata_scorecard_json:
+        description: 'Optional benchmark release runbook real-data scorecard JSON'
         required: false
         default: ''
       benchmark_release_runbook_operator_adoption_json:
@@ -542,6 +578,14 @@ env:
   BENCHMARK_REALDATA_SIGNALS_STEP_DIR_SUMMARY_JSON: ${{ vars.BENCHMARK_REALDATA_SIGNALS_STEP_DIR_SUMMARY_JSON }}
   BENCHMARK_REALDATA_SIGNALS_OUTPUT_JSON: ${{ vars.BENCHMARK_REALDATA_SIGNALS_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_realdata_signals.json' }}
   BENCHMARK_REALDATA_SIGNALS_OUTPUT_MD: ${{ vars.BENCHMARK_REALDATA_SIGNALS_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_realdata_signals.md' }}
+  BENCHMARK_REALDATA_SCORECARD_ENABLE: ${{ vars.BENCHMARK_REALDATA_SCORECARD_ENABLE || 'false' }}
+  BENCHMARK_REALDATA_SCORECARD_TITLE: ${{ vars.BENCHMARK_REALDATA_SCORECARD_TITLE || 'Benchmark Real-Data Scorecard' }}
+  BENCHMARK_REALDATA_SCORECARD_HYBRID_SUMMARY_JSON: ${{ vars.BENCHMARK_REALDATA_SCORECARD_HYBRID_SUMMARY_JSON }}
+  BENCHMARK_REALDATA_SCORECARD_HISTORY_SUMMARY_JSON: ${{ vars.BENCHMARK_REALDATA_SCORECARD_HISTORY_SUMMARY_JSON }}
+  BENCHMARK_REALDATA_SCORECARD_ONLINE_EXAMPLE_REPORT_JSON: ${{ vars.BENCHMARK_REALDATA_SCORECARD_ONLINE_EXAMPLE_REPORT_JSON }}
+  BENCHMARK_REALDATA_SCORECARD_STEP_DIR_SUMMARY_JSON: ${{ vars.BENCHMARK_REALDATA_SCORECARD_STEP_DIR_SUMMARY_JSON }}
+  BENCHMARK_REALDATA_SCORECARD_OUTPUT_JSON: ${{ vars.BENCHMARK_REALDATA_SCORECARD_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_realdata_scorecard.json' }}
+  BENCHMARK_REALDATA_SCORECARD_OUTPUT_MD: ${{ vars.BENCHMARK_REALDATA_SCORECARD_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_realdata_scorecard.md' }}
   BENCHMARK_KNOWLEDGE_READINESS_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_READINESS_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_READINESS_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_READINESS_TITLE || 'Benchmark Knowledge Readiness' }}
   BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_READINESS_SNAPSHOT_JSON }}
@@ -596,6 +640,7 @@ env:
   BENCHMARK_ARTIFACT_BUNDLE_RELEASE_DECISION_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_RELEASE_DECISION_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_ENGINEERING_SIGNALS_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_REALDATA_SIGNALS_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_REALDATA_SIGNALS_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_REALDATA_SCORECARD_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_REALDATA_SCORECARD_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_READINESS_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DRIFT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DRIFT_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_APPLICATION_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_APPLICATION_JSON }}
@@ -610,6 +655,7 @@ env:
   BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_ARTIFACT_BUNDLE_JSON }}
   BENCHMARK_COMPANION_SUMMARY_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_ENGINEERING_SIGNALS_JSON }}
   BENCHMARK_COMPANION_SUMMARY_REALDATA_SIGNALS_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_REALDATA_SIGNALS_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_REALDATA_SCORECARD_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_REALDATA_SCORECARD_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_READINESS_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DRIFT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DRIFT_JSON }}
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_APPLICATION_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_APPLICATION_JSON }}
@@ -625,6 +671,7 @@ env:
   BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_COMPANION_SUMMARY_JSON }}
   BENCHMARK_RELEASE_DECISION_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_ENGINEERING_SIGNALS_JSON }}
   BENCHMARK_RELEASE_DECISION_REALDATA_SIGNALS_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_REALDATA_SIGNALS_JSON }}
+  BENCHMARK_RELEASE_DECISION_REALDATA_SCORECARD_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_REALDATA_SCORECARD_JSON }}
   BENCHMARK_RELEASE_DECISION_OPERATOR_ADOPTION_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_OPERATOR_ADOPTION_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_READINESS_JSON }}
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DRIFT_JSON }}
@@ -640,6 +687,7 @@ env:
   BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ARTIFACT_BUNDLE_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ENGINEERING_SIGNALS_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_REALDATA_SIGNALS_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_REALDATA_SIGNALS_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_REALDATA_SCORECARD_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_REALDATA_SCORECARD_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_OPERATOR_ADOPTION_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OPERATOR_ADOPTION_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_READINESS_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_READINESS_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DRIFT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DRIFT_JSON }}
@@ -1431,6 +1479,122 @@ jobs:
             f.write(
                 f"available_component_count={component.get('available_component_count', 0)}\n"
             )
+            f.write(
+                "hybrid_dxf_status="
+                f"{(components.get('hybrid_dxf') or {}).get('status', 'unknown')}\n"
+            )
+            f.write(
+                "history_h5_status="
+                f"{(components.get('history_h5') or {}).get('status', 'unknown')}\n"
+            )
+            f.write(
+                "step_smoke_status="
+                f"{(components.get('step_smoke') or {}).get('status', 'unknown')}\n"
+            )
+            f.write(
+                "step_dir_status="
+                f"{(components.get('step_dir') or {}).get('status', 'unknown')}\n"
+            )
+            f.write(f"recommendations={compact_recommendations}\n")
+        PY
+
+    - name: Build benchmark real-data scorecard (optional)
+      id: benchmark_realdata_scorecard
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_realdata_scorecard_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_REALDATA_SCORECARD_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_REALDATA_SCORECARD_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_realdata_scorecard.json}"
+        OUTPUT_MD="${BENCHMARK_REALDATA_SCORECARD_OUTPUT_MD:-reports/history_sequence_eval/benchmark_realdata_scorecard.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_realdata_scorecard.py
+          --title "${BENCHMARK_REALDATA_SCORECARD_TITLE:-Benchmark Real-Data Scorecard}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --hybrid-summary "${{ github.event.inputs.benchmark_realdata_scorecard_hybrid_summary_json || '' }}"
+        add_if_exists --history-summary "${{ github.event.inputs.benchmark_realdata_scorecard_history_summary_json || '' }}"
+        add_if_exists --online-example-report "${{ github.event.inputs.benchmark_realdata_scorecard_online_example_report_json || '' }}"
+        add_if_exists --step-dir-summary "${{ github.event.inputs.benchmark_realdata_scorecard_step_dir_summary_json || '' }}"
+        add_if_exists --hybrid-summary "${BENCHMARK_REALDATA_SCORECARD_HYBRID_SUMMARY_JSON:-}"
+        add_if_exists --hybrid-summary "${BENCHMARK_SCORECARD_HYBRID_SUMMARY_JSON:-}"
+        add_if_exists --history-summary "${BENCHMARK_REALDATA_SCORECARD_HISTORY_SUMMARY_JSON:-}"
+        add_if_exists --history-summary "${BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON:-}"
+        add_if_exists --online-example-report "${BENCHMARK_REALDATA_SCORECARD_ONLINE_EXAMPLE_REPORT_JSON:-}"
+        add_if_exists --online-example-report "${BENCHMARK_REALDATA_SIGNALS_ONLINE_EXAMPLE_REPORT_JSON:-}"
+        add_if_exists --step-dir-summary "${BENCHMARK_REALDATA_SCORECARD_STEP_DIR_SUMMARY_JSON:-}"
+        add_if_exists --step-dir-summary "${BENCHMARK_REALDATA_SIGNALS_STEP_DIR_SUMMARY_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_REALDATA_SCORECARD_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No real-data scorecard inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(os.environ["BENCHMARK_REALDATA_SCORECARD_OUTPUT_JSON"]).read_text(
+                encoding="utf-8"
+            )
+        )
+        component = payload.get("realdata_scorecard") or {}
+        components = component.get("components") or {}
+        recommendations = payload.get("recommendations") or []
+        compact_recommendations = "; ".join(
+            str(item).strip() for item in recommendations[:3] if str(item).strip()
+        )
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={str(component.get('status') or 'unknown').strip()}\n")
+            f.write(
+                f"ready_component_count={component.get('ready_component_count', 0)}\n"
+            )
+            f.write(
+                f"partial_component_count={component.get('partial_component_count', 0)}\n"
+            )
+            f.write(
+                "environment_blocked_count="
+                f"{component.get('environment_blocked_count', 0)}\n"
+            )
+            f.write(
+                f"available_component_count={component.get('available_component_count', 0)}\n"
+            )
+            f.write(f"best_surface={component.get('best_surface', '')}\n")
             f.write(
                 "hybrid_dxf_status="
                 f"{(components.get('hybrid_dxf') or {}).get('status', 'unknown')}\n"
@@ -2362,6 +2526,7 @@ jobs:
         add_if_exists --benchmark-release-decision "${{ github.event.inputs.benchmark_artifact_bundle_release_decision_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_artifact_bundle_engineering_signals_json || '' }}"
         add_if_exists --benchmark-realdata-signals "${{ github.event.inputs.benchmark_artifact_bundle_realdata_signals_json || '' }}"
+        add_if_exists --benchmark-realdata-scorecard "${{ github.event.inputs.benchmark_artifact_bundle_realdata_scorecard_json || '' }}"
         add_if_exists --benchmark-knowledge-readiness "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_readiness_json || '' }}"
         add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_drift_json || '' }}"
         add_if_exists --benchmark-knowledge-application "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_application_json || '' }}"
@@ -2387,6 +2552,8 @@ jobs:
         add_if_exists --benchmark-engineering-signals "${BENCHMARK_ARTIFACT_BUNDLE_ENGINEERING_SIGNALS_JSON:-}"
         add_if_exists --benchmark-realdata-signals "${{ steps.benchmark_realdata_signals.outputs.output_json || '' }}"
         add_if_exists --benchmark-realdata-signals "${BENCHMARK_ARTIFACT_BUNDLE_REALDATA_SIGNALS_JSON:-}"
+        add_if_exists --benchmark-realdata-scorecard "${{ steps.benchmark_realdata_scorecard.outputs.output_json || '' }}"
+        add_if_exists --benchmark-realdata-scorecard "${BENCHMARK_ARTIFACT_BUNDLE_REALDATA_SCORECARD_JSON:-}"
         add_if_exists --benchmark-knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-readiness "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_READINESS_JSON:-}"
         add_if_exists --benchmark-knowledge-drift "${{ steps.benchmark_knowledge_drift.outputs.output_json || '' }}"
@@ -2509,6 +2676,14 @@ jobs:
             f.write(
                 "operator_adoption_knowledge_drift_summary="
                 f"{compact([operator_drift.get('summary')])}\n"
+            )
+            f.write(
+                "realdata_scorecard_status="
+                f"{payload.get('realdata_scorecard_status', 'unknown')}\n"
+            )
+            f.write(
+                "realdata_scorecard_recommendations="
+                f"{compact(payload.get('realdata_scorecard_recommendations') or [])}\n"
             )
             f.write(
                 "realdata_recommendations="
@@ -2677,6 +2852,7 @@ jobs:
         add_if_exists --benchmark-artifact-bundle "${{ github.event.inputs.benchmark_companion_summary_artifact_bundle_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_companion_summary_engineering_signals_json || '' }}"
         add_if_exists --benchmark-realdata-signals "${{ github.event.inputs.benchmark_companion_summary_realdata_signals_json || '' }}"
+        add_if_exists --benchmark-realdata-scorecard "${{ github.event.inputs.benchmark_companion_summary_realdata_scorecard_json || '' }}"
         add_if_exists --benchmark-knowledge-readiness "${{ github.event.inputs.benchmark_companion_summary_knowledge_readiness_json || '' }}"
         add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_companion_summary_knowledge_drift_json || '' }}"
         add_if_exists --benchmark-knowledge-application "${{ github.event.inputs.benchmark_companion_summary_knowledge_application_json || '' }}"
@@ -2692,6 +2868,8 @@ jobs:
         add_if_exists --benchmark-engineering-signals "${BENCHMARK_COMPANION_SUMMARY_ENGINEERING_SIGNALS_JSON:-}"
         add_if_exists --benchmark-realdata-signals "${{ steps.benchmark_realdata_signals.outputs.output_json || '' }}"
         add_if_exists --benchmark-realdata-signals "${BENCHMARK_COMPANION_SUMMARY_REALDATA_SIGNALS_JSON:-}"
+        add_if_exists --benchmark-realdata-scorecard "${{ steps.benchmark_realdata_scorecard.outputs.output_json || '' }}"
+        add_if_exists --benchmark-realdata-scorecard "${BENCHMARK_COMPANION_SUMMARY_REALDATA_SCORECARD_JSON:-}"
         add_if_exists --benchmark-knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-readiness "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_READINESS_JSON:-}"
         add_if_exists --benchmark-knowledge-drift "${{ steps.benchmark_knowledge_drift.outputs.output_json || '' }}"
@@ -2818,6 +2996,14 @@ jobs:
             f.write(
                 "operator_adoption_knowledge_drift_summary="
                 f"{compact([operator_drift.get('summary')])}\n"
+            )
+            f.write(
+                "realdata_scorecard_status="
+                f"{payload.get('realdata_scorecard_status', 'unknown')}\n"
+            )
+            f.write(
+                "realdata_scorecard_recommendations="
+                f"{compact(payload.get('realdata_scorecard_recommendations') or [])}\n"
             )
             f.write(
                 "realdata_recommendations="
@@ -3013,6 +3199,7 @@ jobs:
         add_if_exists --benchmark-companion-summary "${{ github.event.inputs.benchmark_release_decision_companion_summary_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_release_decision_engineering_signals_json || '' }}"
         add_if_exists --benchmark-realdata-signals "${{ github.event.inputs.benchmark_release_decision_realdata_signals_json || '' }}"
+        add_if_exists --benchmark-realdata-scorecard "${{ github.event.inputs.benchmark_release_decision_realdata_scorecard_json || '' }}"
         add_if_exists --benchmark-operator-adoption "${{ github.event.inputs.benchmark_release_decision_operator_adoption_json || '' }}"
         add_if_exists --benchmark-knowledge-readiness "${{ github.event.inputs.benchmark_release_decision_knowledge_readiness_json || '' }}"
         add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_release_decision_knowledge_drift_json || '' }}"
@@ -3031,6 +3218,8 @@ jobs:
         add_if_exists --benchmark-engineering-signals "${BENCHMARK_RELEASE_DECISION_ENGINEERING_SIGNALS_JSON:-}"
         add_if_exists --benchmark-realdata-signals "${{ steps.benchmark_realdata_signals.outputs.output_json || '' }}"
         add_if_exists --benchmark-realdata-signals "${BENCHMARK_RELEASE_DECISION_REALDATA_SIGNALS_JSON:-}"
+        add_if_exists --benchmark-realdata-scorecard "${{ steps.benchmark_realdata_scorecard.outputs.output_json || '' }}"
+        add_if_exists --benchmark-realdata-scorecard "${BENCHMARK_RELEASE_DECISION_REALDATA_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operator-adoption "${{ steps.benchmark_operator_adoption.outputs.output_json || '' }}"
         add_if_exists --benchmark-operator-adoption "${BENCHMARK_RELEASE_DECISION_OPERATOR_ADOPTION_JSON:-}"
         add_if_exists --benchmark-knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
@@ -3181,6 +3370,14 @@ jobs:
                 + "\n"
             )
             f.write(
+                "realdata_scorecard_status="
+                f"{payload.get('realdata_scorecard_status', 'unknown')}\n"
+            )
+            f.write(
+                "realdata_scorecard_recommendations="
+                f"{compact(payload.get('realdata_scorecard_recommendations') or [])}\n"
+            )
+            f.write(
                 "realdata_recommendations="
                 f"{compact(payload.get('realdata_recommendations') or [])}\n"
             )
@@ -3303,6 +3500,7 @@ jobs:
         add_if_exists --benchmark-artifact-bundle "${{ github.event.inputs.benchmark_release_runbook_artifact_bundle_json || '' }}"
         add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_release_runbook_engineering_signals_json || '' }}"
         add_if_exists --benchmark-realdata-signals "${{ github.event.inputs.benchmark_release_runbook_realdata_signals_json || '' }}"
+        add_if_exists --benchmark-realdata-scorecard "${{ github.event.inputs.benchmark_release_runbook_realdata_scorecard_json || '' }}"
         add_if_exists --benchmark-operator-adoption "${{ github.event.inputs.benchmark_release_runbook_operator_adoption_json || '' }}"
         add_if_exists --benchmark-knowledge-readiness "${{ github.event.inputs.benchmark_release_runbook_knowledge_readiness_json || '' }}"
         add_if_exists --benchmark-knowledge-drift "${{ github.event.inputs.benchmark_release_runbook_knowledge_drift_json || '' }}"
@@ -3319,6 +3517,8 @@ jobs:
         add_if_exists --benchmark-engineering-signals "${BENCHMARK_RELEASE_RUNBOOK_ENGINEERING_SIGNALS_JSON:-}"
         add_if_exists --benchmark-realdata-signals "${{ steps.benchmark_realdata_signals.outputs.output_json || '' }}"
         add_if_exists --benchmark-realdata-signals "${BENCHMARK_RELEASE_RUNBOOK_REALDATA_SIGNALS_JSON:-}"
+        add_if_exists --benchmark-realdata-scorecard "${{ steps.benchmark_realdata_scorecard.outputs.output_json || '' }}"
+        add_if_exists --benchmark-realdata-scorecard "${BENCHMARK_RELEASE_RUNBOOK_REALDATA_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operator-adoption "${{ steps.benchmark_operator_adoption.outputs.output_json || '' }}"
         add_if_exists --benchmark-operator-adoption "${BENCHMARK_RELEASE_RUNBOOK_OPERATOR_ADOPTION_JSON:-}"
         add_if_exists --benchmark-knowledge-readiness "${{ steps.benchmark_knowledge_readiness.outputs.output_json || '' }}"
@@ -3457,6 +3657,14 @@ jobs:
             f.write(
                 "operator_adoption_knowledge_drift_summary="
                 f"{compact([operator_adoption.get('knowledge_drift_summary')])}\n"
+            )
+            f.write(
+                "realdata_scorecard_status="
+                f"{payload.get('realdata_scorecard_status', 'unknown')}\n"
+            )
+            f.write(
+                "realdata_scorecard_recommendations="
+                f"{compact(payload.get('realdata_scorecard_recommendations') or [])}\n"
             )
             f.write(
                 "realdata_recommendations="
@@ -4180,6 +4388,16 @@ jobs:
           ${{ steps.benchmark_realdata_signals.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark realdata scorecard
+      if: steps.benchmark_realdata_scorecard.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-realdata-scorecard-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_realdata_scorecard.outputs.output_json }}
+          ${{ steps.benchmark_realdata_scorecard.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload benchmark knowledge readiness
       if: steps.benchmark_knowledge_readiness.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -4494,6 +4712,22 @@ jobs:
           echo "- Benchmark real-data artifact: ${{ steps.benchmark_realdata_signals.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
         else
           echo "- Benchmark real-data: skipped (BENCHMARK_REALDATA_SIGNALS_ENABLE!=true or no real-data inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "${{ steps.benchmark_realdata_scorecard.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark real-data scorecard status: ${{ steps.benchmark_realdata_scorecard.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data scorecard ready components: ${{ steps.benchmark_realdata_scorecard.outputs.ready_component_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data scorecard partial components: ${{ steps.benchmark_realdata_scorecard.outputs.partial_component_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data scorecard environment blocked: ${{ steps.benchmark_realdata_scorecard.outputs.environment_blocked_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data scorecard available components: ${{ steps.benchmark_realdata_scorecard.outputs.available_component_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data scorecard best surface: ${{ steps.benchmark_realdata_scorecard.outputs.best_surface }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data scorecard hybrid status: ${{ steps.benchmark_realdata_scorecard.outputs.hybrid_dxf_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data scorecard history status: ${{ steps.benchmark_realdata_scorecard.outputs.history_h5_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data scorecard STEP smoke status: ${{ steps.benchmark_realdata_scorecard.outputs.step_smoke_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data scorecard STEP dir status: ${{ steps.benchmark_realdata_scorecard.outputs.step_dir_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data scorecard recommendations: ${{ steps.benchmark_realdata_scorecard.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark real-data scorecard artifact: ${{ steps.benchmark_realdata_scorecard.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark real-data scorecard: skipped (BENCHMARK_REALDATA_SCORECARD_ENABLE!=true or no scorecard inputs)" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "${{ steps.benchmark_knowledge_readiness.outputs.enabled }}" == "true" ]]; then
           echo "- Benchmark knowledge readiness status: ${{ steps.benchmark_knowledge_readiness.outputs.status }}" >> $GITHUB_STEP_SUMMARY

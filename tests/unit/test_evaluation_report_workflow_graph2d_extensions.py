@@ -208,6 +208,11 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_realdata_signals_hybrid_summary_json" in dispatch_inputs
     assert "benchmark_realdata_signals_online_example_report_json" in dispatch_inputs
     assert "benchmark_realdata_signals_step_dir_summary_json" in dispatch_inputs
+    assert "benchmark_realdata_scorecard_enable" in dispatch_inputs
+    assert "benchmark_realdata_scorecard_hybrid_summary_json" in dispatch_inputs
+    assert "benchmark_realdata_scorecard_history_summary_json" in dispatch_inputs
+    assert "benchmark_realdata_scorecard_online_example_report_json" in dispatch_inputs
+    assert "benchmark_realdata_scorecard_step_dir_summary_json" in dispatch_inputs
     assert "benchmark_knowledge_readiness_enable" in dispatch_inputs
     assert "benchmark_knowledge_readiness_snapshot_json" in dispatch_inputs
     assert "benchmark_knowledge_application_enable" in dispatch_inputs
@@ -230,6 +235,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_artifact_bundle_release_decision_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_engineering_signals_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_realdata_signals_json" in dispatch_inputs
+    assert "benchmark_artifact_bundle_realdata_scorecard_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_knowledge_application_json" in dispatch_inputs
@@ -239,6 +245,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_companion_summary_artifact_bundle_json" in dispatch_inputs
     assert "benchmark_companion_summary_engineering_signals_json" in dispatch_inputs
     assert "benchmark_companion_summary_realdata_signals_json" in dispatch_inputs
+    assert "benchmark_companion_summary_realdata_scorecard_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_drift_json" in dispatch_inputs
     assert "benchmark_companion_summary_knowledge_application_json" in dispatch_inputs
@@ -249,6 +256,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_decision_companion_summary_json" in dispatch_inputs
     assert "benchmark_release_decision_engineering_signals_json" in dispatch_inputs
     assert "benchmark_release_decision_realdata_signals_json" in dispatch_inputs
+    assert "benchmark_release_decision_realdata_scorecard_json" in dispatch_inputs
     assert "benchmark_release_decision_operator_adoption_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_release_decision_knowledge_drift_json" in dispatch_inputs
@@ -259,6 +267,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_runbook_artifact_bundle_json" in dispatch_inputs
     assert "benchmark_release_runbook_engineering_signals_json" in dispatch_inputs
     assert "benchmark_release_runbook_realdata_signals_json" in dispatch_inputs
+    assert "benchmark_release_runbook_realdata_scorecard_json" in dispatch_inputs
     assert "benchmark_release_runbook_operator_adoption_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_readiness_json" in dispatch_inputs
     assert "benchmark_release_runbook_knowledge_drift_json" in dispatch_inputs
@@ -398,6 +407,59 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "step_smoke_status=" in benchmark_realdata_script
     assert "step_dir_status=" in benchmark_realdata_script
     assert "recommendations=" in benchmark_realdata_script
+
+    benchmark_realdata_scorecard_step = _get_step(
+        workflow, "evaluate", "Build benchmark real-data scorecard (optional)"
+    )
+    benchmark_realdata_scorecard_script = benchmark_realdata_scorecard_step["run"]
+    assert (
+        "scripts/export_benchmark_realdata_scorecard.py"
+        in benchmark_realdata_scorecard_script
+    )
+    assert "BENCHMARK_REALDATA_SCORECARD_ENABLE" in benchmark_realdata_scorecard_script
+    assert (
+        "benchmark_realdata_scorecard_hybrid_summary_json"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "benchmark_realdata_scorecard_history_summary_json"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "benchmark_realdata_scorecard_online_example_report_json"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "benchmark_realdata_scorecard_step_dir_summary_json"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "BENCHMARK_REALDATA_SCORECARD_HYBRID_SUMMARY_JSON"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "BENCHMARK_REALDATA_SCORECARD_HISTORY_SUMMARY_JSON"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "BENCHMARK_REALDATA_SCORECARD_ONLINE_EXAMPLE_REPORT_JSON"
+        in benchmark_realdata_scorecard_script
+    )
+    assert (
+        "BENCHMARK_REALDATA_SCORECARD_STEP_DIR_SUMMARY_JSON"
+        in benchmark_realdata_scorecard_script
+    )
+    assert "BENCHMARK_SCORECARD_HISTORY_SUMMARY_JSON" in benchmark_realdata_scorecard_script
+    assert "ready_component_count=" in benchmark_realdata_scorecard_script
+    assert "partial_component_count=" in benchmark_realdata_scorecard_script
+    assert "environment_blocked_count=" in benchmark_realdata_scorecard_script
+    assert "available_component_count=" in benchmark_realdata_scorecard_script
+    assert "best_surface=" in benchmark_realdata_scorecard_script
+    assert "hybrid_dxf_status=" in benchmark_realdata_scorecard_script
+    assert "history_h5_status=" in benchmark_realdata_scorecard_script
+    assert "step_smoke_status=" in benchmark_realdata_scorecard_script
+    assert "step_dir_status=" in benchmark_realdata_scorecard_script
+    assert "recommendations=" in benchmark_realdata_scorecard_script
 
     benchmark_knowledge_step = _get_step(
         workflow, "evaluate", "Build benchmark knowledge readiness (optional)"
@@ -649,6 +711,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-release-decision" in benchmark_bundle_script
     assert "--benchmark-engineering-signals" in benchmark_bundle_script
     assert "--benchmark-realdata-signals" in benchmark_bundle_script
+    assert "--benchmark-realdata-scorecard" in benchmark_bundle_script
     assert "--benchmark-knowledge-readiness" in benchmark_bundle_script
     assert "--benchmark-knowledge-drift" in benchmark_bundle_script
     assert "--benchmark-knowledge-application" in benchmark_bundle_script
@@ -669,6 +732,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_drift_new_priority_domains=" in benchmark_bundle_script
     assert "engineering_status=" in benchmark_bundle_script
     assert "realdata_status=" in benchmark_bundle_script
+    assert "realdata_scorecard_status=" in benchmark_bundle_script
+    assert "realdata_scorecard_recommendations=" in benchmark_bundle_script
     assert "realdata_recommendations=" in benchmark_bundle_script
     assert "knowledge_application_status=" in benchmark_bundle_script
     assert "knowledge_application_focus_areas=" in benchmark_bundle_script
@@ -691,6 +756,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-artifact-bundle" in benchmark_companion_script
     assert "--benchmark-engineering-signals" in benchmark_companion_script
     assert "--benchmark-realdata-signals" in benchmark_companion_script
+    assert "--benchmark-realdata-scorecard" in benchmark_companion_script
     assert "--benchmark-knowledge-readiness" in benchmark_companion_script
     assert "--benchmark-knowledge-drift" in benchmark_companion_script
     assert "--benchmark-knowledge-application" in benchmark_companion_script
@@ -709,6 +775,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_drift_new_priority_domains=" in benchmark_companion_script
     assert "engineering_status=" in benchmark_companion_script
     assert "realdata_status=" in benchmark_companion_script
+    assert "realdata_scorecard_status=" in benchmark_companion_script
+    assert "realdata_scorecard_recommendations=" in benchmark_companion_script
     assert "realdata_recommendations=" in benchmark_companion_script
     assert "knowledge_application_status=" in benchmark_companion_script
     assert "knowledge_application_focus_areas=" in benchmark_companion_script
@@ -730,6 +798,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-companion-summary" in benchmark_release_script
     assert "--benchmark-engineering-signals" in benchmark_release_script
     assert "--benchmark-realdata-signals" in benchmark_release_script
+    assert "--benchmark-realdata-scorecard" in benchmark_release_script
     assert "--benchmark-operator-adoption" in benchmark_release_script
     assert "--benchmark-knowledge-readiness" in benchmark_release_script
     assert "--benchmark-knowledge-drift" in benchmark_release_script
@@ -749,6 +818,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_drift_new_priority_domains=" in benchmark_release_script
     assert "engineering_status=" in benchmark_release_script
     assert "realdata_status=" in benchmark_release_script
+    assert "realdata_scorecard_status=" in benchmark_release_script
+    assert "realdata_scorecard_recommendations=" in benchmark_release_script
     assert "realdata_recommendations=" in benchmark_release_script
     assert "knowledge_application_status=" in benchmark_release_script
     assert "knowledge_application_focus_areas=" in benchmark_release_script
@@ -770,6 +841,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-artifact-bundle" in benchmark_runbook_script
     assert "--benchmark-engineering-signals" in benchmark_runbook_script
     assert "--benchmark-realdata-signals" in benchmark_runbook_script
+    assert "--benchmark-realdata-scorecard" in benchmark_runbook_script
     assert "--benchmark-operator-adoption" in benchmark_runbook_script
     assert "--benchmark-knowledge-readiness" in benchmark_runbook_script
     assert "--benchmark-knowledge-drift" in benchmark_runbook_script
@@ -788,6 +860,8 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_drift_new_priority_domains=" in benchmark_runbook_script
     assert "engineering_status=" in benchmark_runbook_script
     assert "realdata_status=" in benchmark_runbook_script
+    assert "realdata_scorecard_status=" in benchmark_runbook_script
+    assert "realdata_scorecard_recommendations=" in benchmark_runbook_script
     assert "realdata_recommendations=" in benchmark_runbook_script
     assert "knowledge_application_status=" in benchmark_runbook_script
     assert "knowledge_application_focus_areas=" in benchmark_runbook_script
@@ -917,6 +991,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_realdata["if"]
         == "steps.benchmark_realdata_signals.outputs.enabled == 'true'"
+    )
+    upload_realdata_scorecard = _get_step(
+        workflow, "evaluate", "Upload benchmark realdata scorecard"
+    )
+    assert (
+        upload_realdata_scorecard["if"]
+        == "steps.benchmark_realdata_scorecard.outputs.enabled == 'true'"
     )
     upload_knowledge = _get_step(workflow, "evaluate", "Upload benchmark knowledge readiness")
     assert (
