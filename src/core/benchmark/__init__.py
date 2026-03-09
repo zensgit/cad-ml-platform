@@ -44,3 +44,8 @@ from .realdata_signals import (  # noqa: F401
     realdata_signals_recommendations,
     render_realdata_signals_markdown,
 )
+from .realdata_scorecard import (  # noqa: F401
+    build_realdata_scorecard_status,
+    realdata_scorecard_recommendations,
+    render_realdata_scorecard_markdown,
+)
