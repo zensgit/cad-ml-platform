@@ -232,6 +232,9 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         in dispatch_inputs
     )
     assert "benchmark_knowledge_outcome_correlation_realdata_scorecard_json" in dispatch_inputs
+    assert "benchmark_knowledge_outcome_drift_enable" in dispatch_inputs
+    assert "benchmark_knowledge_outcome_drift_current_summary_json" in dispatch_inputs
+    assert "benchmark_knowledge_outcome_drift_previous_summary_json" in dispatch_inputs
     assert "benchmark_operational_summary_enable" in dispatch_inputs
     assert "benchmark_operational_summary_scorecard_json" in dispatch_inputs
     assert "benchmark_operational_summary_feedback_json" in dispatch_inputs
@@ -257,6 +260,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         "benchmark_artifact_bundle_knowledge_outcome_correlation_json"
         in dispatch_inputs
     )
+    assert "benchmark_artifact_bundle_knowledge_outcome_drift_json" in dispatch_inputs
     assert "benchmark_companion_summary_enable" in dispatch_inputs
     assert "benchmark_companion_summary_scorecard_json" in dispatch_inputs
     assert "benchmark_companion_summary_operational_summary_json" in dispatch_inputs
@@ -271,6 +275,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         "benchmark_companion_summary_knowledge_outcome_correlation_json"
         in dispatch_inputs
     )
+    assert "benchmark_companion_summary_knowledge_outcome_drift_json" in dispatch_inputs
     assert "benchmark_release_decision_enable" in dispatch_inputs
     assert "benchmark_release_decision_scorecard_json" in dispatch_inputs
     assert "benchmark_release_decision_operational_summary_json" in dispatch_inputs
@@ -287,6 +292,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         "benchmark_release_decision_knowledge_outcome_correlation_json"
         in dispatch_inputs
     )
+    assert "benchmark_release_decision_knowledge_outcome_drift_json" in dispatch_inputs
     assert "benchmark_release_runbook_enable" in dispatch_inputs
     assert "benchmark_release_runbook_release_decision_json" in dispatch_inputs
     assert "benchmark_release_runbook_companion_summary_json" in dispatch_inputs
@@ -302,6 +308,7 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         "benchmark_release_runbook_knowledge_outcome_correlation_json"
         in dispatch_inputs
     )
+    assert "benchmark_release_runbook_knowledge_outcome_drift_json" in dispatch_inputs
     assert "benchmark_operator_adoption_enable" in dispatch_inputs
     assert "benchmark_operator_adoption_release_decision_json" in dispatch_inputs
     assert "benchmark_operator_adoption_release_runbook_json" in dispatch_inputs
@@ -693,6 +700,43 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "domain_statuses=" in benchmark_knowledge_outcome_correlation_script
     assert "recommendations=" in benchmark_knowledge_outcome_correlation_script
 
+    benchmark_knowledge_outcome_drift_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge outcome drift (optional)"
+    )
+    benchmark_knowledge_outcome_drift_script = benchmark_knowledge_outcome_drift_step["run"]
+    assert (
+        "scripts/export_benchmark_knowledge_outcome_drift.py"
+        in benchmark_knowledge_outcome_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_ENABLE"
+        in benchmark_knowledge_outcome_drift_script
+    )
+    assert (
+        "benchmark_knowledge_outcome_drift_current_summary_json"
+        in benchmark_knowledge_outcome_drift_script
+    )
+    assert (
+        "benchmark_knowledge_outcome_drift_previous_summary_json"
+        in benchmark_knowledge_outcome_drift_script
+    )
+    assert "steps.benchmark_knowledge_outcome_correlation.outputs.output_json" in (
+        benchmark_knowledge_outcome_drift_script
+    )
+    assert "current_status=" in benchmark_knowledge_outcome_drift_script
+    assert "previous_status=" in benchmark_knowledge_outcome_drift_script
+    assert "ready_domain_delta=" in benchmark_knowledge_outcome_drift_script
+    assert "blocked_domain_delta=" in benchmark_knowledge_outcome_drift_script
+    assert "regressions=" in benchmark_knowledge_outcome_drift_script
+    assert "improvements=" in benchmark_knowledge_outcome_drift_script
+    assert "domain_regressions=" in benchmark_knowledge_outcome_drift_script
+    assert "domain_improvements=" in benchmark_knowledge_outcome_drift_script
+    assert "resolved_focus_areas=" in benchmark_knowledge_outcome_drift_script
+    assert "new_focus_areas=" in benchmark_knowledge_outcome_drift_script
+    assert "resolved_priority_domains=" in benchmark_knowledge_outcome_drift_script
+    assert "new_priority_domains=" in benchmark_knowledge_outcome_drift_script
+    assert "recommendations=" in benchmark_knowledge_outcome_drift_script
+
     final_fail_step = _get_step(
         workflow,
         "evaluate",
@@ -786,6 +830,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-drift" in benchmark_bundle_script
     assert "--benchmark-knowledge-application" in benchmark_bundle_script
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_bundle_script
+    assert "--benchmark-knowledge-outcome-drift" in benchmark_bundle_script
     assert "INPUT_COUNT=0" in benchmark_bundle_script
     assert "available_artifact_count=" in benchmark_bundle_script
     assert "feedback_status=" in benchmark_bundle_script
@@ -816,6 +861,13 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_correlation_priority_domains=" in benchmark_bundle_script
     assert "knowledge_outcome_correlation_domain_statuses=" in benchmark_bundle_script
     assert "knowledge_outcome_correlation_recommendations=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_status=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_summary=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_domain_regressions=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_domain_improvements=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_resolved_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_bundle_script
+    assert "knowledge_outcome_drift_recommendations=" in benchmark_bundle_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_bundle_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_bundle_script
     assert "blockers=" in benchmark_bundle_script
@@ -837,6 +889,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-drift" in benchmark_companion_script
     assert "--benchmark-knowledge-application" in benchmark_companion_script
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_companion_script
+    assert "--benchmark-knowledge-outcome-drift" in benchmark_companion_script
     assert "review_surface=" in benchmark_companion_script
     assert "primary_gap=" in benchmark_companion_script
     assert "recommended_actions=" in benchmark_companion_script
@@ -865,6 +918,13 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_correlation_priority_domains=" in benchmark_companion_script
     assert "knowledge_outcome_correlation_domain_statuses=" in benchmark_companion_script
     assert "knowledge_outcome_correlation_recommendations=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_status=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_summary=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_domain_regressions=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_domain_improvements=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_resolved_priority_domains=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_companion_script
+    assert "knowledge_outcome_drift_recommendations=" in benchmark_companion_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_companion_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_companion_script
 
@@ -886,6 +946,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-drift" in benchmark_release_script
     assert "--benchmark-knowledge-application" in benchmark_release_script
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_release_script
+    assert "--benchmark-knowledge-outcome-drift" in benchmark_release_script
     assert "release_status=" in benchmark_release_script
     assert "automation_ready=" in benchmark_release_script
     assert "primary_signal_source=" in benchmark_release_script
@@ -914,6 +975,13 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_correlation_priority_domains=" in benchmark_release_script
     assert "knowledge_outcome_correlation_domain_statuses=" in benchmark_release_script
     assert "knowledge_outcome_correlation_recommendations=" in benchmark_release_script
+    assert "knowledge_outcome_drift_status=" in benchmark_release_script
+    assert "knowledge_outcome_drift_summary=" in benchmark_release_script
+    assert "knowledge_outcome_drift_domain_regressions=" in benchmark_release_script
+    assert "knowledge_outcome_drift_domain_improvements=" in benchmark_release_script
+    assert "knowledge_outcome_drift_resolved_priority_domains=" in benchmark_release_script
+    assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_release_script
+    assert "knowledge_outcome_drift_recommendations=" in benchmark_release_script
     assert "operator_adoption_status=" in benchmark_release_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_release_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_release_script
@@ -935,6 +1003,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-drift" in benchmark_runbook_script
     assert "--benchmark-knowledge-application" in benchmark_runbook_script
     assert "--benchmark-knowledge-outcome-correlation" in benchmark_runbook_script
+    assert "--benchmark-knowledge-outcome-drift" in benchmark_runbook_script
     assert "ready_to_freeze_baseline=" in benchmark_runbook_script
     assert "next_action=" in benchmark_runbook_script
     assert "missing_artifacts=" in benchmark_runbook_script
@@ -962,6 +1031,13 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_outcome_correlation_priority_domains=" in benchmark_runbook_script
     assert "knowledge_outcome_correlation_domain_statuses=" in benchmark_runbook_script
     assert "knowledge_outcome_correlation_recommendations=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_status=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_summary=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_domain_regressions=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_domain_improvements=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_resolved_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_new_priority_domains=" in benchmark_runbook_script
+    assert "knowledge_outcome_drift_recommendations=" in benchmark_runbook_script
     assert "operator_adoption_status=" in benchmark_runbook_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_runbook_script
     assert "operator_adoption_knowledge_drift_summary=" in benchmark_runbook_script
@@ -1130,6 +1206,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_knowledge_outcome_correlation["if"]
         == "steps.benchmark_knowledge_outcome_correlation.outputs.enabled == 'true'"
+    )
+    upload_knowledge_outcome_drift = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge outcome drift"
+    )
+    assert (
+        upload_knowledge_outcome_drift["if"]
+        == "steps.benchmark_knowledge_outcome_drift.outputs.enabled == 'true'"
     )
     upload_feedback_flywheel = _get_step(
         workflow, "evaluate", "Upload feedback flywheel benchmark artifact"

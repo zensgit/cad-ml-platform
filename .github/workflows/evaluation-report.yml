@@ -218,6 +218,18 @@ on:
         description: 'Optional benchmark knowledge outcome correlation real-data scorecard JSON'
         required: false
         default: ''
+      benchmark_knowledge_outcome_drift_enable:
+        description: 'Override: enable benchmark knowledge outcome drift export (true/false)'
+        required: false
+        default: ''
+      benchmark_knowledge_outcome_drift_current_summary_json:
+        description: 'Optional benchmark knowledge outcome drift current summary JSON'
+        required: false
+        default: ''
+      benchmark_knowledge_outcome_drift_previous_summary_json:
+        description: 'Optional benchmark knowledge outcome drift previous summary JSON'
+        required: false
+        default: ''
       benchmark_operational_summary_enable:
         description: 'Override: enable benchmark operational summary export (true/false)'
         required: false
@@ -314,6 +326,10 @@ on:
         description: 'Optional benchmark artifact bundle knowledge outcome correlation JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_knowledge_outcome_drift_json:
+        description: 'Optional benchmark artifact bundle knowledge outcome drift JSON'
+        required: false
+        default: ''
       benchmark_companion_summary_enable:
         description: 'Override: enable benchmark companion summary export (true/false)'
         required: false
@@ -364,6 +380,10 @@ on:
         default: ''
       benchmark_companion_summary_knowledge_outcome_correlation_json:
         description: 'Optional benchmark companion summary knowledge outcome correlation JSON'
+        required: false
+        default: ''
+      benchmark_companion_summary_knowledge_outcome_drift_json:
+        description: 'Optional benchmark companion summary knowledge outcome drift JSON'
         required: false
         default: ''
       benchmark_release_decision_enable:
@@ -426,6 +446,10 @@ on:
         description: 'Optional benchmark release decision knowledge outcome correlation JSON'
         required: false
         default: ''
+      benchmark_release_decision_knowledge_outcome_drift_json:
+        description: 'Optional benchmark release decision knowledge outcome drift JSON'
+        required: false
+        default: ''
       benchmark_release_runbook_enable:
         description: 'Override: enable benchmark release runbook export (true/false)'
         required: false
@@ -480,6 +504,10 @@ on:
         default: ''
       benchmark_release_runbook_knowledge_outcome_correlation_json:
         description: 'Optional benchmark release runbook knowledge outcome correlation JSON'
+        required: false
+        default: ''
+      benchmark_release_runbook_knowledge_outcome_drift_json:
+        description: 'Optional benchmark release runbook knowledge outcome drift JSON'
         required: false
         default: ''
       benchmark_operator_adoption_enable:
@@ -645,6 +673,12 @@ env:
   BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_REALDATA_SCORECARD_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_REALDATA_SCORECARD_JSON }}
   BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_outcome_correlation.json' }}
   BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_OUTCOME_CORRELATION_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_outcome_correlation.md' }}
+  BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_ENABLE || 'false' }}
+  BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_TITLE || 'Benchmark Knowledge Outcome Drift' }}
+  BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_CURRENT_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_CURRENT_SUMMARY_JSON }}
+  BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_PREVIOUS_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_PREVIOUS_SUMMARY_JSON }}
+  BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_OUTPUT_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_knowledge_outcome_drift.json' }}
+  BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_OUTPUT_MD: ${{ vars.BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_knowledge_outcome_drift.md' }}
   BENCHMARK_KNOWLEDGE_DRIFT_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_DRIFT_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_TITLE || 'Benchmark Knowledge Drift' }}
   BENCHMARK_KNOWLEDGE_DRIFT_CURRENT_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_CURRENT_SUMMARY_JSON }}
@@ -2632,6 +2666,121 @@ jobs:
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
 
+    - name: Build benchmark knowledge outcome drift (optional)
+      id: benchmark_knowledge_outcome_drift
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_knowledge_outcome_drift_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_knowledge_outcome_drift.json}"
+        OUTPUT_MD="${BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_OUTPUT_MD:-reports/history_sequence_eval/benchmark_knowledge_outcome_drift.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_knowledge_outcome_drift.py
+          --title "${BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_TITLE:-Benchmark Knowledge Outcome Drift}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --current-summary "${{ github.event.inputs.benchmark_knowledge_outcome_drift_current_summary_json || '' }}"
+        add_if_exists --previous-summary "${{ github.event.inputs.benchmark_knowledge_outcome_drift_previous_summary_json || '' }}"
+        add_if_exists --current-summary "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
+        add_if_exists --current-summary "${BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_CURRENT_SUMMARY_JSON:-}"
+        add_if_exists --previous-summary "${BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_PREVIOUS_SUMMARY_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark knowledge outcome drift inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(
+                os.environ["BENCHMARK_KNOWLEDGE_OUTCOME_DRIFT_OUTPUT_JSON"]
+            ).read_text(encoding="utf-8")
+        )
+        component = payload.get("knowledge_outcome_drift") or {}
+        recommendations = payload.get("recommendations") or []
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:3] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={component.get('status', 'unknown')}\n")
+            f.write(f"current_status={component.get('current_status', 'unknown')}\n")
+            f.write(f"previous_status={component.get('previous_status', 'unknown')}\n")
+            f.write(f"ready_domain_delta={component.get('ready_domain_delta', 0)}\n")
+            f.write(f"blocked_domain_delta={component.get('blocked_domain_delta', 0)}\n")
+            f.write(
+                "regressions="
+                f"{compact(component.get('regressions') or [])}\n"
+            )
+            f.write(
+                "improvements="
+                f"{compact(component.get('improvements') or [])}\n"
+            )
+            f.write(
+                "domain_regressions="
+                f"{compact(component.get('domain_regressions') or [])}\n"
+            )
+            f.write(
+                "domain_improvements="
+                f"{compact(component.get('domain_improvements') or [])}\n"
+            )
+            f.write(
+                "resolved_focus_areas="
+                f"{compact(component.get('resolved_focus_areas') or [])}\n"
+            )
+            f.write(
+                "new_focus_areas="
+                f"{compact(component.get('new_focus_areas') or [])}\n"
+            )
+            f.write(
+                "resolved_priority_domains="
+                f"{compact(component.get('resolved_priority_domains') or [])}\n"
+            )
+            f.write(
+                "new_priority_domains="
+                f"{compact(component.get('new_priority_domains') or [])}\n"
+            )
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
     - name: Build benchmark artifact bundle (optional)
       id: benchmark_artifact_bundle
       continue-on-error: true
@@ -2682,6 +2831,7 @@ jobs:
         add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_outcome_correlation_json || '' }}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_outcome_drift_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_ARTIFACT_BUNDLE_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
@@ -2716,6 +2866,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_OUTCOME_CORRELATION_JSON:-}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${{ steps.benchmark_knowledge_outcome_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_OUTCOME_DRIFT_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -3003,6 +3155,34 @@ jobs:
                 "knowledge_outcome_correlation_recommendations="
                 f"{compact(payload.get('knowledge_outcome_correlation_recommendations') or [])}\n"
             )
+            f.write(
+                "knowledge_outcome_drift_status="
+                f"{payload.get('knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_summary="
+                f"{compact([payload.get('knowledge_outcome_drift_summary')])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_domain_regressions="
+                f"{compact(payload.get('knowledge_outcome_drift_domain_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_domain_improvements="
+                f"{compact(payload.get('knowledge_outcome_drift_domain_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_resolved_priority_domains="
+                f"{compact(payload.get('knowledge_outcome_drift_resolved_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_new_priority_domains="
+                f"{compact(payload.get('knowledge_outcome_drift_new_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_recommendations="
+                f"{compact(payload.get('knowledge_outcome_drift_recommendations') or [])}\n"
+            )
             f.write(f"blockers={compact(blockers)}\n")
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
@@ -3052,6 +3232,7 @@ jobs:
         add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_companion_summary_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_companion_summary_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_companion_summary_knowledge_outcome_correlation_json || '' }}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_companion_summary_knowledge_outcome_drift_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_COMPANION_SUMMARY_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
@@ -3076,6 +3257,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_OUTCOME_CORRELATION_JSON:-}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${{ steps.benchmark_knowledge_outcome_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_OUTCOME_DRIFT_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -3366,6 +3549,34 @@ jobs:
                 "knowledge_outcome_correlation_recommendations="
                 f"{compact(payload.get('knowledge_outcome_correlation_recommendations') or [])}\n"
             )
+            f.write(
+                "knowledge_outcome_drift_status="
+                f"{payload.get('knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_summary="
+                f"{compact([payload.get('knowledge_outcome_drift_summary')])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_domain_regressions="
+                f"{compact(payload.get('knowledge_outcome_drift_domain_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_domain_improvements="
+                f"{compact(payload.get('knowledge_outcome_drift_domain_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_resolved_priority_domains="
+                f"{compact(payload.get('knowledge_outcome_drift_resolved_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_new_priority_domains="
+                f"{compact(payload.get('knowledge_outcome_drift_new_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_recommendations="
+                f"{compact(payload.get('knowledge_outcome_drift_recommendations') or [])}\n"
+            )
             f.write(f"knowledge_focus_area_count={len(focus_areas)}\n")
             f.write(
                 "knowledge_focus_areas="
@@ -3444,6 +3655,7 @@ jobs:
         add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_release_decision_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_release_decision_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_release_decision_knowledge_outcome_correlation_json || '' }}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_release_decision_knowledge_outcome_drift_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_RELEASE_DECISION_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
@@ -3472,6 +3684,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_OUTCOME_CORRELATION_JSON:-}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${{ steps.benchmark_knowledge_outcome_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${BENCHMARK_RELEASE_DECISION_KNOWLEDGE_OUTCOME_DRIFT_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -3741,6 +3955,34 @@ jobs:
                 "knowledge_outcome_correlation_recommendations="
                 f"{compact(payload.get('knowledge_outcome_correlation_recommendations') or [])}\n"
             )
+            f.write(
+                "knowledge_outcome_drift_status="
+                f"{payload.get('knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_summary="
+                f"{compact([payload.get('knowledge_outcome_drift_summary')])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_domain_regressions="
+                f"{compact(payload.get('knowledge_outcome_drift_domain_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_domain_improvements="
+                f"{compact(payload.get('knowledge_outcome_drift_domain_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_resolved_priority_domains="
+                f"{compact(payload.get('knowledge_outcome_drift_resolved_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_new_priority_domains="
+                f"{compact(payload.get('knowledge_outcome_drift_new_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_recommendations="
+                f"{compact(payload.get('knowledge_outcome_drift_recommendations') or [])}\n"
+            )
         PY
 
     - name: Build benchmark release runbook (optional)
@@ -3789,6 +4031,7 @@ jobs:
         add_if_exists --benchmark-knowledge-realdata-correlation "${{ github.event.inputs.benchmark_release_runbook_knowledge_realdata_correlation_json || '' }}"
         add_if_exists --benchmark-knowledge-domain-matrix "${{ github.event.inputs.benchmark_release_runbook_knowledge_domain_matrix_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ github.event.inputs.benchmark_release_runbook_knowledge_outcome_correlation_json || '' }}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_release_runbook_knowledge_outcome_drift_json || '' }}"
         add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
         add_if_exists --benchmark-release-decision "${BENCHMARK_RELEASE_RUNBOOK_RELEASE_DECISION_JSON:-}"
         add_if_exists --benchmark-companion-summary "${{ steps.benchmark_companion_summary.outputs.output_json || '' }}"
@@ -3815,6 +4058,8 @@ jobs:
         add_if_exists --benchmark-knowledge-domain-matrix "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_DOMAIN_MATRIX_JSON:-}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json || '' }}"
         add_if_exists --benchmark-knowledge-outcome-correlation "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_OUTCOME_CORRELATION_JSON:-}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${{ steps.benchmark_knowledge_outcome_drift.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-outcome-drift "${BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_OUTCOME_DRIFT_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -4114,6 +4359,34 @@ jobs:
             f.write(
                 "knowledge_outcome_correlation_recommendations="
                 f"{compact(payload.get('knowledge_outcome_correlation_recommendations') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_status="
+                f"{payload.get('knowledge_outcome_drift_status', 'unknown')}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_summary="
+                f"{compact([payload.get('knowledge_outcome_drift_summary')])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_domain_regressions="
+                f"{compact(payload.get('knowledge_outcome_drift_domain_regressions') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_domain_improvements="
+                f"{compact(payload.get('knowledge_outcome_drift_domain_improvements') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_resolved_priority_domains="
+                f"{compact(payload.get('knowledge_outcome_drift_resolved_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_new_priority_domains="
+                f"{compact(payload.get('knowledge_outcome_drift_new_priority_domains') or [])}\n"
+            )
+            f.write(
+                "knowledge_outcome_drift_recommendations="
+                f"{compact(payload.get('knowledge_outcome_drift_recommendations') or [])}\n"
             )
         PY
 
@@ -4781,6 +5054,16 @@ jobs:
         path: |
           ${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_json }}
           ${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+    - name: Upload benchmark knowledge outcome drift
+      if: steps.benchmark_knowledge_outcome_drift.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-knowledge-outcome-drift-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_knowledge_outcome_drift.outputs.output_json }}
+          ${{ steps.benchmark_knowledge_outcome_drift.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
     - name: Upload feedback flywheel benchmark artifact
@@ -5578,6 +5861,22 @@ jobs:
             const benchmarkKnowledgeOutcomeCorrelationDomainStatuses = '${{ steps.benchmark_knowledge_outcome_correlation.outputs.domain_statuses }}';
             const benchmarkKnowledgeOutcomeCorrelationRecommendations = '${{ steps.benchmark_knowledge_outcome_correlation.outputs.recommendations }}';
             const benchmarkKnowledgeOutcomeCorrelationArtifact = '${{ steps.benchmark_knowledge_outcome_correlation.outputs.output_md }}';
+            const benchmarkKnowledgeOutcomeDriftEnabled = '${{ steps.benchmark_knowledge_outcome_drift.outputs.enabled }}' === 'true';
+            const benchmarkKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_knowledge_outcome_drift.outputs.status }}';
+            const benchmarkKnowledgeOutcomeDriftCurrentStatus = '${{ steps.benchmark_knowledge_outcome_drift.outputs.current_status }}';
+            const benchmarkKnowledgeOutcomeDriftPreviousStatus = '${{ steps.benchmark_knowledge_outcome_drift.outputs.previous_status }}';
+            const benchmarkKnowledgeOutcomeDriftReadyDomainDelta = '${{ steps.benchmark_knowledge_outcome_drift.outputs.ready_domain_delta }}';
+            const benchmarkKnowledgeOutcomeDriftBlockedDomainDelta = '${{ steps.benchmark_knowledge_outcome_drift.outputs.blocked_domain_delta }}';
+            const benchmarkKnowledgeOutcomeDriftRegressions = '${{ steps.benchmark_knowledge_outcome_drift.outputs.regressions }}';
+            const benchmarkKnowledgeOutcomeDriftImprovements = '${{ steps.benchmark_knowledge_outcome_drift.outputs.improvements }}';
+            const benchmarkKnowledgeOutcomeDriftDomainRegressions = '${{ steps.benchmark_knowledge_outcome_drift.outputs.domain_regressions }}';
+            const benchmarkKnowledgeOutcomeDriftDomainImprovements = '${{ steps.benchmark_knowledge_outcome_drift.outputs.domain_improvements }}';
+            const benchmarkKnowledgeOutcomeDriftResolvedFocusAreas = '${{ steps.benchmark_knowledge_outcome_drift.outputs.resolved_focus_areas }}';
+            const benchmarkKnowledgeOutcomeDriftNewFocusAreas = '${{ steps.benchmark_knowledge_outcome_drift.outputs.new_focus_areas }}';
+            const benchmarkKnowledgeOutcomeDriftResolvedPriorityDomains = '${{ steps.benchmark_knowledge_outcome_drift.outputs.resolved_priority_domains }}';
+            const benchmarkKnowledgeOutcomeDriftNewPriorityDomains = '${{ steps.benchmark_knowledge_outcome_drift.outputs.new_priority_domains }}';
+            const benchmarkKnowledgeOutcomeDriftRecommendations = '${{ steps.benchmark_knowledge_outcome_drift.outputs.recommendations }}';
+            const benchmarkKnowledgeOutcomeDriftArtifact = '${{ steps.benchmark_knowledge_outcome_drift.outputs.output_md }}';
             const feedbackFlywheelBenchmarkEnabled = '${{ steps.feedback_flywheel_benchmark.outputs.enabled }}' === 'true';
             const feedbackFlywheelBenchmarkStatus = '${{ steps.feedback_flywheel_benchmark.outputs.status }}';
             const feedbackFlywheelBenchmarkTotal = '${{ steps.feedback_flywheel_benchmark.outputs.feedback_total }}';
@@ -5633,6 +5932,13 @@ jobs:
             const benchmarkArtifactBundleKnowledgeOutcomeCorrelationPriorityDomains = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_outcome_correlation_priority_domains }}';
             const benchmarkArtifactBundleKnowledgeOutcomeCorrelationDomainStatuses = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_outcome_correlation_domain_statuses }}';
             const benchmarkArtifactBundleKnowledgeOutcomeCorrelationRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_outcome_correlation_recommendations }}';
+            const benchmarkArtifactBundleKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_outcome_drift_status }}';
+            const benchmarkArtifactBundleKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_outcome_drift_summary }}';
+            const benchmarkArtifactBundleKnowledgeOutcomeDriftDomainRegressions = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_outcome_drift_domain_regressions }}';
+            const benchmarkArtifactBundleKnowledgeOutcomeDriftDomainImprovements = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_outcome_drift_domain_improvements }}';
+            const benchmarkArtifactBundleKnowledgeOutcomeDriftResolvedPriorityDomains = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_outcome_drift_resolved_priority_domains }}';
+            const benchmarkArtifactBundleKnowledgeOutcomeDriftNewPriorityDomains = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_outcome_drift_new_priority_domains }}';
+            const benchmarkArtifactBundleKnowledgeOutcomeDriftRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_outcome_drift_recommendations }}';
             const benchmarkArtifactBundleEngineeringStatus = '${{ steps.benchmark_artifact_bundle.outputs.engineering_status }}';
             const benchmarkArtifactBundleRealdataStatus = '${{ steps.benchmark_artifact_bundle.outputs.realdata_status }}';
             const benchmarkArtifactBundleRealdataScorecardStatus = '${{ steps.benchmark_artifact_bundle.outputs.realdata_scorecard_status }}';
@@ -5684,6 +5990,13 @@ jobs:
             const benchmarkCompanionKnowledgeOutcomeCorrelationPriorityDomains = '${{ steps.benchmark_companion_summary.outputs.knowledge_outcome_correlation_priority_domains }}';
             const benchmarkCompanionKnowledgeOutcomeCorrelationDomainStatuses = '${{ steps.benchmark_companion_summary.outputs.knowledge_outcome_correlation_domain_statuses }}';
             const benchmarkCompanionKnowledgeOutcomeCorrelationRecommendations = '${{ steps.benchmark_companion_summary.outputs.knowledge_outcome_correlation_recommendations }}';
+            const benchmarkCompanionKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_companion_summary.outputs.knowledge_outcome_drift_status }}';
+            const benchmarkCompanionKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_companion_summary.outputs.knowledge_outcome_drift_summary }}';
+            const benchmarkCompanionKnowledgeOutcomeDriftDomainRegressions = '${{ steps.benchmark_companion_summary.outputs.knowledge_outcome_drift_domain_regressions }}';
+            const benchmarkCompanionKnowledgeOutcomeDriftDomainImprovements = '${{ steps.benchmark_companion_summary.outputs.knowledge_outcome_drift_domain_improvements }}';
+            const benchmarkCompanionKnowledgeOutcomeDriftResolvedPriorityDomains = '${{ steps.benchmark_companion_summary.outputs.knowledge_outcome_drift_resolved_priority_domains }}';
+            const benchmarkCompanionKnowledgeOutcomeDriftNewPriorityDomains = '${{ steps.benchmark_companion_summary.outputs.knowledge_outcome_drift_new_priority_domains }}';
+            const benchmarkCompanionKnowledgeOutcomeDriftRecommendations = '${{ steps.benchmark_companion_summary.outputs.knowledge_outcome_drift_recommendations }}';
             const benchmarkCompanionEngineeringStatus = '${{ steps.benchmark_companion_summary.outputs.engineering_status }}';
             const benchmarkCompanionRealdataStatus = '${{ steps.benchmark_companion_summary.outputs.realdata_status }}';
             const benchmarkCompanionRealdataScorecardStatus = '${{ steps.benchmark_companion_summary.outputs.realdata_scorecard_status }}';
@@ -5735,6 +6048,13 @@ jobs:
             const benchmarkReleaseKnowledgeOutcomeCorrelationPriorityDomains = '${{ steps.benchmark_release_decision.outputs.knowledge_outcome_correlation_priority_domains }}';
             const benchmarkReleaseKnowledgeOutcomeCorrelationDomainStatuses = '${{ steps.benchmark_release_decision.outputs.knowledge_outcome_correlation_domain_statuses }}';
             const benchmarkReleaseKnowledgeOutcomeCorrelationRecommendations = '${{ steps.benchmark_release_decision.outputs.knowledge_outcome_correlation_recommendations }}';
+            const benchmarkReleaseKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_release_decision.outputs.knowledge_outcome_drift_status }}';
+            const benchmarkReleaseKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_release_decision.outputs.knowledge_outcome_drift_summary }}';
+            const benchmarkReleaseKnowledgeOutcomeDriftDomainRegressions = '${{ steps.benchmark_release_decision.outputs.knowledge_outcome_drift_domain_regressions }}';
+            const benchmarkReleaseKnowledgeOutcomeDriftDomainImprovements = '${{ steps.benchmark_release_decision.outputs.knowledge_outcome_drift_domain_improvements }}';
+            const benchmarkReleaseKnowledgeOutcomeDriftResolvedPriorityDomains = '${{ steps.benchmark_release_decision.outputs.knowledge_outcome_drift_resolved_priority_domains }}';
+            const benchmarkReleaseKnowledgeOutcomeDriftNewPriorityDomains = '${{ steps.benchmark_release_decision.outputs.knowledge_outcome_drift_new_priority_domains }}';
+            const benchmarkReleaseKnowledgeOutcomeDriftRecommendations = '${{ steps.benchmark_release_decision.outputs.knowledge_outcome_drift_recommendations }}';
             const benchmarkReleaseEngineeringStatus = '${{ steps.benchmark_release_decision.outputs.engineering_status }}';
             const benchmarkReleaseRealdataStatus = '${{ steps.benchmark_release_decision.outputs.realdata_status }}';
             const benchmarkReleaseRealdataScorecardStatus = '${{ steps.benchmark_release_decision.outputs.realdata_scorecard_status }}';
@@ -5782,6 +6102,13 @@ jobs:
             const benchmarkReleaseRunbookKnowledgeOutcomeCorrelationPriorityDomains = '${{ steps.benchmark_release_runbook.outputs.knowledge_outcome_correlation_priority_domains }}';
             const benchmarkReleaseRunbookKnowledgeOutcomeCorrelationDomainStatuses = '${{ steps.benchmark_release_runbook.outputs.knowledge_outcome_correlation_domain_statuses }}';
             const benchmarkReleaseRunbookKnowledgeOutcomeCorrelationRecommendations = '${{ steps.benchmark_release_runbook.outputs.knowledge_outcome_correlation_recommendations }}';
+            const benchmarkReleaseRunbookKnowledgeOutcomeDriftStatus = '${{ steps.benchmark_release_runbook.outputs.knowledge_outcome_drift_status }}';
+            const benchmarkReleaseRunbookKnowledgeOutcomeDriftSummary = '${{ steps.benchmark_release_runbook.outputs.knowledge_outcome_drift_summary }}';
+            const benchmarkReleaseRunbookKnowledgeOutcomeDriftDomainRegressions = '${{ steps.benchmark_release_runbook.outputs.knowledge_outcome_drift_domain_regressions }}';
+            const benchmarkReleaseRunbookKnowledgeOutcomeDriftDomainImprovements = '${{ steps.benchmark_release_runbook.outputs.knowledge_outcome_drift_domain_improvements }}';
+            const benchmarkReleaseRunbookKnowledgeOutcomeDriftResolvedPriorityDomains = '${{ steps.benchmark_release_runbook.outputs.knowledge_outcome_drift_resolved_priority_domains }}';
+            const benchmarkReleaseRunbookKnowledgeOutcomeDriftNewPriorityDomains = '${{ steps.benchmark_release_runbook.outputs.knowledge_outcome_drift_new_priority_domains }}';
+            const benchmarkReleaseRunbookKnowledgeOutcomeDriftRecommendations = '${{ steps.benchmark_release_runbook.outputs.knowledge_outcome_drift_recommendations }}';
             const benchmarkReleaseRunbookEngineeringStatus = '${{ steps.benchmark_release_runbook.outputs.engineering_status }}';
             const benchmarkReleaseRunbookRealdataStatus = '${{ steps.benchmark_release_runbook.outputs.realdata_status }}';
             const benchmarkReleaseRunbookRealdataScorecardStatus = '${{ steps.benchmark_release_runbook.outputs.realdata_scorecard_status }}';
@@ -5892,6 +6219,9 @@ jobs:
             const benchmarkKnowledgeOutcomeCorrelationStatusLine = benchmarkKnowledgeOutcomeCorrelationEnabled
               ? `status=${benchmarkKnowledgeOutcomeCorrelationStatus}, ready=${benchmarkKnowledgeOutcomeCorrelationReadyDomains}, partial=${benchmarkKnowledgeOutcomeCorrelationPartialDomains}, blocked=${benchmarkKnowledgeOutcomeCorrelationBlockedDomains}, total=${benchmarkKnowledgeOutcomeCorrelationTotalDomains}, focus=${benchmarkKnowledgeOutcomeCorrelationFocusAreas || 'n/a'}, domains=${benchmarkKnowledgeOutcomeCorrelationPriorityDomains || 'n/a'} / ${benchmarkKnowledgeOutcomeCorrelationDomainStatuses || 'n/a'}, recommendations=${benchmarkKnowledgeOutcomeCorrelationRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeOutcomeCorrelationArtifact}`
               : '⏭️ skipped';
+            const benchmarkKnowledgeOutcomeDriftStatusLine = benchmarkKnowledgeOutcomeDriftEnabled
+              ? `status=${benchmarkKnowledgeOutcomeDriftStatus || 'n/a'}, current=${benchmarkKnowledgeOutcomeDriftCurrentStatus || 'n/a'}, previous=${benchmarkKnowledgeOutcomeDriftPreviousStatus || 'n/a'}, ready_delta=${benchmarkKnowledgeOutcomeDriftReadyDomainDelta || 'n/a'}, blocked_delta=${benchmarkKnowledgeOutcomeDriftBlockedDomainDelta || 'n/a'}, regressions=${benchmarkKnowledgeOutcomeDriftRegressions || 'n/a'}, improvements=${benchmarkKnowledgeOutcomeDriftImprovements || 'n/a'}, domain_regressions=${benchmarkKnowledgeOutcomeDriftDomainRegressions || 'n/a'}, domain_improvements=${benchmarkKnowledgeOutcomeDriftDomainImprovements || 'n/a'}, resolved_focus=${benchmarkKnowledgeOutcomeDriftResolvedFocusAreas || 'n/a'}, new_focus=${benchmarkKnowledgeOutcomeDriftNewFocusAreas || 'n/a'}, resolved_domains=${benchmarkKnowledgeOutcomeDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkKnowledgeOutcomeDriftNewPriorityDomains || 'n/a'}, recommendations=${benchmarkKnowledgeOutcomeDriftRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeOutcomeDriftArtifact}`
+              : '⏭️ skipped';
             const feedbackFlywheelBenchmarkStatusLine = feedbackFlywheelBenchmarkEnabled
               ? `status=${feedbackFlywheelBenchmarkStatus}, feedback=${feedbackFlywheelBenchmarkTotal}, corrections=${feedbackFlywheelBenchmarkCorrections}, finetune=${feedbackFlywheelBenchmarkFinetuneSamples}, triplets=${feedbackFlywheelBenchmarkMetricTriplets}, artifact=${feedbackFlywheelBenchmarkArtifact}`
               : '⏭️ skipped';
@@ -5913,6 +6243,9 @@ jobs:
             const benchmarkArtifactBundleKnowledgeOutcomeCorrelationStatusLine = benchmarkArtifactBundleEnabled
               ? `status=${benchmarkArtifactBundleKnowledgeOutcomeCorrelationStatus || 'n/a'}, focus=${benchmarkArtifactBundleKnowledgeOutcomeCorrelationFocusAreas || 'n/a'}, domains=${benchmarkArtifactBundleKnowledgeOutcomeCorrelationPriorityDomains || 'n/a'} / ${benchmarkArtifactBundleKnowledgeOutcomeCorrelationDomainStatuses || 'n/a'}, recommendations=${benchmarkArtifactBundleKnowledgeOutcomeCorrelationRecommendations || 'n/a'}`
               : '⏭️ skipped';
+            const benchmarkArtifactBundleKnowledgeOutcomeDriftStatusLine = benchmarkArtifactBundleEnabled
+              ? `status=${benchmarkArtifactBundleKnowledgeOutcomeDriftStatus || 'n/a'}, summary=${benchmarkArtifactBundleKnowledgeOutcomeDriftSummary || 'n/a'}, domain_regressions=${benchmarkArtifactBundleKnowledgeOutcomeDriftDomainRegressions || 'n/a'}, domain_improvements=${benchmarkArtifactBundleKnowledgeOutcomeDriftDomainImprovements || 'n/a'}, resolved_domains=${benchmarkArtifactBundleKnowledgeOutcomeDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkArtifactBundleKnowledgeOutcomeDriftNewPriorityDomains || 'n/a'}, recommendations=${benchmarkArtifactBundleKnowledgeOutcomeDriftRecommendations || 'n/a'}`
+              : '⏭️ skipped';
             const benchmarkCompanionSummaryStatus = benchmarkCompanionSummaryEnabled
               ? `overall=${benchmarkCompanionSummaryOverall}, review_surface=${benchmarkCompanionReviewSurface}, primary_gap=${benchmarkCompanionPrimaryGap || 'n/a'}, hybrid=${benchmarkCompanionHybridStatus}, assistant=${benchmarkCompanionAssistantStatus}, review_queue=${benchmarkCompanionReviewQueueStatus}, ocr=${benchmarkCompanionOcrStatus}, qdrant=${benchmarkCompanionQdrantStatus}, knowledge=${benchmarkCompanionKnowledgeStatus}, knowledge_drift=${benchmarkCompanionKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkCompanionKnowledgeDriftSummary || 'n/a'}, knowledge_drift_changes=${benchmarkCompanionKnowledgeDriftChanges || 'n/a'}, knowledge_drift_domain_regressions=${benchmarkCompanionKnowledgeDriftDomainRegressions || 'n/a'}, knowledge_drift_domain_improvements=${benchmarkCompanionKnowledgeDriftDomainImprovements || 'n/a'}, resolved_domains=${benchmarkCompanionKnowledgeDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkCompanionKnowledgeDriftNewPriorityDomains || 'n/a'}, knowledge_domains=${benchmarkCompanionKnowledgePriorityDomains || 'n/a'}, knowledge_domain_focus=${benchmarkCompanionKnowledgeDomainFocusAreas || 'n/a'}, knowledge_focus=${benchmarkCompanionKnowledgeFocusAreas || 'n/a'}, engineering=${benchmarkCompanionEngineeringStatus}, realdata=${benchmarkCompanionRealdataStatus || 'n/a'}, realdata_recommendations=${benchmarkCompanionRealdataRecommendations || 'n/a'}, operator_drift=${benchmarkCompanionOperatorAdoptionKnowledgeDriftStatus}, operator_drift_summary=${benchmarkCompanionOperatorAdoptionKnowledgeDriftSummary || 'n/a'}, blockers=${benchmarkCompanionBlockers || 'n/a'}, actions=${benchmarkCompanionRecommendedActions || 'n/a'}, artifact=${benchmarkCompanionArtifact}`
               : '⏭️ skipped';
@@ -5927,6 +6260,9 @@ jobs:
               : '⏭️ skipped';
             const benchmarkCompanionKnowledgeOutcomeCorrelationStatusLine = benchmarkCompanionSummaryEnabled
               ? `status=${benchmarkCompanionKnowledgeOutcomeCorrelationStatus || 'n/a'}, focus=${benchmarkCompanionKnowledgeOutcomeCorrelationFocusAreas || 'n/a'}, domains=${benchmarkCompanionKnowledgeOutcomeCorrelationPriorityDomains || 'n/a'} / ${benchmarkCompanionKnowledgeOutcomeCorrelationDomainStatuses || 'n/a'}, recommendations=${benchmarkCompanionKnowledgeOutcomeCorrelationRecommendations || 'n/a'}`
+              : '⏭️ skipped';
+            const benchmarkCompanionKnowledgeOutcomeDriftStatusLine = benchmarkCompanionSummaryEnabled
+              ? `status=${benchmarkCompanionKnowledgeOutcomeDriftStatus || 'n/a'}, summary=${benchmarkCompanionKnowledgeOutcomeDriftSummary || 'n/a'}, domain_regressions=${benchmarkCompanionKnowledgeOutcomeDriftDomainRegressions || 'n/a'}, domain_improvements=${benchmarkCompanionKnowledgeOutcomeDriftDomainImprovements || 'n/a'}, resolved_domains=${benchmarkCompanionKnowledgeOutcomeDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkCompanionKnowledgeOutcomeDriftNewPriorityDomains || 'n/a'}, recommendations=${benchmarkCompanionKnowledgeOutcomeDriftRecommendations || 'n/a'}`
               : '⏭️ skipped';
             const benchmarkReleaseDecisionStatus = benchmarkReleaseDecisionEnabled
               ? `status=${benchmarkReleaseStatus}, automation_ready=${benchmarkReleaseAutomationReady}, source=${benchmarkReleasePrimarySignalSource}, hybrid=${benchmarkReleaseHybridStatus}, assistant=${benchmarkReleaseAssistantStatus}, review_queue=${benchmarkReleaseReviewQueueStatus}, ocr=${benchmarkReleaseOcrStatus}, qdrant=${benchmarkReleaseQdrantStatus}, knowledge=${benchmarkReleaseKnowledgeStatus}, knowledge_drift=${benchmarkReleaseKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkReleaseKnowledgeDriftSummary || 'n/a'}, knowledge_drift_domain_regressions=${benchmarkReleaseKnowledgeDriftDomainRegressions || 'n/a'}, knowledge_drift_domain_improvements=${benchmarkReleaseKnowledgeDriftDomainImprovements || 'n/a'}, resolved_domains=${benchmarkReleaseKnowledgeDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkReleaseKnowledgeDriftNewPriorityDomains || 'n/a'}, knowledge_domains=${benchmarkReleaseKnowledgePriorityDomains || 'n/a'}, knowledge_domain_focus=${benchmarkReleaseKnowledgeDomainFocusAreas || 'n/a'}, knowledge_focus=${benchmarkReleaseKnowledgeFocusAreas || 'n/a'}, engineering=${benchmarkReleaseEngineeringStatus}, realdata=${benchmarkReleaseRealdataStatus || 'n/a'}, realdata_recommendations=${benchmarkReleaseRealdataRecommendations || 'n/a'}, operator_adoption=${benchmarkReleaseOperatorAdoptionStatus}, operator_drift=${benchmarkReleaseOperatorAdoptionKnowledgeDriftStatus}, operator_drift_summary=${benchmarkReleaseOperatorAdoptionKnowledgeDriftSummary || 'n/a'}, blockers=${benchmarkReleaseBlockingSignals || 'n/a'}, review=${benchmarkReleaseReviewSignals || 'n/a'}, artifact=${benchmarkReleaseArtifact}`
@@ -5943,6 +6279,9 @@ jobs:
             const benchmarkReleaseKnowledgeOutcomeCorrelationStatusLine = benchmarkReleaseDecisionEnabled
               ? `status=${benchmarkReleaseKnowledgeOutcomeCorrelationStatus || 'n/a'}, focus=${benchmarkReleaseKnowledgeOutcomeCorrelationFocusAreas || 'n/a'}, domains=${benchmarkReleaseKnowledgeOutcomeCorrelationPriorityDomains || 'n/a'} / ${benchmarkReleaseKnowledgeOutcomeCorrelationDomainStatuses || 'n/a'}, recommendations=${benchmarkReleaseKnowledgeOutcomeCorrelationRecommendations || 'n/a'}`
               : '⏭️ skipped';
+            const benchmarkReleaseKnowledgeOutcomeDriftStatusLine = benchmarkReleaseDecisionEnabled
+              ? `status=${benchmarkReleaseKnowledgeOutcomeDriftStatus || 'n/a'}, summary=${benchmarkReleaseKnowledgeOutcomeDriftSummary || 'n/a'}, domain_regressions=${benchmarkReleaseKnowledgeOutcomeDriftDomainRegressions || 'n/a'}, domain_improvements=${benchmarkReleaseKnowledgeOutcomeDriftDomainImprovements || 'n/a'}, resolved_domains=${benchmarkReleaseKnowledgeOutcomeDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkReleaseKnowledgeOutcomeDriftNewPriorityDomains || 'n/a'}, recommendations=${benchmarkReleaseKnowledgeOutcomeDriftRecommendations || 'n/a'}`
+              : '⏭️ skipped';
             const benchmarkReleaseRunbookStatusLine = benchmarkReleaseRunbookEnabled
               ? `status=${benchmarkReleaseRunbookStatus}, freeze_ready=${benchmarkReleaseRunbookFreezeReady}, source=${benchmarkReleaseRunbookPrimarySignalSource}, next=${benchmarkReleaseRunbookNextAction || 'n/a'}, knowledge=${benchmarkReleaseRunbookKnowledgeStatus}, knowledge_drift=${benchmarkReleaseRunbookKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkReleaseRunbookKnowledgeDriftSummary || 'n/a'}, knowledge_drift_domain_regressions=${benchmarkReleaseRunbookKnowledgeDriftDomainRegressions || 'n/a'}, knowledge_drift_domain_improvements=${benchmarkReleaseRunbookKnowledgeDriftDomainImprovements || 'n/a'}, resolved_domains=${benchmarkReleaseRunbookKnowledgeDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkReleaseRunbookKnowledgeDriftNewPriorityDomains || 'n/a'}, knowledge_domains=${benchmarkReleaseRunbookKnowledgePriorityDomains || 'n/a'}, knowledge_domain_focus=${benchmarkReleaseRunbookKnowledgeDomainFocusAreas || 'n/a'}, knowledge_focus=${benchmarkReleaseRunbookKnowledgeFocusAreas || 'n/a'}, engineering=${benchmarkReleaseRunbookEngineeringStatus}, realdata=${benchmarkReleaseRunbookRealdataStatus || 'n/a'}, realdata_recommendations=${benchmarkReleaseRunbookRealdataRecommendations || 'n/a'}, operator_adoption=${benchmarkReleaseRunbookOperatorAdoptionStatus}, operator_drift=${benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftStatus}, operator_drift_summary=${benchmarkReleaseRunbookOperatorAdoptionKnowledgeDriftSummary || 'n/a'}, missing=${benchmarkReleaseRunbookMissingArtifacts || 'n/a'}, blockers=${benchmarkReleaseRunbookBlockingSignals || 'n/a'}, review=${benchmarkReleaseRunbookReviewSignals || 'n/a'}, artifact=${benchmarkReleaseRunbookArtifact}`
               : '⏭️ skipped';
@@ -5957,6 +6296,9 @@ jobs:
               : '⏭️ skipped';
             const benchmarkReleaseRunbookKnowledgeOutcomeCorrelationStatusLine = benchmarkReleaseRunbookEnabled
               ? `status=${benchmarkReleaseRunbookKnowledgeOutcomeCorrelationStatus || 'n/a'}, focus=${benchmarkReleaseRunbookKnowledgeOutcomeCorrelationFocusAreas || 'n/a'}, domains=${benchmarkReleaseRunbookKnowledgeOutcomeCorrelationPriorityDomains || 'n/a'} / ${benchmarkReleaseRunbookKnowledgeOutcomeCorrelationDomainStatuses || 'n/a'}, recommendations=${benchmarkReleaseRunbookKnowledgeOutcomeCorrelationRecommendations || 'n/a'}`
+              : '⏭️ skipped';
+            const benchmarkReleaseRunbookKnowledgeOutcomeDriftStatusLine = benchmarkReleaseRunbookEnabled
+              ? `status=${benchmarkReleaseRunbookKnowledgeOutcomeDriftStatus || 'n/a'}, summary=${benchmarkReleaseRunbookKnowledgeOutcomeDriftSummary || 'n/a'}, domain_regressions=${benchmarkReleaseRunbookKnowledgeOutcomeDriftDomainRegressions || 'n/a'}, domain_improvements=${benchmarkReleaseRunbookKnowledgeOutcomeDriftDomainImprovements || 'n/a'}, resolved_domains=${benchmarkReleaseRunbookKnowledgeOutcomeDriftResolvedPriorityDomains || 'n/a'}, new_domains=${benchmarkReleaseRunbookKnowledgeOutcomeDriftNewPriorityDomains || 'n/a'}, recommendations=${benchmarkReleaseRunbookKnowledgeOutcomeDriftRecommendations || 'n/a'}`
               : '⏭️ skipped';
             const benchmarkOperatorAdoptionStatusLine = benchmarkOperatorAdoptionEnabled
               ? `readiness=${benchmarkOperatorAdoptionReadiness}, mode=${benchmarkOperatorAdoptionMode}, next=${benchmarkOperatorAdoptionNextAction || 'n/a'}, automation_ready=${benchmarkOperatorAdoptionAutomationReady}, freeze_ready=${benchmarkOperatorAdoptionFreezeReady}, release=${benchmarkOperatorAdoptionReleaseStatus}, runbook=${benchmarkOperatorAdoptionRunbookStatus}, review_queue=${benchmarkOperatorAdoptionReviewQueueStatus}, feedback=${benchmarkOperatorAdoptionFeedbackStatus}, knowledge_drift=${benchmarkOperatorAdoptionKnowledgeDriftStatus}, knowledge_drift_summary=${benchmarkOperatorAdoptionKnowledgeDriftSummary || 'n/a'}, blockers=${benchmarkOperatorAdoptionBlockingSignals || 'n/a'}, actions=${benchmarkOperatorAdoptionRecommendedActions || 'n/a'}, artifact=${benchmarkOperatorAdoptionArtifact}`
@@ -6094,6 +6436,18 @@ jobs:
                           : '🟡'
                       )
                 );
+            const benchmarkKnowledgeOutcomeDriftLight = !benchmarkKnowledgeOutcomeDriftEnabled
+              ? '⚪'
+              : (
+                  benchmarkKnowledgeOutcomeDriftStatus === 'regressed'
+                    ? '🔴'
+                    : (
+                        benchmarkKnowledgeOutcomeDriftStatus === 'improved'
+                        || benchmarkKnowledgeOutcomeDriftStatus === 'stable'
+                          ? '🟢'
+                          : '🟡'
+                      )
+                );
             const benchmarkOperationalLight = !benchmarkOperationalSummaryEnabled
               ? '⚪'
               : (benchmarkOperationalSummaryOverall === 'attention_required' ? '🟡' : '🟢');
@@ -6179,6 +6533,7 @@ jobs:
             | **Benchmark Knowledge Real-Data Correlation** | ${benchmarkKnowledgeRealdataCorrelationStatusLine} |
             | **Benchmark Knowledge Domain Matrix** | ${benchmarkKnowledgeDomainMatrixStatusLine} |
             | **Benchmark Knowledge Outcome Correlation** | ${benchmarkKnowledgeOutcomeCorrelationStatusLine} |
+            | **Benchmark Knowledge Outcome Drift** | ${benchmarkKnowledgeOutcomeDriftStatusLine} |
             | **Benchmark Knowledge Focus Areas** | ${benchmarkKnowledgeFocusAreas || benchmarkKnowledgeFocusAreasScorecard || 'n/a'} |
             | **Benchmark Knowledge Domains** | ${benchmarkKnowledgePriorityDomains || 'n/a'} / ${benchmarkKnowledgeDomainFocusAreas || 'n/a'} |
             | **Benchmark Knowledge Recommendations** | ${benchmarkKnowledgeRecommendations || benchmarkKnowledgeReferenceItems || 'n/a'} |
@@ -6197,6 +6552,7 @@ jobs:
             | **Benchmark Artifact Bundle Knowledge Real-Data** | ${benchmarkArtifactBundleKnowledgeRealdataCorrelationStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Domain Matrix** | ${benchmarkArtifactBundleKnowledgeDomainMatrixStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Outcome Correlation** | ${benchmarkArtifactBundleKnowledgeOutcomeCorrelationStatusLine} |
+            | **Benchmark Artifact Bundle Knowledge Outcome Drift** | ${benchmarkArtifactBundleKnowledgeOutcomeDriftStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Domains** | ${benchmarkArtifactBundleKnowledgePriorityDomains || 'n/a'} / ${benchmarkArtifactBundleKnowledgeDomainFocusAreas || 'n/a'} |
             | **Benchmark Artifact Bundle Real-Data** | ${benchmarkArtifactBundleRealdataStatus || 'n/a'} / ${benchmarkArtifactBundleRealdataRecommendations || 'n/a'} |
             | **Benchmark Artifact Bundle Real-Data Scorecard** | ${benchmarkArtifactBundleRealdataScorecardStatus || 'n/a'} / ${benchmarkArtifactBundleRealdataScorecardRecommendations || 'n/a'} |
@@ -6206,6 +6562,7 @@ jobs:
             | **Benchmark Companion Knowledge Real-Data** | ${benchmarkCompanionKnowledgeRealdataCorrelationStatusLine} |
             | **Benchmark Companion Knowledge Domain Matrix** | ${benchmarkCompanionKnowledgeDomainMatrixStatusLine} |
             | **Benchmark Companion Knowledge Outcome Correlation** | ${benchmarkCompanionKnowledgeOutcomeCorrelationStatusLine} |
+            | **Benchmark Companion Knowledge Outcome Drift** | ${benchmarkCompanionKnowledgeOutcomeDriftStatusLine} |
             | **Benchmark Companion Knowledge Domains** | ${benchmarkCompanionKnowledgePriorityDomains || 'n/a'} / ${benchmarkCompanionKnowledgeDomainFocusAreas || 'n/a'} |
             | **Benchmark Companion Real-Data** | ${benchmarkCompanionRealdataStatus || 'n/a'} / ${benchmarkCompanionRealdataRecommendations || 'n/a'} |
             | **Benchmark Companion Real-Data Scorecard** | ${benchmarkCompanionRealdataScorecardStatus || 'n/a'} / ${benchmarkCompanionRealdataScorecardRecommendations || 'n/a'} |
@@ -6215,6 +6572,7 @@ jobs:
             | **Benchmark Release Decision Knowledge Real-Data** | ${benchmarkReleaseKnowledgeRealdataCorrelationStatusLine} |
             | **Benchmark Release Decision Knowledge Domain Matrix** | ${benchmarkReleaseKnowledgeDomainMatrixStatusLine} |
             | **Benchmark Release Decision Knowledge Outcome Correlation** | ${benchmarkReleaseKnowledgeOutcomeCorrelationStatusLine} |
+            | **Benchmark Release Decision Knowledge Outcome Drift** | ${benchmarkReleaseKnowledgeOutcomeDriftStatusLine} |
             | **Benchmark Release Decision Knowledge Domains** | ${benchmarkReleaseKnowledgePriorityDomains || 'n/a'} / ${benchmarkReleaseKnowledgeDomainFocusAreas || 'n/a'} |
             | **Benchmark Release Decision Real-Data** | ${benchmarkReleaseRealdataStatus || 'n/a'} / ${benchmarkReleaseRealdataRecommendations || 'n/a'} |
             | **Benchmark Release Decision Real-Data Scorecard** | ${benchmarkReleaseRealdataScorecardStatus || 'n/a'} / ${benchmarkReleaseRealdataScorecardRecommendations || 'n/a'} |
@@ -6227,6 +6585,7 @@ jobs:
             | **Benchmark Release Runbook Knowledge Real-Data** | ${benchmarkReleaseRunbookKnowledgeRealdataCorrelationStatusLine} |
             | **Benchmark Release Runbook Knowledge Domain Matrix** | ${benchmarkReleaseRunbookKnowledgeDomainMatrixStatusLine} |
             | **Benchmark Release Runbook Knowledge Outcome Correlation** | ${benchmarkReleaseRunbookKnowledgeOutcomeCorrelationStatusLine} |
+            | **Benchmark Release Runbook Knowledge Outcome Drift** | ${benchmarkReleaseRunbookKnowledgeOutcomeDriftStatusLine} |
             | **Benchmark Release Runbook Knowledge Domains** | ${benchmarkReleaseRunbookKnowledgePriorityDomains || 'n/a'} / ${benchmarkReleaseRunbookKnowledgeDomainFocusAreas || 'n/a'} |
             | **Benchmark Release Runbook Real-Data** | ${benchmarkReleaseRunbookRealdataStatus || 'n/a'} / ${benchmarkReleaseRunbookRealdataRecommendations || 'n/a'} |
             | **Benchmark Release Runbook Real-Data Scorecard** | ${benchmarkReleaseRunbookRealdataScorecardStatus || 'n/a'} / ${benchmarkReleaseRunbookRealdataScorecardRecommendations || 'n/a'} |
@@ -6256,6 +6615,7 @@ jobs:
             | **Benchmark Knowledge Real-Data Correlation** | ${benchmarkKnowledgeRealdataCorrelationLight} | ${benchmarkKnowledgeRealdataCorrelationStatusLine} |
             | **Benchmark Knowledge Domain Matrix** | ${benchmarkKnowledgeDomainMatrixLight} | ${benchmarkKnowledgeDomainMatrixStatusLine} |
             | **Benchmark Knowledge Outcome Correlation** | ${benchmarkKnowledgeOutcomeCorrelationLight} | ${benchmarkKnowledgeOutcomeCorrelationStatusLine} |
+            | **Benchmark Knowledge Outcome Drift** | ${benchmarkKnowledgeOutcomeDriftLight} | ${benchmarkKnowledgeOutcomeDriftStatusLine} |
             | **Benchmark Operational Summary** | ${benchmarkOperationalLight} | ${benchmarkOperationalSummaryStatus} |
             | **Benchmark Artifact Bundle** | ${benchmarkArtifactBundleLight} | ${benchmarkArtifactBundleStatus} |
             | **Benchmark Companion Summary** | ${benchmarkCompanionLight} | ${benchmarkCompanionSummaryStatus} |
