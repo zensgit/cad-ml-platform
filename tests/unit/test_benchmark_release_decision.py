@@ -156,6 +156,7 @@ def test_build_release_decision_blocks_on_blockers() -> None:
         "knowledge_domain_matrix_partial"
     )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
+    assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "unknown"
     assert payload["knowledge_focus_areas"][0]["component"] == "tolerance"
     assert payload["knowledge_drift_status"] == "regressed"
     assert payload["knowledge_drift_domain_regressions"] == ["gdt"]
@@ -249,6 +250,7 @@ def test_build_release_decision_ready_without_blockers() -> None:
         benchmark_operator_adoption={
             "adoption_readiness": "operator_ready",
             "knowledge_drift_status": "stable",
+            "knowledge_outcome_drift_status": "stable",
             "recommended_actions": ["Keep operator workflow stable."],
         },
         benchmark_knowledge_application={
@@ -298,6 +300,7 @@ def test_build_release_decision_ready_without_blockers() -> None:
         "knowledge_domain_matrix_ready"
     )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
+    assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "stable"
     assert payload["knowledge_focus_areas"] == []
     assert payload["knowledge_drift_status"] == "improved"
     assert payload["knowledge_drift_domain_improvements"] == ["standards"]
@@ -330,6 +333,7 @@ def test_build_release_decision_uses_operator_adoption_blocker_as_fallback() -> 
             "adoption_readiness": "blocked",
             "blocking_signals": ["operator_runbook:missing_dry_run"],
             "knowledge_drift_status": "stable",
+            "knowledge_outcome_drift_status": "stable",
             "recommended_actions": ["Run operator dry run."],
         },
         benchmark_knowledge_application={},
@@ -364,6 +368,7 @@ def test_build_release_decision_uses_operator_adoption_recommendation_as_fallbac
             "adoption_readiness": "guided_manual",
             "blocking_signals": [],
             "knowledge_drift_status": "stable",
+            "knowledge_outcome_drift_status": "stable",
             "recommended_actions": ["Walk operators through the guided manual path."],
         },
         artifact_paths={"benchmark_operator_adoption": "operator.json"},
@@ -481,6 +486,11 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
                 "adoption_readiness": "operator_ready",
                 "knowledge_drift_status": "stable",
                 "knowledge_drift_summary": "No knowledge regressions detected.",
+                "knowledge_outcome_drift_status": "regressed",
+                "knowledge_outcome_drift_summary": "Tolerance outcome coverage regressed.",
+                "knowledge_outcome_drift": {
+                    "recommendations": ["Backfill tolerance outcome coverage."]
+                },
                 "recommended_actions": ["Keep operator workflow stable."],
             }
         ),
@@ -519,13 +529,14 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     )
 
     payload = json.loads(output_json.read_text(encoding="utf-8"))
-    assert payload["release_status"] == "ready"
+    assert payload["release_status"] == "review_required"
     assert payload["component_statuses"]["knowledge_readiness"] == "knowledge_foundation_ready"
     assert payload["component_statuses"]["knowledge_drift"] == "improved"
     assert payload["component_statuses"]["engineering_signals"] == "engineering_semantics_ready"
     assert payload["component_statuses"]["realdata_signals"] == "realdata_foundation_ready"
     assert payload["component_statuses"]["operator_adoption"] == "operator_ready"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
+    assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "regressed"
     assert payload["artifacts"]["benchmark_knowledge_readiness"]["present"] is True
     assert payload["artifacts"]["benchmark_knowledge_drift"]["present"] is True
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is True
@@ -536,12 +547,13 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
 
     rendered = render_markdown(payload)
     assert "# Benchmark Release Decision" in rendered
-    assert "`release_status`: `ready`" in rendered
+    assert "`release_status`: `review_required`" in rendered
     assert "`knowledge_readiness`: `knowledge_foundation_ready`" in rendered
     assert "## Knowledge Drift" in rendered
     assert "`status`: `improved`" in rendered
     assert "`operator_adoption`: `operator_ready`" in rendered
     assert "`operator_adoption_knowledge_drift`: `stable`" in rendered
+    assert "`operator_adoption_knowledge_outcome_drift`: `regressed`" in rendered
     assert "## Knowledge Domains" in rendered
     assert "## Knowledge Domain Matrix" in rendered
     assert "## Real-Data Signals" in rendered
@@ -590,3 +602,34 @@ def test_build_release_decision_exposes_knowledge_outcome_drift_passthrough() ->
         "Resolve knowledge outcome regressions before claiming benchmark outcome stability."
         in payload["review_signals"]
     )
+
+
+def test_build_release_decision_exposes_operator_adoption_knowledge_outcome_drift() -> None:
+    payload = build_release_decision(
+        title="Release Decision",
+        benchmark_scorecard={"components": {"hybrid": {"status": "healthy"}}},
+        benchmark_operational_summary={},
+        benchmark_artifact_bundle={},
+        benchmark_companion_summary={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={
+            "adoption_readiness": "guided_manual",
+            "knowledge_outcome_drift_status": "regressed",
+            "knowledge_outcome_drift_summary": "Tolerance outcome coverage regressed.",
+            "knowledge_outcome_drift": {
+                "recommendations": ["Backfill tolerance outcome coverage."]
+            },
+            "recommended_actions": ["Walk operators through the guided manual path."],
+        },
+        artifact_paths={"benchmark_operator_adoption": "operator.json"},
+    )
+
+    assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "regressed"
+    assert (
+        payload["operator_adoption_knowledge_outcome_drift"]["summary"]
+        == "Tolerance outcome coverage regressed."
+    )
+    assert "Backfill tolerance outcome coverage." in payload["review_signals"]
