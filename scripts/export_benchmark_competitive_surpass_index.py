@@ -61,6 +61,7 @@ def build_competitive_surpass_summary(
     benchmark_realdata_signals: Dict[str, Any],
     benchmark_realdata_scorecard: Dict[str, Any],
     benchmark_operator_adoption: Dict[str, Any],
+    benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any] | None = None,
     artifact_paths: Dict[str, str],
 ) -> Dict[str, Any]:
     component = build_competitive_surpass_index(
@@ -78,6 +79,9 @@ def build_competitive_surpass_summary(
         benchmark_realdata_signals=benchmark_realdata_signals,
         benchmark_realdata_scorecard=benchmark_realdata_scorecard,
         benchmark_operator_adoption=benchmark_operator_adoption,
+        benchmark_knowledge_domain_release_surface_alignment=(
+            benchmark_knowledge_domain_release_surface_alignment
+        ),
     )
     return {
         "title": title,
@@ -107,6 +111,7 @@ def main() -> None:
     parser.add_argument("--benchmark-realdata-signals", default="")
     parser.add_argument("--benchmark-realdata-scorecard", default="")
     parser.add_argument("--benchmark-operator-adoption", default="")
+    parser.add_argument("--benchmark-knowledge-domain-release-surface-alignment", default="")
     parser.add_argument("--output-json", default="")
     parser.add_argument("--output-md", default="")
     args = parser.parse_args()
@@ -136,6 +141,9 @@ def main() -> None:
         "benchmark_realdata_signals": args.benchmark_realdata_signals,
         "benchmark_realdata_scorecard": args.benchmark_realdata_scorecard,
         "benchmark_operator_adoption": args.benchmark_operator_adoption,
+        "benchmark_knowledge_domain_release_surface_alignment": (
+            args.benchmark_knowledge_domain_release_surface_alignment
+        ),
     }
     payload = build_competitive_surpass_summary(
         title=args.title,
@@ -169,6 +177,9 @@ def main() -> None:
         benchmark_realdata_signals=_maybe_load_json(args.benchmark_realdata_signals),
         benchmark_realdata_scorecard=_maybe_load_json(args.benchmark_realdata_scorecard),
         benchmark_operator_adoption=_maybe_load_json(args.benchmark_operator_adoption),
+        benchmark_knowledge_domain_release_surface_alignment=_maybe_load_json(
+            args.benchmark_knowledge_domain_release_surface_alignment
+        ),
         artifact_paths=artifact_paths,
     )
     rendered = json.dumps(payload, ensure_ascii=False, indent=2)

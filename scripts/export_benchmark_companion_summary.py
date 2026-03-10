@@ -225,6 +225,29 @@ def _operator_adoption_release_surface_alignment(
     }
 
 
+def _knowledge_domain_release_surface_alignment(
+    benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any],
+) -> Dict[str, Any]:
+    alignment = (
+        benchmark_knowledge_domain_release_surface_alignment.get(
+            "knowledge_domain_release_surface_alignment"
+        )
+        or benchmark_knowledge_domain_release_surface_alignment
+        or {}
+    )
+    return {
+        "status": str(alignment.get("status") or "unknown"),
+        "summary": str(alignment.get("summary") or "none"),
+        "mismatches": list(alignment.get("mismatches") or []),
+        "domain_mismatches": list(alignment.get("domain_mismatches") or []),
+        "release_blocker_mismatches": list(
+            alignment.get("release_blocker_mismatches") or []
+        ),
+        "release_decision": dict(alignment.get("release_decision") or {}),
+        "release_runbook": dict(alignment.get("release_runbook") or {}),
+    }
+
+
 def _component_statuses(
     scorecard: Dict[str, Any],
     operational_summary: Dict[str, Any],
@@ -248,6 +271,7 @@ def _component_statuses(
     knowledge_source_drift_summary: Dict[str, Any] | None = None,
     knowledge_outcome_correlation_summary: Dict[str, Any] | None = None,
     knowledge_outcome_drift_summary: Dict[str, Any] | None = None,
+    knowledge_domain_release_surface_alignment_summary: Dict[str, Any] | None = None,
     benchmark_competitive_surpass_trend: Dict[str, Any] | None = None,
     benchmark_competitive_surpass_action_plan: Dict[str, Any] | None = None,
 ) -> Dict[str, str]:
@@ -275,6 +299,9 @@ def _component_statuses(
         knowledge_outcome_correlation_summary or {}
     )
     knowledge_outcome_drift_summary = knowledge_outcome_drift_summary or {}
+    knowledge_domain_release_surface_alignment_summary = (
+        knowledge_domain_release_surface_alignment_summary or {}
+    )
     benchmark_competitive_surpass_trend = benchmark_competitive_surpass_trend or {}
     benchmark_competitive_surpass_action_plan = (
         benchmark_competitive_surpass_action_plan or {}
@@ -372,6 +399,11 @@ def _component_statuses(
     )
     knowledge_outcome_drift_component = _knowledge_outcome_drift_component(
         knowledge_outcome_drift_summary
+    )
+    knowledge_domain_release_surface_alignment_component = (
+        _knowledge_domain_release_surface_alignment(
+            knowledge_domain_release_surface_alignment_summary
+        )
     )
     competitive_surpass_trend_component = _competitive_surpass_trend_component(
         benchmark_competitive_surpass_trend
@@ -534,6 +566,20 @@ def _component_statuses(
             ).get("status")
             or "unknown"
         ),
+        "knowledge_domain_release_surface_alignment": str(
+            bundle_components.get("knowledge_domain_release_surface_alignment")
+            or operational_components.get("knowledge_domain_release_surface_alignment")
+            or knowledge_domain_release_surface_alignment_component.get("status")
+            or (
+                (
+                    scorecard_components.get(
+                        "knowledge_domain_release_surface_alignment"
+                    )
+                    or {}
+                ).get("status")
+            )
+            or "unknown"
+        ),
         "competitive_surpass_trend": str(
             bundle_components.get("competitive_surpass_trend")
             or operational_components.get("competitive_surpass_trend")
@@ -601,6 +647,7 @@ def _artifact_rows(
     knowledge_domain_action_plan_path: str,
     knowledge_domain_control_plane_path: str,
     knowledge_domain_control_plane_drift_path: str,
+    knowledge_domain_release_surface_alignment_path: str,
     knowledge_source_action_plan_path: str,
     knowledge_source_coverage_path: str,
     knowledge_source_drift_path: str,
@@ -674,6 +721,10 @@ def _artifact_rows(
         "benchmark_knowledge_domain_control_plane_drift": row(
             "benchmark_knowledge_domain_control_plane_drift",
             knowledge_domain_control_plane_drift_path,
+        ),
+        "benchmark_knowledge_domain_release_surface_alignment": row(
+            "benchmark_knowledge_domain_release_surface_alignment",
+            knowledge_domain_release_surface_alignment_path,
         ),
         "benchmark_knowledge_source_action_plan": row(
             "benchmark_knowledge_source_action_plan",
@@ -783,6 +834,7 @@ def build_companion_summary(
     benchmark_knowledge_source_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_drift: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
     benchmark_realdata_scorecard = benchmark_realdata_scorecard or {}
     benchmark_competitive_surpass_index = benchmark_competitive_surpass_index or {}
@@ -821,6 +873,9 @@ def build_companion_summary(
         benchmark_knowledge_outcome_correlation or {}
     )
     benchmark_knowledge_outcome_drift = benchmark_knowledge_outcome_drift or {}
+    benchmark_knowledge_domain_release_surface_alignment = (
+        benchmark_knowledge_domain_release_surface_alignment or {}
+    )
     overall_status = (
         str(benchmark_artifact_bundle.get("overall_status") or "").strip()
         or str(benchmark_operational_summary.get("overall_status") or "").strip()
@@ -1029,6 +1084,7 @@ def build_companion_summary(
         benchmark_knowledge_source_drift,
         benchmark_knowledge_outcome_correlation,
         benchmark_knowledge_outcome_drift,
+        benchmark_knowledge_domain_release_surface_alignment,
         benchmark_competitive_surpass_trend,
         benchmark_competitive_surpass_action_plan,
     )
@@ -1052,6 +1108,11 @@ def build_companion_summary(
     )
     operator_adoption_release_surface_alignment = (
         _operator_adoption_release_surface_alignment(benchmark_operator_adoption)
+    )
+    knowledge_domain_release_surface_alignment = (
+        _knowledge_domain_release_surface_alignment(
+            benchmark_knowledge_domain_release_surface_alignment
+        )
     )
     knowledge_root = (
         benchmark_knowledge_readiness.get("knowledge_readiness")
@@ -1173,6 +1234,10 @@ def build_companion_summary(
         artifact_paths.get("benchmark_knowledge_domain_action_plan", ""),
         artifact_paths.get("benchmark_knowledge_domain_control_plane", ""),
         artifact_paths.get("benchmark_knowledge_domain_control_plane_drift", ""),
+        artifact_paths.get(
+            "benchmark_knowledge_domain_release_surface_alignment",
+            "",
+        ),
         artifact_paths.get("benchmark_knowledge_source_action_plan", ""),
         artifact_paths.get("benchmark_knowledge_source_coverage", ""),
         artifact_paths.get("benchmark_knowledge_source_drift", ""),
@@ -1433,6 +1498,18 @@ def build_companion_summary(
             knowledge_outcome_drift_recommendations,
             limit=5,
         ),
+        "knowledge_domain_release_surface_alignment": (
+            knowledge_domain_release_surface_alignment
+        ),
+        "knowledge_domain_release_surface_alignment_status": (
+            knowledge_domain_release_surface_alignment.get("status") or "unknown"
+        ),
+        "knowledge_domain_release_surface_alignment_summary": (
+            knowledge_domain_release_surface_alignment.get("summary") or "none"
+        ),
+        "knowledge_domain_release_surface_alignment_mismatches": list(
+            knowledge_domain_release_surface_alignment.get("mismatches") or []
+        ),
         "realdata_signals": realdata_root,
         "realdata_status": realdata_root.get("status") or "unknown",
         "realdata_recommendations": _compact(realdata_recommendations, limit=5),
@@ -1509,6 +1586,9 @@ def build_companion_summary(
         ),
         "operator_adoption_release_surface_alignment": (
             operator_adoption_release_surface_alignment
+        ),
+        "knowledge_domain_release_surface_alignment": (
+            knowledge_domain_release_surface_alignment
         ),
         "scorecard_operator_adoption": scorecard_operator_adoption,
         "operational_operator_adoption": operational_operator_adoption,
@@ -2119,6 +2199,25 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         "- `mismatches`: "
         + (", ".join(str(item) for item in mismatches) if mismatches else "none")
     )
+    lines.extend(["", "## Knowledge Domain Release Surface Alignment", ""])
+    knowledge_alignment = (
+        payload.get("knowledge_domain_release_surface_alignment") or {}
+    )
+    lines.append(
+        f"- `status`: `{knowledge_alignment.get('status') or 'unknown'}`"
+    )
+    lines.append(
+        f"- `summary`: {knowledge_alignment.get('summary') or 'none'}"
+    )
+    knowledge_mismatches = knowledge_alignment.get("mismatches") or []
+    lines.append(
+        "- `mismatches`: "
+        + (
+            ", ".join(str(item) for item in knowledge_mismatches)
+            if knowledge_mismatches
+            else "none"
+        )
+    )
     lines.extend(["", "## Scorecard Operator Adoption", ""])
     scorecard_operator = payload.get("scorecard_operator_adoption") or {}
     lines.append(f"- `status`: `{scorecard_operator.get('status') or 'unknown'}`")
@@ -2183,6 +2282,10 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-domain-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-domain-control-plane", default="")
     parser.add_argument("--benchmark-knowledge-domain-control-plane-drift", default="")
+    parser.add_argument(
+        "--benchmark-knowledge-domain-release-surface-alignment",
+        default="",
+    )
     parser.add_argument("--benchmark-knowledge-source-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-source-coverage", default="")
     parser.add_argument("--benchmark-knowledge-source-drift", default="")
@@ -2223,6 +2326,9 @@ def main() -> None:
         ),
         "benchmark_knowledge_domain_control_plane_drift": (
             args.benchmark_knowledge_domain_control_plane_drift
+        ),
+        "benchmark_knowledge_domain_release_surface_alignment": (
+            args.benchmark_knowledge_domain_release_surface_alignment
         ),
         "benchmark_knowledge_source_action_plan": (
             args.benchmark_knowledge_source_action_plan
@@ -2284,6 +2390,9 @@ def main() -> None:
         ),
         benchmark_knowledge_domain_control_plane_drift=_maybe_load_json(
             args.benchmark_knowledge_domain_control_plane_drift
+        ),
+        benchmark_knowledge_domain_release_surface_alignment=_maybe_load_json(
+            args.benchmark_knowledge_domain_release_surface_alignment
         ),
         benchmark_knowledge_source_action_plan=_maybe_load_json(
             args.benchmark_knowledge_source_action_plan

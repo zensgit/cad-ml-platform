@@ -137,6 +137,13 @@ def _ready_inputs() -> dict:
             "release_surface_alignment_summary": "Release surfaces are aligned.",
             "release_surface_alignment": {"mismatches": []},
         },
+        "benchmark_knowledge_domain_release_surface_alignment": {
+            "knowledge_domain_release_surface_alignment": {
+                "status": "aligned",
+                "summary": "Knowledge-domain release surfaces are aligned.",
+                "mismatches": [],
+            }
+        },
     }
 
 
@@ -221,6 +228,10 @@ def test_export_benchmark_competitive_surpass_index_outputs_files(
         ("--benchmark-realdata-signals", "benchmark_realdata_signals"),
         ("--benchmark-realdata-scorecard", "benchmark_realdata_scorecard"),
         ("--benchmark-operator-adoption", "benchmark_operator_adoption"),
+        (
+            "--benchmark-knowledge-domain-release-surface-alignment",
+            "benchmark_knowledge_domain_release_surface_alignment",
+        ),
     ):
         path = tmp_path / f"{key}.json"
         path.write_text(json.dumps(inputs[key]), encoding="utf-8")
@@ -266,6 +277,13 @@ def test_build_competitive_surpass_summary_blocks_on_realdata_and_alignment() ->
         "release_surface_alignment_status": "unavailable",
         "release_surface_alignment_summary": "Release surfaces are not aligned.",
         "release_surface_alignment": {"mismatches": ["release_runbook:missing"]},
+    }
+    inputs["benchmark_knowledge_domain_release_surface_alignment"] = {
+        "knowledge_domain_release_surface_alignment": {
+            "status": "unavailable",
+            "summary": "Knowledge-domain release surfaces are unavailable.",
+            "mismatches": ["release_decision:missing_knowledge_domain_status"],
+        }
     }
     inputs["benchmark_knowledge_source_coverage"] = {
         "knowledge_source_coverage": {
