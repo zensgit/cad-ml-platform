@@ -292,6 +292,15 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
         "benchmark_knowledge_domain_capability_matrix_knowledge_domain_matrix_json"
         in dispatch_inputs
     )
+    assert "benchmark_knowledge_domain_capability_drift_enable" in dispatch_inputs
+    assert (
+        "benchmark_knowledge_domain_capability_drift_current_summary_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_knowledge_domain_capability_drift_previous_summary_json"
+        in dispatch_inputs
+    )
     assert "benchmark_knowledge_domain_action_plan_enable" in dispatch_inputs
     assert "benchmark_knowledge_domain_action_plan_knowledge_domain_matrix_json" in dispatch_inputs
     assert "benchmark_knowledge_source_coverage_enable" in dispatch_inputs
@@ -890,6 +899,46 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "domain_statuses=" in benchmark_knowledge_domain_capability_matrix_script
     assert "recommendations=" in benchmark_knowledge_domain_capability_matrix_script
 
+    benchmark_knowledge_domain_capability_drift_step = _get_step(
+        workflow, "evaluate", "Build benchmark knowledge domain capability drift (optional)"
+    )
+    benchmark_knowledge_domain_capability_drift_script = (
+        benchmark_knowledge_domain_capability_drift_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_knowledge_domain_capability_drift.py"
+        in benchmark_knowledge_domain_capability_drift_script
+    )
+    assert (
+        "BENCHMARK_KNOWLEDGE_DOMAIN_CAPABILITY_DRIFT_ENABLE"
+        in benchmark_knowledge_domain_capability_drift_script
+    )
+    assert (
+        "benchmark_knowledge_domain_capability_drift_current_summary_json"
+        in benchmark_knowledge_domain_capability_drift_script
+    )
+    assert (
+        "benchmark_knowledge_domain_capability_drift_previous_summary_json"
+        in benchmark_knowledge_domain_capability_drift_script
+    )
+    assert "steps.benchmark_knowledge_domain_capability_matrix.outputs.output_json" in (
+        benchmark_knowledge_domain_capability_drift_script
+    )
+    assert "current_status=" in benchmark_knowledge_domain_capability_drift_script
+    assert "previous_status=" in benchmark_knowledge_domain_capability_drift_script
+    assert "provider_gap_delta=" in benchmark_knowledge_domain_capability_drift_script
+    assert "surface_gap_delta=" in benchmark_knowledge_domain_capability_drift_script
+    assert "domain_regressions=" in benchmark_knowledge_domain_capability_drift_script
+    assert "domain_improvements=" in benchmark_knowledge_domain_capability_drift_script
+    assert (
+        "resolved_provider_gap_domains="
+        in benchmark_knowledge_domain_capability_drift_script
+    )
+    assert (
+        "new_surface_gap_domains=" in benchmark_knowledge_domain_capability_drift_script
+    )
+    assert "recommendations=" in benchmark_knowledge_domain_capability_drift_script
+
     benchmark_knowledge_domain_action_plan_step = _get_step(
         workflow, "evaluate", "Build benchmark knowledge domain action plan (optional)"
     )
@@ -1250,6 +1299,20 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_capability_matrix_priority_domains=" in benchmark_bundle_script
     assert "knowledge_domain_capability_matrix_domain_statuses=" in benchmark_bundle_script
     assert "knowledge_domain_capability_matrix_recommendations=" in benchmark_bundle_script
+    assert "--benchmark-knowledge-domain-capability-drift" in benchmark_bundle_script
+    assert "knowledge_domain_capability_drift_status=" in benchmark_bundle_script
+    assert (
+        "knowledge_domain_capability_drift_domain_regressions="
+        in benchmark_bundle_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_domain_improvements="
+        in benchmark_bundle_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_recommendations="
+        in benchmark_bundle_script
+    )
     assert "knowledge_domain_action_plan_status=" in benchmark_bundle_script
     assert "knowledge_domain_action_plan_actions=" in benchmark_bundle_script
     assert "knowledge_domain_action_plan_priority_domains=" in benchmark_bundle_script
@@ -1369,6 +1432,20 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_capability_matrix_priority_domains=" in benchmark_companion_script
     assert "knowledge_domain_capability_matrix_domain_statuses=" in benchmark_companion_script
     assert "knowledge_domain_capability_matrix_recommendations=" in benchmark_companion_script
+    assert "--benchmark-knowledge-domain-capability-drift" in benchmark_companion_script
+    assert "knowledge_domain_capability_drift_status=" in benchmark_companion_script
+    assert (
+        "knowledge_domain_capability_drift_domain_regressions="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_domain_improvements="
+        in benchmark_companion_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_recommendations="
+        in benchmark_companion_script
+    )
     assert "knowledge_domain_action_plan_status=" in benchmark_companion_script
     assert "knowledge_domain_action_plan_actions=" in benchmark_companion_script
     assert "knowledge_domain_action_plan_priority_domains=" in benchmark_companion_script
@@ -1491,6 +1568,20 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_capability_matrix_priority_domains=" in benchmark_release_script
     assert "knowledge_domain_capability_matrix_domain_statuses=" in benchmark_release_script
     assert "knowledge_domain_capability_matrix_recommendations=" in benchmark_release_script
+    assert "--benchmark-knowledge-domain-capability-drift" in benchmark_release_script
+    assert "knowledge_domain_capability_drift_status=" in benchmark_release_script
+    assert (
+        "knowledge_domain_capability_drift_domain_regressions="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_domain_improvements="
+        in benchmark_release_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_recommendations="
+        in benchmark_release_script
+    )
     assert "knowledge_domain_action_plan_status=" in benchmark_release_script
     assert "knowledge_domain_action_plan_actions=" in benchmark_release_script
     assert "knowledge_domain_action_plan_priority_domains=" in benchmark_release_script
@@ -1614,6 +1705,20 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "knowledge_domain_capability_matrix_priority_domains=" in benchmark_runbook_script
     assert "knowledge_domain_capability_matrix_domain_statuses=" in benchmark_runbook_script
     assert "knowledge_domain_capability_matrix_recommendations=" in benchmark_runbook_script
+    assert "--benchmark-knowledge-domain-capability-drift" in benchmark_runbook_script
+    assert "knowledge_domain_capability_drift_status=" in benchmark_runbook_script
+    assert (
+        "knowledge_domain_capability_drift_domain_regressions="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_domain_improvements="
+        in benchmark_runbook_script
+    )
+    assert (
+        "knowledge_domain_capability_drift_recommendations="
+        in benchmark_runbook_script
+    )
     assert "knowledge_domain_action_plan_status=" in benchmark_runbook_script
     assert "knowledge_domain_action_plan_actions=" in benchmark_runbook_script
     assert "knowledge_domain_action_plan_priority_domains=" in benchmark_runbook_script
@@ -1975,6 +2080,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_knowledge_domain_capability_matrix["if"]
         == "steps.benchmark_knowledge_domain_capability_matrix.outputs.enabled == 'true'"
+    )
+    upload_knowledge_domain_capability_drift = _get_step(
+        workflow, "evaluate", "Upload benchmark knowledge domain capability drift"
+    )
+    assert (
+        upload_knowledge_domain_capability_drift["if"]
+        == "steps.benchmark_knowledge_domain_capability_drift.outputs.enabled == 'true'"
     )
     upload_knowledge_domain_action_plan = _get_step(
         workflow, "evaluate", "Upload benchmark knowledge domain action plan"
@@ -2861,6 +2973,19 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkKnowledgeDomainCapabilityMatrixRecommendations" in (
         pr_comment_script
     )
+    assert "benchmarkKnowledgeDomainCapabilityDriftEnabled" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityDriftStatus" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityDriftStatusLine" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityDriftLight" in pr_comment_script
+    assert "benchmarkKnowledgeDomainCapabilityDriftDomainRegressions" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainCapabilityDriftDomainImprovements" in (
+        pr_comment_script
+    )
+    assert "benchmarkKnowledgeDomainCapabilityDriftRecommendations" in (
+        pr_comment_script
+    )
     assert "benchmarkKnowledgeDomainActionPlanEnabled" in pr_comment_script
     assert "benchmarkKnowledgeDomainActionPlanStatus" in pr_comment_script
     assert "benchmarkKnowledgeDomainActionPlanStatusLine" in pr_comment_script
@@ -2913,6 +3038,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkArtifactBundleKnowledgeDomainCapabilityMatrixStatusLine" in (
         pr_comment_script
     )
+    assert "benchmarkArtifactBundleKnowledgeDomainCapabilityDriftStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleKnowledgeDomainCapabilityDriftStatusLine" in (
+        pr_comment_script
+    )
     assert "benchmarkArtifactBundleKnowledgeDomainActionPlanStatus" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeDomainActionPlanStatusLine" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeSourceCoverageStatus" in pr_comment_script
@@ -2943,6 +3074,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkCompanionKnowledgeDomainCapabilityMatrixStatusLine" in (
         pr_comment_script
     )
+    assert "benchmarkCompanionKnowledgeDomainCapabilityDriftStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionKnowledgeDomainCapabilityDriftStatusLine" in (
+        pr_comment_script
+    )
     assert "benchmarkCompanionKnowledgeDomainActionPlanStatus" in pr_comment_script
     assert "benchmarkCompanionKnowledgeDomainActionPlanStatusLine" in pr_comment_script
     assert "benchmarkCompanionKnowledgeSourceCoverageStatus" in pr_comment_script
@@ -2964,6 +3101,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkReleaseKnowledgeDomainMatrixStatusLine" in pr_comment_script
     assert "benchmarkReleaseKnowledgeDomainCapabilityMatrixStatus" in pr_comment_script
     assert "benchmarkReleaseKnowledgeDomainCapabilityMatrixStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseKnowledgeDomainCapabilityDriftStatus" in pr_comment_script
+    assert "benchmarkReleaseKnowledgeDomainCapabilityDriftStatusLine" in (
         pr_comment_script
     )
     assert "benchmarkReleaseKnowledgeDomainActionPlanStatus" in pr_comment_script
@@ -2991,6 +3132,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
         pr_comment_script
     )
     assert "benchmarkReleaseRunbookKnowledgeDomainCapabilityMatrixStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeDomainCapabilityDriftStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookKnowledgeDomainCapabilityDriftStatusLine" in (
         pr_comment_script
     )
     assert "benchmarkReleaseRunbookKnowledgeDomainActionPlanStatus" in pr_comment_script
@@ -3030,6 +3177,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Knowledge Real-Data Correlation" in pr_comment_script
     assert "Benchmark Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Knowledge Domain Capability Matrix" in pr_comment_script
+    assert "Benchmark Knowledge Domain Capability Drift" in pr_comment_script
     assert "Benchmark Knowledge Domain Action Plan" in pr_comment_script
     assert "Benchmark Knowledge Source Coverage" in pr_comment_script
     assert "Benchmark Knowledge Source Action Plan" in pr_comment_script
@@ -3049,6 +3197,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Artifact Bundle Knowledge Real-Data" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Artifact Bundle Knowledge Domain Capability Matrix" in (
+        pr_comment_script
+    )
+    assert "Benchmark Artifact Bundle Knowledge Domain Capability Drift" in (
         pr_comment_script
     )
     assert "Benchmark Artifact Bundle Knowledge Domain Action Plan" in pr_comment_script
@@ -3073,6 +3224,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Companion Knowledge Domain Capability Matrix" in (
         pr_comment_script
     )
+    assert "Benchmark Companion Knowledge Domain Capability Drift" in (
+        pr_comment_script
+    )
     assert "Benchmark Companion Knowledge Domain Action Plan" in pr_comment_script
     assert "Benchmark Companion Knowledge Source Coverage" in pr_comment_script
     assert "Benchmark Companion Knowledge Source Action Plan" in pr_comment_script
@@ -3082,6 +3236,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Decision Knowledge Real-Data" in pr_comment_script
     assert "Benchmark Release Decision Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Release Decision Knowledge Domain Capability Matrix" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Decision Knowledge Domain Capability Drift" in (
         pr_comment_script
     )
     assert "Benchmark Release Decision Knowledge Domain Action Plan" in pr_comment_script
@@ -3094,6 +3251,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Runbook Knowledge Real-Data" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Domain Matrix" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Domain Capability Matrix" in (
+        pr_comment_script
+    )
+    assert "Benchmark Release Runbook Knowledge Domain Capability Drift" in (
         pr_comment_script
     )
     assert "Benchmark Release Runbook Knowledge Domain Action Plan" in pr_comment_script
@@ -3116,6 +3276,10 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     )
     assert (
         "recommendations=${benchmarkKnowledgeDomainCapabilityMatrixRecommendations || 'n/a'}"
+        in pr_comment_script
+    )
+    assert (
+        "recommendations=${benchmarkKnowledgeDomainCapabilityDriftRecommendations || 'n/a'}"
         in pr_comment_script
     )
     assert (

@@ -71,6 +71,12 @@ def _compact(items: Iterable[Any], *, limit: int = 5) -> List[str]:
     return out
 
 
+def _knowledge_domain_capability_drift_component(
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    return payload.get("knowledge_domain_capability_drift") or payload or {}
+
+
 def _artifact_row(name: str, path_text: str) -> Dict[str, Any]:
     path_value = _text(path_text)
     return {
@@ -95,6 +101,7 @@ def _component_statuses(
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_capability_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_capability_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
@@ -113,6 +120,9 @@ def _component_statuses(
     benchmark_knowledge_domain_matrix = benchmark_knowledge_domain_matrix or {}
     benchmark_knowledge_domain_capability_matrix = (
         benchmark_knowledge_domain_capability_matrix or {}
+    )
+    benchmark_knowledge_domain_capability_drift = (
+        benchmark_knowledge_domain_capability_drift or {}
     )
     benchmark_knowledge_domain_action_plan = (
         benchmark_knowledge_domain_action_plan or {}
@@ -178,6 +188,11 @@ def _component_statuses(
         )
         or benchmark_knowledge_domain_capability_matrix
         or {}
+    )
+    knowledge_domain_capability_drift_component = (
+        _knowledge_domain_capability_drift_component(
+            benchmark_knowledge_domain_capability_drift
+        )
     )
     knowledge_domain_action_plan_component = (
         benchmark_knowledge_domain_action_plan.get("knowledge_domain_action_plan")
@@ -324,6 +339,15 @@ def _component_statuses(
             or knowledge_domain_capability_matrix_component.get("status")
             or (
                 scorecard_components.get("knowledge_domain_capability_matrix") or {}
+            ).get("status")
+            or "unknown"
+        ),
+        "knowledge_domain_capability_drift": str(
+            companion_components.get("knowledge_domain_capability_drift")
+            or bundle_components.get("knowledge_domain_capability_drift")
+            or knowledge_domain_capability_drift_component.get("status")
+            or (
+                scorecard_components.get("knowledge_domain_capability_drift") or {}
             ).get("status")
             or "unknown"
         ),
@@ -517,6 +541,21 @@ def _knowledge_domain_capability_matrix_review_signals(
         return []
     return _compact(
         benchmark_knowledge_domain_capability_matrix.get("recommendations") or [],
+        limit=6,
+    )
+
+
+def _knowledge_domain_capability_drift_review_signals(
+    benchmark_knowledge_domain_capability_drift: Dict[str, Any],
+    component_statuses: Dict[str, str],
+) -> List[str]:
+    status = str(
+        component_statuses.get("knowledge_domain_capability_drift") or ""
+    ).strip()
+    if status in {"stable", "improved", "baseline_missing", "unknown", ""}:
+        return []
+    return _compact(
+        benchmark_knowledge_domain_capability_drift.get("recommendations") or [],
         limit=6,
     )
 
@@ -783,6 +822,7 @@ def build_release_decision(
     benchmark_knowledge_realdata_correlation: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_matrix: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_capability_matrix: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_capability_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
@@ -801,6 +841,9 @@ def build_release_decision(
     benchmark_knowledge_domain_matrix = benchmark_knowledge_domain_matrix or {}
     benchmark_knowledge_domain_capability_matrix = (
         benchmark_knowledge_domain_capability_matrix or {}
+    )
+    benchmark_knowledge_domain_capability_drift = (
+        benchmark_knowledge_domain_capability_drift or {}
     )
     benchmark_knowledge_domain_action_plan = (
         benchmark_knowledge_domain_action_plan or {}
@@ -836,6 +879,7 @@ def build_release_decision(
         benchmark_knowledge_realdata_correlation,
         benchmark_knowledge_domain_matrix,
         benchmark_knowledge_domain_capability_matrix,
+        benchmark_knowledge_domain_capability_drift,
         benchmark_knowledge_domain_action_plan,
         benchmark_knowledge_source_action_plan,
         benchmark_knowledge_source_coverage,
@@ -878,6 +922,11 @@ def build_release_decision(
         )
         or benchmark_knowledge_domain_capability_matrix
         or {}
+    )
+    knowledge_domain_capability_drift_component = (
+        _knowledge_domain_capability_drift_component(
+            benchmark_knowledge_domain_capability_drift
+        )
     )
     knowledge_domain_action_plan_component = (
         benchmark_knowledge_domain_action_plan.get("knowledge_domain_action_plan")
@@ -982,6 +1031,10 @@ def build_release_decision(
     )
     knowledge_domain_capability_matrix_recommendations = _compact(
         benchmark_knowledge_domain_capability_matrix.get("recommendations") or [],
+        limit=6,
+    )
+    knowledge_domain_capability_drift_recommendations = _compact(
+        benchmark_knowledge_domain_capability_drift.get("recommendations") or [],
         limit=6,
     )
     knowledge_domain_action_plan_actions = list(
@@ -1096,6 +1149,14 @@ def build_release_decision(
         item
         for item in _knowledge_domain_capability_matrix_review_signals(
             benchmark_knowledge_domain_capability_matrix,
+            component_statuses,
+        )
+        if item not in review_signals
+    )
+    review_signals.extend(
+        item
+        for item in _knowledge_domain_capability_drift_review_signals(
+            benchmark_knowledge_domain_capability_drift,
             component_statuses,
         )
         if item not in review_signals
@@ -1341,6 +1402,21 @@ def build_release_decision(
         "knowledge_domain_capability_matrix_recommendations": (
             knowledge_domain_capability_matrix_recommendations
         ),
+        "knowledge_domain_capability_drift_status": (
+            knowledge_domain_capability_drift_component.get("status") or "unknown"
+        ),
+        "knowledge_domain_capability_drift": (
+            knowledge_domain_capability_drift_component
+        ),
+        "knowledge_domain_capability_drift_domain_regressions": list(
+            knowledge_domain_capability_drift_component.get("domain_regressions") or []
+        ),
+        "knowledge_domain_capability_drift_domain_improvements": list(
+            knowledge_domain_capability_drift_component.get("domain_improvements") or []
+        ),
+        "knowledge_domain_capability_drift_recommendations": (
+            knowledge_domain_capability_drift_recommendations
+        ),
         "knowledge_domain_action_plan_status": (
             knowledge_domain_action_plan_component.get("status") or "unknown"
         ),
@@ -1572,6 +1648,13 @@ def build_release_decision(
                     "",
                 ),
             ),
+            "benchmark_knowledge_domain_capability_drift": _artifact_row(
+                "benchmark_knowledge_domain_capability_drift",
+                artifact_paths.get(
+                    "benchmark_knowledge_domain_capability_drift",
+                    "",
+                ),
+            ),
             "benchmark_knowledge_domain_action_plan": _artifact_row(
                 "benchmark_knowledge_domain_action_plan",
                 artifact_paths.get("benchmark_knowledge_domain_action_plan", ""),
@@ -1623,6 +1706,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"`{payload.get('realdata_scorecard_status') or 'unknown'}`",
         f"- `knowledge_domain_capability_matrix_status`: "
         f"`{payload.get('knowledge_domain_capability_matrix_status') or 'unknown'}`",
+        f"- `knowledge_domain_capability_drift_status`: "
+        f"`{payload.get('knowledge_domain_capability_drift_status') or 'unknown'}`",
         f"- `competitive_surpass_index_status`: "
         f"`{payload.get('competitive_surpass_index_status') or 'unknown'}`",
         "",
@@ -1899,6 +1984,24 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     )
     if capability_recommendations:
         for item in capability_recommendations:
+            lines.append(f"- recommendation: {item}")
+    lines.extend(["", "## Knowledge Domain Capability Drift", ""])
+    capability_drift_regressions = ", ".join(
+        payload.get("knowledge_domain_capability_drift_domain_regressions") or []
+    ) or "none"
+    capability_drift_improvements = ", ".join(
+        payload.get("knowledge_domain_capability_drift_domain_improvements") or []
+    ) or "none"
+    lines.append(
+        f"- `status`: `{payload.get('knowledge_domain_capability_drift_status') or 'unknown'}`"
+    )
+    lines.append("- `domain_regressions`: " f"`{capability_drift_regressions}`")
+    lines.append("- `domain_improvements`: " f"`{capability_drift_improvements}`")
+    capability_drift_recommendations = (
+        payload.get("knowledge_domain_capability_drift_recommendations") or []
+    )
+    if capability_drift_recommendations:
+        for item in capability_drift_recommendations:
             lines.append(f"- recommendation: {item}")
     lines.extend(["", "## Knowledge Domain Action Plan", ""])
     lines.append(
@@ -2227,6 +2330,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-realdata-correlation", default="")
     parser.add_argument("--benchmark-knowledge-domain-matrix", default="")
     parser.add_argument("--benchmark-knowledge-domain-capability-matrix", default="")
+    parser.add_argument("--benchmark-knowledge-domain-capability-drift", default="")
     parser.add_argument("--benchmark-knowledge-domain-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-source-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-source-coverage", default="")
@@ -2258,6 +2362,9 @@ def main() -> None:
         "benchmark_knowledge_domain_matrix": args.benchmark_knowledge_domain_matrix,
         "benchmark_knowledge_domain_capability_matrix": (
             args.benchmark_knowledge_domain_capability_matrix
+        ),
+        "benchmark_knowledge_domain_capability_drift": (
+            args.benchmark_knowledge_domain_capability_drift
         ),
         "benchmark_knowledge_domain_action_plan": (
             args.benchmark_knowledge_domain_action_plan
@@ -2320,6 +2427,9 @@ def main() -> None:
         ),
         benchmark_knowledge_domain_capability_matrix=_maybe_load_json(
             args.benchmark_knowledge_domain_capability_matrix
+        ),
+        benchmark_knowledge_domain_capability_drift=_maybe_load_json(
+            args.benchmark_knowledge_domain_capability_drift
         ),
         benchmark_knowledge_domain_action_plan=_maybe_load_json(
             args.benchmark_knowledge_domain_action_plan
