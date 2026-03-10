@@ -2452,7 +2452,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkCompetitiveSurpassStatusLine" in pr_comment_script
     assert "benchmarkCompetitiveSurpassLight" in pr_comment_script
     assert "benchmarkCompetitiveSurpassRecommendations" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassTrendEnabled" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassTrendStatus" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassTrendStatusLine" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassTrendLight" in pr_comment_script
+    assert "benchmarkCompetitiveSurpassTrendRecommendations" in pr_comment_script
     assert "Benchmark Competitive Surpass" in pr_comment_script
+    assert "Benchmark Competitive Surpass Trend" in pr_comment_script
     assert "benchmarkKnowledgeEnabled" in pr_comment_script
     assert "benchmarkKnowledgeStatusLine" in pr_comment_script
     assert "benchmarkKnowledgeLight" in pr_comment_script
@@ -2520,7 +2526,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkArtifactBundleCompetitiveSurpassStatus" in pr_comment_script
     assert "benchmarkArtifactBundleCompetitiveSurpassStatusLine" in pr_comment_script
     assert "benchmarkArtifactBundleCompetitiveSurpassLight" in pr_comment_script
+    assert "benchmarkArtifactBundleCompetitiveSurpassTrendStatus" in pr_comment_script
+    assert "benchmarkArtifactBundleCompetitiveSurpassTrendStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleCompetitiveSurpassTrendLight" in pr_comment_script
     assert "Benchmark Artifact Bundle Competitive Surpass" in pr_comment_script
+    assert "Benchmark Artifact Bundle Competitive Surpass Trend" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeRealdataCorrelationStatus" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
     assert "benchmarkArtifactBundleKnowledgeDomainMatrixStatus" in pr_comment_script
@@ -2542,7 +2554,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkCompanionCompetitiveSurpassStatus" in pr_comment_script
     assert "benchmarkCompanionCompetitiveSurpassStatusLine" in pr_comment_script
     assert "benchmarkCompanionCompetitiveSurpassLight" in pr_comment_script
+    assert "benchmarkCompanionCompetitiveSurpassTrendStatus" in pr_comment_script
+    assert "benchmarkCompanionCompetitiveSurpassTrendStatusLine" in pr_comment_script
+    assert "benchmarkCompanionCompetitiveSurpassTrendLight" in pr_comment_script
     assert "Benchmark Companion Competitive Surpass" in pr_comment_script
+    assert "Benchmark Companion Competitive Surpass Trend" in pr_comment_script
     assert "benchmarkCompanionKnowledgeRealdataCorrelationStatus" in pr_comment_script
     assert "benchmarkCompanionKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
     assert "benchmarkCompanionKnowledgeDomainMatrixStatus" in pr_comment_script
@@ -2559,6 +2575,9 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkCompanionKnowledgeOutcomeCorrelationStatusLine" in pr_comment_script
     assert "benchmarkReleaseKnowledgeApplicationStatus" in pr_comment_script
     assert "benchmarkReleaseKnowledgeApplicationStatusLine" in pr_comment_script
+    assert "benchmarkReleaseCompetitiveSurpassTrendStatus" in pr_comment_script
+    assert "benchmarkReleaseCompetitiveSurpassTrendStatusLine" in pr_comment_script
+    assert "benchmarkReleaseDecisionCompetitiveSurpassTrendLight" in pr_comment_script
     assert "benchmarkReleaseKnowledgeRealdataCorrelationStatus" in pr_comment_script
     assert "benchmarkReleaseKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
     assert "benchmarkReleaseKnowledgeDomainMatrixStatus" in pr_comment_script
@@ -2575,6 +2594,11 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkReleaseKnowledgeOutcomeCorrelationStatusLine" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeApplicationStatus" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeApplicationStatusLine" in pr_comment_script
+    assert "benchmarkReleaseRunbookCompetitiveSurpassTrendStatus" in pr_comment_script
+    assert "benchmarkReleaseRunbookCompetitiveSurpassTrendStatusLine" in (
+        pr_comment_script
+    )
+    assert "benchmarkReleaseRunbookCompetitiveSurpassTrendLight" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeRealdataCorrelationStatus" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeRealdataCorrelationStatusLine" in pr_comment_script
     assert "benchmarkReleaseRunbookKnowledgeDomainMatrixStatus" in pr_comment_script
@@ -2665,6 +2689,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Decision Knowledge Source Action Plan" in pr_comment_script
     assert "Benchmark Release Decision Knowledge Source Drift" in pr_comment_script
     assert "Benchmark Release Decision Knowledge Outcome Correlation" in pr_comment_script
+    assert "Benchmark Release Decision Competitive Surpass Trend" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Application" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Real-Data" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Domain Matrix" in pr_comment_script
@@ -2673,6 +2698,7 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Release Runbook Knowledge Source Action Plan" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Source Drift" in pr_comment_script
     assert "Benchmark Release Runbook Knowledge Outcome Correlation" in pr_comment_script
+    assert "Benchmark Release Runbook Competitive Surpass Trend" in pr_comment_script
     assert (
         "recommendations=${benchmarkKnowledgeApplicationRecommendations || 'n/a'}"
         in pr_comment_script
