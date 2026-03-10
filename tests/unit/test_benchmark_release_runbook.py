@@ -410,6 +410,22 @@ def test_build_release_runbook_freezes_when_ready() -> None:
             },
             "recommendations": ["Promote machining into benchmark views."],
         },
+        benchmark_knowledge_source_drift={
+            "knowledge_source_drift": {
+                "status": "improved",
+                "current_status": "knowledge_source_coverage_ready",
+                "previous_status": "knowledge_source_coverage_partial",
+                "source_group_regressions": [],
+                "source_group_improvements": ["standards"],
+                "resolved_priority_domains": ["standards"],
+                "new_priority_domains": [],
+                "counts": {"regressions": 0, "improvements": 1},
+            },
+            "summary": "Knowledge source coverage improved.",
+            "recommendations": [
+                "Promote the improved knowledge source coverage after CI surfaces refresh."
+            ],
+        },
         benchmark_knowledge_outcome_correlation={
             "knowledge_outcome_correlation": {
                 "status": "knowledge_outcome_correlation_ready",
@@ -462,6 +478,7 @@ def test_build_release_runbook_freezes_when_ready() -> None:
                 "knowledge_outcome_correlation.json"
             ),
             "benchmark_knowledge_outcome_drift": "knowledge_outcome_drift.json",
+            "benchmark_knowledge_source_drift": "knowledge_source_drift.json",
             "benchmark_competitive_surpass_index": "competitive_surpass.json",
         },
     )
@@ -524,6 +541,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     knowledge_domain_action_plan = tmp_path / "knowledge_domain_action_plan.json"
     knowledge_source_action_plan = tmp_path / "knowledge_source_action_plan.json"
     knowledge_source_coverage = tmp_path / "knowledge_source_coverage.json"
+    knowledge_source_drift = tmp_path / "knowledge_source_drift.json"
     knowledge_outcome_correlation = tmp_path / "knowledge_outcome_correlation.json"
     knowledge_outcome_drift = tmp_path / "knowledge_outcome_drift.json"
     competitive_surpass = tmp_path / "competitive_surpass.json"
@@ -788,6 +806,27 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
+    knowledge_source_drift.write_text(
+        json.dumps(
+            {
+                "knowledge_source_drift": {
+                    "status": "regressed",
+                    "current_status": "knowledge_source_coverage_partial",
+                    "previous_status": "knowledge_source_coverage_ready",
+                    "source_group_regressions": ["tolerance"],
+                    "source_group_improvements": [],
+                    "new_priority_domains": ["tolerance"],
+                    "resolved_priority_domains": [],
+                },
+                "summary": "Tolerance source coverage regressed.",
+                "recommendations": [
+                    "Restore regressed knowledge source groups before claiming "
+                    "benchmark source stability."
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
     knowledge_outcome_correlation.write_text(
         json.dumps(
             {
@@ -880,6 +919,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
             str(knowledge_source_action_plan),
             "--benchmark-knowledge-source-coverage",
             str(knowledge_source_coverage),
+            "--benchmark-knowledge-source-drift",
+            str(knowledge_source_drift),
             "--benchmark-knowledge-outcome-correlation",
             str(knowledge_outcome_correlation),
             "--benchmark-knowledge-outcome-drift",
@@ -915,6 +956,8 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert payload["knowledge_source_coverage_status"] == (
         "knowledge_source_coverage_partial"
     )
+    assert payload["knowledge_source_drift_status"] == "regressed"
+    assert payload["knowledge_source_drift_source_group_regressions"] == ["tolerance"]
     assert payload["knowledge_source_coverage_domains"]["tolerance"]["status"] == (
         "partial"
     )
@@ -968,6 +1011,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "## Knowledge Application" in rendered
     assert "## Knowledge Domain Matrix" in rendered
     assert "## Knowledge Domain Action Plan" in rendered
+    assert "## Knowledge Source Drift" in rendered
     assert "## Knowledge Outcome Drift" in rendered
     assert "## Competitive Surpass Index" in rendered
     assert "`competitive_surpass_index_status`: `competitive_surpass_partial`" in rendered
@@ -980,6 +1024,7 @@ def test_render_markdown_and_cli_outputs(tmp_path: Path) -> None:
     assert "## Operator Adoption" in rendered
     assert "operator_shift_handoff:pending" in rendered
     assert "Book an operator office-hours review." in rendered
+    assert "Tolerance source coverage regressed." in rendered
     assert "Tolerance coverage regressed." in rendered
     assert "Tolerance outcome coverage regressed." in rendered
     assert "Backfill tolerance outcome coverage." in rendered
@@ -1036,6 +1081,56 @@ def test_build_release_runbook_exposes_scorecard_and_operational_operator_adopti
     assert "## Operational Operator Adoption" in rendered
     assert "Operational rollout is partial." in rendered
     assert "## Operator Adoption Release Surface Alignment" in rendered
+
+
+def test_build_release_runbook_exposes_knowledge_source_drift_passthrough() -> None:
+    payload = build_release_runbook(
+        title="Benchmark Release Runbook",
+        benchmark_release_decision={"release_status": "review_required"},
+        benchmark_scorecard={},
+        benchmark_operational_summary={},
+        benchmark_companion_summary={},
+        benchmark_artifact_bundle={},
+        benchmark_knowledge_readiness={},
+        benchmark_knowledge_drift={},
+        benchmark_knowledge_outcome_drift={},
+        benchmark_knowledge_source_drift={
+            "knowledge_source_drift": {
+                "status": "regressed",
+                "current_status": "knowledge_source_coverage_partial",
+                "previous_status": "knowledge_source_coverage_ready",
+                "source_group_regressions": ["gdt"],
+                "source_group_improvements": [],
+                "new_priority_domains": ["gdt"],
+                "resolved_priority_domains": [],
+                "counts": {"regressions": 1, "improvements": 0},
+            },
+            "summary": "GD&T source coverage regressed.",
+            "recommendations": [
+                "Restore regressed knowledge source groups before claiming "
+                "benchmark source stability."
+            ],
+        },
+        benchmark_engineering_signals={},
+        benchmark_realdata_signals={},
+        benchmark_operator_adoption={},
+        artifact_paths={"benchmark_knowledge_source_drift": "knowledge_source_drift.json"},
+    )
+
+    assert payload["knowledge_source_drift_status"] == "regressed"
+    assert payload["knowledge_source_drift_source_group_regressions"] == ["gdt"]
+    assert payload["knowledge_source_drift_recommendations"] == [
+        "Restore regressed knowledge source groups before claiming benchmark source stability."
+    ]
+    assert payload["artifacts"]["benchmark_knowledge_source_drift"]["present"] is True
+    assert (
+        "Restore regressed knowledge source groups before claiming benchmark source stability."
+        in payload["review_signals"]
+    )
+
+    rendered = render_markdown(payload)
+    assert "## Knowledge Source Drift" in rendered
+    assert "GD&T source coverage regressed." in rendered
 
 
 def test_build_release_runbook_exposes_operator_adoption_release_alignment() -> None:
