@@ -49,6 +49,13 @@ surfaces.
 - `evaluation-report.yml` can build and upload benchmark engineering, bundle,
   knowledge-readiness, bundle, companion, release-decision, runbook, and
   operator-adoption artifacts
+- `competitive_surpass_index` is now available as:
+  - standalone exporter
+  - artifact bundle surface
+  - companion summary surface
+  - release decision surface
+  - release runbook surface
+  - CI summary / PR comment surface
 - PR comments and job summaries now surface bundle, companion, release, and
   engineering signals instead of only raw benchmark scorecard output
 - PR comments and job summaries now also surface `knowledge=...` state across
@@ -130,7 +137,10 @@ product depth:
    hybrid, OCR, history, and B-Rep surfaces in one report.
 4. Extend domain-level knowledge readiness into CI-visible drift and release
    deltas after the standalone surfaces settle.
-5. Add domain-aware benchmark views that tie standards/tolerance/GD&T status to
+5. Use the new `competitive_surpass_index` as the top-level benchmark control
+   plane, then tie standards/tolerance/GD&T gaps to that top-level score rather
+   than only exposing them in lower benchmark layers.
+6. Add domain-aware benchmark views that tie standards/tolerance/GD&T status to
    real-data benchmark outcomes instead of only synthetic/operator summaries.
 
 ## Reference Docs
@@ -151,6 +161,12 @@ product depth:
 - `docs/BENCHMARK_OPERATOR_ADOPTION_RELEASE_ALIGNMENT_PR_COMMENT_VALIDATION_20260310.md`
 - `docs/BENCHMARK_OPERATOR_ADOPTION_RELEASE_SURFACES_VALIDATION_20260310.md`
 - `docs/BENCHMARK_OPERATOR_ADOPTION_RELEASE_SURFACES_CI_VALIDATION_20260310.md`
+- `docs/BENCHMARK_COMPETITIVE_SURPASS_INDEX_VALIDATION_20260310.md`
+- `docs/BENCHMARK_COMPETITIVE_SURPASS_INDEX_CI_VALIDATION_20260310.md`
+- `docs/BENCHMARK_COMPETITIVE_SURPASS_INDEX_PR_COMMENT_VALIDATION_20260310.md`
+- `docs/BENCHMARK_COMPETITIVE_SURPASS_INDEX_RELEASE_SURFACES_VALIDATION_20260310.md`
+- `docs/BENCHMARK_COMPETITIVE_SURPASS_INDEX_RELEASE_SURFACES_CI_VALIDATION_20260310.md`
+- `docs/BENCHMARK_COMPETITIVE_SURPASS_INDEX_DELIVERY_PROGRESS_20260310.md`
 - `docs/BENCHMARK_KNOWLEDGE_READINESS_VALIDATION_20260308.md`
 - `docs/BENCHMARK_KNOWLEDGE_DOMAIN_READINESS_VALIDATION_20260308.md`
 - `docs/BENCHMARK_KNOWLEDGE_READINESS_CI_VALIDATION_20260308.md`
