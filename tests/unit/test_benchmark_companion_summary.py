@@ -183,6 +183,26 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
             },
             "recommendations": ["Backfill standards foundation metrics first."],
         },
+        benchmark_knowledge_source_action_plan={
+            "knowledge_source_action_plan": {
+                "status": "knowledge_source_action_plan_blocked",
+                "priority_domains": ["standards"],
+                "total_action_count": 2,
+                "high_priority_action_count": 1,
+                "medium_priority_action_count": 1,
+                "expansion_action_count": 1,
+                "recommended_first_actions": [
+                    {
+                        "id": "standards:coverage",
+                        "domain": "standards",
+                        "stage": "source_group",
+                        "priority": "high",
+                    }
+                ],
+                "source_group_action_counts": {"standards": 1},
+            },
+            "recommendations": ["Prioritize standards source-group restoration."],
+        },
         benchmark_knowledge_source_coverage={
             "knowledge_source_coverage": {
                 "status": "knowledge_source_coverage_partial",
@@ -234,6 +254,9 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     assert payload["component_statuses"]["knowledge_domain_action_plan"] == (
         "knowledge_domain_action_plan_blocked"
     )
+    assert payload["component_statuses"]["knowledge_source_action_plan"] == (
+        "knowledge_source_action_plan_blocked"
+    )
     assert payload["component_statuses"]["knowledge_source_coverage"] == (
         "knowledge_source_coverage_partial"
     )
@@ -242,6 +265,12 @@ def test_build_companion_summary_prefers_bundle_and_flags_attention() -> None:
     )
     assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
         "standards:foundation"
+    )
+    assert payload["knowledge_source_action_plan_status"] == (
+        "knowledge_source_action_plan_blocked"
+    )
+    assert payload["knowledge_source_action_plan_recommended_first_actions"][0]["id"] == (
+        "standards:coverage"
     )
     assert payload["knowledge_source_coverage_status"] == (
         "knowledge_source_coverage_partial"

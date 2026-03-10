@@ -151,6 +151,26 @@ def test_build_release_decision_blocks_on_blockers() -> None:
             },
             "recommendations": ["Backfill tolerance foundation metrics first."],
         },
+        benchmark_knowledge_source_action_plan={
+            "knowledge_source_action_plan": {
+                "status": "knowledge_source_action_plan_blocked",
+                "priority_domains": ["tolerance"],
+                "total_action_count": 2,
+                "high_priority_action_count": 1,
+                "medium_priority_action_count": 1,
+                "expansion_action_count": 1,
+                "recommended_first_actions": [
+                    {
+                        "id": "tolerance:coverage",
+                        "domain": "tolerance",
+                        "stage": "source_group",
+                        "priority": "high",
+                    }
+                ],
+                "source_group_action_counts": {"tolerance": 1},
+            },
+            "recommendations": ["Backfill tolerance source actions first."],
+        },
         benchmark_knowledge_source_coverage={
             "knowledge_source_coverage": {
                 "status": "knowledge_source_coverage_partial",
@@ -188,6 +208,9 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["component_statuses"]["knowledge_domain_action_plan"] == (
         "knowledge_domain_action_plan_blocked"
     )
+    assert payload["component_statuses"]["knowledge_source_action_plan"] == (
+        "knowledge_source_action_plan_blocked"
+    )
     assert payload["component_statuses"]["knowledge_source_coverage"] == (
         "knowledge_source_coverage_partial"
     )
@@ -217,6 +240,12 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
         "tolerance:foundation"
     )
+    assert payload["knowledge_source_action_plan_status"] == (
+        "knowledge_source_action_plan_blocked"
+    )
+    assert payload["knowledge_source_action_plan_recommended_first_actions"][0]["id"] == (
+        "tolerance:coverage"
+    )
     assert payload["knowledge_source_coverage_status"] == (
         "knowledge_source_coverage_partial"
     )
@@ -227,6 +256,7 @@ def test_build_release_decision_blocks_on_blockers() -> None:
         "machining"
     )
     assert "Operator fallback only." not in payload["review_signals"]
+    assert "Backfill tolerance source actions first." in payload["review_signals"]
     assert "Backfill tolerance source coverage." in payload["review_signals"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is False
