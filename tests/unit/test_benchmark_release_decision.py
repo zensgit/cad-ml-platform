@@ -151,6 +151,20 @@ def test_build_release_decision_blocks_on_blockers() -> None:
             },
             "recommendations": ["Backfill tolerance foundation metrics first."],
         },
+        benchmark_knowledge_source_coverage={
+            "knowledge_source_coverage": {
+                "status": "knowledge_source_coverage_partial",
+                "priority_domains": ["tolerance"],
+                "domains": {
+                    "tolerance": {
+                        "status": "partial",
+                        "focus_source_groups": ["tolerance"],
+                    }
+                },
+                "expansion_candidates": [{"name": "machining", "status": "ready"}],
+            },
+            "recommendations": ["Backfill tolerance source coverage."],
+        },
         artifact_paths={
             "benchmark_companion_summary": "companion.json",
             "benchmark_engineering_signals": "engineering.json",
@@ -173,6 +187,9 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     )
     assert payload["component_statuses"]["knowledge_domain_action_plan"] == (
         "knowledge_domain_action_plan_blocked"
+    )
+    assert payload["component_statuses"]["knowledge_source_coverage"] == (
+        "knowledge_source_coverage_partial"
     )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "unknown"
@@ -200,7 +217,17 @@ def test_build_release_decision_blocks_on_blockers() -> None:
     assert payload["knowledge_domain_action_plan_actions"][0]["id"] == (
         "tolerance:foundation"
     )
+    assert payload["knowledge_source_coverage_status"] == (
+        "knowledge_source_coverage_partial"
+    )
+    assert payload["knowledge_source_coverage_domains"]["tolerance"]["status"] == (
+        "partial"
+    )
+    assert payload["knowledge_source_coverage_expansion_candidates"][0]["name"] == (
+        "machining"
+    )
     assert "Operator fallback only." not in payload["review_signals"]
+    assert "Backfill tolerance source coverage." in payload["review_signals"]
     assert payload["artifacts"]["benchmark_engineering_signals"]["present"] is True
     assert payload["artifacts"]["benchmark_realdata_signals"]["present"] is False
     assert payload["artifacts"]["benchmark_operator_adoption"]["present"] is True
