@@ -1577,6 +1577,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark artifact bundle scorecard operator outcome drift" in summary_script
     assert "Benchmark artifact bundle operational operator adoption" in summary_script
     assert "Benchmark artifact bundle operational operator outcome drift" in summary_script
+    assert "Benchmark artifact bundle operator adoption release surface alignment" in (
+        summary_script
+    )
+    assert "Benchmark artifact bundle operator adoption release surface mismatches" in (
+        summary_script
+    )
     assert "Benchmark companion knowledge drift" in summary_script
     assert "Benchmark companion knowledge drift summary" in summary_script
     assert "Benchmark companion knowledge drift recommendations" in summary_script
@@ -1596,6 +1602,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark companion scorecard operator outcome drift" in summary_script
     assert "Benchmark companion operational operator adoption" in summary_script
     assert "Benchmark companion operational operator outcome drift" in summary_script
+    assert "Benchmark companion operator adoption release surface alignment" in (
+        summary_script
+    )
+    assert "Benchmark companion operator adoption release surface mismatches" in (
+        summary_script
+    )
     assert "Benchmark release knowledge drift" in summary_script
     assert "Benchmark release knowledge drift summary" in summary_script
     assert "Benchmark release knowledge focus areas" in summary_script
@@ -1687,6 +1699,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkArtifactBundleOperatorAdoptionKnowledgeDriftSummary" in pr_comment_script
     assert "benchmarkArtifactBundleScorecardOperatorAdoptionStatus" in pr_comment_script
     assert "benchmarkArtifactBundleScorecardOperatorAdoptionMode" in pr_comment_script
+    assert "benchmarkArtifactBundleOperatorAdoptionReleaseSurfaceAlignmentStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkArtifactBundleOperatorAdoptionReleaseSurfaceAlignmentMismatches" in (
+        pr_comment_script
+    )
     assert (
         "benchmarkArtifactBundleScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus"
         in pr_comment_script
@@ -1711,6 +1729,12 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "benchmarkCompanionOperatorAdoptionKnowledgeDriftSummary" in pr_comment_script
     assert "benchmarkCompanionScorecardOperatorAdoptionStatus" in pr_comment_script
     assert "benchmarkCompanionScorecardOperatorAdoptionMode" in pr_comment_script
+    assert "benchmarkCompanionOperatorAdoptionReleaseSurfaceAlignmentStatus" in (
+        pr_comment_script
+    )
+    assert "benchmarkCompanionOperatorAdoptionReleaseSurfaceAlignmentMismatches" in (
+        pr_comment_script
+    )
     assert (
         "benchmarkCompanionScorecardOperatorAdoptionKnowledgeOutcomeDriftStatus"
         in pr_comment_script
@@ -2097,6 +2121,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Artifact Bundle Operational Operator Outcome Drift" in (
         pr_comment_script
     )
+    assert "Benchmark Artifact Bundle Release Surface Alignment" in pr_comment_script
+    assert "Benchmark Artifact Bundle Release Surface Mismatches" in pr_comment_script
     assert "Benchmark Companion Operator Drift" in pr_comment_script
     assert "Benchmark Companion Operator Outcome Drift" in pr_comment_script
     assert "Benchmark Companion Scorecard Operator Adoption" in pr_comment_script
@@ -2107,6 +2133,8 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert "Benchmark Companion Operational Operator Outcome Drift" in (
         pr_comment_script
     )
+    assert "Benchmark Companion Release Surface Alignment" in pr_comment_script
+    assert "Benchmark Companion Release Surface Mismatches" in pr_comment_script
     assert "Benchmark Release Decision Operator Drift" in pr_comment_script
     assert "Benchmark Release Runbook Operator Drift" in pr_comment_script
     assert "Benchmark Operator Adoption Knowledge Drift" in pr_comment_script
