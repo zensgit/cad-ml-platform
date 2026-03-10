@@ -117,6 +117,7 @@ def _component_statuses(
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_control_plane: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_control_plane_drift: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
     benchmark_knowledge_source_drift: Dict[str, Any] | None = None,
@@ -146,6 +147,9 @@ def _component_statuses(
     )
     benchmark_knowledge_domain_control_plane_drift = (
         benchmark_knowledge_domain_control_plane_drift or {}
+    )
+    benchmark_knowledge_domain_release_surface_alignment = (
+        benchmark_knowledge_domain_release_surface_alignment or {}
     )
     benchmark_knowledge_source_action_plan = (
         benchmark_knowledge_source_action_plan or {}
@@ -227,6 +231,11 @@ def _component_statuses(
     knowledge_domain_control_plane_drift_component = (
         _knowledge_domain_control_plane_drift_component(
             benchmark_knowledge_domain_control_plane_drift
+        )
+    )
+    knowledge_domain_release_surface_alignment_component = (
+        _knowledge_domain_release_surface_alignment(
+            benchmark_knowledge_domain_release_surface_alignment
         )
     )
     knowledge_source_action_plan_component = (
@@ -402,6 +411,12 @@ def _component_statuses(
             or (
                 scorecard_components.get("knowledge_domain_control_plane_drift") or {}
             ).get("status")
+            or "unknown"
+        ),
+        "knowledge_domain_release_surface_alignment": str(
+            companion_components.get("knowledge_domain_release_surface_alignment")
+            or bundle_components.get("knowledge_domain_release_surface_alignment")
+            or knowledge_domain_release_surface_alignment_component.get("status")
             or "unknown"
         ),
         "knowledge_source_action_plan": str(
@@ -865,6 +880,29 @@ def _operator_adoption_release_surface_alignment(
     }
 
 
+def _knowledge_domain_release_surface_alignment(
+    benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any],
+) -> Dict[str, Any]:
+    alignment = (
+        benchmark_knowledge_domain_release_surface_alignment.get(
+            "knowledge_domain_release_surface_alignment"
+        )
+        or benchmark_knowledge_domain_release_surface_alignment
+        or {}
+    )
+    return {
+        "status": str(alignment.get("status") or "unknown"),
+        "summary": str(alignment.get("summary") or "none"),
+        "mismatches": list(alignment.get("mismatches") or []),
+        "domain_mismatches": list(alignment.get("domain_mismatches") or []),
+        "release_blocker_mismatches": list(
+            alignment.get("release_blocker_mismatches") or []
+        ),
+        "release_decision": dict(alignment.get("release_decision") or {}),
+        "release_runbook": dict(alignment.get("release_runbook") or {}),
+    }
+
+
 def build_release_decision(
     *,
     title: str,
@@ -887,6 +925,7 @@ def build_release_decision(
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_control_plane: Dict[str, Any] | None = None,
     benchmark_knowledge_domain_control_plane_drift: Dict[str, Any] | None = None,
+    benchmark_knowledge_domain_release_surface_alignment: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
     benchmark_knowledge_source_drift: Dict[str, Any] | None = None,
@@ -916,6 +955,9 @@ def build_release_decision(
     )
     benchmark_knowledge_domain_control_plane_drift = (
         benchmark_knowledge_domain_control_plane_drift or {}
+    )
+    benchmark_knowledge_domain_release_surface_alignment = (
+        benchmark_knowledge_domain_release_surface_alignment or {}
     )
     benchmark_knowledge_source_action_plan = (
         benchmark_knowledge_source_action_plan or {}
@@ -952,6 +994,7 @@ def build_release_decision(
         benchmark_knowledge_domain_action_plan,
         benchmark_knowledge_domain_control_plane,
         benchmark_knowledge_domain_control_plane_drift,
+        benchmark_knowledge_domain_release_surface_alignment,
         benchmark_knowledge_source_action_plan,
         benchmark_knowledge_source_coverage,
         benchmark_knowledge_source_drift,
@@ -1012,6 +1055,11 @@ def build_release_decision(
     knowledge_domain_control_plane_drift_component = (
         _knowledge_domain_control_plane_drift_component(
             benchmark_knowledge_domain_control_plane_drift
+        )
+    )
+    knowledge_domain_release_surface_alignment_component = (
+        _knowledge_domain_release_surface_alignment(
+            benchmark_knowledge_domain_release_surface_alignment
         )
     )
     knowledge_source_action_plan_component = (
@@ -1266,6 +1314,19 @@ def build_release_decision(
         )
         if item not in review_signals
     )
+    if (
+        knowledge_domain_release_surface_alignment_component.get("status")
+        not in {"", "unknown", "aligned"}
+    ):
+        for item in _compact(
+            benchmark_knowledge_domain_release_surface_alignment.get(
+                "recommendations"
+            )
+            or [],
+            limit=6,
+        ):
+            if item not in review_signals:
+                review_signals.append(item)
     review_signals.extend(
         item
         for item in _knowledge_source_action_plan_review_signals(
@@ -1567,6 +1628,20 @@ def build_release_decision(
         "knowledge_domain_control_plane_drift_recommendations": (
             knowledge_domain_control_plane_drift_recommendations
         ),
+        "knowledge_domain_release_surface_alignment_status": (
+            knowledge_domain_release_surface_alignment_component.get("status")
+            or "unknown"
+        ),
+        "knowledge_domain_release_surface_alignment": (
+            knowledge_domain_release_surface_alignment_component
+        ),
+        "knowledge_domain_release_surface_alignment_recommendations": _compact(
+            benchmark_knowledge_domain_release_surface_alignment.get(
+                "recommendations"
+            )
+            or [],
+            limit=6,
+        ),
         "knowledge_source_action_plan_status": (
             knowledge_source_action_plan_component.get("status") or "unknown"
         ),
@@ -1812,6 +1887,13 @@ def build_release_decision(
                     "",
                 ),
             ),
+            "benchmark_knowledge_domain_release_surface_alignment": _artifact_row(
+                "benchmark_knowledge_domain_release_surface_alignment",
+                artifact_paths.get(
+                    "benchmark_knowledge_domain_release_surface_alignment",
+                    "",
+                ),
+            ),
             "benchmark_knowledge_source_action_plan": _artifact_row(
                 "benchmark_knowledge_source_action_plan",
                 artifact_paths.get("benchmark_knowledge_source_action_plan", ""),
@@ -1865,6 +1947,8 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"`{payload.get('knowledge_domain_control_plane_status') or 'unknown'}`",
         f"- `knowledge_domain_control_plane_drift_status`: "
         f"`{payload.get('knowledge_domain_control_plane_drift_status') or 'unknown'}`",
+        f"- `knowledge_domain_release_surface_alignment_status`: "
+        f"`{payload.get('knowledge_domain_release_surface_alignment_status') or 'unknown'}`",
         f"- `competitive_surpass_index_status`: "
         f"`{payload.get('competitive_surpass_index_status') or 'unknown'}`",
         "",
@@ -1960,6 +2044,30 @@ def render_markdown(payload: Dict[str, Any]) -> str:
         f"`{payload.get('knowledge_outcome_drift_status') or 'unknown'}`"
     )
     lines.append(f"- `realdata_status`: `{payload.get('realdata_status')}`")
+    lines.extend(["", "## Knowledge Domain Release Surface Alignment", ""])
+    knowledge_alignment = (
+        payload.get("knowledge_domain_release_surface_alignment") or {}
+    )
+    lines.append(
+        f"- `status`: `{knowledge_alignment.get('status') or 'unknown'}`"
+    )
+    lines.append(
+        "- `summary`: " + (_text(knowledge_alignment.get("summary")) or "none")
+    )
+    lines.append(
+        "- `mismatches`: "
+        + (
+            ", ".join(str(item) for item in knowledge_alignment.get("mismatches") or [])
+            or "none"
+        )
+    )
+    knowledge_alignment_recommendations = (
+        payload.get("knowledge_domain_release_surface_alignment_recommendations")
+        or []
+    )
+    if knowledge_alignment_recommendations:
+        for item in knowledge_alignment_recommendations:
+            lines.append(f"- recommendation: {item}")
     lines.extend(["", "## Blocking Signals", ""])
     blockers = payload.get("blocking_signals") or []
     if blockers:
@@ -2557,6 +2665,9 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-domain-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-domain-control-plane", default="")
     parser.add_argument("--benchmark-knowledge-domain-control-plane-drift", default="")
+    parser.add_argument(
+        "--benchmark-knowledge-domain-release-surface-alignment", default=""
+    )
     parser.add_argument("--benchmark-knowledge-source-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-source-coverage", default="")
     parser.add_argument("--benchmark-knowledge-source-drift", default="")
@@ -2599,6 +2710,9 @@ def main() -> None:
         ),
         "benchmark_knowledge_domain_control_plane_drift": (
             args.benchmark_knowledge_domain_control_plane_drift
+        ),
+        "benchmark_knowledge_domain_release_surface_alignment": (
+            args.benchmark_knowledge_domain_release_surface_alignment
         ),
         "benchmark_knowledge_source_action_plan": (
             args.benchmark_knowledge_source_action_plan
@@ -2670,6 +2784,9 @@ def main() -> None:
         ),
         benchmark_knowledge_domain_control_plane_drift=_maybe_load_json(
             args.benchmark_knowledge_domain_control_plane_drift
+        ),
+        benchmark_knowledge_domain_release_surface_alignment=_maybe_load_json(
+            args.benchmark_knowledge_domain_release_surface_alignment
         ),
         benchmark_knowledge_source_action_plan=_maybe_load_json(
             args.benchmark_knowledge_source_action_plan
