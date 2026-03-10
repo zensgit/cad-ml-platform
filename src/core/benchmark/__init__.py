@@ -44,6 +44,11 @@ from .knowledge_domain_action_plan import (  # noqa: F401
     knowledge_domain_action_plan_recommendations,
     render_knowledge_domain_action_plan_markdown,
 )
+from .knowledge_domain_capability_matrix import (  # noqa: F401
+    build_knowledge_domain_capability_matrix,
+    knowledge_domain_capability_matrix_recommendations,
+    render_knowledge_domain_capability_matrix_markdown,
+)
 from .knowledge_source_coverage import (  # noqa: F401
     build_knowledge_source_coverage_status,
     collect_builtin_knowledge_source_snapshot,
