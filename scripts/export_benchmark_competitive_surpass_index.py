@@ -55,6 +55,7 @@ def build_competitive_surpass_summary(
     benchmark_knowledge_domain_action_plan: Dict[str, Any] | None = None,
     benchmark_knowledge_source_coverage: Dict[str, Any] | None = None,
     benchmark_knowledge_source_action_plan: Dict[str, Any] | None = None,
+    benchmark_knowledge_source_drift: Dict[str, Any] | None = None,
     benchmark_knowledge_outcome_correlation: Dict[str, Any],
     benchmark_knowledge_outcome_drift: Dict[str, Any],
     benchmark_realdata_signals: Dict[str, Any],
@@ -71,6 +72,7 @@ def build_competitive_surpass_summary(
         benchmark_knowledge_domain_action_plan=benchmark_knowledge_domain_action_plan,
         benchmark_knowledge_source_coverage=benchmark_knowledge_source_coverage,
         benchmark_knowledge_source_action_plan=benchmark_knowledge_source_action_plan,
+        benchmark_knowledge_source_drift=benchmark_knowledge_source_drift,
         benchmark_knowledge_outcome_correlation=benchmark_knowledge_outcome_correlation,
         benchmark_knowledge_outcome_drift=benchmark_knowledge_outcome_drift,
         benchmark_realdata_signals=benchmark_realdata_signals,
@@ -99,6 +101,7 @@ def main() -> None:
     parser.add_argument("--benchmark-knowledge-domain-action-plan", default="")
     parser.add_argument("--benchmark-knowledge-source-coverage", default="")
     parser.add_argument("--benchmark-knowledge-source-action-plan", default="")
+    parser.add_argument("--benchmark-knowledge-source-drift", default="")
     parser.add_argument("--benchmark-knowledge-outcome-correlation", default="")
     parser.add_argument("--benchmark-knowledge-outcome-drift", default="")
     parser.add_argument("--benchmark-realdata-signals", default="")
@@ -125,6 +128,7 @@ def main() -> None:
         "benchmark_knowledge_source_action_plan": (
             args.benchmark_knowledge_source_action_plan
         ),
+        "benchmark_knowledge_source_drift": args.benchmark_knowledge_source_drift,
         "benchmark_knowledge_outcome_correlation": (
             args.benchmark_knowledge_outcome_correlation
         ),
@@ -152,6 +156,9 @@ def main() -> None:
         ),
         benchmark_knowledge_source_action_plan=_maybe_load_json(
             args.benchmark_knowledge_source_action_plan
+        ),
+        benchmark_knowledge_source_drift=_maybe_load_json(
+            args.benchmark_knowledge_source_drift
         ),
         benchmark_knowledge_outcome_correlation=_maybe_load_json(
             args.benchmark_knowledge_outcome_correlation
