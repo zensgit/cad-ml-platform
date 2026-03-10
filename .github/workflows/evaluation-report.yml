@@ -9092,6 +9092,23 @@ jobs:
         else
           echo "- Benchmark knowledge domain control plane: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
         fi
+        if [[ "${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark knowledge domain control plane drift status: ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain control plane drift current status: ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.current_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain control plane drift previous status: ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.previous_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain control plane drift ready domain delta: ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.ready_domain_delta }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain control plane drift blocked domain delta: ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.blocked_domain_delta }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain control plane drift total action delta: ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.total_action_delta }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain control plane drift high-priority action delta: ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.high_priority_action_delta }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain control plane drift domain regressions: ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.domain_regressions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain control plane drift domain improvements: ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.domain_improvements }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain control plane drift resolved release blockers: ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.resolved_release_blockers }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain control plane drift new release blockers: ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.new_release_blockers }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain control plane drift recommendations: ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark knowledge domain control plane drift artifact: ${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark knowledge domain control plane drift: skipped (BENCHMARK_KNOWLEDGE_DOMAIN_CONTROL_PLANE_DRIFT_ENABLE!=true or no inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
         if [[ "${{ steps.benchmark_knowledge_source_coverage.outputs.enabled }}" == "true" ]]; then
           echo "- Benchmark knowledge source coverage status: ${{ steps.benchmark_knowledge_source_coverage.outputs.status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark knowledge source coverage ready source groups: ${{ steps.benchmark_knowledge_source_coverage.outputs.ready_source_group_count }}" >> $GITHUB_STEP_SUMMARY
@@ -9242,6 +9259,12 @@ jobs:
           echo "- Benchmark artifact bundle knowledge domain capability drift regressions: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_capability_drift_domain_regressions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge domain capability drift improvements: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_capability_drift_domain_improvements }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge domain capability drift recommendations: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_capability_drift_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain control plane drift: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain control plane drift regressions: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_drift_domain_regressions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain control plane drift improvements: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_drift_domain_improvements }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain control plane drift resolved release blockers: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_drift_resolved_release_blockers }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain control plane drift new release blockers: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_drift_new_release_blockers }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle knowledge domain control plane drift recommendations: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_drift_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge source coverage: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_coverage_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge source coverage domains: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_coverage_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle knowledge source coverage expansion candidates: ${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_coverage_expansion_candidates }}" >> $GITHUB_STEP_SUMMARY
@@ -9331,6 +9354,12 @@ jobs:
           echo "- Benchmark companion knowledge domain capability drift regressions: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_capability_drift_domain_regressions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge domain capability drift improvements: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_capability_drift_domain_improvements }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge domain capability drift recommendations: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_capability_drift_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain control plane drift: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain control plane drift regressions: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_drift_domain_regressions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain control plane drift improvements: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_drift_domain_improvements }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain control plane drift resolved release blockers: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_drift_resolved_release_blockers }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain control plane drift new release blockers: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_drift_new_release_blockers }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion knowledge domain control plane drift recommendations: ${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_drift_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge source coverage: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_coverage_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge source coverage domains: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_coverage_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion knowledge source coverage expansion candidates: ${{ steps.benchmark_companion_summary.outputs.knowledge_source_coverage_expansion_candidates }}" >> $GITHUB_STEP_SUMMARY
@@ -9418,6 +9447,12 @@ jobs:
           echo "- Benchmark release knowledge domain capability drift regressions: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_capability_drift_domain_regressions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge domain capability drift improvements: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_capability_drift_domain_improvements }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge domain capability drift recommendations: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_capability_drift_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge domain control plane drift: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge domain control plane drift regressions: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_drift_domain_regressions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge domain control plane drift improvements: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_drift_domain_improvements }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge domain control plane drift resolved release blockers: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_drift_resolved_release_blockers }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge domain control plane drift new release blockers: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_drift_new_release_blockers }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release knowledge domain control plane drift recommendations: ${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_drift_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge source coverage: ${{ steps.benchmark_release_decision.outputs.knowledge_source_coverage_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge source coverage domains: ${{ steps.benchmark_release_decision.outputs.knowledge_source_coverage_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release knowledge source coverage expansion candidates: ${{ steps.benchmark_release_decision.outputs.knowledge_source_coverage_expansion_candidates }}" >> $GITHUB_STEP_SUMMARY
@@ -9499,6 +9534,12 @@ jobs:
           echo "- Benchmark release runbook knowledge domain capability drift regressions: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_capability_drift_domain_regressions }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge domain capability drift improvements: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_capability_drift_domain_improvements }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge domain capability drift recommendations: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_capability_drift_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge domain control plane drift: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_drift_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge domain control plane drift regressions: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_drift_domain_regressions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge domain control plane drift improvements: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_drift_domain_improvements }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge domain control plane drift resolved release blockers: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_drift_resolved_release_blockers }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge domain control plane drift new release blockers: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_drift_new_release_blockers }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook knowledge domain control plane drift recommendations: ${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_drift_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge source coverage: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_coverage_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge source coverage domains: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_coverage_domain_statuses }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook knowledge source coverage expansion candidates: ${{ steps.benchmark_release_runbook.outputs.knowledge_source_coverage_expansion_candidates }}" >> $GITHUB_STEP_SUMMARY
@@ -9868,6 +9909,20 @@ jobs:
             const benchmarkKnowledgeDomainControlPlaneFocusAreas = '${{ steps.benchmark_knowledge_domain_control_plane.outputs.focus_areas }}';
             const benchmarkKnowledgeDomainControlPlaneRecommendations = '${{ steps.benchmark_knowledge_domain_control_plane.outputs.recommendations }}';
             const benchmarkKnowledgeDomainControlPlaneArtifact = '${{ steps.benchmark_knowledge_domain_control_plane.outputs.output_md }}';
+            const benchmarkKnowledgeDomainControlPlaneDriftEnabled = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.enabled }}' === 'true';
+            const benchmarkKnowledgeDomainControlPlaneDriftStatus = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.status }}';
+            const benchmarkKnowledgeDomainControlPlaneDriftCurrentStatus = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.current_status }}';
+            const benchmarkKnowledgeDomainControlPlaneDriftPreviousStatus = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.previous_status }}';
+            const benchmarkKnowledgeDomainControlPlaneDriftReadyDomainDelta = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.ready_domain_delta }}';
+            const benchmarkKnowledgeDomainControlPlaneDriftBlockedDomainDelta = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.blocked_domain_delta }}';
+            const benchmarkKnowledgeDomainControlPlaneDriftTotalActionDelta = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.total_action_delta }}';
+            const benchmarkKnowledgeDomainControlPlaneDriftHighPriorityActionDelta = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.high_priority_action_delta }}';
+            const benchmarkKnowledgeDomainControlPlaneDriftDomainRegressions = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.domain_regressions }}';
+            const benchmarkKnowledgeDomainControlPlaneDriftDomainImprovements = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.domain_improvements }}';
+            const benchmarkKnowledgeDomainControlPlaneDriftResolvedReleaseBlockers = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.resolved_release_blockers }}';
+            const benchmarkKnowledgeDomainControlPlaneDriftNewReleaseBlockers = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.new_release_blockers }}';
+            const benchmarkKnowledgeDomainControlPlaneDriftRecommendations = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.recommendations }}';
+            const benchmarkKnowledgeDomainControlPlaneDriftArtifact = '${{ steps.benchmark_knowledge_domain_control_plane_drift.outputs.output_md }}';
             const benchmarkKnowledgeSourceCoverageEnabled = '${{ steps.benchmark_knowledge_source_coverage.outputs.enabled }}' === 'true';
             const benchmarkKnowledgeSourceCoverageStatus = '${{ steps.benchmark_knowledge_source_coverage.outputs.status }}';
             const benchmarkKnowledgeSourceCoverageReadySourceGroups = '${{ steps.benchmark_knowledge_source_coverage.outputs.ready_source_group_count }}';
@@ -10004,6 +10059,12 @@ jobs:
             const benchmarkArtifactBundleKnowledgeDomainControlPlaneDomains = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_domains }}';
             const benchmarkArtifactBundleKnowledgeDomainControlPlaneReleaseBlockers = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_release_blockers }}';
             const benchmarkArtifactBundleKnowledgeDomainControlPlaneRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_recommendations }}';
+            const benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftStatus = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_drift_status }}';
+            const benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftDomainRegressions = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_drift_domain_regressions }}';
+            const benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftDomainImprovements = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_drift_domain_improvements }}';
+            const benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftResolvedReleaseBlockers = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_drift_resolved_release_blockers }}';
+            const benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftNewReleaseBlockers = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_drift_new_release_blockers }}';
+            const benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftRecommendations = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_domain_control_plane_drift_recommendations }}';
             const benchmarkArtifactBundleKnowledgeSourceCoverageStatus = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_coverage_status }}';
             const benchmarkArtifactBundleKnowledgeSourceCoverageDomainStatuses = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_coverage_domain_statuses }}';
             const benchmarkArtifactBundleKnowledgeSourceCoverageExpansionCandidates = '${{ steps.benchmark_artifact_bundle.outputs.knowledge_source_coverage_expansion_candidates }}';
@@ -10113,6 +10174,12 @@ jobs:
             const benchmarkCompanionKnowledgeDomainControlPlaneDomains = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_domains }}';
             const benchmarkCompanionKnowledgeDomainControlPlaneReleaseBlockers = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_release_blockers }}';
             const benchmarkCompanionKnowledgeDomainControlPlaneRecommendations = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_recommendations }}';
+            const benchmarkCompanionKnowledgeDomainControlPlaneDriftStatus = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_drift_status }}';
+            const benchmarkCompanionKnowledgeDomainControlPlaneDriftDomainRegressions = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_drift_domain_regressions }}';
+            const benchmarkCompanionKnowledgeDomainControlPlaneDriftDomainImprovements = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_drift_domain_improvements }}';
+            const benchmarkCompanionKnowledgeDomainControlPlaneDriftResolvedReleaseBlockers = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_drift_resolved_release_blockers }}';
+            const benchmarkCompanionKnowledgeDomainControlPlaneDriftNewReleaseBlockers = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_drift_new_release_blockers }}';
+            const benchmarkCompanionKnowledgeDomainControlPlaneDriftRecommendations = '${{ steps.benchmark_companion_summary.outputs.knowledge_domain_control_plane_drift_recommendations }}';
             const benchmarkCompanionKnowledgeSourceCoverageStatus = '${{ steps.benchmark_companion_summary.outputs.knowledge_source_coverage_status }}';
             const benchmarkCompanionKnowledgeSourceCoverageDomainStatuses = '${{ steps.benchmark_companion_summary.outputs.knowledge_source_coverage_domain_statuses }}';
             const benchmarkCompanionKnowledgeSourceCoverageExpansionCandidates = '${{ steps.benchmark_companion_summary.outputs.knowledge_source_coverage_expansion_candidates }}';
@@ -10222,6 +10289,12 @@ jobs:
             const benchmarkReleaseKnowledgeDomainControlPlaneDomains = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_domains }}';
             const benchmarkReleaseKnowledgeDomainControlPlaneReleaseBlockers = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_release_blockers }}';
             const benchmarkReleaseKnowledgeDomainControlPlaneRecommendations = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_recommendations }}';
+            const benchmarkReleaseKnowledgeDomainControlPlaneDriftStatus = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_drift_status }}';
+            const benchmarkReleaseKnowledgeDomainControlPlaneDriftDomainRegressions = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_drift_domain_regressions }}';
+            const benchmarkReleaseKnowledgeDomainControlPlaneDriftDomainImprovements = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_drift_domain_improvements }}';
+            const benchmarkReleaseKnowledgeDomainControlPlaneDriftResolvedReleaseBlockers = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_drift_resolved_release_blockers }}';
+            const benchmarkReleaseKnowledgeDomainControlPlaneDriftNewReleaseBlockers = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_drift_new_release_blockers }}';
+            const benchmarkReleaseKnowledgeDomainControlPlaneDriftRecommendations = '${{ steps.benchmark_release_decision.outputs.knowledge_domain_control_plane_drift_recommendations }}';
             const benchmarkReleaseKnowledgeSourceCoverageStatus = '${{ steps.benchmark_release_decision.outputs.knowledge_source_coverage_status }}';
             const benchmarkReleaseKnowledgeSourceCoverageDomainStatuses = '${{ steps.benchmark_release_decision.outputs.knowledge_source_coverage_domain_statuses }}';
             const benchmarkReleaseKnowledgeSourceCoverageExpansionCandidates = '${{ steps.benchmark_release_decision.outputs.knowledge_source_coverage_expansion_candidates }}';
@@ -10327,6 +10400,12 @@ jobs:
             const benchmarkReleaseRunbookKnowledgeDomainControlPlaneDomains = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_domains }}';
             const benchmarkReleaseRunbookKnowledgeDomainControlPlaneReleaseBlockers = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_release_blockers }}';
             const benchmarkReleaseRunbookKnowledgeDomainControlPlaneRecommendations = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_recommendations }}';
+            const benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftStatus = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_drift_status }}';
+            const benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftDomainRegressions = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_drift_domain_regressions }}';
+            const benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftDomainImprovements = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_drift_domain_improvements }}';
+            const benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftResolvedReleaseBlockers = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_drift_resolved_release_blockers }}';
+            const benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftNewReleaseBlockers = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_drift_new_release_blockers }}';
+            const benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftRecommendations = '${{ steps.benchmark_release_runbook.outputs.knowledge_domain_control_plane_drift_recommendations }}';
             const benchmarkReleaseRunbookKnowledgeSourceCoverageStatus = '${{ steps.benchmark_release_runbook.outputs.knowledge_source_coverage_status }}';
             const benchmarkReleaseRunbookKnowledgeSourceCoverageDomainStatuses = '${{ steps.benchmark_release_runbook.outputs.knowledge_source_coverage_domain_statuses }}';
             const benchmarkReleaseRunbookKnowledgeSourceCoverageExpansionCandidates = '${{ steps.benchmark_release_runbook.outputs.knowledge_source_coverage_expansion_candidates }}';
@@ -10510,6 +10589,9 @@ jobs:
             const benchmarkKnowledgeDomainControlPlaneStatusLine = benchmarkKnowledgeDomainControlPlaneEnabled
               ? `status=${benchmarkKnowledgeDomainControlPlaneStatus || 'n/a'}, ready=${benchmarkKnowledgeDomainControlPlaneReadyDomains || 'n/a'}, partial=${benchmarkKnowledgeDomainControlPlanePartialDomains || 'n/a'}, blocked=${benchmarkKnowledgeDomainControlPlaneBlockedDomains || 'n/a'}, missing=${benchmarkKnowledgeDomainControlPlaneMissingDomains || 'n/a'}, total=${benchmarkKnowledgeDomainControlPlaneTotalDomains || 'n/a'}, actions=${benchmarkKnowledgeDomainControlPlaneTotalActions || 'n/a'}, high=${benchmarkKnowledgeDomainControlPlaneHighPriorityActions || 'n/a'}, release_blockers=${benchmarkKnowledgeDomainControlPlaneReleaseBlockers || 'n/a'}, priority_domains=${benchmarkKnowledgeDomainControlPlanePriorityDomains || 'n/a'}, focus_areas=${benchmarkKnowledgeDomainControlPlaneFocusAreas || 'n/a'}, recommendations=${benchmarkKnowledgeDomainControlPlaneRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeDomainControlPlaneArtifact || 'n/a'}`
               : '⏭️ skipped';
+            const benchmarkKnowledgeDomainControlPlaneDriftStatusLine = benchmarkKnowledgeDomainControlPlaneDriftEnabled
+              ? `status=${benchmarkKnowledgeDomainControlPlaneDriftStatus || 'n/a'}, current=${benchmarkKnowledgeDomainControlPlaneDriftCurrentStatus || 'n/a'}, previous=${benchmarkKnowledgeDomainControlPlaneDriftPreviousStatus || 'n/a'}, ready_delta=${benchmarkKnowledgeDomainControlPlaneDriftReadyDomainDelta || 'n/a'}, blocked_delta=${benchmarkKnowledgeDomainControlPlaneDriftBlockedDomainDelta || 'n/a'}, total_action_delta=${benchmarkKnowledgeDomainControlPlaneDriftTotalActionDelta || 'n/a'}, high_priority_action_delta=${benchmarkKnowledgeDomainControlPlaneDriftHighPriorityActionDelta || 'n/a'}, domain_regressions=${benchmarkKnowledgeDomainControlPlaneDriftDomainRegressions || 'n/a'}, domain_improvements=${benchmarkKnowledgeDomainControlPlaneDriftDomainImprovements || 'n/a'}, resolved_release_blockers=${benchmarkKnowledgeDomainControlPlaneDriftResolvedReleaseBlockers || 'n/a'}, new_release_blockers=${benchmarkKnowledgeDomainControlPlaneDriftNewReleaseBlockers || 'n/a'}, recommendations=${benchmarkKnowledgeDomainControlPlaneDriftRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeDomainControlPlaneDriftArtifact || 'n/a'}`
+              : '⏭️ skipped';
             const benchmarkKnowledgeSourceCoverageStatusLine = benchmarkKnowledgeSourceCoverageEnabled
               ? `status=${benchmarkKnowledgeSourceCoverageStatus || 'n/a'}, ready=${benchmarkKnowledgeSourceCoverageReadySourceGroups || 'n/a'}, partial=${benchmarkKnowledgeSourceCoveragePartialSourceGroups || 'n/a'}, missing=${benchmarkKnowledgeSourceCoverageMissingSourceGroups || 'n/a'}, total=${benchmarkKnowledgeSourceCoverageTotalSourceGroups || 'n/a'}, tables=${benchmarkKnowledgeSourceCoverageTotalSourceTables || 'n/a'}, items=${benchmarkKnowledgeSourceCoverageTotalSourceItems || 'n/a'}, standards=${benchmarkKnowledgeSourceCoverageTotalReferenceStandards || 'n/a'}, expansion_ready=${benchmarkKnowledgeSourceCoverageReadyExpansionCandidates || 'n/a'}, focus=${benchmarkKnowledgeSourceCoverageFocusAreas || 'n/a'}, domains=${benchmarkKnowledgeSourceCoveragePriorityDomains || 'n/a'} / ${benchmarkKnowledgeSourceCoverageDomainStatuses || 'n/a'}, expansion_candidates=${benchmarkKnowledgeSourceCoverageExpansionCandidates || 'n/a'}, recommendations=${benchmarkKnowledgeSourceCoverageRecommendations || 'n/a'}, artifact=${benchmarkKnowledgeSourceCoverageArtifact || 'n/a'}`
               : '⏭️ skipped';
@@ -10558,6 +10640,9 @@ jobs:
               : '⏭️ skipped';
             const benchmarkArtifactBundleKnowledgeDomainControlPlaneStatusLine = benchmarkArtifactBundleEnabled
               ? `status=${benchmarkArtifactBundleKnowledgeDomainControlPlaneStatus || 'n/a'}, domains=${benchmarkArtifactBundleKnowledgeDomainControlPlaneDomains || 'n/a'}, release_blockers=${benchmarkArtifactBundleKnowledgeDomainControlPlaneReleaseBlockers || 'n/a'}, recommendations=${benchmarkArtifactBundleKnowledgeDomainControlPlaneRecommendations || 'n/a'}`
+              : '⏭️ skipped';
+            const benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftStatusLine = benchmarkArtifactBundleEnabled
+              ? `status=${benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftStatus || 'n/a'}, regressions=${benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftDomainRegressions || 'n/a'}, improvements=${benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftDomainImprovements || 'n/a'}, resolved_release_blockers=${benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftResolvedReleaseBlockers || 'n/a'}, new_release_blockers=${benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftNewReleaseBlockers || 'n/a'}, recommendations=${benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftRecommendations || 'n/a'}`
               : '⏭️ skipped';
             const benchmarkArtifactBundleKnowledgeSourceCoverageStatusLine = benchmarkArtifactBundleEnabled
               ? `status=${benchmarkArtifactBundleKnowledgeSourceCoverageStatus || 'n/a'}, domains=${benchmarkArtifactBundleKnowledgeSourceCoverageDomainStatuses || 'n/a'}, expansion_candidates=${benchmarkArtifactBundleKnowledgeSourceCoverageExpansionCandidates || 'n/a'}, recommendations=${benchmarkArtifactBundleKnowledgeSourceCoverageRecommendations || 'n/a'}`
@@ -10611,6 +10696,9 @@ jobs:
             const benchmarkCompanionKnowledgeDomainControlPlaneStatusLine = benchmarkCompanionSummaryEnabled
               ? `status=${benchmarkCompanionKnowledgeDomainControlPlaneStatus || 'n/a'}, domains=${benchmarkCompanionKnowledgeDomainControlPlaneDomains || 'n/a'}, release_blockers=${benchmarkCompanionKnowledgeDomainControlPlaneReleaseBlockers || 'n/a'}, recommendations=${benchmarkCompanionKnowledgeDomainControlPlaneRecommendations || 'n/a'}`
               : '⏭️ skipped';
+            const benchmarkCompanionKnowledgeDomainControlPlaneDriftStatusLine = benchmarkCompanionSummaryEnabled
+              ? `status=${benchmarkCompanionKnowledgeDomainControlPlaneDriftStatus || 'n/a'}, regressions=${benchmarkCompanionKnowledgeDomainControlPlaneDriftDomainRegressions || 'n/a'}, improvements=${benchmarkCompanionKnowledgeDomainControlPlaneDriftDomainImprovements || 'n/a'}, resolved_release_blockers=${benchmarkCompanionKnowledgeDomainControlPlaneDriftResolvedReleaseBlockers || 'n/a'}, new_release_blockers=${benchmarkCompanionKnowledgeDomainControlPlaneDriftNewReleaseBlockers || 'n/a'}, recommendations=${benchmarkCompanionKnowledgeDomainControlPlaneDriftRecommendations || 'n/a'}`
+              : '⏭️ skipped';
             const benchmarkCompanionKnowledgeSourceCoverageStatusLine = benchmarkCompanionSummaryEnabled
               ? `status=${benchmarkCompanionKnowledgeSourceCoverageStatus || 'n/a'}, domains=${benchmarkCompanionKnowledgeSourceCoverageDomainStatuses || 'n/a'}, expansion_candidates=${benchmarkCompanionKnowledgeSourceCoverageExpansionCandidates || 'n/a'}, recommendations=${benchmarkCompanionKnowledgeSourceCoverageRecommendations || 'n/a'}`
               : '⏭️ skipped';
@@ -10663,6 +10751,9 @@ jobs:
             const benchmarkReleaseKnowledgeDomainControlPlaneStatusLine = benchmarkReleaseDecisionEnabled
               ? `status=${benchmarkReleaseKnowledgeDomainControlPlaneStatus || 'n/a'}, domains=${benchmarkReleaseKnowledgeDomainControlPlaneDomains || 'n/a'}, release_blockers=${benchmarkReleaseKnowledgeDomainControlPlaneReleaseBlockers || 'n/a'}, recommendations=${benchmarkReleaseKnowledgeDomainControlPlaneRecommendations || 'n/a'}`
               : '⏭️ skipped';
+            const benchmarkReleaseKnowledgeDomainControlPlaneDriftStatusLine = benchmarkReleaseDecisionEnabled
+              ? `status=${benchmarkReleaseKnowledgeDomainControlPlaneDriftStatus || 'n/a'}, regressions=${benchmarkReleaseKnowledgeDomainControlPlaneDriftDomainRegressions || 'n/a'}, improvements=${benchmarkReleaseKnowledgeDomainControlPlaneDriftDomainImprovements || 'n/a'}, resolved_release_blockers=${benchmarkReleaseKnowledgeDomainControlPlaneDriftResolvedReleaseBlockers || 'n/a'}, new_release_blockers=${benchmarkReleaseKnowledgeDomainControlPlaneDriftNewReleaseBlockers || 'n/a'}, recommendations=${benchmarkReleaseKnowledgeDomainControlPlaneDriftRecommendations || 'n/a'}`
+              : '⏭️ skipped';
             const benchmarkReleaseKnowledgeSourceCoverageStatusLine = benchmarkReleaseDecisionEnabled
               ? `status=${benchmarkReleaseKnowledgeSourceCoverageStatus || 'n/a'}, domains=${benchmarkReleaseKnowledgeSourceCoverageDomainStatuses || 'n/a'}, expansion_candidates=${benchmarkReleaseKnowledgeSourceCoverageExpansionCandidates || 'n/a'}, recommendations=${benchmarkReleaseKnowledgeSourceCoverageRecommendations || 'n/a'}`
               : '⏭️ skipped';
@@ -10714,6 +10805,9 @@ jobs:
               : '⏭️ skipped';
             const benchmarkReleaseRunbookKnowledgeDomainControlPlaneStatusLine = benchmarkReleaseRunbookEnabled
               ? `status=${benchmarkReleaseRunbookKnowledgeDomainControlPlaneStatus || 'n/a'}, domains=${benchmarkReleaseRunbookKnowledgeDomainControlPlaneDomains || 'n/a'}, release_blockers=${benchmarkReleaseRunbookKnowledgeDomainControlPlaneReleaseBlockers || 'n/a'}, recommendations=${benchmarkReleaseRunbookKnowledgeDomainControlPlaneRecommendations || 'n/a'}`
+              : '⏭️ skipped';
+            const benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftStatusLine = benchmarkReleaseRunbookEnabled
+              ? `status=${benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftStatus || 'n/a'}, regressions=${benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftDomainRegressions || 'n/a'}, improvements=${benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftDomainImprovements || 'n/a'}, resolved_release_blockers=${benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftResolvedReleaseBlockers || 'n/a'}, new_release_blockers=${benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftNewReleaseBlockers || 'n/a'}, recommendations=${benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftRecommendations || 'n/a'}`
               : '⏭️ skipped';
             const benchmarkReleaseRunbookKnowledgeSourceCoverageStatusLine = benchmarkReleaseRunbookEnabled
               ? `status=${benchmarkReleaseRunbookKnowledgeSourceCoverageStatus || 'n/a'}, domains=${benchmarkReleaseRunbookKnowledgeSourceCoverageDomainStatuses || 'n/a'}, expansion_candidates=${benchmarkReleaseRunbookKnowledgeSourceCoverageExpansionCandidates || 'n/a'}, recommendations=${benchmarkReleaseRunbookKnowledgeSourceCoverageRecommendations || 'n/a'}`
@@ -10965,6 +11059,18 @@ jobs:
                     : (
                         benchmarkKnowledgeDomainControlPlaneStatus === 'knowledge_domain_control_plane_blocked'
                           ? '🔴'
+                          : '🟡'
+                      )
+                );
+            const benchmarkKnowledgeDomainControlPlaneDriftLight = !benchmarkKnowledgeDomainControlPlaneDriftEnabled
+              ? '⚪'
+              : (
+                  benchmarkKnowledgeDomainControlPlaneDriftStatus === 'regressed'
+                    ? '🔴'
+                    : (
+                        benchmarkKnowledgeDomainControlPlaneDriftStatus === 'improved'
+                        || benchmarkKnowledgeDomainControlPlaneDriftStatus === 'stable'
+                          ? '🟢'
                           : '🟡'
                       )
                 );
@@ -11412,6 +11518,7 @@ jobs:
             | **Benchmark Knowledge Domain Capability Drift** | ${benchmarkKnowledgeDomainCapabilityDriftStatusLine} |
             | **Benchmark Knowledge Domain Action Plan** | ${benchmarkKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Knowledge Domain Control Plane** | ${benchmarkKnowledgeDomainControlPlaneStatusLine} |
+            | **Benchmark Knowledge Domain Control Plane Drift** | ${benchmarkKnowledgeDomainControlPlaneDriftStatusLine} |
             | **Benchmark Knowledge Source Coverage** | ${benchmarkKnowledgeSourceCoverageStatusLine} |
             | **Benchmark Knowledge Source Action Plan** | ${benchmarkKnowledgeSourceActionPlanStatusLine} |
             | **Benchmark Knowledge Source Drift** | ${benchmarkKnowledgeSourceDriftStatusLine} |
@@ -11440,6 +11547,7 @@ jobs:
             | **Benchmark Artifact Bundle Knowledge Domain Capability Drift** | ${benchmarkArtifactBundleKnowledgeDomainCapabilityDriftStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Domain Action Plan** | ${benchmarkArtifactBundleKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Domain Control Plane** | ${benchmarkArtifactBundleKnowledgeDomainControlPlaneStatusLine} |
+            | **Benchmark Artifact Bundle Knowledge Domain Control Plane Drift** | ${benchmarkArtifactBundleKnowledgeDomainControlPlaneDriftStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Source Coverage** | ${benchmarkArtifactBundleKnowledgeSourceCoverageStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Source Action Plan** | ${benchmarkArtifactBundleKnowledgeSourceActionPlanStatusLine} |
             | **Benchmark Artifact Bundle Knowledge Source Drift** | ${benchmarkArtifactBundleKnowledgeSourceDriftStatusLine} |
@@ -11460,6 +11568,7 @@ jobs:
             | **Benchmark Companion Knowledge Domain Capability Drift** | ${benchmarkCompanionKnowledgeDomainCapabilityDriftStatusLine} |
             | **Benchmark Companion Knowledge Domain Action Plan** | ${benchmarkCompanionKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Companion Knowledge Domain Control Plane** | ${benchmarkCompanionKnowledgeDomainControlPlaneStatusLine} |
+            | **Benchmark Companion Knowledge Domain Control Plane Drift** | ${benchmarkCompanionKnowledgeDomainControlPlaneDriftStatusLine} |
             | **Benchmark Companion Knowledge Source Coverage** | ${benchmarkCompanionKnowledgeSourceCoverageStatusLine} |
             | **Benchmark Companion Knowledge Source Action Plan** | ${benchmarkCompanionKnowledgeSourceActionPlanStatusLine} |
             | **Benchmark Companion Knowledge Source Drift** | ${benchmarkCompanionKnowledgeSourceDriftStatusLine} |
@@ -11483,6 +11592,7 @@ jobs:
             | **Benchmark Release Decision Knowledge Domain Capability Drift** | ${benchmarkReleaseKnowledgeDomainCapabilityDriftStatusLine} |
             | **Benchmark Release Decision Knowledge Domain Action Plan** | ${benchmarkReleaseKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Release Decision Knowledge Domain Control Plane** | ${benchmarkReleaseKnowledgeDomainControlPlaneStatusLine} |
+            | **Benchmark Release Decision Knowledge Domain Control Plane Drift** | ${benchmarkReleaseKnowledgeDomainControlPlaneDriftStatusLine} |
             | **Benchmark Release Decision Knowledge Source Coverage** | ${benchmarkReleaseKnowledgeSourceCoverageStatusLine} |
             | **Benchmark Release Decision Knowledge Source Action Plan** | ${benchmarkReleaseKnowledgeSourceActionPlanStatusLine} |
             | **Benchmark Release Decision Knowledge Source Drift** | ${benchmarkReleaseKnowledgeSourceDriftStatusLine} |
@@ -11527,6 +11637,7 @@ jobs:
             | **Benchmark Release Runbook Knowledge Domain Capability Drift** | ${benchmarkReleaseRunbookKnowledgeDomainCapabilityDriftStatusLine} |
             | **Benchmark Release Runbook Knowledge Domain Action Plan** | ${benchmarkReleaseRunbookKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Release Runbook Knowledge Domain Control Plane** | ${benchmarkReleaseRunbookKnowledgeDomainControlPlaneStatusLine} |
+            | **Benchmark Release Runbook Knowledge Domain Control Plane Drift** | ${benchmarkReleaseRunbookKnowledgeDomainControlPlaneDriftStatusLine} |
             | **Benchmark Release Runbook Knowledge Source Coverage** | ${benchmarkReleaseRunbookKnowledgeSourceCoverageStatusLine} |
             | **Benchmark Release Runbook Knowledge Source Action Plan** | ${benchmarkReleaseRunbookKnowledgeSourceActionPlanStatusLine} |
             | **Benchmark Release Runbook Knowledge Source Drift** | ${benchmarkReleaseRunbookKnowledgeSourceDriftStatusLine} |
@@ -11579,6 +11690,7 @@ jobs:
             | **Benchmark Knowledge Domain Capability Drift** | ${benchmarkKnowledgeDomainCapabilityDriftLight} | ${benchmarkKnowledgeDomainCapabilityDriftStatusLine} |
             | **Benchmark Knowledge Domain Action Plan** | ${benchmarkKnowledgeDomainActionPlanLight} | ${benchmarkKnowledgeDomainActionPlanStatusLine} |
             | **Benchmark Knowledge Domain Control Plane** | ${benchmarkKnowledgeDomainControlPlaneLight} | ${benchmarkKnowledgeDomainControlPlaneStatusLine} |
+            | **Benchmark Knowledge Domain Control Plane Drift** | ${benchmarkKnowledgeDomainControlPlaneDriftLight} | ${benchmarkKnowledgeDomainControlPlaneDriftStatusLine} |
             | **Benchmark Knowledge Source Coverage** | ${benchmarkKnowledgeSourceCoverageLight} | ${benchmarkKnowledgeSourceCoverageStatusLine} |
             | **Benchmark Knowledge Source Action Plan** | ${benchmarkKnowledgeSourceActionPlanLight} | ${benchmarkKnowledgeSourceActionPlanStatusLine} |
             | **Benchmark Knowledge Source Drift** | ${benchmarkKnowledgeSourceDriftLight} | ${benchmarkKnowledgeSourceDriftStatusLine} |
