@@ -338,6 +338,38 @@ on:
         description: 'Optional benchmark competitive surpass trend previous summary JSON'
         required: false
         default: ''
+      benchmark_competitive_surpass_action_plan_enable:
+        description: 'Override: enable benchmark competitive surpass action plan export (true/false)'
+        required: false
+        default: ''
+      benchmark_competitive_surpass_action_plan_competitive_surpass_index_json:
+        description: 'Optional benchmark competitive surpass action plan competitive surpass index JSON'
+        required: false
+        default: ''
+      benchmark_competitive_surpass_action_plan_competitive_surpass_trend_json:
+        description: 'Optional benchmark competitive surpass action plan competitive surpass trend JSON'
+        required: false
+        default: ''
+      benchmark_competitive_surpass_action_plan_engineering_signals_json:
+        description: 'Optional benchmark competitive surpass action plan engineering signals JSON'
+        required: false
+        default: ''
+      benchmark_competitive_surpass_action_plan_knowledge_domain_action_plan_json:
+        description: 'Optional benchmark competitive surpass action plan knowledge domain action plan JSON'
+        required: false
+        default: ''
+      benchmark_competitive_surpass_action_plan_realdata_signals_json:
+        description: 'Optional benchmark competitive surpass action plan real-data signals JSON'
+        required: false
+        default: ''
+      benchmark_competitive_surpass_action_plan_realdata_scorecard_json:
+        description: 'Optional benchmark competitive surpass action plan real-data scorecard JSON'
+        required: false
+        default: ''
+      benchmark_competitive_surpass_action_plan_operator_adoption_json:
+        description: 'Optional benchmark competitive surpass action plan operator adoption JSON'
+        required: false
+        default: ''
       benchmark_operational_summary_enable:
         description: 'Override: enable benchmark operational summary export (true/false)'
         required: false
@@ -462,6 +494,10 @@ on:
         description: 'Optional benchmark artifact bundle competitive surpass trend JSON'
         required: false
         default: ''
+      benchmark_artifact_bundle_competitive_surpass_action_plan_json:
+        description: 'Optional benchmark artifact bundle competitive surpass action plan JSON'
+        required: false
+        default: ''
       benchmark_companion_summary_enable:
         description: 'Override: enable benchmark companion summary export (true/false)'
         required: false
@@ -536,6 +572,10 @@ on:
         default: ''
       benchmark_companion_summary_competitive_surpass_trend_json:
         description: 'Optional benchmark companion summary competitive surpass trend JSON'
+        required: false
+        default: ''
+      benchmark_companion_summary_competitive_surpass_action_plan_json:
+        description: 'Optional benchmark companion summary competitive surpass action plan JSON'
         required: false
         default: ''
       benchmark_release_decision_enable:
@@ -622,6 +662,10 @@ on:
         description: 'Optional benchmark release decision competitive surpass trend JSON'
         required: false
         default: ''
+      benchmark_release_decision_competitive_surpass_action_plan_json:
+        description: 'Optional benchmark release decision competitive surpass action plan JSON'
+        required: false
+        default: ''
       benchmark_release_runbook_enable:
         description: 'Override: enable benchmark release runbook export (true/false)'
         required: false
@@ -700,6 +744,10 @@ on:
         default: ''
       benchmark_release_runbook_competitive_surpass_trend_json:
         description: 'Optional benchmark release runbook competitive surpass trend JSON'
+        required: false
+        default: ''
+      benchmark_release_runbook_competitive_surpass_action_plan_json:
+        description: 'Optional benchmark release runbook competitive surpass action plan JSON'
         required: false
         default: ''
       benchmark_operator_adoption_enable:
@@ -920,6 +968,17 @@ env:
   BENCHMARK_COMPETITIVE_SURPASS_TREND_PREVIOUS_SUMMARY_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_TREND_PREVIOUS_SUMMARY_JSON }}
   BENCHMARK_COMPETITIVE_SURPASS_TREND_OUTPUT_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_TREND_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_competitive_surpass_trend.json' }}
   BENCHMARK_COMPETITIVE_SURPASS_TREND_OUTPUT_MD: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_TREND_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_competitive_surpass_trend.md' }}
+  BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENABLE: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENABLE || 'false' }}
+  BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_TITLE: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_TITLE || 'Benchmark Competitive Surpass Action Plan' }}
+  BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_COMPETITIVE_SURPASS_INDEX_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_COMPETITIVE_SURPASS_INDEX_JSON }}
+  BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_COMPETITIVE_SURPASS_TREND_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_COMPETITIVE_SURPASS_TREND_JSON }}
+  BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENGINEERING_SIGNALS_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENGINEERING_SIGNALS_JSON }}
+  BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON }}
+  BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_REALDATA_SIGNALS_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_REALDATA_SIGNALS_JSON }}
+  BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_REALDATA_SCORECARD_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_REALDATA_SCORECARD_JSON }}
+  BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_OPERATOR_ADOPTION_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_OPERATOR_ADOPTION_JSON }}
+  BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_OUTPUT_JSON: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_competitive_surpass_action_plan.json' }}
+  BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_OUTPUT_MD: ${{ vars.BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_competitive_surpass_action_plan.md' }}
   BENCHMARK_KNOWLEDGE_DRIFT_ENABLE: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_ENABLE || 'false' }}
   BENCHMARK_KNOWLEDGE_DRIFT_TITLE: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_TITLE || 'Benchmark Knowledge Drift' }}
   BENCHMARK_KNOWLEDGE_DRIFT_CURRENT_SUMMARY_JSON: ${{ vars.BENCHMARK_KNOWLEDGE_DRIFT_CURRENT_SUMMARY_JSON }}
@@ -962,6 +1021,7 @@ env:
   BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_OUTCOME_CORRELATION_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_KNOWLEDGE_OUTCOME_CORRELATION_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_COMPETITIVE_SURPASS_INDEX_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_COMPETITIVE_SURPASS_INDEX_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_COMPETITIVE_SURPASS_TREND_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_COMPETITIVE_SURPASS_TREND_JSON }}
+  BENCHMARK_ARTIFACT_BUNDLE_COMPETITIVE_SURPASS_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_COMPETITIVE_SURPASS_ACTION_PLAN_JSON }}
   BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_artifact_bundle.json' }}
   BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD: ${{ vars.BENCHMARK_ARTIFACT_BUNDLE_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_artifact_bundle.md' }}
   BENCHMARK_COMPANION_SUMMARY_ENABLE: ${{ vars.BENCHMARK_COMPANION_SUMMARY_ENABLE || 'false' }}
@@ -983,6 +1043,7 @@ env:
   BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_OUTCOME_CORRELATION_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_KNOWLEDGE_OUTCOME_CORRELATION_JSON }}
   BENCHMARK_COMPANION_SUMMARY_COMPETITIVE_SURPASS_INDEX_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_COMPETITIVE_SURPASS_INDEX_JSON }}
   BENCHMARK_COMPANION_SUMMARY_COMPETITIVE_SURPASS_TREND_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_COMPETITIVE_SURPASS_TREND_JSON }}
+  BENCHMARK_COMPANION_SUMMARY_COMPETITIVE_SURPASS_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_COMPETITIVE_SURPASS_ACTION_PLAN_JSON }}
   BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON: ${{ vars.BENCHMARK_COMPANION_SUMMARY_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_companion_summary.json' }}
   BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD: ${{ vars.BENCHMARK_COMPANION_SUMMARY_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_companion_summary.md' }}
   BENCHMARK_RELEASE_DECISION_ENABLE: ${{ vars.BENCHMARK_RELEASE_DECISION_ENABLE || 'false' }}
@@ -1006,6 +1067,7 @@ env:
   BENCHMARK_RELEASE_DECISION_KNOWLEDGE_OUTCOME_CORRELATION_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_KNOWLEDGE_OUTCOME_CORRELATION_JSON }}
   BENCHMARK_RELEASE_DECISION_COMPETITIVE_SURPASS_INDEX_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_COMPETITIVE_SURPASS_INDEX_JSON }}
   BENCHMARK_RELEASE_DECISION_COMPETITIVE_SURPASS_TREND_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_COMPETITIVE_SURPASS_TREND_JSON }}
+  BENCHMARK_RELEASE_DECISION_COMPETITIVE_SURPASS_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_COMPETITIVE_SURPASS_ACTION_PLAN_JSON }}
   BENCHMARK_RELEASE_DECISION_OUTPUT_JSON: ${{ vars.BENCHMARK_RELEASE_DECISION_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_release_decision.json' }}
   BENCHMARK_RELEASE_DECISION_OUTPUT_MD: ${{ vars.BENCHMARK_RELEASE_DECISION_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_release_decision.md' }}
   BENCHMARK_RELEASE_RUNBOOK_ENABLE: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_ENABLE || 'false' }}
@@ -1028,6 +1090,7 @@ env:
   BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_OUTCOME_CORRELATION_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_KNOWLEDGE_OUTCOME_CORRELATION_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_COMPETITIVE_SURPASS_INDEX_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_COMPETITIVE_SURPASS_INDEX_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_COMPETITIVE_SURPASS_TREND_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_COMPETITIVE_SURPASS_TREND_JSON }}
+  BENCHMARK_RELEASE_RUNBOOK_COMPETITIVE_SURPASS_ACTION_PLAN_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_COMPETITIVE_SURPASS_ACTION_PLAN_JSON }}
   BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OUTPUT_JSON || 'reports/history_sequence_eval/benchmark_release_runbook.json' }}
   BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD: ${{ vars.BENCHMARK_RELEASE_RUNBOOK_OUTPUT_MD || 'reports/history_sequence_eval/benchmark_release_runbook.md' }}
   BENCHMARK_OPERATOR_ADOPTION_ENABLE: ${{ vars.BENCHMARK_OPERATOR_ADOPTION_ENABLE || 'false' }}
@@ -3596,6 +3659,7 @@ jobs:
         add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_artifact_bundle_knowledge_outcome_drift_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-index "${{ github.event.inputs.benchmark_artifact_bundle_competitive_surpass_index_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-trend "${{ github.event.inputs.benchmark_artifact_bundle_competitive_surpass_trend_json || '' }}"
+        add_if_exists --benchmark-competitive-surpass-action-plan "${{ github.event.inputs.benchmark_artifact_bundle_competitive_surpass_action_plan_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_ARTIFACT_BUNDLE_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
@@ -3643,6 +3707,8 @@ jobs:
         add_if_exists --benchmark-competitive-surpass-index "${BENCHMARK_ARTIFACT_BUNDLE_COMPETITIVE_SURPASS_INDEX_JSON:-}"
         add_if_exists --benchmark-competitive-surpass-trend "${{ steps.benchmark_competitive_surpass_trend.outputs.output_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-trend "${BENCHMARK_ARTIFACT_BUNDLE_COMPETITIVE_SURPASS_TREND_JSON:-}"
+        add_if_exists --benchmark-competitive-surpass-action-plan "${{ steps.benchmark_competitive_surpass_action_plan.outputs.output_json || '' }}"
+        add_if_exists --benchmark-competitive-surpass-action-plan "${BENCHMARK_ARTIFACT_BUNDLE_COMPETITIVE_SURPASS_ACTION_PLAN_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -4298,6 +4364,22 @@ jobs:
                 "competitive_surpass_trend_recommendations="
                 f"{compact(payload.get('competitive_surpass_trend_recommendations') or [])}\n"
             )
+            f.write(
+                "competitive_surpass_action_plan_status="
+                f"{payload.get('competitive_surpass_action_plan_status', 'unknown')}\n"
+            )
+            f.write(
+                "competitive_surpass_action_plan_total_action_count="
+                f"{payload.get('competitive_surpass_action_plan_total_action_count', 0)}\n"
+            )
+            f.write(
+                "competitive_surpass_action_plan_priority_pillars="
+                f"{compact(payload.get('competitive_surpass_action_plan_priority_pillars') or [])}\n"
+            )
+            f.write(
+                "competitive_surpass_action_plan_recommendations="
+                f"{compact(payload.get('competitive_surpass_action_plan_recommendations') or [])}\n"
+            )
             f.write(f"blockers={compact(blockers)}\n")
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
@@ -4353,6 +4435,7 @@ jobs:
         add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_companion_summary_knowledge_outcome_drift_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-index "${{ github.event.inputs.benchmark_companion_summary_competitive_surpass_index_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-trend "${{ github.event.inputs.benchmark_companion_summary_competitive_surpass_trend_json || '' }}"
+        add_if_exists --benchmark-competitive-surpass-action-plan "${{ github.event.inputs.benchmark_companion_summary_competitive_surpass_action_plan_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_COMPANION_SUMMARY_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
@@ -4390,6 +4473,8 @@ jobs:
         add_if_exists --benchmark-competitive-surpass-index "${BENCHMARK_COMPANION_SUMMARY_COMPETITIVE_SURPASS_INDEX_JSON:-}"
         add_if_exists --benchmark-competitive-surpass-trend "${{ steps.benchmark_competitive_surpass_trend.outputs.output_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-trend "${BENCHMARK_COMPANION_SUMMARY_COMPETITIVE_SURPASS_TREND_JSON:-}"
+        add_if_exists --benchmark-competitive-surpass-action-plan "${{ steps.benchmark_competitive_surpass_action_plan.outputs.output_json || '' }}"
+        add_if_exists --benchmark-competitive-surpass-action-plan "${BENCHMARK_COMPANION_SUMMARY_COMPETITIVE_SURPASS_ACTION_PLAN_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -5048,6 +5133,22 @@ jobs:
                 "competitive_surpass_trend_recommendations="
                 f"{compact(payload.get('competitive_surpass_trend_recommendations') or [])}\n"
             )
+            f.write(
+                "competitive_surpass_action_plan_status="
+                f"{payload.get('competitive_surpass_action_plan_status', 'unknown')}\n"
+            )
+            f.write(
+                "competitive_surpass_action_plan_total_action_count="
+                f"{payload.get('competitive_surpass_action_plan_total_action_count', 0)}\n"
+            )
+            f.write(
+                "competitive_surpass_action_plan_priority_pillars="
+                f"{compact(payload.get('competitive_surpass_action_plan_priority_pillars') or [])}\n"
+            )
+            f.write(
+                "competitive_surpass_action_plan_recommendations="
+                f"{compact(payload.get('competitive_surpass_action_plan_recommendations') or [])}\n"
+            )
             f.write(f"knowledge_focus_area_count={len(focus_areas)}\n")
             f.write(
                 "knowledge_focus_areas="
@@ -5132,6 +5233,7 @@ jobs:
         add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_release_decision_knowledge_outcome_drift_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-index "${{ github.event.inputs.benchmark_release_decision_competitive_surpass_index_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-trend "${{ github.event.inputs.benchmark_release_decision_competitive_surpass_trend_json || '' }}"
+        add_if_exists --benchmark-competitive-surpass-action-plan "${{ github.event.inputs.benchmark_release_decision_competitive_surpass_action_plan_json || '' }}"
         add_if_exists --benchmark-scorecard "${{ steps.benchmark_scorecard.outputs.output_json || '' }}"
         add_if_exists --benchmark-scorecard "${BENCHMARK_RELEASE_DECISION_SCORECARD_JSON:-}"
         add_if_exists --benchmark-operational-summary "${{ steps.benchmark_operational_summary.outputs.output_json || '' }}"
@@ -5173,6 +5275,8 @@ jobs:
         add_if_exists --benchmark-competitive-surpass-index "${BENCHMARK_RELEASE_DECISION_COMPETITIVE_SURPASS_INDEX_JSON:-}"
         add_if_exists --benchmark-competitive-surpass-trend "${{ steps.benchmark_competitive_surpass_trend.outputs.output_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-trend "${BENCHMARK_RELEASE_DECISION_COMPETITIVE_SURPASS_TREND_JSON:-}"
+        add_if_exists --benchmark-competitive-surpass-action-plan "${{ steps.benchmark_competitive_surpass_action_plan.outputs.output_json || '' }}"
+        add_if_exists --benchmark-competitive-surpass-action-plan "${BENCHMARK_RELEASE_DECISION_COMPETITIVE_SURPASS_ACTION_PLAN_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -5676,6 +5780,22 @@ jobs:
                 "competitive_surpass_trend_recommendations="
                 f"{compact(payload.get('competitive_surpass_trend_recommendations') or [])}\n"
             )
+            f.write(
+                "competitive_surpass_action_plan_status="
+                f"{payload.get('competitive_surpass_action_plan_status', 'unknown')}\n"
+            )
+            f.write(
+                "competitive_surpass_action_plan_total_action_count="
+                f"{payload.get('competitive_surpass_action_plan_total_action_count', 0)}\n"
+            )
+            f.write(
+                "competitive_surpass_action_plan_priority_pillars="
+                f"{compact(payload.get('competitive_surpass_action_plan_priority_pillars') or [])}\n"
+            )
+            f.write(
+                "competitive_surpass_action_plan_recommendations="
+                f"{compact(payload.get('competitive_surpass_action_plan_recommendations') or [])}\n"
+            )
         PY
 
     - name: Build benchmark release runbook (optional)
@@ -5734,6 +5854,7 @@ jobs:
         add_if_exists --benchmark-knowledge-outcome-drift "${{ github.event.inputs.benchmark_release_runbook_knowledge_outcome_drift_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-index "${{ github.event.inputs.benchmark_release_runbook_competitive_surpass_index_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-trend "${{ github.event.inputs.benchmark_release_runbook_competitive_surpass_trend_json || '' }}"
+        add_if_exists --benchmark-competitive-surpass-action-plan "${{ github.event.inputs.benchmark_release_runbook_competitive_surpass_action_plan_json || '' }}"
         add_if_exists --benchmark-release-decision "${{ steps.benchmark_release_decision.outputs.output_json || '' }}"
         add_if_exists --benchmark-release-decision "${BENCHMARK_RELEASE_RUNBOOK_RELEASE_DECISION_JSON:-}"
         add_if_exists --benchmark-companion-summary "${{ steps.benchmark_companion_summary.outputs.output_json || '' }}"
@@ -5773,6 +5894,8 @@ jobs:
         add_if_exists --benchmark-competitive-surpass-index "${BENCHMARK_RELEASE_RUNBOOK_COMPETITIVE_SURPASS_INDEX_JSON:-}"
         add_if_exists --benchmark-competitive-surpass-trend "${{ steps.benchmark_competitive_surpass_trend.outputs.output_json || '' }}"
         add_if_exists --benchmark-competitive-surpass-trend "${BENCHMARK_RELEASE_RUNBOOK_COMPETITIVE_SURPASS_TREND_JSON:-}"
+        add_if_exists --benchmark-competitive-surpass-action-plan "${{ steps.benchmark_competitive_surpass_action_plan.outputs.output_json || '' }}"
+        add_if_exists --benchmark-competitive-surpass-action-plan "${BENCHMARK_RELEASE_RUNBOOK_COMPETITIVE_SURPASS_ACTION_PLAN_JSON:-}"
 
         if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
           if [[ "$INPUT_COUNT" -eq 0 ]]; then
@@ -6306,6 +6429,22 @@ jobs:
                 "competitive_surpass_trend_recommendations="
                 f"{compact(payload.get('competitive_surpass_trend_recommendations') or [])}\n"
             )
+            f.write(
+                "competitive_surpass_action_plan_status="
+                f"{payload.get('competitive_surpass_action_plan_status', 'unknown')}\n"
+            )
+            f.write(
+                "competitive_surpass_action_plan_total_action_count="
+                f"{payload.get('competitive_surpass_action_plan_total_action_count', 0)}\n"
+            )
+            f.write(
+                "competitive_surpass_action_plan_priority_pillars="
+                f"{compact(payload.get('competitive_surpass_action_plan_priority_pillars') or [])}\n"
+            )
+            f.write(
+                "competitive_surpass_action_plan_recommendations="
+                f"{compact(payload.get('competitive_surpass_action_plan_recommendations') or [])}\n"
+            )
         PY
 
     - name: Build benchmark operator adoption (optional)
@@ -6802,6 +6941,131 @@ jobs:
                 f"{compact(component.get('new_primary_gaps') or [])}\n"
             )
             f.write(f"summary={compact([payload.get('summary')])}\n")
+            f.write(f"recommendations={compact(recommendations)}\n")
+        PY
+
+    - name: Build benchmark competitive surpass action plan (optional)
+      id: benchmark_competitive_surpass_action_plan
+      continue-on-error: true
+      run: |
+        ENABLE_OVERRIDE="${{ github.event.inputs.benchmark_competitive_surpass_action_plan_enable || '' }}"
+        ENABLE_VALUE="${BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENABLE:-false}"
+        if [[ -n "$ENABLE_OVERRIDE" ]]; then
+          ENABLE_VALUE="$ENABLE_OVERRIDE"
+        fi
+        ENABLE_TOKEN="$(echo "$ENABLE_VALUE" | tr '[:upper:]' '[:lower:]' | xargs)"
+
+        OUTPUT_JSON="${BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_OUTPUT_JSON:-reports/history_sequence_eval/benchmark_competitive_surpass_action_plan.json}"
+        OUTPUT_MD="${BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_OUTPUT_MD:-reports/history_sequence_eval/benchmark_competitive_surpass_action_plan.md}"
+        mkdir -p "$(dirname "$OUTPUT_JSON")"
+        mkdir -p "$(dirname "$OUTPUT_MD")"
+
+        CMD=(
+          python3 scripts/export_benchmark_competitive_surpass_action_plan.py
+          --title "${BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_TITLE:-Benchmark Competitive Surpass Action Plan}"
+          --output-json "$OUTPUT_JSON"
+          --output-md "$OUTPUT_MD"
+        )
+        INPUT_COUNT=0
+
+        add_if_exists() {
+          local flag="$1"
+          local candidate="$2"
+          if [[ -n "$candidate" && -f "$candidate" ]]; then
+            CMD+=("$flag" "$candidate")
+            INPUT_COUNT=$((INPUT_COUNT + 1))
+          fi
+        }
+
+        add_if_exists --benchmark-competitive-surpass-index "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_competitive_surpass_index_json || '' }}"
+        add_if_exists --benchmark-competitive-surpass-trend "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_competitive_surpass_trend_json || '' }}"
+        add_if_exists --benchmark-engineering-signals "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_engineering_signals_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-action-plan "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_knowledge_domain_action_plan_json || '' }}"
+        add_if_exists --benchmark-realdata-signals "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_realdata_signals_json || '' }}"
+        add_if_exists --benchmark-realdata-scorecard "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_realdata_scorecard_json || '' }}"
+        add_if_exists --benchmark-operator-adoption "${{ github.event.inputs.benchmark_competitive_surpass_action_plan_operator_adoption_json || '' }}"
+        add_if_exists --benchmark-competitive-surpass-index "${{ steps.benchmark_competitive_surpass_index.outputs.output_json || '' }}"
+        add_if_exists --benchmark-competitive-surpass-index "${BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_COMPETITIVE_SURPASS_INDEX_JSON:-}"
+        add_if_exists --benchmark-competitive-surpass-trend "${{ steps.benchmark_competitive_surpass_trend.outputs.output_json || '' }}"
+        add_if_exists --benchmark-competitive-surpass-trend "${BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_COMPETITIVE_SURPASS_TREND_JSON:-}"
+        add_if_exists --benchmark-engineering-signals "${{ steps.benchmark_engineering_signals.outputs.output_json || '' }}"
+        add_if_exists --benchmark-engineering-signals "${BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENGINEERING_SIGNALS_JSON:-}"
+        add_if_exists --benchmark-knowledge-domain-action-plan "${{ steps.benchmark_knowledge_domain_action_plan.outputs.output_json || '' }}"
+        add_if_exists --benchmark-knowledge-domain-action-plan "${BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_KNOWLEDGE_DOMAIN_ACTION_PLAN_JSON:-}"
+        add_if_exists --benchmark-realdata-signals "${{ steps.benchmark_realdata_signals.outputs.output_json || '' }}"
+        add_if_exists --benchmark-realdata-signals "${BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_REALDATA_SIGNALS_JSON:-}"
+        add_if_exists --benchmark-realdata-scorecard "${{ steps.benchmark_realdata_scorecard.outputs.output_json || '' }}"
+        add_if_exists --benchmark-realdata-scorecard "${BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_REALDATA_SCORECARD_JSON:-}"
+        add_if_exists --benchmark-operator-adoption "${{ steps.benchmark_operator_adoption.outputs.output_json || '' }}"
+        add_if_exists --benchmark-operator-adoption "${BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_OPERATOR_ADOPTION_JSON:-}"
+
+        if [[ "$ENABLE_TOKEN" != "1" && "$ENABLE_TOKEN" != "true" && "$ENABLE_TOKEN" != "yes" && "$ENABLE_TOKEN" != "on" ]]; then
+          if [[ "$INPUT_COUNT" -eq 0 ]]; then
+            echo "enabled=false" >> $GITHUB_OUTPUT
+            echo "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENABLE is not true and no inputs found; skip."
+            exit 0
+          fi
+        fi
+
+        if [[ "$INPUT_COUNT" -eq 0 ]]; then
+          echo "enabled=false" >> $GITHUB_OUTPUT
+          echo "No benchmark competitive surpass action plan inputs found; skip."
+          exit 0
+        fi
+
+        "${CMD[@]}"
+
+        echo "enabled=true" >> $GITHUB_OUTPUT
+        echo "output_json=$OUTPUT_JSON" >> $GITHUB_OUTPUT
+        echo "output_md=$OUTPUT_MD" >> $GITHUB_OUTPUT
+        python3 - <<'PY'
+        import json
+        import os
+        from pathlib import Path
+
+        payload = json.loads(
+            Path(
+                os.environ["BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_OUTPUT_JSON"]
+            ).read_text(encoding="utf-8")
+        )
+        component = payload.get("competitive_surpass_action_plan") or {}
+        recommendations = payload.get("recommendations") or []
+
+        def compact(items):
+            return "; ".join(str(item).strip() for item in items[:4] if str(item).strip())
+
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"status={component.get('status', 'unknown')}\n")
+            f.write(f"total_action_count={component.get('total_action_count', 0)}\n")
+            f.write(
+                "high_priority_action_count="
+                f"{component.get('high_priority_action_count', 0)}\n"
+            )
+            f.write(
+                "medium_priority_action_count="
+                f"{component.get('medium_priority_action_count', 0)}\n"
+            )
+            f.write(
+                "priority_pillars="
+                f"{compact(component.get('priority_pillars') or [])}\n"
+            )
+            f.write(
+                "recommended_first_actions="
+                f"{compact(component.get('recommended_first_actions') or [])}\n"
+            )
+            f.write(
+                "pillar_action_counts="
+                + compact(
+                    [
+                        f"{name}:{value}"
+                        for name, value in (
+                            component.get("pillar_action_counts") or {}
+                        ).items()
+                        if name
+                    ]
+                )
+                + "\n"
+            )
             f.write(f"recommendations={compact(recommendations)}\n")
         PY
 
@@ -7323,6 +7587,16 @@ jobs:
           ${{ steps.benchmark_competitive_surpass_trend.outputs.output_md }}
         retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
+    - name: Upload benchmark competitive surpass action plan
+      if: steps.benchmark_competitive_surpass_action_plan.outputs.enabled == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: benchmark-competitive-surpass-action-plan-${{ github.run_number }}
+        path: |
+          ${{ steps.benchmark_competitive_surpass_action_plan.outputs.output_json }}
+          ${{ steps.benchmark_competitive_surpass_action_plan.outputs.output_md }}
+        retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
     - name: Upload benchmark artifact bundle
       if: steps.benchmark_artifact_bundle.outputs.enabled == 'true'
       uses: actions/upload-artifact@v4
@@ -7781,6 +8055,18 @@ jobs:
         else
           echo "- Benchmark competitive surpass trend: skipped (no competitive surpass trend inputs)" >> $GITHUB_STEP_SUMMARY
         fi
+        if [[ "${{ steps.benchmark_competitive_surpass_action_plan.outputs.enabled }}" == "true" ]]; then
+          echo "- Benchmark competitive surpass action plan status: ${{ steps.benchmark_competitive_surpass_action_plan.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark competitive surpass action plan total actions: ${{ steps.benchmark_competitive_surpass_action_plan.outputs.total_action_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark competitive surpass action plan high priority actions: ${{ steps.benchmark_competitive_surpass_action_plan.outputs.high_priority_action_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark competitive surpass action plan medium priority actions: ${{ steps.benchmark_competitive_surpass_action_plan.outputs.medium_priority_action_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark competitive surpass action plan priority pillars: ${{ steps.benchmark_competitive_surpass_action_plan.outputs.priority_pillars }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark competitive surpass action plan first actions: ${{ steps.benchmark_competitive_surpass_action_plan.outputs.recommended_first_actions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark competitive surpass action plan recommendations: ${{ steps.benchmark_competitive_surpass_action_plan.outputs.recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark competitive surpass action plan artifact: ${{ steps.benchmark_competitive_surpass_action_plan.outputs.output_md }}" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- Benchmark competitive surpass action plan: skipped (no action-plan inputs)" >> $GITHUB_STEP_SUMMARY
+        fi
         if [[ "${{ steps.benchmark_artifact_bundle.outputs.enabled }}" == "true" ]]; then
           echo "- Benchmark artifact bundle overall: ${{ steps.benchmark_artifact_bundle.outputs.overall_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle available artifacts: ${{ steps.benchmark_artifact_bundle.outputs.available_artifact_count }}" >> $GITHUB_STEP_SUMMARY
@@ -7837,6 +8123,10 @@ jobs:
           echo "- Benchmark artifact bundle competitive surpass trend: ${{ steps.benchmark_artifact_bundle.outputs.competitive_surpass_trend_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle competitive surpass trend summary: ${{ steps.benchmark_artifact_bundle.outputs.competitive_surpass_trend_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle competitive surpass trend recommendations: ${{ steps.benchmark_artifact_bundle.outputs.competitive_surpass_trend_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle competitive surpass action plan: ${{ steps.benchmark_artifact_bundle.outputs.competitive_surpass_action_plan_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle competitive surpass action plan total actions: ${{ steps.benchmark_artifact_bundle.outputs.competitive_surpass_action_plan_total_action_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle competitive surpass action plan pillars: ${{ steps.benchmark_artifact_bundle.outputs.competitive_surpass_action_plan_priority_pillars }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark artifact bundle competitive surpass action plan recommendations: ${{ steps.benchmark_artifact_bundle.outputs.competitive_surpass_action_plan_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle operator adoption knowledge drift: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle operator adoption knowledge drift summary: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark artifact bundle operator adoption knowledge outcome drift: ${{ steps.benchmark_artifact_bundle.outputs.operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
@@ -7914,6 +8204,10 @@ jobs:
           echo "- Benchmark companion competitive surpass trend: ${{ steps.benchmark_companion_summary.outputs.competitive_surpass_trend_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion competitive surpass trend summary: ${{ steps.benchmark_companion_summary.outputs.competitive_surpass_trend_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion competitive surpass trend recommendations: ${{ steps.benchmark_companion_summary.outputs.competitive_surpass_trend_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion competitive surpass action plan: ${{ steps.benchmark_companion_summary.outputs.competitive_surpass_action_plan_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion competitive surpass action plan total actions: ${{ steps.benchmark_companion_summary.outputs.competitive_surpass_action_plan_total_action_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion competitive surpass action plan pillars: ${{ steps.benchmark_companion_summary.outputs.competitive_surpass_action_plan_priority_pillars }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark companion competitive surpass action plan recommendations: ${{ steps.benchmark_companion_summary.outputs.competitive_surpass_action_plan_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion operator adoption knowledge drift: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion operator adoption knowledge drift summary: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark companion operator adoption knowledge outcome drift: ${{ steps.benchmark_companion_summary.outputs.operator_adoption_knowledge_outcome_drift_status }}" >> $GITHUB_STEP_SUMMARY
@@ -7986,6 +8280,10 @@ jobs:
           echo "- Benchmark release competitive surpass trend: ${{ steps.benchmark_release_decision.outputs.competitive_surpass_trend_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release competitive surpass trend summary: ${{ steps.benchmark_release_decision.outputs.competitive_surpass_trend_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release competitive surpass trend recommendations: ${{ steps.benchmark_release_decision.outputs.competitive_surpass_trend_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release competitive surpass action plan: ${{ steps.benchmark_release_decision.outputs.competitive_surpass_action_plan_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release competitive surpass action plan total actions: ${{ steps.benchmark_release_decision.outputs.competitive_surpass_action_plan_total_action_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release competitive surpass action plan pillars: ${{ steps.benchmark_release_decision.outputs.competitive_surpass_action_plan_priority_pillars }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release competitive surpass action plan recommendations: ${{ steps.benchmark_release_decision.outputs.competitive_surpass_action_plan_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release operator adoption status: ${{ steps.benchmark_release_decision.outputs.operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release operator adoption knowledge drift: ${{ steps.benchmark_release_decision.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release operator adoption knowledge drift summary: ${{ steps.benchmark_release_decision.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY
@@ -8055,6 +8353,10 @@ jobs:
           echo "- Benchmark release runbook competitive surpass trend: ${{ steps.benchmark_release_runbook.outputs.competitive_surpass_trend_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook competitive surpass trend summary: ${{ steps.benchmark_release_runbook.outputs.competitive_surpass_trend_summary }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook competitive surpass trend recommendations: ${{ steps.benchmark_release_runbook.outputs.competitive_surpass_trend_recommendations }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook competitive surpass action plan: ${{ steps.benchmark_release_runbook.outputs.competitive_surpass_action_plan_status }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook competitive surpass action plan total actions: ${{ steps.benchmark_release_runbook.outputs.competitive_surpass_action_plan_total_action_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook competitive surpass action plan pillars: ${{ steps.benchmark_release_runbook.outputs.competitive_surpass_action_plan_priority_pillars }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmark release runbook competitive surpass action plan recommendations: ${{ steps.benchmark_release_runbook.outputs.competitive_surpass_action_plan_recommendations }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook operator adoption status: ${{ steps.benchmark_release_runbook.outputs.operator_adoption_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook operator adoption knowledge drift: ${{ steps.benchmark_release_runbook.outputs.operator_adoption_knowledge_drift_status }}" >> $GITHUB_STEP_SUMMARY
           echo "- Benchmark release runbook operator adoption knowledge drift summary: ${{ steps.benchmark_release_runbook.outputs.operator_adoption_knowledge_drift_summary }}" >> $GITHUB_STEP_SUMMARY

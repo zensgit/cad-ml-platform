@@ -324,6 +324,35 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_competitive_surpass_trend_enable" in dispatch_inputs
     assert "benchmark_competitive_surpass_trend_current_summary_json" in dispatch_inputs
     assert "benchmark_competitive_surpass_trend_previous_summary_json" in dispatch_inputs
+    assert "benchmark_competitive_surpass_action_plan_enable" in dispatch_inputs
+    assert (
+        "benchmark_competitive_surpass_action_plan_competitive_surpass_index_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_competitive_surpass_action_plan_competitive_surpass_trend_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_competitive_surpass_action_plan_engineering_signals_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_competitive_surpass_action_plan_knowledge_domain_action_plan_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_competitive_surpass_action_plan_realdata_signals_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_competitive_surpass_action_plan_realdata_scorecard_json"
+        in dispatch_inputs
+    )
+    assert (
+        "benchmark_competitive_surpass_action_plan_operator_adoption_json"
+        in dispatch_inputs
+    )
     assert "benchmark_operational_summary_enable" in dispatch_inputs
     assert "benchmark_operational_summary_scorecard_json" in dispatch_inputs
     assert "benchmark_operational_summary_feedback_json" in dispatch_inputs
@@ -341,6 +370,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_artifact_bundle_companion_summary_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_competitive_surpass_index_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_competitive_surpass_trend_json" in dispatch_inputs
+    assert (
+        "benchmark_artifact_bundle_competitive_surpass_action_plan_json"
+        in dispatch_inputs
+    )
     assert "benchmark_artifact_bundle_release_decision_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_engineering_signals_json" in dispatch_inputs
     assert "benchmark_artifact_bundle_realdata_signals_json" in dispatch_inputs
@@ -372,6 +405,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_companion_summary_competitive_surpass_index_json" in dispatch_inputs
     assert "benchmark_companion_summary_competitive_surpass_trend_json" in dispatch_inputs
     assert (
+        "benchmark_companion_summary_competitive_surpass_action_plan_json"
+        in dispatch_inputs
+    )
+    assert (
         "benchmark_companion_summary_knowledge_outcome_correlation_json"
         in dispatch_inputs
     )
@@ -398,6 +435,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_decision_knowledge_outcome_drift_json" in dispatch_inputs
     assert "benchmark_release_decision_competitive_surpass_index_json" in dispatch_inputs
     assert "benchmark_release_decision_competitive_surpass_trend_json" in dispatch_inputs
+    assert (
+        "benchmark_release_decision_competitive_surpass_action_plan_json"
+        in dispatch_inputs
+    )
     assert "benchmark_release_runbook_enable" in dispatch_inputs
     assert "benchmark_release_runbook_release_decision_json" in dispatch_inputs
     assert "benchmark_release_runbook_companion_summary_json" in dispatch_inputs
@@ -419,6 +460,10 @@ def test_workflow_env_includes_graph2d_review_and_train_sweep_flags() -> None:
     assert "benchmark_release_runbook_knowledge_outcome_drift_json" in dispatch_inputs
     assert "benchmark_release_runbook_competitive_surpass_index_json" in dispatch_inputs
     assert "benchmark_release_runbook_competitive_surpass_trend_json" in dispatch_inputs
+    assert (
+        "benchmark_release_runbook_competitive_surpass_action_plan_json"
+        in dispatch_inputs
+    )
     assert "benchmark_operator_adoption_enable" in dispatch_inputs
     assert "benchmark_operator_adoption_release_decision_json" in dispatch_inputs
     assert "benchmark_operator_adoption_release_runbook_json" in dispatch_inputs
@@ -1100,6 +1145,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-outcome-drift" in benchmark_bundle_script
     assert "--benchmark-competitive-surpass-index" in benchmark_bundle_script
     assert "--benchmark-competitive-surpass-trend" in benchmark_bundle_script
+    assert "--benchmark-competitive-surpass-action-plan" in benchmark_bundle_script
     assert "INPUT_COUNT=0" in benchmark_bundle_script
     assert "available_artifact_count=" in benchmark_bundle_script
     assert "feedback_status=" in benchmark_bundle_script
@@ -1165,6 +1211,16 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "competitive_surpass_trend_status=" in benchmark_bundle_script
     assert "competitive_surpass_trend_summary=" in benchmark_bundle_script
     assert "competitive_surpass_trend_recommendations=" in benchmark_bundle_script
+    assert "competitive_surpass_action_plan_status=" in benchmark_bundle_script
+    assert (
+        "competitive_surpass_action_plan_total_action_count=" in benchmark_bundle_script
+    )
+    assert (
+        "competitive_surpass_action_plan_priority_pillars=" in benchmark_bundle_script
+    )
+    assert (
+        "competitive_surpass_action_plan_recommendations=" in benchmark_bundle_script
+    )
     assert "competitive_surpass_primary_gaps=" in benchmark_bundle_script
     assert "competitive_surpass_recommendations=" in benchmark_bundle_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_bundle_script
@@ -1204,6 +1260,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-outcome-drift" in benchmark_companion_script
     assert "--benchmark-competitive-surpass-index" in benchmark_companion_script
     assert "--benchmark-competitive-surpass-trend" in benchmark_companion_script
+    assert "--benchmark-competitive-surpass-action-plan" in benchmark_companion_script
     assert "review_surface=" in benchmark_companion_script
     assert "primary_gap=" in benchmark_companion_script
     assert "recommended_actions=" in benchmark_companion_script
@@ -1267,6 +1324,19 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "competitive_surpass_trend_status=" in benchmark_companion_script
     assert "competitive_surpass_trend_summary=" in benchmark_companion_script
     assert "competitive_surpass_trend_recommendations=" in benchmark_companion_script
+    assert "competitive_surpass_action_plan_status=" in benchmark_companion_script
+    assert (
+        "competitive_surpass_action_plan_total_action_count="
+        in benchmark_companion_script
+    )
+    assert (
+        "competitive_surpass_action_plan_priority_pillars="
+        in benchmark_companion_script
+    )
+    assert (
+        "competitive_surpass_action_plan_recommendations="
+        in benchmark_companion_script
+    )
     assert "competitive_surpass_primary_gaps=" in benchmark_companion_script
     assert "competitive_surpass_recommendations=" in benchmark_companion_script
     assert "operator_adoption_knowledge_drift_status=" in benchmark_companion_script
@@ -1306,6 +1376,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-outcome-drift" in benchmark_release_script
     assert "--benchmark-competitive-surpass-index" in benchmark_release_script
     assert "--benchmark-competitive-surpass-trend" in benchmark_release_script
+    assert "--benchmark-competitive-surpass-action-plan" in benchmark_release_script
     assert "release_status=" in benchmark_release_script
     assert "automation_ready=" in benchmark_release_script
     assert "primary_signal_source=" in benchmark_release_script
@@ -1369,6 +1440,19 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "competitive_surpass_trend_status=" in benchmark_release_script
     assert "competitive_surpass_trend_summary=" in benchmark_release_script
     assert "competitive_surpass_trend_recommendations=" in benchmark_release_script
+    assert "competitive_surpass_action_plan_status=" in benchmark_release_script
+    assert (
+        "competitive_surpass_action_plan_total_action_count="
+        in benchmark_release_script
+    )
+    assert (
+        "competitive_surpass_action_plan_priority_pillars="
+        in benchmark_release_script
+    )
+    assert (
+        "competitive_surpass_action_plan_recommendations="
+        in benchmark_release_script
+    )
     assert "competitive_surpass_primary_gaps=" in benchmark_release_script
     assert "competitive_surpass_recommendations=" in benchmark_release_script
     assert "operator_adoption_status=" in benchmark_release_script
@@ -1410,6 +1494,7 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "--benchmark-knowledge-outcome-drift" in benchmark_runbook_script
     assert "--benchmark-competitive-surpass-index" in benchmark_runbook_script
     assert "--benchmark-competitive-surpass-trend" in benchmark_runbook_script
+    assert "--benchmark-competitive-surpass-action-plan" in benchmark_runbook_script
     assert "ready_to_freeze_baseline=" in benchmark_runbook_script
     assert "next_action=" in benchmark_runbook_script
     assert "missing_artifacts=" in benchmark_runbook_script
@@ -1472,6 +1557,19 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "competitive_surpass_trend_status=" in benchmark_runbook_script
     assert "competitive_surpass_trend_summary=" in benchmark_runbook_script
     assert "competitive_surpass_trend_recommendations=" in benchmark_runbook_script
+    assert "competitive_surpass_action_plan_status=" in benchmark_runbook_script
+    assert (
+        "competitive_surpass_action_plan_total_action_count="
+        in benchmark_runbook_script
+    )
+    assert (
+        "competitive_surpass_action_plan_priority_pillars="
+        in benchmark_runbook_script
+    )
+    assert (
+        "competitive_surpass_action_plan_recommendations="
+        in benchmark_runbook_script
+    )
     assert "competitive_surpass_primary_gaps=" in benchmark_runbook_script
     assert "competitive_surpass_recommendations=" in benchmark_runbook_script
     assert "operator_adoption_status=" in benchmark_runbook_script
@@ -1594,6 +1692,85 @@ def test_workflow_has_optional_graph2d_review_pack_and_train_sweep_steps() -> No
     assert "new_primary_gaps=" in benchmark_competitive_surpass_trend_script
     assert "summary=" in benchmark_competitive_surpass_trend_script
     assert "recommendations=" in benchmark_competitive_surpass_trend_script
+
+    benchmark_competitive_surpass_action_plan_step = _get_step(
+        workflow, "evaluate", "Build benchmark competitive surpass action plan (optional)"
+    )
+    benchmark_competitive_surpass_action_plan_script = (
+        benchmark_competitive_surpass_action_plan_step["run"]
+    )
+    assert (
+        "scripts/export_benchmark_competitive_surpass_action_plan.py"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "BENCHMARK_COMPETITIVE_SURPASS_ACTION_PLAN_ENABLE"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "benchmark_competitive_surpass_action_plan_competitive_surpass_index_json"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "benchmark_competitive_surpass_action_plan_competitive_surpass_trend_json"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "benchmark_competitive_surpass_action_plan_engineering_signals_json"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "benchmark_competitive_surpass_action_plan_knowledge_domain_action_plan_json"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "benchmark_competitive_surpass_action_plan_realdata_signals_json"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "benchmark_competitive_surpass_action_plan_realdata_scorecard_json"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "benchmark_competitive_surpass_action_plan_operator_adoption_json"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "--benchmark-competitive-surpass-index"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "--benchmark-competitive-surpass-trend"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert "--benchmark-engineering-signals" in benchmark_competitive_surpass_action_plan_script
+    assert (
+        "--benchmark-knowledge-domain-action-plan"
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert "--benchmark-realdata-signals" in benchmark_competitive_surpass_action_plan_script
+    assert (
+        "--benchmark-realdata-scorecard" in benchmark_competitive_surpass_action_plan_script
+    )
+    assert "--benchmark-operator-adoption" in benchmark_competitive_surpass_action_plan_script
+    assert "INPUT_COUNT=0" in benchmark_competitive_surpass_action_plan_script
+    assert "status=" in benchmark_competitive_surpass_action_plan_script
+    assert "total_action_count=" in benchmark_competitive_surpass_action_plan_script
+    assert (
+        "high_priority_action_count="
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert (
+        "medium_priority_action_count="
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert "priority_pillars=" in benchmark_competitive_surpass_action_plan_script
+    assert (
+        "recommended_first_actions="
+        in benchmark_competitive_surpass_action_plan_script
+    )
+    assert "pillar_action_counts=" in benchmark_competitive_surpass_action_plan_script
+    assert "recommendations=" in benchmark_competitive_surpass_action_plan_script
 
     assistant_step = _get_step(
         workflow, "evaluate", "Build assistant evidence report (optional)"
@@ -1764,6 +1941,13 @@ def test_workflow_uploads_new_graph2d_artifacts_and_summary_lines() -> None:
     assert (
         upload_benchmark_competitive_surpass_trend["if"]
         == "steps.benchmark_competitive_surpass_trend.outputs.enabled == 'true'"
+    )
+    upload_benchmark_competitive_surpass_action_plan = _get_step(
+        workflow, "evaluate", "Upload benchmark competitive surpass action plan"
+    )
+    assert (
+        upload_benchmark_competitive_surpass_action_plan["if"]
+        == "steps.benchmark_competitive_surpass_action_plan.outputs.enabled == 'true'"
     )
     upload_benchmark_bundle = _get_step(
         workflow, "evaluate", "Upload benchmark artifact bundle"
