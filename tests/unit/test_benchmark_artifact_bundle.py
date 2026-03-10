@@ -101,6 +101,15 @@ def test_build_bundle_prefers_operational_summary() -> None:
             "knowledge_drift_summary": "Standards coverage regressed.",
             "knowledge_outcome_drift_status": "regressed",
             "knowledge_outcome_drift_summary": "Operator review outcomes regressed.",
+            "release_surface_alignment_status": "aligned",
+            "release_surface_alignment_summary": (
+                "Release decision and runbook expose matching operator adoption surfaces."
+            ),
+            "release_surface_alignment": {
+                "mismatches": [],
+                "release_decision": {"scorecard_status": "guided_manual"},
+                "release_runbook": {"scorecard_status": "guided_manual"},
+            },
             "knowledge_outcome_drift": {
                 "recommendations": ["Investigate regression-heavy operator cohorts."],
             },
@@ -179,6 +188,8 @@ def test_build_bundle_prefers_operational_summary() -> None:
     )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "regressed"
+    assert payload["operator_adoption_release_surface_alignment"]["status"] == "aligned"
+    assert payload["operator_adoption_release_surface_alignment"]["mismatches"] == []
     assert payload["knowledge_application_status"] == "knowledge_application_partial"
     assert payload["knowledge_application_domains"]["standards"]["status"] == "partial"
     assert payload["knowledge_domain_matrix_status"] == "knowledge_domain_matrix_partial"
@@ -190,6 +201,8 @@ def test_build_bundle_prefers_operational_summary() -> None:
     assert payload["realdata_recommendations"] == [
         "Expand STEP/B-Rep directory validation."
     ]
+    markdown = module.render_markdown(payload)
+    assert "## Operator Adoption Release Surface Alignment" in markdown
 
 
 def test_build_bundle_falls_back_to_scorecard() -> None:
@@ -243,6 +256,9 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
             "knowledge_drift_summary": "Knowledge baseline stable.",
             "knowledge_outcome_drift_status": "stable",
             "knowledge_outcome_drift_summary": "Operator outcome drift stable.",
+            "release_surface_alignment_status": "aligned",
+            "release_surface_alignment_summary": "Release decision and runbook are aligned.",
+            "release_surface_alignment": {"mismatches": []},
             "recommended_actions": ["Keep operator automation healthy."],
         },
         benchmark_knowledge_application={
@@ -299,6 +315,7 @@ def test_build_bundle_falls_back_to_scorecard() -> None:
     )
     assert payload["operator_adoption_knowledge_drift"]["status"] == "stable"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "stable"
+    assert payload["operator_adoption_release_surface_alignment"]["status"] == "aligned"
     assert payload["knowledge_drift_domain_improvements"] == []
     assert payload["realdata_status"] == "realdata_foundation_ready"
     assert payload["realdata_recommendations"] == []
@@ -409,6 +426,13 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
             "knowledge_outcome_drift_summary": "Operator review outcomes regressed.",
             "recommended_actions": ["Resolve operator blockers."],
             "blocking_signals": ["operator:blocker"],
+            "release_surface_alignment_status": "mismatched",
+            "release_surface_alignment_summary": (
+                "Release runbook is missing operator adoption guidance."
+            ),
+            "release_surface_alignment": {
+                "mismatches": ["release_runbook:missing"],
+            },
         },
     )
     output_json = tmp_path / "bundle.json"
@@ -467,6 +491,9 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert payload["component_statuses"]["operator_adoption"] == "guided_manual"
     assert payload["operator_adoption_knowledge_drift"]["status"] == "regressed"
     assert payload["operator_adoption_knowledge_outcome_drift"]["status"] == "regressed"
+    assert payload["operator_adoption_release_surface_alignment"]["status"] == (
+        "mismatched"
+    )
     assert payload["realdata_status"] == "realdata_foundation_partial"
     assert payload["component_statuses"]["qdrant_backend"] == "indexed_ready"
     assert "Knowledge baseline regressed." in output_md.read_text(encoding="utf-8")
@@ -476,6 +503,9 @@ def test_export_benchmark_artifact_bundle_outputs_files(tmp_path: Path) -> None:
     assert "review queue backlog" in output_md.read_text(encoding="utf-8")
     assert "## Knowledge Domains" in output_md.read_text(encoding="utf-8")
     assert "## Knowledge Domain Matrix" in output_md.read_text(encoding="utf-8")
+    assert "## Operator Adoption Release Surface Alignment" in output_md.read_text(
+        encoding="utf-8"
+    )
     assert "## Operator Adoption Knowledge Outcome Drift" in output_md.read_text(
         encoding="utf-8"
     )
@@ -695,5 +725,6 @@ def test_build_bundle_exposes_knowledge_outcome_drift_passthrough() -> None:
     assert payload["knowledge_outcome_drift_new_priority_domains"] == ["tolerance"]
     assert payload["recommendations"] == payload["knowledge_outcome_drift_recommendations"]
     markdown = module.render_markdown(payload)
+    assert "## Operator Adoption Release Surface Alignment" in markdown
     assert "## Scorecard Operator Adoption" in markdown
     assert "## Operational Operator Adoption" in markdown
