@@ -318,6 +318,27 @@ def _operational_operator_adoption(
     }
 
 
+def _operator_adoption_release_surface_alignment(
+    benchmark_operator_adoption: Dict[str, Any],
+) -> Dict[str, Any]:
+    alignment = benchmark_operator_adoption.get("release_surface_alignment") or {}
+    return {
+        "status": str(
+            benchmark_operator_adoption.get("release_surface_alignment_status")
+            or alignment.get("status")
+            or "unknown"
+        ),
+        "summary": str(
+            benchmark_operator_adoption.get("release_surface_alignment_summary")
+            or alignment.get("summary")
+            or "none"
+        ),
+        "mismatches": list(alignment.get("mismatches") or []),
+        "release_decision": dict(alignment.get("release_decision") or {}),
+        "release_runbook": dict(alignment.get("release_runbook") or {}),
+    }
+
+
 def _knowledge_drift_summary(status: str, counts: Dict[str, int]) -> str:
     if status == "baseline_missing":
         return "Knowledge drift baseline is missing."
@@ -687,6 +708,9 @@ def build_release_runbook(
     operational_operator_adoption = _operational_operator_adoption(
         benchmark_operational_summary
     )
+    operator_adoption_release_surface_alignment = (
+        _operator_adoption_release_surface_alignment(benchmark_operator_adoption)
+    )
     missing_artifacts = [
         name
         for name, row in artifacts.items()
@@ -970,6 +994,9 @@ def build_release_runbook(
         "operator_adoption": operator_adoption,
         "scorecard_operator_adoption": scorecard_operator_adoption,
         "operational_operator_adoption": operational_operator_adoption,
+        "operator_adoption_release_surface_alignment": (
+            operator_adoption_release_surface_alignment
+        ),
         "next_action": next_action,
         "operator_steps": operator_steps,
         "artifacts": artifacts,
@@ -1352,6 +1379,18 @@ def render_markdown(payload: Dict[str, Any]) -> str:
     lines.append(
         "- `knowledge_outcome_drift_summary`: "
         + (_text(operational_operator.get("knowledge_outcome_drift_summary")) or "none")
+    )
+    lines.extend(["", "## Operator Adoption Release Surface Alignment", ""])
+    alignment = payload.get("operator_adoption_release_surface_alignment") or {}
+    lines.append(f"- `status`: `{alignment.get('status') or 'unknown'}`")
+    lines.append(
+        "- `summary`: "
+        + (_text(alignment.get("summary")) or "none")
+    )
+    mismatches = alignment.get("mismatches") or []
+    lines.append(
+        "- `mismatches`: "
+        + (", ".join(str(item) for item in mismatches) if mismatches else "none")
     )
     lines.extend(["", "## Operator Steps", ""])
     for step in payload.get("operator_steps") or []:
